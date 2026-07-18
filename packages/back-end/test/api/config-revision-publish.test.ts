@@ -53,6 +53,43 @@ function makeContext(): ReqContextClass {
   });
 }
 
+// Engineer context: ConfigsFullAccess (edit) but NOT FeaturesBypassApprovals,
+// so it can publish a config revision yet cannot silently bypass a soft
+// schema-break gate — isolating the gate so it actually blocks (an admin would
+// bypass it via bypassApprovalChecks). `ignoreWarnings` is baked onto the
+// context's own request (context.ignoreWarnings reads context.req, not the HTTP
+// body the mock middleware discards).
+function makeEngineerContext(
+  opts: { ignoreWarnings?: boolean } = {},
+): ReqContextClass {
+  return new ReqContextClass({
+    org,
+    auditUser: { type: "api_key", apiKey: "key_engineer" },
+    role: "engineer",
+    req: {
+      query: {},
+      headers: {},
+      body: opts.ignoreWarnings ? { ignoreWarnings: true } : {},
+    } as unknown as Request,
+  });
+}
+
+// A `port: integer` (optional) schema — a dependent whose resolved value must
+// carry an integer port when present.
+const portIntegerSchema = {
+  type: "object" as const,
+  fields: [
+    {
+      key: "port",
+      type: "integer" as const,
+      required: false,
+      default: "",
+      description: "",
+      enum: [],
+    },
+  ],
+};
+
 // Admin context on the rebase org. `ignoreWarnings` is carried on the context's
 // own request (context.ignoreWarnings reads context.req, not the HTTP body the
 // mock middleware discards), so it must be baked in here to force-merge.
@@ -209,6 +246,97 @@ describe("POST /api/v1/configs-revisions/:key/:version/publish", () => {
 
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/mergeNow/);
+  });
+});
+
+describe("POST /api/v1/configs-revisions/:key/:version/publish (archive schema-break gate)", () => {
+  // Regression: the revision-publish path must model an archive/unarchive
+  // transition in the schema-break guard, the same way the dedicated archive
+  // endpoints do. `archived` is value-affecting — flipping it scrubs (archive)
+  // or restores (unarchive) this config's contribution to every dependent's
+  // resolved value — so publishing a revision that flips it must surface the
+  // breaks the transition introduces in dependents.
+  it("surfaces a schema-break gate when unarchiving a config breaks a dependent, and ignoreWarnings clears it", async () => {
+    setReqContext(makeEngineerContext());
+
+    const now = new Date();
+    // `svc` is archived and stores a string port; while archived its refs are
+    // scrubbed, so the dependent resolves without a port (schema-valid). `dep`
+    // pulls its value from svc via `extends` and requires an integer port when
+    // present. Unarchiving svc restores the string port into dep → violation.
+    await mongoose.connection.collection("configs").insertMany([
+      {
+        id: "cfg_svc_arch",
+        organization: ORG_ID,
+        key: "svc_arch",
+        name: "svc_arch",
+        owner: "",
+        value: '{"port":"bad"}',
+        archived: true,
+        dateCreated: now,
+        dateUpdated: now,
+      },
+      {
+        id: "cfg_dep_arch",
+        organization: ORG_ID,
+        key: "dep_arch",
+        name: "dep_arch",
+        owner: "",
+        value: "{}",
+        extends: ["svc_arch"],
+        schema: portIntegerSchema,
+        dateCreated: now,
+        dateUpdated: now,
+      },
+    ]);
+
+    // Open a draft on svc and stage the unarchive (archived: false).
+    const createRes = await request(app)
+      .post(`/api/v1/configs-revisions/svc_arch`)
+      .send({})
+      .set("Authorization", "Bearer foo");
+    expect(createRes.status).toBe(200);
+    const version = createRes.body.revision.version;
+
+    const stageRes = await request(app)
+      .put(`/api/v1/configs-revisions/svc_arch/${version}/archive`)
+      .send({ archived: false })
+      .set("Authorization", "Bearer foo");
+    expect(stageRes.status).toBe(200);
+
+    // Publish WITHOUT ignoreWarnings → the archive schema-break gate blocks the
+    // publish (engineer can't bypass a soft guard).
+    const blockedRes = await request(app)
+      .post(`/api/v1/configs-revisions/svc_arch/${version}/publish`)
+      .send({})
+      .set("Authorization", "Bearer foo");
+
+    expect(blockedRes.status).toBe(422);
+    const gate = blockedRes.body.gates.find(
+      (g: { type: string }) => g.type === "schema-break",
+    );
+    expect(gate).toBeDefined();
+    expect(gate.severity).toBe("warning");
+    expect(gate.override).toBe("ignoreWarnings");
+    const gateText = gate.messages.join("\n");
+    // The gate names the transition (not the config's own resolved value) and
+    // the dependent it breaks.
+    expect(gateText).toMatch(/Unarchiving/i);
+    expect(gateText).toContain("dep_arch");
+
+    // Retry WITH ignoreWarnings → the soft gate is bypassed (200) and reported.
+    setReqContext(makeEngineerContext({ ignoreWarnings: true }));
+    const okRes = await request(app)
+      .post(`/api/v1/configs-revisions/svc_arch/${version}/publish`)
+      .send({ ignoreWarnings: true })
+      .set("Authorization", "Bearer foo");
+
+    expect(okRes.status).toBe(200);
+    expect(okRes.body.bypassedGates).toContainEqual({
+      type: "schema-break",
+      outcome: "bypassed",
+      via: "ignoreWarnings",
+    });
   });
 });
 

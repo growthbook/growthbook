@@ -600,6 +600,10 @@ export async function captureConstantSchemaBreakAcknowledgment(
   constant: Pick<ConstantInterface, "key" | "project">,
   proposedValue: string | undefined,
   proposedEnvironmentValues?: Record<string, string>,
+  // The proposed archived state when this deferred publish is an archive/
+  // unarchive transition — must match the arg the deferred fire re-checks with,
+  // or the arm-time fingerprint and the fire diverge and brick the schedule.
+  proposedArchived?: boolean,
 ): Promise<string[] | undefined> {
   if (proposedValue === undefined) return undefined;
   const violations = await constantSchemaBreakViolations(
@@ -607,6 +611,7 @@ export async function captureConstantSchemaBreakAcknowledgment(
     constant,
     proposedValue,
     proposedEnvironmentValues,
+    proposedArchived,
   );
   if (!violations.length) return undefined;
 
@@ -860,14 +865,33 @@ export async function assertConfigArchiveSchemaBreakGuard(
 }
 
 // Arm-time fingerprint for a deferred config publish (see the constant analog).
+//
+// When the revision also flips `archived`, the transition's dependent breaks are
+// UNIONED into this single "schema-break" fingerprint. The deferred fire runs
+// BOTH guards through assertConfigPublishGuards — assertConfigSchemaBreakGuard
+// (own resolved value) and assertConfigArchiveSchemaBreakGuard (dependents) —
+// and both re-check against this one "schema-break" acknowledgment. If the
+// fingerprint held only one guard's violations, the other guard would see its
+// own (armer-accepted) breaks as newly introduced and terminally park the
+// schedule. Unioning keeps arm capture and fire in lockstep.
 export async function captureConfigSchemaBreakAcknowledgment(
   context: Context,
   proposed: ProposedConfig,
+  proposedArchived?: boolean,
 ): Promise<string[] | undefined> {
-  const violations = await evaluateConfigOwnSchemaBreakConflicts(
+  const ownViolations = await evaluateConfigOwnSchemaBreakConflicts(
     context,
     proposed,
   );
+  const archiveViolations =
+    proposedArchived !== undefined
+      ? await configArchiveSchemaBreakViolations(
+          context,
+          { key: proposed.key, project: proposed.project },
+          proposedArchived,
+        )
+      : [];
+  const violations = [...ownViolations, ...archiveViolations];
   if (!violations.length) return undefined;
 
   const override =
@@ -877,7 +901,7 @@ export async function captureConfigSchemaBreakAcknowledgment(
     });
   if (!override) {
     throw new SoftWarningError(
-      "Scheduling this config publish will make its resolved value violate its schema or validation rules:\n" +
+      "Scheduling this config publish will make its resolved value or a dependent config or feature value violate its schema or validation rules:\n" +
         violations.join("\n") +
         "\nRe-submit with ignoreWarnings to acknowledge and schedule.",
       violations,

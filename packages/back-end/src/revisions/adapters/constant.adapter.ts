@@ -229,10 +229,24 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
     const proposedSnapshot = applyPatchToSnapshot(
       entity as unknown as Record<string, unknown>,
       normalizeProposedChanges(proposedChanges),
-    ) as { value?: string; environmentValues?: Record<string, string> };
+    ) as {
+      value?: string;
+      environmentValues?: Record<string, string>;
+      archived?: boolean;
+    };
     const proposedValue = proposedSnapshot.value ?? entity.value;
     const proposedEnvironmentValues =
       proposedSnapshot.environmentValues ?? entity.environmentValues;
+    // Model an archive transition ONLY when this revision flips `archived` —
+    // symmetric with the deferred fire's `"archived" in filteredChanges` (which
+    // filterUpdatableChanges includes only when it differs from the entity), so
+    // arm capture and fire compute the identical archive-break set. Normalized to
+    // a boolean so an absent-vs-false representation difference never spuriously
+    // reads as a transition.
+    const proposedArchived =
+      !!proposedSnapshot.archived !== !!entity.archived
+        ? !!proposedSnapshot.archived
+        : undefined;
     return buildArmAcknowledgments({
       experiment: await captureConstantExperimentGuardAcknowledgment(
         context,
@@ -252,6 +266,7 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
             { key: entity.key, project: entity.project },
             proposedValue,
             proposedEnvironmentValues,
+            proposedArchived,
           )
         : undefined,
     });
@@ -347,9 +362,13 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
     }
 
     // Without a proposed base value there's nothing to resolve-and-check; fail
-    // open like assertConstantSchemaBreakGuard (soft advisory, not a gate).
+    // open like assertConstantSchemaBreakGuard (soft advisory, not a gate). An
+    // archive-only revision still has a defined value (falls back to the
+    // entity's), so the transition (proposedArchived) is checked here too.
     const proposedValue =
       (filteredChanges.value as string | undefined) ?? entity.value;
+    const proposedArchived =
+      "archived" in filteredChanges ? !!filteredChanges.archived : undefined;
     const schemaBreaks =
       proposedValue === undefined
         ? []
@@ -362,6 +381,7 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
                   | Record<string, string>
                   | undefined)
               : entity.environmentValues,
+            proposedArchived,
           );
     if (schemaBreaks.length) {
       if (override) {
@@ -418,6 +438,9 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
               | Record<string, string>
               | undefined)
           : entity.environmentValues,
+        // Model an archive/unarchive transition only when this revision flips
+        // `archived` (mirrors the arm-time capture's derivation for symmetry).
+        "archived" in filteredChanges ? !!filteredChanges.archived : undefined,
       );
     }
   },

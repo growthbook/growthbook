@@ -46,6 +46,7 @@ import {
 } from "back-end/src/services/configLockGuard";
 import {
   captureConfigSchemaBreakAcknowledgment,
+  configArchiveSchemaBreakViolations,
   evaluateConfigOwnSchemaBreakConflicts,
 } from "back-end/src/services/schemaBreakGuard";
 import { assertConfigPublishGuards } from "back-end/src/services/publishGuards";
@@ -326,6 +327,14 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
         normalizeProposedChanges(proposedChanges),
       ),
     } as ConfigInterface;
+    // Model an archive transition ONLY when this revision flips `archived` —
+    // symmetric with the deferred fire's `"archived" in filteredChanges`, so the
+    // "schema-break" fingerprint captured here (own + archive breaks, unioned by
+    // captureConfigSchemaBreakAcknowledgment) matches what the fire re-checks.
+    const proposedArchived =
+      !!proposedConfig.archived !== !!entity.archived
+        ? !!proposedConfig.archived
+        : undefined;
     return buildArmAcknowledgments({
       experiment: await captureConfigExperimentGuardAcknowledgment(
         context,
@@ -340,15 +349,19 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
           })
         : undefined,
       "schema-break": valueAffecting
-        ? await captureConfigSchemaBreakAcknowledgment(context, {
-            key: entity.key,
-            project: entity.project,
-            value: proposedConfig.value,
-            schema: proposedConfig.schema,
-            parent: proposedConfig.parent,
-            extends: proposedConfig.extends,
-            extensible: proposedConfig.extensible,
-          })
+        ? await captureConfigSchemaBreakAcknowledgment(
+            context,
+            {
+              key: entity.key,
+              project: entity.project,
+              value: proposedConfig.value,
+              schema: proposedConfig.schema,
+              parent: proposedConfig.parent,
+              extends: proposedConfig.extends,
+              extensible: proposedConfig.extensible,
+            },
+            proposedArchived,
+          )
         : undefined,
     });
   },
@@ -490,6 +503,50 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
       });
     }
 
+    // An archive/unarchive flip scrubs (or restores) this config's contribution
+    // to every dependent's resolved value, which can break their schemas even
+    // though the config's own value is untouched. Modeled only when this revision
+    // flips `archived` — symmetric with assertConfigArchiveSchemaBreakGuard on
+    // the deferred/assert path. Emitted as its own "schema-break" gate so the
+    // message names the transition, not the config's own resolved value.
+    const proposedArchived =
+      "archived" in filteredChanges ? !!filteredChanges.archived : undefined;
+    if (
+      proposedArchived !== undefined &&
+      !!entity.archived !== proposedArchived
+    ) {
+      const archiveBreaks = await configArchiveSchemaBreakViolations(
+        context,
+        { key: entity.key, project: entity.project },
+        proposedArchived,
+      );
+      if (archiveBreaks.length) {
+        if (override) {
+          logger.info(
+            {
+              configKey: entity.key,
+              userId: context.userId,
+              violations: archiveBreaks,
+            },
+            "Schema-break guard overridden on a direct publish",
+          );
+        }
+        gates.push({
+          type: "schema-break",
+          severity: "warning",
+          messages: [
+            `${
+              proposedArchived ? "Archiving" : "Unarchiving"
+            } this config would make dependent config or feature value(s) violate their schema or validation rules:`,
+            ...archiveBreaks,
+          ],
+          override: "ignoreWarnings",
+          requiresPermission: null,
+          resolution: null,
+        });
+      }
+    }
+
     return gates;
   },
 
@@ -552,6 +609,12 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
             (filteredChanges.extensible as boolean | undefined) ??
             entity.extensible,
         },
+        // Model an archive/unarchive transition only when this revision flips
+        // `archived` (mirrors the arm-time capture). assertConfigPublishGuards
+        // then runs assertConfigArchiveSchemaBreakGuard against dependents, and —
+        // on a deferred fire — re-checks it against the unioned arm-time
+        // "schema-break" fingerprint captured in captureArmAcknowledgment.
+        "archived" in filteredChanges ? !!filteredChanges.archived : undefined,
       );
     }
 
