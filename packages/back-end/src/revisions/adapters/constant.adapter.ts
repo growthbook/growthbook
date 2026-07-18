@@ -413,11 +413,11 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
         type: "schema-break",
         severity: "warning",
         messages: [
-          "Publishing this constant would make dependent config or feature value(s) violate their schema or validation rules:",
+          "Breaks a dependent config or feature value:",
           ...schemaBreaks,
         ],
-        override: "ignoreWarnings",
-        requiresPermission: null,
+        override: "skipSchemaValidation",
+        requiresPermission: "bypassApprovalChecks",
         resolution: null,
       });
     }

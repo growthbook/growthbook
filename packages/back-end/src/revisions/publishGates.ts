@@ -8,8 +8,27 @@
 // collected guard gates plus this evaluation ARE the enforcement; the
 // approval/stale-base/value-validation asserts in the handlers remain as
 // backstops behind their gates.
+//
+// Gates fall into two classes, distinguished by their `override` flag:
+//  - ACKNOWLEDGE-class (`override: "ignoreWarnings"`): "heads up, this ripples"
+//    warnings — experiment guard, stale-base, archive-dependents, custom-hook
+//    warnings. Anyone can clear them with `ignoreWarnings` (and the bypass-
+//    approval permission clears the soft ones on its own).
+//  - VALIDATION-class (`override: "skipSchemaValidation"`): "your data/rules are
+//    wrong" failures — own-schema errors, cross-field invariants, downstream
+//    schema breaks, custom-hook rejections. Clearable ONLY by the privileged
+//    `skipSchemaValidation` flag, which itself requires the bypassApprovalChecks
+//    permission. `ignoreWarnings` and the org REST-bypass setting never clear
+//    them, and they are kept OUT of the flattened `warnings` list so an
+//    ignoreWarnings ack-and-retry never loops on a gate it can't clear.
 
-export type PublishGateOverride = "ignoreWarnings";
+// Two override kinds, one per gate class:
+//  - "ignoreWarnings": acknowledge-class (experiment guard, stale-base,
+//    archive-dependents, downstream soft warnings) — anyone can clear it.
+//  - "skipSchemaValidation": validation-class (own-schema errors, cross-field
+//    invariants, schema-break, custom-hook failures) — clearable ONLY by a
+//    caller holding the bypassApprovalChecks permission.
+export type PublishGateOverride = "ignoreWarnings" | "skipSchemaValidation";
 
 /** The non-flag way past a gate, expressed as a callable REST route. */
 export type PublishGateResolution = {
@@ -47,6 +66,7 @@ export type PublishGate = {
 
 export type PublishOverrideFlags = {
   ignoreWarnings?: boolean;
+  skipSchemaValidation?: boolean;
 };
 
 /** A gate that would have blocked the publish but was bypassed by the caller. */
@@ -54,19 +74,19 @@ export type BypassedGate = {
   type: string;
   outcome: "bypassed";
   /**
-   * The bypass source: an override flag ("ignoreWarnings"), the caller's
-   * permission ("bypassApprovalChecks"), or the org setting
-   * ("restApiBypassesReviews").
+   * The bypass source: an override flag ("ignoreWarnings" or the privileged
+   * "skipSchemaValidation"), the caller's permission ("bypassApprovalChecks"),
+   * or the org setting ("restApiBypassesReviews").
    */
   via: string;
 };
 
-/** Soft-guard gate types (config/constant): cleared by ignoreWarnings, or by the
- * bypass-approval permission alone. */
+/** Soft-guard (acknowledge-class) gate types: cleared by ignoreWarnings, or by
+ * the bypass-approval permission alone. Schema-break is NOT here — it moved to
+ * the validation class (override "skipSchemaValidation"). */
 const SOFT_GUARD_GATE_TYPES: ReadonlySet<string> = new Set([
   "experiment-guard",
   "config-lock",
-  "schema-break",
   "archive-dependents",
 ]);
 
@@ -78,6 +98,14 @@ const SOFT_GUARD_GATE_TYPES: ReadonlySet<string> = new Set([
 export type PublishGateClearance = {
   /** The request asked to force past warnings (body `ignoreWarnings`/`mergeNow`). */
   ignoreWarnings: boolean;
+  /**
+   * The caller may skip validation-class gates (schema errors, invariants,
+   * schema-break, hook failures) — i.e. they passed `skipSchemaValidation` AND
+   * hold the bypassApprovalChecks permission. Already resolves flag+permission
+   * together (mirrors `context.skipSchemaValidation`), so a skipSchemaValidation
+   * gate is bypassed iff this is true — the org REST-bypass setting never grants it.
+   */
+  skipSchemaValidation: boolean;
   /** The caller holds the bypassApprovalChecks permission on the entity's scope. */
   bypassApprovalPermission: boolean;
   /** The org's REST-bypass setting clears approval for this caller. */
@@ -131,6 +159,16 @@ export function classifyPublishGate(
   gate: PublishGate,
   clearance: PublishGateClearance,
 ): PublishGateDisposition {
+  // Validation-class gates clear ONLY on the privileged skipSchemaValidation
+  // signal (which already folds in the bypassApprovalChecks permission).
+  // Handled explicitly, ahead of the generic flag path, so neither ignoreWarnings
+  // nor the org REST-bypass setting can clear a validation failure.
+  if (gate.override === "skipSchemaValidation") {
+    return clearance.skipSchemaValidation
+      ? { outcome: "bypassed", via: "skipSchemaValidation" }
+      : { outcome: "blocking" };
+  }
+
   const flags: PublishOverrideFlags = {
     ignoreWarnings: clearance.ignoreWarnings,
   };

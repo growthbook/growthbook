@@ -59,6 +59,7 @@ const experimentGuardGate: PublishGate = {
   resolution: null,
 };
 
+// Validation-class: cleared only by the privileged skipSchemaValidation.
 const schemaBreakGate: PublishGate = {
   type: "schema-break",
   severity: "warning",
@@ -66,8 +67,8 @@ const schemaBreakGate: PublishGate = {
     "Publishing would make dependent value(s) violate their schema:",
     'config "pricing" field "tier" expects a string',
   ],
-  override: "ignoreWarnings",
-  requiresPermission: null,
+  override: "skipSchemaValidation",
+  requiresPermission: "bypassApprovalChecks",
   resolution: null,
 };
 
@@ -77,6 +78,7 @@ const noPermissions = () => false;
 // A clearance with every signal off; individual tests override the fields they exercise.
 const noClearance: PublishGateClearance = {
   ignoreWarnings: false,
+  skipSchemaValidation: false,
   bypassApprovalPermission: false,
   restApiBypassesReviews: false,
   canForceMergeStaleBase: false,
@@ -276,7 +278,7 @@ describe("classifyPublishGate", () => {
     it("is bypassed by the bypass-approval permission alone", () => {
       expect(
         classifyPublishGate(
-          schemaBreakGate,
+          experimentGuardGate,
           clearance({ bypassApprovalPermission: true }),
         ),
       ).toEqual({ outcome: "bypassed", via: "bypassApprovalChecks" });
@@ -285,7 +287,7 @@ describe("classifyPublishGate", () => {
     it("is NOT bypassed by the REST setting alone (permission-only, matching the collector)", () => {
       expect(
         classifyPublishGate(
-          schemaBreakGate,
+          experimentGuardGate,
           clearance({ restApiBypassesReviews: true }),
         ),
       ).toEqual({ outcome: "blocking" });
@@ -295,6 +297,50 @@ describe("classifyPublishGate", () => {
       expect(classifyPublishGate(experimentGuardGate, noClearance)).toEqual({
         outcome: "blocking",
       });
+    });
+  });
+
+  describe("validation-class gates (schema-break, etc.)", () => {
+    it("blocks with no clearance", () => {
+      expect(classifyPublishGate(schemaBreakGate, noClearance)).toEqual({
+        outcome: "blocking",
+      });
+    });
+
+    it("is NOT bypassed by ignoreWarnings alone", () => {
+      expect(
+        classifyPublishGate(
+          schemaBreakGate,
+          clearance({ ignoreWarnings: true }),
+        ),
+      ).toEqual({ outcome: "blocking" });
+    });
+
+    it("is NOT bypassed by the bypass-approval permission alone (needs the flag)", () => {
+      expect(
+        classifyPublishGate(
+          schemaBreakGate,
+          clearance({ bypassApprovalPermission: true }),
+        ),
+      ).toEqual({ outcome: "blocking" });
+    });
+
+    it("is NOT bypassed by the org REST setting", () => {
+      expect(
+        classifyPublishGate(
+          schemaBreakGate,
+          clearance({ restApiBypassesReviews: true }),
+        ),
+      ).toEqual({ outcome: "blocking" });
+    });
+
+    it("is bypassed by skipSchemaValidation (which already folds in the permission)", () => {
+      expect(
+        classifyPublishGate(
+          schemaBreakGate,
+          clearance({ skipSchemaValidation: true }),
+        ),
+      ).toEqual({ outcome: "bypassed", via: "skipSchemaValidation" });
     });
   });
 });
@@ -348,8 +394,14 @@ describe("PublishBlockedError", () => {
   });
 
   it("flattens only ignoreWarnings-clearable gate messages into warnings", () => {
-    const err = new PublishBlockedError([approvalGate, schemaBreakGate]);
-    expect(err.warnings).toEqual(schemaBreakGate.messages);
+    // schema-break is validation-class (skipSchemaValidation), so it is NOT a
+    // "warning"; only the ignoreWarnings gate's messages flatten in.
+    const err = new PublishBlockedError([
+      approvalGate,
+      experimentGuardGate,
+      schemaBreakGate,
+    ]);
+    expect(err.warnings).toEqual(experimentGuardGate.messages);
   });
 
   it("names each gate's override flag (and required permission) in the message", () => {
@@ -371,11 +423,14 @@ describe("PublishBlockedError", () => {
   });
 
   it("reports a hard-lock gate alongside clearable gates, outside warnings", () => {
-    const err = new PublishBlockedError([configLockedGate, schemaBreakGate]);
+    const err = new PublishBlockedError([
+      configLockedGate,
+      experimentGuardGate,
+    ]);
     expect(err.message).toContain("Publish blocked by 2 gate(s):");
     expect(err.message).toContain("[config-locked]");
     expect(err.message).toContain(configLockedGate.messages[0]);
-    expect(err.gates).toEqual([configLockedGate, schemaBreakGate]);
-    expect(err.warnings).toEqual(schemaBreakGate.messages);
+    expect(err.gates).toEqual([configLockedGate, experimentGuardGate]);
+    expect(err.warnings).toEqual(experimentGuardGate.messages);
   });
 });

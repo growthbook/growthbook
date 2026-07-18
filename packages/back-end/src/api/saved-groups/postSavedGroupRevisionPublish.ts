@@ -155,6 +155,7 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
 
   const { blocking, bypassed } = evaluatePublishGates(gates, {
     ignoreWarnings: !!req.body.mergeNow || req.context.ignoreWarnings,
+    skipSchemaValidation: req.context.skipSchemaValidation,
     bypassApprovalPermission: adapter.canBypassApproval(
       req.context,
       savedGroup as Record<string, unknown>,

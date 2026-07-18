@@ -9,7 +9,7 @@ import {
 import {
   apiPaginationFieldsValidator,
   paginationQueryFields,
-  ignoreWarningsBodyField,
+  publishOverrideBodyFields,
   publishBypassedGatesField,
 } from "./shared";
 import { namedSchema } from "./openapi-helpers";
@@ -489,7 +489,7 @@ const updateConstantApiBody = z
     project: z.string().optional(),
     owner: ownerInputField.optional(),
     bypassApproval: bypassApprovalField,
-    ignoreWarnings: ignoreWarningsBodyField,
+    ...publishOverrideBodyFields,
   })
   .strict();
 
@@ -600,7 +600,7 @@ export const updateConstantValidator = {
 };
 
 export const archiveConstantValidator = {
-  bodySchema: z.object({ ignoreWarnings: ignoreWarningsBodyField }).strict(),
+  bodySchema: z.object({ ...publishOverrideBodyFields }).strict(),
   querySchema: z.never(),
   paramsSchema: constantKeyParams,
   responseSchema: apiConstantArchiveResponse,
@@ -613,7 +613,7 @@ export const archiveConstantValidator = {
 };
 
 export const unarchiveConstantValidator = {
-  bodySchema: z.object({ ignoreWarnings: ignoreWarningsBodyField }).strict(),
+  bodySchema: z.object({ ...publishOverrideBodyFields }).strict(),
   querySchema: z.never(),
   paramsSchema: constantKeyParams,
   responseSchema: apiConstantArchiveResponse,

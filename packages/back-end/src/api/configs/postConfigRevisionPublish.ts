@@ -25,6 +25,7 @@ import {
   isRevisionDiverged,
 } from "back-end/src/revisions/util";
 import { assertConfigValueValidForPublish } from "back-end/src/services/configValidation";
+import { collectValidateConfigRevisionHookResults } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import { assertConfigNotLocked } from "back-end/src/services/configLock";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 import { loadRevisionByVersion } from "./validations";
@@ -148,8 +149,68 @@ export const postConfigRevisionPublish = createApiRequestHandler(
       desiredState,
     )) ?? []),
   );
+
+  // Custom validation hooks, surfaced as gates: a hard error (a hook threw) is
+  // validation-class (skipSchemaValidation); a warning is acknowledge-class
+  // (ignoreWarnings). Run here so the assert below doesn't re-execute them.
+  const hookResults = await collectValidateConfigRevisionHookResults({
+    context: req.context,
+    config: {
+      key: config.key,
+      name: config.name,
+      project: config.project ?? "",
+      value: (desiredState.value as string | undefined) ?? config.value,
+      schema: desiredState.schema as SimpleSchema | null | undefined,
+      parent: (desiredState.parent as string | undefined) ?? config.parent,
+      extends: (desiredState.extends as string[] | undefined) ?? config.extends,
+      extensible:
+        (desiredState.extensible as boolean | undefined) ?? config.extensible,
+    },
+    // The live pre-publish state, so `incrementalChangesOnly` hooks can suppress
+    // errors/warnings that already existed before this change (mirrors
+    // assertConfigValueValidForPublish, which we skip for hooks here).
+    original: {
+      key: config.key,
+      name: config.name,
+      project: config.project ?? "",
+      value: config.value,
+      schema: config.schema,
+      parent: config.parent,
+      extends: config.extends,
+      extensible: config.extensible,
+    },
+    revision,
+  });
+  if (hookResults.hardErrors.length) {
+    gates.push({
+      type: "custom-hook",
+      severity: "blocker",
+      messages: [
+        "A custom validation hook rejected this publish:",
+        ...hookResults.hardErrors,
+      ],
+      override: "skipSchemaValidation",
+      requiresPermission: "bypassApprovalChecks",
+      resolution: null,
+    });
+  }
+  if (hookResults.warnings.length) {
+    gates.push({
+      type: "custom-hook",
+      severity: "warning",
+      messages: [
+        "A custom validation hook raised a warning:",
+        ...hookResults.warnings,
+      ],
+      override: "ignoreWarnings",
+      requiresPermission: null,
+      resolution: null,
+    });
+  }
+
   const { blocking, bypassed } = evaluatePublishGates(gates, {
     ignoreWarnings: req.context.ignoreWarnings,
+    skipSchemaValidation: req.context.skipSchemaValidation,
     bypassApprovalPermission: adapter.canBypassApproval(
       req.context,
       config as Record<string, unknown>,
@@ -284,6 +345,8 @@ export const postConfigRevisionPublish = createApiRequestHandler(
     },
     { value: postValue },
     revision,
+    // Hooks already ran above as gates — don't re-execute the sandboxed hook.
+    { skipHooks: true },
   );
 
   // Claim the merge BEFORE applying to the live entity. `merge` is CAS-guarded,

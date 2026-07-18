@@ -244,6 +244,7 @@ export async function publishFeatureRevision(
   // setting (`canUseRestApiBypass`).
   const { blocking, bypassed } = evaluatePublishGates(gates, {
     ignoreWarnings: forceMergeRequested,
+    skipSchemaValidation: req.context.skipSchemaValidation,
     bypassApprovalPermission:
       req.context.permissions.canBypassApprovalChecks(feature),
     restApiBypassesReviews: canUseRestApiBypass,

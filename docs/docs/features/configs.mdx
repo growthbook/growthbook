@@ -106,16 +106,13 @@ While editing, the schema editor shows live pass/fail per rule, but a draft can 
 
 Because publishing a config changes every descendant's resolved value, the publish also re-checks each descendant against its effective rules. Only violations **introduced by that publish** block it: a pre-existing violation elsewhere in the family never blocks an unrelated edit.
 
-Violations share the enforcement gate with schema errors — the **Block publishing on JSON schema errors** organization setting (on by default):
+Schema errors, validation-rule failures, and **downstream schema breaks** (a change that makes a dependent config or config-backed feature value violate its schema) are **validation-class** failures — they block a publish and are **not** cleared by `"ignoreWarnings": true` (that flag only acknowledges soft warnings, like a running experiment reading a value or dependents dropped by an archive). To force past one, a caller with org-wide bypass authority (the **bypass-approvals** permission) sets `"skipSchemaValidation": true` in the request body; it is ignored for anyone else. The editor also surfaces these inline as you edit — the failing field rows are flagged so you see them before publishing.
 
-- **On** — a publish that violates a rule fails (HTTP 400 on the API), listing the failed rules' messages.
-- **Off (warn mode)** — violations surface as a bypassable warning; the API proceeds when the request body sets `"ignoreWarnings": true`.
-
-Setting `"skipSchemaValidation": true` in the request body skips validation rules together with schema validation; it is only honored for callers with org-wide bypass authority.
+The **Block publishing on JSON schema errors** organization setting (on by default) still governs the strictness of the standalone per-request value check on non-publish writes; validation-class publish failures are enforced regardless.
 
 ## Custom validation hooks
 
-Beyond schema conformance and validation rules, you can run your own validation logic with **Custom Hooks** — sandboxed JavaScript that GrowthBook executes on config save and publish. The `validateConfig` hook runs when a config is created or updated, and `validateConfigRevision` runs on every publish path; either can hard-block the change with a custom error message, or raise a soft warning that the user can review and bypass.
+Beyond schema conformance and validation rules, you can run your own validation logic with **Custom Hooks** — sandboxed JavaScript that GrowthBook executes on config save and publish. The `validateConfig` hook runs when a config is created or updated, and `validateConfigRevision` runs on every publish path; either can hard-block the change with a custom error message (validation-class — forced past only with `"skipSchemaValidation": true` by a bypass-approvals caller), or raise a soft warning that anyone can review and bypass with `"ignoreWarnings": true`.
 
 Hooks are scoped Global, Project, or Config; a config-scoped hook automatically covers the whole family (the scoped config and everything that inherits from it). Manage them from a config's **Validation** tab or under **Settings → Custom Hooks**.
 

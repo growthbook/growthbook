@@ -36,7 +36,7 @@ import { collectFeatureConfigBackedValues } from "back-end/src/services/configVa
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import {
-  SoftWarningError,
+  BadRequestError,
   TerminalPublishError,
 } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
@@ -45,8 +45,10 @@ const CONFIG_PREFIX = "config:";
 const SCHEMA_BREAK: ArmGuardId = "schema-break";
 
 // Resolve a direct (unarmed) publish's schema-break violations to an action:
-// clear when none, bypass on ignoreWarnings / approval-bypass (logged), else a
-// bypassable soft warning. Shared by the constant and config guards.
+// clear when none, bypass only on the privileged skipSchemaValidation (logged),
+// else a HARD block. Schema-break is validation-class — no ignoreWarnings
+// escape, so the UI blocks and only a bypassApprovalChecks holder passing
+// skipSchemaValidation can force it. Shared by the constant and config guards.
 function resolveDirectSchemaBreak(
   context: Context,
   violations: string[],
@@ -55,20 +57,17 @@ function resolveDirectSchemaBreak(
   message: string,
 ): void {
   if (!violations.length) return;
-  const override =
-    context.ignoreWarnings ||
-    context.permissions.canBypassApprovalChecks({ project: project || "" });
-  if (override) {
+  // `context.skipSchemaValidation` already requires the bypassApprovalChecks
+  // permission (org-wide), so no separate permission check here.
+  void project;
+  if (context.skipSchemaValidation) {
     logger.info(
       { ...logKey, userId: context.userId, violations },
-      "Schema-break guard overridden on a direct publish",
+      "Schema-break guard skipped via skipSchemaValidation",
     );
     return;
   }
-  throw new SoftWarningError(
-    message + "\n" + violations.join("\n"),
-    violations,
-  );
+  throw new BadRequestError(message + "\n" + violations.join("\n"));
 }
 
 // The breaks present at a deferred fire that weren't acknowledged when the
@@ -588,7 +587,7 @@ export async function assertConstantSchemaBreakGuard(
     violations,
     constant.project,
     { constantKey: constant.key },
-    "Publishing this constant would make dependent config or feature value(s) violate their schema or validation rules:",
+    "Breaks a dependent config or feature value:",
   );
 }
 
@@ -615,17 +614,13 @@ export async function captureConstantSchemaBreakAcknowledgment(
   );
   if (!violations.length) return undefined;
 
-  const override =
-    context.ignoreWarnings ||
-    context.permissions.canBypassApprovalChecks({
-      project: constant.project || "",
-    });
-  if (!override) {
-    throw new SoftWarningError(
-      "Scheduling this constant publish will make dependent config or feature value(s) violate their schema or validation rules:\n" +
+  // Validation-class: scheduling past a schema break requires the privileged
+  // skipSchemaValidation (which already requires bypassApprovalChecks).
+  if (!context.skipSchemaValidation) {
+    throw new BadRequestError(
+      "Scheduling this publish would break a dependent config or feature value:\n" +
         violations.join("\n") +
-        "\nRe-submit with ignoreWarnings to acknowledge and schedule.",
-      violations,
+        "\nRe-submit with skipSchemaValidation (requires the bypassApprovalChecks permission) to schedule anyway.",
     );
   }
   return [...new Set(violations)].sort();
@@ -779,7 +774,7 @@ export async function assertConfigSchemaBreakGuard(
     violations,
     proposed.project,
     { configKey: proposed.key },
-    "Publishing this config would make its resolved value violate its schema or validation rules:",
+    "Invalid config value:",
   );
 }
 
@@ -860,7 +855,7 @@ export async function assertConfigArchiveSchemaBreakGuard(
     violations,
     config.project,
     { configKey: config.key },
-    `${action} this config would make dependent config or feature value(s) violate their schema or validation rules:`,
+    `${action} this config breaks a dependent config or feature value:`,
   );
 }
 
@@ -894,17 +889,13 @@ export async function captureConfigSchemaBreakAcknowledgment(
   const violations = [...ownViolations, ...archiveViolations];
   if (!violations.length) return undefined;
 
-  const override =
-    context.ignoreWarnings ||
-    context.permissions.canBypassApprovalChecks({
-      project: proposed.project || "",
-    });
-  if (!override) {
-    throw new SoftWarningError(
-      "Scheduling this config publish will make its resolved value or a dependent config or feature value violate its schema or validation rules:\n" +
+  // Validation-class: scheduling past a schema break requires the privileged
+  // skipSchemaValidation (which already requires bypassApprovalChecks).
+  if (!context.skipSchemaValidation) {
+    throw new BadRequestError(
+      "Scheduling this publish would produce an invalid config or dependent value:\n" +
         violations.join("\n") +
-        "\nRe-submit with ignoreWarnings to acknowledge and schedule.",
-      violations,
+        "\nRe-submit with skipSchemaValidation (requires the bypassApprovalChecks permission) to schedule anyway.",
     );
   }
   return [...new Set(violations)].sort();

@@ -513,12 +513,9 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
       gates.push({
         type: "schema-break",
         severity: "warning",
-        messages: [
-          "Publishing this config would make its resolved value violate its schema or validation rules:",
-          ...schemaBreaks,
-        ],
-        override: "ignoreWarnings",
-        requiresPermission: null,
+        messages: ["Invalid config value:", ...schemaBreaks],
+        override: "skipSchemaValidation",
+        requiresPermission: "bypassApprovalChecks",
         resolution: null,
       });
     }
@@ -557,11 +554,11 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
           messages: [
             `${
               proposedArchived ? "Archiving" : "Unarchiving"
-            } this config would make dependent config or feature value(s) violate their schema or validation rules:`,
+            } this config breaks a dependent config or feature value:`,
             ...archiveBreaks,
           ],
-          override: "ignoreWarnings",
-          requiresPermission: null,
+          override: "skipSchemaValidation",
+          requiresPermission: "bypassApprovalChecks",
           resolution: null,
         });
       }

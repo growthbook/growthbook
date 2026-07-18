@@ -139,13 +139,13 @@ export const ignoreWarningsBodyField = z
   .boolean()
   .optional()
   .describe(
-    "Acknowledge and proceed despite soft warnings: guard conflicts (running experiments reading the value, locked dependents, schema breaks introduced downstream), descendant-schema warnings, and warn-mode value errors. A blocked request returns the full list of warnings this would acknowledge in `warnings`. On publish endpoints this also force-merges a draft whose base is stale, when you hold the bypass-approval permission.",
+    "Acknowledge and proceed past ACKNOWLEDGE-class warnings: a value served to a running experiment, a locked dependent, dependents dropped by an archive, and warn-mode value errors. A blocked request lists what this would acknowledge in `warnings`. Does NOT clear validation-class failures (schema errors, cross-field invariants, downstream schema breaks, or custom-hook rejections) — those require `skipSchemaValidation`. On publish endpoints this also force-merges a draft whose base is stale, when you hold the bypass-approval permission.",
   );
 export const skipSchemaValidationBodyField = z
   .boolean()
   .optional()
   .describe(
-    "Skip JSON-schema validation of the value(s) being written. Only honored for callers with org-wide bypass authority (the `bypassApprovalChecks` permission on all projects); ignored otherwise. Validation is enforced by default.",
+    "Force past VALIDATION-class failures: JSON-schema validation of the value(s) written, cross-field invariants, downstream schema breaks (a change that makes a dependent config or config-backed feature value violate its schema), and custom validation-hook rejections. Only honored for callers with org-wide bypass authority (the `bypassApprovalChecks` permission on all projects); ignored otherwise. Validation is enforced by default.",
   );
 export const publishOverrideBodyFields = {
   ignoreWarnings: ignoreWarningsBodyField,

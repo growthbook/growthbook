@@ -322,56 +322,63 @@ export async function assertConfigValueValidForPublish(
   // value that violates the effective schema won't heal by retrying, so the
   // block-mode rejection is terminal there: the publish parks and the failure
   // webhook fires immediately instead of after the retry cap.
-  opts?: { deferred?: boolean },
+  // `skipHooks`: the caller (a REST publish handler) already ran the hooks as
+  // publish gates, so don't re-execute them here (avoids double-running the
+  // sandboxed hook on the happy path).
+  opts?: { deferred?: boolean; skipHooks?: boolean },
 ): Promise<void> {
   // Customer-defined publish-time checks (sandboxed, self-host + enterprise).
   // A separate gate from schema validation — runs on every publish path
   // (including bypass-approval / schema-skip), can hard-block or soft-warn.
   const stored = await context.models.configs.getByKey(leaf.key);
-  await runValidateConfigRevisionHooks({
-    context,
-    config: {
-      key: leaf.key,
-      name: leaf.name,
-      project: stored?.project ?? "",
-      value: values.value,
-      schema: leaf.schema,
-      parent: leaf.parent,
-      extends: leaf.extends,
-      extensible: leaf.extensible,
-    },
-    // Pre-publish state, so `incrementalChangesOnly` hooks can suppress
-    // errors/warnings that already existed before this change.
-    original: stored
-      ? {
-          key: stored.key,
-          name: stored.name,
-          project: stored.project ?? "",
-          value: stored.value,
-          schema: stored.schema,
-          parent: stored.parent,
-          extends: stored.extends,
-          extensible: stored.extensible,
-        }
-      : null,
-    revision: revision
-      ? {
-          version: revision.version,
-          status: revision.status,
-          title: revision.title,
-          comment: revision.comment,
-          authorId: revision.authorId,
-          contributors: revision.contributors,
-          reviews: revision.reviews.map((r) => ({
-            userId: r.userId,
-            decision: r.decision,
-            comment: r.comment,
-            stale: r.stale,
-            dateCreated: r.dateCreated,
-          })),
-        }
-      : undefined,
-  });
+  // Skipped when the caller (a REST publish handler) already ran the hooks as
+  // publish gates.
+  if (!opts?.skipHooks) {
+    await runValidateConfigRevisionHooks({
+      context,
+      config: {
+        key: leaf.key,
+        name: leaf.name,
+        project: stored?.project ?? "",
+        value: values.value,
+        schema: leaf.schema,
+        parent: leaf.parent,
+        extends: leaf.extends,
+        extensible: leaf.extensible,
+      },
+      // Pre-publish state, so `incrementalChangesOnly` hooks can suppress
+      // errors/warnings that already existed before this change.
+      original: stored
+        ? {
+            key: stored.key,
+            name: stored.name,
+            project: stored.project ?? "",
+            value: stored.value,
+            schema: stored.schema,
+            parent: stored.parent,
+            extends: stored.extends,
+            extensible: stored.extensible,
+          }
+        : null,
+      revision: revision
+        ? {
+            version: revision.version,
+            status: revision.status,
+            title: revision.title,
+            comment: revision.comment,
+            authorId: revision.authorId,
+            contributors: revision.contributors,
+            reviews: revision.reviews.map((r) => ({
+              userId: r.userId,
+              decision: r.decision,
+              comment: r.comment,
+              stale: r.stale,
+              dateCreated: r.dateCreated,
+            })),
+          }
+        : undefined,
+    });
+  }
 
   if (context.skipSchemaValidation) return;
   const errors = [

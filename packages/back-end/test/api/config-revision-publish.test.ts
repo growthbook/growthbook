@@ -44,12 +44,21 @@ const rebaseOrg = {
 
 // Admin grants manageConfigs (edit) + bypassApprovalChecks, so a clean publish
 // isn't blocked by an approval/stale-base gate — isolating the gates under test.
-function makeContext(): ReqContextClass {
+function makeContext(
+  opts: { ignoreWarnings?: boolean; skipSchemaValidation?: boolean } = {},
+): ReqContextClass {
   return new ReqContextClass({
     org,
     auditUser: { type: "api_key", apiKey: "key_test" },
     role: "admin",
-    req: { query: {}, headers: {}, body: {} } as unknown as Request,
+    req: {
+      query: {},
+      headers: {},
+      body: {
+        ...(opts.ignoreWarnings ? { ignoreWarnings: true } : {}),
+        ...(opts.skipSchemaValidation ? { skipSchemaValidation: true } : {}),
+      },
+    } as unknown as Request,
   });
 }
 
@@ -60,7 +69,7 @@ function makeContext(): ReqContextClass {
 // context's own request (context.ignoreWarnings reads context.req, not the HTTP
 // body the mock middleware discards).
 function makeEngineerContext(
-  opts: { ignoreWarnings?: boolean } = {},
+  opts: { ignoreWarnings?: boolean; skipSchemaValidation?: boolean } = {},
 ): ReqContextClass {
   return new ReqContextClass({
     org,
@@ -69,7 +78,10 @@ function makeEngineerContext(
     req: {
       query: {},
       headers: {},
-      body: opts.ignoreWarnings ? { ignoreWarnings: true } : {},
+      body: {
+        ...(opts.ignoreWarnings ? { ignoreWarnings: true } : {}),
+        ...(opts.skipSchemaValidation ? { skipSchemaValidation: true } : {}),
+      },
     } as unknown as Request,
   });
 }
@@ -256,7 +268,7 @@ describe("POST /api/v1/configs-revisions/:key/:version/publish (archive schema-b
   // or restores (unarchive) this config's contribution to every dependent's
   // resolved value — so publishing a revision that flips it must surface the
   // breaks the transition introduces in dependents.
-  it("surfaces a schema-break gate when unarchiving a config breaks a dependent, and ignoreWarnings clears it", async () => {
+  it("surfaces a validation-class schema-break gate when unarchiving a config breaks a dependent, cleared only by skipSchemaValidation", async () => {
     setReqContext(makeEngineerContext());
 
     const now = new Date();
@@ -305,7 +317,7 @@ describe("POST /api/v1/configs-revisions/:key/:version/publish (archive schema-b
     expect(stageRes.status).toBe(200);
 
     // Publish WITHOUT ignoreWarnings → the archive schema-break gate blocks the
-    // publish (engineer can't bypass a soft guard).
+    // publish (engineer can't clear a validation-class gate).
     const blockedRes = await request(app)
       .post(`/api/v1/configs-revisions/svc_arch/${version}/publish`)
       .send({})
@@ -317,25 +329,44 @@ describe("POST /api/v1/configs-revisions/:key/:version/publish (archive schema-b
     );
     expect(gate).toBeDefined();
     expect(gate.severity).toBe("warning");
-    expect(gate.override).toBe("ignoreWarnings");
+    // Schema-break is validation-class: cleared only by the privileged
+    // skipSchemaValidation flag (which needs bypassApprovalChecks).
+    expect(gate.override).toBe("skipSchemaValidation");
+    expect(gate.requiresPermission).toBe("bypassApprovalChecks");
     const gateText = gate.messages.join("\n");
     // The gate names the transition (not the config's own resolved value) and
     // the dependent it breaks.
     expect(gateText).toMatch(/Unarchiving/i);
     expect(gateText).toContain("dep_arch");
 
-    // Retry WITH ignoreWarnings → the soft gate is bypassed (200) and reported.
+    // ignoreWarnings does NOT clear a validation-class gate — still blocked.
     setReqContext(makeEngineerContext({ ignoreWarnings: true }));
-    const okRes = await request(app)
+    const stillBlocked = await request(app)
       .post(`/api/v1/configs-revisions/svc_arch/${version}/publish`)
       .send({ ignoreWarnings: true })
+      .set("Authorization", "Bearer foo");
+    expect(stillBlocked.status).toBe(422);
+
+    // skipSchemaValidation from an engineer (no bypassApprovalChecks) is ignored.
+    setReqContext(makeEngineerContext({ skipSchemaValidation: true }));
+    const engSkip = await request(app)
+      .post(`/api/v1/configs-revisions/svc_arch/${version}/publish`)
+      .send({ skipSchemaValidation: true })
+      .set("Authorization", "Bearer foo");
+    expect(engSkip.status).toBe(422);
+
+    // Admin (bypassApprovalChecks) + skipSchemaValidation → bypassed (200).
+    setReqContext(makeContext({ skipSchemaValidation: true }));
+    const okRes = await request(app)
+      .post(`/api/v1/configs-revisions/svc_arch/${version}/publish`)
+      .send({ skipSchemaValidation: true })
       .set("Authorization", "Bearer foo");
 
     expect(okRes.status).toBe(200);
     expect(okRes.body.bypassedGates).toContainEqual({
       type: "schema-break",
       outcome: "bypassed",
-      via: "ignoreWarnings",
+      via: "skipSchemaValidation",
     });
   });
 });

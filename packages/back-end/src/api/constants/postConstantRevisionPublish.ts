@@ -129,6 +129,7 @@ export const postConstantRevisionPublish = createApiRequestHandler(
   );
   const { blocking, bypassed } = evaluatePublishGates(gates, {
     ignoreWarnings: req.context.ignoreWarnings,
+    skipSchemaValidation: req.context.skipSchemaValidation,
     bypassApprovalPermission: adapter.canBypassApproval(
       req.context,
       constant as Record<string, unknown>,
