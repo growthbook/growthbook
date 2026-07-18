@@ -1,5 +1,6 @@
 import { FeatureInterface } from "shared/types/feature";
 import { useState } from "react";
+import { Flex } from "@radix-ui/themes";
 import { filterEnvironmentsByFeature, getReviewSetting } from "shared/util";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { useDefaultDraftMode } from "@/hooks/useDefaultDraft";
@@ -148,52 +149,54 @@ export default function FeatureArchiveModal({
         </p>
       ) : (
         <>
+          <Text as="p" mb="4">
+            {hasActiveEnvs
+              ? "Are you sure you want to continue? This will completely remove the feature from all SDKs and webhooks."
+              : "Are you sure you want to continue? This will make the current feature inactive. It will not be included in API responses or Webhook payloads."}
+          </Text>
+
+          {/* Warnings, most-disruptive first: active environments, then dependents
+              (whose collapsible list renders directly below its callout). */}
+          {hasActiveEnvs && (
+            <Callout status="warning" mb="4">
+              This feature is still active in the following environments:{" "}
+              <strong>{enabledEnvs.join(", ")}</strong>.
+            </Callout>
+          )}
           {needsDependentsAck && (
             <>
               <Callout status="warning" mb="4">
                 Archiving this Feature Flag will affect {totalDependents}{" "}
                 dependent item{totalDependents > 1 ? "s" : ""} that reference it
-                as a prerequisite. Acknowledge to proceed.
+                as a prerequisite.
               </Callout>
               <FeatureReferencesList
                 features={dependents?.features}
                 experiments={dependents?.experiments}
               />
-              <Checkbox
-                mt="4"
-                mb="4"
-                weight="regular"
-                value={confirmDependents}
-                setValue={setConfirmDependents}
-                label="I understand these dependents will be affected and want to archive anyway."
-              />
             </>
           )}
-          {hasActiveEnvs ? (
-            <>
-              <Text as="p" mb="4">
-                Are you sure you want to continue? This will completely remove
-                the feature from all SDKs and webhooks.
-              </Text>
-              <Callout status="warning" mb="4">
-                This feature is still active in the following environments:{" "}
-                <strong>{enabledEnvs.join(", ")}</strong>.
-              </Callout>
-              <Checkbox
-                weight="regular"
-                value={confirmEnvBypass}
-                setValue={setConfirmEnvBypass}
-                label="I understand that all environments will be immediately disabled after archiving."
-              />
-            </>
-          ) : (
-            !needsDependentsAck && (
-              <p>
-                Are you sure you want to continue? This will make the current
-                feature inactive. It will not be included in API responses or
-                Webhook payloads.
-              </p>
-            )
+
+          {/* Acknowledgments stacked together at the bottom. */}
+          {(needsDependentsAck || hasActiveEnvs) && (
+            <Flex direction="column" gap="3" mt="4">
+              {needsDependentsAck && (
+                <Checkbox
+                  weight="regular"
+                  value={confirmDependents}
+                  setValue={setConfirmDependents}
+                  label="I understand these dependents will be affected and want to archive anyway."
+                />
+              )}
+              {hasActiveEnvs && (
+                <Checkbox
+                  weight="regular"
+                  value={confirmEnvBypass}
+                  setValue={setConfirmEnvBypass}
+                  label="I understand this feature will be immediately disabled in all environments after archiving."
+                />
+              )}
+            </Flex>
           )}
         </>
       )}
