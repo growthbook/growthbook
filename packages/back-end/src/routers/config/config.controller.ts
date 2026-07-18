@@ -994,7 +994,9 @@ export const putConfig = async (
       }
 
       // Experiment guard (direct publish → armed:false). Skipped for a
-      // metadata-only publish, which can't rewrite any served value.
+      // metadata-only publish, which can't rewrite any served value. An
+      // archive/unarchive flip is passed through so its ref-scrub schema-break
+      // on dependents is modeled (mirrors the archive endpoint + adapter).
       if (configChangeAffectsServedValue(Object.keys(fieldsToUpdate))) {
         await assertConfigPublishGuards(
           context,
@@ -1002,6 +1004,7 @@ export const putConfig = async (
           revision,
           { armed: false },
           proposedLeaf,
+          "archived" in fieldsToUpdate ? !!fieldsToUpdate.archived : undefined,
         );
       }
 

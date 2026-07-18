@@ -447,8 +447,10 @@ export const putConstant = async (
       // Only record a bypass when the caller used the explicit admin override.
       const isBypass = approvalRequired && bypassApproval;
 
-      // Warn (bypassably) when this value change would reach a running experiment
-      // through a guarded config. Metadata-only edits can't shift a served value.
+      // Warn (bypassably) when this change would reach a running experiment
+      // through a guarded config, or when an archive/unarchive flip scrubs (or
+      // restores) refs into a schema-break for dependents. Metadata-only edits
+      // can't shift a served value.
       if (constantChangeAffectsServedValue(Object.keys(fieldsToUpdate))) {
         await assertConstantPublishGuards(
           context,
@@ -461,6 +463,7 @@ export const putConstant = async (
                 | Record<string, string>
                 | undefined)
             : existing.environmentValues,
+          "archived" in fieldsToUpdate ? !!fieldsToUpdate.archived : undefined,
         );
       }
 
