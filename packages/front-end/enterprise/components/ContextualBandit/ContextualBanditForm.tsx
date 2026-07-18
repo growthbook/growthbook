@@ -517,9 +517,7 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
           <div className="px-2">
             {currentProjectIsDemo && (
               <Callout status="warning" mb="3">
-                You are creating an experiment in the Sample Data Project. When
-                the sample data is deleted, experiments that use the sample Data
-                Source are deleted with it.
+                You are creating an experiment in the Sample Data Project.
               </Callout>
             )}
 

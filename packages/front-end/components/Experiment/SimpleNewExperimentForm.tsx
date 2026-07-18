@@ -158,7 +158,8 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
     mutateTemplates: refreshTemplates,
   } = useTemplates();
   const { experimentsMap, holdoutsMap } = useHoldouts();
-  const { demoDataSourceId } = useDemoDataSourceProject();
+  const { demoDataSourceId, projectId: demoProjectId } =
+    useDemoDataSourceProject();
   const { data: sdkConnectionsData, isLoading: sdkConnectionsLoading } =
     useSDKConnections();
 
@@ -188,6 +189,8 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
   });
 
   const selectedProject = form.watch("project") ?? "";
+  const creatingInDemoProject =
+    !!demoProjectId && selectedProject === demoProjectId;
 
   // Re-scope the live options to the selected project
   const attributeSchema = useAttributeSchema(false, selectedProject);
@@ -458,6 +461,11 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
           >
             Other experiment configuration steps now live on the experiment
             overview page.
+          </Callout>
+        )}
+        {creatingInDemoProject && (
+          <Callout status="warning">
+            You are creating an experiment in the Sample Data Project.
           </Callout>
         )}
         <SDKCapabilityWarning
