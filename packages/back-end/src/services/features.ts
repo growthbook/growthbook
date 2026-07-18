@@ -10,9 +10,11 @@ import {
   GrowthBook,
 } from "@growthbook/growthbook";
 import {
+  buildReverseDependencyIndex,
   evalDeterministicPrereqValue,
   evaluatePrerequisiteState,
   filterProjectsByEnvironmentWithNull,
+  getDependentFeatures,
   getRulesForEnvironment,
   isDefined,
   MergeResultChanges,
@@ -99,7 +101,10 @@ import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { ApiReqContext } from "back-end/types/api";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
-import { getAllFeatures } from "back-end/src/models/FeatureModel";
+import {
+  getAllFeatures,
+  getAllFeaturesWithoutEditorFields,
+} from "back-end/src/models/FeatureModel";
 import {
   getAllPayloadExperiments,
   getAllURLRedirectExperiments,
@@ -701,6 +706,58 @@ export function queueSDKPayloadRefresh(data: {
   refreshSDKPayloadCache({ ...data, stackTrace }).catch((e) => {
     logger.error(e, "Error refreshing SDK Payload Cache");
   });
+}
+
+// Live features that list `featureId` as a prerequisite — top-level or on an
+// enabled rule (`getDependentFeatures` covers both). Deleting a feature that
+// something still gates on dangles the reference: a top-level prerequisite is
+// emitted as a `gate: true` parentCondition (see getFeatureDefinition in
+// util/features.ts), and a gate whose parent feature is absent from the payload
+// can never pass, so the dependent is silently dropped from every SDK payload
+// (fail-closed). We scan org-wide (a dependent in an unreadable project still
+// breaks) and skip archived features, which aren't served anyway. Deletes are
+// infrequent, so a single lightweight whole-collection scan is acceptable.
+export async function getFeaturesDependingOnAsPrerequisite(
+  context: ReqContext | ApiReqContext,
+  featureId: string,
+): Promise<string[]> {
+  const scanContext = getContextForAgendaJobByOrgObject(context.org);
+  // Candidates are live features only — an archived dependent isn't served, so
+  // it can't be outaged. The target being deleted is usually archived (delete
+  // requires it), so it needn't be in this list: getDependentFeatures matches
+  // on `feature.id` alone, so a stub target suffices.
+  const features = await getAllFeaturesWithoutEditorFields(scanContext, {});
+  const envIds = getEnvironments(scanContext.org).map((e) => e.id);
+  const reverseDependencyIndex = buildReverseDependencyIndex(features);
+  const featuresMap = new Map(features.map((f) => [f.id, f]));
+  const dependents = getDependentFeatures(
+    { id: featureId } as FeatureInterface,
+    features,
+    envIds,
+    reverseDependencyIndex,
+    featuresMap,
+  );
+  return dependents.filter((id) => id !== featureId);
+}
+
+// Block deleting a feature that live features still list as a prerequisite —
+// deletion would dangle their gate and drop them from the SDK payload. Matches
+// the copy style of assertConstantArchivable / assertSavedGroupDeletable.
+export async function assertFeatureDeletable(
+  context: ReqContext | ApiReqContext,
+  featureId: string,
+): Promise<void> {
+  const dependents = await getFeaturesDependingOnAsPrerequisite(
+    context,
+    featureId,
+  );
+  if (!dependents.length) return;
+  // Count only — the dependent scan is org-wide (so a dependent in a project
+  // the caller can't read still blocks), so naming ids would disclose
+  // cross-project features. Mirrors assertSavedGroupDeletable / assertConstantArchivable.
+  throw new BadRequestError(
+    `Cannot delete Feature Flag: it is still used as a prerequisite by ${dependents.length} live Feature Flag(s). Remove these references first.`,
+  );
 }
 
 export async function refreshSDKPayloadCache({

@@ -33,6 +33,7 @@ import {
   deriveChange,
 } from "back-end/src/services/savedGroupRevisionEvents";
 import {
+  assertSavedGroupDeletable,
   loadSavedGroupReferences,
   totalSavedGroupReferences,
 } from "back-end/src/services/savedGroups";
@@ -959,6 +960,11 @@ export const deleteSavedGroup = async (
     });
     return;
   }
+
+  // Reference integrity (orthogonal to the archived-first UX gate above): a
+  // dangling group id silently flips live targeting, so block delete while any
+  // feature/experiment/other saved group still references it.
+  await assertSavedGroupDeletable(context, id);
 
   await context.models.savedGroups.delete(savedGroup);
 
