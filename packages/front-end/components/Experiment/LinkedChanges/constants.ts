@@ -16,7 +16,7 @@ export const ICON_PROPERTIES = {
     component: FaLink,
     radixColor: "teal",
   },
-};
+} as const;
 
 export const LINKED_CHANGE_CONTAINER_PROPERTIES = {
   "feature-flag": {

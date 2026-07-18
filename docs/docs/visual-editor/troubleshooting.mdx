@@ -1,0 +1,108 @@
+---
+title: Visual Editor Troubleshooting
+description: Fixes for common issues with the GrowthBook Visual Editor — variations not showing, broken preview links, element selector confusion, image replacement issues, and more.
+sidebar_label: Troubleshooting
+slug: /app/visual/troubleshooting
+---
+
+import MaxWidthImage from '@site/src/components/MaxWidthImage';
+import CommercialFeature from '@site/src/components/CommercialFeature';
+
+<CommercialFeature feature="visual-editor" />
+
+When the [Visual Editor](/app/visual) doesn't behave as expected, this page lists the most common causes and fixes. Each item is independently linkable — share the anchor in support threads.
+
+If your issue isn't here, the **Debug Panel** in the Visual Editor (see [Preview and QA](/app/visual/preview-and-qa#the-debug-panel)) is the single best diagnostic tool. Open it before filing a support ticket.
+
+## Variation isn't showing on my site
+
+By far the most common issue. The fix is almost always one of:
+
+1. **Refresh the page** Sometimes the visual editor's changes don't apply until a hard reload (Cmd-Shift-R) to bust the cache, especially if you had the page open while making changes in GrowthBook.
+2. **`Include Visual Experiments` toggle is off** on the SDK Connection. Visual experiments are stripped from the SDK payload unless this is enabled. Go to **SDK Configuration → SDK Connections**, edit the connection your site uses, and turn it on.
+3. **The SDK isn't loaded yet** when the variation tries to render. Custom JS variations need to wait for the target element — use the `waitFor` helper from [Manual mode → Custom JavaScript](/app/visual/manual-mode#custom-javascript).
+4. **URL targeting doesn't match.** The current URL doesn't satisfy the experiment's URL targeting rule. Check the rule and verify with the Debug Panel.
+5. **The experiment is still a draft** and the SDK Connection doesn't have **Include Drafts** enabled. Draft experiments aren't delivered by default.
+
+## Preview link returns the control
+
+You're hitting `?experiment-id=1` but seeing variation 0. In order of likelihood:
+
+1. **The experiment is a draft** and **Include Drafts is off** on the SDK Connection. Toggle it on, then hard-reload (Cmd-Shift-R) to bust the SDK cache.
+2. **Wrong client key.** Your site is loading a different SDK Connection than the one the experiment is associated with. Check the SDK Connection in GrowthBook against the client key in your site's source.
+3. **CDN or browser cache** is serving the pre-querystring version of the page. Hard-reload, or test in a private window.
+4. **URL targeting excludes this URL.** Even with the querystring, the SDK won't run the experiment on URLs that don't match the targeting pattern.
+
+## Element selector picks the wrong thing
+
+When you hover an element, the blue highlight selects an ancestor or sibling instead of what you wanted:
+
+- Use the **parent/child controls** in the sticky bar at the top of the side panel to drill up or down the DOM tree.
+- For elements stacked on top of each other (z-index), the picker grabs the topmost. Hold a modifier key (Alt on macOS, Shift on Windows) while clicking to cycle through elements at the same point.
+- Some interactive elements (open dropdowns, hover menus) close as soon as you move the mouse to the side panel. Use the **Interactive Mode** toggle to keep them open while you select.
+
+## Changes flicker on page load (FOOC)
+
+A "flash of original content" happens when the SDK applies the variation a moment after the page renders the control. Mitigations:
+
+- **Load the SDK as early as possible.** Place the `<script>` tag in `<head>`, not at the bottom of `<body>`.
+- **Use the [Script Tag SDK](/lib/script-tag)** — it's optimized to apply variations before paint when possible.
+- **Avoid heavy `before-render` custom JS.** The SDK has to wait for it.
+- **For server-rendered sites, consider an [Edge SDK](/lib/edge/cloudflare)** to apply visual changes at the CDN before HTML reaches the browser. This eliminates FOOC entirely.
+
+Heavy client-side-rendered apps (complex React/Vue/Svelte that rehydrate the page) are especially prone to flicker. For those, [Feature Flags](/app/features) are usually a better fit than visual experiments.
+
+## Image upload didn't replace the picture
+
+Modern responsive images use `srcset` and `<picture>` markup. If a plain `src` replacement doesn't show up:
+
+- The Visual Editor should be removing `srcset` automatically — check the Changes panel for an attribute-removal change next to the image change.
+- If it didn't, the target element might be nested in markup the picker didn't recognize as a `<picture>`. Try selecting the parent `<picture>` element directly.
+- See [Images → `<picture>` and `srcset` handling](/app/visual/images#picture-and-srcset-handling).
+
+## AI mode is greyed out / not available
+
+AI mode requires:
+
+- **An AI provider key configured** by an org admin in **Settings → AI**. See [AI Integrations](/integrations/ai).
+- **A plan that includes the `ai-suggestions` commercial feature.** Free plans don't include AI.
+- **An active connection** in the side panel — sign in if you've been signed out.
+
+If all three are in place and AI mode is still unavailable, hard-reload the side panel (right-click → Reload).
+
+## Extension can't connect to my self-hosted GrowthBook
+
+- **Confirm the API host URL.** Use your API host, not your front-end host. They're usually different (e.g., `api.example.com` vs. `app.example.com`).
+- **Confirm HTTPS.** Chrome blocks extension requests to HTTP hosts and to HTTPS hosts with invalid certs. Use a real TLS cert.
+- **Test the API from `curl` first** with `Authorization: Bearer <PAT>`. If `curl` fails, the host or token is the problem. If `curl` works but the extension doesn't, your browser's network environment (proxy, VPN, split-DNS) is blocking extension requests.
+- **CORS** — your API host's CORS configuration must allow the extension's origin. The extension uses `chrome-extension://<extension-id>` as its origin.
+
+## "Wrong domain" banner won't go away
+
+The Visual Editor scopes itself to the URL you set when creating the experiment. If you've moved to a different domain in the active tab, changes are paused intentionally.
+
+- **Switch the active tab back** to the experiment's target URL.
+- **Or update the experiment's target URL** in GrowthBook to match where you actually want to edit.
+
+## Changes apply to the wrong variation
+
+- **Check the variation switcher** above the property groups. It's easy to make changes to v2 thinking you're on v1.
+- **The control is read-only** — if you can't make changes, you're probably on the control tab. Switch to one of the variants.
+
+## Save fails with "permission denied"
+
+Your Personal Access Token's user account doesn't have permission to edit this experiment. Check:
+
+- **Project permissions.** Your user role might be limited to a subset of projects, and this experiment lives in a different one.
+- **Experiment ownership.** Some orgs restrict editing to experiment owners or members of the assigned team.
+- **PAT scope.** Re-create the PAT if it was generated under an older account state.
+
+## Still stuck?
+
+- **Share the Debug Panel screenshot** when filing a support ticket — see [Preview and QA → The debug panel](/app/visual/preview-and-qa#the-debug-panel).
+- **Reach out** in [the GrowthBook community Slack](https://slack.growthbook.io) or via [support](mailto:support@growthbook.io).
+
+## Next steps
+
+- **[Preview and QA](/app/visual/preview-and-qa)** — preview links, debug panel, live-experiment warning.
+- **[Visual Editor overview](/app/visual)** — back to the main page.

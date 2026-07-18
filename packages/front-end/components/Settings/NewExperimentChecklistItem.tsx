@@ -15,8 +15,20 @@ type AutoChecklistOption = {
     | "project"
     | "tag"
     | "customField"
-    | "prerequisiteTargeting";
+    | "prerequisiteTargeting"
+    | "schedule";
 };
+
+// Prefix https:// when no scheme is present. Only the scheme is lower-cased;
+// the rest of the URL keeps its casing since paths/query strings are
+// case-sensitive (e.g. Google Drive links). See #6237.
+export function normalizeChecklistTaskUrl(rawValue: string): string {
+  const match = rawValue.match(/^(https?):\/\//i);
+  if (match) {
+    return match[1].toLowerCase() + "://" + rawValue.slice(match[0].length);
+  }
+  return "https://" + rawValue;
+}
 
 export default function NewExperimentChecklistItem({
   experimentLaunchChecklist,
@@ -60,6 +72,11 @@ export default function NewExperimentChecklistItem({
       value: "Ensure prerequisite targeting is set for this experiment",
       label: "Ensure prerequisite targeting is set for this experiment",
       propertyKey: "prerequisiteTargeting",
+    },
+    {
+      value: "Add scheduled start date to experiment",
+      label: "Add scheduled start date to experiment",
+      propertyKey: "schedule",
     },
   ];
 
@@ -138,14 +155,9 @@ export default function NewExperimentChecklistItem({
               }
             }}
             onChange={(e) => {
-              const url = e.target.value.toLowerCase();
-
-              const containsHttp =
-                url.startsWith("http://") || url.startsWith("https://");
-
               setNewTaskInput({
                 ...newTaskInput,
-                url: containsHttp ? url : "https://" + url,
+                url: normalizeChecklistTaskUrl(e.target.value),
               });
             }}
           />

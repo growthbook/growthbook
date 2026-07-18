@@ -48,6 +48,10 @@ import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { SdkWebHookLogDocument } from "back-end/src/models/SdkWebhookLogModel";
 import { getAccountPlan } from "back-end/src/enterprise";
 import { logger } from "back-end/src/util/logger";
+import {
+  healPriorSettings,
+  healMetricOverrides,
+} from "back-end/src/util/priors";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "./secrets";
 
 function roundVariationWeight(num: number): number {
@@ -72,6 +76,11 @@ function adjustWeights(weights: number[]): number[] {
 
 export function upgradeMetricDoc(doc: LegacyMetricInterface): MetricInterface {
   const newDoc = { ...doc };
+
+  // Raw-driver reads skip Mongoose date casting; legacy docs may store strings
+  if (typeof newDoc.runStarted === "string") {
+    newDoc.runStarted = new Date(newDoc.runStarted);
+  }
 
   if (doc.windowSettings === undefined) {
     if (doc.conversionDelayHours == null && doc.earlyStart) {
@@ -113,6 +122,7 @@ export function upgradeMetricDoc(doc: LegacyMetricInterface): MetricInterface {
       stddev: DEFAULT_PROPER_PRIOR_STDDEV,
     };
   }
+  healPriorSettings(newDoc.priorSettings);
 
   if (!doc.userIdTypes?.length) {
     if (doc.userIdType === "user") {
@@ -600,6 +610,8 @@ export function upgradeOrganizationDoc(
     delete org.settings.postStratificationDisabled;
   }
 
+  healPriorSettings(org.settings?.metricDefaults?.priorSettings);
+
   return org;
 }
 
@@ -721,6 +733,7 @@ export function upgradeExperimentDoc(
       }
     });
   }
+  healMetricOverrides(experiment.metricOverrides);
 
   if (experiment.decisionFrameworkSettings === undefined) {
     experiment.decisionFrameworkSettings = {};
@@ -733,7 +746,7 @@ export function upgradeExperimentDoc(
         experiment.releasedVariationId = experiment.variations[0]?.id || "";
       } else if (experiment.results === "won") {
         experiment.releasedVariationId =
-          experiment.variations[experiment.winner || 1]?.id || "";
+          experiment.variations[experiment.winner ?? 1]?.id || "";
       } else {
         experiment.releasedVariationId = "";
       }
@@ -802,6 +815,8 @@ export function migrateExperimentReport(
       }),
     );
   }
+
+  healMetricOverrides(newArgs.metricOverrides);
 
   return {
     ...report,

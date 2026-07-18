@@ -13,7 +13,6 @@ const snapshotContext = React.createContext<{
   feature?: FeatureInterface;
   snapshot?: SafeRolloutSnapshotInterface;
   analysis?: SafeRolloutSnapshotAnalysis | undefined;
-  latestAnalysis?: SafeRolloutSnapshotAnalysis | undefined;
   latest?: SafeRolloutSnapshotInterface;
   mutateSnapshot: () => void;
   analysisSettings?: SafeRolloutSnapshotAnalysisSettings | null;
@@ -64,12 +63,6 @@ export default function SafeRolloutSnapshotProvider({
         analysis: data?.snapshot
           ? (getSafeRolloutSnapshotAnalysis(
               data?.snapshot,
-              defaultAnalysisSettings,
-            ) ?? undefined)
-          : undefined,
-        latestAnalysis: data?.latest
-          ? (getSafeRolloutSnapshotAnalysis(
-              data?.latest,
               defaultAnalysisSettings,
             ) ?? undefined)
           : undefined,

@@ -14,13 +14,19 @@ import {
   DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
   DEFAULT_DECISION_FRAMEWORK_ENABLED,
   DEFAULT_REQUIRE_PROJECT_FOR_FEATURES,
+  DEFAULT_REQUIRE_PROJECT_FOR_SDK_CONNECTIONS,
   DEFAULT_POST_STRATIFICATION_ENABLED,
+  DEFAULT_REVISION_CONFIGURATION,
 } from "shared/constants";
-import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
+import {
+  DEFAULT_MAX_METRIC_SLICE_LEVELS,
+  DEFAULT_TOP_VALUES_LOOKBACK_VALUE,
+} from "shared/settings";
 import { OrganizationSettings } from "shared/types/organization";
 import { Box, Flex, Heading } from "@radix-ui/themes";
 import { PRESET_DECISION_CRITERIA } from "shared/enterprise";
 import { CUSTOMIZABLE_PROMPT_TYPES } from "shared/ai";
+import { getRequireRegisteredAttributesSettings } from "shared/util";
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
 import { hasFileConfig, isCloud } from "@/services/env";
@@ -32,6 +38,7 @@ import {
 } from "@/hooks/useOrganizationMetricDefaults";
 import { useUser } from "@/services/UserContext";
 import { useCurrency } from "@/hooks/useCurrency";
+import useURLHash from "@/hooks/useURLHash";
 import OrganizationAndLicenseSettings from "@/components/GeneralSettings/OrganizationAndLicenseSettings";
 import ImportSettings from "@/components/GeneralSettings/ImportSettings";
 import NorthStarMetricSettings from "@/components/GeneralSettings/NorthStarMetricSettings";
@@ -43,11 +50,17 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import DatasourceSettings from "@/components/GeneralSettings/DatasourceSettings";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
 import AISettings from "@/components/GeneralSettings/AISettings";
+import {
+  SETTINGS_TAB,
+  parseSettingsHash,
+} from "@/components/GeneralSettings/settingsSections";
 import HelperText from "@/ui/HelperText";
 import { StickyTabsList, Tabs, TabsContent, TabsTrigger } from "@/ui/Tabs";
 import Frame from "@/ui/Frame";
 import SavedGroupSettings from "@/components/GeneralSettings/SavedGroupSettings";
+import TargetingAttributesSettings from "@/components/GeneralSettings/TargetingAttributesSettings";
 import ApprovalFlowSettings from "@/components/GeneralSettings/ApprovalFlowSettings";
+import SDKConnectionSettings from "@/components/GeneralSettings/SDKConnectionSettings";
 
 export const ConnectSettingsForm = ({ children }) => {
   const methods = useFormContext();
@@ -63,6 +76,28 @@ function hasChanges(
   return !isEqual(value, existing);
 }
 
+function applyApprovalFlowEntitlements(
+  approvalFlows: OrganizationSettings["approvalFlows"],
+  hasRequireApprovals: boolean,
+): OrganizationSettings["approvalFlows"] {
+  if (hasRequireApprovals || !approvalFlows) return approvalFlows;
+
+  const savedGroupApprovalFlow =
+    approvalFlows?.savedGroups?.[0] ??
+    DEFAULT_REVISION_CONFIGURATION.savedGroups[0];
+
+  return {
+    ...approvalFlows,
+    savedGroups: [
+      {
+        ...savedGroupApprovalFlow,
+        required: false,
+      },
+      ...(approvalFlows.savedGroups?.slice(1) ?? []),
+    ],
+  };
+}
+
 const GeneralSettingsPage = (): React.ReactElement => {
   const { refreshOrganization, settings, organization, hasCommercialFeature } =
     useUser();
@@ -75,9 +110,13 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const displayCurrency = useCurrency();
 
   const hasStickyBucketFeature = hasCommercialFeature("sticky-bucketing");
+  const hasRequireApprovals = hasCommercialFeature("require-approvals");
 
   const promptForm = useForm();
 
+  const [urlHash, setUrlHash] = useURLHash();
+  const { tab: activeTab, section: deepLinkSection } =
+    parseSettingsHash(urlHash);
   const { metricDefaults } = useOrganizationMetricDefaults();
   const form = useForm<OrganizationSettingsWithMetricDefaults>({
     defaultValues: {
@@ -137,9 +176,15 @@ const GeneralSettingsPage = (): React.ReactElement => {
         },
       ],
       restApiBypassesReviews: settings.restApiBypassesReviews ?? false,
+      requireRebaseBeforePublish: settings.requireRebaseBeforePublish ?? false,
+      revertsBypassApproval: settings.revertsBypassApproval ?? false,
+      configsExtensibleByDefault: settings.configsExtensibleByDefault ?? true,
+      configExperimentGuardDefault:
+        settings.configExperimentGuardDefault ?? false,
+      blockPublishOnSchemaError: settings.blockPublishOnSchemaError ?? true,
+      maxConcurrentDrafts: settings.maxConcurrentDrafts ?? 0,
       defaultDataSource: settings.defaultDataSource || "",
       testQueryDays: DEFAULT_TEST_QUERY_DAYS,
-      disableMultiMetricQueries: false,
       disablePrecomputedDimensions:
         settings.disablePrecomputedDimensions ?? true,
       useStickyBucketing: false,
@@ -149,6 +194,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       codeRefsPlatformUrl: "",
       featureKeyExample: "",
       featureRegexValidator: "",
+      sparseJSONRulesByDefault: false,
       featureListMarkdown: settings.featureListMarkdown || "",
       featurePageMarkdown: settings.featurePageMarkdown || "",
       experimentListMarkdown: settings.experimentListMarkdown || "",
@@ -173,10 +219,24 @@ const GeneralSettingsPage = (): React.ReactElement => {
       requireProjectForFeatures:
         settings.requireProjectForFeatures ??
         DEFAULT_REQUIRE_PROJECT_FOR_FEATURES,
+      requireProjectForSdkConnections:
+        settings.requireProjectForSdkConnections ??
+        DEFAULT_REQUIRE_PROJECT_FOR_SDK_CONNECTIONS,
+      requireRegisteredAttributes: getRequireRegisteredAttributesSettings(
+        settings.requireRegisteredAttributes,
+      ),
       aiEnabled: settings.aiEnabled ?? false,
       disableAutoHypothesisCheck: settings.disableAutoHypothesisCheck ?? false,
       defaultAIModel: settings.defaultAIModel || "gpt-4o-mini",
       embeddingModel: settings.embeddingModel || "text-embedding-ada-002",
+      // `undefined` represents "use default" — the back-end's resolver
+      // (getAISettingsForOrg) falls back to defaultAIModel for text and
+      // the GEMINI_IMAGE_MODEL env var for image when these are unset.
+      // We can't use empty string here because visualEditorAIModel is
+      // typed as the AIModel union (which doesn't include "").
+      visualEditorAIModel: settings.visualEditorAIModel,
+      visualEditorImageModel: settings.visualEditorImageModel || "",
+      visualEditorAIContext: settings.visualEditorAIContext || "",
       disableLegacyMetricCreation:
         settings.disableLegacyMetricCreation ?? false,
       defaultFeatureRulesInAllEnvs:
@@ -184,11 +244,16 @@ const GeneralSettingsPage = (): React.ReactElement => {
       preferredEnvironment: settings.preferredEnvironment || "",
       maxMetricSliceLevels:
         settings.maxMetricSliceLevels ?? DEFAULT_MAX_METRIC_SLICE_LEVELS,
+      topValuesLookbackValue:
+        settings.topValuesLookbackValue ?? DEFAULT_TOP_VALUES_LOOKBACK_VALUE,
       savedGroupSizeLimit: undefined,
       postStratificationEnabled:
         settings.postStratificationEnabled ??
         DEFAULT_POST_STRATIFICATION_ENABLED,
-      approvalFlows: settings.approvalFlows,
+      approvalFlows: applyApprovalFlowEntitlements(
+        settings.approvalFlows,
+        hasRequireApprovals,
+      ),
     },
   });
   const { apiCall } = useAuth();
@@ -227,6 +292,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     displayCurrency: form.watch("displayCurrency"),
     secureAttributeSalt: form.watch("secureAttributeSalt"),
     killswitchConfirmation: form.watch("killswitchConfirmation"),
+    sparseJSONRulesByDefault: form.watch("sparseJSONRulesByDefault"),
     defaultDataSource: form.watch("defaultDataSource"),
     useStickyBucketing: form.watch("useStickyBucketing"),
     useFallbackAttributes: form.watch("useFallbackAttributes"),
@@ -237,12 +303,20 @@ const GeneralSettingsPage = (): React.ReactElement => {
     disableAutoHypothesisCheck: form.watch("disableAutoHypothesisCheck"),
     defaultAIModel: form.watch("defaultAIModel"),
     embeddingModel: form.watch("embeddingModel"),
+    // Empty string from the form → undefined on the wire so we don't
+    // pollute the saved settings doc with empty values. The back-end's
+    // resolver treats both unset and empty-string as "no override".
+    visualEditorAIModel: form.watch("visualEditorAIModel") || undefined,
+    visualEditorImageModel: form.watch("visualEditorImageModel") || undefined,
+    visualEditorAIContext: form.watch("visualEditorAIContext") || undefined,
     disableLegacyMetricCreation: form.watch("disableLegacyMetricCreation"),
     defaultFeatureRulesInAllEnvs: form.watch("defaultFeatureRulesInAllEnvs"),
     preferredEnvironment: form.watch("preferredEnvironment") || "",
     maxMetricSliceLevels: form.watch("maxMetricSliceLevels"),
+    topValuesLookbackValue: form.watch("topValuesLookbackValue"),
     savedGroupSizeLimit: form.watch("savedGroupSizeLimit"),
     approvalFlows: form.watch("approvalFlows"),
+    requireRegisteredAttributes: form.watch("requireRegisteredAttributes"),
   };
   function updateCronString(cron?: string) {
     cron = cron || value.updateSchedule?.cron || "";
@@ -289,6 +363,18 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 }
               : {}),
           };
+        } else if (k === "requireRegisteredAttributes") {
+          // Stored as either a legacy boolean or the canonical object shape;
+          // normalize to the object so the form always works with one type.
+          newVal.requireRegisteredAttributes =
+            getRequireRegisteredAttributesSettings(
+              settings?.requireRegisteredAttributes,
+            );
+        } else if (k === "approvalFlows") {
+          newVal.approvalFlows = applyApprovalFlowEntitlements(
+            settings?.approvalFlows,
+            hasRequireApprovals,
+          );
         } else {
           newVal[k] = settings?.[k] || newVal[k];
         }
@@ -319,7 +405,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         );
       }
     }
-  }, [settings]);
+  }, [settings, hasRequireApprovals]);
 
   useEffect(() => {
     form.setValue(
@@ -330,6 +416,16 @@ const GeneralSettingsPage = (): React.ReactElement => {
         .filter(Boolean),
     );
   }, [codeRefsBranchesToFilterStr]);
+
+  useEffect(() => {
+    if (!deepLinkSection) return;
+    const frame = window.requestAnimationFrame(() => {
+      document
+        .getElementById(deepLinkSection)
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [deepLinkSection]);
 
   // I Don't think this works as intended - the hasChanges(value, originalValue) always seems to return true.
   const ctaEnabled =
@@ -360,6 +456,12 @@ const GeneralSettingsPage = (): React.ReactElement => {
       multipleExposureMinPercent:
         (value.multipleExposureMinPercent ?? 0.01) / 100,
       preferredEnvironment: value.preferredEnvironment || null,
+      // A cleared number input yields NaN — normalize to 0 (cap disabled)
+      maxConcurrentDrafts: value.maxConcurrentDrafts || 0,
+      approvalFlows: applyApprovalFlowEntitlements(
+        value.approvalFlows,
+        hasRequireApprovals,
+      ),
     };
 
     // Make sure the feature key example is valid
@@ -420,32 +522,41 @@ const GeneralSettingsPage = (): React.ReactElement => {
           />
         </Box>
 
-        <Tabs defaultValue="experiment" persistInURL={true}>
+        <Tabs value={activeTab} onValueChange={setUrlHash}>
           <StickyTabsList>
-            <TabsTrigger value="experiment">Experiment Settings</TabsTrigger>
-            <TabsTrigger value="feature">Feature Settings</TabsTrigger>
-            <TabsTrigger value="metrics">Metrics &amp; Data</TabsTrigger>
-            <TabsTrigger value="approval-flow">
-              {/* TODO: Check if we want to reuse this feature flag or not */}
+            <TabsTrigger value={SETTINGS_TAB.experiment}>
+              Experiments
+            </TabsTrigger>
+            <TabsTrigger value={SETTINGS_TAB.feature}>
+              Feature Flags
+            </TabsTrigger>
+            <TabsTrigger value={SETTINGS_TAB.metrics}>
+              Metrics &amp; Data
+            </TabsTrigger>
+            <TabsTrigger value={SETTINGS_TAB["approval-flow"]}>
               <PremiumTooltip commercialFeature="require-approvals">
                 Approval Flows
               </PremiumTooltip>
             </TabsTrigger>
-            <TabsTrigger value="sdk">SDK Configuration</TabsTrigger>
-            <TabsTrigger value="import">Import &amp; Export</TabsTrigger>
-            <TabsTrigger value="custom">
+            <TabsTrigger value={SETTINGS_TAB.sdk}>
+              SDK Configuration
+            </TabsTrigger>
+            <TabsTrigger value={SETTINGS_TAB.import}>
+              Import &amp; Export
+            </TabsTrigger>
+            <TabsTrigger value={SETTINGS_TAB.custom}>
               <PremiumTooltip commercialFeature="custom-markdown">
                 Custom Markdown
               </PremiumTooltip>
             </TabsTrigger>
-            <TabsTrigger value="ai">
+            <TabsTrigger value={SETTINGS_TAB.ai}>
               <PremiumTooltip commercialFeature="ai-suggestions">
-                AI Settings
+                AI &amp; Prompts
               </PremiumTooltip>
             </TabsTrigger>
           </StickyTabsList>
           <Box mt="4">
-            <TabsContent value="experiment">
+            <TabsContent value={SETTINGS_TAB.experiment}>
               <ExperimentSettings
                 cronString={cronString}
                 updateCronString={updateCronString}
@@ -455,12 +566,12 @@ const GeneralSettingsPage = (): React.ReactElement => {
               </Frame>
             </TabsContent>
 
-            <TabsContent value="feature">
+            <TabsContent value={SETTINGS_TAB.feature}>
               <FeatureSettings />
               <RampScheduleTemplates />
             </TabsContent>
 
-            <TabsContent value="metrics">
+            <TabsContent value={SETTINGS_TAB.metrics}>
               <>
                 <MetricsSettings />
                 <DatasourceSettings />
@@ -468,7 +579,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
               </>
             </TabsContent>
 
-            <TabsContent value="import">
+            <TabsContent value={SETTINGS_TAB.import}>
               <ImportSettings
                 hasFileConfig={hasFileConfig()}
                 isCloud={isCloud()}
@@ -477,7 +588,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
               />
             </TabsContent>
 
-            <TabsContent value="custom">
+            <TabsContent value={SETTINGS_TAB.custom}>
               <Frame>
                 <Flex>
                   <Box width="300px">
@@ -499,15 +610,17 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 </Flex>
               </Frame>
             </TabsContent>
-            <TabsContent value="ai">
+            <TabsContent value={SETTINGS_TAB.ai}>
               <AISettings promptForm={promptForm} />
             </TabsContent>
-            <TabsContent value="sdk">
+            <TabsContent value={SETTINGS_TAB.sdk}>
               <>
+                <SDKConnectionSettings />
                 <SavedGroupSettings />
+                <TargetingAttributesSettings />
               </>
             </TabsContent>
-            <TabsContent value="approval-flow">
+            <TabsContent value={SETTINGS_TAB["approval-flow"]}>
               <ApprovalFlowSettings />
             </TabsContent>
           </Box>
@@ -550,7 +663,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
               }}
               setError={setSubmitError}
             >
-              Save All
+              Save all
             </Button>
           </Box>
         </Box>

@@ -1,7 +1,11 @@
+import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import { listExperimentResultsValidator } from "shared/validators";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { getLatestSnapshotMultipleExperiments } from "back-end/src/models/ExperimentSnapshotModel";
-import { toSnapshotApiInterface } from "back-end/src/services/experiments";
+import {
+  getExperimentMetricsByIds,
+  toSnapshotApiInterface,
+} from "back-end/src/services/experiments";
 import {
   applyPagination,
   createApiRequestHandler,
@@ -33,10 +37,26 @@ export const listExperimentResults = createApiRequestHandler(
     }
   }
 
-  const snapshots = await getLatestSnapshotMultipleExperiments(
-    req.context,
-    experimentPhaseMap,
-  );
+  // Union of every metric id referenced across the filtered experiments, so we
+  // can resolve display names with a single DB lookup.
+  const metricGroups = await req.context.models.metricGroups.getAll();
+  const allMetricIds = new Set<string>();
+  for (const experiment of filtered) {
+    for (const id of getAllMetricIdsFromExperiment(
+      experiment,
+      true,
+      metricGroups,
+    )) {
+      allMetricIds.add(id);
+    }
+  }
+
+  const [snapshots, metrics] = await Promise.all([
+    getLatestSnapshotMultipleExperiments(req.context, experimentPhaseMap),
+    getExperimentMetricsByIds(req.context, Array.from(allMetricIds)),
+  ]);
+
+  const metricsById = new Map(metrics.map((m) => [m.id, m]));
 
   const snapshotsByExperiment = new Map(
     snapshots.map((snapshot) => [snapshot.experiment, snapshot]),
@@ -47,7 +67,9 @@ export const listExperimentResults = createApiRequestHandler(
   // reflects the response array, not the page slice.
   const experimentResults = filtered.flatMap((experiment) => {
     const snapshot = snapshotsByExperiment.get(experiment.id);
-    return snapshot ? [toSnapshotApiInterface(experiment, snapshot)] : [];
+    return snapshot
+      ? [toSnapshotApiInterface(experiment, snapshot, metricsById)]
+      : [];
   });
 
   return {

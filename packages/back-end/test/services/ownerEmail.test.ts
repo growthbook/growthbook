@@ -4,6 +4,7 @@ import {
   clearOwnerEmailCache,
   resolveOwnerEmail,
   resolveOwnerEmails,
+  resolveOwnerForCreate,
 } from "back-end/src/services/owner";
 
 function makeContext(users: Partial<UserInterface>[]): ReqContext {
@@ -11,6 +12,23 @@ function makeContext(users: Partial<UserInterface>[]): ReqContext {
     users.filter((u) => u.id && ids.includes(u.id)),
   );
   return { getUsersByIds } as unknown as ReqContext;
+}
+
+function makeOwnerContext({
+  members = [],
+  userId = "",
+}: {
+  members?: Partial<UserInterface>[];
+  userId?: string;
+}): ReqContext {
+  const getUserByEmail = jest.fn(async (email: string) =>
+    members.find((m) => m.email === email),
+  );
+  return {
+    userId,
+    org: { members: members.map((m) => ({ id: m.id })) },
+    getUserByEmail,
+  } as unknown as ReqContext;
 }
 
 beforeEach(() => {
@@ -197,5 +215,52 @@ describe("resolveOwnerEmails", () => {
     const result = await resolveOwnerEmails(docs, context);
     expect(docs[0]).toEqual({ id: "x_1", owner: "u_1" });
     expect(result[0]).not.toBe(docs[0]);
+  });
+});
+
+describe("resolveOwnerForCreate", () => {
+  it("resolves an explicit u_ owner that is a valid org member", async () => {
+    const context = makeOwnerContext({
+      members: [{ id: "u_1", email: "alice@example.com" }],
+      userId: "u_2",
+    });
+    expect(await resolveOwnerForCreate("u_1", context)).toBe("u_1");
+  });
+
+  it("resolves an email owner to the matching member's userId", async () => {
+    const context = makeOwnerContext({
+      members: [{ id: "u_1", email: "alice@example.com" }],
+      userId: "",
+    });
+    expect(await resolveOwnerForCreate("alice@example.com", context)).toBe(
+      "u_1",
+    );
+  });
+
+  it("falls back to the authenticated user (PAT) when no owner is provided", async () => {
+    const context = makeOwnerContext({ members: [], userId: "u_pat" });
+    expect(await resolveOwnerForCreate(undefined, context)).toBe("u_pat");
+    expect(await resolveOwnerForCreate("", context)).toBe("u_pat");
+  });
+
+  it("throws when no owner is provided and there is no userId (org API key)", async () => {
+    const context = makeOwnerContext({ members: [], userId: "" });
+    await expect(resolveOwnerForCreate(undefined, context)).rejects.toThrow(
+      /Personal Access Token/,
+    );
+  });
+
+  it("returns an unresolvable owner unchanged in non-strict mode", async () => {
+    const context = makeOwnerContext({ members: [], userId: "" });
+    expect(await resolveOwnerForCreate("legacyname", context)).toBe(
+      "legacyname",
+    );
+  });
+
+  it("throws on an unresolvable owner email in strict mode", async () => {
+    const context = makeOwnerContext({ members: [], userId: "u_pat" });
+    await expect(
+      resolveOwnerForCreate("missing@example.com", context, { strict: true }),
+    ).rejects.toThrow(/Unable to find user/);
   });
 });

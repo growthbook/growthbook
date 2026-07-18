@@ -1,6 +1,6 @@
 import { SavedGroupTargeting } from "shared/types/feature";
 import { PiArrowSquareOut, PiPlusCircleBold, PiXBold } from "react-icons/pi";
-import React from "react";
+import React, { useEffect } from "react";
 import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
@@ -12,6 +12,7 @@ import LargeSavedGroupPerformanceWarning, {
   useLargeSavedGroupSupport,
 } from "@/components/SavedGroups/LargeSavedGroupSupportWarning";
 import Link from "@/ui/Link";
+import RadioGroup from "@/ui/RadioGroup";
 import Callout from "@/ui/Callout";
 import {
   TargetingConditionsCard,
@@ -29,6 +30,12 @@ export interface Props {
   label?: string;
   labelActions?: React.ReactNode;
   locked?: boolean;
+  addRemoveMode?: boolean;
+  addRemoveValue?: "set" | "remove";
+  onAddRemoveValueChange?: (value: "set" | "remove") => void;
+  onRemoveEffect?: () => void;
+  setModeLabel?: string;
+  removeModeLabel?: string;
 }
 
 export default function SavedGroupTargetingField({
@@ -40,16 +47,22 @@ export default function SavedGroupTargetingField({
   label = "Target by Saved Groups",
   labelActions,
   locked,
+  addRemoveMode,
+  addRemoveValue,
+  onAddRemoveValueChange,
+  onRemoveEffect,
+  setModeLabel,
+  removeModeLabel,
 }: Props) {
   const { savedGroups, getSavedGroupById } = useDefinitions();
 
-  const { unsupportedConnections, hasLargeSavedGroupFeature } =
+  const { unsupportedConnections, hasLargeSavedGroupFeature, connections } =
     useLargeSavedGroupSupport(project);
 
   const savedGroupsLabel =
     label &&
     (slimMode ? (
-      <Text as="div" size="small" weight="semibold" color="text-mid">
+      <Text as="div" size="medium" weight="semibold" color="text-mid">
         {label}
       </Text>
     ) : (
@@ -57,6 +70,26 @@ export default function SavedGroupTargetingField({
         {label}
       </Text>
     ));
+  const showAddRemoveSelector =
+    !!addRemoveMode && !!addRemoveValue && !!onAddRemoveValueChange;
+  const addRemoveSelector = showAddRemoveSelector ? (
+    <RadioGroup
+      mt="2"
+      gap="0"
+      value={addRemoveValue}
+      setValue={(v) => onAddRemoveValueChange(v as "set" | "remove")}
+      options={[
+        { value: "set", label: setModeLabel ?? "Set targeting" },
+        { value: "remove", label: removeModeLabel ?? "Remove targeting" },
+      ]}
+      labelSize="2"
+    />
+  ) : null;
+  useEffect(() => {
+    if (!showAddRemoveSelector || addRemoveValue !== "set") return;
+    if (value.length > 0) return;
+    setValue([{ match: "any", ids: [] }]);
+  }, [showAddRemoveSelector, addRemoveValue, value, setValue]);
 
   if (!savedGroups.length)
     return (
@@ -67,6 +100,7 @@ export default function SavedGroupTargetingField({
             You do not have any saved groups.
           </Text>
         </Box>
+        {addRemoveSelector}
       </Box>
     );
 
@@ -83,16 +117,33 @@ export default function SavedGroupTargetingField({
 
   const conflicts = getSavedGroupTargetingConflicts(value);
 
+  if (showAddRemoveSelector && addRemoveValue === "remove") {
+    return (
+      <Box mb="0">
+        {label || labelActions ? (
+          <Flex mb="1" justify="between" align="center">
+            {savedGroupsLabel}
+            {labelActions}
+          </Flex>
+        ) : (
+          savedGroupsLabel
+        )}
+        {addRemoveSelector}
+      </Box>
+    );
+  }
+
   if (value.length === 0) {
     return (
       <Box>
         {(label || labelActions) && (
-          <Flex mb={slimMode ? "0" : "1"} justify="between" align="center">
+          <Flex mb="1" justify="between" align="center">
             {savedGroupsLabel}
             {labelActions}
           </Flex>
         )}
         {!label && !labelActions && savedGroupsLabel}
+        {addRemoveSelector}
         <Box>
           {(emptyText || !slimMode) && (
             <Text
@@ -104,52 +155,56 @@ export default function SavedGroupTargetingField({
               {emptyText || "No saved group targeting applied."}
             </Text>
           )}
-          <Box mt={slimMode ? "0" : "2"}>
-            <Link
-              onClick={() => {
-                if (locked) return;
-                setValue([
-                  ...value,
-                  {
-                    match: "any",
-                    ids: [],
-                  },
-                ]);
-              }}
-            >
-              <Text
-                weight={slimMode ? "regular" : "semibold"}
-                size={slimMode ? "small" : "medium"}
-                color={locked ? "text-low" : undefined}
+          {!showAddRemoveSelector && (
+            <Box mt={slimMode ? "0" : "2"}>
+              <Link
+                onClick={() => {
+                  if (locked) return;
+                  setValue([
+                    ...value,
+                    {
+                      match: "any",
+                      ids: [],
+                    },
+                  ]);
+                }}
               >
-                <PiPlusCircleBold className="mr-1" />
-                Add group targeting
-              </Text>
-            </Link>
-          </Box>
+                <Text
+                  weight="semibold"
+                  size="medium"
+                  color={locked ? "text-low" : undefined}
+                >
+                  <PiPlusCircleBold className="mr-1" />
+                  Add group targeting
+                </Text>
+              </Link>
+            </Box>
+          )}
         </Box>
       </Box>
     );
   }
 
   return (
-    <Box mb={slimMode ? "2" : "6"}>
+    <Box mb="0">
       {label || labelActions ? (
-        <Flex mb={slimMode ? "0" : "1"} justify="between" align="center">
+        <Flex mb="1" justify="between" align="center">
           {savedGroupsLabel}
           {labelActions}
         </Flex>
       ) : (
         savedGroupsLabel && (
-          <Box mb={slimMode ? "0" : "1"}>
+          <Box mb="1">
             {savedGroupsLabel}
             <LargeSavedGroupPerformanceWarning
               hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
               unsupportedConnections={unsupportedConnections}
+              connections={connections}
             />
           </Box>
         )
       )}
+      {addRemoveSelector}
       <Box>
         {conflicts.length > 0 && (
           <Callout status="error" mb="3">
@@ -172,7 +227,6 @@ export default function SavedGroupTargetingField({
           addButton={
             <AddConditionButton
               disabled={locked}
-              slimMode={slimMode}
               onClick={() => {
                 setValue([
                   ...value,
@@ -277,6 +331,14 @@ export default function SavedGroupTargetingField({
                         size="1"
                         disabled={locked}
                         onClick={() => {
+                          if (showAddRemoveSelector && value.length === 1) {
+                            if (onRemoveEffect) {
+                              onRemoveEffect();
+                            } else {
+                              onAddRemoveValueChange?.("remove");
+                            }
+                            return;
+                          }
                           const newValue = value.filter((_, idx) => idx !== i);
                           setValue(newValue);
                         }}

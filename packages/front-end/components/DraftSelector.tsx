@@ -26,6 +26,10 @@ export default function DraftSelector({
   existingDraftLabel,
   revisionDropdown,
   metadataOnly = false,
+  singleOption = false,
+  newDraftDisabled = false,
+  newDraftDisabledReason,
+  recommendExisting = false,
 }: {
   hasActiveDrafts: boolean;
   mode: DraftMode;
@@ -47,6 +51,16 @@ export default function DraftSelector({
    * lines up with the page-level controls.
    */
   metadataOnly?: boolean;
+  /** When true (only one mode is available) the edit CTA and expand behaviour
+   *  are suppressed entirely. The caller is responsible for ensuring `mode` is
+   *  already set to the correct value. */
+  singleOption?: boolean;
+  /** Disable the "create a new draft" option — e.g. the org's soft draft cap is
+   *  reached and the caller may not exceed it. */
+  newDraftDisabled?: boolean;
+  newDraftDisabledReason?: ReactNode;
+  /** Flag "add to existing draft" as the recommended choice (soft cap reached). */
+  recommendExisting?: boolean;
 }) {
   const [isOpen, setIsOpen] = useState(defaultExpanded ?? false);
 
@@ -103,13 +117,25 @@ export default function DraftSelector({
       ? [
           {
             value: "existing",
-            label: existingOptionLabel,
+            label: recommendExisting ? (
+              <>
+                {existingOptionLabel}{" "}
+                <span style={{ color: "var(--violet-11)" }}>(Recommended)</span>
+              </>
+            ) : (
+              existingOptionLabel
+            ),
             renderOnSelect: existingDraftDisclosure ?? undefined,
             renderOutsideItem: true,
           },
         ]
       : []),
-    { value: "new", label: newOptionLabel },
+    {
+      value: "new",
+      label: newOptionLabel,
+      disabled: newDraftDisabled,
+      disabledReason: newDraftDisabled ? newDraftDisabledReason : undefined,
+    },
     ...(canAutoPublish
       ? [
           {
@@ -133,8 +159,11 @@ export default function DraftSelector({
       gap="3"
       px="3"
       py="4"
-      style={{ cursor: "pointer", userSelect: "none" }}
-      className="draft-selector-collapsible-trigger"
+      style={{
+        cursor: singleOption ? "default" : "pointer",
+        userSelect: "none",
+      }}
+      className={`draft-selector-collapsible-trigger${singleOption ? " no-hover" : ""}`}
     >
       <Box style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
         <HelperText status="info">
@@ -151,24 +180,26 @@ export default function DraftSelector({
           </div>
         </HelperText>
       </Box>
-      <Button
-        variant="ghost"
-        size="xs"
-        onClick={async (e) => {
-          e?.stopPropagation();
-          setIsOpen((v) => !v);
-        }}
-        style={{ marginLeft: -5 }}
-      >
-        <Flex align="center" gap="1">
-          {!isOpen && <span style={{ marginRight: 4 }}>edit</span>}
-          <PiCaretRightBold
-            className="chevron-right"
-            size={14}
-            style={{ margin: "0 -4px" }}
-          />
-        </Flex>
-      </Button>
+      {!singleOption && (
+        <Button
+          variant="ghost"
+          size="xs"
+          onClick={async (e) => {
+            e?.stopPropagation();
+            setIsOpen((v) => !v);
+          }}
+          style={{ marginLeft: -5 }}
+        >
+          <Flex align="center" gap="1">
+            {!isOpen && <span style={{ marginRight: 4 }}>edit</span>}
+            <PiCaretRightBold
+              className="chevron-right"
+              size={14}
+              style={{ margin: "0 -4px" }}
+            />
+          </Flex>
+        </Button>
+      )}
     </Flex>
   );
 
@@ -179,7 +210,9 @@ export default function DraftSelector({
         transitionTime={75}
         contentInnerClassName="draft-selector-collapsible-content"
         open={isOpen}
-        handleTriggerClick={() => setIsOpen((v) => !v)}
+        handleTriggerClick={() => {
+          if (!singleOption) setIsOpen((v) => !v);
+        }}
       >
         <Box px="3" py="3" style={{ backgroundColor: "var(--violet-a3)" }}>
           <RadioGroup

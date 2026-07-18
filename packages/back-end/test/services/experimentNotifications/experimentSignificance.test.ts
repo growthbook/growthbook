@@ -10,7 +10,7 @@ import {
   getMetricDefaultsForOrg,
   getSignificanceSettingsForProject,
 } from "back-end/src/services/organizations";
-import { getLatestSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
+import { getLatestSuccessfulSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
 import { computeExperimentChanges } from "back-end/src/services/experimentNotifications";
 import {
   metrics,
@@ -19,7 +19,7 @@ import {
 } from "./experimentSignificance.mocks.json";
 
 jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
-  getLatestSnapshot: jest.fn(),
+  getLatestSuccessfulSnapshot: jest.fn(),
 }));
 
 jest.mock("back-end/src/services/organizations", () => ({
@@ -119,12 +119,13 @@ const testCases = [
 
 describe("Experiment Significance notifications", () => {
   const { isReady, setReqContext } = setupApp();
+  const orgId = experiments[0].organization;
 
   beforeAll(async () => {
     await isReady;
 
     const globalContext = {
-      org: { id: "org1" },
+      org: { id: orgId },
       permissions: new Permissions({
         global: {
           permissions: { createMetrics: true },
@@ -145,16 +146,18 @@ describe("Experiment Significance notifications", () => {
       }),
     );
 
-    await experiments.map(async (exp) => {
-      await ExperimentModel.create(exp);
-    });
+    await Promise.all(
+      experiments.map(async (exp) => {
+        await ExperimentModel.create(exp);
+      }),
+    );
   });
 
   it("detects significance", async () => {
     await BluebirdPromise.each(
       testCases,
       async ({ beforeSnapshot, currentSnapshot, expected, ...params }) => {
-        getLatestSnapshot.mockReturnValue(beforeSnapshot);
+        getLatestSuccessfulSnapshot.mockReturnValue(beforeSnapshot);
         getSignificanceSettingsForProject.mockResolvedValue({
           ...params.getConfidenceLevelsForOrg,
           pValueCorrection: params.getPValueCorrectionForOrg,
@@ -168,7 +171,7 @@ describe("Experiment Significance notifications", () => {
 
         const results = await computeExperimentChanges({
           context: {
-            org: { id: experiment.organization },
+            org: { id: orgId },
             permissions: { canReadMultiProjectResource: () => true },
             models: { metricGroups: { getAll: () => [] } },
           },

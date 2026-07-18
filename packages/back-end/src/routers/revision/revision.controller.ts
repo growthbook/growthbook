@@ -10,15 +10,50 @@ import {
   normalizeProposedChanges,
   isUserBlockedFromApproving,
 } from "shared/enterprise";
+import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { ReqContext } from "back-end/types/request";
 import { ApiErrorResponse } from "back-end/types/api";
+import { ConflictError, MergeConflictError } from "back-end/src/util/errors";
 import { getContextFromReq } from "back-end/src/services/organizations";
+import { ArmAcknowledgments } from "back-end/src/services/armGuards";
 import {
   getAdapter,
   getApprovalEnabledEntityTypes,
   getEntityModel,
 } from "back-end/src/revisions";
-import { buildMergeDesiredState } from "back-end/src/revisions/util";
+import { isRevisionDiverged } from "back-end/src/revisions/util";
+// Generic, entity-agnostic revision webhook dispatch. The adapter is looked up
+// by revision.target.type, so adding a new approval type needs no changes here.
+import { getRevisionWebhookAdapter } from "back-end/src/events/revisionWebhookAdapters";
+import {
+  approveRevision,
+  publishRevision as publishRevisionAction,
+  maybeAutoPublishRevision,
+  canEnableAutoPublishOnApproval,
+} from "back-end/src/revisions/revisionActions";
+
+// Arm-time acknowledgment for a deferred publish, via the entity's adapter hook
+// (config uses it for the experiment guard; others have none). Throws when the
+// armer must acknowledge a condition first; returns keys to snapshot on the arm.
+async function captureArmAcknowledgment(
+  context: ReqContext,
+  revision: Pick<Revision, "target">,
+  // Reuse an already-loaded entity when the caller has one.
+  prefetchedEntity?: Record<string, unknown> | null,
+): Promise<ArmAcknowledgments | undefined> {
+  const adapter = getAdapter(revision.target.type);
+  if (!adapter.captureArmAcknowledgment) return undefined;
+  const entity =
+    prefetchedEntity ??
+    (await adapter.getModel(context)?.getById(revision.target.id));
+  if (!entity) return undefined;
+  return adapter.captureArmAcknowledgment(
+    context,
+    entity,
+    revision.target.proposedChanges,
+  );
+}
 
 // region GET /revision
 
@@ -200,6 +235,12 @@ export const postRevision = async (
     proposedChanges,
   });
 
+  await getRevisionWebhookAdapter(revision.target.type)?.dispatch(
+    context,
+    revision,
+    { type: "created" },
+  );
+
   res.status(200).json({
     status: 200,
     revision,
@@ -368,7 +409,10 @@ export const getRevision = async (
 
 // region POST /revision/:id/submit
 
-type PostSubmitRequest = AuthRequest<Record<string, never>, { id: string }>;
+type PostSubmitRequest = AuthRequest<
+  { autoPublishOnApproval?: boolean },
+  { id: string }
+>;
 
 type PostSubmitResponse = {
   status: 200;
@@ -388,6 +432,7 @@ export const postSubmit = async (
   const context = getContextFromReq(req);
   const { userId } = context;
   const { id } = req.params;
+  const { autoPublishOnApproval } = req.body;
 
   const revisionModel = context.models.revisions;
 
@@ -396,10 +441,15 @@ export const postSubmit = async (
     return res.status(404).json({ message: "Revision not found" });
   }
 
-  // Can only submit drafts
-  if (existingRevision.status !== "draft") {
+  // Can submit drafts, and re-submit revisions after changes were requested
+  // (changes-requested → pending-review).
+  if (
+    existingRevision.status !== "draft" &&
+    existingRevision.status !== "changes-requested"
+  ) {
     return res.status(400).json({
-      message: "Only draft revisions can be submitted for review",
+      message:
+        "Only draft or changes-requested revisions can be submitted for review",
     });
   }
 
@@ -415,7 +465,30 @@ export const postSubmit = async (
     context.permissions.throwPermissionError();
   }
 
-  const revision = await revisionModel.submitForReview(id, userId);
+  const enableAutoPublish =
+    autoPublishOnApproval &&
+    canEnableAutoPublishOnApproval(
+      context,
+      existingRevision.target.type,
+      existingRevision.target.snapshot as Record<string, unknown>,
+    );
+
+  const armAcknowledgments = enableAutoPublish
+    ? await captureArmAcknowledgment(context, existingRevision)
+    : undefined;
+
+  const revision = await revisionModel.submitForReview(id, userId, {
+    autoPublishOnApproval: enableAutoPublish,
+    armAcknowledgments,
+  });
+
+  await getRevisionWebhookAdapter(revision.target.type)?.dispatch(
+    context,
+    revision,
+    {
+      type: "reviewRequested",
+    },
+  );
 
   res.status(200).json({
     status: 200,
@@ -431,6 +504,7 @@ type PostReviewRequest = AuthRequest<
   {
     decision: ReviewDecision;
     comment: string;
+    skipAutoPublish?: boolean;
   },
   { id: string }
 >;
@@ -453,7 +527,7 @@ export const postReview = async (
   const context = getContextFromReq(req);
   const { userId } = context;
   const { id } = req.params;
-  const { decision, comment } = req.body;
+  const { decision, comment, skipAutoPublish } = req.body;
 
   const revisionModel = context.models.revisions;
 
@@ -486,8 +560,9 @@ export const postReview = async (
   // which means the existing author check above is the only effective guard.
   if (
     decision === "approve" &&
+    context.hasPremiumFeature("require-approvals") &&
     isUserBlockedFromApproving({
-      approvalFlows: context.org.settings?.approvalFlows,
+      settings: context.org.settings,
       entityType: existingRevision.target.type,
       revision: existingRevision,
       userId,
@@ -510,6 +585,32 @@ export const postReview = async (
   }
 
   const revision = await revisionModel.addReview(id, userId, decision, comment);
+
+  await getRevisionWebhookAdapter(revision.target.type)?.dispatch(
+    context,
+    revision,
+    {
+      type: "reviewed",
+      decision,
+      userId,
+      ...(comment ? { comment } : {}),
+    },
+  );
+
+  if (decision === "approve" && !skipAutoPublish) {
+    const entityModel = getEntityModel(context, existingRevision.target.type);
+    const entity = entityModel
+      ? await entityModel.getById(existingRevision.target.id)
+      : null;
+    if (entity) {
+      const afterAutoPublish = await maybeAutoPublishRevision(
+        context,
+        revision,
+        entity as Record<string, unknown>,
+      );
+      return res.status(200).json({ status: 200, revision: afterAutoPublish });
+    }
+  }
 
   res.status(200).json({
     status: 200,
@@ -575,6 +676,12 @@ export const putProposedChanges = async (
     userId,
   );
 
+  await getRevisionWebhookAdapter(revision.target.type)?.dispatch(
+    context,
+    revision,
+    { type: "updated" },
+  );
+
   res.status(200).json({
     status: 200,
     revision,
@@ -618,11 +725,16 @@ export const patchTitle = async (
     return res.status(404).json({ message: "Revision not found" });
   }
 
-  // Only the author can update the title
-  if (existingRevision.authorId !== context.userId) {
-    return res.status(403).json({
-      message: "Only the revision author can update the title",
-    });
+  // Anyone who can update the underlying entity may edit a draft's title — not
+  // just the author. Matches the other revision-edit endpoints and the UI, which
+  // gate the title/description pencil on entity update permission, not authorship.
+  if (
+    !getAdapter(existingRevision.target.type).canUpdate(
+      context,
+      existingRevision.target.snapshot as Record<string, unknown>,
+    )
+  ) {
+    context.permissions.throwPermissionError();
   }
 
   // Cannot update title of merged/discarded revisions
@@ -646,6 +758,75 @@ export const patchTitle = async (
 };
 
 // endregion PATCH /revision/:id/title
+
+// region PATCH /revision/:id/description
+
+type PatchDescriptionRequest = AuthRequest<
+  {
+    description: string;
+  },
+  { id: string }
+>;
+
+type PatchDescriptionResponse = {
+  status: 200;
+  revision: Revision;
+};
+
+/**
+ * PATCH /revision/:id/description
+ * Update the description (comment) of a revision
+ * @param req
+ * @param res
+ */
+export const patchDescription = async (
+  req: PatchDescriptionRequest,
+  res: Response<PatchDescriptionResponse | ApiErrorResponse>,
+) => {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+  const { description } = req.body;
+
+  const revisionModel = context.models.revisions;
+
+  const existingRevision = await revisionModel.getById(id);
+  if (!existingRevision) {
+    return res.status(404).json({ message: "Revision not found" });
+  }
+
+  // Anyone who can update the underlying entity may edit a draft's description —
+  // not just the author. Matches the other revision-edit endpoints and the UI,
+  // which gate the title/description pencil on entity update permission.
+  if (
+    !getAdapter(existingRevision.target.type).canUpdate(
+      context,
+      existingRevision.target.snapshot as Record<string, unknown>,
+    )
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  // Cannot update description of merged/discarded revisions
+  if (
+    existingRevision.status === "merged" ||
+    existingRevision.status === "discarded"
+  ) {
+    return res.status(400).json({
+      message: "Cannot update description of a merged or discarded revision",
+    });
+  }
+
+  const revision = await revisionModel.update(existingRevision, {
+    comment: description,
+  });
+
+  res.status(200).json({
+    status: 200,
+    revision,
+  });
+};
+
+// endregion PATCH /revision/:id/description
 
 // region POST /revision/:id/rebase
 
@@ -721,6 +902,7 @@ export const postRebase = async (
     baseSnapshot,
     liveSnapshot,
     existingOps,
+    getAdapter(revision.target.type).getUpdatableFields(),
   );
 
   // Optimistic-lock: verify the client's view of the conflict set still
@@ -859,6 +1041,12 @@ export const postRebase = async (
     userId,
   );
 
+  await getRevisionWebhookAdapter(updatedRevision.target.type)?.dispatch(
+    context,
+    updatedRevision,
+    { type: "rebased" },
+  );
+
   res.status(200).json({
     status: 200,
     revision: updatedRevision,
@@ -878,16 +1066,15 @@ type PostMergeResponse = {
 
 /**
  * POST /revision/:id/merge
- * Merge a revision (apply the changes)
- * @param req
- * @param res
+ * Merge a revision (apply the changes). A revision with no net change vs the
+ * live entity is closed out as merged (200), not an error, to self-heal
+ * partial-failure retries.
  */
 export const postMerge = async (
   req: PostMergeRequest,
   res: Response<PostMergeResponse | ApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
-  const { userId } = context;
   const { id } = req.params;
 
   const revisionModel = context.models.revisions;
@@ -896,13 +1083,6 @@ export const postMerge = async (
   if (!revision) {
     return res.status(404).json({
       message: "Revision not found",
-    });
-  }
-
-  // Terminal status guard — prevents re-merging already-completed revisions
-  if (revision.status === "merged" || revision.status === "discarded") {
-    return res.status(400).json({
-      message: "Cannot merge a discarded or already-merged revision",
     });
   }
 
@@ -916,99 +1096,195 @@ export const postMerge = async (
     return res.status(404).json({ message: "Entity not found" });
   }
 
-  // Check edit permission
-  if (!adapter.canUpdate(context, entity as Record<string, unknown>)) {
-    context.permissions.throwPermissionError();
-  }
-
-  // Per-revision approval gate: an entity-type can opt into a finer-grained
-  // check (e.g. saved-group's metadata-only revisions skip review when the
-  // `requireMetadataReview` setting is disabled). Adapters without an
-  // override fall back to the org-wide `isApprovalRequired`.
-  const approvalRequired = adapter.isApprovalRequiredForRevision
-    ? adapter.isApprovalRequiredForRevision(context, revision)
-    : adapter.isApprovalRequired(context);
-  const canBypass = adapter.canBypassApproval(
+  const mergedRevision = await publishRevisionAction(
     context,
+    revision,
     entity as Record<string, unknown>,
   );
 
-  // If approval is required: must be approved OR user can bypass
-  // If approval is not required: can always publish
-  if (approvalRequired && revision.status !== "approved" && !canBypass) {
-    return res.status(400).json({
-      message: "The revision must be approved before it can be published",
-    });
-  }
-
-  const isBypass = approvalRequired && revision.status !== "approved";
-
-  // Build the desired final state by layering effective proposed changes on
-  // top of the LIVE entity, not the baseline snapshot. This preserves any
-  // out-of-band writes to fields the revision didn't propose to change. See
-  // `buildMergeDesiredState` for the filter rules.
-  const desiredState = buildMergeDesiredState(
-    entity as Record<string, unknown>,
-    revision.target.snapshot as Record<string, unknown>,
-    revision.target.proposedChanges,
-    adapter.getUpdatableFields(),
-  );
-
-  // Check for merge conflicts before applying
-  const conflictResult = checkMergeConflicts(
-    revision.target.snapshot as Record<string, unknown>,
-    entity as Record<string, unknown>,
-    normalizeProposedChanges(revision.target.proposedChanges),
-  );
-  if (!conflictResult.success) {
-    return res.status(400).json({
-      message:
-        "Cannot merge: there are conflicts with the current state. Please rebase first.",
-    });
-  }
-
-  // Check whether there are any updatable fields that actually differ.
-  // The adapter defines which fields may be written; we skip metadata fields.
-  const updatableFields = adapter.getUpdatableFields();
-  const hasChanges = Object.keys(desiredState).some((key) => {
-    if (!updatableFields.has(key)) return false;
-    return !isEqual(
-      desiredState[key],
-      (entity as Record<string, unknown>)[key],
-    );
-  });
-
-  if (!hasChanges) {
-    return res.status(400).json({
-      message: "Cannot publish: no changes detected in this revision",
-    });
-  }
-
-  // Two-step merge: update the live entity first, then mark the revision merged.
-  // These writes are NOT wrapped in a transaction (Mongo multi-document
-  // transactions aren't guaranteed to be available across our deployment
-  // targets). Failure modes:
-  //   1. applyChanges throws -> revision stays in its current status; the
-  //      entity is unchanged. The user can retry safely.
-  //   2. applyChanges succeeds, merge() throws -> entity is updated but the
-  //      revision is still flagged as approved/pending. The next merge attempt
-  //      is a no-op (hasChanges check above returns false) and the operator
-  //      can manually mark the revision merged, or another publish will close
-  //      it via the same path. This is preferred over the inverse ordering,
-  //      which would mark the revision merged without persisting the change.
-  await adapter.applyChanges(
-    context,
-    entity as Record<string, unknown>,
-    desiredState,
-  );
-
-  const mergedRevision = await revisionModel.merge(id, userId, {
-    bypass: isBypass,
-  });
   return res.status(200).json({ status: 200, revision: mergedRevision });
 };
 
 // endregion POST /revision/:id/merge
+
+// region POST /revision/:id/approve-and-publish
+
+type PostApproveAndPublishRequest = AuthRequest<
+  { comment?: string },
+  { id: string }
+>;
+
+type PostApproveAndPublishResponse = {
+  status: 200;
+  revision: Revision;
+};
+
+export const postApproveAndPublish = async (
+  req: PostApproveAndPublishRequest,
+  res: Response<PostApproveAndPublishResponse | ApiErrorResponse>,
+) => {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+  const { comment } = req.body;
+
+  const revisionModel = context.models.revisions;
+  const revision = await revisionModel.getById(id);
+  if (!revision) {
+    return res.status(404).json({ message: "Revision not found" });
+  }
+
+  const entityModel = getEntityModel(context, revision.target.type);
+  if (!entityModel) {
+    return res.status(400).json({ message: "Unsupported entity type" });
+  }
+  const entity = await entityModel.getById(revision.target.id);
+  if (!entity) {
+    return res.status(404).json({ message: "Entity not found" });
+  }
+
+  // Pre-flight publish feasibility BEFORE writing the approval. Otherwise a
+  // conflict (or missing publish permission) surfaces only inside
+  // publishRevisionAction, leaving the revision stuck in "approved" with no
+  // corresponding entity update. Mirrors postFeatureApproveAndPublish.
+  const adapter = getAdapter(revision.target.type);
+  if (!adapter.canUpdate(context, entity as Record<string, unknown>)) {
+    context.permissions.throwPermissionError();
+  }
+  const conflictResult = checkMergeConflicts(
+    revision.target.snapshot as Record<string, unknown>,
+    entity as Record<string, unknown>,
+    normalizeProposedChanges(revision.target.proposedChanges),
+    adapter.getUpdatableFields(),
+  );
+  if (!conflictResult.success) {
+    throw new MergeConflictError(
+      "Merge conflicts exist — rebase before publishing",
+      conflictResult.conflicts,
+    );
+  }
+
+  // requireRebaseBeforePublish pre-flight: reject a diverged revision before
+  // writing the approval, so it can't get stuck "approved" but unpublished.
+  if (context.org.settings?.requireRebaseBeforePublish) {
+    const canBypass = adapter.canBypassApproval(
+      context,
+      entity as Record<string, unknown>,
+    );
+    if (!canBypass) {
+      const diverged = isRevisionDiverged(
+        adapter,
+        revision.target.snapshot as Record<string, unknown>,
+        entity as Record<string, unknown>,
+      );
+      if (diverged) {
+        throw new ConflictError(
+          "This revision was created against an older version of the entity. " +
+            "Rebase the revision first.",
+        );
+      }
+    }
+  }
+
+  const approved = await approveRevision(
+    context,
+    revision,
+    entity as Record<string, unknown>,
+    comment ?? "",
+  );
+
+  const merged = await publishRevisionAction(
+    context,
+    approved,
+    entity as Record<string, unknown>,
+    { bypass: false },
+  );
+
+  return res.status(200).json({ status: 200, revision: merged });
+};
+
+// endregion POST /revision/:id/approve-and-publish
+
+// region POST /revision/:id/toggle-auto-publish
+
+type PostToggleAutoPublishRequest = AuthRequest<
+  { enabled: boolean },
+  { id: string }
+>;
+
+type PostToggleAutoPublishResponse = {
+  status: 200;
+  revision: Revision;
+};
+
+export const postToggleAutoPublish = async (
+  req: PostToggleAutoPublishRequest,
+  res: Response<PostToggleAutoPublishResponse | ApiErrorResponse>,
+) => {
+  const context = getContextFromReq(req);
+  const { userId } = context;
+  const { id } = req.params;
+  const { enabled } = req.body;
+
+  const revisionModel = context.models.revisions;
+  const existing = await revisionModel.getById(id);
+  if (!existing) {
+    return res.status(404).json({ message: "Revision not found" });
+  }
+
+  // Same gate as submit-for-review: anyone who can edit the underlying entity
+  // can arm/disarm auto-publish (which for saved groups also implies publish).
+  if (
+    !getAdapter(existing.target.type).canUpdate(
+      context,
+      existing.target.snapshot as Record<string, unknown>,
+    )
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  if (
+    enabled &&
+    !canEnableAutoPublishOnApproval(
+      context,
+      existing.target.type,
+      existing.target.snapshot as Record<string, unknown>,
+    )
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  const armAcknowledgments = enabled
+    ? await captureArmAcknowledgment(context, existing)
+    : undefined;
+
+  const revision = await revisionModel.setAutoPublishOnApproval(
+    id,
+    userId,
+    !!enabled,
+    { armAcknowledgments },
+  );
+
+  // Arming an already-approved revision must publish now — otherwise it waits
+  // for an approval event that never comes.
+  if (enabled && revision.status === "approved") {
+    const entityModel = getEntityModel(context, revision.target.type);
+    const entity = entityModel
+      ? await entityModel.getById(revision.target.id)
+      : null;
+    if (entity) {
+      const afterAutoPublish = await maybeAutoPublishRevision(
+        context,
+        revision,
+        entity as Record<string, unknown>,
+      );
+      return res.status(200).json({ status: 200, revision: afterAutoPublish });
+    }
+  }
+
+  res.status(200).json({ status: 200, revision });
+};
+
+// endregion POST /revision/:id/toggle-auto-publish
 
 // region POST /revision/:id/close
 
@@ -1069,6 +1345,14 @@ export const postClose = async (
 
   const revision = await revisionModel.close(id, userId, reason);
 
+  await getRevisionWebhookAdapter(revision.target.type)?.dispatch(
+    context,
+    revision,
+    {
+      type: "discarded",
+    },
+  );
+
   res.status(200).json({
     status: 200,
     revision,
@@ -1128,6 +1412,14 @@ export const postReopen = async (
 
   const revision = await revisionModel.reopen(id, userId);
 
+  await getRevisionWebhookAdapter(revision.target.type)?.dispatch(
+    context,
+    revision,
+    {
+      type: "reopened",
+    },
+  );
+
   res.status(200).json({
     status: 200,
     revision,
@@ -1135,6 +1427,391 @@ export const postReopen = async (
 };
 
 // endregion POST /revision/:id/reopen
+
+// region POST /revision/:id/recall-review
+
+type PostRecallReviewRequest = AuthRequest<never, { id: string }>;
+
+type PostRecallReviewResponse = {
+  status: 200;
+  revision: Revision;
+};
+
+/**
+ * POST /revision/:id/recall-review
+ * Pull a review request back to draft (clears reviews, disarms auto-publish)
+ */
+export const postRecallReview = async (
+  req: PostRecallReviewRequest,
+  res: Response<PostRecallReviewResponse | ApiErrorResponse>,
+) => {
+  const context = getContextFromReq(req);
+  const { userId } = context;
+  const { id } = req.params;
+
+  const revisionModel = context.models.revisions;
+
+  const existingRevision = await revisionModel.getById(id);
+  if (!existingRevision) {
+    return res.status(404).json({ message: "Revision not found" });
+  }
+
+  if (
+    !["pending-review", "changes-requested", "approved"].includes(
+      existingRevision.status,
+    )
+  ) {
+    return res.status(400).json({
+      message: "Only a revision in review can be returned to draft",
+    });
+  }
+
+  // Author can always recall; otherwise require permission to edit the entity.
+  if (existingRevision.authorId !== userId) {
+    if (
+      !getAdapter(existingRevision.target.type).canUpdate(
+        context,
+        existingRevision.target.snapshot as Record<string, unknown>,
+      )
+    ) {
+      context.permissions.throwPermissionError();
+    }
+  }
+
+  const revision = await revisionModel.recallReview(id, userId);
+
+  await getRevisionWebhookAdapter(revision.target.type)?.dispatch(
+    context,
+    revision,
+    { type: "reopened" },
+  );
+
+  res.status(200).json({ status: 200, revision });
+};
+
+// endregion POST /revision/:id/recall-review
+
+// region POST /revision/:id/undo-review
+
+type PostUndoReviewRequest = AuthRequest<never, { id: string }>;
+
+type PostUndoReviewResponse = {
+  status: 200;
+  revision: Revision;
+};
+
+/**
+ * POST /revision/:id/undo-review
+ * Retract the calling user's own active review verdict
+ */
+export const postUndoReview = async (
+  req: PostUndoReviewRequest,
+  res: Response<PostUndoReviewResponse | ApiErrorResponse>,
+) => {
+  const context = getContextFromReq(req);
+  const { userId } = context;
+  const { id } = req.params;
+
+  const revisionModel = context.models.revisions;
+
+  const existingRevision = await revisionModel.getById(id);
+  if (!existingRevision) {
+    return res.status(404).json({ message: "Revision not found" });
+  }
+
+  // Must be able to edit the entity to touch verdicts; the model enforces that
+  // only the caller's own active verdict is retracted.
+  if (
+    !getAdapter(existingRevision.target.type).canUpdate(
+      context,
+      existingRevision.target.snapshot as Record<string, unknown>,
+    )
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  const revision = await revisionModel.undoReview(id, userId);
+
+  await getRevisionWebhookAdapter(revision.target.type)?.dispatch(
+    context,
+    revision,
+    { type: "updated" },
+  );
+
+  // Retracting a request-changes can flip the revision back to approved; if it's
+  // armed, auto-publish like the review path.
+  if (revision.status === "approved" && revision.autoPublishOnApproval) {
+    const entityModel = getEntityModel(context, revision.target.type);
+    const entity = entityModel
+      ? await entityModel.getById(revision.target.id)
+      : null;
+    if (entity) {
+      const afterAutoPublish = await maybeAutoPublishRevision(
+        context,
+        revision,
+        entity as Record<string, unknown>,
+      );
+      return res.status(200).json({ status: 200, revision: afterAutoPublish });
+    }
+  }
+
+  res.status(200).json({ status: 200, revision });
+};
+
+// endregion POST /revision/:id/undo-review
+
+// region PUT /revision/:id/comment/:reviewId
+
+type PutCommentRequest = AuthRequest<
+  { comment: string },
+  { id: string; reviewId: string }
+>;
+
+type PutCommentResponse = {
+  status: 200;
+  revision: Revision;
+};
+
+/**
+ * PUT /revision/:id/comment/:reviewId
+ * Edit a comment the calling user authored
+ */
+export const putComment = async (
+  req: PutCommentRequest,
+  res: Response<PutCommentResponse | ApiErrorResponse>,
+) => {
+  const context = getContextFromReq(req);
+  const { userId } = context;
+  const { id, reviewId } = req.params;
+  const { comment } = req.body;
+
+  const revisionModel = context.models.revisions;
+
+  const existingRevision = await revisionModel.getById(id);
+  if (!existingRevision) {
+    return res.status(404).json({ message: "Revision not found" });
+  }
+
+  // Require entity edit permission (the model also enforces author-only),
+  // matching the other review-lifecycle endpoints.
+  if (
+    !getAdapter(existingRevision.target.type).canUpdate(
+      context,
+      existingRevision.target.snapshot as Record<string, unknown>,
+    )
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  const revision = await revisionModel.editComment(
+    id,
+    reviewId,
+    userId,
+    comment,
+  );
+
+  res.status(200).json({ status: 200, revision });
+};
+
+// endregion PUT /revision/:id/comment/:reviewId
+
+// region DELETE /revision/:id/comment/:reviewId
+
+type DeleteCommentRequest = AuthRequest<
+  never,
+  { id: string; reviewId: string }
+>;
+
+type DeleteCommentResponse = {
+  status: 200;
+  revision: Revision;
+};
+
+/**
+ * DELETE /revision/:id/comment/:reviewId
+ * Delete a comment the calling user authored
+ */
+export const deleteComment = async (
+  req: DeleteCommentRequest,
+  res: Response<DeleteCommentResponse | ApiErrorResponse>,
+) => {
+  const context = getContextFromReq(req);
+  const { userId } = context;
+  const { id, reviewId } = req.params;
+
+  const revisionModel = context.models.revisions;
+
+  const existingRevision = await revisionModel.getById(id);
+  if (!existingRevision) {
+    return res.status(404).json({ message: "Revision not found" });
+  }
+
+  // Require entity edit permission (the model also enforces author-only),
+  // matching the other review-lifecycle endpoints.
+  if (
+    !getAdapter(existingRevision.target.type).canUpdate(
+      context,
+      existingRevision.target.snapshot as Record<string, unknown>,
+    )
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  const revision = await revisionModel.deleteComment(id, reviewId, userId);
+
+  res.status(200).json({ status: 200, revision });
+};
+
+// endregion DELETE /revision/:id/comment/:reviewId
+
+// region POST /revision/:id/schedule-publish
+
+type PostSchedulePublishRequest = AuthRequest<
+  {
+    scheduledPublishAt: string | null;
+    lockEdits?: boolean;
+    lockOthers?: boolean;
+    bypassApproval?: boolean;
+  },
+  { id: string }
+>;
+
+type PostSchedulePublishResponse = {
+  status: 200;
+  revision: Revision;
+};
+
+/**
+ * POST /revision/:id/schedule-publish
+ * Arm (date set) or cancel (date null) a deferred publish.
+ */
+export const postSchedulePublish = async (
+  req: PostSchedulePublishRequest,
+  res: Response<PostSchedulePublishResponse | ApiErrorResponse>,
+) => {
+  const context = getContextFromReq(req);
+  const { userId } = context;
+  const { id } = req.params;
+  const { scheduledPublishAt, lockEdits, lockOthers, bypassApproval } =
+    req.body;
+
+  const revisionModel = context.models.revisions;
+
+  const existingRevision = await revisionModel.getById(id);
+  if (!existingRevision) {
+    return res.status(404).json({ message: "Revision not found" });
+  }
+
+  if (
+    !(ACTIVE_DRAFT_STATUSES as readonly string[]).includes(
+      existingRevision.status,
+    )
+  ) {
+    return res.status(400).json({
+      message: "This revision can no longer be scheduled",
+    });
+  }
+
+  const adapter = getAdapter(existingRevision.target.type);
+  const snapshot = existingRevision.target.snapshot as Record<string, unknown>;
+  const isCancel = scheduledPublishAt === null;
+
+  // Parse + validate the target date (arming only).
+  let parsedDate: Date | null = null;
+  if (!isCancel) {
+    parsedDate = new Date(scheduledPublishAt);
+    if (isNaN(parsedDate.getTime())) {
+      return res
+        .status(400)
+        .json({ message: "Invalid scheduledPublishAt date" });
+    }
+    if (parsedDate.getTime() <= Date.now()) {
+      return res
+        .status(400)
+        .json({ message: "scheduledPublishAt must be in the future" });
+    }
+  }
+
+  // Canceling needs publish authority; arming additionally needs the
+  // scheduled-publish capability. Both come from generic defaults so every
+  // revisioned entity — current and future — works without per-adapter wiring:
+  // publish authority defaults to canUpdate, and the schedule capability
+  // defaults to the scheduled-revisions premium feature plus that publish
+  // authority (you can only schedule a publish you'd be allowed to perform). An
+  // adapter may override either to narrow it (e.g. an environment-scoped gate).
+  const canPublish = adapter.canPublishRevision
+    ? adapter.canPublishRevision(context, snapshot)
+    : adapter.canUpdate(context, snapshot);
+  const canSchedule = adapter.canSchedulePublish
+    ? adapter.canSchedulePublish(context, snapshot)
+    : context.hasPremiumFeature("scheduled-revisions") && canPublish;
+  if (isCancel ? !canPublish : !canSchedule) {
+    context.permissions.throwPermissionError();
+  }
+
+  // Bypass-approval intent is only honored for callers who can bypass.
+  const wantsBypass =
+    !!bypassApproval && adapter.canBypassApproval(context, snapshot);
+
+  // The schedule fires with this user's authority; require a resolvable actor.
+  const enabledBy =
+    userId ||
+    existingRevision.autoPublishEnabledBy ||
+    existingRevision.authorId ||
+    null;
+  if (!isCancel && !enabledBy) {
+    return res.status(400).json({
+      message: "A scheduled publish needs a user to run as",
+    });
+  }
+
+  // No-approval-path guard: arming a draft that still requires approval (without
+  // bypass) isn't allowed — request review first.
+  if (!isCancel && existingRevision.status === "draft" && !wantsBypass) {
+    const approvalRequired = adapter.isApprovalRequiredForRevision
+      ? adapter.isApprovalRequiredForRevision(context, existingRevision)
+      : adapter.isApprovalRequired(context);
+    if (approvalRequired) {
+      return res.status(400).json({
+        message: "Request review before scheduling this draft's publish.",
+      });
+    }
+  }
+
+  // Arming against an entity that can't accept a future publish (e.g. a locked
+  // config) would just fail at every poller tick — reject up front. Canceling
+  // is never gated. Reused below for the config experiment-guard acknowledgment.
+  const scheduleEntity = isCancel
+    ? null
+    : ((await adapter.getModel(context)?.getById(existingRevision.target.id)) ??
+      null);
+  if (adapter.assertSchedulable && scheduleEntity) {
+    await adapter.assertSchedulable(context, scheduleEntity);
+  }
+
+  // Reuses the already-fetched entity.
+  const armAcknowledgments = isCancel
+    ? undefined
+    : await captureArmAcknowledgment(context, existingRevision, scheduleEntity);
+
+  const revision = await revisionModel.setScheduledPublish(id, enabledBy, {
+    scheduledPublishAt: parsedDate,
+    lockEdits,
+    lockOthers,
+    bypassApproval: wantsBypass,
+    armAcknowledgments,
+  });
+
+  await getRevisionWebhookAdapter(revision.target.type)?.dispatch(
+    context,
+    revision,
+    { type: "updated" },
+  );
+
+  res.status(200).json({ status: 200, revision });
+};
+
+// endregion POST /revision/:id/schedule-publish
 
 // region GET /revision/entity/:entityType/:entityId/history
 
@@ -1222,6 +1899,7 @@ export const getConflicts = async (
     revision.target.snapshot as unknown as Record<string, unknown>,
     liveEntity as Record<string, unknown>,
     normalizeProposedChanges(revision.target.proposedChanges),
+    getAdapter(revision.target.type).getUpdatableFields(),
   );
 
   res.status(200).json({

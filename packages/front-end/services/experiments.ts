@@ -12,17 +12,21 @@ import {
   ExperimentTemplateInterface,
   MetricOverride,
 } from "shared/types/experiment";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import {
+  DataSourceInterfaceWithParams,
+  DataSourcePipelineSettings,
+} from "shared/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
 import { getValidDate } from "shared/dates";
+import { isExperimentIncrementalEnabled } from "shared/enterprise";
 import { isNil, omit } from "lodash";
 import {
-  FactTableInterface,
+  FactTableDefinition,
   FactMetricInterface,
   FactTableColumnType,
 } from "shared/types/fact-table";
 import {
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
   getAllMetricIdsFromExperiment,
   getEqualWeights,
   getLatestPhaseVariations,
@@ -164,9 +168,24 @@ export function experimentDate(exp: ExperimentInterfaceStringDates): string {
   );
 }
 
+/**
+ * Returns the `statusUpdateSchedule.startAt` Date for an experiment if it
+ * parses to a future date, otherwise null. Past-dated and missing schedules
+ * both map to "start immediately" so they flow through the start-now path.
+ */
+export function getFutureScheduledStartDate(
+  experiment: ExperimentInterfaceStringDates,
+): Date | null {
+  const raw = experiment.statusUpdateSchedule?.startAt;
+  if (!raw) return null;
+  const parsed = new Date(raw);
+  if (isNaN(parsed.getTime())) return null;
+  return parsed > new Date() ? parsed : null;
+}
+
 export type ExperimentTableRow = {
   label: string | ReactElement;
-  metric: ExperimentMetricInterface;
+  metric: ExperimentMetricDefinition;
   metricOverrideFields: string[];
   variations: SnapshotMetric[];
   rowClass?: string;
@@ -192,11 +211,36 @@ export function useDomain(
   variations: ExperimentReportVariation[], // must be ordered, baseline first
   rows: ExperimentTableRow[],
   differenceType: DifferenceType,
+  // When the analysis uses one-sided intervals (e.g. safe rollouts), one CI
+  // bound is "fake" (±Infinity). In that case we anchor the open side at 0
+  // rather than inferring a finite extent from it, so the domain is "0 +
+  // padding around the real bound" instead of "[ci, ci]".
+  oneSided = false,
 ): [number, number] {
   const { metricDefaults } = useOrganizationMetricDefaults();
 
   let lowerBound = 0;
   let upperBound = 0;
+  let hasBound = false;
+
+  const addBounds = (nextLower: number, nextUpper: number) => {
+    if (!Number.isFinite(nextLower) || !Number.isFinite(nextUpper)) return;
+    if (!hasBound) {
+      lowerBound = nextLower;
+      upperBound = nextUpper;
+      hasBound = true;
+      return;
+    }
+    lowerBound = Math.min(lowerBound, nextLower);
+    upperBound = Math.max(upperBound, nextUpper);
+  };
+
+  const getFallbackHalfSpan = (...values: number[]) => {
+    const finite = values.filter((v) => Number.isFinite(v));
+    const maxAbs = finite.reduce((m, v) => Math.max(m, Math.abs(v)), 0);
+    // Keep a visible range for near-zero one-sided CIs.
+    return Math.max(maxAbs * 0.6, 0.01);
+  };
   rows.forEach((row) => {
     // Skip metric slice rows that are hidden (not expanded)
     if (row.isHiddenByFilter) {
@@ -234,16 +278,62 @@ export function useDomain(
       if (Math.abs(ci[0]) === Infinity || Math.abs(ci[1]) === Infinity) {
         ci = stats.ci ?? [0, 0];
       }
-      if (!lowerBound || ci[0] < lowerBound) lowerBound = ci[0];
-      if (!upperBound || ci[1] > upperBound) upperBound = ci[1];
+
+      const [ci0, ci1] = ci;
+      const expected = Number.isFinite(stats.expected ?? NaN)
+        ? (stats.expected as number)
+        : 0;
+
+      const loFinite = Number.isFinite(ci0);
+      const hiFinite = Number.isFinite(ci1);
+
+      if (oneSided) {
+        // One bound is fake (±Infinity). Build the extent from the *real*
+        // values only — the finite bound and the point estimate — plus 0 as a
+        // reference. Because we take min/max, 0 only widens the domain when it
+        // is actually the extreme (the real CI sits entirely on one side of
+        // it); a "proper" CI that has drifted across 0 keeps its real bounds
+        // and 0 simply sits interior. The open side is drawn out to the plot
+        // edge by the consuming graph.
+        const realValues = [expected, 0];
+        if (loFinite) realValues.push(ci0);
+        if (hiFinite) realValues.push(ci1);
+        addBounds(Math.min(...realValues), Math.max(...realValues));
+      } else if (loFinite && hiFinite) {
+        addBounds(ci0, ci1);
+      } else if (!loFinite && hiFinite) {
+        // One-sided [-Infinity, X]: infer a symmetric-ish finite left extent.
+        const halfSpan = getFallbackHalfSpan(ci1, expected);
+        addBounds(Math.min(expected, 0) - halfSpan, ci1);
+      } else if (loFinite && !hiFinite) {
+        // One-sided [Y, Infinity]: infer a symmetric-ish finite right extent.
+        const halfSpan = getFallbackHalfSpan(ci0, expected);
+        addBounds(ci0, Math.max(expected, 0) + halfSpan);
+      } else {
+        // Degenerate [±Infinity, ±Infinity] - keep the row visible around expected.
+        const halfSpan = getFallbackHalfSpan(expected);
+        addBounds(expected - halfSpan, expected + halfSpan);
+      }
     });
   });
+
+  if (!hasBound) {
+    return [-0.05, 0.05];
+  }
+
   lowerBound = lowerBound <= 0 ? lowerBound : 0;
   upperBound = upperBound >= 0 ? upperBound : 0;
+
+  // Ensure we always cross 0 with at least a small visual delta.
+  const span = Math.max(upperBound - lowerBound, 0.01);
+  const minZeroDelta = Math.max(span * 0.03, 0.005);
+  if (lowerBound >= 0) lowerBound = -minZeroDelta;
+  if (upperBound <= 0) upperBound = minZeroDelta;
+
   return [lowerBound, upperBound];
 }
 
-export function applyMetricOverrides<T extends ExperimentMetricInterface>(
+export function applyMetricOverrides<T extends ExperimentMetricDefinition>(
   metric: T,
   metricOverrides?: MetricOverride[],
 ): {
@@ -329,6 +419,7 @@ export function useExperimentSearch({
   filterResults,
   localStorageKey,
   watchedExperimentIds,
+  controlledSearchValue,
 }: {
   allExperiments: ExperimentInterfaceStringDates[];
   defaultSortField?: keyof ComputedExperimentInterface;
@@ -338,6 +429,10 @@ export function useExperimentSearch({
   ) => ComputedExperimentInterface[];
   localStorageKey: string;
   watchedExperimentIds?: string[];
+  // When provided, drives filtering from a stored search string (e.g. a
+  // dashboard block's saved filter) instead of a user-typed input. Bypasses the
+  // URL `q` param so it doesn't leak into or clobber the page's search state.
+  controlledSearchValue?: string;
 }) {
   const {
     getExperimentMetricById,
@@ -393,7 +488,8 @@ export function useExperimentSearch({
     localStorageKey,
     defaultSortField,
     defaultSortDir,
-    updateSearchQueryOnChange: true,
+    updateSearchQueryOnChange: controlledSearchValue === undefined,
+    controlledSearchValue,
     searchFields: ["name^3", "trackingKey^2", "hypothesis^2", "description"],
     searchTermFilters: {
       is: (item) => {
@@ -525,8 +621,8 @@ export function getRowResults({
   baseline: SnapshotMetric;
   statsEngine: StatsEngine;
   differenceType: DifferenceType;
-  metric: ExperimentMetricInterface;
-  denominator?: ExperimentMetricInterface;
+  metric: ExperimentMetricDefinition;
+  denominator?: ExperimentMetricDefinition;
   metricDefaults: MetricDefaults;
   minSampleSize: number;
   ciUpper: number;
@@ -839,32 +935,123 @@ export function convertExperimentToTemplate(
   return template;
 }
 
+export function datasourceHasWritableEphemeralPipeline(
+  datasource: DataSourceInterfaceWithParams | null | undefined,
+  hasPipelineModeFeature: boolean,
+): boolean {
+  const pipelineSettings = datasource?.settings?.pipelineSettings;
+  return (
+    !!datasource?.properties?.supportsWritingTables &&
+    !!pipelineSettings?.allowWriting &&
+    pipelineSettings?.mode === "ephemeral" &&
+    !!pipelineSettings?.writeDataset &&
+    hasPipelineModeFeature
+  );
+}
+
+export function getHonoredPrecomputedUnitDimensionIds(
+  precomputedUnitDimensionIds: string[] | undefined,
+  datasource: DataSourceInterfaceWithParams | null | undefined,
+  hasPipelineModeFeature: boolean,
+): string[] {
+  if (
+    !datasourceHasWritableEphemeralPipeline(datasource, hasPipelineModeFeature)
+  ) {
+    return [];
+  }
+  return precomputedUnitDimensionIds ?? [];
+}
+
 export function getIsExperimentIncludedInIncrementalRefresh(
   datasource: DataSourceInterfaceWithParams | undefined,
   experimentId: string | undefined,
+  experimentType: ExperimentInterfaceStringDates["type"],
 ): boolean {
-  const isPipelineIncrementalEnabled =
-    datasource?.settings.pipelineSettings?.mode === "incremental";
-  if (!isPipelineIncrementalEnabled) {
-    return false;
+  const pipelineSettings = datasource?.settings.pipelineSettings;
+  if (!pipelineSettings) return false;
+
+  // For the New Experiment form (no experimentId yet) we want to know
+  // whether any experiment created on this datasource would default into
+  // incremental refresh. That's true when `mode === "incremental"` and
+  // there's no include-list scoping it down. Per-experiment opt-in lists
+  // do not affect new (unsaved) experiments.
+  if (!experimentId) {
+    return (
+      pipelineSettings.allowWriting === true &&
+      pipelineSettings.mode === "incremental" &&
+      pipelineSettings.includedExperimentIds === undefined
+    );
   }
 
-  const includedExperimentIds =
-    datasource?.settings.pipelineSettings?.includedExperimentIds;
-  const excludedExperimentIds =
-    datasource?.settings.pipelineSettings?.excludedExperimentIds;
+  return isExperimentIncrementalEnabled(
+    pipelineSettings,
+    experimentId,
+    experimentType,
+  );
+}
 
-  if (experimentId && excludedExperimentIds?.includes(experimentId)) {
-    return false;
+// Returns updated pipeline settings that disable incremental refresh for the
+// given experiment. Mirror of `getPipelineSettingsAfterReenablingExperiment`.
+//
+// - Always drops the experiment from `incrementalOptInExperimentIds`
+//   (the opt-in signal in non-incremental modes).
+// - Adds it to `excludedExperimentIds` only when `mode === "incremental"`,
+//   since excluded is only consulted in that mode.
+export function getPipelineSettingsAfterDisablingExperiment(
+  pipelineSettings: DataSourcePipelineSettings | undefined,
+  experimentId: string,
+): DataSourcePipelineSettings | undefined {
+  if (!pipelineSettings) return pipelineSettings;
+
+  const next: DataSourcePipelineSettings = { ...pipelineSettings };
+
+  const optIn = next.incrementalOptInExperimentIds;
+  if (optIn?.includes(experimentId)) {
+    const filtered = optIn.filter((id) => id !== experimentId);
+    next.incrementalOptInExperimentIds =
+      filtered.length > 0 ? filtered : undefined;
   }
 
-  // If no specific experiment IDs are set, all experiments are included
-  // If experimentId is not provided, consider it included for the New Experiment form
-  if (includedExperimentIds === undefined || !experimentId) {
-    return true;
+  if (next.mode === "incremental") {
+    const excluded = next.excludedExperimentIds ?? [];
+    if (!excluded.includes(experimentId)) {
+      next.excludedExperimentIds = [...excluded, experimentId];
+    }
   }
 
-  return includedExperimentIds.includes(experimentId);
+  return next;
+}
+
+// Returns updated pipeline settings that re-enable incremental refresh for
+// the given experiment. Mirror of `getPipelineSettingsAfterDisablingExperiment`.
+//
+// - Always drops the experiment from `excludedExperimentIds`
+//   (the "force off" signal in incremental mode).
+// - Adds it to `incrementalOptInExperimentIds` only when `mode === "ephemeral"`,
+//   since opt-in is ignored in incremental mode and disabled mode doesn't
+//   run anything.
+export function getPipelineSettingsAfterReenablingExperiment(
+  pipelineSettings: DataSourcePipelineSettings | undefined,
+  experimentId: string,
+): DataSourcePipelineSettings | undefined {
+  if (!pipelineSettings) return pipelineSettings;
+
+  const next: DataSourcePipelineSettings = { ...pipelineSettings };
+
+  const excluded = next.excludedExperimentIds;
+  if (excluded?.includes(experimentId)) {
+    const filtered = excluded.filter((id) => id !== experimentId);
+    next.excludedExperimentIds = filtered.length > 0 ? filtered : undefined;
+  }
+
+  if (next.mode === "ephemeral") {
+    const optIn = next.incrementalOptInExperimentIds ?? [];
+    if (!optIn.includes(experimentId)) {
+      next.incrementalOptInExperimentIds = [...optIn, experimentId];
+    }
+  }
+
+  return next;
 }
 
 // Extracts available metrics and groups (for result filtering) from experiment metrics
@@ -879,7 +1066,7 @@ export function getAvailableMetricsFilters({
   secondaryMetrics: string[];
   guardrailMetrics: string[];
   metricGroups: MetricGroupInterface[];
-  getExperimentMetricById: (id: string) => ExperimentMetricInterface | null;
+  getExperimentMetricById: (id: string) => ExperimentMetricDefinition | null;
 }): {
   groups: { id: string; name: string }[];
   metrics: { id: string; name: string }[];
@@ -937,7 +1124,7 @@ export function getAvailableMetricTags({
   secondaryMetrics: string[];
   guardrailMetrics: string[];
   metricGroups: MetricGroupInterface[];
-  getExperimentMetricById: (id: string) => ExperimentMetricInterface | null;
+  getExperimentMetricById: (id: string) => ExperimentMetricDefinition | null;
 }): string[] {
   const expandedGoals = expandMetricGroups(goalMetrics, metricGroups);
   const expandedSecondaries = expandMetricGroups(
@@ -986,9 +1173,9 @@ export function getAvailableSliceTags({
     }>;
   }> | null;
   metricGroups: MetricGroupInterface[];
-  factTables: FactTableInterface[];
-  getExperimentMetricById: (id: string) => ExperimentMetricInterface | null;
-  getFactTableById: (id: string) => FactTableInterface | null;
+  factTables: FactTableDefinition[];
+  getExperimentMetricById: (id: string) => ExperimentMetricDefinition | null;
+  getFactTableById: (id: string) => FactTableDefinition | null;
 }): AvailableSliceTag[] {
   const sliceTagsMap = new Map<
     string,
@@ -996,7 +1183,7 @@ export function getAvailableSliceTags({
   >();
 
   // Build factTableMap for parseSliceQueryString
-  const factTableMap: Record<string, FactTableInterface> = {};
+  const factTableMap: Record<string, FactTableDefinition> = {};
   factTables.forEach((table) => {
     factTableMap[table.id] = table;
   });

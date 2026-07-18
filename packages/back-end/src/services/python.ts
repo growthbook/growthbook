@@ -1,6 +1,7 @@
 import { ChildProcess, spawn } from "child_process";
 import os from "os";
 import path from "path";
+import readline from "readline";
 import { randomUUID } from "crypto";
 import {
   CloudWatchClient,
@@ -44,6 +45,16 @@ const STATS_ENGINE_TIMEOUT_MS = parseEnvInt(
   { min: 1, name: "GB_STATS_ENGINE_TIMEOUT_MS" },
 );
 
+// stats_server.py writes via json.dumps(allow_nan=True), so output is strict
+// JSON unless it contains NaN/Infinity literals — fall back to JSON5 for those.
+function parsePythonOutput<T>(line: string): T {
+  try {
+    return JSON.parse(line);
+  } catch {
+    return JSON5.parse(line);
+  }
+}
+
 let cloudWatchClient: CloudWatchClient | null = null;
 if (IS_CLOUD) {
   cloudWatchClient = new CloudWatchClient({
@@ -53,6 +64,7 @@ if (IS_CLOUD) {
 
 class PythonStatsServer<Input, Output> {
   private python: ChildProcess;
+  private rl?: readline.Interface;
   private pid = -1;
   private promises: Map<
     string,
@@ -75,61 +87,56 @@ class PythonStatsServer<Input, Output> {
     logger.debug(`Python stats server (pid: ${this.pid}) started`);
     this.promises = new Map();
 
-    let buffer = "";
-    this.python.stdout?.on("data", (rawData) => {
-      buffer += rawData.toString();
+    if (this.python.stdout) {
+      this.rl = readline
+        .createInterface({ input: this.python.stdout, crlfDelay: Infinity })
+        .on("line", (line) => {
+          const output = line.trim();
+          if (!output) return;
+          try {
+            const parsed:
+              | PythonServerResponse<Output>
+              | { id: string; error: string; stack_trace?: string } =
+              parsePythonOutput(output);
 
-      // Once we have a complete line, process it
-      const lines = buffer.split("\n");
-      buffer = lines.pop() || ""; // Keep the last incomplete line in the buffer
-
-      lines.forEach((line) => {
-        const output = line.trim();
-        if (!output) return; // Skip empty lines
-        try {
-          const parsed:
-            | PythonServerResponse<Output>
-            | { id: string; error: string; stack_trace?: string } =
-            JSON5.parse(output);
-
-          if (!parsed.id) {
-            logger.error(
-              `Python stats server (pid: ${this.pid}) stdout missing 'id': ${parsed}`,
-            );
-            return;
-          }
-
-          const promise = this.promises.get(parsed.id);
-          if (!promise) {
-            logger.warn(
-              `Python stats server (pid: ${this.pid}) stdout has unknown id: ${parsed.id}`,
-              parsed,
-            );
-            return;
-          }
-
-          if ("error" in parsed) {
-            // Add stack trace to error message so we can show it on the front-end
-            const error = new Error(parsed.error || "Unknown error");
-            if (parsed.stack_trace) {
-              error.message += `\n\n${parsed.stack_trace}`;
+            if (!parsed.id) {
+              logger.error(
+                `Python stats server (pid: ${this.pid}) stdout missing 'id': ${parsed}`,
+              );
+              return;
             }
-            promise.reject(error);
-          } else {
-            promise.resolve(parsed);
-          }
 
-          // Delete promise
-          this.promises.delete(parsed.id);
-        } catch (e) {
-          logger.error(
-            `Python stats server (pid: ${this.pid}) failed to parse stdout: ${output}`,
-            e,
-          );
-          return;
-        }
-      });
-    });
+            const promise = this.promises.get(parsed.id);
+            if (!promise) {
+              logger.warn(
+                `Python stats server (pid: ${this.pid}) stdout has unknown id: ${parsed.id}`,
+                parsed,
+              );
+              return;
+            }
+
+            if ("error" in parsed) {
+              // Add stack trace to error message so we can show it on the front-end
+              const error = new Error(parsed.error || "Unknown error");
+              if (parsed.stack_trace) {
+                error.message += `\n\n${parsed.stack_trace}`;
+              }
+              promise.reject(error);
+            } else {
+              promise.resolve(parsed);
+            }
+
+            // Delete promise
+            this.promises.delete(parsed.id);
+          } catch (e) {
+            logger.error(
+              `Python stats server (pid: ${this.pid}) failed to parse stdout: ${output}`,
+              e,
+            );
+            return;
+          }
+        });
+    }
 
     this.python.stderr?.on("data", (data) => {
       const err = data.toString().trim();
@@ -156,6 +163,8 @@ class PythonStatsServer<Input, Output> {
   }
 
   destroy() {
+    this.rl?.removeAllListeners("line");
+    this.rl?.close();
     if (this.isRunning()) {
       this.python.kill();
     }

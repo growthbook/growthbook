@@ -15,6 +15,15 @@ import {
   getNamespaceRanges,
   getNamespaceHashAttribute,
   NamespaceValue,
+  buildReverseDependencyIndex,
+  ReverseDependencyIndex,
+  buildExperimentDependencyIndex,
+  ExperimentDependencyIndex,
+  parsePlainJSONObject,
+  getFeatureBaseConfigKey,
+  ensureConfigBacking,
+  stripConfigExtends,
+  deepMergePatch,
 } from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
@@ -27,12 +36,18 @@ import {
   FeatureMetadata,
 } from "shared/types/sdk";
 import { ProjectInterface } from "shared/types/project";
-import { HoldoutInterface } from "shared/validators";
+import {
+  HoldoutInterface,
+  ContextualBanditInterface,
+  VariationWeightPair,
+} from "shared/validators";
 import {
   expandNestedSavedGroups,
   getJSONValue,
   getPayloadAllowedKeys,
   replaceSavedGroups,
+  resolveConstantRefs,
+  ConstantValueMap,
   SDKCapability,
 } from "shared/sdk-versioning";
 import { OrganizationInterface, Environment } from "shared/types/organization";
@@ -41,13 +56,54 @@ import {
   FeatureRule,
   SavedGroupTargeting,
 } from "shared/types/feature";
-import { ExperimentInterface } from "shared/types/experiment";
+import {
+  ExperimentInterface,
+  ExperimentInterfaceStringDates,
+} from "shared/types/experiment";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
+import { RampMonitoredRuleInfo } from "back-end/src/models/RampScheduleModel";
 import { logger } from "back-end/src/util/logger";
 import { getApplicableEnvIds } from "./flattenRules";
 import { getCurrentEnabledState } from "./scheduleRules";
+
+function pairedWeightsToPositional(
+  paired: VariationWeightPair[],
+  variations: { id: string }[],
+): number[] {
+  return variations.map(
+    (v) => paired.find((w) => w.variationId === v.id)?.weight ?? 0,
+  );
+}
+
+export interface FeatureLookups {
+  featuresMap: Map<string, FeatureInterface>;
+  reverseDependencyIndex: ReverseDependencyIndex;
+  experiments: ExperimentInterfaceStringDates[];
+  experimentMap: Map<string, ExperimentInterfaceStringDates>;
+  experimentDependencyIndex: ExperimentDependencyIndex;
+}
+
+/** Builds the shared lookup structures used by stale detection and dependents. */
+export function buildFeatureLookups(
+  allFeatures: FeatureInterface[],
+  allExperiments?: ExperimentInterface[],
+): FeatureLookups {
+  const featuresMap = new Map(allFeatures.map((f) => [f.id, f]));
+  const reverseDependencyIndex = buildReverseDependencyIndex(allFeatures);
+  const experiments =
+    (allExperiments as unknown as ExperimentInterfaceStringDates[]) ?? [];
+  const experimentMap = new Map(experiments.map((e) => [e.id, e]));
+  const experimentDependencyIndex = buildExperimentDependencyIndex(experiments);
+  return {
+    featuresMap,
+    reverseDependencyIndex,
+    experiments,
+    experimentMap,
+    experimentDependencyIndex,
+  };
+}
 
 export type MetadataOptions = {
   includeProjectIdInMetadata?: boolean;
@@ -490,9 +546,14 @@ export function getFeatureDefinition({
   savedGroupsMap,
   includeRuleIds,
   includeExperimentNames,
+  includeDraftExperimentRefs,
   namespaces,
   metadataOptions,
   projectsMap,
+  cbMap,
+  rampMonitoredRuleMap,
+  constantMap,
+  onConstantCycle,
 }: {
   feature: FeatureInterface;
   environment: string;
@@ -505,19 +566,28 @@ export function getFeatureDefinition({
     string,
     { holdout: HoldoutInterface; holdoutExperiment: ExperimentInterface }
   >;
-  capabilities?: SDKCapability[]; // undefined = all capabilities
+  capabilities?: SDKCapability[];
   savedGroupReferencesEnabled?: boolean;
   organization?: OrganizationInterface;
   savedGroupsMap?: Record<string, SavedGroupInterface>;
   includeRuleIds?: boolean;
   includeExperimentNames?: boolean;
-  /** Optional override: if provided, skips derivation from organization.settings.namespaces */
+  includeDraftExperimentRefs?: boolean;
   namespaces?: Map<
     string,
     { hashAttribute?: string; seed?: string; format?: "legacy" | "multiRange" }
   >;
   metadataOptions?: MetadataOptions;
   projectsMap?: Map<string, ProjectInterface>;
+  cbMap?: Map<string, ContextualBanditInterface>;
+  rampMonitoredRuleMap?: Map<string, RampMonitoredRuleInfo>;
+  // Per-environment constant values. When provided, EVERY emitted value is
+  // resolved here (exactly once): sparse rule values resolve BEFORE the sparse
+  // merge (so the rule's own fields are applied last and win over the resolved
+  // constant); all other values resolve as they're emitted.
+  constantMap?: ConstantValueMap;
+  // Invoked with any constant key left unresolved due to a reference cycle.
+  onConstantCycle?: (key: string) => void;
 }): FeatureDefinition | null {
   const settings = feature.environmentSettings?.[environment];
 
@@ -529,6 +599,96 @@ export function getFeatureDefinition({
   const defaultValue = revision
     ? (revision.defaultValue ?? feature.defaultValue)
     : feature.defaultValue;
+
+  // For `json` features, parse the default value once so rules flagged `sparse`
+  // can merge their partial object onto it. Null when the default isn't a plain
+  // key/val object (array, null, primitive) — sparse is then a no-op and rules
+  // emit their value as-is. When a constant map is supplied, resolve the
+  // default's `$extends` references first so they form the sparse merge base
+  // (the resolved default + its keys), which the patch then overrides.
+  const resolveRefs = (val: unknown): unknown =>
+    constantMap
+      ? resolveConstantRefs(
+          val,
+          constantMap,
+          undefined,
+          onConstantCycle,
+          feature.project || "",
+          environment,
+        )
+      : val;
+
+  // Config-backing is authoritative via `baseConfig`. For a config-backed
+  // feature, every rule/variation value implicitly serves the base config: if a
+  // value doesn't reference its own (family) config, we prepend the feature's so
+  // resolution flattens the base underneath it. For a NON-config feature, a
+  // value must not carry `@config:` at all — strip any stray ref so it can never
+  // resolve a config (`@const:` refs are kept).
+  const defaultConfigKey = getFeatureBaseConfigKey({
+    valueType: feature.valueType,
+    baseConfig: feature.baseConfig,
+  });
+
+  const jsonDefaultObj = (() => {
+    if (feature.valueType !== "json") return null;
+    // Inject the base config so the resolved default — the sparse merge base for
+    // rules — includes the config layer even when the stored default is a pure
+    // patch (no-op when the default already references its own config). Non-config
+    // features strip any stray `@config:`.
+    const backed = defaultConfigKey
+      ? ensureConfigBacking(defaultValue, defaultConfigKey)
+      : (stripConfigExtends(defaultValue) ?? defaultValue);
+    const base = parsePlainJSONObject(backed);
+    if (!base || !constantMap) return base;
+    const resolved = resolveRefs(base);
+    return resolved !== null &&
+      typeof resolved === "object" &&
+      !Array.isArray(resolved)
+      ? (resolved as Record<string, unknown>)
+      : base;
+  })();
+
+  const valueForSDK = (valueStr: string, sparse?: boolean): unknown => {
+    // Non-object values (array/scalar/string) have replace semantics — ship
+    // them as-is rather than prepending a config base they'd never merge with.
+    const normalized = defaultConfigKey
+      ? valueStr.trim() === "" || parsePlainJSONObject(valueStr) !== null
+        ? ensureConfigBacking(valueStr, defaultConfigKey)
+        : valueStr
+      : // Non-config feature: drop any stray `@config:` so it can't resolve a
+        // config (keeps `@const:` refs).
+        (stripConfigExtends(valueStr) ?? valueStr);
+    if (sparse && jsonDefaultObj) {
+      const patch = parsePlainJSONObject(normalized);
+      if (patch !== null) {
+        // Resolve the patch's constants BEFORE merging so the rule's fields are
+        // spread last and win over the (already-resolved) default — i.e. sparse
+        // fields are "further down". A config-backed rule keeps its own
+        // `$extends` here so it resolves against the config it references (which
+        // may be a descendant it was re-pointed to) — this matches the value the
+        // config-backing editor previews. Non-object resolutions (e.g. a
+        // whole-value JSON constant that resolves to an array) replace outright.
+        const resolvedPatch = resolveRefs(patch);
+        if (
+          resolvedPatch !== null &&
+          typeof resolvedPatch === "object" &&
+          !Array.isArray(resolvedPatch)
+        ) {
+          // Config-backed features get a deep (targeted) sparse patch so a rule
+          // restates only the leaves it changes; plain JSON features keep the
+          // top-level spread. `$extends`-composed chunks stay atomic.
+          return defaultConfigKey
+            ? deepMergePatch(jsonDefaultObj, resolvedPatch)
+            : {
+                ...jsonDefaultObj,
+                ...(resolvedPatch as Record<string, unknown>),
+              };
+        }
+        return resolvedPatch;
+      }
+    }
+    return resolveRefs(getJSONValue(feature.valueType, normalized));
+  };
 
   // Rule source: revision's unified array (draft/published) > feature's (live).
   // Legacy `settings.rules` is test-only — production reads flow through
@@ -610,7 +770,7 @@ export function getFeatureDefinition({
                 condition: { value: "holdoutcontrol" },
               },
             ],
-            force: getJSONValue(feature.valueType, feature.holdout.value),
+            force: valueForSDK(feature.holdout.value),
           },
         ]
       : [];
@@ -660,8 +820,8 @@ export function getFeatureDefinition({
 
           if (!includeExperimentInPayload(exp)) return null;
 
-          // Never include experiment drafts
-          if (exp.status === "draft") return null;
+          if (exp.status === "draft" && !includeDraftExperimentRefs)
+            return null;
 
           // Get current experiment phase and use it to set rule properties
           const phase = exp.phases[exp.phases.length - 1];
@@ -732,20 +892,27 @@ export function getFeatureDefinition({
             );
             if (!variation) return null;
 
+            // A config-backed feature composes every arm as a sparse patch on
+            // the base (the invariant above), so force sparse there regardless
+            // of the stored flag — a rule retro-fitted onto config-backing may
+            // still carry sparse=false. Matches the CB-ref / inline-experiment
+            // arms below. Non-config features keep their independent sparse.
+            const armSparse = r.sparse || !!defaultConfigKey;
+
             // If a variation has been rolled out to 100%
-            rule.force = getJSONValue(feature.valueType, variation.value);
+            rule.force = valueForSDK(variation.value, armSparse);
           }
           // Running experiment
           else {
+            const armSparse = r.sparse || !!defaultConfigKey;
             rule.variations = getLatestPhaseVariations(exp).map((v) => {
               const variation = r.variations?.find(
                 (ruleVariation) => v.id === ruleVariation.variationId,
               );
-              return variation
-                ? getJSONValue(feature.valueType, variation.value)
-                : null;
+              return variation ? valueForSDK(variation.value, armSparse) : null;
             });
             rule.weights = phase.variationWeights;
+
             rule.key = exp.trackingKey;
             const phaseVariations = getLatestPhaseVariations(exp);
             rule.meta = includeExperimentNames
@@ -792,6 +959,101 @@ export function getFeatureDefinition({
           return rule;
         }
 
+        if (r.type === "contextual-bandit-ref") {
+          const cb = cbMap?.get(r.contextualBanditId);
+          if (!cb) return null;
+
+          if (cb.status === "draft") return null;
+
+          const phaseCondition = getParsedCondition(groupMap, cb.condition);
+          if (phaseCondition) {
+            rule.condition = phaseCondition;
+          }
+
+          rule.coverage = cb.coverage;
+
+          if (cb.hashAttribute) {
+            rule.hashAttribute = cb.hashAttribute;
+          }
+          if (cb.seed) {
+            rule.seed = cb.seed;
+          }
+          rule.hashVersion = 2;
+
+          if (cb.status === "stopped") {
+            return null;
+          }
+
+          rule.variations = cb.variations.map((v) => {
+            const variation = r.variations?.find(
+              (rv) => rv.variationId === v.id,
+            );
+            // Resolve like every other value emitter — a bare getJSONValue would
+            // ship `$extends`/`@const:`/`@config:` refs to the SDK unresolved.
+            // Contextual-bandit-ref has no `sparse` flag, but its config-backed
+            // arms are authored as sparse patches through the same hooks/editor as
+            // the experiment-ref (MAB) twin above, so they must resolve the same
+            // way: sparse when config-backed, a full value otherwise.
+            return variation
+              ? valueForSDK(variation.value, !!defaultConfigKey)
+              : null;
+          });
+          rule.weights = cb.variationWeights
+            ? pairedWeightsToPositional(cb.variationWeights, cb.variations)
+            : undefined;
+
+          const cbCapable =
+            capabilities === undefined ||
+            capabilities.includes("contextualBandits");
+          if (cbCapable) {
+            rule.isContextualBandit = true;
+            rule.attributesRequired = cb.contextualAttributes;
+            rule.contexts = (cb.currentLeafWeights ?? []).map((lw) => ({
+              leafId: lw.leafId,
+              condition: lw.condition,
+              weights: pairedWeightsToPositional(lw.weights, cb.variations),
+            }));
+          }
+
+          rule.key = cb.trackingKey;
+          rule.meta = includeExperimentNames
+            ? cb.variations.map((v) => ({ key: v.key, name: v.name }))
+            : cb.variations.map((v) => ({ key: v.key }));
+          rule.phase = "0";
+          if (includeExperimentNames) rule.name = cb.name;
+
+          if (shouldExpandSavedGroups && savedGroupsMap && organization) {
+            if (rule.condition)
+              recursiveWalk(
+                rule.condition,
+                replaceSavedGroups(savedGroupsMap, organization!),
+              );
+          }
+          if (metadataOptions) {
+            const cbMetadata = buildPayloadMetadata<ExperimentMetadata>(
+              {
+                project: cb.project,
+                tags: cb.tags,
+              },
+              metadataOptions,
+              projectsMap,
+            );
+            if (cbMetadata) rule.metadata = cbMetadata;
+          }
+
+          if (allowedKeys) {
+            const picked = pick(
+              rule,
+              allowedKeys.featureRuleKeys,
+            ) as FeatureDefinitionRule;
+            if (includeRuleIds && r.id != null) {
+              (picked as Record<string, unknown>).id = stemRuleId(r.id);
+            }
+            return picked;
+          }
+          return rule;
+        }
+
         const condition = getParsedCondition(
           groupMap,
           r.condition,
@@ -817,10 +1079,13 @@ export function getFeatureDefinition({
         }
 
         if (r.type === "force") {
-          rule.force = getJSONValue(feature.valueType, r.value);
+          rule.force = valueForSDK(r.value, r.sparse || !!defaultConfigKey);
         } else if (r.type === "experiment") {
+          // Inline experiment values have no `sparse` flag, but config-backed arms
+          // are authored as sparse patches (like the experiment-ref twins), so a
+          // bare resolve would drop the base config. Resolve sparse when backed.
           rule.variations = r.values.map((v) =>
-            getJSONValue(feature.valueType, v.value),
+            valueForSDK(v.value, !!defaultConfigKey),
           );
 
           rule.coverage = r.coverage;
@@ -857,17 +1122,92 @@ export function getFeatureDefinition({
             applyNamespaceToPayload(rule, r.namespace, namespacesMap);
           }
         } else if (r.type === "rollout") {
-          rule.force = getJSONValue(feature.valueType, r.value);
-          const clampedCoverage =
-            r.coverage > 1 ? 1 : r.coverage < 0 ? 0 : r.coverage;
-          // At 100% coverage, treat as a force rule so users without hashAttribute aren't excluded
-          if (clampedCoverage < 1) {
-            rule.coverage = clampedCoverage;
-            if (r.hashAttribute) {
-              rule.hashAttribute = r.hashAttribute;
+          const monitorInfo = rampMonitoredRuleMap?.get(r.id);
+
+          // Monitored rollout rules need hashAttribute + seed to emit experiment-mode
+          // payload (tracking key, stable bucketing). Fall back to feature.id (matches
+          // the SDK's own `rule.seed || featureId` fallback for force-coverage rules)
+          // for older rules that predate the seed-at-write-time backfill.
+          // New rules always have seed persisted as rule.id via addIdsToFlatRules.
+          if (monitorInfo && r.hashAttribute) {
+            const monitoredSeed = r.seed || feature.id;
+            // Reuse rollout bucketing so monitored steps do not cause variation hopping.
+            const clampedCoverage =
+              r.coverage > 1 ? 1 : r.coverage < 0 ? 0 : r.coverage;
+
+            const defaultValue = revision
+              ? (revision.defaultValue ?? feature.defaultValue)
+              : feature.defaultValue;
+
+            rule.variations = [
+              valueForSDK(r.value, r.sparse || !!defaultConfigKey),
+              // valueForSDK (not a bare resolve): a config-backed default is a pure
+              // config (`{}` for the base), so a bare resolve would serve an empty
+              // object to the control arm instead of the config's value.
+              valueForSDK(defaultValue),
+            ];
+            rule.weights = [0.5, 0.5];
+            // Set coverage = 2 * step.coverage so getBucketRanges naturally
+            // produces the non-adjacent layout:
+            //   treatment (var 0) = [0, step.coverage)
+            //   control   (var 1) = [0.5, 0.5 + step.coverage)
+            //
+            // getBucketRanges accumulates start by raw weight (0.5), not by
+            // coverage*weight, so the control arm always starts at 0.5 regardless
+            // of coverage. This keeps arms disjoint and monotonically enrolled:
+            // on a step-up from C₁ → C₂ only users in [C₁,C₂) and [0.5+C₁,0.5+C₂)
+            // are newly enrolled — no existing user changes arm.
+            //
+            // Works identically for old SDKs (no bucketingV2) since they call the
+            // same getBucketRanges fallback with this coverage value.
+            rule.coverage = Math.min(clampedCoverage * 2, 1);
+
+            rule.hashAttribute = r.hashAttribute;
+            rule.seed = monitoredSeed;
+            // Match the rollout rule's hash version exactly to prevent variation
+            // hopping between monitored/unmonitored steps. New rules store hashVersion
+            // explicitly (defaulting to 2); old rules without the field stay on 1.
+            rule.hashVersion = r.hashVersion ?? 1;
+            rule.key = `ramp_${monitorInfo.rampScheduleId}`;
+            rule.meta = includeExperimentNames
+              ? [
+                  { key: "0", name: "Variation" },
+                  { key: "1", name: "Control", passthrough: true },
+                ]
+              : [{ key: "0" }, { key: "1", passthrough: true }];
+            rule.phase = "0";
+            // Sticky bucketing must be disabled for monitored steps: the ranges
+            // shift as coverage increases, and a stale sticky-bucket assignment
+            // would lock a user to the wrong arm or prevent new enrollment.
+            rule.disableStickyBucketing = true;
+            if (includeExperimentNames) {
+              rule.name = `${feature.id} - Monitored Ramp`;
             }
-            if (r.seed) {
-              rule.seed = r.seed;
+          } else {
+            if (monitorInfo && !r.hashAttribute) {
+              logger.warn(
+                {
+                  featureId: feature.id,
+                  ruleId: r.id,
+                  rampScheduleId: monitorInfo.rampScheduleId,
+                },
+                "Monitored ramp rule missing hashAttribute — falling back to force rollout payload",
+              );
+            }
+            rule.force = valueForSDK(r.value, r.sparse || !!defaultConfigKey);
+            const clampedCoverage =
+              r.coverage > 1 ? 1 : r.coverage < 0 ? 0 : r.coverage;
+            if (clampedCoverage < 1) {
+              rule.coverage = clampedCoverage;
+              if (r.hashAttribute) {
+                rule.hashAttribute = r.hashAttribute;
+              }
+              if (r.seed) {
+                rule.seed = r.seed;
+              }
+              if (r.hashVersion) {
+                rule.hashVersion = r.hashVersion;
+              }
             }
           }
         } else if (r.type === "safe-rollout") {
@@ -878,13 +1218,13 @@ export function getFeatureDefinition({
             if (isNil(variationValue)) return null;
 
             // If a variation has been rolled out to 100%
-            rule.force = getJSONValue(feature.valueType, variationValue);
+            rule.force = valueForSDK(variationValue);
           } else if (r.status === "rolled-back") {
             const controlValue = r.controlValue;
             if (isNil(controlValue)) return null;
 
             // Return control value if rolled back. Feature default value might not be the same as the control value.
-            rule.force = getJSONValue(feature.valueType, controlValue);
+            rule.force = valueForSDK(controlValue);
           } else {
             if (
               safeRollout?.rampUpSchedule.rampUpCompleted ||
@@ -905,8 +1245,8 @@ export function getFeatureDefinition({
             rule.hashVersion = 2;
 
             rule.variations = [
-              getJSONValue(feature.valueType, r.controlValue),
-              getJSONValue(feature.valueType, r.variationValue),
+              valueForSDK(r.controlValue),
+              valueForSDK(r.variationValue),
             ];
             const varWeights = 0.5;
             rule.weights = [varWeights, varWeights];
@@ -918,8 +1258,9 @@ export function getFeatureDefinition({
                 ]
               : [{ key: "0" }, { key: "1" }];
             rule.phase = "0";
-            if (includeExperimentNames)
+            if (includeExperimentNames) {
               rule.name = `${feature.id} - Safe Rollout`;
+            }
           }
         }
         if (shouldExpandSavedGroups && savedGroupsMap && organization) {
@@ -950,7 +1291,9 @@ export function getFeatureDefinition({
   ];
 
   let def: FeatureDefinition = {
-    defaultValue: getJSONValue(feature.valueType, defaultValue),
+    // Route through valueForSDK (not a bare resolve) so a config-backed feature's
+    // default gets its base config injected when stored as a pure patch.
+    defaultValue: valueForSDK(defaultValue),
     rules: defRules,
   };
   if (def.rules && !def.rules.length) {

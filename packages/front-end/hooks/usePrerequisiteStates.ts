@@ -34,7 +34,6 @@ export interface UsePrerequisiteStatesReturn {
   mutate: () => void;
 }
 
-// Fetch prerequisite states for a single feature (backend uses JIT loading for cross-project prerequisites)
 export function usePrerequisiteStates({
   featureId,
   environments,
@@ -77,14 +76,6 @@ interface BatchPrerequisiteStatesResponse {
       wouldBeCyclic: boolean;
     }
   >;
-  checkPrerequisiteCyclic?: {
-    wouldBeCyclic: boolean;
-    cyclicFeatureId: string | null;
-  };
-  checkRulePrerequisitesCyclic?: {
-    wouldBeCyclic: boolean;
-    cyclicFeatureId: string | null;
-  };
 }
 
 interface UseBatchPrerequisiteStatesOptions {
@@ -92,18 +83,7 @@ interface UseBatchPrerequisiteStatesOptions {
   featureIds: string[];
   environments: string[];
   enabled?: boolean;
-  isExperiment?: boolean; // Use experiment-specific endpoint without cyclic checks
-  checkPrerequisite?: {
-    id: string;
-    condition: string;
-    prerequisiteIndex?: number;
-  };
-  checkRulePrerequisites?: {
-    environment: string;
-    // Omit for "new rule" checks.
-    ruleId?: string;
-    prerequisites: Array<{ id: string; condition: string }>;
-  };
+  isExperiment?: boolean;
 }
 
 export interface UseBatchPrerequisiteStatesReturn {
@@ -114,48 +94,26 @@ export interface UseBatchPrerequisiteStatesReturn {
       wouldBeCyclic: boolean;
     }
   > | null;
-  checkPrerequisiteCyclic?: {
-    wouldBeCyclic: boolean;
-    cyclicFeatureId: string | null;
-  };
-  checkRulePrerequisitesCyclic?: {
-    wouldBeCyclic: boolean;
-    cyclicFeatureId: string | null;
-  };
   loading: boolean;
   error: Error | undefined;
   mutate: () => void;
 }
 
-// Batch fetch prerequisite states and cyclic checks for multiple features
 export function useBatchPrerequisiteStates({
   baseFeatureId,
   featureIds,
   environments,
   enabled = true,
   isExperiment = false,
-  checkPrerequisite,
-  checkRulePrerequisites,
 }: UseBatchPrerequisiteStatesOptions): UseBatchPrerequisiteStatesReturn {
   const { apiCall, orgId } = useAuth();
 
-  // Allow request if we have featureIds OR if we're doing cycle checks
-  const hasCycleCheck = !!(checkPrerequisite || checkRulePrerequisites);
-  const rulePrereqsKey = checkRulePrerequisites
-    ? `checkRule:${checkRulePrerequisites.environment}:${checkRulePrerequisites.ruleId ?? "new"}:${checkRulePrerequisites.prerequisites
-        .map((p) => `${p.id}:${p.condition}`)
-        .sort()
-        .join(",")}`
-    : "";
-
   const key =
-    enabled && environments.length && (featureIds.length > 0 || hasCycleCheck)
+    enabled && environments.length && featureIds.length > 0
       ? `${orgId}::/features/batch-prerequisite-states|${isExperiment ? "" : baseFeatureId}|${featureIds
           .slice()
           .sort()
-          .join(
-            ",",
-          )}|${environments.slice().sort().join(",")}|${checkPrerequisite ? `checkPrereq:${checkPrerequisite.id}:${checkPrerequisite.prerequisiteIndex ?? -1}` : ""}|${rulePrereqsKey}`
+          .join(",")}|${environments.slice().sort().join(",")}`
       : null;
 
   const { data, error, mutate } = useSWR<BatchPrerequisiteStatesResponse>(
@@ -169,8 +127,6 @@ export function useBatchPrerequisiteStates({
             featureIds,
             environments,
             ...(baseFeatureId && !isExperiment && { baseFeatureId }),
-            ...(checkPrerequisite && { checkPrerequisite }),
-            ...(checkRulePrerequisites && { checkRulePrerequisites }),
           }),
         },
       );
@@ -179,15 +135,13 @@ export function useBatchPrerequisiteStates({
 
   return {
     results: data?.results || null,
-    checkPrerequisiteCyclic: data?.checkPrerequisiteCyclic,
-    checkRulePrerequisitesCyclic: data?.checkRulePrerequisitesCyclic,
     loading:
       !data &&
       !error &&
       enabled &&
       (!!baseFeatureId || isExperiment) &&
       environments.length > 0 &&
-      (featureIds.length > 0 || hasCycleCheck),
+      featureIds.length > 0,
     error,
     mutate,
   };

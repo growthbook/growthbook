@@ -7,6 +7,7 @@ import {
   ApiCreateDashboardBlockInterface,
   ApiDashboardBlockInterface,
   blockHasFieldOfType,
+  resolveGlobalControlsBlockEnrollment,
   dashboardBlockHasIds,
   apiCreateDashboardBody,
   ApiDashboardInterface,
@@ -19,10 +20,16 @@ import {
   LegacyDashboardBlockInterface,
   convertPinnedSlicesToSliceTags,
   isDifferenceType,
+  BlockLayout,
+  DASHBOARD_GRID_COLS,
+  getBlockSizeBounds,
 } from "shared/enterprise";
+import {
+  ExplorationDateRange,
+  defaultPrimaryKeyShape,
+} from "shared/validators";
 import omit from "lodash/omit";
 import { getValidDate } from "shared/dates";
-import { defaultPrimaryKeyShape } from "shared/validators";
 import {
   MakeModelClass,
   ScopedFilterQuery,
@@ -39,6 +46,7 @@ import {
 } from "back-end/src/api/specs/dashboard.spec";
 import { determineNextDate } from "back-end/src/services/experiments";
 import { shouldRecalculateNextUpdate } from "back-end/src/enterprise/services/dashboards";
+import { resolveOwnerEmail } from "back-end/src/services/owner";
 
 export type DashboardDocument = mongoose.Document & DashboardInterface;
 type LegacyDashboardDocument = Omit<
@@ -91,7 +99,11 @@ const BaseClass = MakeModelClass({
 
 export const toInterface: ToInterface<DashboardInterface> = (doc) => {
   const dashboard = removeMongooseFields(doc);
-  dashboard.blocks = dashboard.blocks.map(blockToInterface);
+  const cols = dashboard.grid?.cols ?? DASHBOARD_GRID_COLS;
+  dashboard.blocks = normalizeLayouts(
+    dashboard.blocks.map(blockToInterface),
+    cols,
+  );
   return dashboard;
 };
 
@@ -367,13 +379,16 @@ export class DashboardModel extends BaseClass {
         newIdMapping[oldId] = id;
       }
     }
-    doc.blocks = doc.blocks.map((block) => {
-      if (!blockHasFieldOfType(block, "savedQueryId", isString)) return block;
-      return {
-        ...block,
-        savedQueryId: newIdMapping[block.savedQueryId] ?? block.savedQueryId,
-      };
-    });
+    doc.blocks = normalizeLayouts(
+      doc.blocks.map((block) => {
+        if (!blockHasFieldOfType(block, "savedQueryId", isString)) return block;
+        return {
+          ...block,
+          savedQueryId: newIdMapping[block.savedQueryId] ?? block.savedQueryId,
+        };
+      }),
+      doc.grid?.cols,
+    );
   }
 
   protected async beforeUpdate(
@@ -391,6 +406,13 @@ export class DashboardModel extends BaseClass {
       updates.nextUpdate = schedule
         ? (determineNextDate(schedule) ?? undefined)
         : undefined;
+    }
+    // Always clamp/fill in block layouts on write so the persisted state can
+    // never exceed grid bounds, regardless of which caller produced the update
+    if (updates.blocks) {
+      const cols =
+        updates.grid?.cols ?? existing.grid?.cols ?? DASHBOARD_GRID_COLS;
+      updates.blocks = normalizeLayouts(updates.blocks, cols);
     }
   }
 
@@ -414,6 +436,7 @@ export class DashboardModel extends BaseClass {
       experimentId,
       title,
       projects,
+      globalControls,
       blocks,
     } = apiCreateDashboardBody.parse(rawBody);
     const createdBlocks = await Promise.all(
@@ -424,6 +447,11 @@ export class DashboardModel extends BaseClass {
         ),
       ),
     );
+    const blocksWithGlobalControls =
+      resolveGlobalControlsBlockEnrollment({
+        nextGlobalControls: globalControls,
+        nextBlocks: createdBlocks,
+      }) ?? createdBlocks;
     return {
       uid: uuidv4().replace(/-/g, ""), // TODO: Move to BaseModel
       isDefault: false,
@@ -436,10 +464,27 @@ export class DashboardModel extends BaseClass {
       experimentId: experimentId || undefined,
       title,
       projects,
-      blocks: createdBlocks,
+      globalControls,
+      blocks: normalizeLayouts(blocksWithGlobalControls),
     };
   }
-  protected async processApiUpdateBody(rawBody: unknown) {
+  public override async handleApiUpdate(
+    req: Parameters<InstanceType<typeof BaseClass>["handleApiUpdate"]>[0],
+  ): Promise<ApiDashboardInterface> {
+    const id = req.params.id;
+    const dashboard = await this.getById(id);
+    if (!dashboard) req.context.throwNotFoundError();
+
+    const toUpdate = await this.processApiUpdateBody(req.body, dashboard);
+    return resolveOwnerEmail(
+      this.toApiInterface(await this.updateById(id, toUpdate)),
+      this.context,
+    );
+  }
+  protected async processApiUpdateBody(
+    rawBody: unknown,
+    existingDashboard?: DashboardInterface,
+  ) {
     const { blocks: blockUpdates, ...otherUpdates } =
       apiUpdateDashboardBody.parse(rawBody);
     const updates: UpdateProps<DashboardInterface> = otherUpdates;
@@ -454,7 +499,20 @@ export class DashboardModel extends BaseClass {
             : generateDashboardBlockIds(this.context.org.id, blockData),
         ),
       );
-      updates.blocks = createdBlocks;
+      updates.blocks = normalizeLayouts(
+        resolveGlobalControlsBlockEnrollment({
+          existingGlobalControls: existingDashboard?.globalControls,
+          nextGlobalControls: updates.globalControls,
+          nextBlocks: createdBlocks,
+        }) ?? createdBlocks,
+      );
+    } else if (existingDashboard) {
+      const enrolledBlocks = resolveGlobalControlsBlockEnrollment({
+        existingGlobalControls: existingDashboard.globalControls,
+        nextGlobalControls: updates.globalControls,
+        existingBlocks: existingDashboard.blocks,
+      });
+      if (enrolledBlocks) updates.blocks = enrolledBlocks;
     }
     return updates;
   }
@@ -489,6 +547,75 @@ export function generateDashboardBlockIds(
   };
 
   return blockToInterface(block);
+}
+
+// Convert a legacy "Completed Experiments" preset ("30" | "60" | "90" | "180" |
+// "365" | "custom") into the Metric-Explorer ExplorationDateRange shape. Fixed
+// presets without a direct equivalent (60/180/365) fold into a Custom Lookback.
+function legacyPresetToExplorationDateRange(
+  preset: string,
+  startDate?: string,
+  endDate?: string,
+): ExplorationDateRange {
+  const toYmd = (iso?: string) =>
+    iso ? getValidDate(iso).toISOString().slice(0, 10) : undefined;
+  switch (preset) {
+    case "custom":
+      return {
+        predefined: "customDateRange",
+        startDate: toYmd(startDate),
+        endDate: toYmd(endDate),
+      };
+    case "7":
+      return { predefined: "last7Days" };
+    case "30":
+      return { predefined: "last30Days" };
+    case "90":
+      return { predefined: "last90Days" };
+    default: {
+      const days = parseInt(preset, 10);
+      if (!isNaN(days) && days > 0) {
+        return {
+          predefined: "customLookback",
+          lookbackValue: days,
+          lookbackUnit: "day",
+        };
+      }
+      return { predefined: "last90Days" };
+    }
+  }
+}
+
+// Rewrite a completed-experiments block's legacy string `dateRange` (+ optional
+// top-level startDate/endDate) into the ExplorationDateRange object. Already
+// migrated blocks (object dateRange) pass through unchanged.
+function migrateCompletedExperimentsDateRange(
+  doc:
+    | LegacyDashboardBlockInterface
+    | DashboardBlockInterface
+    | CreateDashboardBlockInterface,
+): DashboardBlockInterface | CreateDashboardBlockInterface {
+  const raw = doc as unknown as {
+    dateRange?: unknown;
+    startDate?: string;
+    endDate?: string;
+  };
+  if (raw.dateRange && typeof raw.dateRange === "object") {
+    return doc as DashboardBlockInterface | CreateDashboardBlockInterface;
+  }
+  const preset = typeof raw.dateRange === "string" ? raw.dateRange : "90";
+  const dateRange = legacyPresetToExplorationDateRange(
+    preset,
+    raw.startDate,
+    raw.endDate,
+  );
+  const copy: Record<string, unknown> = { ...(doc as Record<string, unknown>) };
+  delete copy.startDate;
+  delete copy.endDate;
+  copy.dateRange = dateRange;
+  return copy as unknown as
+    | DashboardBlockInterface
+    | CreateDashboardBlockInterface;
 }
 
 export function migrateBlock(
@@ -701,6 +828,58 @@ export function migrateBlock(
         blockConfig: doc.blockConfig ?? [],
       };
     }
+    case "metric-experiments": {
+      // Legacy blocks stored a single top-level startDate/endDate window (a
+      // Custom Date Range applied to phase end dates). Migrate it to the new
+      // `endDateRange` field and drop the deprecated keys.
+      const legacy = doc as {
+        startDate?: string;
+        endDate?: string;
+        projects?: string[];
+      };
+      const copy = { ...(doc as Record<string, unknown>) };
+      let changed = false;
+
+      if (legacy.startDate !== undefined || legacy.endDate !== undefined) {
+        delete copy.startDate;
+        delete copy.endDate;
+        const toYmd = (iso?: string) =>
+          iso ? getValidDate(iso).toISOString().slice(0, 10) : undefined;
+        copy.endDateRange = {
+          predefined: "customDateRange",
+          startDate: toYmd(legacy.startDate),
+          endDate: toYmd(legacy.endDate),
+        };
+        changed = true;
+      }
+
+      // Legacy blocks predate the `projects` field; default to all projects.
+      if (legacy.projects === undefined) {
+        copy.projects = [];
+        changed = true;
+      }
+
+      if (!changed) return doc;
+      return copy as unknown as
+        | DashboardBlockInterface
+        | CreateDashboardBlockInterface;
+    }
+    case "experiments-scaled-impact":
+    case "experiments-win-rate":
+    case "experiments-status": {
+      // Migrate the legacy string date range ("30"/"90"/"custom"…) to the
+      // Metric-Explorer-style ExplorationDateRange object.
+      const migrated = migrateCompletedExperimentsDateRange(doc);
+      // Team Velocity was renamed from "Experiment Status"; rewrite only the
+      // old default title so pre-existing blocks pick up the new name.
+      if (
+        migrated.type === "experiments-status" &&
+        migrated.title === "Experiment Status"
+      ) {
+        return { ...migrated, title: "Team Velocity" };
+      }
+      return migrated;
+    }
     default:
       return doc;
   }
@@ -747,4 +926,51 @@ export function fromBlockApiInterface(
     default:
       return apiBlock;
   }
+}
+
+const clamp = (value: number, min: number, max: number): number =>
+  Math.max(min, Math.min(max, value));
+
+// Normalize block layouts: fill in per-type defaults for blocks without a
+// layout (stacked beneath existing blocks) and clamp w/x/y to grid bounds.
+// Height is intentionally unclamped - users can grow a block as tall as they
+// need. Per-type drag/resize minimums are NOT persisted - they live in
+// DEFAULT_BLOCK_SIZE_BY_TYPE and are injected at render time on the client.
+export function normalizeLayouts<
+  T extends DashboardBlockInterface | CreateDashboardBlockInterface,
+>(blocks: T[], cols: number = DASHBOARD_GRID_COLS): T[] {
+  // Find the largest y+h among blocks that already have a layout; new blocks
+  // get stacked below this so we never overlap existing content.
+  let nextY = 0;
+  const clampedExisting = blocks.map((block) => {
+    if (!block.layout) return block;
+    const w = clamp(block.layout.w, 1, cols);
+    const h = Math.max(1, block.layout.h);
+    const x = clamp(block.layout.x, 0, Math.max(0, cols - w));
+    const y = Math.max(0, block.layout.y);
+    const layout: BlockLayout = {
+      x,
+      y,
+      w,
+      h,
+      ...(block.layout.static ? { static: true } : {}),
+    };
+    nextY = Math.max(nextY, y + h);
+    return { ...block, layout };
+  });
+
+  return clampedExisting.map((block) => {
+    if (block.layout) return block;
+    const defaults = getBlockSizeBounds(block.type);
+    const w = clamp(defaults.w, 1, cols);
+    const h = Math.max(1, defaults.h);
+    const layout: BlockLayout = {
+      x: 0,
+      y: nextY,
+      w,
+      h,
+    };
+    nextY += h;
+    return { ...block, layout };
+  });
 }

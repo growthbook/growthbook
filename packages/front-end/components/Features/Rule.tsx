@@ -1,12 +1,15 @@
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import {
+  FeatureRevisionInterface,
+  MinimalFeatureRevisionInterface,
+} from "shared/types/feature-revision";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import React, { forwardRef, ReactElement, useState } from "react";
+import React, { forwardRef, ReactElement, useMemo, useState } from "react";
+import { useRouter } from "next/router";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { filterEnvironmentsByFeature } from "shared/util";
+import { filterEnvironmentsByFeature, getReviewSetting } from "shared/util";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { RiAlertLine } from "react-icons/ri";
 import { RxCircleBackslash } from "react-icons/rx";
 import {
   PiArrowBendRightDown,
@@ -19,10 +22,16 @@ import {
   PiTrash,
   PiCaretUp,
   PiCaretDown,
+  PiLockSimple,
+  PiCaretDoubleUp,
+  PiCaretDoubleDown,
+  PiSpinnerGapBold,
 } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { format as formatTimeZone } from "date-fns-tz";
 import {
+  isReadyForApproval,
+  isAwaitingStartApproval,
   SafeRolloutInterface,
   HoldoutInterface,
   RampScheduleInterface,
@@ -30,12 +39,14 @@ import {
 import Link from "@/ui/Link";
 import Heading from "@/ui/Heading";
 import RampScheduleBadge from "@/components/RampSchedule/RampScheduleBadge";
+import SafeRolloutRuleDashboard from "@/components/RampSchedule/SafeRolloutRuleDashboard";
 import RampTimeline, {
   getRampStepsCompleted,
 } from "@/components/RampSchedule/RampTimeline";
 import Button from "@/ui/Button";
 import { useAuth } from "@/services/auth";
 import Text from "@/ui/Text";
+import ContextualBanditRefSummary from "@/components/ContextualBandit/ContextualBanditRefSummary";
 import track from "@/services/track";
 import {
   isRuleInactive,
@@ -44,12 +55,23 @@ import {
   getAttributesWithVersionStringMismatches,
 } from "@/services/features";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
+import {
+  ConflictBanner,
+  ConflictCallout,
+  getConflictBadge,
+} from "@/services/rule-conflicts";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import { useDefaultDraft } from "@/hooks/useDefaultDraft";
 import HelperText from "@/ui/HelperText";
 import Badge from "@/ui/Badge";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import RuleEnvScopeBadges from "@/components/Features/RuleEnvScopeBadges";
 import RuleCard from "@/components/Features/RuleCard";
+import DraftSelectorForChanges, {
+  DraftMode,
+} from "@/components/Features/DraftSelectorForChanges";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import Callout from "@/ui/Callout";
 import SafeRolloutSummary from "@/components/Features/SafeRolloutSummary";
@@ -59,6 +81,13 @@ import SafeRolloutStatusModal from "@/components/Features/SafeRollout/SafeRollou
 import SafeRolloutStatusBadge from "@/components/SafeRollout/SafeRolloutStatusBadge";
 import DecisionCTA from "@/components/SafeRollout/DecisionCTA";
 import DecisionHelpText from "@/components/SafeRollout/DecisionHelpText";
+import {
+  isOnMonitoredStep,
+  RampMonitoringBadges,
+  RampMonitoringCTAs,
+  useApprovalTimerTick,
+} from "@/components/RampSchedule/RampMonitoringSignals";
+import { formatRollbackReason } from "@/components/RampSchedule/rollbackReason";
 import TruncatedConditionDisplay from "@/components/SavedGroups/TruncatedConditionDisplay";
 import {
   DropdownMenu,
@@ -79,29 +108,34 @@ function fmtScheduleDate(d: Date | string): string {
 }
 
 function formatSimpleScheduleLabel(rs: RampScheduleInterface): string {
+  const parts: string[] = [];
   if (rs.startDate) {
-    return `SCHEDULED to start ${fmtScheduleDate(rs.startDate)}`;
+    parts.push(`Starts ${fmtScheduleDate(rs.startDate)}`);
   }
+  const endAt = rs.cutoffDate ?? null;
+  if (endAt) {
+    parts.push(`Disables ${fmtScheduleDate(endAt)}`);
+  }
+  if (parts.length > 0) return parts.join(" · ");
   return "USING SCHEDULE";
 }
 
+// Returns the scheduled enable date for a rule whose ramp is queued to flip it
+// from disabled → enabled. We don't filter by past-vs-future: a pending draft
+// schedule whose startDate has drifted into the past is still "queued to enable
+// on publish", and we want to surface that date in the disabled badge and
+// require confirmation before manual enable.
 function getRampEnableDate(
   rampSchedule: RampScheduleInterface | undefined,
 ): Date | null {
   if (!rampSchedule) return null;
   const { status, startDate } = rampSchedule;
   if (!startDate) return null;
-  const d = new Date(startDate);
-  if (
-    (status === "ready" || status === "pending") &&
-    d.getTime() > Date.now()
-  ) {
-    return d;
-  }
-  return null;
+  if (status !== "ready" && status !== "pending") return null;
+  return new Date(startDate);
 }
 
-function formatRemainingDuration(totalSeconds: number): string {
+export function formatRemainingDuration(totalSeconds: number): string {
   if (totalSeconds < 60) return `${Math.round(totalSeconds)}s`;
   const minutes = totalSeconds / 60;
   if (minutes < 60) return `${Math.round(minutes)}m`;
@@ -120,33 +154,38 @@ function formatRemainingDuration(totalSeconds: number): string {
 function computeRemainingTime(
   rs: RampScheduleInterface,
 ): { seconds: number; manualApprovals: number } | null {
-  if (
-    rs.status !== "running" &&
-    rs.status !== "paused" &&
-    rs.status !== "pending-approval"
-  )
-    return null;
+  if (rs.status !== "running" && rs.status !== "paused") return null;
 
-  const now = Date.now();
   let seconds = 0;
   let manualApprovals = 0;
 
-  const currentIsApproval =
-    rs.currentStepIndex >= 0 &&
-    rs.steps[rs.currentStepIndex]?.trigger.type === "approval";
-  const nextIdx =
-    rs.status === "pending-approval" ||
-    (rs.status === "paused" && currentIsApproval)
-      ? Math.max(0, rs.currentStepIndex) // include current unapproved step
-      : rs.currentStepIndex + 1; // works for -1 → 0
-  for (let i = nextIdx; i < rs.steps.length; i++) {
-    const trigger = rs.steps[i].trigger;
-    if (trigger.type === "interval") {
-      seconds += trigger.seconds;
-    } else if (trigger.type === "approval") {
+  // The current step can have two holds that clear in sequence: the interval
+  // timer first, then a manual approval. Count both remaining components — the
+  // time still left on the timer plus the approval, which only becomes
+  // actionable once the timer elapses — so the estimate reflects all the work
+  // left before the step can advance.
+  const currentStep =
+    rs.currentStepIndex >= 0 ? rs.steps[rs.currentStepIndex] : undefined;
+  const currentNeedsApproval =
+    !!currentStep?.holdConditions?.requiresApproval &&
+    rs.stepApproval?.stepIndex !== rs.currentStepIndex;
+  // nextStepAt is the current step's timer; it is frozen (null) while paused.
+  const currentTimerRemainingMs = rs.nextStepAt
+    ? new Date(rs.nextStepAt).getTime() - Date.now()
+    : 0;
+  if (currentNeedsApproval) manualApprovals++;
+  if (currentTimerRemainingMs > 0) {
+    seconds += Math.ceil(currentTimerRemainingMs / 1000);
+  }
+
+  // Future steps still contribute their full interval and approval holds.
+  for (let i = rs.currentStepIndex + 1; i < rs.steps.length; i++) {
+    const step = rs.steps[i];
+    if (step?.interval) {
+      seconds += step.interval;
+    }
+    if (step?.holdConditions?.requiresApproval) {
       manualApprovals++;
-    } else if (trigger.type === "scheduled") {
-      seconds += Math.max(0, (new Date(trigger.at).getTime() - now) / 1000);
     }
   }
 
@@ -173,14 +212,22 @@ interface SortableProps {
     detachRampOnSave?: boolean;
   }) => void;
   unreachable?: boolean;
+  // Conflict banners for the callout. One per shared status; in the all-envs
+  // view each names the environments it covers (hard = "will not reach", soft =
+  // "may not reach", unreachable = the rule(s) consuming it).
+  conflictBanners?: ConflictBanner[];
   version: number;
   setVersion: (version: number) => void;
   locked: boolean;
+  // `locked` is caused by a pending scheduled publish. Ramp runtime controls act
+  // on live state, not draft content, so they stay interactive.
+  lockedBySchedule?: boolean;
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
   safeRolloutsMap: Map<string, SafeRolloutInterface>;
   hideInactive?: boolean;
   isDraft: boolean;
   holdout: HoldoutInterface | undefined;
+  revisionList: MinimalFeatureRevisionInterface[];
   rampSchedule?: RampScheduleInterface;
   draftRevision?: FeatureRevisionInterface | null;
   // True when rendered under the all-environments view. The `environment`
@@ -193,6 +240,14 @@ interface SortableProps {
   // rule cannot move in that direction.
   onMoveUp?: () => void;
   onMoveDown?: () => void;
+  onMoveToTop?: () => void;
+  onMoveToBottom?: () => void;
+  // True when the draft intentionally disabled a rule that's enabled in live —
+  // publishing would revert a schedule-driven enable (aggressive warning).
+  willRevertScheduleEnable?: boolean;
+  // True when the draft is behind live and this rule's shown state differs from
+  // live for a reason a rebase would reconcile — a gentle "behind live" hint.
+  draftBehindLiveStale?: boolean;
 }
 
 type RuleProps = SortableProps &
@@ -243,32 +298,62 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       mutate,
       handle,
       unreachable,
+      conflictBanners,
       version,
       setVersion,
       locked,
+      lockedBySchedule,
       experimentsMap,
       safeRolloutsMap,
       hideInactive,
       isDraft,
       holdout,
+      revisionList,
       rampSchedule,
       draftRevision,
       isAllEnvsView,
       onMoveUp,
       onMoveDown,
+      onMoveToTop,
+      onMoveToBottom,
+      willRevertScheduleEnable,
+      draftBehindLiveStale,
       ...props
     },
     ref,
   ) => {
     const { apiCall } = useAuth();
 
+    // A scheduled-publish edit lock leaves ramp runtime controls interactive;
+    // other lock reasons (old/discarded revisions) still disable them.
+    const rampControlsLocked = locked && !lockedBySchedule;
+
     const allEnvironments = useEnvironments();
     const environments = filterEnvironmentsByFeature(allEnvironments, feature);
     const [safeRolloutStatusModalOpen, setSafeRolloutStatusModalOpen] =
       useState(false);
     const [dropdownOpen, setDropdownOpen] = useState(false);
+    const [showDeleteRuleModal, setShowDeleteRuleModal] = useState(false);
     const [rampApproveLoading, setRampApproveLoading] = useState(false);
     const [rampApproveError, setRampApproveError] = useState("");
+    useApprovalTimerTick(rampSchedule);
+    const rollbackToStart = async (reason = "rolled back to start") => {
+      if (!rampSchedule) return;
+      await apiCall(`/ramp-schedule/${rampSchedule.id}/actions/rollback`, {
+        method: "POST",
+        body: JSON.stringify({ reason }),
+      });
+      await mutate();
+    };
+
+    const defaultDraft = useDefaultDraft(revisionList);
+    const [deleteMode, setDeleteMode] = useState<DraftMode>(
+      defaultDraft !== null ? "existing" : "new",
+    );
+    const [deleteSelectedDraft, setDeleteSelectedDraft] = useState<
+      number | null
+    >(defaultDraft);
+    const settings = useOrgSettings();
 
     const toggleRuleEnabled = async () => {
       setDropdownOpen(false);
@@ -302,10 +387,9 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       );
 
     // Number by global flat index; fall back to `i` mid-drag.
-    const flatIdx =
-      rule.id != null
-        ? (feature.rules ?? []).findIndex((r) => r.id === rule.id)
-        : -1;
+    const flatIdx = rule.id
+      ? (feature.rules ?? []).findIndex((r) => r.id === rule.id)
+      : -1;
     const globalRuleIdx = flatIdx === -1 ? i : flatIdx;
 
     let title: string | ReactElement =
@@ -332,10 +416,22 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       rule.type === "experiment-ref" && experimentsMap.get(rule.experimentId);
 
     const permissionsUtil = usePermissionsUtil();
+    const router = useRouter();
+    const useDummyData = router.query["dummy"] === "true";
 
     const canEdit =
       permissionsUtil.canViewFeatureModal(feature.project) &&
       permissionsUtil.canManageFeatureDrafts(feature);
+
+    const gatedEnvSet: Set<string> | "all" | "none" = useMemo(() => {
+      const raw = settings?.requireReviews;
+      if (raw === true) return "all";
+      if (!Array.isArray(raw)) return "none";
+      const reviewSetting = getReviewSetting(raw, feature);
+      if (!reviewSetting?.requireReviewOn) return "none";
+      const envList = reviewSetting.environments ?? [];
+      return envList.length === 0 ? "all" : new Set(envList);
+    }, [settings?.requireReviews, feature]);
 
     const isInactive = isRuleInactive(rule, experimentsMap);
 
@@ -348,14 +444,24 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
 
     if (rule.type === "safe-rollout") {
       safeRollout = safeRolloutsMap.get(rule.safeRolloutId);
+    } else if (rampSchedule?.safeRolloutId) {
+      safeRollout = safeRolloutsMap.get(rampSchedule.safeRolloutId);
     }
+
+    const hasPendingDetach =
+      isDraft &&
+      draftRevision?.rampActions?.some(
+        (action) => action.mode === "detach" && action.ruleId === rule.id,
+      );
 
     const info = getRuleMetaInfo({
       rule,
       experimentsMap,
       isDraft,
       unreachable,
+      conflictBanners,
       rampSchedule,
+      rampPendingDetach: !!hasPendingDetach,
     });
 
     if (hideInactive && isInactive) {
@@ -366,16 +472,14 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       rampSchedule !== undefined &&
       ["completed", "rolled-back"].includes(rampSchedule.status);
     const isSimpleSchedule = !!rampSchedule && rampSchedule.steps.length === 0;
+    const hasMonitoringStatusRow =
+      !!rampSchedule?.safeRolloutId &&
+      rampSchedule.steps.some((s) => s.monitored);
     // Synthetic schedules (synthesized client-side from a pending draft create
     // action) carry a placeholder id and have no server-side counterpart, so
     // ramp action CTAs (Start/Resume/Approve) must be suppressed.
     const isSyntheticRamp =
       !!rampSchedule && rampSchedule.id.startsWith("pending-");
-    const hasPendingDetach =
-      isDraft &&
-      draftRevision?.rampActions?.some(
-        (action) => action.mode === "detach" && action.ruleId === rule.id,
-      );
 
     const ruleTags: React.ReactNode[] = [];
     const ruleCtas: React.ReactNode[] = [];
@@ -392,28 +496,49 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       );
     }
 
+    if (useDummyData && hasMonitoringStatusRow) {
+      ruleTags.push(
+        <Badge
+          key="demo-badge"
+          label="Using dummy data"
+          color="cyan"
+          variant="soft"
+        />,
+      );
+    }
+
     if (
       rampSchedule &&
-      !locked &&
+      !rampControlsLocked &&
       !rampIsTerminal &&
       !hasPendingDetach &&
-      !isSimpleSchedule &&
+      // Simple (stepless) schedules have no step CTAs, but a stepless schedule
+      // genuinely awaiting start approval still needs its "Approve & start"
+      // button — otherwise the "awaiting approval" badge has no way to clear.
+      (!isSimpleSchedule || isAwaitingStartApproval(rampSchedule)) &&
       !isSyntheticRamp
     ) {
       if (rampSchedule.status === "ready" && rampSchedule.targets.length > 0) {
+        // An approval-gated hold uses the shared approve-step action (which
+        // clears whichever gate is pending — here the pre-start hold, starting
+        // the ramp); a plain scheduled ready schedule uses start (start-early).
+        const awaitingStartApproval = isAwaitingStartApproval(rampSchedule);
         ruleCtas.push(
           <Button
             key="ramp-start"
             size="xs"
             variant="solid"
             onClick={async () => {
-              await apiCall(`/ramp-schedule/${rampSchedule.id}/actions/start`, {
-                method: "POST",
-              });
+              await apiCall(
+                `/ramp-schedule/${rampSchedule.id}/actions/${
+                  awaitingStartApproval ? "approve-step" : "start"
+                }`,
+                { method: "POST" },
+              );
               await mutate();
             }}
           >
-            Start
+            {awaitingStartApproval ? "Approve & start" : "Start"}
           </Button>,
         );
       }
@@ -435,7 +560,16 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
           </Button>,
         );
       }
-      if (rampSchedule.status === "pending-approval") {
+      // RampMonitoringCTAs owns the "Approve Step" CTA when the current step is
+      // monitored — skip adding it here to avoid a duplicate button.
+      const approvalHandledByMonitoringCTAs =
+        !!safeRollout && !rampControlsLocked && isOnMonitoredStep(rampSchedule);
+      // Only surface the approval CTA once the step's interval has elapsed —
+      // approval is the final gate, so we don't prompt while the timer counts.
+      if (
+        isReadyForApproval(rampSchedule) &&
+        !approvalHandledByMonitoringCTAs
+      ) {
         ruleCtas.push(
           <Button
             key="ramp-approve"
@@ -458,13 +592,60 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
               }
             }}
           >
-            Approve and Resume
+            Approve Step
           </Button>,
         );
       }
     }
 
-    if (rule.type === "safe-rollout" && !locked && rule.enabled !== false) {
+    // Terminal "rolled-back" gets an inline Restart CTA so the user can bring
+    // the schedule back to a startable state without hunting through the
+    // dropdown menu. The "Start" CTA above will pick up once it's `ready`.
+    if (
+      rampSchedule &&
+      !rampControlsLocked &&
+      !hasPendingDetach &&
+      !isSimpleSchedule &&
+      !isSyntheticRamp &&
+      rampSchedule.status === "rolled-back"
+    ) {
+      const cutoffPast =
+        rampSchedule.cutoffDate &&
+        new Date(rampSchedule.cutoffDate) <= new Date();
+      ruleCtas.push(
+        cutoffPast ? (
+          <Tooltip
+            key="ramp-restart"
+            body="The scheduled end date has already passed. Edit the schedule to remove or update the end date before restarting."
+          >
+            <Button size="xs" variant="solid" disabled>
+              Restart
+            </Button>
+          </Tooltip>
+        ) : (
+          <Button
+            key="ramp-restart"
+            size="xs"
+            variant="solid"
+            onClick={async () => {
+              await apiCall(
+                `/ramp-schedule/${rampSchedule.id}/actions/restart`,
+                { method: "POST" },
+              );
+              await mutate();
+            }}
+          >
+            Restart
+          </Button>
+        ),
+      );
+    }
+
+    if (
+      rule.type === "safe-rollout" &&
+      !rampControlsLocked &&
+      rule.enabled !== false
+    ) {
       ruleCtas.push(
         <DecisionCTA
           key="safe-rollout-decision"
@@ -478,6 +659,55 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
 
     const contents = (
       <Box {...props} ref={ref}>
+        {showDeleteRuleModal && (
+          <ModalStandard
+            trackingEventModalType="delete-feature-rule"
+            header="Delete rule"
+            size="lg"
+            close={() => setShowDeleteRuleModal(false)}
+            open={true}
+            cta="Save deletion"
+            ctaColor="red"
+            submit={async () => {
+              track("Delete Feature Rule", {
+                ruleIndex: i,
+                environment,
+                type: rule.type,
+              });
+              const targetVersion =
+                deleteMode === "existing" && deleteSelectedDraft !== null
+                  ? deleteSelectedDraft
+                  : feature.version;
+              const res = await apiCall<{ version: number }>(
+                `/feature/${feature.id}/${targetVersion}/rule`,
+                {
+                  method: "DELETE",
+                  body: JSON.stringify({ ruleId: rule.id }),
+                },
+              );
+              await mutate();
+              res.version && setVersion(res.version);
+            }}
+          >
+            <Box>
+              <DraftSelectorForChanges
+                feature={feature}
+                revisionList={revisionList}
+                mode={deleteMode}
+                setMode={setDeleteMode}
+                selectedDraft={deleteSelectedDraft}
+                setSelectedDraft={setDeleteSelectedDraft}
+                canAutoPublish={false}
+                gatedEnvSet={gatedEnvSet}
+                triggerPrefix="Rule deletion will be"
+              />
+              <Text color="text-high" as="p">
+                This rule will be removed when the revision is published. The
+                live feature will not change until then.
+              </Text>
+            </Box>
+          </ModalStandard>
+        )}
         <RuleCard
           index={holdout ? globalRuleIdx + 2 : globalRuleIdx + 1}
           sideColor={info.sideColor}
@@ -536,169 +766,286 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
               )}
 
               {ruleTags}
+
+              {rampSchedule &&
+                safeRollout &&
+                isOnMonitoredStep(rampSchedule) && (
+                  <RampMonitoringBadges rampSchedule={rampSchedule} />
+                )}
             </Flex>
 
             <Flex align="center" gap="3" flexShrink="0">
+              {rampSchedule &&
+                safeRollout &&
+                !rampControlsLocked &&
+                isOnMonitoredStep(rampSchedule) && (
+                  <RampMonitoringCTAs
+                    rampSchedule={rampSchedule}
+                    onRollback={async (reason?: string) => {
+                      await apiCall(
+                        `/ramp-schedule/${rampSchedule.id}/actions/rollback`,
+                        {
+                          method: "POST",
+                          body: JSON.stringify(reason ? { reason } : {}),
+                        },
+                      );
+                      await mutate();
+                    }}
+                    onAdvance={async () => {
+                      await apiCall(
+                        `/ramp-schedule/${rampSchedule.id}/actions/advance`,
+                        { method: "POST" },
+                      );
+                      await mutate();
+                    }}
+                    onApproveStep={async () => {
+                      await apiCall(
+                        `/ramp-schedule/${rampSchedule.id}/actions/approve-step`,
+                        { method: "POST" },
+                      );
+                      await mutate();
+                    }}
+                  />
+                )}
               {ruleCtas}
 
               {info.pill}
 
-              {/* Dropdown Menu */}
-              {canEdit && !locked && (
-                <DropdownMenu
-                  trigger={
-                    <IconButton
-                      variant="ghost"
-                      color="gray"
-                      radius="full"
-                      size="2"
-                      highContrast
-                      style={{ marginRight: "calc(var(--space-2) * -1)" }}
-                    >
-                      <BsThreeDotsVertical size={16} />
-                    </IconButton>
-                  }
-                  open={dropdownOpen}
-                  onOpenChange={setDropdownOpen}
-                  menuPlacement="end"
-                  variant="soft"
-                >
-                  <DropdownMenuGroup>
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setRuleModal({
-                          environment,
-                          i,
-                          ruleId: rule.id,
-                          mode: "edit",
-                        });
-                        setDropdownOpen(false);
-                      }}
-                    >
-                      Edit
-                    </DropdownMenuItem>
-                    {rule.type !== "experiment-ref" && (
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setRuleModal({
-                            environment,
-                            i,
-                            ruleId: rule.id,
-                            mode: "duplicate",
-                          });
-                          setDropdownOpen(false);
-                        }}
+              {/* Shown when rule-edit OR ramp runtime actions are available.
+                Under a scheduled-publish lock the rule-edit group is hidden but
+                ramp/schedule actions remain. */}
+              {canEdit &&
+                !rampControlsLocked &&
+                (!locked || !!rampSchedule) && (
+                  <DropdownMenu
+                    trigger={
+                      <IconButton
+                        variant="ghost"
+                        color="gray"
+                        radius="full"
+                        size="2"
+                        highContrast
+                        style={{ margin: 0 }}
                       >
-                        Duplicate rule
-                      </DropdownMenuItem>
-                    )}
-                    <DropdownMenuItem
-                      onClick={
-                        !rule.enabled && getRampEnableDate(rampSchedule)
-                          ? undefined
-                          : toggleRuleEnabled
-                      }
-                      confirmation={(() => {
-                        const d = !rule.enabled
-                          ? getRampEnableDate(rampSchedule)
-                          : null;
-                        if (!d) return undefined;
-                        return {
-                          confirmationTitle: "Enable rule now?",
-                          getConfirmationContent: async () =>
-                            `This rule is scheduled to go live on ${fmtScheduleDate(d)}. Enabling now bypasses the schedule and will set the rule live immediately.`,
-                          cta: "Enable now",
-                          ctaColor: "violet",
-                          submit: toggleRuleEnabled,
-                        };
-                      })()}
-                    >
-                      {rule.enabled ? "Disable" : "Enable"}
-                    </DropdownMenuItem>
-                  </DropdownMenuGroup>
-                  {(onMoveUp || onMoveDown) && (
-                    <>
-                      <DropdownMenuSeparator />
+                        <BsThreeDotsVertical size={16} />
+                      </IconButton>
+                    }
+                    open={dropdownOpen}
+                    onOpenChange={setDropdownOpen}
+                    menuPlacement="end"
+                    variant="soft"
+                  >
+                    {!locked && (
                       <DropdownMenuGroup>
                         <DropdownMenuItem
-                          disabled={!onMoveUp}
                           onClick={() => {
-                            if (onMoveUp) {
-                              onMoveUp();
-                              setDropdownOpen(false);
-                            }
+                            setRuleModal({
+                              environment,
+                              i,
+                              ruleId: rule.id,
+                              mode: "edit",
+                            });
+                            setDropdownOpen(false);
                           }}
                         >
-                          <PiCaretUp /> Move up
+                          Edit
                         </DropdownMenuItem>
-                        <DropdownMenuItem
-                          disabled={!onMoveDown}
-                          onClick={() => {
-                            if (onMoveDown) {
-                              onMoveDown();
-                              setDropdownOpen(false);
-                            }
-                          }}
-                        >
-                          <PiCaretDown /> Move down
-                        </DropdownMenuItem>
-                      </DropdownMenuGroup>
-                    </>
-                  )}
-                  {rampSchedule && !isSimpleSchedule && !isSyntheticRamp && (
-                    <>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuGroup label="Ramp-up schedule">
-                        {hasPendingDetach ? (
-                          /* When removal is pending: cancel it directly via API (no modal) */
+                        {rule.type !== "experiment-ref" && (
                           <DropdownMenuItem
-                            onClick={async () => {
-                              const res = await apiCall<{
-                                version: number;
-                              }>(`/feature/${feature.id}/${version}/rule`, {
-                                method: "PUT",
-                                body: JSON.stringify({
-                                  ruleId: rule.id,
-                                  rule,
-                                  rampSchedule: { mode: "clear" },
-                                }),
+                            onClick={() => {
+                              setRuleModal({
+                                environment,
+                                i,
+                                ruleId: rule.id,
+                                mode: "duplicate",
                               });
-                              if (res.version) setVersion(res.version);
-                              await mutate();
                               setDropdownOpen(false);
                             }}
                           >
-                            Cancel removal of schedule
+                            Duplicate rule
                           </DropdownMenuItem>
-                        ) : (
-                          <>
-                            {/* pending: blocked Start */}
-                            {rampSchedule.status === "pending" && (
-                              <Tooltip
-                                tipPosition="left"
-                                body={`Cannot start while ramp is pending.${
-                                  rampSchedule.targets.find(
-                                    (t) => t.activatingRevisionVersion != null,
-                                  )?.activatingRevisionVersion != null
-                                    ? ` Publish Revision ${rampSchedule.targets.find((t) => t.activatingRevisionVersion != null)?.activatingRevisionVersion} first.`
-                                    : ""
-                                }`}
+                        )}
+                        <DropdownMenuItem
+                          onClick={
+                            !rule.enabled && getRampEnableDate(rampSchedule)
+                              ? undefined
+                              : toggleRuleEnabled
+                          }
+                          confirmation={(() => {
+                            const d = !rule.enabled
+                              ? getRampEnableDate(rampSchedule)
+                              : null;
+                            if (!d) return undefined;
+                            return {
+                              confirmationTitle: "Enable rule now?",
+                              getConfirmationContent: async () =>
+                                `This rule is scheduled to go live on ${fmtScheduleDate(d)}. Enabling now bypasses the schedule and will set the rule live immediately.`,
+                              cta: "Enable now",
+                              ctaColor: "violet",
+                              submit: toggleRuleEnabled,
+                            };
+                          })()}
+                        >
+                          {rule.enabled ? "Disable" : "Enable"}
+                        </DropdownMenuItem>
+                      </DropdownMenuGroup>
+                    )}
+                    {!locked &&
+                      (onMoveUp ||
+                        onMoveDown ||
+                        onMoveToTop ||
+                        onMoveToBottom) && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuGroup>
+                            {onMoveToTop && (
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  onMoveToTop();
+                                  setDropdownOpen(false);
+                                }}
                               >
-                                <div style={{ cursor: "not-allowed" }}>
-                                  <DropdownMenuItem disabled>
-                                    <Flex align="center" gap="2">
-                                      <PiPlayFill /> Start now
-                                    </Flex>
-                                  </DropdownMenuItem>
-                                </div>
-                              </Tooltip>
+                                <PiCaretDoubleUp /> Move to top
+                              </DropdownMenuItem>
                             )}
-                            {/* ready: Start now */}
-                            {rampSchedule.status === "ready" &&
-                              (rampSchedule.targets.length === 0 ? (
+                            <DropdownMenuItem
+                              disabled={!onMoveUp}
+                              onClick={() => {
+                                if (onMoveUp) {
+                                  onMoveUp();
+                                  setDropdownOpen(false);
+                                }
+                              }}
+                            >
+                              <PiCaretUp /> Move up
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              disabled={!onMoveDown}
+                              onClick={() => {
+                                if (onMoveDown) {
+                                  onMoveDown();
+                                  setDropdownOpen(false);
+                                }
+                              }}
+                            >
+                              <PiCaretDown /> Move down
+                            </DropdownMenuItem>
+                            {onMoveToBottom && (
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  onMoveToBottom();
+                                  setDropdownOpen(false);
+                                }}
+                              >
+                                <PiCaretDoubleDown /> Move to bottom
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuGroup>
+                        </>
+                      )}
+                    {rampSchedule &&
+                      isSimpleSchedule &&
+                      !!rampSchedule.cutoffDate &&
+                      ["running", "paused"].includes(rampSchedule.status) && (
+                        <>
+                          {!locked && <DropdownMenuSeparator />}
+                          <DropdownMenuGroup label="Schedule">
+                            <DropdownMenuItem
+                              onClick={async () => {
+                                await apiCall(
+                                  `/ramp-schedule/${rampSchedule.id}/actions/complete`,
+                                  { method: "POST" },
+                                );
+                                await mutate();
+                                setDropdownOpen(false);
+                              }}
+                            >
+                              <Flex align="center" gap="2">
+                                <PiFastForward /> Complete schedule and disable
+                              </Flex>
+                            </DropdownMenuItem>
+                          </DropdownMenuGroup>
+                        </>
+                      )}
+                    {!locked &&
+                      rampSchedule &&
+                      isSimpleSchedule &&
+                      !!rampSchedule.cutoffDate &&
+                      ["completed", "rolled-back"].includes(
+                        rampSchedule.status,
+                      ) && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuGroup label="Schedule">
+                            <DropdownMenuItem
+                              onClick={async () => {
+                                const res = await apiCall<{
+                                  version: number;
+                                }>(`/feature/${feature.id}/${version}/rule`, {
+                                  method: "PUT",
+                                  body: JSON.stringify({
+                                    ruleId: rule.id,
+                                    rule,
+                                    rampSchedule: {
+                                      mode: "detach",
+                                      rampScheduleId: rampSchedule.id,
+                                      deleteScheduleWhenEmpty: true,
+                                    },
+                                  }),
+                                });
+                                if (res.version) setVersion(res.version);
+                                await mutate();
+                                setDropdownOpen(false);
+                              }}
+                            >
+                              <Flex align="center" gap="2">
+                                <PiTrash /> Remove schedule
+                              </Flex>
+                            </DropdownMenuItem>
+                          </DropdownMenuGroup>
+                        </>
+                      )}
+                    {rampSchedule && !isSimpleSchedule && !isSyntheticRamp && (
+                      <>
+                        {!locked && <DropdownMenuSeparator />}
+                        <DropdownMenuGroup label="Ramp-up schedule">
+                          {hasPendingDetach ? (
+                            // Canceling a pending removal edits the draft, so it's
+                            // gated by the edit-lock; runtime actions below are not.
+                            !locked && (
+                              <DropdownMenuItem
+                                onClick={async () => {
+                                  const res = await apiCall<{
+                                    version: number;
+                                  }>(`/feature/${feature.id}/${version}/rule`, {
+                                    method: "PUT",
+                                    body: JSON.stringify({
+                                      ruleId: rule.id,
+                                      rule,
+                                      rampSchedule: { mode: "clear" },
+                                    }),
+                                  });
+                                  if (res.version) setVersion(res.version);
+                                  await mutate();
+                                  setDropdownOpen(false);
+                                }}
+                              >
+                                Cancel removal of schedule
+                              </DropdownMenuItem>
+                            )
+                          ) : (
+                            <>
+                              {/* pending: blocked Start */}
+                              {rampSchedule.status === "pending" && (
                                 <Tooltip
-                                  body="No implementations linked"
                                   tipPosition="left"
+                                  body={`Cannot start while ramp is pending.${
+                                    rampSchedule.targets.find(
+                                      (t) => !!t.activatingRevisionVersion,
+                                    )?.activatingRevisionVersion
+                                      ? ` Publish Revision ${rampSchedule.targets.find((t) => !!t.activatingRevisionVersion)?.activatingRevisionVersion} first.`
+                                      : ""
+                                  }`}
                                 >
                                   <div style={{ cursor: "not-allowed" }}>
                                     <DropdownMenuItem disabled>
@@ -708,116 +1055,159 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                     </DropdownMenuItem>
                                   </div>
                                 </Tooltip>
-                              ) : (
-                                <DropdownMenuItem
-                                  onClick={async () => {
-                                    await apiCall(
-                                      `/ramp-schedule/${rampSchedule.id}/actions/start`,
-                                      { method: "POST" },
-                                    );
-                                    await mutate();
-                                    setDropdownOpen(false);
-                                  }}
-                                >
-                                  <Flex align="center" gap="2">
-                                    <PiPlayFill /> Start now
-                                  </Flex>
-                                </DropdownMenuItem>
-                              ))}
-                            {/* Pause */}
-                            {["running", "pending-approval"].includes(
-                              rampSchedule.status,
-                            ) && (
-                              <DropdownMenuItem
-                                onClick={async () => {
-                                  await apiCall(
-                                    `/ramp-schedule/${rampSchedule.id}/actions/pause`,
-                                    { method: "POST" },
-                                  );
-                                  await mutate();
-                                  setDropdownOpen(false);
-                                }}
-                              >
-                                <Flex align="center" gap="2">
-                                  <PiPauseFill /> Pause
-                                </Flex>
-                              </DropdownMenuItem>
-                            )}
-                            {/* Resume */}
-                            {rampSchedule.status === "paused" &&
-                              (rampSchedule.targets.length === 0 ? (
-                                <Tooltip
-                                  body="No implementations linked"
-                                  tipPosition="left"
-                                >
-                                  <div style={{ cursor: "not-allowed" }}>
-                                    <DropdownMenuItem disabled>
-                                      <Flex align="center" gap="2">
-                                        <PiPlayFill /> Resume
-                                      </Flex>
-                                    </DropdownMenuItem>
-                                  </div>
-                                </Tooltip>
-                              ) : (
-                                <DropdownMenuItem
-                                  onClick={async () => {
-                                    await apiCall(
-                                      `/ramp-schedule/${rampSchedule.id}/actions/resume`,
-                                      { method: "POST" },
-                                    );
-                                    await mutate();
-                                    setDropdownOpen(false);
-                                  }}
-                                >
-                                  <Flex align="center" gap="2">
-                                    <PiPlayFill /> Resume
-                                  </Flex>
-                                </DropdownMenuItem>
-                              ))}
-                            {/* Roll back / Jump ahead / Complete — active ramps */}
-                            {["running", "paused", "pending-approval"].includes(
-                              rampSchedule.status,
-                            ) && (
-                              <>
-                                {rampSchedule.currentStepIndex >= 0 &&
-                                  (() => {
-                                    const backSteps = rampSchedule.steps
-                                      .map((_, idx) => idx)
-                                      .filter(
-                                        (idx) =>
-                                          idx < rampSchedule.currentStepIndex,
+                              )}
+                              {/* ready: Start now */}
+                              {rampSchedule.status === "ready" &&
+                                (rampSchedule.targets.length === 0 ? (
+                                  <Tooltip
+                                    body="No implementations linked"
+                                    tipPosition="left"
+                                  >
+                                    <div style={{ cursor: "not-allowed" }}>
+                                      <DropdownMenuItem disabled>
+                                        <Flex align="center" gap="2">
+                                          <PiPlayFill /> Start now
+                                        </Flex>
+                                      </DropdownMenuItem>
+                                    </div>
+                                  </Tooltip>
+                                ) : (
+                                  <DropdownMenuItem
+                                    onClick={async () => {
+                                      await apiCall(
+                                        `/ramp-schedule/${rampSchedule.id}/actions/start`,
+                                        { method: "POST" },
                                       );
-                                    return (
-                                      <DropdownSubMenu
-                                        trigger={
-                                          <Flex align="center" gap="2">
-                                            <PiArrowUUpLeft /> Roll back to
-                                          </Flex>
-                                        }
-                                      >
-                                        <DropdownMenuItem
-                                          onClick={async () => {
-                                            await apiCall(
-                                              `/ramp-schedule/${rampSchedule.id}/actions/jump`,
-                                              {
-                                                method: "POST",
-                                                body: JSON.stringify({
-                                                  targetStepIndex: -1,
-                                                }),
-                                              },
-                                            );
-                                            await mutate();
-                                            setDropdownOpen(false);
-                                          }}
+                                      await mutate();
+                                      setDropdownOpen(false);
+                                    }}
+                                  >
+                                    <Flex align="center" gap="2">
+                                      <PiPlayFill /> Start now
+                                    </Flex>
+                                  </DropdownMenuItem>
+                                ))}
+                              {/* Pause */}
+                              {rampSchedule.status === "running" && (
+                                <DropdownMenuItem
+                                  onClick={async () => {
+                                    await apiCall(
+                                      `/ramp-schedule/${rampSchedule.id}/actions/pause`,
+                                      { method: "POST" },
+                                    );
+                                    await mutate();
+                                    setDropdownOpen(false);
+                                  }}
+                                >
+                                  <Flex align="center" gap="2">
+                                    <PiPauseFill /> Pause
+                                  </Flex>
+                                </DropdownMenuItem>
+                              )}
+                              {/* Resume */}
+                              {rampSchedule.status === "paused" &&
+                                (rampSchedule.targets.length === 0 ? (
+                                  <Tooltip
+                                    body="No implementations linked"
+                                    tipPosition="left"
+                                  >
+                                    <div style={{ cursor: "not-allowed" }}>
+                                      <DropdownMenuItem disabled>
+                                        <Flex align="center" gap="2">
+                                          <PiPlayFill /> Resume
+                                        </Flex>
+                                      </DropdownMenuItem>
+                                    </div>
+                                  </Tooltip>
+                                ) : (
+                                  <DropdownMenuItem
+                                    onClick={async () => {
+                                      await apiCall(
+                                        `/ramp-schedule/${rampSchedule.id}/actions/resume`,
+                                        { method: "POST" },
+                                      );
+                                      await mutate();
+                                      setDropdownOpen(false);
+                                    }}
+                                  >
+                                    <Flex align="center" gap="2">
+                                      <PiPlayFill /> Resume
+                                    </Flex>
+                                  </DropdownMenuItem>
+                                ))}
+                              {/* Roll back / Jump ahead / Complete — active ramps */}
+                              {["running", "paused"].includes(
+                                rampSchedule.status,
+                              ) && (
+                                <>
+                                  {rampSchedule.currentStepIndex >= 0 &&
+                                    (() => {
+                                      const backSteps = rampSchedule.steps
+                                        .map((_, idx) => idx)
+                                        .filter(
+                                          (idx) =>
+                                            idx < rampSchedule.currentStepIndex,
+                                        );
+                                      return (
+                                        <DropdownSubMenu
+                                          trigger={
+                                            <Flex align="center" gap="2">
+                                              <PiArrowUUpLeft /> Roll back to
+                                            </Flex>
+                                          }
                                         >
-                                          <Flex align="center" gap="2">
-                                            <PiRewind /> Start
-                                          </Flex>
-                                        </DropdownMenuItem>
-                                        {backSteps.length > 0 && (
-                                          <DropdownMenuSeparator />
-                                        )}
-                                        {backSteps.map((stepIdx) => (
+                                          <DropdownMenuItem
+                                            onClick={async () => {
+                                              await rollbackToStart();
+                                              setDropdownOpen(false);
+                                            }}
+                                          >
+                                            <Flex align="center" gap="2">
+                                              <PiRewind /> Start
+                                            </Flex>
+                                          </DropdownMenuItem>
+                                          {backSteps.length > 0 && (
+                                            <DropdownMenuSeparator />
+                                          )}
+                                          {backSteps.map((stepIdx) => (
+                                            <DropdownMenuItem
+                                              key={stepIdx}
+                                              onClick={async () => {
+                                                await apiCall(
+                                                  `/ramp-schedule/${rampSchedule.id}/actions/jump`,
+                                                  {
+                                                    method: "POST",
+                                                    body: JSON.stringify({
+                                                      targetStepIndex: stepIdx,
+                                                    }),
+                                                  },
+                                                );
+                                                await mutate();
+                                                setDropdownOpen(false);
+                                              }}
+                                            >
+                                              Step {stepIdx + 1}
+                                            </DropdownMenuItem>
+                                          ))}
+                                        </DropdownSubMenu>
+                                      );
+                                    })()}
+                                  {rampSchedule.currentStepIndex <
+                                    rampSchedule.steps.length - 1 && (
+                                    <DropdownSubMenu
+                                      trigger={
+                                        <Flex align="center" gap="2">
+                                          <PiArrowUUpRight /> Jump ahead to
+                                        </Flex>
+                                      }
+                                    >
+                                      {rampSchedule.steps
+                                        .map((_, idx) => idx)
+                                        .filter(
+                                          (idx) =>
+                                            idx > rampSchedule.currentStepIndex,
+                                        )
+                                        .map((stepIdx) => (
                                           <DropdownMenuItem
                                             key={stepIdx}
                                             onClick={async () => {
@@ -837,156 +1227,181 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                             Step {stepIdx + 1}
                                           </DropdownMenuItem>
                                         ))}
-                                      </DropdownSubMenu>
+                                    </DropdownSubMenu>
+                                  )}
+                                  {(() => {
+                                    const hasCutoff = !!rampSchedule.cutoffDate;
+                                    const allStepsDone =
+                                      rampSchedule.currentStepIndex >=
+                                      rampSchedule.steps.length;
+                                    return (
+                                      <>
+                                        {!allStepsDone && (
+                                          <DropdownMenuItem
+                                            onClick={async () => {
+                                              await apiCall(
+                                                `/ramp-schedule/${rampSchedule.id}/actions/complete`,
+                                                { method: "POST" },
+                                              );
+                                              await mutate();
+                                              setDropdownOpen(false);
+                                            }}
+                                          >
+                                            <Flex align="center" gap="2">
+                                              <PiFastForward /> Complete ramp
+                                            </Flex>
+                                          </DropdownMenuItem>
+                                        )}
+                                        {hasCutoff && (
+                                          <DropdownMenuItem
+                                            onClick={async () => {
+                                              await apiCall(
+                                                `/ramp-schedule/${rampSchedule.id}/actions/complete`,
+                                                {
+                                                  method: "POST",
+                                                  body: JSON.stringify({
+                                                    disableRule: true,
+                                                  }),
+                                                },
+                                              );
+                                              await mutate();
+                                              setDropdownOpen(false);
+                                            }}
+                                          >
+                                            <Flex align="center" gap="2">
+                                              <PiFastForward /> Complete ramp
+                                              and disable rule
+                                            </Flex>
+                                          </DropdownMenuItem>
+                                        )}
+                                      </>
                                     );
                                   })()}
-                                {rampSchedule.currentStepIndex <
-                                  rampSchedule.steps.length - 1 && (
-                                  <DropdownSubMenu
-                                    trigger={
-                                      <Flex align="center" gap="2">
-                                        <PiArrowUUpRight /> Jump ahead to
-                                      </Flex>
-                                    }
-                                  >
-                                    {rampSchedule.steps
-                                      .map((_, idx) => idx)
-                                      .filter(
-                                        (idx) =>
-                                          idx > rampSchedule.currentStepIndex,
-                                      )
-                                      .map((stepIdx) => (
-                                        <DropdownMenuItem
-                                          key={stepIdx}
-                                          onClick={async () => {
-                                            await apiCall(
-                                              `/ramp-schedule/${rampSchedule.id}/actions/jump`,
-                                              {
-                                                method: "POST",
-                                                body: JSON.stringify({
-                                                  targetStepIndex: stepIdx,
-                                                }),
-                                              },
-                                            );
-                                            await mutate();
-                                            setDropdownOpen(false);
-                                          }}
-                                        >
-                                          Step {stepIdx + 1}
+                                </>
+                              )}
+                              {/* Restart / Remove — terminal states */}
+                              {rampIsTerminal && (
+                                <>
+                                  {rampSchedule.cutoffDate &&
+                                  new Date(rampSchedule.cutoffDate) <=
+                                    new Date() ? (
+                                    <Tooltip
+                                      tipPosition="left"
+                                      body="The scheduled end date has already passed. Edit the schedule to remove or update the end date before restarting."
+                                    >
+                                      <div style={{ cursor: "not-allowed" }}>
+                                        <DropdownMenuItem disabled>
+                                          <Flex align="center" gap="2">
+                                            <PiRewind /> Restart ramp
+                                          </Flex>
                                         </DropdownMenuItem>
-                                      ))}
-                                  </DropdownSubMenu>
-                                )}
-                                <DropdownMenuItem
-                                  onClick={async () => {
-                                    await apiCall(
-                                      `/ramp-schedule/${rampSchedule.id}/actions/complete`,
-                                      { method: "POST" },
-                                    );
-                                    await mutate();
-                                    setDropdownOpen(false);
-                                  }}
-                                >
-                                  <Flex align="center" gap="2">
-                                    <PiFastForward /> Complete ramp
-                                  </Flex>
-                                </DropdownMenuItem>
-                              </>
-                            )}
-                            {/* Restart / Remove — terminal states */}
-                            {rampIsTerminal && (
-                              <>
-                                <DropdownMenuItem
-                                  onClick={async () => {
-                                    await apiCall(
-                                      `/ramp-schedule/${rampSchedule.id}/actions/reset`,
-                                      { method: "POST" },
-                                    );
-                                    await mutate();
-                                    setDropdownOpen(false);
-                                  }}
-                                >
-                                  <Flex align="center" gap="2">
-                                    <PiRewind /> Restart ramp
-                                  </Flex>
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={async () => {
-                                    const res = await apiCall<{
-                                      version: number;
-                                    }>(
-                                      `/feature/${feature.id}/${version}/rule`,
-                                      {
-                                        method: "PUT",
-                                        body: JSON.stringify({
-                                          ruleId: rule.id,
-                                          rule,
-                                          rampSchedule: {
-                                            mode: "detach",
-                                            rampScheduleId: rampSchedule.id,
-                                            deleteScheduleWhenEmpty: true,
+                                      </div>
+                                    </Tooltip>
+                                  ) : (
+                                    <DropdownMenuItem
+                                      onClick={async () => {
+                                        await apiCall(
+                                          `/ramp-schedule/${rampSchedule.id}/actions/restart`,
+                                          { method: "POST" },
+                                        );
+                                        await mutate();
+                                        setDropdownOpen(false);
+                                      }}
+                                    >
+                                      <Flex align="center" gap="2">
+                                        <PiRewind /> Restart ramp
+                                      </Flex>
+                                    </DropdownMenuItem>
+                                  )}
+                                  {!locked && (
+                                    <DropdownMenuItem
+                                      onClick={async () => {
+                                        const res = await apiCall<{
+                                          version: number;
+                                        }>(
+                                          `/feature/${feature.id}/${version}/rule`,
+                                          {
+                                            method: "PUT",
+                                            body: JSON.stringify({
+                                              ruleId: rule.id,
+                                              rule,
+                                              rampSchedule: {
+                                                mode: "detach",
+                                                rampScheduleId: rampSchedule.id,
+                                                deleteScheduleWhenEmpty: true,
+                                              },
+                                            }),
                                           },
-                                        }),
-                                      },
-                                    );
-                                    if (res.version) setVersion(res.version);
-                                    await mutate();
-                                    setDropdownOpen(false);
-                                  }}
-                                >
-                                  <Flex align="center" gap="2">
-                                    <PiTrash /> Remove schedule
-                                  </Flex>
-                                </DropdownMenuItem>
-                              </>
-                            )}
-                          </>
-                        )}
+                                        );
+                                        if (res.version)
+                                          setVersion(res.version);
+                                        await mutate();
+                                        setDropdownOpen(false);
+                                      }}
+                                    >
+                                      <Flex align="center" gap="2">
+                                        <PiTrash /> Remove schedule
+                                      </Flex>
+                                    </DropdownMenuItem>
+                                  )}
+                                </>
+                              )}
+                            </>
+                          )}
+                        </DropdownMenuGroup>
+                      </>
+                    )}
+                    {!locked && (
+                      <DropdownMenuGroup>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          color="red"
+                          onClick={() => {
+                            setDeleteMode(
+                              defaultDraft !== null ? "existing" : "new",
+                            );
+                            setDeleteSelectedDraft(defaultDraft);
+                            setShowDeleteRuleModal(true);
+                            setDropdownOpen(false);
+                          }}
+                        >
+                          Delete rule
+                        </DropdownMenuItem>
                       </DropdownMenuGroup>
-                    </>
-                  )}
-                  <DropdownMenuGroup>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      color="red"
-                      confirmation={{
-                        confirmationTitle: "Delete Rule",
-                        cta: "Delete",
-                        submit: async () => {
-                          track("Delete Feature Rule", {
-                            ruleIndex: i,
-                            environment,
-                            type: rule.type,
-                          });
-                          const res = await apiCall<{ version: number }>(
-                            `/feature/${feature.id}/${version}/rule`,
-                            {
-                              method: "DELETE",
-                              body: JSON.stringify({ ruleId: rule.id }),
-                            },
-                          );
-                          await mutate();
-                          res.version && setVersion(res.version);
-                        },
-                      }}
-                    >
-                      Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuGroup>
-                </DropdownMenu>
-              )}
+                    )}
+                  </DropdownMenu>
+                )}
             </Flex>
           </Flex>
           <Box>{info.callout}</Box>
-          {rampSchedule?.status === "pending-approval" &&
-            rampSchedule.currentStepIndex >= 0 &&
+          {willRevertScheduleEnable ? (
+            <Callout status="warning" mt="3" size="sm">
+              This rule is <strong>enabled</strong> in the live feature but{" "}
+              <strong>disabled</strong> in this draft. Publishing may revert a
+              schedule-driven enable.
+            </Callout>
+          ) : draftBehindLiveStale ? (
+            <Box mt="3">
+              <HelperText status="info" size="sm">
+                This draft is behind live — rebase (Review and Publish tab) to
+                compare
+              </HelperText>
+            </Box>
+          ) : null}
+          {rampSchedule &&
+            isReadyForApproval(rampSchedule) &&
             rampSchedule.steps[rampSchedule.currentStepIndex]
               ?.approvalNotes && (
-              <Callout status="info" mt="3" color="orange" size="sm">
+              <Callout
+                status="attention"
+                mt="3"
+                size="sm"
+                icon={<PiSpinnerGapBold />}
+              >
                 <strong>Approval Notes:</strong>{" "}
                 {
                   rampSchedule.steps[rampSchedule.currentStepIndex]
-                    .approvalNotes
+                    ?.approvalNotes
                 }
               </Callout>
             )}
@@ -1037,7 +1452,12 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
               ) : null}
             </Box>
             {rule.type === "force" && (
-              <ForceSummary value={rule.value} feature={feature} />
+              <ForceSummary
+                value={rule.value}
+                feature={feature}
+                sparse={rule.sparse}
+                environment={isAllEnvsView ? undefined : environment}
+              />
             )}
             {rule.type === "rollout" && (
               <RolloutSummary
@@ -1045,6 +1465,13 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 coverage={rule.coverage ?? 1}
                 feature={feature}
                 hashAttribute={rule.hashAttribute || ""}
+                sparse={rule.sparse}
+                environment={isAllEnvsView ? undefined : environment}
+                monitored={
+                  rampSchedule?.currentStepIndex !== undefined &&
+                  rampSchedule.currentStepIndex >= 0 &&
+                  rampSchedule.steps[rampSchedule.currentStepIndex]?.monitored
+                }
               />
             )}
             {rule.type === "safe-rollout" &&
@@ -1104,13 +1531,23 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 experiment={experimentsMap.get(rule.experimentId)}
                 rule={rule}
                 isDraft={isDraft}
+                environment={isAllEnvsView ? undefined : environment}
+              />
+            )}
+            {rule.type === "contextual-bandit-ref" && (
+              <ContextualBanditRefSummary
+                rule={rule}
+                feature={feature}
+                environment={isAllEnvsView ? undefined : environment}
               />
             )}
             {rampSchedule && (
               <Box mt="4">
                 {!isSimpleSchedule && (
-                  <Flex gap="3" align="center" mb="4" wrap="wrap">
-                    <Text weight="medium">RAMP-UP SCHEDULE</Text>
+                  <Flex gapX="3" gapY="1" align="center" mb="4" wrap="wrap">
+                    <span style={{ display: "inline-block" }}>
+                      <Text weight="medium">RAMP-UP SCHEDULE</Text>
+                    </span>
                     {!["pending", "ready", "completed", "rolled-back"].includes(
                       rampSchedule.status,
                     ) && (
@@ -1137,6 +1574,18 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       }
                       return <Text color="text-low">({label} remaining)</Text>;
                     })()}
+                    {rampSchedule.lockdownConfig?.mode === "locked" && (
+                      <Box style={{ flexBasis: "100%" }}>
+                        <HelperText
+                          status="warning"
+                          icon={<PiLockSimple size={15} />}
+                        >
+                          {rampSchedule.status === "running"
+                            ? "Feature locked during ramp-up"
+                            : "Feature will be locked while ramp-up is running"}
+                        </HelperText>
+                      </Box>
+                    )}
                   </Flex>
                 )}
                 {isSimpleSchedule && (
@@ -1145,25 +1594,48 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                   </Text>
                 )}
                 {rampApproveError && (
-                  <Callout status="error" mb="2">
-                    <Flex justify="between" align="start" gap="3">
-                      <Text>{rampApproveError}</Text>
-                      <Flex gap="2" flexShrink="0">
-                        <Button
-                          size="xs"
-                          variant="ghost"
-                          onClick={() => setRampApproveError("")}
-                        >
-                          Dismiss
-                        </Button>
-                      </Flex>
-                    </Flex>
+                  <Callout
+                    status="error"
+                    mb="2"
+                    action={
+                      <Button
+                        size="xs"
+                        variant="ghost"
+                        color="inherit"
+                        onClick={() => setRampApproveError("")}
+                      >
+                        Dismiss
+                      </Button>
+                    }
+                  >
+                    {rampApproveError}
                   </Callout>
                 )}
+                {rampSchedule.status === "rolled-back" &&
+                  !hasMonitoringStatusRow &&
+                  rampSchedule.lastRollbackReason && (
+                    <Callout status="error" mb="2">
+                      <Text weight="semibold">Rolled back:</Text>{" "}
+                      {formatRollbackReason(rampSchedule.lastRollbackReason)}
+                    </Callout>
+                  )}
+                {isAwaitingStartApproval(rampSchedule) &&
+                  !hasMonitoringStatusRow &&
+                  rampSchedule.lastRollbackReason && (
+                    <Callout status="warning" mb="2">
+                      <Text weight="semibold">Rolled back by monitoring:</Text>{" "}
+                      {formatRollbackReason(rampSchedule.lastRollbackReason)} —
+                      review before re-approving.
+                    </Callout>
+                  )}
                 <RampTimeline
                   rs={rampSchedule}
                   pendingDetach={!!hasPendingDetach}
                   onJump={async (targetStepIndex) => {
+                    if (targetStepIndex === -1) {
+                      await rollbackToStart();
+                      return;
+                    }
                     await apiCall(
                       `/ramp-schedule/${rampSchedule.id}/actions/jump`,
                       {
@@ -1180,7 +1652,24 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                     );
                     await mutate();
                   }}
+                  onCompleteAndDisable={async () => {
+                    await apiCall(
+                      `/ramp-schedule/${rampSchedule.id}/actions/complete`,
+                      {
+                        method: "POST",
+                        body: JSON.stringify({ disableRule: true }),
+                      },
+                    );
+                    await mutate();
+                  }}
                 />
+                {rampSchedule.steps.some((s) => s.monitored) && (
+                  <SafeRolloutRuleDashboard
+                    safeRolloutId={rampSchedule.safeRolloutId ?? undefined}
+                    rampSchedule={rampSchedule}
+                    mutateRule={mutate}
+                  />
+                )}
               </Box>
             )}
           </Box>
@@ -1248,13 +1737,18 @@ export function getRuleMetaInfo({
   experimentsMap,
   isDraft,
   unreachable,
+  conflictBanners,
   rampSchedule,
+  rampPendingDetach,
 }: {
   rule: FeatureRule;
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
   isDraft: boolean;
   unreachable?: boolean;
+  conflictBanners?: ConflictBanner[];
   rampSchedule?: RampScheduleInterface;
+  // The draft queues this rule's ramp for removal — so it won't enable on publish.
+  rampPendingDetach?: boolean;
 }): RuleMetaInfo {
   const linkedExperiment =
     rule.type === "experiment-ref"
@@ -1275,17 +1769,77 @@ export function getRuleMetaInfo({
     rule.scheduleRules.at(-1)?.timestamp !== null;
 
   if (!rule.enabled) {
-    const rampEnableDate = getRampEnableDate(rampSchedule);
-    if (rampEnableDate) {
+    // An approval-gated ramp holds the rule off (zero traffic) until someone
+    // approves the start — surface that instead of a bare "Disabled" so it's
+    // clear the rule is staged, not turned off by hand.
+    if (rampSchedule && isAwaitingStartApproval(rampSchedule)) {
       return {
         pill: (
           <Badge
             color="gray"
-            title={`Rule will be enabled by its schedule on ${rampEnableDate.toLocaleDateString()}`}
+            title="This rule is staged and serving no traffic. It will go live when someone approves the ramp's start."
             label={
               <>
                 <RxCircleBackslash />
-                Disabled &middot; enables {fmtScheduleDate(rampEnableDate)}
+                Disabled · awaiting approval
+              </>
+            }
+          />
+        ),
+        sideColor: "disabled",
+      };
+    }
+    const rampEnableDate = getRampEnableDate(rampSchedule);
+    if (rampEnableDate) {
+      // A pending draft schedule whose startDate has drifted into the past
+      // still hasn't fired — once published, the backend treats startDate as
+      // a one-shot gate and enables immediately. Showing the stale date is
+      // confusing; surface the actual semantics instead.
+      const inPast = rampEnableDate.getTime() <= Date.now();
+      const label = inPast
+        ? "Disabled · enables on publish"
+        : `Disabled \u00b7 enables ${fmtScheduleDate(rampEnableDate)}`;
+      const title = inPast
+        ? "Rule will be enabled by its schedule on the next publish"
+        : `Rule will be enabled by its schedule on ${rampEnableDate.toLocaleDateString()}`;
+      return {
+        pill: (
+          <Badge
+            color="gray"
+            title={title}
+            label={
+              <>
+                <RxCircleBackslash />
+                {label}
+              </>
+            }
+          />
+        ),
+        sideColor: "disabled",
+      };
+    }
+    // A pre-start ramp with no start date and no approval gate (both handled
+    // above) starts — and enables the rule — immediately on publish. Disabling
+    // the rule here does NOT hold the rollout, so say so instead of a bare
+    // "Disabled" and point at the option that actually holds it. Only in a draft
+    // ("on publish" framing), and not when the ramp is queued for removal (then
+    // the rule really does stay disabled).
+    const rampEnablesOnPublish =
+      isDraft &&
+      !rampPendingDetach &&
+      !!rampSchedule &&
+      (rampSchedule.status === "pending" || rampSchedule.status === "ready") &&
+      !rampSchedule.startDate;
+    if (rampEnablesOnPublish) {
+      return {
+        pill: (
+          <Badge
+            color="gray"
+            title="This rule's ramp schedule starts on publish and will re-enable it — disabling here won't hold the rollout. Use Start → On approval to stage it with zero traffic until approved."
+            label={
+              <>
+                <RxCircleBackslash />
+                Disabled · enables on publish
               </>
             }
           />
@@ -1363,44 +1917,66 @@ export function getRuleMetaInfo({
     };
   }
 
+  // One callout per conflict banner (in the all-envs view there can be several,
+  // each scoped to the environments that share a status).
+  const callouts: ReactElement[] = (conflictBanners ?? []).map((banner, i) => (
+    <ConflictCallout
+      key={`conflict-${i}`}
+      isUnreachable={banner.isUnreachable}
+      conflicts={banner.conflicts}
+      environments={banner.environments}
+      allEnvironments={banner.allEnvironments}
+    />
+  ));
+
+  // The status badge is derived from the same banners as the callouts, so its
+  // colour + icon always mirror the callout: orange/octagon for unreachable,
+  // amber/triangle for a softer "may not reach" conflict.
+  const conflictBadge = getConflictBadge(conflictBanners);
+  const conflictPill = conflictBadge ? (
+    <Badge
+      color={conflictBadge.color}
+      title={conflictBadge.title}
+      label={
+        <>
+          {conflictBadge.icon}
+          {conflictBadge.label}
+        </>
+      }
+    />
+  ) : undefined;
+
   if (unreachable) {
     return {
-      pill: (
-        <Badge
-          color="orange"
-          title="Rule not reachable"
-          label={
-            <>
-              <RiAlertLine />
-              Unreachable
-            </>
-          }
-        />
-      ),
-      callout: (
-        <Callout status="warning" size="sm">
-          Rules above will serve 100% of traffic and this rule will never be
-          used
-        </Callout>
-      ),
+      pill: conflictPill,
+      callout:
+        callouts.length > 0 ? (
+          <Flex direction="column" gap="2">
+            {callouts}
+          </Flex>
+        ) : undefined,
       sideColor: "unreachable",
     };
   }
 
   if (upcomingScheduleRule && upcomingScheduleRule.timestamp) {
-    return {
-      callout: (
-        <Callout status="info">
-          Will be disabled on{" "}
-          {new Date(upcomingScheduleRule.timestamp).toLocaleDateString()} at{" "}
-          {formatTimeZone(new Date(upcomingScheduleRule.timestamp), "h:mm a z")}
-        </Callout>
-      ),
-      sideColor: "active",
-    };
+    callouts.push(
+      <Callout key="schedule" status="info">
+        Will be disabled on{" "}
+        {new Date(upcomingScheduleRule.timestamp).toLocaleDateString()} at{" "}
+        {formatTimeZone(new Date(upcomingScheduleRule.timestamp), "h:mm a z")}
+      </Callout>,
+    );
   }
 
   return {
+    pill: conflictPill,
+    callout:
+      callouts.length > 0 ? (
+        <Flex direction="column" gap="2">
+          {callouts}
+        </Flex>
+      ) : undefined,
     sideColor: "active",
   };
 }

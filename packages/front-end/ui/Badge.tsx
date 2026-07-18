@@ -35,7 +35,12 @@ export default forwardRef<HTMLDivElement, Props>(function Badge(
   ref,
 ) {
   const resolvedSize = size ? sizeMap[size] : undefined;
-  const resolvedStyle = size === "xs" ? { ...xsStyle, ...style } : style;
+  // Center the badge against adjacent text when rendered inline (e.g. next to a
+  // tab label). No-op for flex/grid children, which ignore vertical-align.
+  const resolvedStyle: CSSProperties =
+    size === "xs"
+      ? { verticalAlign: "middle", ...xsStyle, ...style }
+      : { verticalAlign: "middle", ...style };
 
   return (
     <RadixBadge

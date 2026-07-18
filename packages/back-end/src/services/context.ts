@@ -3,7 +3,7 @@ import { uniq } from "lodash";
 import type pino from "pino";
 import type { Request } from "express";
 import { ExperimentMetricInterface } from "shared/experiments";
-import { CommercialFeature } from "shared/enterprise";
+import { CommercialFeature, OrgLimitsAccessor } from "shared/enterprise";
 import { AuditInterfaceInput } from "shared/types/audit";
 import {
   OrganizationInterface,
@@ -18,9 +18,11 @@ import { ExperimentInterface } from "shared/types/experiment";
 import { DataSourceInterface } from "shared/types/datasource";
 import { FeatureInterface } from "shared/types/feature";
 import { UserInterface } from "shared/types/user";
+import { stringToBoolean } from "shared/util";
 import {
   BadRequestError,
   UnauthorizedError,
+  PaymentRequiredError,
   PlanDoesNotAllowError,
   NotFoundError,
   InternalServerError,
@@ -28,6 +30,7 @@ import {
 import { SdkConnectionCacheModel } from "back-end/src/models/SdkConnectionCacheModel";
 import { DashboardModel } from "back-end/src/enterprise/models/DashboardModel";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
+import { getEffectiveOrgLimits } from "back-end/src/services/plan-limits";
 import { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
 import { MetricAnalysisModel } from "back-end/src/models/MetricAnalysisModel";
 import {
@@ -50,17 +53,22 @@ import { ExperimentTemplatesModel } from "back-end/src/models/ExperimentTemplate
 import { SafeRolloutModel } from "back-end/src/models/SafeRolloutModel";
 import { SafeRolloutSnapshotModel } from "back-end/src/models/SafeRolloutSnapshotModel";
 import { IncrementalRefreshModel } from "back-end/src/models/IncrementalRefreshModel";
+import { AggregatedFactTableModel } from "back-end/src/models/AggregatedFactTableModel";
+import { AggregatedFactTableRunModel } from "back-end/src/models/AggregatedFactTableRunModel";
 import { DecisionCriteriaModel } from "back-end/src/enterprise/models/DecisionCriteriaModel";
 import { MetricTimeSeriesModel } from "back-end/src/models/MetricTimeSeriesModel";
 import { WebhookSecretDataModel } from "back-end/src/models/WebhookSecretModel";
 import { HoldoutModel } from "back-end/src/models/HoldoutModel";
 import { SavedQueryDataModel } from "back-end/src/models/SavedQueryDataModel";
 import { SavedGroupModel } from "back-end/src/models/SavedGroupModel";
+import { ConstantModel } from "back-end/src/models/ConstantModel";
+import { ConfigModel } from "back-end/src/models/ConfigModel";
 import { FeatureRevisionLogModel } from "back-end/src/models/FeatureRevisionLogModel";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { AiPromptModel } from "back-end/src/enterprise/models/AIPromptModel";
 import { VectorsModel } from "back-end/src/enterprise/models/VectorsModel";
 import { AgreementModel } from "back-end/src/models/AgreementModel";
+import { SessionReplayModel } from "back-end/src/models/SessionReplayModel";
 import { SqlResultChunkModel } from "back-end/src/models/SqlResultChunkModel";
 import { ExperimentSnapshotAnalysisChunkModel } from "back-end/src/models/ExperimentSnapshotAnalysisChunkModel";
 import { CustomHookModel } from "back-end/src/models/CustomHookModel";
@@ -68,11 +76,17 @@ import { RampScheduleModel } from "back-end/src/models/RampScheduleModel";
 import { RampScheduleTemplateModel } from "back-end/src/models/RampScheduleTemplateModel";
 import { SdkWebhookModel } from "back-end/src/models/WebhookModel";
 import { TeamModel } from "back-end/src/models/TeamModel";
+import { ContextualBanditModel } from "back-end/src/enterprise/models/ContextualBanditModel";
+import { ContextualBanditQueryModel } from "back-end/src/enterprise/models/ContextualBanditQueryModel";
+import { ContextualBanditSnapshotModel } from "back-end/src/enterprise/models/ContextualBanditSnapshotModel";
+import { ContextualBanditEventModel } from "back-end/src/enterprise/models/ContextualBanditEventModel";
 import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
 import { RevisionModel } from "back-end/src/models/RevisionModel";
 import { AIConversationModel } from "back-end/src/models/AIConversationModel";
+import { EventForwarderConfigModel } from "back-end/src/models/EventForwarderConfigModel";
 import { PresentationThemeModel } from "back-end/src/models/PresentationThemeModel";
 import { WatchModel } from "back-end/src/models/WatchModel";
+import { FigmaConnectionModel } from "back-end/src/models/FigmaConnectionModel";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import { getUserByEmail, getUsersByIds } from "back-end/src/models/UserModel";
 import { getExperimentMetricsByIds } from "./experiments";
@@ -108,20 +122,31 @@ export type ModelName =
   | "dashboards"
   | "customHooks"
   | "incrementalRefresh"
+  | "aggregatedFactTables"
+  | "aggregatedFactTableRuns"
   | "experimentSnapshotAnalysisChunks"
   | "sqlResultChunks"
   | "sdkConnectionCache"
   | "sdkWebhooks"
   | "savedGroups"
+  | "constants"
+  | "configs"
   | "teams"
   | "analyticsExplorations"
   | "presentationThemes"
   | "revisions"
   | "watch"
+  | "figmaConnections"
   | "apiKeys"
   | "rampSchedules"
   | "rampScheduleTemplates"
-  | "aiConversations";
+  | "aiConversations"
+  | "contextualBandits"
+  | "contextualBanditQueries"
+  | "contextualBanditSnapshots"
+  | "contextualBanditEvents"
+  | "sessionReplays"
+  | "eventForwarderConfigs";
 
 export const modelClasses = {
   agreements: AgreementModel,
@@ -147,22 +172,41 @@ export const modelClasses = {
   dashboards: DashboardModel,
   customHooks: CustomHookModel,
   incrementalRefresh: IncrementalRefreshModel,
+  aggregatedFactTables: AggregatedFactTableModel,
+  aggregatedFactTableRuns: AggregatedFactTableRunModel,
   experimentSnapshotAnalysisChunks: ExperimentSnapshotAnalysisChunkModel,
   sqlResultChunks: SqlResultChunkModel,
   sdkConnectionCache: SdkConnectionCacheModel,
   sdkWebhooks: SdkWebhookModel,
   savedGroups: SavedGroupModel,
+  constants: ConstantModel,
+  configs: ConfigModel,
   teams: TeamModel,
   analyticsExplorations: AnalyticsExplorationModel,
   revisions: RevisionModel,
   presentationThemes: PresentationThemeModel,
   watch: WatchModel,
+  figmaConnections: FigmaConnectionModel,
   apiKeys: ApiKeyModel,
   rampSchedules: RampScheduleModel,
   rampScheduleTemplates: RampScheduleTemplateModel,
   aiConversations: AIConversationModel,
+  contextualBandits: ContextualBanditModel,
+  contextualBanditQueries: ContextualBanditQueryModel,
+  contextualBanditSnapshots: ContextualBanditSnapshotModel,
+  contextualBanditEvents: ContextualBanditEventModel,
+  sessionReplays: SessionReplayModel,
+  eventForwarderConfigs: EventForwarderConfigModel,
 };
-export type ModelClass = (typeof modelClasses)[ModelName];
+// ModelClass narrows to only BaseModel-derived model constructors (those
+// expose a static `getModelConfig`). Non-BaseModel context models — e.g.
+// SessionReplayModel, which is backed by ClickHouse + S3 rather than
+// Mongo — are still registered on the request context but excluded from
+// API_MODELS iteration in api.router.ts.
+export type ModelClass = Extract<
+  (typeof modelClasses)[ModelName],
+  { getModelConfig: () => unknown }
+>;
 type ModelInstances = {
   [K in ModelName]: InstanceType<(typeof modelClasses)[K]>;
 };
@@ -195,21 +239,32 @@ export class ReqContextClass {
       dashboards: new DashboardModel(this),
       customHooks: new CustomHookModel(this),
       incrementalRefresh: new IncrementalRefreshModel(this),
+      aggregatedFactTables: new AggregatedFactTableModel(this),
+      aggregatedFactTableRuns: new AggregatedFactTableRunModel(this),
       experimentSnapshotAnalysisChunks:
         new ExperimentSnapshotAnalysisChunkModel(this),
       sqlResultChunks: new SqlResultChunkModel(this),
       sdkConnectionCache: new SdkConnectionCacheModel(this),
       sdkWebhooks: new SdkWebhookModel(this),
       savedGroups: new SavedGroupModel(this),
+      constants: new ConstantModel(this),
+      configs: new ConfigModel(this),
       teams: new TeamModel(this),
       analyticsExplorations: new AnalyticsExplorationModel(this),
       revisions: new RevisionModel(this),
       presentationThemes: new PresentationThemeModel(this),
       watch: new WatchModel(this),
+      figmaConnections: new FigmaConnectionModel(this),
       apiKeys: new ApiKeyModel(this),
       rampSchedules: new RampScheduleModel(this),
       rampScheduleTemplates: new RampScheduleTemplateModel(this),
       aiConversations: new AIConversationModel(this),
+      contextualBandits: new ContextualBanditModel(this),
+      contextualBanditQueries: new ContextualBanditQueryModel(this),
+      contextualBanditSnapshots: new ContextualBanditSnapshotModel(this),
+      contextualBanditEvents: new ContextualBanditEventModel(this),
+      sessionReplays: new SessionReplayModel(this),
+      eventForwarderConfigs: new EventForwarderConfigModel(this),
     };
   }
 
@@ -303,8 +358,37 @@ export class ReqContextClass {
     this.initModels();
   }
 
+  // True to skip soft warnings; background jobs (no req) always ignore.
+  public get ignoreWarnings(): boolean {
+    if (!this.req) return true;
+    const v = this.req.query?.ignoreWarnings;
+    if (typeof v !== "string") return false;
+    return stringToBoolean(v);
+  }
+
+  // Opt-in escape hatch to skip JSON-schema / value-shape conformance checks on
+  // write paths (`?skipSchemaValidation=true`). Validation is enforced by
+  // default; this only relaxes it when a caller explicitly asks. Background jobs
+  // (no req) never skip — they must produce conforming data.
+  //
+  // Gated: turning off hard validation is only honored for callers with org-wide
+  // bypass authority (`bypassApprovalChecks` on all projects). A project-scoped
+  // writer can't silently ship non-conforming data — the flag is ignored and
+  // validation still runs (a 4xx, the secure default). Schema validation is new,
+  // so nothing depends on an ungated bypass.
+  public get skipSchemaValidation(): boolean {
+    if (!this.req) return false;
+    const v = this.req.query?.skipSchemaValidation;
+    if (typeof v !== "string" || !stringToBoolean(v)) return false;
+    return this.permissions.canBypassApprovalChecks({ project: undefined });
+  }
+
   public throwBadRequestError(message: string): never {
     throw new BadRequestError(message);
+  }
+
+  public throwPaymentRequiredError(message: string): never {
+    throw new PaymentRequiredError(message);
   }
 
   public throwUnauthorizedError(message: string): never {
@@ -350,6 +434,14 @@ export class ReqContextClass {
 
   public hasPremiumFeature(feature: CommercialFeature) {
     return orgHasPremiumFeature(this.org, feature);
+  }
+
+  private _limits: OrgLimitsAccessor | null = null;
+  public get limits(): OrgLimitsAccessor {
+    if (!this._limits) {
+      this._limits = getEffectiveOrgLimits(this.org);
+    }
+    return this._limits;
   }
 
   // Record an audit log entry

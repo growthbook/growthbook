@@ -1,48 +1,42 @@
-import { Isolate, Context, Reference, ExternalCopy } from "isolated-vm";
-import { RequestInit } from "node-fetch";
 import { CustomHookInterface, CustomHookType } from "shared/validators";
+import {
+  getConfigAncestorKeys,
+  getConfigBaseKeys,
+  getConfigSubtree,
+  withConfigExtends,
+} from "shared/util";
+import { CONSTANT_EXTENDS_KEY } from "shared/constants";
+import {
+  buildConstantValueMap,
+  resolveConstantRefs,
+} from "shared/sdk-versioning";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { parseEnvInt } from "shared/util";
-import { cancellableFetch } from "back-end/src/util/http.util";
+import { ConfigInterface } from "shared/types/config";
+import { ExperimentInterface } from "shared/types/experiment";
+import { SoftWarningError } from "back-end/src/util/errors";
 import { IS_CLOUD } from "back-end/src/util/secrets";
-import { ReqContextClass } from "back-end/src/services/context";
+import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
+import { Context } from "back-end/src/models/BaseModel";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
+import {
+  configToResolvable,
+  ResolvableValue,
+} from "back-end/src/services/resolvableValues";
+import { runInSandbox } from "./sandbox-pool";
 
-// Default memory limit in MB
-const MEMORY_MB = parseEnvInt(process.env.CUSTOM_HOOK_MEMORY_MB, 32, {
-  min: 1,
-  name: "CUSTOM_HOOK_MEMORY_MB",
-});
-// Max active CPU time (excluding fetch)
-const CPU_TIMEOUT_MS = parseEnvInt(
-  process.env.CUSTOM_HOOK_CPU_TIMEOUT_MS,
-  100,
-  {
-    min: 1,
-    name: "CUSTOM_HOOK_CPU_TIMEOUT_MS",
-  },
-);
-// Max total run time (including fetch)
-const WALL_TIMEOUT_MS = parseEnvInt(
-  process.env.CUSTOM_HOOK_WALL_TIMEOUT_MS,
-  5000,
-  { min: 1, name: "CUSTOM_HOOK_WALL_TIMEOUT_MS" },
-);
-// Max response size from fetch calls (default 500KB)
-const MAX_FETCH_RESP_SIZE = parseEnvInt(
-  process.env.CUSTOM_HOOK_MAX_FETCH_RESP_SIZE,
-  500 * 1024,
-  { min: 1, name: "CUSTOM_HOOK_MAX_FETCH_RESP_SIZE" },
-);
+// Custom hook orchestration; sandboxed JS runs in the child-process pool (sandbox-pool.ts).
 
-// Export wrapped calls for each hook type
+export function customHooksActive(context: Context): boolean {
+  return !IS_CLOUD && context.hasPremiumFeature("custom-hooks");
+}
+
 export async function runValidateFeatureHooks({
   context,
   feature,
   original,
 }: {
-  context: ReqContextClass;
+  context: Context;
   feature: FeatureInterface;
   original: FeatureInterface | null;
 }): Promise<void> {
@@ -51,6 +45,7 @@ export async function runValidateFeatureHooks({
     "validateFeature",
     { feature },
     feature.project,
+    feature.id,
     original ? { feature: original } : undefined,
   );
 }
@@ -61,7 +56,7 @@ export async function runValidateFeatureRevisionHooks({
   revision,
   original,
 }: {
-  context: ReqContextClass;
+  context: Context;
   feature: FeatureInterface;
   revision: FeatureRevisionInterface;
   original: FeatureRevisionInterface;
@@ -71,6 +66,7 @@ export async function runValidateFeatureRevisionHooks({
     "validateFeatureRevision",
     { feature, revision },
     feature.project,
+    feature.id,
     {
       feature,
       revision: original,
@@ -78,30 +74,375 @@ export async function runValidateFeatureRevisionHooks({
   );
 }
 
-export interface SandboxEvalResult {
-  ok: boolean;
-  error?: string;
-  returnVal?: unknown;
-  log?: string;
+// The config being validated, positioned in its lineage — exposed to config
+// hooks so they can reason about where "self" sits (root vs leaf, whether it has
+// a parent or children, and the full ancestor/descendant key lists).
+type ConfigLineage = {
+  ancestors: string[];
+  descendants: string[];
+  hasParent: boolean;
+  hasChildren: boolean;
+  isRoot: boolean;
+  isLeaf: boolean;
+};
+
+// Present ONLY when the config being validated is an environment/project-scoped
+// override (a "flavor") of another config — so a hook can apply env-specific
+// rules (e.g. "the production override must set timeout"). Derived from the base
+// config's scopedOverrides (the source of truth); absent for a plain config.
+type ScopedConfigHookInfo = {
+  parent: string;
+  environments?: string[];
+  projects?: string[];
+};
+
+// A config's publish-time content passed to config hooks. `key`/`project`/
+// `parent`/`extends` drive hook scoping (entity-scoped by key, descendant-scoped
+// by the staged lineage, project-scoped by project); the rest is the config's
+// own fields. `value` is handed to hooks as a parsed JSON object (not the stored
+// string) so hook code can read it directly.
+type ConfigHookInput = {
+  key: string;
+  project?: string;
+  parent?: string;
+  extends?: string[];
+  lineage?: ConfigLineage;
+  scopedConfig?: ScopedConfigHookInfo;
+  // Fully-resolved shipping shape (lineage + refs substituted): `resolved` is
+  // the env-agnostic base value; `perEnvironment` has one entry per environment
+  // the lineage overrides via a flavor. Set only on the config being validated.
+  resolved?: unknown;
+  perEnvironment?: { environment: string; value: unknown }[];
+} & Record<string, unknown>;
+
+// Configs store `value` as a JSON string; hooks get it parsed. A non-JSON /
+// unparseable value is passed through unchanged so the hook still sees it.
+function parseConfigValue(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+}
+
+// Resolve the config's shipping shape for hooks. The staged value is
+// substituted into the reference universe (like schemaBreakGuard's proposed
+// map) so the result reflects the change under validation. Reads are
+// unfiltered — lineage/refs can span projects the acting user can't read.
+type ResolvedShapes = {
+  resolved: unknown;
+  perEnvironment: { environment: string; value: unknown }[];
+};
+
+async function computeConfigResolvedShapes(
+  context: Context,
+  all: ConfigInterface[],
+  byKey: Map<string, ConfigInterface>,
+  config: ConfigHookInput,
+  withOriginal: boolean,
+): Promise<{ staged: ResolvedShapes; original: ResolvedShapes | null }> {
+  const project = config.project ?? byKey.get(config.key)?.project ?? "";
+  const scanContext = getContextForAgendaJobByOrgObject(context.org);
+  const constants = await scanContext.models.constants.getAll();
+  const constantResolvables = constants.map(
+    (c): ResolvableValue => ({ ...c, source: "constant" }),
+  );
+
+  const stored = byKey.get(config.key);
+  const rawValue =
+    typeof config.value === "string"
+      ? config.value
+      : JSON.stringify(config.value ?? {});
+  const stagedResolvable = {
+    ...(stored ?? {}),
+    key: config.key,
+    project,
+    type: "json",
+    source: "config",
+    value: withConfigExtends(
+      rawValue,
+      getConfigBaseKeys({ parent: config.parent, extends: config.extends }),
+    ),
+    scopedOverrides: stored?.scopedOverrides,
+  } as ResolvableValue;
+
+  const stagedResolvables: ResolvableValue[] = [
+    ...constantResolvables,
+    ...all.map((c) =>
+      c.key === config.key ? stagedResolvable : configToResolvable(c),
+    ),
+  ];
+  if (!stored) stagedResolvables.push(stagedResolvable);
+
+  // Only environments the lineage overrides via a flavor can differ from the
+  // base value, so resolve just those (plus the env-agnostic base). A wildcard/
+  // project-only entry (no `environments`) applies in every named environment.
+  const lineageKeys = [config.key, ...getConfigAncestorKeys(config, byKey)];
+  const environments = new Set<string>();
+  for (const key of lineageKeys) {
+    for (const o of byKey.get(key)?.scopedOverrides ?? []) {
+      if (!o.environments?.length) {
+        getEnvironmentIdsFromOrg(context.org).forEach((e) =>
+          environments.add(e),
+        );
+      } else {
+        o.environments.forEach((e) => environments.add(e));
+      }
+    }
+  }
+
+  const shapesFor = (resolvables: ResolvableValue[]): ResolvedShapes => {
+    const resolveFor = (environment: string | undefined): unknown =>
+      resolveConstantRefs(
+        { [CONSTANT_EXTENDS_KEY]: [`@config:${config.key}`] },
+        buildConstantValueMap(resolvables, environment ?? ""),
+        new Set(),
+        undefined,
+        project,
+        environment,
+      );
+    return {
+      resolved: resolveFor(undefined),
+      perEnvironment: [...environments].map((environment) => ({
+        environment,
+        value: resolveFor(environment),
+      })),
+    };
+  };
+
+  return {
+    staged: shapesFor(stagedResolvables),
+    // The original resolves against the STORED universe (no substitution) so
+    // incrementalChangesOnly hooks can diff resolved shapes symmetrically.
+    original:
+      withOriginal && stored
+        ? shapesFor([...constantResolvables, ...all.map(configToResolvable)])
+        : null,
+  };
+}
+
+// Shape the config args for hooks: parse `value` and attach lineage facts.
+// Skipped when hooks won't run anyway (cloud / no premium feature) so we don't
+// pay for the config-collection read.
+async function prepareConfigHookArgs(
+  context: Context,
+  config: ConfigHookInput,
+  original: ConfigHookInput | null | undefined,
+): Promise<{
+  config: ConfigHookInput;
+  original: ConfigHookInput | null | undefined;
+}> {
+  if (IS_CLOUD || !context.hasPremiumFeature("custom-hooks")) {
+    return { config, original };
+  }
+  const all = await context.models.configs.getAllForReconcile();
+  const byKey = new Map(all.map((c) => [c.key, c]));
+  const shape = (c: ConfigHookInput): ConfigHookInput => {
+    const ancestors = [...getConfigAncestorKeys(c, byKey)];
+    const descendants = getConfigSubtree(c.key, all).filter((k) => k !== c.key);
+    // If some other config selects this one via scopedOverrides, it's an
+    // environment/project override — surface its scope so hooks can validate
+    // per-environment. Source of truth is the base's scopedOverrides.
+    let scopedConfig: ScopedConfigHookInfo | undefined;
+    for (const base of all) {
+      const entry = (base.scopedOverrides ?? []).find(
+        (o) => o.config === c.key,
+      );
+      if (entry) {
+        scopedConfig = {
+          parent: base.key,
+          environments: entry.environments,
+          projects: entry.projects,
+        };
+        break;
+      }
+    }
+    return {
+      ...c,
+      value: parseConfigValue(c.value),
+      lineage: {
+        ancestors,
+        descendants,
+        hasParent: ancestors.length > 0,
+        hasChildren: descendants.length > 0,
+        isRoot: ancestors.length === 0,
+        isLeaf: descendants.length === 0,
+      },
+      ...(scopedConfig ? { scopedConfig } : {}),
+    };
+  };
+  const shapes = await computeConfigResolvedShapes(
+    context,
+    all,
+    byKey,
+    config,
+    !!original,
+  );
+  const attach = (c: ConfigHookInput, s: ResolvedShapes): ConfigHookInput => ({
+    ...c,
+    resolved: s.resolved,
+    ...(s.perEnvironment.length ? { perEnvironment: s.perEnvironment } : {}),
+  });
+  return {
+    config: attach(shape(config), shapes.staged),
+    original:
+      original && shapes.original
+        ? attach(shape(original), shapes.original)
+        : original
+          ? shape(original)
+          : original,
+  };
+}
+
+// Whether any hook would run for this entity — probed BEFORE the arg
+// enrichment so configless orgs don't pay the config/constant collection reads
+// and reference resolution on every write.
+async function anyHooksToRun(
+  context: Context,
+  hookType: CustomHookType,
+  config: ConfigHookInput,
+): Promise<boolean> {
+  if (IS_CLOUD || !context.hasPremiumFeature("custom-hooks")) return false;
+  const adminContext = getContextForAgendaJobByOrgObject(context.org);
+  const hooks = await adminContext.models.customHooks.getByHook(
+    hookType,
+    config.project ?? "",
+    config.key,
+    { parent: config.parent, extends: config.extends },
+  );
+  return hooks.length > 0;
+}
+
+export async function runValidateConfigHooks({
+  context,
+  config,
+  original,
+}: {
+  context: Context;
+  config: ConfigHookInput;
+  original: ConfigHookInput | null;
+}): Promise<void> {
+  if (!(await anyHooksToRun(context, "validateConfig", config))) return;
+  const enriched = await prepareConfigHookArgs(context, config, original);
+  return _runCustomHooks(
+    context,
+    "validateConfig",
+    { config: enriched.config },
+    config.project ?? "",
+    config.key,
+    enriched.original ? { config: enriched.original } : undefined,
+    { parent: config.parent, extends: config.extends },
+  );
+}
+
+// The publish-time revision metadata passed to validateConfigRevision hooks:
+// review verdicts, status, author, and the change comment — enough to gate a
+// publish on approval policy (mirrors the feature revision hook's `revision`).
+export type ConfigRevisionHookInput = {
+  version?: number;
+  status: string;
+  title?: string;
+  comment?: string;
+  authorId: string;
+  contributors?: string[];
+  reviews: {
+    userId: string;
+    decision: string;
+    comment?: string;
+    stale?: boolean;
+    dateCreated: Date;
+  }[];
+};
+
+export async function runValidateConfigRevisionHooks({
+  context,
+  config,
+  revision,
+  original,
+}: {
+  context: Context;
+  config: ConfigHookInput;
+  revision?: ConfigRevisionHookInput;
+  original?: ConfigHookInput | null;
+}): Promise<void> {
+  if (!(await anyHooksToRun(context, "validateConfigRevision", config))) return;
+  const enriched = await prepareConfigHookArgs(context, config, original);
+  // Args are injected by destructuring, so `revision` must always be bound —
+  // an absent key makes `if (revision)` a ReferenceError inside the hook.
+  // Direct publishes (REST value update, revert) have no revision → null.
+  return _runCustomHooks(
+    context,
+    "validateConfigRevision",
+    { config: enriched.config, revision: revision ?? null },
+    config.project ?? "",
+    config.key,
+    enriched.original
+      ? { config: enriched.original, revision: revision ?? null }
+      : undefined,
+    { parent: config.parent, extends: config.extends },
+  );
+}
+
+// Per-hook: tell a config hook whether the config being validated is the exact
+// config it's pinned to (`isHookTarget`) versus a descendant it also runs on.
+// `hookTargetKey` names the pinned config (null for project/global hooks, where
+// every in-scope config is a direct target). No-op for non-config args.
+function withHookTarget(
+  hook: CustomHookInterface,
+  args: Record<string, unknown> | undefined,
+): Record<string, unknown> | undefined {
+  if (!args) return args;
+  const config = args.config;
+  if (!config || typeof config !== "object") return args;
+  const cfg = config as Record<string, unknown>;
+  const targetKey =
+    hook.entityType === "config" ? (hook.entityId ?? null) : null;
+  return {
+    ...args,
+    config: {
+      ...cfg,
+      hookTargetKey: targetKey,
+      isHookTarget: targetKey === null || targetKey === cfg.key,
+    },
+  };
+}
+
+export async function runValidateExperimentHooks({
+  context,
+  experiment,
+  original,
+}: {
+  context: Context;
+  experiment: ExperimentInterface;
+  original: ExperimentInterface | null;
+}): Promise<void> {
+  return _runCustomHooks(
+    context,
+    "validateExperiment",
+    { experiment },
+    experiment.project || "",
+    experiment.id,
+    original ? { experiment: original } : undefined,
+  );
 }
 
 // Private methods
 async function _runCustomHooks(
-  context: ReqContextClass,
+  context: Context,
   hookType: CustomHookType,
   functionArgs: Record<string, unknown>,
   project: string = "",
+  entityId: string = "",
   originalFunctionArgs?: Record<string, unknown>,
+  // Staged immediate bases of the target config (config hook types only) —
+  // lets family-scoped hooks match descendants of their entityId.
+  configBases?: { parent?: string; extends?: string[] },
 ) {
-  // Skip on cloud
-  // The V8 Isolates approach we are using is too big of a risk in a multi-tenant environment
-  // Should be fine for self-hosting though
-  if (IS_CLOUD) return;
+  if (!customHooksActive(context)) return;
 
-  // Skip if org doesn't have the premium feature
-  if (!context.hasPremiumFeature("custom-hooks")) {
-    return;
-  }
+  // Admin context has no `req` so must read from original context instead
+  const ignoreWarnings = context.ignoreWarnings;
 
   // Get an admin version of the context
   // We don't want the user's permissions to affect which hooks are executed
@@ -110,207 +451,67 @@ async function _runCustomHooks(
   const hooks = await adminContext.models.customHooks.getByHook(
     hookType,
     project,
+    entityId,
+    configBases,
   );
+
+  const allWarnings: string[] = [];
   for (const hook of hooks) {
-    const res = await _runCustomHook(
+    const { error, warnings } = await _runCustomHook(
       adminContext,
       hook,
-      functionArgs,
-      originalFunctionArgs,
+      withHookTarget(hook, functionArgs) ?? functionArgs,
+      withHookTarget(hook, originalFunctionArgs),
     );
-    if (!res.ok) {
-      const message =
-        (res.error || "Custom hook error") + (res.log ? `\n${res.log}` : "");
-      throw new Error(message);
+    if (error) {
+      throw new Error(error);
     }
+    allWarnings.push(...warnings);
+  }
+
+  if (allWarnings.length && !ignoreWarnings) {
+    throw new SoftWarningError(allWarnings.join("\n"), allWarnings);
   }
 }
 
 async function _runCustomHook(
-  context: ReqContextClass,
+  context: Context,
   hook: CustomHookInterface,
   functionArgs: Record<string, unknown>,
   originalFunctionArgs?: Record<string, unknown>,
-) {
-  const res = await sandboxEval(hook.code, functionArgs);
+): Promise<{ error?: string; warnings: string[] }> {
+  const res = await runInSandbox(hook.code, functionArgs);
 
   if (res.ok) {
     context.models.customHooks.logSuccess(hook);
   } else {
     context.models.customHooks.logFailure(hook);
+  }
 
-    // Try the original args if provided
+  // A thrown error is a hard block and always wins over any warnings.
+  if (!res.ok) {
+    // Incremental: ignore the hook if this same error already existed before the change.
     if (originalFunctionArgs && hook.incrementalChangesOnly) {
-      const originalRes = await sandboxEval(hook.code, originalFunctionArgs);
+      const originalRes = await runInSandbox(hook.code, originalFunctionArgs);
       if (!originalRes.ok && originalRes.error === res.error) {
-        // If it was also failing before this change, then ignore this hook
-        return {
-          ...res,
-          ok: true,
-        };
+        return { warnings: [] };
       }
     }
+
+    const error =
+      (res.error || "Custom hook error") + (res.log ? `\n${res.log}` : "");
+    return { error, warnings: [] };
   }
 
-  return res;
-}
+  let warnings = res.warnings;
 
-export async function sandboxEval(
-  functionBody: string,
-  functionArgs: Record<string, unknown>,
-  {
-    memoryLimitMB,
-    cpuTimeoutMS,
-    wallTimeoutMS,
-    maxFetchRespSize,
-  }: {
-    memoryLimitMB?: number;
-    cpuTimeoutMS?: number;
-    wallTimeoutMS?: number;
-    maxFetchRespSize?: number;
-  } = {},
-): Promise<SandboxEvalResult> {
-  // Sanity check. This should be handled by the caller already
-  // isolated-vm is not 100% safe in a multi-tenant environment, but should be fine when self-hosting
-  if (IS_CLOUD) {
-    return {
-      ok: false,
-      error: "Custom hooks are not supported in GrowthBook Cloud",
-    };
-  }
-
-  const isolate = new Isolate({
-    memoryLimit: memoryLimitMB ?? MEMORY_MB,
-  });
-
-  const logs: string[] = [];
-
-  try {
-    const isolateCtx: Context = await isolate.createContext();
-    const jail = isolateCtx.global;
-    await jail.set("global", jail.derefInto());
-
-    // Same fetch function we use for webhooks (Smokescreen server, max size, timeout)
-    const hostFetch = async (url: string, opts: RequestInit = {}) => {
-      const res = await cancellableFetch(url, opts, {
-        maxContentSize: maxFetchRespSize ?? MAX_FETCH_RESP_SIZE,
-        maxTimeMs: wallTimeoutMS ?? WALL_TIMEOUT_MS,
-      });
-
-      return {
-        ok: res.responseWithoutBody.ok,
-        status: res.responseWithoutBody.status,
-        statusText: res.responseWithoutBody.statusText,
-        _body: res.stringBody,
-      };
-    };
-
-    // Host -> isolate bridge for fetch
-    const fetchRef = new Reference(
-      async (url: string, opts: RequestInit = {}) => {
-        try {
-          const resp = await hostFetch(String(url), opts || {});
-          return new ExternalCopy(resp).copyInto();
-        } catch (err) {
-          return new ExternalCopy({
-            _error: String(err.message || err),
-          }).copyInto();
-        }
-      },
-    );
-
-    // Host -> isolate bridge for logging
-    const logRef = new Reference((...args: unknown[]) => {
-      logs.push(args.map(String).join(" "));
-    });
-
-    await jail.set("hostFetch", fetchRef);
-    await jail.set("hostLog", logRef);
-
-    // Inject shims for console.log and fetch
-    // We aren't aiming for a 100% complete implementation
-    // We just need something good enough so copy/pasted code works
-    const shimCode = `
-      (function() {
-        const stringifyLogArgs = (args) => args.map(arg => {
-          if (typeof arg === "string") return arg;
-          try {
-            return JSON.stringify(arg);
-          } catch {
-            return String(arg);
-          }
-        });
-
-        globalThis.console = {
-          log: (...args) => hostLog.applyIgnored(undefined, ["[log]", ...stringifyLogArgs(args)]),
-          error: (...args) => hostLog.applyIgnored(undefined, ["[error]", ...stringifyLogArgs(args)]),
-          debug: (...args) => hostLog.applyIgnored(undefined, ["[debug]", ...stringifyLogArgs(args)])
-        };
-        globalThis.fetch = async (...args) => {
-          const { _body, _error, ...rest } = await hostFetch.apply(undefined, args, {
-            arguments: { copy: true },
-            result: { copy: true, promise: true },
-          });
-          if (_error) {
-            throw new Error(_error);
-          }
-          return {
-            ...rest,
-            text: async () => _body,
-            json: async () => JSON.parse(_body),
-          };
-        };
-      })();
-    `;
-    await isolate.compileScript(shimCode).then((s) => s.run(isolateCtx));
-
-    // Wrap user body into a function and make individual arg keys available as variables
-    const wrapped = `
-      globalThis.__user_func = async function({${Object.keys(functionArgs).join(", ")}}) {
-        ${functionBody}
-      };
-      "__ready__";
-    `;
-    await isolate.compileScript(wrapped).then((s) => s.run(isolateCtx));
-
-    const funcRef = (await jail.get("__user_func", {
-      reference: true,
-    })) as Reference;
-
-    if (!funcRef) {
-      throw new Error("Compilation error");
-    }
-
-    const dataCopy = new ExternalCopy(functionArgs).copyInto();
-
-    // Race between CPU-limited call and wall-clock timeout
-    const resultPromise = funcRef.apply(undefined, [dataCopy], {
-      arguments: { copy: true },
-      result: { copy: true, promise: true },
-      timeout: cpuTimeoutMS ?? CPU_TIMEOUT_MS,
-    });
-
-    const wallTimeout = new Promise<never>((_, reject) =>
-      setTimeout(
-        () => reject(new Error("Execution timed out")),
-        wallTimeoutMS ?? WALL_TIMEOUT_MS,
-      ),
-    );
-
-    const returnVal = await Promise.race([resultPromise, wallTimeout]);
-    return { ok: true, returnVal, log: logs.join("\n") };
-  } catch (err) {
-    const message = err.message || err || "";
-    return {
-      ok: false,
-      error: message ? `Custom hook: ${message}` : "Custom hook error",
-      log: logs.join("\n"),
-    };
-  } finally {
-    try {
-      isolate.dispose();
-    } catch {
-      /* ignore */
+  // Incremental: drop warnings that were already present before this change.
+  if (warnings.length && originalFunctionArgs && hook.incrementalChangesOnly) {
+    const originalRes = await runInSandbox(hook.code, originalFunctionArgs);
+    if (originalRes.ok) {
+      warnings = warnings.filter((w) => !originalRes.warnings.includes(w));
     }
   }
+
+  return { warnings };
 }

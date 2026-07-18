@@ -1,0 +1,120 @@
+// Compact composer used by the site-wide agent panel. The default (wide)
+// variant lives inline in ChatInputBar.tsx and is intentionally untouched so
+// PA Explorer is unaffected.
+
+.compactWrapper {
+  border-top: 1px solid var(--gray-a3);
+  background: var(--color-panel-solid);
+  padding: 10px 12px 12px;
+}
+
+.composer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  border: 1px solid var(--gray-a6);
+  border-radius: var(--radius-4);
+  background: var(--color-background);
+  padding: 4px 4px 4px 12px;
+  transition:
+    border-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.composerFocused {
+  border-color: var(--violet-8);
+  box-shadow: 0 0 0 2px var(--violet-a4);
+}
+
+// The Field renders `form-control` on its textarea; strip the bootstrap chrome
+// so it reads as part of the surrounding composer rather than a nested box.
+.composerField {
+  flex: 1;
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+.composerTextarea {
+  width: 100%;
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+  padding: 6px 0 !important;
+  resize: none;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--gray-12);
+
+  &:focus {
+    border: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+  }
+
+  &::placeholder {
+    color: var(--gray-a9);
+  }
+
+  // While streaming the field is disabled; keep it transparent (bootstrap's
+  // default disabled chrome paints a grey inner box that breaks the composer)
+  // and just mute the text/placeholder rather than washing the whole control.
+  &:disabled {
+    background: transparent !important;
+    color: var(--gray-a11);
+    -webkit-text-fill-color: var(--gray-a11);
+    opacity: 1;
+    cursor: default;
+
+    &::placeholder {
+      color: var(--gray-a8);
+    }
+  }
+}
+
+.sendButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  line-height: 0;
+  border: none;
+  border-radius: var(--radius-3);
+  background: var(--violet-10);
+  color: #fff;
+  cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    opacity 120ms ease;
+
+  // The icon defaults to inline (baseline) layout, which leaves descender
+  // space and shifts it off-center; force block layout so flex centering is
+  // exact in both axes.
+  svg {
+    display: block;
+  }
+
+  &:hover:not(:disabled) {
+    background: var(--violet-11);
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+}
+
+// Stop/cancel state during streaming. A filled neutral chip with a clearly
+// visible stop glyph reads better than the near-white square it was before.
+.stopButton {
+  background: var(--gray-a5);
+  color: var(--gray-12);
+
+  &:hover:not(:disabled) {
+    background: var(--gray-a6);
+  }
+}

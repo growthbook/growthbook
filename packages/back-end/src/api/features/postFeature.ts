@@ -4,7 +4,7 @@ import { postFeatureValidator } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
-  resolveOwnerToUserId,
+  resolveOwnerForCreate,
   resolveOwnerEmail,
 } from "back-end/src/services/owner";
 import { createFeature, getFeature } from "back-end/src/models/FeatureModel";
@@ -27,6 +27,8 @@ import { validateCustomFields } from "./validations";
 import {
   assertValidProjectId,
   validateEnvRulesScheduleRules,
+  assertValidBaseConfig,
+  assertConfigSchemaCompat,
 } from "./v2Shared";
 
 export type ApiFeatureEnvSettings = NonNullable<
@@ -103,7 +105,8 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   const feature: FeatureInterface = {
     defaultValue: req.body.defaultValue ?? "",
     valueType: req.body.valueType,
-    owner: (await resolveOwnerToUserId(req.body.owner, req.context)) ?? "",
+    baseConfig: req.body.baseConfig ?? undefined,
+    owner: await resolveOwnerForCreate(req.body.owner, req.context),
     description: req.body.description || "",
     project: req.body.project || "",
     dateCreated: new Date(),
@@ -132,14 +135,31 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   // v2: rules live on feature.rules (flat array), sourced from the API's
   // per-env payload stamped with single-env scope.
   feature.rules = buildFeatureRulesFromApiEnvSettings(
+    req.context,
     feature,
     orgEnvs,
     req.body.environments ?? {},
   );
 
-  const jsonSchema = parseApiJsonSchema(req.context.org, req.body.jsonSchema);
+  const jsonSchema = parseApiJsonSchema(
+    req.context.org,
+    req.body.jsonSchema,
+    req.body.valueType,
+  );
 
   feature.jsonSchema = jsonSchema;
+
+  // Config mode: baseConfig must be a live config on a JSON flag, and can't
+  // coexist with the flag's own JSON schema (the config's schema is authoritative).
+  await assertValidBaseConfig(
+    req.context,
+    feature.baseConfig,
+    feature.valueType,
+  );
+  assertConfigSchemaCompat({
+    jsonSchemaEnabled: feature.jsonSchema?.enabled,
+    baseConfig: feature.baseConfig,
+  });
 
   // ensure default value matches value type
   feature.defaultValue = validateFeatureValue(feature, feature.defaultValue);

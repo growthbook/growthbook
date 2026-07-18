@@ -1,22 +1,20 @@
-import { useState, useEffect } from "react";
+import { ReactNode } from "react";
 import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { dateNoYear } from "shared/dates";
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
-import { DropdownMenu as RadixDropdownMenu, Box, Flex } from "@radix-ui/themes";
-import { PiCaretDownBold } from "react-icons/pi";
-import RevisionLabel, {
-  revisionLabelText,
-} from "@/components/Features/RevisionLabel";
+import { Flex } from "@radix-ui/themes";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Switch from "@/ui/Switch";
 import Text from "@/ui/Text";
-import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
-import Link from "@/ui/Link";
+import { DropdownMenuLabel } from "@/ui/DropdownMenu";
 import EventUser from "@/components/Avatar/EventUser";
 import RevisionStatusBadge, {
   isRampGenerated,
-} from "@/components/Features/RevisionStatusBadge";
+} from "@/components/Reviews/RevisionStatusBadge";
+import SharedRevisionDropdown, {
+  RevisionDropdownRow,
+} from "@/components/Reviews/RevisionDropdown";
 
 export interface Props {
   feature: FeatureInterface;
@@ -30,71 +28,10 @@ export interface Props {
   publishedOnly?: boolean;
 }
 
-function RevisionRow({
-  r,
-  liveVersion,
-  publishedOnly = false,
-}: {
-  r: MinimalFeatureRevisionInterface;
-  liveVersion: number;
-  publishedOnly?: boolean;
-}) {
-  // publishedOnly: datePublished (fallback: dateUpdated); otherwise: datePublished for published, dateUpdated for drafts
-  const revDate = publishedOnly
-    ? (r.datePublished ?? r.dateUpdated)
-    : r.status === "published"
-      ? r.datePublished
-      : r.dateUpdated;
-  return (
-    <Flex align="center" justify="between" gap="3" style={{ width: "100%" }}>
-      <Box style={{ flex: 1, minWidth: 0 }}>
-        <Text weight="semibold">
-          <span
-            style={{
-              display: "block",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-              maxWidth: 400,
-            }}
-            title={revisionLabelText(r.version, r.title)}
-          >
-            <RevisionLabel version={r.version} title={r.title} />
-          </span>
-        </Text>
-      </Box>
-      <Box
-        flexShrink="1"
-        overflow="hidden"
-        style={{ textOverflow: "ellipsis" }}
-      >
-        {publishedOnly
-          ? revDate && (
-              <Text size="small" color="text-low" whiteSpace="nowrap">
-                Published: {dateNoYear(revDate)}
-              </Text>
-            )
-          : (r.createdBy || revDate) && (
-              <Text size="small" color="text-low" whiteSpace="nowrap">
-                {r.createdBy?.type === "system" ? (
-                  <em>generated</em>
-                ) : r.createdBy ? (
-                  <EventUser user={r.createdBy} display="name" />
-                ) : null}
-                {r.createdBy && revDate && <> &middot; </>}
-                {revDate && dateNoYear(revDate)}
-              </Text>
-            )}
-      </Box>
-      {!publishedOnly && (
-        <Box flexShrink="0">
-          <RevisionStatusBadge revision={r} liveVersion={liveVersion} />
-        </Box>
-      )}
-    </Flex>
-  );
-}
-
+// Feature wrapper around the shared <RevisionDropdown>: applies the feature's
+// filtering modes (drafts-only / published-only / default) + ramp-generated and
+// discarded toggles, and renders the feature attribution/date metadata and the
+// RevisionStatusBadge. The shared component owns the open/scroll/pagination/menu.
 export default function RevisionDropdown({
   feature,
   revisions,
@@ -106,23 +43,6 @@ export default function RevisionDropdown({
   publishedOnly = false,
 }: Props) {
   const liveVersion = feature.version;
-  const initialPageSize = 5;
-
-  const [open, setOpen] = useState(false);
-  const [extraShown, setExtraShown] = useState(0);
-
-  useEffect(() => {
-    if (open) {
-      const frame = requestAnimationFrame(() => {
-        document
-          .querySelector(".rt-DropdownMenuContent .selected-item")
-          ?.scrollIntoView({ block: "nearest" });
-      });
-      return () => cancelAnimationFrame(frame);
-    } else {
-      setExtraShown(0);
-    }
-  }, [open]);
 
   const [showDiscarded, setShowDiscarded] = useLocalStorage(
     `revisionDropdown__showDiscarded__${feature.id}`,
@@ -173,105 +93,57 @@ export default function RevisionDropdown({
           return true;
         });
 
-  const selectedIndex =
-    draftsOnly || publishedOnly
-      ? -1
-      : displayList.findIndex((r) => r.version === version);
-  const baseWindow = draftsOnly
-    ? displayList.length
-    : Math.max(initialPageSize, selectedIndex >= 0 ? selectedIndex + 1 : 0);
-  const windowSize = baseWindow + extraShown;
-  const shown = displayList.slice(0, windowSize);
-  const remaining = displayList.length - windowSize;
+  const buildMeta = (r: MinimalFeatureRevisionInterface): ReactNode => {
+    const revDate = publishedOnly
+      ? (r.datePublished ?? r.dateUpdated)
+      : r.status === "published"
+        ? r.datePublished
+        : r.dateUpdated;
+    if (publishedOnly) {
+      return revDate ? (
+        <Text size="small" color="text-low" whiteSpace="nowrap">
+          Published: {dateNoYear(revDate)}
+        </Text>
+      ) : null;
+    }
+    return r.createdBy || revDate ? (
+      <Text size="small" color="text-low" whiteSpace="nowrap">
+        {r.createdBy?.type === "system" ? (
+          <em>generated</em>
+        ) : r.createdBy ? (
+          <EventUser user={r.createdBy} display="name" />
+        ) : null}
+        {r.createdBy && revDate && <> &middot; </>}
+        {revDate && dateNoYear(revDate)}
+      </Text>
+    ) : null;
+  };
+
+  const rows: RevisionDropdownRow[] = displayList.map((r) => ({
+    key: String(r.version),
+    version: r.version,
+    title: r.title,
+    meta: buildMeta(r),
+    badge: publishedOnly ? undefined : (
+      <RevisionStatusBadge revision={r} liveVersion={liveVersion} />
+    ),
+  }));
 
   const selectedRevision =
     version !== null
-      ? (shown.find((r) => r.version === version) ??
+      ? (displayList.find((r) => r.version === version) ??
         allSorted.find((r) => r.version === version))
       : null;
-
-  const handleSelect = (v: number) => {
-    setVersion(v);
-    setOpen(false);
-  };
-
-  const menuItems = shown.map((r) => (
-    <DropdownMenuItem
-      key={r.version}
-      className={`multiline-item${r.version === version ? " selected-item" : ""}`}
-      onClick={() => handleSelect(r.version)}
-    >
-      <RevisionRow
-        r={r}
-        liveVersion={liveVersion}
-        publishedOnly={publishedOnly}
-      />
-    </DropdownMenuItem>
-  ));
 
   const discardedCount = allSorted.filter(
     (r) => r.status === "discarded",
   ).length;
   const generatedCount = allSorted.filter(isRampGenerated).length;
 
-  const triggerWidth = context === "header" ? 280 : "100%";
-
-  const trigger = (
-    <Flex
-      align="center"
-      justify="between"
-      gap="3"
-      style={{ width: triggerWidth, overflow: "hidden" }}
-    >
-      <Box style={{ flex: 1, minWidth: 0 }}>
-        <Text weight="semibold">
-          {version != null ? (
-            <span
-              style={{
-                display: "block",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-                maxWidth: 400,
-              }}
-              title={revisionLabelText(version, selectedRevision?.title)}
-            >
-              <RevisionLabel
-                numbered={!!selectedRevision?.title}
-                version={version}
-                title={selectedRevision?.title}
-              />
-            </span>
-          ) : null}
-        </Text>
-      </Box>
-      {!publishedOnly && (selectedRevision || !draftsOnly) && (
-        <Box flexShrink="0">
-          <RevisionStatusBadge
-            revision={selectedRevision}
-            liveVersion={liveVersion}
-          />
-        </Box>
-      )}
-      <PiCaretDownBold style={{ flexShrink: 0 }} />
-    </Flex>
-  );
-
-  return (
-    <DropdownMenu
-      variant="soft"
-      open={open}
-      onOpenChange={setOpen}
-      trigger={trigger}
-      triggerClassName={`dropdown-trigger-select-style${context === "header" ? " dropdown-trigger-header" : ""}`}
-      triggerStyle={
-        context === "header" ? { paddingTop: 4, paddingBottom: 4 } : undefined
-      }
-      menuWidth="full"
-      menuPlacement={menuPlacement}
-    >
+  const toggles = (
+    <>
       {generatedCount > 0 && (
-        <RadixDropdownMenu.Label>
+        <DropdownMenuLabel>
           <Flex align="center" gap="2" justify="end" style={{ width: "100%" }}>
             <Text size="small" color="text-low">
               Show ramp-generated ({generatedCount})
@@ -282,10 +154,10 @@ export default function RevisionDropdown({
               onChange={setShowGenerated}
             />
           </Flex>
-        </RadixDropdownMenu.Label>
+        </DropdownMenuLabel>
       )}
       {!draftsOnly && !publishedOnly && discardedCount > 0 && (
-        <RadixDropdownMenu.Label>
+        <DropdownMenuLabel>
           <Flex align="center" gap="2" justify="end" style={{ width: "100%" }}>
             <Text size="small" color="text-low">
               Show discarded ({discardedCount})
@@ -296,19 +168,33 @@ export default function RevisionDropdown({
               onChange={setShowDiscarded}
             />
           </Flex>
-        </RadixDropdownMenu.Label>
+        </DropdownMenuLabel>
       )}
-      {menuItems}
-      {remaining > 0 && (
-        <RadixDropdownMenu.Label>
-          <Link
-            size="2"
-            onClick={() => setExtraShown((prev) => prev + remaining)}
-          >
-            Show all ({remaining} more)
-          </Link>
-        </RadixDropdownMenu.Label>
-      )}
-    </DropdownMenu>
+    </>
+  );
+
+  const showTriggerBadge =
+    !publishedOnly && (!!selectedRevision || !draftsOnly);
+
+  return (
+    <SharedRevisionDropdown
+      rows={rows}
+      selectedKey={version !== null ? String(version) : null}
+      onSelect={(key) => setVersion(Number(key))}
+      toggles={toggles}
+      selectedBadge={
+        showTriggerBadge ? (
+          <RevisionStatusBadge
+            revision={selectedRevision ?? undefined}
+            liveVersion={liveVersion}
+          />
+        ) : undefined
+      }
+      triggerNumbered={!!selectedRevision?.title}
+      context={context}
+      menuPlacement={menuPlacement}
+      paginate={!draftsOnly}
+      windowFromSelection={!publishedOnly}
+    />
   );
 }

@@ -1,9 +1,7 @@
-import { FC, useState } from "react";
+import { FC } from "react";
 import { DiscussionParentType } from "shared/types/discussion";
-import { useForm } from "react-hook-form";
 import { useAuth } from "@/services/auth";
-import LoadingOverlay from "./LoadingOverlay";
-import MarkdownInput from "./Markdown/MarkdownInput";
+import CommentComposer from "./Comments/CommentComposer";
 
 const CommentForm: FC<{
   cta: string;
@@ -15,54 +13,30 @@ const CommentForm: FC<{
   onSave: () => void;
   onCancel?: () => void;
 }> = ({ cta, type, id, index, initialValue, autofocus, onSave, onCancel }) => {
-  const [formError, setFormError] = useState(null);
-  const [loading, setLoading] = useState(false);
   const { apiCall } = useAuth();
 
-  const form = useForm({
-    defaultValues: {
-      comment: initialValue || "",
-    },
-  });
-
   return (
-    <form
-      onSubmit={form.handleSubmit(async (value) => {
-        const comment = value.comment;
-        if (loading || comment.length < 1) return;
-        setLoading(true);
-        setFormError(null);
-        try {
-          if (index >= 0) {
-            await apiCall(`/discussion/${type}/${id}/${index}`, {
-              method: "PUT",
-              body: JSON.stringify({ comment }),
-            });
-          } else {
-            await apiCall(`/discussion/${type}/${id}`, {
-              method: "POST",
-              body: JSON.stringify({ comment }),
-            });
-          }
-          form.setValue("comment", "");
-          onSave();
-        } catch (e) {
-          setFormError(e.message || "Error saving comment");
+    <CommentComposer
+      cta={cta}
+      initialValue={initialValue}
+      autofocus={autofocus}
+      onCancel={onCancel}
+      onSubmit={async (comment) => {
+        if (index >= 0) {
+          await apiCall(`/discussion/${type}/${id}/${index}`, {
+            method: "PUT",
+            body: JSON.stringify({ comment }),
+          });
+        } else {
+          await apiCall(`/discussion/${type}/${id}`, {
+            method: "POST",
+            body: JSON.stringify({ comment }),
+          });
         }
-
-        setLoading(false);
-      })}
-    >
-      {loading && <LoadingOverlay />}
-      <MarkdownInput
-        value={form.watch("comment")}
-        setValue={(comment) => form.setValue("comment", comment)}
-        autofocus={autofocus}
-        cta={cta}
-        onCancel={onCancel}
-        error={formError || ""}
-      />
-    </form>
+        onSave();
+      }}
+    />
   );
 };
+
 export default CommentForm;

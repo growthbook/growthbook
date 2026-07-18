@@ -1,30 +1,60 @@
 import escapeRegExp from "lodash/escapeRegExp";
-import { v4 as uuidv4 } from "uuid";
+import mongoose from "mongoose";
 import { UpdateProps } from "shared/types/base-model";
-import type { FeatureInterface } from "shared/types/feature";
 import {
   ApiRampScheduleInterface,
   RampScheduleInterface,
-  RampScheduleTemplateInterface,
   RampStepAction,
+  StepHoldConditions,
+  isAwaitingStartApproval,
+  isReadyForApproval,
   rampScheduleValidator,
 } from "shared/validators";
 import { RULE_ID_ENV_SUFFIX_DELIMITER, stemRuleId } from "shared/util";
 import { rampScheduleApiSpec } from "back-end/src/api/specs/ramp-schedule.spec";
-import { getFeature } from "back-end/src/models/FeatureModel";
 import {
+  appendRampEvent,
+  assertCanUpdateLinkedSafeRolloutMonitoringConfig,
   computeNextProcessAt,
   dispatchRampEvent,
+  getEffectiveRampAutoUpdateState,
+  getRampAutoUpdatePreference,
+  getRampMonitoringMode,
+  runLockedRampScheduleAction,
+  syncLinkedSafeRolloutForRampState,
 } from "back-end/src/services/rampSchedule";
-import { getCollection } from "back-end/src/util/mongo.util";
 import { applyPagination } from "back-end/src/util/handler";
-import {
-  rampTargetsEquivalent,
-  resolveRampTargets,
-} from "back-end/src/util/flattenRules";
+import { ConflictError, NotFoundError } from "back-end/src/util/errors";
+import { rampTargetsEquivalent } from "back-end/src/util/flattenRules";
 import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "rampschedules";
+
+// Stale = crashed-holder reclaim. 10min plus between-phase heartbeats: a
+// shorter threshold let live holders be stale-reclaimed under slow publishes,
+// reintroducing the double-publish this lock exists to prevent.
+const ADVANCE_LOCK_STALE_MS = 10 * 60 * 1000;
+
+export function migrateRampScheduleEndCondition<
+  T extends {
+    endCondition?: { trigger?: { type: string; at: unknown } | null } | null;
+    cutoffDate?: Date | string | null;
+  },
+>(doc: T): T {
+  if (doc.cutoffDate) {
+    return doc.endCondition ? { ...doc, endCondition: null } : doc;
+  }
+  const trigger = doc.endCondition?.trigger;
+  if (trigger?.type === "scheduled" && trigger.at) {
+    return {
+      ...doc,
+      cutoffDate:
+        trigger.at instanceof Date ? trigger.at : (trigger.at as string),
+      endCondition: null,
+    };
+  }
+  return doc;
+}
 
 const BaseClass = MakeModelClass({
   schema: rampScheduleValidator,
@@ -36,6 +66,13 @@ const BaseClass = MakeModelClass({
     updateEvent: "rampSchedule.update",
     deleteEvent: "rampSchedule.delete",
   },
+  additionalIndexes: [
+    // Agenda poller queries by nextProcessAt on every tick — must be indexed.
+    // Intentionally omits the organization prefix because
+    // dangerouslyFindAllDueSchedules is a cross-tenant query.
+    // sparse: true matches the existing index (most documents have nextProcessAt: null).
+    { fields: { nextProcessAt: 1 }, sparse: true },
+  ],
   globallyUniquePrimaryKeys: true,
   defaultValues: {
     status: "pending" as const,
@@ -49,28 +86,68 @@ const BaseClass = MakeModelClass({
   },
 });
 
-// --- Date serialization helpers ---
-
 function dateToIso(d: Date | null | undefined): string | null | undefined {
   if (d === null) return null;
   if (d === undefined) return undefined;
   return d.toISOString();
 }
 
-function serializeTrigger(
-  trigger: RampScheduleInterface["steps"][number]["trigger"],
-) {
-  switch (trigger.type) {
-    case "scheduled":
-      return { type: "scheduled" as const, at: trigger.at.toISOString() };
-    case "interval":
-      return { type: "interval" as const, seconds: trigger.seconds };
-    case "approval":
-      return { type: "approval" as const };
-  }
+// Legacy step shape (pre-`interval` redesign). Kept here purely so JIT
+// migration can recognize it on read.
+type LegacyTriggerStep = {
+  trigger?:
+    | { type: "interval"; seconds: number }
+    | { type: "approval" }
+    | { type: "scheduled"; at: Date | string }
+    | null;
+  interval?: number | null;
+  holdConditions?: StepHoldConditions;
+};
+
+// Normalizes legacy `trigger` discriminated union to the unified `interval` +
+// `holdConditions.requiresApproval` shape. Idempotent on already-migrated docs.
+export function migrateRampStepTriggers<
+  T extends { steps?: LegacyTriggerStep[] | null },
+>(doc: T): T {
+  if (!doc.steps || !Array.isArray(doc.steps)) return doc;
+  let changed = false;
+  const steps = doc.steps.map((s) => {
+    if (!s || !s.trigger) return s;
+    changed = true;
+    const { trigger, ...rest } = s;
+    if (trigger.type === "interval") {
+      return { ...rest, interval: trigger.seconds };
+    }
+    if (trigger.type === "approval") {
+      return {
+        ...rest,
+        interval: null,
+        holdConditions: {
+          ...(rest.holdConditions ?? {}),
+          requiresApproval: true,
+        },
+      };
+    }
+    // "scheduled" steps were only emitted by buildScheduleRampAction as a
+    // synthetic step-0; their `at` is already represented at the ramp level
+    // via startDate. Strip the trigger and let the schedule's startDate drive.
+    return { ...rest, interval: null };
+  });
+  return changed ? { ...doc, steps } : doc;
 }
 
-/** Convert a RampScheduleInterface (Date objects) to the API shape (ISO strings). */
+// `pending-approval` is no longer a stored status. The evaluator derives
+// "awaiting approval" from `running` + current step's
+// `holdConditions.requiresApproval` + `stepApproval?.stepIndex !== currentStepIndex`.
+export function migrateRampScheduleStatus<T extends { status?: string }>(
+  doc: T,
+): T {
+  if (doc.status === "pending-approval") {
+    return { ...doc, status: "running" };
+  }
+  return doc;
+}
+
 export function rampScheduleToApiInterface(
   doc: RampScheduleInterface,
 ): ApiRampScheduleInterface {
@@ -82,23 +159,19 @@ export function rampScheduleToApiInterface(
     entityType: doc.entityType,
     entityId: doc.entityId,
     targets: doc.targets,
+    startActions: doc.startActions,
     steps: doc.steps.map((s) => ({
-      trigger: serializeTrigger(s.trigger),
+      interval: s.interval,
       actions: s.actions,
-      approvalNotes: s.approvalNotes,
+      approvalNotes: s.approvalNotes ?? undefined,
+      monitored: !!s.monitored,
+      holdConditions: s.holdConditions ?? undefined,
     })),
     endActions: doc.endActions,
     startDate: dateToIso(doc.startDate),
-    endCondition: doc.endCondition
-      ? {
-          trigger: doc.endCondition.trigger
-            ? {
-                type: "scheduled" as const,
-                at: doc.endCondition.trigger.at.toISOString(),
-              }
-            : undefined,
-        }
-      : doc.endCondition,
+    cutoffDate: dateToIso(doc.cutoffDate),
+    requiresStartApproval: doc.requiresStartApproval,
+    startApprovedAt: dateToIso(doc.startApprovedAt),
     status: doc.status,
     currentStepIndex: doc.currentStepIndex,
     startedAt: dateToIso(doc.startedAt),
@@ -107,12 +180,62 @@ export function rampScheduleToApiInterface(
     nextStepAt: dateToIso(doc.nextStepAt) ?? null,
     nextProcessAt: dateToIso(doc.nextProcessAt),
     elapsedMs: doc.elapsedMs,
+    lockdownConfig: doc.lockdownConfig,
+    monitoringConfig: doc.monitoringConfig
+      ? {
+          ...doc.monitoringConfig,
+          signalMetricIds: doc.monitoringConfig.signalMetricIds ?? [],
+        }
+      : doc.monitoringConfig,
+    experimentHealthAction: doc.experimentHealthAction,
+    currentStepEnteredAt: dateToIso(doc.currentStepEnteredAt),
+    // The record is only meaningful for the current step (see the field's
+    // "Valid only while stepApproval.stepIndex === currentStepIndex" contract).
+    // The service nulls stepApproval on every step transition, so a mismatch
+    // shouldn't occur, but guard defensively so we never surface a prior step's
+    // approver against the current step — matching how isAwaitingApproval treats
+    // it internally.
+    // Reads also bypass zod validation (only migrate() runs), so guard against
+    // legacy docs whose approvedAt is a string or an Invalid Date — the field
+    // was silently dropped before this mapping existed, so bad values were
+    // harmless and may still exist.
+    stepApproval:
+      doc.stepApproval &&
+      doc.stepApproval.stepIndex === doc.currentStepIndex &&
+      doc.stepApproval.approvedAt instanceof Date &&
+      !isNaN(doc.stepApproval.approvedAt.getTime())
+        ? {
+            ...doc.stepApproval,
+            approvedAt: doc.stepApproval.approvedAt.toISOString(),
+          }
+        : undefined,
+    awaitingApproval: isReadyForApproval(doc) || isAwaitingStartApproval(doc),
+    monitoringStartDate: dateToIso(doc.monitoringStartDate),
+    lastRollbackAt: dateToIso(doc.lastRollbackAt),
+    lastRollbackReason: doc.lastRollbackReason,
+    monitoringStatus: doc.monitoringConfig
+      ? (() => {
+          const autoUpdateState = getEffectiveRampAutoUpdateState(doc);
+          const monitoringMode = getRampMonitoringMode(doc.monitoringConfig);
+          return {
+            safeRolloutId: doc.safeRolloutId ?? null,
+            monitoringMode,
+            autoUpdate: getRampAutoUpdatePreference(doc.monitoringConfig),
+            effectiveAutoUpdate: autoUpdateState.enabled,
+            blockedReason: autoUpdateState.reason,
+            nextSnapshotAt: dateToIso(doc.nextSnapshotAt),
+            currentStepMonitored:
+              doc.currentStepIndex >= 0 &&
+              !!doc.steps[doc.currentStepIndex]?.monitored,
+          };
+        })()
+      : undefined,
   };
 }
 
-// --- Create handler helpers ---
-
-type ApiRampTrigger =
+// Legacy API trigger shape, accepted on input for backward compatibility.
+// Public responses always emit the unified `interval` + `holdConditions` shape.
+type LegacyApiRampTrigger =
   | { type: "interval"; seconds: number }
   | { type: "approval" }
   | { type: "scheduled"; at: string };
@@ -123,68 +246,54 @@ type PostBodyAction = {
   patch: Partial<RampStepAction["patch"]>;
 };
 
-function forceMatchesValueType(
-  value: unknown,
-  valueType: FeatureInterface["valueType"],
-): boolean {
-  if (value === null || value === undefined) return false;
-  const t = typeof value;
-  if (valueType === "boolean") return t === "boolean";
-  if (valueType === "number") return t === "number";
-  if (valueType === "string") return t === "string";
-  if (valueType === "json") return t === "object";
-  return false;
-}
-
-function remapTemplateActions(
-  actions: RampScheduleTemplateInterface["steps"][number]["actions"],
-  targetId: string,
-  ruleId: string,
-  valueType: FeatureInterface["valueType"],
-): RampStepAction[] {
-  return (actions ?? []).map((a) => {
-    const patch = { ...a.patch, ruleId };
-    if ("force" in patch && !forceMatchesValueType(patch.force, valueType)) {
-      const { force: _force, ...rest } = patch;
-      return { targetType: "feature-rule" as const, targetId, patch: rest };
-    }
-    return { targetType: "feature-rule" as const, targetId, patch };
-  });
-}
-
-function normalizeApiTrigger(
-  trigger: ApiRampTrigger,
-): RampScheduleInterface["steps"][number]["trigger"] {
-  if (trigger.type === "scheduled") {
-    return { type: "scheduled", at: new Date(trigger.at) };
-  }
+// Normalize a legacy API trigger input into the unified `interval` +
+// `holdConditions` shape used internally and on output.
+function normalizeLegacyApiTrigger(
+  trigger: LegacyApiRampTrigger,
+  existingHoldConditions?: StepHoldConditions,
+): { interval: number | null; holdConditions?: StepHoldConditions } {
   if (trigger.type === "interval") {
-    return { type: "interval", seconds: trigger.seconds };
+    return {
+      interval: trigger.seconds,
+      ...(existingHoldConditions
+        ? { holdConditions: existingHoldConditions }
+        : {}),
+    };
   }
-  return { type: "approval" };
-}
-
-function normalizeAction(action: PostBodyAction): RampStepAction {
+  if (trigger.type === "approval") {
+    return {
+      interval: null,
+      holdConditions: {
+        ...(existingHoldConditions ?? {}),
+        requiresApproval: true,
+      },
+    };
+  }
+  // `scheduled` trigger types are no longer accepted as step-level triggers;
+  // callers should set `startDate` at the schedule level instead.
   return {
-    targetType: "feature-rule" as const,
-    targetId: action.targetId ?? "",
-    patch: action.patch as RampStepAction["patch"],
+    interval: null,
+    ...(existingHoldConditions
+      ? { holdConditions: existingHoldConditions }
+      : {}),
   };
 }
 
-function injectTarget(
-  action: PostBodyAction,
-  targetId: string,
-  ruleId: string,
-): RampStepAction {
+// Accepts both the new `{ interval, holdConditions }` shape and the legacy
+// `{ trigger: { type, ... } }` shape on input. Returns the unified shape.
+function normalizeApiStepShape(s: {
+  interval?: number | null;
+  trigger?: LegacyApiRampTrigger;
+  holdConditions?: StepHoldConditions;
+}): { interval: number | null; holdConditions?: StepHoldConditions } {
+  if (s.trigger) {
+    return normalizeLegacyApiTrigger(s.trigger, s.holdConditions);
+  }
   return {
-    targetType: "feature-rule" as const,
-    targetId,
-    patch: { ...action.patch, ruleId },
+    interval: s.interval ?? null,
+    ...(s.holdConditions ? { holdConditions: s.holdConditions } : {}),
   };
 }
-
-// --- Model ---
 
 export class RampScheduleModel extends BaseClass {
   private getProject(doc: RampScheduleInterface): string | undefined {
@@ -218,15 +327,105 @@ export class RampScheduleModel extends BaseClass {
     });
   }
 
-  // --- API interface ---
+  protected migrate(legacyDoc: unknown): RampScheduleInterface {
+    const doc = legacyDoc as RampScheduleInterface;
+    const endCondMigrated = migrateRampScheduleEndCondition(doc);
+    const statusMigrated = migrateRampScheduleStatus(endCondMigrated);
+    const triggersMigrated = migrateRampStepTriggers(statusMigrated);
+    const migrated = triggersMigrated as RampScheduleInterface;
+    const result =
+      migrated.cutoffDate && typeof migrated.cutoffDate === "string"
+        ? { ...migrated, cutoffDate: new Date(migrated.cutoffDate) }
+        : migrated;
+    if (
+      result.steps?.some(
+        (s) => s.monitored == null || s.holdConditions === null,
+      )
+    ) {
+      result.steps = result.steps.map((s) => ({
+        ...s,
+        monitored: !!s.monitored,
+        ...(s.holdConditions === null ? { holdConditions: undefined } : {}),
+      }));
+    }
+
+    const legacyGs = (result as Record<string, unknown>).guardrailSettings as
+      | { experimentHealthAction?: string }
+      | undefined;
+    if (legacyGs) {
+      if (!result.experimentHealthAction && legacyGs.experimentHealthAction) {
+        const action = legacyGs.experimentHealthAction;
+        if (action === "rollback" || action === "hold" || action === "warn") {
+          result.experimentHealthAction = action;
+        }
+      }
+      delete (result as Record<string, unknown>).guardrailSettings;
+    }
+
+    if (
+      result.monitoringConfig &&
+      (result.monitoringConfig as Record<string, unknown>).autoRollback != null
+    ) {
+      if (!result.experimentHealthAction) {
+        result.experimentHealthAction = (
+          result.monitoringConfig as Record<string, unknown>
+        ).autoRollback
+          ? ("rollback" as const)
+          : ("warn" as const);
+      }
+      delete (result.monitoringConfig as Record<string, unknown>).autoRollback;
+    }
+
+    if (
+      result.monitoringConfig &&
+      result.monitoringConfig.signalMetricIds == null
+    ) {
+      result.monitoringConfig = {
+        ...result.monitoringConfig,
+        signalMetricIds: [],
+      };
+    }
+
+    if (
+      result.steps?.some(
+        (s) => (s as Record<string, unknown>).guardrailSettings != null,
+      )
+    ) {
+      result.steps = result.steps.map((s) => {
+        const { guardrailSettings: _, ...rest } = s as typeof s & {
+          guardrailSettings?: unknown;
+        };
+        return rest;
+      });
+    }
+
+    // Migrate legacy stepApprovedAt (plain Date) → stepApproval object.
+    // stepIndex defaults to currentStepIndex since the old field had no
+    // step-scoping; approvedBy and context are unknown so we use sentinel
+    // values. The migrated record remains valid for the current step.
+    const legacy = result as Record<string, unknown>;
+    if (legacy.stepApprovedAt && !result.stepApproval) {
+      const approvedAt =
+        legacy.stepApprovedAt instanceof Date
+          ? legacy.stepApprovedAt
+          : new Date(legacy.stepApprovedAt as string);
+      result.stepApproval = {
+        stepIndex: result.currentStepIndex ?? 0,
+        approvedAt,
+        approvedBy: "unknown",
+        context: "ui",
+      };
+    }
+    delete legacy.stepApprovedAt;
+
+    return result;
+  }
 
   protected toApiInterface(
     doc: RampScheduleInterface,
   ): ApiRampScheduleInterface {
     return rampScheduleToApiInterface(doc);
   }
-
-  // --- CRUD handler overrides ---
 
   public override async handleApiList(
     req: Parameters<InstanceType<typeof BaseClass>["handleApiList"]>[0],
@@ -251,9 +450,6 @@ export class RampScheduleModel extends BaseClass {
       req.query,
     );
 
-    // TODO: clean this up and better support pagination in BaseModel list routes
-    // When crudValidatorOverrides provides a responseSchema, the route handler
-    // returns this value directly (hasResponseOverride) instead of wrapping it.
     return {
       rampSchedules: filtered.map((s) => this.toApiInterface(s)),
       ...returnFields,
@@ -264,214 +460,13 @@ export class RampScheduleModel extends BaseClass {
       : never;
   }
 
-  public override async handleApiCreate(
-    req: Parameters<InstanceType<typeof BaseClass>["handleApiCreate"]>[0],
-  ) {
-    const body = req.body;
-
-    if (!this.context.hasPremiumFeature("ramp-schedules")) {
-      this.context.throwPlanDoesNotAllowError(
-        "Ramp schedules require an Enterprise plan.",
-      );
-    }
-
-    const hasTarget = !!(body.featureId && body.ruleId);
-
-    let targetId: string | undefined;
-    let feature: FeatureInterface | null = null;
-
-    if (body.featureId) {
-      feature = await getFeature(this.context, body.featureId);
-      if (!feature) {
-        throw new Error(`Feature '${body.featureId}' not found`);
-      }
-    }
-
-    if (hasTarget) {
-      const envSuffix = body.environment
-        ? ` in environment '${body.environment}'`
-        : "";
-      const matches = resolveRampTargets(
-        { ruleId: body.ruleId!, environment: body.environment ?? null },
-        feature!.rules ?? [],
-      );
-      const rule = matches[0];
-      if (!rule) {
-        throw new Error(
-          `Rule '${body.ruleId}' not found${envSuffix}. ` +
-            `The rule must be published before attaching a ramp schedule.`,
-        );
-      }
-      // Post-unification, a stem may have multiple sibling rules (one per env)
-      // if it was split via the non-mergeable migration path. Require an
-      // `environment` to disambiguate in that case so we never silently attach
-      // a ramp to an arbitrary sibling.
-      if (matches.length > 1 && !body.environment) {
-        const siblingEnvs = Array.from(
-          new Set(
-            matches.flatMap((r) =>
-              r.allEnvironments
-                ? ["(all environments)"]
-                : (r.environments ?? []),
-            ),
-          ),
-        ).sort();
-        throw new Error(
-          `Rule '${body.ruleId}' is ambiguous — it matches ${matches.length} sibling rules (${siblingEnvs.join(", ")}). ` +
-            `Specify an 'environment' to disambiguate.`,
-        );
-      }
-
-      const conflicting = await this.findByTargetRule(
-        body.ruleId!,
-        body.environment ?? undefined,
-      );
-      if (conflicting.length > 0) {
-        throw new Error(
-          `A ramp schedule (${conflicting[0].id}) already controls rule '${body.ruleId}'${envSuffix}. ` +
-            `Delete it first before creating a new one.`,
-        );
-      }
-
-      targetId = uuidv4();
-    }
-
-    let template: RampScheduleTemplateInterface | undefined;
-    if (body.templateId) {
-      const tmpl = await this.context.models.rampScheduleTemplates.getById(
-        body.templateId,
-      );
-      if (!tmpl) {
-        throw new Error(`Template '${body.templateId}' not found`);
-      }
-      template = tmpl;
-    }
-
-    const startDate = body.startDate ? new Date(body.startDate) : undefined;
-
-    const resolvedSteps: RampScheduleInterface["steps"] = (() => {
-      if (body.steps !== undefined) {
-        return body.steps.map(
-          (s: {
-            trigger: ApiRampTrigger;
-            actions?: PostBodyAction[];
-            approvalNotes?: string | null;
-          }) => ({
-            trigger: normalizeApiTrigger(s.trigger),
-            actions: (s.actions ?? []).map((a: PostBodyAction) =>
-              hasTarget
-                ? injectTarget(a, targetId!, body.ruleId!)
-                : normalizeAction(a),
-            ),
-            approvalNotes: s.approvalNotes ?? undefined,
-          }),
-        );
-      }
-      if (template && hasTarget) {
-        return template.steps.map((s) => ({
-          trigger: s.trigger,
-          actions: remapTemplateActions(
-            s.actions,
-            targetId!,
-            body.ruleId!,
-            feature!.valueType,
-          ),
-          approvalNotes: s.approvalNotes ?? undefined,
-        }));
-      }
-      return [];
-    })();
-
-    const resolvedEndActions: RampStepAction[] | undefined = (() => {
-      if (body.endActions !== undefined) {
-        return body.endActions.map((a: PostBodyAction) =>
-          hasTarget
-            ? injectTarget(a, targetId!, body.ruleId!)
-            : normalizeAction(a),
-        );
-      }
-      if (
-        template?.endPatch &&
-        hasTarget &&
-        Object.keys(template.endPatch).length > 0
-      ) {
-        return [
-          {
-            targetType: "feature-rule" as const,
-            targetId: targetId!,
-            patch: {
-              ruleId: body.ruleId!,
-              ...template.endPatch,
-            },
-          },
-        ];
-      }
-      return undefined;
-    })();
-
-    const rawEndTrigger = body.endCondition?.trigger;
-    const endTrigger = rawEndTrigger
-      ? {
-          type: "scheduled" as const,
-          at: new Date(
-            (rawEndTrigger as { type: string; at: string | Date }).at,
-          ),
-        }
-      : undefined;
-    const endCondition = endTrigger ? { trigger: endTrigger } : undefined;
-
-    const schedule = await this.create({
-      name: body.name,
-      entityType: "feature",
-      entityId: body.featureId ?? "",
-      targets: hasTarget
-        ? [
-            {
-              id: targetId!,
-              entityType: "feature",
-              entityId: body.featureId!,
-              ruleId: body.ruleId,
-              // `environment` is deliberately omitted on new targets. Post-v2
-              // `rule.id` is uniquely sufficient within a feature's unified
-              // rule list; env is a deprecated pre-v2 disambiguator. The
-              // resolver and DB-side lookup still honor stored `environment`
-              // for legacy targets. See `rampTarget` in shared/validators.
-              status: "active",
-            },
-          ]
-        : [],
-      steps: resolvedSteps,
-      endActions: resolvedEndActions,
-      startDate,
-      endCondition,
-      status: hasTarget ? "ready" : "pending",
-      currentStepIndex: -1,
-      nextStepAt: null,
-      nextProcessAt: startDate ?? null,
-    } as Omit<
-      RampScheduleInterface,
-      "id" | "organization" | "dateCreated" | "dateUpdated"
-    >);
-
-    await dispatchRampEvent(this.context, schedule, "rampSchedule.created", {
-      object: {
-        rampScheduleId: schedule.id,
-        rampName: schedule.name,
-        orgId: this.context.org.id,
-        entityType: schedule.entityType,
-        entityId: schedule.entityId,
-      },
-    });
-
-    return this.toApiInterface(schedule);
-  }
-
   public override async handleApiUpdate(
     req: Parameters<InstanceType<typeof BaseClass>["handleApiUpdate"]>[0],
   ) {
-    const schedule = await this.getById(req.params.id);
-    if (!schedule) {
-      throw new Error("Ramp schedule not found");
+    // Neutral not-found for unknown ids; the lock helper's "no longer exists"
+    // message is reserved for the deleted-while-locked race.
+    if (!(await this.getById(req.params.id))) {
+      throw new NotFoundError("Ramp schedule not found");
     }
 
     if (!this.context.hasPremiumFeature("ramp-schedules")) {
@@ -480,6 +475,18 @@ export class RampScheduleModel extends BaseClass {
       );
     }
 
+    // Locked so the read-modify-write can't clobber a concurrent advance.
+    return runLockedRampScheduleAction(
+      this.context,
+      req.params.id,
+      (schedule) => this.applyApiUpdateLocked(req, schedule),
+    );
+  }
+
+  private async applyApiUpdateLocked(
+    req: Parameters<InstanceType<typeof BaseClass>["handleApiUpdate"]>[0],
+    schedule: RampScheduleInterface,
+  ) {
     if (!["pending", "ready", "paused"].includes(schedule.status)) {
       throw new Error(
         `Cannot update ramp schedule in status "${schedule.status}". Only pending, ready, or paused schedules can be modified.`,
@@ -487,14 +494,19 @@ export class RampScheduleModel extends BaseClass {
     }
 
     const updates: Record<string, unknown> = {};
-    const body = req.body;
+    const body = req.body as typeof req.body & {
+      startActions?: PostBodyAction[];
+    };
 
     const resolveTargetId = (action: {
       targetType?: "feature-rule";
       targetId?: string;
-      patch: unknown;
+      patch?: unknown;
     }): RampStepAction => {
       const tid = action.targetId;
+      // "t1" is a sentinel meaning "resolve to the active target at apply-time"
+      // rather than a literal stored target id. Any other non-empty string is
+      // treated as a real target id that must exist in schedule.targets.
       if (tid && tid !== "t1") {
         if (!schedule.targets.some((t) => t.id === tid)) {
           throw new Error(
@@ -518,20 +530,36 @@ export class RampScheduleModel extends BaseClass {
     };
 
     if (body.name !== undefined) updates.name = body.name;
+    if (body.startActions !== undefined) {
+      updates.startActions = body.startActions.map(resolveTargetId);
+    }
     if (body.steps !== undefined) {
       updates.steps = body.steps.map(
         (step: {
-          trigger: unknown;
+          interval?: number | null;
+          trigger?: LegacyApiRampTrigger;
           actions?: {
             targetType?: "feature-rule";
             targetId?: string;
-            patch: unknown;
+            patch?: unknown;
           }[];
           approvalNotes?: string | null;
-        }) => ({
-          ...step,
-          actions: (step.actions ?? []).map(resolveTargetId),
-        }),
+          monitored?: boolean | null;
+          holdConditions?: StepHoldConditions | null;
+        }) => {
+          const normalized = normalizeApiStepShape({
+            interval: step.interval,
+            trigger: step.trigger,
+            holdConditions: step.holdConditions ?? undefined,
+          });
+          return {
+            interval: normalized.interval,
+            actions: (step.actions ?? []).map(resolveTargetId),
+            approvalNotes: step.approvalNotes ?? undefined,
+            monitored: !!step.monitored,
+            holdConditions: normalized.holdConditions,
+          };
+        },
       );
     }
     if (body.endActions !== undefined) {
@@ -540,31 +568,70 @@ export class RampScheduleModel extends BaseClass {
     if ("startDate" in body) {
       updates.startDate = body.startDate ? new Date(body.startDate) : null;
     }
-    if (body.endCondition !== undefined) {
-      const ec = body.endCondition;
-      if (!ec) {
-        updates.endCondition = null;
-      } else {
-        const rawTrigger = ec.trigger;
-        const trigger = rawTrigger
-          ? { type: "scheduled" as const, at: new Date(rawTrigger.at) }
-          : undefined;
-        updates.endCondition = { trigger };
-      }
+    if ("cutoffDate" in body) {
+      updates.cutoffDate = body.cutoffDate
+        ? new Date(body.cutoffDate as string)
+        : null;
+    }
+    if (body.lockdownConfig !== undefined) {
+      updates.lockdownConfig = body.lockdownConfig;
+    }
+    if (body.monitoringConfig !== undefined) {
+      const monitoringConfig = body.monitoringConfig;
+      updates.monitoringConfig =
+        monitoringConfig && monitoringConfig.monitoringMode
+          ? {
+              ...monitoringConfig,
+              autoUpdate: monitoringConfig.monitoringMode === "auto",
+            }
+          : monitoringConfig;
+      await assertCanUpdateLinkedSafeRolloutMonitoringConfig(
+        this.context,
+        schedule,
+        updates.monitoringConfig as RampScheduleInterface["monitoringConfig"],
+      );
+    }
+    if (body.experimentHealthAction !== undefined) {
+      updates.experimentHealthAction = body.experimentHealthAction;
     }
 
     updates.nextProcessAt = computeNextProcessAt({
       status: schedule.status,
       nextStepAt: schedule.nextStepAt,
-      endCondition: ("endCondition" in updates
-        ? updates.endCondition
-        : schedule.endCondition) as RampScheduleInterface["endCondition"],
+      cutoffDate: ("cutoffDate" in updates
+        ? updates.cutoffDate
+        : schedule.cutoffDate) as RampScheduleInterface["cutoffDate"],
       startDate: ("startDate" in updates
         ? updates.startDate
         : schedule.startDate) as RampScheduleInterface["startDate"],
+      requiresStartApproval: ("requiresStartApproval" in updates
+        ? updates.requiresStartApproval
+        : schedule.requiresStartApproval) as boolean | undefined,
+      startApprovedAt: ("startApprovedAt" in updates
+        ? updates.startApprovedAt
+        : schedule.startApprovedAt) as Date | null | undefined,
     });
 
+    const editedFields = Object.keys(updates).filter(
+      (k) => k !== "nextProcessAt" && k !== "eventHistory",
+    );
+    if (editedFields.length > 0) {
+      updates.eventHistory = appendRampEvent(schedule, "config-edited", {
+        stepIndex: schedule.currentStepIndex,
+        status: schedule.status,
+        reason: `Edited: ${editedFields.join(", ")}`,
+      });
+    }
+
     const updated = await this.updateById(schedule.id, updates);
+
+    if (
+      (body.monitoringConfig?.autoUpdate !== undefined ||
+        body.monitoringConfig?.monitoringMode !== undefined) &&
+      schedule.safeRolloutId
+    ) {
+      await syncLinkedSafeRolloutForRampState(this.context, updated);
+    }
 
     return this.toApiInterface(updated);
   }
@@ -577,13 +644,25 @@ export class RampScheduleModel extends BaseClass {
       throw new Error("Ramp schedule not found");
     }
 
-    if (["running", "pending-approval"].includes(schedule.status)) {
+    if (schedule.status === "running") {
       throw new Error(
         `Cannot delete a ramp schedule in status "${schedule.status}". Pause or complete the schedule first.`,
       );
     }
 
-    await this.deleteById(schedule.id);
+    // Locked so the doc can't be deleted out from under an in-flight advance.
+    await runLockedRampScheduleAction(
+      this.context,
+      schedule.id,
+      async (fresh) => {
+        if (fresh.status === "running") {
+          throw new ConflictError(
+            "Cannot delete: the schedule started running while the request was in flight",
+          );
+        }
+        await this.deleteById(fresh.id);
+      },
+    );
 
     await dispatchRampEvent(this.context, schedule, "rampSchedule.deleted", {
       object: {
@@ -611,33 +690,22 @@ export class RampScheduleModel extends BaseClass {
     return this._find({ entityType: "feature", entityId: featureId });
   }
 
-  // Active (non-terminal) schedules controlling the given rule. Environment
-  // is optional: when omitted, any env matches; when provided, targets scoped
-  // to that env OR to a wildcard (null/empty env) both match, since a wildcard
-  // target applies to every environment.
-  //
-  // Stem-based matching: the caller may pass either the public rule id
-  // (`fr_abc`) or a migration-suffixed id (`fr_abc__production`). Both forms
-  // resolve to the same underlying rule via `stemRuleId`. On the DB side we
-  // use an anchored regex that matches any stored ruleId sharing that stem
-  // (bare stem OR stem followed by the env-suffix delimiter), then
-  // re-validate in memory as defense in depth. This parallels the
-  // symmetric stem matching done on the feature side by `resolveRampTarget`
-  // so a ramp authored pre-migration continues to resolve post-migration,
-  // and vice versa.
+  public async getAllByFeatureIds(
+    featureIds: string[],
+  ): Promise<RampScheduleInterface[]> {
+    if (featureIds.length === 0) return [];
+    return this._find({
+      entityType: "feature",
+      entityId: { $in: featureIds },
+    });
+  }
+
   public async findByTargetRule(
     ruleId: string,
     environment?: string | null,
   ): Promise<RampScheduleInterface[]> {
     const stem = stemRuleId(ruleId);
-    // Broad stem prefix match at the DB layer — cheap and correct, as ramp
-    // schedules are scoped per-feature in practice. All env-precision nuance
-    // (bare-vs-suffixed id, wildcard-env semantics, suffix-derived env) is
-    // applied uniformly in-memory via `rampTargetsEquivalent`.
-    //
-    // Rule ids are alphanumeric + `_` by construction, but escape regex
-    // metachars defensively so a pathological legacy id can't break the
-    // query or leak into the regex engine.
+    // Match both bare and migration-suffixed rule IDs, then re-check env scope in memory.
     const stemRegex = new RegExp(
       `^${escapeRegExp(stem)}(?:${RULE_ID_ENV_SUFFIX_DELIMITER}|$)`,
     );
@@ -650,12 +718,6 @@ export class RampScheduleModel extends BaseClass {
     return candidates.filter((s) =>
       s.targets.some((t) => rampTargetsEquivalent(t, query)),
     );
-  }
-
-  public async getActiveSchedules(): Promise<RampScheduleInterface[]> {
-    return this._find({
-      status: { $in: ["running", "pending", "pending-approval"] },
-    });
   }
 
   public async findByActivatingRevision(
@@ -673,36 +735,149 @@ export class RampScheduleModel extends BaseClass {
       },
     });
   }
-}
 
-/**
- * Cross-org query for the poller: returns minimal docs for every schedule
- * that is due for processing or pending crash-recovery.
- * Bypasses org-scoped BaseModel intentionally — the caller must load the
- * full document via a proper context after queuing the work.
- */
-export async function findSchedulesDueForProcessing(
-  now: Date,
-): Promise<{ id: string; organization: string }[]> {
-  const docs = await getCollection(COLLECTION_NAME)
-    .find(
+  public async getPayloadRampMonitoredRuleMap(): Promise<
+    Map<string, RampMonitoredRuleInfo>
+  > {
+    // SDK payloads need monitored rollout rules rendered as experiments.
+    // Include `paused` so rules keep experiment shape when a monitored step is
+    // held (guardrail, min-sample, approval gate) — users are still bucketed
+    // and removing experiment shape during a hold would lose tracking continuity.
+    // Also include the legacy `pending-approval` value for docs that predate
+    // the derived-status model and have not yet been migrated.
+    const schedules = await this._find({
+      status: { $in: ["running", "paused", "pending-approval"] },
+    });
+    const map = new Map<string, RampMonitoredRuleInfo>();
+    for (const schedule of schedules) {
+      const stepIdx = schedule.currentStepIndex;
+      if (stepIdx < 0 || stepIdx >= schedule.steps.length) continue;
+      const step = schedule.steps[stepIdx];
+      if (!step?.monitored) continue;
+
+      for (const target of schedule.targets) {
+        if (!target.ruleId || target.status !== "active") continue;
+        map.set(target.ruleId, {
+          featureId: target.entityId,
+          rampScheduleId: schedule.id,
+          safeRolloutId: schedule.safeRolloutId ?? undefined,
+        });
+      }
+    }
+    return map;
+  }
+
+  // Modeled on IncrementalRefreshModel.acquireLock.
+  public async acquireAdvanceLock(id: string, token: string): Promise<boolean> {
+    const staleThreshold = new Date(Date.now() - ADVANCE_LOCK_STALE_MS);
+    const result = await this._dangerousGetCollection().updateOne(
       {
+        organization: this.context.org.id,
+        id,
         $or: [
-          // Primary path: any schedule with a due process time
-          { nextProcessAt: { $ne: null, $lte: now } },
-          // Crash recovery: pending schedules whose activation hook may have missed
-          {
-            status: "pending",
-            "targets.activatingRevisionVersion": { $exists: true, $ne: null },
-          },
+          // Unlocked ({ field: null } also matches docs missing the field).
+          { advanceLockToken: null },
+          // Holder crashed/stalled — reclaim.
+          { advanceLockAt: { $lt: staleThreshold, $ne: null } },
+          // Self-token idempotency: a retried acquire whose first write applied
+          // but whose response was lost must not orphan its own lock.
+          { advanceLockToken: token },
         ],
       },
-      { projection: { _id: 1, id: 1, organization: 1 } },
-    )
-    .toArray();
+      {
+        $set: {
+          advanceLockToken: token,
+          advanceLockAt: new Date(),
+        },
+      },
+    );
+    return (result.modifiedCount ?? 0) > 0;
+  }
 
-  return docs.map((d) => ({
-    id: (d.id as string | undefined) || String(d._id),
-    organization: d.organization as string,
-  }));
+  // Status-guarded write for the start-now busy fallback: arms the scheduler
+  // to perform a deferred start, but only while the schedule is still ready —
+  // a blind write could re-arm the poller on a terminal doc or override a
+  // concurrent edit.
+  public async deferReadyScheduleStart(id: string): Promise<boolean> {
+    const now = new Date();
+    const result = await this._dangerousGetCollection().updateOne(
+      {
+        organization: this.context.org.id,
+        id,
+        status: "ready",
+      },
+      { $set: { startDate: now, nextProcessAt: now, dateUpdated: now } },
+    );
+    return result.matchedCount > 0;
+  }
+
+  public async releaseAdvanceLock(id: string, token: string): Promise<void> {
+    await this._dangerousGetCollection().updateOne(
+      {
+        organization: this.context.org.id,
+        id,
+        advanceLockToken: token,
+      },
+      {
+        $set: {
+          advanceLockToken: null,
+          advanceLockAt: null,
+        },
+      },
+    );
+  }
+
+  // Returns false when the token no longer holds the lock (stale-reclaimed)
+  // so the holder can abort instead of writing concurrently with the reclaimer.
+  public async touchAdvanceLockHeartbeat(
+    id: string,
+    token: string,
+  ): Promise<boolean> {
+    const result = await this._dangerousGetCollection().updateOne(
+      {
+        organization: this.context.org.id,
+        id,
+        advanceLockToken: token,
+      },
+      { $set: { advanceLockAt: new Date() } },
+    );
+    return result.matchedCount > 0;
+  }
+
+  /**
+   * Cross-tenant query: finds all due ramp schedules across every org in one
+   * Mongo round-trip. Only called from the Agenda poller — do not use elsewhere.
+   */
+  public static async dangerouslyFindAllDueSchedules(
+    now: Date,
+  ): Promise<{ id: string; organization: string }[]> {
+    const collection = mongoose.connection.db.collection(COLLECTION_NAME);
+    const docs = (await collection
+      .find(
+        {
+          $or: [
+            { nextProcessAt: { $ne: null, $lte: now } },
+            {
+              status: "pending",
+              "targets.activatingRevisionVersion": { $exists: true, $ne: null },
+            },
+            // Ready schedules whose start is due are matched by startDate too,
+            // so a deferred "start now" survives a clobbered nextProcessAt.
+            { status: "ready", startDate: { $ne: null, $lte: now } },
+          ],
+        },
+        { projection: { id: 1, organization: 1, _id: 0 } },
+      )
+      .toArray()) as unknown as Array<Record<string, unknown>>;
+    return docs.filter(
+      (d): d is { id: string; organization: string } =>
+        typeof d.id === "string" && typeof d.organization === "string",
+    );
+  }
 }
+
+export type RampMonitoredRuleInfo = {
+  featureId: string;
+  rampScheduleId: string;
+  safeRolloutId?: string;
+};

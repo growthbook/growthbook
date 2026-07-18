@@ -1,4 +1,4 @@
-import { FC } from "react";
+import { FC, ReactNode, useCallback } from "react";
 import { QueryInterface } from "shared/types/query";
 import { formatDistanceStrict } from "date-fns";
 import {
@@ -15,8 +15,8 @@ import Code from "@/components/SyntaxHighlighting/Code";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
-import { useUser } from "@/services/UserContext";
-import QueryStatsRow from "./QueryStatsRow";
+import QueryStatsRow, { getNumberOfMetricsInQuery } from "./QueryStatsRow";
+import QueryResultTable from "./QueryResultTable";
 
 const ExpandableQuery: FC<{
   query: QueryInterface;
@@ -33,8 +33,48 @@ const ExpandableQuery: FC<{
 
   const { getFactMetricById } = useDefinitions();
 
-  const { hasCommercialFeature } = useUser();
-  const hasOptimizedQueries = hasCommercialFeature("multi-metric-queries");
+  const getResultCell = useCallback(
+    (value: unknown): { content: ReactNode; text: string } => {
+      if (typeof value === "string" && isFactMetricId(value)) {
+        const factMetric = getFactMetricById(value);
+        if (factMetric) {
+          const name = factMetric.name || value;
+          return {
+            content: (
+              <span className="badge badge-secondary" title={value}>
+                {name}
+              </span>
+            ),
+            text: name,
+          };
+        }
+      }
+
+      const json = JSON.stringify(value);
+      return {
+        content: json ?? <em className="text-muted">null</em>,
+        text: json ?? "null",
+      };
+    },
+    [getFactMetricById],
+  );
+
+  const renderResultValue = useCallback(
+    (value: unknown) => getResultCell(value).content,
+    [getResultCell],
+  );
+
+  const getResultCellText = useCallback(
+    (value: unknown) => getResultCell(value).text,
+    [getResultCell],
+  );
+
+  // A fact-metric query is only "optimized" when it actually combines more than
+  // one metric. Single-metric queries share the same query type/builder but
+  // weren't combined, so don't surface the badge for them.
+  const isCombinedMetricQuery =
+    query.queryType === "experimentMultiMetric" &&
+    getNumberOfMetricsInQuery(query) > 1;
 
   return (
     <div className="mb-4">
@@ -56,7 +96,7 @@ const ExpandableQuery: FC<{
           {title && " - "}
           Query {i + 1} of {total}
         </span>
-        {query.queryType === "experimentMultiMetric" && hasOptimizedQueries && (
+        {isCombinedMetricQuery && (
           <div className="ml-auto">
             <Tooltip
               body={
@@ -79,68 +119,20 @@ const ExpandableQuery: FC<{
       </h4>
       <Code language={query.language} code={query.query} expandable={true} />
       {query.error && (
-        <div className="alert alert-danger">
+        <Callout status="error" my="3">
           <pre className="m-0 p-0" style={{ whiteSpace: "pre-wrap" }}>
             {query.error}
           </pre>
-        </div>
+        </Callout>
       )}
       {query.status === "succeeded" && (
         <>
           {query.rawResult?.[0] ? (
-            <div style={{ maxHeight: 300, overflowY: "auto" }}>
-              <table className="table table-bordered table-sm query-table">
-                <thead>
-                  <tr
-                    style={{
-                      position: "sticky",
-                      top: -1,
-                    }}
-                  >
-                    <th></th>
-                    {Object.keys(query.rawResult[0]).map((k) => (
-                      <th key={k}>{k}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {query.rawResult.map((row, i) => {
-                    return (
-                      <tr key={i}>
-                        <th>{i}</th>
-                        {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
-                        {Object.keys(query.rawResult[0]).map((k) => {
-                          const val = row[k];
-                          if (typeof val === "string" && isFactMetricId(val)) {
-                            const factMetric = getFactMetricById(val);
-                            if (factMetric) {
-                              return (
-                                <td key={k}>
-                                  <span
-                                    className="badge badge-secondary"
-                                    title={val}
-                                  >
-                                    {factMetric?.name || val}
-                                  </span>
-                                </td>
-                              );
-                            }
-                          }
-
-                          return (
-                            <td key={k}>
-                              {JSON.stringify(row[k]) ?? (
-                                <em className="text-muted">null</em>
-                              )}
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+            <QueryResultTable
+              rows={query.rawResult}
+              renderValue={renderResultValue}
+              getCellText={getResultCellText}
+            />
           ) : query.query.startsWith("SELECT") ? (
             <Callout status="warning" my="3">
               No rows returned

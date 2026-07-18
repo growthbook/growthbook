@@ -18,7 +18,7 @@ import { useAuth } from "@/services/auth";
 import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
-import { useDefaultDraft } from "@/hooks/useDefaultDraft";
+import { useDefaultDraftMode } from "@/hooks/useDefaultDraft";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 const EditFeatureInfoModal: FC<{
@@ -58,11 +58,12 @@ const EditFeatureInfoModal: FC<{
 
   const canAutoPublish = isAdmin || !metadataGated;
 
-  const defaultDraft = useDefaultDraft(revisionList);
-
-  const [mode, setMode] = useState<DraftMode>(
-    metadataGated ? "new" : "publish",
+  const { mode: initialMode, defaultDraft } = useDefaultDraftMode(
+    revisionList,
+    canAutoPublish,
   );
+
+  const [mode, setMode] = useState<DraftMode>(initialMode);
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
     defaultDraft,
   );
@@ -106,7 +107,7 @@ const EditFeatureInfoModal: FC<{
         mutate();
         const resolvedVersion =
           res?.draftVersion ?? (mode === "existing" ? selectedDraft : null);
-        if (resolvedVersion != null && setVersion) setVersion(resolvedVersion);
+        if (resolvedVersion !== null && setVersion) setVersion(resolvedVersion);
       })}
       cta={mode === "publish" ? "Save" : "Save to draft"}
       ctaEnabled={form.formState.isDirty}

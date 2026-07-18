@@ -1,7 +1,7 @@
-import { FaExclamationTriangle } from "react-icons/fa";
 import { PiArrowLineDownThin, PiCaretLeft, PiCaretRight } from "react-icons/pi";
 import { Flex, Separator } from "@radix-ui/themes";
 import { useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { isManagedWarehousePendingQueryError } from "shared/util";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
@@ -12,11 +12,12 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { AreaWithHeader } from "@/components/SchemaBrowser/SqlExplorerModal";
 import { floatRound } from "@/services/utils";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
+import {
+  flattenHeaderStructureForCsv,
+  type HeaderStructure,
+} from "@/components/Settings/flattenHeaderStructureForCsv";
 
-export type HeaderStructure = {
-  row1: { label: string; colSpan?: number; rowSpan?: number }[];
-  row2Labels: string[];
-};
+export type { HeaderStructure };
 
 export type Props = {
   results: Record<string, unknown>[];
@@ -37,6 +38,22 @@ export type Props = {
    * pass human-readable keys).
    */
   columnLabels?: string[];
+  /**
+   * When set, CSV export includes only these keys (in order). Use to omit
+   * synthetic columns such as compare trend payloads.
+   */
+  csvColumnKeys?: string[];
+  /** Headers for CSV columns; must align 1:1 with `csvColumnKeys`. */
+  csvColumnLabels?: string[];
+  /**
+   * Custom cell renderer. Return `undefined` or `null` to fall back to the
+   * default string rendering for that cell.
+   */
+  renderCell?: (
+    key: string,
+    value: unknown,
+    row: Record<string, unknown>,
+  ) => ReactNode | undefined;
   paddingTop?: number;
   showNoRowsWarning?: boolean;
 };
@@ -55,6 +72,9 @@ export default function DisplayTestQueryResults({
   headerStructure,
   orderedColumnKeys,
   columnLabels,
+  csvColumnKeys,
+  csvColumnLabels,
+  renderCell,
   paddingTop = 0,
   showNoRowsWarning = true,
 }: Props) {
@@ -81,21 +101,58 @@ export default function DisplayTestQueryResults({
     ? Number(errorLineMatch[1] || errorLineMatch[2])
     : undefined;
 
-  function handleDownload(results: Record<string, unknown>[]) {
-    // When the caller passes stable keys + separate labels, rewrite each row
-    // so the CSV column headers (derived from Object.keys) are the display
-    // labels. Otherwise fall through unchanged — the key *is* the label.
+  function defaultCellContent(value: unknown): string {
+    if (value == null) return "";
+    if (typeof value === "number") {
+      return value.toLocaleString();
+    }
+    if (typeof value === "string" || typeof value === "boolean") {
+      return String(value);
+    }
+    return JSON.stringify(value);
+  }
+
+  function handleDownload(rows: Record<string, unknown>[]) {
+    const keys = csvColumnKeys ?? orderedColumnKeys;
+
+    const labelsForCsv = ((): string[] | undefined => {
+      if (!keys?.length) return undefined;
+      if (csvColumnLabels && csvColumnLabels.length === keys.length) {
+        return csvColumnLabels;
+      }
+      if (
+        headerStructure &&
+        orderedColumnKeys &&
+        orderedColumnKeys.length === keys.length
+      ) {
+        const flat = flattenHeaderStructureForCsv(headerStructure);
+        if (flat.length === keys.length) {
+          return flat;
+        }
+      }
+      if (columnLabels && columnLabels.length === keys.length) {
+        return columnLabels;
+      }
+      return undefined;
+    })();
+
     const rowsForCsv =
-      columnLabels && orderedColumnKeys
-        ? results.map((row) =>
+      keys?.length && labelsForCsv && keys.length === labelsForCsv.length
+        ? rows.map((row) =>
             Object.fromEntries(
-              orderedColumnKeys.map((key, i) => [
-                columnLabels[i] ?? key,
-                row[key],
-              ]),
+              keys.map((key, i) => [labelsForCsv[i] ?? key, row[key] ?? ""]),
             ),
           )
-        : results;
+        : columnLabels && orderedColumnKeys
+          ? rows.map((row) =>
+              Object.fromEntries(
+                orderedColumnKeys.map((key, i) => [
+                  columnLabels[i] ?? key,
+                  row[key],
+                ]),
+              ),
+            )
+          : rows;
     const csv = convertToCSV(rowsForCsv);
     if (!csv) {
       throw new Error(
@@ -259,6 +316,7 @@ export default function DisplayTestQueryResults({
                             key={idx}
                             rowSpan={cell.rowSpan}
                             colSpan={cell.colSpan ?? 1}
+                            style={{ minWidth: 150 }}
                           >
                             {cell.label}
                           </th>
@@ -266,14 +324,18 @@ export default function DisplayTestQueryResults({
                       </tr>
                       <tr>
                         {headerStructure.row2Labels.map((label, idx) => (
-                          <th key={idx}>{label}</th>
+                          <th key={idx} style={{ minWidth: 150 }}>
+                            {label}
+                          </th>
                         ))}
                       </tr>
                     </>
                   ) : (
                     <tr>
                       {cols.map((col, i) => (
-                        <th key={col}>{labels[i] ?? col}</th>
+                        <th key={col} style={{ minWidth: 150 }}>
+                          {labels[i] ?? col}
+                        </th>
                       ))}
                     </tr>
                   )}
@@ -283,9 +345,17 @@ export default function DisplayTestQueryResults({
                     .slice((page - 1) * pageSize, page * pageSize)
                     .map((result, i) => (
                       <tr key={i}>
-                        {cols.map((key, j) => (
-                          <td key={j}>{JSON.stringify(result[key])}</td>
-                        ))}
+                        {cols.map((key, j) => {
+                          const raw = result[key];
+                          const custom = renderCell?.(key, raw, result);
+                          return (
+                            <td key={j}>
+                              {custom !== undefined && custom !== null
+                                ? custom
+                                : defaultCellContent(raw)}
+                            </td>
+                          );
+                        })}
                       </tr>
                     ))}
                 </tbody>
@@ -313,15 +383,16 @@ export default function DisplayTestQueryResults({
                   <ManagedWarehouseNoEventsCallout />
                 </div>
               ) : (
-                <div className="alert alert-danger mr-auto">{error}</div>
+                <Callout status="error" mr="auto">
+                  {error}
+                </Callout>
               )
             ) : (
               showNoRowsWarning &&
               !results.length && (
-                <div className="alert alert-warning mr-auto">
-                  <FaExclamationTriangle /> No rows returned, could not verify
-                  result
-                </div>
+                <Callout status="warning" mr="auto">
+                  No rows returned, could not verify result
+                </Callout>
               )
             )}
             <Code

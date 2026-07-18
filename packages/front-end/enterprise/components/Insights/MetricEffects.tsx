@@ -1,10 +1,4 @@
-import React, {
-  useEffect,
-  useCallback,
-  useState,
-  useMemo,
-  ReactNode,
-} from "react";
+import React, { useEffect, useState, useMemo, ReactNode } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   ExperimentSnapshotInterface,
@@ -18,7 +12,6 @@ import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import { useExperiments } from "@/hooks/useExperiments";
 import MetricSelector from "@/components/Experiment/MetricSelector";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { useAuth } from "@/services/auth";
 import {
   formatNumber,
   formatPercent,
@@ -39,6 +32,12 @@ import EmptyState from "@/components/EmptyState";
 import LinkButton from "@/ui/LinkButton";
 import Callout from "@/ui/Callout";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
+import useApi from "@/hooks/useApi";
+import { useExperimentSearch } from "@/services/experiments";
+import ExperimentSearchFilters from "@/components/Search/ExperimentSearchFilters";
+import Field from "@/components/Forms/Field";
+import Link from "@/ui/Link";
+import LoadingOverlay from "@/components/LoadingOverlay";
 
 interface HistogramDatapoint {
   start: number;
@@ -158,16 +157,26 @@ const parseQueryParams = (
 };
 
 const MetricEffects = (): React.ReactElement => {
-  const { experiments } = useExperiments();
   const router = useRouter();
   const qParams = router.query;
 
   const params = parseQueryParams(qParams);
 
-  const filteredExperiments = useMemo(
-    () => experiments.filter((e) => e.type !== "multi-armed-bandit"),
-    [experiments],
-  );
+  const {
+    experiments: allExperiments,
+    loading: experimentsLoading,
+    error: experimentsError,
+  } = useExperiments("", true, "standard");
+
+  const {
+    items: filteredExperiments,
+    searchInputProps,
+    syntaxFilters,
+    setSearchValue,
+  } = useExperimentSearch({
+    allExperiments,
+    localStorageKey: "metric-effects-experiments",
+  });
 
   const { hasCommercialFeature } = useUser();
   const hasMetricEffectsCommercialFeature =
@@ -177,7 +186,9 @@ const MetricEffects = (): React.ReactElement => {
   const computedTheme = theme === "light" ? "light" : "dark";
   const { metrics, factMetrics, datasources } = useDefinitions();
 
-  const metricExpCounts = useMetricExpCounts(filteredExperiments);
+  // Counts use the full experiment list (ignoring user filters) so the metric
+  // dropdown options stay stable as the user adjusts filters.
+  const metricExpCounts = useMetricExpCounts(allExperiments);
 
   if (!hasMetricEffectsCommercialFeature) {
     return (
@@ -191,7 +202,21 @@ const MetricEffects = (): React.ReactElement => {
         />
       </Box>
     );
-  } else if (
+  }
+
+  if (experimentsLoading) {
+    return <LoadingOverlay />;
+  }
+
+  if (experimentsError) {
+    return (
+      <Callout status="error">
+        An error occurred loading experiments: {experimentsError.message}
+      </Callout>
+    );
+  }
+
+  if (
     !datasources.length ||
     (!metrics.length && !factMetrics.length) ||
     Object.keys(metricExpCounts).length === 0
@@ -217,11 +242,45 @@ const MetricEffects = (): React.ReactElement => {
       </Box>
     );
   }
+
+  const showClearFilters = syntaxFilters.length > 0 || !!searchInputProps.value;
+
   return (
-    <MetricEffectCard
-      experiments={filteredExperiments}
-      params={params[0] || undefined}
-    />
+    <Box>
+      <Flex gap="4" align="start" justify="between" mb="4" wrap="wrap">
+        <Flex align="center" gap="3">
+          <Box flexBasis="300px" flexShrink="0">
+            <Field
+              placeholder="Search..."
+              type="search"
+              {...searchInputProps}
+            />
+          </Box>
+          {showClearFilters && (
+            <Link
+              size="1"
+              onClick={() => setSearchValue("")}
+              style={{ whiteSpace: "nowrap" }}
+            >
+              Clear filters
+            </Link>
+          )}
+        </Flex>
+        <ExperimentSearchFilters
+          searchInputProps={searchInputProps}
+          syntaxFilters={syntaxFilters}
+          setSearchValue={setSearchValue}
+          experiments={allExperiments}
+          showStatusFilter={false}
+        />
+      </Flex>
+      <MetricEffectCard
+        filteredExperiments={filteredExperiments}
+        allExperiments={allExperiments}
+        metricExpCounts={metricExpCounts}
+        params={params[0] || undefined}
+      />
+    </Box>
   );
 };
 
@@ -245,48 +304,39 @@ function useMetricExpCounts(experiments: ExperimentInterfaceStringDates[]) {
 }
 
 const MetricEffectCard = ({
-  experiments,
+  filteredExperiments,
+  allExperiments,
+  metricExpCounts,
   params,
 }: {
-  experiments: ExperimentInterfaceStringDates[];
+  filteredExperiments: ExperimentInterfaceStringDates[];
+  allExperiments: ExperimentInterfaceStringDates[];
+  metricExpCounts: Record<string, number>;
   params?: MetricEffectParams;
 }): React.ReactElement => {
-  const { apiCall } = useAuth();
-
   const { project, getExperimentMetricById, getFactTableById, metricGroups } =
     useDefinitions();
 
-  const metricExpCounts = useMetricExpCounts(experiments);
-
   const displayCurrency = useCurrency();
 
-  const [experimentsWithSnapshot, setExperimentsWithSnapshot] = useState<
-    ExperimentWithSnapshot[]
-  >([]);
-  const [loading, setLoading] = useState<boolean>(false);
   const [metric, setMetric] = useState<string>(params?.metric || "");
-  const [searchParams, setSearchParams] = useState<Record<string, string>>({});
   const [differenceType, setDifferenceType] = useState<DifferenceType>(
     params?.diff || "relative",
   );
-  const [metricData, setMetricData] = useState<{
-    histogramData: HistogramDatapoint[];
-    stats:
-      | {
-          numExperiments: number;
-          numVariations: number;
-          mean: number;
-          standardDeviation: number;
-        }
-      | undefined;
-  }>({
-    histogramData: [],
-    stats: undefined,
-  });
 
+  // Keep URL query params in sync with selected metric / diff type so a deep
+  // link reproduces the same view. Only run when user-controlled values change
+  // (not on filtered experiment list updates).
   useEffect(() => {
-    updateSearchParams(searchParams, false);
-  }, [searchParams]);
+    if (!metric) return;
+    updateSearchParams(
+      {
+        metric_0: metric,
+        diff_0: differenceType,
+      },
+      false,
+    );
+  }, [metric, differenceType]);
 
   const metricObj = getExperimentMetricById(metric);
 
@@ -306,164 +356,148 @@ const MetricEffectCard = ({
     ...(differenceType === "scaled" ? { notation: "compact" } : {}),
   };
 
-  const handleFetchMetric = useCallback(async () => {
-    if (!metric) {
-      return;
-    }
-
-    setLoading(true);
-    const filteredExperiments = filterExperimentsByMetrics(
-      experiments,
+  // All experiments (regardless of user filter) that include the selected
+  // metric. This drives the snapshot fetch so its cache key stays stable as
+  // the user adjusts the experiment filter.
+  const allExperimentsWithMetric = useMemo(() => {
+    if (!metric) return [];
+    return filterExperimentsByMetrics(
+      allExperiments,
       metric,
       undefined,
       metricGroups,
     );
-    const experimentsWithData = new Map<string, ExperimentWithSnapshot>();
+  }, [allExperiments, metric, metricGroups]);
 
-    setSearchParams({
-      [`metric_0`]: metric,
-      [`diff_0`]: differenceType,
+  // Set of experiment ids that pass the user's current search/filter — used
+  // to narrow the snapshot results in memory without invalidating the cache.
+  const filteredExperimentIds = useMemo(
+    () => new Set(filteredExperiments.map((e) => e.id)),
+    [filteredExperiments],
+  );
+
+  // Stable, comma-separated id list used both as the SWR cache key and the
+  // request payload. Sorting ensures the cache key doesn't churn when the
+  // input order changes.
+  const snapshotQueryIds = useMemo(
+    () =>
+      allExperimentsWithMetric
+        .map((e) => e.id)
+        .sort()
+        .map(encodeURIComponent)
+        .join(","),
+    [allExperimentsWithMetric],
+  );
+
+  const snapshotsKey = snapshotQueryIds
+    ? `/experiments/snapshots/?experiments=${snapshotQueryIds}`
+    : "";
+  const { data: snapshotsData, error: snapshotsError } = useApi<{
+    snapshots: ExperimentSnapshotInterface[];
+  }>(snapshotsKey, {
+    shouldRun: () => !!snapshotsKey,
+    autoRevalidate: false,
+  });
+
+  // Loading is "true" only while we have a metric selected and the snapshot
+  // fetch is still pending. We intentionally do not show a spinner when the
+  // user hasn't picked a metric yet.
+  const snapshotsLoading =
+    !!metric &&
+    allExperimentsWithMetric.length > 0 &&
+    !snapshotsData &&
+    !snapshotsError;
+
+  const { histogramData, stats, experimentsWithSnapshot } = useMemo(() => {
+    const empty = {
+      histogramData: [] as HistogramDatapoint[],
+      stats: undefined as
+        | {
+            numExperiments: number;
+            numVariations: number;
+            mean: number;
+            standardDeviation: number;
+          }
+        | undefined,
+      experimentsWithSnapshot: [] as ExperimentWithSnapshot[],
+    };
+
+    if (!metric || !snapshotsData?.snapshots?.length) return empty;
+
+    const snapshotsByExperiment = new Map<
+      string,
+      ExperimentSnapshotInterface
+    >();
+    snapshotsData.snapshots.forEach((s) => {
+      snapshotsByExperiment.set(s.experiment, s);
     });
 
-    const queryIds = filteredExperiments
-      .map((e) => encodeURIComponent(e.id))
-      .join(",");
+    const histogramValues: number[] = [];
+    const experimentsWithData = new Map<string, ExperimentWithSnapshot>();
 
-    try {
-      const { snapshots } = await apiCall<{
-        snapshots: ExperimentSnapshotInterface[];
-      }>(`/experiments/snapshots/?experiments=${queryIds}`, {
-        method: "GET",
+    allExperimentsWithMetric.forEach((experiment) => {
+      // Apply the user's filter in memory.
+      if (!filteredExperimentIds.has(experiment.id)) return;
+
+      const snapshot = snapshotsByExperiment.get(experiment.id);
+      if (!snapshot) return;
+
+      const defaultAnalysis = getSnapshotAnalysis(snapshot);
+      if (!defaultAnalysis) return;
+
+      const analysis = getSnapshotAnalysis(snapshot, {
+        ...defaultAnalysis.settings,
+        differenceType,
       });
+      if (!analysis) return;
 
-      setExperimentsWithSnapshot(
-        filteredExperiments.map((e) => ({
-          ...e,
-          snapshot: snapshots.find((s) => s.experiment === e.id) ?? undefined,
-        })),
-      );
+      const result = analysis.results[0];
+      if (!result) return;
 
-      if (snapshots && snapshots.length > 0) {
-        const histogramValues: number[] = [];
+      result.variations.forEach((variation, variationIndex) => {
+        if (variationIndex === 0) return; // Skip baseline
 
-        snapshots.forEach((snapshot) => {
-          const experiment = filteredExperiments.find(
-            (exp) => exp.id === snapshot.experiment,
-          );
-          if (!experiment) return;
+        const variationMetric = variation.metrics[metric];
+        if (!variationMetric || variationMetric.errorMessage) return;
 
-          const defaultAnalysis = getSnapshotAnalysis(snapshot);
-          if (!defaultAnalysis) return;
-
-          const analysis = getSnapshotAnalysis(snapshot, {
-            ...defaultAnalysis.settings,
-            differenceType: differenceType,
-          });
-
-          if (!analysis) return;
-
-          const result = analysis.results[0];
-          if (!result) return;
-
-          result.variations.forEach((variation, variationIndex) => {
-            if (variationIndex === 0) return; // Skip baseline
-
-            const metricData = variation.metrics[metric];
-
-            if (metricData && !metricData.errorMessage) {
-              experimentsWithData.set(experiment.id, {
-                ...experiment,
-                snapshot: snapshot,
-              });
-
-              histogramValues.push(metricData.uplift?.mean || 0);
-            }
-          });
+        experimentsWithData.set(experiment.id, {
+          ...experiment,
+          snapshot,
         });
-        const metricMean =
-          histogramValues.reduce((a, b) => a + b, 0) / histogramValues.length;
-        const metricStandardDeviation = Math.sqrt(
-          histogramValues.reduce((a, b) => a + Math.pow(b - metricMean, 2), 0) /
-            histogramValues.length,
-        );
-        setMetricData({
-          histogramData: createHistogramData(histogramValues),
-          stats: {
-            numExperiments: experimentsWithData.size,
-            numVariations: histogramValues.length,
-            mean: metricMean,
-            standardDeviation: metricStandardDeviation,
-          },
-        });
-      } else {
-        setMetricData({
-          histogramData: [],
-          stats: undefined,
-        });
-      }
-    } catch (error) {
-      console.error(`Error getting snapshots: ${(error as Error).message}`);
-      setMetricData({
-        histogramData: [],
-        stats: undefined,
+
+        histogramValues.push(variationMetric.uplift?.mean || 0);
       });
-    } finally {
-      setExperimentsWithSnapshot(Array.from(experimentsWithData.values()));
-      setLoading(false);
-    }
+    });
+
+    if (histogramValues.length === 0) return empty;
+
+    const mean =
+      histogramValues.reduce((a, b) => a + b, 0) / histogramValues.length;
+    const standardDeviation = Math.sqrt(
+      histogramValues.reduce((a, b) => a + Math.pow(b - mean, 2), 0) /
+        histogramValues.length,
+    );
+
+    return {
+      histogramData: createHistogramData(histogramValues),
+      stats: {
+        numExperiments: experimentsWithData.size,
+        numVariations: histogramValues.length,
+        mean,
+        standardDeviation,
+      },
+      experimentsWithSnapshot: Array.from(experimentsWithData.values()),
+    };
   }, [
+    snapshotsData,
+    allExperimentsWithMetric,
+    filteredExperimentIds,
     metric,
-    experiments,
     differenceType,
-    setSearchParams,
-    apiCall,
-    metricGroups,
   ]);
-
-  useEffect(() => {
-    handleFetchMetric();
-  }, [handleFetchMetric]);
 
   return (
     <Box className="" width="100%">
-      {/* TODO: add when experiment filter component lands */}
-      {/* <Flex align="center" gap="2" className="mb-3" justify="between">
-        {experimentFilter ? (
-          <>
-            <Box flexBasis="40%" flexShrink="1" flexGrow="0">
-              <Field
-                  placeholder="Search..."
-                  type="search"
-                  {...searchInputProps}
-                />
-            </Box>
-            <Box>
-              <ExperimentSearchFilters
-                  experiments={experiments}
-                  syntaxFilters={syntaxFilters}
-                  searchInputProps={searchInputProps}
-                  setSearchValue={setSearchValue}
-                />
-            </Box>
-            <Box>
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  setExperimentFilter(false);
-                  // TODO remove params
-                  //setSearchParams({});
-                }}
-              >
-                Remove All Filters
-              </Button>
-            </Box>
-          </>
-        ) : (
-          <Button variant="ghost" onClick={() => setExperimentFilter(true)}>
-            <BiFilter /> Filter Eligible Experiments
-          </Button>
-        )}
-      </Flex> */}
       <Box className="appbox appbox-light p-3">
         <Flex direction="row" align="center" justify="between" width="100%">
           <Flex direction="row" gap="4" flexBasis="100%">
@@ -499,165 +533,161 @@ const MetricEffectCard = ({
                 ]}
               />
             </Box>
-            {loading && (
-              <Box>
-                <LoadingSpinner />
-              </Box>
-            )}
           </Flex>
         </Flex>
-        {metricObj && metricData.histogramData.length > 0 ? (
-          <Box mt="4" width="100%">
-            {metricData.histogramData.length > 0 ? (
-              <Flex direction="column" gap="2" width="100%">
-                <Box className="appbox" p="3">
-                  <Flex
-                    direction="row"
-                    gap="5"
-                    p="3"
-                    align="center"
-                    justify="center"
-                  >
-                    <Box flexBasis="60%">
-                      <HistogramGraph
-                        data={metricData.histogramData}
-                        formatter={(value) =>
-                          formatterM1(value, formatterOptions)
-                        }
-                        xAxisLabel="Lift"
-                        mean={metricData.stats?.mean || 0}
-                        height={300}
-                        highlightPositiveNegative={true}
-                        invertHighlightColors={metricObj.inverse}
-                      />
-                    </Box>
-                    <Box flexGrow="1" minWidth={"250px"}>
-                      <Box className="appbox p-3 bg-light">
-                        <Flex direction="column" align="start">
-                          <Text as="p" color="gray">
-                            <Text weight="medium">
-                              Number of Experiments with Results:
-                            </Text>{" "}
-                            {metricData.stats?.numExperiments}
-                          </Text>
-                          <Text as="p" color="gray">
-                            <Text weight="medium">
-                              Number of Variations with Results:
-                            </Text>{" "}
-                            {metricData.stats?.numVariations}
-                          </Text>
-                          <Text as="p" color="gray">
-                            <Text weight="medium">Mean:</Text>{" "}
-                            {differenceType === "relative"
-                              ? formatPercent(metricData.stats?.mean || 0)
-                              : formatNumber(metricData.stats?.mean || 0)}
-                          </Text>
-                          <Text as="p" color="gray">
-                            <Text weight="medium">Standard Deviation:</Text>{" "}
-                            {differenceType === "relative"
-                              ? formatPercent(
-                                  metricData.stats?.standardDeviation || 0,
-                                )
-                              : formatNumber(
-                                  metricData.stats?.standardDeviation || 0,
-                                )}
-                          </Text>
-                        </Flex>
-                      </Box>
-                    </Box>
-                  </Flex>
-                </Box>
-                <Box>
-                  <MetricExperiments
-                    metric={metricObj}
-                    dataWithSnapshot={experimentsWithSnapshot}
-                    includeOnlyResults={true}
-                    numPerPage={10}
-                    differenceType={differenceType}
-                    outerClassName=""
-                  />
-                </Box>
-              </Flex>
-            ) : (
-              <Text as="p" color="gray">
-                No lift data to display for histogram.
-              </Text>
-            )}
-          </Box>
-        ) : metric ? (
+        {!metric ? (
+          <DefaultEmptyState />
+        ) : snapshotsError ? (
           <Box mt="4">
-            <Callout status="info">No experiments with results found</Callout>
+            <Callout status="error">
+              Error loading experiment results: {snapshotsError.message}
+            </Callout>
           </Box>
-        ) : (
-          <>
-            {/* default empty state */}
-            <Flex gap="4" align="center" justify="between" mt="4">
-              <Box px="6" flexBasis="60%" flexShrink="0">
-                <Box>
-                  <Box
-                    style={{
-                      border: "1px solid var(--slate-a8)",
-                      borderTop: 0,
-                      borderRight: 0,
-                      width: "100%",
-                      height: "260px",
-                      position: "relative",
-                    }}
-                  >
-                    <Box
-                      style={{
-                        position: "absolute",
-                        transform: "rotate(-90deg)",
-                        color: "var(--slate-a8)",
-                        left: "-40px",
-                        top: "50%",
-                        transformOrigin: "center",
-                      }}
-                    >
-                      Count
+        ) : snapshotsLoading ? (
+          <Flex align="center" justify="center" mt="6" mb="6">
+            <LoadingSpinner />
+          </Flex>
+        ) : metricObj && histogramData.length > 0 ? (
+          <Box mt="4" width="100%">
+            <Flex direction="column" gap="2" width="100%">
+              <Box className="appbox" p="3">
+                <Flex
+                  direction="row"
+                  gap="5"
+                  p="3"
+                  align="center"
+                  justify="center"
+                >
+                  <Box flexBasis="60%">
+                    <HistogramGraph
+                      data={histogramData}
+                      formatter={(value) =>
+                        formatterM1(value, formatterOptions)
+                      }
+                      xAxisLabel="Lift"
+                      mean={stats?.mean || 0}
+                      height={300}
+                      highlightPositiveNegative={true}
+                      invertHighlightColors={metricObj.inverse}
+                    />
+                  </Box>
+                  <Box flexGrow="1" minWidth={"250px"}>
+                    <Box className="appbox p-3 bg-light">
+                      <Flex direction="column" align="start">
+                        <Text as="p" color="gray">
+                          <Text weight="medium">
+                            Number of Experiments with Results:
+                          </Text>{" "}
+                          {stats?.numExperiments}
+                        </Text>
+                        <Text as="p" color="gray">
+                          <Text weight="medium">
+                            Number of Variations with Results:
+                          </Text>{" "}
+                          {stats?.numVariations}
+                        </Text>
+                        <Text as="p" color="gray">
+                          <Text weight="medium">Mean:</Text>{" "}
+                          {differenceType === "relative"
+                            ? formatPercent(stats?.mean || 0)
+                            : formatNumber(stats?.mean || 0)}
+                        </Text>
+                        <Text as="p" color="gray">
+                          <Text weight="medium">Standard Deviation:</Text>{" "}
+                          {differenceType === "relative"
+                            ? formatPercent(stats?.standardDeviation || 0)
+                            : formatNumber(stats?.standardDeviation || 0)}
+                        </Text>
+                      </Flex>
                     </Box>
                   </Box>
-                  <Box
-                    p="3"
-                    style={{
-                      color: "var(--slate-a8)",
-                      textAlign: "center",
-                      transformOrigin: "center",
-                    }}
-                  >
-                    Lift
-                  </Box>
-                </Box>
+                </Flex>
               </Box>
-              <Box flexBasis="40%" style={{ opacity: 0.6 }}>
-                <Box className="appbox p-3 bg-light">
-                  <Flex direction="column" align="start">
-                    <Text as="p" color="gray">
-                      <Text weight="medium">
-                        Number of Experiments with Results:
-                      </Text>{" "}
-                      --
-                    </Text>
-                    <Text as="p" color="gray">
-                      <Text weight="medium">
-                        Number of Variations with Results:
-                      </Text>{" "}
-                      --
-                    </Text>
-                    <Text as="p" color="gray">
-                      <Text weight="medium">Mean:</Text> --
-                    </Text>
-                    <Text as="p" color="gray">
-                      <Text weight="medium">Standard Deviation:</Text> --
-                    </Text>
-                  </Flex>
-                </Box>
+              <Box>
+                <MetricExperiments
+                  metric={metricObj}
+                  dataWithSnapshot={experimentsWithSnapshot}
+                  includeOnlyResults={true}
+                  numPerPage={10}
+                  differenceType={differenceType}
+                  outerClassName=""
+                />
               </Box>
             </Flex>
-          </>
+          </Box>
+        ) : (
+          <Box mt="4">
+            <Callout status="info">
+              No experiments with results found for this metric and the current
+              experiment filters.
+            </Callout>
+          </Box>
         )}
       </Box>
     </Box>
+  );
+};
+
+const DefaultEmptyState = () => {
+  return (
+    <Flex gap="4" align="center" justify="between" mt="4">
+      <Box px="6" flexBasis="60%" flexShrink="0">
+        <Box>
+          <Box
+            style={{
+              border: "1px solid var(--slate-a8)",
+              borderTop: 0,
+              borderRight: 0,
+              width: "100%",
+              height: "260px",
+              position: "relative",
+            }}
+          >
+            <Box
+              style={{
+                position: "absolute",
+                transform: "rotate(-90deg)",
+                color: "var(--slate-a8)",
+                left: "-40px",
+                top: "50%",
+                transformOrigin: "center",
+              }}
+            >
+              Count
+            </Box>
+          </Box>
+          <Box
+            p="3"
+            style={{
+              color: "var(--slate-a8)",
+              textAlign: "center",
+              transformOrigin: "center",
+            }}
+          >
+            Lift
+          </Box>
+        </Box>
+      </Box>
+      <Box flexBasis="40%" style={{ opacity: 0.6 }}>
+        <Box className="appbox p-3 bg-light">
+          <Flex direction="column" align="start">
+            <Text as="p" color="gray">
+              <Text weight="medium">Number of Experiments with Results:</Text>{" "}
+              --
+            </Text>
+            <Text as="p" color="gray">
+              <Text weight="medium">Number of Variations with Results:</Text> --
+            </Text>
+            <Text as="p" color="gray">
+              <Text weight="medium">Mean:</Text> --
+            </Text>
+            <Text as="p" color="gray">
+              <Text weight="medium">Standard Deviation:</Text> --
+            </Text>
+          </Flex>
+        </Box>
+      </Box>
+    </Flex>
   );
 };
 

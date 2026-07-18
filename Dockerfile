@@ -20,9 +20,17 @@ RUN \
   && poetry build \
   && poetry export -f requirements.txt --output requirements.txt \
   && pip install --no-cache-dir -r requirements.txt \
-  && pip install --no-cache-dir dist/*.whl ddtrace==4.3.2 "cryptography>=46.0.6,<47" \
-  && pip uninstall -y poetry poetry-core poetry-plugin-export keyring jaraco.classes setuptools wheel
-# cryptography version is specified above to override transitive dependency and fix vulnerability
+  && pip install --no-cache-dir dist/*.whl ddtrace==4.3.2
+
+# Remove poetry's build-only footprint (poetry + its keyring/cryptography backend, setuptools,
+# wheel, etc.) from the runtime venv. None are gbstats runtime deps, so dropping them shrinks the
+# image and its vulnerability surface. The list lives in check_stripped_deps.STRIPPED so it stays
+# in sync with the guard below.
+RUN pip uninstall -y $(python -c "from check_stripped_deps import STRIPPED; print(*STRIPPED)")
+
+# Verify the strip held: gbstats still imports with only its runtime deps, and nothing pulled a
+# removed package back in. Fails the build otherwise.
+RUN python check_stripped_deps.py
 
 # Build the nodejs app
 FROM node:${NODE_MAJOR}-slim AS nodebuild
@@ -32,7 +40,7 @@ ARG NODE_OPTIONS="--max-old-space-size=8192"
 ENV NODE_OPTIONS="${NODE_OPTIONS}"
 RUN apt-get update && \
   apt-get install -y --no-install-recommends build-essential python3 ca-certificates libkrb5-dev && \
-  npm install -g pnpm@10.32.1 node-gyp && \
+  npm install -g pnpm@10.33.4 node-gyp && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
 # Fetch packages into pnpm store
@@ -49,6 +57,7 @@ COPY packages/back-end/package.json ./packages/back-end/package.json
 COPY packages/sdk-js/package.json ./packages/sdk-js/package.json
 COPY packages/sdk-react/package.json ./packages/sdk-react/package.json
 COPY packages/shared/package.json ./packages/shared/package.json
+COPY packages/stats-ts/package.json ./packages/stats-ts/package.json
 # Install dependencies using cached store
 RUN pnpm install --frozen-lockfile --offline
 # Apply patches
@@ -64,6 +73,7 @@ RUN \
   && rm -rf packages/front-end/node_modules \
   && rm -rf packages/front-end/.next/cache \
   && rm -rf packages/shared/node_modules \
+  && rm -rf packages/stats-ts/node_modules \
   && rm -rf packages/sdk-js/node_modules \
   && rm -rf packages/sdk-react/node_modules \
   && pnpm install --frozen-lockfile --prod --no-optional \
@@ -78,14 +88,19 @@ RUN \
   && rm -f packages/stats/poetry.lock
 RUN pnpm postinstall
 
-# Package the full app together
-FROM node:${NODE_MAJOR}-slim
+# Package the full app together on a hardened, continuously-patched base
+# (Docker Hardened Images). The dev variant keeps apt/shell/root, so the
+# apt-install + pm2 + pnpm flow below is unchanged from a stock node base.
+# Building this image from source requires `docker login dhi.io` (free Docker
+# Hub account, DHI Community tier). Pulling the published growthbook/growthbook
+# image needs no such login.
+FROM dhi.io/node:${NODE_MAJOR}-debian12-dev
 ARG PYTHON_MAJOR
 WORKDIR /usr/local/src/app
+# The hardened node image already bundles pnpm, so (unlike a stock node base) we
+# don't reinstall it; the stock-path npm removal is likewise unneeded here.
 RUN apt-get update && \
   apt-get install -y --no-install-recommends python${PYTHON_MAJOR} ca-certificates libkrb5-3 && \
-  npm install -g pnpm@10.32.1 && \
-  rm -rf /usr/local/lib/node_modules/npm && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/* && \
   ln -sf /usr/bin/python${PYTHON_MAJOR} /usr/local/bin/python3 && \

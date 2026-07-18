@@ -1,3 +1,14 @@
 .callout p:last-of-type {
   margin-bottom: 0;
 }
+
+// The icon, action, and dismiss button are each sized to the text's first
+// line and centered within it. They align on that line and never grow the
+// row, so multi-line content stays top-aligned and tall actions (buttons)
+// overflow into the padding instead of pushing the content down.
+.firstLineSlot {
+  height: var(--callout-line-height);
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}

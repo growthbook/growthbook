@@ -12,7 +12,10 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { postFeatureRevisionRevertValidator } from "shared/validators";
 import type { ApiReqContext } from "back-end/types/api";
 import { toApiRevision } from "back-end/src/services/features";
-import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
+import {
+  dispatchFeatureRevisionEvent,
+  getPublishedRevisionForEvents,
+} from "back-end/src/services/featureRevisionEvents";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import {
   BadRequestError,
@@ -31,6 +34,7 @@ import {
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import { getEnvironments } from "back-end/src/services/organizations";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
+import { canUseRestApiBypassSetting } from "./reviewBypass";
 
 export async function revertFeatureRevision(
   context: ApiReqContext,
@@ -43,6 +47,7 @@ export async function revertFeatureRevision(
     title?: string;
   },
   audit: (input: AuditInterfaceInput) => Promise<void>,
+  canUseRestApiBypass: boolean,
 ) {
   const feature = await getFeature(context, params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
@@ -267,10 +272,10 @@ export async function revertFeatureRevision(
     return { feature, revision: newDraft };
   }
 
-  // Bypass review gate via restApiBypassesReviews or bypassApprovalChecks.
+  // Bypass via restApiBypassesReviews (API keys/PATs only — JWT-backed REST
+  // calls should behave like dashboard actions) or bypassApprovalChecks.
   const canBypass =
-    !!context.org.settings?.restApiBypassesReviews ||
-    context.permissions.canBypassApprovalChecks(feature);
+    canUseRestApiBypass || context.permissions.canBypassApprovalChecks(feature);
 
   if (!canBypass) {
     const liveRevision = await getRevision({
@@ -336,14 +341,13 @@ export async function revertFeatureRevision(
     }),
   });
 
-  const updated = await getRevision({
+  // Re-read so events and the response carry the published status; falls back
+  // to the in-memory revision instead of failing the already-committed revert.
+  const finalRevision = await getPublishedRevisionForEvents(
     context,
-    organization: organization.id,
-    featureId: feature.id,
-    feature,
-    version: publishedRevision.version,
-  });
-  const finalRevision = updated ?? publishedRevision;
+    updatedFeature,
+    publishedRevision,
+  );
 
   await dispatchFeatureRevisionEvent(
     context,
@@ -351,6 +355,16 @@ export async function revertFeatureRevision(
     finalRevision,
     "revision.reverted",
     { revertedToVersion: targetRevision.version },
+  );
+
+  // A revert publishes a new revision, so emit the same lifecycle event as a
+  // regular publish — consumers watching `revision.published` see reverts too.
+  await dispatchFeatureRevisionEvent(
+    context,
+    updatedFeature,
+    finalRevision,
+    "revision.published",
+    {},
   );
 
   return { feature, revision: finalRevision };
@@ -366,6 +380,7 @@ export const postFeatureRevisionRevert = createApiRequestHandler(
     req.params,
     req.body,
     req.audit,
+    canUseRestApiBypassSetting(req),
   );
   return { revision: toApiRevision(revision, req.context, feature) };
 });

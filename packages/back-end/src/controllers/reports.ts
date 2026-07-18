@@ -3,7 +3,6 @@ import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import { getSnapshotAnalysis } from "shared/util";
 import { pick, omit } from "lodash";
-import uniqid from "uniqid";
 import { experimentAnalysisSettings } from "shared/validators";
 import {
   ExperimentReportAnalysisSettings,
@@ -13,6 +12,7 @@ import {
   ReportInterface,
 } from "shared/types/report";
 import { getAllVariations } from "shared/experiments";
+import { generateId } from "back-end/src/util/uuid";
 import {
   getExperimentById,
   getExperimentsByIds,
@@ -46,7 +46,7 @@ import {
   generateExperimentReportSSRData,
 } from "back-end/src/services/reports";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
-import { getAdditionalQueryMetadataForExperiment } from "back-end/src/services/experiments";
+import { getExperimentQueryMetadata } from "back-end/src/services/experiments";
 
 export async function postReportFromSnapshot(
   req: AuthRequest<ExperimentSnapshotReportArgs, { snapshot: string }>,
@@ -62,7 +62,7 @@ export async function postReportFromSnapshot(
     throw new Error("Invalid snapshot id");
   }
   // Prepare a new report-specific snapshot
-  snapshot.id = uniqid("snp_");
+  snapshot.id = generateId("snp_");
   snapshot.type = "report";
   snapshot.triggeredBy = "manual";
   if (snapshot?.health?.traffic && !snapshot?.health?.traffic?.dimension) {
@@ -594,7 +594,11 @@ export async function putReport(
         factTableMap,
         metricGroups,
         experimentQueryMetadata: experiment
-          ? getAdditionalQueryMetadataForExperiment(experiment)
+          ? {
+              ...getExperimentQueryMetadata(experiment),
+              snapshotType: "report" as const,
+              snapshotTriggeredBy: "manual" as const,
+            }
           : null,
       });
     }

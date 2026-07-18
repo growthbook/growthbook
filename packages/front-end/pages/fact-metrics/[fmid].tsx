@@ -3,7 +3,7 @@ import { useState } from "react";
 import { FaChartLine, FaExternalLinkAlt } from "react-icons/fa";
 import {
   FactMetricType,
-  FactTableInterface,
+  FactTableDefinition,
   RowFilter,
 } from "shared/types/fact-table";
 import {
@@ -13,17 +13,19 @@ import {
   quantileMetricType,
   getRowFilterSQL,
 } from "shared/experiments";
+import { createLikeStringMatchFn } from "shared/sql";
 import { formatAIRateLimitRetryMessage } from "shared/ai";
 
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiArrowSquareOut } from "react-icons/pi";
-import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import { AppFeatures } from "shared/types/app-features";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Metadata from "@/ui/Metadata";
 import Link from "@/ui/Link";
+import Callout from "@/ui/Callout";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBBandit, GBCuped, GBEdit, GBExperiment } from "@/components/Icons";
@@ -55,7 +57,6 @@ import MetricExperiments from "@/components/MetricExperiments/MetricExperiments"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import DataList, { DataListItem } from "@/ui/DataList";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { AppFeatures } from "@/types/app-features";
 import FactTableAutoSliceSelector from "@/components/FactTables/FactTableAutoSliceSelector";
 import { useCurrency } from "@/hooks/useCurrency";
 import HistoryTable from "@/components/HistoryTable";
@@ -69,8 +70,6 @@ import OfficialResourceModal from "@/components/OfficialResourceModal";
 import { useUser } from "@/services/UserContext";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { DocLink } from "@/components/DocLink";
-import Callout from "@/ui/Callout";
-import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 import Code from "@/components/SyntaxHighlighting/Code";
 import {
   isMergeAggregationMetric,
@@ -152,7 +151,7 @@ function RowFilterCodeDisplay({
   factTable,
 }: {
   rowFilters: RowFilter[];
-  factTable?: FactTableInterface | null;
+  factTable?: FactTableDefinition | null;
 }) {
   if (!rowFilters.length) return null;
 
@@ -164,6 +163,10 @@ function RowFilterCodeDisplay({
               rowFilter: rf,
               factTable,
               escapeStringLiteral: (s) => s.replace(/'/g, "''"),
+              stringMatch: createLikeStringMatchFn({
+                escapeStringLiteral: (s) => s.replace(/'/g, "''"),
+                emitEscapeClause: false,
+              }),
               evalBoolean: (col, value) =>
                 `${col} IS ${value ? "TRUE" : "FALSE"}`,
               jsonExtract: (col, path) => `${col}.${path}`,
@@ -202,7 +205,7 @@ export default function FactMetricPage() {
   );
   const { apiCall } = useAuth();
 
-  const { hasCommercialFeature, organization, getOwnerDisplay } = useUser();
+  const { hasCommercialFeature, getOwnerDisplay } = useUser();
 
   const permissionsUtil = usePermissionsUtil();
 
@@ -237,10 +240,10 @@ export default function FactMetricPage() {
 
   if (!factMetric) {
     return (
-      <div className="alert alert-danger">
+      <Callout status="error">
         Could not find the requested metric.{" "}
         <Link href="/metrics">Back to all metrics</Link>
-      </div>
+      </Callout>
     );
   }
 
@@ -394,6 +397,7 @@ export default function FactMetricPage() {
     <div className="pagecontents container-fluid">
       {auditModal && (
         <Modal
+          useRadixButton={false}
           trackingEventModalType=""
           open={true}
           header="Audit Log"
@@ -422,6 +426,7 @@ export default function FactMetricPage() {
       )}
       {showDeleteModal && (
         <Modal
+          useRadixButton={false}
           trackingEventModalType=""
           header={`Delete Metric`}
           close={() => setShowDeleteModal(false)}
@@ -516,31 +521,12 @@ export default function FactMetricPage() {
         ]}
       />
 
-      {factMetric.projects?.includes(
-        getDemoDatasourceProjectIdForOrganization(organization.id),
-      ) && (
-        <Callout status="info" contentsAs="div" mb="2">
-          <Flex align="center" justify="between">
-            <Text>
-              This Fact Metric is part of our sample dataset. You can safely
-              delete this once you are done exploring.
-            </Text>
-            <Box ml="auto">
-              <DeleteDemoDatasourceButton
-                onDelete={() => router.push("/metrics")}
-                source="fact-metric"
-              />
-            </Box>
-          </Flex>
-        </Callout>
-      )}
-
       {factMetric.archived && (
-        <div className="alert alert-secondary mb-2">
+        <Callout status="info" mb="2">
           <strong>This metric is archived.</strong> Existing references will
           continue working, but you will be unable to add this metric to new
           experiments.
-        </div>
+        </Callout>
       )}
       <Flex align="start" justify="between" gap="2" mb="2">
         <Flex align="center" gap="3" style={{ marginTop: "-4px" }}>
@@ -565,22 +551,20 @@ export default function FactMetricPage() {
             open={openDropdown}
             onOpenChange={setOpenDropdown}
           >
-            {canEdit && (
-              <DropdownMenuItem
-                onClick={() => {
-                  setOpenDropdown(false);
-                  setEditOpen("open");
-                }}
-                disabled={editViaApiOnly}
+            <DropdownMenuItem
+              onClick={() => {
+                setOpenDropdown(false);
+                setEditOpen("open");
+              }}
+              disabled={!canEdit || editViaApiOnly}
+            >
+              <Tooltip
+                content={REST_API_ONLY_EDIT_MESSAGE}
+                enabled={editViaApiOnly}
               >
-                <Tooltip
-                  content={REST_API_ONLY_EDIT_MESSAGE}
-                  enabled={editViaApiOnly}
-                >
-                  <span>Edit Metric</span>
-                </Tooltip>
-              </DropdownMenuItem>
-            )}
+                <span>Edit Metric</span>
+              </Tooltip>
+            </DropdownMenuItem>
             {canEdit &&
             !factMetric.managedBy &&
             permissionsUtil.canCreateOfficialResources(factMetric) &&
@@ -650,7 +634,7 @@ export default function FactMetricPage() {
                     All Projects
                   </Text>
                 )}
-                {canEdit && (
+                {canEdit ? (
                   <Link
                     onClick={(e) => {
                       e.preventDefault();
@@ -659,6 +643,10 @@ export default function FactMetricPage() {
                   >
                     <GBEdit />
                   </Link>
+                ) : (
+                  <span style={{ opacity: 0.4, cursor: "not-allowed" }}>
+                    <GBEdit />
+                  </span>
                 )}
               </Flex>
             }
@@ -671,10 +659,14 @@ export default function FactMetricPage() {
               <Text weight="regular" color="text-mid">
                 {getOwnerDisplay(factMetric.owner) || "None"}
               </Text>
-              {canEdit && (
+              {canEdit ? (
                 <Link onClick={() => setEditOwnerModal(true)}>
                   <GBEdit />
                 </Link>
+              ) : (
+                <span style={{ opacity: 0.4, cursor: "not-allowed" }}>
+                  <GBEdit />
+                </span>
               )}
             </Flex>
           }
@@ -692,24 +684,26 @@ export default function FactMetricPage() {
         />
       </Flex>
       <Box mt="3" mb="3">
-        {factMetric.tags?.length || canEdit ? (
-          <Flex align="center" gap="1">
-            <Text weight="medium">Tags:</Text>
-            {factMetric.tags?.length ? (
-              <SortedTags
-                tags={factMetric.tags}
-                useFlex
-                shouldShowEllipsis={false}
-                {...tagLinkProps("metrics")}
-              />
-            ) : null}
-            {canEdit && (
-              <Link onClick={() => setEditTagsModal(true)}>
-                <GBEdit />
-              </Link>
-            )}
-          </Flex>
-        ) : null}
+        <Flex align="center" gap="1">
+          <Text weight="medium">Tags:</Text>
+          {factMetric.tags?.length ? (
+            <SortedTags
+              tags={factMetric.tags}
+              useFlex
+              shouldShowEllipsis={false}
+              {...tagLinkProps("metrics")}
+            />
+          ) : null}
+          {canEdit ? (
+            <Link onClick={() => setEditTagsModal(true)}>
+              <GBEdit />
+            </Link>
+          ) : (
+            <span style={{ opacity: 0.4, cursor: "not-allowed" }}>
+              <GBEdit />
+            </span>
+          )}
+        </Flex>
       </Box>
 
       <div className="row">
@@ -812,7 +806,7 @@ export default function FactMetricPage() {
               <Text as="p" mb="2" color="text-mid">
                 Choose metric breakdowns to automatically analyze in your
                 experiments.{" "}
-                <DocLink docSection="autoSlices">
+                <DocLink useRadix={false} docSection="autoSlices">
                   Learn More <PiArrowSquareOut />
                 </DocLink>
               </Text>

@@ -78,6 +78,12 @@ const aiChatUserMessageValidator = z
         ]),
       ),
     ]),
+    // Optional URL the user was on when sending this message — see
+    // AIChatUserMessage in shared/ai-chat.ts. Cap matches the agent router.
+    currentPage: z.string().max(2048).optional(),
+    // Optional soft datasource hint — see AIChatUserMessage in
+    // shared/ai-chat.ts. Cap matches the agent router's datasourceId.
+    datasourceHint: z.string().max(256).optional(),
   })
   .passthrough();
 
@@ -118,6 +124,31 @@ export const aiChatMessageValidator = z.discriminatedUnion("role", [
 ]);
 
 export type PersistedAIChatMessage = z.infer<typeof aiChatMessageValidator>;
+
+// ---------------------------------------------------------------------------
+// Pending agent action (deterministic mutation-confirmation gate)
+// ---------------------------------------------------------------------------
+
+/**
+ * A mutating REST API call the agent has requested but that the harness has
+ * parked pending explicit user confirmation. Stored on the conversation so
+ * the exact call can be replayed deterministically when the user confirms on
+ * a later turn — the model is never relied upon to re-issue it.
+ */
+export const aiAgentPendingActionValidator = z.object({
+  id: z.string(),
+  method: z.enum(["GET", "POST", "PUT", "PATCH", "DELETE"]),
+  path: z.string(),
+  query: z.record(z.string(), z.string()).optional(),
+  body: z.unknown().optional(),
+  /** Short human-readable description shown in the confirmation prompt. */
+  summary: z.string(),
+  createdAt: z.number(),
+});
+
+export type AIAgentPendingAction = z.infer<
+  typeof aiAgentPendingActionValidator
+>;
 
 // ---------------------------------------------------------------------------
 // Feedback validator
@@ -164,6 +195,12 @@ export const aiConversationValidator = z
     preview: z.string(),
     model: z.string().optional(),
     feedback: z.array(aiChatFeedbackEntryValidator).optional(),
+    /**
+     * Set when the agent has requested a mutating API call and is waiting for
+     * the user to confirm. Replayed deterministically by the harness on
+     * confirm; `null`/absent means there is no pending action.
+     */
+    pendingAction: aiAgentPendingActionValidator.nullable().optional(),
   })
   .strict();
 

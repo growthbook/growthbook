@@ -9,7 +9,9 @@ import {
 import { Responsive } from "@radix-ui/themes/dist/esm/props/prop-def.js";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 
-export type Color = "violet" | "red" | "gray";
+// "inherit" drops the forced accent color so the button inherits the
+// surrounding Radix accent context (e.g. a Callout's status color).
+export type Color = "violet" | "red" | "gray" | "inherit";
 export type Variant = "solid" | "soft" | "outline" | "ghost";
 export type Size = "xs" | "sm" | "md" | "lg";
 
@@ -90,7 +92,7 @@ const Button = forwardRef<HTMLButtonElement, Props>(
               }
             : undefined
         }
-        color={color}
+        color={color === "inherit" ? undefined : color}
         variant={variant}
         size={getRadixSize(size)}
         disabled={disabled}
@@ -107,7 +109,9 @@ const Button = forwardRef<HTMLButtonElement, Props>(
 Button.displayName = "Button";
 export default Button;
 
-type WhiteButtonProps = Omit<Props, "color">;
+type WhiteButtonProps = Omit<Props, "color"> & {
+  fullWidth?: boolean;
+};
 export const WhiteButton = forwardRef<HTMLButtonElement, WhiteButtonProps>(
   function WhiteButton(
     {
@@ -122,6 +126,7 @@ export const WhiteButton = forwardRef<HTMLButtonElement, WhiteButtonProps>(
       type = "button",
       children,
       tabIndex,
+      fullWidth = true,
       ...otherProps
     }: WhiteButtonProps,
     ref: ForwardedRef<HTMLButtonElement>,
@@ -155,7 +160,7 @@ export const WhiteButton = forwardRef<HTMLButtonElement, WhiteButtonProps>(
         loading={loading}
         type={type}
         style={{
-          width: "100%",
+          width: fullWidth ? "100%" : undefined,
           backgroundColor: variant === "outline" ? "" : "var(--white-a12)",
           color:
             variant === "outline" ? "var(--white-a12)" : "var(--black-a12)",

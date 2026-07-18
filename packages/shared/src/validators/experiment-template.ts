@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { statsEngines } from "shared/constants";
+import { statsEngines, MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { customMetricSlice } from "./experiments";
 import { featurePrerequisite, savedGroupTargeting } from "./shared";
 import { apiBaseSchema, baseSchema } from "./base-model";
@@ -14,12 +14,12 @@ export const experimentTemplateInterface = baseSchema
 
     templateMetadata: z.object({
       name: z.string(),
-      description: z.string().optional(),
+      description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     }),
 
     type: z.enum(["standard"]),
     hypothesis: z.string().optional(),
-    description: z.string().optional(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     tags: z.array(z.string()).optional(),
     customFields: z.record(z.string(), z.string()).optional(),
 
@@ -62,12 +62,12 @@ export const apiExperimentTemplateValidator = namedSchema(
 
     templateMetadata: z.object({
       name: z.string(),
-      description: z.string().optional(),
+      description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     }),
 
     type: z.enum(["standard"]),
     hypothesis: z.string().optional(),
-    description: z.string().optional(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     tags: z.array(z.string()).optional(),
     customFields: z.record(z.string(), z.string()).optional(),
 
@@ -113,12 +113,12 @@ export const apiCreateExperimentTemplateBody = z.strictObject({
 
   templateMetadata: z.object({
     name: z.string(),
-    description: z.string().optional(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   }),
 
   type: z.enum(["standard"]),
   hypothesis: z.string().optional(),
-  description: z.string().optional(),
+  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   tags: z.array(z.string()).optional(),
   customFields: z.record(z.string(), z.string()).optional(),
 

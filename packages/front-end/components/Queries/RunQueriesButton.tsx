@@ -75,6 +75,7 @@ type Props = {
   position?: "left" | "right";
   resetFilters?: () => void | Promise<void>;
   radixVariant?: "outline" | "solid" | "soft";
+  size?: "xs" | "sm";
   onSubmit?: () => void | Promise<void>;
   disabled?: boolean;
   useRadixButton?: boolean;
@@ -93,9 +94,10 @@ const RunQueriesButton = forwardRef<HTMLButtonElement, Props>(
       position = "right",
       resetFilters,
       radixVariant = "outline",
+      size = "sm",
       onSubmit,
       disabled,
-      useRadixButton = false,
+      useRadixButton = true,
     },
     ref: ForwardedRef<HTMLButtonElement>,
   ) => {
@@ -208,7 +210,7 @@ const RunQueriesButton = forwardRef<HTMLButtonElement, Props>(
               <Button
                 ref={ref}
                 variant={radixVariant}
-                size="sm"
+                size={size}
                 disabled={status === "running" || disabled}
                 type="button"
                 onClick={async () => {
@@ -217,7 +219,7 @@ const RunQueriesButton = forwardRef<HTMLButtonElement, Props>(
                 }}
                 icon={buttonIcon}
                 style={{
-                  minWidth: 110,
+                  minWidth: size === "xs" ? 90 : 110,
                 }}
               >
                 {status === "running" ? (

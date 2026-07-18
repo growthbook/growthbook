@@ -1,0 +1,102 @@
+import { postSavedGroupRevisionItemsRemoveValidator } from "shared/validators";
+import { createApiRequestHandler } from "back-end/src/util/handler";
+import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
+import {
+  buildPatchOps,
+  createOrUpdateRevision,
+  ensureLiveRevisionExists,
+} from "back-end/src/revisions/util";
+import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
+import {
+  applyRevisionToSnapshot,
+  assertListGroup,
+  assertValidListAttributeKey,
+  discardIfJustCreated,
+  isDraftStatus,
+  pickNewDraftMetadata,
+  resolveOrCreateRevision,
+  validateListSize,
+} from "./validations";
+import { toApiSavedGroupRevision } from "./toApiSavedGroupRevision";
+
+export const postSavedGroupRevisionItemsRemove = createApiRequestHandler(
+  postSavedGroupRevisionItemsRemoveValidator,
+)(async (req) => {
+  const savedGroup = await req.context.models.savedGroups.getById(
+    req.params.savedGroupId,
+  );
+  if (!savedGroup) {
+    throw new NotFoundError("Could not find saved group");
+  }
+
+  assertListGroup(savedGroup);
+  assertValidListAttributeKey(req.context, savedGroup);
+
+  if (!req.context.permissions.canUpdateSavedGroup(savedGroup, savedGroup)) {
+    req.context.permissions.throwPermissionError();
+  }
+
+  await ensureLiveRevisionExists(
+    req.context,
+    "saved-group",
+    savedGroup as unknown as Record<string, unknown> & {
+      id: string;
+      owner?: string;
+      dateCreated?: Date;
+    },
+  );
+
+  const { revision, created } = await resolveOrCreateRevision(
+    req.context,
+    savedGroup,
+    req.params.version,
+    pickNewDraftMetadata(req.body),
+  );
+
+  try {
+    if (!isDraftStatus(revision.status)) {
+      throw new BadRequestError(
+        `Cannot edit a revision with status "${revision.status}"`,
+      );
+    }
+
+    const draftState = applyRevisionToSnapshot(revision);
+    const baseValues = draftState.values ?? [];
+    const toRemove = new Set(req.body.items);
+    const newValues = baseValues.filter((v: string) => !toRemove.has(v));
+
+    validateListSize(
+      newValues,
+      req.context.org.settings?.savedGroupSizeLimit,
+      req.context.permissions.canBypassSavedGroupSizeLimit(savedGroup.projects),
+    );
+
+    const patchOps = buildPatchOps({ values: newValues });
+
+    const updated = await createOrUpdateRevision(
+      req.context,
+      "saved-group",
+      savedGroup as unknown as Record<string, unknown> & { id: string },
+      patchOps,
+      { revisionId: revision.id },
+    );
+
+    if (created) {
+      await dispatchSavedGroupRevisionEvent(req.context, updated, {
+        type: "created",
+      });
+    } else {
+      await dispatchSavedGroupRevisionEvent(req.context, updated, {
+        type: "updated",
+        change: "values",
+      });
+    }
+
+    return {
+      revision: await toApiSavedGroupRevision(updated, req.context),
+    };
+  } catch (err) {
+    await discardIfJustCreated(req.context, revision, created);
+    throw err;
+  }
+});

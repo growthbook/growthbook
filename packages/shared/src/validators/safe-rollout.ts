@@ -34,7 +34,7 @@ export type RampUpSchedule = z.infer<typeof rampUpSchedule>;
 export const createSafeRolloutValidator = z.object({
   datasourceId: z.string(),
   exposureQueryId: z.string(),
-  guardrailMetricIds: z.array(z.string()),
+  guardrailMetricIds: z.array(z.string()).min(1),
   maxDuration: MaxDuration,
   autoRollback: z.boolean(),
   rampUpSchedule: rampUpSchedule.partial().optional(),
@@ -53,19 +53,28 @@ const safeRolloutNotification = [
 export type SafeRolloutNotification = (typeof safeRolloutNotification)[number];
 
 const safeRollout = createSafeRolloutValidator.extend({
-  // Refs
   featureId: z.string(),
-  environment: z.string(),
+  environment: z.string().optional(),
 
-  // Managed fields
   status: z.enum(safeRolloutStatusArray),
   autoSnapshots: z.boolean(),
   startedAt: z.date().optional(),
+  // Rolling floor for the active analysis run. Bumped on ramp restart so
+  // prior-run snapshots don't gate the new run. Falls back to `startedAt`.
+  analysisStartedAt: z.date().optional(),
   lastSnapshotAttempt: z.date().optional(),
   nextSnapshotAttempt: z.date().optional(),
   analysisSummary: experimentAnalysisSummary.optional(),
   pastNotifications: z.array(z.enum(safeRolloutNotification)).optional(),
+  // @deprecated — use RampSchedule step controls instead.
   rampUpSchedule: rampUpSchedule,
+  gateSeed: z.string().optional(),
+
+  rampScheduleId: z.string().optional(),
+
+  trackingKey: z.string().optional(),
+
+  updateScheduleMinutes: z.number().min(10).optional(),
 });
 export const safeRolloutValidator = baseSchema
   .extend(safeRollout.shape)

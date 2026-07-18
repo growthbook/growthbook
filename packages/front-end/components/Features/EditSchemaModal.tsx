@@ -1,8 +1,8 @@
 import { useForm } from "react-hook-form";
 import {
   FeatureInterface,
+  FeatureValueType,
   JSONSchemaDef,
-  SchemaField,
   SimpleSchema,
 } from "shared/types/feature";
 import React, { useMemo, useState } from "react";
@@ -13,21 +13,20 @@ import {
   inferSimpleSchemaFromValue,
   simpleToJSONSchema,
   getReviewSetting,
+  assertSchemaMatchesValueType,
 } from "shared/util";
 import { FaAngleDown, FaAngleRight, FaRegTrashAlt } from "react-icons/fa";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
-import { useDefaultDraft } from "@/hooks/useDefaultDraft";
+import { useDefaultDraftMode } from "@/hooks/useDefaultDraft";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import Field from "@/components/Forms/Field";
 import Switch from "@/ui/Switch";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import SelectField from "@/components/Forms/SelectField";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { GBAddCircle } from "@/components/Icons";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
-import Checkbox from "@/ui/Checkbox";
+import EditSchemaField from "@/components/Features/EditSchemaField";
 import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
@@ -42,238 +41,69 @@ export interface Props {
   onEnable?: () => void;
 }
 
-// TODO: enable this when we have a GUI for entering feature values based on the schema
-const SUPPORTS_DEFAULT_VALUES = false;
-
-function EditSchemaField({
-  i,
-  value,
-  inObject,
-  onChange,
-}: {
-  i: number;
-  value: SchemaField;
-  inObject: boolean;
-  onChange: (value: SchemaField) => void;
-}) {
-  return (
-    <div>
-      <div className="row">
-        {inObject && (
-          <div className="col">
-            <Field
-              label="Property Key"
-              value={value.key}
-              onChange={(e) => onChange({ ...value, key: e.target.value })}
-              required
-              maxLength={64}
-            />
-          </div>
-        )}
-        <div className="col">
-          <SelectField
-            label="Type"
-            value={value.type}
-            onChange={(type) =>
-              onChange({ ...value, type: type as SchemaField["type"] })
-            }
-            sort={false}
-            options={[
-              {
-                value: "string",
-                label: "Text String",
-              },
-              {
-                value: "integer",
-                label: "Integer",
-              },
-              {
-                value: "float",
-                label: "Float (Decimal)",
-              },
-              {
-                value: "boolean",
-                label: "Boolean (True/False)",
-              },
-            ]}
-            required
-          />
-        </div>
-      </div>
-      <Field
-        label="Description"
-        value={value.description}
-        onChange={(e) => onChange({ ...value, description: e.target.value })}
-        maxLength={256}
-      />
-      {inObject && (
-        <div className="form-group">
-          <Checkbox
-            id={`schema_required_${i}`}
-            value={value.required}
-            setValue={(v) => onChange({ ...value, required: v })}
-            description="Check if this property is required"
-            label="Required"
-          />
-        </div>
-      )}
-      {value.type !== "boolean" && (
-        <>
-          <MultiSelectField
-            label="Restrict to Specific Values"
-            placeholder="(Optional)"
-            value={value.enum}
-            onChange={(e) => {
-              if (e.length > 256) return;
-              e = e.filter((v) => v !== "" && v != null && v.length <= 256);
-              onChange({ ...value, enum: e });
-            }}
-            options={value.enum.map((v) => ({ value: v, label: v }))}
-            creatable
-            noMenu
-          />
-          {value.enum.length === 0 && (
-            <div className="row">
-              <div className="col">
-                <Field
-                  label={value.type === "string" ? "Min Length" : "Minimum"}
-                  value={value.min}
-                  max={value.max || undefined}
-                  min={value.type === "string" ? 0 : undefined}
-                  type="number"
-                  step={value.type !== "float" ? 1 : "any"}
-                  onChange={(e) =>
-                    onChange({ ...value, min: parseInt(e.target.value) })
-                  }
-                />
-              </div>
-              <div className="col">
-                <Field
-                  label={value.type === "string" ? "Max Length" : "Maximum"}
-                  value={value.max}
-                  type="number"
-                  min={value.min || undefined}
-                  max={value.type === "string" ? 256 : undefined}
-                  step={value.type !== "float" ? 1 : "any"}
-                  onChange={(e) =>
-                    onChange({ ...value, max: parseInt(e.target.value) })
-                  }
-                />
-              </div>
-            </div>
-          )}
-        </>
-      )}
-      {inObject && SUPPORTS_DEFAULT_VALUES && (
-        <>
-          {value.type === "boolean" ? (
-            <SelectField
-              label="Default Value"
-              sort={false}
-              value={
-                ["false", ""].includes(value.default) ? value.default : "true"
-              }
-              onChange={(v) => onChange({ ...value, default: v })}
-              options={[
-                {
-                  value: "true",
-                  label: "True",
-                },
-                {
-                  value: "false",
-                  label: "False",
-                },
-              ]}
-              initialOption="No Default"
-              required
-            />
-          ) : value.enum.length > 0 ? (
-            <SelectField
-              label="Default Value"
-              sort={false}
-              value={value.default}
-              onChange={(v) => onChange({ ...value, default: v })}
-              options={value.enum.map((v) => ({ value: v, label: v }))}
-              initialOption="No Default"
-            />
-          ) : (
-            <Field
-              label="Default Value"
-              value={value.default}
-              onChange={(e) => onChange({ ...value, default: e.target.value })}
-              {...(value.type === "string"
-                ? {
-                    minLength: value.min,
-                    maxLength: value.max,
-                  }
-                : {
-                    type: "number",
-                    step: value.type === "float" ? "any" : 1,
-                    min: value.min,
-                    max: value.max,
-                  })}
-            />
-          )}
-        </>
-      )}
-    </div>
-  );
-}
-
 function EditSimpleSchema({
   schema,
   setSchema,
+  valueType,
 }: {
   schema: SimpleSchema;
   setSchema: (schema: SimpleSchema) => void;
+  valueType?: FeatureValueType;
 }) {
   const [expandedFields, setExpandedFields] = useState(new Set<number>());
 
+  const lockedPrimitive = valueType === "string" || valueType === "number";
+
   return (
     <div>
-      <SelectField
-        label="Type"
-        labelClassName="font-weight-bold text-dark"
-        value={schema.type}
-        sort={false}
-        onChange={(type) =>
-          setSchema({
-            ...schema,
-            type: type as SimpleSchema["type"],
-          })
-        }
-        options={[
-          {
-            value: "object",
-            label: "Object",
-          },
-          {
-            value: "object[]",
-            label: "Array of Objects",
-          },
-          {
-            value: "primitive",
-            label: "Primitive Value (string, number, boolean)",
-          },
-          {
-            value: "primitive[]",
-            label: "Array of Primitive Values",
-          },
-        ]}
-        required
-      />
-      {schema.type === "primitive[]" || schema.type === "primitive" ? (
+      {!lockedPrimitive && (
+        <SelectField
+          label="Type"
+          labelClassName="font-weight-bold text-dark"
+          value={schema.type}
+          sort={false}
+          onChange={(type) =>
+            setSchema({
+              ...schema,
+              type: type as SimpleSchema["type"],
+            })
+          }
+          options={[
+            {
+              value: "object",
+              label: "Object",
+            },
+            {
+              value: "object[]",
+              label: "Array of Objects",
+            },
+            {
+              value: "primitive",
+              label: "Primitive Value (string, number, boolean)",
+            },
+            {
+              value: "primitive[]",
+              label: "Array of Primitive Values",
+            },
+          ]}
+          required
+        />
+      )}
+      {lockedPrimitive ||
+      schema.type === "primitive[]" ||
+      schema.type === "primitive" ? (
         <div className="form-group">
           <label className="font-weight-bold text-dark">
-            {schema.type === "primitive" ? "Primitive Value" : "Array Items"}
+            {schema.type === "primitive[]" ? "Array Items" : "Primitive Value"}
           </label>
           <div className="appbox p-3 bg-light">
             <EditSchemaField
               i={0}
+              valueType={valueType}
               value={
                 schema.fields[0] || {
                   key: "",
-                  type: "string",
+                  type: valueType === "number" ? "float" : "string",
                   required: false,
                   default: "",
                   description: "",
@@ -440,9 +270,28 @@ export default function EditSchemaModal({
   defaultEnable,
   onEnable,
 }: Props) {
-  const defaultSimpleSchema = feature.jsonSchema?.simple?.fields?.length
+  const valueType = feature.valueType;
+  const defaultSimpleSchema: SimpleSchema = feature.jsonSchema?.simple?.fields
+    ?.length
     ? feature.jsonSchema.simple
-    : inferSimpleSchemaFromValue(feature.defaultValue);
+    : valueType === "string" || valueType === "number"
+      ? {
+          // String/number flags hold a single primitive value
+          type: "primitive",
+          fields: [
+            {
+              key: "",
+              type: valueType === "string" ? "string" : "float",
+              required: true,
+              default: "",
+              description: "",
+              enum: [],
+              min: 0,
+              max: valueType === "string" ? 256 : 100,
+            },
+          ],
+        }
+      : inferSimpleSchemaFromValue(feature.defaultValue);
 
   const defaultJSONSchema = feature.jsonSchema?.schema || "{}";
 
@@ -475,11 +324,12 @@ export default function EditSchemaModal({
 
   const canAutoPublish = gatedEnvSet === "none";
 
-  const defaultDraft = useDefaultDraft(revisionList);
-
-  const [mode, setMode] = useState<DraftMode>(
-    canAutoPublish ? "publish" : "new",
+  const { mode: initialMode, defaultDraft } = useDefaultDraftMode(
+    revisionList,
+    canAutoPublish,
   );
+
+  const [mode, setMode] = useState<DraftMode>(initialMode);
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
     defaultDraft,
   );
@@ -532,6 +382,8 @@ export default function EditSchemaModal({
           }
         }
 
+        assertSchemaMatchesValueType(value, feature.valueType);
+
         const body: Record<string, unknown> = {
           ...value,
           ...(mode === "publish"
@@ -550,7 +402,7 @@ export default function EditSchemaModal({
         mutate();
         const resolvedVersion =
           res?.draftVersion ?? (mode === "existing" ? selectedDraft : null);
-        if (resolvedVersion != null && setVersion) setVersion(resolvedVersion);
+        if (resolvedVersion !== null && setVersion) setVersion(resolvedVersion);
         onEnable && value.enabled && onEnable();
       })}
       close={close}
@@ -623,6 +475,7 @@ export default function EditSchemaModal({
             <EditSimpleSchema
               schema={form.watch("simple")}
               setSchema={(v) => form.setValue("simple", v)}
+              valueType={valueType}
             />
           ) : (
             <CodeTextArea

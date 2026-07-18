@@ -45,6 +45,8 @@ import {
   validateVariationIds,
 } from "back-end/src/services/experiments";
 import { auditDetailsCreate } from "back-end/src/services/audit";
+import { SoftWarningError } from "back-end/src/util/errors";
+import { validateExperimentChange } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { PrivateApiErrorResponse } from "back-end/types/api";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/holdouts";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
@@ -288,6 +290,7 @@ export const createHoldout = async (
       holdout: holdout,
     });
   } catch (e) {
+    if (e instanceof SoftWarningError) throw e;
     res.status(400).json({
       status: 400,
       message: e.message,
@@ -505,14 +508,12 @@ export const editStatus = async (
     if (phases[1]) {
       phases[1].dateEnded = new Date();
     }
-    // set the status to stopped for the experiment
+    Object.assign(changes, { phases, status: "stopped" });
+    await validateExperimentChange({ context, experiment, changes });
     await updateExperiment({
       context,
       experiment,
-      changes: {
-        phases,
-        status: "stopped",
-      },
+      changes,
     });
     // Clear next scheduled status update
     await context.models.holdout.update(holdout, {
@@ -539,6 +540,7 @@ export const editStatus = async (
       experiment,
     );
     Object.assign(changes, additionalChanges);
+    await validateExperimentChange({ context, experiment, changes });
     await updateExperiment({
       context,
       experiment,
@@ -606,10 +608,12 @@ export const editStatus = async (
         analysisStartDate: undefined,
       });
     }
+    Object.assign(changes, { phases, status: "running" });
+    await validateExperimentChange({ context, experiment, changes });
     await updateExperiment({
       context,
       experiment,
-      changes: { phases, status: "running" },
+      changes,
     });
 
     queueSDKPayloadRefresh({
@@ -627,10 +631,12 @@ export const editStatus = async (
   } else if (req.body.status === "draft") {
     // set the status to draft for the experiment
     phases[0].dateEnded = undefined;
+    Object.assign(changes, { phases: [phases[0]], status: "draft" });
+    await validateExperimentChange({ context, experiment, changes });
     await updateExperiment({
       context,
       experiment,
-      changes: { phases: [phases[0]], status: "draft" },
+      changes,
     });
     await context.models.holdout.update(holdout, {
       analysisStartDate: undefined,

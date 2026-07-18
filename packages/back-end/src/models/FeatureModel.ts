@@ -5,11 +5,9 @@ import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
 import {
   MergeResultChanges,
-  getApiFeatureEnabledEnvs,
-  getApiFeatureAllEnvs,
   checkIfRevisionNeedsReview,
   autoMerge,
-  fillRevisionFromFeature,
+  liveRevisionFromFeature,
   PermissionError,
   stemRuleId,
 } from "shared/util";
@@ -21,7 +19,9 @@ import {
   RampScheduleTemplateInterface,
   RevisionRampAction,
   RevisionRampCreateAction,
+  RevisionRampUpdateAction,
   RampStepAction,
+  resolveStartApproval,
 } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
 import {
@@ -42,13 +42,30 @@ import { DiffResult } from "shared/types/events/diff";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import {
   generateRuleId,
+  addIdsToFlatRules,
   getApiFeatureObj,
   getNextScheduledUpdate,
   getSavedGroupMap,
   queueSDKPayloadRefresh,
   synthesizeRuleId,
 } from "back-end/src/services/features";
-import { remapTemplateActions } from "back-end/src/services/rampSchedule";
+import {
+  assertConfigBackedDefaultHasNoOverrides,
+  assertConfigBackedFeatureValuesValid,
+  configCheckedRuleValues,
+} from "back-end/src/services/configValidation";
+import {
+  appendRampEvent,
+  assertFeatureNotLockedByRamp,
+  computeNextProcessAt,
+  ensureSafeRolloutForMonitoredRamp,
+  getStartActionsFromRules,
+  mergeStepsForRunningSchedule,
+  remapTemplateActions,
+  runLockedRampScheduleAction,
+  startReadyScheduleNow,
+  syncLinkedSafeRolloutForRampState,
+} from "back-end/src/services/rampSchedule";
 import {
   applyNonRuleFeatureUpgrades,
   upgradeFeatureRule,
@@ -70,6 +87,7 @@ import {
   getSDKPayloadKeysByDiff,
 } from "back-end/src/util/features";
 import { applyPartialFeatureRuleUpdatesToRevision } from "back-end/src/util/featureRevision.util";
+import { NotFoundError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import {
   getContextForAgendaJobByOrgId,
@@ -77,7 +95,7 @@ import {
 } from "back-end/src/services/organizations";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import { ApiReqContext } from "back-end/types/api";
-import { getChangedApiFeatureEnvironments } from "back-end/src/events/handlers/utils";
+import { deriveLiveFeatureEventEnvironments } from "back-end/src/events/eventEnvironments";
 import { determineNextSafeRolloutSnapshotAttempt } from "back-end/src/enterprise/saferollouts/safeRolloutUtils";
 import {
   createVercelExperimentationItemFromFeature,
@@ -85,7 +103,10 @@ import {
   deleteVercelExperimentationItemFromFeature,
 } from "back-end/src/services/vercel-native-integration.service";
 import { getObjectDiff } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
-import { runValidateFeatureHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
+import {
+  runValidateFeatureHooks,
+  runValidateFeatureRevisionHooks,
+} from "back-end/src/enterprise/sandbox/sandbox-eval";
 import {
   createEvent,
   hasPreviousObject,
@@ -101,11 +122,14 @@ import {
   updateExperiment,
 } from "./ExperimentModel";
 import {
+  cancelScheduledPublishesForFeature,
   createInitialRevision,
   createRevisionFromLegacyDraft,
   deleteAllRevisionsForFeature,
   getRevision,
+  hasPublishLockingScheduledSibling,
   markRevisionAsPublished,
+  computeRevisionPublishChanges,
   updateRevision,
   createRevision,
 } from "./FeatureRevisionModel";
@@ -123,6 +147,7 @@ const featureSchema = new mongoose.Schema({
   version: Number,
   valueType: String,
   defaultValue: String,
+  baseConfig: String,
   environments: [String],
   tags: [String],
   // `rules` and `environmentSettings` are declared Mixed intentionally —
@@ -463,6 +488,46 @@ export async function getAllFeatures(
   );
 }
 
+/**
+ * Lightweight sibling of {@link getAllFeatures} for whole-collection scans that
+ * read a feature's behavior (rules, environment settings, values, links) but
+ * never its editor/authoring fields: the stale-detection/dependents graph and
+ * the `@const:`/`@config:` reference scanners. Skips Mongoose hydration via
+ * `.lean()` and projects out the editor fields (they can be large). Same
+ * migration + permission filter as `getAllFeatures`, so results are otherwise
+ * interchangeable.
+ *
+ * NOTE: the return type is `FeatureInterface[]`, but the projected-out fields
+ * (`description` / `jsonSchema` / `customFields` / legacy `draft`) will be
+ * absent at runtime — and so will `legacyDraft`, which the v0 migration
+ * synthesizes from the projected-out `draft`. Reach for `getAllFeatures` if you
+ * need a complete feature.
+ */
+export async function getAllFeaturesWithoutEditorFields(
+  context: ReqContext | ApiReqContext,
+  { includeArchived = false }: { includeArchived?: boolean } = {},
+): Promise<FeatureInterface[]> {
+  const q = featureListQuery(context.org.id, { includeArchived });
+
+  const docs = await FeatureModel.find(q, {
+    description: 0,
+    jsonSchema: 0,
+    customFields: 0,
+    draft: 0,
+  }).lean<LegacyFeatureInterface[]>();
+
+  const features = docs.map((raw) =>
+    migrateRawFeatureToV2(
+      omit(raw, ["__v", "_id"]) as LegacyFeatureInterface,
+      context,
+    ),
+  );
+
+  return features.filter((feature) =>
+    context.permissions.canReadSingleProjectResource(feature.project),
+  );
+}
+
 function featureListQuery(
   orgId: string,
   opts: { project?: string; projectIds?: string[]; includeArchived?: boolean },
@@ -597,6 +662,22 @@ export async function getFeaturesByIds(
   );
 }
 
+// Returns id -> project for every feature that exists in the org, regardless of
+// the caller's read permission. Intended for permission decisions where missing
+// (inaccessible) and non-existent features must be distinguished — do not use it
+// to return feature data to the caller.
+export async function getFeatureProjectsByIds(
+  context: ReqContext | ApiReqContext,
+  ids: string[],
+): Promise<Map<string, string | undefined>> {
+  if (!ids.length) return new Map();
+  const features = await FeatureModel.find(
+    { organization: context.org.id, id: { $in: ids } },
+    { id: 1, project: 1, _id: 0 },
+  );
+  return new Map(features.map((f) => [f.id, f.project || undefined]));
+}
+
 export async function createFeature(
   context: ReqContext | ApiReqContext,
   data: FeatureInterface,
@@ -622,6 +703,21 @@ export async function createFeature(
       featureToCreate.rules = dedupedRules;
     }
   }
+
+  // A config-backed feature's default AND rule values must conform to the
+  // backing config's effective schema. Enforced at this shared create choke
+  // point so every entry point is covered — not just the v2 REST handlers.
+  // Legacy/internal create paths (v1 POST, internal postFeatures) reach here
+  // without their own net, and creation writes a published revision directly
+  // (no publish-time re-check), so an unchecked create would ship a
+  // schema-violating value on version 1. The flat top-level `rules` is canonical
+  // here: callers populate it (buildFeatureUpdate then strips the legacy
+  // env-settings copies), so it holds every rule regardless of entry point.
+  // No-op for non-json / non-config features and when skipSchemaValidation is set.
+  await assertConfigBackedFeatureValuesValid(context, featureToCreate, {
+    defaultValue: featureToCreate.defaultValue,
+    rules: featureToCreate.rules as FeatureRule[] | undefined,
+  });
 
   // Run any custom hooks for this feature
   await runValidateFeatureHooks({
@@ -745,10 +841,10 @@ export const createFeatureEvent = async <
         },
         projects: [currentApiFeature.project],
         tags: currentApiFeature.tags,
-        environments:
-          eventData.event === "deleted"
-            ? getApiFeatureAllEnvs(currentApiFeature)
-            : getApiFeatureEnabledEnvs(currentApiFeature),
+        environments: deriveLiveFeatureEventEnvironments({
+          current: currentApiFeature,
+          deleted: eventData.event === "deleted",
+        }),
         containsSecrets: false,
       } as CreateEventParams<"feature", Event>;
 
@@ -801,10 +897,10 @@ export const createFeatureEvent = async <
       tags: Array.from(
         new Set([...previousApiFeature.tags, ...currentApiFeature.tags]),
       ),
-      environments: getChangedApiFeatureEnvironments(
-        previousApiFeature,
-        currentApiFeature,
-      ),
+      environments: deriveLiveFeatureEventEnvironments({
+        previous: previousApiFeature,
+        current: currentApiFeature,
+      }),
       containsSecrets: false,
     } as CreateEventParams<"feature", Event>;
   })();
@@ -1114,7 +1210,18 @@ export async function archiveFeature(
   feature: FeatureInterface,
   isArchived: boolean,
 ) {
-  return await updateFeature(context, feature, { archived: isArchived });
+  const updated = await updateFeature(context, feature, {
+    archived: isArchived,
+  });
+  // Cancel pending schedules so an archived feature can't auto-publish a draft.
+  if (isArchived) {
+    await cancelScheduledPublishesForFeature(
+      context,
+      context.org.id,
+      feature.id,
+    );
+  }
+  return updated;
 }
 
 function setEnvironmentSettings(
@@ -1198,6 +1305,9 @@ export async function addFeatureRule(
 ) {
   if (!rule.id) {
     rule.id = generateRuleId();
+  }
+  if (rule.type === "rollout" && !rule.seed) {
+    rule.seed = rule.id;
   }
 
   const applicableEnvs = getEnvironmentIdsFromOrg(context.org);
@@ -1369,6 +1479,10 @@ export async function setDefaultValue(
   user: EventUser,
   requireReview: boolean,
 ) {
+  // Fail early on the internal draft-edit path (the REST default-value endpoint
+  // enforces the same lock at its handler); publish re-checks regardless.
+  assertConfigBackedDefaultHasNoOverrides(feature, defaultValue);
+
   return updateRevision(
     context,
     feature,
@@ -1448,13 +1562,17 @@ const updateSafeRolloutStatuses = async (
   });
 };
 
-// Apply a revision merge result to the feature document.
-export async function applyRevisionChanges(
+// Pure computation of the feature-doc changes a revision merge will produce; no writes
+export function computeRevisionMergeChanges(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,
   result: MergeResultChanges,
-) {
+): {
+  changes: Partial<FeatureInterface>;
+  hasChanges: boolean;
+  removeHoldout: boolean;
+} {
   let hasChanges = false;
   const changes: Partial<FeatureInterface> = {};
   let removeHoldout = false;
@@ -1466,6 +1584,11 @@ export async function applyRevisionChanges(
 
   if (result.rules !== undefined) {
     changes.rules = result.rules;
+    // Ensure every rollout rule that's being published has a seed — required
+    // for ramp-monitored payload stability. Rules created before the
+    // seed-backfill was introduced (or attached to a ramp for the first time)
+    // get seed = rule.id here so they match the SDK's featureId fallback.
+    addIdsToFlatRules(changes.rules, feature.id);
     hasChanges = true;
   }
 
@@ -1517,6 +1640,7 @@ export async function applyRevisionChanges(
     if (m.customFields !== undefined)
       changes.customFields = m.customFields as Record<string, unknown>;
     if (m.jsonSchema !== undefined) changes.jsonSchema = m.jsonSchema;
+    if (m.baseConfig !== undefined) changes.baseConfig = m.baseConfig;
     hasChanges = true;
   }
 
@@ -1525,8 +1649,7 @@ export async function applyRevisionChanges(
   // revision behind a stale feature.version, which traps subsequent reverts.
   if (!hasChanges) {
     changes.version = revision.version;
-    changes.dateUpdated = new Date();
-    return await updateFeature(context, feature, changes);
+    return { changes, hasChanges, removeHoldout };
   }
 
   if (changes.rules !== undefined) {
@@ -1534,6 +1657,27 @@ export async function applyRevisionChanges(
   }
 
   changes.version = revision.version;
+
+  return { changes, hasChanges, removeHoldout };
+}
+
+// Apply a revision merge result to the feature document.
+export async function applyRevisionChanges(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+  result: MergeResultChanges,
+) {
+  const { changes, hasChanges, removeHoldout } = computeRevisionMergeChanges(
+    context,
+    feature,
+    revision,
+    result,
+  );
+
+  if (!hasChanges) {
+    return await updateFeature(context, feature, changes);
+  }
 
   await updateSafeRolloutStatuses(context, feature, revision);
 
@@ -1643,19 +1787,22 @@ export async function applyHoldoutSideEffects(
   }
 }
 
-// Create ramp schedules for `mode === "create"` actions. Called BEFORE the
-// feature write so a schedule failure aborts publish. Returns the created IDs
-// for rollback on a subsequent failure.
+// Apply deferred ramp create/update actions stored on a revision.
+// - `create` actions are called BEFORE feature write so schedule creation
+//   failures abort publish.
+// - `update` actions are called AFTER publish succeeds (best-effort).
+// Returns only newly created schedule IDs (for rollback on failure).
 async function createRampSchedulesForRevision(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   revision: { version: number },
+  result: MergeResultChanges,
   actions: RevisionRampAction[],
 ): Promise<string[]> {
   const createdIds: string[] = [];
 
   for (const action of actions) {
-    if (action.mode !== "create") continue;
+    if (action.mode !== "create" && action.mode !== "update") continue;
 
     // Pro gate — see postRampSchedule.ts for rationale.
     if (!context.hasPremiumFeature("schedule-feature-flag")) {
@@ -1664,10 +1811,40 @@ async function createRampSchedulesForRevision(
       );
     }
 
-    const targetId = uuidv4();
+    const existingSchedule =
+      action.mode === "update"
+        ? await context.models.rampSchedules.getById(action.rampScheduleId)
+        : null;
+    if (action.mode === "update" && !existingSchedule) {
+      logger.warn(
+        { rampScheduleId: action.rampScheduleId, ruleId: action.ruleId },
+        "Ramp schedule not found at revision publish time — skipping deferred update action",
+      );
+      continue;
+    }
 
-    // Inject the generated targetId into every action. The caller's targetId
-    // is ignored — there is exactly one target per revision create action.
+    const existingTarget =
+      action.mode === "update"
+        ? existingSchedule?.targets.find(
+            (t) => stemRuleId(t.ruleId ?? "") === stemRuleId(action.ruleId),
+          )
+        : null;
+    if (action.mode === "update" && !existingTarget) {
+      logger.warn(
+        {
+          rampScheduleId: action.rampScheduleId,
+          ruleId: action.ruleId,
+        },
+        "Ramp schedule target no longer matches rule at revision publish time — skipping deferred update action",
+      );
+      continue;
+    }
+
+    const targetId = existingTarget?.id ?? uuidv4();
+
+    // Inject the generated targetId into every action and ensure targetType
+    // is always set. Handles both correctly-typed actions and legacy drafts
+    // that were stored without targetType.
     const normalizeAction = (
       a: RevisionRampCreateAction["steps"][number]["actions"][number],
     ): RampStepAction => ({
@@ -1676,7 +1853,7 @@ async function createRampSchedulesForRevision(
       patch: {
         ...a.patch,
         ruleId: action.ruleId,
-      } as RampStepAction["patch"],
+      },
     });
 
     // Template is used as a fallback; explicit steps/endActions win.
@@ -1700,21 +1877,33 @@ async function createRampSchedulesForRevision(
       { month: "short", year: "numeric" },
     )}`;
 
-    const startDate = action.startDate ? new Date(action.startDate) : undefined;
+    const startDate =
+      action.startDate === null
+        ? null
+        : action.startDate
+          ? new Date(action.startDate)
+          : undefined;
 
-    const endCondition = action.endCondition?.trigger
-      ? { trigger: action.endCondition.trigger }
-      : undefined;
-
+    const explicitSteps = Array.isArray(action.steps) ? action.steps : [];
+    // Whether the caller explicitly provided steps (only when at least one step
+    // is present, or a template is used). When false on an update action,
+    // fall back to the existing schedule's steps to avoid wiping them.
+    // Note: steps: [] is treated as "not provided" — an empty array does NOT
+    // clear existing steps.
+    const stepsExplicit = explicitSteps.length > 0 || !!template;
     const steps: RampScheduleInterface["steps"] =
-      action.steps.length > 0
-        ? action.steps.map((step) => ({
+      explicitSteps.length > 0
+        ? explicitSteps.map((step) => ({
             ...step,
-            actions: step.actions.map(normalizeAction),
+            actions: Array.isArray(step.actions)
+              ? step.actions.map(normalizeAction)
+              : [],
+            monitored: !!step.monitored,
+            holdConditions: step.holdConditions ?? undefined,
           }))
         : template
           ? template.steps.map((s) => ({
-              trigger: s.trigger,
+              interval: s.interval,
               actions: remapTemplateActions(
                 s.actions,
                 targetId,
@@ -1722,8 +1911,15 @@ async function createRampSchedulesForRevision(
                 feature.valueType,
               ),
               approvalNotes: s.approvalNotes ?? undefined,
+              monitored: !!s.monitored,
+              holdConditions: s.holdConditions ?? undefined,
             }))
-          : [];
+          : action.mode === "update"
+            ? // No explicit steps and no template: preserve the existing
+              // schedule's steps so a caller who only wants to change name /
+              // startDate / cutoffDate doesn't accidentally wipe them.
+              (existingSchedule?.steps ?? [])
+            : [];
 
     // null = explicitly cleared (skip template); undefined = not set (fall back to template).
     const endActions: RampStepAction[] =
@@ -1739,45 +1935,356 @@ async function createRampSchedulesForRevision(
                 patch: {
                   ruleId: action.ruleId,
                   ...template.endPatch,
-                } as RampStepAction["patch"],
+                },
               },
             ]
           : [];
 
-    const created = await context.models.rampSchedules.create({
-      name: action.name ?? defaultName,
-      entityType: "feature",
-      entityId: feature.id,
-      targets: [
-        {
-          id: targetId,
-          entityType: "feature",
-          entityId: feature.id,
-          ruleId: action.ruleId,
-          // null = patches apply to all environments sharing this ruleId.
-          // A specific environment = patches are scoped to that env only.
-          environment: action.environment ?? null,
-          status: "active",
-          // Link this target to the activating revision so onRevisionPublished
-          // (and the Agenda recovery path) can transition "pending" → "running".
-          activatingRevisionVersion: revision.version,
-        },
-      ],
-      steps,
-      endActions: endActions.length > 0 ? endActions : undefined,
-      startDate,
-      endCondition,
-      // Start as "pending" — onActivatingRevisionPublished handles the
-      // immediate → "running" transition inline when the revision publishes.
-      status: "pending",
-      currentStepIndex: -1,
-      nextStepAt:
-        !startDate && steps.length > 0 ? new Date() : (startDate ?? null),
-      startedAt: null,
-      phaseStartedAt: null,
-    });
+    const startActions: RampStepAction[] =
+      action.startActions !== undefined
+        ? Array.isArray(action.startActions)
+          ? action.startActions.map(normalizeAction)
+          : []
+        : getStartActionsFromRules({
+            rules: result.rules ?? feature.rules ?? [],
+            targetId,
+            ruleId: action.ruleId,
+            environment: action.environment,
+          });
 
-    createdIds.push(created.id);
+    if (action.mode === "create") {
+      // Guard against duplicate schedules: if the revision is re-published or
+      // an older revision is published while a live schedule already targets
+      // this rule, skip the create rather than producing a second schedule
+      // that both try to drive the same rule.
+      const existing = await context.models.rampSchedules.findByTargetRule(
+        action.ruleId,
+        action.environment ?? undefined,
+      );
+      if (existing.length > 0) {
+        logger.warn(
+          {
+            ruleId: action.ruleId,
+            conflictingScheduleId: existing[0].id,
+            revisionVersion: revision.version,
+          },
+          "Skipping deferred ramp create action — a live schedule already targets this rule",
+        );
+        continue;
+      }
+
+      const created = await context.models.rampSchedules.create({
+        name: action.name ?? defaultName,
+        entityType: "feature",
+        entityId: feature.id,
+        targets: [
+          {
+            id: targetId,
+            entityType: "feature",
+            entityId: feature.id,
+            ruleId: action.ruleId,
+            // null = patches apply to all environments sharing this ruleId.
+            // A specific environment = patches are scoped to that env only.
+            environment: action.environment ?? null,
+            status: "active",
+            // Link this target to the activating revision so onRevisionPublished
+            // (and the Agenda recovery path) can transition "pending" → "running".
+            activatingRevisionVersion: revision.version,
+          },
+        ],
+        startActions: startActions.length > 0 ? startActions : undefined,
+        steps,
+        endActions: endActions.length > 0 ? endActions : undefined,
+        startDate: startDate ?? undefined,
+        cutoffDate: action.cutoffDate
+          ? new Date(action.cutoffDate)
+          : action.cutoffDate === null
+            ? null
+            : undefined,
+        monitoringConfig: action.monitoringConfig ?? template?.monitoringConfig,
+        lockdownConfig: action.lockdownConfig ?? template?.lockdownConfig,
+        // Per-launch decision — deliberately sourced only from the action, never
+        // from the template (templates capture reusable shape, not start-gating).
+        requiresStartApproval: action.requiresStartApproval || undefined,
+        // Start as "pending" — onActivatingRevisionPublished handles the
+        // immediate → "running" transition inline when the revision publishes.
+        status: "pending",
+        currentStepIndex: -1,
+        nextStepAt:
+          !startDate && steps.length > 0 ? new Date() : (startDate ?? null),
+        startedAt: null,
+        phaseStartedAt: null,
+      });
+
+      createdIds.push(created.id);
+      continue;
+    }
+
+    const updateAction = action as RevisionRampUpdateAction;
+    const nextStartDate =
+      startDate !== undefined
+        ? startDate
+        : (existingSchedule?.startDate ?? null);
+    const nextCutoffDate =
+      updateAction.cutoffDate !== undefined
+        ? updateAction.cutoffDate
+          ? new Date(updateAction.cutoffDate)
+          : null
+        : (existingSchedule?.cutoffDate ?? null);
+    const nextMonitoringConfig =
+      updateAction.monitoringConfig !== undefined
+        ? updateAction.monitoringConfig
+        : existingSchedule?.monitoringConfig;
+    // Resolve the post-edit approval strategy (tri-state; see resolveStartApproval).
+    // When still on and unapproved, the ramp must NOT start now.
+    const nextRequiresApproval = resolveStartApproval(
+      updateAction.requiresStartApproval,
+      existingSchedule?.requiresStartApproval,
+    );
+    const heldForApproval =
+      nextRequiresApproval && !existingSchedule?.startApprovedAt;
+    // "Start now": user explicitly cleared startDate on a not-yet-started
+    // schedule. Transition ready → running inline so the rule goes live on
+    // publish instead of at the next poller tick. A ready schedule has all
+    // fields editable (startActions included — the ramp hasn't fired), so no
+    // running-merge / paused-clamp handling is needed here. Excluded when the
+    // edit selects "on approval" — that holds, it doesn't start.
+    let startDeferredToScheduler = false;
+    if (
+      updateAction.startDate === null &&
+      existingSchedule?.status === "ready" &&
+      !heldForApproval
+    ) {
+      const contentUpdates: Parameters<typeof startReadyScheduleNow>[2] = {};
+      const edited: string[] = [];
+      const set = (provided: boolean, key: string, value: unknown) => {
+        if (!provided) return;
+        (contentUpdates as Record<string, unknown>)[key] = value;
+        edited.push(key);
+      };
+      set(updateAction.name !== undefined, "name", updateAction.name);
+      set(
+        updateAction.startActions !== undefined,
+        "startActions",
+        startActions.length > 0 ? startActions : undefined,
+      );
+      set(stepsExplicit, "steps", steps);
+      set(
+        updateAction.endActions !== undefined,
+        "endActions",
+        endActions.length > 0 ? endActions : undefined,
+      );
+      set(updateAction.cutoffDate !== undefined, "cutoffDate", nextCutoffDate);
+      set(
+        updateAction.monitoringConfig !== undefined,
+        "monitoringConfig",
+        nextMonitoringConfig,
+      );
+      set(
+        updateAction.lockdownConfig !== undefined,
+        "lockdownConfig",
+        updateAction.lockdownConfig,
+      );
+      // Persist the resolved start-approval alongside the start. Reaching here
+      // means the ramp is not held (nextRequiresApproval is off, or on but
+      // already approved), so this write is what clears an unchecked gate before
+      // the start tripwire runs. Clear a stale approval marker on a real toggle.
+      set(
+        updateAction.requiresStartApproval !== undefined,
+        "requiresStartApproval",
+        nextRequiresApproval,
+      );
+      if (
+        updateAction.requiresStartApproval !== undefined &&
+        nextRequiresApproval !== !!existingSchedule?.requiresStartApproval
+      ) {
+        (contentUpdates as Record<string, unknown>).startApprovedAt = null;
+      }
+      edited.push("startDate"); // always changed on this path (cleared)
+
+      // A "config-edited" event rides along so startReadyScheduleNow appends
+      // "started" on top of it, matching the direct-edit path.
+      const history = appendRampEvent(existingSchedule, "config-edited", {
+        stepIndex: existingSchedule.currentStepIndex,
+        status: existingSchedule.status,
+        reason: `Edited via draft: ${edited.join(", ")}`,
+      });
+      const started = await startReadyScheduleNow(context, existingSchedule, {
+        ...contentUpdates,
+        cutoffDate: nextCutoffDate,
+        auditEvent: history[history.length - 1],
+      });
+      if (started) continue;
+      // Start didn't run: either the scheduler started it first (the locked
+      // update below applies the edits) or the lock stayed busy and the start
+      // was deferred via startDate=now — don't clobber that deferral.
+      const reread = await context.models.rampSchedules.getById(
+        updateAction.rampScheduleId,
+      );
+      if (!reread) {
+        logger.warn(
+          { rampScheduleId: updateAction.rampScheduleId },
+          "Ramp schedule removed while applying start-now update — skipping",
+        );
+        continue;
+      }
+      startDeferredToScheduler = reread.status === "ready";
+    }
+
+    // Apply the edits under the advance lock, deriving state-dependent pieces
+    // (running merge, paused clamp, audit history, nextProcessAt inputs) from
+    // the in-lock fresh doc — the schedule may have started, advanced, or been
+    // edited since the pre-publish read.
+    try {
+      await runLockedRampScheduleAction(
+        context,
+        updateAction.rampScheduleId,
+        async (fresh) => {
+          const isRunning = fresh.status === "running";
+          const canEditStartActions =
+            fresh.status === "pending" || fresh.status === "ready";
+          const startDateChanged = updateAction.startDate !== undefined;
+
+          // Collect the caller's config edits. `set` writes a key only when the
+          // field was provided, so omitted fields are preserved, and records
+          // which fields changed for the audit trail.
+          const patch: Record<string, unknown> = {};
+          const edited: string[] = [];
+          const set = (provided: boolean, key: string, value: unknown) => {
+            if (!provided) return;
+            patch[key] = value;
+            edited.push(key);
+          };
+
+          set(updateAction.name !== undefined, "name", updateAction.name);
+          set(
+            updateAction.cutoffDate !== undefined,
+            "cutoffDate",
+            nextCutoffDate,
+          );
+          set(
+            updateAction.monitoringConfig !== undefined,
+            "monitoringConfig",
+            nextMonitoringConfig,
+          );
+          set(
+            updateAction.lockdownConfig !== undefined,
+            "lockdownConfig",
+            updateAction.lockdownConfig,
+          );
+          // endActions only apply at completion, so they're safe to edit mid-run.
+          set(
+            updateAction.endActions !== undefined,
+            "endActions",
+            endActions.length > 0 ? endActions : undefined,
+          );
+
+          if (isRunning) {
+            // Running TOCTOU guard: freeze the past, allow only holds/notes on
+            // the current step, apply future steps. startActions stay frozen —
+            // they're the rollback restore point.
+            if (stepsExplicit) {
+              set(
+                true,
+                "steps",
+                mergeStepsForRunningSchedule(fresh, steps).steps,
+              );
+            }
+          } else {
+            set(stepsExplicit, "steps", steps);
+            set(
+              canEditStartActions && updateAction.startActions !== undefined,
+              "startActions",
+              startActions.length > 0 ? startActions : undefined,
+            );
+            // Start strategy is a pre-start decision — only editable while the
+            // ramp hasn't crossed into step 0. Toggling it on re-arms the
+            // approval gate (clear the marker); toggling off lets the
+            // immediate/date logic take over.
+            if (
+              canEditStartActions &&
+              updateAction.requiresStartApproval !== undefined
+            ) {
+              set(true, "requiresStartApproval", nextRequiresApproval);
+              // Re-arm only when the gate actually toggles — preserve a granted
+              // approval across unrelated edits (the client re-sends the field
+              // on every edit).
+              if (
+                nextRequiresApproval !==
+                !!existingSchedule?.requiresStartApproval
+              ) {
+                patch.startApprovedAt = null;
+              }
+            }
+            if (startDateChanged) edited.push("startDate");
+            if (startDateChanged && !startDeferredToScheduler) {
+              patch.startDate = nextStartDate;
+            }
+            // Steps edited on a paused schedule: clamp the playhead and let
+            // resume recompute timing. Internal fields, not part of the audit.
+            if (
+              fresh.status === "paused" &&
+              fresh.currentStepIndex >= steps.length
+            ) {
+              patch.currentStepIndex = Math.max(steps.length - 1, -1);
+              patch.nextStepAt = null;
+            }
+          }
+
+          if (edited.length > 0) {
+            patch.eventHistory = appendRampEvent(fresh, "config-edited", {
+              stepIndex: fresh.currentStepIndex,
+              status: fresh.status,
+              reason: `Edited via draft: ${edited.join(", ")}`,
+            });
+          }
+
+          patch.nextProcessAt = computeNextProcessAt({
+            status: fresh.status,
+            nextStepAt: fresh.nextStepAt,
+            cutoffDate:
+              updateAction.cutoffDate !== undefined
+                ? nextCutoffDate
+                : (fresh.cutoffDate ?? null),
+            // running ignores startDate; ready uses it. Only reflect the new
+            // startDate when we actually persist it here.
+            startDate:
+              !isRunning && startDateChanged && !startDeferredToScheduler
+                ? nextStartDate
+                : (fresh.startDate ?? null),
+            nextSnapshotAt: fresh.nextSnapshotAt,
+            requiresStartApproval: nextRequiresApproval,
+            startApprovedAt:
+              "startApprovedAt" in patch
+                ? (patch.startApprovedAt as Date | null)
+                : fresh.startApprovedAt,
+          });
+
+          const updated = await context.models.rampSchedules.updateById(
+            fresh.id,
+            patch,
+          );
+
+          // Sync SafeRollout in case monitored-step membership changed.
+          if (isRunning && patch.steps) {
+            const ensured = await ensureSafeRolloutForMonitoredRamp(
+              context,
+              updated,
+            );
+            await syncLinkedSafeRolloutForRampState(context, ensured);
+          }
+        },
+      );
+    } catch (e) {
+      if (e instanceof NotFoundError) {
+        logger.warn(
+          { rampScheduleId: updateAction.rampScheduleId },
+          "Ramp schedule removed while applying update action — skipping",
+        );
+        continue;
+      }
+      throw e;
+    }
   }
 
   return createdIds;
@@ -1805,6 +2312,15 @@ async function applyDetachRampActions(
           (t) => stemRuleId(t.ruleId ?? "") !== actionStem,
         );
         if (action.deleteScheduleWhenEmpty && remainingTargets.length === 0) {
+          // Stop the linked SafeRollout before deletion so it doesn't continue
+          // taking snapshots against a ramp that no longer exists.
+          if (existing.safeRolloutId) {
+            await syncLinkedSafeRolloutForRampState(
+              context,
+              { ...existing, status: "rolled-back" },
+              "stopped",
+            );
+          }
           await context.models.rampSchedules.deleteById(existing.id);
         } else {
           await context.models.rampSchedules.updateById(existing.id, {
@@ -1864,19 +2380,32 @@ async function cleanupOrphanedRampSchedules(
     if (!allRamps) return;
 
     for (const ramp of allRamps) {
-      const remainingTargets = (ramp?.targets ?? []).filter(
+      const originalTargets = ramp?.targets ?? [];
+      if (originalTargets.length === 0 || !ramp?.id) continue;
+      const remainingTargets = originalTargets.filter(
         (target: RampScheduleInterface["targets"][0]) => {
           if (!target?.ruleId) return false;
           return !deletedStems.has(stemRuleId(target.ruleId));
         },
       );
 
-      if (
-        remainingTargets.length === 0 &&
-        (ramp?.targets ?? []).length > 0 &&
-        ramp?.id
-      ) {
+      if (remainingTargets.length === 0) {
+        // Stop the linked SafeRollout before deletion so it doesn't continue
+        // taking snapshots against a ramp that no longer exists.
+        if (ramp.safeRolloutId) {
+          await syncLinkedSafeRolloutForRampState(
+            context,
+            { ...ramp, status: "rolled-back" },
+            "stopped",
+          );
+        }
         await context.models?.rampSchedules?.deleteById?.(ramp.id);
+      } else if (remainingTargets.length !== originalTargets.length) {
+        // Some targets were orphaned by the delete; prune them so the schedule
+        // doesn't fail trying to resolve a deleted ruleId on its next fire.
+        await context.models?.rampSchedules?.updateById?.(ramp.id, {
+          targets: remainingTargets,
+        });
       }
     }
   } catch (error) {
@@ -1885,16 +2414,127 @@ async function cleanupOrphanedRampSchedules(
   }
 }
 
-export async function publishRevision(
-  context: ReqContext | ApiReqContext,
-  feature: FeatureInterface,
-  revision: FeatureRevisionInterface,
-  result: MergeResultChanges,
-  comment?: string,
-) {
+// Best-effort early hook run; updateFeature / markRevisionAsPublished re-run hooks authoritatively
+export async function prevalidatePublishRevision({
+  context,
+  feature,
+  revision,
+  result,
+  comment,
+}: {
+  context: ReqContext | ApiReqContext;
+  feature: FeatureInterface;
+  revision: FeatureRevisionInterface;
+  result: MergeResultChanges;
+  comment?: string;
+}) {
+  const { changes, removeHoldout } = computeRevisionMergeChanges(
+    context,
+    feature,
+    revision,
+    result,
+  );
+  const base = removeHoldout
+    ? (omit(feature, ["holdout"]) as FeatureInterface)
+    : feature;
+  const proposedFeature: FeatureInterface = {
+    ...base,
+    ...changes,
+    dateUpdated: new Date(),
+  };
+  proposedFeature.linkedExperiments = getLinkedExperiments(proposedFeature);
+  // Re-validate config-backed values going live: save-time validation can be
+  // stale (a config's schema/invariants may tighten between draft and publish),
+  // and auto-publish paths don't pass through a REST handler's own net. Only
+  // values THIS publish changes are checked — a pre-existing violation must not
+  // block status-only publishes (kill switches, safe-rollout rollbacks, ramp
+  // advances). A baseConfig change re-checks everything (new backing schema).
+  const backingChanged =
+    changes.baseConfig !== undefined &&
+    (changes.baseConfig ?? null) !== (feature.baseConfig ?? null);
+  const liveRuleById = new Map((feature.rules ?? []).map((r) => [r.id, r]));
+  const rulesToCheck = backingChanged
+    ? (proposedFeature.rules ?? [])
+    : (changes.rules ?? []).filter((r) => {
+        const live = liveRuleById.get(r.id);
+        return (
+          !live ||
+          !isEqual(configCheckedRuleValues(live), configCheckedRuleValues(r))
+        );
+      });
+  const defaultToCheck =
+    backingChanged ||
+    (changes.defaultValue !== undefined &&
+      changes.defaultValue !== feature.defaultValue)
+      ? proposedFeature.defaultValue
+      : undefined;
+  if (defaultToCheck !== undefined || rulesToCheck.length) {
+    await assertConfigBackedFeatureValuesValid(context, proposedFeature, {
+      defaultValue: defaultToCheck,
+      rules: rulesToCheck,
+    });
+  }
+  await runValidateFeatureHooks({
+    context,
+    feature: proposedFeature,
+    original: feature,
+  });
+  await runValidateFeatureRevisionHooks({
+    context,
+    feature,
+    revision: {
+      ...revision,
+      ...computeRevisionPublishChanges(revision, context.auditUser, comment),
+    },
+    original: revision,
+  });
+}
+
+export async function publishRevision({
+  context,
+  feature,
+  revision,
+  result,
+  comment,
+  bypassLockdown,
+}: {
+  context: ReqContext | ApiReqContext;
+  feature: FeatureInterface;
+  revision: FeatureRevisionInterface;
+  result: MergeResultChanges;
+  comment?: string;
+  bypassLockdown?: boolean;
+}) {
   if (revision.status === "published" || revision.status === "discarded") {
     throw new Error("Can only publish a draft revision");
   }
+
+  if (!bypassLockdown) {
+    await assertFeatureNotLockedByRamp(context, feature.id);
+
+    // A sibling draft's "lock other drafts" schedule freezes other publishes.
+    if (
+      revision.version !== undefined &&
+      (await hasPublishLockingScheduledSibling(
+        context.org.id,
+        feature.id,
+        revision.version,
+      ))
+    ) {
+      throw new Error(
+        "Another draft of this feature is scheduled to publish and has locked publishing of other drafts. Cancel that schedule to publish this revision.",
+      );
+    }
+  }
+
+  // Run custom hooks before the side-effect writes below so a rejection doesn't orphan them
+  await prevalidatePublishRevision({
+    context,
+    feature,
+    revision,
+    result,
+    comment,
+  });
 
   // Create ramp schedules BEFORE writing the feature so that a schedule
   // creation failure gates the publish (atomicity: no published feature without
@@ -1902,12 +2542,16 @@ export async function publishRevision(
   const createActions = (revision.rampActions ?? []).filter(
     (a) => a.mode === "create",
   );
+  const updateActions = (revision.rampActions ?? []).filter(
+    (a) => a.mode === "update",
+  );
   const preCreatedScheduleIds: string[] = [];
   if (createActions.length) {
     const ids = await createRampSchedulesForRevision(
       context,
       feature,
       revision,
+      result,
       createActions,
     );
     preCreatedScheduleIds.push(...ids);
@@ -1953,6 +2597,26 @@ export async function publishRevision(
       }
     }
     throw err;
+  }
+
+  // Apply deferred update actions after publish succeeds.
+  // Best-effort: errors are logged but do not fail the publish response
+  // (feature is already committed; a failed schedule update is recoverable).
+  if (updateActions.length) {
+    try {
+      await createRampSchedulesForRevision(
+        context,
+        updatedFeature,
+        revision,
+        result,
+        updateActions,
+      );
+    } catch (err) {
+      logger.error(
+        err,
+        "Failed to apply deferred ramp update actions after publish",
+      );
+    }
   }
 
   // Apply detach actions (best-effort: logged but do not fail publish).
@@ -2013,16 +2677,24 @@ export async function createAndPublishRevision({
   });
   if (!liveRevision) throw new Error("Could not load live revision");
 
+  // Live baseline for the review check and the publish merge, built from the
+  // feature document (the canonical live state). Stored revision docs can be
+  // sparse or in legacy shapes, so they're not a reliable baseline.
+  const liveBase: FeatureRevisionInterface = {
+    ...liveRevision,
+    ...liveRevisionFromFeature(liveRevision, feature),
+  } as FeatureRevisionInterface;
+
   // Synthetic revision for the review check; caller-supplied rules replace
   // the live array wholesale (same as autoMerge).
   const syntheticRevision: FeatureRevisionInterface = {
-    ...liveRevision,
+    ...liveBase,
     ...(changes ?? {}),
-    rules: changes?.rules ?? liveRevision.rules ?? [],
+    rules: changes?.rules ?? liveBase.rules ?? [],
   };
   const requiresReview = checkIfRevisionNeedsReview({
     feature,
-    baseRevision: liveRevision,
+    baseRevision: liveBase,
     revision: syntheticRevision,
     allEnvironments,
     settings: org.settings,
@@ -2050,26 +2722,11 @@ export async function createAndPublishRevision({
     canBypassApprovalChecks,
   });
 
-  // Compute the merge result the same way postFeaturePublish does —
-  // filling sparse environmentsEnabled + holdout from the live feature.
-  const featureEnvs: Record<string, boolean> = Object.fromEntries(
-    Object.entries(feature.environmentSettings ?? {}).map(([envId, env]) => [
-      envId,
-      !!env.enabled,
-    ]),
-  );
-  const fillEnvs = (r: FeatureRevisionInterface) => ({
-    ...fillRevisionFromFeature(r, feature),
-    environmentsEnabled: {
-      ...featureEnvs,
-      ...(r.environmentsEnabled ?? {}),
-    },
-    holdout: feature.holdout ?? null,
-  });
-
+  // Merge the new revision against the live-feature baseline. base === live
+  // for a fresh revision off HEAD.
   const mergeResult = autoMerge(
-    fillEnvs(liveRevision),
-    fillEnvs(liveRevision), // base === live for a fresh revision off HEAD
+    liveBase,
+    liveBase,
     revision,
     allEnvironments,
     {},
@@ -2082,13 +2739,16 @@ export async function createAndPublishRevision({
     );
   }
 
-  const updatedFeature = await publishRevision(
+  const updatedFeature = await publishRevision({
     context,
     feature,
     revision,
-    mergeResult.result,
+    result: mergeResult.result,
     comment,
-  );
+    // See postFeatureRevisionPublish.ts for the bypassLockdown policy rationale:
+    // approval-bypass permission intentionally doubles as ramp-lockdown bypass.
+    bypassLockdown: canBypassApprovalChecks,
+  });
 
   return { revision, updatedFeature };
 }
@@ -2162,31 +2822,66 @@ export async function getFeatureMetaInfoById(
     neverStale: 1,
     "jsonSchema.enabled": 1,
     revision: 1,
+    prerequisites: 1,
+    "rules.prerequisites": 1,
+    "rules.savedGroups": 1,
+    environmentSettings: 1,
+    // `baseConfig` drives the list's "Config · <name>" type display; the full
+    // (potentially large) default value is fetched only when the caller asks for
+    // it — the list itself never parses it.
+    baseConfig: 1,
+    ...(includeDefaultValue ? { defaultValue: 1 } : {}),
   };
-  if (includeDefaultValue) {
-    projection.defaultValue = 1;
-  }
 
   const features = await FeatureModel.find(query, projection);
 
   return features
     .filter((f) => context.permissions.canReadSingleProjectResource(f.project))
-    .map((f) => ({
-      id: f.id,
-      project: f.project,
-      archived: f.archived,
-      description: f.description,
-      dateCreated: f.dateCreated,
-      dateUpdated: f.dateUpdated,
-      tags: f.tags,
-      owner: f.owner,
-      valueType: f.valueType,
-      version: f.version,
-      linkedExperiments: f.linkedExperiments,
-      neverStale: f.neverStale,
-      revision: f.revision as FeatureMetaInfo["revision"],
-      ...(includeDefaultValue && { defaultValue: f.defaultValue ?? "" }),
-    }));
+    .map((f) => {
+      const doc = f as unknown as Record<string, unknown>;
+      const rules = doc.rules as
+        | { prerequisites?: unknown[]; savedGroups?: unknown[] }[]
+        | undefined;
+      const envSettings = doc.environmentSettings as
+        | Record<string, { prerequisites?: unknown[] }>
+        | undefined;
+      const topPrereqs = doc.prerequisites as unknown[] | undefined;
+
+      const hasPrerequisites =
+        (topPrereqs?.length ?? 0) > 0 ||
+        (rules ?? []).some((r) => (r.prerequisites?.length ?? 0) > 0) ||
+        Object.values(envSettings ?? {}).some(
+          (e) => (e.prerequisites?.length ?? 0) > 0,
+        );
+
+      const hasSavedGroups = (rules ?? []).some(
+        (r) => (r.savedGroups?.length ?? 0) > 0,
+      );
+
+      // The list shows "Config · <name>" from the flag's first-class `baseConfig`
+      // (authoritative), not by parsing the default value.
+      const configBackingKey = f.baseConfig ?? null;
+
+      return {
+        id: f.id,
+        project: f.project,
+        archived: f.archived,
+        description: f.description,
+        dateCreated: f.dateCreated,
+        dateUpdated: f.dateUpdated,
+        tags: f.tags,
+        owner: f.owner,
+        valueType: f.valueType,
+        version: f.version,
+        linkedExperiments: f.linkedExperiments,
+        neverStale: f.neverStale,
+        hasPrerequisites,
+        hasSavedGroups,
+        configBackingKey,
+        revision: f.revision as FeatureMetaInfo["revision"],
+        ...(includeDefaultValue && { defaultValue: f.defaultValue ?? "" }),
+      };
+    });
 }
 
 export async function getFeatureMetaInfoByIds(

@@ -1,14 +1,16 @@
 import React, {
   Fragment,
   ReactElement,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
   useState,
 } from "react";
+import { useGrowthBook } from "@growthbook/growthbook-react";
+import { AppFeatures } from "shared/types/app-features";
 import {
   PiCaretDownFill,
-  PiPlus,
   PiTableDuotone,
   PiChartLineDuotone,
   PiFileSqlDuotone,
@@ -18,6 +20,9 @@ import {
   PiDatabase,
   PiTable,
   PiChartBar,
+  PiFunnel,
+  PiChartBarDuotone,
+  PiGaugeDuotone,
 } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import {
@@ -30,11 +35,22 @@ import {
   DashboardInterface,
   DashboardShareLevel,
   DashboardUpdateSchedule,
+  DASHBOARD_GRID_COLS,
+  DASHBOARD_GRID_ROW_HEIGHT_DEFAULT,
+  getBlockSizeBounds,
 } from "shared/enterprise";
 import { isDefined } from "shared/util";
-import { Container, Flex, Heading, IconButton, Text } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
 import clsx from "clsx";
 import { withErrorBoundary } from "@sentry/nextjs";
+import {
+  LayoutItem,
+  ResponsiveGridLayout,
+  useContainerWidth,
+  verticalCompactor,
+} from "react-grid-layout";
+import Heading from "@/ui/Heading";
+import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import {
   DropdownMenu,
@@ -59,6 +75,7 @@ import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
 import { DashboardSnapshotContext } from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
 import DashboardUpdateDisplay from "./DashboardUpdateDisplay";
 import DashboardBlock from "./DashboardBlock";
+import DashboardGlobalControlsBar from "./DashboardGlobalControlsBar";
 
 export const DASHBOARD_TOPBAR_HEIGHT = "40px";
 export const BLOCK_TYPE_INFO: Record<
@@ -76,6 +93,22 @@ export const BLOCK_TYPE_INFO: Record<
   "experiment-metric": {
     name: "Metric Results",
     icon: <PiTableDuotone />,
+  },
+  "metric-experiments": {
+    name: "Experiments with Lift",
+    icon: <PiTableDuotone />,
+  },
+  "experiments-scaled-impact": {
+    name: "Scaled Impact",
+    icon: <PiChartLineDuotone />,
+  },
+  "experiments-win-rate": {
+    name: "Win Percentage",
+    icon: <PiGaugeDuotone />,
+  },
+  "experiments-status": {
+    name: "Team Velocity",
+    icon: <PiChartBarDuotone />,
   },
   "experiment-dimension": {
     name: "Dimension Results",
@@ -110,6 +143,10 @@ export const BLOCK_TYPE_INFO: Record<
     name: "Data Source Explorer",
     icon: <PiDatabase />,
   },
+  "funnel-exploration": {
+    name: "Funnel Explorer",
+    icon: <PiFunnel />,
+  },
 };
 
 export const BLOCK_SUBGROUPS: [string, DashboardBlockType[]][] = [
@@ -120,7 +157,21 @@ export const BLOCK_SUBGROUPS: [string, DashboardBlockType[]][] = [
   ["Experiment Info", ["experiment-metadata", "experiment-traffic"]],
   [
     "Product Analytics",
-    ["metric-exploration", "fact-table-exploration", "data-source-exploration"],
+    [
+      "metric-exploration",
+      "fact-table-exploration",
+      "data-source-exploration",
+      "funnel-exploration",
+    ],
+  ],
+  [
+    "Experimentation",
+    [
+      "experiments-status",
+      "experiments-win-rate",
+      "metric-experiments",
+      "experiments-scaled-impact",
+    ],
   ],
   ["Other", ["sql-explorer", "markdown", "metric-explorer"]],
 ];
@@ -132,6 +183,11 @@ export const GENERAL_DASHBOARD_BLOCK_TYPES: DashboardBlockType[] = [
   "metric-exploration",
   "fact-table-exploration",
   "data-source-exploration",
+  "funnel-exploration",
+  "metric-experiments",
+  "experiments-scaled-impact",
+  "experiments-win-rate",
+  "experiments-status",
   "markdown",
 ];
 
@@ -139,13 +195,98 @@ export const GENERAL_DASHBOARD_BLOCK_TYPES: DashboardBlockType[] = [
 export const isBlockTypeAllowed = (
   blockType: DashboardBlockType,
   isGeneralDashboard: boolean,
+  // Funnel dashboard tiles are behind the same rollout flag as the funnel
+  // explorer (`product-analytics-funnels`). Callers pass the flag value; it
+  // defaults to enabled so non-UI callers don't accidentally hide it.
+  funnelExplorerEnabled: boolean = true,
 ): boolean => {
+  if (blockType === "funnel-exploration" && !funnelExplorerEnabled) {
+    return false;
+  }
   if (isGeneralDashboard) {
     return GENERAL_DASHBOARD_BLOCK_TYPES.includes(blockType);
   } else {
     return true; // All block types are allowed for experiment dashboards
   }
 };
+
+// Stable RGL key for a block (uses block id when persisted, else a synthetic
+// key for the at-most-one staged add block).
+export function getGridKeyForBlock(
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+  index: number,
+): string {
+  return dashboardBlockHasIds(block) ? block.id : `__staged_block_${index}__`;
+}
+
+// Build the RGL LayoutItem[] from blocks. Blocks without an existing layout
+// get stacked full-width below the highest occupied y so they don't collide.
+// minW/minH come from the shared per-type defaults; maxW is the absolute grid
+// cap. Height is intentionally uncapped. None of these constraints are
+// persisted.
+export function buildRGLLayout(
+  blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[],
+  cols: number = DASHBOARD_GRID_COLS,
+): LayoutItem[] {
+  let nextY = 0;
+  blocks.forEach((b) => {
+    if (b.layout) {
+      nextY = Math.max(nextY, b.layout.y + b.layout.h);
+    }
+  });
+  return blocks.map((block, index) => {
+    const i = getGridKeyForBlock(block, index);
+    const bounds = getBlockSizeBounds(block.type);
+    const maxW = cols;
+    if (block.layout) {
+      const item: LayoutItem = {
+        i,
+        x: block.layout.x,
+        y: block.layout.y,
+        w: Math.min(block.layout.w, maxW),
+        h: Math.max(1, block.layout.h),
+        minW: bounds.minW,
+        minH: bounds.minH,
+        maxW,
+      };
+      if (block.layout.static) item.static = true;
+      return item;
+    }
+    const w = Math.min(bounds.w, maxW);
+    const h = Math.max(1, bounds.h);
+    const layout: LayoutItem = {
+      i,
+      x: 0,
+      y: nextY,
+      w,
+      h,
+      minW: bounds.minW,
+      minH: bounds.minH,
+      maxW,
+    };
+    nextY += h;
+    return layout;
+  });
+}
+
+// Every breakpoint uses the same canonical column count. We intentionally do
+// NOT degrade to fewer cols at narrower widths because RGL's auto-derived
+// layout for a smaller-col breakpoint compacts in *array order*, silently
+// reordering the user's saved x positions. Keeping cols constant means cells
+// just shrink proportionally and the canonical layout is always honored,
+// regardless of the container width (e.g. when the editing drawer opens).
+const RGL_BREAKPOINTS = { lg: 1200, md: 996, sm: 768, xs: 0 } as const;
+const RGL_COLS = {
+  lg: DASHBOARD_GRID_COLS,
+  md: DASHBOARD_GRID_COLS,
+  sm: DASHBOARD_GRID_COLS,
+  xs: DASHBOARD_GRID_COLS,
+} as const;
+const RGL_CANONICAL_BREAKPOINT: keyof typeof RGL_BREAKPOINTS = "lg";
+
+const CANONICAL_COL_BREAKPOINTS: ReadonlyArray<keyof typeof RGL_BREAKPOINTS> = (
+  Object.keys(RGL_COLS) as Array<keyof typeof RGL_COLS>
+).filter((bp) => RGL_COLS[bp] === RGL_COLS[RGL_CANONICAL_BREAKPOINT]);
 
 function AddBlockDropdown({
   trigger,
@@ -161,6 +302,8 @@ function AddBlockDropdown({
   isGeneralDashboard?: boolean;
 }) {
   const [dropdownOpen, setDropdownOpen] = useState<boolean>(false);
+  const gb = useGrowthBook<AppFeatures>();
+  const funnelExplorerEnabled = !!gb?.isOn("product-analytics-funnels");
   useEffect(() => {
     if (dropdownOpen) {
       onDropdownOpen && onDropdownOpen();
@@ -182,7 +325,7 @@ function AddBlockDropdown({
       {BLOCK_SUBGROUPS.map(([subgroup, blockTypes], i) => {
         // Filter block types based on dashboard type
         const allowedBlockTypes = blockTypes.filter((bType) =>
-          isBlockTypeAllowed(bType, isGeneralDashboard),
+          isBlockTypeAllowed(bType, isGeneralDashboard, funnelExplorerEnabled),
         );
 
         // Don't render the subgroup if no block types are allowed
@@ -193,9 +336,7 @@ function AddBlockDropdown({
         return (
           <Fragment key={`${subgroup}-${i}`}>
             <DropdownMenuLabel className="font-weight-bold">
-              <Text style={{ color: "var(--color-text-high)" }}>
-                {subgroup}
-              </Text>
+              <Text color="text-high">{subgroup}</Text>
             </DropdownMenuLabel>
             {allowedBlockTypes.map((bType) => {
               if (BLOCK_TYPE_INFO[bType].deprecated) {
@@ -227,21 +368,23 @@ interface EditBlockProps {
   focusedBlockIndex: number | undefined;
   stagedBlockIndex: number | undefined;
   addBlockType: (bType: DashboardBlockType, i?: number) => void;
-  moveBlock: (index: number, direction: -1 | 1) => void;
   editBlock: (index: number) => void;
   duplicateBlock: (index: number) => void;
   deleteBlock: (index: number) => void;
+  updateLayout: (layout: readonly LayoutItem[]) => void;
 }
 
 interface Props {
   isTabActive: boolean;
   title: string;
   blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
+  globalControlBlocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
   id: string;
   isEditing: boolean;
   projects: string[];
   enableAutoUpdates: boolean;
   updateSchedule: DashboardUpdateSchedule | undefined;
+  globalControls?: DashboardInterface["globalControls"];
   ownerId: string;
   initialEditLevel: DashboardEditLevel;
   initialShareLevel: DashboardShareLevel;
@@ -255,6 +398,14 @@ interface Props {
         block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
       ) => void);
   mutate: () => void;
+  onGlobalControlsChange?: (
+    globalControls: DashboardInterface["globalControls"],
+    blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[],
+  ) => Promise<void>;
+  updateTemporaryDashboardResults?: (
+    globalControls?: DashboardInterface["globalControls"],
+    blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[],
+  ) => Promise<void>;
   switchToExperimentView?: () => void;
   isGeneralDashboard: boolean;
   setIsEditing?: (v: boolean) => void;
@@ -266,9 +417,11 @@ function DashboardEditor({
   isTabActive,
   title,
   blocks,
+  globalControlBlocks,
   isEditing,
   enableAutoUpdates,
   updateSchedule,
+  globalControls,
   ownerId,
   initialEditLevel,
   initialShareLevel,
@@ -279,6 +432,8 @@ function DashboardEditor({
   projects,
   setBlock,
   mutate,
+  onGlobalControlsChange,
+  updateTemporaryDashboardResults,
   switchToExperimentView,
   isGeneralDashboard = false,
   setIsEditing,
@@ -290,11 +445,11 @@ function DashboardEditor({
     focusedBlockIndex,
     stagedBlockIndex,
     scrollAreaRef,
-    moveBlock,
     addBlockType,
     editBlock,
     duplicateBlock,
     deleteBlock,
+    updateLayout,
   } = editBlockProps ?? {};
 
   const [editDashboard, setEditDashboard] = useState(false);
@@ -302,6 +457,7 @@ function DashboardEditor({
   const [duplicateDashboard, setDuplicateDashboard] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [queriesModalOpen, setQueriesModalOpen] = useState(false);
+  const [needsUpdate, setNeedsUpdate] = useState(false);
   const { apiCall } = useAuth();
   const { userId } = useUser();
   const permissionsUtil = usePermissionsUtil();
@@ -334,7 +490,6 @@ function DashboardEditor({
 
   const error = snapshotError;
   const count = queryStrings.length + savedQueryIds.length;
-
   const handleViewQueries = () => {
     setQueriesModalOpen(true);
     setDropdownOpen(false);
@@ -342,105 +497,45 @@ function DashboardEditor({
 
   const renderSingleBlock = ({
     i,
-    key,
     block,
     isFocused,
     setBlock,
     isEditingBlock,
-    isLastBlock,
   }: {
     i: number;
-    key: number | string;
     block: DashboardBlockInterfaceOrData<DashboardBlockInterface>;
     isFocused: boolean;
     setBlock:
       | undefined
       | React.Dispatch<DashboardBlockInterfaceOrData<DashboardBlockInterface>>;
     isEditingBlock: boolean;
-    isLastBlock: boolean;
   }) => {
     return (
-      <Flex direction="column" key={key}>
-        <DashboardBlock
-          isTabActive={isTabActive}
-          block={block}
-          blockIndex={i}
-          isEditing={isEditing}
-          isFocused={isFocused}
-          editingBlock={isEditingBlock}
-          disableBlock={
-            editSidebarDirty && !isEditingBlock
-              ? "full"
-              : isDefined(stagedBlockIndex)
-                ? "partial"
-                : "none"
-          }
-          isFirstBlock={i === 0}
-          isLastBlock={i === blocks.length - 1}
-          scrollAreaRef={scrollAreaRef ?? null}
-          setBlock={setBlock}
-          editBlock={editBlock ? () => editBlock(i) : () => {}}
-          duplicateBlock={duplicateBlock ? () => duplicateBlock(i) : () => {}}
-          deleteBlock={deleteBlock ? () => deleteBlock(i) : () => {}}
-          moveBlock={
-            moveBlock ? (direction) => moveBlock(i, direction) : () => {}
-          }
-          mutate={mutate}
-          canEdit={canEdit}
-          setIsEditing={setIsEditing}
-          enterEditModeForBlock={enterEditModeForBlock}
-        />
-        <Container
-          py="2px"
-          className={clsx({
-            "dashboard-disabled": editSidebarDirty,
-          })}
-          mb={!isEditing ? "4" : "0"}
-        >
-          {isEditing && (
-            <Flex
-              justify="center"
-              position="relative"
-              mt={isLastBlock ? "2" : "0"}
-              className="hover-show"
-              style={!editSidebarDirty ? {} : { visibility: "hidden" }}
-            >
-              {isDefined(i) && (
-                <div
-                  style={{
-                    pointerEvents: "none",
-                    position: "absolute",
-                    top: "0",
-                    width: "100%",
-                    height: "50%",
-                    borderBottom: "1px solid var(--violet-a9)",
-                  }}
-                  className={"show-target"}
-                />
-              )}
-              <AddBlockDropdown
-                trigger={
-                  <IconButton
-                    className={isLastBlock ? "" : "show-target"}
-                    size="1"
-                    style={{ zIndex: 10 }}
-                  >
-                    <Flex height="16px" align="center">
-                      <PiPlus size="10" />
-                    </Flex>
-                  </IconButton>
-                }
-                addBlockType={(bType: DashboardBlockType) => {
-                  if (isDefined(i) && addBlockType) {
-                    addBlockType(bType, i + 1);
-                  }
-                }}
-                isGeneralDashboard={isGeneralDashboard}
-              />
-            </Flex>
-          )}
-        </Container>
-      </Flex>
+      <DashboardBlock
+        isTabActive={isTabActive}
+        block={block}
+        dashboardGlobalControls={globalControls}
+        blockIndex={i}
+        isEditing={isEditing}
+        isFocused={isFocused}
+        editingBlock={isEditingBlock}
+        disableBlock={
+          editSidebarDirty && !isEditingBlock
+            ? "full"
+            : isDefined(stagedBlockIndex)
+              ? "partial"
+              : "none"
+        }
+        scrollAreaRef={scrollAreaRef ?? null}
+        setBlock={setBlock}
+        editBlock={editBlock ? () => editBlock(i) : () => {}}
+        duplicateBlock={duplicateBlock ? () => duplicateBlock(i) : () => {}}
+        deleteBlock={deleteBlock ? () => deleteBlock(i) : () => {}}
+        mutate={mutate}
+        canEdit={canEdit}
+        setIsEditing={setIsEditing}
+        enterEditModeForBlock={enterEditModeForBlock}
+      />
     );
   };
 
@@ -498,6 +593,7 @@ function DashboardEditor({
                 experimentId: "",
                 updateSchedule: data.updateSchedule,
                 projects: data.projects,
+                globalControls,
                 blocks: (data.blocks ?? []).map(getBlockData),
               }),
             });
@@ -531,40 +627,28 @@ function DashboardEditor({
         isGeneralDashboard={isGeneralDashboard}
         dashboardId={id}
       />
-      <div className="mb-3">
+      <Box mt={isEditing ? "1" : undefined} mb="3">
         <Flex align="center" height={DASHBOARD_TOPBAR_HEIGHT} gap="1">
           {switchToExperimentView ? (
             <Button variant="ghost" size="xs" onClick={switchToExperimentView}>
               View Regular Experiment View
             </Button>
           ) : (
-            <Text
-              weight="medium"
-              size="5"
-              style={{
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-                flexShrink: 1,
-              }}
-            >
-              <Flex align="center" gap="2">
+            <Flex align="center" gap="2" flexGrow="1" minWidth="0">
+              <Text truncate={true} size="x-large">
                 {title}
-                <ShareStatusBadge
-                  shareLevel={
-                    initialShareLevel === "published"
-                      ? "organization"
-                      : "private"
-                  }
-                  editLevel={
-                    initialEditLevel === "private" ? "private" : "organization"
-                  }
-                  isOwner={dashboardOwnerId === userId}
-                />
-              </Flex>
-            </Text>
+              </Text>
+              <ShareStatusBadge
+                shareLevel={
+                  initialShareLevel === "published" ? "organization" : "private"
+                }
+                editLevel={
+                  initialEditLevel === "private" ? "private" : "organization"
+                }
+                isOwner={dashboardOwnerId === userId}
+              />
+            </Flex>
           )}
-          <div style={{ flexGrow: 1 }} />
           <DashboardUpdateDisplay
             dashboardId={id}
             enableAutoUpdates={enableAutoUpdates}
@@ -572,9 +656,12 @@ function DashboardEditor({
             dashboardLastUpdated={dashboardLastUpdated}
             disabled={!!editSidebarDirty}
             isEditing={isEditing}
+            needsUpdate={needsUpdate}
+            updateTemporaryDashboardResults={updateTemporaryDashboardResults}
+            onUpdated={() => setNeedsUpdate(false)}
           />
           {isGeneralDashboard && setIsEditing && !isEditing ? (
-            <Flex align="center" gap="4" ml="4">
+            <Flex align="center" gap="4" ml="4" flexShrink="0">
               {canManageSharingAndEditLevels && (
                 <Button
                   variant="outline"
@@ -717,70 +804,234 @@ function DashboardEditor({
             </Flex>
           </Flex>
         )}
-      </div>
+        {isGeneralDashboard && onGlobalControlsChange ? (
+          <DashboardGlobalControlsBar
+            blocks={globalControlBlocks ?? blocks}
+            globalControls={globalControls}
+            canEdit={canEdit}
+            onGlobalControlsChange={onGlobalControlsChange}
+            updateTemporaryDashboardResults={updateTemporaryDashboardResults}
+            setNeedsUpdate={setNeedsUpdate}
+          />
+        ) : null}
+      </Box>
       <div>
-        <div>
-          {blocks.length === 0 ? (
-            <Flex
-              direction="column"
-              align="center"
-              justify="center"
-              px="80px"
-              pt="60px"
-              pb="70px"
-              className="appbox"
-              gap="5"
-            >
-              <Flex direction="column">
-                <Heading weight="medium" align="center">
-                  Add Content Blocks
-                </Heading>
-                <Text align="center">
-                  {addBlockType
-                    ? "Choose a block type to get started."
-                    : "Add some blocks to get started"}
-                </Text>
-              </Flex>
-              {addBlockType ? (
-                <AddBlockDropdown
-                  addBlockType={addBlockType}
-                  isGeneralDashboard={isGeneralDashboard}
-                  trigger={
-                    <Button
-                      size="sm"
-                      icon={<PiCaretDownFill />}
-                      iconPosition="right"
-                    >
-                      Add Block
-                    </Button>
-                  }
-                />
-              ) : canEdit && setIsEditing ? (
-                <Button size="md" onClick={() => setIsEditing(true)}>
-                  Add Block
-                </Button>
-              ) : null}
+        {blocks.length === 0 ? (
+          <Flex
+            direction="column"
+            align="center"
+            justify="center"
+            px="80px"
+            pt="60px"
+            pb="70px"
+            className="appbox"
+            gap="5"
+          >
+            <Flex direction="column">
+              <Heading as="h1" size="large" weight="medium" align="center">
+                Add Content Blocks
+              </Heading>
+              <Text align="center">
+                {addBlockType
+                  ? "Choose a block type to get started."
+                  : "Add some blocks to get started"}
+              </Text>
             </Flex>
-          ) : (
-            blocks.map((block, i) =>
+            {addBlockType ? (
+              <AddBlockDropdown
+                addBlockType={addBlockType}
+                isGeneralDashboard={isGeneralDashboard}
+                trigger={
+                  <Button
+                    size="sm"
+                    icon={<PiCaretDownFill />}
+                    iconPosition="right"
+                  >
+                    Add Block
+                  </Button>
+                }
+              />
+            ) : canEdit && setIsEditing ? (
+              <Button size="md" onClick={() => setIsEditing(true)}>
+                Add Block
+              </Button>
+            ) : null}
+          </Flex>
+        ) : (
+          <DashboardGrid
+            blocks={blocks}
+            isEditing={isEditing}
+            editSidebarDirty={!!editSidebarDirty}
+            stagedBlockIndex={stagedBlockIndex}
+            updateLayout={updateLayout}
+            renderBlock={(block, i) =>
               renderSingleBlock({
                 i,
-                key: dashboardBlockHasIds(block)
-                  ? block.id
-                  : `${block.type}-${i}`,
-                block: block,
+                block,
                 isFocused: focusedBlockIndex === i,
                 setBlock: setBlock ? (block) => setBlock(i, block) : undefined,
                 isEditingBlock: stagedBlockIndex === i,
-                isLastBlock: i === blocks.length - 1,
-              }),
-            )
-          )}
-          {/* Add padding at the bottom so there's room to scroll the selected block to the middle/top of the page */}
-          {isEditing && <div style={{ height: 350 }} />}
-        </div>
+              })
+            }
+          />
+        )}
+        {isEditing && blocks.length > 0 && addBlockType && (
+          <Flex
+            justify="center"
+            mt="3"
+            className={clsx({
+              "dashboard-disabled": editSidebarDirty,
+            })}
+          >
+            <AddBlockDropdown
+              addBlockType={addBlockType}
+              isGeneralDashboard={isGeneralDashboard}
+              trigger={
+                <Button
+                  size="sm"
+                  variant="outline"
+                  icon={<PiCaretDownFill />}
+                  iconPosition="right"
+                >
+                  Add Block
+                </Button>
+              }
+            />
+          </Flex>
+        )}
+        {/* Add padding at the bottom so there's room to scroll the selected block to the middle/top of the page */}
+        {isEditing && <div style={{ height: 350 }} />}
       </div>
     </DashboardChartsProvider>
+  );
+}
+
+interface DashboardGridProps {
+  blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
+  isEditing: boolean;
+  editSidebarDirty: boolean;
+  stagedBlockIndex: number | undefined;
+  updateLayout: ((layout: readonly LayoutItem[]) => void) | undefined;
+  renderBlock: (
+    block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+    index: number,
+  ) => React.ReactNode;
+}
+
+// Wraps blocks in react-grid-layout so users can drag, drop, and resize.
+// Drag/resize are disabled outside edit mode and while a staged block is being
+// added/edited. We only persist layout changes from the canonical (lg)
+// breakpoint; smaller breakpoints are auto-derived for responsive viewing only.
+function DashboardGrid({
+  blocks,
+  isEditing,
+  editSidebarDirty,
+  stagedBlockIndex,
+  updateLayout,
+  renderBlock,
+}: DashboardGridProps) {
+  const { width, containerRef, mounted } = useContainerWidth({
+    initialWidth: 1280,
+  });
+
+  const layout = useMemo(
+    () => buildRGLLayout(blocks, RGL_COLS[RGL_CANONICAL_BREAKPOINT]),
+    [blocks],
+  );
+  // Every breakpoint shares the same canonical column count, so we hand RGL
+  // the same layout for all of them. This is what makes side-by-side blocks
+  // keep their x positions when the editing drawer narrows the container.
+  const layouts = useMemo(() => {
+    return Object.fromEntries(
+      CANONICAL_COL_BREAKPOINTS.map((bp) => [bp, layout]),
+    ) as Partial<Record<keyof typeof RGL_BREAKPOINTS, LayoutItem[]>>;
+  }, [layout]);
+
+  // We only persist on onDragStop / onResizeStop - both are terminal,
+  // user-initiated, and ship the final layout. onLayoutChange is deliberately
+  // NOT a save trigger because RGL also fires it on mount (after running its
+  // compactor), which would silently rewrite the user's saved positions when
+  // simply opening the dashboard.
+  const persistLayout = useCallback(
+    (next: readonly LayoutItem[]) => {
+      if (!updateLayout) return;
+      updateLayout(next);
+    },
+    [updateLayout],
+  );
+
+  // While the side panel is open editing/adding a block, we disable RGL
+  // interaction so the user can't shuffle blocks mid-edit.
+  const isInteractive =
+    isEditing && !editSidebarDirty && !isDefined(stagedBlockIndex);
+  // When we're in edit mode but interaction is disabled (because the edit
+  // drawer is open), keep the resize handle visible-but-dimmed and surface a
+  // tooltip explaining why it doesn't respond. Outside of edit mode the
+  // handle is hidden entirely, so no overlay is needed.
+  const showDisabledResizeOverlay = isEditing && !isInteractive;
+
+  return (
+    <div
+      // useContainerWidth gives back React 19's `RefObject<T | null>` but the
+      // codebase is still on React 18 types - cast to satisfy the older
+      // LegacyRef signature without changing runtime behaviour.
+      ref={containerRef as unknown as React.RefObject<HTMLDivElement>}
+      className={clsx("dashboard-grid-container", { "is-editing": isEditing })}
+    >
+      {mounted && (
+        <ResponsiveGridLayout
+          width={width}
+          className={clsx("dashboard-grid", {
+            "is-editing": isEditing,
+            "is-resize-disabled": showDisabledResizeOverlay,
+          })}
+          layouts={layouts}
+          breakpoints={RGL_BREAKPOINTS}
+          cols={RGL_COLS}
+          rowHeight={DASHBOARD_GRID_ROW_HEIGHT_DEFAULT}
+          margin={[12, 12]}
+          containerPadding={[0, 0]}
+          dragConfig={{
+            enabled: isInteractive,
+            handle: ".dashboard-block-drag-handle",
+            bounded: false,
+            threshold: 3,
+          }}
+          resizeConfig={{ enabled: isInteractive, handles: ["se"] }}
+          compactor={verticalCompactor}
+          onDragStop={(curr) => persistLayout(curr)}
+          onResizeStop={(curr) => persistLayout(curr)}
+        >
+          {blocks.map((block, i) => {
+            const key = getGridKeyForBlock(block, i);
+            return (
+              <div key={key} className="dashboard-grid-item">
+                {renderBlock(block, i)}
+                {showDisabledResizeOverlay && (
+                  // Tooltip wraps its children in an inline <span> and anchors
+                  // its popper to that span. We put the overlay styles on the
+                  // span itself (via className) so Popper measures the corner
+                  // hit target instead of a collapsed zero-size box. The inner
+                  // child is a placeholder to suppress Tooltip's GBInfo
+                  // fallback when no children are provided.
+                  <Tooltip
+                    body="Close the edit panel to resize this block"
+                    tipPosition="top"
+                    className="dashboard-resize-handle-disabled-overlay"
+                    // Render through a portal so the popper escapes the grid's
+                    // stacking context - otherwise the edit drawer (which has
+                    // its own stacking context above the grid) clips it.
+                    usePortal
+                  >
+                    <span aria-hidden />
+                  </Tooltip>
+                )}
+              </div>
+            );
+          })}
+        </ResponsiveGridLayout>
+      )}
+    </div>
   );
 }
 

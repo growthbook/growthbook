@@ -178,6 +178,24 @@ describe("useSearch", () => {
         ],
       });
     });
+    it("normalizes capitalized filter keys to lowercase, preserving value case", () => {
+      // The regex matches keys case-insensitively; the stored field must be
+      // lowercased so downstream (case-sensitive) lookups still find it.
+      const query = "Status:Running OWNER:Adriel";
+      const result = transformQuery(query, ["status", "owner"]);
+      expect(result).toEqual({
+        searchTerm: "",
+        syntaxFilters: [
+          {
+            field: "status",
+            operator: "",
+            negated: false,
+            values: ["Running"],
+          },
+          { field: "owner", operator: "", negated: false, values: ["Adriel"] },
+        ],
+      });
+    });
     it("trims extra spaces", () => {
       const query = "test foo:bar  ";
       const result = transformQuery(query, ["foo"]);
@@ -599,6 +617,92 @@ describe("useSearch", () => {
         "first row token",
         "second row token",
       ]);
+    });
+  });
+
+  describe("underscore/hyphen tokenization", () => {
+    type SearchItem = {
+      id: string;
+      name: string;
+    };
+
+    const items: SearchItem[] = [
+      { id: "1", name: "foo" },
+      { id: "2", name: "foo_bar_baz" },
+      { id: "3", name: "other_search_key" },
+      { id: "4", name: "search_test_key" },
+      { id: "5", name: "search-test-key" },
+      { id: "6", name: "test-my-key" },
+    ];
+
+    const setup = () =>
+      renderHook(() =>
+        useSearch<SearchItem>({
+          items,
+          searchFields: ["name"],
+          localStorageKey: "search-service-test-underscore",
+          defaultSortField: "name",
+        }),
+      );
+
+    const search = (value: string): string[] => {
+      const { result } = setup();
+      act(() => {
+        result.current.setSearchValue(value);
+      });
+      return result.current.filteredItems.map((i) => i.name);
+    };
+
+    it("matches a feature on an inner token", () => {
+      expect(search("bar")).toContain("foo_bar_baz");
+    });
+
+    it("requires the full multi-token query, not a partial subset", () => {
+      const names = search("foo_bar");
+      expect(names).toContain("foo_bar_baz");
+      expect(names).not.toContain("foo");
+    });
+
+    it("matches a multi-token substring in the middle of a key", () => {
+      const names = search("test_key");
+      expect(names).toEqual(
+        expect.arrayContaining(["search_test_key", "search-test-key"]),
+      );
+      // tokens must be contiguous: test-my-key has "test" and "key" but not "test_key"
+      expect(names).not.toContain("test-my-key");
+      expect(names).not.toContain("other_search_key");
+    });
+
+    it("treats hyphens and underscores interchangeably", () => {
+      expect(search("test-key")).toEqual(
+        expect.arrayContaining(["search_test_key", "search-test-key"]),
+      );
+    });
+
+    it("handles long punctuation-dense fields without quadratic suffix blowup", () => {
+      // A saved-group condition can be a single whitespace-free JSON string
+      // with thousands of punctuation-separated parts. Suffix expansion on
+      // that is O(parts²) and OOMs the tab; the tokenizer must cap it while
+      // still indexing individual parts so single-word search keeps working.
+      const values = Array.from({ length: 5000 }, (_, i) => `"v${i}"`).join(
+        ",",
+      );
+      const longItems = [
+        { id: "1", name: "small", condition: `{"x":1}` },
+        { id: "2", name: "big", condition: `{"attr":{"$in":[${values}]}}` },
+      ];
+      const { result } = renderHook(() =>
+        useSearch<{ id: string; name: string; condition: string }>({
+          items: longItems,
+          searchFields: ["name", "condition"],
+          localStorageKey: "search-service-test-long-condition",
+          defaultSortField: "name",
+        }),
+      );
+      act(() => {
+        result.current.setSearchValue("v4321");
+      });
+      expect(result.current.filteredItems.map((i) => i.name)).toEqual(["big"]);
     });
   });
 

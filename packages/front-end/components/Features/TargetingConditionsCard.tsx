@@ -37,7 +37,7 @@ export function TargetingConditionsCard({
       <Flex direction="column" gap="4">
         {children}
       </Flex>
-      {addButton != null && (
+      {!!addButton && (
         <Box
           style={{ alignSelf: "flex-start" }}
           pt={slimMode ? "1" : "2"}
@@ -53,8 +53,10 @@ export function TargetingConditionsCard({
     return (
       <Box
         className={clsx("gb-condition-group-card", className)}
-        p="2"
+        py="2"
         style={{
+          paddingLeft: 5,
+          paddingRight: 5,
           border: "1px solid var(--gray-a3)",
           borderRadius: "var(--radius-2)",
         }}
@@ -147,7 +149,7 @@ export function ConditionRow({
             </Box>
           )}
           <Box style={{ flex: "1 1 0", minWidth: 0 }}>{attributeSlot}</Box>
-          {removeSlot != undefined && (
+          {!!removeSlot && (
             <Box flexShrink="0" pt="3">
               {removeSlot}
             </Box>
@@ -272,12 +274,10 @@ export function OrSeparator({ slimMode }: { slimMode?: boolean }) {
 export function AddConditionButton({
   onClick,
   children,
-  slimMode,
   disabled,
 }: {
   onClick: () => void;
   children?: React.ReactNode;
-  slimMode?: boolean;
   disabled?: boolean;
 }) {
   return (
@@ -292,10 +292,7 @@ export function AddConditionButton({
         cursor: disabled ? "not-allowed" : "pointer",
       }}
     >
-      <Text
-        weight={slimMode ? "regular" : "semibold"}
-        size={slimMode ? "small" : "medium"}
-      >
+      <Text weight="semibold" size="medium">
         <PiPlusBold className="mr-1" />
         {children ?? "Add condition"}
       </Text>
@@ -325,10 +322,7 @@ export function AddOrGroupButton({
           cursor: disabled ? "not-allowed" : "pointer",
         }}
       >
-        <Text
-          weight={slimMode ? "regular" : "semibold"}
-          size={slimMode ? "small" : "medium"}
-        >
+        <Text weight="semibold" size="medium">
           <PiPlusBold className="mr-1" />
           Add OR group
         </Text>

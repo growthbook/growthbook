@@ -7,9 +7,10 @@ import {
   updateExperiment,
 } from "../../src/models/ExperimentModel";
 import {
-  getLatestSnapshot,
+  getLatestSuccessfulSnapshot,
   getLatestSnapshotMultipleExperiments,
 } from "../../src/models/ExperimentSnapshotModel";
+import { getMetricsByIds } from "../../src/models/MetricModel";
 import { getDataSourceById } from "../../src/models/DataSourceModel";
 import { setupApp } from "./api.setup";
 
@@ -29,12 +30,13 @@ jest.mock("../../src/models/ExperimentModel", () => ({
 }));
 
 jest.mock("../../src/models/ExperimentSnapshotModel", () => ({
-  getLatestSnapshot: jest.fn(),
+  getLatestSuccessfulSnapshot: jest.fn(),
   getLatestSnapshotMultipleExperiments: jest.fn(),
 }));
 
 jest.mock("../../src/models/MetricModel", () => ({
   getMetricMap: jest.fn().mockResolvedValue(new Map()),
+  getMetricsByIds: jest.fn().mockResolvedValue([]),
 }));
 
 jest.mock("../../src/models/DataSourceModel", () => ({
@@ -81,6 +83,10 @@ describe("experiments API", () => {
             },
           }),
         },
+        factMetrics: {
+          getAll: jest.fn().mockResolvedValue([]),
+          getByIds: jest.fn().mockResolvedValue([]),
+        },
       },
       permissions: {
         canViewExperiment: () => true,
@@ -88,6 +94,7 @@ describe("experiments API", () => {
         canUpdateExperiment: () => true,
         canAddComment: () => true,
       },
+      hasPremiumFeature: () => false,
       getUsersByIds: jest.fn().mockResolvedValue([]),
     });
   });
@@ -221,6 +228,39 @@ describe("experiments API", () => {
       expect(res.body.experiment.phases[0]).toMatchObject({
         name: "Main",
         coverage: 1,
+      });
+    });
+
+    it("serializes an enabled namespace with enabled: true so it round-trips", async () => {
+      const experimentWithNamespace = {
+        ...experiment,
+        phases: [
+          {
+            name: "Main",
+            dateStarted: new Date("2024-01-01"),
+            dateEnded: null,
+            reason: "",
+            seed: "test-seed",
+            coverage: 1,
+            variationWeights: [0.5, 0.5],
+            condition: "",
+            savedGroups: [],
+            prerequisites: [],
+            namespace: { enabled: true, name: "ns_1", range: [0, 0.5] },
+          },
+        ],
+      };
+      (getExperimentById as jest.Mock).mockResolvedValue(
+        experimentWithNamespace,
+      );
+      const res = await request(app)
+        .get("/api/v1/experiments/exp_123")
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      expect(res.body.experiment.phases[0].namespace).toMatchObject({
+        namespaceId: "ns_1",
+        enabled: true,
       });
     });
 
@@ -1528,6 +1568,141 @@ describe("experiments API", () => {
       ]);
     });
 
+    it("honors the GET-response phase field names on a round-trip update", async () => {
+      (getExperimentById as jest.Mock).mockResolvedValue({
+        ...experiment,
+        variations: [
+          { id: "0", key: "control", name: "Control", screenshots: [] },
+          { id: "1", key: "treatment", name: "Treatment", screenshots: [] },
+        ],
+      });
+      (updateExperiment as jest.Mock).mockImplementation(
+        ({ experiment, changes }) => ({ ...experiment, ...changes }),
+      );
+
+      // Simulate echoing a GET response back: targeting/splits arrive under the
+      // response field names (targetingCondition / trafficSplit /
+      // reasonForStopping), which the update must honor.
+      const res = await request(app)
+        .post("/api/v1/experiments/exp_123")
+        .send({
+          phases: [
+            {
+              name: "Main",
+              dateStarted: "2026-01-01T00:00:00.000Z",
+              targetingCondition: '{"path":{"$in":["/checkout"]}}',
+              trafficSplit: [
+                { variationId: "0", weight: 0.9 },
+                { variationId: "1", weight: 0.1 },
+              ],
+              reasonForStopping: "ramp down",
+            },
+          ],
+        })
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      const updateCall = (updateExperiment as jest.Mock).mock.calls[0][0];
+      const phase = updateCall.changes.phases[0];
+      expect(phase.condition).toBe('{"path":{"$in":["/checkout"]}}');
+      expect(phase.variationWeights).toEqual([0.9, 0.1]);
+      expect(phase.reason).toBe("ramp down");
+    });
+
+    it("maps trafficSplit weights by variationId, not array position", async () => {
+      (getExperimentById as jest.Mock).mockResolvedValue({
+        ...experiment,
+        variations: [
+          { id: "0", key: "control", name: "Control", screenshots: [] },
+          { id: "1", key: "treatment", name: "Treatment", screenshots: [] },
+        ],
+      });
+      (updateExperiment as jest.Mock).mockImplementation(
+        ({ experiment, changes }) => ({ ...experiment, ...changes }),
+      );
+
+      // trafficSplit reordered relative to the variations: weights must still
+      // land on the right variation (0 -> 0.9, 1 -> 0.1), not by position.
+      const res = await request(app)
+        .post("/api/v1/experiments/exp_123")
+        .send({
+          phases: [
+            {
+              name: "Main",
+              dateStarted: "2026-01-01T00:00:00.000Z",
+              trafficSplit: [
+                { variationId: "1", weight: 0.1 },
+                { variationId: "0", weight: 0.9 },
+              ],
+            },
+          ],
+        })
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      const phase = (updateExperiment as jest.Mock).mock.calls[0][0].changes
+        .phases[0];
+      expect(phase.variationWeights).toEqual([0.9, 0.1]);
+    });
+
+    it("honors variationId as an alias for id so variations round-trip", async () => {
+      (getExperimentById as jest.Mock).mockResolvedValue(experiment);
+      (updateExperiment as jest.Mock).mockImplementation(
+        ({ experiment, changes }) => ({ ...experiment, ...changes }),
+      );
+
+      // Echoing GET variations back: they arrive with variationId, not id.
+      // Without the alias, id would be regenerated and identity would churn.
+      const res = await request(app)
+        .post("/api/v1/experiments/exp_123")
+        .send({
+          variations: [
+            { variationId: "v0", key: "control", name: "Control" },
+            { variationId: "v1", key: "treatment", name: "Treatment" },
+          ],
+        })
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      const changes = (updateExperiment as jest.Mock).mock.calls[0][0].changes;
+      expect(changes.variations.map((v) => v.id)).toEqual(["v0", "v1"]);
+    });
+
+    it("prefers the POST-only phase fields when both they and their aliases are set", async () => {
+      (getExperimentById as jest.Mock).mockResolvedValue(experiment);
+      (updateExperiment as jest.Mock).mockImplementation(
+        ({ experiment, changes }) => ({ ...experiment, ...changes }),
+      );
+
+      const res = await request(app)
+        .post("/api/v1/experiments/exp_123")
+        .send({
+          phases: [
+            {
+              name: "Main",
+              dateStarted: "2026-01-01T00:00:00.000Z",
+              condition: '{"id":"post"}',
+              targetingCondition: '{"id":"response"}',
+              variationWeights: [0.7, 0.3],
+              trafficSplit: [
+                { variationId: "0", weight: 0.9 },
+                { variationId: "1", weight: 0.1 },
+              ],
+              reason: "post reason",
+              reasonForStopping: "response reason",
+            },
+          ],
+        })
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      const phase = (updateExperiment as jest.Mock).mock.calls[0][0].changes
+        .phases[0];
+      expect(phase.condition).toBe('{"id":"post"}');
+      expect(phase.variationWeights).toEqual([0.7, 0.3]);
+      expect(phase.reason).toBe("post reason");
+    });
+
     it("force-syncs phase variations in mixed phases plus top-level variations updates", async () => {
       const experimentWithPhases = {
         ...experiment,
@@ -1866,7 +2041,7 @@ describe("experiments API", () => {
         ],
       };
       (getExperimentById as jest.Mock).mockResolvedValue(experimentWithPhases);
-      (getLatestSnapshot as jest.Mock).mockResolvedValue({
+      (getLatestSuccessfulSnapshot as jest.Mock).mockResolvedValue({
         id: "snap_123",
         organization: "org_1",
         experiment: "exp_123",
@@ -1905,6 +2080,116 @@ describe("experiments API", () => {
       expect(res.body).toHaveProperty("result");
     });
 
+    it("includes metricName and variationName for each metric/variation pair", async () => {
+      updateReqContext({
+        org,
+        permissions: {
+          canViewExperiment: () => true,
+        },
+      });
+
+      const experimentWithResults = {
+        ...experiment,
+        variations: [
+          {
+            id: "0",
+            key: "control",
+            name: "Control Variation",
+            description: "",
+            screenshots: [],
+          },
+          {
+            id: "1",
+            key: "treatment",
+            name: "Treatment Variation",
+            description: "",
+            screenshots: [],
+          },
+        ],
+        goalMetrics: ["met_1"],
+        phases: [
+          {
+            name: "Main",
+            dateStarted: new Date("2024-01-01"),
+            dateEnded: null,
+            reason: "",
+            seed: "test-seed",
+            coverage: 1,
+            variationWeights: [0.5, 0.5],
+            condition: "",
+            savedGroups: [],
+            prerequisites: [],
+            namespace: { enabled: false },
+          },
+        ],
+      };
+      (getExperimentById as jest.Mock).mockResolvedValue(experimentWithResults);
+      (getMetricsByIds as jest.Mock).mockResolvedValue([
+        { id: "met_1", name: "Signups" },
+      ]);
+      (getLatestSuccessfulSnapshot as jest.Mock).mockResolvedValue({
+        id: "snap_123",
+        organization: "org_1",
+        experiment: "exp_123",
+        phase: 0,
+        dimension: null,
+        dateCreated: new Date(),
+        runStarted: new Date(),
+        queries: [],
+        unknownVariations: [],
+        multipleExposures: 0,
+        hasCorrectedStats: false,
+        analyses: [
+          {
+            settings: { statsEngine: "bayesian" },
+            results: [
+              {
+                name: "",
+                srm: 1,
+                variations: [
+                  { users: 100, metrics: { met_1: { value: 10, users: 100 } } },
+                  { users: 100, metrics: { met_1: { value: 12, users: 100 } } },
+                ],
+              },
+            ],
+          },
+        ],
+        settings: {
+          manual: false,
+          activationMetric: null,
+          queryFilter: "",
+          segment: "",
+          skipPartialData: false,
+          attributionModel: "firstExposure",
+          experimentId: "exp_123",
+          statsEngine: "bayesian",
+          regressionAdjustmentEnabled: false,
+          sequentialTestingEnabled: false,
+          sequentialTestingTuningParameter: 5000,
+          pValueThreshold: 0.05,
+          pValueCorrection: null,
+          differenceType: "relative",
+        },
+      });
+
+      const res = await request(app)
+        .get("/api/v1/experiments/exp_123/results")
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      const metrics = res.body.result.results[0].metrics;
+      expect(metrics).toHaveLength(1);
+      expect(metrics[0].metricId).toBe("met_1");
+      expect(metrics[0].metricName).toBe("Signups");
+      expect(metrics[0].variations).toHaveLength(2);
+      expect(metrics[0].variations[0].variationId).toBe("0");
+      expect(metrics[0].variations[0].variationName).toBe("Control Variation");
+      expect(metrics[0].variations[1].variationId).toBe("1");
+      expect(metrics[0].variations[1].variationName).toBe(
+        "Treatment Variation",
+      );
+    });
+
     it("returns 400 when experiment not found", async () => {
       (getExperimentById as jest.Mock).mockResolvedValue(null);
 
@@ -1918,7 +2203,7 @@ describe("experiments API", () => {
 
     it("returns 400 when no results found", async () => {
       (getExperimentById as jest.Mock).mockResolvedValue(experiment);
-      (getLatestSnapshot as jest.Mock).mockResolvedValue(null);
+      (getLatestSuccessfulSnapshot as jest.Mock).mockResolvedValue(null);
 
       const res = await request(app)
         .get("/api/v1/experiments/exp_123/results")

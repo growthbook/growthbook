@@ -1,0 +1,187 @@
+---
+title: Ramp Schedules
+description: Release a feature gradually in timed stages, with optional approval gates and guardrail monitoring.
+sidebar_label: Ramp Schedules
+slug: /features/ramp-schedules
+---
+
+import MaxWidthImage from "@site/src/components/MaxWidthImage";
+import CommercialFeature from "@site/src/components/CommercialFeature";
+
+<CommercialFeature feature="ramp-schedules" />
+
+A Ramp Schedule rolls a feature out in stages instead of switching it on for everyone at once. You define the stages up front, and GrowthBook moves through them on a schedule you set. A typical schedule might show the feature to 1% of users, then 5%, then 25%, then 100%. Between stages, the rollout can wait a set amount of time or pause for a teammate's approval, so you widen exposure gradually and can stop early if something looks off.
+
+## How ramp schedules work
+
+A Ramp Schedule attaches to a single **Targeting rule** (a rule that serves a value to matching users, with optional targeting conditions). It is a release plan on top of that rule, not a separate rule type. You add one from the rule editor by choosing **Ramp-up** as the release plan.
+
+The schedule drives the rule through an ordered list of **steps**. Each step only sets the fields you want to change; everything else carries over from the previous step. A step can change:
+
+- **Rollout %**: the percentage of matching users who get the rule's value.
+- **Targeting**: the condition, saved groups, and prerequisites.
+- **Environments**: which environments the rule applies to.
+- **Value**: the value the rule serves.
+
+Each step also has an **Action** that controls when it advances:
+
+- **Hold for**: apply the step, then wait a set amount of time (for example, 12 hours) before advancing.
+- **Hold for approval**: apply the step, then wait for a teammate to approve before advancing. You can also add **+ Approval** to a timed step so it waits on both. Approval is always the final gate, so any time or sample-size conditions clear first.
+- **Hold for min. sample**: wait until a set number of users have been exposed. This applies only to [monitored steps](#monitored-steps-and-guardrails).
+
+When a step's Action clears, GrowthBook applies the step's changes to the rule and starts the next step. Each advance publishes a new feature revision automatically, so your SDKs pick up the change through the normal feature payload.
+
+If a schedule falls behind (for example, background processing was interrupted past several steps' hold times — pausing doesn't cause this, since pause shifts the timers), the overdue steps are caught up in a **single** advance: one revision publish (labeled with the folded range, such as "Ramp steps 4–12 of 20") and one webhook whose `previousStepIndex` shows the gap — `rampSchedule.actions.step.advanced`, or `rampSchedule.actions.completed` when the fold finishes the ramp. Consumers mirroring ramp progress should diff `currentStepIndex - previousStepIndex` rather than counting events. Approval and monitored steps are never skipped by a catch-up — the schedule always stops at them.
+
+The grid always ends with an **end** row, set to 100% by default. That is the state the rule lands in when the schedule finishes; open its menu to attach final rule changes, such as removing targeting.
+
+<MaxWidthImage border>
+![Ramp-up step grid with rollout percentages, hold intervals, and per-step actions](/images/features/ramp-schedule-steps.webp)
+</MaxWidthImage>
+
+### Schedule timing
+
+- **Start**: choose **Immediately** to begin as soon as the rule is published, or **On date** to delay activation. The rule stays disabled until the start date.
+- **Duration**: the total length of the ramp. In **Simple View** you set it directly and GrowthBook spaces the steps to fit; in **Advanced View** it shows a computed summary of your steps, such as "~5d + monitored steps".
+- **Disable on date**: click **+ Disable on date** to set an optional date that turns the rule off whether or not the ramp has finished. Use it for time-boxed rules.
+
+### Lock feature while running
+
+Turn on **Lock feature while running** to block publishing other draft changes to the feature while the ramp is actively progressing. This keeps manual edits from competing with the schedule.
+
+:::note
+The lock only applies while the ramp is running. It does not apply when the ramp is paused, completed, or rolled back, and it never blocks the changes the ramp engine makes as it advances. Pause the ramp to make immediate changes.
+:::
+
+### Sample by and hashing
+
+**Sample by** sets the attribute GrowthBook hashes to assign users to the rollout, so the same user stays in the same bucket as the rollout grows. Expand **Hashing & seed options** to set a custom **Seed** or pick the **Hashing** algorithm version. These work the same as on a standard rollout rule.
+
+## Ramp schedule vs. Safe Rollout
+
+A [Safe Rollout](/features/safe-rollouts) is a Ramp Schedule with guardrail monitoring turned on. Both use the same engine. The difference is whether you watch metrics as the ramp progresses.
+
+- Use a plain **Ramp Schedule** when you want a release plan that runs on its own: step the rollout up over time, broaden targeting in stages, gate jumps behind approval, or disable the rule on a set date.
+- Use a **monitored** Ramp Schedule (a Safe Rollout) when you also want GrowthBook to watch guardrail metrics and automatically hold or roll back if the release harms them.
+
+You configure monitoring per step, so a single schedule can mix unmonitored and monitored steps.
+
+## Adding a ramp schedule
+
+### 1. Add a Targeting rule
+
+When you add a rule to a feature, choose **Targeting rule** as the rule type.
+
+<MaxWidthImage border>
+![Rule type picker showing Targeting rule, Experiment, and Bandit, with a callout pointing to Safe Rollouts](/images/features/rule-type-picker.webp)
+</MaxWidthImage>
+
+:::tip
+Looking for Safe Rollouts? Choose a Targeting rule and turn on guardrail monitoring in its ramp-up schedule. The **Show me** shortcut on the rule type screen configures a fully monitored ramp for you.
+:::
+
+### 2. Choose the Ramp-up release plan
+
+In the rule settings, set the release plan to **Ramp-up** (or **Monitored Ramp-up** to watch guardrail metrics). The ramp editor opens so you can define the steps.
+
+### 3. Configure the steps
+
+The step editor opens in one of two modes:
+
+- **Simple View**: pick a total **Duration** and GrowthBook spreads a standard set of steps (1%, 5%, 10%, 25%, 50%, then 100%) across it. Good for a quick, standard ramp.
+- **Advanced View**: edit the step grid directly. Each row sets a **Rollout %** and an **Action**, and you can add per-step approval, monitoring, or rule changes. Switch between modes with the **Edit Ramp-up Steps** and **Simple View** buttons.
+
+If your org has saved **Ramp Schedule Templates**, choose one from the **Template** dropdown to prefill the steps, then adjust from there. The dropdown appears only when templates exist.
+
+While a ramp is running, the schedule controls the rule's rollout. Pause or end the ramp to make immediate changes.
+
+### 4. Set the start and disable dates
+
+Optionally set **Start** to **On date** to delay activation, and use **+ Disable on date** to turn the rule off at a fixed time.
+
+### 5. Publish
+
+Publish the revision to arm the schedule. A schedule configured inside a draft stays in the `pending` state until that draft is published.
+
+## Monitored steps and guardrails
+
+Mark a step as **monitored** (the shield icon on the step) to run guardrail analysis while it is active. GrowthBook splits enrolled users 50/50 between the new value and the existing value and analyzes your guardrail metrics, using the same engine as a [Safe Rollout](/features/safe-rollouts).
+
+On a monitored step, the **Rollout %** is the share of users who get the new value, and an equal-sized control group gets the existing value. Rollout % is capped at 50% on monitored steps: at that point the new value and the control each reach half your users, so no one is left out.
+
+:::note
+A monitored step at **50%** is a full 50/50 split: half your users get the new value and half get the existing value. Set it to **25%** to show the new value to 25% of users, with a 25% control.
+:::
+
+Turn on **Monitor this release** and configure monitoring once on the schedule:
+
+- **Data source** and **Assignment table**: where traffic and metric data come from.
+- **Guardrail Metrics**: GrowthBook automatically rolls back and disables the rule if any of these show a significant regression.
+- **Signal Metrics**: GrowthBook pauses at the current step if any of these regress. You resume manually, or it resumes automatically when the metric recovers.
+- **Refresh results every**: how often GrowthBook re-analyzes your metrics. Leave it blank to use the org default (6 hours).
+
+Under **Advanced Settings**, choose what happens when an automated check fails:
+
+| Check                 | UI control                | Options                                   |
+| --------------------- | ------------------------- | ----------------------------------------- |
+| Sample ratio mismatch | **If SRM detected**       | Hold step (default), Roll back, Warn only |
+| No traffic            | **If no traffic**         | Hold step (default), Roll back, Warn only |
+| Multiple exposures    | **If multiple exposures** | Hold step (default), Roll back, Warn only |
+
+**Hold step** pauses the ramp for review, **Roll back** rewinds the rule to its pre-ramp state and ends the schedule, and **Warn only** flags the issue without stopping the ramp. The no-traffic grace period defaults to 24 hours and is editable next to **If no traffic**. Guardrail regressions always roll back and disable the rule; that behavior is not configurable here.
+
+:::note
+Sticky bucketing is disabled on monitored steps, because the hash ranges shift as the rollout grows. **Hold for min. sample** applies only to monitored steps, since unmonitored steps have no analysis to evaluate.
+:::
+
+## Operating a running schedule
+
+Once started, a schedule reports its status and progress on the feature's rule.
+
+<MaxWidthImage border>
+![A running ramp schedule on a feature rule, showing the current rollout percentage, the served value, the current step, time remaining, and the step timeline](/images/features/ramp-schedule-timeline.webp)
+</MaxWidthImage>
+
+| Status        | Meaning                                                         |
+| ------------- | --------------------------------------------------------------- |
+| `pending`     | Created but not yet armed. Publish the revision to start.       |
+| `ready`       | Armed and waiting for the start date.                           |
+| `running`     | Actively advancing through steps.                               |
+| `paused`      | Halted by a user or a `hold` health action. Resume to continue. |
+| `completed`   | All steps applied and the end state set.                        |
+| `rolled-back` | Returned to the pre-ramp state.                                 |
+
+From the UI or API you can start, pause, resume, manually advance, jump to a specific step, approve a gated step, roll back to the pre-ramp state, or restart a finished schedule. Every transition is recorded in the schedule's event history.
+
+## Templates
+
+Use **Save as template** to store a schedule's steps and end state as a **Ramp Schedule Template** and reuse them across features. Apply a template when you create a schedule to inherit its steps, then override any of them as needed.
+
+## Managing via the API
+
+Ramp Schedules have a full REST API under `/ramp-schedules`. This example attaches a three-step ramp to an existing rule, with the final step gated on approval:
+
+```bash
+curl -X POST https://api.growthbook.io/api/v1/ramp-schedules \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Checkout v2 rollout",
+    "featureId": "checkout-v2",
+    "ruleId": "fr_abc123",
+    "steps": [
+      { "interval": 3600, "actions": [{ "patch": { "coverage": 0.1 } }] },
+      { "interval": 86400, "actions": [{ "patch": { "coverage": 0.5 } }] },
+      { "interval": null, "holdConditions": { "requiresApproval": true },
+        "actions": [{ "patch": { "coverage": 1.0 } }] }
+    ]
+  }'
+```
+
+When you pass both `featureId` and `ruleId`, GrowthBook fills in the target on every action, so you only supply the fields you want to change. See the [API reference](/api) for the full set of endpoints and lifecycle actions.
+
+## What's next
+
+- [Safe Rollouts](/features/safe-rollouts): a Ramp Schedule with guardrail monitoring.
+- [Rules](/features/rules): choose the right rule type before adding a schedule.
+- [Publishing and approval flows](/features/publishing-and-approval-flows): gate rule changes on reviewer approval.

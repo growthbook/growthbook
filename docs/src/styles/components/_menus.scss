@@ -58,12 +58,18 @@
         }
       }
 
-      &.beta {
-        .menu__link {
-          &::after {
-            content: "beta";
-            @include pill(var(--violet-9), var(--violet-1));
-          }
+      &.beta > .menu__link,
+      &.beta > div > .menu__link {
+        &::after {
+          content: "beta";
+          @include pill(var(--violet-9), var(--violet-1));
+          // Neutralize the chevron styling Docusaurus applies to
+          // `.menu__link--sublist-caret::after` on collapsible categories,
+          // which would otherwise rotate and resize the pill.
+          width: auto;
+          height: auto;
+          min-width: 0;
+          transform: none;
         }
       }
 
@@ -72,6 +78,13 @@
         &::after {
           content: "new";
           @include pill(var(--green-a9), #fff);
+          // Neutralize the chevron styling Docusaurus applies to
+          // `.menu__link--sublist-caret::after` on collapsible categories,
+          // which would otherwise rotate and resize the pill.
+          width: auto;
+          height: auto;
+          min-width: 0;
+          transform: none;
         }
       }
 

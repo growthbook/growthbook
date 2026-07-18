@@ -553,6 +553,53 @@ describe("Metric Migration", () => {
     });
   });
 
+  it("casts string runStarted values to Dates", () => {
+    const baseMetric: LegacyMetricInterface = {
+      datasource: "",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      description: "",
+      id: "",
+      ignoreNulls: false,
+      inverse: false,
+      name: "",
+      organization: "",
+      owner: "",
+      queries: [],
+      runStarted: null,
+      type: "binomial",
+      userIdColumns: {
+        user_id: "user_id",
+        anonymous_id: "anonymous_id",
+      },
+      cappingSettings: {
+        type: "",
+        value: 0,
+      },
+      priorSettings: {
+        override: false,
+        proper: false,
+        mean: 0,
+        stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+      },
+      userIdTypes: ["anonymous_id", "user_id"],
+    };
+
+    expect(
+      upgradeMetricDoc({
+        ...baseMetric,
+        runStarted: "2026-05-20T01:23:45.678Z" as unknown as Date,
+      }).runStarted,
+    ).toEqual(new Date("2026-05-20T01:23:45.678Z"));
+
+    // Dates and nulls pass through unchanged
+    const date = new Date();
+    expect(
+      upgradeMetricDoc({ ...baseMetric, runStarted: date }).runStarted,
+    ).toBe(date);
+    expect(upgradeMetricDoc(baseMetric).runStarted).toBe(null);
+  });
+
   it("updates old metric objects - cap and capping", () => {
     const baseMetric: LegacyMetricInterface = {
       datasource: "",
@@ -1820,6 +1867,22 @@ describe("Experiment Migration", () => {
       results: "won",
       winner: 2,
       releasedVariationId: "foo",
+    });
+  });
+  it("uses `winner` 0 (control won) for releasedVariationId, not the default 1", () => {
+    expect(
+      upgradeExperimentDoc({
+        ...exp,
+        status: "stopped",
+        results: "won",
+        winner: 0,
+      }),
+    ).toEqual({
+      ...upgraded,
+      status: "stopped",
+      results: "won",
+      winner: 0,
+      releasedVariationId: "0",
     });
   });
   it("Doesn't overwrite other attribution models", () => {

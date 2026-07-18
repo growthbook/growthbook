@@ -58,10 +58,26 @@
       padding-right: var(--space-4) !important;
     }
   }
-  .rt-SplitButtonLeft.outline {
+  .rt-SplitButtonMiddle > * {
+    border-radius: 0;
+  }
+  .rt-SplitButtonLeft.outline,
+  .rt-SplitButtonMiddle.outline {
     overflow: hidden;
     & > * {
       margin-right: -1px;
+    }
+  }
+
+  // Uniform 3-segment toggle (e.g. the diff-format toggle): all segments share
+  // the same horizontal padding. Overrides the chevron-tightening rule above
+  // that narrows the right segment for the default button+dropdown use case.
+  &.diff-format-toggle {
+    .rt-SplitButtonLeft > *,
+    .rt-SplitButtonMiddle > *,
+    .rt-SplitButtonRight > * {
+      padding-left: var(--space-3) !important;
+      padding-right: var(--space-3) !important;
     }
   }
 }
@@ -175,7 +191,10 @@
   .originalDate2,
   .activeDate,
   .scheduleStartDate,
-  .scheduleEndDate {
+  .scheduleEndDate,
+  .candidateBefore,
+  .candidateAfter,
+  .comparisonAnchor {
     &::before {
       content: "";
       position: absolute;
@@ -203,6 +222,21 @@
     &.scheduleEndDate {
       &::before {
         background-color: var(--tomato-a3) !important;
+      }
+    }
+    &.candidateBefore {
+      &::before {
+        background-color: var(--amber-a3) !important;
+      }
+    }
+    &.candidateAfter {
+      &::before {
+        background-color: var(--blue-a3) !important;
+      }
+    }
+    &.comparisonAnchor {
+      &::before {
+        border: 2px solid var(--violet-9) !important;
       }
     }
   }
@@ -320,6 +354,14 @@
   }
 }
 
+.rt-BaseRadioRoot:where(:disabled, [data-disabled])::before {
+  background-color: transparent !important;
+}
+
+.rt-RadioGroupRoot[data-disabled] .rt-RadioGroupItem {
+  cursor: not-allowed;
+}
+
 // RadioCards
 .rt-RadioCardsItem {
   &:hover:not(.disabled) {
@@ -422,6 +464,10 @@ p.rt-TooltipText {
 }
 
 // Table
+.rt-TableRow {
+  color: var(--color-text-high);
+}
+
 .rt-TableRootTable {
   .rt-TableBody > .rt-TableRow:last-child > .rt-TableCell {
     box-shadow: none;

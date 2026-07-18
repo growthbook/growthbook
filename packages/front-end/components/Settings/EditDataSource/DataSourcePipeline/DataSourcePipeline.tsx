@@ -129,6 +129,20 @@ export default function DataSourcePipeline({
               </Box>
             </Flex>
           )}
+          {pipelineSettings?.allowWriting &&
+          pipelineSettings.mode !== "incremental" &&
+          (pipelineSettings.incrementalOptInExperimentIds?.length ?? 0) > 0 ? (
+            <Box>
+              <Text weight="medium">Incremental Refresh opt-in: </Text>
+              <Text>
+                {pipelineSettings.incrementalOptInExperimentIds?.length}{" "}
+                experiment
+                {pipelineSettings.incrementalOptInExperimentIds?.length === 1
+                  ? ""
+                  : "s"}
+              </Text>
+            </Box>
+          ) : null}
         </Flex>
       </Card>
 

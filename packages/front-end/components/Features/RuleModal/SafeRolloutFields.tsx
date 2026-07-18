@@ -1,7 +1,7 @@
 import { useFormContext } from "react-hook-form";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
-import { FaExclamationTriangle } from "react-icons/fa";
-import { Box, TextField, Text, Flex, Grid, Separator } from "@radix-ui/themes";
+import { Box, TextField, Text, Flex, Grid } from "@radix-ui/themes";
 import {
   PiCaretUpFill,
   PiCaretDownFill,
@@ -13,9 +13,8 @@ import FeatureValueField from "@/components/Features/FeatureValueField";
 import SelectField from "@/components/Forms/SelectField";
 import { FIVE_LINES_HEIGHT } from "@/components/Forms/CodeTextArea";
 import { NewExperimentRefRule, useAttributeSchema } from "@/services/features";
-import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
-import ConditionInput from "@/components/Features/ConditionInput";
-import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
+import TargetingFieldsGroup from "@/components/Features/TargetingFieldsGroup";
+import { type RuleCyclicResult } from "@/components/Features/PrerequisiteInput";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MetricsSelector from "@/components/Experiment/MetricsSelector";
 import Checkbox from "@/ui/Checkbox";
@@ -30,6 +29,7 @@ import {
 import RuleEnvironmentScopeField, {
   type EnvScopeProps,
 } from "@/components/Features/RuleModal/EnvironmentScopeField";
+import Callout from "@/ui/Callout";
 
 export default function SafeRolloutFields({
   feature,
@@ -44,6 +44,7 @@ export default function SafeRolloutFields({
   setScheduleToggleEnabled,
   scheduleToggleEnabled,
   envScope,
+  onRuleCyclicChange,
 }: {
   feature: FeatureInterface;
   environment: string;
@@ -57,6 +58,7 @@ export default function SafeRolloutFields({
   mode: "create" | "edit" | "duplicate";
   isDraft: boolean;
   envScope: EnvScopeProps;
+  onRuleCyclicChange?: (result: RuleCyclicResult) => void;
 }) {
   const form = useFormContext();
   const [advancedOptionsOpen, setAdvancedOptionsOpen] = useState(false);
@@ -96,34 +98,29 @@ export default function SafeRolloutFields({
   const renderTargeting = () => {
     return (
       <>
-        <SavedGroupTargetingField
-          value={form.watch("savedGroups") || []}
-          setValue={(savedGroups) => form.setValue("savedGroups", savedGroups)}
+        <TargetingFieldsGroup
           project={feature.project || ""}
-        />
-        <Separator size="4" my="5" />
-        <ConditionInput
-          defaultValue={form.watch("condition") || ""}
-          onChange={(value) => form.setValue("condition", value)}
-          key={conditionKey}
-          project={feature.project || ""}
-        />
-        <Separator size="4" my="5" />
-        <PrerequisiteInput
-          value={form.watch("prerequisites") || []}
-          setValue={(prerequisites) =>
+          environments={[environment]}
+          feature={feature}
+          savedGroups={form.watch("savedGroups") || []}
+          setSavedGroups={(savedGroups) =>
+            form.setValue("savedGroups", savedGroups)
+          }
+          condition={form.watch("condition") || ""}
+          setCondition={(value) => form.setValue("condition", value)}
+          conditionKey={conditionKey}
+          prerequisites={form.watch("prerequisites") || []}
+          setPrerequisites={(prerequisites) =>
             form.setValue("prerequisites", prerequisites)
           }
-          feature={feature}
-          environments={[environment]}
           setPrerequisiteTargetingSdkIssues={setPrerequisiteTargetingSdkIssues}
+          onRuleCyclicChange={onRuleCyclicChange}
         />
         {isCyclic && (
-          <div className="alert alert-danger">
-            <FaExclamationTriangle /> A prerequisite (
-            <code>{cyclicFeatureId}</code>) creates a circular dependency.
-            Remove this prerequisite to continue.
-          </div>
+          <Callout status="error">
+            A prerequisite (<code>{cyclicFeatureId}</code>) creates a circular
+            dependency. Remove this prerequisite to continue.
+          </Callout>
         )}
 
         {mode === "duplicate" && !!form.watch("seed") && (
@@ -243,12 +240,12 @@ export default function SafeRolloutFields({
               disabled={!dataSourceOptions || disableFields}
             />
             {dataSourceOptions.length === 0 && (
-              <div className="alert alert-warning mt-2">
+              <Callout status="warning" mt="2">
                 <small>
                   No data sources configured. Please add a data source in the
                   settings.
                 </small>
-              </div>
+              </Callout>
             )}
           </div>
           <div className="pb-1">
@@ -303,7 +300,6 @@ export default function SafeRolloutFields({
               includeFacts={true}
               forceSingleMetric={false}
               includeGroups={true}
-              excludeQuantiles={true}
               selected={
                 form.watch("safeRolloutFields.guardrailMetricIds") || []
               }
@@ -456,6 +452,7 @@ export default function SafeRolloutFields({
       </Text>
       <TextField.Root
         mb="6"
+        maxLength={MAX_DESCRIPTION_LENGTH}
         {...form.register("description")}
         placeholder="Short human-readable description of the safe rollout"
       />

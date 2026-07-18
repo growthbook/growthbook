@@ -245,7 +245,8 @@ export default function SdkSupportedFeatures({
       const feature = Object.keys(cap)[0];
       const version = cap[feature];
       return { feature, version };
-    });
+    })
+    .filter(({ feature }) => feature in capabilityDetails);
 
   return (
     <section className="sdk-supported-features">

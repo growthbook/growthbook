@@ -9,6 +9,7 @@ import {
   formatAIRateLimitRetryMessage,
 } from "shared/ai";
 import { useGrowthBook } from "@growthbook/growthbook-react";
+import { AppFeatures } from "shared/types/app-features";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAuth } from "@/services/auth";
 import Button from "@/ui/Button";
@@ -22,7 +23,6 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import track from "@/services/track";
-import { AppFeatures } from "@/types/app-features";
 
 interface Props {
   source: string;

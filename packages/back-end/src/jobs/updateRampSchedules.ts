@@ -1,15 +1,50 @@
 import Agenda, { Job } from "agenda";
+import { isAwaitingStartApproval } from "shared/validators";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
 import {
-  advanceUntilBlocked,
+  appendRampEvent,
   applyRampStartActions,
   completeRollout,
   computeNextProcessAt,
+  ensureSafeRolloutForMonitoredRamp,
   onActivatingRevisionPublished,
+  syncLinkedSafeRolloutForRampState,
+  withRampScheduleAdvanceLock,
 } from "back-end/src/services/rampSchedule";
+import {
+  applyRampEvaluationDecision,
+  evaluateCurrentStep,
+} from "back-end/src/services/rampScheduleEvaluator";
+import { RampAdvanceLockBusyError } from "back-end/src/util/errors";
 import { getFeature } from "back-end/src/models/FeatureModel";
-import { findSchedulesDueForProcessing } from "back-end/src/models/RampScheduleModel";
+import { RampScheduleModel } from "back-end/src/models/RampScheduleModel";
+
+/**
+ * Transient errors should be silently retried on the next scheduler tick.
+ * Structural / programming errors still pause the schedule so they surface
+ * in the UI.
+ */
+function isTransientRampError(e: unknown): boolean {
+  if (e instanceof RampAdvanceLockBusyError) return true;
+  // Mongo network / topology errors surface as generic Errors whose name or
+  // message contains well-known driver strings.
+  if (e instanceof Error) {
+    const name = e.name ?? "";
+    const msg = e.message ?? "";
+    if (
+      name.includes("MongoNetwork") ||
+      name.includes("MongoTopology") ||
+      name.includes("MongoServerSelection") ||
+      msg.includes("ECONNRESET") ||
+      msg.includes("ETIMEDOUT") ||
+      msg.includes("connection timed out")
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
 
 type AdvanceSingleRampScheduleJob = Job<{
   rampScheduleId: string;
@@ -40,9 +75,16 @@ async function queueRampScheduleAdvance(
 export default async function addRampScheduleJob(agenda: Agenda) {
   agenda.define(QUEUE_RAMP_SCHEDULE_ADVANCES, async () => {
     const now = new Date();
-    const scheduleDocs = await findSchedulesDueForProcessing(now);
-    for (const doc of scheduleDocs) {
-      await queueRampScheduleAdvance(agenda, doc);
+    const due = await RampScheduleModel.dangerouslyFindAllDueSchedules(now);
+    for (const { id, organization } of due) {
+      try {
+        await queueRampScheduleAdvance(agenda, { id, organization });
+      } catch (e) {
+        logger.error(
+          e,
+          `Error queuing ramp schedule ${id} for org ${organization}`,
+        );
+      }
     }
   });
 
@@ -53,6 +95,17 @@ export default async function addRampScheduleJob(agenda: Agenda) {
   await job.save();
 }
 
+function getActivatingVersion(schedule: {
+  targets: { activatingRevisionVersion?: number | null }[];
+}): number | null {
+  const v = schedule.targets.find(
+    (t) =>
+      t.activatingRevisionVersion !== undefined &&
+      t.activatingRevisionVersion !== null,
+  )?.activatingRevisionVersion;
+  return v ?? null;
+}
+
 export const advanceSingleRampSchedule = async (
   job: AdvanceSingleRampScheduleJob,
 ) => {
@@ -61,32 +114,85 @@ export const advanceSingleRampSchedule = async (
   if (!rampScheduleId || !organization) return;
 
   const context = await getContextForAgendaJobByOrgId(organization);
-  const schedule = await context.models.rampSchedules.getById(rampScheduleId);
-  if (!schedule) return;
-
   const now = new Date();
 
+  // Pre-lock screen: the pending poll is time-unbounded (a schedule can await
+  // its draft publish for weeks) and shouldn't pay two lock writes per minute.
+  // Screening errors skip the tick rather than failing the agenda job — the
+  // in-lock body re-reads everything and owns the error-pause semantics.
   try {
-    // Hard deadline — trumps everything else.
-    if (
-      schedule.endCondition?.trigger?.type === "scheduled" &&
-      schedule.endCondition.trigger.at <= now &&
-      ["running", "pending-approval"].includes(schedule.status)
-    ) {
-      await completeRollout(context, schedule);
+    const screened = await context.models.rampSchedules.getById(rampScheduleId);
+    if (!screened) return;
+    // A ready schedule held for start approval never advances from a poll (it
+    // waits for the approve action). Skip it here so a held schedule that still
+    // carries a past startDate isn't lock-cycled every tick. A *pending*
+    // approval-gated schedule is different: it still needs its activating-
+    // revision transition (which is what establishes the hold), so let it fall
+    // through to the pending-recovery block below — otherwise a publish hook
+    // that deferred to the scheduler leaves it stuck pending forever.
+    if (screened.status !== "pending" && isAwaitingStartApproval(screened)) {
       return;
     }
+    if (screened.status === "pending") {
+      const activatingVersion = getActivatingVersion(screened);
+      if (activatingVersion === null) return;
+      const feature = screened.entityId
+        ? await getFeature(context, screened.entityId)
+        : undefined;
+      if ((feature?.version ?? -1) < activatingVersion) return;
+    }
+  } catch (e) {
+    logger.warn(
+      { rampScheduleId, error: e instanceof Error ? e.message : String(e) },
+      "Error screening ramp schedule — skipping tick; will retry next poll",
+    );
+    return;
+  }
+
+  // If another advance holds the lock, skip this tick — the schedule's
+  // nextProcessAt keeps it queued for a retry.
+  try {
+    await withRampScheduleAdvanceLock(
+      context,
+      rampScheduleId,
+      async (heartbeat) => {
+        await runRampScheduleTick(context, rampScheduleId, now, heartbeat);
+      },
+    );
+  } catch (e) {
+    if (e instanceof RampAdvanceLockBusyError) {
+      logger.info(
+        { rampScheduleId },
+        "Skipping ramp schedule tick — advance already in progress",
+      );
+      return;
+    }
+    throw e;
+  }
+};
+
+async function runRampScheduleTick(
+  context: Awaited<ReturnType<typeof getContextForAgendaJobByOrgId>>,
+  rampScheduleId: string,
+  now: Date,
+  heartbeat: () => Promise<void>,
+) {
+  try {
+    const schedule = await context.models.rampSchedules.getById(rampScheduleId);
+    if (!schedule) return;
 
     let current = schedule;
 
-    // Crash recovery: replay activation if revision was published before we processed it.
     if (current.status === "pending") {
-      const activatingVersion = current.targets[0]?.activatingRevisionVersion;
-      if (activatingVersion != null) {
+      const activatingVersion = getActivatingVersion(current);
+      if (activatingVersion !== null) {
         const feature = current.entityId
           ? await getFeature(context, current.entityId)
           : undefined;
         if ((feature?.version ?? -1) >= activatingVersion) {
+          // Activation runs start actions + a catch-up publish — refresh the
+          // lease before this potentially slow multi-publish phase.
+          await heartbeat();
           await onActivatingRevisionPublished(context, current);
           current =
             (await context.models.rampSchedules.getById(current.id)) ?? current;
@@ -98,33 +204,97 @@ export const advanceSingleRampSchedule = async (
     if (
       current.status === "ready" &&
       current.startDate &&
-      current.startDate <= now
+      current.startDate <= now &&
+      // An approval-gated schedule holds even past its startDate until approved.
+      !isAwaitingStartApproval(current)
     ) {
       const initialNextStepAt = current.steps.length > 0 ? now : null;
       current = await context.models.rampSchedules.updateById(current.id, {
         status: "running",
         startedAt: now,
         phaseStartedAt: now,
+        monitoringStartDate: null,
         nextStepAt: initialNextStepAt,
         nextProcessAt: computeNextProcessAt({
           status: "running",
           nextStepAt: initialNextStepAt,
-          endCondition: current.endCondition,
+          cutoffDate: current.cutoffDate,
+        }),
+        eventHistory: appendRampEvent(current, "started", {
+          stepIndex: -1,
+          status: "running",
+          previousStatus: current.status,
+          reason: "Scheduled start",
         }),
       });
       await applyRampStartActions(context, current);
+      // For ready->running, SR creation/sync happens in the "running" block
+      // below in the same tick, so we don't need to wait another scheduler
+      // tick to pick it up. Pending->running may already have done this inline
+      // via onActivatingRevisionPublished.
     }
 
-    await advanceUntilBlocked(context, current, now);
-  } catch (e) {
-    logger.error(e, `Error advancing ramp schedule ${rampScheduleId}`);
-    try {
-      await context.models.rampSchedules.updateById(rampScheduleId, {
-        status: "paused",
-        nextProcessAt: null,
+    if (
+      current.cutoffDate &&
+      current.cutoffDate <= now &&
+      ["running", "paused"].includes(current.status)
+    ) {
+      await completeRollout(context, current, {
+        disableActiveTargets: true,
       });
-    } catch (inner) {
-      logger.error(inner, "Error updating ramp schedule status after failure");
+      return;
+    }
+
+    if (current.status !== "running") return;
+
+    current = await ensureSafeRolloutForMonitoredRamp(context, current);
+
+    const decision = await evaluateCurrentStep(context, current, now);
+    // Refresh the lease between the slow evaluation and slow publish phases.
+    await heartbeat();
+    await applyRampEvaluationDecision(context, current, decision, now);
+  } catch (e) {
+    // Transient errors (network blips, lock contention) — log and let the
+    // next scheduler tick retry.
+    if (isTransientRampError(e)) {
+      logger.info(
+        { rampScheduleId },
+        `Transient error advancing ramp schedule — will retry next tick: ${e instanceof Error ? e.message : String(e)}`,
+      );
+      return;
+    }
+
+    logger.error(e, `Error advancing ramp schedule ${rampScheduleId}`);
+    // Structural / unrecoverable error — pause and surface in UI event history.
+    const errorSchedule =
+      await context.models.rampSchedules.getById(rampScheduleId);
+    const updated = await context.models.rampSchedules.updateById(
+      rampScheduleId,
+      {
+        status: "paused",
+        nextSnapshotAt: null,
+        nextProcessAt: null,
+        ...(errorSchedule
+          ? {
+              eventHistory: appendRampEvent(errorSchedule, "error-paused", {
+                stepIndex: errorSchedule.currentStepIndex,
+                status: "paused",
+                previousStatus: errorSchedule.status,
+                reason: e instanceof Error ? e.message : String(e),
+              }),
+            }
+          : {}),
+      },
+    );
+    if (errorSchedule) {
+      try {
+        await syncLinkedSafeRolloutForRampState(context, updated);
+      } catch (syncErr) {
+        logger.warn(
+          { rampScheduleId, error: (syncErr as Error).message },
+          "Failed to sync SafeRollout after error-pausing schedule; SafeRollout may be temporarily diverged",
+        );
+      }
     }
   }
-};
+}

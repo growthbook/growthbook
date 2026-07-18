@@ -17,7 +17,7 @@ const RefreshBanditButton: FC<{
   setError: (e: string | undefined) => void;
   setGeneratedSnapshot: (s: ExperimentSnapshotInterface | undefined) => void;
 }> = ({
-  mutate,
+  mutate: mutateExperiment,
   experiment,
   setError: setOuterError,
   setGeneratedSnapshot: setOuterGeneratedSnapshot,
@@ -31,7 +31,7 @@ const RefreshBanditButton: FC<{
   const [reweight, setReweight] = useState(false);
   const [open, setOpen] = useState(false);
 
-  const { setSnapshotType, mutateSnapshot } = useSnapshot();
+  const { setSnapshotType, mutate } = useSnapshot();
 
   const { getDatasourceById } = useDefinitions();
 
@@ -76,7 +76,7 @@ const RefreshBanditButton: FC<{
         getDatasourceById(experiment.datasource)?.type || null,
         res.snapshot,
       );
-      await mutate();
+      await mutateExperiment();
     } catch (e) {
       console.error(e);
     }
@@ -129,7 +129,10 @@ const RefreshBanditButton: FC<{
                 throw e;
               }
               setSnapshotType("standard");
-              mutateSnapshot();
+              // POSTing /banditSnapshot creates a new snapshot id; the
+              // provider auto-upgrades the heavy fetch when status reports
+              // the new successful id, so the default cheap mutate suffices.
+              mutate();
             }}
           >
             <BsArrowRepeat /> {reweight ? "Update Weights" : "Check Results"}

@@ -28,10 +28,44 @@ export const srm = z
   })
   .strict();
 
+export const noData = z
+  .object({
+    type: z.literal("no-data"),
+    experimentName: z.string(),
+    experimentId: z.string(),
+  })
+  .strict();
+
+export const scheduledStatusUpdateFailed = z
+  .object({
+    type: z.literal("scheduled-status-update-failed"),
+    experimentName: z.string(),
+    experimentId: z.string(),
+    // "start" | "stop" — which scheduled transition failed.
+    scheduledStatusUpdateType: z.enum(["start", "stop"]),
+    attempts: z.number().int().positive(),
+    maxAttempts: z.number().int().positive(),
+    // false once we've hit the retry cap and cleared `nextScheduledStatusUpdate`.
+    willRetry: z.boolean(),
+    reason: z.string(),
+  })
+  .strict();
+
+export const underpowered = z
+  .object({
+    type: z.literal("underpowered"),
+    experimentName: z.string(),
+    experimentId: z.string(),
+  })
+  .strict();
+
 export const experimentWarningNotificationPayload = z.union([
   autoUpdateFailed,
   multipleExposures,
   srm,
+  noData,
+  scheduledStatusUpdateFailed,
+  underpowered,
 ]);
 
 export type ExperimentWarningNotificationPayload = z.infer<

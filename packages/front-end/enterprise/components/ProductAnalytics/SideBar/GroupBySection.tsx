@@ -6,6 +6,7 @@ import Button from "@/ui/Button";
 import { getMaxDimensions } from "@/enterprise/components/ProductAnalytics/util";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import Text from "@/ui/Text";
+import Tooltip from "@/ui/Tooltip";
 import SelectField from "@/components/Forms/SelectField";
 import Field from "@/components/Forms/Field";
 
@@ -131,21 +132,26 @@ export default function GroupBySection() {
     >
       <Flex justify="between" align="center">
         <Text weight="medium">Group By</Text>
-        <Button
-          size="xs"
-          variant="ghost"
-          disabled={
-            getMaxDimensions(draftExploreState.dataset) <=
-              draftExploreState.dimensions.length ||
-            availableColumns.length === 0 ||
-            draftExploreState.chartType === "bigNumber"
-          }
-          onClick={handleAddDimension}
+        <Tooltip
+          enabled={commonColumns.length === 0}
+          content="No group by columns are available."
         >
-          <Flex align="center" gap="2">
-            <PiPlus size={14} /> Add
-          </Flex>
-        </Button>
+          <Button
+            size="xs"
+            variant="ghost"
+            disabled={
+              getMaxDimensions(draftExploreState.dataset) <=
+                draftExploreState.dimensions.length ||
+              availableColumns.length === 0 ||
+              draftExploreState.chartType === "bigNumber"
+            }
+            onClick={handleAddDimension}
+          >
+            <Flex align="center" gap="2">
+              <PiPlus size={14} /> Add
+            </Flex>
+          </Button>
+        </Tooltip>
       </Flex>
       {/* Display existing dimensions */}
       {draftExploreState.dimensions.map((dim, i) => {

@@ -3,7 +3,7 @@ import { Flex } from "@radix-ui/themes";
 import { SnapshotMetric } from "shared/types/experiment-snapshot";
 import { DetailedHTMLProps, TdHTMLAttributes } from "react";
 import { DifferenceType, StatsEngine } from "shared/types/stats";
-import { ExperimentMetricInterface } from "shared/experiments";
+import { ExperimentMetricDefinition } from "shared/experiments";
 import { PiWarningCircle } from "react-icons/pi";
 import { RowResults } from "@/services/experiments";
 import NotEnoughData from "@/components/Experiment/NotEnoughData";
@@ -30,7 +30,7 @@ interface Props
   className?: string;
   hideScaledImpact?: boolean;
   // Props for popover
-  metric?: ExperimentMetricInterface;
+  metric?: ExperimentMetricDefinition;
   pValueThreshold: number;
   differenceType?: DifferenceType;
   statsEngine?: StatsEngine;

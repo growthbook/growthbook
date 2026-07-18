@@ -63,9 +63,9 @@ export default function StatsEngineSettings() {
   const regressionAdjustmentDaysWarningMsg =
     typeof regressionAdjustmentDays !== "undefined"
       ? regressionAdjustmentDays > 28
-        ? "Longer lookback periods can sometimes be useful, but also will reduce query performance and may incorporate less useful data"
+        ? "Longer lookback windows can sometimes be useful, but also will reduce query performance and may incorporate less useful data"
         : regressionAdjustmentDays < 7
-          ? "Lookback periods under 7 days tend not to capture enough metric data to reduce variance and may be subject to weekly seasonality"
+          ? "Lookback windows under 7 days tend not to capture enough metric data to reduce variance and may be subject to weekly seasonality"
           : ""
       : "";
 
@@ -74,9 +74,8 @@ export default function StatsEngineSettings() {
       <h4>Stats Engine Settings</h4>
 
       <StatsEngineSelect
-        label="Default statistics engine to use (Bayesian is most common)"
+        label="Default stats engine to use (Bayesian is most common)"
         allowUndefined={false}
-        showDefault={true}
         value={form.watch("statsEngine")}
         onChange={(value) => {
           form.setValue("statsEngine", value);
@@ -133,11 +132,11 @@ export default function StatsEngineSettings() {
                 </label>
               </Text>
               <Text as="p" mb="1" size="2" className="font-weight-semibold">
-                Default CUPED lookback (days)
+                Default CUPED lookback window
               </Text>
               <Box mb="2">
                 <Text as="span" size="1" className="text-muted">
-                  ({DEFAULT_REGRESSION_ADJUSTMENT_DAYS} is default)
+                  Default is {DEFAULT_REGRESSION_ADJUSTMENT_DAYS}.
                 </Text>
               </Box>
               <Box width="140px" mb="4">

@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { Box } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import Button from "@/ui/Button";
 import Modal, { Size, TrackingEventModalProps } from "@/ui/Modal";
 import ModalForm, { useModalForm } from "../ModalForm";
@@ -37,7 +37,12 @@ export type Props = TrackingEventModalProps & {
   size?: Size;
   submit?: () => void | Promise<void>;
   trackOnSubmit?: boolean;
+  dismissible?: boolean;
+  // Optional button rendered on the left side of the footer. Use for
+  // destructive or out-of-flow actions that shouldn't be the primary CTA.
+  secondaryAction?: ReactNode;
   close: () => void;
+  closeCta?: string;
   children: ReactNode;
 };
 
@@ -55,12 +60,15 @@ export default function ModalStandard({
   ctaEnabled = true,
   size = "md",
   submit,
+  secondaryAction,
   close,
+  closeCta = "Cancel",
   children,
   trackingEventModalType,
   trackingEventModalSource,
   allowlistedTrackingEventProps = {},
   trackOnSubmit = true,
+  dismissible,
 }: Props) {
   const content = (
     <>
@@ -70,15 +78,22 @@ export default function ModalStandard({
       </Modal.Header>
       {subheader && <Modal.Description>{subheader}</Modal.Description>}
       <Modal.Body>{children}</Modal.Body>
-      <Modal.Footer>
-        <Modal.Close>
-          <Button variant="ghost" onClick={close}>
-            Cancel
-          </Button>
-        </Modal.Close>
-        {submit && (
-          <SubmitButton cta={cta} ctaColor={ctaColor} ctaEnabled={ctaEnabled} />
-        )}
+      <Modal.Footer justify={secondaryAction ? "between" : "end"}>
+        {secondaryAction ? <Box>{secondaryAction}</Box> : null}
+        <Flex gap="3" align="center">
+          <Modal.Close>
+            <Button variant="ghost" onClick={close}>
+              {closeCta}
+            </Button>
+          </Modal.Close>
+          {submit && (
+            <SubmitButton
+              cta={cta}
+              ctaColor={ctaColor}
+              ctaEnabled={ctaEnabled}
+            />
+          )}
+        </Flex>
       </Modal.Footer>
     </>
   );
@@ -90,6 +105,8 @@ export default function ModalStandard({
         if (!nextOpen) close();
       }}
       size={size}
+      dismissible={dismissible ?? !submit}
+      hasDescription={!!subheader}
       trackingEventModalType={trackingEventModalType}
       trackingEventModalSource={trackingEventModalSource}
       allowlistedTrackingEventProps={allowlistedTrackingEventProps}

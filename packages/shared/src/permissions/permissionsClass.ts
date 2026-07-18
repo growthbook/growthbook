@@ -28,7 +28,11 @@ import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { IdeaInterface } from "shared/types/idea";
 import { ArchetypeInterface } from "shared/types/archetype";
 import { SavedGroupInterface } from "shared/types/saved-group";
+import { ConstantInterface } from "shared/types/constant";
+import { ConfigInterface } from "shared/types/config";
 import { CustomHookInterface } from "../validators/custom-hooks";
+import { ContextualBanditInterface } from "../validators/contextual-bandit";
+import { EventForwarderConfigInterface } from "../validators/event-forwarder-config";
 import { HoldoutInterface } from "../validators/holdout";
 import { PermissionError } from "../util/";
 import { READ_ONLY_PERMISSIONS } from "./permissions.constants";
@@ -128,6 +132,24 @@ export class Permissions {
 
   public canDeleteMetricGroup = (): boolean => {
     return this.checkGlobalPermission("createMetricGroups");
+  };
+
+  public canViewSessionReplay = (
+    session?: { projects?: string[] } | null,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: session?.projects },
+      "viewSessionReplay",
+    );
+  };
+
+  public canDeleteSessionReplay = (
+    session?: { projects?: string[] } | null,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: session?.projects },
+      "deleteSessionReplay",
+    );
   };
 
   public canManageOrgSettings = (): boolean => {
@@ -270,8 +292,13 @@ export class Permissions {
     allProjects?: { id: string }[],
   ): boolean => {
     if (!project && allProjects?.length) {
-      return allProjects.some((p) =>
-        this.canCreateAttribute({ projects: [p.id] }),
+      // Allow if the user can create an attribute with no project (e.g. a
+      // global admin). Checking that first means a non-creatable project (like
+      // the read-only sample-data project) can't gate the CTA when it's the
+      // only project.
+      return (
+        this.canCreateAttribute({ projects: [] }) ||
+        allProjects.some((p) => this.canCreateAttribute({ projects: [p.id] }))
       );
     }
     return this.canCreateAttribute({ projects: project ? [project] : [] });
@@ -314,11 +341,18 @@ export class Permissions {
     allProjects?: { id: string }[],
   ): boolean => {
     if (!project && allProjects?.length) {
-      return allProjects.some((p) =>
-        this.checkProjectFilterPermission(
-          { projects: [p.id] },
-          "manageFeatures",
-        ),
+      // Allow if the user has the permission with no project (e.g. a global
+      // admin). Checking that first means a non-creatable project (like the
+      // read-only sample-data project) can't gate the CTA when it's the only
+      // project.
+      return (
+        this.checkProjectFilterPermission({ projects: [] }, "manageFeatures") ||
+        allProjects.some((p) =>
+          this.checkProjectFilterPermission(
+            { projects: [p.id] },
+            "manageFeatures",
+          ),
+        )
       );
     }
     return this.checkProjectFilterPermission(
@@ -368,11 +402,18 @@ export class Permissions {
     allProjects?: { id: string }[],
   ): boolean => {
     if (!project && allProjects?.length) {
-      return allProjects.some((p) =>
-        this.checkProjectFilterPermission(
-          { projects: [p.id] },
-          "createAnalyses",
-        ),
+      // Allow if the user has the permission with no project (e.g. a global
+      // admin). Checking that first means a non-creatable project (like the
+      // read-only sample-data project) can't gate the CTA when it's the only
+      // project.
+      return (
+        this.checkProjectFilterPermission({ projects: [] }, "createAnalyses") ||
+        allProjects.some((p) =>
+          this.checkProjectFilterPermission(
+            { projects: [p.id] },
+            "createAnalyses",
+          ),
+        )
       );
     }
     return this.checkProjectFilterPermission(
@@ -412,6 +453,70 @@ export class Permissions {
     );
   };
 
+  public canViewContextualBanditModal = (
+    project?: string,
+    allProjects?: { id: string }[],
+  ): boolean => {
+    if (!project && allProjects?.length) {
+      return allProjects.some((p) =>
+        this.checkProjectFilterPermission(
+          { projects: [p.id] },
+          "createAnalyses",
+        ),
+      );
+    }
+    return this.checkProjectFilterPermission(
+      { projects: project ? [project] : [] },
+      "createAnalyses",
+    );
+  };
+
+  public canCreateContextualBandit = (
+    cb: Pick<ContextualBanditInterface, "project">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: cb.project ? [cb.project] : [] },
+      "createAnalyses",
+    );
+  };
+
+  public canUpdateContextualBandit = (
+    existing: Pick<ContextualBanditInterface, "project">,
+    updated: Pick<ContextualBanditInterface, "project">,
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      { projects: existing.project ? [existing.project] : [] },
+      "project" in updated ? { projects: [updated.project || ""] } : {},
+      "createAnalyses",
+    );
+  };
+
+  public canDeleteContextualBandit = (
+    cb: Pick<ContextualBanditInterface, "project">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: cb.project ? [cb.project] : [] },
+      "createAnalyses",
+    );
+  };
+
+  public canRunContextualBandit = (
+    cb: Pick<ContextualBanditInterface, "project">,
+    environments: string[],
+  ): boolean => {
+    return this.checkEnvFilterPermission(
+      { projects: cb.project ? [cb.project] : [] },
+      environments,
+      "runExperiments",
+    );
+  };
+
+  public canRunContextualBanditQueries = (
+    datasource: Pick<DataSourceInterface, "projects">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(datasource, "runQueries");
+  };
+
   // Frontend helper to gate "Create Holdout" UI.
   // Pass allProjects on list pages where "All Projects" may be selected;
   // omit it when checking a specific resource's project or global-only access.
@@ -420,8 +525,13 @@ export class Permissions {
     allProjects?: { id: string }[],
   ): boolean => {
     if (!project && allProjects?.length) {
-      return allProjects.some((p) =>
-        this.canCreateHoldout({ projects: [p.id] }),
+      // Allow if the user can create a holdout with no project (e.g. a global
+      // admin). Checking that first means a non-creatable project (like the
+      // read-only sample-data project) can't gate the CTA when it's the only
+      // project.
+      return (
+        this.canCreateHoldout({ projects: [] }) ||
+        allProjects.some((p) => this.canCreateHoldout({ projects: [p.id] }))
       );
     }
     return this.canCreateHoldout({ projects: project ? [project] : [] });
@@ -464,11 +574,21 @@ export class Permissions {
     allProjects?: { id: string }[],
   ): boolean => {
     if (!project && allProjects?.length) {
-      return allProjects.some((p) =>
+      // Allow if the user has the permission with no project (e.g. a global
+      // admin). Checking that first means a non-creatable project (like the
+      // read-only sample-data project) can't gate the CTA when it's the only
+      // project.
+      return (
         this.checkProjectFilterPermission(
-          { projects: [p.id] },
+          { projects: [] },
           "manageTemplates",
-        ),
+        ) ||
+        allProjects.some((p) =>
+          this.checkProjectFilterPermission(
+            { projects: [p.id] },
+            "manageTemplates",
+          ),
+        )
       );
     }
     return this.checkProjectFilterPermission(
@@ -591,7 +711,14 @@ export class Permissions {
     allProjects?: { id: string }[],
   ): boolean => {
     if (!project && allProjects?.length) {
-      return allProjects.some((p) => this.canCreateIdea({ project: p.id }));
+      // Allow if the user can create an idea with no project (e.g. a global
+      // admin). Checking that first means a non-creatable project (like the
+      // read-only sample-data project) can't gate the CTA when it's the only
+      // project.
+      return (
+        this.canCreateIdea({ project: "" }) ||
+        allProjects.some((p) => this.canCreateIdea({ project: p.id }))
+      );
     }
     return this.canCreateIdea({ project });
   };
@@ -661,8 +788,13 @@ export class Permissions {
     allProjects?: { id: string }[],
   ): boolean => {
     if (!project && allProjects?.length) {
-      return allProjects.some((p) =>
-        this.canCreateFactTable({ projects: [p.id] }),
+      // Allow if the user can create a fact table with no project (e.g. a
+      // global admin). Checking that first means a non-creatable project (like
+      // the read-only sample-data project) can't gate the CTA when it's the
+      // only project.
+      return (
+        this.canCreateFactTable({ projects: [] }) ||
+        allProjects.some((p) => this.canCreateFactTable({ projects: [p.id] }))
       );
     }
     return this.canCreateFactTable({ projects: project ? [project] : [] });
@@ -881,6 +1013,19 @@ export class Permissions {
     );
   };
 
+  // Used to determine if we should show the Settings > Projects link in SideNav
+  // Returns true if user can view any projects (even without manage permission)
+  public canViewProjectsPage = (): boolean => {
+    // If user can manage some projects, they should see the page
+    if (this.canManageSomeProjects()) {
+      return true;
+    }
+
+    // Otherwise, check if they have readData permission globally or in any project
+    const projectsToCheck = ["", ...Object.keys(this.userPermissions.projects)];
+    return projectsToCheck.some((p) => this.hasPermission("readData", p));
+  };
+
   public canUpdateProject = (project: string): boolean => {
     return this.checkProjectFilterPermission(
       { projects: [project] },
@@ -903,8 +1048,15 @@ export class Permissions {
     allProjects?: { id: string }[],
   ): boolean => {
     if (!project && allProjects?.length) {
-      return allProjects.some((p) =>
-        this.canCreateDataSource({ projects: [p.id], type: undefined }),
+      // Allow if the user can create a data source with no project (e.g. a
+      // global admin). Checking that first means a non-creatable project (like
+      // the read-only sample-data project) can't gate the CTA when it's the
+      // only project.
+      return (
+        this.canCreateDataSource({ projects: [], type: undefined }) ||
+        allProjects.some((p) =>
+          this.canCreateDataSource({ projects: [p.id], type: undefined }),
+        )
       );
     }
     return this.canCreateDataSource({
@@ -1185,8 +1337,13 @@ export class Permissions {
     allProjects?: { id: string }[],
   ): boolean => {
     if (!project && allProjects?.length) {
-      return allProjects.some((p) =>
-        this.canCreateSavedGroup({ projects: [p.id] }),
+      // Allow if the user can create a saved group with no project (e.g. a
+      // global admin). Checking that first means a non-creatable project (like
+      // the read-only sample-data project) can't gate the CTA when it's the
+      // only project.
+      return (
+        this.canCreateSavedGroup({ projects: [] }) ||
+        allProjects.some((p) => this.canCreateSavedGroup({ projects: [p.id] }))
       );
     }
     return this.canCreateSavedGroup({ projects: project ? [project] : [] });
@@ -1213,6 +1370,64 @@ export class Permissions {
     savedGroup: Pick<SavedGroupInterface, "projects">,
   ): boolean => {
     return this.checkProjectFilterPermission(savedGroup, "manageSavedGroups");
+  };
+
+  public canCreateConstant = (
+    constant: Pick<ConstantInterface, "project">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: constant.project ? [constant.project] : [] },
+      "manageConstants",
+    );
+  };
+
+  public canUpdateConstant = (
+    existing: Pick<ConstantInterface, "project">,
+    updated: Pick<ConstantInterface, "project">,
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      { projects: existing.project ? [existing.project] : [] },
+      "project" in updated ? { projects: [updated.project || ""] } : {},
+      "manageConstants",
+    );
+  };
+
+  public canDeleteConstant = (
+    constant: Pick<ConstantInterface, "project">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: constant.project ? [constant.project] : [] },
+      "manageConstants",
+    );
+  };
+
+  public canCreateConfig = (
+    config: Pick<ConfigInterface, "project">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: config.project ? [config.project] : [] },
+      "manageConfigs",
+    );
+  };
+
+  public canUpdateConfig = (
+    existing: Pick<ConfigInterface, "project">,
+    updated: Pick<ConfigInterface, "project">,
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      { projects: existing.project ? [existing.project] : [] },
+      "project" in updated ? { projects: [updated.project || ""] } : {},
+      "manageConfigs",
+    );
+  };
+
+  public canDeleteConfig = (
+    config: Pick<ConfigInterface, "project">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: config.project ? [config.project] : [] },
+      "manageConfigs",
+    );
   };
 
   public canBypassSavedGroupSizeLimit = (projects?: string[]): boolean => {
@@ -1316,6 +1531,51 @@ export class Permissions {
     customHook: Pick<CustomHookInterface, "projects">,
   ): boolean => {
     return this.checkProjectFilterPermission(customHook, "manageCustomHooks");
+  };
+
+  // Alias for the feature-edit permission; its own method so we can add logic/resource types later.
+  public canManageFeatureCustomHooks = (
+    feature: Pick<FeatureInterface, "project">,
+  ): boolean => {
+    return this.canUpdateFeature(feature, {});
+  };
+
+  public canManageExperimentCustomHooks = (
+    experiment: Pick<ExperimentInterface, "project">,
+  ): boolean => {
+    return this.canUpdateExperiment(experiment, {});
+  };
+
+  public canCreateEventForwarderConfig = (
+    config: Pick<EventForwarderConfigInterface, "projects">,
+  ): boolean => {
+    return (
+      this.checkProjectFilterPermission(config, "editDatasourceSettings") &&
+      this.checkProjectFilterPermission(config, "runQueries")
+    );
+  };
+
+  public canUpdateEventForwarderConfig = (
+    existing: Pick<EventForwarderConfigInterface, "projects">,
+    updates: Pick<EventForwarderConfigInterface, "projects">,
+  ): boolean => {
+    return (
+      this.checkProjectFilterUpdatePermission(
+        existing,
+        updates,
+        "editDatasourceSettings",
+      ) &&
+      this.checkProjectFilterUpdatePermission(existing, updates, "runQueries")
+    );
+  };
+
+  public canDeleteEventForwarderConfig = (
+    config: Pick<EventForwarderConfigInterface, "projects">,
+  ): boolean => {
+    return (
+      this.checkProjectFilterPermission(config, "editDatasourceSettings") &&
+      this.checkProjectFilterPermission(config, "runQueries")
+    );
   };
 
   public throwPermissionError(message?: string): void {

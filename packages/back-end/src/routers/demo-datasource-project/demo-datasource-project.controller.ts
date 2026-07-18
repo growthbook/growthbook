@@ -4,10 +4,8 @@ import {
   getDemoDataSourceFeatureId,
   getDemoDatasourceProjectIdForOrganization,
 } from "shared/demo-datasource";
-import {
-  DEFAULT_P_VALUE_THRESHOLD,
-  DEFAULT_STATS_ENGINE,
-} from "shared/constants";
+import { DEFAULT_STATS_ENGINE } from "shared/constants";
+import { getScopedSettings } from "shared/settings";
 import { EventUserForResponseLocals } from "shared/types/events/event-types";
 import { PostgresConnectionParams } from "shared/types/integrations/postgres";
 import { DataSourceSettings } from "shared/types/datasource";
@@ -26,7 +24,11 @@ import {
   createExperiment,
   getAllExperiments,
 } from "back-end/src/models/ExperimentModel";
-import { createSnapshot } from "back-end/src/services/experiments";
+import { SoftWarningError } from "back-end/src/util/errors";
+import {
+  createSnapshot,
+  getDefaultExperimentAnalysisSettings,
+} from "back-end/src/services/experiments";
 import { PrivateApiErrorResponse } from "back-end/types/api";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { createFeature } from "back-end/src/models/FeatureModel";
@@ -36,6 +38,7 @@ import {
   createFactTable,
   getFactTableMap,
 } from "back-end/src/models/FactTableModel";
+import { queueFactTableColumnsRefresh } from "back-end/src/jobs/refreshFactTableColumns";
 
 // region Constants for Demo Datasource
 
@@ -74,7 +77,6 @@ const DEMO_DATASOURCE_PARAMS: PostgresConnectionParams = {
   defaultSchema: "sample",
 };
 
-const ASSET_OWNER = "";
 const DEMO_TAGS = ["growthbook-demo"];
 
 // Metric constants
@@ -235,14 +237,14 @@ export const postDemoDatasourceProject = async (
     );
 
     // Create fact table
-    await createFactTable(context, {
+    const demoFactTable = await createFactTable(context, {
       id: demoFactTableId,
       name: "purchases",
       description: "",
-      owner: ASSET_OWNER,
+      owner: context.userId,
       tags: DEMO_TAGS,
       userIdTypes: ["user_id"],
-      sql: "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\namount AS value\nFROM purchases",
+      sql: "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\namount AS value,\nbrowser,\ncountry\nFROM purchases",
       eventName: "purchases",
       datasource: datasource.id,
       projects: [project.id],
@@ -260,8 +262,21 @@ export const postDemoDatasourceProject = async (
           datatype: "number",
           numberFormat: "currency",
         },
+        {
+          column: "browser",
+          datatype: "string",
+        },
+        {
+          column: "country",
+          datatype: "string",
+        },
       ],
+      columnRefreshPending: true,
     });
+
+    // Kick off a column refresh so string columns get topValues populated
+    // for autocomplete dropdowns in filters and Group By.
+    await queueFactTableColumnsRefresh(demoFactTable);
 
     // Create metrics
     const metrics = await Promise.all(
@@ -271,7 +286,7 @@ export const postDemoDatasourceProject = async (
           ...(m.metricType === "retention"
             ? { id: `fact__demo-d7-purchase-retention` }
             : {}),
-          owner: ASSET_OWNER,
+          owner: context.userId,
           datasource: datasource.id,
           projects: [project.id],
           tags: DEMO_TAGS,
@@ -308,7 +323,7 @@ export const postDemoDatasourceProject = async (
 
     const ratioMetric = await context.models.factMetrics.create({
       ...DEMO_RATIO_METRIC,
-      owner: ASSET_OWNER,
+      owner: context.userId,
       datasource: datasource.id,
       projects: [project.id],
       tags: DEMO_TAGS,
@@ -374,12 +389,10 @@ export const postDemoDatasourceProject = async (
     > = {
       name: DEMO_DATA_EXPERIMENT_ID,
       trackingKey: DEMO_DATA_EXPERIMENT_ID,
-      description: `**THIS IS A DEMO EXPERIMENT USED FOR DEMONSTRATION PURPOSES ONLY**
-
-Experiment to test impact of a different 'Add to Cart' CTA design.
+      description: `Experiment to test impact of a different 'Add to Cart' CTA design.
 Treatment shows a larger 'Add to Cart' CTA, but with the same functionality.`,
       hypothesis: `We predict the treatment will increase Purchase metrics and have uncertain effects on Retention.`,
-      owner: ASSET_OWNER,
+      owner: context.userId,
       datasource: datasource.id,
       project: project.id,
       goalMetrics,
@@ -442,7 +455,7 @@ Treatment shows a larger 'Add to Cart' CTA, but with the same functionality.`,
       dateUpdated: new Date(),
       description:
         "Controls add to cart CTA. Employees forced to see new CTA, other users randomly assigned to either the control or treatment.",
-      owner: ASSET_OWNER,
+      owner: context.userId,
       valueType: "boolean",
       defaultValue: "false",
       tags: DEMO_TAGS,
@@ -459,50 +472,62 @@ Treatment shows a larger 'Add to Cart' CTA, but with the same functionality.`,
       featureToCreate.environmentSettings[env] = {
         enabled: true,
       };
-      featureToCreate.rules.push(
-        {
-          type: "force",
-          description: "",
-          id: `${getDemoDataSourceFeatureId()}-employee-force-rule-${env}`,
-          allEnvironments: false,
-          environments: [env],
-          value: "true",
-          condition: `{"is_employee":true}`,
-          enabled: true,
-        },
-        {
-          type: "experiment-ref",
-          description: "",
-          id: `${getDemoDataSourceFeatureId()}-exp-rule-${env}`,
-          allEnvironments: false,
-          environments: [env],
-          enabled: true,
-          experimentId: createdExperiment.id,
-          variations: [
-            {
-              variationId: "v0",
-              value: "false",
-            },
-            {
-              variationId: "v1",
-              value: "true",
-            },
-          ],
-        },
-      );
     });
+    // Single rules array tagged for all environments — avoids per-env duplicates.
+    featureToCreate.rules.push(
+      {
+        type: "force",
+        description: "",
+        id: `${getDemoDataSourceFeatureId()}-employee-force-rule`,
+        allEnvironments: true,
+        environments: [],
+        value: "true",
+        condition: `{"is_employee":true}`,
+        enabled: true,
+      },
+      {
+        type: "experiment-ref",
+        description: "",
+        id: `${getDemoDataSourceFeatureId()}-exp-rule`,
+        allEnvironments: true,
+        environments: [],
+        enabled: true,
+        experimentId: createdExperiment.id,
+        variations: [
+          {
+            variationId: "v0",
+            value: "false",
+          },
+          {
+            variationId: "v1",
+            value: "true",
+          },
+        ],
+      },
+    );
 
     await createFeature(context, featureToCreate);
 
-    const analysisSettings: ExperimentSnapshotAnalysisSettings = {
-      statsEngine: org.settings?.statsEngine || DEFAULT_STATS_ENGINE,
-      differenceType: "relative",
-      dimensions: [],
-      pValueThreshold:
-        org.settings?.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
-      numGoalMetrics: goalMetrics.length,
-      numGuardrailMetrics: createdExperiment.guardrailMetrics?.length ?? 0,
-    };
+    // Use the same helper the runtime uses so the snapshot's analysis
+    // settings line up with what the front-end will compute when checking
+    // for stale results — otherwise the experiment shows as "Outdated"
+    // immediately after creation.
+    const { settings: scopedSettings } = getScopedSettings({
+      organization: org,
+      project,
+      experiment: createdExperiment,
+    });
+    const analysisSettings: ExperimentSnapshotAnalysisSettings =
+      getDefaultExperimentAnalysisSettings({
+        statsEngine: org.settings?.statsEngine || DEFAULT_STATS_ENGINE,
+        experiment: createdExperiment,
+        organization: org,
+        regressionAdjustmentEnabled:
+          createdExperiment.regressionAdjustmentEnabled,
+        postStratificationEnabled:
+          scopedSettings.postStratificationEnabled.value,
+        pValueThreshold: scopedSettings.pValueThreshold.value,
+      });
 
     const metricMap = await getMetricMap(context);
     const factTableMap = await getFactTableMap(context);
@@ -527,6 +552,7 @@ Treatment shows a larger 'Add to Cart' CTA, but with the same functionality.`,
       experimentId: createdExperiment.id,
     });
   } catch (e) {
+    if (e instanceof SoftWarningError) throw e;
     res.status(500).json({
       status: 500,
       message: `Failed to create demo datasource and project with message: ${e.message}`,

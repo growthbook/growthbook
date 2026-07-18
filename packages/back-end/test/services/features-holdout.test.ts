@@ -63,9 +63,20 @@ describe("getFeatureDefinitionsWithCache - Holdout Tests", () => {
           .fn()
           .mockResolvedValue(new Map()) as jest.Mock,
       },
+      rampSchedules: {
+        getPayloadRampMonitoredRuleMap: jest
+          .fn()
+          .mockResolvedValue(new Map()) as jest.Mock,
+      },
       savedGroups: {
         getAll: jest.fn().mockResolvedValue([]),
         getByIds: jest.fn().mockResolvedValue([]),
+      },
+      constants: {
+        getAll: jest.fn().mockResolvedValue([]),
+      },
+      configs: {
+        getAll: jest.fn().mockResolvedValue([]),
       },
     },
     userId: "test-user",

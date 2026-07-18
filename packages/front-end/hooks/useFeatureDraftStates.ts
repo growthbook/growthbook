@@ -2,15 +2,15 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ActiveDraftStatus } from "shared/validators";
 import { useAuth } from "@/services/auth";
 
-export type DraftStateEntry = { status: ActiveDraftStatus; version: number };
-type DraftStateCache = Record<string, DraftStateEntry>;
+export type DraftStatusCounts = Partial<Record<ActiveDraftStatus, number>>;
+type DraftStateCache = Record<string, DraftStatusCounts>;
 
 // Matches usePrerequisiteStates refresh cadence.
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 const ERROR_RETRY_MS = 30_000;
 
 export interface UseFeatureDraftStatesReturn {
-  // featureId → highest-priority active draft entry; absent if no active draft.
+  // featureId → status counts; absent if no active draft.
   draftStates: DraftStateCache;
   // Skips already-cached IDs; no-op if fetchAll has already run.
   fetchSome: (featureIds: string[]) => Promise<void>;

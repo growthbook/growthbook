@@ -52,7 +52,9 @@ const MetricSearchFilters: FC<
         owners.add(getOwnerDisplay(m.owner));
       }
     });
-    return Array.from(owners);
+    return Array.from(owners).sort((a, b) =>
+      a.localeCompare(b, undefined, { sensitivity: "base" }),
+    );
   }, [combinedMetrics, getOwnerDisplay]);
 
   const hasArchivedMetrics = combinedMetrics.some((m) => m.archived);

@@ -87,9 +87,11 @@ export default forwardRef<
   ref,
 ) {
   const style: React.CSSProperties = {
-    overflowWrap: overflowWrap,
-    whiteSpace: whiteSpace,
-    fontStyle: fontStyle,
+    overflowWrap,
+    fontStyle,
+    // Only set whiteSpace inline when truncate is off; otherwise let
+    // Radix's .rt-truncate class apply `white-space: nowrap`.
+    ...(truncate ? {} : { whiteSpace }),
   };
   if (textTransform) style.textTransform = textTransform;
 

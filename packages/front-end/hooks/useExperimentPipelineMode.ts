@@ -11,6 +11,7 @@ export default function useExperimentPipelineMode(
   const isIncrementalRefresh = getIsExperimentIncludedInIncrementalRefresh(
     datasource ?? undefined,
     experiment?.id,
+    experiment?.type,
   );
   if (isIncrementalRefresh) {
     return "incremental-refresh";

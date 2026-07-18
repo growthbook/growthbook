@@ -79,6 +79,17 @@ export const paginationQueryFields = {
     .meta({ default: 0 }),
 };
 
+/** Accepts boolean query params in both string and native boolean form. */
+export const booleanQueryField = z
+  .union([
+    z.literal("true"),
+    z.literal("false"),
+    z.literal("0"),
+    z.literal("1"),
+    z.boolean(),
+  ])
+  .optional();
+
 /**
  * Self-hosted escape hatch for GitOps-style bulk exports. Honored only when
  * API_ALLOW_SKIP_PAGINATION is set on the server.
@@ -101,4 +112,17 @@ export const skipPaginationQueryField = {
       "x-requiresEnv": "API_ALLOW_SKIP_PAGINATION",
     })
     .optional(),
+};
+
+// Query flags shared by value-writing + publishing endpoints (features, configs)
+// whose values are checked against a JSON/field schema. Both are read off the
+// raw query at the context layer, so any endpoint that honors them must declare
+// them here to keep them in the validated query (and in the API docs).
+export const schemaValidationQueryFields = {
+  skipSchemaValidation: booleanQueryField.describe(
+    "Skip JSON-schema validation of the value(s) being written. Only honored for callers with org-wide bypass authority (the `bypassApprovalChecks` permission on all projects); ignored otherwise. Validation is enforced by default.",
+  ),
+  ignoreWarnings: booleanQueryField.describe(
+    "Proceed despite soft validation warnings — e.g. publishing values that don't match the schema when the org has `blockPublishOnSchemaError` disabled (warn mode).",
+  ),
 };

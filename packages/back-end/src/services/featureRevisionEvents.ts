@@ -5,70 +5,20 @@ import {
   ResourceEvents,
 } from "shared/types/events/base-types";
 import { FeatureRevisionUpdatedPayload } from "shared/validators";
-import { Environment } from "shared/types/organization";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
+import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { logger } from "back-end/src/util/logger";
 import {
   revisionToApiInterface,
   toApiRevision,
 } from "back-end/src/services/features";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
-import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
+import { deriveRevisionEventEnvironments } from "back-end/src/events/eventEnvironments";
 import { getEnvironments } from "back-end/src/util/organization.util";
 
 type RevisionChange = FeatureRevisionUpdatedPayload["change"];
-
-/**
- * Envs a revision event applies to, used to fan out webhook/Slack
- * notifications. Precedence: `overrideEnvironments` → union of rule scopes
- * on `revision.rules` → feature's configured envs. Result is filtered to
- * envs applicable to the feature's project.
- */
-export function deriveRevisionEventEnvironments(
-  feature: FeatureInterface,
-  revision: FeatureRevisionInterface,
-  orgEnvs: Environment[],
-  overrideEnvironments?: string[],
-): string[] {
-  const featureProject = feature.project;
-  const inProject = (envId: string) => {
-    const envDef = orgEnvs.find((e) => e.id === envId);
-    return (
-      !envDef ||
-      !envDef.projects?.length ||
-      !featureProject ||
-      envDef.projects.includes(featureProject)
-    );
-  };
-
-  let rawEnvironments: string[];
-  if (overrideEnvironments !== undefined) {
-    rawEnvironments = overrideEnvironments;
-  } else if (Array.isArray(revision.rules) && revision.rules.length > 0) {
-    // Union of each rule's scope. `allEnvironments: true` expands to the
-    // feature's applicable envs, not every org env. Nullish slots (sparse
-    // pre-v2 docs) are skipped defensively — JIT-boundary filters already
-    // drop them, but this loop fans out into event dispatch so a guard here
-    // protects against any future regression.
-    const applicableEnvs = getApplicableEnvIds(orgEnvs, featureProject);
-    const declared = new Set<string>();
-    for (const rule of revision.rules) {
-      if (rule == null || typeof rule !== "object") continue;
-      if (rule.allEnvironments) {
-        applicableEnvs.forEach((e) => declared.add(e));
-      } else if (rule.environments?.length) {
-        rule.environments.forEach((e) => declared.add(e));
-      }
-    }
-    rawEnvironments = [...declared];
-  } else {
-    rawEnvironments = Object.keys(feature.environmentSettings ?? {});
-  }
-
-  return rawEnvironments.filter(inProject);
-}
 
 type FeatureRevisionEvent = Extract<
   ResourceEvents<"feature">,
@@ -87,6 +37,37 @@ type ExtraPayload<T extends FeatureRevisionEvent> = Omit<
   NotificationEventPayloadSchemaType<"feature", T>,
   RevisionBaseKeys
 >;
+
+// Re-read a just-published revision so event payloads carry the published
+// status (publishRevision updates the stored document, not the in-memory
+// object). Never throws: by the time this runs the publish has already
+// committed, so a failed read must not fail the request — fall back to the
+// caller's in-memory revision instead. The in-memory object is still a draft,
+// so correct its status on the fallback since publication already succeeded —
+// a `revision.published` event that reported "draft" would misinform consumers.
+export async function getPublishedRevisionForEvents(
+  ctx: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  fallback: FeatureRevisionInterface,
+): Promise<FeatureRevisionInterface> {
+  const publishedFallback: FeatureRevisionInterface = {
+    ...fallback,
+    status: "published",
+  };
+  try {
+    const updated = await getRevision({
+      context: ctx,
+      organization: feature.organization,
+      featureId: feature.id,
+      feature,
+      version: fallback.version,
+    });
+    return updated ?? publishedFallback;
+  } catch (e) {
+    logger.error(e, "Error re-reading revision after publish for events");
+    return publishedFallback;
+  }
+}
 
 // Dispatch a `feature.revision.*` webhook event. Pulls projects/environments/tags
 // from the parent feature so downstream Slack/webhook filters work the same as

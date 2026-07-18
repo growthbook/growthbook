@@ -101,7 +101,9 @@ export async function clearRuleRampSchedule(
     }
 
     const filtered = existing.filter(
-      (a) => a.ruleId !== canonicalRuleId && a.ruleId !== ruleId,
+      (a) =>
+        !("ruleId" in a) ||
+        (a.ruleId !== canonicalRuleId && a.ruleId !== ruleId),
     );
 
     // Queue a detach action if a live schedule exists.
@@ -111,6 +113,7 @@ export async function clearRuleRampSchedule(
         mode: "detach",
         ruleId: canonicalRuleId,
         rampScheduleId: liveSchedules[0].id,
+        deleteScheduleWhenEmpty: true,
       };
       newRampActions = [...filtered, detach];
     }

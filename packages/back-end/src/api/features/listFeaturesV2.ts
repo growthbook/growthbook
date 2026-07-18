@@ -1,4 +1,5 @@
 import { listFeaturesV2Validator } from "shared/validators";
+import { stemRuleId } from "shared/util";
 import { getApiFeatureObjV2 } from "back-end/src/services/features";
 import { resolveOwnerEmails } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -12,6 +13,18 @@ export const listFeaturesV2 = createApiRequestHandler(listFeaturesV2Validator)(
       req.query,
     );
     if (r.empty) return r.response;
+    const rampSchedules =
+      await req.context.models.rampSchedules.getAllByFeatureIds(
+        r.filtered.map((f) => f.id),
+      );
+    const rampScheduleMap = new Map<string, string>();
+    for (const schedule of rampSchedules) {
+      for (const target of schedule.targets) {
+        if (target.ruleId) {
+          rampScheduleMap.set(stemRuleId(target.ruleId), schedule.id);
+        }
+      }
+    }
     return {
       features: await resolveOwnerEmails(
         r.filtered.map((feature) => {
@@ -27,6 +40,7 @@ export const listFeaturesV2 = createApiRequestHandler(listFeaturesV2Validator)(
             experimentMap: r.experimentMap,
             revision,
             safeRolloutMap: r.safeRolloutMap,
+            rampScheduleMap,
           });
         }),
         req.context,

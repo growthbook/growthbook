@@ -27,7 +27,7 @@
     },
     {
       "version": "0.9.92",
-      "capabilities": ["remoteEvaluation"]
+      "capabilities": ["remoteEval"]
     },
     {
       "version": "0.9.91"

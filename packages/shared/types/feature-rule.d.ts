@@ -1,29 +1,38 @@
 import {
   CreateSafeRolloutInterface,
+  ExperimentHealthAction,
   FeatureRule,
+  LockdownConfig,
+  RampMonitoringConfig,
   RampStep,
   RampStepAction,
 } from "shared/validators";
 
-/** Wire-format end trigger (dates as ISO strings). */
-export type RampEndTrigger = { type: "scheduled"; at: string };
-
 // Inline ramp schedule to create atomically with the rule.
 export type InlineRampScheduleCreate = {
   mode: "create";
-  name: string;
+  name?: string;
   // If set, patches are scoped to this environment only.
   // If absent/null, patches apply to all environments that share the ruleId.
   environment?: string | null;
   steps: RampStep[];
+  // Actions applied when the ramp starts, before the first step fires.
+  startActions?: RampStepAction[];
   // Actions applied when the ramp completes (merged on top of accumulated step patches).
   endActions?: RampStepAction[];
   // ISO datetime string; if set, rule stays disabled until this date, then Step 1 fires.
   // Absent/null means start immediately when the activating revision is published.
   startDate?: string | null;
-  endCondition?: {
-    trigger?: RampEndTrigger;
-  };
+  // Rule-level kill date (ISO string). When reached, the ramp is completed and
+  // the rule is disabled (enabled=false). Use for time-boxed rules that must
+  // stop serving on a fixed date regardless of ramp progress. Set to null to clear.
+  cutoffDate?: string | null;
+  monitoringConfig?: RampMonitoringConfig;
+  lockdownConfig?: LockdownConfig;
+  experimentHealthAction?: ExperimentHealthAction;
+  // When true, the ramp holds at the start (rule disabled, zero traffic) until a
+  // human approves via the approve-step action. Composes with startDate.
+  requiresStartApproval?: boolean | null;
 };
 
 // Detach a rule from a ramp schedule (removes it from the targets array).
@@ -44,13 +53,20 @@ export type InlineRampScheduleUpdate = {
   rampScheduleId: string;
   name?: string;
   steps: RampStep[];
+  // Actions applied when the ramp starts, before the first step fires.
+  startActions?: RampStepAction[];
   // Actions applied when the ramp completes (merged on top of accumulated step patches).
   endActions?: RampStepAction[];
   // ISO datetime string; null clears startDate (immediate start).
   startDate?: string | null;
-  endCondition?: {
-    trigger?: RampEndTrigger;
-  } | null;
+  // Rule-level kill date (ISO string). Set to null to clear.
+  cutoffDate?: string | null;
+  monitoringConfig?: RampMonitoringConfig;
+  lockdownConfig?: LockdownConfig;
+  experimentHealthAction?: ExperimentHealthAction;
+  // Tri-state (mirrors startDate): true = hold for approval, null = explicitly
+  // off, undefined/absent = leave unchanged. Toggling on re-arms the gate.
+  requiresStartApproval?: boolean | null;
 };
 
 export type PostFeatureRuleBody = {

@@ -1,6 +1,8 @@
 import { ProjectInterface } from "shared/types/project";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { useForm } from "react-hook-form";
-import { useAuth } from "@/services/auth";
+import { postProjectValidator, putProjectValidator } from "shared/validators";
+import { useRestApiCall } from "@/services/restApi";
 import Field from "@/components/Forms/Field";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
@@ -20,7 +22,7 @@ export default function ProjectModal({
       publicId: existing.publicId || "",
     },
   });
-  const { apiCall } = useAuth();
+  const restApiCall = useRestApiCall();
 
   return (
     <ModalStandard
@@ -29,10 +31,19 @@ export default function ProjectModal({
       close={close}
       header={existing.id ? "Edit Project" : "Create Project"}
       submit={form.handleSubmit(async (value) => {
-        await apiCall(existing.id ? `/projects/${existing.id}` : `/projects`, {
-          method: existing.id ? "PUT" : "POST",
-          body: JSON.stringify(value),
-        });
+        const body = {
+          name: value.name || "",
+          description: value.description,
+          publicId: value.publicId,
+        };
+        if (existing.id) {
+          await restApiCall(putProjectValidator, {
+            params: { id: existing.id },
+            body,
+          });
+        } else {
+          await restApiCall(postProjectValidator, { body });
+        }
         await onSuccess();
       })}
     >
@@ -47,7 +58,7 @@ export default function ProjectModal({
       />
       <Field
         label="Description"
-        maxLength={100}
+        maxLength={MAX_DESCRIPTION_LENGTH}
         minRows={3}
         maxRows={8}
         textarea={true}

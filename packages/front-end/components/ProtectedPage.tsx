@@ -1,9 +1,10 @@
-import { ReactNode } from "react";
+import { FC, ReactNode } from "react";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { useAuth, safeLogout } from "@/services/auth";
 import WatchProvider from "@/services/WatchProvider";
 import { UserContextProvider, useUser } from "@/services/UserContext";
 import { isCloud } from "@/services/env";
+import Callout from "@/ui/Callout";
 import LoadingOverlay from "./LoadingOverlay";
 import CreateOrJoinOrganization from "./Auth/CreateOrJoinOrganization";
 import SelectInitialPlan from "./Auth/SelectInitialPlan";
@@ -32,7 +33,7 @@ const LoggedInPageGuard = ({
               style={{ maxWidth: 500, margin: "auto" }}
             >
               <h3 className="mb-3">Error Signing In</h3>
-              <div className="alert alert-danger">{error}</div>
+              <Callout status="error">{error}</Callout>
               <div className="d-flex">
                 <Button
                   className="ml-auto"
@@ -78,24 +79,30 @@ const LoggedInPageGuard = ({
   return <>{children}</>;
 };
 
+const InitialPlanGate: FC<{ children: ReactNode }> = ({ children }) => {
+  const { effectiveAccountPlan } = useUser();
+  const { initialPlanSelection } = useAuth();
+  const initialPlanSelectionEnabled = useFeatureIsOn("pro-signup-flow");
+
+  const hasExistingPaidPlan =
+    !!effectiveAccountPlan &&
+    ["pro", "pro_sso", "enterprise"].includes(effectiveAccountPlan);
+
+  const showSelectPlanFlow =
+    initialPlanSelectionEnabled &&
+    !!initialPlanSelection &&
+    isCloud() &&
+    !hasExistingPaidPlan;
+
+  if (showSelectPlanFlow) return <SelectInitialPlan />;
+  return <>{children}</>;
+};
+
 const ProtectedPage: React.FC<{
   organizationRequired: boolean;
   children: ReactNode;
 }> = ({ children, organizationRequired }) => {
-  const { effectiveAccountPlan } = useUser();
-  const { orgId, initialPlanSelection } = useAuth();
-  const initialPlanSelectionEnabled = useFeatureIsOn("pro-signup-flow");
-
-  const paidPlans = ["pro", "pro_sso", "enterprise"];
-  const hasExistingPaidPlan =
-    !!effectiveAccountPlan && paidPlans.includes(effectiveAccountPlan);
-
-  const showSelectPlanFlow =
-    orgId &&
-    initialPlanSelectionEnabled &&
-    initialPlanSelection &&
-    isCloud() &&
-    !hasExistingPaidPlan;
+  const { orgId } = useAuth();
 
   return (
     <UserContextProvider key={orgId}>
@@ -103,10 +110,10 @@ const ProtectedPage: React.FC<{
         <InAppHelp />
         {!organizationRequired ? (
           <>{children}</>
-        ) : showSelectPlanFlow ? (
-          <SelectInitialPlan />
         ) : orgId ? (
-          <WatchProvider>{children}</WatchProvider>
+          <InitialPlanGate>
+            <WatchProvider>{children}</WatchProvider>
+          </InitialPlanGate>
         ) : (
           <CreateOrJoinOrganization />
         )}

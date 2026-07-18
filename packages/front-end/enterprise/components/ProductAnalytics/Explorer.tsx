@@ -2,7 +2,11 @@ import React, { useEffect, useRef, useState } from "react";
 import { Flex, Box, AlertDialog } from "@radix-ui/themes";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { PiDotsSix } from "react-icons/pi";
-import { DatasetType, ExplorationConfig } from "shared/validators";
+import {
+  DatasetType,
+  ExplorationConfig,
+  ExplorationDateRange,
+} from "shared/validators";
 import { DEFAULT_EXPLORE_STATE } from "shared/enterprise";
 import { useQueryState } from "nuqs";
 import { NuqsAdapter } from "nuqs/adapters/next/pages";
@@ -21,17 +25,26 @@ import {
   createEmptyValue,
   decodeExplorationConfig,
   explorationConfigParser,
+  ExplorerDraftConfig,
+  previousTimeFrameQueryParser,
+  stripExplorerDraftFields,
 } from "./util";
 
 const EXPLORER_TYPE_LABELS: Record<DatasetType, string> = {
   metric: "Metric",
   fact_table: "Fact Table",
   data_source: "Data Source",
+  funnel: "Funnel",
 };
 
 const explorationQueryParser = explorationConfigParser.withOptions({
   shallow: true,
   throttleMs: 300,
+});
+
+const previousTimeFrameParser = previousTimeFrameQueryParser.withOptions({
+  shallow: true,
+  throttleMs: 0,
 });
 
 function deriveConfigError(
@@ -58,11 +71,11 @@ function deriveConfigError(
 }
 
 function ExplorerContent() {
-  const { managedWarehouseAwaitingProvisioning } = useExplorerContext();
+  const { managedWarehouseUnavailable } = useExplorerContext();
 
   return (
     <Flex direction="column" gap="3" height="calc(100vh - 72px)">
-      {managedWarehouseAwaitingProvisioning ? (
+      {managedWarehouseUnavailable ? (
         <Box px="2">
           <ManagedWarehouseNoEventsCallout />
         </Box>
@@ -105,7 +118,11 @@ function ExplorerContent() {
 
         {/* Sidebar */}
         <Panel id="sidebar" order={2} defaultSize={25} minSize={20}>
-          <ShadowedScrollArea height="calc(100vh - 160px)">
+          {/* Let the scroll area fill the panel (which already sizes itself
+              against the parent group's height) instead of a hardcoded
+              `calc(100vh - 160px)` — the latter left ~88px dead space at
+              the bottom and caused unnecessary scrolling. */}
+          <ShadowedScrollArea height="100%">
             <ExplorerSideBar />
           </ShadowedScrollArea>
         </Panel>
@@ -127,8 +144,27 @@ function ExplorerUrlSync({
       hasUserModified.current = true;
       return;
     }
-    setUrlConfig(draftExploreState);
+    setUrlConfig(stripExplorerDraftFields(draftExploreState));
   }, [draftExploreState, setUrlConfig]);
+
+  return null;
+}
+
+function ExplorerPreviousTimeFrameUrlSync({
+  setUrlPreviousTimeFrame,
+}: {
+  setUrlPreviousTimeFrame: (value: ExplorationDateRange | null) => void;
+}) {
+  const { draftExploreState } = useExplorerContext();
+  const hasUserModified = useRef(false);
+
+  useEffect(() => {
+    if (!hasUserModified.current) {
+      hasUserModified.current = true;
+      return;
+    }
+    void setUrlPreviousTimeFrame(draftExploreState.previousTimeFrame ?? null);
+  }, [draftExploreState.previousTimeFrame, setUrlPreviousTimeFrame]);
 
   return null;
 }
@@ -149,6 +185,11 @@ function ExplorerInner({ type }: { type: DatasetType }) {
     explorationQueryParser,
   );
 
+  const [urlPreviousTimeFrame, setUrlPreviousTimeFrame] = useQueryState(
+    "previousTimeFrame",
+    previousTimeFrameParser,
+  );
+
   const rawParam =
     typeof window !== "undefined"
       ? (new URLSearchParams(window.location.search).get("config") ?? undefined)
@@ -160,16 +201,31 @@ function ExplorerInner({ type }: { type: DatasetType }) {
     () => configError,
   );
 
+  // Funnels manage their initial state via createEmptyDataset (which seeds
+  // one empty step); the other dataset types still seed an empty value here
+  // so the sidebar opens with one ready-to-edit row.
   const defaultDataset = createEmptyDataset(type);
   const defaultDraftState = {
     ...DEFAULT_EXPLORE_STATE,
     type,
     datasource: defaultDataSourceId,
-    dataset: { ...defaultDataset, values: [createEmptyValue(type)] },
-  } as ExplorationConfig;
+    dataset:
+      type === "funnel"
+        ? defaultDataset
+        : { ...defaultDataset, values: [createEmptyValue(type)] },
+    // Funnels don't render time-series charts, so the default date dimension
+    // from DEFAULT_EXPLORE_STATE doesn't apply — start with no dimensions and
+    // let the user add one explicitly via "Group By".
+    ...(type === "funnel" ? { dimensions: [] } : {}),
+  } as ExplorerDraftConfig;
 
-  const initialConfig =
-    urlConfig && !configError ? urlConfig : defaultDraftState;
+  const baseConfig = urlConfig && !configError ? urlConfig : defaultDraftState;
+  const initialConfig: ExplorerDraftConfig = {
+    ...baseConfig,
+    ...(urlPreviousTimeFrame
+      ? { previousTimeFrame: urlPreviousTimeFrame }
+      : {}),
+  };
 
   return (
     <>
@@ -197,6 +253,9 @@ function ExplorerInner({ type }: { type: DatasetType }) {
         trackingSource="manual-explorer"
       >
         <ExplorerUrlSync setUrlConfig={setUrlConfig} />
+        <ExplorerPreviousTimeFrameUrlSync
+          setUrlPreviousTimeFrame={setUrlPreviousTimeFrame}
+        />
         <ExplorerContent />
       </ExplorerProvider>
     </>

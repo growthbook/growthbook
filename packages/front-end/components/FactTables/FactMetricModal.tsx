@@ -15,6 +15,7 @@ import {
   UpdateFactMetricProps,
   MetricQuantileSettings,
   FactMetricType,
+  FactTableDefinition,
   FactTableInterface,
   MetricWindowSettings,
   ColumnInterface,
@@ -28,9 +29,11 @@ import {
   getColumnRefWhereClause,
   getSelectedColumnDatatype,
 } from "shared/experiments";
+import { createLikeStringMatchFn } from "shared/sql";
 import { PiArrowSquareOut, PiPlus } from "react-icons/pi";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import useFullFactTable from "@/hooks/useFullFactTable";
 import {
   formatNumber,
   getDefaultFactMetricProps,
@@ -67,6 +70,7 @@ import HelperText from "@/ui/HelperText";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { RowFilterInput } from "@/components/FactTables/RowFilterInput";
+import { getAttributeFieldsExposedAsColumns } from "@/components/FactTables/rowFilterUtils";
 import { MANAGED_BY_ADMIN } from "@/components/Metrics/MetricForm";
 import { DocLink } from "@/components/DocLink";
 
@@ -154,7 +158,7 @@ function QuantileSelector({
 }
 
 function getNumericColumns(
-  factTable: FactTableInterface | null,
+  factTable: FactTableDefinition | null,
 ): ColumnInterface[] {
   if (!factTable) return [];
   return factTable.columns.filter(
@@ -180,7 +184,7 @@ function getColumnOptions({
   excludeColumns,
   groupPrefix = "",
 }: {
-  factTable: FactTableInterface | null;
+  factTable: Omit<FactTableInterface, "sql"> | null;
   datasource: DataSourceInterfaceWithParams | null;
   includeCount?: boolean;
   includeCountDistinct?: boolean;
@@ -248,10 +252,12 @@ function getColumnOptions({
 
   // Add JSON fields
   if (includeJSONFields && factTable?.columns) {
-    const excludedAttributeFields = new Set<string>();
+    // When an attribute is surfaced as a top-level column — legacy materialized
+    // columns, or JSON-warehouse identifiers aliased out of `attributes` —
+    // point people at that column, not the JSON field.
+    const excludedAttributeFields =
+      getAttributeFieldsExposedAsColumns(factTable);
     if (datasource && datasource.type === "growthbook_clickhouse") {
-      // When an attribute has been materialized to the top-level,
-      // we want people to use the top-level column and not a JSON field
       datasource.settings.materializedColumns?.forEach((col) => {
         excludedAttributeFields.add(col.sourceField);
       });
@@ -263,7 +269,10 @@ function getColumnOptions({
     for (const col of jsonColumns) {
       if (col.jsonFields) {
         for (const [field, data] of Object.entries(col.jsonFields)) {
-          if (col.name === "attributes" && excludedAttributeFields.has(field)) {
+          if (
+            col.column === "attributes" &&
+            excludedAttributeFields.has(field)
+          ) {
             continue;
           }
 
@@ -425,8 +434,11 @@ function ColumnRefSelector({
 }) {
   const { getFactTableById, factTables } = useDefinitions();
 
-  let factTable = getFactTableById(value.factTableId);
-  if (factTable?.datasource !== datasource.id) factTable = null;
+  // Need full columns (jsonFields) here for JSON sub-field options and filters,
+  // which the slimmed definitions omit
+  const { factTable: fullFactTable } = useFullFactTable(value.factTableId);
+  const factTable =
+    fullFactTable?.datasource === datasource.id ? fullFactTable : null;
 
   const columnOptions = getColumnOptions({
     factTable,
@@ -676,7 +688,7 @@ function getWHERE({
   quantileSettings,
   type,
 }: {
-  factTable: FactTableInterface | null;
+  factTable: FactTableDefinition | null;
   columnRef: ColumnRef | null;
   windowSettings: MetricWindowSettings;
   quantileSettings: MetricQuantileSettings;
@@ -688,6 +700,10 @@ function getWHERE({
           factTable,
           columnRef,
           escapeStringLiteral: (s) => s.replace(/'/g, "''"),
+          stringMatch: createLikeStringMatchFn({
+            escapeStringLiteral: (s) => s.replace(/'/g, "''"),
+            emitEscapeClause: false,
+          }),
           // This isn't real SQL syntax for most dialects, but it should get the point across
           jsonExtract: (jsonCol, path) => `${jsonCol}.${path}`,
           evalBoolean: (col, value) => `${col} IS ${value ? "TRUE" : "FALSE"}`,
@@ -761,8 +777,8 @@ function getPreviewSQL({
   windowSettings: MetricWindowSettings;
   numerator: ColumnRef;
   denominator: ColumnRef | null;
-  numeratorFactTable: FactTableInterface | null;
-  denominatorFactTable: FactTableInterface | null;
+  numeratorFactTable: FactTableDefinition | null;
+  denominatorFactTable: FactTableDefinition | null;
 }): { sql: string; denominatorSQL?: string; experimentSQL: string } {
   const identifier =
     "`" + (numeratorFactTable?.userIdTypes?.[0] || "user_id") + "`";
@@ -1059,6 +1075,7 @@ function FieldMappingModal({
 
   return (
     <Modal
+      useRadixButton={false}
       close={close}
       header="Create Fact Metric From Template"
       trackingEventModalType=""
@@ -1439,6 +1456,7 @@ export default function FactMetricModal({
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       open={true}
       header={!isNew ? "Edit Metric" : "Create Fact Table Metric"}
@@ -2165,7 +2183,7 @@ export default function FactMetricModal({
                       >
                         Choose metric breakdowns to automatically analyze in
                         your experiments.{" "}
-                        <DocLink docSection="autoSlices">
+                        <DocLink useRadix={false} docSection="autoSlices">
                           Learn More <PiArrowSquareOut />
                         </DocLink>
                       </Text>

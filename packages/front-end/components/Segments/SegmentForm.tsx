@@ -1,8 +1,12 @@
 import { FC, useMemo, useState } from "react";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { SegmentInterface } from "shared/types/segment";
 import { useForm } from "react-hook-form";
-import { FaArrowRight, FaExternalLinkAlt } from "react-icons/fa";
+import { FaExternalLinkAlt } from "react-icons/fa";
+import { PiArrowRight } from "react-icons/pi";
 import { isProjectListValidForProject } from "shared/util";
+import Callout from "@/ui/Callout";
+import Button from "@/ui/Button";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import { validateSQL } from "@/services/datasources";
@@ -136,6 +140,7 @@ const SegmentForm: FC<{
         />
       )}
       <Modal
+        useRadixButton={false}
         trackingEventModalType=""
         close={close}
         open={true}
@@ -181,19 +186,21 @@ const SegmentForm: FC<{
         })}
       >
         {!current.id && factTables.length > 0 ? (
-          <div className="alert border badge-purple text-center d-flex align-items-center">
-            Want to use Fact Tables to create your segments instead?{" "}
-            <a
-              href="#"
-              className="ml-2 btn btn-primary btn-sm"
-              onClick={(e) => {
-                e.preventDefault();
-                setCreateFactSegment(true);
-              }}
-            >
-              Use Fact Tables <FaArrowRight />
-            </a>
-          </div>
+          <Callout
+            status="info"
+            action={
+              <Button
+                color="inherit"
+                icon={<PiArrowRight />}
+                iconPosition="right"
+                onClick={() => setCreateFactSegment(true)}
+              >
+                Use Fact Tables
+              </Button>
+            }
+          >
+            Want to use Fact Tables to create your segments instead?
+          </Callout>
         ) : null}
         <Field
           label="Name"
@@ -208,6 +215,7 @@ const SegmentForm: FC<{
         />
         <Field
           label="Description"
+          maxLength={MAX_DESCRIPTION_LENGTH}
           {...form.register("description")}
           textarea
           disabled={isReadOnly}
@@ -258,7 +266,7 @@ const SegmentForm: FC<{
                   />
                 </>
               }
-              placeholder="All projects"
+              placeholder="All Projects"
               value={form.watch("projects")}
               disabled={isReadOnly}
               options={projectOptions}

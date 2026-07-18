@@ -1,4 +1,5 @@
 import { isCloud } from "@/services/env";
+import Callout from "@/ui/Callout";
 
 export default function HostWarning({
   host,
@@ -14,15 +15,15 @@ export default function HostWarning({
   ) {
     if (isCloud()) {
       return (
-        <div className="alert alert-danger">
+        <Callout status="error">
           GrowthBook Cloud cannot access your local computer with that hostname.
           You must use a public ip address.
-        </div>
+        </Callout>
       );
     }
 
     return (
-      <div className="alert alert-danger">
+      <Callout status="error">
         GrowthBook runs inside Docker. To connect to localhost, you should use{" "}
         <a
           href="#"
@@ -44,16 +45,16 @@ export default function HostWarning({
           172.17.0.1
         </a>{" "}
         (on Linux).
-      </div>
+      </Callout>
     );
   }
 
   if (isCloud()) {
     return (
-      <div className="alert alert-info">
+      <Callout status="info">
         If your database is behind a firewall, add GrowthBook Cloud&apos;s ip (
         <code>52.70.79.40</code>) to your allowlist.
-      </div>
+      </Callout>
     );
   }
 

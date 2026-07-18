@@ -647,6 +647,28 @@ pre {
   }
 }
 
+// Wide config tables (the field editor + the usage tables on the config page).
+// Same trade-off as .experiment-results-wrapper: an `overflow-x` ancestor breaks
+// a document-sticky header AND would clip the inline edit-field dropdowns, so we
+// only enable x-scroll once the viewport is too narrow to show the table without
+// squeezing/truncating, and drop the sticky header at that same breakpoint.
+// Above it there is no scroll container (header sticks, dropdowns aren't
+// clipped); below it we trade the sticky header for horizontal scroll. Viewport
+// (not container) query on purpose — a container-query ancestor would establish a
+// containing block that re-clips the `position: fixed` react-select menus.
+// Keep the breakpoint in the two rules in sync.
+.config-table-scroll {
+  @media (max-width: 1400px) {
+    overflow-x: auto;
+  }
+}
+.config-table-sticky-header {
+  position: sticky;
+  @media (max-width: 1400px) {
+    position: static;
+  }
+}
+
 .experiment-results,
 .bandit-summary-results {
   tbody {
@@ -656,24 +678,42 @@ pre {
     tr {
       &:not(.slice-header-row) {
         box-shadow: rgba(102, 102, 102, 0.05) 0 -1px inset;
+        &.results-clickable-row:hover {
+          box-shadow: var(--shadow-3);
+        }
       }
 
       &.slice-collapsed {
         box-shadow: rgba(102, 102, 102, 0.05) 0 -1px inset;
         &.last-slice-header {
           box-shadow: rgba(102, 102, 102, 0.1) 0 -2px inset;
+          &.results-clickable-row:hover {
+            box-shadow: var(--shadow-3);
+          }
+        }
+        &.results-clickable-row:hover {
+          box-shadow: var(--shadow-3);
         }
       }
       &.slice-expanded {
         box-shadow: rgba(102, 102, 102, 0.1) 0 -2px inset;
+        &.results-clickable-row:hover {
+          box-shadow: var(--shadow-3);
+        }
       }
 
       &:last-of-type:not(.slice-collapsed):not(.slice-expanded) {
         box-shadow: rgba(102, 102, 102, 0.1) 0 -2px inset;
+        &.results-clickable-row:hover {
+          box-shadow: var(--shadow-3);
+        }
       }
 
       &.last-before-slice-header {
         box-shadow: rgba(102, 102, 102, 0.05) 0 -1px inset;
+        &.results-clickable-row:hover {
+          box-shadow: var(--shadow-3);
+        }
       }
 
       &:not(.results-label-row):not(.slice-header-row) {
@@ -718,12 +758,16 @@ pre {
       &.header-label {
         padding-bottom: 5px;
         font-size: 16px;
+        font-weight: var(--font-weight-bold);
+        color: var(--color-text-high);
       }
 
       &.label {
         color: var(--color-text-mid);
-        font-size: 13px;
+        font-size: 12px;
+        font-weight: var(--font-weight-bold);
         padding-bottom: 5px;
+        line-height: 16px;
       }
     }
   }
@@ -810,6 +854,14 @@ pre {
   .hover {
     cursor: pointer;
     transition: 100ms all;
+  }
+  tr.results-metric-row {
+    height: 55px;
+    box-shadow: var(--slate-a5) 0 -1px inset;
+  }
+  tr.results-clickable-row {
+    cursor: pointer;
+    transition: box-shadow 100ms ease;
   }
   .visx-axis-left .visx-axis-line {
     // axis line has a 0.5 pixel offset. reverse it
@@ -1455,49 +1507,13 @@ main.main {
   &:hover {
     background-color: var(--violet-a4);
   }
+  &.no-hover:hover {
+    background-color: var(--violet-a3);
+  }
 }
 
 .draft-selector-collapsible-content {
   border: 0px !important;
-}
-.code-holder {
-  margin: 0.5em 0;
-
-  &.collapsible pre {
-    transition: max-height 0.2s;
-    max-height: 60em;
-    overflow-y: scroll;
-  }
-
-  &.collapsed pre {
-    max-height: 10em;
-  }
-
-  .action-buttons {
-    .message {
-      padding: 2px 6px;
-      background: colors.$highlight-purple;
-      color: #fff;
-      position: relative;
-      margin-right: 10px;
-      display: inline-block;
-      border-radius: 3px;
-      margin-top: 2px;
-
-      .arrow {
-        position: absolute;
-        left: 100%;
-        top: 50%;
-        margin-top: -6px;
-        border: 6px solid transparent;
-        border-left: 6px solid colors.$highlight-purple;
-      }
-    }
-  }
-
-  pre {
-    margin: 0 !important;
-  }
 }
 
 .gb-tooltip {
@@ -1611,12 +1627,8 @@ main.main {
   }
 
   .intro-side {
-    background-color: colors.$purple;
-    background: radial-gradient(
-      at 50% 100%,
-      rgba(109, 18, 228, 0.75),
-      rgb(15, 1, 94)
-    );
+    background: url("/images/login-background.png") lightgray 50% / cover
+      no-repeat;
     color: #fff;
     padding-bottom: 30px;
     vertical-align: middle;
@@ -2063,17 +2075,6 @@ main.main {
     }
   }
 
-  &.with-variation-border-bottom {
-    border-bottom: 7px solid var(--slate-11);
-
-    @for $i from 0 through 99 {
-      $color-index: $i % length($colors);
-      $color: nth($colors, $color-index + 1);
-      &.variation#{$i} {
-        border-bottom: 7px solid $color;
-      }
-    }
-  }
   &.with-small-border {
     border-top: 4px solid var(--slate-11);
     @for $i from 0 through 99 {
@@ -2092,18 +2093,6 @@ main.main {
       $color: nth($colors, $color-index + 1);
       &.variation#{$i} {
         background-color: $color;
-      }
-    }
-  }
-
-  &.with-variation-right-shadow {
-    box-shadow: -3px 0 0 var(--slate-11) inset;
-
-    @for $i from 0 through 99 {
-      $color-index: $i % length($colors);
-      $color: nth($colors, $color-index + 1);
-      &.variation#{$i} {
-        box-shadow: -3px 0 0 $color inset;
       }
     }
   }
@@ -2198,6 +2187,10 @@ main.main {
     visibility: hidden;
   }
   tr:hover .tr-hover {
+    visibility: visible;
+  }
+  // Radix Table rows may not be native <tr>; show row-hover actions in list tables
+  .rt-TableBody .rt-TableRow:hover .tr-hover {
     visibility: visible;
   }
 
@@ -2626,11 +2619,16 @@ li.metrics a span img {
   }
   .carousel-control-next-icon,
   .carousel-control-prev-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
     width: 30px;
     height: 30px;
     border-radius: 50px;
-    background-size: 50%;
+    background-image: none;
     background-color: colors.$gray-600;
+    color: #fff;
+    font-size: 18px;
   }
   .carousel-inner {
     overflow: visible;
@@ -3388,7 +3386,21 @@ td.disabled {
 .form-control:disabled {
   cursor: not-allowed;
   color: var(--color-text-disabled) !important;
-  background-color: var(--slate-a3) !important;
+  background-color: var(--gray-a2) !important;
+}
+.form-control--error {
+  border-color: var(--red-8) !important;
+  &:focus {
+    border-color: var(--violet-8) !important;
+    outline-color: var(--violet-8) !important;
+  }
+}
+.form-control--warning {
+  border-color: var(--amber-8) !important;
+  &:focus {
+    border-color: var(--violet-8) !important;
+    outline-color: var(--violet-8) !important;
+  }
 }
 input:disabled {
   cursor: not-allowed;
@@ -3407,6 +3419,10 @@ input:disabled {
     text-overflow: ellipsis;
   }
 }
+.input-group-text {
+  background-color: var(--gray-a2) !important;
+  border-color: var(--border-color-200) !important;
+}
 
 .text-premium {
   color: var(--text-color-premium);
@@ -3420,15 +3436,6 @@ input:disabled {
 
   .alert-link {
     color: var(--text-color-main);
-  }
-}
-
-.alert-cool-1 {
-  border-radius: 5px;
-  color: #4d7693;
-  background: linear-gradient(to top, #c0d6e6, #d5ebf0);
-  .btn-link {
-    color: #007bff;
   }
 }
 
@@ -3495,6 +3502,10 @@ input:disabled {
   flex-wrap: wrap;
   align-items: flex-start;
   gap: 7px;
+}
+.tags-cell-content .tags-container {
+  min-width: 0;
+  flex-wrap: nowrap;
 }
 .feature-draft-copy {
   font-size: 14px;
@@ -3665,110 +3676,6 @@ input:disabled {
   background-color: #0c1122 !important;
 }
 
-/* Radix-style pagination for ReactPaginate */
-.pagination-radix-container {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  list-style: none !important;
-  list-style-type: none !important;
-  padding: 0;
-  margin: 0;
-  flex-direction: row;
-}
-.pagination-radix-container li {
-  list-style: none !important;
-  list-style-type: none !important;
-  margin: 0;
-  padding: 0;
-}
-.pagination-page {
-  margin: 0;
-}
-.pagination-link {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 32px;
-  height: 32px;
-  padding: 0 8px;
-  border-radius: 6px;
-  border: none;
-  background: transparent;
-  color: var(--gray-11);
-  font-size: 14px;
-  font-weight: 400;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  text-decoration: none;
-}
-.pagination-link:hover {
-  background: var(--gray-4);
-  color: var(--gray-12);
-}
-.pagination-active .pagination-link {
-  background: var(--violet-9);
-  color: white;
-  font-weight: 600;
-}
-.pagination-active .pagination-link:hover {
-  background: var(--violet-10);
-}
-.pagination-arrow-container {
-  margin: 0;
-}
-.pagination-link-arrow {
-  display: flex;
-  align-items: left;
-  justify-content: left;
-  min-width: 32px;
-  height: 32px;
-  padding: 6px 8px;
-  border-radius: 6px;
-  border: none;
-  background: transparent;
-  color: var(--gray-11);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  text-decoration: none;
-}
-.pagination-link-arrow:hover {
-  background: var(--gray-4);
-  color: var(--gray-12);
-}
-.pagination-disabled .pagination-link-arrow {
-  color: var(--gray-6);
-  cursor: not-allowed;
-}
-.pagination-disabled .pagination-link-arrow:hover {
-  background: transparent;
-  color: var(--gray-6);
-}
-.pagination-break {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 32px;
-  height: 32px;
-  padding: 0 8px;
-  color: var(--gray-9);
-  font-size: 14px;
-}
-.pagination-arrow {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.pagination-area-radix {
-  min-height: 48px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 10px 0;
-}
-
 .needs-attentions-table {
   thead th {
     font-weight: 600;
@@ -3791,6 +3698,86 @@ input:disabled {
 .dashboard-disabled {
   opacity: 50%;
   pointer-events: none;
+}
+
+// react-grid-layout overrides for dashboard blocks
+.dashboard-grid {
+  position: relative;
+
+  // Make sure each grid item is a clean stacking context so the inner
+  // .appbox shadow/border don't get clipped by RGL's positioning. Also need
+  // position:relative so the disabled-resize tooltip overlay can absolutely
+  // position itself in the corner where RGL renders the handle.
+  .dashboard-grid-item {
+    height: 100%;
+    width: 100%;
+    position: relative;
+  }
+
+  // RGL adds .react-resizable-handle on every item; only show it while the
+  // user is actively editing the dashboard. In view/share mode the block is
+  // a static container.
+  .react-resizable-handle {
+    display: none;
+  }
+  &.is-editing .react-resizable-handle {
+    display: block;
+  }
+
+  // Tone down the default Tabler-style resize handle so it blends in with
+  // the Radix violet palette.
+  &.is-editing .react-resizable-handle::after {
+    border-color: var(--violet-9);
+  }
+
+  // When resizing is disabled (edit drawer is open) keep the handle visible
+  // but dimmed, and let the sibling overlay capture hover so we can surface
+  // a tooltip explaining why it's inactive.
+  &.is-resize-disabled .react-resizable-handle {
+    opacity: 0.35;
+    pointer-events: none;
+  }
+
+  // The placeholder RGL shows under a dragging block - match the violet
+  // accent and round the corners to look like an inset block outline.
+  .react-grid-placeholder {
+    background: var(--violet-a4) !important;
+    border: 2px dashed var(--violet-9);
+    border-radius: 6px;
+    opacity: 1 !important;
+  }
+}
+
+// Transparent overlay rendered over the bottom-right corner of a block while
+// the edit drawer is open. Sits on Tooltip's own trigger <span> so Popper
+// anchors correctly. `display: block` is required because <span> is inline
+// by default, which would collapse the overlay.
+.dashboard-resize-handle-disabled-overlay {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  display: block;
+  width: 22px;
+  height: 22px;
+  cursor: not-allowed;
+  z-index: 3;
+}
+
+// Drag handle inside the block toolbar.
+.dashboard-block-drag-handle {
+  cursor: grab;
+
+  &:active {
+    cursor: grabbing;
+  }
+}
+
+// Inner block container needs to fill the RGL cell so resizing the block
+// shrinks/grows the content area, not just the outer wrapper.
+.dashboard-block.appbox {
+  height: 100%;
+  width: 100%;
+  margin-bottom: 0;
 }
 
 .opacity-0 {
@@ -3819,4 +3806,121 @@ input:disabled {
   .sidebarLeftClosed {
     left: 0 !important;
   }
+}
+
+.rr-player {
+  float: none !important;
+  box-shadow: none !important;
+}
+
+// ── rrweb-player control bar overrides ───────────────────────────────────────
+// The player uses Svelte-scoped class names (.svelte-XXXXX) with specificity
+// (0,3,0). !important on the base class names wins without hardcoding the hash.
+//
+// Layout goal (single row):
+//   [play/pause] [1x][2x][4x][8x]  |  [time ══progress══ time]  |  [skip inactive] [⛶]
+//
+// Technique: display:contents on .rr-controller__btns "unwraps" all buttons
+// into direct flex children of .rr-controller. flex:1 on .rr-timeline fills
+// the middle; buttons before .switch sort left, .switch and anything after
+// sort right.
+
+// Control bar — single horizontal row
+.rr-controller {
+  flex-direction: row !important;
+  justify-content: flex-start !important;
+  align-items: center !important;
+  padding: 0 8px !important;
+  gap: 2px !important;
+  background: var(--color-panel-solid) !important;
+  border-top: 1px solid var(--slate-a4) !important;
+  border-radius: 0 !important;
+}
+
+// Unwrap button container — its children become direct flex items of .rr-controller
+.rr-controller__btns {
+  display: contents !important;
+}
+
+// Play/pause + speed buttons → left (default order 1)
+.rr-controller__btns button {
+  order: 1 !important;
+}
+
+// Timeline (time labels + progress bar) → grows to fill middle space
+.rr-timeline {
+  order: 5 !important;
+  flex: 1 !important;
+  width: auto !important;
+  min-width: 0 !important;
+  margin-left: 12px !important;
+  gap: 12px !important; // buffer so the handle circle (10px radius) can't overlap the time labels
+}
+
+// Skip-inactive toggle → right of timeline
+.rr-controller__btns .switch {
+  order: 10 !important;
+  margin: 0 4px 0 12px !important;
+}
+
+// Any buttons after .switch (e.g. fullscreen) → rightmost
+.rr-controller__btns .switch ~ button {
+  order: 11 !important;
+}
+
+// Progress track
+.rr-progress {
+  background: var(--slate-a4) !important;
+  border-top-color: var(--color-panel-solid) !important;
+  border-bottom-color: var(--color-panel-solid) !important;
+}
+
+// Played portion
+.rr-progress__step {
+  background: var(--accent-9) !important;
+}
+
+// Scrub handle
+.rr-progress__handler {
+  background: var(--accent-9) !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2) !important;
+}
+
+// Time labels
+.rr-timeline__time {
+  color: var(--gray-11) !important;
+  font-size: 12px !important;
+  width: auto !important;
+  white-space: nowrap !important;
+}
+
+// Active/selected button (current speed, playing)
+.rr-controller__btns button.active {
+  background: var(--accent-9) !important;
+  color: #fff !important;
+}
+
+// Pressed state
+.rr-controller__btns button:active {
+  background: var(--accent-3) !important;
+}
+
+// Remove Bootstrap's default label bottom margin from the toggle
+.switch label {
+  margin-bottom: 0 !important;
+}
+
+// Skip-inactive toggle track (off)
+.switch label::before {
+  background: var(--accent-6) !important;
+}
+
+// Skip-inactive toggle track (on)
+.switch input[type="checkbox"]:checked + label::before {
+  background: var(--accent-9) !important;
+}
+
+// Replay mouse cursor dot
+.replayer-mouse::after {
+  background: var(--accent-9) !important;
 }

@@ -1,4 +1,4 @@
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { FactTableInterface, RowFilter } from "shared/types/fact-table";
 import { PiCaretDown, PiCaretUp, PiX } from "react-icons/pi";
 import Collapsible from "react-collapsible";
@@ -18,6 +18,7 @@ import {
   NUMBER_PATTERN,
   numberRegex,
   getColumnInfo,
+  getAttributeFieldsExposedAsColumns,
 } from "@/components/FactTables/rowFilterUtils";
 
 const NUMBER_PARTIAL_PATTERN = /^-?\.?$|^-?\d*\.?\d*$/;
@@ -36,6 +37,7 @@ export function factTableToColumnSource(
   factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">,
 ): FilterColumnSource {
   const columns: SingleValue[] = [];
+  const hiddenAttributeFields = getAttributeFieldsExposedAsColumns(factTable);
   factTable.columns.forEach((col) => {
     if (col.datatype === "date") return;
     if (factTable.userIdTypes?.includes(col.column)) return;
@@ -45,6 +47,8 @@ export function factTableToColumnSource(
 
     if (col.jsonFields) {
       Object.keys(col.jsonFields).forEach((field) => {
+        if (col.column === "attributes" && hiddenAttributeFields.has(field))
+          return;
         columns.push({
           label: `${col.name || col.column}.${field}`,
           value: `${col.column}.${field}`,
@@ -418,8 +422,18 @@ export function ExplorerFilterRow({
         transitionTime={100}
       >
         <Flex direction="column" gap="2" mt="2">
-          {columnSelect}
-          {operatorSelect}
+          {operatorSelect ? (
+            <Flex direction="row" gap="2" align="center">
+              <Box flexGrow="1" style={{ minWidth: 0, flexBasis: 0 }}>
+                {columnSelect}
+              </Box>
+              <Box style={{ minWidth: 0, flex: "0 1 130px" }}>
+                {operatorSelect}
+              </Box>
+            </Flex>
+          ) : (
+            columnSelect
+          )}
           {valueInput}
         </Flex>
       </Collapsible>

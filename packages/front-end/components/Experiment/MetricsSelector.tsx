@@ -1,14 +1,14 @@
 import { FC, ReactNode, useCallback, useMemo, useState } from "react";
 import { isProjectListValidForProject } from "shared/util";
 import {
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
   isFactMetric,
   isMetricGroupId,
   isMetricJoinable,
   quantileMetricType,
 } from "shared/experiments";
 import { Flex } from "@radix-ui/themes";
-import { PiInfoFill } from "react-icons/pi";
+import { PiInfo } from "react-icons/pi";
 import Text from "@/ui/Text";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
@@ -18,7 +18,6 @@ import SelectField, {
 } from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MetricName from "@/components/Metrics/MetricName";
-import { GBInfo } from "@/components/Icons";
 import { useUser } from "@/services/UserContext";
 import MetricGroupInlineForm from "@/enterprise/components/MetricGroupInlineForm";
 import Link from "@/ui/Link";
@@ -108,6 +107,7 @@ const MetricsSelector: FC<{
     disabled: boolean;
     reason?: string;
   };
+  requireDatasource?: boolean;
 }> = ({
   datasource,
   project,
@@ -126,6 +126,7 @@ const MetricsSelector: FC<{
   helpText,
   groupOptions = true,
   getMetricDisabledInfo,
+  requireDatasource = false,
 }) => {
   const [createMetricGroup, setCreateMetricGroup] = useState(false);
   const {
@@ -247,7 +248,9 @@ const MetricsSelector: FC<{
     ];
 
     return options
-      .filter((m) => (datasource ? m.datasource === datasource : true))
+      .filter((m) =>
+        datasource ? m.datasource === datasource : !requireDatasource,
+      )
       .filter((m) =>
         datasourceSettings && userIdType && m.userIdTypes.length
           ? isMetricJoinable(m.userIdTypes, userIdType, datasourceSettings)
@@ -270,6 +273,7 @@ const MetricsSelector: FC<{
     excludeQuantiles,
     filterConversionWindowMetrics,
     getMetricDisabledInfo,
+    requireDatasource,
   ]);
 
   // O(1) lookup map for filteredOptions by id
@@ -318,7 +322,7 @@ const MetricsSelector: FC<{
   const groupMetricsJoinableMap = useMemo(() => {
     const map = new Map<
       string,
-      { metric: ExperimentMetricInterface | null; joinable: boolean }[]
+      { metric: ExperimentMetricDefinition | null; joinable: boolean }[]
     >();
     for (const opt of filteredOptions) {
       if (!opt.isGroup || !opt.metrics) continue;
@@ -466,6 +470,8 @@ const MetricsSelector: FC<{
     [],
   );
 
+  const selectorDisabled = disabled || (requireDatasource && !datasource);
+
   const selector = !forceSingleMetric ? (
     <MultiSelectField
       value={selected}
@@ -475,7 +481,7 @@ const MetricsSelector: FC<{
       autoFocus={autoFocus}
       isOptionDisabled={isOptionDisabled}
       formatOptionLabel={multiFormatOptionLabel}
-      disabled={disabled}
+      disabled={selectorDisabled}
       helpText={
         <>
           {helpText}
@@ -496,7 +502,7 @@ const MetricsSelector: FC<{
                     gap="1"
                     style={{ color: "var(--violet-11)" }}
                   >
-                    <PiInfoFill size="13" />
+                    <PiInfo color="var(--color-text-low)" className="mr-1" />
                     <Text size="small">
                       Create a Metric Group so you can easily re-use this set of
                       metrics in other experiments.
@@ -514,7 +520,7 @@ const MetricsSelector: FC<{
               )}
             </Flex>
           ) : null}
-          <div className="d-flex align-items-center justify-content-start mt-2 mb-2">
+          <div className="d-flex align-items-center justify-content-end">
             <div>
               {!forceSingleMetric &&
                 filteredOptions.length > 0 &&
@@ -522,13 +528,16 @@ const MetricsSelector: FC<{
                   <div className="metric-from-tag text-muted form-inline">
                     <span
                       style={{
-                        color: "var(--violet-11)",
-                        fontWeight: 600,
+                        color: "var(--color-text-low)",
+                        fontWeight: 500,
                       }}
                     >
-                      Select metric by tag:{" "}
+                      Select metric by tag
                       <Tooltip body="Metrics can be tagged for grouping. Select any tag to add all metrics associated with that tag.">
-                        <GBInfo />
+                        <PiInfo
+                          color="var(--color-text-low)"
+                          className="ml-1"
+                        />
                       </Tooltip>
                     </span>
                     <SelectField
@@ -536,7 +545,7 @@ const MetricsSelector: FC<{
                       placeholder="choose"
                       className="ml-3"
                       containerClassName="select-dropdown-underline"
-                      style={{ minWidth: 200 }}
+                      style={{ minWidth: 140 }}
                       onChange={(v) => {
                         const newValue = new Set(selected);
                         const tag = v;
@@ -575,7 +584,7 @@ const MetricsSelector: FC<{
       autoFocus={autoFocus}
       isOptionDisabled={isOptionDisabled}
       formatOptionLabel={singleFormatOptionLabel}
-      disabled={disabled}
+      disabled={selectorDisabled}
       helpText={helpText}
     />
   );

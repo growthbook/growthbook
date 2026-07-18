@@ -6,6 +6,7 @@ import {
   useCallback,
   ReactNode,
 } from "react";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import {
   DataSourceInterfaceWithParams,
   SchemaFormat,
@@ -339,7 +340,10 @@ const NewDataSourceForm: FC<{
       return;
     }
 
-    const resources = getInitialDatasourceResources({ datasource: ds });
+    const resources = getInitialDatasourceResources({
+      datasource: ds,
+      attributeSchema: settings.attributeSchema,
+    });
     if (!resources.factTables.length) {
       setCreatingResources(false);
       return;
@@ -477,7 +481,7 @@ const NewDataSourceForm: FC<{
             <Callout status="info" mt="3">
               Don&apos;t have a data warehouse yet? We recommend using BigQuery
               with Google Analytics.{" "}
-              <DocLink docSection="ga4BigQuery">
+              <DocLink useRadix={false} docSection="ga4BigQuery">
                 Learn more <FaExternalLinkAlt />
               </DocLink>
             </Callout>
@@ -579,7 +583,7 @@ const NewDataSourceForm: FC<{
                 or{" "}
               </>
             ) : null}
-            <DocLink docSection={datasourceInfo.docs}>
+            <DocLink useRadix={false} docSection={datasourceInfo.docs}>
               {datasourceInfo.display} to GrowthBook <FaExternalLinkAlt />
             </DocLink>{" "}
           </Callout>
@@ -601,6 +605,7 @@ const NewDataSourceForm: FC<{
           <label>Description</label>
           <textarea
             className="form-control"
+            maxLength={MAX_DESCRIPTION_LENGTH}
             name="description"
             onChange={onChange}
             value={connectionInfo.description}
@@ -617,7 +622,7 @@ const NewDataSourceForm: FC<{
                   />
                 </>
               }
-              placeholder="All projects"
+              placeholder="All Projects"
               value={connectionInfo.projects || []}
               options={projectOptions}
               onChange={(v) => onManualChange("projects", v)}
@@ -742,6 +747,7 @@ const NewDataSourceForm: FC<{
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       open={true}
       header={"Add Data Source"}

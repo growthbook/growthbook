@@ -1,0 +1,68 @@
+---
+title: Feature flag skills
+description: "The GrowthBook Agent Skills for feature flags: create, target, roll out, ramp, monitor, and clean up flags from your AI agent, with draft → review → publish built in."
+sidebar_label: Feature flag skills
+---
+
+These [Agent Skills](/integrations/ai-agents/agent-skills) cover the full feature flag lifecycle from your AI agent. Install the plugin and run [`/growthbook:gb-setup`](/integrations/ai-agents/agent-skills#installation) first.
+
+Every flag change in GrowthBook goes through a **draft revision** before it goes live. The skills below stage their changes on a draft and hand off to `flag-publish` to ship it: the same draft → review → publish flow you'd use in the app. See [Publishing & approval flows](/features/publishing-and-approval-flows) for the concepts.
+
+The example prompts can be typed verbatim, or your agent may run these skills automatically when it detects matching intent.
+
+## Revision lifecycle
+
+These three skills manage the draft → review → publish flow that every other flag change flows through.
+
+| Skill            | What it does                                                                           | Example prompt                                          |
+| ---------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| `flag-revisions` | List and inspect open drafts, see who owns them and their approval status.             | "What drafts are open on the `checkout-redesign` flag?" |
+| `flag-review`    | Request a review on a draft, or approve / request changes / comment as a reviewer.     | "Request review on my draft for `new-pricing`"          |
+| `flag-publish`   | Publish a draft live, resolve merge conflicts, discard, or revert to a prior revision. | "Publish the approved draft for `new-pricing`"          |
+
+## Operations
+
+Create flags and manage their metadata, default value, environment state, and lifecycle.
+
+| Skill                | What it does                                                                                            | Example prompt                                                  |
+| -------------------- | ------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `flag-create`        | Create a new flag: collision check, value type, environments, default value. Ships disabled everywhere. | "Create a boolean flag `new-checkout-flow` defaulting to false" |
+| `flag-metadata`      | Update a flag's description, owner, project, tags, custom fields, or JSON schema.                       | "Tag `dark-mode` as `ui` and set me as the owner"               |
+| `flag-default-value` | Change the fallback value served when no targeting rules match.                                         | "Change the default value of `max-upload-mb` to 50"             |
+| `flag-toggle`        | Enable or disable a flag in a specific environment.                                                     | "Turn off `new-checkout-flow` in production"                    |
+| `flag-prerequisites` | Gate an entire flag on another boolean flag being on.                                                   | "Only evaluate `beta-dashboard` when `beta-program` is on"      |
+| `flag-cleanup`       | Archive or delete a stale flag, walking through code-site inlining first.                               | "Clean up the `old-banner` flag"                                |
+
+Related concepts: [Feature flag basics](/features/basics), [Stale flag detection](/features/stale-detection), [Code references](/features/code-references).
+
+## Rules
+
+Control who gets which value, and when. For a new A/B test, see also the [Experiment skills](/integrations/ai-agents/agent-skills/experiments).
+
+| Skill             | What it does                                                                                  | Example prompt                                                   |
+| ----------------- | --------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `flag-rules`      | List rules in evaluation order, delete a rule, reorder, or route to the right rule skill.     | "Show me the rules on `new-checkout-flow`"                       |
+| `flag-targeting`  | Add, edit, or remove force and percentage-rollout rules, with conditions and saved groups.    | "Roll out `new-checkout-flow` to 10% of US users"                |
+| `flag-schedule`   | Time-gate a rule with a start and/or end datetime for automatic activation.                   | "Enable the sale banner Friday at 9am and turn it off Monday"    |
+| `flag-ramp`       | Multi-step ramp schedule that increases coverage over time, with per-step intervals or gates. | "Ramp `new-checkout-flow` from 10% to 100% over a week"          |
+| `flag-monitoring` | Monitored "safe rollout": a ramp with guardrail metrics and optional auto-rollback.           | "Roll out `new-checkout-flow` safely and watch checkout latency" |
+| `flag-experiment` | Add an experiment-ref rule to run an A/B test through the flag.                               | "Run an experiment through `new-checkout-flow`"                  |
+
+Related concepts: [Targeting & rules](/features/rules), [Targeting conditions](/features/targeting), [Safe rollouts](/features/safe-rollouts), [Environments](/features/environments).
+
+## Discovery
+
+Find and audit flags, and trace how they depend on one another. Both skills are read-only.
+
+| Skill         | What it does                                                                           | Example prompt                                          |
+| ------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| `flag-search` | Search, list, and audit flags by project, tag, owner, environment state, or staleness. | "List all stale flags owned by me"                      |
+| `flag-graph`  | Trace a flag's prerequisites, its dependents, and any linked experiments and holdouts. | "What depends on `beta-program`? Is it safe to delete?" |
+
+## Next steps
+
+- [Experiment skills](/integrations/ai-agents/agent-skills/experiments): design, launch, analyze, and stop tests
+- [Agent Skills overview](/integrations/ai-agents/agent-skills): install and setup
+- [Feature flag documentation](/features/basics): the underlying concepts
+
+[Join our community Slack for additional tips, help, and announcements](https://join.slack.com/t/growthbookusers/shared_invite/zt-2xw8fu279-Y~hwnfCEf7WrEI9qScHURQ)

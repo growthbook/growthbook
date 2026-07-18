@@ -16,7 +16,7 @@ import {
 } from "shared/constants";
 import { datetime, getValidDate } from "shared/dates";
 import { getScopedSettings } from "shared/settings";
-import { MetricInterface } from "shared/types/metric";
+import { MetricDefinitionInterface } from "shared/types/metric";
 import { DifferenceType } from "shared/types/stats";
 import {
   getAllMetricIdsFromExperiment,
@@ -101,7 +101,7 @@ export default function ConfigureLegacyReport({
       .map((m) => m?.denominator)
       .filter((m) => m && typeof m === "string") as string[],
   );
-  const denominatorMetrics: MetricInterface[] = useMemo(() => {
+  const denominatorMetrics: MetricDefinitionInterface[] = useMemo(() => {
     return denominatorMetricIds
       .map((m) => getMetricById(m as string))
       .filter(isDefined);
@@ -184,6 +184,7 @@ export default function ConfigureLegacyReport({
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       inline={true}
       header=""
@@ -355,6 +356,7 @@ export default function ConfigureLegacyReport({
       </div>
 
       <ExperimentMetricsSelector
+        experimentType={experiment?.type}
         datasource={report.args.datasource}
         exposureQueryId={exposureQueryId}
         project={project?.id}

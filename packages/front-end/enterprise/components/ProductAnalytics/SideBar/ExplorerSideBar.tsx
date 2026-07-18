@@ -15,14 +15,21 @@ import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/Exp
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import GraphTypeSelector from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/GraphTypeSelector";
-import DateRangePicker from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/DateRangePicker";
+import FunnelGraphTypeSelector from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/FunnelGraphTypeSelector";
+import DateRangePicker, {
+  ComparisonDateControls,
+} from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/DateRangePicker";
 import GranularitySelector from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/GranularitySelector";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Callout from "@/ui/Callout";
 import DataSourceDropdown from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/DataSourceDropdown";
+import { formatExplorationDateRange } from "@/enterprise/components/ProductAnalytics/dateRangeLabels";
+import Switch from "@/ui/Switch";
 import {
   createEmptyValue,
+  getInitialInlineFilters,
   showAsAppliesTo,
+  stripExplorerDraftFields,
 } from "@/enterprise/components/ProductAnalytics/util";
 import SaveToDashboardModal from "@/enterprise/components/ProductAnalytics/SaveToDashboardModal";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
@@ -30,16 +37,25 @@ import track from "@/services/track";
 import MetricTabContent from "./MetricTabContent";
 import FactTableTabContent from "./FactTableTabContent";
 import DatasourceTabContent from "./DatasourceTabContent";
+import FunnelTabContent from "./FunnelTabContent";
 import GroupBySection from "./GroupBySection";
 import ShowAsSection from "./ShowAsSection";
 import DatasourceConfigurator from "./DatasourceConfigurator";
 
 interface Props {
   renderingInDashboardSidebar?: boolean;
+  dashboardDateRange?: ExplorationConfig["dateRange"];
+  useDashboardDateControl?: boolean;
+  onGlobalControlSettingsChange?: (settings: { dateRange?: boolean }) => void;
+  onSubmit?: () => void;
 }
 
 export default function ExplorerSideBar({
   renderingInDashboardSidebar = false,
+  dashboardDateRange,
+  useDashboardDateControl = false,
+  onGlobalControlSettingsChange,
+  onSubmit,
 }: Props) {
   const [showSaveToDashboardModal, setShowSaveToDashboardModal] =
     useState(false);
@@ -48,37 +64,40 @@ export default function ExplorerSideBar({
     draftExploreState,
     setDraftExploreState,
     exploration,
+    compareEnabled,
+    setCompareEnabled,
+    comparisonExploration,
     loading,
     handleSubmit,
     isSubmittable,
     isStale,
+    needsFetch,
     error,
     trackingSource,
+    submittedExploreState,
+    managedWarehouseUnavailable,
   } = useExplorerContext();
-  const { factTables, getFactMetricById, project } = useDefinitions();
+  const { factTables, getFactMetricById, getFactTableById, project } =
+    useDefinitions();
   const { hasCommercialFeature, permissionsUtil } = useUser();
-  // Check if the user can create dashboards for the current project or globally
-  const canCreateDashboards =
-    permissionsUtil.canCreateGeneralDashboards({
-      projects: [project],
-    }) || permissionsUtil.canCreateGeneralDashboards({ projects: [] });
-  // Check if the user can edit dashboards for the current project or globally
-  const canEditDashboards =
-    permissionsUtil.canUpdateGeneralDashboards(
-      {
-        projects: [project],
-      },
-      {},
-    ) || permissionsUtil.canUpdateGeneralDashboards({ projects: [] }, {});
+  const canCreateDashboards = permissionsUtil.canCreateGeneralDashboards({
+    projects: [project],
+  });
+  const canEditDashboards = permissionsUtil.canUpdateGeneralDashboards(
+    { projects: [project] },
+    {},
+  );
   const hasDashboardsFeature = hasCommercialFeature(
     "product-analytics-dashboards",
   );
   const saveToDashboardDisabledReason =
     !canEditDashboards && !canCreateDashboards
-      ? "You do not have permission to create or edit dashboards."
+      ? "You do not have permission to create or edit dashboards in this project."
       : !isSubmittable
         ? "Configure a valid exploration before saving."
-        : undefined;
+        : loading || isStale || needsFetch
+          ? "Run the updated exploration before saving to a dashboard."
+          : undefined;
 
   const dataset = draftExploreState.dataset;
   const activeType: DatasetType = dataset?.type ?? "metric";
@@ -86,6 +105,23 @@ export default function ExplorerSideBar({
     activeType === "fact_table" && dataset?.type === "fact_table"
       ? dataset
       : null;
+  const hasFunnelInputs =
+    dataset?.type === "funnel" && !!dataset.steps?.some((s) => !!s.factTable);
+  const hasInputs =
+    dataset?.type === "funnel"
+      ? hasFunnelInputs
+      : (dataset?.values?.length ?? 0) > 0;
+  const showComparisonDateControls =
+    compareEnabled &&
+    draftExploreState.dateRange.predefined === "customDateRange" &&
+    Boolean(draftExploreState.dateRange.startDate) &&
+    Boolean(draftExploreState.dateRange.endDate);
+  const isTimeSeriesChart = ["line", "area", "timeseries-table"].includes(
+    draftExploreState.chartType,
+  );
+  const usesInheritedDashboardDateRange = Boolean(
+    dashboardDateRange && useDashboardDateControl,
+  );
 
   return (
     <Flex
@@ -96,8 +132,11 @@ export default function ExplorerSideBar({
       {showSaveToDashboardModal && (
         <SaveToDashboardModal
           close={() => setShowSaveToDashboardModal(false)}
-          config={draftExploreState}
+          config={stripExplorerDraftFields(draftExploreState)}
           exploration={exploration}
+          compareEnabled={compareEnabled}
+          previousTimeFrame={draftExploreState.previousTimeFrame ?? null}
+          comparisonExplorationId={comparisonExploration?.id ?? null}
           trackingSource={trackingSource}
         />
       )}
@@ -178,12 +217,10 @@ export default function ExplorerSideBar({
               <Button
                 size="sm"
                 variant="solid"
-                disabled={
-                  loading ||
-                  !draftExploreState?.dataset?.values?.length ||
-                  !isSubmittable
+                disabled={loading || !hasInputs || !isSubmittable}
+                onClick={() =>
+                  onSubmit ? onSubmit() : handleSubmit({ force: isStale })
                 }
-                onClick={() => handleSubmit({ force: isStale })}
               >
                 <Flex align="center" gap="2">
                   <PiArrowsClockwise />
@@ -219,23 +256,73 @@ export default function ExplorerSideBar({
           }}
         >
           <Flex direction="column" gap="2">
-            <Text weight="medium">Chart Type</Text>
-            <GraphTypeSelector />
-          </Flex>
-          <Flex gap="2" wrap="wrap">
-            <Flex direction="column" gap="2" style={{ minWidth: 0 }}>
-              <Text weight="medium">Date Range</Text>
-              <DateRangePicker shouldWrap />
+            <Flex direction="row" align="center" justify="between" width="100%">
+              <Text weight="medium">Chart Type</Text>
+              <Switch
+                label="Compare"
+                value={compareEnabled}
+                onChange={setCompareEnabled}
+                disabled={!submittedExploreState || managedWarehouseUnavailable}
+              />
             </Flex>
-            {["line", "area", "timeseries-table"].includes(
-              draftExploreState.chartType,
-            ) && (
-              <Flex direction="column" gap="2">
-                <Text weight="medium">Date Granularity</Text>
-                <GranularitySelector />
-              </Flex>
+            {activeType === "funnel" ? (
+              <FunnelGraphTypeSelector />
+            ) : (
+              <GraphTypeSelector />
             )}
           </Flex>
+          <Flex direction="column" gap="2" width="100%" style={{ minWidth: 0 }}>
+            <Flex justify="between" align="center" gap="2" width="100%">
+              <Text weight="medium">Date Range</Text>
+              {dashboardDateRange ? (
+                <Switch
+                  size="1"
+                  value={useDashboardDateControl}
+                  onChange={(checked) =>
+                    onGlobalControlSettingsChange?.({ dateRange: checked })
+                  }
+                  label={
+                    <Flex direction="row" align="center" gap="1">
+                      <Text size="small" weight="medium">
+                        Use dashboard date filter
+                      </Text>
+                      <Tooltip
+                        body={
+                          useDashboardDateControl
+                            ? "This block uses the dashboard date range."
+                            : "This block overrides the dashboard date filter."
+                        }
+                      />
+                    </Flex>
+                  }
+                />
+              ) : null}
+            </Flex>
+            {dashboardDateRange && useDashboardDateControl ? (
+              <Flex
+                p="2"
+                style={{
+                  border: "1px solid var(--gray-a3)",
+                  borderRadius: "var(--radius-3)",
+                  backgroundColor: "var(--gray-a2)",
+                }}
+              >
+                <Text size="medium" color="text-low">
+                  {formatExplorationDateRange(dashboardDateRange)}
+                </Text>
+              </Flex>
+            ) : showComparisonDateControls ? (
+              <ComparisonDateControls fullWidth />
+            ) : (
+              <DateRangePicker fullWidth />
+            )}
+          </Flex>
+          {isTimeSeriesChart && !usesInheritedDashboardDateRange && (
+            <Flex direction="column" gap="2" width="100%">
+              <Text weight="medium">Date Granularity</Text>
+              <GranularitySelector />
+            </Flex>
+          )}
         </Flex>
       )}
 
@@ -264,14 +351,31 @@ export default function ExplorerSideBar({
               setDraftExploreState((prev) => {
                 const prevDataset =
                   prev.dataset?.type === "fact_table" ? prev.dataset : null;
+                const newFactTable = factTableId
+                  ? getFactTableById(factTableId)
+                  : null;
+                const baseValues = prevDataset?.values?.length
+                  ? prevDataset.values
+                  : [createEmptyValue("fact_table") as FactTableValue];
+                // Seed alwaysInlineFilter columns on every value (newly
+                // created or carried over). getInitialInlineFilters is a
+                // no-op when the column is already in rowFilters, so this
+                // is safe to apply on each fact-table change.
+                const values = newFactTable
+                  ? baseValues.map((v) => ({
+                      ...v,
+                      rowFilters: getInitialInlineFilters(
+                        newFactTable,
+                        v.rowFilters,
+                      ),
+                    }))
+                  : baseValues;
                 return {
                   ...prev,
                   dataset: {
                     ...factTableDataset,
                     factTableId,
-                    values: prevDataset?.values?.length
-                      ? prevDataset.values
-                      : [createEmptyValue("fact_table") as FactTableValue],
+                    values,
                   },
                 } as ExplorationConfig;
               });
@@ -303,16 +407,19 @@ export default function ExplorerSideBar({
           <DatasourceConfigurator dataset={dataset} />
         </Flex>
       )}
+
       <Box p="0">
         {activeType === "metric" && <MetricTabContent />}
         {activeType === "fact_table" && <FactTableTabContent />}
         {activeType === "data_source" && <DatasourceTabContent />}
+        {activeType === "funnel" && <FunnelTabContent />}
       </Box>
 
-      {showAsAppliesTo(draftExploreState, getFactMetricById) && (
-        <ShowAsSection />
-      )}
-      {dataset?.values?.length > 0 && <GroupBySection />}
+      {activeType !== "funnel" &&
+        showAsAppliesTo(draftExploreState, getFactMetricById) && (
+          <ShowAsSection />
+        )}
+      {hasInputs && <GroupBySection />}
     </Flex>
   );
 }

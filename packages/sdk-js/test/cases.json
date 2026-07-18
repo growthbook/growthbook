@@ -3726,6 +3726,62 @@
       }
     ],
     [
+      "force rules - hashVersion 2 includes user",
+      {
+        "attributes": {
+          "id": "user2"
+        },
+        "features": {
+          "feature": {
+            "defaultValue": 0,
+            "rules": [
+              {
+                "force": 1,
+                "coverage": 0.5,
+                "hashVersion": 2
+              }
+            ]
+          }
+        }
+      },
+      "feature",
+      {
+        "value": 1,
+        "on": true,
+        "off": false,
+        "source": "force",
+        "ruleId": ""
+      }
+    ],
+    [
+      "force rules - hashVersion 2 excludes user that v1 would include",
+      {
+        "attributes": {
+          "id": "user3"
+        },
+        "features": {
+          "feature": {
+            "defaultValue": 0,
+            "rules": [
+              {
+                "force": 1,
+                "coverage": 0.5,
+                "hashVersion": 2
+              }
+            ]
+          }
+        }
+      },
+      "feature",
+      {
+        "value": 0,
+        "on": false,
+        "off": true,
+        "source": "defaultValue",
+        "ruleId": ""
+      }
+    ],
+    [
       "ignores empty rules",
       {
         "features": {

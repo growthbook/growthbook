@@ -11,7 +11,8 @@ import {
   ArchetypeAttributeValues,
   ArchetypeInterface,
 } from "shared/types/archetype";
-import { FeatureTestResult } from "shared/types/feature";
+import { FeatureInterface, FeatureTestResult } from "shared/types/feature";
+import { featureHasEnvironment } from "shared/util";
 import { FaChevronRight, FaInfoCircle } from "react-icons/fa";
 import { Box, Flex } from "@radix-ui/themes";
 import Link from "@/ui/Link";
@@ -93,11 +94,20 @@ export const SimulateFeatureValues: FC<{
     },
   });
 
+  const envFilteredItems = useMemo(() => {
+    if (selectedEnvironment === "all") return items;
+    const env = environments.find((e) => e.id === selectedEnvironment);
+    if (!env) return items;
+    return items.filter((f) =>
+      featureHasEnvironment(f as unknown as FeatureInterface, env),
+    );
+  }, [items, environments, selectedEnvironment]);
+
   const featureItems = useMemo(() => {
     const start = (currentPage - 1) * NUM_PER_PAGE;
     const end = start + NUM_PER_PAGE;
-    return items.slice(start, end);
-  }, [items, currentPage]);
+    return envFilteredItems.slice(start, end);
+  }, [envFilteredItems, currentPage]);
 
   // refresh the results of the assignment of features for the attributes set
   const refreshResults = useCallback(() => {
@@ -334,16 +344,16 @@ export const SimulateFeatureValues: FC<{
                   </Fragment>
                 );
               })}
-              {!items.length && (
+              {!envFilteredItems.length && (
                 <tr>
                   <td colSpan={numColumns}>No matching features</td>
                 </tr>
               )}
             </tbody>
           </table>
-          {Math.ceil(items.length / NUM_PER_PAGE) > 1 && (
+          {Math.ceil(envFilteredItems.length / NUM_PER_PAGE) > 1 && (
             <Pagination
-              numItemsTotal={items.length}
+              numItemsTotal={envFilteredItems.length}
               currentPage={currentPage}
               perPage={NUM_PER_PAGE}
               onPageChange={(d) => {
@@ -353,7 +363,7 @@ export const SimulateFeatureValues: FC<{
           )}
         </div>
       </div>
-      <Callout status="info" mt="5" mb="5" contentsAs="div">
+      <Callout status="info" mt="5" mb="5">
         <Flex
           align="center"
           gap="3"
@@ -407,6 +417,7 @@ export const SimulateFeatureValues: FC<{
           archetype={archetype}
           archetypeMap={archetypeMap}
           attributes={attributes}
+          selectedEnvironment={selectedEnvironment}
           close={() => {
             setEditAttributesModalOpen(false);
           }}

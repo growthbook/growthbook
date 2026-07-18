@@ -13,12 +13,12 @@ import { applyMetricOverrides } from "back-end/src/util/integration";
 import { addCaseWhenTimeFilter } from "back-end/src/integrations/sql/clauses/add-case-when-time-filter";
 import { addHours } from "back-end/src/integrations/sql/primitives/add-hours";
 import { getBanditCaseWhen } from "back-end/src/integrations/sql/clauses/bandit-case-when";
+import { getBanditDates } from "back-end/src/integrations/sql/clauses/bandit-variation-period-weights";
 import { getBanditStatisticsFactMetricCTE } from "back-end/src/integrations/sql/ctes/bandit-statistics-fact-metric-cte";
 import { getDimensionCol } from "back-end/src/integrations/sql/columns/dimension-col";
 import { getExperimentEndDate } from "back-end/src/integrations/sql/dates/experiment-end-date";
 import { getExperimentFactMetricStatisticsCTE } from "back-end/src/integrations/sql/ctes/experiment-fact-metric-statistics-cte";
 import { getExperimentUnitsQuery } from "back-end/src/integrations/sql/queries/experiment-units-query";
-import { getExposureQuery } from "back-end/src/integrations/sql/queries/exposure-query";
 import { getFactMetricCTE } from "back-end/src/integrations/sql/ctes/fact-metric-cte";
 import { getFactMetricQuantileData } from "back-end/src/integrations/sql/columns/fact-metric-quantile-data";
 import { getFactTablesForMetrics } from "back-end/src/integrations/sql/fact-metrics/fact-tables-for-metrics";
@@ -26,8 +26,9 @@ import { getIdentitiesCTE } from "back-end/src/integrations/sql/ctes/identities-
 import { getMetricData } from "back-end/src/integrations/sql/fact-metrics/metric-data";
 import { processActivationMetric } from "back-end/src/integrations/sql/processing/process-activation-metric";
 import { processDimensions } from "back-end/src/integrations/sql/processing/process-dimensions";
+import { appendContextualBanditTargetingAttributeCols } from "back-end/src/integrations/sql/ctes/contextual-bandit-experiment-units-cte";
 import { getQuantileGridColumns } from "back-end/src/integrations/sql/columns/quantile-grid-columns";
-import { getKllQuantileGridColumns } from "back-end/src/integrations/sql/columns/kll-quantile-grid-columns";
+import { getQuantileSketchGridColumns } from "back-end/src/integrations/sql/columns/quantile-sketch-grid-columns";
 
 export function getExperimentFactMetricsQuery(
   dialect: SqlDialect,
@@ -64,15 +65,20 @@ export function getExperimentFactMetricsQuery(
 
   const factTable = factTablesWithIndices[0]?.factTable;
 
-  const queryName = `${
+  const factTableLabel = `${
     factTablesWithIndices.length === 1
       ? `Fact Table`
       : `Cross-Fact Table Metrics`
   }: ${factTablesWithIndices.map((f) => f.factTable.name).join(" & ")}`;
+  const dimensionLabel = unitDimensions.length
+    ? `Dimension: ${unitDimensions.map((d) => d.dimension.name).join(", ")}; `
+    : "";
+  const queryName = `${dimensionLabel}${factTableLabel}`;
 
-  const userIdType =
-    params.forcedUserIdType ??
-    getExposureQuery(datasource, settings.exposureQueryId || "").userIdType;
+  const userIdType = params.unitsSettings.exposureQuery.userIdType;
+  if (!userIdType) {
+    throw new Error("Unable to determine user id type from exposureQuery");
+  }
 
   const metricData = metricsWithIndices.map((metric) =>
     getMetricData(
@@ -128,9 +134,7 @@ export function getExperimentFactMetricsQuery(
   // Get date range for experiment and analysis
   const endDate: Date = getExperimentEndDate(settings, maxHoursToConvert);
 
-  const banditDates = settings.banditSettings?.historicalWeights.map(
-    (w) => w.date,
-  );
+  const banditDates = getBanditDates(settings.banditSettings);
 
   const dimensionCols: DimensionColumnData[] = params.dimensions.map((d) =>
     getDimensionCol(dialect, d),
@@ -144,6 +148,8 @@ export function getExperimentFactMetricsQuery(
       value: dialect.castToString("'All'"),
     });
   }
+
+  appendContextualBanditTargetingAttributeCols(dimensionCols, settings);
 
   const computeOnActivatedUsersOnly =
     activationMetric !== null &&
@@ -328,7 +334,7 @@ export function getExperimentFactMetricsQuery(
                   data.numeratorSourceIndex === f.index;
 
                 const kllMergeColumns = isKllMergeNumerator
-                  ? `, ${dialect.kllMergePartial(`umj.${data.alias}_value`)} AS ${data.alias}_user_sketch`
+                  ? `, ${dialect.quantileSketchMergePartial(`umj.${data.alias}_value`)} AS ${data.alias}_user_sketch`
                   : "";
 
                 const numeratorValueColumn =
@@ -429,10 +435,10 @@ export function getExperimentFactMetricsQuery(
         ${eventQuantileData
           .map((data) =>
             data.isKllMerge
-              ? getKllQuantileGridColumns(
+              ? getQuantileSketchGridColumns(
                   dialect,
                   data.metricQuantileSettings,
-                  dialect.kllMergePartial(
+                  dialect.quantileSketchMergePartial(
                     eqmReadsFromBase
                       ? `m.${data.alias}_user_sketch`
                       : `m.${data.alias}_value`,
@@ -474,7 +480,7 @@ export function getExperimentFactMetricsQuery(
         const kllMergeResolutionCols = factTableKllMergeMetrics
           .map(
             (data) =>
-              `, ${dialect.kllRankApprox(
+              `, ${dialect.quantileSketchRankApprox(
                 `base.${data.alias}_user_sketch`,
                 `qm.${data.alias}_quantile`,
                 `base.${data.alias}_n_events`,

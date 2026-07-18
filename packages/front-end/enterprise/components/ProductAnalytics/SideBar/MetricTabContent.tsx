@@ -120,7 +120,10 @@ export default function MetricTabContent() {
                     name: newMetric?.name
                       ? generateUniqueValueName(
                           newMetric.name,
-                          draftExploreState.dataset.values,
+                          // Tab content only renders for "metric" datasets.
+                          draftExploreState.dataset.type === "metric"
+                            ? draftExploreState.dataset.values
+                            : [],
                         )
                       : v.name,
                   } as MetricValue;
@@ -168,7 +171,6 @@ export default function MetricTabContent() {
       <Button
         size="sm"
         variant="outline"
-        disabled={draftExploreState.chartType === "bigNumber"}
         onClick={() => addValueToDataset("metric")}
       >
         <Flex align="center" gap="2">

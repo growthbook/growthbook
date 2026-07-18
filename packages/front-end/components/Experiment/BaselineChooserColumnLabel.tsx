@@ -6,7 +6,7 @@ import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
 } from "shared/types/experiment-snapshot";
-import { Flex, Text } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { PiCaretDownFill } from "react-icons/pi";
 import { getSnapshotAnalysis } from "shared/util";
 import { useAuth } from "@/services/auth";
@@ -20,6 +20,7 @@ import {
 } from "@/ui/DropdownMenu";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
+import VariationLabel from "@/ui/VariationLabel";
 import { analysisUpdate } from "@/services/snapshots";
 
 export interface BaselineChooserColumnLabelProps {
@@ -34,6 +35,7 @@ export interface BaselineChooserColumnLabelProps {
   mutate?: () => Promise<unknown>;
   dropdownEnabled?: boolean;
   isHoldout?: boolean;
+  labelMaxWidth?: number;
 }
 
 export default function BaselineChooserColumnLabel({
@@ -46,6 +48,7 @@ export default function BaselineChooserColumnLabel({
   mutate,
   dropdownEnabled,
   isHoldout = false,
+  labelMaxWidth = 75,
 }: BaselineChooserColumnLabelProps) {
   const { apiCall } = useAuth();
 
@@ -135,32 +138,9 @@ export default function BaselineChooserColumnLabel({
             setDropdownOpen(false);
           }}
         >
-          <Flex
-            align="center"
-            className={`variation variation${variation.index} with-variation-label`}
-            style={{ maxWidth: 200, flex: 1, minWidth: 0 }}
-          >
-            <span
-              className="label"
-              style={{
-                width: 20,
-                height: 20,
-                flex: "none",
-                marginTop: "-1px",
-              }}
-            >
-              {variation.index}
-            </span>
-            <Text
-              style={{
-                whiteSpace: "normal",
-                wordBreak: "break-word",
-                lineHeight: "1.4",
-              }}
-            >
-              {variation.name}
-            </Text>
-          </Flex>
+          <Box style={{ maxWidth: 200, minWidth: 0 }}>
+            <VariationLabel number={variation.index} name={variation.name} />
+          </Box>
         </DropdownMenuItem>
       );
     });
@@ -197,30 +177,31 @@ export default function BaselineChooserColumnLabel({
       }
     >
       <Flex align="center" gap="1">
-        <Flex
-          align="center"
-          className={`variation variation${baselineVariation.index} with-variation-label`}
-        >
-          {!isHoldout && (
-            <span
-              className="label"
+        <Flex align="center">
+          {isHoldout ? (
+            <OverflowText
+              maxWidth={labelMaxWidth}
+              style={{ color: "var(--color-text-mid)", fontSize: "12px" }}
+            >
+              Holdout
+            </OverflowText>
+          ) : (
+            <Box
               style={{
-                width: 16,
-                height: 16,
-                flex: "none",
-                marginRight: "4px",
-                marginLeft: "-4px",
+                width: labelMaxWidth + 20,
+                maxWidth: "100%",
+                minWidth: 0,
+                marginLeft: -4,
               }}
             >
-              {baselineVariation.index}
-            </span>
+              <VariationLabel
+                number={baselineVariation.index}
+                name={baselineVariation.name}
+                size="small"
+                disableTooltip
+              />
+            </Box>
           )}
-          <OverflowText
-            maxWidth={75}
-            style={{ color: "var(--color-text-mid)", fontSize: "13px" }}
-          >
-            {isHoldout ? "Holdout" : baselineVariation.name}
-          </OverflowText>
           {dropdownEnabled && setBaselineRow && (
             <Flex align="center" gap="1">
               <PiCaretDownFill style={{ fontSize: "12px" }} />

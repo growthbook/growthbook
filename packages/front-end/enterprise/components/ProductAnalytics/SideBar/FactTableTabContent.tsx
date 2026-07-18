@@ -96,7 +96,10 @@ export default function FactTableTabContent() {
                   valueType: val as "count" | "unit_count" | "sum",
                   name: generateUniqueValueName(
                     getValueTypeLabel(val as "count" | "unit_count" | "sum"),
-                    draftExploreState.dataset.values,
+                    // Tab content only renders for "fact_table" datasets.
+                    draftExploreState.dataset.type === "fact_table"
+                      ? draftExploreState.dataset.values
+                      : [],
                   ),
                   unit:
                     val === "unit_count" && factTable?.userIdTypes?.length
@@ -138,7 +141,6 @@ export default function FactTableTabContent() {
       <Button
         size="sm"
         variant="outline"
-        disabled={draftExploreState.chartType === "bigNumber"}
         onClick={() => addValueToDataset("fact_table")}
       >
         <Flex align="center" gap="2">

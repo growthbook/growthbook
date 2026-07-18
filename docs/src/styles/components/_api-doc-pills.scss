@@ -19,58 +19,80 @@
   vertical-align: middle;
 }
 
-// Selector fragments — repeated identifier, factored out.
-$v2-tag-attr: '^="tag/"][data-item-id$="-v2"';
-$v2-section-attr: '^="tag/"][id$="-v2"';
-$beta-tag-attr: '="tag/feature-revisions-v2"';
-
-// Sidebar `<label>` is already `display: flex; justify-content: space-between`
-// (Redoc's MenuItemLabel). Switch to flex-start + gap and push the caret SVG
-// to the right with auto-margin so pseudo-elements can sit inline.
-li[data-item-id#{$v2-tag-attr}] > label {
+// Layout primitives applied to any tag that needs to host pseudo-element
+// pills. Reused via @extend below so we can opt new tag groups in by name.
+%pill-host-label {
   justify-content: flex-start;
   align-items: center;
   gap: 8px;
-}
-li[data-item-id#{$v2-tag-attr}] > label > span:first-of-type {
-  order: 1;
-}
-li[data-item-id#{$v2-tag-attr}] > label::before {
-  order: 2;
-}
-li[data-item-id#{$v2-tag-attr}] > label::after {
-  order: 3;
-}
-li[data-item-id#{$v2-tag-attr}] > label > svg {
-  order: 99;
-  margin-left: auto;
+
+  > span:first-of-type {
+    order: 1;
+  }
+  &::before {
+    order: 2;
+  }
+  &::after {
+    order: 3;
+  }
+  > svg {
+    order: 99;
+    margin-left: auto;
+  }
 }
 
-// Right-pane `<h2>` is a block element by default; convert to flex so the
-// share-link `<a>` and the title text node sit alongside the pseudo pills.
-[id#{$v2-section-attr}] h2 {
+%pill-host-h2 {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
-}
-[id#{$v2-section-attr}] h2::before {
-  order: 2;
-}
-[id#{$v2-section-attr}] h2::after {
-  order: 3;
+
+  &::before {
+    order: 2;
+  }
+  &::after {
+    order: 3;
+  }
 }
 
-// BETA pill — `feature-revisions-v2` only.
-li[data-item-id#{$beta-tag-attr}] > label::before,
-[id#{$beta-tag-attr}] h2::before {
-  content: "BETA";
-  @include pill-style(#fbbf24, #78350f);
+// v2-suffixed tag groups (sidebar label + right-pane h2) get the layout
+// primitives so the v2 pill below can attach via ::after.
+li[data-item-id^="tag/"][data-item-id$="-v2"] > label {
+  @extend %pill-host-label;
+}
+[id^="tag/"][id$="-v2"] h2 {
+  @extend %pill-host-h2;
 }
 
 // v2 pill — every tag group whose id ends with `-v2`. Radix blue-6 / blue-11.
-li[data-item-id#{$v2-tag-attr}] > label::after,
-[id#{$v2-section-attr}] h2::after {
+li[data-item-id^="tag/"][data-item-id$="-v2"] > label::after,
+[id^="tag/"][id$="-v2"] h2::after {
   content: "v2";
   @include pill-style(#c2e6ff, #0d74ce);
 }
+
+// BETA pill — applied per-tag to brand-new groups still under active
+// iteration. Each tag here also gets the layout primitives so the pill
+// renders inline regardless of whether the tag also matches the -v2 rules
+// above.
+@mixin beta-tag($tag) {
+  li[data-item-id="tag/#{$tag}"] > label {
+    @extend %pill-host-label;
+    &::before {
+      content: "BETA";
+      @include pill-style(#fbbf24, #78350f);
+    }
+  }
+  [id="tag/#{$tag}"] h2 {
+    @extend %pill-host-h2;
+    &::before {
+      content: "BETA";
+      @include pill-style(#fbbf24, #78350f);
+    }
+  }
+}
+
+@include beta-tag("feature-revisions-v2");
+@include beta-tag("saved-group-revisions");
+@include beta-tag("ContextualBandits");
+@include beta-tag("ContextualBanditQueries");

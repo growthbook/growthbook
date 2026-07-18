@@ -1,34 +1,40 @@
 ---
 title: Choose Your Data Path
-description: Decide between GrowthBook's Managed Warehouse and connecting your own data warehouse.
+description: Decide between GrowthBook's Managed Warehouse, Event Forwarder, or connecting your own data warehouse.
 sidebar_label: Choose Your Data Path
 slug: /app/choose-data-path
 ---
 
 # Choose Your Data Path
 
-GrowthBook connects to a data warehouse to query your experiment data and calculate results. You have two options: our **Managed Warehouse** (we host a ClickHouse warehouse for you) or **Bring Your Own Warehouse** (BYOW — you connect your existing data infrastructure).
+GrowthBook connects to a data warehouse to query your experiment data and calculate results. You have three options:
+
+- **Managed Warehouse** — we host a ClickHouse warehouse for you and provide built-in event tracking.
+- **Event Forwarder** — you keep your own warehouse, and GrowthBook streams feature and experiment exposure events (plus any custom events you send) into it for you.
+- **Bring Your Own Warehouse (BYOW)** — you connect your existing warehouse with your own event pipeline already feeding it.
 
 ## Quick decision
 
-**Do you already have a data warehouse with event data flowing into it?**
+**Do you already have a data warehouse?**
 
-- **Yes** &rarr; [Bring Your Own Warehouse](/warehouses) lets you keep your existing pipelines. GrowthBook integrates with all major warehouses and queries your data directly.
 - **No** &rarr; [Managed Warehouse](/app/managed-warehouse) gets you running quickly with zero infrastructure setup.
+- **Yes — and I already have feature/experiment events flowing into it** &rarr; [Bring Your Own Warehouse](/warehouses) lets you keep your existing pipelines. GrowthBook queries your data directly.
+- **Yes — but I don't want to build or maintain the event pipeline myself** &rarr; [Event Forwarder](/app/event-forwarder) writes feature exposure, experiment exposure, and custom events into dedicated tables in your warehouse for you. _(Requires a Pro or Enterprise plan and incurs usage fees. Currently available for BigQuery and Snowflake, with Databricks coming soon.)_
 
 **Not sure?** Read the comparison below.
 
 ## Comparison
 
-|                          | Managed Warehouse                            | Bring Your Own Warehouse                                                          |
-| ------------------------ | -------------------------------------------- | --------------------------------------------------------------------------------- |
-| **Setup time**           | Minutes. One click to provision.             | Varies. Depends on your warehouse and permissions.                                |
-| **Infrastructure**       | Fully managed by GrowthBook (ClickHouse)     | You manage your own warehouse                                                     |
-| **Event tracking**       | Built-in via SDKs or Ingestion API           | Use your existing event pipeline                                                  |
-| **Data ownership**       | Stored in GrowthBook-hosted ClickHouse       | Stays in your warehouse                                                           |
-| **Supported warehouses** | ClickHouse (managed)                         | BigQuery, Snowflake, Redshift, Databricks, Postgres, ClickHouse, Athena, and more |
-| **Cost**                 | Included events by plan + overage pricing    | Free in GrowthBook; you pay your warehouse costs                                  |
-| **Best for**             | Teams getting started, no existing warehouse | Teams with existing analytics infrastructure                                      |
+|                          | Managed Warehouse                             | Event Forwarder                                                                                 | Bring Your Own Warehouse                                                           |
+| ------------------------ | --------------------------------------------- | ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| **Setup time**           | Minutes. One click to provision.              | Minutes once your warehouse is connected.                                                       | Varies. Depends on your warehouse and existing pipeline.                           |
+| **Infrastructure**       | Fully managed by GrowthBook (ClickHouse).     | You own the warehouse; GrowthBook manages the ingestion pipeline and writes destination tables. | You manage both the warehouse and the event pipeline.                              |
+| **Event tracking**       | Built-in via SDKs or Ingestion API.           | Built-in via SDKs or Ingestion API; events land in your warehouse.                              | Use your existing event pipeline.                                                  |
+| **Data ownership**       | Stored in GrowthBook-hosted ClickHouse.       | Stays in your warehouse.                                                                        | Stays in your warehouse.                                                           |
+| **Supported warehouses** | ClickHouse (managed).                         | BigQuery, Snowflake (Databricks coming soon).                                                   | BigQuery, Snowflake, Redshift, Databricks, Postgres, ClickHouse, Athena, and more. |
+| **Plan**                 | Available on all plans.                       | Pro or Enterprise.                                                                              | Available on all plans.                                                            |
+| **Cost**                 | Included events by plan + overage pricing.    | Plan price + usage-based ingestion fees + your warehouse storage costs.                         | Free in GrowthBook; you pay your warehouse costs.                                  |
+| **Best for**             | Teams getting started, no existing warehouse. | Teams that own a warehouse but don't want to build/maintain an event pipeline.                  | Teams with existing event pipelines and analytics infrastructure.                  |
 
 ## Choose Managed Warehouse if...
 
@@ -39,6 +45,17 @@ GrowthBook connects to a data warehouse to query your experiment data and calcul
 - You want built-in event tracking with automatic enrichment (geo, device, UTM data).
 
 [Get started with Managed Warehouse &rarr;](/app/managed-warehouse)
+
+## Choose Event Forwarder if...
+
+- You already own a data warehouse (BigQuery or Snowflake today; Databricks soon) but don't have a production-grade event pipeline writing exposures into it.
+- You want feature usage and experiment exposure events captured automatically from GrowthBook SDKs, with the option to send any other custom events via SDK helpers or our Ingestion API.
+- You'd like to keep your data in your own warehouse so it can be joined with the rest of your business data.
+- You're on (or willing to upgrade to) the Pro or Enterprise plan and are comfortable with usage-based ingestion pricing.
+
+How it works at a glance: GrowthBook provisions destination tables in your warehouse (`feature_usage`, `experiment_views`, and a general `events` table). SDK plugins automatically forward feature/experiment events; everything else goes through our Ingestion API. Events are enriched and streamed into your warehouse in near real-time.
+
+[Learn more about Event Forwarder &rarr;](/app/event-forwarder)
 
 ## Choose Bring Your Own Warehouse if...
 
@@ -52,10 +69,11 @@ GrowthBook connects to a data warehouse to query your experiment data and calcul
 
 ## Can I switch later?
 
-Yes. You can add a BYOW data source alongside or instead of the Managed Warehouse at any time. You can also use both simultaneously. For example, use the Managed Warehouse for quick prototyping and your own warehouse for production experiments.
+Yes. You can add additional data sources (Managed Warehouse, Event Forwarder, or BYOW) at any time, and you can use more than one simultaneously. For example, you might start on Managed Warehouse for quick prototyping, then move production experiments to your own warehouse via Event Forwarder once you're ready.
 
 ## What's next
 
 - [Managed Warehouse setup guide](/app/managed-warehouse) — provision quickly and send your first event
+- [Event Forwarder](/app/event-forwarder) — connect your warehouse and let GrowthBook handle event delivery
 - [Connecting to your data warehouse](/warehouses) — step-by-step guides for each supported warehouse
 - [Metrics and Fact Tables](/app/metrics) — define what you want to measure in your experiments

@@ -109,6 +109,8 @@ GrowthBook container instances are stateless and can be horizontally scaled behi
 
 The most intensive part of GrowthBook is the stats engine and background jobs. If you are running a high volume of experiments, processing those experiments may impact other requests to growthbook. If you notice this, you can separate concerns by starting one "Jobs Server" with increased resourced as needed and the env vars `PYTHON_SERVER_MODE=true`, `GB_STATS_ENGINE_POOL_SIZE=<number of vCPUs>` on the "Jobs Server" and the others with `GB_STATS_ENGINE_MIN_POOL_SIZE=0`, `EXTERNAL_PYTHON_SERVER_URL=<url of jobs server>`, and `CRON_DISABLED=true`.
 
+The "Jobs Server" `/stats` endpoint has no built-in authentication, so it should only be reachable on a private network. As defense-in-depth, set a shared secret with `PYTHON_SERVER_AUTH_TOKEN=<random secret>` on both the "Jobs Server" and the main instances — when set, the "Jobs Server" rejects any request to `/stats` that doesn't present it as a `Bearer` token.
+
 ### MongoDB
 
 All application state is stored in MongoDB. A small GrowthBook deployment can run with shared CPU/RAM and under 512MB of storage. A very large deployment with 1,000 feature flags and experiments will take up around 5GB of storage and require at least 2GB of RAM and 2vCPUs.

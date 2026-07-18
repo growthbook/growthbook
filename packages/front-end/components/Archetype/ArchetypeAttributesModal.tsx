@@ -1,4 +1,5 @@
 import React, { FC } from "react";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { useForm } from "react-hook-form";
 import { ArchetypeInterface } from "shared/types/archetype";
 import Field from "@/components/Forms/Field";
@@ -9,6 +10,7 @@ import Modal from "@/components/Modal";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useProjectOptions from "@/hooks/useProjectOptions";
+import { useEnvironments } from "@/services/features";
 import Checkbox from "@/ui/Checkbox";
 
 const ArchetypeAttributesModal: FC<{
@@ -23,6 +25,7 @@ const ArchetypeAttributesModal: FC<{
     attributes: string;
     isPublic: boolean;
     projects: string[];
+    environments: string[];
   }>({
     defaultValues: {
       name: initialValues?.name || "",
@@ -30,11 +33,13 @@ const ArchetypeAttributesModal: FC<{
       attributes: initialValues?.attributes || "",
       isPublic: initialValues?.isPublic ?? true,
       projects: initialValues?.projects || [],
+      environments: initialValues?.environments || [],
     },
   });
 
   const { apiCall } = useAuth();
   const { project, projects } = useDefinitions();
+  const environments = useEnvironments();
   const permissionsUtil = usePermissionsUtil();
   const hasPermissionToAddEditArchetypes =
     permissionsUtil.canCreateArchetype({
@@ -62,6 +67,7 @@ const ArchetypeAttributesModal: FC<{
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType="add-edit-archetype"
       trackingEventModalSource={source}
       open={true}
@@ -101,6 +107,7 @@ const ArchetypeAttributesModal: FC<{
           <div>
             <Field
               label={"Description"}
+              maxLength={MAX_DESCRIPTION_LENGTH}
               {...form.register("description")}
               textarea
             />
@@ -109,12 +116,27 @@ const ArchetypeAttributesModal: FC<{
             <div className="form-group">
               <MultiSelectField
                 label={<>Projects </>}
-                placeholder="All projects"
+                placeholder="All Projects"
                 value={form.watch("projects")}
                 options={projectOptions}
                 onChange={(v) => form.setValue("projects", v)}
                 customClassName="label-overflow-ellipsis"
                 helpText="Assign this archetype to specific projects"
+              />
+            </div>
+          )}
+          {environments.length > 0 && (
+            <div className="form-group">
+              <MultiSelectField
+                label="Environments"
+                placeholder="All environments"
+                value={form.watch("environments")}
+                options={environments.map((env) => ({
+                  label: env.id,
+                  value: env.id,
+                }))}
+                onChange={(v) => form.setValue("environments", v)}
+                helpText="Limit this archetype to specific environments. Leave empty to show it in all environments."
               />
             </div>
           )}

@@ -19,6 +19,7 @@ import RampScheduleSection, {
   defaultRampSectionState,
   rampScheduleToSectionState,
   buildPatch,
+  buildMonitoringConfig,
   type UIStep,
   type UIStepPatch,
 } from "@/components/Features/RuleModal/RampScheduleSection";
@@ -51,14 +52,19 @@ function buildStepsForAllTargets(
       // Preserve savedGroups/prerequisites from existing actions — they are
       // edited via the per-rule surface, not from this shared editor.
       const existingAction = existingStep?.actions?.find(
-        (a) => a.targetId === t.id,
+        (a) => a.targetType === "feature-rule" && a.targetId === t.id,
       );
-      if (base.savedGroups === undefined && existingAction?.patch.savedGroups) {
+      if (
+        existingAction?.targetType === "feature-rule" &&
+        base.savedGroups === undefined &&
+        existingAction.patch.savedGroups
+      ) {
         base.savedGroups = existingAction.patch.savedGroups;
       }
       if (
+        existingAction?.targetType === "feature-rule" &&
         base.prerequisites === undefined &&
-        existingAction?.patch.prerequisites
+        existingAction.patch.prerequisites
       ) {
         base.prerequisites = existingAction.patch.prerequisites;
       }
@@ -83,6 +89,8 @@ function buildStepsForAllTargets(
       ...(s.triggerType === "approval" && s.approvalNotes
         ? { approvalNotes: s.approvalNotes }
         : {}),
+      monitored: !!s.monitored,
+      ...(s.holdConditions ? { holdConditions: s.holdConditions } : {}),
     };
   });
 }
@@ -96,15 +104,19 @@ function buildEndActionsForAllTargets(
   return targets.map((t) => {
     const ruleId = t.ruleId ?? "";
     const base = buildPatch(endPatch, ruleId) as Record<string, unknown>;
-    const existingAction = existingEndActions?.find((a) => a.targetId === t.id);
-    if (base.savedGroups === undefined && existingAction?.patch.savedGroups) {
-      base.savedGroups = existingAction.patch.savedGroups;
-    }
-    if (
-      base.prerequisites === undefined &&
-      existingAction?.patch.prerequisites
-    ) {
-      base.prerequisites = existingAction.patch.prerequisites;
+    const existingAction = existingEndActions?.find(
+      (a) => a.targetType === "feature-rule" && a.targetId === t.id,
+    );
+    if (existingAction?.targetType === "feature-rule") {
+      if (base.savedGroups === undefined && existingAction.patch.savedGroups) {
+        base.savedGroups = existingAction.patch.savedGroups;
+      }
+      if (
+        base.prerequisites === undefined &&
+        existingAction.patch.prerequisites
+      ) {
+        base.prerequisites = existingAction.patch.prerequisites;
+      }
     }
     return {
       targetType: "feature-rule" as const,
@@ -140,9 +152,6 @@ export default function RampScheduleModal({
   async function handleSubmit() {
     if (!rampState.name.trim()) throw new Error("Ramp name is required");
 
-    // Ramp schedules always complete when steps finish — no end trigger needed.
-    const endCondition = undefined;
-
     if (isEdit) {
       await apiCall(`/ramp-schedule/${rs.id}`, {
         method: "PUT",
@@ -155,7 +164,13 @@ export default function RampScheduleModal({
             rs.endActions,
           ),
           startDate: rampState.startDate || null,
-          endCondition,
+          cutoffDate: rampState.cutoffDate || null,
+          monitoringConfig:
+            buildMonitoringConfig(rampState.monitoring, rampState.steps) ??
+            null,
+          lockdownConfig: rampState.lockFeature
+            ? { mode: "locked" }
+            : { mode: "none" },
         }),
       });
     } else {
@@ -181,10 +196,18 @@ export default function RampScheduleModal({
             ...(s.triggerType === "approval" && s.approvalNotes
               ? { approvalNotes: s.approvalNotes }
               : {}),
+            monitored: !!s.monitored,
+            ...(s.holdConditions ? { holdConditions: s.holdConditions } : {}),
           })),
           endActions: [],
           startDate: rampState.startDate || null,
-          endCondition,
+          cutoffDate: rampState.cutoffDate || null,
+          monitoringConfig:
+            buildMonitoringConfig(rampState.monitoring, rampState.steps) ??
+            null,
+          lockdownConfig: rampState.lockFeature
+            ? { mode: "locked" }
+            : { mode: "none" },
         }),
       });
     }

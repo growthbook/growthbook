@@ -21,7 +21,6 @@ import {
 import { v4 as uuidv4 } from "uuid";
 import track, { TrackEventProps } from "@/services/track";
 import ErrorDisplay from "../ErrorDisplay";
-import Text from "../Text";
 import styles from "./Modal.module.scss";
 
 export type Size = "md" | "lg";
@@ -92,6 +91,8 @@ type RootProps = TrackingEventModalProps & {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   size?: Size;
+  dismissible?: boolean;
+  hasDescription?: boolean;
   children: ReactNode;
 };
 
@@ -99,6 +100,8 @@ function Root({
   open,
   onOpenChange,
   size = "md",
+  dismissible = false,
+  hasDescription = true,
   trackingEventModalType,
   trackingEventModalSource,
   allowlistedTrackingEventProps = {},
@@ -161,6 +164,10 @@ function Root({
     [error, scrollBodyToTop, sendTrackingEvent],
   );
 
+  const ariaDescribedBy = hasDescription
+    ? {}
+    : { "aria-describedby": undefined };
+
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Content
@@ -168,6 +175,13 @@ function Root({
         size={getRadixSize(size)}
         maxWidth={getMaxWidth(size)}
         maxHeight="85vh"
+        {...ariaDescribedBy}
+        onEscapeKeyDown={(e) => {
+          if (!dismissible) e.preventDefault();
+        }}
+        onPointerDownOutside={(e) => {
+          if (!dismissible) e.preventDefault();
+        }}
         style={
           {
             display: "flex",
@@ -205,7 +219,7 @@ function Header({ children }: { children: ReactNode }) {
 
 function Title({ children }: { children: ReactNode }) {
   return (
-    <Dialog.Title size="5" mb="0">
+    <Dialog.Title size="5" mb="0" style={{ color: "var(--color-text-high)" }}>
       {children}
     </Dialog.Title>
   );
@@ -214,9 +228,9 @@ function Title({ children }: { children: ReactNode }) {
 function Description({ children }: { children: ReactNode }) {
   return (
     <Box flexShrink="0" pr="7" mt="1">
-      <Text as="div" color="text-mid" size="large">
+      <Dialog.Description size="3" style={{ color: "var(--color-text-mid)" }}>
         {children}
-      </Text>
+      </Dialog.Description>
     </Box>
   );
 }
@@ -254,7 +268,7 @@ function Footer({
   justify?: "start" | "center" | "end" | "between";
 }) {
   return (
-    <Box flexShrink="0">
+    <Box flexShrink="0" ml="-3">
       <Inset side="x">
         <Separator size="4" mt="5" style={{ marginBottom: "20px" }} />
       </Inset>

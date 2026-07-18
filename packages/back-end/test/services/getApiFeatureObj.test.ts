@@ -3,7 +3,12 @@ import { OrganizationInterface } from "shared/types/organization";
 import { ExperimentInterface } from "shared/types/experiment";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import { GroupMap } from "shared/types/saved-group";
-import { getApiFeatureObj } from "back-end/src/services/features";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import {
+  getApiFeatureObj,
+  getApiFeatureObjV2,
+  scrubConfigExtends,
+} from "back-end/src/services/features";
 import { migrateRawFeatureToV2 } from "back-end/src/models/FeatureModel";
 import { ReqContext } from "back-end/types/request";
 
@@ -1016,5 +1021,199 @@ describe("getApiFeatureObj: per-env rule shape parity (vs origin/main)", () => {
       { variationId: "v1", value: "treatment" },
     ]);
     expect(apiRule.experimentId).toBe("exp_1");
+  });
+});
+
+describe("getApiFeatureObj: revision author summary", () => {
+  const organization = { id: "org_test" } as unknown as OrganizationInterface;
+  const ctx = { org: organization } as unknown as ReqContext;
+
+  const dashboardUser = {
+    type: "dashboard",
+    id: "u1",
+    name: "Jane Doe",
+    email: "jane@example.com",
+  } as const;
+  const apiKeyUser = {
+    type: "api_key",
+    apiKey: "key_abc123",
+    id: "u2",
+    name: "CI Bot",
+  } as const;
+
+  const makeRevision = (
+    createdBy: FeatureRevisionInterface["createdBy"],
+    publishedBy: FeatureRevisionInterface["publishedBy"],
+  ) =>
+    ({
+      organization: "org_test",
+      featureId: "feat_test",
+      version: 1,
+      baseVersion: 0,
+      dateCreated: new Date("2024-01-02"),
+      dateUpdated: new Date("2024-01-02"),
+      datePublished: null,
+      createdBy,
+      publishedBy,
+      status: "published",
+      comment: "",
+      defaultValue: "false",
+      rules: [],
+    }) as unknown as FeatureRevisionInterface;
+
+  const baseArgs = () => ({
+    feature: migrateRawFeatureToV2(failingV0Feature(), ctx),
+    organization,
+    groupMap: new Map() as GroupMap,
+    experimentMap: new Map<string, ExperimentInterface>(),
+    safeRolloutMap: new Map<string, SafeRolloutInterface>(),
+  });
+
+  it("keeps v1 strings and emits structured authors on v2", () => {
+    const revision = makeRevision(dashboardUser, apiKeyUser);
+    const args = { ...baseArgs(), revision, revisions: [revision] };
+
+    // v1 is unchanged: display-name strings, no structured fields
+    const api = getApiFeatureObj(args);
+    expect(api.revision.createdBy).toBe("Jane Doe");
+    expect(api.revision.publishedBy).toBe("API");
+    expect(api.revision).not.toHaveProperty("createdByUser");
+    expect(api.revisions?.[0]?.createdBy).toBe("Jane Doe");
+    expect(api.revisions?.[0]?.publishedBy).toBe("API");
+
+    // v2 emits structured authors in both the summary and revisions[]
+    const apiV2 = getApiFeatureObjV2(args);
+    const structuredCreatedBy = {
+      type: "dashboard",
+      id: "u1",
+      name: "Jane Doe",
+      email: "jane@example.com",
+    };
+    const structuredPublishedBy = {
+      type: "api_key",
+      id: "u2",
+      name: "CI Bot",
+    };
+    expect(apiV2.revision.createdBy).toEqual(structuredCreatedBy);
+    expect(apiV2.revision.publishedBy).toEqual(structuredPublishedBy);
+    expect(apiV2.revision.publishedBy).not.toHaveProperty("apiKey");
+    expect(apiV2.revisions?.[0]?.createdBy).toEqual(structuredCreatedBy);
+    expect(apiV2.revisions?.[0]?.publishedBy).toEqual(structuredPublishedBy);
+  });
+
+  it("omits v2 authors when the revision or its users are null", () => {
+    const apiV2 = getApiFeatureObjV2({ ...baseArgs(), revision: null });
+    expect(apiV2.revision.createdBy).toBeUndefined();
+    expect(apiV2.revision.publishedBy).toBeUndefined();
+
+    const apiV2NullUsers = getApiFeatureObjV2({
+      ...baseArgs(),
+      revision: makeRevision(null, null),
+    });
+    expect(apiV2NullUsers.revision.createdBy).toBeUndefined();
+    expect(apiV2NullUsers.revision.publishedBy).toBeUndefined();
+  });
+});
+
+describe("scrubConfigExtends", () => {
+  it("drops @config: from $extends but keeps @const: (round-trippable)", () => {
+    expect(
+      scrubConfigExtends({ $extends: ["@config:base", "@const:x"], p: 1 }),
+    ).toEqual({ $extends: ["@const:x"], p: 1 });
+  });
+
+  it("removes an $extends left empty after dropping @config:", () => {
+    expect(scrubConfigExtends({ $extends: ["@config:base"], p: 1 })).toEqual({
+      p: 1,
+    });
+  });
+
+  it("recurses into a compiled definition's rules and variations", () => {
+    const def = {
+      defaultValue: { $extends: ["@config:base"] },
+      rules: [
+        { force: { $extends: ["@config:base"], p: 1 } },
+        {
+          variations: [
+            { $extends: ["@config:child"], v: 1 },
+            { $extends: ["@const:c"], v: 2 },
+          ],
+        },
+      ],
+    };
+    expect(scrubConfigExtends(def)).toEqual({
+      defaultValue: {},
+      rules: [
+        { force: { p: 1 } },
+        { variations: [{ v: 1 }, { $extends: ["@const:c"], v: 2 }] },
+      ],
+    });
+  });
+
+  it("leaves non-config values untouched", () => {
+    expect(scrubConfigExtends({ a: 1, b: [1, 2], c: "x" })).toEqual({
+      a: 1,
+      b: [1, 2],
+      c: "x",
+    });
+    expect(scrubConfigExtends(true)).toBe(true);
+    expect(scrubConfigExtends("plain")).toBe("plain");
+  });
+});
+
+describe("getApiFeatureObj: config-backing decomposition (v1 / webhook shape)", () => {
+  it("scrubs @config into standalone fields, keeps @const, and doesn't leak it in the definition", () => {
+    const organization = { id: "org_test" } as unknown as OrganizationInterface;
+    const feature = {
+      id: "feat_cfg",
+      organization: "org_test",
+      owner: "",
+      dateCreated: new Date("2024-01-01"),
+      dateUpdated: new Date("2024-01-01"),
+      valueType: "json",
+      baseConfig: "base",
+      // Default resolves to a descendant of the base config.
+      defaultValue: JSON.stringify({ $extends: ["@config:child"] }),
+      version: 1,
+      tags: [],
+      project: "",
+      environmentSettings: { production: { enabled: true } },
+      rules: [
+        {
+          id: "fr1",
+          type: "force",
+          description: "",
+          enabled: true,
+          allEnvironments: true,
+          value: JSON.stringify({
+            $extends: ["@config:base"],
+            note: "@const:keep",
+          }),
+        },
+      ],
+    } as unknown as FeatureInterface;
+
+    const api = getApiFeatureObj({
+      feature,
+      organization,
+      groupMap: new Map() as GroupMap,
+      experimentMap: new Map<string, ExperimentInterface>(),
+      revision: null,
+      safeRolloutMap: new Map<string, SafeRolloutInterface>(),
+    });
+
+    // Config backing surfaced via standalone fields; @config scrubbed from values.
+    expect(api.baseConfig).toBe("base");
+    expect(api.defaultValueConfig).toBe("child");
+    expect(api.defaultValue).toBe("{}");
+
+    const rule = api.environments.production.rules[0] as { value: string };
+    // @config dropped, @const preserved.
+    expect(JSON.parse(rule.value)).toEqual({ note: "@const:keep" });
+
+    // The compiled SDK definition never exposes the internal @config directive.
+    expect(api.environments.production.definition ?? "").not.toContain(
+      "@config:",
+    );
   });
 });

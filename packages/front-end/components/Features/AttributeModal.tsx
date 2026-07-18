@@ -6,7 +6,9 @@ import {
 } from "shared/types/organization";
 import { FaExclamationCircle, FaInfoCircle } from "react-icons/fa";
 import React from "react";
+import { Box } from "@radix-ui/themes";
 import { useAttributeSchema } from "@/services/features";
+import { useAttributeReferences } from "@/hooks/useAttributeReferences";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
@@ -21,7 +23,8 @@ import useProjectOptions from "@/hooks/useProjectOptions";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
-import MinSDKVersionsList from "./MinSDKVersionsList";
+import AttributeReferencesList from "./AttributeReferencesList";
+import SDKCapabilityWarning from "./SDKCapabilityWarning";
 import TagsField from "./FeatureModal/TagsField";
 
 export interface Props {
@@ -40,7 +43,7 @@ const DATA_TYPE_TO_DESCRIPTION: Record<SDKAttributeType, string> = {
   "secureString[]": "Useful for passing multiple values securely",
 };
 export default function AttributeModal({ close, attribute }: Props) {
-  const { projects, project } = useDefinitions();
+  const { projects, project, datasources } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
   const { refreshOrganization } = useUser();
 
@@ -69,11 +72,38 @@ export default function AttributeModal({ close, attribute }: Props) {
 
   const datatype = form.watch("datatype");
 
+  // Attribute changes only affect warehouse analyses for JSON-column managed warehouses.
+  const hasJsonManagedWarehouse = datasources.some(
+    (d) => d.type === "growthbook_clickhouse" && d.settings.useJsonColumns,
+  );
+  const propertyChanged = !!attribute && form.watch("property") !== attribute;
+  const datatypeChanged = !!attribute && datatype !== current?.datatype;
+
+  const isArrayDatatype = datatype.endsWith("[]");
+  // Enum options constrain both scalar enums and array (list) attributes.
+  const supportsEnumOptions = datatype === "enum" || isArrayDatatype;
+
   const hashAttributeDataTypes: SDKAttributeType[] = [
     "string",
     "number",
     "secureString",
   ];
+
+  // Constraining an in-use attribute (converting to enum or a restricted list, or tightening
+  // its allowed values) restricts how existing conditions can be edited, so surface
+  // where it's referenced as a heads-up. Fires on both datatype and enum-value edits.
+  const isConstrainedType =
+    datatype === "enum" || (isArrayDatatype && !!form.watch("enum"));
+  const enumChanged = (form.watch("enum") || "") !== (current?.enum || "");
+  const constrainingChange =
+    !!attribute && isConstrainedType && (datatypeChanged || enumChanged);
+  const { references } = useAttributeReferences(
+    constrainingChange && attribute ? [attribute] : [],
+  );
+  const refs = attribute ? references?.[attribute] : undefined;
+  const refCount = refs
+    ? refs.features.length + refs.experiments.length + refs.savedGroups.length
+    : 0;
 
   const permissionRequired = (project: string) => {
     return attribute
@@ -99,14 +129,20 @@ export default function AttributeModal({ close, attribute }: Props) {
         { projects: selectedProjects },
       )
     : permissionsUtil.canCreateAttribute({ projects: selectedProjects });
-  const ctaDisabledMessage = !hasProjectPermission
-    ? !selectedProjects.length && projectOptions.length > 0
-      ? "Select a project to continue."
-      : `You don't have permission to ${attribute ? "update" : "create"} attributes.`
-    : undefined;
+  let ctaDisabledMessage: string | undefined;
+  if (!hasProjectPermission) {
+    if (!selectedProjects.length && projectOptions.length > 0) {
+      ctaDisabledMessage = "Select a project to continue.";
+    } else {
+      ctaDisabledMessage = `You don't have permission to ${
+        attribute ? "update" : "create"
+      } attributes.`;
+    }
+  }
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       open={true}
       close={close}
@@ -119,7 +155,8 @@ export default function AttributeModal({ close, attribute }: Props) {
           value.format = "";
           value.disableEqualityConditions = false;
         }
-        if (value.datatype !== "enum") {
+        // Enum options are valid for scalar enums and list attributes; clear them otherwise.
+        if (value.datatype !== "enum" && !value.datatype.endsWith("[]")) {
           value.enum = "";
         }
         if (!hashAttributeDataTypes.includes(value.datatype)) {
@@ -176,11 +213,19 @@ export default function AttributeModal({ close, attribute }: Props) {
         required={true}
         {...form.register("property")}
       />
-      {attribute && form.watch("property") !== attribute ? (
+      {propertyChanged ? (
         <Callout status="warning">
           Be careful changing the attribute name. Any existing targeting
           conditions that use this attribute will NOT be updated automatically
           and will still reference the old attribute name.
+          {hasJsonManagedWarehouse ? (
+            <span style={{ display: "block", marginTop: "var(--space-2)" }}>
+              Renaming doesn&apos;t migrate historical data. Events already sent
+              under the old name keep that name in the Managed Warehouse and
+              will read as null for this attribute; only events your SDK sends
+              under the new name will populate it going forward.
+            </span>
+          ) : null}
         </Callout>
       ) : null}
       <div className="form-group">
@@ -210,7 +255,7 @@ export default function AttributeModal({ close, attribute }: Props) {
               </>
             }
             placeholder={
-              canCreateWithoutProject ? "All projects" : "Select projects..."
+              canCreateWithoutProject ? "All Projects" : "Select projects..."
             }
             value={form.watch("projects") || []}
             options={projectOptions}
@@ -289,6 +334,14 @@ export default function AttributeModal({ close, attribute }: Props) {
           </>
         }
       />
+      {hasJsonManagedWarehouse && datatypeChanged ? (
+        <Callout status="info" mt="2" mb="2">
+          Changing the data type won&apos;t break existing Managed Warehouse
+          analyses, but historical events whose value doesn&apos;t match the new
+          type are treated as null and dropped from results, so metrics may
+          shift.
+        </Callout>
+      ) : null}
       {datatype === "string" && (
         <>
           <SelectField
@@ -305,17 +358,11 @@ export default function AttributeModal({ close, attribute }: Props) {
             helpText="Affects the targeting attribute UI and string comparison logic. More formats coming soon."
           />
           {form.watch("format") === "version" && (
-            <Callout status="warning" contentsAs="div">
-              <strong>Warning:</strong> Version string attributes are only
-              supported in{" "}
-              <Tooltip
-                body={<MinSDKVersionsList capability="semverTargeting" />}
-              >
-                <span className="text-primary">some SDK versions</span>
-              </Tooltip>
-              . Do not use this format if you are using an incompatible SDK as
-              it will break any filtering based on the attribute.
-            </Callout>
+            <SDKCapabilityWarning
+              capability="semverTargeting"
+              someMessage="Some of your SDK Connections do not support version string comparisons. Targeting conditions using this attribute may not work correctly for those connections."
+              noneMessage="None of your SDK Connections support version string comparisons. Do not use this format as it will break targeting conditions based on this attribute."
+            />
           )}
 
           {!form.watch("format") && (
@@ -331,16 +378,45 @@ export default function AttributeModal({ close, attribute }: Props) {
           )}
         </>
       )}
-      {datatype === "enum" && (
+      {supportsEnumOptions && (
         <Field
-          label="Enum Options"
+          label={datatype === "enum" ? "Enum Options" : "Allowed Values"}
           textarea
           minRows={1}
-          required
+          required={datatype === "enum"}
           {...form.register(`enum`)}
-          helpText="Comma-separated list of all possible values"
+          helpText={
+            datatype === "enum"
+              ? "Comma-separated list of all possible values"
+              : "Optional. Restrict this list to a fixed set of values (comma-separated). Leave blank to allow any values."
+          }
         />
       )}
+      {constrainingChange ? (
+        <>
+          <Callout status="warning" mt="2" mb="2">
+            <strong>
+              Include every value already used in targeting before saving.
+            </strong>{" "}
+            Conditions referencing a value outside the list — or using an
+            operator no longer offered — keep running but become hard to edit.
+            <span style={{ display: "block", marginTop: "var(--space-2)" }}>
+              The change is applied in place: no new attribute is created,
+              existing conditions keep evaluating, and features are not updated
+              automatically.
+            </span>
+          </Callout>
+          {refCount > 0 && refs ? (
+            <Box mb="3">
+              <AttributeReferencesList
+                features={refs.features}
+                experiments={refs.experiments}
+                conditionGroups={refs.savedGroups}
+              />
+            </Box>
+          ) : null}
+        </>
+      ) : null}
       {hashAttributeDataTypes.includes(datatype) && (
         <Checkbox
           label="Unique Identifier"

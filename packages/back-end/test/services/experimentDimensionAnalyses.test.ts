@@ -4,18 +4,18 @@ import {
   ExperimentSnapshotInterface,
 } from "shared/types/experiment-snapshot";
 import { ExperimentInterface } from "shared/validators";
-import { runEagerPrecomputedDimensionAnalyses } from "back-end/src/services/experimentDimensionAnalyses";
+import { runEagerExperimentAndUnitDimensionsAnalyses } from "back-end/src/services/experimentDimensionAnalyses";
 import { getOrCreatePrecomputedDimensionTimeSeriesAnalyses } from "back-end/src/services/experimentDimensionTimeSeries";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { logger } from "back-end/src/util/logger";
 
 jest.mock("shared/experiments", () => ({
+  ...jest.requireActual<typeof import("shared/experiments")>(
+    "shared/experiments",
+  ),
   getAllExpandedMetricIdsFromExperiment: jest.fn(() => ["met_1"]),
   isFactMetricId: jest.fn(() => false),
-  isPrecomputedDimension: jest.fn((id: string | undefined) =>
-    id?.startsWith("precomputed:"),
-  ),
   expandAllSliceMetricsInMap: jest.fn(),
   getLatestPhaseVariations: jest.fn(() => [
     { id: "0", name: "Control" },
@@ -40,6 +40,7 @@ jest.mock("back-end/src/util/logger", () => ({
   logger: {
     error: jest.fn(),
     info: jest.fn(),
+    warn: jest.fn(),
   },
 }));
 
@@ -210,7 +211,7 @@ function makeContext() {
   };
 }
 
-describe("runEagerPrecomputedDimensionAnalyses", () => {
+describe("runEagerExperimentAndUnitDimensionsAnalyses", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (getMetricMap as jest.Mock).mockResolvedValue(new Map());
@@ -226,7 +227,7 @@ describe("runEagerPrecomputedDimensionAnalyses", () => {
 
   it("skips snapshots without precomputed dimensions", async () => {
     const context = makeContext();
-    await runEagerPrecomputedDimensionAnalyses({
+    await runEagerExperimentAndUnitDimensionsAnalyses({
       context: context as never,
       experiment: makeExperiment(),
       experimentSnapshot: makeSnapshot({
@@ -247,7 +248,7 @@ describe("runEagerPrecomputedDimensionAnalyses", () => {
 
   it("skips dimensioned snapshots", async () => {
     const context = makeContext();
-    await runEagerPrecomputedDimensionAnalyses({
+    await runEagerExperimentAndUnitDimensionsAnalyses({
       context: context as never,
       experiment: makeExperiment(),
       experimentSnapshot: makeSnapshot({
@@ -265,7 +266,7 @@ describe("runEagerPrecomputedDimensionAnalyses", () => {
 
   it("skips snapshots without a time-series-compatible base analysis", async () => {
     const context = makeContext();
-    await runEagerPrecomputedDimensionAnalyses({
+    await runEagerExperimentAndUnitDimensionsAnalyses({
       context: context as never,
       experiment: makeExperiment(),
       experimentSnapshot: makeSnapshot({
@@ -291,7 +292,7 @@ describe("runEagerPrecomputedDimensionAnalyses", () => {
 
   it("gets or creates relative, absolute, and scaled analyses and writes dimension time series", async () => {
     const context = makeContext();
-    await runEagerPrecomputedDimensionAnalyses({
+    await runEagerExperimentAndUnitDimensionsAnalyses({
       context: context as never,
       experiment: makeExperiment(),
       experimentSnapshot: makeSnapshot(),
@@ -349,7 +350,7 @@ describe("runEagerPrecomputedDimensionAnalyses", () => {
       makeAnalysis({ differenceType: "scaled", dimensionValue: "" }),
     ]);
 
-    await runEagerPrecomputedDimensionAnalyses({
+    await runEagerExperimentAndUnitDimensionsAnalyses({
       context: context as never,
       experiment: makeExperiment(),
       experimentSnapshot: makeSnapshot(),
@@ -363,6 +364,76 @@ describe("runEagerPrecomputedDimensionAnalyses", () => {
         dimensionValue: "",
       }),
     ]);
+  });
+
+  it("gets or creates unit-dimension analyses on the parent snapshot and writes time series", async () => {
+    const context = makeContext();
+    (
+      getOrCreatePrecomputedDimensionTimeSeriesAnalyses as jest.Mock
+    ).mockResolvedValue([
+      makeAnalysis({ differenceType: "relative", dimensionId: "dim_country" }),
+      makeAnalysis({ differenceType: "absolute", dimensionId: "dim_country" }),
+      makeAnalysis({ differenceType: "scaled", dimensionId: "dim_country" }),
+    ]);
+
+    await runEagerExperimentAndUnitDimensionsAnalyses({
+      context: context as never,
+      experiment: makeExperiment(),
+      experimentSnapshot: makeSnapshot({
+        settings: {
+          ...makeSnapshot().settings,
+          dimensions: [],
+          precomputedUnitDimensionIds: ["dim_country"],
+        },
+      }),
+    });
+
+    expect(
+      getOrCreatePrecomputedDimensionTimeSeriesAnalyses,
+    ).toHaveBeenCalledWith(
+      context,
+      expect.objectContaining({
+        dimensionId: "dim_country",
+        snapshot: expect.objectContaining({ id: "snp_1" }),
+      }),
+    );
+    expect(
+      context.models.metricTimeSeries.upsertMultipleSingleDataPoint,
+    ).toHaveBeenCalledWith([
+      expect.objectContaining({
+        source: "experiment",
+        sourceId: "exp_1",
+        sourcePhase: 0,
+        metricId: "met_1",
+        dimensionId: "dim_country",
+        dimensionValue: "US",
+      }),
+    ]);
+  });
+
+  it("does not run unit-dimension analyses for bandit experiments", async () => {
+    const context = makeContext();
+    await runEagerExperimentAndUnitDimensionsAnalyses({
+      context: context as never,
+      experiment: {
+        ...makeExperiment(),
+        type: "multi-armed-bandit",
+      } as ExperimentInterface,
+      experimentSnapshot: makeSnapshot({
+        settings: {
+          ...makeSnapshot().settings,
+          dimensions: [],
+          precomputedUnitDimensionIds: ["dim_country"],
+        },
+      }),
+    });
+
+    expect(
+      getOrCreatePrecomputedDimensionTimeSeriesAnalyses,
+    ).not.toHaveBeenCalled();
+    expect(
+      context.models.metricTimeSeries.upsertMultipleSingleDataPoint,
+    ).not.toHaveBeenCalled();
   });
 
   it("logs per-dimension failures and continues with later dimensions", async () => {
@@ -387,7 +458,7 @@ describe("runEagerPrecomputedDimensionAnalyses", () => {
         }),
       ]);
 
-    await runEagerPrecomputedDimensionAnalyses({
+    await runEagerExperimentAndUnitDimensionsAnalyses({
       context: context as never,
       experiment: makeExperiment(),
       experimentSnapshot: makeSnapshot({

@@ -1,4 +1,4 @@
-import { FC, useState, useCallback, useEffect, useRef } from "react";
+import { FC, useState, useCallback } from "react";
 import { useRouter } from "next/router";
 import { Box, Flex } from "@radix-ui/themes";
 import {
@@ -23,17 +23,28 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { GBInfo } from "@/components/Icons";
 import Checkbox from "@/ui/Checkbox";
 import Button from "@/components/Button";
-import LoadingOverlay from "@/components/LoadingOverlay";
 import track from "@/services/track";
+import Callout from "@/ui/Callout";
 import WelcomeFrame from "./WelcomeFrame";
 
 export type InitialPlanOptions = "" | "starter" | "pro";
 
 const leftside = (
-  <>
-    <h1 className="title h1">Confirm your plan</h1>
-    <p>You can change this later in your account settings.</p>
-  </>
+  <Flex direction="column" justify="between" height="100%" p="6">
+    <Box>
+      <a href="https://www.growthbook.io" target="_blank" rel="noreferrer">
+        <img
+          src="/logo/growth-book-logo-white.svg"
+          style={{ maxWidth: "150px" }}
+          alt="GrowthBook"
+        />
+      </a>
+    </Box>
+    <Box>
+      <h1 className="title h1">Confirm your plan</h1>
+      <p>You can change this later in your account settings.</p>
+    </Box>
+  </Flex>
 );
 type ProBillingData = {
   email: string;
@@ -43,7 +54,13 @@ type ProBillingData = {
 
 const SelectInitialPlan: FC = () => {
   const router = useRouter();
-  const { initialPlanSelection, setInitialPlanSelection } = useAuth();
+  const {
+    initialPlanSelection,
+    setInitialPlanSelection,
+    organizations,
+    orgId,
+    setOrgId,
+  } = useAuth();
   const { email } = useUser();
   const plan: InitialPlanOptions =
     initialPlanSelection === "pro" || initialPlanSelection === "starter"
@@ -63,6 +80,12 @@ const SelectInitialPlan: FC = () => {
 
   const completeFlow = useCallback(() => {
     track("Initial signup: flow completed", { plan });
+    setInitialPlanSelection?.("");
+    router.push("/");
+  }, [plan, router, setInitialPlanSelection]);
+
+  const handleDismiss = useCallback(() => {
+    track("Initial signup: dismissed plan selection", { plan });
     setInitialPlanSelection?.("");
     router.push("/");
   }, [plan, router, setInitialPlanSelection]);
@@ -92,6 +115,24 @@ const SelectInitialPlan: FC = () => {
     <WelcomeFrame leftside={leftside} pathName="/select-initial-plan">
       {step === 1 && (
         <Flex direction="column" gap="4" width="100%">
+          {organizations && organizations.length > 1 && (
+            <SelectField
+              label="Organization"
+              value={orgId ?? ""}
+              options={(organizations ?? []).map((o) => ({
+                label: o.name,
+                value: o.id,
+              }))}
+              onChange={(id) => {
+                setOrgId?.(id);
+                try {
+                  localStorage.setItem("gb-last-picked-org", `"${id}"`);
+                } catch (e) {
+                  // ignore
+                }
+              }}
+            />
+          )}
           <Heading as="h1">Plan options</Heading>
           <RadioCards
             options={[
@@ -210,7 +251,6 @@ const SelectInitialPlan: FC = () => {
           getBillingData={() => billingForm.getValues()}
           onSuccess={() => handleNext()}
           onBack={handleBack}
-          loading={loading}
           setLoading={setLoading}
           setError={setError}
         />
@@ -228,10 +268,23 @@ const SelectInitialPlan: FC = () => {
         </div>
       )}
       {error && (
-        <div className="alert alert-danger mt-3" role="alert">
+        <Callout status="error" role="alert" mt="3">
           {error}
-        </div>
+        </Callout>
       )}
+      <Flex align="center" justify="center" mt="3">
+        <Text size="medium" color="text-low">
+          <a
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              handleDismiss();
+            }}
+          >
+            Skip plan selection
+          </a>
+        </Text>
+      </Flex>
     </WelcomeFrame>
   );
 };
@@ -320,7 +373,6 @@ type ProPaymentStepProps = {
   onSuccess: () => void;
   onBack: () => void;
   setLoading: (v: boolean) => void;
-  loading: boolean;
   setError: (v: string | null) => void;
 };
 
@@ -330,81 +382,12 @@ const ProPaymentStep: FC<ProPaymentStepProps> = ({
   onSuccess,
   onBack,
   setLoading,
-  loading,
   setError,
 }) => {
-  const { apiCall } = useAuth();
-  const [clientSecret, setClientSecret] = useState<string | undefined>(
-    undefined,
-  );
-  const cancelledRef = useRef(false);
-
-  const fetchSetupIntent = useCallback(() => {
-    cancelledRef.current = false;
-    setLoading(true);
-    setError(null);
-    apiCall<{ clientSecret: string }>("/subscription/setup-intent", {
-      method: "POST",
-    })
-      .then((res) => {
-        if (!cancelledRef.current && res?.clientSecret) {
-          setClientSecret(res.clientSecret);
-        }
-      })
-      .catch((e) => {
-        if (!cancelledRef.current) {
-          const message =
-            e instanceof Error
-              ? e.message
-              : typeof e === "string"
-                ? e
-                : "Failed to start setup";
-          setError(message);
-        }
-      })
-      .finally(() => {
-        if (!cancelledRef.current) setLoading(false);
-      });
-  }, [apiCall, setLoading, setError]);
-
-  useEffect(() => {
-    fetchSetupIntent();
-    return () => {
-      cancelledRef.current = true;
-    };
-  }, [fetchSetupIntent]);
-
-  if (loading && !clientSecret) {
-    return <LoadingOverlay />;
-  }
-
-  if (!clientSecret) {
-    return (
-      <div style={{ maxWidth: "500px" }}>
-        <Heading as="h2" mb="3">
-          Add payment method
-        </Heading>
-        <Flex gap="2" width="100%" justify="between">
-          <Button color="secondary" onClick={onBack}>
-            Back
-          </Button>
-          <Button
-            color="primary"
-            onClick={() => {
-              track("Initial signup: retry setup intent");
-              setError(null);
-              fetchSetupIntent();
-            }}
-          >
-            Retry
-          </Button>
-        </Flex>
-      </div>
-    );
-  }
-
+  // StripeProvider now owns the load-Stripe-then-create-Radar-session-then-
+  // fetch-SetupIntent flow, so this component just renders it directly.
   return (
-    <StripeProvider initialClientSecret={clientSecret}>
+    <StripeProvider setupIntentEndpoint="/subscription/setup-intent">
       <ProPaymentFormInner
         getBillingData={getBillingData}
         onSuccess={onSuccess}

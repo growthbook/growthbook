@@ -1,10 +1,16 @@
 import { z } from "zod";
+import {
+  dateGranularity,
+  baseExplorationConfigValidator,
+} from "../../validators/product-analytics";
 import { namedSchema } from "../../validators/openapi-helpers";
 
 import {
   apiCreateDashboardBlockInterface,
   apiDashboardBlockInterface,
+  blockComparisonValidator,
   dashboardBlockInterface,
+  DASHBOARD_GRID_COLS,
 } from "./dashboard-block";
 
 export const dashboardEditLevel = z.enum(["published", "private"]);
@@ -24,6 +30,34 @@ export const dashboardUpdateSchedule = z.discriminatedUnion("type", [
     .strict(),
 ]);
 
+export const DASHBOARD_GRID_ROW_HEIGHT_DEFAULT = 40;
+export const dashboardGridConfig = z
+  .object({
+    cols: z
+      .number()
+      .int()
+      .min(1)
+      .max(DASHBOARD_GRID_COLS)
+      .default(DASHBOARD_GRID_COLS),
+    rowHeight: z
+      .number()
+      .int()
+      .min(8)
+      .default(DASHBOARD_GRID_ROW_HEIGHT_DEFAULT),
+  })
+  .strict();
+export type DashboardGridConfig = z.infer<typeof dashboardGridConfig>;
+
+export const dashboardGlobalControlsValidator = z
+  .object({
+    dateRange: baseExplorationConfigValidator.shape.dateRange.optional(),
+    dateGranularity: z.enum(dateGranularity).optional(),
+  })
+  .strict();
+export type DashboardGlobalControls = z.infer<
+  typeof dashboardGlobalControlsValidator
+>;
+
 export const dashboardInterface = z
   .object({
     id: z.string(),
@@ -39,6 +73,12 @@ export const dashboardInterface = z
     updateSchedule: dashboardUpdateSchedule.optional(),
     title: z.string(),
     blocks: z.array(dashboardBlockInterface),
+    globalControls: dashboardGlobalControlsValidator.optional(),
+    // Dashboard-wide period comparison. Currently set only per exploration
+    // block; this is the seam for a future dashboard-level compare toggle
+    // (see resolveBlockComparison) and is honored on refresh/render already.
+    comparison: blockComparisonValidator.optional(),
+    grid: dashboardGridConfig.optional(),
     projects: z.array(z.string()).optional(), // General dashboards only, experiment dashboards use the experiment's projects
     nextUpdate: z.date().optional(),
     lastUpdated: z.date().optional(),
@@ -105,6 +145,7 @@ export const apiCreateDashboardBody = z
         "General Dashboards only, Experiment Dashboards use the experiment's projects",
       )
       .optional(),
+    globalControls: dashboardGlobalControlsValidator.optional(),
     blocks: z.array(apiCreateDashboardBlockInterface),
   })
   .strict();

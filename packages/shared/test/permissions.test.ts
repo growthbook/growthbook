@@ -1,5 +1,9 @@
 import { OrganizationInterface } from "shared/types/organization";
-import { roleToPermissionMap, Permissions } from "../permissions";
+import {
+  roleToPermissionMap,
+  Permissions,
+  getEffectiveRolesForProject,
+} from "../permissions";
 
 describe("Role permissions", () => {
   const testOrg: OrganizationInterface = {
@@ -120,6 +124,7 @@ describe("Role permissions", () => {
     expect(p.canUpdateSavedGroup(projectsResource, updates)).toBe(false);
     expect(p.canUpdateSegment(projectsResource, updates)).toBe(false);
     expect(p.canManageSomeProjects()).toBe(false);
+    expect(p.canViewProjectsPage()).toBe(false);
     expect(p.canUpdateVisualChange(projectResource)).toBe(false);
     expect(p.canViewAttributeModal()).toBe(false);
     expect(p.canViewCreateDataSourceModal()).toBe(false);
@@ -235,6 +240,7 @@ describe("Role permissions", () => {
     expect(p.canUpdateSavedGroup(projectsResource, updates)).toBe(false);
     expect(p.canUpdateSegment(projectsResource, updates)).toBe(false);
     expect(p.canManageSomeProjects()).toBe(false);
+    expect(p.canViewProjectsPage()).toBe(true);
     expect(p.canUpdateVisualChange(projectResource)).toBe(false);
     expect(p.canViewAttributeModal()).toBe(false);
     expect(p.canViewCreateDataSourceModal()).toBe(false);
@@ -350,6 +356,7 @@ describe("Role permissions", () => {
     expect(p.canUpdateSavedGroup(projectsResource, updates)).toBe(false);
     expect(p.canUpdateSegment(projectsResource, updates)).toBe(false);
     expect(p.canManageSomeProjects()).toBe(false);
+    expect(p.canViewProjectsPage()).toBe(true);
     expect(p.canUpdateVisualChange(projectResource)).toBe(true);
     expect(p.canViewAttributeModal()).toBe(false);
     expect(p.canViewCreateDataSourceModal()).toBe(false);
@@ -465,6 +472,7 @@ describe("Role permissions", () => {
     expect(p.canUpdateSavedGroup(projectsResource, updates)).toBe(false);
     expect(p.canUpdateSegment(projectsResource, updates)).toBe(false);
     expect(p.canManageSomeProjects()).toBe(false);
+    expect(p.canViewProjectsPage()).toBe(true);
     expect(p.canUpdateVisualChange(projectResource)).toBe(false);
     expect(p.canViewAttributeModal()).toBe(false);
     expect(p.canViewCreateDataSourceModal()).toBe(false);
@@ -580,6 +588,7 @@ describe("Role permissions", () => {
     expect(p.canUpdateSavedGroup(projectsResource, updates)).toBe(true);
     expect(p.canUpdateSegment(projectsResource, updates)).toBe(false);
     expect(p.canManageSomeProjects()).toBe(false);
+    expect(p.canViewProjectsPage()).toBe(true);
     expect(p.canUpdateVisualChange(projectResource)).toBe(true);
     expect(p.canViewAttributeModal()).toBe(true);
     expect(p.canViewCreateDataSourceModal()).toBe(false);
@@ -695,6 +704,7 @@ describe("Role permissions", () => {
     expect(p.canUpdateSavedGroup(projectsResource, updates)).toBe(false);
     expect(p.canUpdateSegment(projectsResource, updates)).toBe(true);
     expect(p.canManageSomeProjects()).toBe(false);
+    expect(p.canViewProjectsPage()).toBe(true);
     expect(p.canUpdateVisualChange(projectResource)).toBe(true);
     expect(p.canViewAttributeModal()).toBe(false);
     expect(p.canViewCreateDataSourceModal()).toBe(false);
@@ -810,6 +820,7 @@ describe("Role permissions", () => {
     expect(p.canUpdateSavedGroup(projectsResource, updates)).toBe(true);
     expect(p.canUpdateSegment(projectsResource, updates)).toBe(true);
     expect(p.canManageSomeProjects()).toBe(false);
+    expect(p.canViewProjectsPage()).toBe(true);
     expect(p.canUpdateVisualChange(projectResource)).toBe(true);
     expect(p.canViewAttributeModal()).toBe(true);
     expect(p.canViewCreateDataSourceModal()).toBe(false);
@@ -925,6 +936,7 @@ describe("Role permissions", () => {
     expect(p.canUpdateSavedGroup(projectsResource, updates)).toBe(true);
     expect(p.canUpdateSegment(projectsResource, updates)).toBe(true);
     expect(p.canManageSomeProjects()).toBe(true);
+    expect(p.canViewProjectsPage()).toBe(true);
     expect(p.canUpdateVisualChange(projectResource)).toBe(true);
     expect(p.canViewAttributeModal()).toBe(true);
     expect(p.canViewCreateDataSourceModal()).toBe(true);
@@ -954,5 +966,254 @@ describe("Role permissions", () => {
       p.canUpdateOfficialResources(projectsResource, projectsResource),
     ).toBe(true);
     expect(p.canDeleteOfficialResources(projectsResource)).toBe(true);
+  });
+});
+
+describe("canManageFeatureCustomHooks", () => {
+  const testOrg: OrganizationInterface = {
+    id: "org_sktwi1id9l7z9xkjb",
+    name: "Test Org",
+    ownerEmail: "test@test.com",
+    url: "https://test.com",
+    dateCreated: new Date(),
+    invites: [],
+    members: [],
+    settings: {
+      environments: [{ id: "production", description: "" }],
+    },
+  };
+
+  function getPermissions(role: string) {
+    return new Permissions({
+      global: {
+        permissions: roleToPermissionMap(role, testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {},
+    });
+  }
+
+  const featureResource = { project: "" };
+
+  it("lets admins manage feature hooks (they have manageFeatures)", () => {
+    expect(
+      getPermissions("admin").canManageFeatureCustomHooks(featureResource),
+    ).toBe(true);
+  });
+
+  it("lets feature editors manage feature hooks", () => {
+    // engineer has manageFeatures
+    expect(
+      getPermissions("engineer").canManageFeatureCustomHooks(featureResource),
+    ).toBe(true);
+  });
+
+  it("does not let users without feature edit access manage hooks", () => {
+    expect(
+      getPermissions("readonly").canManageFeatureCustomHooks(featureResource),
+    ).toBe(false);
+  });
+});
+
+describe("canManageExperimentCustomHooks", () => {
+  const testOrg: OrganizationInterface = {
+    id: "org_sktwi1id9l7z9xkjb",
+    name: "Test Org",
+    ownerEmail: "test@test.com",
+    url: "https://test.com",
+    dateCreated: new Date(),
+    invites: [],
+    members: [],
+    settings: {
+      environments: [{ id: "production", description: "" }],
+    },
+  };
+
+  function getPermissions(role: string) {
+    return new Permissions({
+      global: {
+        permissions: roleToPermissionMap(role, testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {},
+    });
+  }
+
+  const experimentResource = { project: "" };
+
+  it("lets admins manage experiment hooks", () => {
+    expect(
+      getPermissions("admin").canManageExperimentCustomHooks(
+        experimentResource,
+      ),
+    ).toBe(true);
+  });
+
+  it("lets experiment editors manage experiment hooks", () => {
+    expect(
+      getPermissions("experimenter").canManageExperimentCustomHooks(
+        experimentResource,
+      ),
+    ).toBe(true);
+  });
+
+  it("does not let users without experiment edit access manage hooks", () => {
+    expect(
+      getPermissions("readonly").canManageExperimentCustomHooks(
+        experimentResource,
+      ),
+    ).toBe(false);
+  });
+});
+
+describe("getEffectiveRolesForProject", () => {
+  const team = (
+    id: string,
+    name: string,
+    role: string,
+    projectRoles: {
+      project: string;
+      role: string;
+      limitAccessByEnvironment: boolean;
+      environments: string[];
+    }[] = [],
+  ) => ({ id, name, role, projectRoles });
+
+  it("returns just the member's global role when they have no project role and no teams", () => {
+    expect(
+      getEffectiveRolesForProject({ role: "engineer" }, "prj_1", []),
+    ).toEqual([{ role: "engineer", sourceType: "user", sourceName: "user" }]);
+  });
+
+  it("uses the member's own project role over their global role", () => {
+    expect(
+      getEffectiveRolesForProject(
+        {
+          role: "engineer",
+          projectRoles: [
+            {
+              project: "prj_1",
+              role: "analyst",
+              limitAccessByEnvironment: false,
+              environments: [],
+            },
+          ],
+        },
+        "prj_1",
+        [],
+      ),
+    ).toEqual([{ role: "analyst", sourceType: "user", sourceName: "user" }]);
+  });
+
+  it("does not let a team's global role leak past the member's explicit project role", () => {
+    const result = getEffectiveRolesForProject(
+      {
+        role: "readonly",
+        projectRoles: [
+          {
+            project: "prj_1",
+            role: "noaccess",
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        ],
+        teams: ["team_1"],
+      },
+      "prj_1",
+      [team("team_1", "Readers", "readonly")],
+    );
+    // The team has no explicit project role, so only the explicit project role applies.
+    expect(result).toEqual([
+      { role: "noaccess", sourceType: "user", sourceName: "user" },
+    ]);
+  });
+
+  it("unions explicit project roles from the member and their teams", () => {
+    const result = getEffectiveRolesForProject(
+      {
+        role: "readonly",
+        projectRoles: [
+          {
+            project: "prj_1",
+            role: "noaccess",
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        ],
+        teams: ["team_1"],
+      },
+      "prj_1",
+      [
+        team("team_1", "Engineers", "noaccess", [
+          {
+            project: "prj_1",
+            role: "engineer",
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        ]),
+      ],
+    );
+    expect(result).toEqual([
+      { role: "noaccess", sourceType: "user", sourceName: "user" },
+      { role: "engineer", sourceType: "team", sourceName: "Engineers" },
+    ]);
+  });
+
+  it("falls back to global roles (user + teams) when no explicit project role applies", () => {
+    const result = getEffectiveRolesForProject(
+      { role: "readonly", teams: ["team_1"] },
+      "prj_1",
+      [team("team_1", "Engineers", "engineer")],
+    );
+    expect(result).toEqual([
+      { role: "readonly", sourceType: "user", sourceName: "user" },
+      { role: "engineer", sourceType: "team", sourceName: "Engineers" },
+    ]);
+  });
+
+  it("drops the member's global role when only a team has an explicit project role", () => {
+    const result = getEffectiveRolesForProject(
+      { role: "admin", teams: ["team_1"] },
+      "prj_1",
+      [
+        team("team_1", "Restricted", "readonly", [
+          {
+            project: "prj_1",
+            role: "noaccess",
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        ]),
+      ],
+    );
+    expect(result).toEqual([
+      { role: "noaccess", sourceType: "team", sourceName: "Restricted" },
+    ]);
+  });
+
+  it("resolves global roles (user + teams) when project is null", () => {
+    const result = getEffectiveRolesForProject(
+      {
+        role: "readonly",
+        projectRoles: [
+          {
+            project: "prj_1",
+            role: "engineer",
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        ],
+        teams: ["team_1"],
+      },
+      null,
+      [team("team_1", "Admins", "admin")],
+    );
+    expect(result).toEqual([
+      { role: "readonly", sourceType: "user", sourceName: "user" },
+      { role: "admin", sourceType: "team", sourceName: "Admins" },
+    ]);
   });
 });

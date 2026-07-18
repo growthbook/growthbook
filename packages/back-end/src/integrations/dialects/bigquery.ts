@@ -1,9 +1,11 @@
 import type { DataType } from "shared/types/integrations";
+import { createLikeStringMatchFn } from "shared/sql";
 import type { DateTruncGranularity, SqlDialect } from "shared/types/sql";
 import {
   defaultPercentileCapSelectClause,
   PercentileCapSelectClauseValue,
 } from "back-end/src/integrations/sql/clauses/percentile-cap-select-clause";
+import { eligibleTopValueExpr } from "back-end/src/integrations/sql/clauses/approx-top-values";
 import { baseDialect } from "./base";
 
 const APPROX_QUANTILES_MULTIPLIER = 10000;
@@ -101,6 +103,9 @@ function bigQueryPercentileCapSelectClause(
       `;
 }
 
+const bigQueryEscapeStringLiteral = (value: string) =>
+  value.replace(/(['\\])/g, "\\$1");
+
 export const bigQueryDialect: SqlDialect = {
   ...baseDialect,
   formatDialect: "bigquery",
@@ -120,31 +125,45 @@ export const bigQueryDialect: SqlDialect = {
   formatDate: (col: string) => `format_date("%F", ${col})`,
   formatDateTimeString: (col: string) => `format_datetime("%F %T", ${col})`,
   castToString: (col: string) => `cast(${col} as string)`,
-  escapeStringLiteral: (value: string) => value.replace(/(['\\])/g, "\\$1"),
+  stringMatch: createLikeStringMatchFn({
+    escapeStringLiteral: bigQueryEscapeStringLiteral,
+    emitEscapeClause: false,
+  }),
+  escapeStringLiteral: bigQueryEscapeStringLiteral,
   castUserDateCol: (column: string) => `CAST(${column} as DATETIME)`,
   hasCountDistinctHLL: () => true,
   hllAggregate: (col: string) => `HLL_COUNT.INIT(${col})`,
   hllReaggregate: (col: string) => `HLL_COUNT.MERGE_PARTIAL(${col})`,
   hllCardinality: (col: string) => `HLL_COUNT.EXTRACT(${col})`,
-  kllInit: (col: string) => `KLL_QUANTILES.INIT_FLOAT64(${col}, 1000)`,
-  kllMergePartial: (col: string) => `KLL_QUANTILES.MERGE_PARTIAL(${col})`,
-  kllExtractPoint: (col: string, quantile: number) =>
+  quantileSketchInit: (col: string) =>
+    `KLL_QUANTILES.INIT_FLOAT64(${col}, 1000)`,
+  quantileSketchMergePartial: (col: string) =>
+    `KLL_QUANTILES.MERGE_PARTIAL(${col})`,
+  quantileSketchExtractPoint: (col: string, quantile: number) =>
     `KLL_QUANTILES.EXTRACT_POINT_FLOAT64(${col}, ${quantile})`,
-  kllExtractQuantiles: (col: string, numQuantiles: number) =>
+  quantileSketchExtractQuantiles: (col: string, numQuantiles: number) =>
     `KLL_QUANTILES.EXTRACT_FLOAT64(${col}, ${numQuantiles})`,
-  kllRankApprox: (
+  quantileSketchRankApprox: (
     sketchCol: string,
     thresholdCol: string,
     nEventsCol: string,
     numQuantiles: number,
   ) => {
-    const cdfArray = bigQueryDialect.kllExtractQuantiles(
+    const cdfArray = bigQueryDialect.quantileSketchExtractQuantiles(
       sketchCol,
       numQuantiles,
     );
     const countBelow = `(SELECT COUNT(*) FROM UNNEST(${cdfArray}) AS p WHERE p < ${thresholdCol})`;
     return `COALESCE(${countBelow} * ${nEventsCol} / ${numQuantiles}.0, 0)`;
   },
+  hasArrayQuantileGrid: () => true,
+  // BigQuery rejects NULL containing arrays in a query result, so collapse the
+  // whole grid to NULL when an array would contain NULLs.
+  // The quantile-grid elements are all-or-nothing, so we can test the first element.
+  quantileGridArrayLiteral: (elements: string[]) =>
+    elements.length > 0
+      ? `IF(${elements[0]} IS NULL, NULL, [${elements.join(", ")}])`
+      : `[${elements.join(", ")}]`,
   percentileApprox: (value: string, quantile: string | number) => {
     const multiplier = APPROX_QUANTILES_MULTIPLIER;
     const quantileVal = Number(quantile)
@@ -156,6 +175,26 @@ export const bigQueryDialect: SqlDialect = {
     const raw = `JSON_VALUE(${jsonCol}, '$.${path}')`;
     return isNumeric ? `CAST(${raw} AS FLOAT64)` : raw;
   },
+  // BigQuery uses `IGNORE NULLS` in aggregates rather than `FILTER (WHERE …)`.
+  arrayAggSorted: (col: string) =>
+    `ARRAY_AGG(${col} IGNORE NULLS ORDER BY ${col})`,
+  // BQ supports `ANY_VALUE(x HAVING MIN y)` natively — picks an `x` value from
+  // the row that has the minimum `y`. `IGNORE NULLS` is NOT valid in this form
+  // (syntax error) and is unnecessary: aggregate functions ignore NULL inputs,
+  // so rows with a NULL timestamp are already excluded from the MIN.
+  argMinByTimestamp: (valueCol: string, tsCol: string) =>
+    `ANY_VALUE(${valueCol} HAVING MIN ${tsCol})`,
+  arrayMinInRange: (col, lowerBound, upperBound) => {
+    const conditions: string[] = [];
+    if (lowerBound) conditions.push(`t >= ${lowerBound}`);
+    if (upperBound) conditions.push(`t <= ${upperBound}`);
+    const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+    return `(SELECT MIN(t) FROM UNNEST(${col}) AS t ${where})`;
+  },
+  addIntervalSeconds: (col: string, sign: "+" | "-", amount: number) =>
+    `DATETIME_${sign === "+" ? "ADD" : "SUB"}(${col}, INTERVAL ${amount} SECOND)`,
+  dateDiffMs: (startCol: string, endCol: string) =>
+    `CAST(DATETIME_DIFF(${endCol}, ${startCol}, MILLISECOND) AS FLOAT64)`,
   getDataType: (dataType: DataType): string => {
     switch (dataType) {
       case "string":
@@ -172,7 +211,7 @@ export const bigQueryDialect: SqlDialect = {
         return "TIMESTAMP";
       case "hll":
         return "BYTES";
-      case "kll":
+      case "quantileSketch":
         return "BYTES";
       default: {
         const _: never = dataType;
@@ -195,5 +234,42 @@ export const bigQueryDialect: SqlDialect = {
       keyExpr: "col.column_name",
       valueExpr: "col.value",
     };
+  },
+  arrayElement: (arrayCol: string, index: number) =>
+    `${arrayCol}[SAFE_OFFSET(${index})]`,
+
+  // APPROX_TOP_COUNT(expr, k) returns ARRAY<STRUCT<value, count>> per column;
+  // pack the per-column structs into one array and double-UNNEST back to long
+  // form. It counts NULLs, so disqualified values map to NULL and the NULL
+  // bucket is dropped via `item.value IS NOT NULL`.
+  approxTopValuesCTEBody: ({
+    pairs,
+    fromTable,
+    whereClause,
+    limit,
+    maxValueLength,
+  }) => {
+    const structs = pairs
+      .map(
+        (p) =>
+          `STRUCT('${p.keyLiteral}' AS column_name, APPROX_TOP_COUNT(${eligibleTopValueExpr(
+            bigQueryDialect,
+            p.valueSql,
+            maxValueLength,
+          )}, ${limit}) AS items)`,
+      )
+      .join(",\n      ");
+    return `
+  SELECT __col.column_name AS column_name, __item.value AS value, __item.count AS count
+  FROM (
+    SELECT [
+      ${structs}
+    ] AS cols
+    FROM ${fromTable}
+    WHERE ${whereClause}
+  ) __agg
+  CROSS JOIN UNNEST(__agg.cols) AS __col
+  CROSS JOIN UNNEST(__col.items) AS __item
+  WHERE __item.value IS NOT NULL`;
   },
 };

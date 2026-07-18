@@ -14,15 +14,47 @@ GrowthBook offers a fully managed event ingestion pipeline. Use our SDKs to trac
 - **Fully Managed**: No need to worry about infrastructure management, scaling, or maintenance.
 - **Seamless Integration**: Built-in tracking in our SDKs.
 - **Near Real-Time**: Events are available in your warehouse typically within a few seconds.
-- **Broad Support**: Works with BigQuery, Snowflake, Redshift, Databricks, and more.
+- **Broad Support**: Works with BigQuery and Snowflake today, with more warehouses coming soon.
 - **Works with Self-Hosting** - Use with either GrowthBook Cloud or your self-hosted GrowthBook instance.
 
 ## How it Works
 
-1. Provide GrowthBook with your data warehouse connection details
-2. We will create destination tables for `events`, `experiment_views`, and `feature_usage`
+1. Provide GrowthBook with your data warehouse connection details (see [Connection Permissions](#connection-permissions) for required permissions)
+2. We will create destination tables for `events`, `experiment_viewed`, and `feature_usage`
 3. You send analytics events to our scalable Ingestion API
 4. We enrich the events and stream them into your warehouse within seconds
+5. We will build a Fact Table, customize the Data Source's experiment assignment queries, and feature usage queries, so you can quickly start analyzing your experiment data and defining metrics.
+
+## Connection Permissions
+
+When setting up the Event Forwarder, GrowthBook uses your data warehouse connection to pre-create destination tables and validate write access before provisioning the Confluent connector.
+
+### BigQuery
+
+The service account configured in your GrowthBook BigQuery datasource must have the **BigQuery Data Editor** role on the destination dataset. This grants the necessary permissions to:
+
+- Check whether destination tables exist
+- Create the destination tables (`events`, `experiment_viewed`, `feature_usage`)
+- Write data via the BigQuery Storage Write API
+
+You can grant this at the dataset level in the BigQuery console or via the `roles/bigquery.dataEditor` IAM role binding.
+
+### Snowflake
+
+The Snowflake connection **must use key-pair authentication** — password authentication is not supported for the Event Forwarder. The Snowflake role you provide must have the following privileges:
+
+| Privilege       | Object                   |
+| --------------- | ------------------------ |
+| `USAGE`         | Database                 |
+| `USAGE`         | Schema                   |
+| `USAGE`         | Warehouse (if specified) |
+| `CREATE SCHEMA` | Database                 |
+| `CREATE TABLE`  | Schema                   |
+| `INSERT`        | Tables                   |
+
+`CREATE TABLE` and `CREATE SCHEMA` are required because the Confluent Snowflake Sink uses Snowpipe Streaming with schema evolution, which may create or alter tables and schemas as your event schema changes.
+
+Key-pair authentication must be configured on the Snowflake datasource connection itself — it is not set in the Event Forwarder UI. Update your datasource's connection settings to use key-pair auth before enabling the Event Forwarder.
 
 ## Get Started
 

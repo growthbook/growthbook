@@ -60,7 +60,7 @@ export default function RoleList() {
                   </td>
                   <td>{r.description}</td>
                   <td>
-                    <MoreMenu>
+                    <MoreMenu useRadix={false}>
                       <Button
                         color="btn-link"
                         className="dropdown-item"
@@ -86,6 +86,7 @@ export default function RoleList() {
                           </Button>
                           <div className="border-top mt-1 pt-1">
                             <DeleteButton
+                              useRadix={false}
                               onClick={async () => {
                                 await apiCall(`/custom-roles/${r.id}`, {
                                   method: "DELETE",

@@ -1,15 +1,13 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { date, datetime } from "shared/dates";
 import Link from "next/link";
-import clsx from "clsx";
 import { startCase } from "lodash";
+import { Box, Flex } from "@radix-ui/themes";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Pagination from "@/components/Pagination";
 import { useUser } from "@/services/UserContext";
 import SortedTags from "@/components/Tags/SortedTags";
 import Field from "@/components/Forms/Field";
-import TagsFilter, { useTagsFilter } from "@/components/Tags/TagsFilter";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
@@ -21,13 +19,56 @@ import { useHoldouts } from "@/hooks/useHoldouts";
 import EmptyState from "@/components/EmptyState";
 import LinkButton from "@/ui/LinkButton";
 import { AttributeBadge } from "@/components/Features/AttributeBadge";
+import Callout from "@/ui/Callout";
+import Table, {
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
+import useURLHash from "@/hooks/useURLHash";
 
-const NUM_PER_PAGE = 20;
+const HOLDOUT_TABS = [
+  "all",
+  "running",
+  "draft",
+  "stopped",
+  "archived",
+] as const;
+type HoldoutTab = (typeof HOLDOUT_TABS)[number];
+const isHoldoutTab = (v: string): v is HoldoutTab =>
+  HOLDOUT_TABS.includes(v as HoldoutTab);
 
 const HoldoutsPage = (): React.ReactElement => {
   const { ready, project, projects } = useDefinitions();
 
-  const [tabs, setTabs] = useLocalStorage<string[]>("holdout_tabs", []);
+  const initialHashRef = useRef(
+    globalThis?.window ? window.location.hash.slice(1) : "",
+  );
+  const hasInitialValidHash = isHoldoutTab(initialHashRef.current);
+  const [urlTab, setTab] = useURLHash<HoldoutTab>(HOLDOUT_TABS);
+  const tab: HoldoutTab = urlTab && isHoldoutTab(urlTab) ? urlTab : "all";
+  const [storedTab, setStoredTab] = useLocalStorage<HoldoutTab>(
+    "holdouts-list-tab",
+    "all",
+  );
+  const [didInitializeTab, setDidInitializeTab] = useState(false);
+  const activeTab: HoldoutTab =
+    !hasInitialValidHash && !didInitializeTab ? storedTab : tab;
+
+  useEffect(() => {
+    if (didInitializeTab) return;
+    if (!hasInitialValidHash && storedTab !== tab) setTab(storedTab);
+    setDidInitializeTab(true);
+  }, [didInitializeTab, hasInitialValidHash, setTab, storedTab, tab]);
+
+  useEffect(() => {
+    if (!didInitializeTab) return;
+    if (storedTab !== tab) setStoredTab(tab);
+  }, [didInitializeTab, setStoredTab, storedTab, tab]);
+
   const { getOwnerDisplay } = useUser();
 
   const {
@@ -38,16 +79,12 @@ const HoldoutsPage = (): React.ReactElement => {
     error,
     loading,
     mutateHoldouts,
-  } = useHoldouts(project, tabs.includes("archived"));
-
-  const tagsFilter = useTagsFilter("experiments");
+  } = useHoldouts(project, activeTab === "archived");
 
   const [openNewHoldoutModal, setOpenNewHoldoutModal] = useState(false);
 
   const { hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
-
-  const [currentPage, setCurrentPage] = useState(1);
 
   const holdoutsWithExperiment = useMemo(() => {
     return holdouts
@@ -65,9 +102,6 @@ const HoldoutsPage = (): React.ReactElement => {
   }, [holdouts, experimentsMap]);
 
   const holdoutItems = useAddComputedFields(holdoutsWithExperiment, (item) => {
-    // If draft, set duration to --
-    // if running, set duration to start date to now
-    // if stopped, set duration to start date to end date
     const durationString =
       item.experiment?.status === "draft"
         ? "--"
@@ -79,11 +113,9 @@ const HoldoutsPage = (): React.ReactElement => {
               )}`
             : null;
     const projectsComputed = item.projects.reduce((acc, p) => {
-      const project = projects.find((project) => project.id === p);
-      if (!project) {
-        return acc;
-      }
-      return [...acc, project.name];
+      const proj = projects.find((project) => project.id === p);
+      if (!proj) return acc;
+      return [...acc, proj.name];
     }, []);
     const statusString =
       startCase(item.experiment.status) +
@@ -91,7 +123,6 @@ const HoldoutsPage = (): React.ReactElement => {
       item.experiment.phases.length === 2
         ? ": Analysis Phase"
         : "");
-
     const ownerName = getOwnerDisplay(item.experiment.owner);
     return {
       name: item.name,
@@ -107,19 +138,20 @@ const HoldoutsPage = (): React.ReactElement => {
     };
   });
 
-  const { items, searchInputProps, SortableTH } = useSearch({
-    items: holdoutItems,
-    searchFields: [
-      "name",
-      "projects",
-      "ownerName",
-      "hashAttribute",
-      "holdoutStatus",
-    ],
-    localStorageKey: "holdout-search",
-    defaultSortField: "dateCreated",
-    defaultSortDir: -1,
-  });
+  const { items, searchInputProps, isFiltered, SortableTableColumnHeader } =
+    useSearch({
+      items: holdoutItems,
+      searchFields: [
+        "name",
+        "projects",
+        "ownerName",
+        "hashAttribute",
+        "holdoutStatus",
+      ],
+      localStorageKey: "holdout-search",
+      defaultSortField: "dateCreated",
+      defaultSortDir: -1,
+    });
 
   const tabCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -131,23 +163,18 @@ const HoldoutsPage = (): React.ReactElement => {
   }, [items]);
 
   const filtered = useMemo(() => {
-    return tabs.length
-      ? items.filter((item) => tabs.includes(item.status))
+    return activeTab !== "all"
+      ? items.filter((item) => item.status === activeTab)
       : items;
-  }, [tabs, items]);
+  }, [activeTab, items]);
 
   const hasHoldoutFeature = hasCommercialFeature("holdouts");
 
-  // Reset to page 1 when a filter is applied or tabs change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [filtered.length]);
-
   if (error) {
     return (
-      <div className="alert alert-danger">
+      <Callout status="error" mb="3">
         An error occurred: {error.message}
-      </div>
+      </Callout>
     );
   }
   if (loading || !ready) {
@@ -155,24 +182,11 @@ const HoldoutsPage = (): React.ReactElement => {
   }
 
   const hasHoldoutsCreated = holdouts.length > 0 && allExperiments.length > 0;
-
   const canAdd = permissionsUtil.canViewHoldoutModal(project, projects);
-
-  const start = (currentPage - 1) * NUM_PER_PAGE;
-  const end = start + NUM_PER_PAGE;
-
-  function onToggleTab(tab: string) {
-    return () => {
-      const newTabs = new Set(tabs);
-      if (newTabs.has(tab)) newTabs.delete(tab);
-      else newTabs.add(tab);
-      setTabs([...newTabs]);
-    };
-  }
 
   if (!hasHoldoutFeature) {
     return (
-      <div className="contents container-fluid pagecontents">
+      <Box className="contents container-fluid pagecontents">
         <PremiumEmptyState
           h1="Holdouts"
           title="Measure aggregate impact with Holdouts"
@@ -180,211 +194,186 @@ const HoldoutsPage = (): React.ReactElement => {
           commercialFeature="holdouts"
           learnMoreLink="https://docs.growthbook.io/app/holdouts"
         />
-      </div>
+      </Box>
     );
   }
 
   return (
     <>
-      <div className="contents experiments container-fluid pagecontents">
-        <div className="mb-3 mt-2">
-          <div className="filters md-form row mb-3 align-items-center">
-            <div className="col d-flex align-items-center">
-              <h1>Holdouts</h1>
-            </div>
-            <div style={{ flex: 1 }} />
-            {canAdd && (
-              <div className="col-auto">
-                <PremiumTooltip tipPosition="left" commercialFeature="holdouts">
+      <Box className="contents container-fluid pagecontents" mb="3" mt="2">
+        <Flex mb="3" mt="2" align="center" justify="between">
+          <h1 style={{ margin: 0 }}>Holdouts</h1>
+          {canAdd && (
+            <PremiumTooltip tipPosition="left" commercialFeature="holdouts">
+              <Button
+                onClick={() => setOpenNewHoldoutModal(true)}
+                disabled={!hasHoldoutFeature}
+              >
+                Add Holdout
+              </Button>
+            </PremiumTooltip>
+          )}
+        </Flex>
+
+        {!hasHoldoutsCreated ? (
+          <EmptyState
+            title="Measure aggregate impact with Holdouts"
+            description="Measure the aggregate impact of features and experiments with Holdouts."
+            leftButton={
+              <LinkButton
+                href="https://docs.growthbook.io/app/holdouts"
+                variant="outline"
+                external={true}
+              >
+                View docs
+              </LinkButton>
+            }
+            rightButton={
+              canAdd ? (
+                <PremiumTooltip
+                  tipPosition="left"
+                  popperStyle={{ top: 15 }}
+                  commercialFeature="holdouts"
+                >
                   <Button
-                    onClick={() => {
-                      setOpenNewHoldoutModal(true);
-                    }}
+                    onClick={() => setOpenNewHoldoutModal(true)}
                     disabled={!hasHoldoutFeature}
                   >
                     Add Holdout
                   </Button>
                 </PremiumTooltip>
-              </div>
-            )}
-          </div>
-          {!hasHoldoutsCreated ? (
-            <EmptyState
-              title="Measure aggregate impact with Holdouts"
-              description="Measure the aggregate impact of features and experiments with
-              Holdouts."
-              leftButton={
-                <LinkButton
-                  href="https://docs.growthbook.io/app/holdouts"
-                  variant="outline"
-                  external={true}
-                >
-                  View docs
-                </LinkButton>
-              }
-              rightButton={
-                canAdd ? (
-                  <PremiumTooltip
-                    tipPosition="left"
-                    popperStyle={{ top: 15 }}
-                    commercialFeature="holdouts"
-                  >
-                    <Button
-                      onClick={() => {
-                        setOpenNewHoldoutModal(true);
-                      }}
-                      disabled={!hasHoldoutFeature}
-                    >
-                      Add Holdout
-                    </Button>
-                  </PremiumTooltip>
-                ) : null
-              }
-            />
-          ) : (
-            <>
-              <div className="row align-items-center mb-3">
-                <div className="col-auto d-flex">
-                  {["running", "draft", "stopped", "archived"].map((tab, i) => {
-                    const active = tabs.includes(tab);
-
-                    if (tab === "archived" && !hasArchived) return null;
-
+              ) : null
+            }
+          />
+        ) : (
+          <Tabs
+            value={activeTab}
+            onValueChange={(value) => {
+              if (isHoldoutTab(value)) setTab(value);
+            }}
+          >
+            <Box mb="3">
+              <TabsList>
+                <TabsTrigger value="all">All Holdouts</TabsTrigger>
+                {(["running", "draft", "stopped", "archived"] as const).map(
+                  (tabValue) => {
+                    if (tabValue === "archived" && !hasArchived) return null;
                     return (
-                      <button
-                        key={tab}
-                        className={clsx("border mb-0", {
-                          "badge-purple font-weight-bold": active,
-                          "text-secondary": !active,
-                          "rounded-left": i === 0,
-                          "rounded-right":
-                            tab === "archived" ||
-                            (tab === "stopped" && !hasArchived),
-                        })}
-                        style={{
-                          fontSize: "1em",
-                          opacity: active ? 1 : 0.8,
-                          padding: "6px 12px",
-                          backgroundColor: active ? "" : "var(--color-panel)",
-                        }}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          onToggleTab(tab)();
-                        }}
-                        title={
-                          active && tabs.length > 1
-                            ? `Hide ${tab} holdouts`
-                            : active
-                              ? `Remove filter`
-                              : tabs.length === 0
-                                ? `View only ${tab} holdouts`
-                                : `Include ${tab} holdouts`
-                        }
-                      >
-                        <span className="mr-1">
-                          {tab.slice(0, 1).toUpperCase()}
-                          {tab.slice(1)}
-                        </span>
-                        {tab !== "archived" && (
-                          <span className="badge bg-white border text-dark mr-2">
-                            {tabCounts[tab] || 0}
+                      <TabsTrigger value={tabValue} key={tabValue}>
+                        {tabValue.slice(0, 1).toUpperCase()}
+                        {tabValue.slice(1)}
+                        {tabValue !== "archived" && (
+                          <span
+                            style={{
+                              marginLeft: "var(--space-2)",
+                              background: "var(--gray-3)",
+                              border: "1px solid var(--gray-6)",
+                              borderRadius: "var(--radius-2)",
+                              padding: "0 var(--space-2)",
+                              fontSize: "var(--font-size-1)",
+                              color: "var(--gray-11)",
+                            }}
+                          >
+                            {tabCounts[tabValue] || 0}
                           </span>
                         )}
-                      </button>
+                      </TabsTrigger>
                     );
-                  })}
-                </div>
-                <div className="col-auto">
-                  <Field
-                    placeholder="Search..."
-                    type="search"
-                    {...searchInputProps}
-                  />
-                </div>
-                <div className="col-auto">
-                  <TagsFilter filter={tagsFilter} items={items} />
-                </div>
-              </div>
-
-              <table className="appbox table experiment-table gbtable responsive-table">
-                <thead>
-                  <tr>
-                    <SortableTH field="name">Holdout Name</SortableTH>
-                    <SortableTH field="projects">Projects</SortableTH>
-                    <th>Tags</th>
-                    <SortableTH field="ownerName">Owner</SortableTH>
-                    <SortableTH field="hashAttribute">ID Type</SortableTH>
-                    <th>Experiments</th>
-                    <th>Features</th>
-                    <SortableTH field="holdoutStatus">Status</SortableTH>
-                    <SortableTH field="duration">Duration</SortableTH>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.slice(start, end).map((holdout) => {
-                    return (
-                      <tr key={holdout.id} className="hover-highlight">
-                        <td data-title="Holdout name:" className="p-0">
-                          <Link
-                            href={`/holdout/${holdout.id}`}
-                            className="d-block p-2"
-                          >
-                            <div className="d-flex flex-column">
-                              <div className="d-flex">
-                                <span className="testname">{holdout.name}</span>
-                              </div>
-                            </div>
-                          </Link>
-                        </td>
-                        <td data-title="Projects:">
-                          {holdout.projects.length === 0
-                            ? null
-                            : holdout.projects.join(", ")}
-                        </td>
-                        <td data-title="Tags:">
-                          <SortedTags
-                            tags={Object.values(holdout?.tags || [])}
-                            useFlex={true}
-                          />
-                        </td>
-                        <td className="nowrap" data-title="Owner:">
-                          <span className="text-truncate">
-                            {holdout.ownerName}
-                          </span>
-                        </td>
-                        <td className="nowrap" data-title="ID Type:">
-                          <AttributeBadge attributeId={holdout.hashAttribute} />
-                        </td>
-                        <td className="nowrap">{holdout.numExperiments}</td>
-                        <td className="nowrap">{holdout.numFeatures}</td>
-                        <td className="nowrap" data-title="Status:">
-                          {holdout.holdoutStatus}
-                        </td>
-                        <td
-                          className="nowrap"
-                          title={datetime(
-                            holdout.experiment.phases[0].dateStarted ?? "",
-                          )}
+                  },
+                )}
+              </TabsList>
+            </Box>
+            <Box mb="4" style={{ width: "40%" }}>
+              <Field
+                placeholder="Search..."
+                type="search"
+                {...searchInputProps}
+              />
+            </Box>
+            <TabsContent value={activeTab}>
+              <Table variant="list" stickyHeader roundedCorners>
+                <TableHeader>
+                  <TableRow>
+                    <SortableTableColumnHeader field="name">
+                      Holdout Name
+                    </SortableTableColumnHeader>
+                    <SortableTableColumnHeader field="projects">
+                      Projects
+                    </SortableTableColumnHeader>
+                    <TableColumnHeader>Tags</TableColumnHeader>
+                    <SortableTableColumnHeader field="ownerName">
+                      Owner
+                    </SortableTableColumnHeader>
+                    <SortableTableColumnHeader field="hashAttribute">
+                      ID Type
+                    </SortableTableColumnHeader>
+                    <TableColumnHeader>Experiments</TableColumnHeader>
+                    <TableColumnHeader>Features</TableColumnHeader>
+                    <SortableTableColumnHeader field="holdoutStatus">
+                      Status
+                    </SortableTableColumnHeader>
+                    <SortableTableColumnHeader field="duration">
+                      Duration
+                    </SortableTableColumnHeader>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filtered.map((holdout) => (
+                    <TableRow key={holdout.id}>
+                      <TableCell style={{ padding: "var(--space-0)" }}>
+                        <Link
+                          href={`/holdout/${holdout.id}`}
+                          style={{
+                            display: "block",
+                            padding: "var(--space-3)",
+                            color: "var(--gray-12)",
+                          }}
                         >
-                          {holdout.duration}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-              {filtered.length > NUM_PER_PAGE && (
-                <Pagination
-                  numItemsTotal={filtered.length}
-                  currentPage={currentPage}
-                  perPage={NUM_PER_PAGE}
-                  onPageChange={setCurrentPage}
-                />
-              )}
-            </>
-          )}
-        </div>
-      </div>
+                          <span className="testname">{holdout.name}</span>
+                        </Link>
+                      </TableCell>
+                      <TableCell>
+                        {holdout.projects.length === 0
+                          ? null
+                          : holdout.projects.join(", ")}
+                      </TableCell>
+                      <TableCell>
+                        <SortedTags
+                          tags={Object.values(holdout?.tags || [])}
+                          useFlex={true}
+                        />
+                      </TableCell>
+                      <TableCell>{holdout.ownerName}</TableCell>
+                      <TableCell>
+                        <AttributeBadge attributeId={holdout.hashAttribute} />
+                      </TableCell>
+                      <TableCell>{holdout.numExperiments}</TableCell>
+                      <TableCell>{holdout.numFeatures}</TableCell>
+                      <TableCell>{holdout.holdoutStatus}</TableCell>
+                      <TableCell
+                        title={datetime(
+                          holdout.experiment.phases[0].dateStarted ?? "",
+                        )}
+                      >
+                        {holdout.duration}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {filtered.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={9} style={{ textAlign: "center" }}>
+                        {isFiltered
+                          ? "No holdouts match the current filter."
+                          : "No holdouts found."}
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TabsContent>
+          </Tabs>
+        )}
+      </Box>
       {openNewHoldoutModal && (
         <NewHoldoutForm
           onClose={() => setOpenNewHoldoutModal(false)}

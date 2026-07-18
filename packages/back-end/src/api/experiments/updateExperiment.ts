@@ -11,17 +11,24 @@ import {
   getExperimentByTrackingKey,
 } from "back-end/src/models/ExperimentModel";
 import {
+  normalizeStatusUpdateScheduleChanges,
   toExperimentApiInterface,
   updateExperimentApiPayloadToInterface,
+  validateStatusUpdateSchedule,
   validateVariationIds,
 } from "back-end/src/services/experiments";
-import { startExperiment } from "back-end/src/services/experimentChanges/changeExperimentStatus";
+import { assertRegisteredAttributes } from "back-end/src/services/attributes";
+import {
+  startExperiment,
+  validateExperimentChange,
+} from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import {
   resolveOwnerEmail,
   resolveOwnerToUserId,
 } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { assertExperimentPrecomputedUnitDimensionIdsAreValid } from "back-end/src/services/dimensions";
 import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
@@ -202,7 +209,50 @@ export const updateExperiment = createApiRequestHandler(
   }
 
   if (req.body.variations) {
+    // Resolve the `variationId` response-field alias to `id` before validating,
+    // so echoing GET variations back doesn't regenerate ids (validateVariationIds
+    // assigns a fresh id to any variation missing one).
+    req.body.variations.forEach((v) => {
+      if (!v.id && v.variationId) v.id = v.variationId;
+    });
     validateVariationIds(req.body.variations as Variation[]);
+  }
+
+  const effectivePrecomputedUnitDimensionType =
+    req.body.type ?? experiment.type ?? "standard";
+  if (effectivePrecomputedUnitDimensionType === "multi-armed-bandit") {
+    // If request includes precomputed unit dimensions for a bandit, error
+    if (req.body.precomputedUnitDimensionIds !== undefined) {
+      throw new Error(
+        "Precomputed unit dimensions are not supported for bandit experiments",
+      );
+    }
+    // if experiment is just switching to a bandit, silently clear precomputed unit dimensions
+    if (req.body.type === "multi-armed-bandit") {
+      req.body.precomputedUnitDimensionIds = [];
+    }
+  }
+
+  const shouldValidatePrecomputedUnitDimensionIds =
+    req.body.precomputedUnitDimensionIds !== undefined ||
+    (req.body.datasourceId !== undefined &&
+      req.body.datasourceId !== experiment.datasource) ||
+    (req.body.assignmentQueryId !== undefined &&
+      req.body.assignmentQueryId !== experiment.exposureQueryId);
+  if (shouldValidatePrecomputedUnitDimensionIds) {
+    const effectivePrecomputedUnitDimensionIds =
+      req.body.precomputedUnitDimensionIds ??
+      experiment.precomputedUnitDimensionIds ??
+      [];
+    if (effectivePrecomputedUnitDimensionIds.length > 0) {
+      await assertExperimentPrecomputedUnitDimensionIdsAreValid({
+        context: req.context,
+        datasource,
+        exposureQueryId:
+          req.body.assignmentQueryId ?? experiment.exposureQueryId,
+        dimensionIds: effectivePrecomputedUnitDimensionIds,
+      });
+    }
   }
 
   if (
@@ -237,6 +287,33 @@ export const updateExperiment = createApiRequestHandler(
     );
   }
 
+  // Opt-in attribute registration check (org-level setting). Covers the
+  // experiment-level hash/fallback attributes and every provided phase.
+  assertRegisteredAttributes(
+    req.context,
+    {
+      hashAttribute: req.body.hashAttribute,
+      fallbackAttribute: req.body.fallbackAttribute,
+    },
+    "experiment",
+    undefined,
+    experiment.project,
+  );
+  for (const phase of req.body.phases ?? []) {
+    assertRegisteredAttributes(
+      req.context,
+      { condition: phase.condition },
+      "experiment phase",
+      undefined,
+      experiment.project,
+    );
+  }
+
+  if (req.body.statusUpdateSchedule) {
+    const effectiveType = req.body.type ?? experiment.type ?? "standard";
+    validateStatusUpdateSchedule(effectiveType, req.body.statusUpdateSchedule);
+  }
+
   const resolvedOwner = await resolveOwnerToUserId(req.body.owner, req.context);
   const changes = updateExperimentApiPayloadToInterface(
     {
@@ -248,15 +325,20 @@ export const updateExperiment = createApiRequestHandler(
     req.organization,
   );
 
+  normalizeStatusUpdateScheduleChanges(experiment, changes);
+
   const isStartingFromDraft =
     experiment.status === "draft" && changes.status === "running";
+
+  await validateExperimentChange({ context: req.context, experiment, changes });
 
   let experimentForUpdate = experiment;
   let changesForUpdate = changes;
 
   if (isStartingFromDraft) {
     // Route draft->running transitions through the dedicated lifecycle method
-    // so checklist and pending-draft publish behavior stays consistent.
+    // so ramp lockdown, checklist, and pending-draft publish behavior stays
+    // consistent across all entry points.
     const { updated } = await startExperiment({
       context: req.context,
       experimentId: experiment.id,

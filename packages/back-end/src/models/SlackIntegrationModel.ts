@@ -360,7 +360,7 @@ export const deleteAllSlackIntegrationsForAProject = async ({
   organization: OrganizationInterface;
 }): Promise<void> => {
   const slackIntegrationsToDelete = await SlackIntegrationModel.find({
-    organization: organization.id,
+    organizationId: organization.id,
     projects: [projectId],
   });
 

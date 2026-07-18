@@ -22,6 +22,7 @@ import track from "@/services/track";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { getMetricAnalysisProps } from "@/components/MetricAnalysis/metric-analysis-props";
 import Link from "@/ui/Link";
+import Callout from "@/ui/Callout";
 
 const NorthStarMetricDisplay = ({
   metricId,
@@ -58,7 +59,7 @@ const NorthStarMetricDisplay = ({
   }>(`/metrics/${metricId}/northstar`);
 
   if (error) {
-    return <div className="alert alert-danger">{error.message}</div>;
+    return <Callout status="error">{error.message}</Callout>;
   }
 
   if (!metric || !data) {
@@ -122,14 +123,14 @@ const NorthStarMetricDisplay = ({
           ) : (
             <>
               {hasQueries && status === "failed" && (
-                <div className="alert alert-danger my-3">
+                <Callout status="error" my="3">
                   Error running the analysis.
-                </div>
+                </Callout>
               )}
               {hasQueries && status === "running" && (
-                <div className="alert alert-info my-3">
+                <Callout status="info" my="3">
                   Your analysis is currently running.
-                </div>
+                </Callout>
               )}
               {status !== "running" && status !== "failed" && (
                 <div className="mb-2">
@@ -183,6 +184,7 @@ const NorthStarMetricDisplay = ({
                 }}
               >
                 <RunQueriesButton
+                  useRadixButton={false}
                   icon="refresh"
                   cta={analysis ? "Refresh Data" : "Run Analysis"}
                   mutate={mutate}
@@ -212,6 +214,7 @@ const NorthStarMetricDisplay = ({
                 }}
               >
                 <RunQueriesButton
+                  useRadixButton={false}
                   icon="refresh"
                   cta={analysis ? "Refresh Data" : "Run Analysis"}
                   model={

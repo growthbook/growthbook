@@ -1,6 +1,11 @@
 import type { OrganizationInterface } from "shared/types/organization";
-import { putFeatureRevisionRuleRampScheduleValidator } from "shared/validators";
+import {
+  RevisionRampUpdateAction,
+  RampStartState,
+  putFeatureRevisionRuleRampScheduleValidator,
+} from "shared/validators";
 import { resetReviewOnChange } from "shared/util";
+import { resolveRampStartState } from "back-end/src/services/rampSchedule";
 import type { ApiReqContext } from "back-end/types/api";
 import { toApiRevision } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
@@ -36,7 +41,6 @@ export async function setRuleRampSchedule(
     // All remaining fields are forwarded as the inline schedule definition.
     [k: string]: unknown;
   },
-  docLinkVersion: "v1" | "v2",
 ) {
   const feature = await getFeature(context, params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
@@ -92,15 +96,45 @@ export async function setRuleRampSchedule(
     // (DELETE by the GET-returned id) breaks for stem↔suffix ambiguity.
     const canonicalRuleId = match.id;
 
-    // Block if an active live schedule already controls this rule.
+    // If an active live schedule controls this rule, queue a deferred
+    // revision-time `update` action instead of requiring an instant write via
+    // PUT /ramp-schedule/:id. This keeps config edits revision-controlled.
     const liveSchedules = await context.models.rampSchedules.findByTargetRule(
       canonicalRuleId,
       environment ?? undefined,
     );
-    if (liveSchedules.length > 0) {
-      throw new BadRequestError(
-        `Rule "${canonicalRuleId}" already has a live ramp schedule.` +
-          ` Update it via PUT /api/${docLinkVersion}/ramp-schedules/${liveSchedules[0].id}.`,
+    const existingLiveSchedule = liveSchedules[0];
+
+    // Resolve the rollback anchor. An explicit `startState` is converted to
+    // startActions (merged onto the rule's current state); when omitted, the
+    // anchor is derived at publish from the rule's coverage — and we warn if
+    // that isn't 0% on create.
+    const startStateProvided = scheduleInput.startState !== undefined;
+    const { startActions: resolvedStartActions, warning: startStateWarning } =
+      resolveRampStartState({
+        rule: match,
+        ruleId: canonicalRuleId,
+        startState: scheduleInput.startState as RampStartState | undefined,
+        isCreate: !existingLiveSchedule,
+      });
+    if (resolvedStartActions) {
+      scheduleInput.startActions = resolvedStartActions;
+    }
+    delete scheduleInput.startState;
+
+    const warnings: string[] = [];
+    if (startStateWarning) warnings.push(startStateWarning);
+    // The rollback anchor is only persisted while a schedule is pending/ready
+    // (see FeatureModel). Updating an already-active schedule's startState is a
+    // no-op, so tell the caller rather than returning a misleading success.
+    if (
+      startStateProvided &&
+      existingLiveSchedule &&
+      existingLiveSchedule.status !== "pending" &&
+      existingLiveSchedule.status !== "ready"
+    ) {
+      warnings.push(
+        `startState was ignored: ramp schedule "${existingLiveSchedule.id}" is "${existingLiveSchedule.status}", and the rollback anchor can only be changed while a schedule is pending or ready.`,
       );
     }
 
@@ -114,9 +148,18 @@ export async function setRuleRampSchedule(
     // written under either form (legacy buggy writes, or stem/suffix variants)
     // get cleaned up on the next set.
     const filtered = (revision.rampActions ?? []).filter(
-      (a) => a.ruleId !== canonicalRuleId && a.ruleId !== ruleId,
+      (a) =>
+        !("ruleId" in a) ||
+        (a.ruleId !== canonicalRuleId && a.ruleId !== ruleId),
     );
-    const newRampActions = [...filtered, action];
+    const revisionAction = existingLiveSchedule
+      ? ({
+          ...action,
+          mode: "update",
+          rampScheduleId: existingLiveSchedule.id,
+        } as RevisionRampUpdateAction)
+      : action;
+    const newRampActions = [...filtered, revisionAction];
 
     // `changedEnvironments` drives per-env review reset and audit env fanout.
     // When the caller didn't specify an env, use the resolved rule's full env
@@ -136,7 +179,7 @@ export async function setRuleRampSchedule(
         user: context.auditUser,
         action: "set ramp schedule",
         subject: canonicalRuleId,
-        value: JSON.stringify(action),
+        value: JSON.stringify(revisionAction),
       },
       resetReviewOnChange({
         feature,
@@ -166,7 +209,11 @@ export async function setRuleRampSchedule(
       },
     );
 
-    return { feature, revision: finalRevision };
+    return {
+      feature,
+      revision: finalRevision,
+      warnings: warnings.length ? warnings : undefined,
+    };
   } catch (err) {
     await discardIfJustCreated(context, revision, created);
     throw err;
@@ -181,7 +228,6 @@ export const putFeatureRevisionRuleRampSchedule = createApiRequestHandler(
     req.organization,
     req.params,
     req.body,
-    "v1",
   );
   return { revision: toApiRevision(revision, req.context, feature) };
 });

@@ -4,6 +4,7 @@ import { ExperimentStatus } from "shared/types/experiment";
 import { OrganizationInterface } from "shared/types/organization";
 import { FeatureDefinition } from "shared/types/sdk";
 import { UserInterface } from "shared/types/user";
+import { ApiErrorCode, ApiErrorDetails } from "shared/validators";
 import { PermissionFunctions } from "back-end/src/types/AuthRequest";
 import { ReqContext } from "./request";
 
@@ -36,15 +37,31 @@ export type ApiRequestLocals = PermissionFunctions & {
   eventAudit: EventUser;
   audit: (data: AuditInterfaceInput) => Promise<void>;
   context: ApiReqContext;
+  isJwtAuth?: boolean;
 };
 
-export interface ApiErrorResponse {
+type ApiErrorResponseBase = {
   message: string;
-  // Populated on 409 ConflictError responses from endpoints that need to return
-  // a structured conflict list (e.g. feature revision publish/rebase) so
-  // clients can auto-resolve programmatically.
+  code?: undefined;
+  details?: undefined;
   conflicts?: unknown[];
-}
+  // Populated on 422 soft-warning responses; re-submit with ?ignoreWarnings=true to proceed.
+  warnings?: string[];
+};
+type ApiErrorResponseStructured = {
+  [C in ApiErrorCode]: {
+    message: string;
+    code: C;
+    details: ApiErrorDetails<C>;
+    /** @deprecated Read `details.conflicts` instead. Populated only when code === "conflict" for backwards compatibility. */
+    conflicts?: unknown[];
+    warnings?: string[];
+  };
+}[ApiErrorCode];
+
+export type ApiErrorResponse =
+  | ApiErrorResponseBase
+  | ApiErrorResponseStructured;
 
 /**
  * In the private API, there is a convention to add `status: number` to all response types.

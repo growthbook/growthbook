@@ -6,6 +6,7 @@ import { getMetricLink, isFactMetricId } from "shared/experiments";
 import { useRouter } from "next/router";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
+import { FaArchive } from "react-icons/fa";
 import { startCase } from "lodash";
 import SortedTags from "@/components/Tags/SortedTags";
 import {
@@ -30,7 +31,7 @@ import { useAuth } from "@/services/auth";
 import AutoGenerateMetricsModal from "@/components/AutoGenerateMetricsModal";
 import AutoGenerateMetricsButton from "@/components/AutoGenerateMetricsButton";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
-import ProjectBadges from "@/components/ProjectBadges";
+import Tooltip from "@/ui/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import Button from "@/ui/Button";
@@ -43,11 +44,17 @@ import PremiumCallout from "@/ui/PremiumCallout";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import LinkButton from "@/ui/LinkButton";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import Tooltip from "@/ui/Tooltip";
 import {
   isMergeAggregationMetric,
   REST_API_ONLY_EDIT_MESSAGE,
 } from "@/services/factMetrics";
+import Table, {
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 
 function MetricRowMenu({ metric }: { metric: MetricTableItem }) {
   const [open, setOpen] = useState(false);
@@ -450,7 +457,7 @@ const MetricsList = (): React.ReactElement => {
     isFiltered,
     syntaxFilters,
     setSearchValue,
-    SortableTH,
+    SortableTableColumnHeader,
     pagination,
   } = useSearch({
     items: filteredMetrics,
@@ -515,7 +522,7 @@ const MetricsList = (): React.ReactElement => {
   };
 
   return (
-    <div className="container-fluid pagecontents p-0">
+    <Box>
       {modalData ? (
         <MetricModal {...modalData} close={closeModal} source="blank-state" />
       ) : null}
@@ -526,36 +533,56 @@ const MetricsList = (): React.ReactElement => {
           mutate={mutateDefinitions}
         />
       )}
-      <div className="filters md-form row mb-3 align-items-center">
-        <div className="col-auto d-flex">
+      <Flex
+        className="filters md-form"
+        mb="3"
+        align="center"
+        gap="3"
+        wrap="wrap"
+      >
+        <Flex align="center" gap="2">
           <div>
             Define what constitutes success and failure for your business.
           </div>
-          <DocLink docSection="metrics" className="align-self-center ml-2 pb-1">
+          <DocLink
+            useRadix={false}
+            docSection="metrics"
+            className="align-self-center pb-1"
+          >
             View Docs
           </DocLink>
-        </div>
-        <div style={{ flex: 1 }} />
-        {permissionsUtil.canCreateMetric({ projects: [project] }) &&
-        envAllowsCreatingMetrics() &&
-        !showCreateFactTableButton ? (
-          <div className="col-auto">
+        </Flex>
+        <Box style={{ flex: 1 }} />
+        {envAllowsCreatingMetrics() && !showCreateFactTableButton ? (
+          <Flex gap="2">
             <AutoGenerateMetricsButton
               setShowAutoGenerateMetricsModal={setShowAutoGenerateMetricsModal}
             />
-            <Button onClick={() => setModalData({ mode: "new" })}>
-              Add Metric
-            </Button>
-          </div>
+            <Tooltip
+              content="You don't have permission to add metrics in this project."
+              enabled={
+                !permissionsUtil.canCreateMetric({ projects: [project] })
+              }
+            >
+              <Button
+                disabled={
+                  !permissionsUtil.canCreateMetric({ projects: [project] })
+                }
+                onClick={() => setModalData({ mode: "new" })}
+              >
+                Add Metric
+              </Button>
+            </Tooltip>
+          </Flex>
         ) : permissionsUtil.canCreateFactTable({ projects: [project] }) ? (
-          <div className="col-auto">
+          <Box>
             <LinkButton href="/fact-tables">Create Fact Table</LinkButton>
-          </div>
+          </Box>
         ) : null}
-      </div>
-      <div className="mt-4">
+      </Flex>
+      <Box mt="4">
         <CustomMarkdown page={"metricList"} />
-      </div>
+      </Box>
       <Flex justify="between" mb="3" gap="3" align="center">
         <Box className="relative" width="40%">
           <Field placeholder="Search..." type="search" {...searchInputProps} />
@@ -570,7 +597,7 @@ const MetricsList = (): React.ReactElement => {
       {metrics.length > 4 && !metricGroups.length ? (
         <PremiumCallout
           commercialFeature="metric-groups"
-          dismissable={true}
+          dismissible={true}
           id="metrics-list-metric-group-promo"
           docSection="metricGroups"
           mb="2"
@@ -579,30 +606,42 @@ const MetricsList = (): React.ReactElement => {
           metrics at scale.
         </PremiumCallout>
       ) : null}
-      <table className="table appbox gbtable table-hover">
-        <thead>
-          <tr>
-            <SortableTH field="name" className="col-3">
+      <Table variant="list" stickyHeader roundedCorners className="appbox">
+        <TableHeader>
+          <TableRow>
+            <TableColumnHeader
+              style={{
+                paddingInline: "var(--space-2)",
+              }}
+            >
+              <span className="sr-only">Official</span>
+            </TableColumnHeader>
+            <SortableTableColumnHeader field="name">
               Metric Name
-            </SortableTH>
-            <SortableTH field="type" className="col-1">
+            </SortableTableColumnHeader>
+            <SortableTableColumnHeader field="type">
               Type
-            </SortableTH>
-            <th>Projects</th>
-            <th className="col-2">Tags</th>
-            <SortableTH
+            </SortableTableColumnHeader>
+            <TableColumnHeader>Projects</TableColumnHeader>
+            <TableColumnHeader>Tags</TableColumnHeader>
+            <SortableTableColumnHeader
               field="dateUpdated"
-              className="d-none d-md-table-cell col-1"
+              className="d-none d-md-table-cell"
             >
               Last Updated
-            </SortableTH>
-            <th style={{ width: 30 }} className="text-right" />
-          </tr>
-        </thead>
-        <tbody>
+            </SortableTableColumnHeader>
+            <TableColumnHeader />
+            <TableColumnHeader
+              style={{
+                paddingInline: "var(--space-2)",
+              }}
+            />
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {items.map((metric) => {
             return (
-              <tr
+              <TableRow
                 key={metric.id}
                 onClick={(e) => {
                   // If clicking on a link or button, default to browser behavior
@@ -623,36 +662,56 @@ const MetricsList = (): React.ReactElement => {
                   e.preventDefault();
                   router.push(getMetricLink(metric.id));
                 }}
-                style={{ cursor: "pointer" }}
-                className={metric.archived ? "text-muted" : ""}
+                style={{
+                  cursor: "pointer",
+                  color: metric.archived ? "var(--gray-11)" : undefined,
+                }}
               >
-                <td>
-                  <Link
-                    href={getMetricLink(metric.id)}
-                    className={`${
-                      metric.archived ? "text-muted" : "text-dark"
-                    } font-weight-bold`}
+                <TableCell
+                  style={{
+                    maxWidth: 36,
+                    textAlign: "center",
+                    verticalAlign: "middle",
+                    whiteSpace: "nowrap",
+                    paddingInline: "var(--space-4)",
+                    paddingBlock: "var(--space-2)",
+                    boxSizing: "border-box",
+                    lineHeight: 1,
+                  }}
+                >
+                  <Box
+                    style={{
+                      display: "inline-flex",
+                      justifyContent: "center",
+                      maxWidth: "100%",
+                      marginRight: -3,
+                    }}
                   >
-                    {metric.name}
                     <OfficialBadge
                       type="metric"
-                      leftGap={true}
                       managedBy={metric.managedBy || ""}
                     />
+                  </Box>
+                </TableCell>
+                <TableCell>
+                  <Link
+                    href={getMetricLink(metric.id)}
+                    style={{
+                      color: metric.archived
+                        ? "var(--gray-11)"
+                        : "var(--gray-12)",
+                    }}
+                  >
+                    {metric.name}
                   </Link>
-                </td>
-                <td>{startCase(metric.type)}</td>
-                <td className="col-2">
-                  {metric.projects.length > 0 ? (
-                    <ProjectBadges
-                      resourceType="metric"
-                      projectIds={metric.projects}
-                    />
-                  ) : (
-                    <ProjectBadges resourceType="metric" />
-                  )}
-                </td>
-                <td className="col-4">
+                </TableCell>
+                <TableCell>{startCase(metric.type)}</TableCell>
+                <TableCell>
+                  {metric.projectNames.length === 0
+                    ? null
+                    : metric.projectNames.join(", ")}
+                </TableCell>
+                <TableCell>
                   <SortedTags
                     tags={metric.tags ? Object.values(metric.tags) : []}
                     shouldShowEllipsis={true}
@@ -663,39 +722,53 @@ const MetricsList = (): React.ReactElement => {
                       setSearchValue,
                     )}
                   />
-                </td>
-                <td
+                </TableCell>
+                <TableCell
                   title={datetime(metric.dateUpdated || "")}
                   className="d-none d-md-table-cell"
                 >
                   {metric.managedBy === "config"
                     ? ""
                     : date(metric.dateUpdated || "")}
-                </td>
-                <td
-                  style={{ cursor: "initial", width: 30 }}
-                  className="text-right"
+                </TableCell>
+                <TableCell style={{ color: "var(--gray-11)" }}>
+                  {metric.archived && (
+                    <Tooltip content="Archived">
+                      <FaArchive />
+                    </Tooltip>
+                  )}
+                </TableCell>
+                <TableCell
+                  style={{
+                    width: "1%",
+                    cursor: "initial",
+                    textAlign: "right",
+                    verticalAlign: "middle",
+                    whiteSpace: "nowrap",
+                    paddingInline: "var(--space-2)",
+                    boxSizing: "border-box",
+                  }}
                   onClick={(e) => {
                     e.stopPropagation();
                   }}
                 >
                   <MetricRowMenu metric={metric} />
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             );
           })}
 
           {!items.length && isFiltered && (
-            <tr>
-              <td colSpan={8} align={"center"}>
+            <TableRow>
+              <TableCell colSpan={8} style={{ textAlign: "center" }}>
                 No matching metrics
-              </td>
-            </tr>
+              </TableCell>
+            </TableRow>
           )}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
       {pagination}
-    </div>
+    </Box>
   );
 };
 

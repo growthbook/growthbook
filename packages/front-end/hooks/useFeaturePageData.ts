@@ -306,7 +306,7 @@ export function useFeaturePageData(
     const isMine = (r: MinimalFeatureRevisionInterface) =>
       !!userId &&
       (r.createdBy?.id === userId ||
-        r.contributors?.some((c) => c?.id === userId));
+        r.contributors?.some((id) => id === userId));
 
     const drafts = data?.revisionList?.filter(isActiveDraft) ?? [];
     const myDraft = drafts.find(isMine) ?? null;

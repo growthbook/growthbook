@@ -1,6 +1,6 @@
 import React, { useEffect, useCallback, useState, useMemo } from "react";
 import {
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
   getAllMetricIdsFromExperiment,
   getLatestPhaseVariations,
 } from "shared/experiments";
@@ -21,7 +21,6 @@ import ScatterPlotGraph, {
 import { useExperiments } from "@/hooks/useExperiments";
 import MetricSelector from "@/components/Experiment/MetricSelector";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { useAuth } from "@/services/auth";
 import {
   formatPercent,
   getExperimentMetricFormatter,
@@ -35,6 +34,12 @@ import EmptyState from "@/components/EmptyState";
 import LinkButton from "@/ui/LinkButton";
 import MetricCorrelationsExperimentTable from "@/enterprise/components/Insights/MetricCorrelations/MetricCorrelationsExperimentTable";
 import { useCurrency } from "@/hooks/useCurrency";
+import useApi from "@/hooks/useApi";
+import { useExperimentSearch } from "@/services/experiments";
+import ExperimentSearchFilters from "@/components/Search/ExperimentSearchFilters";
+import Field from "@/components/Forms/Field";
+import Link from "@/ui/Link";
+import LoadingOverlay from "@/components/LoadingOverlay";
 
 export const filterExperimentsByMetrics = (
   experiments: ExperimentInterfaceStringDates[],
@@ -140,16 +145,26 @@ const parseQueryParams = (
 };
 
 const MetricCorrelations = (): React.ReactElement => {
-  const { experiments } = useExperiments();
   const router = useRouter();
   const qParams = router.query;
 
   const params = parseQueryParams(qParams);
 
-  const filteredExperiments = useMemo(
-    () => experiments.filter((e) => e.type !== "multi-armed-bandit"),
-    [experiments],
-  );
+  const {
+    experiments: allExperiments,
+    loading: experimentsLoading,
+    error: experimentsError,
+  } = useExperiments("", true, "standard");
+
+  const {
+    items: filteredExperiments,
+    searchInputProps,
+    syntaxFilters,
+    setSearchValue,
+  } = useExperimentSearch({
+    allExperiments,
+    localStorageKey: "metric-correlations-experiments",
+  });
 
   const { hasCommercialFeature } = useUser();
   const hasMetricCorrelationCommercialFeature = hasCommercialFeature(
@@ -169,7 +184,20 @@ const MetricCorrelations = (): React.ReactElement => {
       </Box>
     );
   }
-  if (filteredExperiments.length === 0) {
+
+  if (experimentsLoading) {
+    return <LoadingOverlay />;
+  }
+
+  if (experimentsError) {
+    return (
+      <Callout status="error">
+        An error occurred loading experiments: {experimentsError.message}
+      </Callout>
+    );
+  }
+
+  if (allExperiments.length === 0) {
     return (
       <Box mb="3">
         <PremiumEmptyState
@@ -182,11 +210,44 @@ const MetricCorrelations = (): React.ReactElement => {
       </Box>
     );
   }
+
+  const showClearFilters = syntaxFilters.length > 0 || !!searchInputProps.value;
+
   return (
-    <MetricCorrelationCard
-      experiments={filteredExperiments}
-      params={params[0]}
-    />
+    <Box>
+      <Flex gap="4" align="start" justify="between" mb="4" wrap="wrap">
+        <Flex align="center" gap="3">
+          <Box flexBasis="300px" flexShrink="0">
+            <Field
+              placeholder="Search..."
+              type="search"
+              {...searchInputProps}
+            />
+          </Box>
+          {showClearFilters && (
+            <Link
+              size="1"
+              onClick={() => setSearchValue("")}
+              style={{ whiteSpace: "nowrap" }}
+            >
+              Clear filters
+            </Link>
+          )}
+        </Flex>
+        <ExperimentSearchFilters
+          searchInputProps={searchInputProps}
+          syntaxFilters={syntaxFilters}
+          setSearchValue={setSearchValue}
+          experiments={allExperiments}
+          showStatusFilter={false}
+        />
+      </Flex>
+      <MetricCorrelationCard
+        filteredExperiments={filteredExperiments}
+        allExperiments={allExperiments}
+        params={params[0]}
+      />
+    </Box>
   );
 };
 
@@ -238,46 +299,35 @@ const formattedValueWithCI = (
 };
 
 const MetricCorrelationCard = ({
-  experiments,
+  filteredExperiments,
+  allExperiments,
   params,
 }: {
-  experiments: ExperimentInterfaceStringDates[];
+  filteredExperiments: ExperimentInterfaceStringDates[];
+  allExperiments: ExperimentInterfaceStringDates[];
   params?: MetricCorrelationParams;
 }): React.ReactElement => {
-  const { apiCall } = useAuth();
-
   const { project, getExperimentMetricById, getFactTableById, metricGroups } =
     useDefinitions();
   const { theme } = useAppearanceUITheme();
   const computedTheme = theme === "light" ? "light" : "dark";
   const displayCurrency = useCurrency();
 
-  const [loading, setLoading] = useState<boolean>(false);
-
   const [metric1, setMetric1] = useState<string>(params?.m1 || "");
   const [metric2, setMetric2] = useState<string>(params?.m2 || "");
-  const [metric1Name, setMetric1Name] = useState<string>("");
-  const [metric2Name, setMetric2Name] = useState<string>("");
-  const [searchParams, setSearchParams] = useState<Record<string, string>>({});
   const [differenceType, setDifferenceType] = useState<DifferenceType>(
     params?.diff || "relative",
   );
-  const [metricData, setMetricData] = useState<{
-    correlationData: ScatterPointData<MetricCorrelationTooltipData>[];
-  }>({
-    correlationData: [],
-  });
-  const [filteredExperiments, setFilteredExperiments] = useState<
-    ExperimentWithSnapshot[]
-  >([]);
   const [excludedExperimentVariations, setExcludedExperimentVariations] =
     useState<{ experimentId: string; variationIndex: number }[]>(
       params?.excludedExperimentVariations || [],
     );
 
+  // Counts driven off the full set of (non-bandit) experiments so the metric
+  // dropdowns stay stable while the user adjusts the experiment filter.
   const metric1OptionCounts = useMemo(() => {
     const counts: Record<string, number> = {};
-    experiments.forEach((experiment) => {
+    allExperiments.forEach((experiment) => {
       const metricIds = getAllMetricIdsFromExperiment(
         experiment,
         false,
@@ -288,13 +338,13 @@ const MetricCorrelationCard = ({
       });
     });
     return counts;
-  }, [experiments, metricGroups]);
+  }, [allExperiments, metricGroups]);
 
   const metric2OptionCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     if (!metric1) return counts;
 
-    experiments.forEach((exp) => {
+    allExperiments.forEach((exp) => {
       const ids = getAllMetricIdsFromExperiment(exp, false, metricGroups);
       if (!ids.includes(metric1)) return;
       ids.forEach((id) => {
@@ -303,34 +353,39 @@ const MetricCorrelationCard = ({
       });
     });
     return counts;
-  }, [experiments, metricGroups, metric1]);
+  }, [allExperiments, metricGroups, metric1]);
 
+  // Sync URL params when user-controlled values change.
   useEffect(() => {
-    updateSearchParams(searchParams, false);
-  }, [searchParams]);
+    if (!metric1 || !metric2) return;
+    updateSearchParams(
+      {
+        m1_0: metric1,
+        m2_0: metric2,
+        diff_0: differenceType,
+        excludedExperimentVariations_0: excludedExperimentVariations
+          .map((ev) => `${ev.experimentId}-${ev.variationIndex}`)
+          .join(","),
+      },
+      false,
+    );
+  }, [metric1, metric2, differenceType, excludedExperimentVariations]);
 
   const metric1Obj = getExperimentMetricById(metric1);
   const metric2Obj = getExperimentMetricById(metric2);
 
-  useEffect(() => {
-    const title =
-      differenceType === "relative"
-        ? "(Lift %)"
-        : differenceType === "absolute"
-          ? "(Absolute Change)"
-          : "(Scaled Impact)";
-
-    if (metric1Obj) {
-      setMetric1Name(`${metric1Obj.name} ${title}`);
-    }
-    if (metric2Obj) {
-      setMetric2Name(`${metric2Obj.name} ${title}`);
-    }
-  }, [metric1Obj, metric2Obj, differenceType]);
+  const title =
+    differenceType === "relative"
+      ? "(Lift %)"
+      : differenceType === "absolute"
+        ? "(Absolute Change)"
+        : "(Scaled Impact)";
+  const metric1Name = metric1Obj ? `${metric1Obj.name} ${title}` : "";
+  const metric2Name = metric2Obj ? `${metric2Obj.name} ${title}` : "";
 
   const getLiftFormatter = useCallback(
     (
-      metric: ExperimentMetricInterface | null,
+      metric: ExperimentMetricDefinition | null,
       differenceType: DifferenceType,
     ) => {
       if (!metric) {
@@ -352,150 +407,154 @@ const MetricCorrelationCard = ({
   const formatterM1 = getLiftFormatter(metric1Obj, differenceType);
   const formatterM2 = getLiftFormatter(metric2Obj, differenceType);
 
-  const handleFetchCorrelations = useCallback(async () => {
-    if (!metric1 || !metric2) {
-      return;
-    }
-
-    setLoading(true);
-
-    const filteredExperiments = filterExperimentsByMetrics(
-      experiments,
+  // All experiments (regardless of user filter) that include both metrics.
+  // Drives the snapshot fetch so its cache key stays stable as the user
+  // adjusts the experiment filter.
+  const allExperimentsWithBothMetrics = useMemo(() => {
+    if (!metric1 || !metric2) return [];
+    return filterExperimentsByMetrics(
+      allExperiments,
       metric1,
       metric2,
       metricGroups,
     );
+  }, [allExperiments, metric1, metric2, metricGroups]);
 
-    const filteredExperimentsWithSnapshot: Record<
-      string,
-      ExperimentWithSnapshot
-    > = {};
+  // Set of experiment ids that pass the user's current search/filter — used
+  // to narrow the snapshot results in memory without invalidating the cache.
+  const filteredExperimentIds = useMemo(
+    () => new Set(filteredExperiments.map((e) => e.id)),
+    [filteredExperiments],
+  );
 
-    setSearchParams({
-      [`m1_0`]: metric1,
-      [`m2_0`]: metric2,
-      [`diff_0`]: differenceType,
-      [`excludedExperimentVariations_0`]: excludedExperimentVariations
-        .map((ev) => `${ev.experimentId}-${ev.variationIndex}`)
+  // Stable cache key for SWR.
+  const snapshotQueryIds = useMemo(
+    () =>
+      allExperimentsWithBothMetrics
+        .map((e) => e.id)
+        .sort()
+        .map(encodeURIComponent)
         .join(","),
+    [allExperimentsWithBothMetrics],
+  );
+
+  const snapshotsKey = snapshotQueryIds
+    ? `/experiments/snapshots/?experiments=${snapshotQueryIds}`
+    : "";
+  const { data: snapshotsData, error: snapshotsError } = useApi<{
+    snapshots: ExperimentSnapshotInterface[];
+  }>(snapshotsKey, {
+    shouldRun: () => !!snapshotsKey,
+    autoRevalidate: false,
+  });
+
+  const snapshotsLoading =
+    !!metric1 &&
+    !!metric2 &&
+    allExperimentsWithBothMetrics.length > 0 &&
+    !snapshotsData &&
+    !snapshotsError;
+
+  const { correlationData, filteredExperimentsWithSnapshot } = useMemo(() => {
+    const empty = {
+      correlationData: [] as ScatterPointData<MetricCorrelationTooltipData>[],
+      filteredExperimentsWithSnapshot: [] as ExperimentWithSnapshot[],
+    };
+
+    if (!metric1 || !metric2 || !snapshotsData?.snapshots?.length) return empty;
+
+    const snapshotsByExperiment = new Map<
+      string,
+      ExperimentSnapshotInterface
+    >();
+    snapshotsData.snapshots.forEach((s) => {
+      snapshotsByExperiment.set(s.experiment, s);
     });
 
-    const queryIds = filteredExperiments
-      .map((e) => encodeURIComponent(e.id))
-      .join(",");
-    try {
-      const { snapshots } = await apiCall<{
-        snapshots: ExperimentSnapshotInterface[];
-      }>(`/experiments/snapshots/?experiments=${queryIds}`, {
-        method: "GET",
+    const experimentsWithSnapshot: Record<string, ExperimentWithSnapshot> = {};
+    const correlationData: ScatterPointData<MetricCorrelationTooltipData>[] =
+      [];
+
+    allExperimentsWithBothMetrics.forEach((experiment) => {
+      // Apply the user's filter in memory.
+      if (!filteredExperimentIds.has(experiment.id)) return;
+
+      const snapshot = snapshotsByExperiment.get(experiment.id);
+      if (!snapshot) return;
+
+      const defaultAnalysis = getSnapshotAnalysis(snapshot);
+      if (!defaultAnalysis) return;
+
+      const analysis = getSnapshotAnalysis(snapshot, {
+        ...defaultAnalysis.settings,
+        differenceType,
       });
+      if (!analysis) return;
 
-      if (snapshots && snapshots.length > 0) {
-        const newCorrelationData: ScatterPointData<MetricCorrelationTooltipData>[] =
-          [];
-        snapshots.forEach((snapshot) => {
-          const experiment = filteredExperiments.find(
-            (exp) => exp.id === snapshot.experiment,
-          );
-          if (!experiment) return;
+      const result = analysis.results[0];
+      if (!result) return;
 
-          const defaultAnalysis = getSnapshotAnalysis(snapshot);
-          if (!defaultAnalysis) return;
+      result.variations.forEach((variation, variationIndex) => {
+        if (variationIndex === 0) return; // Skip baseline
 
-          const analysis = getSnapshotAnalysis(snapshot, {
-            ...defaultAnalysis.settings,
-            differenceType: differenceType,
-          });
-          // TODO keep track of experiments missing difference type analysis
+        const metric1Data = variation.metrics[metric1];
+        const metric2Data = variation.metrics[metric2];
 
-          if (!analysis) return;
+        if (metric1Data?.errorMessage || metric2Data?.errorMessage) {
+          return;
+        }
 
-          const result = analysis.results[0];
-          if (!result) return;
+        if (!metric1Data || !metric2Data) return;
 
-          result.variations.forEach((variation, variationIndex) => {
-            if (variationIndex === 0) return; // Skip baseline
+        if (!experimentsWithSnapshot[experiment.id]) {
+          experimentsWithSnapshot[experiment.id] = {
+            ...experiment,
+            snapshot,
+          };
+        }
 
-            const metric1Data = variation.metrics[metric1];
-            const metric2Data = variation.metrics[metric2];
+        const isExcluded = excludedExperimentVariations.some(
+          (ev) =>
+            ev.experimentId === experiment.id &&
+            ev.variationIndex === variationIndex,
+        );
+        if (isExcluded) return;
 
-            if (metric1Data?.errorMessage || metric2Data?.errorMessage) {
-              return;
-            }
-
-            if (metric1Data && metric2Data) {
-              // add to data for table
-              if (!filteredExperimentsWithSnapshot[experiment.id]) {
-                filteredExperimentsWithSnapshot[experiment.id] = {
-                  ...experiment,
-                  snapshot: snapshot,
-                };
-              }
-
-              if (
-                excludedExperimentVariations.some(
-                  (ev) =>
-                    ev.experimentId === experiment.id &&
-                    ev.variationIndex === variationIndex,
-                )
-              ) {
-                return;
-              }
-
-              newCorrelationData.push({
-                id: `${experiment.id}_var_${variationIndex}`,
-                x: metric1Data.uplift?.mean || 0,
-                y: metric2Data.uplift?.mean || 0,
-                xmin: metric1Data?.ci?.[0] || 0,
-                xmax: metric1Data?.ci?.[1] || 0,
-                ymin: metric2Data?.ci?.[0] || 0,
-                ymax: metric2Data?.ci?.[1] || 0,
-                units: variation.users,
-                otherData: {
-                  experimentName: experiment.name || experiment.id,
-                  variationName:
-                    getLatestPhaseVariations(experiment)[variationIndex]
-                      ?.name || "",
-                  xMetricName: metric1Name,
-                  yMetricName: metric2Name,
-                },
-              });
-            }
-          });
+        correlationData.push({
+          id: `${experiment.id}_var_${variationIndex}`,
+          x: metric1Data.uplift?.mean || 0,
+          y: metric2Data.uplift?.mean || 0,
+          xmin: metric1Data?.ci?.[0] || 0,
+          xmax: metric1Data?.ci?.[1] || 0,
+          ymin: metric2Data?.ci?.[0] || 0,
+          ymax: metric2Data?.ci?.[1] || 0,
+          units: variation.users,
+          otherData: {
+            experimentName: experiment.name || experiment.id,
+            variationName:
+              getLatestPhaseVariations(experiment)[variationIndex]?.name || "",
+            xMetricName: metric1Name,
+            yMetricName: metric2Name,
+          },
         });
-        setMetricData({
-          correlationData: newCorrelationData,
-        });
-        setFilteredExperiments(Object.values(filteredExperimentsWithSnapshot));
-      } else {
-        setMetricData({
-          correlationData: [],
-        });
-      }
-    } catch (error) {
-      console.error(`Error getting snapshots: ${(error as Error).message}`);
-      setMetricData({
-        correlationData: [],
       });
-    } finally {
-      setLoading(false);
-    }
+    });
+
+    return {
+      correlationData,
+      filteredExperimentsWithSnapshot: Object.values(experimentsWithSnapshot),
+    };
   }, [
+    snapshotsData,
+    allExperimentsWithBothMetrics,
+    filteredExperimentIds,
     metric1,
     metric2,
+    differenceType,
+    excludedExperimentVariations,
     metric1Name,
     metric2Name,
-    experiments,
-    differenceType,
-    setSearchParams,
-    apiCall,
-    excludedExperimentVariations,
-    metricGroups,
   ]);
-
-  useEffect(() => {
-    handleFetchCorrelations();
-  }, [handleFetchCorrelations]);
 
   if (Object.entries(metric1OptionCounts).length === 0) {
     return (
@@ -573,11 +632,6 @@ const MetricCorrelationCard = ({
                 ]}
               />
             </Box>
-            {loading && (
-              <Box>
-                <LoadingSpinner />
-              </Box>
-            )}
           </Flex>
         </Flex>
         {!metric1 || !metric2 ? (
@@ -590,19 +644,23 @@ const MetricCorrelationCard = ({
               />
             </Box>
           </Flex>
-        ) : loading ? (
-          <Flex align="center" justify="center" mt="3">
-            <Box>
-              <LoadingSpinner />
-            </Box>
+        ) : snapshotsError ? (
+          <Box mt="4">
+            <Callout status="error">
+              Error loading experiment results: {snapshotsError.message}
+            </Callout>
+          </Box>
+        ) : snapshotsLoading ? (
+          <Flex align="center" justify="center" mt="6" mb="6">
+            <LoadingSpinner />
           </Flex>
-        ) : metricData.correlationData.length > 0 ||
-          filteredExperiments.length > 0 ? (
+        ) : correlationData.length > 0 ||
+          filteredExperimentsWithSnapshot.length > 0 ? (
           <Flex direction="column" gap="4">
             <Box mt="4">
               <Flex mt="2" align="center" justify="center" p="3">
                 <ScatterPlotGraph
-                  data={metricData.correlationData}
+                  data={correlationData}
                   width={800}
                   height={500}
                   xFormatter={formatterM1}
@@ -650,7 +708,7 @@ const MetricCorrelationCard = ({
             </Box>
             {metric1Obj && metric2Obj ? (
               <MetricCorrelationsExperimentTable
-                experimentsWithSnapshot={filteredExperiments}
+                experimentsWithSnapshot={filteredExperimentsWithSnapshot}
                 metrics={[metric1Obj, metric2Obj]}
                 bandits={false}
                 numPerPage={50}
@@ -665,7 +723,8 @@ const MetricCorrelationCard = ({
         ) : (
           <Box mt="4">
             <Callout status="info">
-              No experiments found that both have these two metrics
+              No experiments found that match the current experiment filters and
+              have both selected metrics.
             </Callout>
           </Box>
         )}

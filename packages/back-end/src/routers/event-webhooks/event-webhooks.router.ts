@@ -139,7 +139,7 @@ router.post(
       .object({
         name: z.string().trim().min(1),
         method: z.enum(eventWebHookMethods),
-        url: z.string().trim().min(1),
+        url: z.string().url(),
       })
       .strict(),
   }),

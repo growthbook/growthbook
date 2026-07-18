@@ -19,6 +19,7 @@ const archetypeSchema = new mongoose.Schema({
   owner: String,
   isPublic: Boolean,
   projects: [String],
+  environments: [String],
   dateCreated: Date,
   dateUpdated: Date,
   attributes: String,
@@ -159,5 +160,6 @@ export function toArchetypeApiInterface(
     isPublic: archetype.isPublic,
     attributes: parsedAttributes,
     projects: archetype.projects || [],
+    environments: archetype.environments || [],
   };
 }

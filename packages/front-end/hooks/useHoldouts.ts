@@ -3,6 +3,35 @@ import { HoldoutInterface } from "shared/validators";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import useApi from "./useApi";
 
+// True when a holdout is enabled in at least one env — i.e. when it actually
+// occupies the "Rule #1" slot in the rules list (see FeatureRules.tsx's
+// `liveHoldoutActiveAnyEnv`). `envIds`, when provided, restricts the check
+// to those env IDs (matches FeatureRules.tsx, which only counts enables in
+// the org's current envs).
+export function isHoldoutEnabledAnyEnv(
+  holdout: HoldoutInterface | null | undefined,
+  envIds?: string[],
+): boolean {
+  if (!holdout) return false;
+  const settings = holdout.environmentSettings ?? {};
+  if (envIds) return envIds.some((envId) => settings[envId]?.enabled);
+  return Object.values(settings).some((s) => s?.enabled);
+}
+
+// Reference-form wrapper for callers that have a `{ holdout: { id } }` ref
+// and a holdouts map (most diff renderers). Returns true when the referenced
+// holdout exists and would occupy the Rule #1 slot. Relying on the ref alone
+// over-counts by 1 when the holdout exists but is disabled everywhere.
+export function holdoutOccupiesRuleSlot(
+  holdoutRef: { id?: string } | null | undefined,
+  holdoutsMap: Map<string, HoldoutInterface>,
+  envIds?: string[],
+): boolean {
+  const id = holdoutRef?.id;
+  if (!id) return false;
+  return isHoldoutEnabledAnyEnv(holdoutsMap.get(id), envIds);
+}
+
 export function useHoldouts(
   project?: string,
   includeArchived: boolean = false,
