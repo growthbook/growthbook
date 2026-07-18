@@ -215,7 +215,7 @@ export default function EditHypothesisModal({
               </Text>
             </Box>
           )}
-          {!loading && checkResult && checkResult.isCompliant && (
+          {!loading && !error && checkResult && checkResult.isCompliant && (
             <Box my="4">
               <Callout status="success">
                 Hypothesis looks good — it matches your organization&apos;s
@@ -232,6 +232,7 @@ export default function EditHypothesisModal({
             </Box>
           )}
           {!loading &&
+            !error &&
             checkResult &&
             !checkResult.isCompliant &&
             !showSuggestionBlock && (
@@ -263,7 +264,7 @@ export default function EditHypothesisModal({
                 </Flex>
               </Box>
             )}
-          {!loading && showSuggestionBlock && (
+          {!loading && !error && showSuggestionBlock && (
             <Box my="4">
               <Flex align="center" justify="between" my="4">
                 <Heading size="2" weight="medium">
