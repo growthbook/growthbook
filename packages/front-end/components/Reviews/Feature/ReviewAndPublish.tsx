@@ -21,11 +21,13 @@ import {
   checkIfRevisionNeedsReview,
   evaluatePublishGovernance,
   getLiveChangesSinceBase,
+  MergeStrategy,
+} from "shared/util";
+import {
   isScheduledPublishPending,
   isScheduledPublishLockActive,
   findPublishLockingScheduledRevision,
-  MergeStrategy,
-} from "shared/util";
+} from "shared/enterprise";
 import {
   EventUserLoggedIn,
   EventUserApiKey,
@@ -150,7 +152,7 @@ export interface Props {
   rampSchedules?: RampScheduleInterface[];
 }
 
-// The feature-page "Review and Publish" tab. Consolidates the former DraftModal
+// The feature-page "Review & Publish" tab. Consolidates the former DraftModal
 // (direct publish), RequestReviewModal (review lifecycle), and
 // FeatureFixConflictsModal (rebase / conflict resolution) into a single page
 // surface. Conflict resolution and review submission run as focused modals

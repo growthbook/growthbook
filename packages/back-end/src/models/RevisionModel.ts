@@ -14,6 +14,10 @@ import {
 import { ACTIVE_DRAFT_STATUSES, ActiveDraftStatus } from "shared/validators";
 import type { CreateProps, UpdateProps } from "shared/types/base-model";
 import { MakeModelClass } from "back-end/src/models/BaseModel";
+import {
+  ArmAcknowledgments,
+  hasArmAcknowledgments,
+} from "back-end/src/services/armGuards";
 import { getAdapter } from "back-end/src/revisions/index";
 import {
   createWithVersionRetry,
@@ -39,6 +43,8 @@ const PUBLISH_LOCK_CONFLICT_MESSAGE =
 const SCHEDULED_PUBLISH_FAILURE_UNSET = {
   scheduledPublishAttempts: 1,
   scheduledPublishLastError: 1,
+  scheduledPublishNextAttemptAt: 1,
+  scheduledPublishGaveUpAt: 1,
 } as const;
 
 // Schedule fields cleared together on cancel.
@@ -47,6 +53,9 @@ const SCHEDULED_PUBLISH_UNSET = {
   scheduledPublishLockEdits: 1,
   scheduledPublishLockOthers: 1,
   scheduledPublishBypassApproval: 1,
+  // The arm-time guard acknowledgments are a per-arm snapshot — a re-arm/cancel
+  // must not leave a stale fingerprint that a later publish would compare against.
+  armAcknowledgments: 1,
   ...SCHEDULED_PUBLISH_FAILURE_UNSET,
 } as const;
 
@@ -88,11 +97,17 @@ const BaseClass = MakeModelClass({
     "scheduledPublishBypassApproval",
     "scheduledPublishAttempts",
     "scheduledPublishLastError",
+    "scheduledPublishNextAttemptAt",
+    "scheduledPublishGaveUpAt",
+    "armAcknowledgments",
   ],
   // Poller bookkeeping must not bump the user-facing "last update" time.
   skipDateUpdatedFields: [
     "scheduledPublishAttempts",
     "scheduledPublishLastError",
+    "scheduledPublishNextAttemptAt",
+    "scheduledPublishGaveUpAt",
+    "armAcknowledgments",
   ],
   additionalIndexes: [
     {
@@ -190,15 +205,9 @@ export class RevisionModel extends BaseClass {
   }
 
   /**
-   * Return the existing contributors[] with `userId` appended (deduplicated).
-   * Used to track every user who edited a revision's content. The author is
-   * always included (seeded in `beforeCreate`).
-   *
-   * NOTE: This is read-modify-write; safe today because only one user can edit
-   * a draft at a time (see PUT /revision/:id/proposed-changes which enforces
-   * authorId === userId). If multiple users ever become able to edit a
-   * single draft concurrently, switch to an atomic `$addToSet` against the
-   * underlying collection.
+   * Pure helper: contributors[] with `userId` appended (deduplicated). Used only
+   * to compose the returned doc — the persisted write goes through the atomic
+   * `addContributor` so concurrent edits can't drop a contributor.
    */
   private withContributor(
     existing: Revision["contributors"],
@@ -206,6 +215,30 @@ export class RevisionModel extends BaseClass {
   ): string[] {
     const list = existing ?? [];
     return list.includes(userId) ? list : [...list, userId];
+  }
+
+  // Atomic $addToSet — a read-modify-write $set of the whole array could drop a
+  // concurrent editor and defeat blockSelfApproval.
+  private async addContributor(id: string, userId: string): Promise<void> {
+    await this._dangerousGetCollection().updateOne(
+      { organization: this.context.org.id, id },
+      { $addToSet: { contributors: userId } },
+    );
+  }
+
+  // The revision pipeline only models top-level add/replace ops end-to-end;
+  // remove/move/copy/test are dropped at merge time (buildMergeDesiredState) and
+  // invisible to conflict detection, so accepting them at save would silently
+  // discard the change at publish. Reject at the save boundary; already-stored
+  // docs are unaffected (read paths stay permissive).
+  private assertSupportedPatchOps(ops: JsonPatchOperation[]): void {
+    for (const op of ops) {
+      if (op.op !== "replace" && op.op !== "add") {
+        throw new Error(
+          `Unsupported patch operation "${op.op}" — only top-level "replace" and "add" operations are supported`,
+        );
+      }
+    }
   }
 
   /**
@@ -638,6 +671,28 @@ export class RevisionModel extends BaseClass {
   }
 
   /**
+   * The most-recently-published (merged) revision for the entity — the one whose
+   * post-merge state is currently live. A merged revision is terminal, so its
+   * `dateUpdated` reflects the merge time; sort by it (then version/id) to pick the
+   * latest publish even if drafts were published out of creation order. Used to
+   * capture the pinned revision when locking a config.
+   */
+  async getLatestMergedByTarget(
+    entityType: RevisionTargetType,
+    entityId: string,
+  ) {
+    const results = await this._find(
+      {
+        "target.type": entityType,
+        "target.id": entityId,
+        status: "merged",
+      } as Record<string, unknown>,
+      { sort: { dateUpdated: -1, version: -1, id: -1 }, limit: 1 },
+    );
+    return results[0] ?? null;
+  }
+
+  /**
    * Paginated revisions for a single entity. Mirrors `getByTargetTypePaginated`
    * but adds an entity-id filter and optional author/mine filters used by the
    * per-entity list endpoint.
@@ -678,7 +733,13 @@ export class RevisionModel extends BaseClass {
   async submitForReview(
     id: string,
     userId: string,
-    { autoPublishOnApproval }: { autoPublishOnApproval?: boolean } = {},
+    {
+      autoPublishOnApproval,
+      armAcknowledgments,
+    }: {
+      autoPublishOnApproval?: boolean;
+      armAcknowledgments?: ArmAcknowledgments;
+    } = {},
   ) {
     const existing = await this.getById(id);
     if (!existing) throw new Error("Revision not found");
@@ -696,7 +757,7 @@ export class RevisionModel extends BaseClass {
       );
     }
 
-    return this.update(existing, {
+    const updated = await this.update(existing, {
       status: "pending-review",
       // Submitting (or re-submitting from changes-requested) starts a fresh
       // review cycle — demote any prior verdicts.
@@ -708,6 +769,14 @@ export class RevisionModel extends BaseClass {
       // publish falls back to `authorId`.
       ...(autoPublishOnApproval && userId
         ? { autoPublishEnabledBy: userId }
+        : {}),
+      // Arm-time guard fingerprints: set the new acknowledgments, or clear a
+      // stale set from a prior arm (to {}) so a re-arm with no current conflicts
+      // can't be covered by an outdated fingerprint.
+      ...(autoPublishOnApproval &&
+      (hasArmAcknowledgments(armAcknowledgments) ||
+        hasArmAcknowledgments(existing.armAcknowledgments))
+        ? { armAcknowledgments: armAcknowledgments ?? {} }
         : {}),
       activityLog: [
         ...this.cleanActivityLog(existing.activityLog),
@@ -724,11 +793,30 @@ export class RevisionModel extends BaseClass {
         },
       ],
     } as UpdateProps<Revision>);
+
+    // Submitting with the flag off must scrub any prior dated schedule + locks
+    // (this.update can only flip the flag) — otherwise a later re-arm could
+    // resurrect a stale schedule. Mirrors setAutoPublishOnApproval's disarm.
+    if (
+      !autoPublishOnApproval &&
+      (existing.autoPublishOnApproval ||
+        (existing.scheduledPublishAt ?? null) !== null)
+    ) {
+      const refreshed = await this.disarmScheduledPublish(id);
+      if (refreshed) return refreshed;
+    }
+
+    return updated;
   }
 
   // Arm/disarm auto-publish-on-approval after a draft has already been
   // submitted for review (the submit-for-review path handles the draft case).
-  async setAutoPublishOnApproval(id: string, userId: string, enabled: boolean) {
+  async setAutoPublishOnApproval(
+    id: string,
+    userId: string,
+    enabled: boolean,
+    { armAcknowledgments }: { armAcknowledgments?: ArmAcknowledgments } = {},
+  ) {
     const existing = await this.getById(id);
     if (!existing) throw new Error("Revision not found");
 
@@ -748,6 +836,14 @@ export class RevisionModel extends BaseClass {
     const updated = await this.update(existing, {
       autoPublishOnApproval: enabled,
       ...(enabled && userId ? { autoPublishEnabledBy: userId } : {}),
+      // Arm-time guard fingerprints: set the new acknowledgments, or clear a
+      // stale set from a prior arm (to {}) so a re-arm with no current conflicts
+      // can't be covered by an outdated fingerprint.
+      ...(enabled &&
+      (hasArmAcknowledgments(armAcknowledgments) ||
+        hasArmAcknowledgments(existing.armAcknowledgments))
+        ? { armAcknowledgments: armAcknowledgments ?? {} }
+        : {}),
     } as UpdateProps<Revision>);
 
     // Disabling: this.update can only flip the flag, leaving scheduledPublishAt
@@ -1073,8 +1169,16 @@ export class RevisionModel extends BaseClass {
     proposedChanges: JsonPatchOperation[],
     userId: string,
   ) {
+    this.assertSupportedPatchOps(proposedChanges);
+
     const existing = await this.getById(id);
     if (!existing) throw new Error("Revision not found");
+
+    if (existing.status === "merged" || existing.status === "discarded") {
+      throw new Error(
+        "Cannot update proposed changes on a discarded or merged revision",
+      );
+    }
 
     // A draft frozen by a pending scheduled publish can't take content edits.
     // Rebasing is still allowed (it goes through `rebase`, not this method) so a
@@ -1091,13 +1195,12 @@ export class RevisionModel extends BaseClass {
 
     const { status, resetEntry } = this.resetApprovalIfNeeded(existing, userId);
 
-    return this.update(existing, {
+    const updated = await this.update(existing, {
       target: {
         ...existing.target,
         snapshot: cleanedSnapshot as typeof existing.target.snapshot,
         proposedChanges,
       },
-      contributors: this.withContributor(existing.contributors, userId),
       // An approval reset starts a new cycle — demote the prior verdicts.
       ...(status
         ? { status, reviews: this.staleVerdicts(existing.reviews) }
@@ -1118,6 +1221,12 @@ export class RevisionModel extends BaseClass {
         ...(resetEntry ? [resetEntry] : []),
       ],
     } as UpdateProps<Revision>);
+
+    await this.addContributor(id, userId);
+    return {
+      ...updated,
+      contributors: this.withContributor(updated.contributors, userId),
+    };
   }
 
   async rebase(
@@ -1135,13 +1244,12 @@ export class RevisionModel extends BaseClass {
 
     const { status, resetEntry } = this.resetApprovalIfNeeded(existing, userId);
 
-    return this.update(existing, {
+    const updated = await this.update(existing, {
       target: {
         ...existing.target,
         snapshot: cleanedSnapshot as typeof existing.target.snapshot,
         proposedChanges: newProposedChanges,
       },
-      contributors: this.withContributor(existing.contributors, userId),
       // An approval reset starts a new cycle — demote the prior verdicts.
       ...(status
         ? { status, reviews: this.staleVerdicts(existing.reviews) }
@@ -1163,6 +1271,12 @@ export class RevisionModel extends BaseClass {
         ...(resetEntry ? [resetEntry] : []),
       ],
     } as UpdateProps<Revision>);
+
+    await this.addContributor(id, userId);
+    return {
+      ...updated,
+      contributors: this.withContributor(updated.contributors, userId),
+    };
   }
 
   // Merge / close / reopen
@@ -1262,6 +1376,103 @@ export class RevisionModel extends BaseClass {
     return closed;
   }
 
+  /**
+   * Roll a just-merged revision back to its pre-merge state after applyChanges
+   * failed. Unlike `reopen`, restores the prior status (so an approval isn't
+   * lost) and re-arms any schedule `merge` scrubbed — otherwise a fire-time
+   * failure would permanently kill the schedule (the poller only sees
+   * autoPublishOnApproval:true) instead of retrying next tick. The
+   * experiment-guard acknowledgment is restored too, so the retry re-evaluates
+   * the guard against the keys the armer already accepted rather than treating a
+   * transient apply failure as a fresh (unacknowledged) conflict and parking.
+   *
+   * Status-guarded raw write: only applies while the doc is still "merged" from
+   * the failed publish; returns null if something else moved it concurrently.
+   */
+  async reopenAfterFailedApply(
+    id: string,
+    userId: string,
+    prior: Revision,
+  ): Promise<Revision | null> {
+    const now = new Date();
+    const buildSet = (lockOthers: boolean): Record<string, unknown> => ({
+      status: prior.status,
+      dateUpdated: now,
+      autoPublishOnApproval: !!prior.autoPublishOnApproval,
+      ...(prior.autoPublishEnabledBy
+        ? { autoPublishEnabledBy: prior.autoPublishEnabledBy }
+        : {}),
+      ...(hasArmAcknowledgments(prior.armAcknowledgments)
+        ? { armAcknowledgments: prior.armAcknowledgments }
+        : {}),
+      // Restore the retry bookkeeping `merge()` scrubbed. Otherwise a persistent
+      // apply-time failure (e.g. a cycle/composition conflict that only surfaces
+      // inside applyChanges) resets the attempt counter every tick and never
+      // reaches the give-up cap — it would retry forever instead of parking.
+      ...(prior.scheduledPublishAttempts
+        ? {
+            scheduledPublishAttempts: prior.scheduledPublishAttempts,
+            ...(prior.scheduledPublishLastError
+              ? { scheduledPublishLastError: prior.scheduledPublishLastError }
+              : {}),
+            ...(prior.scheduledPublishNextAttemptAt
+              ? {
+                  scheduledPublishNextAttemptAt:
+                    prior.scheduledPublishNextAttemptAt,
+                }
+              : {}),
+          }
+        : {}),
+      ...((prior.scheduledPublishAt ?? null) !== null
+        ? {
+            scheduledPublishAt: prior.scheduledPublishAt,
+            scheduledPublishLockEdits: !!prior.scheduledPublishLockEdits,
+            scheduledPublishLockOthers: lockOthers,
+            ...(prior.scheduledPublishBypassApproval
+              ? { scheduledPublishBypassApproval: true }
+              : {}),
+          }
+        : {}),
+    });
+
+    const filter = {
+      organization: this.context.org.id,
+      id,
+      status: "merged" as const,
+    };
+    const update = (lockOthers: boolean) => ({
+      $set: buildSet(lockOthers),
+      $unset: { resolution: 1 as const },
+      $push: {
+        activityLog: {
+          id: uniqid("act_"),
+          userId,
+          action: "reopened" as const,
+          description: "Reopened revision — publish failed to apply",
+          dateCreated: now,
+        },
+      },
+    });
+
+    let matchedCount: number;
+    try {
+      ({ matchedCount } = await this._dangerousGetCollection().updateOne(
+        filter,
+        update(!!prior.scheduledPublishLockOthers),
+      ));
+    } catch (e) {
+      // A sibling armed a lock-others schedule while we held the merge; restore
+      // without the lock rather than losing the schedule entirely.
+      if (!isPublishLockIndexConflict(e)) throw e;
+      ({ matchedCount } = await this._dangerousGetCollection().updateOne(
+        filter,
+        update(false),
+      ));
+    }
+    if (!matchedCount) return null;
+    return this.getById(id);
+  }
+
   async reopen(id: string, userId: string) {
     // Always reopen into `draft`. A discarded revision may have been in any
     // pre-resolution status (draft, pending-review, changes-requested,
@@ -1311,6 +1522,7 @@ export class RevisionModel extends BaseClass {
       lockEdits,
       lockOthers,
       bypassApproval,
+      armAcknowledgments,
     }: ScheduledPublishInput,
   ): Promise<Revision> {
     const existing = await this.getById(id);
@@ -1374,13 +1586,20 @@ export class RevisionModel extends BaseClass {
             dateUpdated: now,
             ...(bypassApproval ? { scheduledPublishBypassApproval: true } : {}),
             ...(enabledBy !== null ? { autoPublishEnabledBy: enabledBy } : {}),
+            ...(hasArmAcknowledgments(armAcknowledgments)
+              ? { armAcknowledgments }
+              : {}),
           },
           // Clear prior poller-failure state so a reschedule doesn't keep the
-          // "stuck" UI or prematurely escalate logging on the next fire.
+          // "stuck" UI or prematurely escalate logging on the next fire. Also
+          // clear a stale guard fingerprint when this (re-)arm has none.
           $unset: {
             ...SCHEDULED_PUBLISH_FAILURE_UNSET,
             ...(bypassApproval ? {} : { scheduledPublishBypassApproval: 1 }),
             ...(enabledBy === null ? { autoPublishEnabledBy: 1 } : {}),
+            ...(hasArmAcknowledgments(armAcknowledgments)
+              ? {}
+              : { armAcknowledgments: 1 }),
           },
           $push: { activityLog: armEntry },
         },
@@ -1484,6 +1703,49 @@ export class RevisionModel extends BaseClass {
   }
 
   /**
+   * Delay the next poller retry of a failing scheduled publish (backoff). The
+   * due-but-failing revision is skipped until this time so doomed retries space
+   * out instead of firing every tick. Raw write, like the failure recorder.
+   */
+  async setScheduledPublishNextAttempt(
+    id: string,
+    nextAttemptAt: Date,
+  ): Promise<void> {
+    await this._dangerousGetCollection().updateOne(
+      { organization: this.context.org.id, id },
+      { $set: { scheduledPublishNextAttemptAt: nextAttemptAt } },
+    );
+  }
+
+  /**
+   * Give up on a failing scheduled publish: clear the schedule (so the poller
+   * stops selecting it), disarm auto-publish, and stamp `scheduledPublishGaveUpAt`
+   * so the UI can flag the abandoned schedule. The draft is left open (status
+   * unchanged) with `scheduledPublishLastError` preserved for context. Raw write
+   * (no audit / dateUpdated bump), like the failure recorder — the
+   * `revision.publishFailed` webhook is the user-facing signal.
+   */
+  async parkScheduledPublish(id: string): Promise<void> {
+    await this._dangerousGetCollection().updateOne(
+      { organization: this.context.org.id, id },
+      {
+        $set: {
+          scheduledPublishGaveUpAt: new Date(),
+          autoPublishOnApproval: false,
+        },
+        $unset: {
+          scheduledPublishAt: 1,
+          scheduledPublishLockEdits: 1,
+          scheduledPublishLockOthers: 1,
+          scheduledPublishBypassApproval: 1,
+          scheduledPublishNextAttemptAt: 1,
+          armAcknowledgments: 1,
+        },
+      },
+    );
+  }
+
+  /**
    * Cross-org poller query for the Agenda job: every armed revision whose date
    * has arrived and is still in an active review cycle. Org-agnostic by design
    * (context is resolved per-org downstream), so this is a static that hits the
@@ -1558,6 +1820,8 @@ export class RevisionModel extends BaseClass {
     comment?: string;
     revertedFrom?: string;
   }) {
+    this.assertSupportedPatchOps(target.proposedChanges);
+
     // Normalize the snapshot before validation runs in `_createOne`.
     // BaseModel parses `createValidator` *before* `beforeCreate`, so we can't
     // rely on the in-model `beforeUpdate`-style cleanup to strip legacy
@@ -1588,18 +1852,6 @@ export class RevisionModel extends BaseClass {
     );
   }
 
-  /**
-   * Create a revision that is already in `merged` status in a single write.
-   *
-   * Bypass-merge flows (e.g. PUT /saved-groups/:id) would otherwise have to
-   * create a draft and then `merge` it as two separate, non-transactional DB
-   * writes — if the merge failed after the entity was already updated, the
-   * draft would be stranded and could never be published ("no changes
-   * detected" against the now-updated live entity). Recording the merged
-   * revision in one write removes that window. Callers must persist the live
-   * entity change *before* calling this so the merged revision is a faithful
-   * record of a change that has actually landed.
-   */
   /**
    * Returns active draft status counts per entity ID for a given revision
    * target type (e.g. "saved-group", "constant"). Mirrors `getActiveDraftStates`
@@ -1637,6 +1889,18 @@ export class RevisionModel extends BaseClass {
     return result;
   }
 
+  /**
+   * Create a revision that is already in `merged` status in a single write.
+   *
+   * Bypass-merge flows (e.g. PUT /saved-groups/:id) would otherwise have to
+   * create a draft and then `merge` it as two separate, non-transactional DB
+   * writes — if the merge failed after the entity was already updated, the draft
+   * would be stranded and could never be published ("no changes detected"
+   * against the now-updated live entity). Recording the merged revision in one
+   * write removes that window. Callers must persist the live entity change
+   * *before* calling this so the merged revision is a faithful record of a
+   * change that has actually landed.
+   */
   async createMerged(params: {
     type: RevisionTargetType;
     id: string;

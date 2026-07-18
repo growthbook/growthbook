@@ -121,6 +121,8 @@ const featureRevisionSchema = new mongoose.Schema({
   scheduledPublishBypassApproval: Boolean,
   scheduledPublishAttempts: Number,
   scheduledPublishLastError: String,
+  scheduledPublishNextAttemptAt: Date,
+  scheduledPublishGaveUpAt: Date,
   log: [
     {
       _id: false,
@@ -793,6 +795,7 @@ export async function createInitialRevision(
       customFields: feature.customFields,
       jsonSchema: feature.jsonSchema,
       valueType: feature.valueType,
+      baseConfig: feature.baseConfig ?? null,
     },
   });
 
@@ -894,6 +897,7 @@ export async function createRevision({
     customFields: feature.customFields,
     jsonSchema: feature.jsonSchema,
     valueType: feature.valueType,
+    baseConfig: feature.baseConfig ?? null,
   };
   // Always store a complete snapshot. Partial changes (e.g. { neverStale: true })
   // are merged on top so other metadata fields aren't silently dropped.
@@ -1463,6 +1467,8 @@ export async function setAutoPublishOnApproval(
 const SCHEDULED_PUBLISH_FAILURE_UNSET = {
   scheduledPublishAttempts: 1,
   scheduledPublishLastError: 1,
+  scheduledPublishNextAttemptAt: 1,
+  scheduledPublishGaveUpAt: 1,
 } as const;
 
 // Schedule fields cleared together on cancel or when leaving the review cycle.
@@ -1640,6 +1646,60 @@ export async function recordScheduledPublishFailure(
     { new: true },
   ).select("scheduledPublishAttempts");
   return doc?.scheduledPublishAttempts ?? 0;
+}
+
+// Delay the next poller retry of a failing scheduled publish (backoff). The
+// due-but-failing revision is skipped until this time so doomed retries space
+// out instead of firing every tick. Raw write, like the failure recorder.
+export async function setScheduledPublishNextAttempt(
+  revision: Pick<
+    FeatureRevisionInterface,
+    "organization" | "featureId" | "version"
+  >,
+  nextAttemptAt: Date,
+): Promise<void> {
+  await FeatureRevisionModel.updateOne(
+    {
+      organization: revision.organization,
+      featureId: revision.featureId,
+      version: revision.version,
+    },
+    { $set: { scheduledPublishNextAttemptAt: nextAttemptAt } },
+  );
+}
+
+// Give up on a failing scheduled publish: clear the schedule (so the poller
+// stops selecting it), disarm auto-publish, and stamp scheduledPublishGaveUpAt
+// so the UI can flag the abandoned schedule. The draft is left open with
+// scheduledPublishLastError preserved for context. Raw write (no dateUpdated
+// bump) like the failure recorder — the revision.publishFailed webhook is the
+// user-facing signal.
+export async function parkScheduledPublish(
+  revision: Pick<
+    FeatureRevisionInterface,
+    "organization" | "featureId" | "version"
+  >,
+): Promise<void> {
+  await FeatureRevisionModel.updateOne(
+    {
+      organization: revision.organization,
+      featureId: revision.featureId,
+      version: revision.version,
+    },
+    {
+      $set: {
+        scheduledPublishGaveUpAt: new Date(),
+        autoPublishOnApproval: false,
+      },
+      $unset: {
+        scheduledPublishAt: 1,
+        scheduledPublishLockEdits: 1,
+        scheduledPublishLockOthers: 1,
+        scheduledPublishBypassApproval: 1,
+        scheduledPublishNextAttemptAt: 1,
+      },
+    },
+  );
 }
 
 // Cross-org poller query for the Agenda job: every armed revision whose date has

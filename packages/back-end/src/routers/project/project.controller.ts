@@ -299,6 +299,13 @@ export const deleteProject = async (
     failedToDeleteResources.push("constants");
   }
 
+  // Clean up configs
+  try {
+    await context.models.configs.removeProjectIdFromAll(id);
+  } catch (e) {
+    failedToDeleteResources.push("configs");
+  }
+
   // TODO: other resources to clean up
   // ideas?
   // dimensions?

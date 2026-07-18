@@ -6,6 +6,7 @@ import { getContextFromReq } from "back-end/src/services/organizations";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import { runInSandbox } from "back-end/src/enterprise/sandbox/sandbox-pool";
 import { getFeature } from "back-end/src/models/FeatureModel";
+import { revertCustomHookToVersion } from "back-end/src/services/customHookHistory";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 
 export const getCustomHooks = async (
@@ -104,6 +105,31 @@ export const deleteCustomHook = async (
 
   res.status(200).json({
     status: 200,
+  });
+};
+
+export const revertCustomHook = async (
+  req: AuthRequest<{ auditId: string }, { id: string }>,
+  res: Response<{
+    status: 200;
+    customHook: CustomHookInterface;
+  }>,
+) => {
+  const context = getContextFromReq(req);
+
+  if (IS_CLOUD || !context.hasPremiumFeature("custom-hooks")) {
+    throw new Error("Not allowed");
+  }
+
+  const customHook = await revertCustomHookToVersion(
+    context,
+    req.params.id,
+    req.body.auditId,
+  );
+
+  res.status(200).json({
+    status: 200,
+    customHook,
   });
 };
 

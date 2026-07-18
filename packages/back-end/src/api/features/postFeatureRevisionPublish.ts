@@ -17,6 +17,7 @@ import { getFeature, publishRevision } from "back-end/src/models/FeatureModel";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import {
+  assertFeatureValuesValidForPublish,
   getLiveAndBaseRevisionsForFeature,
   getMergeResultPublishEnvs,
   toApiRevision,
@@ -207,6 +208,15 @@ export async function publishFeatureRevision(
   if (!req.context.permissions.canPublishFeature(feature, envsToCheck)) {
     req.context.permissions.throwPermissionError();
   }
+
+  // Publish-time safety net (org-configurable strictness): re-validate the
+  // values going live against the feature's JSON schema. The config-backed
+  // schema/invariant net (assertConfigBackedFeatureValuesValid) runs inside
+  // publishRevision's shared prevalidatePublishRevision choke point below.
+  assertFeatureValuesValidForPublish(req.context, feature, {
+    defaultValue: mergeResult.result.defaultValue,
+    rules: mergeResult.result.rules,
+  });
 
   const updatedFeature = await publishRevision({
     context: req.context,

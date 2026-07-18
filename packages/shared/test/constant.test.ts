@@ -1,11 +1,14 @@
 import {
-  validateConstantValue,
+  validateResolvableValue,
   getConstantReferenceKeys,
   getReferencingConstantKeys,
   getCyclicConstantRefs,
   assertValidExtendsEntries,
 } from "../src/validators/constant";
-import { constantRequiresReview } from "../src/util/features";
+import {
+  constantRequiresReview,
+  configRequiresReview,
+} from "../src/util/features";
 import { getConstantRevisionChange } from "../src/revisions/helpers";
 
 const rule = (overrides = {}) => ({
@@ -22,65 +25,130 @@ const noChange = {
   metadataOnly: false,
 };
 
-describe("validateConstantValue", () => {
+describe("validateResolvableValue", () => {
   it("allows any string value for string constants", () => {
-    expect(() => validateConstantValue("string", "")).not.toThrow();
-    expect(() => validateConstantValue("string", "hello")).not.toThrow();
-    expect(() => validateConstantValue("string", "{not json")).not.toThrow();
-  });
-
-  it("allows empty values for JSON constants", () => {
-    expect(() => validateConstantValue("json", "")).not.toThrow();
-  });
-
-  it("accepts a JSON object for JSON constants", () => {
-    expect(() => validateConstantValue("json", '{"a":1}')).not.toThrow();
     expect(() =>
-      validateConstantValue("json", '{"a":{"b":1},"c":[1,2]}'),
+      validateResolvableValue({ type: "string", value: "" }),
+    ).not.toThrow();
+    expect(() =>
+      validateResolvableValue({ type: "string", value: "hello" }),
+    ).not.toThrow();
+    expect(() =>
+      validateResolvableValue({ type: "string", value: "{not json" }),
     ).not.toThrow();
   });
 
-  it("rejects arrays and primitives for JSON constants (objects only)", () => {
-    expect(() => validateConstantValue("json", "[1,2,3]")).toThrow(/object/);
-    expect(() => validateConstantValue("json", '"str"')).toThrow(/object/);
-    expect(() => validateConstantValue("json", "true")).toThrow(/object/);
-    expect(() => validateConstantValue("json", "null")).toThrow(/object/);
+  it("allows empty values for JSON values", () => {
+    expect(() =>
+      validateResolvableValue({ type: "json", value: "" }),
+    ).not.toThrow();
   });
 
-  it("rejects invalid JSON for JSON constants", () => {
-    expect(() => validateConstantValue("json", "{not json")).toThrow();
-    expect(() => validateConstantValue("json", "{'a':1}")).toThrow();
+  it("accepts a JSON object for JSON values", () => {
+    expect(() =>
+      validateResolvableValue({ type: "json", value: '{"a":1}' }),
+    ).not.toThrow();
+    expect(() =>
+      validateResolvableValue({
+        type: "json",
+        value: '{"a":{"b":1},"c":[1,2]}',
+      }),
+    ).not.toThrow();
+  });
+
+  it("rejects arrays and primitives for JSON values (objects only)", () => {
+    expect(() =>
+      validateResolvableValue({ type: "json", value: "[1,2,3]" }),
+    ).toThrow(/object/);
+    expect(() =>
+      validateResolvableValue({ type: "json", value: '"str"' }),
+    ).toThrow(/object/);
+    expect(() =>
+      validateResolvableValue({ type: "json", value: "true" }),
+    ).toThrow(/object/);
+    expect(() =>
+      validateResolvableValue({ type: "json", value: "null" }),
+    ).toThrow(/object/);
+  });
+
+  it("rejects invalid JSON for JSON values", () => {
+    expect(() =>
+      validateResolvableValue({ type: "json", value: "{not json" }),
+    ).toThrow();
+    expect(() =>
+      validateResolvableValue({ type: "json", value: "{'a':1}" }),
+    ).toThrow();
   });
 
   it("accepts @const refs and inline objects in $extends", () => {
     expect(() =>
-      validateConstantValue(
-        "json",
-        '{"$extends":["@const:base",{"a":1}],"b":2}',
-      ),
+      validateResolvableValue({
+        type: "json",
+        value: '{"$extends":["@const:base",{"a":1}],"b":2}',
+      }),
     ).not.toThrow();
   });
 
   it("rejects malformed $extends entries (junk and bare strings)", () => {
     expect(() =>
-      validateConstantValue("json", '{"$extends":["@const:ok",2]}'),
+      validateResolvableValue({
+        type: "json",
+        value: '{"$extends":["@const:ok",2]}',
+      }),
     ).toThrow(/\$extends/);
-    expect(() => validateConstantValue("json", '{"$extends":[true]}')).toThrow(
-      /\$extends/,
-    );
     expect(() =>
-      validateConstantValue("json", '{"$extends":["nonsense"]}'),
+      validateResolvableValue({ type: "json", value: '{"$extends":[true]}' }),
+    ).toThrow(/\$extends/);
+    expect(() =>
+      validateResolvableValue({
+        type: "json",
+        value: '{"$extends":["nonsense"]}',
+      }),
     ).toThrow(/\$extends/);
   });
 
   it("rejects malformed $extends nested inside an inline object", () => {
     expect(() =>
-      validateConstantValue("json", '{"$extends":[{"$extends":[5]}]}'),
+      validateResolvableValue({
+        type: "json",
+        value: '{"$extends":[{"$extends":[5]}]}',
+      }),
     ).toThrow(/\$extends/);
   });
 
+  it("allows a @config ref for feature values (no refSource)", () => {
+    expect(() =>
+      validateResolvableValue({
+        type: "json",
+        value: '{"$extends":["@config:base"]}',
+      }),
+    ).not.toThrow();
+  });
+
+  it("rejects a @config ref for constants with a constant-specific message", () => {
+    expect(() =>
+      validateResolvableValue({
+        type: "json",
+        value: '{"$extends":["@config:base"]}',
+        refSource: "constant",
+      }),
+    ).toThrow(/Constants cannot reference configs/);
+  });
+
+  it("rejects a @config ref for configs with a config-specific message", () => {
+    expect(() =>
+      validateResolvableValue({
+        type: "json",
+        value: '{"$extends":["@config:base"]}',
+        refSource: "config",
+      }),
+    ).toThrow(/parent.*extends|extends.*parent/);
+  });
+
   it("prefixes the error with the label when provided", () => {
-    expect(() => validateConstantValue("json", "{bad", "dev")).toThrow(/^dev:/);
+    expect(() =>
+      validateResolvableValue({ type: "json", value: "{bad", label: "dev" }),
+    ).toThrow(/^dev:/);
   });
 });
 
@@ -128,6 +196,49 @@ describe("getConstantRevisionChange", () => {
       changedEnvironments: [],
       metadataOnly: true,
     });
+  });
+
+  it("treats a config schema change as a (reviewable) value change", () => {
+    const change = getConstantRevisionChange({ value: "v" }, [
+      {
+        op: "replace",
+        path: "/schema",
+        value: { type: "object", fields: [{ key: "a", type: "string" }] },
+      },
+    ]);
+    expect(change.valueChanged).toBe(true);
+    expect(change.metadataOnly).toBe(false);
+    expect(change.changedEnvironments).toEqual([]);
+  });
+
+  // Lineage/extensibility changes shift a config's effective resolved value, so
+  // they must be reviewable content, not slip through as a no-review change.
+  it.each(["parent", "extends", "extensible"])(
+    "treats a config %s change as a (reviewable) value change",
+    (field) => {
+      const change = getConstantRevisionChange({ value: "v" }, [
+        { op: "replace", path: `/${field}`, value: "x" },
+      ]);
+      expect(change.valueChanged).toBe(true);
+      expect(change.metadataOnly).toBe(false);
+    },
+  );
+
+  // Configs reuse this helper with an OBJECT value; compare deep, not by
+  // reference — a restated-but-equal object must NOT read as changed (a `!==`
+  // regression would flag it and spuriously force review).
+  it("deep-compares an object value (restated but equal → no change)", () => {
+    const change = getConstantRevisionChange({ value: { a: 1, b: 2 } }, [
+      { op: "replace", path: "/value", value: { b: 2, a: 1 } },
+    ]);
+    expect(change.valueChanged).toBe(false);
+  });
+
+  it("detects a genuine object value change", () => {
+    const change = getConstantRevisionChange({ value: { a: 1 } }, [
+      { op: "replace", path: "/value", value: { a: 2 } },
+    ]);
+    expect(change.valueChanged).toBe(true);
   });
 });
 
@@ -216,6 +327,46 @@ describe("constantRequiresReview", () => {
   });
 });
 
+describe("configRequiresReview", () => {
+  const valueChange = {
+    valueChanged: true,
+    changedEnvironments: [],
+    metadataOnly: false,
+  };
+
+  it("treats a base config value change as all-environments (flavorEnvironments=null)", () => {
+    const settings = settingsWith([rule({ environments: ["production"] })]);
+    // Base value applies everywhere → always requires review, like a constant.
+    expect(configRequiresReview({}, valueChange, null, settings)).toBe(true);
+  });
+
+  it("requires review for a flavor only when its env is in the rule's scope", () => {
+    const prodRule = settingsWith([rule({ environments: ["production"] })]);
+    // A production flavor value change, prod-scoped rule → review.
+    expect(
+      configRequiresReview({}, valueChange, ["production"], prodRule),
+    ).toBe(true);
+    // A dev flavor value change, prod-scoped rule → NO review (the gap fixed:
+    // env-scoped granularity applies to flavors, not just an all-envs block).
+    expect(configRequiresReview({}, valueChange, ["dev"], prodRule)).toBe(
+      false,
+    );
+  });
+
+  it("treats a catch-all flavor (no environments) as all-environments", () => {
+    const prodRule = settingsWith([rule({ environments: ["production"] })]);
+    // Empty flavor env scope = applies to any env → always requires review.
+    expect(configRequiresReview({}, valueChange, [], prodRule)).toBe(true);
+  });
+
+  it("requires review for a flavor whose env matches an all-environments rule", () => {
+    const allEnvRule = settingsWith([rule({ environments: [] })]);
+    expect(
+      configRequiresReview({}, valueChange, ["production"], allEnvRule),
+    ).toBe(true);
+  });
+});
+
 describe("assertValidExtendsEntries", () => {
   describe("strict (constants — default)", () => {
     it("rejects a $extends array of pure junk", () => {
@@ -238,6 +389,51 @@ describe("assertValidExtendsEntries", () => {
         assertValidExtendsEntries({ $extends: ["@const:a", { x: 1 }] }),
       ).not.toThrow();
     });
+
+    it("accepts a @config ref as the first entry", () => {
+      expect(() =>
+        assertValidExtendsEntries({ $extends: ["@config:base", "@const:a"] }),
+      ).not.toThrow();
+    });
+
+    it("rejects a @config ref that is not the first entry", () => {
+      expect(() =>
+        assertValidExtendsEntries({ $extends: ["@const:a", "@config:base"] }),
+      ).toThrow(/@config/);
+    });
+
+    it("rejects any @config ref when refSource=constant", () => {
+      expect(() =>
+        assertValidExtendsEntries(
+          { $extends: ["@config:base"] },
+          "",
+          false,
+          "constant",
+        ),
+      ).toThrow(/Constants cannot reference configs/);
+    });
+
+    it("rejects any @config ref when refSource=config (config-specific message)", () => {
+      expect(() =>
+        assertValidExtendsEntries(
+          { $extends: ["@config:base"] },
+          "",
+          false,
+          "config",
+        ),
+      ).toThrow(/parent.*extends|extends.*parent/);
+    });
+
+    it("still allows @const refs when refSource is set", () => {
+      expect(() =>
+        assertValidExtendsEntries(
+          { $extends: ["@const:a"] },
+          "",
+          false,
+          "constant",
+        ),
+      ).not.toThrow();
+    });
   });
 
   describe("lenient (features — onlyMergeDirectives)", () => {
@@ -257,6 +453,48 @@ describe("assertValidExtendsEntries", () => {
       expect(() =>
         assertValidExtendsEntries({ $extends: ["@const:base", 5] }, "", true),
       ).toThrow(/\$extends/);
+    });
+  });
+
+  describe("non-array $extends (mis-wrapped directive)", () => {
+    it("rejects a string $extends in a config/constant value", () => {
+      expect(() =>
+        assertValidExtendsEntries(
+          { $extends: "@const:default-limits" },
+          "",
+          false,
+          "constant",
+        ),
+      ).toThrow(/must be an array/);
+      expect(() =>
+        assertValidExtendsEntries({ $extends: { x: 1 } }, "", false, "config"),
+      ).toThrow(/must be an array/);
+    });
+
+    it("rejects a ref-string $extends even on the lenient feature path", () => {
+      expect(() =>
+        assertValidExtendsEntries({ $extends: "@const:base" }, "", true),
+      ).toThrow(/must be an array/);
+      expect(() =>
+        assertValidExtendsEntries({ $extends: "@config:base" }, "", true),
+      ).toThrow(/must be an array/);
+    });
+
+    it("leaves a non-ref string $extends alone on the feature path (grandfathered data)", () => {
+      expect(() =>
+        assertValidExtendsEntries({ $extends: "just data" }, "", true),
+      ).not.toThrow();
+    });
+
+    it("exempts a backtick-escaped `$extends` key (literal data key)", () => {
+      expect(() =>
+        assertValidExtendsEntries(
+          { "`$extends`": "@const:base" },
+          "",
+          false,
+          "constant",
+        ),
+      ).not.toThrow();
     });
   });
 });

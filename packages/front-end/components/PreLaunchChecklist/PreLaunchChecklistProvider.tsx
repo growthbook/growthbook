@@ -6,7 +6,6 @@ import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
 import { createContext, ReactNode, useContext, useMemo, useState } from "react";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import useApi from "@/hooks/useApi";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { CheckListItem, getChecklistItems } from "./PreLaunchChecklistItems";
@@ -70,7 +69,6 @@ export function PreLaunchChecklistProvider({
   children,
 }: PreLaunchChecklistProviderProps) {
   const permissionsUtil = usePermissionsUtil();
-  const showAnalysisSetupItems = useFeatureIsOn("simple-experiment-flow");
   const canEditExperiment =
     !experiment.archived && permissionsUtil.canUpdateExperiment(experiment, {});
 
@@ -124,7 +122,6 @@ export function PreLaunchChecklistProvider({
       setShowScheduleModal: canEditExperiment
         ? setShowScheduleModal
         : undefined,
-      showAnalysisSetupItems,
     });
   }, [
     isActive,
@@ -136,7 +133,6 @@ export function PreLaunchChecklistProvider({
     visualChangesets,
     canEditExperiment,
     applicableConnections,
-    showAnalysisSetupItems,
   ]);
 
   const incompleteChecklistItems = useMemo(
