@@ -5,8 +5,24 @@ import {
   PublishGateClearance,
   classifyPublishGate,
   evaluatePublishGates,
+  schemaFailureGateOverride,
   unclearedGates,
 } from "back-end/src/revisions/publishGates";
+
+describe("schemaFailureGateOverride (blockPublishOnSchemaError)", () => {
+  it("is validation-class in block mode (default)", () => {
+    expect(schemaFailureGateOverride(true)).toEqual({
+      override: "skipSchemaValidation",
+      requiresPermission: "bypassApprovalChecks",
+    });
+  });
+  it("demotes to acknowledge-class in warn mode", () => {
+    expect(schemaFailureGateOverride(false)).toEqual({
+      override: "ignoreWarnings",
+      requiresPermission: null,
+    });
+  });
+});
 
 // No override flag: cleared only by approving the revision, by a caller whose
 // permission bypasses approval, or by the org REST-bypass setting.

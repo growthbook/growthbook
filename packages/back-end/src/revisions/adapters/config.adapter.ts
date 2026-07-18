@@ -56,6 +56,7 @@ import {
 } from "back-end/src/services/archiveDependentsGuard";
 import { assertConfigPublishGuards } from "back-end/src/services/publishGuards";
 import type { PublishGate } from "back-end/src/revisions/publishGates";
+import { schemaFailureGateOverride } from "back-end/src/revisions/publishGates";
 import { applyPatchToSnapshot } from "back-end/src/revisions/util";
 import { BadRequestError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
@@ -514,8 +515,9 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
         type: "schema-break",
         severity: "warning",
         messages: ["Invalid config value:", ...schemaBreaks],
-        override: "skipSchemaValidation",
-        requiresPermission: "bypassApprovalChecks",
+        ...schemaFailureGateOverride(
+          context.org.settings?.blockPublishOnSchemaError !== false,
+        ),
         resolution: null,
       });
     }
@@ -557,8 +559,9 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
             } this config breaks a dependent config or feature value:`,
             ...archiveBreaks,
           ],
-          override: "skipSchemaValidation",
-          requiresPermission: "bypassApprovalChecks",
+          ...schemaFailureGateOverride(
+            context.org.settings?.blockPublishOnSchemaError !== false,
+          ),
           resolution: null,
         });
       }

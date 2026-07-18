@@ -44,6 +44,7 @@ import {
 } from "back-end/src/services/archiveDependentsGuard";
 import { assertConstantPublishGuards } from "back-end/src/services/publishGuards";
 import type { PublishGate } from "back-end/src/revisions/publishGates";
+import { schemaFailureGateOverride } from "back-end/src/revisions/publishGates";
 import { applyPatchToSnapshot } from "back-end/src/revisions/util";
 import { logger } from "back-end/src/util/logger";
 
@@ -416,8 +417,9 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
           "Breaks a dependent config or feature value:",
           ...schemaBreaks,
         ],
-        override: "skipSchemaValidation",
-        requiresPermission: "bypassApprovalChecks",
+        ...schemaFailureGateOverride(
+          context.org.settings?.blockPublishOnSchemaError !== false,
+        ),
         resolution: null,
       });
     }

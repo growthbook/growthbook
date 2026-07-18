@@ -69,6 +69,24 @@ export type PublishOverrideFlags = {
   skipSchemaValidation?: boolean;
 };
 
+// The override class for a schema-family failure (JSON-schema conformance,
+// field-rule/invariant, or downstream schema break), honoring the org's "block
+// publishing on JSON schema errors" setting: strict (default) makes it
+// validation-class (privileged `skipSchemaValidation`); warn mode demotes it to
+// acknowledge-class (`ignoreWarnings`, anyone). Custom-hook failures are NOT
+// schema errors and never use this — a hook `throw` stays validation-class
+// regardless of the setting.
+export function schemaFailureGateOverride(
+  blockOnSchemaError: boolean,
+): Pick<PublishGate, "override" | "requiresPermission"> {
+  return blockOnSchemaError
+    ? {
+        override: "skipSchemaValidation",
+        requiresPermission: "bypassApprovalChecks",
+      }
+    : { override: "ignoreWarnings", requiresPermission: null };
+}
+
 /** A gate that would have blocked the publish but was bypassed by the caller. */
 export type BypassedGate = {
   type: string;

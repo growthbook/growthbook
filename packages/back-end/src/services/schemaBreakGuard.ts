@@ -37,6 +37,7 @@ import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organiz
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import {
   BadRequestError,
+  SoftWarningError,
   TerminalPublishError,
 } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
@@ -44,11 +45,14 @@ import { logger } from "back-end/src/util/logger";
 const CONFIG_PREFIX = "config:";
 const SCHEMA_BREAK: ArmGuardId = "schema-break";
 
-// Resolve a direct (unarmed) publish's schema-break violations to an action:
-// clear when none, bypass only on the privileged skipSchemaValidation (logged),
-// else a HARD block. Schema-break is validation-class — no ignoreWarnings
-// escape, so the UI blocks and only a bypassApprovalChecks holder passing
-// skipSchemaValidation can force it. Shared by the constant and config guards.
+// Resolve a direct (unarmed) publish's schema-break violations to an action,
+// honoring the org's `blockPublishOnSchemaError` setting:
+//  - block mode (default): validation-class. Cleared only by the privileged
+//    skipSchemaValidation (which requires bypassApprovalChecks); else a HARD
+//    400, so the UI blocks and no ignoreWarnings escape exists.
+//  - warn mode (setting off): acknowledge-class. Anyone clears with
+//    ignoreWarnings (or the bypass-approval permission); else a 422 soft warning.
+// Shared by the constant and config guards.
 function resolveDirectSchemaBreak(
   context: Context,
   violations: string[],
@@ -57,17 +61,33 @@ function resolveDirectSchemaBreak(
   message: string,
 ): void {
   if (!violations.length) return;
-  // `context.skipSchemaValidation` already requires the bypassApprovalChecks
-  // permission (org-wide), so no separate permission check here.
-  void project;
-  if (context.skipSchemaValidation) {
+  const blocking = context.org.settings?.blockPublishOnSchemaError !== false;
+  if (blocking) {
+    // `context.skipSchemaValidation` already requires bypassApprovalChecks.
+    if (context.skipSchemaValidation) {
+      logger.info(
+        { ...logKey, userId: context.userId, violations },
+        "Schema-break guard skipped via skipSchemaValidation",
+      );
+      return;
+    }
+    throw new BadRequestError(message + "\n" + violations.join("\n"));
+  }
+  // Warn mode: acknowledge-class.
+  if (
+    context.ignoreWarnings ||
+    context.permissions.canBypassApprovalChecks({ project: project || "" })
+  ) {
     logger.info(
       { ...logKey, userId: context.userId, violations },
-      "Schema-break guard skipped via skipSchemaValidation",
+      "Schema-break guard acknowledged in warn mode",
     );
     return;
   }
-  throw new BadRequestError(message + "\n" + violations.join("\n"));
+  throw new SoftWarningError(
+    message + "\n" + violations.join("\n"),
+    violations,
+  );
 }
 
 // The breaks present at a deferred fire that weren't acknowledged when the
@@ -614,13 +634,26 @@ export async function captureConstantSchemaBreakAcknowledgment(
   );
   if (!violations.length) return undefined;
 
-  // Validation-class: scheduling past a schema break requires the privileged
-  // skipSchemaValidation (which already requires bypassApprovalChecks).
-  if (!context.skipSchemaValidation) {
-    throw new BadRequestError(
-      "Scheduling this publish would break a dependent config or feature value:\n" +
-        violations.join("\n") +
-        "\nRe-submit with skipSchemaValidation (requires the bypassApprovalChecks permission) to schedule anyway.",
+  // Same class split as the direct fire, honoring blockPublishOnSchemaError.
+  const body =
+    "Scheduling this publish would break a dependent config or feature value:\n" +
+    violations.join("\n");
+  if (context.org.settings?.blockPublishOnSchemaError !== false) {
+    if (!context.skipSchemaValidation) {
+      throw new BadRequestError(
+        body +
+          "\nRe-submit with skipSchemaValidation (requires the bypassApprovalChecks permission) to schedule anyway.",
+      );
+    }
+  } else if (
+    !context.ignoreWarnings &&
+    !context.permissions.canBypassApprovalChecks({
+      project: constant.project || "",
+    })
+  ) {
+    throw new SoftWarningError(
+      body + "\nRe-submit with ignoreWarnings to acknowledge and schedule.",
+      violations,
     );
   }
   return [...new Set(violations)].sort();
@@ -889,12 +922,27 @@ export async function captureConfigSchemaBreakAcknowledgment(
   const violations = [...ownViolations, ...archiveViolations];
   if (!violations.length) return undefined;
 
-  // Validation-class: scheduling past a schema break requires the privileged
-  // skipSchemaValidation (which already requires bypassApprovalChecks).
+  // Same class split as the direct fire, honoring blockPublishOnSchemaError.
+  const body =
+    "Scheduling this publish would produce an invalid config or dependent value:\n" +
+    violations.join("\n");
+  if (context.org.settings?.blockPublishOnSchemaError === false) {
+    if (
+      !context.ignoreWarnings &&
+      !context.permissions.canBypassApprovalChecks({
+        project: proposed.project || "",
+      })
+    ) {
+      throw new SoftWarningError(
+        body + "\nRe-submit with ignoreWarnings to acknowledge and schedule.",
+        violations,
+      );
+    }
+    return [...new Set(violations)].sort();
+  }
   if (!context.skipSchemaValidation) {
     throw new BadRequestError(
-      "Scheduling this publish would produce an invalid config or dependent value:\n" +
-        violations.join("\n") +
+      body +
         "\nRe-submit with skipSchemaValidation (requires the bypassApprovalChecks permission) to schedule anyway.",
     );
   }

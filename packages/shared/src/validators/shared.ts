@@ -139,7 +139,7 @@ export const ignoreWarningsBodyField = z
   .boolean()
   .optional()
   .describe(
-    "Acknowledge and proceed past ACKNOWLEDGE-class warnings: a value served to a running experiment, a locked dependent, dependents dropped by an archive, and warn-mode value errors. A blocked request lists what this would acknowledge in `warnings`. Does NOT clear validation-class failures (schema errors, cross-field invariants, downstream schema breaks, or custom-hook rejections) — those require `skipSchemaValidation`. On publish endpoints this also force-merges a draft whose base is stale, when you hold the bypass-approval permission.",
+    "Acknowledge and proceed past ACKNOWLEDGE-class warnings: a value served to a running experiment, a locked dependent, and dependents dropped by an archive. A blocked request lists what this would acknowledge in `warnings`. Does NOT clear validation-class failures (schema errors, cross-field invariants, downstream schema breaks, or custom-hook rejections) — those require `skipSchemaValidation` — EXCEPT when the org disables 'block publishing on JSON schema errors' (warn mode), where schema, invariant, and schema-break failures become soft and this flag clears them (custom-hook rejections still need `skipSchemaValidation`). On publish endpoints this also force-merges a draft whose base is stale, when you hold the bypass-approval permission.",
   );
 export const skipSchemaValidationBodyField = z
   .boolean()

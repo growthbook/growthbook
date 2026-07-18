@@ -86,6 +86,28 @@ function makeEngineerContext(
   });
 }
 
+// Warn mode: the org demotes schema errors (blockPublishOnSchemaError=false), so
+// schema-break becomes acknowledge-class (ignoreWarnings, anyone). Same ORG_ID so
+// the seeded configs resolve; only the settings differ.
+const warnOrg = {
+  ...org,
+  settings: { blockPublishOnSchemaError: false },
+} as unknown as OrganizationInterface;
+function makeWarnEngineerContext(
+  opts: { ignoreWarnings?: boolean } = {},
+): ReqContextClass {
+  return new ReqContextClass({
+    org: warnOrg,
+    auditUser: { type: "api_key", apiKey: "key_engineer" },
+    role: "engineer",
+    req: {
+      query: {},
+      headers: {},
+      body: opts.ignoreWarnings ? { ignoreWarnings: true } : {},
+    } as unknown as Request,
+  });
+}
+
 // A `port: integer` (optional) schema — a dependent whose resolved value must
 // carry an integer port when present.
 const portIntegerSchema = {
@@ -367,6 +389,72 @@ describe("POST /api/v1/configs-revisions/:key/:version/publish (archive schema-b
       type: "schema-break",
       outcome: "bypassed",
       via: "skipSchemaValidation",
+    });
+  });
+
+  it("demotes the schema-break gate to acknowledge-class in warn mode (blockPublishOnSchemaError=false)", async () => {
+    setReqContext(makeWarnEngineerContext());
+
+    const now = new Date();
+    await mongoose.connection.collection("configs").insertMany([
+      {
+        id: "cfg_svc_warn",
+        organization: ORG_ID,
+        key: "svc_warn",
+        name: "svc_warn",
+        owner: "",
+        value: '{"port":"bad"}',
+        archived: true,
+        dateCreated: now,
+        dateUpdated: now,
+      },
+      {
+        id: "cfg_dep_warn",
+        organization: ORG_ID,
+        key: "dep_warn",
+        name: "dep_warn",
+        owner: "",
+        value: "{}",
+        extends: ["svc_warn"],
+        schema: portIntegerSchema,
+        dateCreated: now,
+        dateUpdated: now,
+      },
+    ]);
+
+    const createRes = await request(app)
+      .post(`/api/v1/configs-revisions/svc_warn`)
+      .send({})
+      .set("Authorization", "Bearer foo");
+    const version = createRes.body.revision.version;
+    await request(app)
+      .put(`/api/v1/configs-revisions/svc_warn/${version}/archive`)
+      .send({ archived: false })
+      .set("Authorization", "Bearer foo");
+
+    // In warn mode the gate is acknowledge-class: an ordinary engineer clears it
+    // with ignoreWarnings (no bypass permission needed).
+    const blockedRes = await request(app)
+      .post(`/api/v1/configs-revisions/svc_warn/${version}/publish`)
+      .send({})
+      .set("Authorization", "Bearer foo");
+    expect(blockedRes.status).toBe(422);
+    const gate = blockedRes.body.gates.find(
+      (g: { type: string }) => g.type === "schema-break",
+    );
+    expect(gate.override).toBe("ignoreWarnings");
+    expect(gate.requiresPermission).toBeNull();
+
+    setReqContext(makeWarnEngineerContext({ ignoreWarnings: true }));
+    const okRes = await request(app)
+      .post(`/api/v1/configs-revisions/svc_warn/${version}/publish`)
+      .send({ ignoreWarnings: true })
+      .set("Authorization", "Bearer foo");
+    expect(okRes.status).toBe(200);
+    expect(okRes.body.bypassedGates).toContainEqual({
+      type: "schema-break",
+      outcome: "bypassed",
+      via: "ignoreWarnings",
     });
   });
 });
