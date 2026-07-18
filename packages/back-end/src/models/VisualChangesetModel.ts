@@ -167,13 +167,21 @@ export async function findVisualChangesetsByExperiment(
 export async function findVisualChangesetsByExperimentIds(
   experimentIds: string[],
   organization: string,
+  // When set, returns the newest `limit` changesets (sorted by `_id`, which
+  // embeds the creation timestamp). Bounds the fetch — a search can match many
+  // experiments, each with several changesets — and gives a deterministic
+  // order for equal-ranked rows. Mirrors `findVisualChangesets`.
+  limit?: number,
 ): Promise<VisualChangesetInterface[]> {
   if (!experimentIds.length) return [];
-  const visualChangesets = await VisualChangesetModel.find({
+  let query = VisualChangesetModel.find({
     organization,
     experiment: { $in: experimentIds },
   });
-  return visualChangesets.map(toInterface);
+  if (limit && limit > 0) {
+    query = query.sort({ _id: -1 }).limit(limit);
+  }
+  return (await query).map(toInterface);
 }
 
 export async function findVisualChangesets(

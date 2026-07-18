@@ -81,9 +81,14 @@ export const getBootstrap = createApiRequestHandler(validation)(async (req) => {
       search,
       SEARCH_EXPERIMENT_CAP,
     );
+    // Bound + order the fetch (newest-`_id`-first) to the same window as the
+    // default path — a search can match many experiments, each with several
+    // changesets, so an uncapped fetch could deserialize far more than needed
+    // before the rank + trim to MAX_RECENT below.
     changesets = await findVisualChangesetsByExperimentIds(
       experiments.map((e) => e.id),
       req.organization.id,
+      CANDIDATE_CHANGESET_CAP,
     );
   } else {
     // `findVisualChangesets` returns newest-`_id`-first; we rely on that
