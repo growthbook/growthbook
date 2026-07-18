@@ -144,8 +144,9 @@ export interface EntityRevisionAdapter<
    * disposition already clears implicitly (bypass-approval permission, a live
    * ignoreWarnings) are omitted, matching the asserts' synchronous override —
    * but the overridden conflicts must still be logged, matching the asserts'
-   * override logging. On the REST publish path this plus assertPublishGates
-   * IS the guard enforcement; deferred/internal paths keep their asserts.
+   * override logging. On the REST publish path this plus the handler's
+   * evaluatePublishGates IS the guard enforcement; deferred/internal paths keep
+   * their asserts.
    */
   collectPublishGates?(
     context: Context,

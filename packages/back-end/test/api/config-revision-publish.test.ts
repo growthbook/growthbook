@@ -13,8 +13,14 @@ import { setupApp } from "./api.setup";
 //     the lock, has no override, and is NOT cleared by `ignoreWarnings: true`.
 //  3. The beta `mergeNow` flag was removed from the config publish surface and
 //     is rejected (400) by the strict body schema.
+//  4. Under `requireRebaseBeforePublish`, a bypass-authority caller publishing a
+//     DIVERGED draft is blocked by a stale-base gate unless it force-merges with
+//     `ignoreWarnings` — the bypass permission alone no longer skips the rebase.
 
 const ORG_ID = "org_config_publish_gate";
+// Second org used only for the stale-base scenario: it enables
+// requireRebaseBeforePublish so a diverged draft trips the stale-base gate.
+const REBASE_ORG_ID = "org_config_rebase_publish";
 
 const org = {
   id: ORG_ID,
@@ -24,6 +30,16 @@ const org = {
   dateCreated: new Date(),
   members: [],
   settings: {},
+} as unknown as OrganizationInterface;
+
+const rebaseOrg = {
+  id: REBASE_ORG_ID,
+  name: "Config Rebase Publish",
+  ownerEmail: "test@test.com",
+  url: "",
+  dateCreated: new Date(),
+  members: [],
+  settings: { requireRebaseBeforePublish: true },
 } as unknown as OrganizationInterface;
 
 // Admin grants manageConfigs (edit) + bypassApprovalChecks, so a clean publish
@@ -37,11 +53,32 @@ function makeContext(): ReqContextClass {
   });
 }
 
-async function insertRawConfig(key: string): Promise<void> {
+// Admin context on the rebase org. `ignoreWarnings` is carried on the context's
+// own request (context.ignoreWarnings reads context.req, not the HTTP body the
+// mock middleware discards), so it must be baked in here to force-merge.
+function makeRebaseContext(
+  opts: { ignoreWarnings?: boolean } = {},
+): ReqContextClass {
+  return new ReqContextClass({
+    org: rebaseOrg,
+    auditUser: { type: "api_key", apiKey: "key_test" },
+    role: "admin",
+    req: {
+      query: {},
+      headers: {},
+      body: opts.ignoreWarnings ? { ignoreWarnings: true } : {},
+    } as unknown as Request,
+  });
+}
+
+async function insertRawConfig(
+  key: string,
+  organization: string = ORG_ID,
+): Promise<void> {
   const now = new Date();
   await mongoose.connection.collection("configs").insertOne({
     id: `cfg_${key}`,
-    organization: ORG_ID,
+    organization,
     key,
     name: key,
     owner: "",
@@ -53,8 +90,11 @@ async function insertRawConfig(key: string): Promise<void> {
 
 // Insert a raw config and open a fresh draft revision through the real API so
 // its snapshot is captured by the config adapter. Returns the draft version.
-async function setupConfigDraft(key: string): Promise<number> {
-  await insertRawConfig(key);
+async function setupConfigDraft(
+  key: string,
+  organization: string = ORG_ID,
+): Promise<number> {
+  await insertRawConfig(key, organization);
   const createRes = await request(app)
     .post(`/api/v1/configs-revisions/${key}`)
     .send({})
@@ -169,5 +209,69 @@ describe("POST /api/v1/configs-revisions/:key/:version/publish", () => {
 
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/mergeNow/);
+  });
+});
+
+describe("POST /api/v1/configs-revisions/:key/:version/publish (requireRebaseBeforePublish)", () => {
+  it("blocks a diverged draft with a stale-base gate that only ignoreWarnings force-merges past", async () => {
+    // Rebase org, admin (bypassApprovalChecks) but NO ignoreWarnings on the
+    // context yet — the bypass permission alone must not skip the rebase.
+    setReqContext(makeRebaseContext());
+
+    const key = "cfg_stale_base";
+    // Draft on `value`: snapshot is captured now, before live advances.
+    const version = await setupConfigDraft(key, REBASE_ORG_ID);
+    const valueRes = await request(app)
+      .put(`/api/v1/configs-revisions/${key}/${version}/value`)
+      .send({ value: { hello: "changed" } })
+      .set("Authorization", "Bearer foo");
+    expect(valueRes.status).toBe(200);
+
+    // Advance live on a DIFFERENT field (description) so the draft's base
+    // diverges without a merge conflict on the field the draft touches.
+    await mongoose.connection
+      .collection("configs")
+      .updateOne(
+        { key, organization: REBASE_ORG_ID },
+        { $set: { description: "advanced out of band" } },
+      );
+
+    // Publish WITHOUT ignoreWarnings → the stale-base gate blocks (422).
+    const blockedRes = await request(app)
+      .post(`/api/v1/configs-revisions/${key}/${version}/publish`)
+      .send({})
+      .set("Authorization", "Bearer foo");
+
+    expect(blockedRes.status).toBe(422);
+    expect(Array.isArray(blockedRes.body.gates)).toBe(true);
+    const staleGate = blockedRes.body.gates.find(
+      (g: { type: string }) => g.type === "stale-base",
+    );
+    expect(staleGate).toBeDefined();
+    expect(staleGate.severity).toBe("blocker");
+    expect(staleGate.override).toBe("ignoreWarnings");
+    expect(staleGate.requiresPermission).toBe("bypassApprovalChecks");
+    expect(staleGate.resolution.action).toBe("rebase");
+    expect(staleGate.resolution).toEqual({
+      action: "rebase",
+      method: "POST",
+      path: `/configs-revisions/${key}/${version}/rebase`,
+    });
+
+    // Publish again WITH ignoreWarnings (baked into the context; also sent in
+    // the body for schema realism) → force-merges (200) and reports the
+    // stale-base gate it bypassed.
+    setReqContext(makeRebaseContext({ ignoreWarnings: true }));
+    const forcedRes = await request(app)
+      .post(`/api/v1/configs-revisions/${key}/${version}/publish`)
+      .send({ ignoreWarnings: true })
+      .set("Authorization", "Bearer foo");
+
+    expect(forcedRes.status).toBe(200);
+    expect(forcedRes.body.bypassedGates).toContainEqual({
+      type: "stale-base",
+      outcome: "bypassed",
+      via: "ignoreWarnings",
+    });
   });
 });

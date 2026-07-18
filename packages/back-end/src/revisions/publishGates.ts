@@ -9,7 +9,7 @@
 // approval/stale-base/value-validation asserts in the handlers remain as
 // backstops behind their gates.
 
-export type PublishGateOverride = "ignoreWarnings" | "skipSchemaValidation";
+export type PublishGateOverride = "ignoreWarnings";
 
 /** The non-flag way past a gate, expressed as a callable REST route. */
 export type PublishGateResolution = {
@@ -47,7 +47,6 @@ export type PublishGate = {
 
 export type PublishOverrideFlags = {
   ignoreWarnings?: boolean;
-  skipSchemaValidation?: boolean;
 };
 
 /** A gate that would have blocked the publish but was bypassed by the caller. */

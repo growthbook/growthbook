@@ -204,7 +204,7 @@ export const postConstantRevisionPublish = createApiRequestHandler(
   }
 
   // Experiment/lock/schema-break guards were enforced above via the adapter's
-  // collectPublishGates + assertPublishGates (the collector also records any
+  // collectPublishGates + evaluatePublishGates (the collector also records any
   // synchronous override in the logs), so no separate assert runs here.
 
   const hasChanges = Object.keys(desiredState).some((key) => {
