@@ -279,6 +279,8 @@ export const archiveSavedGroupValidator = {
     })
     .strict(),
   summary: "Archive a single saved group",
+  description:
+    'Archives a saved group. When live features, experiments, or other saved groups still reference it, the request returns a 422 listing the blocking gates — re-submit with `"ignoreWarnings": true` in the request body to acknowledge the affected references and proceed. If the organization requires approval for saved-group changes, the request returns an approval-required gate instead: route the change through a draft revision (`POST /saved-groups/{id}/revisions`), or use a role or token with the bypass-approvals permission. Any gate the caller\'s authority bypasses is reported in `bypassedGates` on success.',
   operationId: "archiveSavedGroup",
   tags: ["saved-groups"],
   method: "post" as const,
@@ -297,6 +299,8 @@ export const unarchiveSavedGroupValidator = {
     })
     .strict(),
   summary: "Unarchive a single saved group",
+  description:
+    "Unarchives a saved group. Unarchiving never drops a dependent, but if the organization requires approval for saved-group changes the request returns an approval-required gate — route the change through a draft revision (`POST /saved-groups/{id}/revisions`), or use a role or token with the bypass-approvals permission. Any gate the caller's authority bypasses is reported in `bypassedGates`.",
   operationId: "unarchiveSavedGroup",
   tags: ["saved-groups"],
   method: "post" as const,
