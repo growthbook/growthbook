@@ -465,7 +465,7 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
         );
       }
       gates.push({
-        type: "config-lock",
+        type: "dependent-config-locked",
         severity: "warning",
         messages: [
           `Publishing this config changes the resolved value of locked config(s): ${lockConflicts.join(
@@ -512,7 +512,7 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
         );
       }
       gates.push({
-        type: "schema-break",
+        type: "schema-validation",
         severity: "warning",
         messages: ["Invalid config value:", ...schemaBreaks],
         ...schemaFailureGateOverride(
@@ -551,7 +551,7 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
           );
         }
         gates.push({
-          type: "schema-break",
+          type: "schema-validation",
           severity: "warning",
           messages: [
             `${

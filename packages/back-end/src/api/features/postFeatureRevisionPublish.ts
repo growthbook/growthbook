@@ -39,7 +39,11 @@ import {
   dispatchFeatureRevisionEvent,
   getPublishedRevisionForEvents,
 } from "back-end/src/services/featureRevisionEvents";
-import { assertFeatureArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
+import {
+  assertFeatureArchiveDependentsGuard,
+  collectFeatureArchiveDependents,
+  archiveDependentsGateMessage,
+} from "back-end/src/services/archiveDependentsGuard";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import {
   BadRequestError,
@@ -296,7 +300,7 @@ export async function publishFeatureRevision(
     ];
     if (schemaErrors.length) {
       gates.push({
-        type: "schema-break",
+        type: "schema-validation",
         severity: "warning",
         messages: ["Invalid feature value:", ...schemaErrors],
         ...schemaFailureGateOverride(
@@ -366,6 +370,26 @@ export async function publishFeatureRevision(
         resolution: null,
       });
     }
+
+    // Archiving a feature that live features/experiments still reference as a
+    // prerequisite is an acknowledge-class warning — emitted as a gate here so
+    // the interactive publish returns one uniform 422 shape.
+    if (mergeResult.result.archived === true && !feature.archived) {
+      const dependents = await collectFeatureArchiveDependents(
+        req.context,
+        feature.id,
+      );
+      if (dependents.ids.length) {
+        gates.push({
+          type: "archive-dependents",
+          severity: "warning",
+          messages: [archiveDependentsGateMessage("feature flag", dependents)],
+          override: "ignoreWarnings",
+          requiresPermission: null,
+          resolution: null,
+        });
+      }
+    }
   }
 
   // Feature governance gates rebase on the bypass-approval permission alone (not
@@ -425,14 +449,15 @@ export async function publishFeatureRevision(
     });
   }
 
-  // Archiving a feature that live features gate on as a prerequisite (or that
-  // running experiments list as a prerequisite) drops those dependents from the
-  // SDK payload — a soft, acknowledgeable warning, bypassable by ignoreWarnings
-  // alone. Only the archive transition is guarded. Features have no arm-time
-  // acknowledgment machinery, so a deferred (armed) fire re-enters with a
-  // background context whose ignoreWarnings is always true and proceeds
-  // (best-effort — see archiveDependentsGuard).
-  if (mergeResult.result.archived === true && !feature.archived) {
+  // Armed/scheduled path only: the same archive-dependents check as a throw
+  // (interactive publishes emitted it as a gate above). Features have no arm-time
+  // acknowledgment machinery, so a deferred fire re-enters with a background
+  // context whose ignoreWarnings is always true and proceeds (best-effort).
+  if (
+    !inlineValidationGates &&
+    mergeResult.result.archived === true &&
+    !feature.archived
+  ) {
     await assertFeatureArchiveDependentsGuard(req.context, feature);
   }
 

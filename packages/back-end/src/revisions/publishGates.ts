@@ -110,7 +110,7 @@ export type BypassedGate = {
  * the validation class (override "skipSchemaValidation"). */
 const SOFT_GUARD_GATE_TYPES: ReadonlySet<string> = new Set([
   "experiment-guard",
-  "config-lock",
+  "dependent-config-locked",
   "archive-dependents",
 ]);
 

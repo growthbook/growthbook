@@ -364,7 +364,7 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
         );
       }
       gates.push({
-        type: "config-lock",
+        type: "dependent-config-locked",
         severity: "warning",
         messages: [
           `Publishing this constant changes the resolved value of locked config(s): ${lockConflicts.join(
@@ -411,7 +411,7 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
         );
       }
       gates.push({
-        type: "schema-break",
+        type: "schema-validation",
         severity: "warning",
         messages: [
           "Breaks a dependent config or feature value:",

@@ -347,7 +347,7 @@ describe("POST /api/v1/configs-revisions/:key/:version/publish (archive schema-b
 
     expect(blockedRes.status).toBe(422);
     const gate = blockedRes.body.gates.find(
-      (g: { type: string }) => g.type === "schema-break",
+      (g: { type: string }) => g.type === "schema-validation",
     );
     expect(gate).toBeDefined();
     expect(gate.severity).toBe("warning");
@@ -386,7 +386,7 @@ describe("POST /api/v1/configs-revisions/:key/:version/publish (archive schema-b
 
     expect(okRes.status).toBe(200);
     expect(okRes.body.bypassedGates).toContainEqual({
-      type: "schema-break",
+      type: "schema-validation",
       outcome: "bypassed",
       via: "skipSchemaValidation",
     });
@@ -440,7 +440,7 @@ describe("POST /api/v1/configs-revisions/:key/:version/publish (archive schema-b
       .set("Authorization", "Bearer foo");
     expect(blockedRes.status).toBe(422);
     const gate = blockedRes.body.gates.find(
-      (g: { type: string }) => g.type === "schema-break",
+      (g: { type: string }) => g.type === "schema-validation",
     );
     expect(gate.override).toBe("ignoreWarnings");
     expect(gate.requiresPermission).toBeNull();
@@ -452,7 +452,7 @@ describe("POST /api/v1/configs-revisions/:key/:version/publish (archive schema-b
       .set("Authorization", "Bearer foo");
     expect(okRes.status).toBe(200);
     expect(okRes.body.bypassedGates).toContainEqual({
-      type: "schema-break",
+      type: "schema-validation",
       outcome: "bypassed",
       via: "ignoreWarnings",
     });

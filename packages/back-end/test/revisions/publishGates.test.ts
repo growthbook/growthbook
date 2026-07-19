@@ -77,7 +77,7 @@ const experimentGuardGate: PublishGate = {
 
 // Validation-class: cleared only by the privileged skipSchemaValidation.
 const schemaBreakGate: PublishGate = {
-  type: "schema-break",
+  type: "schema-validation",
   severity: "warning",
   messages: [
     "Publishing would make dependent value(s) violate their schema:",
