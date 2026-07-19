@@ -137,9 +137,11 @@ function escapeRegExp(s: string): string {
 // Replace bare identifier tokens in a SQL string, skipping anything inside
 // single-quoted string literals or double-quoted identifiers so we never
 // rewrite text inside a quoted span (e.g. `status = 'price'` is left alone).
-// Single pass — replacement text is NOT re-scanned, so an inserted `m.price`
-// is never re-qualified into `m.m.price`. Longer names come first so the
-// alternation prefers the most specific identifier.
+// Identifiers preceded by `.` are also skipped so already-qualified names
+// like `m.price` are not re-qualified. Single pass — replacement text is
+// NOT re-scanned, so an inserted `m.price` is never re-qualified into
+// `m.m.price`. Longer names come first so the alternation prefers the most
+// specific identifier.
 function replaceSqlIdentifiers(
   sql: string,
   names: string[],
@@ -148,7 +150,7 @@ function replaceSqlIdentifiers(
   if (!names.length) return sql;
   const sorted = [...names].sort((a, b) => b.length - a.length);
   const pattern = new RegExp(
-    `('(?:[^']|'')*'|"(?:[^"]|"")*")|\\b(${sorted
+    `('(?:[^']|'')*'|"(?:[^"]|"")*")|(?<!\\.)\\b(${sorted
       .map(escapeRegExp)
       .join("|")})\\b`,
     "g",

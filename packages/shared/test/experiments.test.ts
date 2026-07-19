@@ -1856,6 +1856,24 @@ describe("Virtual Columns", () => {
         getColumnExpression("margin_pct_vc", chained, jsonExtract, "m"),
       ).toBe("((m.price - m.cost) / m.price)");
     });
+
+    it("does not re-qualify already-qualified column names", () => {
+      const alreadyQualified = {
+        columns: [
+          col({ column: "price", datatype: "number" }),
+          col({ column: "quantity", datatype: "number" }),
+          col({
+            column: "vc_total",
+            isVirtual: true,
+            sql: "m.price * m.quantity",
+            datatype: "number",
+          }),
+        ],
+      };
+      expect(
+        getColumnExpression("vc_total", alreadyQualified, jsonExtract, "m"),
+      ).toBe("(m.price * m.quantity)");
+    });
   });
 
   describe("expandVirtualColumnsInSql", () => {
@@ -1906,6 +1924,10 @@ describe("Virtual Columns", () => {
       expect(sqlReferencesColumn("gross_margin_vc + 1", "margin_vc")).toBe(
         false,
       );
+    });
+
+    it("does not match an already-qualified identifier", () => {
+      expect(sqlReferencesColumn("m.price", "price")).toBe(false);
     });
   });
 });

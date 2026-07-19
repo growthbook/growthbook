@@ -6,6 +6,7 @@ import {
   CreateColumnProps,
   CreateFactFilterProps,
   CreateFactTableProps,
+  ColumnRef,
   FactFilterInterface,
   FactTableDefinition,
   FactTableInterface,
@@ -656,6 +657,38 @@ export async function createColumn(
   return column;
 }
 
+// Whether a ColumnRef (numerator/denominator) still uses `columnName` on this
+// fact table — structured fields or free SQL in row filters / saved filters.
+function columnRefReferencesColumn(
+  ref: ColumnRef,
+  columnName: string,
+  factTable: FactTableInterface,
+): boolean {
+  if (ref.factTableId !== factTable.id) return false;
+  if (ref.column === columnName) return true;
+  if (ref.aggregateFilterColumn === columnName) return true;
+
+  for (const rowFilter of ref.rowFilters || []) {
+    if (rowFilter.column === columnName) return true;
+    if (
+      rowFilter.operator === "sql_expr" &&
+      rowFilter.values?.[0] &&
+      sqlReferencesColumn(rowFilter.values[0], columnName)
+    ) {
+      return true;
+    }
+    if (rowFilter.operator === "saved_filter" && rowFilter.values?.[0]) {
+      const filter = factTable.filters.find(
+        (f) => f.id === rowFilter.values?.[0],
+      );
+      if (filter && sqlReferencesColumn(filter.value, columnName)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 export async function deleteColumn(
   context: ReqContext | ApiReqContext,
   factTable: FactTableInterface,
@@ -671,10 +704,11 @@ export async function deleteColumn(
     throw new Error("Only virtual columns can be deleted");
   }
 
-  // Block deletion if another virtual column's expression still references this
-  // one — otherwise the dependent would fall back to a bare, now-undefined
-  // identifier and its generated SQL would fail at query time.
-  const dependents = factTable.columns.filter(
+  // Block deletion if anything still references this column — otherwise
+  // generated SQL falls back to a bare, now-undefined identifier and fails
+  // at query time. Scanned on demand (other virtual columns, saved filters,
+  // and Fact Metrics); no dependency state is persisted.
+  const dependentVirtualColumns = factTable.columns.filter(
     (c) =>
       c.isVirtual &&
       !c.deleted &&
@@ -682,11 +716,27 @@ export async function deleteColumn(
       c.sql &&
       sqlReferencesColumn(c.sql, columnName),
   );
-  if (dependents.length) {
+  const dependentFilters = factTable.filters.filter((f) =>
+    sqlReferencesColumn(f.value, columnName),
+  );
+  const allFactMetrics = await context.models.factMetrics.getAll();
+  const dependentMetrics = allFactMetrics.filter(
+    (metric) =>
+      columnRefReferencesColumn(metric.numerator, columnName, factTable) ||
+      (metric.denominator !== null &&
+        columnRefReferencesColumn(metric.denominator, columnName, factTable)),
+  );
+
+  const lines: string[] = [
+    ...dependentVirtualColumns.map(
+      (c) => `\n - Virtual column: ${c.name || c.column}`,
+    ),
+    ...dependentFilters.map((f) => `\n - Filter: ${f.name || f.id}`),
+    ...dependentMetrics.map((m) => `\n - Fact Metric: ${m.name || m.id}`),
+  ];
+  if (lines.length) {
     throw new Error(
-      `Cannot delete: the following virtual columns reference it:${dependents
-        .map((c) => `\n - ${c.name || c.column}`)
-        .join("")}`,
+      `Cannot delete: the following still reference it:${lines.join("")}`,
     );
   }
 
