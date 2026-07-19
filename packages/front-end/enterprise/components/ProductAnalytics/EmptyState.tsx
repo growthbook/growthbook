@@ -1,5 +1,4 @@
 import { Box, Flex } from "@radix-ui/themes";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useRouter } from "next/router";
 import React, { useCallback, useRef, useState } from "react";
 import { BsStars } from "react-icons/bs";
@@ -8,12 +7,9 @@ import {
   PiCaretDown,
   PiCaretRight,
   PiChartBar,
-  PiCode,
   PiDatabase,
-  PiFunnel,
   PiTable,
 } from "react-icons/pi";
-import { AppFeatures } from "shared/types/app-features";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import Field from "@/components/Forms/Field";
 import NewDataSourceForm from "@/components/Settings/NewDataSourceForm";
@@ -26,8 +22,8 @@ import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import LinkButton from "@/ui/LinkButton";
 import Text from "@/ui/Text";
-import Tooltip from "@/ui/Tooltip";
 import DataSourceTypeSelector from "@/components/Settings/DataSourceTypeSelector";
+import EnableAICallout from "@/components/EnableAICallout";
 import { useAISettings } from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
 import { PA_AI_CHAT_INITIAL_MESSAGE_KEY } from "./util";
@@ -35,7 +31,6 @@ import DataSourceDropdown from "./MainSection/Toolbar/DataSourceDropdown";
 
 export default function EmptyState() {
   const router = useRouter();
-  const gb = useGrowthBook<AppFeatures>();
   const { permissionsUtil, hasCommercialFeature } = useUser();
   const { datasources, mutateDefinitions, project } = useDefinitions();
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -72,15 +67,10 @@ export default function EmptyState() {
   const canRunFactQueries =
     permissionsUtil.canRunFactQueries({ projects: [project] }) ||
     permissionsUtil.canRunFactQueries({ projects: [] });
-  const funnelExplorerEnabled = !!gb?.isOn("product-analytics-funnels");
 
-  const chatDisabledReason = !aiEnabled
-    ? "Enable AI for your organization to use AI Chat here and across GrowthBook."
-    : !hasAISuggestions
-      ? "Your current plan does not include AI Chat."
-      : null;
+  const chatDisabled = !aiEnabled || !hasAISuggestions;
 
-  const toolsExpanded = !!chatDisabledReason || showAdvancedOptions;
+  const toolsExpanded = chatDisabled || showAdvancedOptions;
 
   return (
     <Box style={{ display: "flex", flex: 1, flexDirection: "column" }}>
@@ -108,13 +98,13 @@ export default function EmptyState() {
           padding: "40px 80px",
         }}
       >
-        {!isDataSourceEmpty ? (
+        {!isDataSourceEmpty && !chatDisabled ? (
           <Box style={{ position: "absolute", top: 24, right: 24 }}>
             <LinkButton
               href="/product-analytics/explore/ai-chat"
               variant="ghost"
               size="sm"
-              disabled={!!chatDisabledReason}
+              disabled={chatDisabled}
             >
               View chat history
             </LinkButton>
@@ -192,29 +182,27 @@ export default function EmptyState() {
             </Flex>
           ) : (
             <>
+              <Box width="100%" style={{ maxWidth: 680 }}>
+                <EnableAICallout source="product-analytics-empty-state" />
+              </Box>
               <Box width="100%" style={{ maxWidth: 680, position: "relative" }}>
-                <Tooltip
-                  enabled={!!chatDisabledReason}
-                  content={chatDisabledReason ?? ""}
-                >
-                  <Field
-                    textarea
-                    minRows={4}
-                    maxRows={8}
-                    placeholder="What's my revenue trend look like over the last year?..."
-                    containerStyle={{ width: "100%" }}
-                    style={{
-                      borderRadius: "var(--radius-5)",
-                      padding: "16px 56px 40px 16px",
-                      resize: "none",
-                    }}
-                    ref={inputRef}
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    disabled={!!chatDisabledReason}
-                  />
-                </Tooltip>
+                <Field
+                  textarea
+                  minRows={chatDisabled ? 1 : 4}
+                  maxRows={8}
+                  placeholder="What's my revenue trend look like over the last year?..."
+                  containerStyle={{ width: "100%" }}
+                  style={{
+                    borderRadius: "var(--radius-5)",
+                    padding: "16px 56px 40px 16px",
+                    resize: "none",
+                  }}
+                  ref={inputRef}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  disabled={chatDisabled}
+                />
                 <Box
                   style={{
                     position: "absolute",
@@ -223,31 +211,13 @@ export default function EmptyState() {
                     zIndex: 1,
                   }}
                 >
-                  <Tooltip
-                    enabled={!!chatDisabledReason}
-                    content={chatDisabledReason ?? ""}
+                  <Button
+                    onClick={handleSubmit}
+                    disabled={chatDisabled || isDataSourceEmpty}
+                    size="sm"
                   >
-                    <span
-                      style={
-                        chatDisabledReason
-                          ? { cursor: "not-allowed" }
-                          : undefined
-                      }
-                    >
-                      <Button
-                        onClick={handleSubmit}
-                        disabled={!!chatDisabledReason || isDataSourceEmpty}
-                        size="sm"
-                        style={
-                          chatDisabledReason
-                            ? { pointerEvents: "none" }
-                            : undefined
-                        }
-                      >
-                        <PiArrowRightBold size={16} />
-                      </Button>
-                    </span>
-                  </Tooltip>
+                    <PiArrowRightBold size={16} />
+                  </Button>
                 </Box>
               </Box>
 
@@ -262,7 +232,7 @@ export default function EmptyState() {
                 }}
               >
                 <Box width="100%" style={{ maxWidth: 435, textAlign: "left" }}>
-                  {chatDisabledReason ? (
+                  {chatDisabled ? (
                     "Explore manually"
                   ) : (
                     <Link
@@ -303,9 +273,8 @@ export default function EmptyState() {
                     }}
                   >
                     <Text color="text-low" align="left">
-                      Visualize metrics, view trends, build custom funnels, and
-                      more.
-                      {!chatDisabledReason && " Or, use Ask AI to get started."}
+                      Visualize metrics and explore your data.
+                      {!chatDisabled && " Or, use Ask AI to get started."}
                     </Text>
                     <Flex
                       gap="3"
@@ -336,24 +305,6 @@ export default function EmptyState() {
                         disabled={!canRunFactQueries}
                       >
                         Data Source explorer
-                      </LinkButton>
-                      {funnelExplorerEnabled && (
-                        <LinkButton
-                          href="/product-analytics/explore/funnel"
-                          variant="outline"
-                          icon={<PiFunnel size={16} />}
-                          disabled={!canRunFactQueries}
-                        >
-                          Funnel explorer
-                        </LinkButton>
-                      )}
-                      <LinkButton
-                        href="/sql-explorer"
-                        variant="outline"
-                        icon={<PiCode size={16} />}
-                        disabled={!canRunFactQueries}
-                      >
-                        Custom SQL explorer
                       </LinkButton>
                     </Flex>
                   </Flex>
