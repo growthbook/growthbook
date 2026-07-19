@@ -119,12 +119,24 @@ describe("getEffectiveExperimentBlock", () => {
     expect(effective.metricId).toEqual("met_dashboard");
   });
 
-  it("ignores inactive (empty) global filters", () => {
+  it("applies an empty (all-projects) global filter to opted-in blocks", () => {
+    // An explicit empty projects array means "All projects" and must widen an
+    // opted-in block instead of leaving its narrower local scope in place.
     const block = scaledImpactBlock({
       globalControlSettings: { projects: true },
     });
     const effective = getEffectiveExperimentBlock(block, {
       globalControls: { projects: [] },
+    });
+    expect(effective.projects).toEqual([]);
+  });
+
+  it("ignores an absent (unset) projects filter", () => {
+    const block = scaledImpactBlock({
+      globalControlSettings: { projects: true },
+    });
+    const effective = getEffectiveExperimentBlock(block, {
+      globalControls: {},
     });
     expect(effective.projects).toEqual(["prj_block"]);
   });

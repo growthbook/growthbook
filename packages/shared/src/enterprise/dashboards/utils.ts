@@ -318,7 +318,10 @@ export function globalFilterIsSet(
     case "dateRange":
       return Boolean(value);
     case "projects":
-      return Array.isArray(value) && value.length > 0;
+      // A defined array is an active filter — an empty array explicitly means
+      // "All projects" (see dashboardGlobalControlsValidator). Only an absent
+      // (undefined) value means the projects filter is unset.
+      return Array.isArray(value);
     case "metricId":
     case "experimentSearchString":
       return typeof value === "string" && value.length > 0;

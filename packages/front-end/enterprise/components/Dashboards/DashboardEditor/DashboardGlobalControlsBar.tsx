@@ -97,10 +97,9 @@ export default function DashboardGlobalControlsBar({
       DashboardInterface["globalControls"]
     > = { ...(globalControls ?? {}), ...patch };
     // Normalize "empty" values back to absent so the filter reads as inactive.
-    if (
-      !nextGlobalControls.projects ||
-      nextGlobalControls.projects.length === 0
-    ) {
+    // Projects is the exception: an empty array explicitly means "All projects"
+    // (an active override), so it's kept — only an absent value is inactive.
+    if (!nextGlobalControls.projects) {
       delete nextGlobalControls.projects;
     }
     if (!nextGlobalControls.metricId) delete nextGlobalControls.metricId;

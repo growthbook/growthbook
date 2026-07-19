@@ -244,7 +244,7 @@ export default function DashboardExperimentFilterControls({
               </Box>
               <Box mb="3">
                 <Text size="small" color="text-low">
-                  Applies to all blocks containing Experiments
+                  Applies to all blocks containing experiments
                 </Text>
               </Box>
               <SidebarExperimentFilters
