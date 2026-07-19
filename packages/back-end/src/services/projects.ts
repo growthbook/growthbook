@@ -11,16 +11,24 @@ import { removeProjectFromProjectRoles } from "back-end/src/models/OrganizationM
  * org-level settings without deleting the resources themselves. The resources
  * survive and fall back to "All Projects".
  *
+ * Set `includeResourceReferences: false` when the caller has already deleted
+ * the project's resources — then only org-level references (roles, saved
+ * groups, etc.) need cleanup, and any resource that survived a failed delete
+ * keeps its project scoping instead of being promoted to "All Projects".
+ *
  * Returns labels of resource groups that failed to clean up so callers can
  * report partial failures.
  */
 export async function cleanupProjectReferences(
   context: ReqContext,
   projectId: string,
+  {
+    includeResourceReferences = true,
+  }: { includeResourceReferences?: boolean } = {},
 ): Promise<string[]> {
   const failed: string[] = [];
 
-  const steps: [string, () => Promise<unknown>][] = [
+  const resourceSteps: [string, () => Promise<unknown>][] = [
     [
       "data sources",
       () => removeProjectFromDatasources(projectId, context.org.id),
@@ -36,6 +44,9 @@ export async function cleanupProjectReferences(
           projectId,
         }),
     ],
+  ];
+
+  const orgSettingsSteps: [string, () => Promise<unknown>][] = [
     [
       "project roles",
       () => removeProjectFromProjectRoles(projectId, context.org),
@@ -49,6 +60,11 @@ export async function cleanupProjectReferences(
       () => context.models.constants.removeProjectIdFromAll(projectId),
     ],
     ["configs", () => context.models.configs.removeProjectIdFromAll(projectId)],
+  ];
+
+  const steps = [
+    ...(includeResourceReferences ? resourceSteps : []),
+    ...orgSettingsSteps,
   ];
 
   for (const [label, run] of steps) {

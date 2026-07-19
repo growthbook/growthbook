@@ -5,13 +5,32 @@ import { stringToBoolean } from "shared/util";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import { deleteAllDataSourcesForAProject } from "back-end/src/models/DataSourceModel";
-import { deleteAllMetricsForAProject } from "back-end/src/models/MetricModel";
-import { deleteAllFeaturesForAProject } from "back-end/src/models/FeatureModel";
-import { deleteAllExperimentsForAProject } from "back-end/src/models/ExperimentModel";
-import { deleteAllSlackIntegrationsForAProject } from "back-end/src/models/SlackIntegrationModel";
-import { deleteAllFactTablesForAProject } from "back-end/src/models/FactTableModel";
+import {
+  deleteAllDataSourcesForAProject,
+  projectHasDataSources,
+} from "back-end/src/models/DataSourceModel";
+import {
+  deleteAllMetricsForAProject,
+  projectHasMetrics,
+} from "back-end/src/models/MetricModel";
+import {
+  deleteAllFeaturesForAProject,
+  projectHasFeatures,
+} from "back-end/src/models/FeatureModel";
+import {
+  deleteAllExperimentsForAProject,
+  projectHasExperiments,
+} from "back-end/src/models/ExperimentModel";
+import {
+  deleteAllSlackIntegrationsForAProject,
+  projectHasSlackIntegrations,
+} from "back-end/src/models/SlackIntegrationModel";
+import {
+  deleteAllFactTablesForAProject,
+  projectHasFactTables,
+} from "back-end/src/models/FactTableModel";
 import { cleanupProjectReferences } from "back-end/src/services/projects";
+import { promiseAllChunks } from "back-end/src/util/promise";
 
 // region POST /projects
 
@@ -153,96 +172,122 @@ export const deleteProject = async (
   }
   const { org } = context;
 
-  await context.models.projects.deleteById(id);
-
   const failedToDeleteResources: string[] = [];
 
+  // Build the list of resource cleanups to run. For each resource type, only
+  // require its delete permission if the project actually has resources of
+  // that type — otherwise deleting an empty project would need permissions the
+  // user has no reason to hold. All permission checks run (and can fail early)
+  // before any delete executes.
+  const resourceDeletes: { label: string; run: () => Promise<unknown> }[] = [];
   if (deleteResources) {
-    // Clean up data sources
-    try {
-      if (!context.permissions.canDeleteDataSource({ projects: [id] })) {
-        context.permissions.throwPermissionError();
-      }
+    const requirePermission = (allowed: boolean) => {
+      if (!allowed) context.permissions.throwPermissionError();
+    };
 
-      await deleteAllDataSourcesForAProject({
-        context,
-        projectId: id,
-        organizationId: org.id,
+    if (await projectHasDataSources(org.id, id)) {
+      requirePermission(
+        context.permissions.canDeleteDataSource({ projects: [id] }),
+      );
+      resourceDeletes.push({
+        label: "data sources",
+        run: () =>
+          deleteAllDataSourcesForAProject({
+            context,
+            projectId: id,
+            organizationId: org.id,
+          }),
       });
-    } catch (e) {
-      failedToDeleteResources.push("data sources");
     }
 
-    // Clean up metrics
-    try {
-      if (!context.permissions.canDeleteMetric({ projects: [id] })) {
-        context.permissions.throwPermissionError();
-      }
-      await deleteAllMetricsForAProject({
-        projectId: id,
-        context,
+    if (await projectHasMetrics(context, id)) {
+      requirePermission(
+        context.permissions.canDeleteMetric({ projects: [id] }),
+      );
+      resourceDeletes.push({
+        label: "metrics",
+        run: () => deleteAllMetricsForAProject({ projectId: id, context }),
       });
-    } catch (e) {
-      failedToDeleteResources.push("metrics");
     }
 
-    // Clean up fact tables and metrics
-    try {
-      await deleteAllFactTablesForAProject({
-        projectId: id,
-        context,
+    if (await projectHasFactTables(context, id)) {
+      requirePermission(
+        context.permissions.canDeleteFactTable({ projects: [id] }),
+      );
+      resourceDeletes.push({
+        label: "fact tables",
+        run: () => deleteAllFactTablesForAProject({ projectId: id, context }),
       });
-      await context.models.factMetrics.deleteAllFactMetricsForAProject(id);
-    } catch (e) {
-      failedToDeleteResources.push("fact tables and metrics");
     }
 
-    // Clean up features
-    try {
-      if (!context.permissions.canDeleteFeature({ project: id })) {
-        context.permissions.throwPermissionError();
-      }
-
-      await deleteAllFeaturesForAProject({
-        projectId: id,
-        context,
+    if (await context.models.factMetrics.projectHasFactMetrics(id)) {
+      requirePermission(
+        context.permissions.canDeleteFactMetric({ projects: [id] }),
+      );
+      resourceDeletes.push({
+        label: "fact metrics",
+        run: () =>
+          context.models.factMetrics.deleteAllFactMetricsForAProject(id),
       });
-    } catch (e) {
-      failedToDeleteResources.push("features");
     }
 
-    // Clean up experiments
-    try {
-      if (!context.permissions.canDeleteExperiment({ project: id })) {
-        context.permissions.throwPermissionError();
-      }
-      await deleteAllExperimentsForAProject({
-        projectId: id,
-        context,
+    if (await projectHasFeatures(context, id)) {
+      requirePermission(context.permissions.canDeleteFeature({ project: id }));
+      resourceDeletes.push({
+        label: "features",
+        run: () => deleteAllFeaturesForAProject({ projectId: id, context }),
       });
-    } catch (e) {
-      failedToDeleteResources.push("experiments");
     }
 
-    // Clean up Slack integrations
-    try {
-      if (!context.permissions.canManageIntegrations()) {
-        context.permissions.throwPermissionError();
-      }
-
-      await deleteAllSlackIntegrationsForAProject({
-        projectId: id,
-        organization: org,
+    if (await projectHasExperiments(context, id)) {
+      requirePermission(
+        context.permissions.canDeleteExperiment({ project: id }),
+      );
+      resourceDeletes.push({
+        label: "experiments",
+        run: () => deleteAllExperimentsForAProject({ projectId: id, context }),
       });
-    } catch (e) {
-      failedToDeleteResources.push("Slack integrations");
+    }
+
+    if (await projectHasSlackIntegrations(org.id, id)) {
+      requirePermission(context.permissions.canManageIntegrations());
+      resourceDeletes.push({
+        label: "Slack integrations",
+        run: () =>
+          deleteAllSlackIntegrationsForAProject({
+            projectId: id,
+            organization: org,
+          }),
+      });
     }
   }
 
-  // Remove references to the project from surviving multi-project resources
-  // and org-level settings.
+  // All permission checks passed — now delete the project and its resources.
+  await context.models.projects.deleteById(id);
+
+  const results = await promiseAllChunks(
+    resourceDeletes.map(({ label, run }) => async () => {
+      try {
+        await run();
+        return null;
+      } catch (e) {
+        return label;
+      }
+    }),
+    5,
+  );
   failedToDeleteResources.push(
-    ...(await cleanupProjectReferences(context, id)),
+    ...results.filter((label): label is string => label !== null),
+  );
+
+  // Remove references to the project from surviving multi-project resources
+  // and org-level settings. When resources were deleted above, skip the
+  // resource references — a resource that survived a failed delete should
+  // keep its project scoping rather than fall back to "All Projects".
+  failedToDeleteResources.push(
+    ...(await cleanupProjectReferences(context, id, {
+      includeResourceReferences: !deleteResources,
+    })),
   );
 
   // TODO: other resources to clean up

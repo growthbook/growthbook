@@ -3,10 +3,10 @@ import {
   DEMO_DATASOURCE_ID,
   DEMO_EXPERIMENT_ID,
   DEMO_EXPERIMENT_TRACKING_KEY,
+  DEMO_FACT_METRIC_IDS,
   DEMO_FACT_TABLE_IDS,
   getDemoDataSourceFeatureId,
   getDemoDatasourceProjectIdForOrganization,
-  getDemoResourceIds,
   getLegacyDemoFactTableIds,
 } from "shared/demo-datasource";
 import { DataSourceInterface } from "shared/types/datasource";
@@ -17,10 +17,10 @@ import { ProjectInterface } from "shared/types/project";
 import { ReqContext } from "back-end/types/request";
 import {
   deleteDemoDatasourceAndDependents,
-  deleteDemoResources,
   isLegacyDemoSeed,
   seedDemoResources,
 } from "back-end/src/services/demo-datasource";
+import * as HoldoutsService from "back-end/src/services/holdouts";
 import * as DataSourceModel from "back-end/src/models/DataSourceModel";
 import * as ExperimentModel from "back-end/src/models/ExperimentModel";
 import * as FeatureModel from "back-end/src/models/FeatureModel";
@@ -78,6 +78,9 @@ jest.mock("back-end/src/services/experiments", () => ({
 }));
 jest.mock("back-end/src/jobs/refreshFactTableColumns", () => ({
   queueFactTableColumnsRefresh: jest.fn(),
+}));
+jest.mock("back-end/src/services/holdouts", () => ({
+  deleteHoldoutAndExperiment: jest.fn(),
 }));
 
 const ORG_ID = "org_demotest";
@@ -175,7 +178,23 @@ const mocked = {
     RefreshFactTableColumns.queueFactTableColumnsRefresh as jest.MockedFunction<
       typeof RefreshFactTableColumns.queueFactTableColumnsRefresh
     >,
+  deleteHoldoutAndExperiment:
+    HoldoutsService.deleteHoldoutAndExperiment as jest.MockedFunction<
+      typeof HoldoutsService.deleteHoldoutAndExperiment
+    >,
 };
+
+// The complete set of constant IDs the seeder creates for an organization.
+function getDemoResourceIds(organizationId: string) {
+  return {
+    projectId: getDemoDatasourceProjectIdForOrganization(organizationId),
+    datasourceId: DEMO_DATASOURCE_ID,
+    factTableIds: Object.values(DEMO_FACT_TABLE_IDS) as string[],
+    factMetricIds: Object.values(DEMO_FACT_METRIC_IDS) as string[],
+    experimentId: DEMO_EXPERIMENT_ID,
+    featureId: getDemoDataSourceFeatureId(),
+  };
+}
 
 // In-memory stores keyed by resource id, reset per test. The model mocks
 // read/write these so the service's exists-then-create logic is exercised
@@ -229,6 +248,9 @@ function makeContext(): ReqContext {
         getAll: jest.fn(async () => []),
         delete: jest.fn(async () => undefined),
       },
+      holdout: {
+        getAll: jest.fn(async () => []),
+      },
     },
   } as unknown as ReqContext;
 }
@@ -280,6 +302,12 @@ beforeEach(() => {
         return false;
       }
       if (options.trackingKey && exp.trackingKey !== options.trackingKey) {
+        return false;
+      }
+      // Mirror the real model: holdouts are excluded unless asked for.
+      if (options.type) {
+        if (exp.type !== options.type) return false;
+      } else if (exp.type === "holdout") {
         return false;
       }
       return true;
@@ -428,7 +456,18 @@ describe("seedDemoResources", () => {
 });
 
 describe("isLegacyDemoSeed", () => {
-  it("returns true when neither the constant-ID datasource nor experiment exists", async () => {
+  it("returns false for an org with no sample resources at all (partial seed heals)", async () => {
+    expect(await isLegacyDemoSeed(makeContext())).toBe(false);
+  });
+
+  it("returns true when only a legacy host-matched datasource exists in the demo project", async () => {
+    const demoProjectId = getDemoDatasourceProjectIdForOrganization(ORG_ID);
+    datasources.set("ds_legacy_random", {
+      id: "ds_legacy_random",
+      type: "postgres",
+      projects: [demoProjectId],
+      params: JSON.stringify({ host: DEMO_DATASOURCE_HOST }),
+    } as DataSourceInterface);
     expect(await isLegacyDemoSeed(makeContext())).toBe(true);
   });
 
@@ -444,66 +483,6 @@ describe("isLegacyDemoSeed", () => {
       id: DEMO_EXPERIMENT_ID,
     } as ExperimentInterface);
     expect(await isLegacyDemoSeed(makeContext())).toBe(false);
-  });
-});
-
-describe("deleteDemoResources", () => {
-  it("deletes exactly the seeded set and leaves user resources alone", async () => {
-    seedAllStores();
-    // User-created resources, even ones living alongside the sample data.
-    features.set("my-feature", { id: "my-feature" } as FeatureInterface);
-    factMetrics.set("fact__mine", { id: "fact__mine" });
-    experiments.set("exp_mine", { id: "exp_mine" } as ExperimentInterface);
-    datasources.set("ds_mine", { id: "ds_mine" } as DataSourceInterface);
-    factTables.set("ftb_mine", { id: "ftb_mine" } as FactTableInterface);
-
-    const context = makeContext();
-    await deleteDemoResources(context);
-
-    const ids = getDemoResourceIds(ORG_ID);
-    expect(features.has(ids.featureId)).toBe(false);
-    expect(experiments.has(ids.experimentId)).toBe(false);
-    expect(datasources.has(ids.datasourceId)).toBe(false);
-    ids.factTableIds.forEach((id) => expect(factTables.has(id)).toBe(false));
-    ids.factMetricIds.forEach((id) => expect(factMetrics.has(id)).toBe(false));
-    expect(mocked.deleteAllSnapshotsForExperiment).toHaveBeenCalledWith(
-      context,
-      ids.experimentId,
-    );
-
-    expect(features.has("my-feature")).toBe(true);
-    expect(factMetrics.has("fact__mine")).toBe(true);
-    expect(experiments.has("exp_mine")).toBe(true);
-    expect(datasources.has("ds_mine")).toBe(true);
-    expect(factTables.has("ftb_mine")).toBe(true);
-  });
-
-  it("tolerates missing resources — deleting an empty org is a no-op", async () => {
-    const context = makeContext();
-    await expect(deleteDemoResources(context)).resolves.toBeUndefined();
-
-    expect(mocked.deleteFeature).not.toHaveBeenCalled();
-    expect(mocked.deleteExperimentByIdForOrganization).not.toHaveBeenCalled();
-    expect(mocked.deleteFactTable).not.toHaveBeenCalled();
-    expect(mocked.deleteDatasource).not.toHaveBeenCalled();
-    expect(context.models.factMetrics.deleteById).not.toHaveBeenCalled();
-  });
-
-  it("deletes surviving seeded resources when some are already gone", async () => {
-    seedAllStores();
-    const ids = getDemoResourceIds(ORG_ID);
-    // User already deleted the feature and the experiment by hand.
-    features.delete(ids.featureId);
-    experiments.delete(ids.experimentId);
-
-    const context = makeContext();
-    await deleteDemoResources(context);
-
-    expect(mocked.deleteFeature).not.toHaveBeenCalled();
-    expect(mocked.deleteExperimentByIdForOrganization).not.toHaveBeenCalled();
-    expect(datasources.has(ids.datasourceId)).toBe(false);
-    ids.factTableIds.forEach((id) => expect(factTables.has(id)).toBe(false));
-    ids.factMetricIds.forEach((id) => expect(factMetrics.has(id)).toBe(false));
   });
 });
 
@@ -606,6 +585,32 @@ describe("deleteDemoDatasourceAndDependents", () => {
     expect(mocked.deleteAllSnapshotsForExperiment).toHaveBeenCalledWith(
       context,
       "exp_mine",
+    );
+  });
+
+  it("deletes holdouts referencing the sample Data Source", async () => {
+    seedAllStores();
+    const holdoutExperiment = {
+      id: "exp_holdout",
+      type: "holdout",
+      datasource: DEMO_DATASOURCE_ID,
+    } as ExperimentInterface;
+    experiments.set(holdoutExperiment.id, holdoutExperiment);
+    const holdout = { id: "hld_1", experimentId: holdoutExperiment.id };
+
+    const context = makeContext();
+    (context.models.holdout.getAll as jest.Mock).mockResolvedValue([holdout]);
+
+    await deleteDemoDatasourceAndDependents(context);
+
+    expect(mocked.deleteHoldoutAndExperiment).toHaveBeenCalledWith(
+      context,
+      holdout,
+      holdoutExperiment,
+    );
+    expect(mocked.deleteAllSnapshotsForExperiment).toHaveBeenCalledWith(
+      context,
+      holdoutExperiment.id,
     );
   });
 

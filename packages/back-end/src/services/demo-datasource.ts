@@ -7,8 +7,8 @@ import {
   DEMO_FACT_TABLE_IDS,
   getDemoDataSourceFeatureId,
   getDemoDatasourceProjectIdForOrganization,
-  getDemoResourceIds,
   getLegacyDemoFactTableIds,
+  isSampleDatasource,
 } from "shared/demo-datasource";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { getScopedSettings } from "shared/settings";
@@ -71,6 +71,7 @@ import {
   getLatestSuccessfulSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { queueFactTableColumnsRefresh } from "back-end/src/jobs/refreshFactTableColumns";
+import { deleteHoldoutAndExperiment } from "back-end/src/services/holdouts";
 
 // region Constants for Demo Datasource
 
@@ -101,7 +102,7 @@ const DEMO_DATASOURCE_SETTINGS: DataSourceSettings = {
 
 const DEMO_DATASOURCE_PARAMS: PostgresConnectionParams = {
   user: "gbdemoreader",
-  host: "sample-data.growthbook.io",
+  host: DEMO_DATASOURCE_HOST,
   database: "growthbook",
   password: "WnGeRgTPwEu4",
   port: 5432,
@@ -652,54 +653,18 @@ export async function isLegacyDemoSeed(context: ReqContext): Promise<boolean> {
     getDataSourceById(context, DEMO_DATASOURCE_ID),
     getExperimentById(context, DEMO_EXPERIMENT_ID),
   ]);
-  return !datasource && !experiment;
-}
+  if (datasource || experiment) return false;
 
-/**
- * Delete exactly the seeded sample resources, identified by their constant
- * IDs. Used by reset so user-created resources on the sample Data Source are
- * left alone. Missing resources are skipped.
- */
-export async function deleteDemoResources(context: ReqContext): Promise<void> {
-  const ids = getDemoResourceIds(context.org.id);
-
-  const feature = await getFeature(context, ids.featureId);
-  if (feature) {
-    await deleteFeature(context, feature);
-  }
-
-  await deleteAllSnapshotsForExperiment(context, ids.experimentId);
-  const experiment = await getExperimentById(context, ids.experimentId);
-  if (experiment) {
-    await deleteExperimentByIdForOrganization(context, experiment);
-  }
-
-  for (const factMetricId of ids.factMetricIds) {
-    if (await context.models.factMetrics.getById(factMetricId)) {
-      await context.models.factMetrics.deleteById(factMetricId);
-    }
-  }
-
-  for (const factTableId of [
-    ...ids.factTableIds,
-    ...getLegacyDemoFactTableIds(context.org.id),
-  ]) {
-    const factTable = await getFactTable(context, factTableId);
-    if (factTable) {
-      await deleteFactTable(context, factTable);
-    }
-  }
-
-  const datasource = await getDataSourceById(context, ids.datasourceId);
-  if (datasource) {
-    await deleteDatasource(context, datasource);
-  }
+  // A demo project with no sample Data Source at all is a partial new-style
+  // seed (e.g. the Data Source failed to create mid-seed), not a legacy org.
+  // Returning false lets seeding heal it.
+  return (await getSampleDatasourceIds(context)).length > 0;
 }
 
 /**
  * Sample Data Sources are identified by the constant ID, or — for orgs seeded
  * before constant IDs — by the shared sample-data postgres host restricted to
- * the Sample Data project.
+ * the Sample Data project (the shared isSampleDatasource rule).
  */
 async function getSampleDatasourceIds(context: ReqContext): Promise<string[]> {
   const ids = new Set<string>();
@@ -707,23 +672,37 @@ async function getSampleDatasourceIds(context: ReqContext): Promise<string[]> {
     context.org.id,
   );
 
-  if (await getDataSourceById(context, DEMO_DATASOURCE_ID)) {
-    ids.add(DEMO_DATASOURCE_ID);
-  }
-
   const datasources = await getDataSourcesByOrganization(context);
   for (const datasource of datasources) {
+    if (datasource.id === DEMO_DATASOURCE_ID) {
+      ids.add(datasource.id);
+      continue;
+    }
+
+    // Cheap pre-filter so only demo-project datasources are decrypted
     if (datasource.type !== "postgres") continue;
     if (!datasource.projects?.includes(demoProjectId)) continue;
+
+    let host: string | undefined;
     try {
-      const params = decryptDataSourceParams<PostgresConnectionParams>(
+      host = decryptDataSourceParams<PostgresConnectionParams>(
         datasource.params,
-      );
-      if (params.host === DEMO_DATASOURCE_HOST) {
-        ids.add(datasource.id);
-      }
+      ).host;
     } catch {
       // Ignore datasources whose credentials can't be decrypted.
+      continue;
+    }
+
+    if (
+      isSampleDatasource({
+        datasourceId: datasource.id,
+        type: datasource.type,
+        host,
+        projects: datasource.projects,
+        organizationId: context.org.id,
+      })
+    ) {
+      ids.add(datasource.id);
     }
   }
 
@@ -734,6 +713,10 @@ async function deleteResourcesForDatasource(
   context: ReqContext,
   datasourceId: string,
 ): Promise<void> {
+  // Deliberately not scoped to the Sample Data project: the sample database
+  // has no real traffic, so any experiment pointing at a sample Data Source
+  // is itself sample data no matter which project it lives in. Deleting
+  // across projects here is intentional, not a permission bypass.
   const experiments = await getAllExperiments(context, {
     datasourceId,
     includeArchived: true,
@@ -741,6 +724,27 @@ async function deleteResourcesForDatasource(
   for (const experiment of experiments) {
     await deleteAllSnapshotsForExperiment(context, experiment.id);
     await deleteExperimentByIdForOrganization(context, experiment);
+  }
+
+  // getAllExperiments excludes holdouts by default — sweep them separately so
+  // a holdout pointed at the sample Data Source doesn't survive with dangling
+  // references to the deleted Data Source and metrics.
+  const holdoutExperiments = await getAllExperiments(context, {
+    datasourceId,
+    type: "holdout",
+    includeArchived: true,
+  });
+  if (holdoutExperiments.length > 0) {
+    const holdouts = await context.models.holdout.getAll();
+    for (const experiment of holdoutExperiments) {
+      await deleteAllSnapshotsForExperiment(context, experiment.id);
+      const holdout = holdouts.find((h) => h.experimentId === experiment.id);
+      if (holdout) {
+        await deleteHoldoutAndExperiment(context, holdout, experiment);
+      } else {
+        await deleteExperimentByIdForOrganization(context, experiment);
+      }
+    }
   }
 
   const metricGroups = (await context.models.metricGroups.getAll()).filter(

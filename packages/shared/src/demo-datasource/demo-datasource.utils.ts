@@ -105,24 +105,32 @@ export const getDemoDataSourceFeatureId = (): string =>
   "gbdemo-checkout-layout";
 
 /**
- * The complete set of IDs the sample data seeder creates for an organization.
- * Reset targets exactly this set. Full delete also removes any other resources
- * built on the sample Data Source.
+ * Sample Data Sources are identified by the constant ID, or — for orgs seeded
+ * before constant IDs — by the shared sample-data postgres host restricted to
+ * the Sample Data project. Must stay in sync with the back-end's
+ * getSampleDatasourceIds, which applies the same rule to decide what "Delete
+ * Sample Data" removes.
  */
-export function getDemoResourceIds(organizationId: string): {
-  projectId: string;
-  datasourceId: string;
-  factTableIds: string[];
-  factMetricIds: string[];
-  experimentId: string;
-  featureId: string;
-} {
-  return {
-    projectId: getDemoDatasourceProjectIdForOrganization(organizationId),
-    datasourceId: DEMO_DATASOURCE_ID,
-    factTableIds: Object.values(DEMO_FACT_TABLE_IDS),
-    factMetricIds: Object.values(DEMO_FACT_METRIC_IDS),
-    experimentId: DEMO_EXPERIMENT_ID,
-    featureId: getDemoDataSourceFeatureId(),
-  };
+export function isSampleDatasource({
+  datasourceId,
+  type,
+  host,
+  projects,
+  organizationId,
+}: {
+  datasourceId?: string;
+  type?: string;
+  host?: string;
+  projects?: string[];
+  organizationId?: string;
+}): boolean {
+  if (datasourceId === DEMO_DATASOURCE_ID) return true;
+  if (!organizationId) return false;
+  return (
+    type === "postgres" &&
+    host === DEMO_DATASOURCE_HOST &&
+    (projects ?? []).includes(
+      getDemoDatasourceProjectIdForOrganization(organizationId),
+    )
+  );
 }

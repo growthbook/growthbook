@@ -25,13 +25,13 @@ import {
 } from "back-end/src/services/organizations";
 import {
   createExperiment,
-  deleteExperimentByIdForOrganization,
   getAllExperiments,
   getExperimentById,
   getExperimentsByIds,
   hasArchivedExperiments,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
+import { deleteHoldoutAndExperiment } from "back-end/src/services/holdouts";
 import {
   getFeature,
   getFeaturesByIds,
@@ -697,45 +697,7 @@ export const deleteHoldout = async (
     context.permissions.throwPermissionError();
   }
 
-  await deleteExperimentByIdForOrganization(context, experiment);
-
-  // Remove holdout from linked features and linked experiments
-  const linkedFeatureIds = Object.keys(holdout.linkedFeatures);
-  const linkedExperimentIds = Object.keys(holdout.linkedExperiments);
-  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
-  const linkedExperiments = await getExperimentsByIds(
-    context,
-    linkedExperimentIds,
-  );
-
-  // Remove holdout links from linked features and experiments
-  await Promise.all(
-    linkedFeatures.map((f) => removeHoldoutFromFeature(context, f)),
-  );
-  await Promise.all(
-    linkedExperiments.map((e) =>
-      updateExperiment({
-        context,
-        experiment: e,
-        changes: { holdoutId: "" },
-      }),
-    ),
-  );
-
-  await context.models.holdout.delete(holdout);
-
-  queueSDKPayloadRefresh({
-    context,
-    payloadKeys: getAffectedSDKPayloadKeys(
-      holdout,
-      getEnvironmentIdsFromOrg(context.org),
-    ),
-    auditContext: {
-      event: "deleted",
-      model: "holdout",
-      id: holdout.id,
-    },
-  });
+  await deleteHoldoutAndExperiment(context, holdout, experiment);
 
   return res.status(200).json({ status: 200 });
 };

@@ -7,7 +7,7 @@ import {
 } from "react";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { DEMO_DATASOURCE_ID } from "shared/demo-datasource";
+import { isSampleDatasource } from "shared/demo-datasource";
 import { dataSourceConnections } from "@/services/eventSchema";
 import Button from "@/ui/Button";
 import SelectField from "@/components/Forms/SelectField";
@@ -50,6 +50,7 @@ const DataSourceForm: FC<{
   secondaryCTA,
 }) => {
   const { projects } = useDefinitions();
+  const { apiCall, orgId } = useAuth();
   const [dirty, setDirty] = useState(false);
   const [datasource, setDatasource] = useState<
     Partial<DataSourceInterfaceWithParams> | undefined
@@ -57,11 +58,18 @@ const DataSourceForm: FC<{
   const [hasError, setHasError] = useState(false);
   const permissionsUtil = usePermissionsUtil();
 
-  // Lock the seeded Sample Data connection only — not user datasources that
-  // were tagged with the Sample Data project. If its connection were
-  // repurposed to point at a real database, "Delete Sample Data" would still
-  // remove it, so editing it is never safe.
-  const isSampleData = data.id === DEMO_DATASOURCE_ID;
+  // Lock the sample Data Source connection: the constant-ID seeded one, plus
+  // legacy seeds matched the same way the back-end identifies them for
+  // "Delete Sample Data". If a sample connection were repurposed to point at
+  // a real database, "Delete Sample Data" would still remove it, so editing
+  // it is never safe.
+  const isSampleData = isSampleDatasource({
+    datasourceId: data.id,
+    type: data.type,
+    host: data.params && "host" in data.params ? data.params.host : undefined,
+    projects: data.projects,
+    organizationId: orgId ?? undefined,
+  });
 
   const permissionRequired = (project: string) => {
     return existing
@@ -86,7 +94,6 @@ const DataSourceForm: FC<{
     });
   }, [source]);
 
-  const { apiCall } = useAuth();
   useEffect(() => {
     if (data && !dirty) {
       const newValue: Partial<DataSourceInterfaceWithParams> = {

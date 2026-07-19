@@ -10,7 +10,6 @@ import { SoftWarningError } from "back-end/src/util/errors";
 import { PrivateApiErrorResponse } from "back-end/types/api";
 import {
   deleteDemoDatasourceAndDependents,
-  deleteDemoResources,
   isLegacyDemoSeed,
   seedDemoResources,
 } from "back-end/src/services/demo-datasource";
@@ -44,24 +43,44 @@ function checkCanDeleteDemoResources(
   context: ReqContext,
   demoProjId: string,
 ): void {
+  // Only the seeded sample resources are guaranteed to exist, so only their
+  // delete permissions are required up front. Optional user-created leftovers
+  // on the sample Data Source (metrics, segments, dimensions, metric groups,
+  // saved queries) are sample data too and get cleaned up regardless;
+  // requiring their permissions here — several of which are global — would
+  // lock out anyone but an org admin from deleting sample data.
   if (
     !context.permissions.canDeleteDataSource({ projects: [demoProjId] }) ||
     !context.permissions.canDeleteFactMetric({ projects: [demoProjId] }) ||
     !context.permissions.canDeleteFactTable({ projects: [demoProjId] }) ||
     !context.permissions.canDeleteFeature({ project: demoProjId }) ||
-    !context.permissions.canDeleteExperiment({ project: demoProjId }) ||
-    !context.permissions.canDeleteSegment({ projects: [demoProjId] }) ||
-    !context.permissions.canDeleteDimension() ||
-    !context.permissions.canDeleteMetricGroup() ||
-    !context.permissions.canDeleteSqlExplorerQueries({
-      projects: [demoProjId],
-    })
+    !context.permissions.canDeleteExperiment({ project: demoProjId })
   ) {
     context.permissions.throwPermissionError();
   }
 }
 
 // endregion Permission checks
+
+/**
+ * Shared by DELETE and reset: remove the sample Data Source and everything
+ * built on it, clean up references to the Sample Data project, and delete the
+ * project itself. Returns labels of reference-cleanup steps that failed.
+ */
+async function deleteDemoProjectAndResources(
+  context: ReqContext,
+  demoProjId: string,
+): Promise<string[]> {
+  await deleteDemoDatasourceAndDependents(context);
+
+  const failedToCleanUp = await cleanupProjectReferences(context, demoProjId);
+
+  if (await context.models.projects.getById(demoProjId)) {
+    await context.models.projects.deleteById(demoProjId);
+  }
+
+  return failedToCleanUp;
+}
 
 // region POST /demo-datasource-project
 
@@ -162,13 +181,10 @@ export const deleteDemoDatasourceProject = async (
   }
   checkCanDeleteDemoResources(context, demoProjId);
 
-  await deleteDemoDatasourceAndDependents(context);
-
-  const failedToCleanUp = await cleanupProjectReferences(context, demoProjId);
-
-  if (await context.models.projects.getById(demoProjId)) {
-    await context.models.projects.deleteById(demoProjId);
-  }
+  const failedToCleanUp = await deleteDemoProjectAndResources(
+    context,
+    demoProjId,
+  );
 
   if (failedToCleanUp.length > 0) {
     res.status(400).json({
@@ -199,9 +215,9 @@ type ResetDemoDatasourceProjectResponse = {
 
 /**
  * POST /demo-datasource-project/reset
- * Restore the seeded sample resources to their original state by deleting
- * whichever still exist and re-seeding. User-created resources are not
- * touched and the project is kept.
+ * Exactly delete + create: remove the sample Data Source, everything built on
+ * it (user-created resources included), and the project, then re-seed from
+ * scratch. Handles legacy seeds the same way DELETE does.
  * @param req
  * @param res
  */
@@ -216,10 +232,16 @@ export const postResetDemoDatasourceProject = async (
   const demoProjId = getDemoDatasourceProjectIdForOrganization(context.org.id);
 
   checkCanCreateDemoResources(req, context, demoProjId);
+  if (!context.permissions.canDeleteProject(demoProjId)) {
+    context.permissions.throwPermissionError();
+  }
   checkCanDeleteDemoResources(context, demoProjId);
 
   try {
-    await deleteDemoResources(context);
+    // Failed reference-cleanup steps are ignored here: the project is
+    // recreated under the same deterministic ID, so stale references simply
+    // point at the new Sample Data project.
+    await deleteDemoProjectAndResources(context, demoProjId);
     const { project, experiment } = await seedDemoResources(context);
 
     res.status(200).json({
