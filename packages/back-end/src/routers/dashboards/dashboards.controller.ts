@@ -213,6 +213,12 @@ export async function refreshDashboardData(
     const datasource = await getDataSourceById(context, experiment.datasource);
     if (!datasource) throw new Error("Failed to find connected datasource");
 
+    // Fail fast before createExperimentSnapshotModel persists an orphan snapshot
+    // record. The query runner enforces this same permission again downstream.
+    if (!context.permissions.canCreateExperimentSnapshot(datasource)) {
+      context.permissions.throwPermissionError();
+    }
+
     const plannedExperimentMainSnapshot = await planExperimentSnapshot({
       context,
       experiment,
@@ -364,7 +370,8 @@ export async function getDashboardSnapshots(
         if (
           block.type !== "metric-exploration" &&
           block.type !== "fact-table-exploration" &&
-          block.type !== "data-source-exploration"
+          block.type !== "data-source-exploration" &&
+          block.type !== "funnel-exploration"
         ) {
           return [];
         }

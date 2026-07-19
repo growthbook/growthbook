@@ -98,7 +98,7 @@ export default function ExperimentGraph({
     projects.forEach((p) => {
       pMap.set(p.id, p.name);
     });
-    pMap.set("all", "All projects");
+    pMap.set("all", "All Projects");
     return pMap;
   }, [projects]);
 
@@ -433,7 +433,7 @@ export default function ExperimentGraph({
                                 {projectMap.has(k)
                                   ? projectMap.get(k)
                                   : k === "all"
-                                    ? "All projects"
+                                    ? "All Projects"
                                     : k}
                               </div>
                               <div className={styles.tooltipValue}>
@@ -612,7 +612,7 @@ export default function ExperimentGraph({
                           {projectMap.has(k)
                             ? projectMap.get(k)
                             : k === "all"
-                              ? "All projects"
+                              ? "All Projects"
                               : k}
                         </div>
                       </div>

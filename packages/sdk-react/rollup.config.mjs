@@ -9,7 +9,12 @@ export default {
   input: "src/index.ts",
   external: (id) => {
     // Bundle local files
-    if (id.startsWith('.') || id.startsWith('/') || id.startsWith('\0') || id.includes('src/')) {
+    if (
+      id.startsWith(".") ||
+      id.startsWith("/") ||
+      id.startsWith("\0") ||
+      id.includes("src/")
+    ) {
       return false;
     }
     // Mark package imports as external (react, @growthbook/growthbook, etc.)
@@ -41,4 +46,3 @@ export default {
     }),
   ],
 };
-

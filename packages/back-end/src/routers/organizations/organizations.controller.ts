@@ -44,6 +44,8 @@ import {
   acceptInvite,
   addMemberToOrg,
   addPendingMemberToOrg,
+  assertRoleAssignmentAllowed,
+  assertRoleChangeAllowed,
   expandOrgMembers,
   findVerifiedOrgsForNewUser,
   getContextFromReq,
@@ -175,6 +177,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     tags,
     savedGroups,
     constants,
+    configs,
     customFields,
     projects,
     factTables,
@@ -192,6 +195,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     getAllTags(orgId),
     context.models.savedGroups.getAllWithoutValues(),
     context.models.constants.getAllWithoutValues(),
+    context.models.configs.getAllWithoutValues(),
     context.models.customFields.getCustomFields(),
     context.models.projects.getAll(),
     getAllFactTablesForDefinitions(context),
@@ -200,16 +204,24 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     context.models.webhookSecrets.getAllForFrontEnd(),
   ]);
 
+  // A dimension inherits project access from its datasource, so drop any whose
+  // datasource is inaccessible or no longer exists.
+  const readableDatasourceIds = new Set(datasources.map((ds) => ds.id));
+  const visibleDimensions = dimensions.filter((dimension) =>
+    readableDatasourceIds.has(dimension.datasource),
+  );
+
   return res.status(200).json({
     status: 200,
     metrics,
     datasources,
-    dimensions,
+    dimensions: visibleDimensions,
     segments,
     metricGroups,
     tags,
     savedGroups,
     constants,
+    configs,
     customFields: customFields?.fields ?? [],
     projects,
     factTables,
@@ -462,14 +474,31 @@ export async function putMemberRole(
     });
   }
 
-  let found = false;
+  const existingMember = [...org.members, ...(org.pendingMembers || [])].find(
+    (m) => m.id === id,
+  );
+  if (!existingMember) {
+    return res.status(404).json({
+      status: 404,
+      message: "Cannot find member",
+    });
+  }
+  try {
+    // Only gate a role change so existing assignments keep working
+    assertRoleChangeAllowed(org, existingMember.role, role);
+  } catch (e) {
+    return res.status(e.status || 400).json({
+      status: e.status || 400,
+      message: e.message,
+    });
+  }
+
   org.members.forEach((m) => {
     if (m.id === id) {
       m.role = role;
       m.limitAccessByEnvironment = !!limitAccessByEnvironment;
       m.environments = environments || [];
       m.projectRoles = projectRoles || [];
-      found = true;
     }
   });
   org?.pendingMembers?.forEach((m) => {
@@ -478,16 +507,8 @@ export async function putMemberRole(
       m.limitAccessByEnvironment = !!limitAccessByEnvironment;
       m.environments = environments || [];
       m.projectRoles = projectRoles || [];
-      found = true;
     }
   });
-
-  if (!found) {
-    return res.status(404).json({
-      status: 404,
-      message: "Cannot find member",
-    });
-  }
 
   try {
     await updateOrganization(org.id, {
@@ -641,7 +662,7 @@ export async function putMember(
     );
     if (invite) {
       // if user already invited, accept invite
-      await acceptInvite(invite.key, req.userId);
+      await acceptInvite(invite.key, req.userId, req.email);
     } else if (organization.autoApproveMembers) {
       // if auto approve, add user as member
       await addMemberToOrg({
@@ -808,7 +829,22 @@ export async function putInviteRole(
     });
   }
 
-  let found = false;
+  const existingInvite = originalInvites.find((m) => m.key === key);
+  if (!existingInvite) {
+    return res.status(404).json({
+      status: 404,
+      message: "Cannot find member",
+    });
+  }
+  try {
+    // Only gate a role change so existing invites keep working
+    assertRoleChangeAllowed(org, existingInvite.role, role);
+  } catch (e) {
+    return res.status(e.status || 400).json({
+      status: e.status || 400,
+      message: e.message,
+    });
+  }
 
   org.invites.forEach((m) => {
     if (m.key === key) {
@@ -816,16 +852,8 @@ export async function putInviteRole(
       m.limitAccessByEnvironment = !!limitAccessByEnvironment;
       m.environments = environments || [];
       m.projectRoles = projectRoles || [];
-      found = true;
     }
   });
-
-  if (!found) {
-    return res.status(404).json({
-      status: 404,
-      message: "Cannot find member",
-    });
-  }
 
   try {
     await updateOrganization(org.id, {
@@ -996,6 +1024,7 @@ export async function getOrganization(
       customRoles: org.customRoles,
       deactivatedRoles: org.deactivatedRoles,
       isVercelIntegration,
+      limits: org.limits,
       settings: {
         ...settings,
         attributeSchema: filteredAttributes,
@@ -1345,10 +1374,10 @@ export async function postInviteAccept(
   const { key } = req.body;
 
   try {
-    if (!req.userId) {
+    if (!req.userId || !req.email) {
       throw new Error("Must be logged in");
     }
-    const org = await acceptInvite(key, req.userId);
+    const org = await acceptInvite(key, req.userId, req.email);
     await licenseInit(org, getUserCodesForOrg, getLicenseMetaData, true);
 
     return res.status(200).json({
@@ -1636,6 +1665,15 @@ export async function putOrganization(
         throw new Error(
           "Not supported: Updating namespaces not supported via this route.",
         );
+      } else if (k === "defaultRole") {
+        if (!context.permissions.canManageOrgSettings()) {
+          context.permissions.throwPermissionError();
+        }
+        const newRole = settings.defaultRole?.role;
+        if (newRole) {
+          // Only gate a change so an existing non-admin default keeps working
+          assertRoleChangeAllowed(org, getDefaultRole(org).role, newRole);
+        }
       } else {
         if (!context.permissions.canManageOrgSettings()) {
           context.permissions.throwPermissionError();
@@ -2286,6 +2324,15 @@ export async function addOrphanedUser(
     });
   }
 
+  try {
+    assertRoleAssignmentAllowed(org, role);
+  } catch (e) {
+    return res.status(e.status || 400).json({
+      status: e.status || 400,
+      message: e.message,
+    });
+  }
+
   const license = getLicense();
   if (
     license &&
@@ -2461,6 +2508,9 @@ export async function putDefaultRole(
   if (!context.permissions.canManageTeam()) {
     context.permissions.throwPermissionError();
   }
+
+  // Only gate a change so an existing non-admin default keeps working
+  assertRoleChangeAllowed(org, getDefaultRole(org).role, defaultRole.role);
 
   const { memberIsValid, reason } = validateRoleAndEnvs(
     org,

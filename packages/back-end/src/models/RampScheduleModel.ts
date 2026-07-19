@@ -6,6 +6,8 @@ import {
   RampScheduleInterface,
   RampStepAction,
   StepHoldConditions,
+  isAwaitingStartApproval,
+  isReadyForApproval,
   rampScheduleValidator,
 } from "shared/validators";
 import { RULE_ID_ENV_SUFFIX_DELIMITER, stemRuleId } from "shared/util";
@@ -168,6 +170,8 @@ export function rampScheduleToApiInterface(
     endActions: doc.endActions,
     startDate: dateToIso(doc.startDate),
     cutoffDate: dateToIso(doc.cutoffDate),
+    requiresStartApproval: doc.requiresStartApproval,
+    startApprovedAt: dateToIso(doc.startApprovedAt),
     status: doc.status,
     currentStepIndex: doc.currentStepIndex,
     startedAt: dateToIso(doc.startedAt),
@@ -185,6 +189,27 @@ export function rampScheduleToApiInterface(
       : doc.monitoringConfig,
     experimentHealthAction: doc.experimentHealthAction,
     currentStepEnteredAt: dateToIso(doc.currentStepEnteredAt),
+    // The record is only meaningful for the current step (see the field's
+    // "Valid only while stepApproval.stepIndex === currentStepIndex" contract).
+    // The service nulls stepApproval on every step transition, so a mismatch
+    // shouldn't occur, but guard defensively so we never surface a prior step's
+    // approver against the current step — matching how isAwaitingApproval treats
+    // it internally.
+    // Reads also bypass zod validation (only migrate() runs), so guard against
+    // legacy docs whose approvedAt is a string or an Invalid Date — the field
+    // was silently dropped before this mapping existed, so bad values were
+    // harmless and may still exist.
+    stepApproval:
+      doc.stepApproval &&
+      doc.stepApproval.stepIndex === doc.currentStepIndex &&
+      doc.stepApproval.approvedAt instanceof Date &&
+      !isNaN(doc.stepApproval.approvedAt.getTime())
+        ? {
+            ...doc.stepApproval,
+            approvedAt: doc.stepApproval.approvedAt.toISOString(),
+          }
+        : undefined,
+    awaitingApproval: isReadyForApproval(doc) || isAwaitingStartApproval(doc),
     monitoringStartDate: dateToIso(doc.monitoringStartDate),
     lastRollbackAt: dateToIso(doc.lastRollbackAt),
     lastRollbackReason: doc.lastRollbackReason,
@@ -579,6 +604,12 @@ export class RampScheduleModel extends BaseClass {
       startDate: ("startDate" in updates
         ? updates.startDate
         : schedule.startDate) as RampScheduleInterface["startDate"],
+      requiresStartApproval: ("requiresStartApproval" in updates
+        ? updates.requiresStartApproval
+        : schedule.requiresStartApproval) as boolean | undefined,
+      startApprovedAt: ("startApprovedAt" in updates
+        ? updates.startApprovedAt
+        : schedule.startApprovedAt) as Date | null | undefined,
     });
 
     const editedFields = Object.keys(updates).filter(

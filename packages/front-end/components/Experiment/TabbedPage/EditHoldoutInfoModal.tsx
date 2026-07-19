@@ -98,7 +98,7 @@ export default function EditHoldoutInfoModal({
             />
           </>
         }
-        placeholder="All projects"
+        placeholder="All Projects"
         autoFocus={focusSelector === "projects"}
         value={form.watch("projects") || []}
         options={useProjectOptions(

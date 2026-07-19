@@ -70,6 +70,10 @@ type CommonProps = {
   revisionList: MinimalFeatureRevisionInterface[];
   rampSchedules?: RampScheduleInterface[];
   draftRevision?: FeatureRevisionInterface | null;
+  // The revision the draft is based on — lets us tell an intentional disable
+  // (draft changed enabled vs its base) from a stale-inherited one (a rebase
+  // would reconcile to live's value).
+  baseRevision?: FeatureRevisionInterface | null;
   // allEnvsView visibility filter; reorder still resolves against feature.rules.
   hiddenRuleIds?: Set<string>;
 };
@@ -108,6 +112,7 @@ export default function RuleList(props: RuleListProps) {
     revisionList,
     rampSchedules,
     draftRevision,
+    baseRevision,
     allEnvsView,
     hiddenRuleIds,
   } = props;
@@ -431,18 +436,40 @@ export default function RuleList(props: RuleListProps) {
             const canMoveToTop = canEdit && i > 0;
             // Don't show "move to bottom" if already at bottom
             const canMoveToBottom = canEdit && i < items.length - 1;
-            // Warn when a draft rule is disabled but the live counterpart is
-            // enabled and the live feature has advanced since the draft was
-            // created — surfaces stale drafts that would re-disable a rule
-            // recently enabled by a schedule. Gated on baseVersion < live
-            // version so intentional disables in fresh drafts don't trigger it.
-            const liveEnabledDraftDisabled =
+            // Divergence signals for a draft whose base is behind live.
+            const draftBehindLive =
               isDraft &&
+              (draftRevision?.baseVersion ?? Infinity) < baseFeature.version;
+            const liveRule = (baseFeature.rules ?? []).find(
+              (r) => r.id === rule.id,
+            );
+            // Aggressive: the draft intentionally disabled a rule that's enabled
+            // in live (the disable is the draft's own change vs its base, not
+            // stale-inherited) — publishing really would revert a schedule-driven
+            // enable. `baseRevRuleEnabled === false` means the draft inherited the
+            // disable, so it would NOT revert.
+            const baseRevRuleEnabled = (baseRevision?.rules ?? []).find(
+              (r) => r.id === rule.id,
+            )?.enabled;
+            const willRevertScheduleEnable =
+              draftBehindLive &&
               !rule.enabled &&
-              (draftRevision?.baseVersion ?? Infinity) < baseFeature.version &&
-              (baseFeature.rules ?? []).some(
-                (r) => r.id === rule.id && r.enabled,
-              );
+              !!liveRule?.enabled &&
+              baseRevRuleEnabled !== false;
+            // Gentle: the draft is behind live and this rule's shown state
+            // (enabled or coverage) differs from live for a non-reverting
+            // reason — a rebase reconciles it. One message per rule.
+            const enabledDiffers =
+              draftBehindLive &&
+              !!liveRule &&
+              !!liveRule.enabled !== !!rule.enabled;
+            const coverageDiffers =
+              draftBehindLive &&
+              rule.type === "rollout" &&
+              liveRule?.type === "rollout" &&
+              (liveRule.coverage ?? 1) !== (rule.coverage ?? 1);
+            const draftBehindLiveStale =
+              !willRevertScheduleEnable && (enabledDiffers || coverageDiffers);
             return (
               <SortableRule
                 key={rule.id || i}
@@ -467,7 +494,8 @@ export default function RuleList(props: RuleListProps) {
                 rampSchedule={rampSchedulesMap.get(rule.id ?? "")}
                 draftRevision={draftRevision}
                 isAllEnvsView={allEnvsView}
-                liveEnabledDraftDisabled={liveEnabledDraftDisabled}
+                willRevertScheduleEnable={willRevertScheduleEnable}
+                draftBehindLiveStale={draftBehindLiveStale}
                 onMoveUp={
                   canEdit && prevId
                     ? () => reorderByRuleId(rule.id, prevId)

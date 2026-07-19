@@ -16,6 +16,7 @@ import {
   isIdListSupportedAttribute,
   validateAndFixCondition,
 } from "shared/util";
+import { getDefaultProjectsForNewResource } from "shared/demo-datasource";
 import { PiPlus } from "react-icons/pi";
 import clsx from "clsx";
 import { Flex, Text } from "@radix-ui/themes";
@@ -78,7 +79,7 @@ const SavedGroupForm: FC<{
   autoBypassApproval = false,
   mutate,
 }) => {
-  const { apiCall } = useAuth();
+  const { apiCall, orgId } = useAuth();
   const settings = useOrgSettings();
   const { savedGroupSizeLimit } = settings;
   const { user } = useUser();
@@ -193,7 +194,12 @@ const SavedGroupForm: FC<{
       type,
       values: current.values || [],
       description: current.description || "",
-      projects: current.projects || (project ? [project] : []),
+      projects:
+        current.projects ||
+        getDefaultProjectsForNewResource({
+          project,
+          organizationId: orgId || undefined,
+        }),
     },
   });
 
@@ -224,7 +230,12 @@ const SavedGroupForm: FC<{
       type,
       values: baseData.values || [],
       description: baseData.description || "",
-      projects: baseData.projects || (project ? [project] : []),
+      projects:
+        baseData.projects ||
+        getDefaultProjectsForNewResource({
+          project,
+          organizationId: orgId || undefined,
+        }),
     };
 
     // Only reset if values actually changed to avoid unnecessary re-renders
@@ -235,7 +246,7 @@ const SavedGroupForm: FC<{
     if (baseData.description) {
       setShowDescription(true);
     }
-  }, [currentRevision, liveVersion, type, project, form, current]);
+  }, [currentRevision, liveVersion, type, project, orgId, form, current]);
 
   const selectedProjects = form.watch("projects") || [];
   const projectsOptions = useProjectOptions(

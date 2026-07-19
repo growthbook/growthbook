@@ -18,7 +18,10 @@ import {
   validateVariationIds,
 } from "back-end/src/services/experiments";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
-import { startExperiment } from "back-end/src/services/experimentChanges/changeExperimentStatus";
+import {
+  startExperiment,
+  validateExperimentChange,
+} from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import {
   resolveOwnerEmail,
@@ -326,6 +329,8 @@ export const updateExperiment = createApiRequestHandler(
 
   const isStartingFromDraft =
     experiment.status === "draft" && changes.status === "running";
+
+  await validateExperimentChange({ context: req.context, experiment, changes });
 
   let experimentForUpdate = experiment;
   let changesForUpdate = changes;

@@ -10,6 +10,8 @@ import {
   getManagedWarehouseAttributesJsonFields,
   getManagedWarehouseCustomIdentifiers,
   getManagedWarehouseEventsFactTableColumns,
+  getManagedWarehouseExposureQueryIdForAttribute,
+  getManagedWarehouseIdentifierForAttribute,
   getManagedWarehouseUserIdTypes,
   getManagedWarehouseUserIdTypeSettings,
   isManagedWarehouse,
@@ -496,6 +498,168 @@ describe("getManagedWarehouseAttributesJsonFields", () => {
 
   it("returns an empty object when there are no JSON attributes", () => {
     expect(getManagedWarehouseAttributesJsonFields(undefined)).toEqual({});
+  });
+});
+
+describe("getManagedWarehouseIdentifierForAttribute", () => {
+  const jsonSchema: SDKAttributeSchema = [
+    { property: "company_id", datatype: "string", hashAttribute: true },
+  ];
+  const jsonSettings: GrowthbookClickhouseSettings = {
+    useJsonColumns: true,
+    userIdTypes: getManagedWarehouseUserIdTypeSettings(jsonSchema),
+    queries: { exposure: buildManagedWarehouseExposureQueries(jsonSchema) },
+  };
+
+  it("folds built-in attributes into user_id/device_id (JSON warehouse)", () => {
+    const cases: Array<[string, string]> = [
+      ["user_id", "user_id"],
+      ["device_id", "device_id"],
+      ["anonymous_id", "device_id"],
+      ["id", "device_id"],
+    ];
+    cases.forEach(([attribute, identifier]) => {
+      expect(
+        getManagedWarehouseIdentifierForAttribute({
+          settings: jsonSettings,
+          attribute,
+        }),
+      ).toBe(identifier);
+    });
+  });
+
+  it("uses the attribute property as the column for JSON custom identifiers", () => {
+    expect(
+      getManagedWarehouseIdentifierForAttribute({
+        settings: jsonSettings,
+        attribute: "company_id",
+      }),
+    ).toBe("company_id");
+  });
+
+  it("reads the stored attribute -> column mapping for legacy warehouses", () => {
+    const settings: GrowthbookClickhouseSettings = {
+      materializedColumns: [
+        {
+          sourceField: "customerId",
+          columnName: "customer_id",
+          datatype: "string",
+          type: "identifier",
+        },
+        {
+          sourceField: "plan",
+          columnName: "plan",
+          datatype: "string",
+          type: "dimension",
+        },
+      ],
+    };
+    // The attribute name differs from the SQL column, so the stored mapping matters.
+    expect(
+      getManagedWarehouseIdentifierForAttribute({
+        settings,
+        attribute: "customerId",
+      }),
+    ).toBe("customer_id");
+    // A dimension column is not an identifier.
+    expect(
+      getManagedWarehouseIdentifierForAttribute({
+        settings,
+        attribute: "plan",
+      }),
+    ).toBeNull();
+    // An unmapped attribute resolves to no identifier.
+    expect(
+      getManagedWarehouseIdentifierForAttribute({
+        settings,
+        attribute: "unknown",
+      }),
+    ).toBeNull();
+  });
+});
+
+describe("getManagedWarehouseExposureQueryIdForAttribute", () => {
+  it("resolves the exposure query for a built-in attribute (JSON warehouse)", () => {
+    const settings: GrowthbookClickhouseSettings = {
+      useJsonColumns: true,
+      queries: {
+        exposure: buildManagedWarehouseExposureQueries(defaultSchema),
+      },
+    };
+    // `id` folds into the device_id exposure query.
+    expect(
+      getManagedWarehouseExposureQueryIdForAttribute({
+        settings,
+        attribute: "id",
+      }),
+    ).toBe("device_id");
+    expect(
+      getManagedWarehouseExposureQueryIdForAttribute({
+        settings,
+        attribute: "user_id",
+      }),
+    ).toBe("user_id");
+  });
+
+  it("resolves the exposure query for a JSON custom identifier", () => {
+    const schema: SDKAttributeSchema = [
+      { property: "company_id", datatype: "string", hashAttribute: true },
+    ];
+    const settings: GrowthbookClickhouseSettings = {
+      useJsonColumns: true,
+      queries: { exposure: buildManagedWarehouseExposureQueries(schema) },
+    };
+    expect(
+      getManagedWarehouseExposureQueryIdForAttribute({
+        settings,
+        attribute: "company_id",
+      }),
+    ).toBe("company_id");
+  });
+
+  it("resolves the exposure query via the legacy stored column mapping", () => {
+    const settings: GrowthbookClickhouseSettings = {
+      materializedColumns: [
+        {
+          sourceField: "customerId",
+          columnName: "customer_id",
+          datatype: "string",
+          type: "identifier",
+        },
+      ],
+      queries: {
+        exposure: [
+          {
+            id: "customer_id",
+            name: "customer_id",
+            userIdType: "customer_id",
+            dimensions: [],
+            query: "",
+          },
+        ],
+      },
+    };
+    expect(
+      getManagedWarehouseExposureQueryIdForAttribute({
+        settings,
+        attribute: "customerId",
+      }),
+    ).toBe("customer_id");
+  });
+
+  it("returns an empty string when the attribute maps to no exposure query", () => {
+    const settings: GrowthbookClickhouseSettings = {
+      useJsonColumns: true,
+      queries: {
+        exposure: buildManagedWarehouseExposureQueries(defaultSchema),
+      },
+    };
+    expect(
+      getManagedWarehouseExposureQueryIdForAttribute({
+        settings,
+        attribute: "not_an_identifier",
+      }),
+    ).toBe("");
   });
 });
 

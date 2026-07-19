@@ -76,6 +76,28 @@ export const snowflakeDialect: SqlDialect = {
     `PARSE_JSON(${jsonCol}):${path}::${isNumeric ? "float" : "string"}`,
   evalBoolean: (col: string, value: boolean) =>
     `${col} = ${value ? "true" : "false"}`,
+  // Snowflake aggregate-with-sort uses `WITHIN GROUP`. NULLs are skipped
+  // by ARRAY_AGG by default, so no extra IGNORE NULLS needed.
+  arrayAggSorted: (col: string) =>
+    `ARRAY_AGG(${col}) WITHIN GROUP (ORDER BY ${col})`,
+  // MIN_BY has shipped on Snowflake since 2023 — picks `valueCol` from the
+  // row with the minimum `tsCol` (NULL timestamps are skipped).
+  argMinByTimestamp: (valueCol: string, tsCol: string) =>
+    `MIN_BY(${valueCol}, ${tsCol})`,
+  arrayMinInRange: (col, lowerBound, upperBound) => {
+    const tExpr = `x::TIMESTAMP`;
+    const conditions: string[] = [];
+    if (lowerBound) conditions.push(`${tExpr} >= ${lowerBound}`);
+    if (upperBound) conditions.push(`${tExpr} <= ${upperBound}`);
+    const arrExpr = conditions.length
+      ? `FILTER(${col}, x -> ${conditions.join(" AND ")})`
+      : col;
+    return `GET(${arrExpr}, 0)::TIMESTAMP`;
+  },
+  addIntervalSeconds: (col: string, sign: "+" | "-", amount: number) =>
+    `DATEADD(second, ${sign === "-" ? "-" : ""}${amount}, ${col})`,
+  dateDiffMs: (startCol: string, endCol: string) =>
+    `DATEDIFF(millisecond, ${startCol}, ${endCol})`,
   getDataType: (dataType: DataType): string => {
     switch (dataType) {
       case "string":

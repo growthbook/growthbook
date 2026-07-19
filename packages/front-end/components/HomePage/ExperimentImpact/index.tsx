@@ -102,6 +102,7 @@ export function scaleImpactAndSetMissingExperiments({
   startDate,
   endDate,
   adjusted,
+  skipDateFilter = false,
 }: {
   experiments: ExperimentInterfaceStringDates[];
   snapshots: ExperimentSnapshotInterface[] | undefined;
@@ -110,6 +111,11 @@ export function scaleImpactAndSetMissingExperiments({
   startDate: string;
   endDate: string | undefined;
   adjusted: boolean;
+  // Skip this function's own date filter when the caller has already date-scoped
+  // `experiments`. This filter keys off the last phase's dateEnded with
+  // exclusive boundaries, which differs from callers that pre-filter on the
+  // result date with inclusive boundaries.
+  skipDateFilter?: boolean;
 }): {
   summaryObj: ExperimentImpactSummary | null;
   nExpsUsedForAdjustment: number;
@@ -132,7 +138,9 @@ export function scaleImpactAndSetMissingExperiments({
         (!endDate || getValidDate(endDate) > new Date());
 
       const fitsDateFilter =
-        (endedAfterStart && endedBeforeEnd) || isRunningAndEndInFuture;
+        skipDateFilter ||
+        (endedAfterStart && endedBeforeEnd) ||
+        isRunningAndEndInFuture;
       const { metricGroups } = useDefinitions();
       const hasMetric = getAllMetricIdsFromExperiment(
         e,
@@ -462,7 +470,7 @@ export default function ExperimentImpact({
         <div className="col-auto" style={{ maxWidth: 250 }}>
           <label className="mb-1">Projects</label>
           <MultiSelectField
-            placeholder="All projects"
+            placeholder="All Projects"
             value={project ? [project] : selectedProjects}
             disabled={!!project}
             options={projects

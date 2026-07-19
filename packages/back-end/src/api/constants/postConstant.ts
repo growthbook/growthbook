@@ -1,17 +1,11 @@
-import { Revision } from "shared/enterprise";
 import {
   postConstantValidator,
-  validateConstantValue,
+  validateResolvableValue,
 } from "shared/validators";
-import { ConstantInterface } from "shared/types/constant";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { BadRequestError } from "back-end/src/util/errors";
-import { getAdapter } from "back-end/src/revisions";
-import {
-  buildPatchOps,
-  ensureLiveRevisionExists,
-} from "back-end/src/revisions/util";
+import { assertKeyAvailable } from "back-end/src/services/constants";
+import { ensureLiveRevisionExists } from "back-end/src/revisions/util";
 
 export const postConstant = createApiRequestHandler(postConstantValidator)(
   async (req) => {
@@ -25,7 +19,6 @@ export const postConstant = createApiRequestHandler(postConstantValidator)(
       project,
       owner,
     } = req.body;
-    const bypassApproval = req.body.bypassApproval === true;
 
     if (
       !req.context.permissions.canCreateConstant({ project: project || "" })
@@ -37,61 +30,32 @@ export const postConstant = createApiRequestHandler(postConstantValidator)(
       await req.context.models.projects.ensureProjectsExist([project]);
     }
 
-    // Key is unique per org.
-    const existing = await req.context.models.constants.getByKey(key);
-    if (existing) {
-      throw new BadRequestError(`A constant with key "${key}" already exists`);
-    }
+    // Constant keys are unique within the constant namespace (a config may share
+    // the key — `@const:foo` and `@config:foo` are distinct).
+    await assertKeyAvailable(req.context, key, "constant");
 
     // Validate value shape against the declared type (empty is allowed).
-    if (value !== undefined) validateConstantValue(type, value, "value");
+    if (value !== undefined)
+      validateResolvableValue({
+        type,
+        value,
+        label: "value",
+        refSource: "constant",
+      });
     for (const [env, v] of Object.entries(environmentValues ?? {})) {
-      validateConstantValue(type, v, env);
+      validateResolvableValue({
+        type,
+        value: v,
+        label: env,
+        refSource: "constant",
+      });
     }
 
     // Cycle rejection is enforced in ConstantModel (covers every write path).
 
-    // Approval gate. Scope it to the new constant's project (change-aware, like
-    // the update path) rather than the coarse org-wide check, so a create in a
-    // project without a review rule isn't gated. There's no existing entity to
-    // draft against on create, so the only non-UI path when approval is required
-    // is bypass.
-    const adapter = getAdapter("constant");
-    // Include metadata fields too (not just value/env), so a metadata-only
-    // create is still gated when the project requires metadata review.
-    const patchOps = buildPatchOps({
-      name,
-      ...(value !== undefined ? { value } : {}),
-      ...(environmentValues ? { environmentValues } : {}),
-      ...(description !== undefined ? { description } : {}),
-      ...(project ? { project } : {}),
-      ...(owner ? { owner } : {}),
-    });
-    const approvalRequired = adapter.isApprovalRequiredForRevision
-      ? adapter.isApprovalRequiredForRevision(req.context, {
-          target: {
-            snapshot: { project: project || "" },
-            proposedChanges: patchOps,
-          },
-        } as unknown as Revision)
-      : adapter.isApprovalRequired(req.context);
-    if (approvalRequired) {
-      if (!bypassApproval) {
-        throw new BadRequestError(
-          "This organization requires approvals for this constant's project. " +
-            "Create it through the GrowthBook UI's approval flow, " +
-            'or pass `{ "bypassApproval": true }` if you have the bypass permission.',
-        );
-      }
-      const canBypass =
-        !!req.organization.settings?.restApiBypassesReviews ||
-        adapter.canBypassApproval(req.context, {
-          project: project || "",
-        } as ConstantInterface);
-      if (!canBypass) {
-        req.context.permissions.throwPermissionError();
-      }
-    }
+    // Creation never requires approval (consistent with features): a brand-new
+    // constant has no dependents, so creating it can't change any resolved
+    // value. Approvals apply to subsequent changes via the revision flow.
 
     const constant = await req.context.models.constants.create({
       key,

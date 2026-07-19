@@ -858,9 +858,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
             {currentProjectIsDemo && (
               <Callout status="warning">
-                You are creating an experiment under the demo datasource
-                project. This experiment will be deleted when the demo
-                datasource project is deleted.
+                You are creating an experiment in the Sample Data Project.
               </Callout>
             )}
             {hasCommercialFeature("templates") &&
