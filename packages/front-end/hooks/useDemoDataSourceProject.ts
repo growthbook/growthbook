@@ -1,10 +1,9 @@
 import { ProjectInterface } from "shared/types/project";
 import {
-  DEMO_DATASOURCE_HOST,
-  DEMO_DATASOURCE_ID,
   DEMO_EXPERIMENT_ID,
   getDemoDataSourceFeatureId,
   getDemoDatasourceProjectIdForOrganization,
+  isSampleDatasource,
 } from "shared/demo-datasource";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { useMemo } from "react";
@@ -49,23 +48,21 @@ export const useDemoDataSourceProject = (): UseDemoDataSourceProject => {
 
   const demoFeatureId = getDemoDataSourceFeatureId();
 
-  // Seeded resources have constant IDs. Fall back to the known sample-data
-  // host for orgs seeded before constant IDs existed.
   const demoDataSource: DataSourceInterfaceWithParams | null = useMemo(() => {
-    if (!demoProjectId) return null;
+    if (!orgId) return null;
 
     return (
-      datasources.find((d) => d.id === DEMO_DATASOURCE_ID) ||
-      datasources.find(
-        (d) =>
-          d.type === "postgres" &&
-          d.params &&
-          "host" in d.params &&
-          d.params.host === DEMO_DATASOURCE_HOST,
-      ) ||
-      null
+      datasources.find((d) =>
+        isSampleDatasource({
+          datasourceId: d.id,
+          type: d.type,
+          host: d.params && "host" in d.params ? d.params.host : undefined,
+          projects: d.projects,
+          organizationId: orgId,
+        }),
+      ) || null
     );
-  }, [datasources, demoProjectId]);
+  }, [datasources, orgId]);
   const demoDataSourceId = demoDataSource?.id || null;
 
   const demoExperiment: ExperimentInterfaceStringDates | null = useMemo(() => {

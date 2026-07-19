@@ -39,12 +39,6 @@ export function getDemoDatasourceProjectIdForOrganization(
   );
 }
 
-/**
- * Default `projects` for a newly created resource based on the current project
- * selection. Never seeds the Sample Data project — that project is reserved for
- * imported demo resources and tagging other resources with it locks them into
- * the frontend readonly override.
- */
 export function getDefaultProjectsForNewResource({
   project,
   organizationId,
