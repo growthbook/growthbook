@@ -216,6 +216,8 @@ export default function FeatureModal({
     selectedProject,
   );
   const { projectId: demoProjectId } = useDemoDataSourceProject();
+  const creatingInDemoProject =
+    !!demoProjectId && selectedProject === demoProjectId;
   const { apiCall } = useAuth();
   // During early onboarding the holdouts promo is noise. We still want to show
   // the real holdout selector if the org has set holdouts up.
@@ -279,9 +281,6 @@ export default function FeatureModal({
         ? "Select a project to continue."
         : "You don't have permission to create feature flag drafts.";
   }
-
-  // We want to show a warning when someone tries to create a feature under the demo project
-  const { currentProjectIsDemo } = useDemoDataSourceProject();
 
   return (
     <Modal
@@ -376,37 +375,30 @@ export default function FeatureModal({
       })}
     >
       <FormProvider {...form}>
-        {currentProjectIsDemo && (
+        {creatingInDemoProject && (
           <Callout status="warning" mb="3">
-            You are creating a feature under the demo datasource project.
+            You are creating a feature in the Sample Data Project.
           </Callout>
         )}
 
         <FeatureKeyField keyField={form.register("id")} />
 
         {projectOptions.length > 0 && (
-          <>
-            {selectedProject === demoProjectId && (
-              <Callout status="warning" mb="3">
-                You are creating a feature under the demo datasource project.
-              </Callout>
-            )}
-            <SelectField
-              label={
-                <>
-                  Project{" "}
-                  <Tooltip body="The dropdown below has been filtered to only include projects where you have permission to update Features" />
-                </>
-              }
-              value={selectedProject || ""}
-              onChange={(v) => {
-                form.setValue("project", v);
-              }}
-              initialOption={canCreateWithoutProject ? "None" : undefined}
-              options={projectOptions}
-              required={requireProjectForFeatures}
-            />
-          </>
+          <SelectField
+            label={
+              <>
+                Project{" "}
+                <Tooltip body="The dropdown below has been filtered to only include projects where you have permission to update Features" />
+              </>
+            }
+            value={selectedProject || ""}
+            onChange={(v) => {
+              form.setValue("project", v);
+            }}
+            initialOption={canCreateWithoutProject ? "None" : undefined}
+            options={projectOptions}
+            required={requireProjectForFeatures}
+          />
         )}
 
         <HoldoutSelect

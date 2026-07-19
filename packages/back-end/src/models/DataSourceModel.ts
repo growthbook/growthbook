@@ -347,6 +347,16 @@ export async function deleteDatasource(
  * Deletes data sources where the provided project is the only project of that data source.
  * Runs event-forwarder teardown per datasource before removal so Confluent resources are not orphaned.
  */
+export async function projectHasDataSources(
+  organizationId: string,
+  projectId: string,
+): Promise<boolean> {
+  return !!(await DataSourceModel.exists({
+    organization: organizationId,
+    projects: [projectId],
+  }));
+}
+
 export async function deleteAllDataSourcesForAProject({
   context,
   projectId,

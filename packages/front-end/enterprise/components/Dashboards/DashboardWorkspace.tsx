@@ -1,7 +1,5 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useGrowthBook } from "@growthbook/growthbook-react";
-import { AppFeatures } from "shared/types/app-features";
 import {
   DashboardInterface,
   DashboardBlockInterfaceOrData,
@@ -314,12 +312,9 @@ export default function DashboardWorkspace({
     cloneDeep(dashboard),
   );
 
-  const gb = useGrowthBook<AppFeatures>();
-  const funnelExplorerEnabled = !!gb?.isOn("product-analytics-funnels");
-
   const addBlockType = (bType: DashboardBlockType, index?: number) => {
     // Validate that the block type is allowed for this dashboard type
-    if (!isBlockTypeAllowed(bType, isGeneralDashboard, funnelExplorerEnabled)) {
+    if (!isBlockTypeAllowed(bType, isGeneralDashboard)) {
       console.warn(
         `Block type ${bType} is not allowed for ${isGeneralDashboard ? "general" : "experiment"} dashboards`,
       );

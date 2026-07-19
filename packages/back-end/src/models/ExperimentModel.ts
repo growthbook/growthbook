@@ -430,6 +430,26 @@ async function findExperiments(
   );
 }
 
+export async function findVisualExperimentsByName(
+  context: ReqContext | ApiReqContext,
+  name: string,
+  limit: number,
+): Promise<ExperimentInterface[]> {
+  // Escape regex metacharacters so a user's literal text isn't treated as a
+  // pattern (and can't inject an expensive/malformed regex).
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return findExperiments(
+    context,
+    {
+      organization: context.org.id,
+      name: { $regex: escaped, $options: "i" },
+      hasVisualChangesets: true,
+    },
+    limit,
+    { dateUpdated: -1 },
+  );
+}
+
 export async function getExperimentById(
   context: ReqContext | ApiReqContext,
   id: string,
@@ -1337,6 +1357,20 @@ export async function deleteExperimentByIdForOrganization(
  * @param projectId
  * @param organization
  */
+export async function projectHasExperiments(
+  context: ReqContext | ApiReqContext,
+  projectId: string,
+): Promise<boolean> {
+  const experiment = await getCollection(COLLECTION).findOne(
+    {
+      organization: context.org.id,
+      project: projectId,
+    },
+    { projection: { _id: 1 } },
+  );
+  return !!experiment;
+}
+
 export async function deleteAllExperimentsForAProject({
   projectId,
   context,
