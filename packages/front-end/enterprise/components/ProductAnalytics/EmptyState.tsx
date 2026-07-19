@@ -233,7 +233,9 @@ export default function EmptyState() {
               >
                 <Box width="100%" style={{ maxWidth: 435, textAlign: "left" }}>
                   {chatDisabled ? (
-                    "Explore manually"
+                    <Text color="text-mid" size="medium">
+                      Explore manually
+                    </Text>
                   ) : (
                     <Link
                       onClick={() => setShowAdvancedOptions((open) => !open)}
