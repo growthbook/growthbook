@@ -30,7 +30,10 @@ import {
   getMergeResultPublishEnvs,
   toApiRevision,
 } from "back-end/src/services/features";
-import { collectConfigBackedFeatureValueErrors } from "back-end/src/services/configValidation";
+import {
+  assertConfigBackedDefaultHasNoOverrides,
+  collectConfigBackedFeatureValueErrors,
+} from "back-end/src/services/configValidation";
 import {
   collectValidateFeatureHookResults,
   collectValidateFeatureRevisionHookResults,
@@ -280,6 +283,12 @@ export async function publishFeatureRevision(
         mergeResult.result,
       );
 
+    // Structural payload guard: a config-backed default carrying its own override
+    // patch breaks the SDK payload (the override ships verbatim, the backing
+    // config is dropped). Not a demotable schema error — enforced as an
+    // always-throwing check on the gate path too, so no override clears it.
+    assertConfigBackedDefaultHasNoOverrides(proposedFeature, defaultToCheck);
+
     // Schema-family failures: the feature's own JSON-schema value errors (checked
     // against the full merged values) plus the config-backed schema/invariant net
     // (only the changed subset, matching prevalidatePublishRevision). One gate,
@@ -397,7 +406,14 @@ export async function publishFeatureRevision(
   // the sequential backstop below. Approval, however, is also bypassed by the REST
   // setting (`canUseRestApiBypass`).
   const { blocking, bypassed } = evaluatePublishGates(gates, {
-    ignoreWarnings: forceMergeRequested,
+    // On the interactive path also honor the query alias (`?ignoreWarnings=true`)
+    // via context.ignoreWarnings, matching the other entities. NOT on the armed
+    // path: a background context has ignoreWarnings always-true, and its
+    // stale-base force-merge must stay gated on the body's persisted intent
+    // (mergeNow) — see forceMergeRequested above.
+    ignoreWarnings:
+      forceMergeRequested ||
+      (inlineValidationGates && req.context.ignoreWarnings),
     skipSchemaValidation: req.context.skipSchemaValidation,
     skipHooks: req.context.skipHooks,
     bypassApprovalPermission:
