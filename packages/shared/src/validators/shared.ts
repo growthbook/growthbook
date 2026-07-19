@@ -186,7 +186,7 @@ export const publishBypassedGatesField = z
         via: z
           .string()
           .describe(
-            'The bypass source: an override flag ("ignoreWarnings"), the caller\'s permission ("bypassApprovalChecks"), or the org setting ("restApiBypassesReviews").',
+            'The bypass source: an override flag ("ignoreWarnings", or the privileged "skipSchemaValidation" / "skipHooks"), the caller\'s permission ("bypassApprovalChecks"), or the org setting ("restApiBypassesReviews").',
           ),
       })
       .strict(),

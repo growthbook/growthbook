@@ -50,13 +50,14 @@ const SCHEMA_BREAK: ArmGuardId = "schema-break";
 //  - block mode (default): validation-class. Cleared only by the privileged
 //    skipSchemaValidation (which requires bypassApprovalChecks); else a HARD
 //    400, so the UI blocks and no ignoreWarnings escape exists.
-//  - warn mode (setting off): acknowledge-class. Anyone clears with
-//    ignoreWarnings (or the bypass-approval permission); else a 422 soft warning.
+//  - warn mode (setting off): acknowledge-class. Anyone clears with an explicit
+//    ignoreWarnings ack; else a 422 soft warning. No permission-alone escape —
+//    even an approver must acknowledge invalid data explicitly, matching the
+//    documented warn-mode contract and the value-validation backstop.
 // Shared by the constant and config guards.
 function resolveDirectSchemaBreak(
   context: Context,
   violations: string[],
-  project: string | undefined,
   logKey: Record<string, unknown>,
   message: string,
 ): void {
@@ -73,11 +74,8 @@ function resolveDirectSchemaBreak(
     }
     throw new BadRequestError(message + "\n" + violations.join("\n"));
   }
-  // Warn mode: acknowledge-class.
-  if (
-    context.ignoreWarnings ||
-    context.permissions.canBypassApprovalChecks({ project: project || "" })
-  ) {
+  // Warn mode: acknowledge-class (explicit ignoreWarnings ack only).
+  if (context.ignoreWarnings) {
     logger.info(
       { ...logKey, userId: context.userId, violations },
       "Schema-break guard acknowledged in warn mode",
@@ -605,7 +603,6 @@ export async function assertConstantSchemaBreakGuard(
   resolveDirectSchemaBreak(
     context,
     violations,
-    constant.project,
     { constantKey: constant.key },
     "Breaks a dependent config or feature value:",
   );
@@ -645,12 +642,7 @@ export async function captureConstantSchemaBreakAcknowledgment(
           "\nRe-submit with skipSchemaValidation (requires the bypassApprovalChecks permission) to schedule anyway.",
       );
     }
-  } else if (
-    !context.ignoreWarnings &&
-    !context.permissions.canBypassApprovalChecks({
-      project: constant.project || "",
-    })
-  ) {
+  } else if (!context.ignoreWarnings) {
     throw new SoftWarningError(
       body + "\nRe-submit with ignoreWarnings to acknowledge and schedule.",
       violations,
@@ -805,7 +797,6 @@ export async function assertConfigSchemaBreakGuard(
   resolveDirectSchemaBreak(
     context,
     violations,
-    proposed.project,
     { configKey: proposed.key },
     "Invalid config value:",
   );
@@ -886,7 +877,6 @@ export async function assertConfigArchiveSchemaBreakGuard(
   resolveDirectSchemaBreak(
     context,
     violations,
-    config.project,
     { configKey: config.key },
     `${action} this config breaks a dependent config or feature value:`,
   );
@@ -927,12 +917,7 @@ export async function captureConfigSchemaBreakAcknowledgment(
     "Scheduling this publish would produce an invalid config or dependent value:\n" +
     violations.join("\n");
   if (context.org.settings?.blockPublishOnSchemaError === false) {
-    if (
-      !context.ignoreWarnings &&
-      !context.permissions.canBypassApprovalChecks({
-        project: proposed.project || "",
-      })
-    ) {
+    if (!context.ignoreWarnings) {
       throw new SoftWarningError(
         body + "\nRe-submit with ignoreWarnings to acknowledge and schedule.",
         violations,

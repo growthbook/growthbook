@@ -97,18 +97,21 @@ info:
     `"ignoreWarnings": true` in the request body to proceed anyway. Blocked
     publishes include a `gates` array, one entry per blocking gate, each
     carrying a uniform set of fields: `type`, `severity`, `messages`, `override`
-    (the body flag that clears it — `ignoreWarnings` — or `null` when no flag
-    applies), `requiresPermission` (a permission the override needs, or `null`),
-    and `resolution` (the non-flag way out as a callable `{ action, method, path
-    }` route, or `null`). So one response lists every way past every gate. A
-    gate with `override: null` (approval required) clears by getting the
-    revision approved, or implicitly for callers with the `bypassApprovalChecks`
-    permission; a locked config clears by calling its `resolution` unlock route.
-    On a SUCCESSFUL publish (200), if a gate that would have blocked was
-    bypassed by the caller's authority, the response includes a `bypassedGates`
-    array (`{ type, outcome: "bypassed", via }`, where `via` is
-    `ignoreWarnings`, `bypassApprovalChecks`, or `restApiBypassesReviews`); the
-    key is omitted when nothing was bypassed.
+    (the body flag that clears it — `ignoreWarnings` for acknowledge-class
+    warnings, or the privileged `skipSchemaValidation`
+    (schema/invariant/schema-break) / `skipHooks` (custom-hook rejections), or
+    `null` when no flag applies), `requiresPermission` (a permission the
+    override needs, or `null`), and `resolution` (the non-flag way out as a
+    callable `{ action, method, path }` route, or `null`). So one response lists
+    every way past every gate. A gate with `override: null` (approval required)
+    clears by getting the revision approved, or implicitly for callers with the
+    `bypassApprovalChecks` permission; a locked config clears by calling its
+    `resolution` unlock route. On a SUCCESSFUL publish (200), if a gate that
+    would have blocked was bypassed by the caller's authority, the response
+    includes a `bypassedGates` array (`{ type, outcome: "bypassed", via }`,
+    where `via` is `ignoreWarnings`, `skipSchemaValidation`, `skipHooks`,
+    `bypassApprovalChecks`, or `restApiBypassesReviews`); the key is omitted
+    when nothing was bypassed.
 
     - **429** - Too Many Requests - You exceeded the rate limit of 60 requests
     per minute. Try again later.
@@ -62701,7 +62704,8 @@ components:
           const: bypassed
         via:
           description: >-
-            The bypass source: an override flag ("ignoreWarnings"), the caller's
+            The bypass source: an override flag ("ignoreWarnings", or the
+            privileged "skipSchemaValidation" / "skipHooks"), the caller's
             permission ("bypassApprovalChecks"), or the org setting
             ("restApiBypassesReviews").
           type: string

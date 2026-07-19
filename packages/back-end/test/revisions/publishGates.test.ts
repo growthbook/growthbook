@@ -368,6 +368,33 @@ describe("classifyPublishGate", () => {
         ),
       ).toEqual({ outcome: "bypassed", via: "skipSchemaValidation" });
     });
+
+    // Warn mode (blockPublishOnSchemaError=false) emits the schema-validation
+    // gate with override "ignoreWarnings" — acknowledge-class, but NOT a soft
+    // guard: it clears only on an explicit ignoreWarnings ack, never on the
+    // bypass-approval permission alone. This matches the documented warn-mode
+    // contract and the assertConfigValueValidForPublish backstop — invalid data
+    // must be acknowledged explicitly, even by an approver.
+    const warnModeSchemaGate: PublishGate = {
+      ...schemaBreakGate,
+      ...{ override: "ignoreWarnings", requiresPermission: null },
+    };
+    it("in warn mode (ignoreWarnings) is cleared by the flag", () => {
+      expect(
+        classifyPublishGate(
+          warnModeSchemaGate,
+          clearance({ ignoreWarnings: true }),
+        ),
+      ).toEqual({ outcome: "bypassed", via: "ignoreWarnings" });
+    });
+    it("in warn mode is NOT cleared by the bypass-approval permission alone", () => {
+      expect(
+        classifyPublishGate(
+          warnModeSchemaGate,
+          clearance({ bypassApprovalPermission: true }),
+        ),
+      ).toEqual({ outcome: "blocking" });
+    });
   });
 
   describe("custom-hook gates (skipHooks, distinct from skipSchemaValidation)", () => {
@@ -460,6 +487,14 @@ describe("PublishBlockedError", () => {
       schemaBreakGate,
     ]);
     expect(err.warnings).toEqual(experimentGuardGate.messages);
+  });
+
+  it("excludes a permission-gated ignoreWarnings gate (stale-base) from warnings", () => {
+    // stale-base has override "ignoreWarnings" but requiresPermission — the flag
+    // alone can't clear it, so listing it in `warnings` would loop ack-and-retry.
+    const err = new PublishBlockedError([staleBaseGate, experimentGuardGate]);
+    expect(err.warnings).toEqual(experimentGuardGate.messages);
+    expect(err.warnings).not.toContain(staleBaseGate.messages[0]);
   });
 
   it("names each gate's override flag (and required permission) in the message", () => {

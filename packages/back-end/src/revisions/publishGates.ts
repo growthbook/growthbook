@@ -106,8 +106,12 @@ export type BypassedGate = {
 };
 
 /** Soft-guard (acknowledge-class) gate types: cleared by ignoreWarnings, or by
- * the bypass-approval permission alone. Schema-break is NOT here — it moved to
- * the validation class (override "skipSchemaValidation"). */
+ * the bypass-approval permission alone (a "heads up, this ripples" warning an
+ * approver can wave through). Schema-family gates are deliberately NOT here: in
+ * block mode they carry override "skipSchemaValidation" (privileged) and in warn
+ * mode override "ignoreWarnings" cleared only by an explicit ack — matching the
+ * documented warn-mode contract and the assertConfigValueValidForPublish backstop,
+ * neither of which grants a permission-alone escape for invalid data. */
 const SOFT_GUARD_GATE_TYPES: ReadonlySet<string> = new Set([
   "experiment-guard",
   "dependent-config-locked",
@@ -274,9 +278,11 @@ function formatGateLine(gate: PublishGate): string {
 export class PublishBlockedError extends Error {
   status = 422;
   gates: PublishGate[];
-  // Flattened messages of the gates that `ignoreWarnings` clears, mirroring
-  // SoftWarningError's `warnings` so existing ack-and-retry flows only see
-  // warnings an ignoreWarnings retry can actually acknowledge. `gates` keeps
+  // Flattened messages of the gates a plain `ignoreWarnings` retry actually
+  // clears — mirroring SoftWarningError's `warnings` so existing ack-and-retry
+  // flows don't surface a message they can't acknowledge. Excludes gates that
+  // also carry a `requiresPermission` (e.g. stale-base): the flag alone won't
+  // clear those, so listing them would loop the ack-and-retry. `gates` keeps
   // every gate, clearable or not.
   warnings: string[];
 
@@ -290,7 +296,10 @@ export class PublishBlockedError extends Error {
     this.name = "PublishBlockedError";
     this.gates = gates;
     this.warnings = gates
-      .filter((gate) => gate.override === "ignoreWarnings")
+      .filter(
+        (gate) =>
+          gate.override === "ignoreWarnings" && !gate.requiresPermission,
+      )
       .flatMap((gate) => gate.messages);
   }
 }
