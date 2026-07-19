@@ -48,6 +48,7 @@ import Text from "@/ui/Text";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import HistoryTable from "@/components/HistoryTable";
 import EventForwarder from "@/components/Settings/EditDataSource/EventForwarder/EventForwarder";
+import OpenInExplorerButton from "@/enterprise/components/ProductAnalytics/OpenInExplorerButton";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -188,6 +189,10 @@ const DataSourcePage: FC = () => {
   const supportsSQL = d.properties?.queryLanguage === "sql";
   const supportsEvents = d.properties?.events || false;
   const datasourceSupportsEventForwarder = supportsEventForwarder(d);
+  const canOpenInExplorer =
+    supportsSQL &&
+    !!d.properties?.supportsInformationSchema &&
+    permissionsUtil.canRunFactQueries(d);
 
   return (
     <div className="container pagecontents">
@@ -228,10 +233,17 @@ const DataSourcePage: FC = () => {
             radius="full"
           />
         </Flex>
-        {(canUpdateConnectionParams ||
-          canUpdateDataSourceSettings ||
-          canDelete) && (
-          <Flex align="center" pr="2">
+        <Flex align="center" gap="2" pr="2">
+          <OpenInExplorerButton
+            enabled={canOpenInExplorer}
+            href={`/product-analytics/explore/data-source?datasourceId=${encodeURIComponent(
+              d.id,
+            )}`}
+            tooltip="Open this Data Source in Product Analytics to choose a table and visualize its data. Chart trends, compare time periods, and slice/dice your data."
+          />
+          {(canUpdateConnectionParams ||
+            canUpdateDataSourceSettings ||
+            canDelete) && (
             <DropdownMenu
               trigger={
                 <IconButton
@@ -334,8 +346,8 @@ const DataSourcePage: FC = () => {
                 </>
               )}
             </DropdownMenu>
-          </Flex>
-        )}
+          )}
+        </Flex>
       </Flex>
       {d.type === "mixpanel" && (
         <Callout status="warning" mt="3">

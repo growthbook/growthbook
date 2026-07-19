@@ -1,6 +1,6 @@
 ---
 title: Visual Editor Troubleshooting
-description: Fixes for common issues with the GrowthBook Visual Editor — variations not showing, broken preview links, element selector confusion, image replacement issues, and more.
+description: Fixes for common issues with the GrowthBook Visual Editor — variations not showing, broken preview links, picking the right element with the tree selector, unresponsive pages on framework-heavy sites, why JavaScript changes seem to affect every variant, image replacement, and more.
 sidebar_label: Troubleshooting
 slug: /app/visual/troubleshooting
 ---
@@ -37,9 +37,14 @@ You're hitting `?experiment-id=1` but seeing variation 0. In order of likelihood
 
 When you hover an element, the blue highlight selects an ancestor or sibling instead of what you wanted:
 
-- Use the **parent/child controls** in the sticky bar at the top of the side panel to drill up or down the DOM tree.
-- For elements stacked on top of each other (z-index), the picker grabs the topmost. Hold a modifier key (Alt on macOS, Shift on Windows) while clicking to cycle through elements at the same point.
-- Some interactive elements (open dropdowns, hover menus) close as soon as you move the mouse to the side panel. Use the **Interactive Mode** toggle to keep them open while you select.
+<MaxWidthImage maxWidth={340}>
+  ![The Visual Editor tree selector, showing the selected element's parents, the current node, its siblings, and children](/images/visual-editor/ve-tree-selector.png)
+</MaxWidthImage>
+
+- **Use the tree selector.** Click the **tree icon** in the selected-element bar to open a small view of the surrounding DOM, then click the exact ancestor or child you want. This is the most reliable way to land on the right node. See [Picking an element](/app/visual/manual-mode#picking-an-element).
+- **Cycle through stacked elements.** For elements sitting on top of each other (z-index), the picker grabs the topmost. Hold a modifier key (Alt on macOS, Shift on Windows) while clicking to select the ones underneath.
+- **Keep interactive elements open.** Dropdowns and hover menus close as soon as you move the mouse to the side panel. Use the **Interactive Mode** toggle to keep them open while you select.
+- **Override the selector directly.** In the **Advanced** section you can type or refine the CSS selector by hand — useful when no amount of clicking lands on the element, or when you want a more durable selector. See [Detailed Selector](/app/visual/manual-mode#detailed-selector).
 
 ## Changes flicker on page load (FOOC)
 
@@ -51,6 +56,21 @@ A "flash of original content" happens when the SDK applies the variation a momen
 - **For server-rendered sites, consider an [Edge SDK](/lib/edge/cloudflare)** to apply visual changes at the CDN before HTML reaches the browser. This eliminates FOOC entirely.
 
 Heavy client-side-rendered apps (complex React/Vue/Svelte that rehydrate the page) are especially prone to flicker. For those, [Feature Flags](/app/features) are usually a better fit than visual experiments.
+
+## The page freezes or becomes unresponsive while editing
+
+Some elements aren't plain HTML — they're rendered and **owned by the site's JavaScript framework** (React, Next.js, Vue, Svelte, etc.). When you edit one, the Visual Editor applies your change, the framework re-renders the element and overwrites it, the editor re-applies, the framework reverts again — and the two can spin the browser's main thread until the page becomes unresponsive.
+
+The editor detects this loop and steps in before the page freezes. What happens next depends on the change:
+
+- **Style changes are fixed automatically.** Color, size, spacing, borders, visibility, and other styling are **re-delivered as global CSS** — a CSS rule re-matches the element on every render instead of being overwritten, so it beats the framework without a fight. These just work (you'll find them in the variation's global CSS); nothing to do.
+- **Content and structural changes can't be.** Text, HTML, and attribute changes have no CSS equivalent, so the editor **stops previewing** the change (to stay responsive) but **keeps it saved** — the loop can be specific to the editor (dev/staging builds re-render far more than production, and you're interacting with the page while editing), so the change may still work when the SDK applies it once on your live site. When you see the notice:
+  - **Verify with a [preview link](/app/visual/preview-and-qa)** on your live site. The editor can't tell an editor-only loop from a real one, so confirm whether the change actually holds for users before relying on it.
+  - **Target a nearby static element** — one the framework doesn't re-render. Use the [tree selector](#element-selector-picks-the-wrong-thing) to look for a stable parent or child. (An adjacent element isn't guaranteed to be static — much of a modern app's DOM is framework-controlled, so this doesn't always help.)
+  - **Use a [feature flag](/app/features)** instead. When the site's own code renders the content, a code-level change is the right tool — the visual editor is fighting the framework for ownership of that element.
+  - **As an escape hatch, Custom JS** with a `waitFor`/`MutationObserver` helper can re-apply the change, though the framework may still overwrite it. See [Custom JavaScript](/app/visual/manual-mode#custom-javascript).
+
+This also affects **live experiments** — the SDK applies changes the same way — so a change that fights the framework can flicker for real users too. For heavily client-rendered pages, prefer styling (delivered as CSS) or [Feature Flags](/app/features) over text/DOM changes.
 
 ## Image upload didn't replace the picture
 
@@ -88,6 +108,22 @@ The Visual Editor scopes itself to the URL you set when creating the experiment.
 
 - **Check the variation switcher** above the property groups. It's easy to make changes to v2 thinking you're on v1.
 - **The control is read-only** — if you can't make changes, you're probably on the control tab. Switch to one of the variants.
+
+## JavaScript changes seem to apply to every variant
+
+This is an **editor-preview artifact** — it doesn't happen for real users.
+
+When you add or **Run** Custom JS, the script executes on the live page so you can preview it. CSS and DOM/text changes are cleanly undone when you switch variants, but **arbitrary JavaScript can't be automatically reversed** — once a script has run it may already have created elements, attached listeners, or changed page state. Switching variants in the editor doesn't "un-run" it, so the page shows the **combined effect** of every script you've run since the last page load.
+
+**Real users only ever see one variant** — each visitor is bucketed into a single variation and loads only that variation's JS. They never experience the stacking you see while flipping between variants in the editor.
+
+To preview one variant cleanly:
+
+- **Reload the page**, then open the variant you want. A fresh load runs only that variant's JS. (The editor prompts you to reload after you change a JS block, since JS can't be hot-swapped in place.)
+- Use **Run** to re-execute the current variant's JS after editing it — Custom JS runs once per page load, not reactively.
+- To be sure no leftover side effects remain, hard-reload (Cmd/Ctrl-Shift-R).
+
+If your JS targets elements that appear late, wrap it in a `waitFor` helper — see [Custom JavaScript](/app/visual/manual-mode#custom-javascript).
 
 ## Save fails with "permission denied"
 
