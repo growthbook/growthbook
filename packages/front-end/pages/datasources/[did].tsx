@@ -5,6 +5,7 @@ import {
   isManagedWarehouseAwaitingProvisioning,
   supportsEventForwarder,
 } from "shared/util";
+import { isSampleDatasource } from "shared/demo-datasource";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiLinkBold } from "react-icons/pi";
@@ -96,7 +97,7 @@ const DataSourcePage: FC = () => {
   const metrics = combinedMetrics.filter((m) => m.datasource === did);
   const factTables = allFactTables.filter((ft) => ft.datasource === did);
 
-  const { apiCall } = useAuth();
+  const { apiCall, orgId } = useAuth();
   const { hasCommercialFeature } = useUser();
   const contextualBanditsEnabled = useFeatureIsOn("contextual-bandits");
 
@@ -117,9 +118,21 @@ const DataSourcePage: FC = () => {
 
   const deleteBlockedByEventForwarder = Boolean(d?.eventForwarderConfig);
 
+  // The sample Data Source connects to a shared, GrowthBook-operated database.
+  // Its connection info is never editable — repointing it would break the
+  // sample data and it would still be removed by "Delete Sample Data".
+  const isSampleDataSource = isSampleDatasource({
+    datasourceId: d?.id,
+    type: d?.type,
+    host: d?.params && "host" in d.params ? d.params.host : undefined,
+    projects: d?.projects,
+    organizationId: orgId ?? undefined,
+  });
+
   const canUpdateConnectionParams =
     (d &&
       !isManagedWarehouse &&
+      !isSampleDataSource &&
       permissionsUtil.canUpdateDataSourceParams(d) &&
       !hasFileConfig()) ||
     false;
