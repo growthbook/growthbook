@@ -141,7 +141,15 @@ export default function DashboardChecklistFilter({
                       align="center"
                       justify="between"
                       gap="2"
+                      role="button"
+                      tabIndex={0}
                       onClick={() => select(o.value, !selected)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          select(o.value, !selected);
+                        }
+                      }}
                       style={{
                         cursor: "pointer",
                         padding: "6px 8px",

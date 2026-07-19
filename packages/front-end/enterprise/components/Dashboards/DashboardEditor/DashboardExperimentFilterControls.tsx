@@ -120,7 +120,7 @@ export default function DashboardExperimentFilterControls({
         aria-label="Expand experiment filters"
       >
         <Flex align="center" gap="2">
-          <PiCaretDoubleRight aria-hidden />
+          <PiCaretDoubleLeft aria-hidden />
           <span>Experiment Filters</span>
           {totalActiveCount > 0 ? (
             <FilterCountBadge count={totalActiveCount} />
@@ -131,40 +131,58 @@ export default function DashboardExperimentFilterControls({
   }
 
   // The expanded controls render as one joined "segmented" control: a single
-  // outer border/radius (from the container) with hairline dividers between
-  // segments. Each inner button drops its own border (box-shadow) and radius so
-  // only the container's outline shows.
+  // outer outline (from the container) with hairline dividers between segments.
+  // Each inner button drops its own border (box-shadow) and radius so only the
+  // container's outline shows. The collapse handle leads on the left.
   const SEG_BORDER = "1px solid var(--violet-a8)";
-  const controlSegStyle: CSSProperties = {
+  const withDivider: CSSProperties = {
     boxShadow: "none",
     borderRadius: 0,
     borderRight: SEG_BORDER,
   };
-  const collapseSegStyle: CSSProperties = {
+  const noDivider: CSSProperties = {
     boxShadow: "none",
     borderRadius: 0,
   };
+  // The last visible control gets no trailing divider.
+  const lastControl = showExperimentSearch
+    ? "search"
+    : showMetric
+      ? "metric"
+      : "projects";
 
   return (
     <Flex
       display="inline-flex"
       align="center"
       style={{
-        border: SEG_BORDER,
+        // Inset shadow (not a layout border) so the group's height matches the
+        // collapsed pill exactly.
+        boxShadow: "inset 0 0 0 1px var(--violet-a8)",
         borderRadius: "var(--radius-3)",
         overflow: "hidden",
       }}
     >
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => setExpanded(false)}
+        aria-label="Collapse experiment filters"
+        style={withDivider}
+      >
+        <PiCaretDoubleRight aria-hidden />
+      </Button>
+
       {showProjects ? (
         <DashboardChecklistFilter
-          label="Exp Projects"
+          label="Projects"
           options={projectOptions}
           value={selectedProjects}
           onChange={(v) => onChange({ projects: v })}
           disabled={disabled}
           searchPlaceholder="Search projects..."
           emptyText="No projects found"
-          buttonStyle={controlSegStyle}
+          buttonStyle={lastControl === "projects" ? noDivider : withDivider}
         />
       ) : null}
 
@@ -186,7 +204,7 @@ export default function DashboardExperimentFilterControls({
           disabled={disabled}
           searchPlaceholder="Search metrics..."
           emptyText="No metrics found"
-          buttonStyle={controlSegStyle}
+          buttonStyle={lastControl === "metric" ? noDivider : withDivider}
         />
       ) : null}
 
@@ -199,10 +217,13 @@ export default function DashboardExperimentFilterControls({
               variant="outline"
               size="sm"
               disabled={disabled}
-              style={{ ...controlSegStyle, justifyContent: "space-between" }}
+              style={{
+                ...(lastControl === "search" ? noDivider : withDivider),
+                justifyContent: "space-between",
+              }}
             >
               <Flex align="center" gap="2">
-                <span>Exp Filters</span>
+                <span>Filters</span>
                 {experimentFilterCount > 0 ? (
                   <FilterCountBadge count={experimentFilterCount} />
                 ) : null}
@@ -238,16 +259,6 @@ export default function DashboardExperimentFilterControls({
           }
         />
       ) : null}
-
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => setExpanded(false)}
-        aria-label="Collapse experiment filters"
-        style={collapseSegStyle}
-      >
-        <PiCaretDoubleLeft aria-hidden />
-      </Button>
     </Flex>
   );
 }

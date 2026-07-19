@@ -10,6 +10,7 @@ import {
 } from "@/components/Search/SearchFilters";
 import { useExperimentFilterCategories } from "@/components/Search/experimentFilterCategories";
 import { SyntaxFilter, transformQuery } from "@/services/search";
+import { Popover } from "@/ui/Popover";
 import Field from "@/components/Forms/Field";
 import Link from "@/ui/Link";
 import Badge from "@/ui/Badge";
@@ -397,7 +398,9 @@ const SidebarExperimentFilters: FC<Props> = ({
     />
   );
 
-  // The combobox dropdown of not-yet-selected options for an expanded category.
+  // The combobox options for an expanded category (not-yet-selected values).
+  // Rendered as popover content, so it overlays instead of pushing the accordion
+  // open. The popover itself provides the border/background/shadow.
   const renderOptions = (category: FilterCategory) => {
     const selected = selectedValuesFor(category.key);
     const q = filterSearch.toLowerCase();
@@ -413,17 +416,7 @@ const SidebarExperimentFilters: FC<Props> = ({
     });
 
     return (
-      <Box
-        mt="1"
-        style={{
-          border: "1px solid var(--gray-a5)",
-          borderRadius: 8,
-          maxHeight: 220,
-          overflowY: "auto",
-          background: "var(--color-panel-solid)",
-          boxShadow: "var(--shadow-3)",
-        }}
-      >
+      <Box style={{ maxHeight: 240, overflowY: "auto" }}>
         {options.length === 0 ? (
           <Box px="2" py="2">
             <Text size="small" color="text-low">
@@ -431,7 +424,7 @@ const SidebarExperimentFilters: FC<Props> = ({
             </Text>
           </Box>
         ) : (
-          <Box p="1">
+          <Box>
             {options.map((item) => (
               <Box
                 key={item.id}
@@ -476,15 +469,42 @@ const SidebarExperimentFilters: FC<Props> = ({
     const optionsOpen = optionsOpenField === category.key;
     return (
       <Box pb="3">
-        <Field
-          type="text"
-          placeholder={`Search by ${category.heading.toLowerCase()} name...`}
-          value={filterSearch}
-          onChange={(e) => setFilterSearch(e.target.value)}
-          onFocus={() => setOptionsOpenField(category.key)}
-          onBlur={() => setOptionsOpenField("")}
+        <Popover
+          anchorOnly
+          open={optionsOpen}
+          onOpenChange={(o) => {
+            if (!o) setOptionsOpenField("");
+          }}
+          side="bottom"
+          align="start"
+          showArrow={false}
+          // Keep focus in the search input when the dropdown opens, and don't
+          // let Radix's own outside-click dismiss fire — closing is driven by
+          // the input's blur below so re-clicking the input never closes it.
+          onOpenAutoFocus={(e) => e.preventDefault()}
+          onInteractOutside={(e) => e.preventDefault()}
+          contentStyle={{
+            padding: 4,
+            width: "var(--radix-popover-trigger-width)",
+          }}
+          trigger={
+            // Full-width block so the anchor (and thus the width-matched
+            // popover) spans the panel. The Popover applies an "unstyled
+            // trigger" class (all:unset; inline-flex) to this element via
+            // asChild, so display/width are set inline to win over it.
+            <div style={{ display: "block", width: "100%" }}>
+              <Field
+                type="text"
+                placeholder={`Search by ${category.heading.toLowerCase()} name...`}
+                value={filterSearch}
+                onChange={(e) => setFilterSearch(e.target.value)}
+                onFocus={() => setOptionsOpenField(category.key)}
+                onBlur={() => setOptionsOpenField("")}
+              />
+            </div>
+          }
+          content={renderOptions(category)}
         />
-        {optionsOpen ? renderOptions(category) : null}
         {selected.length > 0 && (
           <Flex wrap="wrap" gap="1" mt="2">
             {selected.map((value) => (
