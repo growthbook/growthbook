@@ -10,15 +10,27 @@ import {
 import { IconType } from "react-icons";
 import Link from "next/link";
 import { Box, Flex, Text } from "@radix-ui/themes";
+import { useMemo } from "react";
+import { FaFirefoxBrowser } from "react-icons/fa";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { VISUAL_EDITOR_EXTENSION_LINK } from "@/components/OpenVisualEditorLink";
+import {
+  CHROME_EXTENSION_LINK,
+  FIREFOX_EXTENSION_LINK,
+  VISUAL_EDITOR_EXTENSION_LINK,
+  getBrowserDevice,
+} from "@/components/OpenVisualEditorLink";
 import styles from "./WorkspaceLinks.module.scss";
 
 export default function WorkspaceLinks() {
   const permissionsUtils = usePermissionsUtil();
   const { project, projects } = useDefinitions();
+
+  const { browser } = useMemo(() => {
+    const ua = navigator.userAgent;
+    return getBrowserDevice(ua);
+  }, []);
 
   return (
     <>
@@ -34,6 +46,24 @@ export default function WorkspaceLinks() {
         text="Install Visual Editor Extension"
         external
       />
+      {/* DevTools is still the extension for debugging feature flags,
+          experiments, and SDK health — only its visual editor moved to
+          the standalone extension above. */}
+      {browser === "firefox" ? (
+        <StyledLink
+          Icon={FaFirefoxBrowser}
+          url={FIREFOX_EXTENSION_LINK}
+          text="Install Firefox DevTools Extension"
+          external
+        />
+      ) : (
+        <StyledLink
+          Icon={PiGoogleChromeLogo}
+          url={CHROME_EXTENSION_LINK}
+          text="Install Chrome DevTools Extension"
+          external
+        />
+      )}
       <StyledLink
         Icon={PiFolders}
         url="/projects"

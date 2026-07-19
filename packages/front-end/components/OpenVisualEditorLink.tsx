@@ -15,6 +15,14 @@ import Button from "./Button";
 export const VISUAL_EDITOR_EXTENSION_LINK =
   "https://chromewebstore.google.com/detail/growthbook-visual-editor/nbomejknbpkcpjdagefhichaajpoempk";
 
+// The GrowthBook DevTools extension — still the tool for debugging feature
+// flags, experiments, attributes, and SDK health. Only its bundled visual
+// editor is deprecated (replaced by the standalone extension above).
+export const CHROME_EXTENSION_LINK =
+  "https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia";
+export const FIREFOX_EXTENSION_LINK =
+  "https://addons.mozilla.org/en-US/firefox/addon/growthbook-devtools/";
+
 type OpenVisualEditorResponse =
   | { error: "INVALID_BROWSER" }
   | { error: "NO_URL" }
