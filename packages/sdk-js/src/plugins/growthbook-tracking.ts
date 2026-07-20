@@ -32,8 +32,14 @@ type EventPayload = {
   context_json: Record<string, unknown>;
   user_id: string | null;
   device_id: string | null;
+  page_id: string | null;
   session_id: string | null;
   page_title?: string;
+  utm_source?: string;
+  utm_medium?: string;
+  utm_campaign?: string;
+  utm_term?: string;
+  utm_content?: string;
 };
 
 function parseString(value: unknown): null | string {
@@ -45,8 +51,14 @@ function parseAttributes(attributes: Attributes): {
   topLevel: {
     user_id: string | null;
     device_id: string | null;
+    page_id: string | null;
     session_id: string | null;
     page_title?: string;
+    utm_source?: string;
+    utm_medium?: string;
+    utm_campaign?: string;
+    utm_term?: string;
+    utm_content?: string;
   };
 } {
   const {
@@ -54,7 +66,13 @@ function parseAttributes(attributes: Attributes): {
     device_id,
     anonymous_id,
     id,
+    page_id,
     session_id,
+    utmCampaign,
+    utmContent,
+    utmMedium,
+    utmSource,
+    utmTerm,
     pageTitle,
     ...nested
   } = attributes;
@@ -64,7 +82,13 @@ function parseAttributes(attributes: Attributes): {
     topLevel: {
       user_id: parseString(user_id),
       device_id: parseString(device_id || anonymous_id || id),
+      page_id: parseString(page_id),
       session_id: parseString(session_id),
+      utm_campaign: parseString(utmCampaign) || undefined,
+      utm_content: parseString(utmContent) || undefined,
+      utm_medium: parseString(utmMedium) || undefined,
+      utm_source: parseString(utmSource) || undefined,
+      utm_term: parseString(utmTerm) || undefined,
       page_title: parseString(pageTitle) || undefined,
     },
   };
