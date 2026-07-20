@@ -406,8 +406,9 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
 
     // Reverse the apply-time holdout transition. Its guards can legitimately
     // refuse during compensation — then the doc's holdout key is NOT restored
-    // below, keeping the feature doc consistent with the holdout and
-    // experiment collections (both left at the failed publish's state).
+    // below (keeping the doc consistent with the un-reversed holdout/experiment
+    // collections), and the failure is surfaced at the end so the orchestrator
+    // marks this item restore-failed instead of reporting a clean rollback.
     let holdoutReversalOk = true;
     if (mergeResult.holdout !== undefined) {
       try {
@@ -467,6 +468,17 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     ) as Partial<FeatureInterface>;
     if (Object.keys(restore).length) {
       await updateFeature(context, current, restore);
+    }
+
+    // A failed holdout reversal leaves the live feature partly at the failed
+    // publish's state (doc holdout + collections unchanged) while its other
+    // fields rolled back. Surface it so commitBulkPublish marks the item
+    // restore-failed — keeping its claim and reporting it "published" rather
+    // than falsely claiming a clean rollback of a still-mixed entity.
+    if (!holdoutReversalOk) {
+      throw new Error(
+        `bulk publish compensation: holdout reversal failed for feature ${feature.id}; live holdout state retained`,
+      );
     }
   },
 
