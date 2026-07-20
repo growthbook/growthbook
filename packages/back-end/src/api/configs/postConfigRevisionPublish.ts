@@ -3,7 +3,6 @@ import {
   checkMergeConflicts,
   normalizeProposedChanges,
 } from "shared/enterprise";
-import { isConfigLocked } from "shared/util";
 import { postConfigRevisionPublishValidator } from "shared/validators";
 import { SimpleSchema } from "shared/types/feature";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -28,7 +27,11 @@ import {
   assertConfigValueValidForPublish,
   collectConfigPublishHookGates,
 } from "back-end/src/services/configValidation";
-import { assertConfigNotLocked } from "back-end/src/services/configLock";
+import {
+  assertConfigNotLocked,
+  collectConfigLockGate,
+} from "back-end/src/services/configLock";
+import { collectRevisionGovernanceGates } from "back-end/src/revisions/governanceGates";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 import { loadRevisionByVersion } from "./validations";
 import { toApiConfigRevision } from "./toApiConfigRevision";
@@ -86,63 +89,19 @@ export const postConfigRevisionPublish = createApiRequestHandler(
   // that were bypassed. The lock, approval, stale-base, and value-validation
   // checks below stay in place as the enforcement backstop; the adapter-
   // collected guard gates are enforced solely here.
-  const version = req.params.version;
-  const gates: PublishGate[] = [];
-  // Hard lock (the entity's own revision pin): no inline bypass exists on the
-  // publish path — the only escape is an explicit unlock — so the gate carries
-  // no override flag and points at the unlock route. assertConfigNotLocked below
-  // is the backstop.
-  if (isConfigLocked(config)) {
-    gates.push({
-      type: "config-locked",
-      severity: "blocker",
-      messages: [`Locked at revision v${config.lock?.version}.`],
-      override: null,
-      requiresPermission: "bypassApprovalChecks",
-      resolution: {
-        action: "unlock",
-        method: "POST",
-        path: `/configs/${config.key}/unlock`,
-      },
-    });
-  }
-  if (approvalRequired && revision.status !== "approved") {
-    gates.push({
-      type: "approval-required",
-      severity: "blocker",
-      messages: [
-        `Requires approval before publishing (status: "${revision.status}").`,
-      ],
-      override: null,
-      requiresPermission: "bypassApprovalChecks",
-      resolution: {
-        action: "request-review",
-        method: "POST",
-        path: `/configs-revisions/${config.key}/${version}/request-review`,
-      },
-    });
-  }
-  if (
-    req.organization.settings?.requireRebaseBeforePublish &&
-    isRevisionDiverged(
+  const gates: PublishGate[] = [
+    // Hard lock (the entity's own revision pin): no inline bypass exists on
+    // the publish path — the only escape is the unlock route.
+    // assertConfigNotLocked below is the backstop.
+    ...collectConfigLockGate(config),
+    ...collectRevisionGovernanceGates({
+      context: req.context,
       adapter,
-      revision.target.snapshot as Record<string, unknown>,
-      config as unknown as Record<string, unknown>,
-    )
-  ) {
-    gates.push({
-      type: "stale-base",
-      severity: "blocker",
-      messages: ["This revision was created against an older version."],
-      override: "ignoreWarnings",
-      requiresPermission: "bypassApprovalChecks",
-      resolution: {
-        action: "rebase",
-        method: "POST",
-        path: `/configs-revisions/${config.key}/${version}/rebase`,
-      },
-    });
-  }
+      targetType: "config",
+      entity: config as unknown as Record<string, unknown>,
+      revision,
+    }),
+  ];
   gates.push(
     ...((await adapter.collectPublishGates?.(
       req.context,

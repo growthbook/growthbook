@@ -1,4 +1,3 @@
-import { isConfigLocked } from "shared/util";
 import { ConfigInterface } from "shared/types/config";
 import { SavedGroupInterface } from "shared/types/saved-group";
 import type { Revision } from "shared/enterprise";
@@ -8,10 +7,8 @@ import {
   collectConfigPublishHookGates,
   collectConfigPublishValueGates,
 } from "back-end/src/services/configValidation";
-import {
-  archiveDependentsGateMessage,
-  collectSavedGroupArchiveDependents,
-} from "back-end/src/services/archiveDependentsGuard";
+import { collectConfigLockGate } from "back-end/src/services/configLock";
+import { collectSavedGroupArchiveDependentsGate } from "back-end/src/services/archiveDependentsGuard";
 import type { PublishGate } from "back-end/src/revisions/publishGates";
 import { makeGenericBulkAdapter } from "back-end/src/revisions/bulkPublish/genericBulkAdapter";
 import { featureBulkAdapter } from "back-end/src/revisions/bulkPublish/featureBulkAdapter";
@@ -30,23 +27,7 @@ async function configExtraGates(args: {
   desiredState: Record<string, unknown>;
 }): Promise<PublishGate[]> {
   const config = args.entity as unknown as ConfigInterface;
-  const gates: PublishGate[] = [];
-  if (isConfigLocked(config)) {
-    gates.push({
-      type: "config-locked",
-      severity: "blocker",
-      messages: [
-        `Config "${config.key}" is locked at revision v${config.lock?.version}. Unlock it before publishing.`,
-      ],
-      override: null,
-      requiresPermission: "bypassApprovalChecks",
-      resolution: {
-        action: "unlock",
-        method: "POST",
-        path: `/configs/${config.key}/unlock`,
-      },
-    });
-  }
+  const gates: PublishGate[] = [...collectConfigLockGate(config)];
   // Custom validation hooks — evaluated against the overlay so hooks judge the
   // multi-entity end-state, matching where the value validation runs.
   gates.push(
@@ -75,23 +56,11 @@ async function savedGroupExtraGates(args: {
   entity: Record<string, unknown>;
   desiredState: Record<string, unknown>;
 }): Promise<PublishGate[]> {
-  const savedGroup = args.entity as unknown as SavedGroupInterface;
-  if (args.desiredState.archived !== true || savedGroup.archived) return [];
-  const dependents = await collectSavedGroupArchiveDependents(
+  return collectSavedGroupArchiveDependentsGate(
     args.callerContext,
-    savedGroup.id,
+    args.entity as unknown as SavedGroupInterface,
+    args.desiredState,
   );
-  if (!dependents.ids.length) return [];
-  return [
-    {
-      type: "archive-dependents",
-      severity: "warning",
-      messages: [archiveDependentsGateMessage("Saved Group", dependents)],
-      override: "ignoreWarnings",
-      requiresPermission: null,
-      resolution: null,
-    },
-  ];
 }
 
 const registry: Record<BulkPublishTargetType, () => BulkPublishableAdapter> = {

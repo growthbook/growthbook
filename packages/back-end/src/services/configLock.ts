@@ -4,6 +4,7 @@ import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import { BadRequestError } from "back-end/src/util/errors";
 import { ensureLiveRevisionExists } from "back-end/src/revisions/util";
+import type { PublishGate } from "back-end/src/revisions/publishGates";
 
 type Context = ReqContext | ApiReqContext;
 
@@ -20,6 +21,29 @@ export function assertConfigNotLocked(config: ConfigInterface): void {
         "Unlock it (requires the bypassApprovalChecks permission) before publishing.",
     );
   }
+}
+
+// The gate form of the lock check, shared by the publish and archive handlers
+// and the bulk publisher. No override flag — the only escape is the unlock
+// route (assertConfigNotLocked stays as the write-path backstop).
+export function collectConfigLockGate(config: ConfigInterface): PublishGate[] {
+  if (!isConfigLocked(config)) return [];
+  return [
+    {
+      type: "config-locked",
+      severity: "blocker",
+      messages: [
+        `Locked at revision v${config.lock?.version}. Unlock it first.`,
+      ],
+      override: null,
+      requiresPermission: "bypassApprovalChecks",
+      resolution: {
+        action: "unlock",
+        method: "POST",
+        path: `/configs/${config.key}/unlock`,
+      },
+    },
+  ];
 }
 
 // The revision to pin when locking: the config's current live (latest merged)

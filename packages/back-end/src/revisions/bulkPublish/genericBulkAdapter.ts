@@ -8,10 +8,8 @@ import {
 import type { Context } from "back-end/src/models/BaseModel";
 import type { EntityRevisionAdapter } from "back-end/src/revisions/EntityRevisionAdapter";
 import type { PublishGate } from "back-end/src/revisions/publishGates";
-import {
-  buildMergeDesiredState,
-  isRevisionDiverged,
-} from "back-end/src/revisions/util";
+import { buildMergeDesiredState } from "back-end/src/revisions/util";
+import { collectRevisionGovernanceGates } from "back-end/src/revisions/governanceGates";
 import { getRevisionWebhookAdapter } from "back-end/src/events/revisionWebhookAdapters";
 import { MergeConflictError } from "back-end/src/util/errors";
 import type {
@@ -124,54 +122,17 @@ export function makeGenericBulkAdapter(
       desiredState,
     }) {
       const raw = revision.raw as Revision;
-      const gates: PublishGate[] = [];
-      // The revision-route base for gate resolutions, per the entity's REST
-      // identifier convention (configs/constants by key, saved groups by id).
-      const identifier =
-        (entity as { key?: string }).key ?? (entity as { id: string }).id;
-      const routeBase = `/${targetType}s-revisions/${identifier}/${raw.version}`;
-
-      const approvalRequired = adapter.isApprovalRequiredForRevision
-        ? adapter.isApprovalRequiredForRevision(callerContext, raw)
-        : adapter.isApprovalRequired(callerContext);
-      if (approvalRequired && raw.status !== "approved") {
-        gates.push({
-          type: "approval-required",
-          severity: "blocker",
-          messages: [
-            `Requires approval before publishing (status: "${raw.status}").`,
-          ],
-          override: null,
-          requiresPermission: "bypassApprovalChecks",
-          resolution: {
-            action: "request-review",
-            method: "POST",
-            path: `${routeBase}/request-review`,
-          },
-        });
-      }
-
-      if (
-        callerContext.org.settings?.requireRebaseBeforePublish &&
-        isRevisionDiverged(
-          adapter,
-          raw.target.snapshot as Record<string, unknown>,
-          entity,
-        )
-      ) {
-        gates.push({
-          type: "stale-base",
-          severity: "blocker",
-          messages: ["This revision was created against an older version."],
-          override: "ignoreWarnings",
-          requiresPermission: "bypassApprovalChecks",
-          resolution: {
-            action: "rebase",
-            method: "POST",
-            path: `${routeBase}/rebase`,
-          },
-        });
-      }
+      // Approval + stale-base via the shared collector (approval scoping —
+      // project/env/metadata rules — stays inside each adapter's
+      // isApprovalRequiredForRevision). Caller context: governance is about
+      // the caller's org policy, not the overlay end-state.
+      const gates: PublishGate[] = collectRevisionGovernanceGates({
+        context: callerContext,
+        adapter,
+        targetType,
+        entity,
+        revision: raw,
+      });
 
       // Entity-level guards + schema validation, evaluated against the
       // multi-entity end-state: the overlay context is both the read context

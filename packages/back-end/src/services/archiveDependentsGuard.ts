@@ -20,6 +20,7 @@ import {
 } from "back-end/src/services/savedGroups";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
 import { getAllExperimentsForStaleGraph } from "back-end/src/models/ExperimentModel";
+import type { PublishGate } from "back-end/src/revisions/publishGates";
 import {
   SoftWarningError,
   TerminalPublishError,
@@ -519,4 +520,30 @@ export function archiveDependentsGateMessage(
   dependents: ArchiveDependents,
 ): string {
   return archiveMessage(noun, dependents, { elevated: noun === "config" });
+}
+
+// The gate form of the saved-group archive guard, shared by the single-entity
+// publish handler and the bulk publisher. Only the archive transition is
+// guarded, as a soft warning (ignoreWarnings clears it; no elevated permission).
+export async function collectSavedGroupArchiveDependentsGate(
+  context: ReqContext | ApiReqContext,
+  savedGroup: { id: string; archived?: boolean },
+  desiredState: Record<string, unknown>,
+): Promise<PublishGate[]> {
+  if (desiredState.archived !== true || savedGroup.archived) return [];
+  const dependents = await collectSavedGroupArchiveDependents(
+    context,
+    savedGroup.id,
+  );
+  if (!dependents.ids.length) return [];
+  return [
+    {
+      type: "archive-dependents",
+      severity: "warning",
+      messages: [archiveDependentsGateMessage("Saved Group", dependents)],
+      override: "ignoreWarnings",
+      requiresPermission: null,
+      resolution: null,
+    },
+  ];
 }
