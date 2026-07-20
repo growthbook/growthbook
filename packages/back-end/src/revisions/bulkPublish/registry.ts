@@ -17,8 +17,7 @@ import type { BulkPublishTargetType } from "back-end/src/revisions/bulkPublish/t
 
 // Gates the single-entity REST handlers assemble inline (rather than via the
 // adapters' collectPublishGates), contributed here so bulk plans enforce the
-// same conditions. Consolidating these into one shared per-entity builder used
-// by both surfaces is tracked follow-up work.
+// same conditions.
 
 async function configExtraGates(args: {
   overlayContext: Context;
@@ -52,12 +51,15 @@ async function configExtraGates(args: {
 }
 
 async function savedGroupExtraGates(args: {
-  callerContext: Context;
+  overlayContext: Context;
   entity: Record<string, unknown>;
   desiredState: Record<string, unknown>;
 }): Promise<PublishGate[]> {
+  // Overlay context: the dependents scan honors the feature scan overlay, so
+  // a release that archives a Saved Group AND removes its last reference in a
+  // sibling item plans clean — matching the config/feature archive gates.
   return collectSavedGroupArchiveDependentsGate(
-    args.callerContext,
+    args.overlayContext,
     args.entity as unknown as SavedGroupInterface,
     args.desiredState,
   );
@@ -76,8 +78,16 @@ const registry: Record<BulkPublishTargetType, () => BulkPublishableAdapter> = {
   feature: () => featureBulkAdapter,
 };
 
+// Adapters are stateless (per-item state rides in the plan), so each type
+// resolves to one shared instance — matching the underlying getAdapter registry.
+const instances = new Map<BulkPublishTargetType, BulkPublishableAdapter>();
+
 export function getBulkAdapter(
   type: BulkPublishTargetType,
 ): BulkPublishableAdapter {
-  return registry[type]();
+  const cached = instances.get(type);
+  if (cached) return cached;
+  const adapter = registry[type]();
+  instances.set(type, adapter);
+  return adapter;
 }

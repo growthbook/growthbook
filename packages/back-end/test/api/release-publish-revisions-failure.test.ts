@@ -297,13 +297,15 @@ describe("POST /api/v2/releases/publish-revisions — commit failure", () => {
     expect(res.status).toBe(500);
     expect(res.body.message).toMatch(/could not be rolled back/);
 
-    // Per-item outcomes name the stuck entity.
+    // Per-item outcomes name the stuck entity — flat rows speaking the
+    // caller's identifier vocabulary (config/constant keys, not internal ids).
     const byId = Object.fromEntries(
-      (res.body.items as { ref: { entityId: string }; status: string }[]).map(
-        (item) => [item.ref.entityId, item.status],
-      ),
+      (res.body.items as { id: string; status: string }[]).map((item) => [
+        item.id,
+        item.status,
+      ]),
     );
-    expect(byId["const_stuck-const"]).toBe("published");
+    expect(byId["stuck-const"]).toBe("published");
     expect(byId["stuck-feat"]).toBe("rolled-back");
 
     // The stuck constant keeps the release state on both entity and revision.

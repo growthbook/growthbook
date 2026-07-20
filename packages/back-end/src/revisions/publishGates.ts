@@ -118,6 +118,53 @@ const SOFT_GUARD_GATE_TYPES: ReadonlySet<string> = new Set([
   "archive-dependents",
 ]);
 
+/** Feature lockdown gates, auto-cleared by the same authorities as
+ * bypassLockdown on the single-entity path (bypass-approval permission or the
+ * org REST-bypass setting) — no override flag required. */
+const LOCKDOWN_GATE_TYPES: ReadonlySet<string> = new Set([
+  "ramp-locked",
+  "publish-locking-sibling",
+]);
+
+/**
+ * Custom validation-hook results as publish gates — the one mapping shared by
+ * every entity family, so the skipHooks/ignoreWarnings classification and copy
+ * can't drift between them.
+ */
+export function hookResultsToGates(results: {
+  hardErrors: string[];
+  warnings: string[];
+}): PublishGate[] {
+  const gates: PublishGate[] = [];
+  if (results.hardErrors.length) {
+    gates.push({
+      type: "custom-hook",
+      severity: "blocker",
+      messages: [
+        "A custom validation hook rejected this publish:",
+        ...results.hardErrors,
+      ],
+      override: "skipHooks",
+      requiresPermission: "bypassApprovalChecks",
+      resolution: null,
+    });
+  }
+  if (results.warnings.length) {
+    gates.push({
+      type: "custom-hook",
+      severity: "warning",
+      messages: [
+        "A custom validation hook raised a warning:",
+        ...results.warnings,
+      ],
+      override: "ignoreWarnings",
+      requiresPermission: null,
+      resolution: null,
+    });
+  }
+  return gates;
+}
+
 /**
  * The clearing signals a request carries, used to decide each gate's
  * disposition. Handlers assemble this from their own bypass computations so the
@@ -226,6 +273,20 @@ export function classifyPublishGate(
     }
     if (clearance.bypassApprovalPermission) {
       return { outcome: "bypassed", via: "bypassApprovalChecks" };
+    }
+    return { outcome: "blocking" };
+  }
+
+  // Feature lockdown gates: safety gates against accidental live-traffic
+  // changes, not security boundaries — the single-entity path's bypassLockdown
+  // auto-clears them for the same authorities that bypass approval (the
+  // permission OR the org REST-bypass setting), with no flag required.
+  if (LOCKDOWN_GATE_TYPES.has(gate.type)) {
+    if (clearance.bypassApprovalPermission) {
+      return { outcome: "bypassed", via: "bypassApprovalChecks" };
+    }
+    if (clearance.restApiBypassesReviews) {
+      return { outcome: "bypassed", via: "restApiBypassesReviews" };
     }
     return { outcome: "blocking" };
   }

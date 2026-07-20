@@ -97,6 +97,7 @@ import {
 import { getEnvironments } from "back-end/src/util/organization.util";
 import { ApiReqContext } from "back-end/types/api";
 import { deriveLiveFeatureEventEnvironments } from "back-end/src/events/eventEnvironments";
+import { emitOrDeferBulkPublishEvent } from "back-end/src/events/bulkPublishCorrelation";
 import { determineNextSafeRolloutSnapshotAttempt } from "back-end/src/enterprise/saferollouts/safeRolloutUtils";
 import {
   createVercelExperimentationItemFromFeature,
@@ -1065,14 +1066,9 @@ export async function onFeatureUpdate(
   ) {
     // Event-based webhooks. During a bulk-publish commit the emission defers
     // to the post-commit flush (dropped entirely if the commit compensates).
-    const deferred = context.bulkPublishDeferredEvents;
-    if (deferred) {
-      deferred.push(() =>
-        logFeatureUpdatedEvent(context, feature, updatedFeature),
-      );
-    } else {
-      await logFeatureUpdatedEvent(context, feature, updatedFeature);
-    }
+    await emitOrDeferBulkPublishEvent(context, () =>
+      logFeatureUpdatedEvent(context, feature, updatedFeature),
+    );
   }
 
   if (context.org.isVercelIntegration)
@@ -1113,11 +1109,17 @@ export async function updateFeature(
     });
   }
 
-  await runValidateFeatureHooks({
-    context,
-    feature: projected,
-    original: feature,
-  });
+  // A bulk-publish commit (context.bulkPublishId set) already ran validation
+  // hooks as plan gates against the release end-state; re-running them here
+  // would judge the mid-commit mix — and would veto compensation restores.
+  // The plan gates, not this backstop, are the enforcement surface there.
+  if (!context.bulkPublishId) {
+    await runValidateFeatureHooks({
+      context,
+      feature: projected,
+      original: feature,
+    });
+  }
 
   // Hygiene: when persisting a new top-level v2 `rules` array, also force-scrub
   // any legacy `environmentSettings.{env}.rules` from the doc. The JIT read
@@ -1542,53 +1544,66 @@ export async function setJsonSchema(
   });
 }
 
+/**
+ * The status the publish-time sync will write per safe rollout: the revision
+ * rule's status, plus "stopped" for live safe-rollout rules the revision
+ * removes. Empty when the revision carries no rules (the sync writes nothing
+ * then). Exported so the bulk publisher's compensation snapshots predict
+ * exactly what updateSafeRolloutStatuses writes.
+ */
+export function computeSafeRolloutStatusMap(
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+): Record<string, "running" | "rolled-back" | "released" | "stopped"> {
+  if (!revision.rules || revision.rules.length === 0) return {};
+  const map: Record<
+    string,
+    "running" | "rolled-back" | "released" | "stopped"
+  > = Object.fromEntries(
+    revision.rules
+      .filter((rule): rule is SafeRolloutRule => rule?.type === "safe-rollout")
+      .map((rule) => [rule.safeRolloutId, rule.status]),
+  );
+  // Stop safe rollouts whose rule was removed in this revision.
+  for (const rule of feature.rules ?? []) {
+    if (rule?.type === "safe-rollout" && !map[rule.safeRolloutId]) {
+      map[rule.safeRolloutId] = "stopped";
+    }
+  }
+  return map;
+}
+
 const updateSafeRolloutStatuses = async (
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,
 ) => {
-  if (!revision.rules || revision.rules.length === 0) return;
+  const statusMap = computeSafeRolloutStatusMap(feature, revision);
+  const ids = Object.keys(statusMap);
+  if (!ids.length) return;
 
-  const safeRolloutStatusesMap: Record<
-    string,
-    { status: "running" | "rolled-back" | "released" | "stopped" }
-  > = Object.fromEntries(
-    revision.rules
-      .filter((rule): rule is SafeRolloutRule => rule?.type === "safe-rollout")
-      .map((rule) => [rule.safeRolloutId, { status: rule.status }]),
-  );
-  // Stop safe rollouts whose rule was removed in this revision.
-  (feature.rules ?? []).forEach((rule) => {
-    if (
-      rule?.type === "safe-rollout" &&
-      !safeRolloutStatusesMap[rule.safeRolloutId]
-    ) {
-      safeRolloutStatusesMap[rule.safeRolloutId] = { status: "stopped" };
-    }
-  });
+  const safeRollouts = await context.models.safeRollout.getByIds(ids);
 
-  const safeRollouts = await context.models.safeRollout.getByIds(
-    Object.keys(safeRolloutStatusesMap),
-  );
-
-  safeRollouts.forEach((safeRollout) => {
-    // sync the status of the safe rollout to the status of the revision
-    const safeRolloutUpdates: UpdateProps<SafeRolloutInterface> = {
-      status: safeRolloutStatusesMap[safeRollout.id].status,
-    };
-    if (!safeRollout.startedAt && safeRolloutUpdates.status === "running") {
-      safeRolloutUpdates["startedAt"] = new Date();
-      const { nextSnapshot, nextRampUp } =
-        determineNextSafeRolloutSnapshotAttempt(safeRollout, context.org);
-      safeRolloutUpdates["nextSnapshotAttempt"] = nextSnapshot;
-      safeRolloutUpdates["rampUpSchedule"] = {
-        ...safeRollout.rampUpSchedule,
-        nextUpdate: nextRampUp,
+  await Promise.all(
+    safeRollouts.map(async (safeRollout) => {
+      // sync the status of the safe rollout to the status of the revision
+      const safeRolloutUpdates: UpdateProps<SafeRolloutInterface> = {
+        status: statusMap[safeRollout.id],
       };
-    }
+      if (!safeRollout.startedAt && safeRolloutUpdates.status === "running") {
+        safeRolloutUpdates["startedAt"] = new Date();
+        const { nextSnapshot, nextRampUp } =
+          determineNextSafeRolloutSnapshotAttempt(safeRollout, context.org);
+        safeRolloutUpdates["nextSnapshotAttempt"] = nextSnapshot;
+        safeRolloutUpdates["rampUpSchedule"] = {
+          ...safeRollout.rampUpSchedule,
+          nextUpdate: nextRampUp,
+        };
+      }
 
-    context.models.safeRollout.update(safeRollout, safeRolloutUpdates);
-  });
+      await context.models.safeRollout.update(safeRollout, safeRolloutUpdates);
+    }),
+  );
 };
 
 // Pure computation of the feature-doc changes a revision merge will produce; no writes

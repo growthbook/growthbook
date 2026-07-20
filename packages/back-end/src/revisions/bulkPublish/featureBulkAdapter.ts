@@ -9,6 +9,7 @@ import {
   applyRampCreateActionsForRevision,
   applyRevisionChanges,
   computeRevisionMergeChanges,
+  computeSafeRolloutStatusMap,
   finalizeRampActionsAfterPublish,
   getFeature,
   rollbackCreatedRampSchedules,
@@ -65,24 +66,18 @@ type FeatureDesiredState = {
   createdRampScheduleIds?: string[];
   updatedFeature?: FeatureInterface;
   /**
-   * Pre-apply snapshots of the safe-rollout docs the apply's status sync may
-   * mutate (captured BEFORE applyRevisionChanges, which writes them before
-   * the feature doc) — compensation restores their statuses.
+   * Per safe rollout the apply's status sync will write: the pre-apply doc
+   * snapshot (compensation's restore source), the status the sync writes
+   * (computeSafeRolloutStatusMap — the ownership check), and the post-apply
+   * doc (per-field ownership baseline, so worker progress between apply and
+   * rollback is never clobbered; absent when the apply threw before the
+   * feature write completed).
    */
-  safeRolloutPreImages?: SafeRolloutInterface[];
-  /**
-   * The status the apply's sync writes per safe rollout (revision rule
-   * status; "stopped" for rules the revision removes) — compensation's
-   * ownership check restores a rollout only while it still holds this value.
-   */
-  safeRolloutWrittenStatus?: Record<string, string>;
-  /**
-   * Post-apply snapshots of the same docs (captured right after the sync
-   * ran) — compensation's per-field ownership baseline, so worker progress
-   * between apply and rollback is never clobbered. Absent when the apply
-   * threw before the feature write completed.
-   */
-  safeRolloutPostImages?: SafeRolloutInterface[];
+  safeRollouts?: Array<{
+    pre: SafeRolloutInterface;
+    writtenStatus: string;
+    post?: SafeRolloutInterface;
+  }>;
 };
 
 function toRef(revision: FeatureRevisionInterface): BulkRevisionRef {
@@ -219,10 +214,11 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     }
 
     // Lockdown blocks from the feature publish core, surfaced as gates at
-    // plan time. Both are bypassable with the bypass-approval permission,
-    // matching the single-entity path's `bypassLockdown` semantics (lockdown
-    // is a safety gate against accidental live-traffic changes, not a
-    // security boundary).
+    // plan time. Both auto-clear for the bypass-approval permission OR the
+    // org REST-bypass setting with no flag needed (classifyPublishGate's
+    // lockdown branch), matching the single-entity path's `bypassLockdown`:
+    // a safety gate against accidental live-traffic changes, not a security
+    // boundary.
     try {
       await assertFeatureNotLockedByRamp(overlayContext, feature.id);
     } catch (e) {
@@ -230,7 +226,7 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
         type: "ramp-locked",
         severity: "blocker",
         messages: [getErrorMessage(e)],
-        override: "ignoreWarnings",
+        override: null,
         requiresPermission: "bypassApprovalChecks",
         resolution: null,
       });
@@ -246,9 +242,9 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
         type: "publish-locking-sibling",
         severity: "blocker",
         messages: [
-          "Another draft of this feature has a scheduled publish that locks other drafts. Cancel that schedule first.",
+          "Another draft of this Feature Flag has a scheduled publish that locks other drafts. Cancel that schedule first.",
         ],
-        override: "ignoreWarnings",
+        override: null,
         requiresPermission: "bypassApprovalChecks",
         resolution: null,
       });
@@ -267,6 +263,9 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
           revision: raw,
           plan,
           comment: flags.comment,
+          // Hooks judge publishedBy: the claim will stamp the CALLER's
+          // identity, never the identity-less overlay scan context's.
+          publisher: callerContext.auditUser,
           includeValidationGates: true,
         })),
       );
@@ -285,7 +284,7 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
   },
 
   async claim(context, revision, baseline, { comment }) {
-    return claimFeatureRevisionAsPublished(
+    const { claimed, claimStamp } = await claimFeatureRevisionAsPublished(
       rawRevision(revision),
       context.auditUser,
       {
@@ -294,10 +293,15 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       },
       comment,
     );
+    revision.claimStamp = claimStamp;
+    return claimed;
   },
 
   async releaseClaim(context, revision) {
-    await restoreFeatureRevisionAfterFailedBulkPublish(rawRevision(revision));
+    await restoreFeatureRevisionAfterFailedBulkPublish(
+      rawRevision(revision),
+      revision.claimStamp ?? null,
+    );
   },
 
   async applyPrecomputed(context, entity, revision, desiredState) {
@@ -316,30 +320,18 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       mergeResult,
     );
 
-    // Snapshot the safe-rollout docs whose statuses the apply's sync may
-    // rewrite, and the status it will write to each (mirroring
-    // updateSafeRolloutStatuses: revision rule status; "stopped" for rules
-    // the revision removes), so compensation can restore with an ownership
-    // check.
-    const writtenStatus: Record<string, string> = {};
-    for (const rule of raw.rules ?? []) {
-      if (rule?.type === "safe-rollout") {
-        writtenStatus[rule.safeRolloutId] = rule.status;
-      }
-    }
-    for (const rule of feature.rules ?? []) {
-      if (
-        rule?.type === "safe-rollout" &&
-        !(rule.safeRolloutId in writtenStatus)
-      ) {
-        writtenStatus[rule.safeRolloutId] = "stopped";
-      }
-    }
-    const safeRolloutIds = Object.keys(writtenStatus);
+    // Snapshot the safe-rollout docs whose statuses the apply's sync will
+    // rewrite (computeSafeRolloutStatusMap is the sync's own disposition), so
+    // compensation can restore with an ownership check.
+    const statusMap = computeSafeRolloutStatusMap(feature, raw);
+    const safeRolloutIds = Object.keys(statusMap);
     if (safeRolloutIds.length) {
-      desired.safeRolloutWrittenStatus = writtenStatus;
-      desired.safeRolloutPreImages =
+      const preImages =
         await context.models.safeRollout.getByIds(safeRolloutIds);
+      desired.safeRollouts = preImages.map((pre) => ({
+        pre,
+        writtenStatus: statusMap[pre.id],
+      }));
     }
 
     const updated = await applyRevisionChanges(
@@ -353,9 +345,13 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     // Re-snapshot the safe rollouts now that the sync inside
     // applyRevisionChanges has written them — the per-field ownership
     // baseline for compensation.
-    if (safeRolloutIds.length) {
-      desired.safeRolloutPostImages =
+    if (desired.safeRollouts?.length) {
+      const postImages =
         await context.models.safeRollout.getByIds(safeRolloutIds);
+      const postById = new Map(postImages.map((doc) => [doc.id, doc]));
+      for (const entry of desired.safeRollouts) {
+        entry.post = postById.get(entry.pre.id);
+      }
     }
 
     if (mergeResult.holdout !== undefined) {
@@ -385,17 +381,17 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     // Safe rollouts the apply's status sync advanced go back to their
     // pre-apply state (ownership-checked inside against the status the sync
     // wrote, so worker progress is never clobbered).
-    for (const pre of desired.safeRolloutPreImages ?? []) {
+    for (const entry of desired.safeRollouts ?? []) {
       try {
         await context.models.safeRollout.restoreAfterFailedBulkPublish(
-          pre,
-          desired.safeRolloutWrittenStatus?.[pre.id] ?? pre.status,
-          desired.safeRolloutPostImages?.find((doc) => doc.id === pre.id),
+          entry.pre,
+          entry.writtenStatus,
+          entry.post,
         );
       } catch (e) {
         logger.error(
           e,
-          `bulk publish compensation: failed to restore safe rollout ${pre.id} for feature ${feature.id}`,
+          `bulk publish compensation: failed to restore safe rollout ${entry.pre.id} for feature ${feature.id}`,
         );
       }
     }
@@ -493,66 +489,25 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     const feature = entity as unknown as FeatureInterface;
     const desired = desiredState as unknown as FeatureDesiredState;
     const raw = rawRevision(revision);
-
-    // Post-publish cleanup of pending experiment drafts pointing at this
-    // revision — post-commit only, so a rolled-back release never clears them.
-    await clearPendingFeatureDraftsForRevision(
-      context,
-      raw.featureId,
-      raw.version,
-      raw.rules,
-    );
     const updated =
       desired.updatedFeature ??
       (await getFeature(context, feature.id)) ??
       feature;
-    const original = rawRevision(revision);
 
-    if (
-      desired.mergeResult.metadata?.tags !== undefined &&
-      Array.isArray(desired.mergeResult.metadata.tags)
-    ) {
-      await addTagsDiff(
-        context.org.id,
-        feature.tags || [],
-        desired.mergeResult.metadata.tags,
-      );
-    }
-
-    await context.auditLog({
-      event: "feature.publish",
-      entity: {
-        object: "feature",
-        id: feature.id,
-      },
-      details: auditDetailsUpdate(feature, updated, {
-        revision: raw.version,
-        comment: raw.comment ?? "",
-      }),
-    });
-
-    // Deferred ramp actions (updates, detaches, orphan cleanup) — best-effort
-    // after a known-good publish, mirroring the single-entity path. Pending
-    // ramps armed on this revision activate via the published hook below.
-    if (original.rampActions?.length || desired.updatedFeature) {
-      await finalizeRampActionsAfterPublish(
-        context,
-        feature,
-        updated,
-        original,
-        desired.mergeResult,
-      );
-    }
-
+    // The load-bearing publish side effects run FIRST, matching the
+    // single-entity ordering (markRevisionAsPublished fires the published
+    // hook — which activates armed pending ramps — before drafts/tags/audit).
+    // The best-effort tail below is individually isolated so none of it can
+    // starve these.
     await emitFeatureRevisionPublishedSideEffects(
       context,
-      original,
+      raw,
       context.auditUser,
     );
     const finalRevision = await getPublishedRevisionForEvents(
       context,
       updated,
-      original,
+      raw,
     );
     await dispatchFeatureRevisionEvent(
       context,
@@ -561,6 +516,70 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       "revision.published",
       bulkPublishFields(context),
     );
+
+    const bestEffort = async (label: string, fn: () => Promise<unknown>) => {
+      try {
+        await fn();
+      } catch (e) {
+        logger.error(
+          e,
+          `bulk publish: ${label} failed for feature ${feature.id}`,
+        );
+      }
+    };
+
+    // Post-publish cleanup of pending experiment drafts pointing at this
+    // revision — post-commit only, so a rolled-back release never clears them.
+    await bestEffort("pending-draft cleanup", () =>
+      clearPendingFeatureDraftsForRevision(
+        context,
+        raw.featureId,
+        raw.version,
+        raw.rules,
+      ),
+    );
+
+    if (
+      desired.mergeResult.metadata?.tags !== undefined &&
+      Array.isArray(desired.mergeResult.metadata.tags)
+    ) {
+      await bestEffort("tag diff", () =>
+        addTagsDiff(
+          context.org.id,
+          feature.tags || [],
+          desired.mergeResult.metadata?.tags ?? [],
+        ),
+      );
+    }
+
+    await bestEffort("audit log", () =>
+      context.auditLog({
+        event: "feature.publish",
+        entity: {
+          object: "feature",
+          id: feature.id,
+        },
+        details: auditDetailsUpdate(feature, updated, {
+          revision: raw.version,
+          comment: raw.comment ?? "",
+        }),
+      }),
+    );
+
+    // Deferred ramp actions (updates, detaches, orphan cleanup) — best-effort
+    // after a known-good publish, mirroring the single-entity path. Pending
+    // ramps armed on this revision activate via the published hook above.
+    if (raw.rampActions?.length || desired.updatedFeature) {
+      await bestEffort("ramp finalize", () =>
+        finalizeRampActionsAfterPublish(
+          context,
+          feature,
+          updated,
+          raw,
+          desired.mergeResult,
+        ),
+      );
+    }
   },
 
   async emitPublishFailed(context, entity, revision, reason) {

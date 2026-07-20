@@ -23,6 +23,7 @@ import {
   reconcileConfigDescendants,
   assertConfigDescendantsReconcilable,
   assertConfigSchemaChangeSafeForDescendants,
+  collectConfigSchemaChangeImpactGates,
 } from "back-end/src/services/configReconcile";
 import {
   assertConfigInvariantsValid,
@@ -206,7 +207,13 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
     changes: Record<string, unknown>,
     options?: { isRevert?: boolean },
   ): Promise<void> {
-    void options;
+    // Guard asserts are skipped when (a) restoring a pre-image (isRevert — a
+    // revert to known-good published state must not be vetoed by guards
+    // judging mid-restore state) or (b) a bulk-publish commit is applying
+    // (bulkPublishId set — every guard already ran as a plan gate against the
+    // release's combined end-state; re-running against the mid-commit mix
+    // would spuriously fail plan-clean releases).
+    const skipGuardAsserts = !!options?.isRevert || !!context.bulkPublishId;
     const filteredChanges = filterUpdatableChanges(
       changes,
       entity as Record<string, unknown>,
@@ -233,9 +240,18 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
           ),
       );
     if (conflicting.length) {
-      throw new BadRequestError(
-        formatAncestorFieldConflictMessage(conflicting),
-      );
+      // A restore must not be vetoed: the normalized schema (collision keys
+      // stripped, base wins) is still the closest reachable pre-image state.
+      if (options?.isRevert) {
+        logger.warn(
+          { configKey: entity.key, conflicting },
+          "Config restore stripped ancestor-conflicting schema fields",
+        );
+      } else {
+        throw new BadRequestError(
+          formatAncestorFieldConflictMessage(conflicting),
+        );
+      }
     }
 
     const touchesLineageOrSchema =
@@ -247,7 +263,7 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
     // unresolvable sibling conflict at a descendant, so nothing is persisted
     // (vs. committing the root and then throwing from the post-write cascade),
     // then soft-warn when the change removes/retypes fields descendants use.
-    if (touchesLineageOrSchema) {
+    if (touchesLineageOrSchema && !skipGuardAsserts) {
       const proposedRoot = {
         ...entity,
         ...normalizedChanges,
@@ -259,27 +275,31 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
     // Enforce cross-field invariants here — the chokepoint every publish path
     // (direct, scheduled, autopublish-on-approval) flows through — against the
     // revision's proposed (draft) state.
-    await assertConfigInvariantsValid(
-      context,
-      {
-        key: entity.key,
-        name: entity.name,
-        value: (normalizedChanges.value as string | undefined) ?? entity.value,
-        // Honor an explicit schema clear (null): validate against no schema, not
-        // the old one — `?? entity.schema` would resurrect the removed invariants.
-        schema:
-          "schema" in normalizedChanges
-            ? (normalizedChanges.schema as ConfigInterface["schema"])
-            : entity.schema,
-        parent:
-          (normalizedChanges.parent as string | undefined) ?? entity.parent,
-        extends:
-          "extends" in normalizedChanges
-            ? (normalizedChanges.extends as string[] | undefined)
-            : entity.extends,
-      },
-      (normalizedChanges.value as string | undefined) ?? entity.value,
-    );
+    if (!skipGuardAsserts) {
+      await assertConfigInvariantsValid(
+        context,
+        {
+          key: entity.key,
+          name: entity.name,
+          value:
+            (normalizedChanges.value as string | undefined) ?? entity.value,
+          // Honor an explicit schema clear (null): validate against no schema,
+          // not the old one — `?? entity.schema` would resurrect the removed
+          // invariants.
+          schema:
+            "schema" in normalizedChanges
+              ? (normalizedChanges.schema as ConfigInterface["schema"])
+              : entity.schema,
+          parent:
+            (normalizedChanges.parent as string | undefined) ?? entity.parent,
+          extends:
+            "extends" in normalizedChanges
+              ? (normalizedChanges.extends as string[] | undefined)
+              : entity.extends,
+        },
+        (normalizedChanges.value as string | undefined) ?? entity.value,
+      );
+    }
 
     await context.models.configs.update(
       entity,
@@ -520,6 +540,33 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
         ),
         resolution: null,
       });
+    }
+
+    // A schema/lineage change that removes, retypes, or takes over fields
+    // descendants still use — the gate form of
+    // assertConfigSchemaChangeSafeForDescendants, evaluated on the same
+    // normalized proposed root the apply would write.
+    if (
+      "schema" in filteredChanges ||
+      filteredChanges.parent !== undefined ||
+      "extends" in filteredChanges
+    ) {
+      const { changes: normalizedChanges } =
+        await normalizeConfigChangesAgainstAncestors(
+          entity,
+          filteredChanges,
+          (config, schema) =>
+            context.models.configs.normalizeSchemaAgainstAncestors(
+              config,
+              schema,
+            ),
+        );
+      gates.push(
+        ...(await collectConfigSchemaChangeImpactGates(context, {
+          ...entity,
+          ...normalizedChanges,
+        } as ConfigInterface)),
+      );
     }
 
     // An archive/unarchive flip scrubs (or restores) this config's contribution

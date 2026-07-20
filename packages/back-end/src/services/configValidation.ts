@@ -33,6 +33,7 @@ import {
 } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import {
   PublishGate,
+  hookResultsToGates,
   schemaFailureGateOverride,
 } from "back-end/src/revisions/publishGates";
 import {
@@ -783,34 +784,7 @@ export async function collectConfigPublishHookGates({
     },
     revision,
   });
-  const gates: PublishGate[] = [];
-  if (hookResults.hardErrors.length) {
-    gates.push({
-      type: "custom-hook",
-      severity: "blocker",
-      messages: [
-        "A custom validation hook rejected this publish:",
-        ...hookResults.hardErrors,
-      ],
-      override: "skipHooks",
-      requiresPermission: "bypassApprovalChecks",
-      resolution: null,
-    });
-  }
-  if (hookResults.warnings.length) {
-    gates.push({
-      type: "custom-hook",
-      severity: "warning",
-      messages: [
-        "A custom validation hook raised a warning:",
-        ...hookResults.warnings,
-      ],
-      override: "ignoreWarnings",
-      requiresPermission: null,
-      resolution: null,
-    });
-  }
-  return gates;
+  return hookResultsToGates(hookResults);
 }
 
 /**

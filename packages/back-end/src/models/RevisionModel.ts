@@ -19,6 +19,7 @@ import {
   hasArmAcknowledgments,
 } from "back-end/src/services/armGuards";
 import { getAdapter } from "back-end/src/revisions/index";
+import { ConflictError } from "back-end/src/util/errors";
 import {
   createWithVersionRetry,
   getCollection,
@@ -1307,17 +1308,25 @@ export class RevisionModel extends BaseClass {
       comment?: string;
       // Plan-time baseline for bulk publishes: the claim fails if the revision
       // was touched at all since planning (content edit, review, competing
-      // lifecycle change), not just if its status moved. Checked inside the
-      // CAS compute so the re-read→write race is covered by the status guard.
+      // lifecycle change), not just if its status moved. dateUpdated rides in
+      // the guard fields so a same-status edit racing the read→write window
+      // trips the CAS retry, which re-runs this compute and re-checks the
+      // baseline. Conflicts throw ConflictError so callers can tell a lost
+      // race from an infra failure.
       expected?: { status: string; dateUpdated: Date };
     },
   ) {
     // Whether a schedule was armed on the winning CAS read — used after the
     // status transition lands to scrub the schedule fields.
     let hadSchedule = false;
-    const merged = await this.updateWithCas(id, ["status"], (existing) => {
+    const guardFields: (keyof Revision)[] = options?.expected
+      ? ["status", "dateUpdated"]
+      : ["status"];
+    const merged = await this.updateWithCas(id, guardFields, (existing) => {
       if (existing.status === "merged" || existing.status === "discarded") {
-        throw new Error("Cannot merge a discarded or already-merged revision");
+        throw new ConflictError(
+          "Cannot merge a discarded or already-merged revision",
+        );
       }
       const expected = options?.expected;
       if (
@@ -1325,7 +1334,7 @@ export class RevisionModel extends BaseClass {
         (existing.status !== expected.status ||
           existing.dateUpdated.getTime() !== expected.dateUpdated.getTime())
       ) {
-        throw new Error(
+        throw new ConflictError(
           "The revision changed after the publish was planned — re-plan and retry",
         );
       }

@@ -11,7 +11,7 @@ import type { PublishGate } from "back-end/src/revisions/publishGates";
 import { buildMergeDesiredState } from "back-end/src/revisions/util";
 import { collectRevisionGovernanceGates } from "back-end/src/revisions/governanceGates";
 import { getRevisionWebhookAdapter } from "back-end/src/events/revisionWebhookAdapters";
-import { MergeConflictError } from "back-end/src/util/errors";
+import { ConflictError, MergeConflictError } from "back-end/src/util/errors";
 import type {
   BulkPublishableAdapter,
   BulkRevisionRef,
@@ -83,11 +83,12 @@ export function makeGenericBulkAdapter(
     async buildDesiredState(context, entity, revision) {
       const raw = revision.raw as Revision;
       const snapshot = raw.target.snapshot as Record<string, unknown>;
+      const updatable = adapter.getUpdatableFields();
       const conflictResult = checkMergeConflicts(
         snapshot,
         entity,
         normalizeProposedChanges(raw.target.proposedChanges),
-        adapter.getUpdatableFields(),
+        updatable,
       );
       if (!conflictResult.success) {
         throw new MergeConflictError(
@@ -99,9 +100,8 @@ export function makeGenericBulkAdapter(
         entity,
         snapshot,
         raw.target.proposedChanges,
-        adapter.getUpdatableFields(),
+        updatable,
       );
-      const updatable = adapter.getUpdatableFields();
       // isEqual, matching filterUpdatableChanges — key-order-sensitive
       // stringify would misroute deep-equal no-ops into the apply path.
       const hasChanges = Object.keys(desiredState).some(
@@ -183,8 +183,11 @@ export function makeGenericBulkAdapter(
           },
         });
         return true;
-      } catch {
-        return false;
+      } catch (e) {
+        // A lost CAS race is the expected "false" outcome; anything else
+        // (DB failure, permission error) must surface as itself, not a 409.
+        if (e instanceof ConflictError) return false;
+        throw e;
       }
     },
 
@@ -204,6 +207,12 @@ export function makeGenericBulkAdapter(
       await adapter.applyChanges(context, entity, desiredState, {
         isRevert: !!raw.revertedFrom,
       });
+      // The write may NORMALIZE what it persists (config schemas are stripped
+      // against ancestors), so the post-apply doc — not desiredState — is the
+      // ownership baseline compensation compares the live doc against.
+      const model = adapter.getModel(context);
+      revision.writtenEntity =
+        (await model?.getById((entity as { id: string }).id)) ?? null;
     },
 
     async restorePreImage(context, preImage, revision, desiredState) {
@@ -214,6 +223,11 @@ export function makeGenericBulkAdapter(
       // updatable field would clobber an unrelated concurrent update landing
       // between the drift check and compensation.
       const updatable = adapter.getUpdatableFields();
+      // What the apply actually persisted: the post-apply doc when the write
+      // completed (normalization-aware), else the precomputed desired state.
+      const written =
+        (revision.writtenEntity as Record<string, unknown> | null) ??
+        desiredState;
       const restore: Record<string, unknown> = {};
       for (const key of Object.keys(desiredState)) {
         if (!updatable.has(key)) continue;
@@ -224,9 +238,7 @@ export function makeGenericBulkAdapter(
         // concurrent writer had already converged it — applyChanges filters
         // no-op values) or a later writer moved it again; in both cases the
         // concurrent write is the newer intent and must not be clobbered.
-        if (
-          !isEqual((current as Record<string, unknown>)[key], desiredState[key])
-        ) {
+        if (!isEqual((current as Record<string, unknown>)[key], written[key])) {
           continue;
         }
         // null (not undefined) as the clear signal so the write layer's

@@ -12,6 +12,7 @@ import {
 } from "shared/util";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { EventUser } from "shared/types/events/event-types";
 import type { ApiReqContext } from "back-end/types/api";
 import type { ReqContext } from "back-end/types/request";
 import { computeProposedFeatureForValidation } from "back-end/src/models/FeatureModel";
@@ -36,6 +37,7 @@ import { getEnvironments } from "back-end/src/util/organization.util";
 import { MergeConflictError } from "back-end/src/util/errors";
 import {
   PublishGate,
+  hookResultsToGates,
   schemaFailureGateOverride,
 } from "back-end/src/revisions/publishGates";
 
@@ -191,6 +193,7 @@ export async function collectFeaturePublishGates({
   revision,
   plan,
   comment,
+  publisher,
   includeValidationGates,
 }: {
   /**
@@ -203,6 +206,12 @@ export async function collectFeaturePublishGates({
   revision: FeatureRevisionInterface;
   plan: FeatureMergePlan;
   comment?: string;
+  /**
+   * The identity the publish will stamp as publishedBy — hooks judge it. The
+   * bulk path must pass the CALLER's auditUser here (its validation context
+   * is an identity-less scan context).
+   */
+  publisher?: EventUser;
   /**
    * Interactive publishes surface value + hook failures as gates (and skip
    * the throwing re-run in publishRevision). Armed/scheduled publishes leave
@@ -308,7 +317,7 @@ export async function collectFeaturePublishGates({
       ...revision,
       ...computeRevisionPublishChanges(
         revision,
-        context.auditUser,
+        publisher ?? context.auditUser,
         comment ?? "",
       ),
     },
@@ -322,29 +331,12 @@ export async function collectFeaturePublishGates({
     ...featureHookResults.warnings,
     ...revisionHookResults.warnings,
   ];
-  if (hookHardErrors.length) {
-    gates.push({
-      type: "custom-hook",
-      severity: "blocker",
-      messages: [
-        "A custom validation hook rejected this publish:",
-        ...hookHardErrors,
-      ],
-      override: "skipHooks",
-      requiresPermission: "bypassApprovalChecks",
-      resolution: null,
-    });
-  }
-  if (hookWarnings.length) {
-    gates.push({
-      type: "custom-hook",
-      severity: "warning",
-      messages: ["A custom validation hook raised a warning:", ...hookWarnings],
-      override: "ignoreWarnings",
-      requiresPermission: null,
-      resolution: null,
-    });
-  }
+  gates.push(
+    ...hookResultsToGates({
+      hardErrors: hookHardErrors,
+      warnings: hookWarnings,
+    }),
+  );
 
   // Archiving a feature that live features/experiments still reference as a
   // prerequisite is an acknowledge-class warning — emitted as a gate so the

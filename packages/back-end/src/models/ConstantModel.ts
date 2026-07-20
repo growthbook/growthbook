@@ -11,6 +11,7 @@ import { overlayDocsById } from "back-end/src/util/scanOverlay.util";
 import { resolvableValueChanged } from "back-end/src/services/constants";
 import { assertConstantArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
+import { emitOrDeferBulkPublishEvent } from "back-end/src/events/bulkPublishCorrelation";
 import {
   logConstantCreatedEvent,
   logConstantUpdatedEvent,
@@ -148,7 +149,14 @@ export class ConstantModel extends BaseClass {
     // always ignore warnings, so an armed archive publish that already re-checked
     // its fingerprint at assertPublishable passes here; a direct write without
     // ignoreWarnings still surfaces the warning. Mirrors ConfigModel.beforeUpdate.
-    if (updates.archived === true && !existing.archived) {
+    // Skipped during a bulk-publish commit (bulkPublishId set): the guard ran
+    // as a plan gate against the release end-state, and re-running it here
+    // would judge the mid-commit mix. Mirrors ConfigModel.beforeUpdate.
+    if (
+      updates.archived === true &&
+      !existing.archived &&
+      !this.context.bulkPublishId
+    ) {
       await assertConstantArchiveDependentsGuard(
         this.context,
         { id: existing.id, key: existing.key, project: existing.project },
@@ -205,14 +213,9 @@ export class ConstantModel extends BaseClass {
     if (
       !isEqual(omit(previous, ["dateUpdated"]), omit(current, ["dateUpdated"]))
     ) {
-      const deferred = this.context.bulkPublishDeferredEvents;
-      if (deferred) {
-        deferred.push(() =>
-          logConstantUpdatedEvent(this.context, previous, current),
-        );
-      } else {
-        await logConstantUpdatedEvent(this.context, previous, current);
-      }
+      await emitOrDeferBulkPublishEvent(this.context, () =>
+        logConstantUpdatedEvent(this.context, previous, current),
+      );
     }
   }
 

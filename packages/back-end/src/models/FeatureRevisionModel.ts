@@ -1404,7 +1404,7 @@ export async function claimFeatureRevisionAsPublished(
   user: EventUser,
   expected: { status: string; dateUpdated: Date },
   comment?: string,
-): Promise<boolean> {
+): Promise<{ claimed: boolean; claimStamp: Date | null }> {
   const changes = computeRevisionPublishChanges(revision, user, comment);
   const outcome = await casUpdate(
     {
@@ -1430,7 +1430,14 @@ export async function claimFeatureRevisionAsPublished(
       };
     },
   );
-  return outcome === "applied";
+  // The claim's datePublished is its fingerprint: compensation restores the
+  // revision only while the doc still carries THIS claim's stamp, so a
+  // concurrent legitimate publish (which re-stamps its own datePublished)
+  // can't be reverted by our rollback.
+  return {
+    claimed: outcome === "applied",
+    claimStamp: outcome === "applied" ? (changes.datePublished ?? null) : null,
+  };
 }
 
 /**
@@ -1440,48 +1447,61 @@ export async function claimFeatureRevisionAsPublished(
  */
 export async function restoreFeatureRevisionAfterFailedBulkPublish(
   original: FeatureRevisionInterface,
+  claimStamp: Date | null,
 ): Promise<void> {
-  await FeatureRevisionModel.updateOne(
-    {
-      organization: original.organization,
-      featureId: original.featureId,
-      version: original.version,
-      status: "published",
+  const filter = {
+    organization: original.organization,
+    featureId: original.featureId,
+    version: original.version,
+    status: "published" as const,
+    // The claim's fingerprint: a concurrent legitimate publish re-stamps its
+    // own datePublished, so this filter makes the rollback a no-op instead of
+    // reverting that publish (its live feature write already happened).
+    ...(claimStamp ? { datePublished: claimStamp } : {}),
+  };
+  const update = (withLockOthers: boolean) => ({
+    $set: {
+      status: original.status,
+      publishedBy: original.publishedBy ?? null,
+      datePublished: original.datePublished ?? null,
+      comment: original.comment ?? null,
+      ...(original.dateUpdated ? { dateUpdated: original.dateUpdated } : {}),
+      autoPublishOnApproval: !!original.autoPublishOnApproval,
+      ...(original.autoPublishEnabledBy
+        ? { autoPublishEnabledBy: original.autoPublishEnabledBy }
+        : {}),
+      ...(original.scheduledPublishAt
+        ? {
+            scheduledPublishAt: original.scheduledPublishAt,
+            scheduledPublishLockEdits: original.scheduledPublishLockEdits,
+            scheduledPublishLockOthers:
+              withLockOthers && original.scheduledPublishLockOthers,
+            scheduledPublishBypassApproval:
+              original.scheduledPublishBypassApproval,
+          }
+        : {}),
+      ...(original.scheduledPublishAttempts !== undefined
+        ? {
+            scheduledPublishAttempts: original.scheduledPublishAttempts,
+            scheduledPublishLastError:
+              original.scheduledPublishLastError ?? null,
+            scheduledPublishNextAttemptAt:
+              original.scheduledPublishNextAttemptAt ?? null,
+            scheduledPublishGaveUpAt: original.scheduledPublishGaveUpAt ?? null,
+          }
+        : {}),
     },
-    {
-      $set: {
-        status: original.status,
-        publishedBy: original.publishedBy ?? null,
-        datePublished: original.datePublished ?? null,
-        comment: original.comment ?? null,
-        ...(original.dateUpdated ? { dateUpdated: original.dateUpdated } : {}),
-        autoPublishOnApproval: !!original.autoPublishOnApproval,
-        ...(original.autoPublishEnabledBy
-          ? { autoPublishEnabledBy: original.autoPublishEnabledBy }
-          : {}),
-        ...(original.scheduledPublishAt
-          ? {
-              scheduledPublishAt: original.scheduledPublishAt,
-              scheduledPublishLockEdits: original.scheduledPublishLockEdits,
-              scheduledPublishLockOthers: original.scheduledPublishLockOthers,
-              scheduledPublishBypassApproval:
-                original.scheduledPublishBypassApproval,
-            }
-          : {}),
-        ...(original.scheduledPublishAttempts !== undefined
-          ? {
-              scheduledPublishAttempts: original.scheduledPublishAttempts,
-              scheduledPublishLastError:
-                original.scheduledPublishLastError ?? null,
-              scheduledPublishNextAttemptAt:
-                original.scheduledPublishNextAttemptAt ?? null,
-              scheduledPublishGaveUpAt:
-                original.scheduledPublishGaveUpAt ?? null,
-            }
-          : {}),
-      },
-    },
-  );
+  });
+  try {
+    await FeatureRevisionModel.updateOne(filter, update(true));
+  } catch (e) {
+    // A sibling draft armed a lock-others schedule while we held the claim
+    // (the claim's $unset freed the partial-index slot). Restore without the
+    // lock rather than stranding the revision as published — mirroring
+    // RevisionModel.reopenAfterFailedApply.
+    if (!isPublishLockIndexConflict(e)) throw e;
+    await FeatureRevisionModel.updateOne(filter, update(false));
+  }
 }
 
 /**

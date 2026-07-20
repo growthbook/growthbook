@@ -8,6 +8,7 @@ import { savedGroupValidator, ApiSavedGroup } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
 import { UpdateFilter } from "mongodb";
 import { savedGroupUpdated } from "back-end/src/services/savedGroups";
+import { emitOrDeferBulkPublishEvent } from "back-end/src/events/bulkPublishCorrelation";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import {
   logSavedGroupCreatedEvent,
@@ -150,14 +151,9 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
     if (
       !isEqual(omit(previous, ["dateUpdated"]), omit(current, ["dateUpdated"]))
     ) {
-      const deferred = this.context.bulkPublishDeferredEvents;
-      if (deferred) {
-        deferred.push(() =>
-          logSavedGroupUpdatedEvent(this.context, previous, current),
-        );
-      } else {
-        await logSavedGroupUpdatedEvent(this.context, previous, current);
-      }
+      await emitOrDeferBulkPublishEvent(this.context, () =>
+        logSavedGroupUpdatedEvent(this.context, previous, current),
+      );
     }
   }
 

@@ -6,6 +6,7 @@ import {
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   BadRequestError,
+  BulkPublishCommitError,
   PlanDoesNotAllowError,
 } from "back-end/src/util/errors";
 import {
@@ -21,20 +22,20 @@ import {
 import type {
   BulkPublishGate,
   BulkPublishItemRef,
+  BulkPublishItemResult,
   BulkPublishPlan,
 } from "back-end/src/revisions/bulkPublish/types";
 
-// The union member shapes are disjoint per entity type; widen to one optional
-// bag so the resolution loop below can read fields without narrowing per arm.
-type RequestRevisionItem = Pick<
-  z.infer<typeof publishRevisionsItem>,
-  "entityType"
-> & {
-  id?: string;
-  key?: string;
-  version?: number;
-  revisionId?: string;
-};
+type RequestRevisionItem = z.infer<typeof publishRevisionsItem>;
+
+// The union arms are strict and disjoint, so plain `in` checks narrow them.
+const itemField = (
+  item: RequestRevisionItem,
+  field: "id" | "key" | "version" | "revisionId",
+): string | number | undefined =>
+  field in item
+    ? (item as unknown as Record<typeof field, string | number>)[field]
+    : undefined;
 
 export const postReleasePublishRevisions = createApiRequestHandler(
   postReleasePublishRevisionsValidator,
@@ -52,36 +53,36 @@ export const postReleasePublishRevisions = createApiRequestHandler(
   const refs: BulkPublishItemRef[] = [];
   const callerIdByInternal = new Map<string, string>();
   for (const item of req.body.revisions as RequestRevisionItem[]) {
-    let callerId = item.key ?? item.id ?? "";
+    const revisionId = itemField(item, "revisionId") as string | undefined;
+    // Seed with whichever identifier the (disjoint) union arm carries — an
+    // unresolvable revisionId flows into the plan's not-found gate rather
+    // than failing the request shape.
+    let callerId = String(
+      itemField(item, "key") ?? itemField(item, "id") ?? revisionId ?? "",
+    );
     let entityId = callerId;
-    let version = item.version ?? 0;
+    let version = Number(itemField(item, "version") ?? 0);
 
-    if (item.revisionId !== undefined) {
+    if (revisionId !== undefined) {
       if (item.entityType === "feature") {
         // Tuple-shaped (legacy) ids decode locally; minted opaque ids resolve
-        // via the sparse (organization, id) index. An unknown id flows into
-        // the plan's not-found gate rather than failing the request shape.
+        // via the sparse (organization, id) index.
         const coords =
-          parseFeatureRevisionId(item.revisionId) ??
+          parseFeatureRevisionId(revisionId) ??
           (await findFeatureRevisionCoordinatesByRevisionId(
             req.organization.id,
-            item.revisionId,
+            revisionId,
           ));
         if (coords) {
           callerId = coords.featureId;
           entityId = coords.featureId;
           version = coords.version;
-        } else {
-          callerId = item.revisionId;
-          entityId = item.revisionId;
         }
       } else {
-        const revision = await req.context.models.revisions.getById(
-          item.revisionId,
-        );
+        const revision = await req.context.models.revisions.getById(revisionId);
         if (revision && revision.target.type !== item.entityType) {
           throw new BadRequestError(
-            `Revision "${item.revisionId}" belongs to a ${revision.target.type}, not a ${item.entityType}`,
+            `Revision "${revisionId}" belongs to a ${revision.target.type}, not a ${item.entityType}`,
           );
         }
         if (revision) {
@@ -96,11 +97,6 @@ export const postReleasePublishRevisions = createApiRequestHandler(
                 : null;
           const entity = await model?.getById(entityId);
           callerId = entity?.key ?? entityId;
-        } else {
-          // Unknown id: let the plan report it as a not-found gate rather
-          // than failing the whole request shape.
-          callerId = item.revisionId;
-          entityId = item.revisionId;
         }
       }
     } else if (item.entityType === "config") {
@@ -169,7 +165,26 @@ export const postReleasePublishRevisions = createApiRequestHandler(
     throw new PublishBlockedError(plan.blockingGates.map(serializeGate));
   }
 
-  const result = await commitBulkPublish(req.context, plan);
+  let result;
+  try {
+    result = await commitBulkPublish(req.context, plan);
+  } catch (e) {
+    // The 500 body's per-item outcomes must speak the caller's identifier
+    // vocabulary (flat `id` with keys), like every other response surface.
+    if (e instanceof BulkPublishCommitError) {
+      throw new BulkPublishCommitError(
+        e.message,
+        (e.items as BulkPublishItemResult[]).map((item) => ({
+          entityType: item.ref.entityType,
+          id: callerIdFor(item.ref.entityType, item.ref.entityId),
+          version: item.ref.version,
+          revisionId: item.revisionId,
+          status: item.status,
+        })),
+      );
+    }
+    throw e;
+  }
 
   return {
     dryRun: false,

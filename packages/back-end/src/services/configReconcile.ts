@@ -14,6 +14,7 @@ import {
   TerminalPublishError,
 } from "back-end/src/util/errors";
 import type { Context } from "back-end/src/models/BaseModel";
+import type { PublishGate } from "back-end/src/revisions/publishGates";
 import { logger } from "back-end/src/util/logger";
 
 // Throw if any descendant of `rootKey` (via ANY base edge — `parent` or
@@ -148,6 +149,41 @@ export async function assertConfigSchemaChangeSafeForDescendants(
     throw new TerminalPublishError(message);
   }
   throw new SoftWarningError(message, lines);
+}
+
+/**
+ * The gate form of the schema-change-impact warning above, evaluated at plan
+ * time (the read context decides the baseline — under the bulk publisher's
+ * per-item overlay, `before` already reflects the other items' proposals).
+ * Cleared by ignoreWarnings alone, matching the assert.
+ */
+export async function collectConfigSchemaChangeImpactGates(
+  context: Context,
+  proposedRoot: ConfigInterface,
+): Promise<PublishGate[]> {
+  const before = await context.models.configs.getAllForReconcile();
+  const after = before.map((c) =>
+    c.key === proposedRoot.key ? proposedRoot : c,
+  );
+  const impacts = computeConfigSchemaChangeImpact({
+    rootKey: proposedRoot.key,
+    before,
+    after,
+  });
+  if (!impacts.length) return [];
+  return [
+    {
+      type: "schema-change-impact",
+      severity: "warning",
+      messages: [
+        `This change removes, retypes, or takes over fields that ${impacts.length} descendant config(s) still use:`,
+        ...impacts.map(formatImpactLine),
+      ],
+      override: "ignoreWarnings",
+      requiresPermission: null,
+      resolution: null,
+    },
+  ];
 }
 
 /**

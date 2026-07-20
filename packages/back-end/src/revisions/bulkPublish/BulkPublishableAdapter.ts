@@ -15,6 +15,16 @@ export type BulkRevisionRef = {
   status: string;
   dateUpdated: Date;
   raw: Revision | Record<string, unknown>;
+  /**
+   * Set by claim(): the fingerprint the adapter's releaseClaim uses to prove
+   * the claim is still ours (features stamp datePublished at claim time).
+   */
+  claimStamp?: Date | null;
+  /**
+   * Set by applyPrecomputed(): the entity doc as actually persisted (writes
+   * may normalize), the ownership baseline for restorePreImage.
+   */
+  writtenEntity?: Record<string, unknown> | null;
 };
 
 /**
@@ -37,7 +47,7 @@ export type BulkRevisionRef = {
  * - claim() may fail ONLY on a CAS/baseline conflict — before any live write.
  * - applyPrecomputed() writes the precomputed state; SDK payload refreshes it
  *   triggers are captured by the context's sdkPayloadRefreshBuffer. Residual
- *   model-level write validation may still throw (first-pass concession) —
+ *   model-level write validation may still throw —
  *   the orchestrator treats any apply failure as compensation-triggering.
  */
 export interface BulkPublishableAdapter {

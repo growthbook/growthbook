@@ -7,6 +7,7 @@ import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organiz
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import {
   BadRequestError,
+  BulkPublishCommitError,
   ConflictError,
   MergeConflictError,
   getErrorMessage,
@@ -31,17 +32,6 @@ import type {
 } from "back-end/src/revisions/bulkPublish/types";
 
 export const MAX_BULK_PUBLISH_ITEMS = 50;
-
-/** Commit-phase failure after claims: carries the honest per-item outcome. */
-export class BulkPublishCommitError extends Error {
-  status = 500;
-  items: BulkPublishItemResult[];
-  constructor(message: string, items: BulkPublishItemResult[]) {
-    super(message);
-    this.name = "BulkPublishCommitError";
-    this.items = items;
-  }
-}
 
 function tag(ref: BulkPublishItemRef, gates: PublishGate[]): BulkPublishGate[] {
   return gates.map((gate) => ({
@@ -208,6 +198,16 @@ export async function planBulkPublish(
         proposedEntity,
       });
     } catch (e) {
+      // Application-level rejections (4xx-classed errors) are the item's
+      // problem and become gates; infra failures propagate as the 5xx they
+      // are — a transient DB error must not masquerade as an unfixable gate.
+      const status = (e as { status?: number }).status;
+      if (
+        !(e instanceof MergeConflictError) &&
+        (typeof status !== "number" || status >= 500)
+      ) {
+        throw e;
+      }
       const gate = itemGate(
         ref,
         e instanceof MergeConflictError ? "merge-conflict" : "plan-failed",
@@ -255,6 +255,14 @@ export async function planBulkPublish(
 
   const items: PlannedItemPublish[] = [];
 
+  // The privileged validation overrides require ORG-WIDE bypass authority —
+  // the same scope the single-entity paths enforce via the context's
+  // skipSchemaValidation/skipHooks getters. A project-scoped bypass clears
+  // approval (per entity, below) but never a validation failure.
+  const orgWideBypass = context.permissions.canBypassApprovalChecks({
+    project: undefined,
+  });
+
   for (const l of loaded) {
     applyOverlaysExcluding(l);
     const gates = tag(
@@ -281,8 +289,8 @@ export async function planBulkPublish(
     const bypassPermission = l.adapter.canBypassApproval(context, l.entity);
     const clearance: PublishGateClearance = {
       ignoreWarnings: flags.ignoreWarnings,
-      skipSchemaValidation: flags.skipSchemaValidation && bypassPermission,
-      skipHooks: flags.skipHooks && bypassPermission,
+      skipSchemaValidation: flags.skipSchemaValidation && orgWideBypass,
+      skipHooks: flags.skipHooks && orgWideBypass,
       bypassApprovalPermission: bypassPermission,
       restApiBypassesReviews: flags.restApiBypassesReviews,
       canForceMergeStaleBase:
@@ -353,8 +361,52 @@ export async function commitBulkPublish(
 
   // Correlation token stamped on every event this publish emits (success and
   // failure alike) and returned to the caller for joining response ↔ webhooks.
+  // While set, write-path guard asserts stand down: every guard already ran
+  // as a plan gate against the release's combined end-state, and re-running
+  // them mid-commit would judge a partially-applied mix.
   const bulkPublishId = uniqid("pub_");
   context.bulkPublishId = bulkPublishId;
+  // Durable breadcrumb BEFORE the first claim: a crash mid-commit leaves the
+  // batch's revisions claimed with no in-process compensation, and this line
+  // is the only artifact naming them (recovery: revert-to-revision).
+  logger.info(
+    {
+      bulkPublishId,
+      org: context.org.id,
+      items: plan.items.map(
+        (i) => `${i.ref.entityType}:${i.ref.entityId}@v${i.ref.version}`,
+      ),
+    },
+    "bulk publish: committing release",
+  );
+
+  const abort = async (claimed: PlannedItemPublish[], e: unknown) => {
+    await releaseClaims(context, claimed);
+    context.bulkPublishId = null;
+    throw e;
+  };
+
+  // Entity drift check FIRST: claims guard revisions, not entities. Re-read
+  // each target and abort (zero claims, zero entity writes) if anything moved
+  // since plan. Runs before the no-op replays below, whose self-heal writes
+  // can legitimately bump a sibling item's dateUpdated.
+  for (const item of plan.items) {
+    const adapter = getBulkAdapter(item.ref.entityType);
+    const current = await adapter.loadEntity(context, item.ref.entityId);
+    const currentDate =
+      (current as { dateUpdated?: Date } | null)?.dateUpdated ?? null;
+    if (
+      (currentDate?.getTime() ?? null) !==
+      (item.baseline.entityDateUpdated?.getTime() ?? null)
+    ) {
+      await abort(
+        [],
+        new ConflictError(
+          `${displayEntityName(item.ref.entityType)} "${item.ref.entityId}" changed after the publish was planned — nothing was published; re-plan and retry`,
+        ),
+      );
+    }
+  }
 
   // No-op items skip applyPrecomputed, so side effects an earlier partial
   // apply may have left unrun (e.g. a descendant schema cascade) are replayed
@@ -368,7 +420,9 @@ export async function commitBulkPublish(
     );
   }
 
-  // Claim all revisions before any live write.
+  // Claim all revisions before any live write. A lost CAS race is a 409; any
+  // other claim failure is an infra error and propagates as such — after
+  // releasing whatever was already claimed.
   const claimed: PlannedItemPublish[] = [];
   for (const item of plan.items) {
     const adapter = getBulkAdapter(item.ref.entityType);
@@ -378,42 +432,22 @@ export async function commitBulkPublish(
         isApprovalBypass: item.isApprovalBypass,
         comment: plan.flags.comment,
       });
-    } catch {
-      ok = false;
+    } catch (e) {
+      logger.error(
+        e,
+        `bulk publish: claim failed for ${item.ref.entityType} ${item.ref.entityId}`,
+      );
+      await abort(claimed, e);
     }
     if (!ok) {
-      await releaseClaims(context, claimed);
-      context.bulkPublishId = null;
-      throw new ConflictError(
-        `${displayEntityName(item.ref.entityType)} "${item.ref.entityId}" changed after the publish was planned — nothing was published; re-plan and retry`,
+      await abort(
+        claimed,
+        new ConflictError(
+          `${displayEntityName(item.ref.entityType)} "${item.ref.entityId}" changed after the publish was planned — nothing was published; re-plan and retry`,
+        ),
       );
     }
     claimed.push(item);
-  }
-
-  // Entity drift check: claims guard revisions, not entities. Re-read each
-  // target and abort (zero entity writes) if anything moved since plan — and
-  // release every claim even when the re-read itself fails, so a transient DB
-  // error here can't strand the batch's revisions as claimed.
-  try {
-    for (const item of plan.items) {
-      const adapter = getBulkAdapter(item.ref.entityType);
-      const current = await adapter.loadEntity(context, item.ref.entityId);
-      const currentDate =
-        (current as { dateUpdated?: Date } | null)?.dateUpdated ?? null;
-      if (
-        (currentDate?.getTime() ?? null) !==
-        (item.baseline.entityDateUpdated?.getTime() ?? null)
-      ) {
-        throw new ConflictError(
-          `${displayEntityName(item.ref.entityType)} "${item.ref.entityId}" changed after the publish was planned — nothing was published; re-plan and retry`,
-        );
-      }
-    }
-  } catch (e) {
-    await releaseClaims(context, claimed);
-    context.bulkPublishId = null;
-    throw e;
   }
 
   // Apply, with per-write side effects buffered: SDK payload refreshes
@@ -424,58 +458,21 @@ export async function commitBulkPublish(
     treatEmptyProjectAsGlobal: false,
   };
   context.bulkPublishDeferredEvents = [];
-  // Write-time model asserts (descendant reconcile, invariants) re-validate
-  // during applies on THIS context — overlay every proposed doc so they judge
-  // the batch's end-state, not the mid-commit mix (the plan already validated
-  // the same end-state; without this, the headline parent+child release can
-  // spuriously fail mid-apply). Cleared before compensation restores, which
-  // must see live state.
-  const applyCommitOverlays = (active: boolean) => {
-    context.models.configs.setScanOverlay(
-      active
-        ? plan.items
-            .filter((i) => i.ref.entityType === "config")
-            .map((i) => i.proposedEntity as unknown as ConfigInterface)
-        : [],
-    );
-    context.models.constants.setScanOverlay(
-      active
-        ? plan.items
-            .filter((i) => i.ref.entityType === "constant")
-            .map((i) => i.proposedEntity as unknown as ConstantInterface)
-        : [],
-    );
-    context.featureScanOverlay = active
-      ? new Map(
-          plan.items
-            .filter((i) => i.ref.entityType === "feature")
-            .map((i) => [
-              i.ref.entityId,
-              i.proposedEntity as unknown as FeatureInterface,
-            ]),
-        )
-      : null;
-  };
-  applyCommitOverlays(true);
+  // Every item joins `applied` BEFORE its apply runs: a multi-step apply
+  // (ramp creates → entity write → holdout) can land real writes before
+  // throwing, so compensation must restore the failing item too.
   const applied: PlannedItemPublish[] = [];
-  // The item whose apply is mid-flight when a failure hits: a multi-step
-  // apply (ramp creates → entity write → holdout) can land real writes
-  // before throwing, so compensation must restore it too, not just the
-  // fully-applied items.
-  let inFlight: PlannedItemPublish | null = null;
   try {
     for (const item of plan.items) {
       if (!item.hasChanges) continue;
       const adapter = getBulkAdapter(item.ref.entityType);
-      inFlight = item;
+      applied.push(item);
       await adapter.applyPrecomputed(
         context,
         item.entityPreImage,
         item.revision,
         item.desiredState,
       );
-      inFlight = null;
-      applied.push(item);
     }
   } catch (e) {
     // Compensation: drop the buffered side effects (nothing from the aborted
@@ -487,16 +484,18 @@ export async function commitBulkPublish(
     // a concurrent trigger might have built from the partial state. Only
     // infra failures should reach here (plan validated everything), so the
     // restores are best-effort and the honest per-item outcome rides the error.
+    const applyBuffer = context.sdkPayloadRefreshBuffer;
+    // Close the apply-phase buffer so straggler producers still holding its
+    // reference fall through to live refreshes instead of a drained array.
+    if (applyBuffer) applyBuffer.closed = true;
     context.sdkPayloadRefreshBuffer = {
       keys: [],
       treatEmptyProjectAsGlobal: false,
     };
     context.bulkPublishDeferredEvents = [];
-    // Restores must validate against LIVE state, not the failed end-state.
-    applyCommitOverlays(false);
     const results: BulkPublishItemResult[] = [];
     const restoreFailed = new Set<PlannedItemPublish>();
-    const toRestore = inFlight ? [...applied, inFlight] : [...applied];
+    const toRestore = [...applied];
     const compensated = new Set(toRestore);
     for (const item of toRestore.reverse()) {
       const adapter = getBulkAdapter(item.ref.entityType);
@@ -543,6 +542,16 @@ export async function commitBulkPublish(
         });
       }
     }
+    // A restore-failed item stays durably published, so its apply-phase
+    // refresh keys must still flush — otherwise SDK payloads serve the
+    // pre-publish state indefinitely for an entity every other surface calls
+    // published. Restored items' extra keys are harmless (the refresh
+    // rebuilds from live DB state and dedupes per connection).
+    if (restoreFailed.size && applyBuffer && context.sdkPayloadRefreshBuffer) {
+      context.sdkPayloadRefreshBuffer.keys.push(...applyBuffer.keys);
+      context.sdkPayloadRefreshBuffer.treatEmptyProjectAsGlobal ||=
+        applyBuffer.treatEmptyProjectAsGlobal;
+    }
     // Drop the restores' *.updated events; flush their payload refreshes once.
     context.bulkPublishDeferredEvents = null;
     flushPayloadRefreshBuffer(context, "bulk-publish-compensation");
@@ -581,7 +590,6 @@ export async function commitBulkPublish(
   // Success: flush. Detach the buffers FIRST so the flushes themselves fire,
   // dedupe keys, and issue ONE refresh — refreshSDKPayloadCache rebuilds each
   // affected SDK connection exactly once per call.
-  applyCommitOverlays(false);
   const deferredEvents = context.bulkPublishDeferredEvents ?? [];
   context.bulkPublishDeferredEvents = null;
   flushPayloadRefreshBuffer(context, "bulk-publish");
