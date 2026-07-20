@@ -219,6 +219,16 @@ export function makeGenericBulkAdapter(
         if (!updatable.has(key)) continue;
         const original = (preImage as Record<string, unknown>)[key];
         if (isEqual(desiredState[key], original)) continue;
+        // Restore a key only while the live doc still holds the value this
+        // apply wrote. If it doesn't, either the apply skipped the key (a
+        // concurrent writer had already converged it — applyChanges filters
+        // no-op values) or a later writer moved it again; in both cases the
+        // concurrent write is the newer intent and must not be clobbered.
+        if (
+          !isEqual((current as Record<string, unknown>)[key], desiredState[key])
+        ) {
+          continue;
+        }
         // null (not undefined) as the clear signal so the write layer's
         // updatable-changes filter doesn't drop fields the apply added.
         restore[key] = original === undefined ? null : original;
