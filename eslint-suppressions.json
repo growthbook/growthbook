@@ -162,9 +162,6 @@
   "packages/front-end/components/Experiment/ExperimentMetricsSelector.tsx": {
     "no-restricted-imports": {
       "count": 1
-    },
-    "prettier/prettier": {
-      "count": 1
     }
   },
   "packages/front-end/components/Experiment/ExperimentResultTooltipContent/ExperimentResultTooltipContent.tsx": {
