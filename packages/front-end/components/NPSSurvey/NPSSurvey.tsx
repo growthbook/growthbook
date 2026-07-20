@@ -12,9 +12,14 @@ import { isCloud } from "@/services/env";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import styles from "./NPSSurvey.module.scss";
+import {
+  type Category,
+  categoryOf,
+  npsValue,
+  withinCooldown,
+} from "./nps.utils";
 
 type Panel = "question" | "feedback" | "thanks";
-type Category = "detractor" | "passive" | "promoter";
 // How the user left the survey after picking a score; only "submitted"
 // (an explicit "Send feedback" click) carries the comment text.
 type ExitDisposition = "submitted" | "skipped" | "dismissed" | "abandoned";
@@ -24,8 +29,6 @@ const SURVEY_ID = "app-nps";
 const SHOW_DELAY = 1100;
 const THANKS_DURATION = 2600;
 const EXIT_DURATION = 360;
-const RESURVEY_DAYS = 90;
-const RESURVEY_MS = RESURVEY_DAYS * 24 * 60 * 60 * 1000;
 const SCORES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
 const PROMPTS: Record<Category, string> = {
@@ -45,21 +48,6 @@ const CAT_CLASS: Record<Category, string> = {
   passive: styles.catPassive,
   promoter: styles.catPromoter,
 };
-
-function categoryOf(score: number): Category {
-  return score <= 6 ? "detractor" : score <= 8 ? "passive" : "promoter";
-}
-
-function npsValue(score: number): number {
-  return score >= 9 ? 1 : score <= 6 ? -1 : 0;
-}
-
-// True while a user is inside the re-survey cooldown window after their last prompt.
-function withinCooldown(dateIso?: string | null): boolean {
-  if (!dateIso) return false;
-  const t = new Date(dateIso).getTime();
-  return !Number.isNaN(t) && Date.now() - t < RESURVEY_MS;
-}
 
 // Dev/staff override: `?show-nps` forces the survey to appear, bypassing the
 // cooldown and delay. Gated on the `nps-survey-preview` flag, which is targeted

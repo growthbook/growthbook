@@ -4,8 +4,11 @@ import { z } from "zod";
 import { OrganizationInterface } from "shared/types/organization";
 import { KnownBlock } from "@slack/types";
 import { IS_CLOUD, NPS_SLACK_WEBHOOK } from "back-end/src/util/secrets";
-import { cancellableFetch } from "back-end/src/util/http.util";
-import { logger } from "back-end/src/util/logger";
+import { sendSlackMessage } from "back-end/src/events/handlers/slack/slack-event-handler-utils";
+import {
+  escapeSlackMrkdwn,
+  truncateSlackText,
+} from "back-end/src/util/slack.util";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { usingOpenId } from "back-end/src/services/auth";
 import { findOrganizationsByMemberId } from "back-end/src/models/OrganizationModel";
@@ -142,13 +145,6 @@ export async function putUserName(
   }
 }
 
-// Neutralize Slack mrkdwn control sequences in user-supplied text. Escaping
-// these three chars stops `<!channel>`/`<!here>` mentions and link markup from
-// being interpreted, so a comment can't ping the channel or inject links.
-function escapeSlackMrkdwn(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
 const MAX_FEEDBACK_LENGTH = 1500;
 // Slack rejects a section block whose text exceeds 3000 characters.
 const SLACK_SECTION_TEXT_LIMIT = 3000;
@@ -204,15 +200,9 @@ async function sendNpsResponseToSlack({
   const fullText = safeFeedback
     ? `${header}\n> ${safeFeedback.replace(/\n/g, "\n> ")}`
     : header;
-  // Escaping (& -> &amp;) can multiply length past Slack's block limit, which
-  // makes it reject the whole message; clamp and drop any trailing partial
-  // entity so the cut never leaves broken markup.
-  const sectionText =
-    fullText.length > SLACK_SECTION_TEXT_LIMIT
-      ? fullText
-          .slice(0, SLACK_SECTION_TEXT_LIMIT - 1)
-          .replace(/&[a-z]*$/i, "") + "…"
-      : fullText;
+  // Clamp so escape expansion can't push the block past Slack's limit and get
+  // the whole message rejected.
+  const sectionText = truncateSlackText(fullText, SLACK_SECTION_TEXT_LIMIT);
 
   // A "submitted" score is the norm, so only the other exits are called out —
   // a score with no comment reads differently when the survey was abandoned.
@@ -238,39 +228,21 @@ async function sendNpsResponseToSlack({
     },
   ];
 
-  const payload = {
-    attachments: [
-      {
-        color,
-        // Notification-only fallback; not shown in-channel.
-        fallback: `NPS ${score}/10 (${category}) from ${email}${exitNote}`,
-        blocks,
-      },
-    ],
-  };
-
-  try {
-    const { stringBody, responseWithoutBody } = await cancellableFetch(
-      NPS_SLACK_WEBHOOK,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      },
-      {
-        maxTimeMs: 15000,
-        maxContentSize: 500,
-      },
-    );
-    if (!responseWithoutBody.ok) {
-      logger.error(
-        { text: stringBody },
-        "Failed to send NPS response to Slack",
-      );
-    }
-  } catch (e) {
-    logger.error(e, "Failed to send NPS response to Slack");
-  }
+  // Delegate transport to the shared Slack sender (timeout, ok-check, and
+  // error logging live there); this builder only owns the message shape.
+  await sendSlackMessage(
+    {
+      attachments: [
+        {
+          color,
+          // Notification-only fallback; not shown in-channel.
+          fallback: `NPS ${score}/10 (${category}) from ${email}${exitNote}`,
+          blocks,
+        },
+      ],
+    },
+    NPS_SLACK_WEBHOOK,
+  );
 }
 
 export async function postNpsResponse(
