@@ -3,7 +3,7 @@ import {
   getHealthSettings,
   getSafeRolloutResultStatus,
 } from "shared/enterprise";
-import { autoMerge } from "shared/util";
+import { autoMerge, reconcileMergeBaselines } from "shared/util";
 import { SafeRolloutStatus, SafeRolloutRule } from "shared/validators";
 import {
   SafeRolloutInterface,
@@ -165,7 +165,12 @@ export async function checkAndRollbackSafeRollout({
       throw new Error("Could not lookup feature history");
     }
 
-    const mergeResult = autoMerge(live, base, revision, ruleEnvs, {});
+    const { live: mergeLive, base: mergeBase } = reconcileMergeBaselines(
+      feature,
+      live,
+      base,
+    );
+    const mergeResult = autoMerge(mergeLive, mergeBase, revision, ruleEnvs, {});
     if (!mergeResult.success) {
       throw new Error("could not merge the status");
     }

@@ -13,6 +13,7 @@ import {
   RevisionFields,
   draftDiffersFromLive,
   liveRevisionFromFeature,
+  reconcileMergeBaselines,
 } from "../../src/util";
 
 // ---------------------------------------------------------------------------
@@ -483,6 +484,43 @@ describe("autoMerge with new envelopes", () => {
       }
     });
 
+    // Regression: when the base revision snapshot drifts from the live feature
+    // model (e.g. a legacy v1 REST write updated the feature doc but not the
+    // revision), a draft toggle that happens to match the stale base value must
+    // still register as a change to publish. Anchoring to `live` (feature model)
+    // instead of `base` is what makes this surface instead of "No changes".
+    it("detects an env toggle even when the base snapshot drifted to match it", () => {
+      const driftedBase: RevisionFields = {
+        version: 5,
+        defaultValue: "false",
+        rules: {},
+        environmentsEnabled: { production: true }, // stale snapshot
+      };
+      const liveFeatureModel: RevisionFields = {
+        version: 5,
+        defaultValue: "false",
+        rules: {},
+        environmentsEnabled: { production: false }, // what's actually live
+      };
+      const revision: RevisionFields = {
+        version: 6,
+        defaultValue: "false",
+        rules: {},
+        environmentsEnabled: { production: true }, // draft wants it on
+      };
+      const result = autoMerge(
+        liveFeatureModel,
+        driftedBase,
+        revision,
+        ["production"],
+        {},
+      );
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.result.environmentsEnabled).toEqual({ production: true });
+      }
+    });
+
     it("includes metadata changes", () => {
       const revision: RevisionFields = {
         version: 4,
@@ -818,6 +856,67 @@ describe("backward compatibility — old revisions without envelopes", () => {
 // ---------------------------------------------------------------------------
 // fillRevisionFromFeature
 // ---------------------------------------------------------------------------
+
+describe("reconcileMergeBaselines", () => {
+  // The core "keep in unison" property: even when a raw live revision snapshot
+  // disagrees with the feature document on an env (drift), the reconciled `live`
+  // baseline must reflect the feature model — otherwise raw-snapshot callers
+  // (auto-publish, safe rollout, experiments) diff against a stale value.
+  it("sources the live baseline env state from the feature model, not the raw snapshot", () => {
+    // baseFeature: production enabled=true, staging enabled=false.
+    const staleLive = makeRevision({
+      version: 3,
+      environmentsEnabled: { production: false, staging: false }, // drifted
+    });
+    const base = makeRevision({
+      version: 3,
+      environmentsEnabled: { production: false, staging: false },
+    });
+
+    const reconciled = reconcileMergeBaselines(baseFeature, staleLive, base);
+
+    // Feature model wins for the live baseline.
+    expect(reconciled.live.environmentsEnabled?.production).toBe(true);
+    expect(reconciled.live.environmentsEnabled?.staging).toBe(false);
+  });
+
+  it("feeds autoMerge a delta when the draft matches a stale base but differs from the feature model", () => {
+    // baseFeature has staging disabled. The stale snapshots claim it's already
+    // enabled, and the draft also enables it — so without reconciliation the
+    // draft === base and the toggle is swallowed.
+    const staleLive = makeRevision({
+      version: 3,
+      environmentsEnabled: { staging: true }, // drifted: model says false
+    });
+    const staleBase = makeRevision({
+      version: 3,
+      environmentsEnabled: { staging: true },
+    });
+    const revision = makeRevision({
+      version: 4,
+      environmentsEnabled: { staging: true },
+    });
+
+    const { live, base } = reconcileMergeBaselines(
+      baseFeature,
+      staleLive,
+      staleBase,
+    );
+    const result = autoMerge(
+      live,
+      base,
+      revision,
+      ["production", "staging"],
+      {},
+    );
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      // Without reconciliation this would be swallowed (draft === stale base).
+      expect(result.result.environmentsEnabled).toEqual({ staging: true });
+    }
+  });
+});
 
 describe("fillRevisionFromFeature", () => {
   it("backfills environmentsEnabled for environments not present in revision", () => {
