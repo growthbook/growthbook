@@ -250,7 +250,7 @@ WITH _data as (
     return {
       start: start.getTime(),
       rows: res.rows.map((row) => ({
-        timestamp: new Date(row.ts + "Z"),
+        timestamp: new Date(row.ts.includes("T") ? row.ts : row.ts + "Z"),
         environment: "" + row.environment,
         value: "" + row.value,
         source: "" + row.source,
