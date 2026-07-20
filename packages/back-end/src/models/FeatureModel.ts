@@ -518,7 +518,7 @@ export async function getAllFeaturesWithoutEditorFields(
 }
 
 /**
- * The fetch+migrate half of {@link getAllFeaturesForStaleGraph}, WITHOUT the
+ * The fetch+migrate half of {@link getAllFeaturesWithoutEditorFields}, WITHOUT the
  * per-user permission filter. Nothing here depends on the requesting user
  * (migration reads `context.org` only), which is what makes the result
  * cacheable per org — see services/featureGraphCache.ts, the only intended
