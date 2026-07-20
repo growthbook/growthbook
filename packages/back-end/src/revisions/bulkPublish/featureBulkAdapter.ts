@@ -363,9 +363,16 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     const { mergeResult } = desired;
 
     // Reverse the cross-collection writes BEFORE the feature-doc restore so a
-    // failed reversal keeps the doc consistent with the side collections; all
-    // best-effort with logged errors. The safe-rollout restore is
-    // ownership-checked inside so worker progress is never clobbered.
+    // failed reversal keeps the doc consistent with the side collections. Each
+    // reversal is attempted independently (a later one shouldn't be skipped
+    // because an earlier one failed), but ANY failure is surfaced at the end:
+    // a satellite left at the failed publish's state (a safe rollout still
+    // advancing, a stale experiment link, a retained holdout) means the item
+    // did NOT fully roll back, so it must be reported "published"/needs-
+    // attention rather than a clean rollback — matching how restore failures
+    // elsewhere are handled. The safe-rollout restore is ownership-checked
+    // inside so worker progress is never clobbered.
+    const reversalFailures: string[] = [];
     for (const entry of desired.safeRollouts ?? []) {
       try {
         await context.models.safeRollout.restoreAfterFailedBulkPublish(
@@ -374,6 +381,7 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
           entry.post,
         );
       } catch (e) {
+        reversalFailures.push(`safe rollout ${entry.pre.id}`);
         logger.error(
           e,
           `bulk publish compensation: failed to restore safe rollout ${entry.pre.id} for feature ${feature.id}`,
@@ -397,6 +405,7 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
           feature.id,
         );
       } catch (e) {
+        reversalFailures.push(`experiment ${experimentId} unlink`);
         logger.error(
           e,
           `bulk publish compensation: failed to unlink feature ${feature.id} from experiment ${experimentId}`,
@@ -406,9 +415,8 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
 
     // Reverse the apply-time holdout transition. Its guards can legitimately
     // refuse during compensation — then the doc's holdout key is NOT restored
-    // below (keeping the doc consistent with the un-reversed holdout/experiment
-    // collections), and the failure is surfaced at the end so the orchestrator
-    // marks this item restore-failed instead of reporting a clean rollback.
+    // below, keeping the doc consistent with the un-reversed holdout/experiment
+    // collections (the failure is surfaced with the others at the end).
     let holdoutReversalOk = true;
     if (mergeResult.holdout !== undefined) {
       try {
@@ -419,6 +427,7 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
         );
       } catch (e) {
         holdoutReversalOk = false;
+        reversalFailures.push("holdout");
         logger.error(
           e,
           `bulk publish compensation: failed to reverse holdout change for feature ${feature.id} — linked experiments [${(current.linkedExperiments ?? []).join(", ")}] may carry stale holdout pointers`,
@@ -470,14 +479,13 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       await updateFeature(context, current, restore);
     }
 
-    // A failed holdout reversal leaves the live feature partly at the failed
-    // publish's state (doc holdout + collections unchanged) while its other
-    // fields rolled back. Surface it so commitBulkPublish marks the item
+    // Any satellite reversal that failed leaves the feature partly at the
+    // failed publish's state. Surface it so commitBulkPublish marks the item
     // restore-failed — keeping its claim and reporting it "published" rather
     // than falsely claiming a clean rollback of a still-mixed entity.
-    if (!holdoutReversalOk) {
+    if (reversalFailures.length) {
       throw new Error(
-        `bulk publish compensation: holdout reversal failed for feature ${feature.id}; live holdout state retained`,
+        `bulk publish compensation: could not fully roll back feature ${feature.id} — ${reversalFailures.join(", ")} left at the failed publish's state`,
       );
     }
   },
