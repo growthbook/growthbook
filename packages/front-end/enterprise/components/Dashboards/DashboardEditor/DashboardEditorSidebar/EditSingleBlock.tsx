@@ -5,6 +5,8 @@ import {
   DashboardBlockType,
   DashboardInterface,
   blockHasFieldOfType,
+  blockUsesGlobalFilter,
+  globalFilterIsSet,
   isDifferenceType,
   BLOCK_CONFIG_ITEM_TYPES,
   DIFFERENCE_TYPE_OPTIONS,
@@ -144,6 +146,26 @@ const REQUIRED_FIELDS: {
     },
   ],
 };
+
+// Whether a required field is still missing, keeping the block from being saved.
+// A required field can be satisfied by a dashboard-wide global filter the block
+// follows (e.g. the metric supplied by the dashboard), in which case the block's
+// own field is intentionally left empty and must not block saving.
+function isBlockIncomplete(
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+  dashboardGlobalControls: DashboardInterface["globalControls"] | undefined,
+): boolean {
+  return !!(REQUIRED_FIELDS[block.type] || []).find(({ field, validation }) => {
+    if (
+      field === "metricId" &&
+      blockUsesGlobalFilter(block, "metricId") &&
+      globalFilterIsSet(dashboardGlobalControls, "metricId")
+    ) {
+      return false;
+    }
+    return !validation(block[field]);
+  });
+}
 
 interface Props {
   projects: string[];
@@ -1795,11 +1817,7 @@ export default function EditSingleBlock({
                   submit();
                 }
               }}
-              disabled={
-                !!(REQUIRED_FIELDS[block.type] || []).find(
-                  ({ field, validation }) => !validation(block[field]),
-                )
-              }
+              disabled={isBlockIncomplete(block, dashboardGlobalControls)}
             >
               Save & Close
             </Button>

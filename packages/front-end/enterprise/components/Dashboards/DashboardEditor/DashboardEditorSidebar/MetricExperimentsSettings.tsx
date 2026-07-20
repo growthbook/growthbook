@@ -181,6 +181,9 @@ export default function MetricExperimentsSettings({
       ) : null}
 
       <SidebarSettingField label="Metric">
+        {/* The metric is a required field, so it's only locked when the
+            dashboard actually supplies one. When following without a dashboard
+            metric, the block still needs its own metric selected here. */}
         <MetricSelector
           containerClassName="mb-0"
           value={metricValue}
@@ -188,7 +191,7 @@ export default function MetricExperimentsSettings({
           includeFacts={true}
           projects={projects}
           placeholder="Select a metric..."
-          disabled={following}
+          disabled={metricControlled}
         />
       </SidebarSettingField>
 
