@@ -5,11 +5,11 @@ import { startCase } from "lodash";
 import { ApiContextualBanditInterface } from "shared/validators";
 import {
   expandMetricGroups,
-  leafConditionFromContexts,
+  conditionFromLeafClauses,
 } from "shared/experiments";
 import type {
   ContextualBanditResultsLeaf,
-  ContextualBanditResultsContext,
+  ContextualLeafClause,
 } from "shared/experiments";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
@@ -38,25 +38,13 @@ function shouldShowUpdateMessage(message: string | null | undefined): boolean {
   return message.trim().toLowerCase() !== "successfully updated";
 }
 
-function LeafContextsLabel({
-  contexts,
-  attributeOrder,
-}: {
-  contexts: ContextualBanditResultsContext[];
-  attributeOrder: string[];
-}) {
+function LeafContextsLabel({ clauses }: { clauses: ContextualLeafClause[] }) {
   const condition = useMemo(
-    () =>
-      JSON.stringify(
-        leafConditionFromContexts(
-          contexts.map((ctx) => ctx.attributes),
-          attributeOrder,
-        ),
-      ),
-    [contexts, attributeOrder],
+    () => JSON.stringify(conditionFromLeafClauses(clauses)),
+    [clauses],
   );
 
-  if (!contexts.length || condition === "{}") {
+  if (!clauses.length || condition === "{}") {
     return (
       <Text size="medium" color="text-low">
         All contexts
@@ -274,11 +262,6 @@ export default function ContextualBanditResultsTable({
   const variations = cb.variations;
   const numVariations = variations.length;
 
-  const attributes = useMemo(
-    () => results?.attributes ?? [],
-    [results?.attributes],
-  );
-
   const leaves = useMemo(() => results?.leaves ?? [], [results?.leaves]);
   const hasTableData = leaves.length > 0;
 
@@ -353,10 +336,7 @@ export default function ContextualBanditResultsTable({
           key: `leaf-${leaf.leafId}`,
           label: (
             <Box>
-              <LeafContextsLabel
-                contexts={leaf.contexts}
-                attributeOrder={attributes}
-              />
+              <LeafContextsLabel clauses={leaf.clauses} />
               {messageNode}
             </Box>
           ),
@@ -370,7 +350,7 @@ export default function ContextualBanditResultsTable({
           })),
         };
       }),
-    [leavesBySampleSize, attributes, mode, numVariations],
+    [leavesBySampleSize, mode, numVariations],
   );
 
   const headerActions = (
