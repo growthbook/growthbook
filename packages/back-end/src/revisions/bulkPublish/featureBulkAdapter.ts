@@ -70,6 +70,12 @@ type FeatureDesiredState = {
    * the feature doc) — compensation restores their statuses.
    */
   safeRolloutPreImages?: SafeRolloutInterface[];
+  /**
+   * The status the apply's sync writes per safe rollout (revision rule
+   * status; "stopped" for rules the revision removes) — compensation's
+   * ownership check restores a rollout only while it still holds this value.
+   */
+  safeRolloutWrittenStatus?: Record<string, string>;
 };
 
 function toRef(revision: FeatureRevisionInterface): BulkRevisionRef {
@@ -304,16 +310,27 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     );
 
     // Snapshot the safe-rollout docs whose statuses the apply's sync may
-    // rewrite (revision rules ∪ live rules — the same id set
-    // updateSafeRolloutStatuses computes) so compensation can restore them.
-    const safeRolloutIds = [
-      ...new Set(
-        [...(raw.rules ?? []), ...(feature.rules ?? [])]
-          .filter((rule) => rule?.type === "safe-rollout")
-          .map((rule) => (rule as { safeRolloutId: string }).safeRolloutId),
-      ),
-    ];
+    // rewrite, and the status it will write to each (mirroring
+    // updateSafeRolloutStatuses: revision rule status; "stopped" for rules
+    // the revision removes), so compensation can restore with an ownership
+    // check.
+    const writtenStatus: Record<string, string> = {};
+    for (const rule of raw.rules ?? []) {
+      if (rule?.type === "safe-rollout") {
+        writtenStatus[rule.safeRolloutId] = rule.status;
+      }
+    }
+    for (const rule of feature.rules ?? []) {
+      if (
+        rule?.type === "safe-rollout" &&
+        !(rule.safeRolloutId in writtenStatus)
+      ) {
+        writtenStatus[rule.safeRolloutId] = "stopped";
+      }
+    }
+    const safeRolloutIds = Object.keys(writtenStatus);
     if (safeRolloutIds.length) {
+      desired.safeRolloutWrittenStatus = writtenStatus;
       desired.safeRolloutPreImages =
         await context.models.safeRollout.getByIds(safeRolloutIds);
     }
@@ -343,57 +360,22 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     }
     const current = await getFeature(context, feature.id);
     if (!current) return;
-    // Restore exactly the fields the apply wrote (plus the version pointer,
-    // which every merge advances) back to their pre-image values.
     const { mergeResult } = desired;
-    const { changes } = computeRevisionMergeChanges(
-      context,
-      feature,
-      rawRevision(revision),
-      mergeResult,
-    );
-    const restoreKeys = new Set([...Object.keys(changes), "version"]);
-    // A holdout removal lands via removeHoldoutFromFeature rather than
-    // `changes`, so include the key explicitly when the apply transitioned it.
-    if (mergeResult.holdout !== undefined) restoreKeys.add("holdout");
-    // What the apply wrote per key: the persisted post-apply doc when the
-    // feature write completed, else the computed $set (with a holdout removal
-    // written as an unset).
-    const written: Record<string, unknown> = desired.updatedFeature
-      ? (desired.updatedFeature as unknown as Record<string, unknown>)
-      : {
-          ...changes,
-          ...(mergeResult.holdout === null ? { holdout: undefined } : {}),
-        };
-    const currentDoc = current as unknown as Record<string, unknown>;
-    const restore = Object.fromEntries(
-      [...restoreKeys]
-        // Same ownership rule as the generic adapter: restore a key only
-        // while the live doc still holds the failed publish's value —
-        // anything else was moved by a concurrent writer (or never written
-        // by this apply) and must not be clobbered with the pre-image.
-        .filter((key) => isEqual(currentDoc[key], written[key]))
-        .map((key) => [
-          key,
-          // null-as-clear: undefined pre-image values would be dropped by the
-          // update path's changes filter, leaving apply-added fields in place.
-          feature[key as keyof FeatureInterface] ?? null,
-        ]),
-    ) as Partial<FeatureInterface>;
-    if (Object.keys(restore).length) {
-      await updateFeature(context, current, restore);
-    }
 
-    // Reverse the cross-collection writes the apply made (both best-effort,
-    // matching the holdout reversal below — a partial rollback with a logged
-    // error beats silently keeping the failed release's state).
+    // Reverse the cross-collection writes BEFORE the feature-doc restore, so
+    // a failed reversal can keep the doc consistent with the side
+    // collections instead of restoring a doc that contradicts them. All are
+    // best-effort with logged errors.
     //
     // Safe rollouts the apply's status sync advanced go back to their
-    // pre-apply state, including unsetting start metadata stamped on a
-    // never-started rollout.
+    // pre-apply state (ownership-checked inside against the status the sync
+    // wrote, so worker progress is never clobbered).
     for (const pre of desired.safeRolloutPreImages ?? []) {
       try {
-        await context.models.safeRollout.restoreAfterFailedBulkPublish(pre);
+        await context.models.safeRollout.restoreAfterFailedBulkPublish(
+          pre,
+          desired.safeRolloutWrittenStatus?.[pre.id] ?? pre.status,
+        );
       } catch (e) {
         logger.error(
           e,
@@ -424,9 +406,12 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       }
     }
 
-    // Reverse the apply-time holdout transition (best-effort: its guards can
-    // legitimately refuse during compensation, and a half-restored holdout is
-    // still better than silently keeping the failed release's linkage).
+    // Reverse the apply-time holdout transition. Its guards can legitimately
+    // refuse during compensation — when that happens the doc's holdout key is
+    // NOT restored below, so the feature doc keeps agreeing with the holdout
+    // and experiment collections (both left at the failed publish's state)
+    // rather than pointing at a membership that no longer exists.
+    let holdoutReversalOk = true;
     if (mergeResult.holdout !== undefined) {
       try {
         await applyHoldoutSideEffects(
@@ -435,11 +420,56 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
           feature.holdout ?? null,
         );
       } catch (e) {
+        holdoutReversalOk = false;
         logger.error(
           e,
           `bulk publish compensation: failed to reverse holdout change for feature ${feature.id}`,
         );
       }
+    }
+
+    // Restore exactly the fields the apply wrote (plus the version pointer,
+    // which every merge advances) back to their pre-image values.
+    const { changes } = computeRevisionMergeChanges(
+      context,
+      feature,
+      rawRevision(revision),
+      mergeResult,
+    );
+    const restoreKeys = new Set([...Object.keys(changes), "version"]);
+    // A holdout removal lands via removeHoldoutFromFeature rather than
+    // `changes`, so include the key explicitly when the apply transitioned it.
+    if (mergeResult.holdout !== undefined) restoreKeys.add("holdout");
+    // What the apply wrote per key: the persisted post-apply doc when the
+    // feature write completed, else the computed $set (with a holdout removal
+    // written as an unset).
+    const written: Record<string, unknown> = desired.updatedFeature
+      ? (desired.updatedFeature as unknown as Record<string, unknown>)
+      : {
+          ...changes,
+          ...(mergeResult.holdout === null ? { holdout: undefined } : {}),
+        };
+    const currentDoc = current as unknown as Record<string, unknown>;
+    const restore = Object.fromEntries(
+      [...restoreKeys]
+        // Same ownership rule as the generic adapter: restore a key only
+        // while the live doc still holds the failed publish's value —
+        // anything else was moved by a concurrent writer (or never written
+        // by this apply) and must not be clobbered with the pre-image.
+        .filter((key) => isEqual(currentDoc[key], written[key]))
+        // The doc's holdout pointer follows the side collections: if their
+        // reversal failed, keep the doc at the failed publish's holdout state
+        // so membership stays consistent end to end.
+        .filter((key) => key !== "holdout" || holdoutReversalOk)
+        .map((key) => [
+          key,
+          // null-as-clear: undefined pre-image values would be dropped by the
+          // update path's changes filter, leaving apply-added fields in place.
+          feature[key as keyof FeatureInterface] ?? null,
+        ]),
+    ) as Partial<FeatureInterface>;
+    if (Object.keys(restore).length) {
+      await updateFeature(context, current, restore);
     }
   },
 

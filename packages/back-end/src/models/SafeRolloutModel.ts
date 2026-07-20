@@ -67,33 +67,38 @@ export class SafeRolloutModel extends BaseClass {
 
   /**
    * Compensation for a failed bulk publish: put a safe rollout the apply's
-   * status sync advanced back to its pre-apply state, including unsetting
-   * start metadata stamped on a never-started rollout (the validated update
-   * path can't express an unset). Raw write, compensation-only.
+   * status sync advanced back to its pre-apply state. Restores ONLY the
+   * fields that sync writes (status always; start metadata when it started a
+   * never-started rollout), and only while the live doc still holds the
+   * value the apply wrote (`writtenStatus`) — a rollout the worker or
+   * another writer has since advanced is newer intent and is left alone.
+   * Raw write, compensation-only: the validated update path can't express
+   * the start-metadata unset.
    */
-  public async restoreAfterFailedBulkPublish(pre: SafeRolloutInterface) {
+  public async restoreAfterFailedBulkPublish(
+    pre: SafeRolloutInterface,
+    writtenStatus: string,
+  ) {
     const live = await this.getById(pre.id);
     if (!live) return;
-    const startedDrifted =
-      (live.startedAt?.getTime() ?? null) !==
-      (pre.startedAt?.getTime() ?? null);
-    if (live.status === pre.status && !startedDrifted) return;
-    const unset: Record<string, 1> = {};
-    if (!pre.startedAt) unset.startedAt = 1;
-    if (!pre.nextSnapshotAttempt) unset.nextSnapshotAttempt = 1;
+    if (live.status === pre.status) return;
+    if (live.status !== writtenStatus) return;
+    // The sync stamps start metadata only when transitioning a never-started
+    // rollout to running — the only case where those fields are ours to
+    // reverse (guarded on the stamp still being present).
+    const applyStartedIt =
+      !pre.startedAt && writtenStatus === "running" && !!live.startedAt;
     await this._dangerousGetCollection().updateOne(
       { organization: this.context.org.id, id: pre.id },
       {
         $set: {
           status: pre.status,
-          rampUpSchedule: pre.rampUpSchedule,
-          ...(pre.startedAt ? { startedAt: pre.startedAt } : {}),
-          ...(pre.nextSnapshotAttempt
-            ? { nextSnapshotAttempt: pre.nextSnapshotAttempt }
-            : {}),
+          ...(applyStartedIt ? { rampUpSchedule: pre.rampUpSchedule } : {}),
           dateUpdated: new Date(),
         },
-        ...(Object.keys(unset).length ? { $unset: unset } : {}),
+        ...(applyStartedIt
+          ? { $unset: { startedAt: 1, nextSnapshotAttempt: 1 } }
+          : {}),
       },
     );
   }
