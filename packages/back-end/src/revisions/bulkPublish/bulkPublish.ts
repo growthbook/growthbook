@@ -428,6 +428,7 @@ export async function commitBulkPublish(
     };
     context.bulkPublishDeferredEvents = [];
     const results: BulkPublishItemResult[] = [];
+    const restoreFailed = new Set<PlannedItemPublish>();
     for (const item of [...applied].reverse()) {
       const adapter = getBulkAdapter(item.ref.entityType);
       try {
@@ -447,6 +448,7 @@ export async function commitBulkPublish(
           restoreErr,
           `bulk publish compensation failed to restore ${item.ref.entityType} ${item.ref.entityId}`,
         );
+        restoreFailed.add(item);
         results.push({
           ref: item.ref,
           status: "published",
@@ -454,7 +456,13 @@ export async function commitBulkPublish(
         });
       }
     }
-    await releaseClaims(context, plan.items);
+    // A restore-failed item's live entity is stuck at the release state, so
+    // its revision KEEPS its claim (stays merged/published) — reopening it
+    // would make the revision contradict the live doc.
+    await releaseClaims(
+      context,
+      plan.items.filter((item) => !restoreFailed.has(item)),
+    );
     for (const item of plan.items) {
       if (!applied.includes(item)) {
         results.push({

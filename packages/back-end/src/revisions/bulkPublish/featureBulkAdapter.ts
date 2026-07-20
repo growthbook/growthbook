@@ -1,6 +1,7 @@
 import type { MergeResultChanges } from "shared/util";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { logger } from "back-end/src/util/logger";
 import {
   applyHoldoutSideEffects,
   applyRampCreateActionsForRevision,
@@ -248,12 +249,6 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     if (mergeResult.holdout !== undefined) {
       await applyHoldoutSideEffects(context, feature, mergeResult.holdout);
     }
-    await clearPendingFeatureDraftsForRevision(
-      context,
-      raw.featureId,
-      raw.version,
-      raw.rules,
-    );
   },
 
   async restorePreImage(context, preImage, revision, desiredState) {
@@ -284,11 +279,39 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       ]),
     ) as Partial<FeatureInterface>;
     await updateFeature(context, current, restore);
+
+    // Reverse the apply-time holdout transition (best-effort: its guards can
+    // legitimately refuse during compensation, and a half-restored holdout is
+    // still better than silently keeping the failed release's linkage).
+    if (mergeResult.holdout !== undefined) {
+      try {
+        await applyHoldoutSideEffects(
+          context,
+          { ...current, holdout: mergeResult.holdout ?? undefined },
+          feature.holdout ?? null,
+        );
+      } catch (e) {
+        logger.error(
+          e,
+          `bulk publish compensation: failed to reverse holdout change for feature ${feature.id}`,
+        );
+      }
+    }
   },
 
   async emitPublished(context, entity, revision, desiredState) {
     const feature = entity as unknown as FeatureInterface;
     const desired = desiredState as unknown as FeatureDesiredState;
+    const raw = rawRevision(revision);
+
+    // Post-publish cleanup of pending experiment drafts pointing at this
+    // revision — post-commit only, so a rolled-back release never clears them.
+    await clearPendingFeatureDraftsForRevision(
+      context,
+      raw.featureId,
+      raw.version,
+      raw.rules,
+    );
     const updated =
       desired.updatedFeature ??
       (await getFeature(context, feature.id)) ??

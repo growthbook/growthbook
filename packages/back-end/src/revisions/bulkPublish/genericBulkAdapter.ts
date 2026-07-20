@@ -231,13 +231,17 @@ export function makeGenericBulkAdapter(
       });
     },
 
-    async restorePreImage(context, preImage) {
+    async restorePreImage(context, preImage, revision, desiredState) {
       const model = adapter.getModel(context);
       const current = await model?.getById((preImage as { id: string }).id);
       if (!current) return;
+      // Restore only the fields the apply wrote — writing back every
+      // updatable field would clobber an unrelated concurrent update landing
+      // between the drift check and compensation.
       const updatable = adapter.getUpdatableFields();
       const restore: Record<string, unknown> = {};
-      for (const key of updatable) {
+      for (const key of Object.keys(desiredState)) {
+        if (!updatable.has(key)) continue;
         restore[key] = (preImage as Record<string, unknown>)[key];
       }
       await adapter.applyChanges(context, current, restore, {
