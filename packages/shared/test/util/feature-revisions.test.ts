@@ -612,6 +612,50 @@ describe("autoMerge with new envelopes", () => {
       expect(result.success).toBe(true);
     });
 
+    // Drift-safety (diverged): the draft never moved an env (revVal === base),
+    // but the live feature model has since moved it (e.g. ops flipped a kill
+    // switch after the draft forked). Publishing must KEEP the live value and
+    // emit no env delta — never revert live from a stale draft snapshot. This is
+    // the diverged counterpart to the non-diverged fix, and it intentionally
+    // does NOT anchor to the draft, so a stale base can't re-enable a killed env.
+    it("keeps the live value when the draft did not touch an env that live moved", () => {
+      const liveMoved: RevisionFields = {
+        ...live,
+        environmentsEnabled: { production: false }, // live killed it post-fork
+      };
+      const revision: RevisionFields = {
+        version: 4,
+        defaultValue: "false",
+        rules: {},
+        environmentsEnabled: { production: true }, // unchanged from base (true)
+      };
+      const result = autoMerge(liveMoved, base, revision, ["production"], {});
+      expect(result.success).toBe(true);
+      if (result.success) {
+        // No env entry → computeRevisionMergeChanges leaves live (false) intact.
+        expect(result.result.environmentsEnabled).toBeUndefined();
+        expect(result.conflicts).toHaveLength(0);
+      }
+    });
+
+    it("emits no env delta when the draft already matches the live feature model", () => {
+      const liveMoved: RevisionFields = {
+        ...live,
+        environmentsEnabled: { production: false },
+      };
+      const revision: RevisionFields = {
+        version: 4,
+        defaultValue: "false",
+        rules: {},
+        environmentsEnabled: { production: false }, // same as live
+      };
+      const result = autoMerge(liveMoved, base, revision, ["production"], {});
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.result.environmentsEnabled).toBeUndefined();
+      }
+    });
+
     it("applies non-conflicting metadata change", () => {
       const revision: RevisionFields = {
         version: 4,
