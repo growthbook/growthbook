@@ -1,7 +1,6 @@
 import {
   Callout as RadixCallout,
   Box,
-  Flex,
   IconButton,
   Text,
   Tooltip,
@@ -108,29 +107,29 @@ export default forwardRef<
           {renderedIcon}
         </RadixCallout.Icon>
       ) : null}
-      <Flex align="start" gap={action ? "3" : "1"} flexGrow="1">
+      <Box className={styles.content}>
         {/* Rendered as a div (not the default <p>) so block-level children
             and nested layout don't produce invalid <div>-inside-<p> nesting. */}
-        <Text as="div" size={getRadixSize(size)} style={{ flex: 1 }}>
+        <Text as="div" size={getRadixSize(size)} className={styles.body}>
           {children}
         </Text>
-        {action ? <Box className={styles.firstLineSlot}>{action}</Box> : null}
-        {dismissible && id ? (
-          <Box className={styles.firstLineSlot}>
-            <Tooltip content="Dismiss">
-              <IconButton
-                variant="ghost"
-                color="gray"
-                size="1"
-                onClick={() => setDismissed(true)}
-                aria-label="Dismiss"
-              >
-                <PiX />
-              </IconButton>
-            </Tooltip>
-          </Box>
-        ) : null}
-      </Flex>
+        {action ? <Box className={styles.action}>{action}</Box> : null}
+      </Box>
+      {dismissible && id ? (
+        <Box className={styles.firstLineSlot}>
+          <Tooltip content="Dismiss">
+            <IconButton
+              variant="ghost"
+              color="gray"
+              size="1"
+              onClick={() => setDismissed(true)}
+              aria-label="Dismiss"
+            >
+              <PiX />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      ) : null}
     </RadixCallout.Root>
   );
 });

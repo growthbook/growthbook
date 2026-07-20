@@ -1,6 +1,5 @@
 import { InformationSchemaInterface } from "shared/types/integrations";
 import { isManagedWarehouseNoEventsGuidanceMessage } from "shared/util";
-import { Box } from "@radix-ui/themes";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import Callout from "@/ui/Callout";
@@ -45,9 +44,9 @@ export default function RetryInformationSchemaCard({
           </div>
         </div>
       ) : (
-        <Callout status="warning">
-          {combinedError}
-          <Box mt="3">
+        <Callout
+          status="warning"
+          action={
             <Tooltip
               body="You do not have permission to retry generating an information schema for this datasource."
               shouldDisplay={!canRunQueries}
@@ -60,7 +59,9 @@ export default function RetryInformationSchemaCard({
                 Retry
               </Button>
             </Tooltip>
-          </Box>
+          }
+        >
+          {combinedError}
         </Callout>
       )}
     </div>
