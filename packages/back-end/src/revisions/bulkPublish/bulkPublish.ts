@@ -497,6 +497,7 @@ export async function commitBulkPublish(
     const results: BulkPublishItemResult[] = [];
     const restoreFailed = new Set<PlannedItemPublish>();
     const toRestore = inFlight ? [...applied, inFlight] : [...applied];
+    const compensated = new Set(toRestore);
     for (const item of toRestore.reverse()) {
       const adapter = getBulkAdapter(item.ref.entityType);
       try {
@@ -532,7 +533,9 @@ export async function commitBulkPublish(
       plan.items.filter((item) => !restoreFailed.has(item)),
     );
     for (const item of plan.items) {
-      if (!applied.includes(item)) {
+      // Items the restore loop already reported (applied + in-flight) have
+      // their outcome; everything else never touched live state.
+      if (!compensated.has(item)) {
         results.push({
           ref: item.ref,
           status: "not-applied",
@@ -548,6 +551,10 @@ export async function commitBulkPublish(
     // rejections and claim conflicts never reach here and stay silent.
     const reason = `Release publish failed and was rolled back: ${getErrorMessage(e)}`;
     for (const item of plan.items) {
+      // A restore-failed item's live entity KEEPS the publish state and its
+      // revision stays merged — a "rolled back" failure event would contradict
+      // both. Its `status: "published"` result row is the operator signal.
+      if (restoreFailed.has(item)) continue;
       try {
         await getBulkAdapter(item.ref.entityType).emitPublishFailed(
           context,
@@ -564,7 +571,9 @@ export async function commitBulkPublish(
     }
     context.bulkPublishId = null;
     throw new BulkPublishCommitError(
-      `Publish failed while applying changes (${getErrorMessage(e)}) — applied entities were rolled back and all revisions reopened`,
+      restoreFailed.size
+        ? `Publish failed while applying changes (${getErrorMessage(e)}) — ${restoreFailed.size} of ${plan.items.length} entities could not be rolled back and remain published (see items)`
+        : `Publish failed while applying changes (${getErrorMessage(e)}) — applied entities were rolled back and all revisions reopened`,
       results,
     );
   }

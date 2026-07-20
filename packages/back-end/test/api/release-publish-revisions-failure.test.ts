@@ -17,6 +17,7 @@ import { setupApp } from "./api.setup";
 // both claims, and suppress all success-side signals. The lazy Proxy defers
 // requireActual to first property access, dodging model-module import cycles.
 let mockFailFeatureApply = false;
+let mockFailConstantRestore = false;
 jest.mock("back-end/src/revisions/bulkPublish/registry", () => {
   return new Proxy(
     {},
@@ -28,16 +29,29 @@ jest.mock("back-end/src/revisions/bulkPublish/registry", () => {
         if (prop !== "getBulkAdapter") return actual[prop];
         return (type: string) => {
           const adapter = actual.getBulkAdapter(type);
-          if (type !== "feature") return adapter;
-          return {
-            ...adapter,
-            applyPrecomputed: async (...args: unknown[]) => {
-              if (mockFailFeatureApply) {
-                throw new Error("simulated infra failure");
-              }
-              return adapter.applyPrecomputed(...args);
-            },
-          };
+          if (type === "feature") {
+            return {
+              ...adapter,
+              applyPrecomputed: async (...args: unknown[]) => {
+                if (mockFailFeatureApply) {
+                  throw new Error("simulated infra failure");
+                }
+                return adapter.applyPrecomputed(...args);
+              },
+            };
+          }
+          if (type === "constant") {
+            return {
+              ...adapter,
+              restorePreImage: async (...args: unknown[]) => {
+                if (mockFailConstantRestore) {
+                  throw new Error("simulated restore failure");
+                }
+                return adapter.restorePreImage(...args);
+              },
+            };
+          }
+          return adapter;
         };
       },
     },
@@ -72,6 +86,7 @@ const { app, setReqContext } = setupApp();
 describe("POST /api/v2/releases/publish-revisions — commit failure", () => {
   afterEach(() => {
     mockFailFeatureApply = false;
+    mockFailConstantRestore = false;
   });
 
   it("rolls back applied entities, reopens revisions, and emits only publishFailed", async () => {
@@ -203,5 +218,130 @@ describe("POST /api/v2/releases/publish-revisions — commit failure", () => {
         /simulated infra failure/,
       );
     }
+  });
+
+  it("keeps a restore-failed item published and skips its publishFailed event", async () => {
+    setReqContext(makeContext());
+    const now = new Date();
+
+    await mongoose.connection.collection("constants").insertOne({
+      id: "const_stuck-const",
+      organization: ORG_ID,
+      key: "stuck-const",
+      name: "stuck-const",
+      owner: "",
+      type: "string",
+      value: "before",
+      dateCreated: now,
+      dateUpdated: now,
+    });
+    const stageRes = await request(app)
+      .put(`/api/v1/constants-revisions/stuck-const/new/value`)
+      .send({ value: "after" })
+      .set("Authorization", "Bearer foo");
+    expect(stageRes.status).toBe(200);
+    const constVersion = stageRes.body.revision.version;
+
+    await mongoose.connection.collection("features").insertOne({
+      id: "stuck-feat",
+      organization: ORG_ID,
+      owner: "",
+      valueType: "string",
+      defaultValue: "live",
+      version: 1,
+      environmentSettings: {},
+      dateCreated: now,
+      dateUpdated: now,
+    });
+    await mongoose.connection.collection("featurerevisions").insertMany([
+      {
+        organization: ORG_ID,
+        featureId: "stuck-feat",
+        version: 1,
+        baseVersion: 0,
+        status: "published",
+        defaultValue: "live",
+        rules: [],
+        dateCreated: now,
+        dateUpdated: now,
+        datePublished: now,
+      },
+      {
+        organization: ORG_ID,
+        featureId: "stuck-feat",
+        version: 2,
+        baseVersion: 1,
+        status: "draft",
+        defaultValue: "new-value",
+        rules: [],
+        dateCreated: now,
+        dateUpdated: now,
+      },
+    ]);
+
+    // Constant applies, feature apply throws, then the constant's restore
+    // ALSO fails: the constant must stay published (entity + revision) with
+    // no contradictory publishFailed webhook, while the feature rolls back
+    // and gets one.
+    mockFailFeatureApply = true;
+    mockFailConstantRestore = true;
+    const res = await request(app)
+      .post("/api/v2/releases/publish-revisions")
+      .send({
+        revisions: [
+          { entityType: "constant", key: "stuck-const", version: constVersion },
+          { entityType: "feature", id: "stuck-feat", version: 2 },
+        ],
+      })
+      .set("Authorization", "Bearer foo");
+    expect(res.status).toBe(500);
+    expect(res.body.message).toMatch(/could not be rolled back/);
+
+    // Per-item outcomes name the stuck entity.
+    const byId = Object.fromEntries(
+      (res.body.items as { ref: { entityId: string }; status: string }[]).map(
+        (item) => [item.ref.entityId, item.status],
+      ),
+    );
+    expect(byId["const_stuck-const"]).toBe("published");
+    expect(byId["stuck-feat"]).toBe("rolled-back");
+
+    // The stuck constant keeps the release state on both entity and revision.
+    const constant = await mongoose.connection
+      .collection("constants")
+      .findOne({ organization: ORG_ID, key: "stuck-const" });
+    expect(constant?.value).toBe("after");
+    const constRevision = await mongoose.connection
+      .collection("revisions")
+      .findOne({
+        organization: ORG_ID,
+        "target.type": "constant",
+        version: constVersion,
+      });
+    expect(constRevision?.status).toBe("merged");
+
+    // The feature rolled back cleanly.
+    const feature = await mongoose.connection
+      .collection("features")
+      .findOne({ organization: ORG_ID, id: "stuck-feat" });
+    expect(feature?.defaultValue).toBe("live");
+    const featRevision = await mongoose.connection
+      .collection("featurerevisions")
+      .findOne({ organization: ORG_ID, featureId: "stuck-feat", version: 2 });
+    expect(featRevision?.status).toBe("draft");
+
+    // Exactly one publishFailed — for the rolled-back feature, not the
+    // still-published constant.
+    const failed = await mongoose.connection
+      .collection("events")
+      .find({ organizationId: ORG_ID, event: /revision\.publishFailed/ })
+      .toArray();
+    const forThisRelease = failed.filter(
+      (e) =>
+        e.data?.data?.object?.featureId === "stuck-feat" ||
+        e.data?.data?.object?.key === "stuck-const",
+    );
+    expect(forThisRelease.length).toBe(1);
+    expect(forThisRelease[0].data?.data?.object?.featureId).toBe("stuck-feat");
   });
 });
