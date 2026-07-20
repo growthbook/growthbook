@@ -4,6 +4,33 @@ import { DatabricksConnectionParams } from "shared/types/integrations/databricks
 import { logger } from "back-end/src/util/logger";
 import { ENVIRONMENT } from "back-end/src/util/secrets";
 
+type ConnectionOptions = Parameters<DBSQLClient["connect"]>[0];
+
+export function buildDatabricksConnectionOptions(
+  conn: DatabricksConnectionParams,
+): ConnectionOptions {
+  const shared = {
+    host: conn.host,
+    port: conn.port || 443,
+    path: conn.path,
+    clientId: conn.clientId || "GrowthBook",
+  };
+
+  if (conn.authType === "oauth-m2m") {
+    return {
+      ...shared,
+      authType: "databricks-oauth",
+      oauthClientId: conn.oauthClientId,
+      oauthClientSecret: conn.oauthClientSecret,
+    };
+  }
+
+  return {
+    ...shared,
+    token: conn.token ?? "",
+  };
+}
+
 export async function runDatabricksQuery<T>(
   conn: DatabricksConnectionParams,
   sql: string,
@@ -34,13 +61,7 @@ export async function runDatabricksQuery<T>(
             reject(error);
           }
         })
-        .connect({
-          token: conn.token,
-          host: conn.host,
-          port: conn.port || 443,
-          path: conn.path,
-          clientId: conn.clientId || "GrowthBook",
-        })
+        .connect(buildDatabricksConnectionOptions(conn))
         .then(async () => {
           const session = await client.openSession();
           const queryOperation = await session.executeStatement(sql, {

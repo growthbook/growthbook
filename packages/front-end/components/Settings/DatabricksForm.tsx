@@ -1,4 +1,4 @@
-import { FC, ChangeEventHandler } from "react";
+import { FC, ChangeEventHandler, useState } from "react";
 import { DatabricksConnectionParams } from "shared/types/integrations/databricks";
 import Field from "@/components/Forms/Field";
 import HostWarning from "./HostWarning";
@@ -9,6 +9,9 @@ const DatabricksForm: FC<{
   onParamChange: ChangeEventHandler<HTMLInputElement | HTMLSelectElement>;
   setParams: (params: { [key: string]: string | boolean }) => void;
 }> = ({ params, existing, onParamChange, setParams }) => {
+  const [originalAuthType] = useState(params.authType);
+  const authType = params.authType ?? "oauth-m2m";
+
   return (
     <div className="row">
       <div className="col-md-12">
@@ -55,16 +58,67 @@ const DatabricksForm: FC<{
         />
       </div>
       <div className="form-group col-md-12">
-        <label>Token</label>
-        <input
-          type="text"
+        <label>Authentication Method</label>
+        <select
           className="form-control"
-          name="token"
-          value={params.token || ""}
+          autoComplete="off"
+          name="authType"
+          value={authType}
           onChange={onParamChange}
-          placeholder={existing ? "(Keep existing)" : ""}
-        />
+        >
+          <option value="oauth-m2m">OAuth (machine-to-machine)</option>
+          <option value="pat">Personal Access Token</option>
+        </select>
       </div>
+
+      {authType === "oauth-m2m" ? (
+        <>
+          <div className="form-group col-md-12">
+            <label>Client ID</label>
+            <input
+              type="text"
+              className="form-control"
+              name="oauthClientId"
+              required
+              value={params.oauthClientId || ""}
+              onChange={onParamChange}
+            />
+          </div>
+          <div className="form-group col-md-12">
+            <label>OAuth Secret</label>
+            <input
+              type="text"
+              className="form-control password-presentation"
+              autoComplete="off"
+              name="oauthClientSecret"
+              required={!existing || authType !== originalAuthType}
+              value={params.oauthClientSecret || ""}
+              onChange={onParamChange}
+              placeholder={
+                existing && authType === originalAuthType
+                  ? "(Keep existing)"
+                  : ""
+              }
+            />
+          </div>
+        </>
+      ) : (
+        <div className="form-group col-md-12">
+          <label>Token</label>
+          <input
+            type="text"
+            className="form-control password-presentation"
+            autoComplete="off"
+            name="token"
+            required={!existing || authType !== originalAuthType}
+            value={params.token || ""}
+            onChange={onParamChange}
+            placeholder={
+              existing && authType === originalAuthType ? "(Keep existing)" : ""
+            }
+          />
+        </div>
+      )}
       <div className="form-group col-md-12">
         <Field
           label="Default Catalog (Recommended)"
