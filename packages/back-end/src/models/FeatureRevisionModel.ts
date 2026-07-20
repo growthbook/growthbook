@@ -149,13 +149,17 @@ featureRevisionSchema.index(
   { organization: 1, featureId: 1, version: 1 },
   { unique: true },
 );
-// Partial, not sparse: a compound sparse index still includes docs where ANY
-// indexed field exists, so legacy docs (no stored id) would all collide on
-// id: null. The $exists filter indexes only docs that carry an id — legacy
-// docs resolve via the tuple decode onto the triplet index instead.
+// Non-unique: the by-id resolver (findFeatureRevisionCoordinatesByRevisionId)
+// only needs this for lookup speed, and nothing relies on the DB enforcing
+// id-uniqueness — minted ids come from uniqid, and the real identity guarantee
+// is the (organization, featureId, version) triplet above. A unique index here
+// would risk a build-time collision on any legacy `id: null` ($exists matches
+// null) and is heavier to build on a large existing collection, all for a
+// collision guard uniqid makes moot. Partial so it covers only id-bearing
+// docs — legacy docs (no stored id) resolve via the tuple decode instead.
 featureRevisionSchema.index(
   { organization: 1, id: 1 },
-  { unique: true, partialFilterExpression: { id: { $exists: true } } },
+  { partialFilterExpression: { id: { $exists: true } } },
 );
 featureRevisionSchema.index({ organization: 1, status: 1 });
 // Sparse: only scheduled revisions carry scheduledPublishAt, so the cross-org
