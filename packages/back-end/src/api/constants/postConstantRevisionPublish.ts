@@ -1,7 +1,6 @@
 import { isEqual } from "lodash";
 import {
   checkMergeConflicts,
-  getConstantRevisionChange,
   normalizeProposedChanges,
 } from "shared/enterprise";
 import { postConstantRevisionPublishValidator } from "shared/validators";
@@ -13,13 +12,17 @@ import {
   NotFoundError,
 } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
+import {
+  evaluatePublishGates,
+  PublishBlockedError,
+  PublishGate,
+} from "back-end/src/revisions/publishGates";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 import {
   buildMergeDesiredState,
   isRevisionDiverged,
 } from "back-end/src/revisions/util";
 import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
-import { assertConstantPublishGuards } from "back-end/src/services/publishGuards";
 import { loadRevisionByVersion } from "./validations";
 import { toApiConstantRevision } from "./toApiConstantRevision";
 
@@ -61,6 +64,84 @@ export const postConstantRevisionPublish = createApiRequestHandler(
     canUseRestApiBypassSetting(req) ||
     adapter.canBypassApproval(req.context, constant as Record<string, unknown>);
 
+  // Layer proposed changes on top of LIVE (not the snapshot) so out-of-band
+  // writes to fields the revision didn't touch are preserved.
+  const desiredState = buildMergeDesiredState(
+    constant as unknown as Record<string, unknown>,
+    revision.target.snapshot as Record<string, unknown>,
+    revision.target.proposedChanges,
+    adapter.getUpdatableFields(),
+  );
+
+  // Aggregate every publish gate up front so a blocked publish returns ONE
+  // structured 422 naming each gate, the flag that clears it, and a callable
+  // resolution route. Gates are assembled for every ACTIVE condition (whether
+  // or not the caller can bypass it) so a successful publish can report the ones
+  // that were bypassed. The approval and stale-base checks below stay in place
+  // as the enforcement backstop; the adapter-collected guard gates are enforced
+  // solely here.
+  const version = req.params.version;
+  const gates: PublishGate[] = [];
+  if (approvalRequired && revision.status !== "approved") {
+    gates.push({
+      type: "approval-required",
+      severity: "blocker",
+      messages: [
+        `Requires approval before publishing (status: "${revision.status}").`,
+      ],
+      override: null,
+      requiresPermission: "bypassApprovalChecks",
+      resolution: {
+        action: "request-review",
+        method: "POST",
+        path: `/constants-revisions/${constant.key}/${version}/request-review`,
+      },
+    });
+  }
+  if (
+    req.organization.settings?.requireRebaseBeforePublish &&
+    isRevisionDiverged(
+      adapter,
+      revision.target.snapshot as Record<string, unknown>,
+      constant as unknown as Record<string, unknown>,
+    )
+  ) {
+    gates.push({
+      type: "stale-base",
+      severity: "blocker",
+      messages: ["This revision was created against an older version."],
+      override: "ignoreWarnings",
+      requiresPermission: "bypassApprovalChecks",
+      resolution: {
+        action: "rebase",
+        method: "POST",
+        path: `/constants-revisions/${constant.key}/${version}/rebase`,
+      },
+    });
+  }
+  gates.push(
+    ...((await adapter.collectPublishGates?.(
+      req.context,
+      constant as unknown as Record<string, unknown>,
+      revision,
+      desiredState,
+    )) ?? []),
+  );
+  const { blocking, bypassed } = evaluatePublishGates(gates, {
+    ignoreWarnings: req.context.ignoreWarnings,
+    skipSchemaValidation: req.context.skipSchemaValidation,
+    skipHooks: req.context.skipHooks,
+    bypassApprovalPermission: adapter.canBypassApproval(
+      req.context,
+      constant as Record<string, unknown>,
+    ),
+    restApiBypassesReviews: canUseRestApiBypassSetting(req),
+    canForceMergeStaleBase: canBypass,
+  });
+  if (blocking.length) {
+    throw new PublishBlockedError(blocking);
+  }
+
   if (approvalRequired && revision.status !== "approved" && !canBypass) {
     throw new BadRequestError(
       `This revision requires approval before publishing (status: "${revision.status}"). ` +
@@ -70,15 +151,6 @@ export const postConstantRevisionPublish = createApiRequestHandler(
   }
 
   const isBypass = approvalRequired && revision.status !== "approved";
-
-  // Layer proposed changes on top of LIVE (not the snapshot) so out-of-band
-  // writes to fields the revision didn't touch are preserved.
-  const desiredState = buildMergeDesiredState(
-    constant as unknown as Record<string, unknown>,
-    revision.target.snapshot as Record<string, unknown>,
-    revision.target.proposedChanges,
-    adapter.getUpdatableFields(),
-  );
 
   // The live check above covers the source project. If the revision moves the
   // constant to a different project, also require update permission on the
@@ -110,47 +182,32 @@ export const postConstantRevisionPublish = createApiRequestHandler(
   const updatableFields = adapter.getUpdatableFields();
 
   // Same-base governance: when the org enforces rebase-before-publish, a stale
-  // revision must be rebased first. `mergeNow` only takes effect for bypass
-  // callers; otherwise it's ignored.
+  // revision must be rebased first. `ignoreWarnings` force-merges the stale
+  // draft — but only for bypass-approval callers, and asking without the
+  // permission fails loudly rather than silently re-blocking.
   if (req.organization.settings?.requireRebaseBeforePublish) {
-    const forceMerge = !!req.body.mergeNow && canBypass;
+    const forceMerge = req.context.ignoreWarnings && canBypass;
     if (!forceMerge) {
       const diverged = isRevisionDiverged(
         adapter,
         revision.target.snapshot as Record<string, unknown>,
         constant as unknown as Record<string, unknown>,
       );
+      if (diverged && req.context.ignoreWarnings && !canBypass) {
+        req.context.permissions.throwPermissionError();
+      }
       if (diverged && !canBypass) {
         throw new ConflictError(
           "This revision was created against an older version of the constant. " +
-            'Rebase the revision first. ("mergeNow": true bypasses this only with bypass-approval permission.)',
+            'Rebase the revision first, or pass `"ignoreWarnings": true` to force-merge (requires the bypass-approval permission).',
         );
       }
     }
   }
 
-  // A constant change isn't config-scoped, but it rewrites the resolved value of
-  // every config referencing it — so warn (bypassably) when a running experiment
-  // reads one. Value-affecting changes only; metadata edits can't shift a value.
-  const constantChange = getConstantRevisionChange(
-    constant,
-    revision.target.proposedChanges,
-  );
-  if (
-    constantChange.valueChanged ||
-    constantChange.changedEnvironments.length
-  ) {
-    await assertConstantPublishGuards(
-      req.context,
-      constant,
-      revision,
-      { armed: false },
-      (desiredState.value as string | undefined) ?? constant.value,
-      "environmentValues" in desiredState
-        ? (desiredState.environmentValues as Record<string, string> | undefined)
-        : constant.environmentValues,
-    );
-  }
+  // Experiment/lock/schema-break guards were enforced above via the adapter's
+  // collectPublishGates + evaluatePublishGates (the collector also records any
+  // synchronous override in the logs), so no separate assert runs here.
 
   const hasChanges = Object.keys(desiredState).some((key) => {
     if (!updatableFields.has(key)) return false;
@@ -172,7 +229,10 @@ export const postConstantRevisionPublish = createApiRequestHandler(
     await dispatchConstantRevisionEvent(req.context, merged, {
       type: merged.revertedFrom ? "reverted" : "published",
     });
-    return { revision: await toApiConstantRevision(merged, req.context) };
+    return {
+      revision: await toApiConstantRevision(merged, req.context),
+      ...(bypassed.length ? { bypassedGates: bypassed } : {}),
+    };
   }
 
   // Claim the merge BEFORE applying to the live entity. `merge` is CAS-guarded,
@@ -208,5 +268,8 @@ export const postConstantRevisionPublish = createApiRequestHandler(
     type: merged.revertedFrom ? "reverted" : "published",
   });
 
-  return { revision: await toApiConstantRevision(merged, req.context) };
+  return {
+    revision: await toApiConstantRevision(merged, req.context),
+    ...(bypassed.length ? { bypassedGates: bypassed } : {}),
+  };
 });

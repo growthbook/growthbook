@@ -56,7 +56,7 @@ Use `console.log` statements liberally while developing hooks to inspect variabl
 
 ### Warnings
 
-Instead of `throw`, a hook can call `addWarning("message")` to raise a **soft warning**. A warning doesn't hard-block: in the UI the user can review it and click **Save anyway**, and REST API clients can re-submit the request with `?ignoreWarnings=true`. A `throw` always blocks and cannot be bypassed.
+Instead of `throw`, a hook can call `addWarning("message")` to raise a **soft warning**. A warning doesn't hard-block: in the UI the user can review it and click **Save anyway**, and REST API clients can re-submit the request with `"ignoreWarnings": true` in the body. A `throw` is stronger — it blocks the save outright, and `ignoreWarnings` will not clear it. Forcing past a `throw` requires org-wide bypass authority (the **bypass-approvals** permission): over the REST API such a caller can re-submit with `"skipHooks": true`. This is separate from `"skipSchemaValidation"` (which forces past schema and validation-rule failures, not hook rejections) — a hook failure is not a schema error.
 
 ```js
 if (feature.tags.length === 0) {

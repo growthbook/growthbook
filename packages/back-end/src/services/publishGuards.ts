@@ -10,7 +10,12 @@ import { assertConfigLockGuard } from "back-end/src/services/configLockGuard";
 import {
   assertConstantSchemaBreakGuard,
   assertConfigSchemaBreakGuard,
+  assertConfigArchiveSchemaBreakGuard,
 } from "back-end/src/services/schemaBreakGuard";
+import {
+  assertConfigArchiveDependentsGuard,
+  assertConstantArchiveDependentsGuard,
+} from "back-end/src/services/archiveDependentsGuard";
 
 // Every deferred-publish guard for a config/constant publish, orchestrated in one
 // place so each choke point (REST publish/update/revert handlers, the internal
@@ -32,6 +37,12 @@ export async function assertConfigPublishGuards(
     ConfigInterface,
     "value" | "schema" | "parent" | "extends" | "extensible"
   >,
+  // The proposed archived state when this publish is an archive/unarchive
+  // transition. Resolution scrubs archived entries, so the flip rewrites
+  // dependents' resolved values even though the config's own value is unchanged
+  // — the schema-break guard models the transition against them. Omit for a
+  // value publish.
+  proposedArchived?: boolean,
 ): Promise<void> {
   await assertConfigExperimentGuard(context, config, revision, opts);
   await assertConfigLockGuard(
@@ -40,6 +51,43 @@ export async function assertConfigPublishGuards(
     revision,
     opts,
   );
+  if (
+    proposedArchived !== undefined &&
+    !!config.archived !== proposedArchived
+  ) {
+    await assertConfigArchiveSchemaBreakGuard(
+      context,
+      config,
+      proposedArchived,
+      opts,
+      revision,
+    );
+    // Only the archive direction is guarded for live dependents; unarchiving
+    // never breaks a dependent (it restores a value).
+    if (proposedArchived) {
+      await assertConfigArchiveDependentsGuard(
+        context,
+        {
+          id: config.id,
+          key: config.key,
+          project: config.project,
+          // Fingerprint the PROPOSED value/lineage — the same state the arm-time
+          // capture used (config.adapter builds `proposedConfig` identically at
+          // arm and fire). A revision that flips `archived` AND changes
+          // value/parent/extends in one shot would otherwise fingerprint the
+          // proposed state at arm but re-check the stale live state at fire —
+          // bricking the deferred publish (spurious NEW dependent) or masking a
+          // real one. Fall back to the live values on direct paths that omit
+          // proposedConfig (a pure archive doesn't touch them anyway).
+          value: proposedConfig?.value ?? config.value,
+          parent: proposedConfig?.parent ?? config.parent,
+          extends: proposedConfig?.extends ?? config.extends,
+        },
+        opts,
+        revision,
+      );
+    }
+  }
   if (proposedConfig) {
     await assertConfigSchemaBreakGuard(
       context,
@@ -69,6 +117,11 @@ export async function assertConstantPublishGuards(
   // then skips (fail-open, soft warning).
   proposedValue?: string,
   proposedEnvironmentValues?: Record<string, string>,
+  // The proposed archived state for an archive/unarchive transition — archived
+  // references are scrubbed at resolution, so the flip rewrites dependents'
+  // resolved values even with the constant's own values unchanged. Omit for a
+  // value publish.
+  proposedArchived?: boolean,
 ): Promise<void> {
   await assertConstantExperimentGuard(context, constant, revision, opts);
   await assertConfigLockGuard(
@@ -84,5 +137,16 @@ export async function assertConstantPublishGuards(
     opts,
     revision,
     proposedEnvironmentValues,
+    proposedArchived,
   );
+  // Only the archive direction is guarded for live dependents; unarchiving
+  // restores values and never breaks a dependent.
+  if (proposedArchived === true && !constant.archived) {
+    await assertConstantArchiveDependentsGuard(
+      context,
+      { id: constant.id, key: constant.key, project: constant.project },
+      opts,
+      revision,
+    );
+  }
 }

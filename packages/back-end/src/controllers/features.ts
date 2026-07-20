@@ -109,6 +109,7 @@ import { generateId } from "back-end/src/util/uuid";
 import {
   addIdsToFlatRules,
   addIdsToRules,
+  assertFeatureDeletable,
   evaluateAllFeatures,
   evaluateFeature,
   FeatureDefinitionSDKPayload,
@@ -122,6 +123,7 @@ import {
   assertCanAutoPublish,
   revisionRequiresReview,
 } from "back-end/src/services/features";
+import { assertFeatureArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
@@ -5190,6 +5192,9 @@ export async function deleteFeatureById(
     if (!context.permissions.canDeleteFeature(feature)) {
       context.permissions.throwPermissionError();
     }
+    // Reference integrity: deleting a feature that other live features gate on
+    // as a prerequisite dangles their gate and drops them from the SDK payload.
+    await assertFeatureDeletable(context, feature.id);
     if (feature.holdout?.id) {
       try {
         await context.models.holdout.removeFeatureFromHoldout(
@@ -5403,6 +5408,13 @@ export async function postFeatureArchive(
 
   if (autoPublish) {
     await assertCanAutoPublish(context, feature, draft);
+    // Soft-warn (bypassable by ignoreWarnings) when auto-publishing an archive of
+    // a feature that live features/experiments still gate on as a prerequisite.
+    // Mirrors the postFeatureRevisionPublish choke point; only the archive
+    // transition is guarded.
+    if (newArchivedState === true && !feature.archived) {
+      await assertFeatureArchiveDependentsGuard(context, feature);
+    }
     const updatedFeature = await publishRevision({
       context,
       feature,

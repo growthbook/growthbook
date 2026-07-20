@@ -20,7 +20,7 @@ import { CONSTANT_EXTENDS_KEY } from "shared/constants";
 import { ConstantSource } from "shared/sdk-versioning";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
-import { BadRequestError, SoftWarningError } from "back-end/src/util/errors";
+import { BadRequestError } from "back-end/src/util/errors";
 import {
   getPayloadKeysForAllEnvs,
   getExperimentsByIds,
@@ -886,7 +886,7 @@ export async function assertConstantArchivable(
 // fields silently vanish from the composer's resolution. Uses the unfiltered set
 // so a dependent in an unreadable project still blocks the guard (lineage is
 // global).
-async function getDependentConfigs(
+export async function getDependentConfigs(
   context: ReqContext | ApiReqContext,
   configKey: string,
 ): Promise<ConfigInterface[]> {
@@ -916,102 +916,12 @@ export function isEmptyConfigPatch(value: string | undefined): boolean {
   }
 }
 
-// Whether archiving this child config would change a value some feature serves:
-// it's referenced directly (a feature/config embeds `@config:key`), or it's an
-// env/project override whose base is referenced (the flavor patches the base's
-// served value, so archiving it reverts affected features to the base). A flavor
-// can be selected by more than one base, so ANY referenced selecting base counts.
-// Uses the unfiltered scan context so a reference in an unreadable project still
-// counts.
-async function childConfigIsServed(
-  scanContext: ReqContext | ApiReqContext,
-  config: { id: string; key: string },
-  selectingBases: ConfigInterface[],
-): Promise<boolean> {
-  const direct = await loadConstantReferences(scanContext, config.id);
-  if (direct && totalConstantReferences(direct) > 0) return true;
-
-  for (const base of selectingBases) {
-    const baseRefs = await loadConstantReferences(scanContext, base.id);
-    if (baseRefs && totalConstantReferences(baseRefs) > 0) return true;
-  }
-  return false;
-}
-
-// Block archiving a config. A live config depending on it as a base (via
-// `parent`/`extends`) is always a hard block — archiving would dangle their
-// lineage. Beyond that:
-//   - Root config: keep the strict reference block — archiving strips its value
-//     from everything that references it.
-//   - Child config (parent-chain child, mixin child, or env/project override):
-//     always allowed when it can't change a served payload — its live value is
-//     an empty patch (a no-op) or nothing serves it. When it IS live-serving,
-//     archiving reverts affected features to the base value, so it soft-warns
-//     (bypass with `?ignoreWarnings=true` / an "archive anyway" confirmation)
-//     rather than serving a surprise.
-// Unarchiving is always allowed.
-export async function assertConfigArchivable(
-  context: ReqContext | ApiReqContext,
-  config: {
-    id: string;
-    key: string;
-    value?: string;
-    parent?: string;
-    extends?: string[];
-  },
-): Promise<void> {
-  const liveDependents = (
-    await getDependentConfigs(context, config.key)
-  ).filter((c) => !c.archived);
-  if (liveDependents.length) {
-    throw new BadRequestError(
-      `Cannot archive config: ${liveDependents.length} live config(s) depend on it (${liveDependents
-        .map((c) => c.key)
-        .join(
-          ", ",
-        )}). Re-parent or remove the mixin from them, or archive them first.`,
-    );
-  }
-
-  // Bases that select this config as an env/project override "flavor". A flavor
-  // need not carry a `parent`/`extends` — it can be a plain config attached
-  // purely via a base's scopedOverrides — so this membership is what makes it a
-  // child, independent of lineage fields.
-  const scanContext = getContextForAgendaJobByOrgObject(context.org);
-  const allConfigs = await scanContext.models.configs.getAllForReconcile();
-  const selectingBases = allConfigs.filter((c) =>
-    (c.scopedOverrides ?? []).some((o) => o.config === config.key),
-  );
-
-  // A child derives from a base — a parent spine, a composition mixin, or (as an
-  // env/project override) selection by some base's scopedOverrides. A root has
-  // none of these.
-  const isChild =
-    (getConfigParentKey(config) ?? null) !== null ||
-    (config.extends ?? []).length > 0 ||
-    selectingBases.length > 0;
-
-  if (!isChild) {
-    // Root: archiving strips its value from everything that references it.
-    await assertConstantArchivable(context, config.id, "config");
-    return;
-  }
-
-  // (a) Empty live patch → archiving changes nothing served.
-  if (isEmptyConfigPatch(config.value)) return;
-
-  // (b) Nothing serves it → safe to archive.
-  if (!(await childConfigIsServed(scanContext, config, selectingBases))) return;
-
-  // (c) Live-serving child: acknowledge before reverting affected features.
-  if (context.ignoreWarnings) return;
-  throw new SoftWarningError(
-    `Archiving "${config.key}" changes a served value. Re-submit with ignoreWarnings to archive anyway.`,
-    [
-      `Archiving "${config.key}" reverts any feature that resolves it to the base value.`,
-    ],
-  );
-}
+// NOTE: the config archive guard is no longer a hard block here — archiving a
+// referenced/live-serving config is now a uniform SOFT, acknowledgeable warning.
+// See services/archiveDependentsGuard.ts (collectConfigArchiveDependents +
+// assertConfigArchiveDependentsGuard), which reuses getDependentConfigs,
+// loadConstantReferences, and isEmptyConfigPatch to make the same impact
+// decision. Deleting a config stays hard-blocked (assertConfigDeletable below).
 
 // Block deleting a config that any other config still depends on as a base
 // (archived or not) — via `parent` or `extends`. Deletion would dangle their

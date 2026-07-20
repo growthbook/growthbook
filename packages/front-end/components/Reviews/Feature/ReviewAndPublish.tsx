@@ -2362,6 +2362,18 @@ export default function ReviewAndPublish({
           renderExperimentSelection()}
 
         <Box mt="6">
+          {/* The poller gave up on this draft's scheduled publish (cleared on
+              cancel/re-arm). Shown to every viewer — matches the generic
+              ScheduledPublishControl notice. */}
+          {isActiveDraft && revision?.scheduledPublishGaveUpAt && (
+            <HelperText status="error" size="sm" mb="3">
+              Could not publish
+              {revision.scheduledPublishLastError
+                ? `: ${revision.scheduledPublishLastError}`
+                : "."}
+            </HelperText>
+          )}
+
           {/* Read-only arming summary for reviewers / non-managers. The dated
               schedule card renders with the arming control below the rebase
               notice when a publish/step section exists; here it's only a
