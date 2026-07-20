@@ -64,6 +64,39 @@ export class SafeRolloutModel extends BaseClass {
   public async getAllByFeatureId(featureId: string) {
     return await this._find({ featureId });
   }
+
+  /**
+   * Compensation for a failed bulk publish: put a safe rollout the apply's
+   * status sync advanced back to its pre-apply state, including unsetting
+   * start metadata stamped on a never-started rollout (the validated update
+   * path can't express an unset). Raw write, compensation-only.
+   */
+  public async restoreAfterFailedBulkPublish(pre: SafeRolloutInterface) {
+    const live = await this.getById(pre.id);
+    if (!live) return;
+    const startedDrifted =
+      (live.startedAt?.getTime() ?? null) !==
+      (pre.startedAt?.getTime() ?? null);
+    if (live.status === pre.status && !startedDrifted) return;
+    const unset: Record<string, 1> = {};
+    if (!pre.startedAt) unset.startedAt = 1;
+    if (!pre.nextSnapshotAttempt) unset.nextSnapshotAttempt = 1;
+    await this._dangerousGetCollection().updateOne(
+      { organization: this.context.org.id, id: pre.id },
+      {
+        $set: {
+          status: pre.status,
+          rampUpSchedule: pre.rampUpSchedule,
+          ...(pre.startedAt ? { startedAt: pre.startedAt } : {}),
+          ...(pre.nextSnapshotAttempt
+            ? { nextSnapshotAttempt: pre.nextSnapshotAttempt }
+            : {}),
+          dateUpdated: new Date(),
+        },
+        ...(Object.keys(unset).length ? { $unset: unset } : {}),
+      },
+    );
+  }
   public async getAllByFeatureIds(featureIds: string[]) {
     return await this._find({ featureId: { $in: featureIds } });
   }

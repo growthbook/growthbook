@@ -1,3 +1,4 @@
+import { isEqual } from "lodash";
 import type { MergeResultChanges } from "shared/util";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
@@ -352,42 +353,47 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       mergeResult,
     );
     const restoreKeys = new Set([...Object.keys(changes), "version"]);
-    // The holdout write happens via side effects rather than `changes`, so
-    // include it explicitly when the apply transitioned it.
+    // A holdout removal lands via removeHoldoutFromFeature rather than
+    // `changes`, so include the key explicitly when the apply transitioned it.
     if (mergeResult.holdout !== undefined) restoreKeys.add("holdout");
+    // What the apply wrote per key: the persisted post-apply doc when the
+    // feature write completed, else the computed $set (with a holdout removal
+    // written as an unset).
+    const written: Record<string, unknown> = desired.updatedFeature
+      ? (desired.updatedFeature as unknown as Record<string, unknown>)
+      : {
+          ...changes,
+          ...(mergeResult.holdout === null ? { holdout: undefined } : {}),
+        };
+    const currentDoc = current as unknown as Record<string, unknown>;
     const restore = Object.fromEntries(
-      [...restoreKeys].map((key) => [
-        key,
-        // null-as-clear: undefined pre-image values would be dropped by the
-        // update path's changes filter, leaving apply-added fields in place.
-        feature[key as keyof FeatureInterface] ?? null,
-      ]),
+      [...restoreKeys]
+        // Same ownership rule as the generic adapter: restore a key only
+        // while the live doc still holds the failed publish's value —
+        // anything else was moved by a concurrent writer (or never written
+        // by this apply) and must not be clobbered with the pre-image.
+        .filter((key) => isEqual(currentDoc[key], written[key]))
+        .map((key) => [
+          key,
+          // null-as-clear: undefined pre-image values would be dropped by the
+          // update path's changes filter, leaving apply-added fields in place.
+          feature[key as keyof FeatureInterface] ?? null,
+        ]),
     ) as Partial<FeatureInterface>;
-    await updateFeature(context, current, restore);
+    if (Object.keys(restore).length) {
+      await updateFeature(context, current, restore);
+    }
 
     // Reverse the cross-collection writes the apply made (both best-effort,
     // matching the holdout reversal below — a partial rollback with a logged
     // error beats silently keeping the failed release's state).
     //
-    // Safe-rollout statuses the apply's sync advanced go back to their
-    // pre-apply values. Residual: a first-run transition also stamps
-    // startedAt/next-attempt fields, which stay behind when the pre-image had
-    // none — harmless next to a wrong live status.
+    // Safe rollouts the apply's status sync advanced go back to their
+    // pre-apply state, including unsetting start metadata stamped on a
+    // never-started rollout.
     for (const pre of desired.safeRolloutPreImages ?? []) {
       try {
-        const rollouts = await context.models.safeRollout.getByIds([pre.id]);
-        const live = rollouts[0];
-        if (!live || live.status === pre.status) continue;
-        await context.models.safeRollout.update(live, {
-          status: pre.status,
-          ...(pre.startedAt
-            ? {
-                startedAt: pre.startedAt,
-                nextSnapshotAttempt: pre.nextSnapshotAttempt,
-                rampUpSchedule: pre.rampUpSchedule,
-              }
-            : {}),
-        });
+        await context.models.safeRollout.restoreAfterFailedBulkPublish(pre);
       } catch (e) {
         logger.error(
           e,
