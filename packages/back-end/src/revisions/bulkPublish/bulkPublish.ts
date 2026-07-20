@@ -375,9 +375,27 @@ export async function commitBulkPublish(
     "bulk publish: committing release",
   );
 
+  // Pre-apply bailout (entity drift, or a lost claim CAS): release whatever we
+  // claimed and rethrow the original conflict as a clean retryable 409. But if
+  // a reopen ITSELF fails, that revision is stuck merged while its entity was
+  // never written — a state contradiction, not a clean no-write abort — so
+  // surface it like the compensation path: a 500 with per-item results (stuck
+  // revisions "published", the rest "not-applied") instead of the bare 409.
   const abort = async (claimed: PlannedItemPublish[], e: unknown) => {
-    await releaseClaims(context, claimed);
+    const releaseFailed = await releaseClaims(context, claimed);
     context.bulkPublishId = null;
+    if (releaseFailed.size) {
+      throw new BulkPublishCommitError(
+        `Publish aborted (${getErrorMessage(e)}) — ${releaseFailed.size} of ${plan.items.length} revision(s) could not be reopened and remain published (see items); no entities were changed`,
+        plan.items.map((item) => ({
+          ref: item.ref,
+          revisionId: item.revision.id,
+          status: releaseFailed.has(item)
+            ? ("published" as const)
+            : ("not-applied" as const),
+        })),
+      );
+    }
     throw e;
   };
 

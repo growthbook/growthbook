@@ -19,6 +19,7 @@ import { setupApp } from "./api.setup";
 let mockFailFeatureApply = false;
 let mockFailConstantRestore = false;
 let mockFailConstantReleaseClaim = false;
+let mockFeatureClaimConflict = false;
 jest.mock("back-end/src/revisions/bulkPublish/registry", () => {
   return new Proxy(
     {},
@@ -33,6 +34,11 @@ jest.mock("back-end/src/revisions/bulkPublish/registry", () => {
           if (type === "feature") {
             return {
               ...adapter,
+              claim: async (...args: unknown[]) => {
+                // Simulate a lost claim CAS (concurrent edit since plan).
+                if (mockFeatureClaimConflict) return false;
+                return adapter.claim(...args);
+              },
               applyPrecomputed: async (...args: unknown[]) => {
                 if (mockFailFeatureApply) {
                   throw new Error("simulated infra failure");
@@ -95,6 +101,7 @@ describe("POST /api/v2/releases/publish-revisions — commit failure", () => {
     mockFailFeatureApply = false;
     mockFailConstantRestore = false;
     mockFailConstantReleaseClaim = false;
+    mockFeatureClaimConflict = false;
   });
 
   it("rolls back applied entities, reopens revisions, and emits only publishFailed", async () => {
@@ -459,5 +466,110 @@ describe("POST /api/v2/releases/publish-revisions — commit failure", () => {
     );
     expect(forThisRelease.length).toBe(1);
     expect(forThisRelease[0].data?.data?.object?.featureId).toBe("reopen-feat");
+  });
+
+  it("surfaces a stuck claim when a pre-apply abort fails to reopen it", async () => {
+    setReqContext(makeContext());
+    const now = new Date();
+
+    // Constant claims cleanly; the feature's claim loses its CAS (concurrent
+    // edit), triggering a pre-apply abort. Reopening the constant then fails,
+    // so its revision is stuck merged with no entity write — this must surface
+    // as a 500 with items, not a clean retryable 409.
+    await mongoose.connection.collection("constants").insertOne({
+      id: "const_abort-stuck",
+      organization: ORG_ID,
+      key: "abort-stuck",
+      name: "abort-stuck",
+      owner: "",
+      type: "string",
+      value: "before",
+      dateCreated: now,
+      dateUpdated: now,
+    });
+    const stageRes = await request(app)
+      .put(`/api/v1/constants-revisions/abort-stuck/new/value`)
+      .send({ value: "after" })
+      .set("Authorization", "Bearer foo");
+    expect(stageRes.status).toBe(200);
+    const constVersion = stageRes.body.revision.version;
+
+    await mongoose.connection.collection("features").insertOne({
+      id: "abort-feat",
+      organization: ORG_ID,
+      owner: "",
+      valueType: "string",
+      defaultValue: "live",
+      version: 1,
+      environmentSettings: {},
+      dateCreated: now,
+      dateUpdated: now,
+    });
+    await mongoose.connection.collection("featurerevisions").insertMany([
+      {
+        organization: ORG_ID,
+        featureId: "abort-feat",
+        version: 1,
+        baseVersion: 0,
+        status: "published",
+        defaultValue: "live",
+        rules: [],
+        dateCreated: now,
+        dateUpdated: now,
+        datePublished: now,
+      },
+      {
+        organization: ORG_ID,
+        featureId: "abort-feat",
+        version: 2,
+        baseVersion: 1,
+        status: "draft",
+        defaultValue: "new-value",
+        rules: [],
+        dateCreated: now,
+        dateUpdated: now,
+      },
+    ]);
+
+    mockFeatureClaimConflict = true;
+    mockFailConstantReleaseClaim = true;
+    const res = await request(app)
+      .post("/api/v2/releases/publish-revisions")
+      .send({
+        revisions: [
+          { entityType: "constant", key: "abort-stuck", version: constVersion },
+          { entityType: "feature", id: "abort-feat", version: 2 },
+        ],
+      })
+      .set("Authorization", "Bearer foo");
+    // Not a clean 409 — the failed reopen escalates to a 500 with items.
+    expect(res.status).toBe(500);
+
+    const byId = Object.fromEntries(
+      (res.body.items as { id: string; status: string }[]).map((item) => [
+        item.id,
+        item.status,
+      ]),
+    );
+    expect(byId["abort-stuck"]).toBe("published");
+    expect(byId["abort-feat"]).toBe("not-applied");
+
+    // No entity was ever written — the constant is still at its pre-image.
+    const constant = await mongoose.connection
+      .collection("constants")
+      .findOne({ organization: ORG_ID, key: "abort-stuck" });
+    expect(constant?.value).toBe("before");
+
+    // A pre-apply abort emits no publishFailed events (nothing was applied).
+    const failed = await mongoose.connection
+      .collection("events")
+      .find({ organizationId: ORG_ID, event: /revision\.publishFailed/ })
+      .toArray();
+    const forThisRelease = failed.filter(
+      (e) =>
+        e.data?.data?.object?.featureId === "abort-feat" ||
+        e.data?.data?.object?.key === "abort-stuck",
+    );
+    expect(forThisRelease.length).toBe(0);
   });
 });
