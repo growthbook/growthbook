@@ -1,5 +1,6 @@
 import { createHmac } from "node:crypto";
 import { Response } from "express";
+import { z } from "zod";
 import { OrganizationInterface } from "shared/types/organization";
 import { KnownBlock } from "@slack/types";
 import { IS_CLOUD, NPS_SLACK_WEBHOOK } from "back-end/src/util/secrets";
@@ -149,6 +150,10 @@ function escapeSlackMrkdwn(s: string): string {
 }
 
 const MAX_FEEDBACK_LENGTH = 1500;
+// Slack rejects a section block whose text exceeds 3000 characters.
+const SLACK_SECTION_TEXT_LIMIT = 3000;
+// Server-side re-survey throttle, mirroring the client's 90-day cooldown.
+const NPS_RESURVEY_MS = 90 * 24 * 60 * 60 * 1000;
 
 // How the user exited the survey; "submitted" is the only path where the
 // feedback text was explicitly sent. Values outside this list are dropped.
@@ -160,9 +165,20 @@ const NPS_DISPOSITIONS = [
 ] as const;
 type NpsDisposition = (typeof NPS_DISPOSITIONS)[number];
 
-function parseNpsDisposition(value: unknown): NpsDisposition | undefined {
-  return NPS_DISPOSITIONS.find((d) => d === value);
-}
+// The request body is untrusted, so validate it before use rather than trusting
+// the AuthRequest type. Zod is the source of truth for the shape; the handler
+// infers its body type from this schema.
+const npsResponseBody = z
+  .object({
+    status: z.enum(["responded", "dismissed"]),
+    score: z.number().int().min(0).max(10).optional(),
+    feedback: z.string().max(10000).optional(),
+    disposition: z.enum(NPS_DISPOSITIONS).optional(),
+  })
+  .refine((b) => b.status !== "responded" || b.score !== undefined, {
+    message: "score is required when status is responded",
+    path: ["score"],
+  });
 
 async function sendNpsResponseToSlack({
   score,
@@ -184,9 +200,19 @@ async function sendNpsResponseToSlack({
   const safeFeedback = escapeSlackMrkdwn(
     feedback.slice(0, MAX_FEEDBACK_LENGTH),
   );
-  const sectionText = safeFeedback
-    ? `*NPS ${score}/10 · ${category}*\n> ${safeFeedback.replace(/\n/g, "\n> ")}`
-    : `*NPS ${score}/10 · ${category}*`;
+  const header = `*NPS ${score}/10 · ${category}*`;
+  const fullText = safeFeedback
+    ? `${header}\n> ${safeFeedback.replace(/\n/g, "\n> ")}`
+    : header;
+  // Escaping (& -> &amp;) can multiply length past Slack's block limit, which
+  // makes it reject the whole message; clamp and drop any trailing partial
+  // entity so the cut never leaves broken markup.
+  const sectionText =
+    fullText.length > SLACK_SECTION_TEXT_LIMIT
+      ? fullText
+          .slice(0, SLACK_SECTION_TEXT_LIMIT - 1)
+          .replace(/&[a-z]*$/i, "") + "…"
+      : fullText;
 
   // A "submitted" score is the norm, so only the other exits are called out —
   // a score with no comment reads differently when the survey was abandoned.
@@ -248,24 +274,26 @@ async function sendNpsResponseToSlack({
 }
 
 export async function postNpsResponse(
-  req: AuthRequest<{
-    status: "responded" | "dismissed";
-    score?: number;
-    feedback?: string;
-    disposition?: string;
-  }>,
+  req: AuthRequest<z.infer<typeof npsResponseBody>>,
   res: Response,
 ) {
-  const { status, score, feedback } = req.body;
-  const disposition = parseNpsDisposition(req.body.disposition);
-  if (status !== "responded" && status !== "dismissed") {
+  const parsed = npsResponseBody.safeParse(req.body);
+  if (!parsed.success) {
     return res.status(400).json({
       status: 400,
-      message: "Invalid status",
+      message: "Invalid NPS response",
     });
   }
+  const { status, score, feedback, disposition } = parsed.data;
 
   const { userId } = getContextFromReq(req);
+
+  // Throttle Slack forwarding against the user's *existing* survey date (set by
+  // the auth middleware, before the write below overwrites it), mirroring the
+  // client's 90-day cooldown so a scripted client can't flood the channel.
+  const priorAt = req.currentUser?.npsSurveyAt;
+  const recentlyRecorded =
+    !!priorAt && Date.now() - new Date(priorAt).getTime() < NPS_RESURVEY_MS;
 
   await updateUser(userId, {
     npsSurveyStatus: status,
@@ -275,19 +303,19 @@ export async function postNpsResponse(
   // Internal-only: forward actual responses to GrowthBook's own Slack.
   // Gated on IS_CLOUD plus a private webhook env var that only GrowthBook
   // Cloud sets, so self-hosted and Cloud users never trigger or see this.
-  // Fire-and-forget — a Slack failure must never affect the user's request.
+  // Feedback text is only forwarded on an explicit "submitted" exit, matching
+  // the client contract. Fire-and-forget — a Slack failure must never affect
+  // the user's request.
   if (
     IS_CLOUD &&
     status === "responded" &&
-    typeof score === "number" &&
-    Number.isInteger(score) &&
-    score >= 0 &&
-    score <= 10 &&
-    NPS_SLACK_WEBHOOK
+    score !== undefined &&
+    NPS_SLACK_WEBHOOK &&
+    !recentlyRecorded
   ) {
     void sendNpsResponseToSlack({
       score,
-      feedback: feedback?.trim() || "",
+      feedback: disposition === "submitted" ? (feedback ?? "").trim() : "",
       email: req.email,
       disposition,
     });

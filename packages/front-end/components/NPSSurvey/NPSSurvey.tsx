@@ -120,7 +120,7 @@ export default function NPSSurvey() {
   const flagOn = useFeatureIsOn("nps-survey");
   const previewFlagOn = useFeatureIsOn("nps-survey-preview");
   const { apiCall } = useAuth();
-  const { npsSurveyAt, updateUser } = useUser();
+  const { npsSurveyAt, updateUser, orgSuspended } = useUser();
   const suppressed = withinCooldown(npsSurveyAt);
 
   const [visible, setVisible] = useState(false);
@@ -129,8 +129,8 @@ export default function NPSSurvey() {
   const [panel, setPanel] = useState<Panel>("question");
 
   // Score + feedback live in react-hook-form, whose ref-backed store lets the
-  // pagehide/visibilitychange/Escape listeners read current values through the
-  // stable getValues() without re-subscribing on every keystroke.
+  // pagehide/Escape listeners read current values through the stable
+  // getValues() without re-subscribing on every keystroke.
   const { register, setValue, getValues, watch } = useForm<{
     score: number | null;
     feedback: string;
@@ -157,13 +157,14 @@ export default function NPSSurvey() {
     if (
       !flagOn ||
       !isCloud() ||
+      orgSuspended ||
       suppressed ||
       withinCooldown(readStored()?.date)
     )
       return;
     const t = window.setTimeout(() => setVisible(true), SHOW_DELAY);
     return () => window.clearTimeout(t);
-  }, [flagOn, suppressed, forceShow]);
+  }, [flagOn, suppressed, forceShow, orgSuspended]);
 
   // Persist the cross-device suppression signal on the user's account (best-effort).
   // keepalive lets the write survive a tab close, so abandonment suppresses elsewhere too.
@@ -248,8 +249,11 @@ export default function NPSSurvey() {
     [emitResponse, dismissCard],
   );
 
-  // Catch true abandonment: tab hidden / navigating away with a score but no
-  // submit — the score is recorded, the unsent draft is not.
+  // Catch true abandonment: leaving the page (close / reload / navigation) with
+  // a score selected but not submitted — the score is recorded, the unsent
+  // draft is not. Fire only on `pagehide`, never on a bare visibilitychange: a
+  // tab switch must not latch the response, or the user's later explicit submit
+  // would be silently dropped while the UI still shows the thank-you panel.
   useEffect(() => {
     if (!visible) return;
     const flush = () => {
@@ -257,21 +261,17 @@ export default function NPSSurvey() {
         emitResponse("abandoned");
       }
     };
-    const onVisibility = () => {
-      if (document.visibilityState === "hidden") flush();
-    };
-    document.addEventListener("visibilitychange", onVisibility);
     window.addEventListener("pagehide", flush);
-    return () => {
-      document.removeEventListener("visibilitychange", onVisibility);
-      window.removeEventListener("pagehide", flush);
-    };
+    return () => window.removeEventListener("pagehide", flush);
   }, [visible, emitResponse, getValues]);
 
   useEffect(() => {
     if (!visible) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") handleClose();
+      // Ignore an Escape another overlay already handled: Radix Select/Dialog
+      // call preventDefault in the capture phase without stopping propagation,
+      // so closing an unrelated popup must not also dismiss the survey.
+      if (e.key === "Escape" && !e.defaultPrevented) handleClose();
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
