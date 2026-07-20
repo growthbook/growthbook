@@ -406,9 +406,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
 
             {currentProjectIsDemo && (
               <Callout status="warning">
-                You are creating a holdout under the demo datasource project.
-                This experiment will be deleted when the demo datasource project
-                is deleted.
+                You are creating a holdout in the Sample Data Project.
               </Callout>
             )}
 
@@ -456,7 +454,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
                   }
                   placeholder={
                     canCreateWithoutProject
-                      ? "All projects"
+                      ? "All Projects"
                       : "Select projects..."
                   }
                   value={form.watch("projects") || []}

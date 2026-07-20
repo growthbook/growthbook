@@ -419,6 +419,7 @@ export function useExperimentSearch({
   filterResults,
   localStorageKey,
   watchedExperimentIds,
+  controlledSearchValue,
 }: {
   allExperiments: ExperimentInterfaceStringDates[];
   defaultSortField?: keyof ComputedExperimentInterface;
@@ -428,6 +429,10 @@ export function useExperimentSearch({
   ) => ComputedExperimentInterface[];
   localStorageKey: string;
   watchedExperimentIds?: string[];
+  // When provided, drives filtering from a stored search string (e.g. a
+  // dashboard block's saved filter) instead of a user-typed input. Bypasses the
+  // URL `q` param so it doesn't leak into or clobber the page's search state.
+  controlledSearchValue?: string;
 }) {
   const {
     getExperimentMetricById,
@@ -483,7 +488,8 @@ export function useExperimentSearch({
     localStorageKey,
     defaultSortField,
     defaultSortDir,
-    updateSearchQueryOnChange: true,
+    updateSearchQueryOnChange: controlledSearchValue === undefined,
+    controlledSearchValue,
     searchFields: ["name^3", "trackingKey^2", "hypothesis^2", "description"],
     searchTermFilters: {
       is: (item) => {

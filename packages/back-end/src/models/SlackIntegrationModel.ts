@@ -352,6 +352,16 @@ export const deleteSlackIntegration = async ({
  * @param organization
  * @param user
  */
+export const projectHasSlackIntegrations = async (
+  organizationId: string,
+  projectId: string,
+): Promise<boolean> => {
+  return !!(await SlackIntegrationModel.exists({
+    organizationId,
+    projects: [projectId],
+  }));
+};
+
 export const deleteAllSlackIntegrationsForAProject = async ({
   projectId,
   organization,

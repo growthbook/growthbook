@@ -214,7 +214,7 @@ export default function FactSegmentForm({
                   />
                 </>
               }
-              placeholder="All projects"
+              placeholder="All Projects"
               value={form.watch("projects")}
               options={projectOptions}
               disabled={isReadOnly}

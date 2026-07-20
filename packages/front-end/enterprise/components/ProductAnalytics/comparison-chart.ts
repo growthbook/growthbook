@@ -316,6 +316,7 @@ function metricIdForDatasetValue(
   config: ExplorationConfig,
   metricIndex: number,
 ): string {
+  if (config.dataset?.type === "funnel") return "";
   const values = config.dataset?.values;
   if (!values?.[metricIndex]) return "";
   const v = values[metricIndex];
@@ -326,6 +327,7 @@ function metricNameForDatasetValue(
   config: ExplorationConfig,
   metricIndex: number,
 ): string {
+  if (config.dataset?.type === "funnel") return `Metric ${metricIndex}`;
   return config.dataset?.values?.[metricIndex]?.name ?? `Metric ${metricIndex}`;
 }
 
@@ -345,7 +347,10 @@ export function buildComparisonOverlaySeriesMaps(
   const dataMap: Record<string, Record<string, number>> = {};
   const seriesMeta: Record<string, { metricId: string; name: string }> = {};
 
-  const numMetrics = config.dataset?.values?.length ?? 0;
+  const numMetrics =
+    config.dataset?.type !== "funnel"
+      ? (config.dataset?.values?.length ?? 0)
+      : 0;
   const numDimensions = config.dimensions?.length ?? 0;
 
   const bump = (seriesKey: string, x: string, y: number) => {
@@ -366,7 +371,7 @@ export function buildComparisonOverlaySeriesMaps(
             name: metricNameForDatasetValue(config, mi),
           };
         }
-        const cell = row.values[mi];
+        const cell = row.values?.[mi];
         if (!cell) continue;
         bump(
           seriesKey,
@@ -394,7 +399,7 @@ export function buildComparisonOverlaySeriesMaps(
           name: group || metricNameForDatasetValue(config, 0),
         };
       }
-      const cell = row.values[0];
+      const cell = row.values?.[0];
       if (!cell) continue;
       bump(
         seriesKey,
@@ -414,7 +419,7 @@ export function buildComparisonOverlaySeriesMaps(
         name: metricNameForDatasetValue(config, 0),
       };
     }
-    const cell = row.values[0];
+    const cell = row.values?.[0];
     if (!cell) continue;
     bump(
       seriesKey,
@@ -899,8 +904,8 @@ export function computeBigNumberComparisonTrendForMetricIndex(
     isRatioByIndex: getIsRatioByIndex(submittedExploreState, getFactMetricById),
   };
 
-  const currCell = exploration.result.rows[0]?.values[metricIndex];
-  const prevCell = comparisonExploration.result.rows[0]?.values[metricIndex];
+  const currCell = exploration.result.rows[0]?.values?.[metricIndex];
+  const prevCell = comparisonExploration.result.rows[0]?.values?.[metricIndex];
   if (!currCell || !prevCell) return null;
 
   const isRatio = renderOpts.isRatioByIndex[metricIndex] ?? false;
@@ -931,7 +936,10 @@ export function computeBigNumberComparisonTrends(
   submittedExploreState: ExplorationConfig,
   getFactMetricById: (id: string) => FactMetricInterface | null,
 ): (BigNumberComparisonTrend | null)[] {
-  const n = submittedExploreState.dataset?.values?.length ?? 0;
+  const n =
+    submittedExploreState.dataset?.type !== "funnel"
+      ? (submittedExploreState.dataset?.values?.length ?? 0)
+      : 0;
   return Array.from({ length: n }, (_, metricIndex) =>
     computeBigNumberComparisonTrendForMetricIndex(
       exploration,

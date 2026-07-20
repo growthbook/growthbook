@@ -19,7 +19,10 @@ import { RevisionChanges } from "shared/types/feature-revision";
 import { ExperimentInterface } from "shared/types/experiment";
 import { CreateProps } from "shared/types/base-model";
 import { getLatestPhaseVariations } from "shared/experiments";
-import { toApiRevision } from "back-end/src/services/features";
+import {
+  assertFeatureValuesValid,
+  toApiRevision,
+} from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
@@ -247,6 +250,10 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
     }
 
     const rule = buildRuleFromInput(ruleInput, uuidv4());
+
+    // Enforce the feature's JSON schema on the new rule's values (no-op for
+    // config-backed values). Opt out with ?skipSchemaValidation=true.
+    assertFeatureValuesValid(req.context, feature, { rules: [rule] });
 
     // Validate condition JSON and references before any DB writes.
     validateRuleConditions(rule);

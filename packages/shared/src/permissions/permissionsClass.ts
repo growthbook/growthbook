@@ -29,6 +29,7 @@ import { IdeaInterface } from "shared/types/idea";
 import { ArchetypeInterface } from "shared/types/archetype";
 import { SavedGroupInterface } from "shared/types/saved-group";
 import { ConstantInterface } from "shared/types/constant";
+import { ConfigInterface } from "shared/types/config";
 import { CustomHookInterface } from "../validators/custom-hooks";
 import { ContextualBanditInterface } from "../validators/contextual-bandit";
 import { EventForwarderConfigInterface } from "../validators/event-forwarder-config";
@@ -1400,6 +1401,35 @@ export class Permissions {
     );
   };
 
+  public canCreateConfig = (
+    config: Pick<ConfigInterface, "project">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: config.project ? [config.project] : [] },
+      "manageConfigs",
+    );
+  };
+
+  public canUpdateConfig = (
+    existing: Pick<ConfigInterface, "project">,
+    updated: Pick<ConfigInterface, "project">,
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      { projects: existing.project ? [existing.project] : [] },
+      "project" in updated ? { projects: [updated.project || ""] } : {},
+      "manageConfigs",
+    );
+  };
+
+  public canDeleteConfig = (
+    config: Pick<ConfigInterface, "project">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: config.project ? [config.project] : [] },
+      "manageConfigs",
+    );
+  };
+
   public canBypassSavedGroupSizeLimit = (projects?: string[]): boolean => {
     return this.checkProjectFilterPermission(
       { projects },
@@ -1508,6 +1538,12 @@ export class Permissions {
     feature: Pick<FeatureInterface, "project">,
   ): boolean => {
     return this.canUpdateFeature(feature, {});
+  };
+
+  public canManageExperimentCustomHooks = (
+    experiment: Pick<ExperimentInterface, "project">,
+  ): boolean => {
+    return this.canUpdateExperiment(experiment, {});
   };
 
   public canCreateEventForwarderConfig = (

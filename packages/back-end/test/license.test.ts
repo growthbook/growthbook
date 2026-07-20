@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import fetch, { Response } from "node-fetch";
 
 import cloneDeep from "lodash/cloneDeep";
@@ -1181,6 +1182,82 @@ describe("src/license", () => {
         }).rejects.toThrowError(
           "Invalid License Key - Missing expiration date",
         );
+      });
+
+      describe("expiration", () => {
+        it("should not return a license error during the grace period after a non-trial license expires", async () => {
+          const nonTrialData = cloneDeep(oldLicenseOrginalData);
+          nonTrialData.trial = false;
+          jest.spyOn(JSON, "parse").mockReturnValue(nonTrialData);
+
+          // The license expired 2023-11-19 and now is 2023-11-21, two days
+          // into the two week grace period.
+          await licenseInit(orgWithOldKey);
+
+          expect(getLicenseError(orgWithOldKey)).toBe("");
+        });
+
+        it("should return a license error once the grace period after a non-trial license expires has passed", async () => {
+          const nonTrialData = cloneDeep(oldLicenseOrginalData);
+          nonTrialData.trial = false;
+          jest.spyOn(JSON, "parse").mockReturnValue(nonTrialData);
+
+          // The license expired 2023-11-19, fifteen days before this date.
+          jest.setSystemTime(new Date("2023-12-04T12:00:00.000Z"));
+
+          await licenseInit(orgWithOldKey);
+
+          expect(getLicenseError(orgWithOldKey)).toBe("License expired");
+        });
+
+        it("should return a license error immediately when a trial license expires, with no grace period", async () => {
+          // The trial license expired 2023-11-19 and now is 2023-11-21.
+          await licenseInit(orgWithOldKey);
+
+          expect(getLicenseError(orgWithOldKey)).toBe("License expired");
+        });
+
+        describe("when falling back to a connected LICENSE_KEY env var license", () => {
+          let verifySpy: jest.SpyInstance;
+
+          afterEach(() => {
+            verifySpy.mockRestore();
+          });
+
+          it("should not apply the air-gapped grace period to the connected license cached under the org's air-gapped key", async () => {
+            // The fallback license has no precomputed signature, so bypass
+            // signature verification for this test.
+            verifySpy = jest.spyOn(crypto, "verify").mockReturnValue(true);
+
+            // A connected license that expired past the air-gapped grace
+            // period, but is still valid per the license server (non-trial
+            // and not remotely downgraded).
+            const connectedLicense = cloneDeep(licenseData);
+            connectedLicense.isTrial = false;
+            const twentyDaysAgo = new Date(now);
+            twentyDaysAgo.setDate(twentyDaysAgo.getDate() - 20);
+            connectedLicense.dateExpires = twentyDaysAgo.toISOString();
+
+            const mockedResponse: Response = {
+              ok: true,
+              json: jest.fn().mockResolvedValueOnce(connectedLicense),
+            } as unknown as Response;
+            mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
+
+            // The org's own air-gapped license expired 2023-11-19, so
+            // licenseInit falls back to the env var license and caches it
+            // under the org's air-gapped key.
+            process.env.LICENSE_KEY = licenseKey;
+            await licenseInit(
+              orgWithOldKey,
+              getUserCodesForOrg,
+              getLicenseMetaData,
+            );
+
+            expect(getLicense(oldLicenseKey)).toEqual(connectedLicense);
+            expect(getLicenseError(orgWithOldKey)).toBe("");
+          });
+        });
       });
 
       it("should automatically assume enterprise plan if no plan is specified", async () => {
