@@ -1,20 +1,31 @@
 import { dump } from "js-yaml";
 import { useMemo } from "react";
 import { OrganizationSettings } from "shared/types/organization";
+import { MetricInterface } from "shared/types/metric";
 import { FaDownload } from "react-icons/fa";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useConfigJson } from "@/services/config";
+import useApi from "@/hooks/useApi";
+import Button from "@/ui/Button";
 
 export default function BackupConfigYamlButton({
   settings = {},
 }: {
   settings?: OrganizationSettings;
 }) {
-  const { datasources, metrics, dimensions, segments } = useDefinitions();
+  const { datasources, dimensions, segments } = useDefinitions();
+
+  // Definitions only contain slimmed metrics (no sql, etc.), so fetch the
+  // full versions for the export. /metrics excludes archived metrics by
+  // default, matching the old definitions-based behavior.
+  const { data: metricsData } = useApi<{ metrics: MetricInterface[] }>(
+    "/metrics",
+  );
+  const metrics = metricsData?.metrics;
 
   const config = useConfigJson({
     datasources,
-    metrics,
+    metrics: metrics || [],
     dimensions,
     settings,
     segments,
@@ -34,6 +45,13 @@ export default function BackupConfigYamlButton({
     }
   }, [config]);
 
+  if (!metricsData) {
+    return (
+      <Button disabled loading icon={<FaDownload />}>
+        Export to config.yml
+      </Button>
+    );
+  }
   if (!href) return null;
 
   return (

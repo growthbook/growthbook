@@ -1,5 +1,8 @@
+import { createHash } from "crypto";
 import { NextFunction, Request, Response } from "express";
 import { SSO_CONFIG } from "shared/enterprise";
+import { ExpressCookieStickyBucketService } from "@growthbook/growthbook";
+import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
 import { userHasPermission } from "shared/permissions";
 import { AuditInterface } from "shared/types/audit";
 import { Permission } from "shared/types/organization";
@@ -18,7 +21,6 @@ import {
 } from "back-end/src/models/UserModel";
 import {
   getOrganizationById,
-  isEnterpriseSSO,
   validateLoginMethod,
 } from "back-end/src/services/organizations";
 import {
@@ -31,13 +33,20 @@ import {
   RefreshTokenCookie,
   SSOConnectionIdCookie,
 } from "back-end/src/util/cookie";
+import { getBuild } from "back-end/src/util/build";
+import { usingFileConfig } from "back-end/src/init/config";
 import { getUserPermissions } from "back-end/src/util/organization.util";
 import { insertAudit } from "back-end/src/models/AuditModel";
 import {
   getLicenseMetaData,
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
-import { licenseInit } from "back-end/src/enterprise";
+import { licenseInit, getEffectiveAccountPlan } from "back-end/src/enterprise";
+import {
+  getGrowthBookClient,
+  getGrowthBookRequestUrl,
+  getGrowthBookTrackingAttributes,
+} from "back-end/src/services/growthbook";
 import { TeamModel } from "back-end/src/models/TeamModel";
 import { AuthConnection } from "./AuthConnection";
 import { OpenIdAuthConnection } from "./OpenIdAuthConnection";
@@ -113,21 +122,6 @@ export async function processJWT(
 ): Promise<void> {
   const parsedJWT = getInitialDataFromJWT(req.user);
   const { email, name, verified } = parsedJWT;
-
-  // Enterprise / self-hosted SSO ties access to email (including domain auto-join).
-  // Without a positive email_verified claim, a permissive or malicious IdP could
-  // assert arbitrary emails and match or join as an existing user. For now we only
-  // log the mismatch (monitor-only) so we can identify affected orgs before enforcing.
-  if (usingOpenId() && isEnterpriseSSO(req.loginMethod) && !verified) {
-    logger.error(
-      {
-        email,
-        loginMethod: req.loginMethod?.id,
-        organization: req.loginMethod?.organization,
-      },
-      "SSO login without a verified email_verified claim",
-    );
-  }
 
   req.authSubject = parsedJWT.sub || "";
   req.email = email || "";
@@ -312,6 +306,77 @@ export async function processJWT(
         dateCreated: new Date(),
       });
     };
+
+    const gbClient = getGrowthBookClient();
+
+    if (gbClient) {
+      const build = getBuild();
+      const org = req.organization;
+      const orgId = org?.id || "";
+      const hashedOrganizationId = orgId
+        ? createHash("sha256")
+            .update(GROWTHBOOK_SECURE_ATTRIBUTE_SALT + orgId)
+            .digest("hex")
+        : "";
+
+      // Create sticky bucket service for Express
+      const stickyBucketService = new ExpressCookieStickyBucketService({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        req: req as any,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        res: res as any,
+      });
+
+      const trackingAttributes = getGrowthBookTrackingAttributes(req);
+
+      // Define user attributes
+      // Note: cloud and multiOrg are set as globalAttributes in growthbook.ts
+      const attributes = {
+        id: user.id,
+        user_id: user.id,
+        request_path: req.path,
+        freeSeats: org?.freeSeats,
+        discountCode: org?.discountCode,
+        organizationId: hashedOrganizationId,
+        cloudOrgId: IS_CLOUD ? orgId : "",
+        accountPlan: org ? getEffectiveAccountPlan(org) : "loading",
+        superAdmin: user.superAdmin,
+        orgDateCreated: org?.dateCreated
+          ? new Date(org.dateCreated).toISOString()
+          : "",
+        ...trackingAttributes,
+        role: org?.members.find((m) => m.id === user.id)?.role,
+        hasLicenseKey: org?.licenseKey ? true : false,
+        configFile: usingFileConfig(),
+        usingSSO: usingOpenId(),
+        buildSHA: build.sha,
+        buildDate: build.date,
+        buildVersion: build.lastVersion,
+        orgOwnerJobTitle: org?.demographicData?.ownerJobTitle,
+        orgOwnerUsageIntents: org?.demographicData?.ownerUsageIntents,
+      };
+
+      try {
+        // Apply sticky bucketing and get user context
+        const userContext = await gbClient.applyStickyBuckets(
+          {
+            attributes,
+            url: getGrowthBookRequestUrl(req),
+            enableDevMode: true,
+          },
+          stickyBucketService,
+        );
+
+        // Create scoped instance for this request (reuses singleton)
+        req.gb = gbClient.createScopedInstance(userContext);
+      } catch (error) {
+        logger.error("Failed to create GrowthBook scoped instance", {
+          error,
+          userId: user.id,
+        });
+        // Continue without feature flags rather than failing request
+      }
+    }
   } else {
     req.audit = async () => {
       throw new Error("No user in request");

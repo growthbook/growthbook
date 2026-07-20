@@ -4,8 +4,7 @@ import { ApiKeyInterface, ApiKeyWithRole } from "shared/types/apikey";
 import { getRoleDisplayName } from "shared/permissions";
 import { ago, datetime } from "shared/dates";
 import ClickToReveal from "@/components/Settings/ClickToReveal";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import ApiKeyRowMenu from "@/components/ApiKeysTable/ApiKeyRowMenu";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ProjectBadges from "@/components/ProjectBadges";
@@ -25,6 +24,8 @@ type ApiKeysTableProps = {
     keyId: string | undefined,
     disabled: boolean,
   ) => () => Promise<void>;
+  onEdit?: (key: ApiKeyInterface) => void;
+  onShowAuditLog?: (key: ApiKeyInterface) => void;
 };
 
 export const ApiKeysTable: FC<ApiKeysTableProps> = ({
@@ -34,6 +35,8 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
   canDeleteKeys,
   onReveal,
   onToggleDisabled,
+  onEdit,
+  onShowAuditLog,
 }) => {
   const { organization } = useUser();
   const { projects } = useDefinitions();
@@ -153,26 +156,16 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
               </td>
               {canDeleteKeys && (
                 <td>
-                  <MoreMenu useRadix={false}>
-                    {onToggleDisabled && (
-                      <button
-                        className="dropdown-item"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setPendingToggle(key);
-                        }}
-                      >
-                        {key.disabled ? "Enable key" : "Disable key"}
-                      </button>
-                    )}
-                    <DeleteButton
-                      useRadix={false}
-                      onClick={onDelete(key.id)}
-                      className="dropdown-item"
-                      displayName="API Key"
-                      text="Delete key"
-                    />
-                  </MoreMenu>
+                  <ApiKeyRowMenu
+                    apiKey={key}
+                    canDeleteKeys={canDeleteKeys}
+                    onDelete={onDelete}
+                    onEdit={onEdit}
+                    onToggleClick={
+                      onToggleDisabled ? setPendingToggle : undefined
+                    }
+                    onShowAuditLog={onShowAuditLog}
+                  />
                 </td>
               )}
             </tr>

@@ -2,7 +2,7 @@
   "name": "growthbook-app",
   "repository": "https://github.com/growthbook/growthbook-app.git",
   "private": true,
-  "version": "4.4.0",
+  "version": "5.0.0",
   "scripts": {
     "lint": "eslint './**/*.{ts,tsx,js,jsx}' --max-warnings 0 --cache --cache-strategy content >/dev/null 2>&1 || eslint './**/*.{ts,tsx,js,jsx}' --fix --max-warnings 0 --cache --cache-strategy content",
     "lint:ci": "eslint './**/*.{ts,tsx,js,jsx}' --max-warnings 0 --cache --cache-strategy content",
@@ -29,6 +29,7 @@
     "generate-openapi": "pnpm --filter back-end generate-openapi",
     "ci": "pnpm lint:ci && pnpm run type-check && pnpm run test",
     "postinstall": "if command -v poetry >/dev/null 2>&1; then pnpm update-stats-deps; fi",
+    "type-gen": "pnpm --filter shared type-gen",
     "generate-sdk-report": "pnpm --filter shared generate-sdk-report",
     "bump-sdk-version": "pnpm --filter @growthbook/growthbook bump-version"
   },

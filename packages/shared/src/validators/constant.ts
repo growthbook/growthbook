@@ -6,54 +6,83 @@ import {
   ownerInputField,
   optionalOwnerInputField,
 } from "./owner-field";
-import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
+import {
+  apiPaginationFieldsValidator,
+  paginationQueryFields,
+  publishOverrideBodyFields,
+  publishBypassedGatesField,
+} from "./shared";
 import { namedSchema } from "./openapi-helpers";
 
+// A raw `string` (interpolated as `{{ @const:key }}`) or a `json` object (merged
+// via `$extends`). Configs are separate but resolve like `json` constants.
 export const constantTypeValidator = z.enum(["string", "json"]);
 
-// The source of a `@const:<key>` reference (capture group 1 = the key). Exported
-// so the front-end can build a fresh `RegExp` from it (e.g. to linkify
-// references when displaying a value) without duplicating the pattern.
+// Capture group 1 = the key. Constant-only; exported so the front-end can build
+// its own RegExp for constant references.
 export const CONSTANT_REF_PATTERN = "@const:([a-z0-9][a-z0-9_-]*)";
+// Config-only counterpart (`@config:key`), for the front-end config linkifier.
+export const CONFIG_REF_PATTERN = "@config:([a-z0-9][a-z0-9_-]*)";
+// Either namespace; capture group 1 = the key. Used by the front-end linkifier,
+// which routes a matched reference by its `@const:`/`@config:` prefix (the two
+// namespaces are independent and a key may exist in both).
+export const ANY_REF_PATTERN = "@(?:const|config):([a-z0-9][a-z0-9_-]*)";
+// Namespace-capturing variant: group 1 = namespace (`const`/`config`),
+// group 2 = key. Used internally to count references per namespace so a key
+// shared by a constant and a config isn't conflated.
+const ANY_REF_NS_PATTERN = "@(const|config):([a-z0-9][a-z0-9_-]*)";
 
-// A backtick-wrapped string interpolation — the resolver emits these literally
-// (without substituting), so the key inside is NOT a real reference. Stripped
-// before reference detection so escaped literals aren't over-counted.
+// Backtick-escaped interpolations are emitted literally, so they're not refs.
 const ESCAPED_INTERP_RE = new RegExp(
-  "`\\{\\{\\s*@const:[a-z0-9][a-z0-9_-]*\\s*\\}\\}`",
+  "`\\{\\{\\s*@(?:const|config):[a-z0-9][a-z0-9_-]*\\s*\\}\\}`",
   "g",
 );
-// A `{{ @const:key }}` interpolation — the only string position the resolver
-// substitutes. Bare `@const:key` text elsewhere in a string is NOT resolved.
+// The only string position the resolver substitutes. Group 1 = namespace,
+// group 2 = key.
 const INTERP_REF_RE = new RegExp(
-  "\\{\\{\\s*" + CONSTANT_REF_PATTERN + "\\s*\\}\\}",
+  "\\{\\{\\s*" + ANY_REF_NS_PATTERN + "\\s*\\}\\}",
   "g",
 );
-// A bare `@const:key` placeholder string, as it appears as an element of an
-// `$extends` array. Anchored — the whole string must be the reference.
-const PLACEHOLDER_KEY_RE = new RegExp("^" + CONSTANT_REF_PATTERN + "$");
+// A bare `@const:key`/`@config:key` placeholder, as it appears in `$extends`.
+// Group 1 = namespace, group 2 = key.
+const PLACEHOLDER_KEY_RE = new RegExp("^" + ANY_REF_NS_PATTERN + "$");
+// A bare `@config:key` placeholder specifically (must be the first `$extends`
+// entry).
+const CONFIG_PLACEHOLDER_RE = new RegExp("^" + CONFIG_REF_PATTERN + "$");
 
-// Collect the `{{ @const:key }}` interpolation keys from a raw string value,
-// ignoring backtick-escaped ones (rendered verbatim, never resolved).
-function collectStringInterpRefs(s: string, into: Set<string>): void {
+const refNsToSource = (ns: string): RefSource =>
+  ns === "config" ? "config" : "constant";
+
+// Interpolation keys in a string, ignoring backtick-escaped ones. When
+// `namespace` is set, only references in that namespace are collected.
+function collectStringInterpRefs(
+  s: string,
+  into: Set<string>,
+  namespace?: RefSource,
+): void {
   const cleaned = s.replace(ESCAPED_INTERP_RE, "");
   const re = new RegExp(INTERP_REF_RE.source, "g");
   let m: RegExpExecArray | null;
-  while ((m = re.exec(cleaned)) !== null) into.add(m[1]);
+  while ((m = re.exec(cleaned)) !== null) {
+    if (namespace && refNsToSource(m[1]) !== namespace) continue;
+    into.add(m[2]);
+  }
 }
 
-// Walk a parsed JSON value, collecting references the resolver would actually
-// act on: `@const:key` elements of an `$extends` array (object merge) and
-// `{{ @const:key }}` interpolations inside any string node. Bare `@const:`
-// substrings, object keys, and array entries outside `$extends` are NOT
-// references (the old `key: true` notation lands here and is correctly ignored).
-function collectJsonRefs(value: unknown, into: Set<string>): void {
+// Collect only references the resolver acts on: `@const:key`/`@config:key`
+// elements of an `$extends` array and `{{ ... }}` interpolations in string
+// nodes. When `namespace` is set, only references in that namespace count.
+function collectJsonRefs(
+  value: unknown,
+  into: Set<string>,
+  namespace?: RefSource,
+): void {
   if (typeof value === "string") {
-    collectStringInterpRefs(value, into);
+    collectStringInterpRefs(value, into, namespace);
     return;
   }
   if (Array.isArray(value)) {
-    for (const v of value) collectJsonRefs(v, into);
+    for (const v of value) collectJsonRefs(v, into, namespace);
     return;
   }
   if (value !== null && typeof value === "object") {
@@ -63,64 +92,56 @@ function collectJsonRefs(value: unknown, into: Set<string>): void {
       for (const ref of extendsList) {
         if (typeof ref === "string") {
           const m = ref.match(PLACEHOLDER_KEY_RE);
-          if (m) into.add(m[1]);
+          if (m && (!namespace || refNsToSource(m[1]) === namespace)) {
+            into.add(m[2]);
+          }
         } else if (ref !== null && typeof ref === "object") {
-          // Inline-object `$extends` entry (advanced): scan it for nested
-          // references so cycle detection and the archive reference-block see
-          // them too.
-          collectJsonRefs(ref, into);
+          // Inline-object `$extends` entry: scan for nested references.
+          collectJsonRefs(ref, into, namespace);
         }
       }
     }
     for (const [k, v] of Object.entries(obj)) {
       // `$extends` (when an array) is a merge directive, not a nested value.
       if (k === CONSTANT_EXTENDS_KEY && Array.isArray(extendsList)) continue;
-      collectJsonRefs(v, into);
+      collectJsonRefs(v, into, namespace);
     }
   }
 }
 
-// Extract the unique `@const:` keys referenced by a constant's value and every
-// environment override (the conservative union across environments). Detection
-// mirrors the resolver: only `$extends` array elements (JSON values) and
-// `{{ @const:key }}` interpolations (string values) count — so dead references
-// (e.g. the legacy `"@const:key": true` object-key notation, or a bare
-// `@const:key` in prose) are not reported as live. Used for the reference graph
-// (cycle detection) and the "what references this constant" lookups.
+// Unique keys referenced by a value and its env overrides (the union across
+// environments). Mirrors the resolver, so dead references aren't counted. When
+// `namespace` is set, only `@const:` (or only `@config:`) references are
+// returned, keeping the two namespaces from being conflated when a key exists
+// in both. Returned keys are bare (no namespace prefix).
 export function getConstantReferenceKeys(
   value: string | undefined,
   environmentValues: Record<string, string> | undefined,
+  namespace?: RefSource,
 ): string[] {
   const keys = new Set<string>();
   const scan = (s: string | undefined) => {
     if (!s) return;
-    // Cheap pre-check before the JSON.parse + recursive walk: every reference
-    // (`@const:key` in `$extends`, `{{ @const:key }}` interpolation) contains
-    // the literal "@const:". The overwhelming majority of feature/constant
-    // values hold no reference, so this short-circuits the hot path (archive
-    // checks and the cycle graph parse every value of every feature otherwise).
-    if (!s.includes("@const:")) return;
+    // Cheap pre-check: every reference contains "@const:"/"@config:", and most
+    // values hold none, so this short-circuits the JSON.parse + walk.
+    if (!s.includes("@const:") && !s.includes("@config:")) return;
     let parsed: unknown;
     try {
       parsed = JSON.parse(s);
     } catch {
-      // Not JSON: a raw `string`-type value — only `{{ }}` interpolations count.
-      collectStringInterpRefs(s, keys);
+      // Not JSON: a raw string value — only `{{ }}` interpolations count.
+      collectStringInterpRefs(s, keys, namespace);
       return;
     }
-    // JSON-encoded value: walk for `$extends` refs and string interpolations.
-    collectJsonRefs(parsed, keys);
+    collectJsonRefs(parsed, keys, namespace);
   };
   scan(value);
   for (const v of Object.values(environmentValues ?? {})) scan(v);
   return [...keys];
 }
 
-// Given the reference graph (constant key → keys it references), return every
-// key that transitively references `targetKey`. Referencing any of these from
-// `targetKey` would close a cycle, so they (plus `targetKey` itself) are unsafe
-// to reference. Reverse-reachability BFS; cycles in the existing graph are
-// handled by the visited set.
+// Every key that transitively references `targetKey` (reverse-reachability BFS).
+// Referencing any of them from `targetKey` would close a cycle.
 export function getReferencingConstantKeys(
   targetKey: string,
   referencesByKey: Map<string, string[]>,
@@ -148,11 +169,13 @@ export function getReferencingConstantKeys(
   return result;
 }
 
-// Given a proposed value (+ env overrides) for `key`, return the referenced
-// keys that would close a cycle: a self-reference, or a reference to a constant
-// that already (transitively) references `key`. Empty = safe. Used to reject
-// cyclic writes (the runtime resolver degrades gracefully, but a stored cycle
-// leaks raw `@const:` placeholders into the payload).
+// The proposed refs for `key` that would close a cycle (self-reference or a
+// constant that already transitively references `key`). Empty = safe.
+//
+// `namespace` scopes which references count: cycles are always intra-namespace
+// (a constant references only constants; a config references only configs in its
+// lineage), so callers pass the entity's own namespace and a same-namespace
+// `existingConstants` list. Bare keys are then unambiguous within that list.
 export function getCyclicConstantRefs(
   key: string,
   proposedValue: string | undefined,
@@ -162,10 +185,12 @@ export function getCyclicConstantRefs(
     value?: string;
     environmentValues?: Record<string, string>;
   }[],
+  namespace?: RefSource,
 ): string[] {
   const proposedRefs = getConstantReferenceKeys(
     proposedValue,
     proposedEnvironmentValues,
+    namespace,
   );
   if (!proposedRefs.length) return [];
   const referencesByKey = new Map(
@@ -173,36 +198,38 @@ export function getCyclicConstantRefs(
       .filter((c) => c.key !== key)
       .map((c) => [
         c.key,
-        getConstantReferenceKeys(c.value, c.environmentValues),
+        getConstantReferenceKeys(c.value, c.environmentValues, namespace),
       ]),
   );
   const referencing = getReferencingConstantKeys(key, referencesByKey);
   return proposedRefs.filter((r) => r === key || referencing.has(r));
 }
 
-// Validates that every `$extends` array in a JSON value (recursively) holds only
-// `@const:key` references or inline object literals — never numbers, booleans,
-// null, nested arrays, or bare strings. Those are authoring mistakes the
-// resolver silently drops, so we reject them at save time instead. Literal
-// values belong as own keys (or an inline object), not loose `$extends` entries.
-// Exported so feature JSON values can reuse the same gate.
+// What kind of resolvable owns the value being validated. Both constants and
+// configs forbid a `@config:` `$extends` entry in their stored value (for
+// different reasons — see the messages below); only feature values (refSource
+// omitted) may carry a `@config:` ref, and only as the first entry.
+export type RefSource = "constant" | "config";
+
+// Reject `$extends` array entries that aren't a `@const:key` ref or inline
+// object — the resolver silently drops them, so we catch them at save time.
 //
-// `onlyMergeDirectives` (used for feature values) restricts the check to arrays
-// that are *clearly* a constant-merge directive — i.e. that already contain at
-// least one `@const:` ref or inline object. A pre-existing feature whose JSON
-// happened to use `$extends` as a plain data key (e.g. `{"$extends":["a","b"]}`
-// or `{"$extends":[1,2]}`) is left alone so it still saves; only a malformed
-// entry mixed in with real refs/objects is rejected. Constants pass the default
-// (strict): they're new, `$extends` is the documented merge directive, and there
-// is no legacy data to grandfather.
+// `onlyMergeDirectives` (feature values) limits the check to arrays that already
+// look like a merge directive, so pre-existing features using `$extends` as a
+// plain data key still save. Constants/configs are strict (new, no legacy data).
+//
+// `refSource` (when set) forbids `@config:` entries entirely, with a message
+// specific to the owner. When omitted (feature values), `@config:` is allowed
+// but must be the first `$extends` entry.
 export function assertValidExtendsEntries(
   value: unknown,
   prefix = "",
   onlyMergeDirectives = false,
+  refSource?: RefSource,
 ): void {
   if (Array.isArray(value)) {
     for (const v of value)
-      assertValidExtendsEntries(v, prefix, onlyMergeDirectives);
+      assertValidExtendsEntries(v, prefix, onlyMergeDirectives, refSource);
     return;
   }
   if (value === null || typeof value !== "object") return;
@@ -211,13 +238,15 @@ export function assertValidExtendsEntries(
   if (Array.isArray(list)) {
     const isRef = (e: unknown): boolean =>
       typeof e === "string" && PLACEHOLDER_KEY_RE.test(e);
+    const isConfigRef = (e: unknown): boolean =>
+      typeof e === "string" && CONFIG_PLACEHOLDER_RE.test(e);
     const isInlineObject = (e: unknown): boolean =>
       e !== null && typeof e === "object" && !Array.isArray(e);
     const looksLikeMergeDirective = list.some(
       (e) => isRef(e) || isInlineObject(e),
     );
     if (!onlyMergeDirectives || looksLikeMergeDirective) {
-      for (const entry of list) {
+      list.forEach((entry, i) => {
         if (!isRef(entry) && !isInlineObject(entry)) {
           throw new Error(
             `${prefix}Invalid "$extends" entry ${JSON.stringify(entry)} — each ` +
@@ -225,26 +254,85 @@ export function assertValidExtendsEntries(
               `literal values as the object's own keys instead.`,
           );
         }
-      }
+        if (refSource && isConfigRef(entry)) {
+          throw new Error(
+            refSource === "config"
+              ? `${prefix}A config's value cannot contain a "@config:" reference. ` +
+                `Set inheritance via the config's "parent"/"extends" fields instead.`
+              : `${prefix}Constants cannot reference configs. Remove the "@config:" reference.`,
+          );
+        }
+        // For feature values (`refSource` omitted) a config is the base layer,
+        // so its ref must come first.
+        if (!refSource && i > 0 && isConfigRef(entry)) {
+          throw new Error(
+            `${prefix}A "@config:" reference must be the first "$extends" entry.`,
+          );
+        }
+      });
+    }
+  } else if (CONSTANT_EXTENDS_KEY in obj) {
+    // A non-array `$extends` never resolves — the resolver treats it as a plain
+    // key, so a mis-wrapped ref (e.g. {"$extends": "@const:x"} instead of
+    // {"$extends": ["@const:x"]}) silently ships unresolved. Reject it here: for
+    // config/constant values `$extends` is a reserved directive (any non-array
+    // form is wrong); for feature values, catch only the clear ref-string typo.
+    const looksLikeRef =
+      typeof list === "string" &&
+      (PLACEHOLDER_KEY_RE.test(list) || CONFIG_PLACEHOLDER_RE.test(list));
+    if (refSource || looksLikeRef) {
+      throw new Error(
+        `${prefix}"$extends" must be an array of "@const:key" references or inline ` +
+          `objects, e.g. {"$extends": ["@const:key"]}. To use a literal key named ` +
+          `"$extends", escape it with backticks: "\`$extends\`".`,
+      );
     }
   }
   // Descend into own keys and inline-object `$extends` entries (via the array).
   for (const v of Object.values(obj)) {
-    assertValidExtendsEntries(v, prefix, onlyMergeDirectives);
+    assertValidExtendsEntries(v, prefix, onlyMergeDirectives, refSource);
   }
 }
 
-// Validates a constant value string before saving. JSON constants must contain
-// parseable JSON; an empty string is always permitted (an intentional "no
-// value"). Throws a friendly error on invalid JSON, otherwise returns nothing.
-export function validateConstantValue(
-  type: z.infer<typeof constantTypeValidator>,
-  value: string,
-  label?: string,
-): void {
-  if (type !== "json") return;
-  if (value === "") return; // empty permitted
+// JSON constants must parse; an empty string is always permitted ("no value").
+// Validates a constant or config value (they share a shape: a JSON object
+// template with optional `$extends` refs). Pass `refSource` to forbid `@config:`
+// entries in the value: constants can't embed configs, and configs express
+// lineage via `parent`/`extends` (never a `@config:` in the value).
+export function validateResolvableValue({
+  type,
+  value,
+  label,
+  refSource,
+}: {
+  type: z.infer<typeof constantTypeValidator>;
+  value: string;
+  label?: string;
+  refSource?: RefSource;
+}): void {
   const prefix = label ? `${label}: ` : "";
+  if (type !== "json") {
+    // Constants can't reference configs. The JSON path enforces this on
+    // `$extends` entries below, but a STRING value could smuggle the same edge
+    // in through a `{{ @config:key }}` interpolation the resolver would
+    // happily resolve — inverting the constants ← configs dependency direction
+    // with no cycle check, and invisibly to reference tracking (payload
+    // refresh and publish guards never see the edge). Backtick-escaped
+    // literals are exempt, matching the resolver.
+    if (refSource === "constant" && value) {
+      const configRefs = new Set<string>();
+      collectStringInterpRefs(value, configRefs, "config");
+      if (configRefs.size) {
+        throw new Error(
+          `${prefix}Constants cannot reference configs — remove the "{{ @config:${
+            [...configRefs][0]
+          } }}" interpolation. To keep it as literal text, escape it with backticks.`,
+        );
+      }
+    }
+    return;
+  }
+  if (value === "") return; // empty permitted
   let parsed: unknown;
   try {
     parsed = JSON.parse(value);
@@ -253,21 +341,17 @@ export function validateConstantValue(
       `${prefix}Invalid JSON — ${e instanceof Error ? e.message : String(e)}`,
     );
   }
-  // JSON constants are key/value object templates merged via `$extends`, so the
-  // value must be a plain object — arrays and primitives aren't allowed.
+  // JSON values are object templates, so the value must be a plain object.
   if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
     throw new Error(
-      `${prefix}JSON constants must be a JSON object (key/value map), not an array or primitive.`,
+      `${prefix}JSON values must be a JSON object (key/value map), not an array or primitive.`,
     );
   }
-  assertValidExtendsEntries(parsed, prefix);
+  assertValidExtendsEntries(parsed, prefix, false, refSource);
 }
 
-// A reusable named value referenced from feature flag values. `key` is the
-// stable reference handle (slugified from `name`, unique per org): string
-// constants are interpolated as `{{ @const:key }}`, JSON (object) constants are
-// merged via an `$extends: ["@const:key"]` array. Resolution happens at
-// SDK-payload build time; literal string references are backtick-escaped.
+// A reusable named value referenced from feature values via `@const:key`,
+// resolved at SDK-payload build time. `key` is the stable handle, unique per org.
 export const constantValidator = z
   .object({
     id: z.string(),
@@ -277,14 +361,10 @@ export const constantValidator = z
     owner: ownerField,
     type: constantTypeValidator,
     // Resolved per environment as `environmentValues[env] ?? value`.
-    // Each value is the raw string (type "string") or JSON-encoded (type
-    // "json"). Both are optional — a reference to a constant with no value for
-    // an environment is left verbatim in the payload.
     value: z.string().optional(),
     environmentValues: z.record(z.string(), z.string()).optional(),
     description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
-    // Single project (or unset = global), mirroring features so constants are a
-    // drop-in for feature config (and share the feature approval scoping rules).
+    // Single project (or unset = global), mirroring features.
     project: z.string().optional(),
     archived: z.boolean().optional(),
     dateCreated: z.date(),
@@ -292,9 +372,7 @@ export const constantValidator = z
   })
   .strict();
 
-// Fields revision-aware code paths (revert, applyChanges) may mutate. `key`,
-// `type`, `id`, `organization`, and dates are intentionally immutable — the key
-// is referenced elsewhere and the type changes value semantics.
+// Fields revision-aware paths may mutate; key/type/id/dates are immutable.
 export const constantUpdatableFieldsSchema = constantValidator.pick({
   name: true,
   owner: true,
@@ -334,11 +412,7 @@ export const putConstantBodyValidator = z.object({
   archived: z.boolean().optional(),
 });
 
-// ---------------------------------------------------------------------------
-// External REST API (mirrors saved groups). Validators carry the OpenAPI route
-// metadata consumed by createApiRequestHandler + generate-openapi.
-// ---------------------------------------------------------------------------
-
+// External REST API. Validators carry the OpenAPI route metadata.
 export const apiConstantValidator = namedSchema(
   "Constant",
   z
@@ -398,7 +472,6 @@ const postConstantApiBody = z
     description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     project: z.string().optional(),
     owner: optionalOwnerInputField,
-    bypassApproval: bypassApprovalField,
   })
   .strict();
 
@@ -416,11 +489,11 @@ const updateConstantApiBody = z
     project: z.string().optional(),
     owner: ownerInputField.optional(),
     bypassApproval: bypassApprovalField,
+    ...publishOverrideBodyFields,
   })
   .strict();
 
-// Constants are addressed by their immutable, org-unique `key` (the same handle
-// used in `@const:key` references), not their internal id.
+// Addressed by `key`, not internal id.
 const constantKeyParams = z
   .object({ key: z.string().describe("The key of the constant") })
   .strict();
@@ -428,6 +501,12 @@ const constantKeyParams = z
 const apiConstantResponse = z
   .object({ constant: apiConstantValidator })
   .strict();
+
+// Archive/unarchive publish through the standard gate contract, so a successful
+// call can report gates that were bypassed by the caller's authority.
+const apiConstantArchiveResponse = apiConstantResponse.extend({
+  bypassedGates: publishBypassedGatesField,
+});
 
 export const apiConstantReferencesValidator = namedSchema(
   "ConstantReferences",
@@ -521,10 +600,10 @@ export const updateConstantValidator = {
 };
 
 export const archiveConstantValidator = {
-  bodySchema: z.never(),
+  bodySchema: z.object({ ...publishOverrideBodyFields }).strict(),
   querySchema: z.never(),
   paramsSchema: constantKeyParams,
-  responseSchema: apiConstantResponse,
+  responseSchema: apiConstantArchiveResponse,
   summary: "Archive a single constant",
   operationId: "archiveConstant",
   tags: ["constants"],
@@ -534,10 +613,10 @@ export const archiveConstantValidator = {
 };
 
 export const unarchiveConstantValidator = {
-  bodySchema: z.never(),
+  bodySchema: z.object({ ...publishOverrideBodyFields }).strict(),
   querySchema: z.never(),
   paramsSchema: constantKeyParams,
-  responseSchema: apiConstantResponse,
+  responseSchema: apiConstantArchiveResponse,
   summary: "Unarchive a single constant",
   operationId: "unarchiveConstant",
   tags: ["constants"],

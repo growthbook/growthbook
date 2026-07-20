@@ -2,7 +2,11 @@ import Handlebars from "handlebars";
 import escapeRegExp from "lodash/escapeRegExp";
 import trimEnd from "lodash/trimEnd";
 import { parseEnvInt, stringToBoolean } from "shared/util";
-import { DEFAULT_METRIC_WINDOW_HOURS } from "shared/constants";
+import {
+  GB_SDK_ID_DEV,
+  GB_SDK_ID_PROD,
+  DEFAULT_METRIC_WINDOW_HOURS,
+} from "shared/constants";
 import { z } from "zod";
 
 export const ENVIRONMENT = process.env.NODE_ENV;
@@ -12,6 +16,26 @@ export const LOG_LEVEL = process.env.LOG_LEVEL;
 
 export const IS_CLOUD = stringToBoolean(process.env.IS_CLOUD);
 export const IS_MULTI_ORG = stringToBoolean(process.env.IS_MULTI_ORG);
+
+export const DISABLE_TELEMETRY = process.env.DISABLE_TELEMETRY;
+export const INGESTOR_HOST = process.env.INGESTOR_HOST || "";
+
+export function isGrowthBookTelemetryEnabled(): boolean {
+  if (DISABLE_TELEMETRY === "debug") return false;
+  if (DISABLE_TELEMETRY === "enable-with-debug") return true;
+  if (DISABLE_TELEMETRY) return false;
+  return true;
+}
+
+export function isGrowthBookTelemetryDebug(): boolean {
+  return (
+    DISABLE_TELEMETRY === "debug" || DISABLE_TELEMETRY === "enable-with-debug"
+  );
+}
+
+export function getIngestorHost(): string {
+  return INGESTOR_HOST || "https://us1.gb-ingest.com";
+}
 
 // Default to true
 export const ALLOW_SELF_ORG_CREATION = stringToBoolean(
@@ -389,6 +413,8 @@ export const CLOUD_SECRET = process.env.CLOUD_SECRET ?? "";
 export const DISABLE_API_ROOT_PATH = stringToBoolean(
   process.env.DISABLE_API_ROOT_PATH,
 );
+
+export const GB_SDK_ID = prod ? GB_SDK_ID_PROD : GB_SDK_ID_DEV;
 
 export type SecretsReplacer = <T extends string | Record<string, string>>(
   s: T,

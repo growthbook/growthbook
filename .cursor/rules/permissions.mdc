@@ -1,0 +1,8 @@
+---
+description: "Permission system for access control across front-end and back-end"
+globs: packages/front-end/**/*.tsx,packages/front-end/**/*.ts,packages/back-end/src/**/*.ts,packages/shared/src/permissions/**/*.ts
+alwaysApply: false
+---
+# Permissions and Commercial Features
+
+Before adding or changing permissions, role checks, or commercial-feature gates, read and follow `.agents/guides/permissions.md`.

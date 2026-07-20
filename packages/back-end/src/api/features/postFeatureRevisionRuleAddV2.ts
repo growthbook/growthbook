@@ -17,7 +17,9 @@ import { getLatestPhaseVariations } from "shared/experiments";
 import {
   toApiRevisionV2,
   addIdsToFlatRules,
+  assertFeatureValuesValid,
 } from "back-end/src/services/features";
+import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
@@ -48,7 +50,12 @@ import {
   validateRuleReferences,
 } from "./validations";
 import { buildRuleFromInput } from "./postFeatureRevisionRuleAdd";
-import { resolveScopeFromInput } from "./v2Shared";
+import {
+  assertNoRawConfigExtends,
+  assertValidRuleConfigKeys,
+  composeConfigBacking,
+  resolveScopeFromInput,
+} from "./v2Shared";
 
 export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
   postFeatureRevisionRuleAddV2Validator,
@@ -66,6 +73,19 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
   const { schedule } = req.body;
   const inlineRampSchedule = req.body.rampSchedule;
   const ruleInput = req.body.rule as RuleCreateInputV2;
+
+  // Capture config-backing inputs before the experiment-ref variation backfill
+  // below rewrites `ruleInput.variations` (which would otherwise drop `config`).
+  // `value` is an override patch when a config is supplied; we recompose it into
+  // the internal `$extends`-first value after the rule is built.
+  const ruleLevelConfig =
+    "config" in ruleInput
+      ? (ruleInput as { config?: string | null }).config
+      : undefined;
+  const variationConfigs =
+    ruleInput.type === "experiment-ref"
+      ? ruleInput.variations.map((v) => v.config)
+      : [];
 
   if (inlineRampSchedule && (schedule?.startDate || schedule?.endDate)) {
     throw new BadRequestError(
@@ -91,6 +111,14 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
         `Cannot edit a revision with status "${revision.status}"`,
       );
     }
+
+    await assertValidRuleConfigKeys(
+      req.context,
+      [ruleLevelConfig, ...variationConfigs],
+      revision.defaultValue ?? feature.defaultValue,
+      feature.baseConfig,
+      feature.project,
+    );
 
     if (ruleInput.type === "experiment-ref") {
       const anyMissing = ruleInput.variations.some((v) => !v.variationId);
@@ -169,9 +197,54 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
       };
     const rule = buildRuleFromInput(baseRuleInput as RuleCreateInput, uuidv4());
 
+    // Config backing comes only through the dedicated `config` field; a raw
+    // `@config:` embedded in a value is rejected (matches mapV2ApiRuleToFeatureRule).
+    if (rule.type === "force" || rule.type === "rollout") {
+      assertNoRawConfigExtends(rule.value, "Rule value");
+    } else if (rule.type === "experiment-ref") {
+      rule.variations.forEach((v) =>
+        assertNoRawConfigExtends(v.value, "Variation value"),
+      );
+    }
+
+    // Recompose config-backing into the stored value(s). null detaches.
+    if (
+      (rule.type === "force" || rule.type === "rollout") &&
+      ruleLevelConfig !== undefined
+    ) {
+      rule.value = composeConfigBacking(
+        ruleLevelConfig,
+        rule.value,
+        "Rule value",
+      );
+    }
+    if (rule.type === "experiment-ref") {
+      rule.variations = rule.variations.map((rv, i) => {
+        const c = variationConfigs[i];
+        return c !== undefined
+          ? {
+              ...rv,
+              value: composeConfigBacking(c, rv.value, "Variation value"),
+            }
+          : rv;
+      });
+    }
+
     // Backfill seed for rollout rules to ensure ramp-monitored payload
     // stability — consistent with the write-time backfill in addIdsToFlatRules.
     addIdsToFlatRules([rule as FeatureRule], feature.id);
+
+    // Enforce the feature's JSON schema on the new rule's values (no-op for
+    // config-backed values). Opt out with ?skipSchemaValidation=true.
+    assertFeatureValuesValid(req.context, feature, {
+      rules: [rule as FeatureRule],
+    });
+    // Config-backed rule values additionally validate against the backing
+    // config's schema + invariants (assertFeatureValuesValid is a no-op for
+    // them). Same check the publish path runs; a no-op for non-config values.
+    await assertConfigBackedFeatureValuesValid(req.context, feature, {
+      rules: [rule as FeatureRule],
+    });
 
     validateRuleConditions(rule);
     // Opt-in registered-attribute check before any side effects (safe-rollout

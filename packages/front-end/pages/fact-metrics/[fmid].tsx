@@ -3,7 +3,7 @@ import { useState } from "react";
 import { FaChartLine, FaExternalLinkAlt } from "react-icons/fa";
 import {
   FactMetricType,
-  FactTableInterface,
+  FactTableDefinition,
   RowFilter,
 } from "shared/types/fact-table";
 import {
@@ -20,10 +20,12 @@ import { useGrowthBook } from "@growthbook/growthbook-react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiArrowSquareOut } from "react-icons/pi";
+import { AppFeatures } from "shared/types/app-features";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Metadata from "@/ui/Metadata";
 import Link from "@/ui/Link";
+import Callout from "@/ui/Callout";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBBandit, GBCuped, GBEdit, GBExperiment } from "@/components/Icons";
@@ -55,11 +57,11 @@ import MetricExperiments from "@/components/MetricExperiments/MetricExperiments"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import DataList, { DataListItem } from "@/ui/DataList";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { AppFeatures } from "@/types/app-features";
 import FactTableAutoSliceSelector from "@/components/FactTables/FactTableAutoSliceSelector";
 import { useCurrency } from "@/hooks/useCurrency";
 import HistoryTable from "@/components/HistoryTable";
 import Modal from "@/components/Modal";
+import OpenInExplorerButton from "@/enterprise/components/ProductAnalytics/OpenInExplorerButton";
 import {
   DropdownMenu,
   DropdownMenuItem,
@@ -150,7 +152,7 @@ function RowFilterCodeDisplay({
   factTable,
 }: {
   rowFilters: RowFilter[];
-  factTable?: FactTableInterface | null;
+  factTable?: FactTableDefinition | null;
 }) {
   if (!rowFilters.length) return null;
 
@@ -239,10 +241,10 @@ export default function FactMetricPage() {
 
   if (!factMetric) {
     return (
-      <div className="alert alert-danger">
+      <Callout status="error">
         Could not find the requested metric.{" "}
         <Link href="/metrics">Back to all metrics</Link>
-      </div>
+      </Callout>
     );
   }
 
@@ -266,6 +268,9 @@ export default function FactMetricPage() {
   const datasource = factMetric.datasource
     ? getDatasourceById(factMetric.datasource)
     : null;
+  const canOpenInExplorer = datasource
+    ? permissionsUtil.canRunMetricQueries(datasource)
+    : false;
 
   const userFilters = getAggregateFilters({
     columnRef: factMetric.numerator,
@@ -521,11 +526,11 @@ export default function FactMetricPage() {
       />
 
       {factMetric.archived && (
-        <div className="alert alert-secondary mb-2">
+        <Callout status="info" mb="2">
           <strong>This metric is archived.</strong> Existing references will
           continue working, but you will be unable to add this metric to new
           experiments.
-        </div>
+        </Callout>
       )}
       <Flex align="start" justify="between" gap="2" mb="2">
         <Flex align="center" gap="3" style={{ marginTop: "-4px" }}>
@@ -533,7 +538,14 @@ export default function FactMetricPage() {
             <MetricName id={factMetric.id} officialBadgePosition="right" />
           </Heading>
         </Flex>
-        <Flex align="center" pr="2">
+        <Flex align="center" gap="2" pr="2">
+          <OpenInExplorerButton
+            enabled={canOpenInExplorer}
+            href={`/product-analytics/explore/metrics?metricId=${encodeURIComponent(
+              factMetric.id,
+            )}`}
+            tooltip="Open this Fact Metric in the Product Analytics Explorer to view trends, compare time periods, and slice/dice a metric."
+          />
           <DropdownMenu
             trigger={
               <IconButton

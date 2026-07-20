@@ -125,6 +125,10 @@ import {
   constantsRouter,
   constantDraftStatesRouter,
 } from "./routers/constant/constant.router";
+import {
+  configsRouter,
+  configDraftStatesRouter,
+} from "./routers/config/config.router";
 import { segmentRouter } from "./routers/segment/segment.router";
 import { dimensionRouter } from "./routers/dimension/dimension.router";
 import { sdkConnectionRouter } from "./routers/sdk-connection/sdk-connection.router";
@@ -400,6 +404,24 @@ app.get(
 );
 
 // Secret API routes (no JWT or CORS)
+const GROWTHBOOK_TRACKING_HEADERS = [
+  "X-GB-Session-Id",
+  "X-GB-Device-Id",
+  "X-GB-Page-Id",
+  "X-GB-Page-Url",
+  "X-GB-Page-Path",
+  "X-GB-Anonymous-Id",
+] as const;
+
+const INTERNAL_API_ALLOWED_HEADERS = [
+  "Content-Type",
+  "Authorization",
+  "X-Organization",
+  "X-SSO-Connection-ID",
+  "x-no-compression",
+  ...GROWTHBOOK_TRACKING_HEADERS,
+];
+
 // Routes register themselves with version prefixes (/v1/..., /v2/...) so we
 // mount the router at /api — yielding /api/v1/<route> and /api/v2/<route>.
 app.use(
@@ -409,12 +431,7 @@ app.use(
   cors({
     origin: "*",
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: [
-      "Content-Type",
-      "Authorization",
-      "X-Organization",
-      "X-SSO-Connection-ID",
-    ],
+    allowedHeaders: [...INTERNAL_API_ALLOWED_HEADERS],
     credentials: false,
     maxAge: 86400,
   }),
@@ -463,6 +480,7 @@ app.use(
   cors({
     credentials: true,
     origin: origins,
+    allowedHeaders: [...INTERNAL_API_ALLOWED_HEADERS],
   }),
 );
 
@@ -629,6 +647,8 @@ app.use("/custom-fields", customFieldsRouter);
 
 app.use("/constants", constantsRouter);
 app.use("/constants-draft-states", constantDraftStatesRouter);
+app.use("/configs", configsRouter);
+app.use("/configs-draft-states", configDraftStatesRouter);
 
 // Ideas
 app.get("/ideas", ideasController.getIdeas);
@@ -1073,20 +1093,12 @@ app.post(
   datasourcesController.fetchBigQueryDatasets,
 );
 app.post(
-  "/datasource/:datasourceId/materializedColumn",
-  datasourcesController.postMaterializedColumn,
-);
-app.put(
-  "/datasource/:datasourceId/materializedColumn/:matColumnName",
-  datasourcesController.updateMaterializedColumn,
-);
-app.delete(
-  "/datasource/:datasourceId/materializedColumn/:matColumnName",
-  datasourcesController.deleteMaterializedColumn,
-);
-app.post(
   "/datasource/:datasourceId/recreate-managed-warehouse",
   datasourcesController.postRecreateManagedWarehouse,
+);
+app.post(
+  "/datasource/:datasourceId/managed-warehouse/remove-legacy-identifier",
+  datasourcesController.postRemoveManagedWarehouseLegacyIdentifier,
 );
 
 if (IS_CLOUD) {

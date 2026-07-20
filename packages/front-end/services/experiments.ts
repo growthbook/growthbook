@@ -21,12 +21,12 @@ import { getValidDate } from "shared/dates";
 import { isExperimentIncrementalEnabled } from "shared/enterprise";
 import { isNil, omit } from "lodash";
 import {
-  FactTableInterface,
+  FactTableDefinition,
   FactMetricInterface,
   FactTableColumnType,
 } from "shared/types/fact-table";
 import {
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
   getAllMetricIdsFromExperiment,
   getEqualWeights,
   getLatestPhaseVariations,
@@ -185,7 +185,7 @@ export function getFutureScheduledStartDate(
 
 export type ExperimentTableRow = {
   label: string | ReactElement;
-  metric: ExperimentMetricInterface;
+  metric: ExperimentMetricDefinition;
   metricOverrideFields: string[];
   variations: SnapshotMetric[];
   rowClass?: string;
@@ -333,7 +333,7 @@ export function useDomain(
   return [lowerBound, upperBound];
 }
 
-export function applyMetricOverrides<T extends ExperimentMetricInterface>(
+export function applyMetricOverrides<T extends ExperimentMetricDefinition>(
   metric: T,
   metricOverrides?: MetricOverride[],
 ): {
@@ -419,6 +419,7 @@ export function useExperimentSearch({
   filterResults,
   localStorageKey,
   watchedExperimentIds,
+  controlledSearchValue,
 }: {
   allExperiments: ExperimentInterfaceStringDates[];
   defaultSortField?: keyof ComputedExperimentInterface;
@@ -428,6 +429,10 @@ export function useExperimentSearch({
   ) => ComputedExperimentInterface[];
   localStorageKey: string;
   watchedExperimentIds?: string[];
+  // When provided, drives filtering from a stored search string (e.g. a
+  // dashboard block's saved filter) instead of a user-typed input. Bypasses the
+  // URL `q` param so it doesn't leak into or clobber the page's search state.
+  controlledSearchValue?: string;
 }) {
   const {
     getExperimentMetricById,
@@ -483,7 +488,8 @@ export function useExperimentSearch({
     localStorageKey,
     defaultSortField,
     defaultSortDir,
-    updateSearchQueryOnChange: true,
+    updateSearchQueryOnChange: controlledSearchValue === undefined,
+    controlledSearchValue,
     searchFields: ["name^3", "trackingKey^2", "hypothesis^2", "description"],
     searchTermFilters: {
       is: (item) => {
@@ -615,8 +621,8 @@ export function getRowResults({
   baseline: SnapshotMetric;
   statsEngine: StatsEngine;
   differenceType: DifferenceType;
-  metric: ExperimentMetricInterface;
-  denominator?: ExperimentMetricInterface;
+  metric: ExperimentMetricDefinition;
+  denominator?: ExperimentMetricDefinition;
   metricDefaults: MetricDefaults;
   minSampleSize: number;
   ciUpper: number;
@@ -1060,7 +1066,7 @@ export function getAvailableMetricsFilters({
   secondaryMetrics: string[];
   guardrailMetrics: string[];
   metricGroups: MetricGroupInterface[];
-  getExperimentMetricById: (id: string) => ExperimentMetricInterface | null;
+  getExperimentMetricById: (id: string) => ExperimentMetricDefinition | null;
 }): {
   groups: { id: string; name: string }[];
   metrics: { id: string; name: string }[];
@@ -1118,7 +1124,7 @@ export function getAvailableMetricTags({
   secondaryMetrics: string[];
   guardrailMetrics: string[];
   metricGroups: MetricGroupInterface[];
-  getExperimentMetricById: (id: string) => ExperimentMetricInterface | null;
+  getExperimentMetricById: (id: string) => ExperimentMetricDefinition | null;
 }): string[] {
   const expandedGoals = expandMetricGroups(goalMetrics, metricGroups);
   const expandedSecondaries = expandMetricGroups(
@@ -1167,9 +1173,9 @@ export function getAvailableSliceTags({
     }>;
   }> | null;
   metricGroups: MetricGroupInterface[];
-  factTables: FactTableInterface[];
-  getExperimentMetricById: (id: string) => ExperimentMetricInterface | null;
-  getFactTableById: (id: string) => FactTableInterface | null;
+  factTables: FactTableDefinition[];
+  getExperimentMetricById: (id: string) => ExperimentMetricDefinition | null;
+  getFactTableById: (id: string) => FactTableDefinition | null;
 }): AvailableSliceTag[] {
   const sliceTagsMap = new Map<
     string,
@@ -1177,7 +1183,7 @@ export function getAvailableSliceTags({
   >();
 
   // Build factTableMap for parseSliceQueryString
-  const factTableMap: Record<string, FactTableInterface> = {};
+  const factTableMap: Record<string, FactTableDefinition> = {};
   factTables.forEach((table) => {
     factTableMap[table.id] = table;
   });

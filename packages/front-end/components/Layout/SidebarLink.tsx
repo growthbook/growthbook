@@ -8,7 +8,7 @@ import { GrowthBook, useGrowthBook } from "@growthbook/growthbook-react";
 import { GlobalPermission } from "shared/types/organization";
 import { Permissions } from "shared/permissions";
 import { SegmentInterface } from "shared/types/segment";
-import { AppFeatures } from "@/types/app-features";
+import { AppFeatures } from "shared/types/app-features";
 import { isCloud, isMultiOrg } from "@/services/env";
 import { PermissionFunctions, useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";

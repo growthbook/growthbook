@@ -1,6 +1,13 @@
-import React, { createContext, useCallback, useContext, useState } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useRef,
+  useState,
+} from "react";
 import { useUser } from "@/services/UserContext";
 import { useAISettings } from "@/hooks/useOrgSettings";
+import track from "@/services/track";
 
 interface AgentPanelContextValue {
   /** Whether the agent UI should be available to the current user/org. */
@@ -35,16 +42,30 @@ export function AgentPanelProvider({
 
   const [open, setOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  // Mirror for open/close handlers so tracking stays outside setState updaters.
+  const openRef = useRef(open);
+  openRef.current = open;
 
   const openPanel = useCallback(() => {
+    if (!openRef.current) {
+      track("AI Assistant Panel Opened");
+    }
     setOpen(true);
   }, []);
 
   const closePanel = useCallback(() => {
+    if (openRef.current) {
+      track("AI Assistant Panel Closed");
+    }
     setOpen(false);
   }, []);
 
   const togglePanel = useCallback(() => {
+    track(
+      openRef.current
+        ? "AI Assistant Panel Closed"
+        : "AI Assistant Panel Opened",
+    );
     setOpen((prev) => !prev);
   }, []);
 

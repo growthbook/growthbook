@@ -4,6 +4,8 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   includeExperimentInPayload,
   calculateNamespaceCoverage,
+  getConfigBackingKey,
+  getFeatureBaseConfigKey,
 } from "shared/util";
 import {
   getLatestPhaseVariations,
@@ -21,6 +23,7 @@ import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
 import Table, { TableBody, TableRow, TableCell } from "@/ui/Table";
 import ValueDisplay from "./ValueDisplay";
+import ConfigBackedSummary from "./ConfigBackedSummary";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
 import ConditionDisplay from "./ConditionDisplay";
 import { AttributeBadge } from "./AttributeBadge";
@@ -48,11 +51,15 @@ export default function ExperimentRefSummary({
   experiment,
   feature,
   isDraft,
+  environment,
 }: {
   feature: FeatureInterface;
   experiment?: ExperimentInterfaceStringDates;
   rule: ExperimentRefRule;
   isDraft: boolean;
+  // Environment this rule is shown for, so config-backed arm values preview
+  // their matching env flavor. Absent (all-environments view) = base value.
+  environment?: string;
 }) {
   const { variations } = rule;
   const type = feature.valueType;
@@ -203,7 +210,7 @@ export default function ExperimentRefSummary({
               color="gray"
               label={
                 <Text color="text-high">
-                  {percentFormatter.format(phase?.coverage || 1)}
+                  {percentFormatter.format(phase?.coverage ?? 1)}
                 </Text>
               }
             />
@@ -216,6 +223,7 @@ export default function ExperimentRefSummary({
           feature={feature}
           value={releasedValue.value}
           sparse={rule.sparse}
+          environment={environment}
         />
       ) : (
         <>
@@ -284,16 +292,44 @@ export default function ExperimentRefSummary({
                             Define missing values
                           </HelperText>
                         ) : (
-                          <>
-                            <ValueDisplay
-                              value={value}
-                              type={type}
-                              showFullscreenButton={true}
-                              sparse={rule.sparse}
-                              defaultValue={feature.defaultValue}
-                            />
-                            <ValidateValue value={value} feature={feature} />
-                          </>
+                          (() => {
+                            // Config-backed arms render "SERVE ConfigName with
+                            // overrides" like force rules — never the raw
+                            // `@config:` directive. Only a config-backed
+                            // feature resolves configs.
+                            const baseConfigKey =
+                              getFeatureBaseConfigKey(feature);
+                            const configKey =
+                              baseConfigKey !== null
+                                ? (getConfigBackingKey(value) ?? baseConfigKey)
+                                : null;
+                            if (configKey !== null) {
+                              return (
+                                <ConfigBackedSummary
+                                  value={value}
+                                  configKey={configKey}
+                                  feature={feature}
+                                  sparse={rule.sparse}
+                                  environment={environment}
+                                />
+                              );
+                            }
+                            return (
+                              <>
+                                <ValueDisplay
+                                  value={value}
+                                  type={type}
+                                  showFullscreenButton={true}
+                                  sparse={rule.sparse}
+                                  defaultValue={feature.defaultValue}
+                                />
+                                <ValidateValue
+                                  value={value}
+                                  feature={feature}
+                                />
+                              </>
+                            );
+                          })()
                         )}
                       </TableCell>
                       {!isBandit && (

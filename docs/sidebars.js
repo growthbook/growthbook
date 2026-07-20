@@ -61,8 +61,10 @@ export default {
             "features/rules", // Rules (overview, choosing a rule type, all rule types)
             "features/targeting", // Targeting Conditions (attributes, conditions, saved groups)
             "features/safe-rollouts", // Safe Rollouts
+            "features/ramp-schedules", // Ramp Schedules
             "features/prerequisites", // Prerequisite Features
             "features/constants", // Constants (reusable referenced values)
+            "features/configs", // Configs (typed, validated, composable shapes)
           ],
         },
         {
@@ -72,7 +74,7 @@ export default {
           collapsed: false,
           items: [
             "features/publishing-and-approval-flows", // Publishing & Approval Flows (NEW)
-            "features/saved-group-revisions-api", // Saved Group Revisions API (BETA)
+            "features/saved-group-revisions-api", // Saved Group Revisions API
             "features/json-schema-validation", // JSON Schema Validation
             "features/stale-detection", // Stale Feature Detection
             "features/code-references", // Code References

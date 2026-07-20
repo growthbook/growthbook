@@ -72,7 +72,6 @@ export interface Props<T> {
   allRevisions: Revision[];
   currentRevisionId: string | null;
   onClose: () => void;
-  mutate: () => void;
   // Opens directly in "preview draft vs live" mode for this revision
   initialPreviewDraft?: string;
   initialMode?: "most-recent-live";
@@ -702,7 +701,34 @@ export default function CompareRevisionsModal<
     setPreviewDraftId(null);
     setSelectedRevisionIds((prev) => {
       const idx = revisionsDesc.indexOf(id);
-      if (idx === -1) return prev;
+      if (idx === -1) {
+        // Hidden by the current filters but still selected (a stale endpoint
+        // kept visible in the sidebar) — shrink the range inward to the
+        // nearest visible revision using the full chronological list.
+        if (!prev.includes(id) || prev.length < 2) return prev;
+        const chron = sortedRevisionsAsc.map((r) => r.id);
+        const lowIdx = chron.indexOf(prev[0]);
+        const highIdx = chron.indexOf(prev[prev.length - 1]);
+        const idIdx = chron.indexOf(id);
+        if (lowIdx === -1 || highIdx === -1 || idIdx === -1) return prev;
+        const visibleIds = new Set(filteredRevisionList.map((r) => r.id));
+        if (idIdx === lowIdx) {
+          let next = lowIdx + 1;
+          while (next < highIdx && !visibleIds.has(chron[next])) next++;
+          return next >= highIdx
+            ? [chron[highIdx]]
+            : sortByChronological([chron[next], chron[highIdx]]);
+        }
+        if (idIdx === highIdx) {
+          let next = highIdx - 1;
+          while (next > lowIdx && !visibleIds.has(chron[next])) next--;
+          return next <= lowIdx
+            ? [chron[lowIdx]]
+            : sortByChronological([chron[lowIdx], chron[next]]);
+        }
+        return prev;
+      }
+      if (prev.length === 0) return [id];
 
       // Find current selection indices in display order (revisionsDesc)
       const prevIndices = prev
@@ -903,33 +929,44 @@ export default function CompareRevisionsModal<
 
   const stepDiffSnapshots = useMemo(() => {
     if (!stepRevB) return null;
-    const baseState = stepRevA
-      ? (stepRevA.target.snapshot as unknown as T)
-      : liveEntity;
+    // Both sides must share one baseline or the step shows spurious diffs.
+    // A merged revision carries its own pre-merge snapshot (base = snapshot,
+    // proposed = snapshot + its changes → revB's own before→after). A draft's
+    // proposedChanges are relative to LIVE, so both sides use liveEntity
+    // (base = live, proposed = live + changes) — matching previewDraftSnapshots.
     const baseSnapshot =
       stepRevB.status === "merged"
         ? (stepRevB.target.snapshot as unknown as T)
-        : baseState;
+        : liveEntity;
     const proposedSnapshot = applyTopLevelPatchOps(
       baseSnapshot,
       stepRevB.target.proposedChanges,
     ) as T;
     return { baseSnapshot, proposedSnapshot };
-  }, [stepRevA, stepRevB, liveEntity]);
+  }, [stepRevB, liveEntity]);
 
   const singleDiffSnapshots = useMemo(() => {
     if (!singleRevLast) return null;
-    const baseState = singleRevFirst
-      ? (singleRevFirst.target.snapshot as unknown as T)
+    // Base is the state AFTER the first revision so the diff spans the whole
+    // selected range (v1↔v5 shows everything from v1's result to v5's result).
+    const baseSnapshot = singleRevFirst
+      ? (applyTopLevelPatchOps(
+          singleRevFirst.target.snapshot as unknown as T,
+          singleRevFirst.target.proposedChanges,
+        ) as T)
       : liveEntity;
-    const baseSnapshot =
+    // Merged revisions carry their own pre-merge snapshot; a draft's
+    // proposedChanges are relative to live.
+    const proposedSnapshot =
       singleRevLast.status === "merged"
-        ? (singleRevLast.target.snapshot as unknown as T)
-        : baseState;
-    const proposedSnapshot = applyTopLevelPatchOps(
-      baseSnapshot,
-      singleRevLast.target.proposedChanges,
-    ) as T;
+        ? (applyTopLevelPatchOps(
+            singleRevLast.target.snapshot as unknown as T,
+            singleRevLast.target.proposedChanges,
+          ) as T)
+        : (applyTopLevelPatchOps(
+            liveEntity,
+            singleRevLast.target.proposedChanges,
+          ) as T);
     return { baseSnapshot, proposedSnapshot };
   }, [singleRevFirst, singleRevLast, liveEntity]);
 
