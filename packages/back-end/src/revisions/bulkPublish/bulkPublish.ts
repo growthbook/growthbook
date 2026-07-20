@@ -495,15 +495,21 @@ export async function commitBulkPublish(
     }
     // A restore-failed item's live entity is stuck at the release state, so
     // its revision KEEPS its claim — reopening it would make the revision
-    // contradict the live doc.
-    await releaseClaims(
+    // contradict the live doc. A reopen that FAILS for any other item leaves
+    // its revision stuck published too, so it joins the "published" bucket.
+    const releaseFailed = await releaseClaims(
       context,
       plan.items.filter((item) => !restoreFailed.has(item)),
     );
+    // "published" = revision stays merged (entity stuck published, or entity
+    // restored but the reopen failed); "rolled-back" = entity restored AND
+    // revision reopened; "not-applied" = never touched, reopened cleanly.
+    const stuckPublished = (item: PlannedItemPublish) =>
+      restoreFailed.has(item) || releaseFailed.has(item);
     const results: BulkPublishItemResult[] = plan.items.map((item) => ({
       ref: item.ref,
       revisionId: item.revision.id,
-      status: restoreFailed.has(item)
+      status: stuckPublished(item)
         ? ("published" as const)
         : appliedSet.has(item)
           ? ("rolled-back" as const)
@@ -526,10 +532,11 @@ export async function commitBulkPublish(
     // rejections and claim conflicts never reach here and stay silent.
     const reason = `Release publish failed and was rolled back: ${getErrorMessage(e)}`;
     for (const item of plan.items) {
-      // A restore-failed item's live entity KEEPS the publish state and its
-      // revision stays merged — a "rolled back" failure event would contradict
-      // both. Its `status: "published"` result row is the operator signal.
-      if (restoreFailed.has(item)) continue;
+      // Any item whose revision stays merged (restore failed, or reopen
+      // failed) must NOT get a "rolled back" failure event — that would
+      // contradict the still-published revision. Its `status: "published"`
+      // result row is the operator signal instead.
+      if (stuckPublished(item)) continue;
       try {
         await getBulkAdapter(item.ref.entityType).emitPublishFailed(
           context,
@@ -545,9 +552,10 @@ export async function commitBulkPublish(
       }
     }
     context.bulkPublishId = null;
+    const stuckCount = restoreFailed.size + releaseFailed.size;
     throw new BulkPublishCommitError(
-      restoreFailed.size
-        ? `Publish failed while applying changes (${getErrorMessage(e)}) — ${restoreFailed.size} of ${plan.items.length} entities could not be rolled back and remain published (see items)`
+      stuckCount
+        ? `Publish failed while applying changes (${getErrorMessage(e)}) — ${stuckCount} of ${plan.items.length} entities could not be fully rolled back and remain published (see items)`
         : `Publish failed while applying changes (${getErrorMessage(e)}) — applied entities were rolled back and all revisions reopened`,
       results,
     );
@@ -624,10 +632,15 @@ function flushPayloadRefreshBuffer(context: Context, event: string): void {
   });
 }
 
+// Reopen each claimed revision. Returns the items whose reopen FAILED — their
+// revision stays merged/published, so compensation must report them
+// "published" (not "rolled-back") even when their entity restored cleanly, or
+// the result/events would contradict the durable revision state.
 async function releaseClaims(
   context: Context,
   claimed: PlannedItemPublish[],
-): Promise<void> {
+): Promise<Set<PlannedItemPublish>> {
+  const failed = new Set<PlannedItemPublish>();
   for (const item of claimed) {
     try {
       await getBulkAdapter(item.ref.entityType).releaseClaim(
@@ -635,10 +648,12 @@ async function releaseClaims(
         item.revision,
       );
     } catch (e) {
+      failed.add(item);
       logger.error(
         e,
         `bulk publish: failed to release claim on ${item.ref.entityType} ${item.ref.entityId}`,
       );
     }
   }
+  return failed;
 }

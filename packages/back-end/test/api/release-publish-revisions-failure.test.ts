@@ -18,6 +18,7 @@ import { setupApp } from "./api.setup";
 // requireActual to first property access, dodging model-module import cycles.
 let mockFailFeatureApply = false;
 let mockFailConstantRestore = false;
+let mockFailConstantReleaseClaim = false;
 jest.mock("back-end/src/revisions/bulkPublish/registry", () => {
   return new Proxy(
     {},
@@ -48,6 +49,12 @@ jest.mock("back-end/src/revisions/bulkPublish/registry", () => {
                   throw new Error("simulated restore failure");
                 }
                 return adapter.restorePreImage(...args);
+              },
+              releaseClaim: async (...args: unknown[]) => {
+                if (mockFailConstantReleaseClaim) {
+                  throw new Error("simulated release-claim failure");
+                }
+                return adapter.releaseClaim(...args);
               },
             };
           }
@@ -87,6 +94,7 @@ describe("POST /api/v2/releases/publish-revisions — commit failure", () => {
   afterEach(() => {
     mockFailFeatureApply = false;
     mockFailConstantRestore = false;
+    mockFailConstantReleaseClaim = false;
   });
 
   it("rolls back applied entities, reopens revisions, and emits only publishFailed", async () => {
@@ -295,7 +303,7 @@ describe("POST /api/v2/releases/publish-revisions — commit failure", () => {
       })
       .set("Authorization", "Bearer foo");
     expect(res.status).toBe(500);
-    expect(res.body.message).toMatch(/could not be rolled back/);
+    expect(res.body.message).toMatch(/could not be fully rolled back/);
 
     // Per-item outcomes name the stuck entity — flat rows speaking the
     // caller's identifier vocabulary (config/constant keys, not internal ids).
@@ -345,5 +353,111 @@ describe("POST /api/v2/releases/publish-revisions — commit failure", () => {
     );
     expect(forThisRelease.length).toBe(1);
     expect(forThisRelease[0].data?.data?.object?.featureId).toBe("stuck-feat");
+  });
+
+  it("reports an item whose reopen fails as published, not rolled-back", async () => {
+    setReqContext(makeContext());
+    const now = new Date();
+
+    await mongoose.connection.collection("constants").insertOne({
+      id: "const_reopen-fail",
+      organization: ORG_ID,
+      key: "reopen-fail",
+      name: "reopen-fail",
+      owner: "",
+      type: "string",
+      value: "before",
+      dateCreated: now,
+      dateUpdated: now,
+    });
+    const stageRes = await request(app)
+      .put(`/api/v1/constants-revisions/reopen-fail/new/value`)
+      .send({ value: "after" })
+      .set("Authorization", "Bearer foo");
+    expect(stageRes.status).toBe(200);
+    const constVersion = stageRes.body.revision.version;
+
+    await mongoose.connection.collection("features").insertOne({
+      id: "reopen-feat",
+      organization: ORG_ID,
+      owner: "",
+      valueType: "string",
+      defaultValue: "live",
+      version: 1,
+      environmentSettings: {},
+      dateCreated: now,
+      dateUpdated: now,
+    });
+    await mongoose.connection.collection("featurerevisions").insertMany([
+      {
+        organization: ORG_ID,
+        featureId: "reopen-feat",
+        version: 1,
+        baseVersion: 0,
+        status: "published",
+        defaultValue: "live",
+        rules: [],
+        dateCreated: now,
+        dateUpdated: now,
+        datePublished: now,
+      },
+      {
+        organization: ORG_ID,
+        featureId: "reopen-feat",
+        version: 2,
+        baseVersion: 1,
+        status: "draft",
+        defaultValue: "new-value",
+        rules: [],
+        dateCreated: now,
+        dateUpdated: now,
+      },
+    ]);
+
+    // Constant applies and its entity restore succeeds, but reopening its
+    // revision (releaseClaim) throws: the entity is back at pre-image while
+    // the revision stays merged, so the item must be reported "published"
+    // (not "rolled-back") with no contradictory publishFailed event.
+    mockFailFeatureApply = true;
+    mockFailConstantReleaseClaim = true;
+    const res = await request(app)
+      .post("/api/v2/releases/publish-revisions")
+      .send({
+        revisions: [
+          { entityType: "constant", key: "reopen-fail", version: constVersion },
+          { entityType: "feature", id: "reopen-feat", version: 2 },
+        ],
+      })
+      .set("Authorization", "Bearer foo");
+    expect(res.status).toBe(500);
+
+    const byId = Object.fromEntries(
+      (res.body.items as { id: string; status: string }[]).map((item) => [
+        item.id,
+        item.status,
+      ]),
+    );
+    // Entity restored (rolled back) but revision reopen failed → published.
+    expect(byId["reopen-fail"]).toBe("published");
+    expect(byId["reopen-feat"]).toBe("rolled-back");
+
+    // The constant's entity IS back at its pre-image despite the stuck claim.
+    const constant = await mongoose.connection
+      .collection("constants")
+      .findOne({ organization: ORG_ID, key: "reopen-fail" });
+    expect(constant?.value).toBe("before");
+
+    // No publishFailed for the still-merged constant; only the feature.
+    const failed = await mongoose.connection
+      .collection("events")
+      .find({ organizationId: ORG_ID, event: /revision\.publishFailed/ })
+      .toArray();
+    const forThisRelease = failed.filter(
+      (e) =>
+        e.data?.data?.object?.featureId === "reopen-feat" ||
+        e.data?.data?.object?.key === "reopen-fail",
+    );
+    expect(forThisRelease.length).toBe(1);
+    expect(forThisRelease[0].data?.data?.object?.featureId).toBe("reopen-feat");
   });
 });
