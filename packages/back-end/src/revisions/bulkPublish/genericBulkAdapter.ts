@@ -28,12 +28,11 @@ function toRef(revision: Revision): BulkRevisionRef {
 }
 
 /**
- * Bulk-publish surface for any entity on the generic revision system
- * (saved-group, constant, config, and whatever registers next). Wraps the
- * entity's EntityRevisionAdapter for entity behavior and the shared
+ * Bulk-publish surface for any entity on the generic revision system. Wraps
+ * the entity's EntityRevisionAdapter for entity behavior and the shared
  * RevisionModel for revision lifecycle. `extraGates` lets a type contribute
  * gates its single-entity REST handler assembles inline (e.g. the config
- * handler's config-locked gate) without the orchestrator knowing the type.
+ * lock gate) without the orchestrator knowing the type.
  */
 export function makeGenericBulkAdapter(
   targetType: RevisionTargetType,
@@ -122,10 +121,10 @@ export function makeGenericBulkAdapter(
       desiredState,
     }) {
       const raw = revision.raw as Revision;
-      // Approval + stale-base via the shared collector (approval scoping —
-      // project/env/metadata rules — stays inside each adapter's
-      // isApprovalRequiredForRevision). Caller context: governance is about
-      // the caller's org policy, not the overlay end-state.
+      // Approval + stale-base via the shared collector (approval scoping
+      // stays inside each adapter's isApprovalRequiredForRevision). Caller
+      // context: governance judges the caller's org policy, not the overlay
+      // end-state.
       const gates: PublishGate[] = collectRevisionGovernanceGates({
         context: callerContext,
         adapter,
@@ -234,9 +233,8 @@ export function makeGenericBulkAdapter(
         const original = (preImage as Record<string, unknown>)[key];
         if (isEqual(desiredState[key], original)) continue;
         // Restore a key only while the live doc still holds the value this
-        // apply wrote. If it doesn't, either the apply skipped the key (a
-        // concurrent writer had already converged it — applyChanges filters
-        // no-op values) or a later writer moved it again; in both cases the
+        // apply wrote. Otherwise the apply skipped the key (applyChanges
+        // filters no-op values) or a later writer moved it — either way the
         // concurrent write is the newer intent and must not be clobbered.
         if (!isEqual((current as Record<string, unknown>)[key], written[key])) {
           continue;

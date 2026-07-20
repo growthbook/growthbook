@@ -76,13 +76,11 @@ function migrateContributors(raw: unknown[] | undefined): string[] | undefined {
 }
 
 const featureRevisionSchema = new mongoose.Schema({
-  // Stable identity in the standard model shape: minted (`frev_<uniqid>`) and
-  // stored at creation for new docs. Legacy docs instead expose a computed
-  // tuple form (`frev_<version>_<featureId>`, see featureRevisionId) which is
-  // persisted opportunistically on publish writes — deterministic, so their
-  // identity never changes as it materializes. The two shapes cannot collide
-  // (uniqid suffixes contain no underscores). Forward-looking: real stored ids
-  // pave the eventual migration onto the generic RevisionModel.
+  // Minted (`frev_<uniqid>`) and stored at creation for new docs. Legacy docs
+  // instead expose a computed tuple form (`frev_<version>_<featureId>`, see
+  // featureRevisionId), persisted opportunistically on publish writes —
+  // deterministic, so their identity never changes as it materializes. The
+  // two shapes cannot collide (uniqid suffixes contain no underscores).
   id: String,
   organization: String,
   featureId: String,
@@ -318,11 +316,9 @@ export function buildFeatureRevisionInterface(
 
 /**
  * The LEGACY-doc revision id: a deterministic projection of the immutable
- * natural key, used for docs minted before ids were stored (version-first so
- * parsing is unambiguous even though feature ids may contain underscores).
- * New docs mint opaque `frev_<uniqid>` ids at creation instead; this form
- * remains valid forever for old docs and resolves by decoding back onto the
- * unique (organization, featureId, version) index.
+ * natural key (version-first so parsing is unambiguous even though feature
+ * ids may contain underscores). Remains valid forever for old docs and
+ * resolves by decoding back onto the (organization, featureId, version) index.
  */
 export function featureRevisionId(featureId: string, version: number): string {
   return `frev_${version}_${featureId}`;
@@ -1327,9 +1323,8 @@ export function computeRevisionPublishChanges(
     datePublished: new Date(),
     dateUpdated: new Date(),
     comment: revision.comment ? revision.comment : comment,
-    // Opportunistic disk sync for legacy docs: persist the (deterministic)
-    // computed tuple id at the publish write, so the identity a caller has
-    // already seen is the one that materializes. No-op for minted docs.
+    // Opportunistic disk sync of the computed tuple id for legacy docs
+    // (deterministic — see the schema comment); no-op for minted docs.
     ...(revision.id ? { id: revision.id } : {}),
   };
 }
@@ -1392,12 +1387,11 @@ export async function markRevisionAsPublished(
 }
 
 /**
- * Bulk-publish claim: a guarded, side-effect-free publish transition. Guards on
- * the plan-time baseline (status + dateUpdated), so ANY outside change to the
- * revision since planning aborts the claim before any live write. Validation
- * hooks already ran at plan time against the multi-entity end-state; the
- * revision log entry and published-hook dispatch are deferred to the bulk
- * publisher's post-commit flush (emitFeatureRevisionPublishedSideEffects).
+ * Bulk-publish claim: a guarded, side-effect-free publish transition. Guards
+ * on the plan-time baseline (status + dateUpdated), so any outside change
+ * since planning aborts before any live write. Hooks already ran at plan
+ * time; the revision log entry and published-hook dispatch are deferred to
+ * emitFeatureRevisionPublishedSideEffects.
  */
 export async function claimFeatureRevisionAsPublished(
   revision: FeatureRevisionInterface,
@@ -1454,9 +1448,8 @@ export async function restoreFeatureRevisionAfterFailedBulkPublish(
     featureId: original.featureId,
     version: original.version,
     status: "published" as const,
-    // The claim's fingerprint: a concurrent legitimate publish re-stamps its
-    // own datePublished, so this filter makes the rollback a no-op instead of
-    // reverting that publish (its live feature write already happened).
+    // The claim's fingerprint: a concurrent legitimate publish re-stamps
+    // datePublished, making this rollback a no-op instead of reverting it.
     ...(claimStamp ? { datePublished: claimStamp } : {}),
   };
   const update = (withLockOthers: boolean) => ({
@@ -1497,8 +1490,7 @@ export async function restoreFeatureRevisionAfterFailedBulkPublish(
   } catch (e) {
     // A sibling draft armed a lock-others schedule while we held the claim
     // (the claim's $unset freed the partial-index slot). Restore without the
-    // lock rather than stranding the revision as published — mirroring
-    // RevisionModel.reopenAfterFailedApply.
+    // lock rather than stranding the revision as published.
     if (!isPublishLockIndexConflict(e)) throw e;
     await FeatureRevisionModel.updateOne(filter, update(false));
   }

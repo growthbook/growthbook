@@ -28,34 +28,24 @@ export type BulkRevisionRef = {
 };
 
 /**
- * Per-entity-type surface for the bulk publisher. The orchestrator
- * (bulkPublish.ts) contains zero entity-type switches: everything an entity
- * type does differently lives behind this interface.
+ * Per-entity-type surface for the bulk publisher — the orchestrator
+ * (bulkPublish.ts) contains zero entity-type switches. Implementations:
+ * makeGenericBulkAdapter() (any generically-revisioned entity) and
+ * featureBulkAdapter.
  *
- * Two implementations:
- * - makeGenericBulkAdapter() wraps any EntityRevisionAdapter + the shared
- *   RevisionModel, covering saved-group/constant/config (and any future
- *   generically-revisioned entity) uniformly.
- * - featureBulkAdapter implements the same contract over FeatureModel /
- *   FeatureRevisionModel, containing the feature-vs-generic differences to
- *   that one file.
- *
- * Contract notes that keep the commit phase free of application-level
- * failures (the atomicity invariant):
- * - Everything that can fail deterministically (permissions, validation,
- *   guards, hooks, merge computation) runs in the plan-phase methods.
- * - claim() may fail ONLY on a CAS/baseline conflict — before any live write.
- * - applyPrecomputed() writes the precomputed state; SDK payload refreshes it
- *   triggers are captured by the context's sdkPayloadRefreshBuffer. Residual
- *   model-level write validation may still throw —
- *   the orchestrator treats any apply failure as compensation-triggering.
+ * Atomicity contract: everything that can fail deterministically
+ * (permissions, validation, guards, hooks, merge computation) runs in the
+ * plan-phase methods; claim() may fail ONLY on a CAS/baseline conflict —
+ * before any live write; applyPrecomputed() may still throw on residual
+ * model-level write validation, which the orchestrator treats as
+ * compensation-triggering. SDK payload refreshes are captured by the
+ * context's sdkPayloadRefreshBuffer.
  */
 export interface BulkPublishableAdapter {
   /**
    * Whether the org REST-bypass setting (in addition to the bypass-approval
    * permission) grants stale-base force-merge authority — true for the
-   * generic entities, false for features, matching each single-entity
-   * handler's governance computation.
+   * generic entities, false for features.
    */
   staleBaseForceAllowsRestBypass: boolean;
 

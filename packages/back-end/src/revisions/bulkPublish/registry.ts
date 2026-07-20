@@ -27,8 +27,8 @@ async function configExtraGates(args: {
 }): Promise<PublishGate[]> {
   const config = args.entity as unknown as ConfigInterface;
   const gates: PublishGate[] = [...collectConfigLockGate(config)];
-  // Custom validation hooks — evaluated against the overlay so hooks judge the
-  // multi-entity end-state, matching where the value validation runs.
+  // Custom validation hooks — evaluated against the overlay so hooks judge
+  // the multi-entity end-state.
   gates.push(
     ...(await collectConfigPublishHookGates({
       context: args.overlayContext,
@@ -57,7 +57,7 @@ async function savedGroupExtraGates(args: {
 }): Promise<PublishGate[]> {
   // Overlay context: the dependents scan honors the feature scan overlay, so
   // a release that archives a Saved Group AND removes its last reference in a
-  // sibling item plans clean — matching the config/feature archive gates.
+  // sibling item plans clean.
   return collectSavedGroupArchiveDependentsGate(
     args.overlayContext,
     args.entity as unknown as SavedGroupInterface,
@@ -79,7 +79,7 @@ const registry: Record<BulkPublishTargetType, () => BulkPublishableAdapter> = {
 };
 
 // Adapters are stateless (per-item state rides in the plan), so each type
-// resolves to one shared instance — matching the underlying getAdapter registry.
+// resolves to one shared instance.
 const instances = new Map<BulkPublishTargetType, BulkPublishableAdapter>();
 
 export function getBulkAdapter(

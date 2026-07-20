@@ -48,17 +48,14 @@ import type {
   BulkRevisionRef,
 } from "back-end/src/revisions/bulkPublish/BulkPublishableAdapter";
 
-// The feature-vs-generic revision-system differences, contained to this file:
-// features keep their own revision model (claim via a guarded status CAS
-// there), their own merge computation (autoMerge → MergeResultChanges), and
-// their own apply path (applyRevisionChanges → updateFeature). The orchestrator
-// can't tell this adapter from a generic one.
+// Contains every feature-vs-generic revision-system difference: features keep
+// their own revision model, merge computation, and apply path. The
+// orchestrator can't tell this adapter from a generic one.
 
 /**
  * desiredState carried opaquely through the orchestrator for feature items.
- * The apply phase stashes its runtime state here (created ramp schedule ids
- * for compensation, the post-apply feature for the ramp finalize pass) — the
- * orchestrator passes the same object to restorePreImage/emitPublished.
+ * The apply phase stashes runtime state here (created ramp schedule ids, the
+ * post-apply feature) for restorePreImage/emitPublished to read.
  */
 type FeatureDesiredState = {
   mergeResult: MergeResultChanges;
@@ -67,11 +64,10 @@ type FeatureDesiredState = {
   updatedFeature?: FeatureInterface;
   /**
    * Per safe rollout the apply's status sync will write: the pre-apply doc
-   * snapshot (compensation's restore source), the status the sync writes
-   * (computeSafeRolloutStatusMap — the ownership check), and the post-apply
-   * doc (per-field ownership baseline, so worker progress between apply and
-   * rollback is never clobbered; absent when the apply threw before the
-   * feature write completed).
+   * (compensation's restore source), the status the sync writes (the
+   * ownership check even when `post` is absent), and the post-apply doc
+   * (per-field ownership baseline so worker progress is never clobbered;
+   * absent when the apply threw before the feature write completed).
    */
   safeRollouts?: Array<{
     pre: SafeRolloutInterface;
@@ -115,9 +111,8 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     return revision ? toRef(revision) : null;
   },
 
-  // Mirrors the single-entity handler's up-front check. The env-scoped
-  // canPublishFeature check happens in collectGates, where the merge result
-  // narrows it to the environments the publish actually touches.
+  // Entity-level check only; the env-scoped canPublishFeature check happens
+  // in collectGates, narrowed to the environments the merge touches.
   canPublish(context, entity) {
     return context.permissions.canUpdateFeature(
       entity as unknown as FeatureInterface,
@@ -177,8 +172,7 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
 
     // Environment-scoped publish authority, narrowed to the environments this
     // merge actually touches — the caller's context, never the admin-role
-    // overlay context. Mirrors the single-entity handler's canPublishFeature
-    // check.
+    // overlay context.
     const envsToCheck = await getMergeResultPublishEnvs({
       context: callerContext,
       feature,
@@ -199,9 +193,8 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       });
     }
 
-    // Feature parity with the single-entity handler's 400: an empty feature
-    // revision can't publish (the generic no-op merge path doesn't apply —
-    // feature publishes must advance the live version pointer).
+    // The generic no-op merge path doesn't apply to features — a publish must
+    // advance the live version pointer — so an empty revision blocks.
     if (!plan.hasChanges) {
       gates.push({
         type: "no-changes",
@@ -213,12 +206,10 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       });
     }
 
-    // Lockdown blocks from the feature publish core, surfaced as gates at
-    // plan time. Both auto-clear for the bypass-approval permission OR the
-    // org REST-bypass setting with no flag needed (classifyPublishGate's
-    // lockdown branch), matching the single-entity path's `bypassLockdown`:
-    // a safety gate against accidental live-traffic changes, not a security
-    // boundary.
+    // Lockdown blocks, surfaced as plan-time gates. Both auto-clear for the
+    // bypass-approval permission or the org REST-bypass setting with no flag
+    // needed (classifyPublishGate's lockdown branch) — a safety gate against
+    // accidental live-traffic changes, not a security boundary.
     try {
       await assertFeatureNotLockedByRamp(overlayContext, feature.id);
     } catch (e) {
@@ -250,11 +241,10 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       });
     }
 
-    // The shared gate set (same implementation the interactive handler uses),
-    // evaluated against the overlay context so config-backed value checks and
-    // hooks see the hypothetical multi-entity end-state. It throws on a
-    // config-backed default carrying overrides (never demotable) — surface
-    // that as a no-override gate so the plan reports it instead of erroring.
+    // The shared gate set, evaluated against the overlay context so
+    // config-backed value checks and hooks see the multi-entity end-state. It
+    // throws on a config-backed default carrying overrides (never demotable)
+    // — surfaced as a no-override gate so the plan reports it.
     try {
       gates.push(
         ...(await collectFeaturePublishGates({
@@ -310,9 +300,8 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     const desired = desiredState as unknown as FeatureDesiredState;
     const { mergeResult } = desired;
 
-    // Ramp `create` actions run BEFORE the feature write, mirroring the
-    // single-entity path: a schedule-creation failure gates the publish, and
-    // the ids are stashed so compensation can roll them back.
+    // Ramp `create` actions run BEFORE the feature write: a schedule-creation
+    // failure gates the publish, and the ids are stashed for compensation.
     desired.createdRampScheduleIds = await applyRampCreateActionsForRevision(
       context,
       feature,
@@ -373,14 +362,10 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     if (!current) return;
     const { mergeResult } = desired;
 
-    // Reverse the cross-collection writes BEFORE the feature-doc restore, so
-    // a failed reversal can keep the doc consistent with the side
-    // collections instead of restoring a doc that contradicts them. All are
-    // best-effort with logged errors.
-    //
-    // Safe rollouts the apply's status sync advanced go back to their
-    // pre-apply state (ownership-checked inside against the status the sync
-    // wrote, so worker progress is never clobbered).
+    // Reverse the cross-collection writes BEFORE the feature-doc restore so a
+    // failed reversal keeps the doc consistent with the side collections; all
+    // best-effort with logged errors. The safe-rollout restore is
+    // ownership-checked inside so worker progress is never clobbered.
     for (const entry of desired.safeRollouts ?? []) {
       try {
         await context.models.safeRollout.restoreAfterFailedBulkPublish(
@@ -396,16 +381,11 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       }
     }
 
-    // Experiments the apply newly linked this feature into (linkedFeatures is
-    // written by updateFeature for experiments absent from the pre-image's
-    // linkedExperiments) get unlinked — the restored rules no longer reference
-    // them. The helper no-ops when the link is already gone. Deliberately NOT
-    // gated on the holdout reversal below: the unlink pairs with the rules
-    // restore (unconditional), while the reversal walks the feature's
-    // linkedExperiments doc field, which this loop never touches — a failed
-    // reversal leaves stale experiment holdout pointers either way, and
-    // skipping the unlink would instead break the hotter
-    // rules↔linkedFeatures invariant.
+    // Unlink experiments the apply newly linked this feature into — the
+    // restored rules no longer reference them (the helper no-ops when the
+    // link is already gone). Deliberately NOT gated on the holdout reversal
+    // below: the unlink pairs with the unconditional rules restore, and
+    // skipping it would break the hotter rules↔linkedFeatures invariant.
     const addedExperiments = (
       desired.updatedFeature?.linkedExperiments ?? []
     ).filter((id) => !(feature.linkedExperiments ?? []).includes(id));
@@ -425,10 +405,9 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     }
 
     // Reverse the apply-time holdout transition. Its guards can legitimately
-    // refuse during compensation — when that happens the doc's holdout key is
-    // NOT restored below, so the feature doc keeps agreeing with the holdout
-    // and experiment collections (both left at the failed publish's state)
-    // rather than pointing at a membership that no longer exists.
+    // refuse during compensation — then the doc's holdout key is NOT restored
+    // below, keeping the feature doc consistent with the holdout and
+    // experiment collections (both left at the failed publish's state).
     let holdoutReversalOk = true;
     if (mergeResult.holdout !== undefined) {
       try {
@@ -500,11 +479,9 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       (await getFeature(context, feature.id)) ??
       feature;
 
-    // The load-bearing publish side effects run FIRST, matching the
-    // single-entity ordering (markRevisionAsPublished fires the published
-    // hook — which activates armed pending ramps — before drafts/tags/audit).
-    // The best-effort tail below is individually isolated so none of it can
-    // starve these.
+    // The load-bearing side effects run FIRST (the published hook activates
+    // armed pending ramps) before the best-effort tail, which is individually
+    // isolated so none of it can starve these.
     await emitFeatureRevisionPublishedSideEffects(
       context,
       raw,
@@ -534,8 +511,7 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       }
     };
 
-    // Post-publish cleanup of pending experiment drafts pointing at this
-    // revision — post-commit only, so a rolled-back release never clears them.
+    // Post-commit only, so a rolled-back release never clears pending drafts.
     await bestEffort("pending-draft cleanup", () =>
       clearPendingFeatureDraftsForRevision(
         context,
@@ -573,8 +549,8 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     );
 
     // Deferred ramp actions (updates, detaches, orphan cleanup) — best-effort
-    // after a known-good publish, mirroring the single-entity path. Pending
-    // ramps armed on this revision activate via the published hook above.
+    // after a known-good publish. Armed pending ramps activate via the
+    // published hook above.
     if (raw.rampActions?.length || desired.updatedFeature) {
       await bestEffort("ramp finalize", () =>
         finalizeRampActionsAfterPublish(

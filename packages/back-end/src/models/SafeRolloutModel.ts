@@ -69,12 +69,10 @@ export class SafeRolloutModel extends BaseClass {
   /**
    * Compensation for a failed bulk publish: put a safe rollout the apply's
    * status sync advanced back to its pre-apply state. Restores ONLY the
-   * fields that sync writes (status always; start metadata when it started a
-   * never-started rollout), each with a per-field ownership check against
-   * the post-apply snapshot (`written`) — a field the rollout worker or
-   * another writer advanced after the apply is newer intent and stays. Raw
-   * write, compensation-only: the validated update path can't express the
-   * start-metadata unset.
+   * fields the sync writes, each with a per-field ownership check against the
+   * post-apply snapshot (`written`) — a field another writer advanced after
+   * the apply is newer intent and stays. Raw write, compensation-only: the
+   * validated update path can't express the start-metadata unset.
    */
   public async restoreAfterFailedBulkPublish(
     pre: SafeRolloutInterface,

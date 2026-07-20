@@ -42,8 +42,6 @@ function tag(ref: BulkPublishItemRef, gates: PublishGate[]): BulkPublishGate[] {
   }));
 }
 
-// User-facing resource nouns per the copy-style glossary (named resources
-// stay Title Case; configs/constants are common nouns).
 function displayEntityName(entityType: BulkPublishTargetType): string {
   switch (entityType) {
     case "feature":
@@ -53,6 +51,12 @@ function displayEntityName(entityType: BulkPublishTargetType): string {
     default:
       return entityType;
   }
+}
+
+function staleConflictError(ref: BulkPublishItemRef): ConflictError {
+  return new ConflictError(
+    `${displayEntityName(ref.entityType)} "${ref.entityId}" changed after the publish was planned — nothing was published; re-plan and retry`,
+  );
 }
 
 function itemGate(
@@ -109,8 +113,7 @@ export async function planBulkPublish(
   const blockingGates: BulkPublishGate[] = [];
   const warnings: string[] = [];
 
-  // Load-phase failures are gates too: they must show up in the dryRun
-  // report (`allGates`), not just block the commit.
+  // Load-phase failures must reach the dryRun report, not just block.
   const blockLoad = (gate: BulkPublishGate) => {
     allGates.push(gate);
     blockingGates.push(gate);
@@ -217,18 +220,12 @@ export async function planBulkPublish(
     }
   }
 
-  // The hypothetical end-state: one admin-role scan context whose model reads
-  // return the live snapshot with proposed docs substituted. Set as its own
-  // scanContextOverride so every guard evaluator reached from it shares the
-  // overlay AND its snapshot memos. Saved groups are deliberately not
-  // overlaid: no publish-time validator resolves saved-group contents
-  // cross-entity.
-  //
-  // Per-item exclusion: the overlay for item X carries every OTHER item's
-  // proposal, never X's own. Validators and guards substitute the entity
-  // under evaluation themselves, and the introduced-violation diffs
-  // (schema-break et al.) need a baseline WITHOUT X's proposal — overlaying
-  // X would make current == proposed and silently blind the diff.
+  // The hypothetical end-state: an admin-role scan context whose model reads
+  // return the live snapshot with proposed docs substituted (set as its own
+  // scanContextOverride so every guard evaluator shares the overlay and its
+  // memos). Per-item exclusion: item X's overlay carries every OTHER item's
+  // proposal, never its own — evaluators substitute X themselves, and the
+  // introduced-violation diffs need a live baseline for X.
   const overlayContext = getContextForAgendaJobByOrgObject(context.org);
   overlayContext.scanContextOverride = overlayContext;
   const applyOverlaysExcluding = (excluded: Loaded) => {
@@ -281,11 +278,9 @@ export async function planBulkPublish(
       }),
     );
 
-    // Armed (non-locking) sibling schedules deliberately do NOT gate: they
-    // behave exactly as under sequential manual publishing — fire-time
-    // governance (merge conflicts, arm-fingerprint re-checks, publishFailed)
-    // owns that collision. Only scheduledPublishLockOthers siblings block,
-    // via the publish-locking gate, matching single-entity semantics.
+    // Armed (non-locking) sibling schedules deliberately do NOT gate — they
+    // behave as under sequential manual publishing, where fire-time
+    // governance owns that collision. Only lock-others siblings block.
     const bypassPermission = l.adapter.canBypassApproval(context, l.entity);
     const clearance: PublishGateClearance = {
       ignoreWarnings: flags.ignoreWarnings,
@@ -342,12 +337,12 @@ export async function planBulkPublish(
 }
 
 /**
- * COMMIT phase — writes only, no decisions. CAS-claim every revision against its plan-time baseline (any conflict → release all
- * claims, 409, zero entity writes), verify entity drift, apply every
- * precomputed state with side effects buffered, then flush: ONE deduped SDK
- * payload refresh (at most one rebuild per SDK connection) + per-item events.
- * An infra failure mid-apply compensates: restore pre-images, release claims,
- * drop the buffer (no refresh, no webhooks for a rolled-back release).
+ * COMMIT phase — writes only, no decisions. Verify entity drift, CAS-claim
+ * every revision against its plan-time baseline (any conflict → release all
+ * claims, 409, zero entity writes), apply every precomputed state with side
+ * effects buffered, then flush: ONE deduped SDK payload refresh + per-item
+ * events. An infra failure mid-apply compensates: restore pre-images, release
+ * claims, drop the buffer (no refresh, no webhooks for a rolled-back release).
  */
 export async function commitBulkPublish(
   context: Context,
@@ -399,12 +394,7 @@ export async function commitBulkPublish(
       (currentDate?.getTime() ?? null) !==
       (item.baseline.entityDateUpdated?.getTime() ?? null)
     ) {
-      await abort(
-        [],
-        new ConflictError(
-          `${displayEntityName(item.ref.entityType)} "${item.ref.entityId}" changed after the publish was planned — nothing was published; re-plan and retry`,
-        ),
-      );
+      await abort([], staleConflictError(item.ref));
     }
   }
 
@@ -440,12 +430,7 @@ export async function commitBulkPublish(
       await abort(claimed, e);
     }
     if (!ok) {
-      await abort(
-        claimed,
-        new ConflictError(
-          `${displayEntityName(item.ref.entityType)} "${item.ref.entityId}" changed after the publish was planned — nothing was published; re-plan and retry`,
-        ),
-      );
+      await abort(claimed, staleConflictError(item.ref));
     }
     claimed.push(item);
   }
@@ -477,13 +462,9 @@ export async function commitBulkPublish(
   } catch (e) {
     // Compensation: drop the buffered side effects (nothing from the aborted
     // release may reach consumers), restore pre-images in reverse order,
-    // release every claim. The restore writes get FRESH buffers: their
-    // *.updated events are dropped too (they'd describe an applied→restored
-    // transition consumers never saw the first half of), while their payload
-    // refreshes flush once, deduped, after the restores — healing any payload
-    // a concurrent trigger might have built from the partial state. Only
-    // infra failures should reach here (plan validated everything), so the
-    // restores are best-effort and the honest per-item outcome rides the error.
+    // release every claim. Restore writes get fresh buffers — their *.updated
+    // events are dropped too, while their payload refreshes flush once after
+    // the restores, healing any payload built from the partial state.
     const applyBuffer = context.sdkPayloadRefreshBuffer;
     // Close the apply-phase buffer so straggler producers still holding its
     // reference fall through to live refreshes instead of a drained array.
@@ -493,11 +474,9 @@ export async function commitBulkPublish(
       treatEmptyProjectAsGlobal: false,
     };
     context.bulkPublishDeferredEvents = [];
-    const results: BulkPublishItemResult[] = [];
+    const appliedSet = new Set(applied);
     const restoreFailed = new Set<PlannedItemPublish>();
-    const toRestore = [...applied];
-    const compensated = new Set(toRestore);
-    for (const item of toRestore.reverse()) {
+    for (const item of [...applied].reverse()) {
       const adapter = getBulkAdapter(item.ref.entityType);
       try {
         await adapter.restorePreImage(
@@ -506,47 +485,34 @@ export async function commitBulkPublish(
           item.revision,
           item.desiredState,
         );
-        results.push({
-          ref: item.ref,
-          status: "rolled-back",
-          revisionId: item.revision.id,
-        });
       } catch (restoreErr) {
         logger.error(
           restoreErr,
           `bulk publish compensation failed to restore ${item.ref.entityType} ${item.ref.entityId}`,
         );
         restoreFailed.add(item);
-        results.push({
-          ref: item.ref,
-          status: "published",
-          revisionId: item.revision.id,
-        });
       }
     }
     // A restore-failed item's live entity is stuck at the release state, so
-    // its revision KEEPS its claim (stays merged/published) — reopening it
-    // would make the revision contradict the live doc.
+    // its revision KEEPS its claim — reopening it would make the revision
+    // contradict the live doc.
     await releaseClaims(
       context,
       plan.items.filter((item) => !restoreFailed.has(item)),
     );
-    for (const item of plan.items) {
-      // Items the restore loop already reported (applied + in-flight) have
-      // their outcome; everything else never touched live state.
-      if (!compensated.has(item)) {
-        results.push({
-          ref: item.ref,
-          status: "not-applied",
-          revisionId: item.revision.id,
-        });
-      }
-    }
+    const results: BulkPublishItemResult[] = plan.items.map((item) => ({
+      ref: item.ref,
+      revisionId: item.revision.id,
+      status: restoreFailed.has(item)
+        ? ("published" as const)
+        : appliedSet.has(item)
+          ? ("rolled-back" as const)
+          : ("not-applied" as const),
+    }));
     // A restore-failed item stays durably published, so its apply-phase
-    // refresh keys must still flush — otherwise SDK payloads serve the
-    // pre-publish state indefinitely for an entity every other surface calls
-    // published. Restored items' extra keys are harmless (the refresh
-    // rebuilds from live DB state and dedupes per connection).
+    // refresh keys must still flush or SDK payloads serve the pre-publish
+    // state indefinitely. Restored items' extra keys are harmless (the
+    // refresh rebuilds from live state and dedupes per connection).
     if (restoreFailed.size && applyBuffer && context.sdkPayloadRefreshBuffer) {
       context.sdkPayloadRefreshBuffer.keys.push(...applyBuffer.keys);
       context.sdkPayloadRefreshBuffer.treatEmptyProjectAsGlobal ||=
@@ -587,15 +553,12 @@ export async function commitBulkPublish(
     );
   }
 
-  // Success: flush. Detach the buffers FIRST so the flushes themselves fire,
-  // dedupe keys, and issue ONE refresh — refreshSDKPayloadCache rebuilds each
-  // affected SDK connection exactly once per call.
+  // Success: detach the buffers FIRST so the flushes themselves fire, then
+  // emit everything deferred — only after the commit is known-good.
   const deferredEvents = context.bulkPublishDeferredEvents ?? [];
   context.bulkPublishDeferredEvents = null;
   flushPayloadRefreshBuffer(context, "bulk-publish");
 
-  // Deferred *.updated webhook events collected during applies — per entity,
-  // never deduped, only after the commit is known-good.
   for (const emit of deferredEvents) {
     try {
       await emit();
@@ -604,8 +567,6 @@ export async function commitBulkPublish(
     }
   }
 
-  // Per-entity deferred side effects (revision events, audit) — per item,
-  // never deduped, only after the commit is known-good.
   for (const item of plan.items) {
     const adapter = getBulkAdapter(item.ref.entityType);
     try {
@@ -637,19 +598,15 @@ export async function commitBulkPublish(
 
 /**
  * Detach the context's payload-refresh buffer and issue ONE deduped refresh —
- * refreshSDKPayloadCache rebuilds each affected SDK connection exactly once
- * per call, so this is what guarantees at most one rebuild per connection per
- * request. Used on the success flush and (with dropped events) after
- * compensation, where refreshing to the restored state heals any payload a
- * concurrent trigger might have built from the partial state.
+ * refreshSDKPayloadCache rebuilds each affected SDK connection once per call,
+ * which is what guarantees at most one rebuild per connection per request.
  */
 function flushPayloadRefreshBuffer(context: Context, event: string): void {
   const buffer = context.sdkPayloadRefreshBuffer;
   context.sdkPayloadRefreshBuffer = null;
   if (!buffer) return;
-  // Close the buffer so fire-and-forget producers still holding its
-  // reference (async afterUpdate resolvable scans) fall through to live
-  // refreshes instead of pushing into a drained array.
+  // Closed: straggler producers fall through to live refreshes instead of
+  // pushing into a drained array.
   buffer.closed = true;
   if (!buffer.keys.length) return;
   const seen = new Set<string>();

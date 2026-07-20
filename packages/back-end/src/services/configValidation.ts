@@ -741,10 +741,8 @@ export async function collectConfigBackedFeatureValueErrors(
 /**
  * Custom validation hooks for a config publish, surfaced as gates: a hard
  * error (a hook threw) is hook-class (`skipHooks`); a warning is
- * acknowledge-class (`ignoreWarnings`). Shared by the REST publish handler
- * and the bulk publisher so hook enforcement can't diverge between them —
- * publish paths only (the archive handlers' gate collection deliberately
- * excludes publish hooks).
+ * acknowledge-class (`ignoreWarnings`). Publish paths only — the archive
+ * handlers deliberately exclude publish hooks.
  */
 export async function collectConfigPublishHookGates({
   context,

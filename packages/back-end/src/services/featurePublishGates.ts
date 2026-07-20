@@ -301,10 +301,9 @@ export async function collectFeaturePublishGates({
 
   // Custom validation hooks: a hard error (a hook threw) is validation-class
   // (skipHooks); a warning is acknowledge-class (ignoreWarnings). Run both
-  // feature hook types here so prevalidatePublishRevision (skipped when gated)
-  // doesn't re-execute the sandboxed hooks. `original` is the live feature/
-  // revision so incrementalChangesOnly hooks can suppress pre-existing
-  // outcomes, mirroring prevalidatePublishRevision.
+  // hook types here so prevalidatePublishRevision (skipped when gated)
+  // doesn't re-execute them. `original` is the live feature/revision so
+  // incrementalChangesOnly hooks can suppress pre-existing outcomes.
   const featureHookResults = await collectValidateFeatureHookResults({
     context,
     feature: proposedFeature,

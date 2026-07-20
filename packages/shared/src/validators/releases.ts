@@ -1,10 +1,8 @@
 import { z } from "zod";
 import { namedSchema } from "./openapi-helpers";
 
-// Releases — the REST namespace for coordinated multi-entity publishing.
-// Today: the ad-hoc `publish-revisions` operation. A full Release entity
-// (CRUD + multi-review UI) joins this namespace later, so the bare
-// `POST /releases` slot stays free.
+// Releases — the REST namespace for coordinated multi-entity publishing. The
+// bare `POST /releases` slot stays free for a future full Release entity.
 
 const entityTypeField = z.enum([
   "feature",

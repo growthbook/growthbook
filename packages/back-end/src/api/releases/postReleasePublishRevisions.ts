@@ -54,9 +54,9 @@ export const postReleasePublishRevisions = createApiRequestHandler(
   const callerIdByInternal = new Map<string, string>();
   for (const item of req.body.revisions as RequestRevisionItem[]) {
     const revisionId = itemField(item, "revisionId") as string | undefined;
-    // Seed with whichever identifier the (disjoint) union arm carries — an
-    // unresolvable revisionId flows into the plan's not-found gate rather
-    // than failing the request shape.
+    // Seed with whichever identifier the union arm carries — an unresolvable
+    // revisionId flows into the plan's not-found gate rather than failing the
+    // request shape.
     let callerId = String(
       itemField(item, "key") ?? itemField(item, "id") ?? revisionId ?? "",
     );

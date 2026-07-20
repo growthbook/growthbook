@@ -90,9 +90,8 @@ export const postConfigRevisionPublish = createApiRequestHandler(
   // checks below stay in place as the enforcement backstop; the adapter-
   // collected guard gates are enforced solely here.
   const gates: PublishGate[] = [
-    // Hard lock (the entity's own revision pin): no inline bypass exists on
-    // the publish path — the only escape is the unlock route.
-    // assertConfigNotLocked below is the backstop.
+    // Hard lock: no inline bypass on the publish path — only the unlock
+    // route. assertConfigNotLocked below is the backstop.
     ...collectConfigLockGate(config),
     ...collectRevisionGovernanceGates({
       context: req.context,
@@ -111,8 +110,8 @@ export const postConfigRevisionPublish = createApiRequestHandler(
     )) ?? []),
   );
 
-  // Custom validation hooks, surfaced as gates via the collector shared with
-  // the bulk publisher (run here so the assert below doesn't re-execute them).
+  // Custom validation hooks, surfaced as gates (run here so the assert below
+  // doesn't re-execute them).
   gates.push(
     ...(await collectConfigPublishHookGates({
       context: req.context,

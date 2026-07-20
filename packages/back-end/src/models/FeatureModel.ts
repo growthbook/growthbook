@@ -526,9 +526,8 @@ export async function getAllFeaturesWithoutEditorFields(
   );
 
   // Bulk-publish overlay: substitute the batch's proposed feature states so
-  // cross-entity validators (schema-break/experiment guards on config and
-  // constant publishes) evaluate the hypothetical end-state, not live docs.
-  // Applied before the permission filter and re-filtered on archived so
+  // cross-entity validators evaluate the hypothetical end-state, not live
+  // docs. Applied before the permission filter and re-filtered on archived so
   // proposed docs obey the same visibility rules as loaded ones.
   let merged = overlayDocsById(features, context.featureScanOverlay);
   if (merged !== features && !includeArchived) {
@@ -1547,9 +1546,9 @@ export async function setJsonSchema(
 /**
  * The status the publish-time sync will write per safe rollout: the revision
  * rule's status, plus "stopped" for live safe-rollout rules the revision
- * removes. Empty when the revision carries no rules (the sync writes nothing
- * then). Exported so the bulk publisher's compensation snapshots predict
- * exactly what updateSafeRolloutStatuses writes.
+ * removes; empty when the revision carries no rules. Exported so the bulk
+ * publisher's compensation snapshots predict exactly what
+ * updateSafeRolloutStatuses writes.
  */
 export function computeSafeRolloutStatusMap(
   feature: FeatureInterface,
@@ -1831,10 +1830,9 @@ export async function applyHoldoutSideEffects(
   }
 }
 
-// Phase-shaped ramp-action surface for the bulk publisher, mirroring
-// publishRevision's ordering: creates run BEFORE the feature write (a failure
-// gates the publish; ids returned for rollback), updates/detaches/cleanup run
-// after a known-good publish as best-effort.
+// Phase-shaped ramp-action surface for the bulk publisher: creates run BEFORE
+// the feature write (a failure gates the publish; ids returned for rollback),
+// updates/detaches/cleanup run after a known-good publish as best-effort.
 export async function applyRampCreateActionsForRevision(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,

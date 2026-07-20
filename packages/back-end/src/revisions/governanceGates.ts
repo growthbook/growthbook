@@ -7,16 +7,10 @@ import { isRevisionDiverged } from "back-end/src/revisions/util";
 /**
  * The approval-required and stale-base publish gates for any entity on the
  * generic revision system — the single implementation behind both the
- * single-entity REST publish handlers and the bulk publisher.
- *
- * Approval scoping stays per-adapter: `isApprovalRequiredForRevision` is where
- * each entity applies its own project/environment scoping (configs scope
- * flavor values to their environments, constants scope per-env overrides,
- * saved groups apply the metadata-only shortcut). This collector must never
- * flatten that into an org-level check.
- *
- * Features are deliberately NOT served here — their equivalent gates live in
- * services/featurePublishGates.ts with feature-shaped scoping and routes.
+ * single-entity REST publish handlers and the bulk publisher. Approval
+ * scoping stays per-adapter (`isApprovalRequiredForRevision`); this collector
+ * must never flatten it into an org-level check. Features are deliberately
+ * NOT served here — their gates live in services/featurePublishGates.ts.
  */
 export function collectRevisionGovernanceGates({
   context,
@@ -84,12 +78,11 @@ export function collectRevisionGovernanceGates({
 }
 
 /**
- * The approval gate for the direct archive/unarchive endpoints — revision-less
- * cousins of the publish gate above. `approvalRequired` is computed by the
- * caller (each handler runs the adapter's change-aware check against a
- * synthetic archive revision, preserving per-entity scoping), and the
+ * The approval gate for the direct archive/unarchive endpoints.
+ * `approvalRequired` is computed by the caller (each handler runs the
+ * adapter's change-aware check against a synthetic archive revision), and the
  * create-draft resolution path is passed in because it is not uniform across
- * entities (saved groups use `/saved-groups/{id}/revisions`).
+ * entities.
  */
 export function collectArchiveApprovalGate({
   approvalRequired,
