@@ -8,6 +8,7 @@ import {
 } from "shared/types/integrations";
 import { ClickHouseConnectionParams } from "shared/types/integrations/clickhouse";
 import {
+  isManagedWarehouse,
   isManagedWarehouseAwaitingJsonMigration,
   isManagedWarehouseAwaitingProvisioning,
   isManagedWarehouseMigrating,
@@ -20,6 +21,39 @@ import { getHost } from "back-end/src/util/sql";
 import { logger } from "back-end/src/util/logger";
 import SqlIntegration from "./SqlIntegration";
 import { clickHouseDialect } from "./dialects/clickhouse";
+
+// Matches ClickHouse DateTime/DateTime64 column types with no explicit
+// timezone argument (e.g. "DateTime", "DateTime64(3)", "Nullable(DateTime64(3))").
+// Types with an explicit timezone (e.g. "DateTime('UTC')") contain a quote
+// and are intentionally excluded, since their naive-string rendering already
+// reflects that declared zone rather than needing this override.
+const NAIVE_CLICKHOUSE_DATETIME_TYPE =
+  /^Nullable\(DateTime(64\(\d+\))?\)$|^DateTime(64\(\d+\))?$/;
+
+// Managed warehouse DateTime/DateTime64 columns carry no explicit timezone,
+// so ClickHouse renders them as bare "YYYY-MM-DD HH:mm:ss[.ffffff]" strings
+// (no "Z"/offset) in UTC, GrowthBook's convention for that schema. JS's
+// `new Date(...)` parses that shape as local time on whatever host runs the
+// app server, silently shifting it. Append "Z" so it's parsed as UTC instead.
+function normalizeManagedWarehouseDatetimes(
+  // eslint-disable-next-line
+  rows: Record<string, any>[],
+  meta: Array<{ name: string; type: string }> | undefined,
+): void {
+  const dateCols = (meta ?? [])
+    .filter((col) => NAIVE_CLICKHOUSE_DATETIME_TYPE.test(col.type))
+    .map((col) => col.name);
+  if (!dateCols.length) return;
+
+  for (const row of rows) {
+    for (const col of dateCols) {
+      const value = row[col];
+      if (typeof value === "string") {
+        row[col] = value.replace(" ", "T") + "Z";
+      }
+    }
+  }
+}
 
 export default class ClickHouse extends SqlIntegration {
   params!: ClickHouseConnectionParams;
@@ -93,8 +127,12 @@ export default class ClickHouse extends SqlIntegration {
     const results = await client.query({ query: sql, format: "JSON" });
     // eslint-disable-next-line
     const data: ResponseJSON<Record<string, any>[]> = await results.json();
+    const rows = data.data ? data.data : [];
+    if (isManagedWarehouse(this.datasource)) {
+      normalizeManagedWarehouseDatetimes(rows, data.meta);
+    }
     return {
-      rows: data.data ? data.data : [],
+      rows,
       statistics: data.statistics
         ? {
             executionDurationMs: data.statistics.elapsed,
