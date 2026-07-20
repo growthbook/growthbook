@@ -331,8 +331,8 @@ const SidebarExperimentFilters: FC<Props> = ({
       align="center"
       justify="center"
       style={{
-        width: 22,
-        height: 22,
+        width: 15,
+        height: 15,
         borderRadius: "50%",
         background: "var(--violet-9)",
         flexShrink: 0,
@@ -346,10 +346,10 @@ const SidebarExperimentFilters: FC<Props> = ({
   const rowControl = (expanded: boolean, count: number, locked: boolean) => {
     if (locked) return null;
     if (expanded) {
-      return <PiCaretDown size={18} color="var(--violet-11)" aria-hidden />;
+      return <PiCaretDown size={15} color="var(--violet-11)" aria-hidden />;
     }
     if (count > 0) {
-      return <PiCaretRight size={18} color="var(--slate-11)" aria-hidden />;
+      return <PiCaretRight size={15} color="var(--slate-11)" aria-hidden />;
     }
     return plusCircle;
   };

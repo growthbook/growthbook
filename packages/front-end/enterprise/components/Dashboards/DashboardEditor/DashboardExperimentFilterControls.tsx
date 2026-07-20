@@ -1,10 +1,6 @@
-import { CSSProperties, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import {
-  PiCaretDown,
-  PiCaretDoubleLeft,
-  PiCaretDoubleRight,
-} from "react-icons/pi";
+import { PiCaretDown } from "react-icons/pi";
 import { DashboardInterface } from "shared/enterprise";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useExperiments } from "@/hooks/useExperiments";
@@ -50,8 +46,6 @@ export default function DashboardExperimentFilterControls({
   } = useDefinitions();
   const { experiments } = useExperiments();
   const [experimentsOpen, setExperimentsOpen] = useState(false);
-  // The three experiment controls are collapsed into a single pill by default.
-  const [expanded, setExpanded] = useState(false);
 
   // Projects ------------------------------------------------------------------
   const projectOptions: ChecklistOption[] = useMemo(
@@ -104,75 +98,8 @@ export default function DashboardExperimentFilterControls({
 
   if (!showProjects && !showMetric && !showExperimentSearch) return null;
 
-  // Total number of active experiment filters, shown on the collapsed pill so
-  // applied filters aren't hidden.
-  const totalActiveCount =
-    (showProjects ? selectedProjects.length : 0) +
-    (showMetric && metricId ? 1 : 0) +
-    (showExperimentSearch ? experimentFilterCount : 0);
-
-  if (!expanded) {
-    return (
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => setExpanded(true)}
-        aria-label="Expand experiment filters"
-      >
-        <Flex align="center" gap="2">
-          <PiCaretDoubleLeft aria-hidden />
-          <span>Experiment Filters</span>
-          {totalActiveCount > 0 ? (
-            <FilterCountBadge count={totalActiveCount} />
-          ) : null}
-        </Flex>
-      </Button>
-    );
-  }
-
-  // The expanded controls render as one joined "segmented" control: a single
-  // outer outline (from the container) with hairline dividers between segments.
-  // Each inner button drops its own border (box-shadow) and radius so only the
-  // container's outline shows. The collapse handle leads on the left.
-  const SEG_BORDER = "1px solid var(--violet-a8)";
-  const withDivider: CSSProperties = {
-    boxShadow: "none",
-    borderRadius: 0,
-    borderRight: SEG_BORDER,
-  };
-  const noDivider: CSSProperties = {
-    boxShadow: "none",
-    borderRadius: 0,
-  };
-  // The last visible control gets no trailing divider.
-  const lastControl = showExperimentSearch
-    ? "search"
-    : showMetric
-      ? "metric"
-      : "projects";
-
   return (
-    <Flex
-      display="inline-flex"
-      align="center"
-      style={{
-        // Inset shadow (not a layout border) so the group's height matches the
-        // collapsed pill exactly.
-        boxShadow: "inset 0 0 0 1px var(--violet-a8)",
-        borderRadius: "var(--radius-3)",
-        overflow: "hidden",
-      }}
-    >
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => setExpanded(false)}
-        aria-label="Collapse experiment filters"
-        style={withDivider}
-      >
-        <PiCaretDoubleRight aria-hidden />
-      </Button>
-
+    <>
       {showProjects ? (
         <DashboardChecklistFilter
           label="Projects"
@@ -182,7 +109,6 @@ export default function DashboardExperimentFilterControls({
           disabled={disabled}
           searchPlaceholder="Search projects..."
           emptyText="No projects found"
-          buttonStyle={lastControl === "projects" ? noDivider : withDivider}
         />
       ) : null}
 
@@ -204,7 +130,6 @@ export default function DashboardExperimentFilterControls({
           disabled={disabled}
           searchPlaceholder="Search metrics..."
           emptyText="No metrics found"
-          buttonStyle={lastControl === "metric" ? noDivider : withDivider}
         />
       ) : null}
 
@@ -217,10 +142,7 @@ export default function DashboardExperimentFilterControls({
               variant="outline"
               size="sm"
               disabled={disabled}
-              style={{
-                ...(lastControl === "search" ? noDivider : withDivider),
-                justifyContent: "space-between",
-              }}
+              style={{ justifyContent: "space-between" }}
             >
               <Flex align="center" gap="2">
                 <span>Filters</span>
@@ -259,6 +181,6 @@ export default function DashboardExperimentFilterControls({
           }
         />
       ) : null}
-    </Flex>
+    </>
   );
 }
