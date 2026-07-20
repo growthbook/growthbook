@@ -1,6 +1,7 @@
 import {
   Callout as RadixCallout,
   Box,
+  Flex,
   IconButton,
   Text,
   Tooltip,
@@ -107,14 +108,21 @@ export default forwardRef<
           {renderedIcon}
         </RadixCallout.Icon>
       ) : null}
-      <Box className={styles.content}>
+      <Flex
+        wrap="wrap"
+        align="start"
+        gapX="3"
+        gapY="2"
+        flexGrow="1"
+        minWidth="0"
+      >
         {/* Rendered as a div (not the default <p>) so block-level children
             and nested layout don't produce invalid <div>-inside-<p> nesting. */}
         <Text as="div" size={getRadixSize(size)} className={styles.body}>
           {children}
         </Text>
         {action ? <Box className={styles.action}>{action}</Box> : null}
-      </Box>
+      </Flex>
       {dismissible && id ? (
         <Box className={styles.firstLineSlot}>
           <Tooltip content="Dismiss">
