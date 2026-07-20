@@ -389,11 +389,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Features/RolloutSummary.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Features/RuleModal/SafeRolloutFields.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -789,16 +784,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Settings/EditDataSource/ClickhouseMaterializedColumns/AddEditMaterializedColumnsModal.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    }
-  },
-  "packages/front-end/components/Settings/EditDataSource/ClickhouseMaterializedColumns/index.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Settings/EditDataSource/DataSourceExperimentProperties/DataSourceEditExperimentEventPropertiesModal.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -1025,11 +1010,6 @@
     }
   },
   "packages/front-end/enterprise/components/Dashboards/DashboardEditor/DashboardEditorSidebar/MetricExplorerSettings.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/enterprise/components/Dashboards/DashboardEditor/DashboardEditorSidebar/index.tsx": {
     "no-restricted-imports": {
       "count": 1
     }

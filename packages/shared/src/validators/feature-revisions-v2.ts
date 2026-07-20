@@ -6,6 +6,11 @@ import {
   skipPaginationQueryField,
   apiPaginationFieldsValidator,
   booleanQueryField,
+  schemaValidationQueryFields,
+  publishOverrideBodyFields,
+  bypassApprovalPublishBodyField,
+  ignoreWarningsBodyField,
+  publishBypassedGatesField,
 } from "./shared";
 import {
   inlineRampScheduleInput,
@@ -166,6 +171,13 @@ const targetingRuleCreateInputV2 = namedSchema(
           'Use "force" for a standard targeting rule, or "rollout" for a percentage rollout (coverage < 1). Defaults to "force". Both are functionally equivalent; a force rule with coverage < 1 behaves as a rollout.',
         ),
       value: z.string().describe("The value to serve when this rule matches."),
+      config: z
+        .string()
+        .nullable()
+        .optional()
+        .describe(
+          "Key of a config to back this value. When set, `value` is a JSON override patch merged on top of the config; omit or null for a plain value.",
+        ),
       sparse: z
         .boolean()
         .optional()
@@ -212,7 +224,17 @@ const experimentRefCreateInputV2 = namedSchema(
       experimentId: z.string().describe("ID of the linked experiment."),
       variations: z.array(
         z
-          .object({ variationId: z.string().optional(), value: z.string() })
+          .object({
+            variationId: z.string().optional(),
+            value: z.string(),
+            config: z
+              .string()
+              .nullable()
+              .optional()
+              .describe(
+                "Key of a config to back this variation value. When set, `value` is a JSON override patch merged on top of the config; omit or null for a plain value.",
+              ),
+          })
           .strict(),
       ),
       sparse: z
@@ -292,6 +314,13 @@ const rulePatchSchemaV2 = z
       .enum(["force", "rollout", "experiment-ref", "safe-rollout"])
       .optional(),
     value: z.string().optional(),
+    config: z
+      .string()
+      .nullable()
+      .optional()
+      .describe(
+        "Force/rollout rules only. Key of a config to back the value (or null to detach). When set, `value` is a JSON override patch merged on top of the config. Omit to leave the existing config backing unchanged.",
+      ),
     sparse: z.boolean().optional(),
     coverage: z.number().min(0).max(1).optional(),
     hashAttribute: z.string().optional(),
@@ -299,7 +328,21 @@ const rulePatchSchemaV2 = z
     hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
     experimentId: z.string().optional(),
     variations: z
-      .array(z.object({ variationId: z.string(), value: z.string() }).strict())
+      .array(
+        z
+          .object({
+            variationId: z.string(),
+            value: z.string(),
+            config: z
+              .string()
+              .nullable()
+              .optional()
+              .describe(
+                "Key of a config to back this variation value (or null to detach). When set, `value` is a JSON override patch merged on top of the config.",
+              ),
+          })
+          .strict(),
+      )
       .optional(),
     controlValue: z.string().optional(),
     variationValue: z.string().optional(),
@@ -364,7 +407,11 @@ export const postFeatureRevisionV2Validator = {
   tags: ["feature-revisions-v2"],
   paramsSchema: idParams,
   bodySchema: z
-    .object({ comment: z.string().optional(), title: z.string().optional() })
+    .object({
+      comment: z.string().optional(),
+      title: z.string().optional(),
+      ignoreWarnings: ignoreWarningsBodyField,
+    })
     .strict(),
   querySchema: z
     .object({
@@ -420,13 +467,16 @@ export const postFeatureRevisionPublishV2Validator = {
       mergeNow: z
         .boolean()
         .optional()
-        .describe(
-          "When the org enforces same-base merges and the revision is behind the live version, set to true to force-merge the stale draft instead of rebasing first. This only takes effect for callers with bypass-approval permission; otherwise it is ignored and the revision must be rebased.",
-        ),
+        .describe("Deprecated — pass `ignoreWarnings: true` instead.")
+        .meta({ deprecated: true }),
+      bypassApproval: bypassApprovalPublishBodyField,
+      ...publishOverrideBodyFields,
     })
     .strict(),
-  querySchema: z.never(),
-  responseSchema: revisionResponse,
+  querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
+  responseSchema: revisionResponse.extend({
+    bypassedGates: publishBypassedGatesField,
+  }),
   version: "v2" as const,
 };
 
@@ -474,6 +524,7 @@ const rebaseBodySchema = z
       .describe(
         "Optimistic-concurrency guard for the draft side: the draft's `draftDateUpdated` timestamp as returned by merge-status or rebase preview. If the draft has been modified since (e.g. by a co-author), the request fails with `409` instead of applying resolutions against changed draft content.",
       ),
+    ignoreWarnings: ignoreWarningsBodyField,
   })
   .strict();
 
@@ -509,7 +560,7 @@ export const getFeatureRevisionMergeStatusV2Validator = {
     rebaseRequired: z
       .boolean()
       .describe(
-        "True when publishing this draft is blocked until it is rebased — either the merge has conflicts, or the draft is behind live (or its approval went stale) while the organization enforces rebase-before-publish. When true with no conflicts, callers with bypass-approval permission can still publish with `mergeNow: true`; others must rebase first.",
+        "True when publishing this draft is blocked until it is rebased — either the merge has conflicts, or the draft is behind live (or its approval went stale) while the organization enforces rebase-before-publish. When true with no conflicts, callers with bypass-approval permission can still publish with `ignoreWarnings: true`; others must rebase first.",
       ),
   }),
   version: "v2" as const,
@@ -840,6 +891,7 @@ export const postFeatureRevisionToggleV2Validator = {
       environment: z.string(),
       enabled: z.boolean(),
       ...newDraftMetadataFields,
+      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
@@ -855,9 +907,24 @@ export const putFeatureRevisionDefaultValueV2Validator = {
   tags: ["feature-revisions-v2"],
   paramsSchema: revisionParams,
   bodySchema: z
-    .object({ defaultValue: z.string(), ...newDraftMetadataFields })
+    .object({
+      defaultValue: z
+        .string()
+        .describe(
+          'New default value. In Config mode (feature has `baseConfig`), the default must be exactly a config with no overrides: send `"{}"` to use `baseConfig`, or set `defaultValueConfig` to point at a descendant.',
+        ),
+      defaultValueConfig: z
+        .string()
+        .nullable()
+        .describe(
+          "Key of a config within the feature's `baseConfig` family that the default value resolves to (the base itself or a descendant). The default is exactly that config with no overrides; pass `null` to use `baseConfig`. Do not embed `@config:` in `defaultValue` — use this field.",
+        )
+        .optional(),
+      ...newDraftMetadataFields,
+      ...publishOverrideBodyFields,
+    })
     .strict(),
-  querySchema: z.never(),
+  querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
   responseSchema: revisionResponse,
   version: "v2" as const,
 };
@@ -883,6 +950,7 @@ export const putFeatureRevisionPrerequisitesV2Validator = {
           "List of prerequisite boolean flags. When any prerequisite flag is off for a user, this flag returns its defaultValue for that user.",
         ),
       ...newDraftMetadataFields,
+      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
@@ -908,6 +976,7 @@ export const putFeatureRevisionMetadataV2Validator = {
       neverStale: z.boolean().optional(),
       customFields: z.record(z.string(), z.unknown()).optional(),
       jsonSchema: JSONSchemaDef.optional(),
+      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
@@ -923,7 +992,11 @@ export const putFeatureRevisionArchiveV2Validator = {
   tags: ["feature-revisions-v2"],
   paramsSchema: revisionParams,
   bodySchema: z
-    .object({ archived: z.boolean(), ...newDraftMetadataFields })
+    .object({
+      archived: z.boolean(),
+      ...newDraftMetadataFields,
+      ignoreWarnings: ignoreWarningsBodyField,
+    })
     .strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
@@ -944,6 +1017,7 @@ export const putFeatureRevisionHoldoutV2Validator = {
         .strict()
         .nullable(),
       ...newDraftMetadataFields,
+      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
@@ -978,9 +1052,10 @@ export const postFeatureRevisionRuleAddV2Validator = {
           "Simple start/end date window. For force/rollout rules this creates a standalone ramp action; for experiment-ref/safe-rollout rules this sets legacy schedule fields on the rule. Mutually exclusive with `rampSchedule`.",
         ),
       ...newDraftMetadataFields,
+      ...publishOverrideBodyFields,
     })
     .strict(),
-  querySchema: z.never(),
+  querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
   responseSchema: revisionResponse,
   version: "v2" as const,
 };
@@ -998,6 +1073,7 @@ export const postFeatureRevisionRulesReorderV2Validator = {
     .object({
       ruleIds: z.array(z.string()),
       ...newDraftMetadataFields,
+      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
@@ -1028,9 +1104,10 @@ export const putFeatureRevisionRuleV2Validator = {
           "Simple start/end date window. For force/rollout rules this manages a standalone ramp action; for experiment-ref/safe-rollout rules this updates legacy schedule fields on the rule. Mutually exclusive with `rampSchedule`.",
         ),
       ...newDraftMetadataFields,
+      ...publishOverrideBodyFields,
     })
     .strict(),
-  querySchema: z.never(),
+  querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
   responseSchema: revisionResponse,
   version: "v2" as const,
 };
@@ -1044,7 +1121,12 @@ export const deleteFeatureRevisionRuleV2Validator = {
     "Removes the rule from the revision. Any pending ramp actions for this rule are also cleared.",
   tags: ["feature-revisions-v2"],
   paramsSchema: ruleParams,
-  bodySchema: z.object({ ...newDraftMetadataFields }).strict(),
+  bodySchema: z
+    .object({
+      ...newDraftMetadataFields,
+      ignoreWarnings: ignoreWarningsBodyField,
+    })
+    .strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
   version: "v2" as const,
@@ -1059,7 +1141,10 @@ export const putFeatureRevisionRuleRampScheduleV2Validator = {
     'Queues a revision-controlled ramp action for this rule. If the rule already has a live ramp schedule, this stores an `update` action applied on publish; otherwise it stores a `create` action. No live schedule config changes are applied immediately by this endpoint.\n\nYou can build the ramp from a template (`templateId`) and set the rollback anchor (`startState`) in the same request — e.g. pull in a template and pass `startState: { "coverage": 0 }` so a rollback returns the rule to 0%.',
   tags: ["feature-revisions-v2"],
   paramsSchema: ruleParams,
-  bodySchema: rampScheduleInputV2.extend(newDraftMetadataFields),
+  bodySchema: rampScheduleInputV2.extend({
+    ...newDraftMetadataFields,
+    ignoreWarnings: ignoreWarningsBodyField,
+  }),
   querySchema: z.never(),
   responseSchema: revisionResponseWithWarnings,
   version: "v2" as const,
@@ -1077,6 +1162,7 @@ export const deleteFeatureRevisionRuleRampScheduleV2Validator = {
   bodySchema: z
     .object({
       ...newDraftMetadataFields,
+      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),

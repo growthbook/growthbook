@@ -50,6 +50,11 @@ import {
   synthesizeRuleId,
 } from "back-end/src/services/features";
 import {
+  assertConfigBackedDefaultHasNoOverrides,
+  assertConfigBackedFeatureValuesValid,
+  configCheckedRuleValues,
+} from "back-end/src/services/configValidation";
+import {
   appendRampEvent,
   assertFeatureNotLockedByRamp,
   computeNextProcessAt,
@@ -142,6 +147,7 @@ const featureSchema = new mongoose.Schema({
   version: Number,
   valueType: String,
   defaultValue: String,
+  baseConfig: String,
   environments: [String],
   tags: [String],
   // `rules` and `environmentSettings` are declared Mixed intentionally —
@@ -483,18 +489,21 @@ export async function getAllFeatures(
 }
 
 /**
- * Lightweight sibling of {@link getAllFeatures} for the stale-detection and
- * dependents graph. Skips Mongoose hydration via `.lean()` and projects out
- * heavy fields the graph does not read. Same migration + permission filter as
- * `getAllFeatures`, so results are interchangeable for any caller that only
- * needs the dependency graph.
+ * Lightweight sibling of {@link getAllFeatures} for whole-collection scans that
+ * read a feature's behavior (rules, environment settings, values, links) but
+ * never its editor/authoring fields: the stale-detection/dependents graph and
+ * the `@const:`/`@config:` reference scanners. Skips Mongoose hydration via
+ * `.lean()` and projects out the editor fields (they can be large). Same
+ * migration + permission filter as `getAllFeatures`, so results are otherwise
+ * interchangeable.
  *
  * NOTE: the return type is `FeatureInterface[]`, but the projected-out fields
  * (`description` / `jsonSchema` / `customFields` / legacy `draft`) will be
- * absent at runtime. Only use this for graph/stale callers that don't read
- * those fields — reach for `getAllFeatures` if you need a complete feature.
+ * absent at runtime — and so will `legacyDraft`, which the v0 migration
+ * synthesizes from the projected-out `draft`. Reach for `getAllFeatures` if you
+ * need a complete feature.
  */
-export async function getAllFeaturesForStaleGraph(
+export async function getAllFeaturesWithoutEditorFields(
   context: ReqContext | ApiReqContext,
   { includeArchived = false }: { includeArchived?: boolean } = {},
 ): Promise<FeatureInterface[]> {
@@ -695,6 +704,21 @@ export async function createFeature(
     }
   }
 
+  // A config-backed feature's default AND rule values must conform to the
+  // backing config's effective schema. Enforced at this shared create choke
+  // point so every entry point is covered — not just the v2 REST handlers.
+  // Legacy/internal create paths (v1 POST, internal postFeatures) reach here
+  // without their own net, and creation writes a published revision directly
+  // (no publish-time re-check), so an unchecked create would ship a
+  // schema-violating value on version 1. The flat top-level `rules` is canonical
+  // here: callers populate it (buildFeatureUpdate then strips the legacy
+  // env-settings copies), so it holds every rule regardless of entry point.
+  // No-op for non-json / non-config features and when skipSchemaValidation is set.
+  await assertConfigBackedFeatureValuesValid(context, featureToCreate, {
+    defaultValue: featureToCreate.defaultValue,
+    rules: featureToCreate.rules as FeatureRule[] | undefined,
+  });
+
   // Run any custom hooks for this feature
   await runValidateFeatureHooks({
     context,
@@ -757,6 +781,16 @@ export async function deleteFeature(
  * @param projectId
  * @param organization
  */
+export async function projectHasFeatures(
+  context: ReqContext | ApiReqContext,
+  projectId: string,
+): Promise<boolean> {
+  return !!(await FeatureModel.exists({
+    organization: context.org.id,
+    project: projectId,
+  }));
+}
+
 export async function deleteAllFeaturesForAProject({
   projectId,
   context,
@@ -1455,6 +1489,10 @@ export async function setDefaultValue(
   user: EventUser,
   requireReview: boolean,
 ) {
+  // Fail early on the internal draft-edit path (the REST default-value endpoint
+  // enforces the same lock at its handler); publish re-checks regardless.
+  assertConfigBackedDefaultHasNoOverrides(feature, defaultValue);
+
   return updateRevision(
     context,
     feature,
@@ -1612,6 +1650,7 @@ export function computeRevisionMergeChanges(
     if (m.customFields !== undefined)
       changes.customFields = m.customFields as Record<string, unknown>;
     if (m.jsonSchema !== undefined) changes.jsonSchema = m.jsonSchema;
+    if (m.baseConfig !== undefined) changes.baseConfig = m.baseConfig;
     hasChanges = true;
   }
 
@@ -2385,20 +2424,23 @@ async function cleanupOrphanedRampSchedules(
   }
 }
 
-// Best-effort early hook run; updateFeature / markRevisionAsPublished re-run hooks authoritatively
-export async function prevalidatePublishRevision({
-  context,
-  feature,
-  revision,
-  result,
-  comment,
-}: {
-  context: ReqContext | ApiReqContext;
-  feature: FeatureInterface;
-  revision: FeatureRevisionInterface;
-  result: MergeResultChanges;
-  comment?: string;
-}) {
+// Compute the feature as it will look post-publish, plus the exact
+// default/rules subset the config-backed value net must re-check. Shared by
+// prevalidatePublishRevision (the throwing choke point) and the REST publish
+// handler (which runs the same net non-throwing as publish gates). Only values
+// THIS publish changes are checked — a pre-existing violation must not block
+// status-only publishes (kill switches, safe-rollout rollbacks, ramp advances).
+// A baseConfig change re-checks everything (new backing schema).
+export function computeProposedFeatureForValidation(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+  result: MergeResultChanges,
+): {
+  proposedFeature: FeatureInterface;
+  defaultToCheck: string | undefined;
+  rulesToCheck: FeatureRule[];
+} {
   const { changes, removeHoldout } = computeRevisionMergeChanges(
     context,
     feature,
@@ -2414,6 +2456,63 @@ export async function prevalidatePublishRevision({
     dateUpdated: new Date(),
   };
   proposedFeature.linkedExperiments = getLinkedExperiments(proposedFeature);
+  const backingChanged =
+    changes.baseConfig !== undefined &&
+    (changes.baseConfig ?? null) !== (feature.baseConfig ?? null);
+  const liveRuleById = new Map((feature.rules ?? []).map((r) => [r.id, r]));
+  const rulesToCheck = backingChanged
+    ? (proposedFeature.rules ?? [])
+    : (changes.rules ?? []).filter((r) => {
+        const live = liveRuleById.get(r.id);
+        return (
+          !live ||
+          !isEqual(configCheckedRuleValues(live), configCheckedRuleValues(r))
+        );
+      });
+  const defaultToCheck =
+    backingChanged ||
+    (changes.defaultValue !== undefined &&
+      changes.defaultValue !== feature.defaultValue)
+      ? proposedFeature.defaultValue
+      : undefined;
+  return { proposedFeature, defaultToCheck, rulesToCheck };
+}
+
+// Best-effort early hook run; updateFeature / markRevisionAsPublished re-run hooks authoritatively.
+// `skipValidation` skips the config-backed value net AND the custom validation
+// hooks — used by the REST publish handler, which has already run both
+// non-throwing and surfaced their results as publish gates, so re-running them
+// here would double-execute the sandboxed hooks and re-throw what the handler
+// already reported. The proposed feature is still computed (callers may rely on
+// the side-effect-free work). Auto-publish/scheduled paths never set it and keep
+// the throwing behavior.
+export async function prevalidatePublishRevision({
+  context,
+  feature,
+  revision,
+  result,
+  comment,
+  skipValidation,
+}: {
+  context: ReqContext | ApiReqContext;
+  feature: FeatureInterface;
+  revision: FeatureRevisionInterface;
+  result: MergeResultChanges;
+  comment?: string;
+  skipValidation?: boolean;
+}) {
+  const { proposedFeature, defaultToCheck, rulesToCheck } =
+    computeProposedFeatureForValidation(context, feature, revision, result);
+  if (skipValidation) return;
+  // Re-validate config-backed values going live: save-time validation can be
+  // stale (a config's schema/invariants may tighten between draft and publish),
+  // and auto-publish paths don't pass through a REST handler's own net.
+  if (defaultToCheck !== undefined || rulesToCheck.length) {
+    await assertConfigBackedFeatureValuesValid(context, proposedFeature, {
+      defaultValue: defaultToCheck,
+      rules: rulesToCheck,
+    });
+  }
   await runValidateFeatureHooks({
     context,
     feature: proposedFeature,
@@ -2437,6 +2536,7 @@ export async function publishRevision({
   result,
   comment,
   bypassLockdown,
+  skipPrevalidateValidation,
 }: {
   context: ReqContext | ApiReqContext;
   feature: FeatureInterface;
@@ -2444,6 +2544,12 @@ export async function publishRevision({
   result: MergeResultChanges;
   comment?: string;
   bypassLockdown?: boolean;
+  // Set only by the REST publish handler, which has already run the config-backed
+  // value net and the custom validation hooks non-throwing and surfaced their
+  // outcomes as publish gates. Skips the re-run in prevalidatePublishRevision so
+  // the sandboxed hooks don't double-execute and the gated failures aren't
+  // re-thrown. Auto-publish/scheduled paths leave it unset and keep throwing.
+  skipPrevalidateValidation?: boolean;
 }) {
   if (revision.status === "published" || revision.status === "discarded") {
     throw new Error("Can only publish a draft revision");
@@ -2474,6 +2580,7 @@ export async function publishRevision({
     revision,
     result,
     comment,
+    skipValidation: skipPrevalidateValidation,
   });
 
   // Create ramp schedules BEFORE writing the feature so that a schedule
@@ -2766,10 +2873,12 @@ export async function getFeatureMetaInfoById(
     "rules.prerequisites": 1,
     "rules.savedGroups": 1,
     environmentSettings: 1,
+    // `baseConfig` drives the list's "Config · <name>" type display; the full
+    // (potentially large) default value is fetched only when the caller asks for
+    // it — the list itself never parses it.
+    baseConfig: 1,
+    ...(includeDefaultValue ? { defaultValue: 1 } : {}),
   };
-  if (includeDefaultValue) {
-    projection.defaultValue = 1;
-  }
 
   const features = await FeatureModel.find(query, projection);
 
@@ -2796,6 +2905,10 @@ export async function getFeatureMetaInfoById(
         (r) => (r.savedGroups?.length ?? 0) > 0,
       );
 
+      // The list shows "Config · <name>" from the flag's first-class `baseConfig`
+      // (authoritative), not by parsing the default value.
+      const configBackingKey = f.baseConfig ?? null;
+
       return {
         id: f.id,
         project: f.project,
@@ -2811,6 +2924,7 @@ export async function getFeatureMetaInfoById(
         neverStale: f.neverStale,
         hasPrerequisites,
         hasSavedGroups,
+        configBackingKey,
         revision: f.revision as FeatureMetaInfo["revision"],
         ...(includeDefaultValue && { defaultValue: f.defaultValue ?? "" }),
       };
