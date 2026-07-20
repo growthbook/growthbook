@@ -76,6 +76,13 @@ type FeatureDesiredState = {
    * ownership check restores a rollout only while it still holds this value.
    */
   safeRolloutWrittenStatus?: Record<string, string>;
+  /**
+   * Post-apply snapshots of the same docs (captured right after the sync
+   * ran) — compensation's per-field ownership baseline, so worker progress
+   * between apply and rollback is never clobbered. Absent when the apply
+   * threw before the feature write completed.
+   */
+  safeRolloutPostImages?: SafeRolloutInterface[];
 };
 
 function toRef(revision: FeatureRevisionInterface): BulkRevisionRef {
@@ -343,6 +350,14 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     );
     desired.updatedFeature = updated;
 
+    // Re-snapshot the safe rollouts now that the sync inside
+    // applyRevisionChanges has written them — the per-field ownership
+    // baseline for compensation.
+    if (safeRolloutIds.length) {
+      desired.safeRolloutPostImages =
+        await context.models.safeRollout.getByIds(safeRolloutIds);
+    }
+
     if (mergeResult.holdout !== undefined) {
       await applyHoldoutSideEffects(context, feature, mergeResult.holdout);
     }
@@ -375,6 +390,7 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
         await context.models.safeRollout.restoreAfterFailedBulkPublish(
           pre,
           desired.safeRolloutWrittenStatus?.[pre.id] ?? pre.status,
+          desired.safeRolloutPostImages?.find((doc) => doc.id === pre.id),
         );
       } catch (e) {
         logger.error(

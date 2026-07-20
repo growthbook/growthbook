@@ -1,3 +1,4 @@
+import { isEqual } from "lodash";
 import { UpdateProps } from "shared/types/base-model";
 import { SafeRolloutInterface, safeRolloutValidator } from "shared/validators";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
@@ -69,36 +70,51 @@ export class SafeRolloutModel extends BaseClass {
    * Compensation for a failed bulk publish: put a safe rollout the apply's
    * status sync advanced back to its pre-apply state. Restores ONLY the
    * fields that sync writes (status always; start metadata when it started a
-   * never-started rollout), and only while the live doc still holds the
-   * value the apply wrote (`writtenStatus`) — a rollout the worker or
-   * another writer has since advanced is newer intent and is left alone.
-   * Raw write, compensation-only: the validated update path can't express
-   * the start-metadata unset.
+   * never-started rollout), each with a per-field ownership check against
+   * the post-apply snapshot (`written`) — a field the rollout worker or
+   * another writer advanced after the apply is newer intent and stays. Raw
+   * write, compensation-only: the validated update path can't express the
+   * start-metadata unset.
    */
   public async restoreAfterFailedBulkPublish(
     pre: SafeRolloutInterface,
     writtenStatus: string,
+    written?: SafeRolloutInterface,
   ) {
     const live = await this.getById(pre.id);
     if (!live) return;
     if (live.status === pre.status) return;
-    if (live.status !== writtenStatus) return;
+    if (live.status !== (written?.status ?? writtenStatus)) return;
+    const sameDate = (a?: Date | null, b?: Date | null) =>
+      (a?.getTime() ?? null) === (b?.getTime() ?? null);
     // The sync stamps start metadata only when transitioning a never-started
     // rollout to running — the only case where those fields are ours to
-    // reverse (guarded on the stamp still being present).
+    // reverse. Without a post-apply snapshot (the apply threw right after
+    // the sync), fall back to the stamp being present at all.
     const applyStartedIt =
       !pre.startedAt && writtenStatus === "running" && !!live.startedAt;
+    const ownsStartedAt =
+      applyStartedIt &&
+      (!written || sameDate(live.startedAt, written.startedAt));
+    const ownsNextAttempt =
+      applyStartedIt &&
+      (!written ||
+        sameDate(live.nextSnapshotAttempt, written.nextSnapshotAttempt));
+    const ownsSchedule =
+      applyStartedIt &&
+      (!written || isEqual(live.rampUpSchedule, written.rampUpSchedule));
+    const unset: Record<string, 1> = {};
+    if (ownsStartedAt) unset.startedAt = 1;
+    if (ownsNextAttempt) unset.nextSnapshotAttempt = 1;
     await this._dangerousGetCollection().updateOne(
       { organization: this.context.org.id, id: pre.id },
       {
         $set: {
           status: pre.status,
-          ...(applyStartedIt ? { rampUpSchedule: pre.rampUpSchedule } : {}),
+          ...(ownsSchedule ? { rampUpSchedule: pre.rampUpSchedule } : {}),
           dateUpdated: new Date(),
         },
-        ...(applyStartedIt
-          ? { $unset: { startedAt: 1, nextSnapshotAttempt: 1 } }
-          : {}),
+        ...(Object.keys(unset).length ? { $unset: unset } : {}),
       },
     );
   }
