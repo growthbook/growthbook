@@ -6,6 +6,10 @@ import {
   getFeaturesStaleStates,
 } from "back-end/src/controllers/features";
 import { getFeature, updateFeature } from "back-end/src/models/FeatureModel";
+import {
+  createInitialRevision,
+  createRevision,
+} from "back-end/src/models/FeatureRevisionModel";
 import { ReqContextClass } from "back-end/src/services/context";
 import { invalidateFeatureGraph } from "back-end/src/services/featureGraphCache";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
@@ -151,6 +155,84 @@ describe("stale-graph endpoints over the org feature-graph cache", () => {
     );
     expect(
       dependents.captured.body?.dependents["feat_parent"].features,
+    ).toEqual([]);
+  });
+
+  // Regression: draft-revision writes never touch the feature doc, so the
+  // feature/experiment hooks can't see them — the revision model must
+  // invalidate the snapshot itself.
+  it("invalidates the snapshot on draft-revision writes", async () => {
+    const features = mongoose.connection.collection("features");
+    await features.insertOne(featureDoc("feat_rev_parent"));
+    await features.insertOne(
+      featureDoc("feat_rev_child", {
+        prerequisites: [
+          { id: "feat_rev_parent", condition: '{"value": true}' },
+        ],
+      }),
+    );
+
+    const context = new ReqContextClass({
+      org,
+      auditUser: {
+        type: "dashboard",
+        id: "u_test",
+        email: "test@test.com",
+        name: "Test",
+      },
+      role: "admin",
+    });
+    const parent = await getFeature(context, "feat_rev_parent");
+    if (!parent) throw new Error("parent feature missing");
+
+    // createRevision below needs a base revision to branch from.
+    await createInitialRevision(context, parent, null, ["production"]);
+
+    // Warm the snapshot.
+    let dependents = makeRes<{
+      dependents: Record<string, { features: string[] }>;
+    }>();
+    await getFeaturesDependents(
+      makeReq({ ids: "feat_rev_parent" }),
+      dependents.res,
+    );
+    expect(
+      dependents.captured.body?.dependents["feat_rev_parent"].features,
+    ).toEqual(["feat_rev_child"]);
+
+    // Raw delete behind the cache — still served from the snapshot.
+    await features.deleteOne({ id: "feat_rev_child" });
+    dependents = makeRes();
+    await getFeaturesDependents(
+      makeReq({ ids: "feat_rev_parent" }),
+      dependents.res,
+    );
+    expect(
+      dependents.captured.body?.dependents["feat_rev_parent"].features,
+    ).toEqual(["feat_rev_child"]);
+
+    // A real draft-revision write (no updateFeature anywhere on this path)
+    // must invalidate, so the next read reflects the raw delete.
+    await createRevision({
+      context,
+      feature: parent,
+      user: {
+        type: "dashboard",
+        id: "u_test",
+        email: "test@test.com",
+        name: "Test",
+      },
+      environments: ["production"],
+      org,
+    });
+
+    dependents = makeRes();
+    await getFeaturesDependents(
+      makeReq({ ids: "feat_rev_parent" }),
+      dependents.res,
+    );
+    expect(
+      dependents.captured.body?.dependents["feat_rev_parent"].features,
     ).toEqual([]);
   });
 });
