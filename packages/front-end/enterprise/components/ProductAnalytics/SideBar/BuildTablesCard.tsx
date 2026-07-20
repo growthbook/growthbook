@@ -1,3 +1,4 @@
+import { Box } from "@radix-ui/themes";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
@@ -14,10 +15,12 @@ export default function BuildTablesCard({
 }) {
   return (
     <>
-      <Callout
-        status="info"
-        mt="2"
-        action={
+      <Callout status="info" mt="2">
+        <Text as="p" size="medium" m="0">
+          Before we can build visualizations, we need to identify what tables
+          are available on this Data Source.
+        </Text>
+        <Box mt="3">
           <Tooltip
             body="You do not have permission to generate an information schema for this datasource."
             shouldDisplay={!canRunQueries}
@@ -38,12 +41,7 @@ export default function BuildTablesCard({
               </Tooltip>
             </Button>
           </Tooltip>
-        }
-      >
-        <Text as="p" size="medium" m="0">
-          Before we can build visualizations, we need to identify what tables
-          are available on this Data Source.
-        </Text>
+        </Box>
       </Callout>
       {error && (
         <Callout status="error" mt="2">
