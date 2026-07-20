@@ -1,41 +1,104 @@
 import { isConfigLocked } from "shared/util";
 import { ConfigInterface } from "shared/types/config";
+import { SavedGroupInterface } from "shared/types/saved-group";
+import type { Revision } from "shared/enterprise";
+import type { Context } from "back-end/src/models/BaseModel";
 import { getAdapter } from "back-end/src/revisions";
+import {
+  collectConfigPublishHookGates,
+  collectConfigPublishValueGates,
+} from "back-end/src/services/configValidation";
+import {
+  archiveDependentsGateMessage,
+  collectSavedGroupArchiveDependents,
+} from "back-end/src/services/archiveDependentsGuard";
 import type { PublishGate } from "back-end/src/revisions/publishGates";
 import { makeGenericBulkAdapter } from "back-end/src/revisions/bulkPublish/genericBulkAdapter";
 import { featureBulkAdapter } from "back-end/src/revisions/bulkPublish/featureBulkAdapter";
 import type { BulkPublishableAdapter } from "back-end/src/revisions/bulkPublish/BulkPublishableAdapter";
 import type { BulkPublishTargetType } from "back-end/src/revisions/bulkPublish/types";
 
-// The config REST publish handler assembles the config-locked gate inline;
-// contribute the same gate here so bulk plans report it identically. Locked
-// configs are never publishable-over (the unlock endpoint is the resolution).
+// Gates the single-entity REST handlers assemble inline (rather than via the
+// adapters' collectPublishGates), contributed here so bulk plans enforce the
+// same conditions. Consolidating these into one shared per-entity builder used
+// by both surfaces is tracked follow-up work.
+
 async function configExtraGates(args: {
+  overlayContext: Context;
   entity: Record<string, unknown>;
+  revision: Revision;
+  desiredState: Record<string, unknown>;
 }): Promise<PublishGate[]> {
   const config = args.entity as unknown as ConfigInterface;
-  if (!isConfigLocked(config)) return [];
-  return [
-    {
+  const gates: PublishGate[] = [];
+  if (isConfigLocked(config)) {
+    gates.push({
       type: "config-locked",
       severity: "blocker",
       messages: [
         `Config "${config.key}" is locked at revision v${config.lock?.version}. Unlock it before publishing.`,
       ],
       override: null,
-      requiresPermission: null,
+      requiresPermission: "bypassApprovalChecks",
       resolution: {
         action: "unlock",
         method: "POST",
         path: `/configs/${config.key}/unlock`,
       },
+    });
+  }
+  // Custom validation hooks — evaluated against the overlay so hooks judge the
+  // multi-entity end-state, matching where the value validation runs.
+  gates.push(
+    ...(await collectConfigPublishHookGates({
+      context: args.overlayContext,
+      config,
+      desiredState: args.desiredState,
+      revision: args.revision,
+    })),
+  );
+  // The publish-time safety net the single-entity handler runs after its
+  // gates: post-publish value conformance against the effective schema
+  // (catches pre-existing violations the introduced-violation diff suppresses).
+  gates.push(
+    ...(await collectConfigPublishValueGates({
+      context: args.overlayContext,
+      config,
+      desiredState: args.desiredState,
+    })),
+  );
+  return gates;
+}
+
+async function savedGroupExtraGates(args: {
+  callerContext: Context;
+  entity: Record<string, unknown>;
+  desiredState: Record<string, unknown>;
+}): Promise<PublishGate[]> {
+  const savedGroup = args.entity as unknown as SavedGroupInterface;
+  if (args.desiredState.archived !== true || savedGroup.archived) return [];
+  const dependents = await collectSavedGroupArchiveDependents(
+    args.callerContext,
+    savedGroup.id,
+  );
+  if (!dependents.ids.length) return [];
+  return [
+    {
+      type: "archive-dependents",
+      severity: "warning",
+      messages: [archiveDependentsGateMessage("Saved Group", dependents)],
+      override: "ignoreWarnings",
+      requiresPermission: null,
+      resolution: null,
     },
   ];
 }
 
 const registry: Record<BulkPublishTargetType, () => BulkPublishableAdapter> = {
   "saved-group": () =>
-    makeGenericBulkAdapter("saved-group", getAdapter("saved-group")),
+    makeGenericBulkAdapter("saved-group", getAdapter("saved-group"), {
+      extraGates: savedGroupExtraGates,
+    }),
   constant: () => makeGenericBulkAdapter("constant", getAdapter("constant")),
   config: () =>
     makeGenericBulkAdapter("config", getAdapter("config"), {

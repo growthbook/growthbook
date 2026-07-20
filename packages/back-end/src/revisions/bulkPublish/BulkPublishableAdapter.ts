@@ -41,6 +41,14 @@ export type BulkRevisionRef = {
  *   the orchestrator treats any apply failure as compensation-triggering.
  */
 export interface BulkPublishableAdapter {
+  /**
+   * Whether the org REST-bypass setting (in addition to the bypass-approval
+   * permission) grants stale-base force-merge authority — true for the
+   * generic entities, false for features, matching each single-entity
+   * handler's governance computation.
+   */
+  staleBaseForceAllowsRestBypass: boolean;
+
   // ---------- Plan phase (read-only) ----------
 
   loadEntity(
@@ -93,7 +101,12 @@ export interface BulkPublishableAdapter {
     entity: Record<string, unknown>;
     revision: BulkRevisionRef;
     desiredState: Record<string, unknown>;
-    flags: { skipSchemaValidation: boolean; skipHooks: boolean };
+    flags: {
+      skipSchemaValidation: boolean;
+      skipHooks: boolean;
+      /** The publish comment — validation hooks may key on it. */
+      comment?: string;
+    };
   }): Promise<PublishGate[]>;
 
   // ---------- Commit phase (writes) ----------

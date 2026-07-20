@@ -1,6 +1,7 @@
 import type { MergeResultChanges } from "shared/util";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { SafeRolloutInterface } from "shared/validators";
 import { logger } from "back-end/src/util/logger";
 import {
   applyHoldoutSideEffects,
@@ -12,7 +13,12 @@ import {
   rollbackCreatedRampSchedules,
   updateFeature,
 } from "back-end/src/models/FeatureModel";
-import { clearPendingFeatureDraftsForRevision } from "back-end/src/models/ExperimentModel";
+import {
+  clearPendingFeatureDraftsForRevision,
+  removeLinkedFeatureFromExperiment,
+} from "back-end/src/models/ExperimentModel";
+import { addTagsDiff } from "back-end/src/models/TagModel";
+import { auditDetailsUpdate } from "back-end/src/services/audit";
 import {
   claimFeatureRevisionAsPublished,
   emitFeatureRevisionPublishedSideEffects,
@@ -21,7 +27,7 @@ import {
   hasPublishLockingScheduledSibling,
   restoreFeatureRevisionAfterFailedBulkPublish,
 } from "back-end/src/models/FeatureRevisionModel";
-import { canPublishFeatureRevision } from "back-end/src/api/features/autoPublishOnApproval";
+import { getMergeResultPublishEnvs } from "back-end/src/services/features";
 import {
   collectFeaturePublishGates,
   planFeatureRevisionMerge,
@@ -57,6 +63,12 @@ type FeatureDesiredState = {
   plan: FeatureMergePlan;
   createdRampScheduleIds?: string[];
   updatedFeature?: FeatureInterface;
+  /**
+   * Pre-apply snapshots of the safe-rollout docs the apply's status sync may
+   * mutate (captured BEFORE applyRevisionChanges, which writes them before
+   * the feature doc) — compensation restores their statuses.
+   */
+  safeRolloutPreImages?: SafeRolloutInterface[];
 };
 
 function toRef(revision: FeatureRevisionInterface): BulkRevisionRef {
@@ -74,6 +86,9 @@ function rawRevision(ref: BulkRevisionRef): FeatureRevisionInterface {
 }
 
 export const featureBulkAdapter: BulkPublishableAdapter = {
+  // Features gate stale-base force-merge on the permission alone.
+  staleBaseForceAllowsRestBypass: false,
+
   async loadEntity(context, entityId) {
     const feature = await getFeature(context, entityId);
     return (feature as unknown as Record<string, unknown>) ?? null;
@@ -91,17 +106,20 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     return revision ? toRef(revision) : null;
   },
 
+  // Mirrors the single-entity handler's up-front check. The env-scoped
+  // canPublishFeature check happens in collectGates, where the merge result
+  // narrows it to the environments the publish actually touches.
   canPublish(context, entity) {
-    return canPublishFeatureRevision(
-      context,
+    return context.permissions.canUpdateFeature(
       entity as unknown as FeatureInterface,
+      {},
     );
   },
 
   canUpdate(context, entity) {
-    return canPublishFeatureRevision(
-      context,
+    return context.permissions.canUpdateFeature(
       entity as unknown as FeatureInterface,
+      {},
     );
   },
 
@@ -135,11 +153,56 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     };
   },
 
-  async collectGates({ overlayContext, entity, revision, desiredState }) {
+  async collectGates({
+    callerContext,
+    overlayContext,
+    entity,
+    revision,
+    desiredState,
+    flags,
+  }) {
     const feature = entity as unknown as FeatureInterface;
     const raw = rawRevision(revision);
     const { plan } = desiredState as unknown as FeatureDesiredState;
     const gates: PublishGate[] = [];
+
+    // Environment-scoped publish authority, narrowed to the environments this
+    // merge actually touches — the caller's context, never the admin-role
+    // overlay context. Mirrors the single-entity handler's canPublishFeature
+    // check.
+    const envsToCheck = await getMergeResultPublishEnvs({
+      context: callerContext,
+      feature,
+      filledLiveRules: plan.filledLiveRules,
+      result: plan.mergeResult,
+      environmentIds: plan.environmentIds,
+    });
+    if (!callerContext.permissions.canPublishFeature(feature, envsToCheck)) {
+      gates.push({
+        type: "permission-denied",
+        severity: "blocker",
+        messages: [
+          "You do not have permission to publish this Feature Flag in the environments this revision changes.",
+        ],
+        override: null,
+        requiresPermission: null,
+        resolution: null,
+      });
+    }
+
+    // Feature parity with the single-entity handler's 400: an empty feature
+    // revision can't publish (the generic no-op merge path doesn't apply —
+    // feature publishes must advance the live version pointer).
+    if (!plan.hasChanges) {
+      gates.push({
+        type: "no-changes",
+        severity: "blocker",
+        messages: ["No changes detected in this revision."],
+        override: null,
+        requiresPermission: null,
+        resolution: null,
+      });
+    }
 
     // Lockdown blocks from the feature publish core, surfaced as gates at
     // plan time. Both are bypassable with the bypass-approval permission,
@@ -189,6 +252,7 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
           feature,
           revision: raw,
           plan,
+          comment: flags.comment,
           includeValidationGates: true,
         })),
       );
@@ -238,6 +302,21 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       mergeResult,
     );
 
+    // Snapshot the safe-rollout docs whose statuses the apply's sync may
+    // rewrite (revision rules ∪ live rules — the same id set
+    // updateSafeRolloutStatuses computes) so compensation can restore them.
+    const safeRolloutIds = [
+      ...new Set(
+        [...(raw.rules ?? []), ...(feature.rules ?? [])]
+          .filter((rule) => rule?.type === "safe-rollout")
+          .map((rule) => (rule as { safeRolloutId: string }).safeRolloutId),
+      ),
+    ];
+    if (safeRolloutIds.length) {
+      desired.safeRolloutPreImages =
+        await context.models.safeRollout.getByIds(safeRolloutIds);
+    }
+
     const updated = await applyRevisionChanges(
       context,
       feature,
@@ -272,13 +351,72 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       rawRevision(revision),
       mergeResult,
     );
+    const restoreKeys = new Set([...Object.keys(changes), "version"]);
+    // The holdout write happens via side effects rather than `changes`, so
+    // include it explicitly when the apply transitioned it.
+    if (mergeResult.holdout !== undefined) restoreKeys.add("holdout");
     const restore = Object.fromEntries(
-      [...new Set([...Object.keys(changes), "version"])].map((key) => [
+      [...restoreKeys].map((key) => [
         key,
-        feature[key as keyof FeatureInterface],
+        // null-as-clear: undefined pre-image values would be dropped by the
+        // update path's changes filter, leaving apply-added fields in place.
+        feature[key as keyof FeatureInterface] ?? null,
       ]),
     ) as Partial<FeatureInterface>;
     await updateFeature(context, current, restore);
+
+    // Reverse the cross-collection writes the apply made (both best-effort,
+    // matching the holdout reversal below — a partial rollback with a logged
+    // error beats silently keeping the failed release's state).
+    //
+    // Safe-rollout statuses the apply's sync advanced go back to their
+    // pre-apply values. Residual: a first-run transition also stamps
+    // startedAt/next-attempt fields, which stay behind when the pre-image had
+    // none — harmless next to a wrong live status.
+    for (const pre of desired.safeRolloutPreImages ?? []) {
+      try {
+        const rollouts = await context.models.safeRollout.getByIds([pre.id]);
+        const live = rollouts[0];
+        if (!live || live.status === pre.status) continue;
+        await context.models.safeRollout.update(live, {
+          status: pre.status,
+          ...(pre.startedAt
+            ? {
+                startedAt: pre.startedAt,
+                nextSnapshotAttempt: pre.nextSnapshotAttempt,
+                rampUpSchedule: pre.rampUpSchedule,
+              }
+            : {}),
+        });
+      } catch (e) {
+        logger.error(
+          e,
+          `bulk publish compensation: failed to restore safe rollout ${pre.id} for feature ${feature.id}`,
+        );
+      }
+    }
+
+    // Experiments the apply newly linked this feature into (linkedFeatures is
+    // written by updateFeature for experiments absent from the pre-image's
+    // linkedExperiments) get unlinked — the restored rules no longer reference
+    // them. The helper no-ops when the link is already gone.
+    const addedExperiments = (
+      desired.updatedFeature?.linkedExperiments ?? []
+    ).filter((id) => !(feature.linkedExperiments ?? []).includes(id));
+    for (const experimentId of addedExperiments) {
+      try {
+        await removeLinkedFeatureFromExperiment(
+          context,
+          experimentId,
+          feature.id,
+        );
+      } catch (e) {
+        logger.error(
+          e,
+          `bulk publish compensation: failed to unlink feature ${feature.id} from experiment ${experimentId}`,
+        );
+      }
+    }
 
     // Reverse the apply-time holdout transition (best-effort: its guards can
     // legitimately refuse during compensation, and a half-restored holdout is
@@ -317,6 +455,29 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       (await getFeature(context, feature.id)) ??
       feature;
     const original = rawRevision(revision);
+
+    if (
+      desired.mergeResult.metadata?.tags !== undefined &&
+      Array.isArray(desired.mergeResult.metadata.tags)
+    ) {
+      await addTagsDiff(
+        context.org.id,
+        feature.tags || [],
+        desired.mergeResult.metadata.tags,
+      );
+    }
+
+    await context.auditLog({
+      event: "feature.publish",
+      entity: {
+        object: "feature",
+        id: feature.id,
+      },
+      details: auditDetailsUpdate(feature, updated, {
+        revision: raw.version,
+        comment: raw.comment ?? "",
+      }),
+    });
 
     // Deferred ramp actions (updates, detaches, orphan cleanup) — best-effort
     // after a known-good publish, mirroring the single-entity path. Pending

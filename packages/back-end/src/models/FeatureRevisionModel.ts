@@ -1412,7 +1412,10 @@ export async function claimFeatureRevisionAsPublished(
       featureId: revision.featureId,
       version: revision.version,
     },
-    ["status", "dateUpdated"],
+    // dateCreated rides along so the fallback below is actually fetched
+    // (casUpdate projects guardFields only); it's immutable, so guarding on
+    // it is a no-op for the write filter.
+    ["status", "dateUpdated", "dateCreated"],
     (current) => {
       if (
         current.status !== expected.status ||
@@ -1450,6 +1453,8 @@ export async function restoreFeatureRevisionAfterFailedBulkPublish(
         status: original.status,
         publishedBy: original.publishedBy ?? null,
         datePublished: original.datePublished ?? null,
+        comment: original.comment ?? null,
+        ...(original.dateUpdated ? { dateUpdated: original.dateUpdated } : {}),
         autoPublishOnApproval: !!original.autoPublishOnApproval,
         ...(original.autoPublishEnabledBy
           ? { autoPublishEnabledBy: original.autoPublishEnabledBy }
@@ -1461,6 +1466,17 @@ export async function restoreFeatureRevisionAfterFailedBulkPublish(
               scheduledPublishLockOthers: original.scheduledPublishLockOthers,
               scheduledPublishBypassApproval:
                 original.scheduledPublishBypassApproval,
+            }
+          : {}),
+        ...(original.scheduledPublishAttempts !== undefined
+          ? {
+              scheduledPublishAttempts: original.scheduledPublishAttempts,
+              scheduledPublishLastError:
+                original.scheduledPublishLastError ?? null,
+              scheduledPublishNextAttemptAt:
+                original.scheduledPublishNextAttemptAt ?? null,
+              scheduledPublishGaveUpAt:
+                original.scheduledPublishGaveUpAt ?? null,
             }
           : {}),
       },

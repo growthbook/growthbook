@@ -1,3 +1,4 @@
+import { isEqual } from "lodash";
 import {
   Revision,
   RevisionTargetType,
@@ -50,6 +51,8 @@ export function makeGenericBulkAdapter(
   },
 ): BulkPublishableAdapter {
   return {
+    staleBaseForceAllowsRestBypass: true,
+
     async loadEntity(context, entityId) {
       const model = adapter.getModel(context);
       if (!model) return null;
@@ -101,10 +104,10 @@ export function makeGenericBulkAdapter(
         adapter.getUpdatableFields(),
       );
       const updatable = adapter.getUpdatableFields();
+      // isEqual, matching filterUpdatableChanges — key-order-sensitive
+      // stringify would misroute deep-equal no-ops into the apply path.
       const hasChanges = Object.keys(desiredState).some(
-        (key) =>
-          updatable.has(key) &&
-          JSON.stringify(desiredState[key]) !== JSON.stringify(entity[key]),
+        (key) => updatable.has(key) && !isEqual(desiredState[key], entity[key]),
       );
       return {
         desiredState,
@@ -122,6 +125,11 @@ export function makeGenericBulkAdapter(
     }) {
       const raw = revision.raw as Revision;
       const gates: PublishGate[] = [];
+      // The revision-route base for gate resolutions, per the entity's REST
+      // identifier convention (configs/constants by key, saved groups by id).
+      const identifier =
+        (entity as { key?: string }).key ?? (entity as { id: string }).id;
+      const routeBase = `/${targetType}s-revisions/${identifier}/${raw.version}`;
 
       const approvalRequired = adapter.isApprovalRequiredForRevision
         ? adapter.isApprovalRequiredForRevision(callerContext, raw)
@@ -131,11 +139,15 @@ export function makeGenericBulkAdapter(
           type: "approval-required",
           severity: "blocker",
           messages: [
-            `The ${targetType} revision must be approved before it can be published (status is "${raw.status}").`,
+            `Requires approval before publishing (status: "${raw.status}").`,
           ],
           override: null,
-          requiresPermission: null,
-          resolution: null,
+          requiresPermission: "bypassApprovalChecks",
+          resolution: {
+            action: "request-review",
+            method: "POST",
+            path: `${routeBase}/request-review`,
+          },
         });
       }
 
@@ -149,13 +161,15 @@ export function makeGenericBulkAdapter(
       ) {
         gates.push({
           type: "stale-base",
-          severity: "warning",
-          messages: [
-            `The ${targetType} changed after this revision was created — rebase, or force-merge with ignoreWarnings.`,
-          ],
+          severity: "blocker",
+          messages: ["This revision was created against an older version."],
           override: "ignoreWarnings",
           requiresPermission: "bypassApprovalChecks",
-          resolution: null,
+          resolution: {
+            action: "rebase",
+            method: "POST",
+            path: `${routeBase}/rebase`,
+          },
         });
       }
 
@@ -242,8 +256,13 @@ export function makeGenericBulkAdapter(
       const restore: Record<string, unknown> = {};
       for (const key of Object.keys(desiredState)) {
         if (!updatable.has(key)) continue;
-        restore[key] = (preImage as Record<string, unknown>)[key];
+        const original = (preImage as Record<string, unknown>)[key];
+        if (isEqual(desiredState[key], original)) continue;
+        // null (not undefined) as the clear signal so the write layer's
+        // updatable-changes filter doesn't drop fields the apply added.
+        restore[key] = original === undefined ? null : original;
       }
+      if (!Object.keys(restore).length) return;
       await adapter.applyChanges(context, current, restore, {
         // Restoring a pre-image is semantically a revert to a known-good
         // published state — skip validations that would block a restore.

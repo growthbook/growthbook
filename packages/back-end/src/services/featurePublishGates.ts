@@ -168,8 +168,7 @@ export async function planFeatureRevisionMerge({
     filledLiveRules: filledLive.rules,
     hasChanges:
       draftDiffersFromLive(revision, live, feature, environmentIds) ||
-      hasLinkedPendingRamp ||
-      (revision.rampActions?.length ?? 0) > 0,
+      hasLinkedPendingRamp,
     hasLinkedPendingRamp,
     requiresReview,
     rebaseRequired: !!rebaseGovernance?.rebaseRequired,

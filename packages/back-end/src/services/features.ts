@@ -708,7 +708,7 @@ export function queueSDKPayloadRefresh(data: {
   // narrowing options (skipRefreshForProject, explicit sdkConnections) but
   // carry treatEmptyProjectAsGlobal so global-entity keys keep their reach.
   const buffer = data.context.sdkPayloadRefreshBuffer;
-  if (buffer) {
+  if (buffer && !buffer.closed) {
     buffer.keys.push(...data.payloadKeys);
     buffer.treatEmptyProjectAsGlobal ||= !!data.treatEmptyProjectAsGlobal;
     return;
@@ -734,7 +734,9 @@ export async function getFeaturesDependingOnAsPrerequisite(
   context: ReqContext | ApiReqContext,
   featureId: string,
 ): Promise<string[]> {
-  const scanContext = getContextForAgendaJobByOrgObject(context.org);
+  const scanContext =
+    context.scanContextOverride ??
+    getContextForAgendaJobByOrgObject(context.org);
   // Candidates are live features only — an archived dependent isn't served, so
   // it can't be outaged. The target being deleted is usually archived (delete
   // requires it), so it needn't be in this list: getDependentFeatures matches
@@ -2440,7 +2442,7 @@ export function getApiFeatureObjV2({
     revision: {
       // Conditional: event snapshots and legacy docs may lack a version.
       ...(typeof feature.version === "number"
-        ? { id: featureRevisionId(feature.id, feature.version) }
+        ? { id: revision?.id ?? featureRevisionId(feature.id, feature.version) }
         : {}),
       comment: revision?.comment || "",
       date: revision?.dateCreated.toISOString() || "",
@@ -2690,7 +2692,7 @@ export function getApiFeatureObj({
     revision: {
       // Conditional: event snapshots and legacy docs may lack a version.
       ...(typeof feature.version === "number"
-        ? { id: featureRevisionId(feature.id, feature.version) }
+        ? { id: revision?.id ?? featureRevisionId(feature.id, feature.version) }
         : {}),
       comment: revision?.comment || "",
       date: revision?.dateCreated.toISOString() || "",

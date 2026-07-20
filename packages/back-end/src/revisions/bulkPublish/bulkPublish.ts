@@ -26,6 +26,7 @@ import type {
   BulkPublishItemResult,
   BulkPublishPlan,
   BulkPublishResult,
+  BulkPublishTargetType,
   PlannedItemPublish,
 } from "back-end/src/revisions/bulkPublish/types";
 
@@ -49,6 +50,19 @@ function tag(ref: BulkPublishItemRef, gates: PublishGate[]): BulkPublishGate[] {
     entityId: ref.entityId,
     version: ref.version,
   }));
+}
+
+// User-facing resource nouns per the copy-style glossary (named resources
+// stay Title Case; configs/constants are common nouns).
+function displayEntityName(entityType: BulkPublishTargetType): string {
+  switch (entityType) {
+    case "feature":
+      return "Feature Flag";
+    case "saved-group":
+      return "Saved Group";
+    default:
+      return entityType;
+  }
 }
 
 function itemGate(
@@ -105,6 +119,13 @@ export async function planBulkPublish(
   const blockingGates: BulkPublishGate[] = [];
   const warnings: string[] = [];
 
+  // Load-phase failures are gates too: they must show up in the dryRun
+  // report (`allGates`), not just block the commit.
+  const blockLoad = (gate: BulkPublishGate) => {
+    allGates.push(gate);
+    blockingGates.push(gate);
+  };
+
   // Load + merge-compute every item first: the overlay needs every proposed
   // end-state before any validation can run.
   type Loaded = {
@@ -122,42 +143,42 @@ export async function planBulkPublish(
     const adapter = getBulkAdapter(ref.entityType);
     const entity = await adapter.loadEntity(context, ref.entityId);
     if (!entity) {
-      blockingGates.push(
+      blockLoad(
         itemGate(
           ref,
           "not-found",
-          `${ref.entityType} "${ref.entityId}" not found`,
+          `${displayEntityName(ref.entityType)} "${ref.entityId}" not found`,
         ),
       );
       continue;
     }
     const revision = await adapter.loadRevision(context, entity, ref.version);
     if (!revision) {
-      blockingGates.push(
+      blockLoad(
         itemGate(
           ref,
           "not-found",
-          `Revision v${ref.version} of ${ref.entityType} "${ref.entityId}" not found`,
+          `Revision v${ref.version} of ${displayEntityName(ref.entityType)} "${ref.entityId}" not found`,
         ),
       );
       continue;
     }
     if (["merged", "discarded", "published"].includes(revision.status)) {
-      blockingGates.push(
+      blockLoad(
         itemGate(
           ref,
           "revision-closed",
-          `Revision v${ref.version} of ${ref.entityType} "${ref.entityId}" has status "${revision.status}" and cannot be published`,
+          `Revision v${ref.version} of ${displayEntityName(ref.entityType)} "${ref.entityId}" has status "${revision.status}" and cannot be published`,
         ),
       );
       continue;
     }
     if (!adapter.canPublish(context, entity)) {
-      blockingGates.push(
+      blockLoad(
         itemGate(
           ref,
           "permission-denied",
-          `You do not have permission to publish ${ref.entityType} "${ref.entityId}"`,
+          `You do not have permission to publish ${displayEntityName(ref.entityType)} "${ref.entityId}"`,
         ),
       );
       continue;
@@ -168,11 +189,11 @@ export async function planBulkPublish(
       // Project-move laundering guard: the caller needs authority over the
       // post-merge state too, not just the live entity.
       if (!adapter.canUpdate(context, proposedEntity)) {
-        blockingGates.push(
+        blockLoad(
           itemGate(
             ref,
             "permission-denied",
-            `You do not have permission over the post-publish state of ${ref.entityType} "${ref.entityId}"`,
+            `You do not have permission over the post-publish state of ${displayEntityName(ref.entityType)} "${ref.entityId}"`,
           ),
         );
         continue;
@@ -192,14 +213,7 @@ export async function planBulkPublish(
         e instanceof MergeConflictError ? "merge-conflict" : "plan-failed",
         getErrorMessage(e),
       );
-      if (e instanceof MergeConflictError) {
-        gate.resolution = {
-          action: "rebase",
-          method: "POST",
-          path: `/${ref.entityType}s/${ref.entityId}/revisions/${ref.version}/rebase`,
-        };
-      }
-      blockingGates.push(gate);
+      blockLoad(gate);
     }
   }
 
@@ -254,6 +268,7 @@ export async function planBulkPublish(
         flags: {
           skipSchemaValidation: flags.skipSchemaValidation,
           skipHooks: flags.skipHooks,
+          comment: flags.comment,
         },
       }),
     );
@@ -270,7 +285,10 @@ export async function planBulkPublish(
       skipHooks: flags.skipHooks && bypassPermission,
       bypassApprovalPermission: bypassPermission,
       restApiBypassesReviews: flags.restApiBypassesReviews,
-      canForceMergeStaleBase: bypassPermission,
+      canForceMergeStaleBase:
+        bypassPermission ||
+        (l.adapter.staleBaseForceAllowsRestBypass &&
+          flags.restApiBypassesReviews),
     };
 
     const bypassedGates: PlannedItemPublish["bypassedGates"] = [];
@@ -299,6 +317,7 @@ export async function planBulkPublish(
       entityPreImage: l.entity,
       revision: l.revision,
       desiredState: l.desiredState,
+      proposedEntity: l.proposedEntity,
       hasChanges: l.hasChanges,
       baseline: {
         revisionStatus: l.revision.status,
@@ -366,29 +385,35 @@ export async function commitBulkPublish(
       await releaseClaims(context, claimed);
       context.bulkPublishId = null;
       throw new ConflictError(
-        `${item.ref.entityType} "${item.ref.entityId}" changed after the publish was planned — nothing was published; re-plan and retry`,
+        `${displayEntityName(item.ref.entityType)} "${item.ref.entityId}" changed after the publish was planned — nothing was published; re-plan and retry`,
       );
     }
     claimed.push(item);
   }
 
   // Entity drift check: claims guard revisions, not entities. Re-read each
-  // target and abort (409, zero entity writes) if anything moved since plan.
-  for (const item of plan.items) {
-    const adapter = getBulkAdapter(item.ref.entityType);
-    const current = await adapter.loadEntity(context, item.ref.entityId);
-    const currentDate =
-      (current as { dateUpdated?: Date } | null)?.dateUpdated ?? null;
-    if (
-      (currentDate?.getTime() ?? null) !==
-      (item.baseline.entityDateUpdated?.getTime() ?? null)
-    ) {
-      await releaseClaims(context, claimed);
-      context.bulkPublishId = null;
-      throw new ConflictError(
-        `${item.ref.entityType} "${item.ref.entityId}" changed after the publish was planned — nothing was published; re-plan and retry`,
-      );
+  // target and abort (zero entity writes) if anything moved since plan — and
+  // release every claim even when the re-read itself fails, so a transient DB
+  // error here can't strand the batch's revisions as claimed.
+  try {
+    for (const item of plan.items) {
+      const adapter = getBulkAdapter(item.ref.entityType);
+      const current = await adapter.loadEntity(context, item.ref.entityId);
+      const currentDate =
+        (current as { dateUpdated?: Date } | null)?.dateUpdated ?? null;
+      if (
+        (currentDate?.getTime() ?? null) !==
+        (item.baseline.entityDateUpdated?.getTime() ?? null)
+      ) {
+        throw new ConflictError(
+          `${displayEntityName(item.ref.entityType)} "${item.ref.entityId}" changed after the publish was planned — nothing was published; re-plan and retry`,
+        );
+      }
     }
+  } catch (e) {
+    await releaseClaims(context, claimed);
+    context.bulkPublishId = null;
+    throw e;
   }
 
   // Apply, with per-write side effects buffered: SDK payload refreshes
@@ -399,17 +424,57 @@ export async function commitBulkPublish(
     treatEmptyProjectAsGlobal: false,
   };
   context.bulkPublishDeferredEvents = [];
+  // Write-time model asserts (descendant reconcile, invariants) re-validate
+  // during applies on THIS context — overlay every proposed doc so they judge
+  // the batch's end-state, not the mid-commit mix (the plan already validated
+  // the same end-state; without this, the headline parent+child release can
+  // spuriously fail mid-apply). Cleared before compensation restores, which
+  // must see live state.
+  const applyCommitOverlays = (active: boolean) => {
+    context.models.configs.setScanOverlay(
+      active
+        ? plan.items
+            .filter((i) => i.ref.entityType === "config")
+            .map((i) => i.proposedEntity as unknown as ConfigInterface)
+        : [],
+    );
+    context.models.constants.setScanOverlay(
+      active
+        ? plan.items
+            .filter((i) => i.ref.entityType === "constant")
+            .map((i) => i.proposedEntity as unknown as ConstantInterface)
+        : [],
+    );
+    context.featureScanOverlay = active
+      ? new Map(
+          plan.items
+            .filter((i) => i.ref.entityType === "feature")
+            .map((i) => [
+              i.ref.entityId,
+              i.proposedEntity as unknown as FeatureInterface,
+            ]),
+        )
+      : null;
+  };
+  applyCommitOverlays(true);
   const applied: PlannedItemPublish[] = [];
+  // The item whose apply is mid-flight when a failure hits: a multi-step
+  // apply (ramp creates → entity write → holdout) can land real writes
+  // before throwing, so compensation must restore it too, not just the
+  // fully-applied items.
+  let inFlight: PlannedItemPublish | null = null;
   try {
     for (const item of plan.items) {
       if (!item.hasChanges) continue;
       const adapter = getBulkAdapter(item.ref.entityType);
+      inFlight = item;
       await adapter.applyPrecomputed(
         context,
         item.entityPreImage,
         item.revision,
         item.desiredState,
       );
+      inFlight = null;
       applied.push(item);
     }
   } catch (e) {
@@ -427,9 +492,12 @@ export async function commitBulkPublish(
       treatEmptyProjectAsGlobal: false,
     };
     context.bulkPublishDeferredEvents = [];
+    // Restores must validate against LIVE state, not the failed end-state.
+    applyCommitOverlays(false);
     const results: BulkPublishItemResult[] = [];
     const restoreFailed = new Set<PlannedItemPublish>();
-    for (const item of [...applied].reverse()) {
+    const toRestore = inFlight ? [...applied, inFlight] : [...applied];
+    for (const item of toRestore.reverse()) {
       const adapter = getBulkAdapter(item.ref.entityType);
       try {
         await adapter.restorePreImage(
@@ -504,6 +572,7 @@ export async function commitBulkPublish(
   // Success: flush. Detach the buffers FIRST so the flushes themselves fire,
   // dedupe keys, and issue ONE refresh — refreshSDKPayloadCache rebuilds each
   // affected SDK connection exactly once per call.
+  applyCommitOverlays(false);
   const deferredEvents = context.bulkPublishDeferredEvents ?? [];
   context.bulkPublishDeferredEvents = null;
   flushPayloadRefreshBuffer(context, "bulk-publish");
@@ -560,7 +629,12 @@ export async function commitBulkPublish(
 function flushPayloadRefreshBuffer(context: Context, event: string): void {
   const buffer = context.sdkPayloadRefreshBuffer;
   context.sdkPayloadRefreshBuffer = null;
-  if (!buffer || !buffer.keys.length) return;
+  if (!buffer) return;
+  // Close the buffer so fire-and-forget producers still holding its
+  // reference (async afterUpdate resolvable scans) fall through to live
+  // refreshes instead of pushing into a drained array.
+  buffer.closed = true;
+  if (!buffer.keys.length) return;
   const seen = new Set<string>();
   const keys = buffer.keys.filter((k) => {
     const id = `${k.environment}||${k.project}`;

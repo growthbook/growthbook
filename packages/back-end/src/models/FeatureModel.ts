@@ -1816,11 +1816,6 @@ export async function applyHoldoutSideEffects(
   }
 }
 
-// Apply deferred ramp create/update actions stored on a revision.
-// - `create` actions are called BEFORE feature write so schedule creation
-//   failures abort publish.
-// - `update` actions are called AFTER publish succeeds (best-effort).
-// Returns only newly created schedule IDs (for rollback on failure).
 // Phase-shaped ramp-action surface for the bulk publisher, mirroring
 // publishRevision's ordering: creates run BEFORE the feature write (a failure
 // gates the publish; ids returned for rollback), updates/detaches/cleanup run

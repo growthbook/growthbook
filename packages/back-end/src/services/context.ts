@@ -247,6 +247,13 @@ export class ReqContextClass {
   public sdkPayloadRefreshBuffer?: {
     keys: SDKPayloadKey[];
     treatEmptyProjectAsGlobal: boolean;
+    /**
+     * Set when the flush drains the buffer. Fire-and-forget producers that
+     * captured the buffer reference before the flush (e.g. a model
+     * afterUpdate's async resolvable scan) fall through to a live refresh
+     * instead of pushing into a drained array nobody will read.
+     */
+    closed?: boolean;
   } | null;
 
   /**

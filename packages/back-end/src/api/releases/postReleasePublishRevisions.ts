@@ -1,4 +1,8 @@
-import { postReleasePublishRevisionsValidator } from "shared/validators";
+import { z } from "zod";
+import {
+  postReleasePublishRevisionsValidator,
+  publishRevisionsItem,
+} from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   BadRequestError,
@@ -20,13 +24,12 @@ import type {
   BulkPublishPlan,
 } from "back-end/src/revisions/bulkPublish/types";
 
-// POST /api/v2/releases/publish-revisions — the Releases namespace's shortcut for
-// atomically publishing revisions across entity types. Plan (read-only, also
-// the dryRun report) then commit (claim-all → apply-all → one SDK refresh);
-// see revisions/bulkPublish/ for the machinery.
-
-type RequestRevisionItem = {
-  entityType: "feature" | "saved-group" | "config" | "constant";
+// The union member shapes are disjoint per entity type; widen to one optional
+// bag so the resolution loop below can read fields without narrowing per arm.
+type RequestRevisionItem = Pick<
+  z.infer<typeof publishRevisionsItem>,
+  "entityType"
+> & {
   id?: string;
   key?: string;
   version?: number;

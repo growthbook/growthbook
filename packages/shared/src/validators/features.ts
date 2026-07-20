@@ -619,10 +619,11 @@ export function reviewerKeyForEventUser(
 
 const featureRevisionInterface = minimalFeatureRevisionInterface
   .extend({
-    // Stable identity, a pure computed projection of the immutable natural
-    // key: "frev_<version>_<featureId>" (org scope comes from request auth).
-    // Never stored — populated by buildFeatureRevisionInterface on every
-    // read; resolve by decoding onto the (organization, featureId, version)
+    // Stable identity, dual-shaped: new docs store a minted "frev_<uniqid>";
+    // legacy docs get the computed tuple "frev_<version>_<featureId>" filled
+    // in-memory on read (and persisted opportunistically on publish writes).
+    // Tuple ids resolve by decoding onto the (organization, featureId,
+    // version) unique index; minted ids by the partial (organization, id)
     // unique index.
     id: z.string().optional(),
     featureId: z.string(),

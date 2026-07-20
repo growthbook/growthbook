@@ -21,7 +21,7 @@ const revisionIdField = z
     "A revision id from this API or the revision webhooks (`rev_…` / `frev_…`). Alternative to identifier + version.",
   );
 
-const publishRevisionsItem = z.union([
+export const publishRevisionsItem = z.union([
   namedSchema(
     "FeatureRevisionRef",
     z

@@ -868,7 +868,9 @@ export async function assertConstantArchivable(
   // we archive its target (the resolver would silently scrub the now-archived
   // ref). Mirrors the unfiltered lineage check in getDependentConfigs. Only a
   // count is surfaced below, so this doesn't leak unreadable resource names.
-  const scanContext = getContextForAgendaJobByOrgObject(context.org);
+  const scanContext =
+    context.scanContextOverride ??
+    getContextForAgendaJobByOrgObject(context.org);
   const refs = await loadConstantReferences(scanContext, constantId);
   if (!refs || totalConstantReferences(refs) === 0) return;
   const parts: string[] = [];

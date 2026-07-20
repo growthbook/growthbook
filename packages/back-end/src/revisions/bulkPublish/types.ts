@@ -69,6 +69,8 @@ export type PlannedItemPublish = {
   revision: BulkRevisionRef;
   /** Post-merge changes, adapter-opaque, precomputed and end-state validated. */
   desiredState: Record<string, unknown>;
+  /** Post-merge entity doc — the commit-phase write-assert overlay source. */
+  proposedEntity: Record<string, unknown>;
   /** False = no-op merge (revision closes as merged, entity untouched). */
   hasChanges: boolean;
   baseline: ClaimBaseline;

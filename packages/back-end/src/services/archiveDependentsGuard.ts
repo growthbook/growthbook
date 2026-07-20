@@ -74,7 +74,9 @@ export async function collectFeatureArchiveDependents(
   context: ReqContext | ApiReqContext,
   featureId: string,
 ): Promise<ArchiveDependents> {
-  const scanContext = getContextForAgendaJobByOrgObject(context.org);
+  const scanContext =
+    context.scanContextOverride ??
+    getContextForAgendaJobByOrgObject(context.org);
   const [dependentFeatureIds, allExperiments] = await Promise.all([
     getFeaturesDependingOnAsPrerequisite(scanContext, featureId),
     // Projected loader (id/status/phases.prerequisites only) — avoids
@@ -107,7 +109,9 @@ export async function collectConstantArchiveDependents(
   context: ReqContext | ApiReqContext,
   constantId: string,
 ): Promise<ArchiveDependents> {
-  const scanContext = getContextForAgendaJobByOrgObject(context.org);
+  const scanContext =
+    context.scanContextOverride ??
+    getContextForAgendaJobByOrgObject(context.org);
   const refs = await loadConstantReferences(scanContext, constantId);
   if (!refs || totalConstantReferences(refs) === 0) return EMPTY_DEPENDENTS;
   const ids = [
@@ -142,7 +146,9 @@ export async function collectConfigArchiveDependents(
     extends?: string[];
   },
 ): Promise<ArchiveDependents> {
-  const scanContext = getContextForAgendaJobByOrgObject(context.org);
+  const scanContext =
+    context.scanContextOverride ??
+    getContextForAgendaJobByOrgObject(context.org);
 
   // Cheap, request-memoized reads first (config reconcile snapshot) so the
   // common harmless case can short-circuit BEFORE the expensive feature scan.
@@ -225,7 +231,9 @@ export async function collectSavedGroupArchiveDependents(
   context: ReqContext | ApiReqContext,
   savedGroupId: string,
 ): Promise<ArchiveDependents> {
-  const scanContext = getContextForAgendaJobByOrgObject(context.org);
+  const scanContext =
+    context.scanContextOverride ??
+    getContextForAgendaJobByOrgObject(context.org);
   const refs = await loadSavedGroupReferences(scanContext, savedGroupId);
   if (!refs || totalSavedGroupReferences(refs) === 0) return EMPTY_DEPENDENTS;
   const ids = [
