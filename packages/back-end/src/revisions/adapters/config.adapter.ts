@@ -59,7 +59,7 @@ import { assertConfigPublishGuards } from "back-end/src/services/publishGuards";
 import type { PublishGate } from "back-end/src/revisions/publishGates";
 import { schemaFailureGateOverride } from "back-end/src/revisions/publishGates";
 import { applyPatchToSnapshot } from "back-end/src/revisions/util";
-import { BadRequestError } from "back-end/src/util/errors";
+import { BadRequestError, getErrorMessage } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import { normalizeConfigChangesAgainstAncestors } from "./configSchemaNormalize";
 
@@ -259,17 +259,26 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
       normalizedChanges.parent !== undefined ||
       "extends" in normalizedChanges;
 
-    // Dry run BEFORE the write: reject a publish that would create an
-    // unresolvable sibling conflict at a descendant, so nothing is persisted
-    // (vs. committing the root and then throwing from the post-write cascade),
-    // then soft-warn when the change removes/retypes fields descendants use.
-    if (touchesLineageOrSchema && !skipGuardAsserts) {
+    if (touchesLineageOrSchema) {
       const proposedRoot = {
         ...entity,
         ...normalizedChanges,
       } as ConfigInterface;
-      await assertConfigDescendantsReconcilable(context, proposedRoot);
-      await assertConfigSchemaChangeSafeForDescendants(context, proposedRoot);
+      // Hard fail-fast BEFORE the root write: a sibling two-owner conflict
+      // can't be strip-resolved, and the post-write cascade would otherwise
+      // throw AFTER the root is persisted — a partial write. Skipped ONLY in a
+      // bulk commit, where the plan gate validates the combined end-state and
+      // compensation undoes a throw; NEVER on a revert (isRevert), which has
+      // no compensation to roll the root write back.
+      if (!context.bulkPublishId) {
+        await assertConfigDescendantsReconcilable(context, proposedRoot);
+      }
+      // Soft governance warning (removes/retypes fields descendants use) — a
+      // revert to known-good state or a plan-gated bulk publish must not be
+      // re-blocked here.
+      if (!skipGuardAsserts) {
+        await assertConfigSchemaChangeSafeForDescendants(context, proposedRoot);
+      }
     }
 
     // Enforce cross-field invariants here — the chokepoint every publish path
@@ -551,7 +560,7 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
       filteredChanges.parent !== undefined ||
       "extends" in filteredChanges
     ) {
-      const { changes: normalizedChanges } =
+      const { changes: normalizedChanges, conflicting } =
         await normalizeConfigChangesAgainstAncestors(
           entity,
           filteredChanges,
@@ -561,11 +570,38 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
               schema,
             ),
         );
+      const proposedRoot = {
+        ...entity,
+        ...normalizedChanges,
+      } as ConfigInterface;
+      // Structural conflicts the apply would otherwise only throw on at commit
+      // (a 500 + rollback churn) — surfaced here as blocking, unbypassable
+      // gates so a plan/dryRun reports a clean 422 against the combined
+      // end-state. Neither is strip-resolvable, so no override flag clears them.
+      if (conflicting.length) {
+        gates.push({
+          type: "ancestor-conflict",
+          severity: "blocker",
+          messages: [formatAncestorFieldConflictMessage(conflicting)],
+          override: null,
+          requiresPermission: null,
+          resolution: null,
+        });
+      }
+      try {
+        await assertConfigDescendantsReconcilable(context, proposedRoot);
+      } catch (e) {
+        gates.push({
+          type: "descendant-conflict",
+          severity: "blocker",
+          messages: [getErrorMessage(e)],
+          override: null,
+          requiresPermission: null,
+          resolution: null,
+        });
+      }
       gates.push(
-        ...(await collectConfigSchemaChangeImpactGates(context, {
-          ...entity,
-          ...normalizedChanges,
-        } as ConfigInterface)),
+        ...(await collectConfigSchemaChangeImpactGates(context, proposedRoot)),
       );
     }
 
