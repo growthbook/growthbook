@@ -121,7 +121,7 @@ export default forwardRef<
         <Text as="div" size={getRadixSize(size)} className={styles.body}>
           {children}
         </Text>
-        {action ? <Box className={styles.action}>{action}</Box> : null}
+        {action ? <Box className={styles.firstLineSlot}>{action}</Box> : null}
       </Flex>
       {dismissible && id ? (
         <Box className={styles.firstLineSlot}>

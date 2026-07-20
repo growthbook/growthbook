@@ -2,7 +2,7 @@
   margin-bottom: 0;
 }
 
-// The icon and dismiss button are each sized to the text's first line and
+// The icon, action, and dismiss button are each sized to the text's first line and
 // centered within it. They align on that line and never grow the row, so
 // multi-line content stays top-aligned.
 .firstLineSlot {
@@ -15,8 +15,4 @@
 .body {
   flex: 1 1 0%;
   min-width: min(100%, 16rem);
-}
-
-.action {
-  flex-shrink: 0;
 }
