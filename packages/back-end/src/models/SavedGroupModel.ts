@@ -143,13 +143,21 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
     }
 
     // Don't emit `savedGroup.updated` if nothing meaningful changed (e.g. only
-    // `dateUpdated` was bumped) — mirrors the feature webhook behavior.
+    // `dateUpdated` was bumped) — mirrors the feature webhook behavior. During
+    // a bulk-publish commit the emission defers to the post-commit flush.
     const previous = this.toApiInterface(existing);
     const current = this.toApiInterface(newDoc);
     if (
       !isEqual(omit(previous, ["dateUpdated"]), omit(current, ["dateUpdated"]))
     ) {
-      await logSavedGroupUpdatedEvent(this.context, previous, current);
+      const deferred = this.context.bulkPublishDeferredEvents;
+      if (deferred) {
+        deferred.push(() =>
+          logSavedGroupUpdatedEvent(this.context, previous, current),
+        );
+      } else {
+        await logSavedGroupUpdatedEvent(this.context, previous, current);
+      }
     }
   }
 

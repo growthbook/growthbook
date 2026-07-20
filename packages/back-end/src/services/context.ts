@@ -19,6 +19,7 @@ import { DataSourceInterface } from "shared/types/datasource";
 import { FeatureInterface } from "shared/types/feature";
 import { UserInterface } from "shared/types/user";
 import { stringToBoolean } from "shared/util";
+import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import {
   BadRequestError,
   UnauthorizedError,
@@ -212,6 +213,60 @@ type ModelInstances = {
 };
 
 export class ReqContextClass {
+  /**
+   * When set, guard evaluators use this as their org-wide scan context instead
+   * of minting a fresh one per evaluation (getContextForAgendaJobByOrgObject).
+   * Sharing one scan context makes the model-instance snapshot memos (e.g.
+   * ConfigModel.getAllForReconcile) span all guards in the operation, and lets
+   * the bulk publisher substitute an overlay context whose reads reflect a
+   * hypothetical multi-entity end-state. Set it self-referentially on the scan
+   * context itself so nested evaluations inherit it. Request-scoped only —
+   * never cache one of these across requests.
+   */
+  public scanContextOverride?: ReqContextClass;
+
+  /**
+   * Proposed feature states for the bulk publisher's overlay scan context,
+   * keyed by feature id. Honored by getAllFeaturesWithoutEditorFields (the
+   * single funnel every cross-entity validator reads features through), so
+   * guards evaluating a config/constant publish see the batch's proposed
+   * feature values instead of live ones. Only ever set on a dedicated
+   * plan-scoped scan context — never on a context that performs writes.
+   */
+  public featureScanOverlay?: Map<string, FeatureInterface> | null;
+
+  /**
+   * When set, queueSDKPayloadRefresh appends payload keys here instead of
+   * refreshing — the bulk publisher's side-effect buffer, so a multi-entity
+   * commit produces ONE deduped refresh (at most one rebuild per SDK
+   * connection) after every write lands, and none at all if the commit
+   * compensates. `treatEmptyProjectAsGlobal` ORs across buffered calls so the
+   * flush matches connections at least as widely as the suppressed refreshes
+   * would have. Cleared before the flush itself refreshes.
+   */
+  public sdkPayloadRefreshBuffer?: {
+    keys: SDKPayloadKey[];
+    treatEmptyProjectAsGlobal: boolean;
+  } | null;
+
+  /**
+   * When set, apply-path `*.updated` webhook-event emissions enqueue here
+   * instead of firing — the bulk publisher flushes them per entity after the
+   * whole commit lands, and drops them on compensation so a rolled-back
+   * release emits no update events. Audit-log entries are NOT deferred: they
+   * record writes that genuinely happened, compensation included.
+   */
+  public bulkPublishDeferredEvents?: Array<() => Promise<unknown>> | null;
+
+  /**
+   * Correlation token for the multi-entity publish ATTEMPT currently
+   * committing (`pub_…`, minted per commit). Distinct from the future
+   * Release id: a Release may publish over several attempts, each minting
+   * its own token. Revision lifecycle events emitted while set carry it as
+   * `bulkPublishId`. Absent on single-entity publishes.
+   */
+  public bulkPublishId?: string | null;
+
   // Models
   public models!: ModelInstances;
   private initModels() {

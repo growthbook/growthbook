@@ -7,6 +7,7 @@ import {
 } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
 import { BadRequestError } from "back-end/src/util/errors";
+import { overlayDocsById } from "back-end/src/util/scanOverlay.util";
 import { resolvableValueChanged } from "back-end/src/services/constants";
 import { assertConstantArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
@@ -51,12 +52,15 @@ export class ConstantModel extends BaseClass {
 
   public getAll(): Promise<ConstantInterface[]> {
     if (this.allSnapshot === null) {
-      const load = super.getAll().catch((err) => {
-        // Clear only our own failed load — a write may have invalidated it and
-        // a newer healthy load may already be memoized.
-        if (this.allSnapshot === load) this.allSnapshot = null;
-        throw err;
-      });
+      const load = super
+        .getAll()
+        .then((docs) => this.applyScanOverlay(docs))
+        .catch((err) => {
+          // Clear only our own failed load — a write may have invalidated it and
+          // a newer healthy load may already be memoized.
+          if (this.allSnapshot === load) this.allSnapshot = null;
+          throw err;
+        });
       this.allSnapshot = load;
     }
     return this.allSnapshot.then((docs) => docs.slice());
@@ -64,6 +68,20 @@ export class ConstantModel extends BaseClass {
 
   private invalidateAllSnapshot(): void {
     this.allSnapshot = null;
+  }
+
+  // Scan-overlay: substitute hypothetical entity states into snapshot reads.
+  // Mirrors ConfigModel.setScanOverlay — only ever set on a dedicated
+  // plan-scoped scan context, never on a context that performs writes.
+  private scanOverlay: Map<string, ConstantInterface> | null = null;
+
+  public setScanOverlay(docs: ConstantInterface[]): void {
+    this.scanOverlay = new Map(docs.map((d) => [d.id, d]));
+    this.invalidateAllSnapshot();
+  }
+
+  private applyScanOverlay(docs: ConstantInterface[]): ConstantInterface[] {
+    return overlayDocsById(docs, this.scanOverlay);
   }
 
   protected canRead(doc: ConstantInterface): boolean {
@@ -180,13 +198,21 @@ export class ConstantModel extends BaseClass {
       });
     }
 
-    // Skip the webhook event when only `dateUpdated` changed.
+    // Skip the webhook event when only `dateUpdated` changed. During a
+    // bulk-publish commit the emission defers to the post-commit flush.
     const previous = this.toApiInterface(existing);
     const current = this.toApiInterface(newDoc);
     if (
       !isEqual(omit(previous, ["dateUpdated"]), omit(current, ["dateUpdated"]))
     ) {
-      await logConstantUpdatedEvent(this.context, previous, current);
+      const deferred = this.context.bulkPublishDeferredEvents;
+      if (deferred) {
+        deferred.push(() =>
+          logConstantUpdatedEvent(this.context, previous, current),
+        );
+      } else {
+        await logConstantUpdatedEvent(this.context, previous, current);
+      }
     }
   }
 

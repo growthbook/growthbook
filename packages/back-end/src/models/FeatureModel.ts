@@ -78,6 +78,7 @@ import {
   isPlausibleFeatureRule,
   V1RulesByEnv,
 } from "back-end/src/util/flattenRules";
+import { overlayDocsById } from "back-end/src/util/scanOverlay.util";
 import { ReqContext } from "back-end/types/request";
 import {
   applyEnvironmentInheritance,
@@ -523,7 +524,17 @@ export async function getAllFeaturesWithoutEditorFields(
     ),
   );
 
-  return features.filter((feature) =>
+  // Bulk-publish overlay: substitute the batch's proposed feature states so
+  // cross-entity validators (schema-break/experiment guards on config and
+  // constant publishes) evaluate the hypothetical end-state, not live docs.
+  // Applied before the permission filter and re-filtered on archived so
+  // proposed docs obey the same visibility rules as loaded ones.
+  let merged = overlayDocsById(features, context.featureScanOverlay);
+  if (merged !== features && !includeArchived) {
+    merged = merged.filter((feature) => !feature.archived);
+  }
+
+  return merged.filter((feature) =>
     context.permissions.canReadSingleProjectResource(feature.project),
   );
 }
@@ -1052,8 +1063,16 @@ export async function onFeatureUpdate(
       omit(updatedFeature, ["dateUpdated"]),
     )
   ) {
-    // Event-based webhooks
-    await logFeatureUpdatedEvent(context, feature, updatedFeature);
+    // Event-based webhooks. During a bulk-publish commit the emission defers
+    // to the post-commit flush (dropped entirely if the commit compensates).
+    const deferred = context.bulkPublishDeferredEvents;
+    if (deferred) {
+      deferred.push(() =>
+        logFeatureUpdatedEvent(context, feature, updatedFeature),
+      );
+    } else {
+      await logFeatureUpdatedEvent(context, feature, updatedFeature);
+    }
   }
 
   if (context.org.isVercelIntegration)
@@ -1802,6 +1821,77 @@ export async function applyHoldoutSideEffects(
 //   failures abort publish.
 // - `update` actions are called AFTER publish succeeds (best-effort).
 // Returns only newly created schedule IDs (for rollback on failure).
+// Phase-shaped ramp-action surface for the bulk publisher, mirroring
+// publishRevision's ordering: creates run BEFORE the feature write (a failure
+// gates the publish; ids returned for rollback), updates/detaches/cleanup run
+// after a known-good publish as best-effort.
+export async function applyRampCreateActionsForRevision(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+  result: MergeResultChanges,
+): Promise<string[]> {
+  const createActions = (revision.rampActions ?? []).filter(
+    (a) => a.mode === "create",
+  );
+  if (!createActions.length) return [];
+  return createRampSchedulesForRevision(
+    context,
+    feature,
+    revision,
+    result,
+    createActions,
+  );
+}
+
+export async function rollbackCreatedRampSchedules(
+  context: ReqContext | ApiReqContext,
+  scheduleIds: string[],
+): Promise<void> {
+  for (const id of scheduleIds) {
+    try {
+      await context.models.rampSchedules.deleteById(id);
+    } catch (deleteErr) {
+      logger.error(
+        deleteErr,
+        `Failed to delete orphaned ramp schedule ${id} during publish rollback`,
+      );
+    }
+  }
+}
+
+export async function finalizeRampActionsAfterPublish(
+  context: ReqContext | ApiReqContext,
+  featureBefore: FeatureInterface,
+  featureAfter: FeatureInterface,
+  revision: FeatureRevisionInterface,
+  result: MergeResultChanges,
+): Promise<void> {
+  const updateActions = (revision.rampActions ?? []).filter(
+    (a) => a.mode === "update",
+  );
+  if (updateActions.length) {
+    try {
+      await createRampSchedulesForRevision(
+        context,
+        featureAfter,
+        revision,
+        result,
+        updateActions,
+      );
+    } catch (err) {
+      logger.error(
+        err,
+        "Failed to apply deferred ramp update actions after publish",
+      );
+    }
+  }
+  if (revision.rampActions?.length) {
+    await applyDetachRampActions(context, revision.rampActions);
+  }
+  await cleanupOrphanedRampSchedules(context, featureBefore, featureAfter);
+}
+
 async function createRampSchedulesForRevision(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,

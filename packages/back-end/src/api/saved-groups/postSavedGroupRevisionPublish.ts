@@ -154,7 +154,7 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
   }
 
   const { blocking, bypassed } = evaluatePublishGates(gates, {
-    ignoreWarnings: !!req.body.mergeNow || req.context.ignoreWarnings,
+    ignoreWarnings: req.context.ignoreWarnings,
     skipSchemaValidation: req.context.skipSchemaValidation,
     skipHooks: req.context.skipHooks,
     bypassApprovalPermission: adapter.canBypassApproval(
@@ -209,13 +209,11 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
 
   // Governance friction (parity with features): when the org enforces same-base
   // merges, a revision created against a snapshot that no longer matches the
-  // live saved group must be rebased first. `ignoreWarnings` (or the deprecated
-  // `mergeNow` alias) force-merges the stale revision — but only for
-  // bypass-approval callers, and asking without the permission fails loudly
-  // rather than silently re-blocking.
+  // live saved group must be rebased first. `ignoreWarnings` force-merges the
+  // stale revision — but only for bypass-approval callers, and asking without
+  // the permission fails loudly rather than silently re-blocking.
   if (req.organization.settings?.requireRebaseBeforePublish) {
-    const forceMergeRequested =
-      !!req.body.mergeNow || req.context.ignoreWarnings;
+    const forceMergeRequested = req.context.ignoreWarnings;
     const forceMerge = forceMergeRequested && canBypass;
     if (!forceMerge) {
       const diverged = isRevisionDiverged(

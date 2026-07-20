@@ -1603,6 +1603,7 @@ Triggered when a draft revision is published. Overlaps with `feature.updated` bu
                 condition: string;
             }[] | undefined;
             metadata?: {} | undefined;
+            bulkPublishId?: string | undefined;
         };
     };
     user: {
@@ -1671,6 +1672,7 @@ Triggered when a feature is reverted to a previous published revision
             }[] | undefined;
             metadata?: {} | undefined;
             revertedToVersion: number;
+            bulkPublishId?: string | undefined;
         };
     };
     user: {
@@ -1738,6 +1740,7 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
                 condition: string;
             }[] | undefined;
             metadata?: {} | undefined;
+            bulkPublishId?: string | undefined;
             failureReason: string;
             terminal: boolean;
             attempts: number;
@@ -4257,6 +4260,7 @@ Triggered when a draft revision is published. Overlaps with `savedGroup.updated`
                 op: string;
                 path: string;
             }[];
+            bulkPublishId?: string | undefined;
         };
     };
     user: {
@@ -4373,6 +4377,7 @@ Triggered when a saved group is reverted to a previous published revision
                 path: string;
             }[];
             revertedToVersion?: number | undefined;
+            bulkPublishId?: string | undefined;
         };
     };
     user: {
@@ -4603,6 +4608,7 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
                 op: string;
                 path: string;
             }[];
+            bulkPublishId?: string | undefined;
             failureReason: string;
             terminal: boolean;
             attempts: number;
@@ -5865,6 +5871,7 @@ Triggered when a draft revision is published. Overlaps with `constant.updated` b
                 op: string;
                 path: string;
             }[];
+            bulkPublishId?: string | undefined;
         };
     };
     user: {
@@ -5981,6 +5988,7 @@ Triggered when a constant is reverted to a previous published revision
                 path: string;
             }[];
             revertedToVersion?: number | undefined;
+            bulkPublishId?: string | undefined;
         };
     };
     user: {
@@ -6211,6 +6219,7 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
                 op: string;
                 path: string;
             }[];
+            bulkPublishId?: string | undefined;
             failureReason: string;
             terminal: boolean;
             attempts: number;
@@ -8551,6 +8560,7 @@ Triggered when a draft revision is published. Overlaps with `config.updated` but
                 op: string;
                 path: string;
             }[];
+            bulkPublishId?: string | undefined;
         };
     };
     user: {
@@ -8765,6 +8775,7 @@ Triggered when a config is reverted to a previous published revision
                 path: string;
             }[];
             revertedToVersion?: number | undefined;
+            bulkPublishId?: string | undefined;
         };
     };
     user: {
@@ -9191,6 +9202,7 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
                 op: string;
                 path: string;
             }[];
+            bulkPublishId?: string | undefined;
             failureReason: string;
             terminal: boolean;
             attempts: number;

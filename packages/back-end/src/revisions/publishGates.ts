@@ -124,7 +124,7 @@ const SOFT_GUARD_GATE_TYPES: ReadonlySet<string> = new Set([
  * gate evaluation matches the sequential backstops exactly.
  */
 export type PublishGateClearance = {
-  /** The request asked to force past warnings (body `ignoreWarnings`/`mergeNow`). */
+  /** The request asked to force past warnings (body `ignoreWarnings`). */
   ignoreWarnings: boolean;
   /**
    * The caller may skip validation-class gates (schema errors, invariants,

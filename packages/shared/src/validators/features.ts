@@ -619,6 +619,12 @@ export function reviewerKeyForEventUser(
 
 const featureRevisionInterface = minimalFeatureRevisionInterface
   .extend({
+    // Stable identity, a pure computed projection of the immutable natural
+    // key: "frev_<version>_<featureId>" (org scope comes from request auth).
+    // Never stored — populated by buildFeatureRevisionInterface on every
+    // read; resolve by decoding onto the (organization, featureId, version)
+    // unique index.
+    id: z.string().optional(),
     featureId: z.string(),
     organization: z.string(),
     baseVersion: z.number(),
@@ -1198,6 +1204,11 @@ export const apiFeatureRevisionValidator = namedSchema(
   "FeatureRevisionV1",
   z
     .object({
+      id: z
+        .string()
+        .describe(
+          "Stable revision id. Newer revisions carry opaque ids; older ones a derived `frev_<version>_<featureId>` form. Both work wherever revision ids are accepted.",
+        ),
       featureId: z.string().describe("The feature this revision belongs to"),
       baseVersion: z.coerce.number().int(),
       version: z.coerce.number().int(),
@@ -1286,6 +1297,10 @@ export const apiFeatureValidator = namedSchema(
         .describe("Feature IDs. Each feature must evaluate to `true`")
         .optional(),
       revision: z.object({
+        id: z
+          .string()
+          .describe("Stable id of the feature's live revision.")
+          .optional(),
         version: z.coerce.number().int(),
         comment: z.string(),
         date: z.string().meta({ format: "date-time" }),

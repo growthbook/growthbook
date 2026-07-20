@@ -51,6 +51,9 @@ export async function resolvableValueChanged(
   changedKey?: string,
 ) {
   const context = getContextForAgendaJobByOrgObject(baseContext.org);
+  // Carry the bulk publisher's refresh buffer across the context boundary so a
+  // buffered commit's constant/config side effects don't escape it.
+  context.sdkPayloadRefreshBuffer = baseContext.sdkPayloadRefreshBuffer;
 
   if (changedKey) {
     const features = await getFeaturesAffectedByResolvable(

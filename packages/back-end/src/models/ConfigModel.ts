@@ -20,6 +20,7 @@ import {
 import { UpdateProps } from "shared/types/base-model";
 import { isEqual, omit } from "lodash";
 import { BadRequestError } from "back-end/src/util/errors";
+import { overlayDocsById } from "back-end/src/util/scanOverlay.util";
 import {
   resolvableValueChanged,
   assertConfigDeletable,
@@ -350,13 +351,21 @@ export class ConfigModel extends BaseClass {
       });
     }
 
-    // Skip the webhook event when only `dateUpdated` changed.
+    // Skip the webhook event when only `dateUpdated` changed. During a
+    // bulk-publish commit the emission defers to the post-commit flush.
     const previous = this.toApiInterface(existing);
     const current = this.toApiInterface(newDoc);
     if (
       !isEqual(omit(previous, ["dateUpdated"]), omit(current, ["dateUpdated"]))
     ) {
-      await logConfigUpdatedEvent(this.context, previous, current);
+      const deferred = this.context.bulkPublishDeferredEvents;
+      if (deferred) {
+        deferred.push(() =>
+          logConfigUpdatedEvent(this.context, previous, current),
+        );
+      } else {
+        await logConfigUpdatedEvent(this.context, previous, current);
+      }
     }
   }
 
@@ -401,17 +410,33 @@ export class ConfigModel extends BaseClass {
   // retries.
   public getAllForReconcile(): Promise<ConfigInterface[]> {
     if (this.reconcileSnapshot === null) {
-      const load = this._find({}, { bypassReadPermissionChecks: true }).catch(
-        (err) => {
+      const load = this._find({}, { bypassReadPermissionChecks: true })
+        .then((docs) => this.applyScanOverlay(docs))
+        .catch((err) => {
           // Clear only our own failed load — a write may have invalidated it
           // and a newer healthy load may already be memoized.
           if (this.reconcileSnapshot === load) this.reconcileSnapshot = null;
           throw err;
-        },
-      );
+        });
       this.reconcileSnapshot = load;
     }
     return this.reconcileSnapshot;
+  }
+
+  // Scan-overlay: substitute hypothetical entity states into every snapshot
+  // read from this model instance. Used by the bulk publisher's overlay scan
+  // context so validation/guards evaluate a proposed multi-entity end-state
+  // instead of live DB state. Only ever set on a dedicated plan-scoped scan
+  // context — never on a request context that performs writes.
+  private scanOverlay: Map<string, ConfigInterface> | null = null;
+
+  public setScanOverlay(docs: ConfigInterface[]): void {
+    this.scanOverlay = new Map(docs.map((d) => [d.id, d]));
+    this.invalidateReconcileSnapshot();
+  }
+
+  private applyScanOverlay(docs: ConfigInterface[]): ConfigInterface[] {
+    return overlayDocsById(docs, this.scanOverlay);
   }
 
   private invalidateReconcileSnapshot(): void {

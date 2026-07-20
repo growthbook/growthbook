@@ -1298,7 +1298,20 @@ export class RevisionModel extends BaseClass {
   // under CAS and throws. (publishRevision claims the merge before applying
   // changes to the live entity, so a losing discard can't orphan a half-applied
   // change.)
-  async merge(id: string, userId: string, options?: { bypass?: boolean }) {
+  async merge(
+    id: string,
+    userId: string,
+    options?: {
+      bypass?: boolean;
+      /** Publish comment, recorded in the merge activity-log entry. */
+      comment?: string;
+      // Plan-time baseline for bulk publishes: the claim fails if the revision
+      // was touched at all since planning (content edit, review, competing
+      // lifecycle change), not just if its status moved. Checked inside the
+      // CAS compute so the re-read→write race is covered by the status guard.
+      expected?: { status: string; dateUpdated: Date };
+    },
+  ) {
     // Whether a schedule was armed on the winning CAS read — used after the
     // status transition lands to scrub the schedule fields.
     let hadSchedule = false;
@@ -1306,12 +1319,25 @@ export class RevisionModel extends BaseClass {
       if (existing.status === "merged" || existing.status === "discarded") {
         throw new Error("Cannot merge a discarded or already-merged revision");
       }
+      const expected = options?.expected;
+      if (
+        expected &&
+        (existing.status !== expected.status ||
+          existing.dateUpdated.getTime() !== expected.dateUpdated.getTime())
+      ) {
+        throw new Error(
+          "The revision changed after the publish was planned — re-plan and retry",
+        );
+      }
       hadSchedule =
         !!existing.autoPublishOnApproval ||
         (existing.scheduledPublishAt ?? null) !== null;
-      const description = options?.bypass
+      const base = options?.bypass
         ? "Merged revision (bypass)"
         : "Merged revision";
+      const description = options?.comment
+        ? `${base}: ${options.comment}`
+        : base;
       return {
         status: "merged",
         // Publishing disarms any pending schedule and releases the lock-others
