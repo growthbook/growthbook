@@ -399,7 +399,13 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     // Experiments the apply newly linked this feature into (linkedFeatures is
     // written by updateFeature for experiments absent from the pre-image's
     // linkedExperiments) get unlinked — the restored rules no longer reference
-    // them. The helper no-ops when the link is already gone.
+    // them. The helper no-ops when the link is already gone. Deliberately NOT
+    // gated on the holdout reversal below: the unlink pairs with the rules
+    // restore (unconditional), while the reversal walks the feature's
+    // linkedExperiments doc field, which this loop never touches — a failed
+    // reversal leaves stale experiment holdout pointers either way, and
+    // skipping the unlink would instead break the hotter
+    // rules↔linkedFeatures invariant.
     const addedExperiments = (
       desired.updatedFeature?.linkedExperiments ?? []
     ).filter((id) => !(feature.linkedExperiments ?? []).includes(id));
@@ -435,7 +441,7 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
         holdoutReversalOk = false;
         logger.error(
           e,
-          `bulk publish compensation: failed to reverse holdout change for feature ${feature.id}`,
+          `bulk publish compensation: failed to reverse holdout change for feature ${feature.id} — linked experiments [${(current.linkedExperiments ?? []).join(", ")}] may carry stale holdout pointers`,
         );
       }
     }
