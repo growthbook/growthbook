@@ -1165,7 +1165,38 @@ describe("collectResolvedConfigValueViolations", () => {
         byKey,
         additionalProperties: true,
       }),
-    ).toEqual(["min > max"]);
+    ).toEqual(['validation rule "order": min > max']);
+  });
+
+  it("keeps two rules with identical messages distinguishable (fingerprint identity)", () => {
+    // The violation strings double as the schema-break guard's arm-time
+    // acknowledgment fingerprint — if two rules collapsed to the same string, a
+    // NEW break from one could masquerade as the acknowledged break of the other.
+    const byKey = dagMap([
+      {
+        key: "base",
+        schema: {
+          type: "object",
+          fields: [numField("min"), numField("max"), numField("cap")],
+          invariants: [
+            inv("order", { min: { $lte: { $ref: "max" } } }, "invalid range"),
+            inv("cap", { max: { $lte: { $ref: "cap" } } }, "invalid range"),
+          ],
+        },
+        value: "{}",
+      },
+    ]);
+    expect(
+      collectResolvedConfigValueViolations({
+        configKey: "base",
+        value: { min: 9, max: 2, cap: 1 },
+        byKey,
+        additionalProperties: true,
+      }),
+    ).toEqual([
+      'validation rule "order": invalid range',
+      'validation rule "cap": invalid range',
+    ]);
   });
 
   it("applies a base config's invariant to a descendant's resolved value", () => {
@@ -1190,7 +1221,7 @@ describe("collectResolvedConfigValueViolations", () => {
         byKey,
         additionalProperties: true,
       }),
-    ).toEqual(["min > max"]);
+    ).toEqual(['validation rule "order": min > max']);
   });
 });
 

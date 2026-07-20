@@ -74,6 +74,53 @@ export async function runValidateFeatureRevisionHooks({
   );
 }
 
+// Non-throwing variants for the REST publish handler, which surfaces hook
+// outcomes as publish gates instead of exceptions (mirrors
+// collectValidateConfigRevisionHookResults). Same arg prep as the throwing
+// runValidate* wrappers above, but returns the collected results.
+export async function collectValidateFeatureHookResults({
+  context,
+  feature,
+  original,
+}: {
+  context: Context;
+  feature: FeatureInterface;
+  original: FeatureInterface | null;
+}): Promise<CustomHookResults> {
+  return collectCustomHookResults(
+    context,
+    "validateFeature",
+    { feature },
+    feature.project,
+    feature.id,
+    original ? { feature: original } : undefined,
+  );
+}
+
+export async function collectValidateFeatureRevisionHookResults({
+  context,
+  feature,
+  revision,
+  original,
+}: {
+  context: Context;
+  feature: FeatureInterface;
+  revision: FeatureRevisionInterface;
+  original: FeatureRevisionInterface;
+}): Promise<CustomHookResults> {
+  return collectCustomHookResults(
+    context,
+    "validateFeatureRevision",
+    { feature, revision },
+    feature.project,
+    feature.id,
+    {
+      feature,
+      revision: original,
+    },
+  );
+}
+
 // The config being validated, positioned in its lineage — exposed to config
 // hooks so they can reason about where "self" sits (root vs leaf, whether it has
 // a parent or children, and the full ancestor/descendant key lists).
@@ -355,23 +402,30 @@ export type ConfigRevisionHookInput = {
   }[];
 };
 
-export async function runValidateConfigRevisionHooks({
-  context,
-  config,
-  revision,
-  original,
-}: {
+type ConfigRevisionHookArgs = {
   context: Context;
   config: ConfigHookInput;
   revision?: ConfigRevisionHookInput;
   original?: ConfigHookInput | null;
-}): Promise<void> {
-  if (!(await anyHooksToRun(context, "validateConfigRevision", config))) return;
+};
+
+// Shared arg prep for the config-revision hook call; null when no hooks match.
+async function prepareConfigRevisionHookCall({
+  context,
+  config,
+  revision,
+  original,
+}: ConfigRevisionHookArgs): Promise<Parameters<
+  typeof collectCustomHookResults
+> | null> {
+  if (!(await anyHooksToRun(context, "validateConfigRevision", config))) {
+    return null;
+  }
   const enriched = await prepareConfigHookArgs(context, config, original);
   // Args are injected by destructuring, so `revision` must always be bound —
   // an absent key makes `if (revision)` a ReferenceError inside the hook.
   // Direct publishes (REST value update, revert) have no revision → null.
-  return _runCustomHooks(
+  return [
     context,
     "validateConfigRevision",
     { config: enriched.config, revision: revision ?? null },
@@ -381,7 +435,25 @@ export async function runValidateConfigRevisionHooks({
       ? { config: enriched.original, revision: revision ?? null }
       : undefined,
     { parent: config.parent, extends: config.extends },
-  );
+  ];
+}
+
+export async function runValidateConfigRevisionHooks(
+  args: ConfigRevisionHookArgs,
+): Promise<void> {
+  const call = await prepareConfigRevisionHookCall(args);
+  if (!call) return;
+  return _runCustomHooks(...call);
+}
+
+// Non-throwing variant for the REST publish handlers, which surface hook
+// outcomes as publish gates instead of exceptions.
+export async function collectValidateConfigRevisionHookResults(
+  args: ConfigRevisionHookArgs,
+): Promise<CustomHookResults> {
+  const call = await prepareConfigRevisionHookCall(args);
+  if (!call) return { hardErrors: [], warnings: [] };
+  return collectCustomHookResults(...call);
 }
 
 // Per-hook: tell a config hook whether the config being validated is the exact
@@ -427,6 +499,55 @@ export async function runValidateExperimentHooks({
   );
 }
 
+// The aggregated custom-hook outcome for one entity change: hard errors (a hook
+// threw — validation-class) and soft warnings (a hook called addWarning —
+// acknowledge-class). Non-throwing so the caller can either throw (the assert
+// wrappers) or emit gates (the REST publish handlers).
+export type CustomHookResults = {
+  hardErrors: string[];
+  warnings: string[];
+};
+
+// Run every matching hook and collect the results without throwing. All hard
+// errors are collected (not short-circuited on the first), so a gate can list them.
+export async function collectCustomHookResults(
+  context: Context,
+  hookType: CustomHookType,
+  functionArgs: Record<string, unknown>,
+  project: string = "",
+  entityId: string = "",
+  originalFunctionArgs?: Record<string, unknown>,
+  configBases?: { parent?: string; extends?: string[] },
+): Promise<CustomHookResults> {
+  if (!customHooksActive(context)) return { hardErrors: [], warnings: [] };
+
+  // Get an admin version of the context: the user's permissions must not affect
+  // which hooks execute (admin context has no `req`, so the caller's disposition
+  // — ignoreWarnings/skipSchemaValidation — is read from the original context).
+  const adminContext = getContextForAgendaJobByOrgObject(context.org);
+
+  const hooks = await adminContext.models.customHooks.getByHook(
+    hookType,
+    project,
+    entityId,
+    configBases,
+  );
+
+  const hardErrors: string[] = [];
+  const warnings: string[] = [];
+  for (const hook of hooks) {
+    const { error, warnings: hookWarnings } = await _runCustomHook(
+      adminContext,
+      hook,
+      withHookTarget(hook, functionArgs) ?? functionArgs,
+      withHookTarget(hook, originalFunctionArgs),
+    );
+    if (error) hardErrors.push(error);
+    warnings.push(...hookWarnings);
+  }
+  return { hardErrors, warnings };
+}
+
 // Private methods
 async function _runCustomHooks(
   context: Context,
@@ -439,38 +560,28 @@ async function _runCustomHooks(
   // lets family-scoped hooks match descendants of their entityId.
   configBases?: { parent?: string; extends?: string[] },
 ) {
-  if (!customHooksActive(context)) return;
-
-  // Admin context has no `req` so must read from original context instead
-  const ignoreWarnings = context.ignoreWarnings;
-
-  // Get an admin version of the context
-  // We don't want the user's permissions to affect which hooks are executed
-  const adminContext = getContextForAgendaJobByOrgObject(context.org);
-
-  const hooks = await adminContext.models.customHooks.getByHook(
+  const { hardErrors, warnings } = await collectCustomHookResults(
+    context,
     hookType,
+    functionArgs,
     project,
     entityId,
+    originalFunctionArgs,
     configBases,
   );
 
-  const allWarnings: string[] = [];
-  for (const hook of hooks) {
-    const { error, warnings } = await _runCustomHook(
-      adminContext,
-      hook,
-      withHookTarget(hook, functionArgs) ?? functionArgs,
-      withHookTarget(hook, originalFunctionArgs),
-    );
-    if (error) {
-      throw new Error(error);
-    }
-    allWarnings.push(...warnings);
+  // A hard hook error (a hook threw) blocks unless the caller passes the
+  // privileged skipHooks (which already requires the bypassApprovalChecks
+  // permission). Its own flag, not skipSchemaValidation — a hook failure isn't a
+  // schema error. This is the assert-path equivalent of the custom-hook gate the
+  // REST publish handlers emit.
+  if (hardErrors.length && !context.skipHooks) {
+    throw new Error(hardErrors.join("\n"));
   }
 
-  if (allWarnings.length && !ignoreWarnings) {
-    throw new SoftWarningError(allWarnings.join("\n"), allWarnings);
+  // Hook warnings are acknowledge-class: bypassable by ignoreWarnings (anyone).
+  if (warnings.length && !context.ignoreWarnings) {
+    throw new SoftWarningError(warnings.join("\n"), warnings);
   }
 }
 

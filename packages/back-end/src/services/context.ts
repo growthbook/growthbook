@@ -359,15 +359,32 @@ export class ReqContextClass {
   }
 
   // True to skip soft warnings; background jobs (no req) always ignore.
+  // Body-canonical (`{ "ignoreWarnings": true }`) with the querystring form
+  // kept as a deprecated alias — the flag is request disposition, but callers
+  // (agents especially) discover and retry flags far more reliably in the body
+  // schema. Strict zod body schemas mostly limit the flag to endpoints that
+  // declare the field, but not fully: `z.never()` bodies and internal routes
+  // skip body validation, so this getter can still see the raw flag there.
   public get ignoreWarnings(): boolean {
     if (!this.req) return true;
+    if (this.bodyFlag("ignoreWarnings")) return true;
     const v = this.req.query?.ignoreWarnings;
     if (typeof v !== "string") return false;
     return stringToBoolean(v);
   }
 
+  private bodyFlag(field: string): boolean {
+    const body = this.req?.body;
+    return (
+      !!body &&
+      typeof body === "object" &&
+      (body as Record<string, unknown>)[field] === true
+    );
+  }
+
   // Opt-in escape hatch to skip JSON-schema / value-shape conformance checks on
-  // write paths (`?skipSchemaValidation=true`). Validation is enforced by
+  // write paths (body-canonical `{ "skipSchemaValidation": true }`, with the
+  // querystring form as a deprecated alias). Validation is enforced by
   // default; this only relaxes it when a caller explicitly asks. Background jobs
   // (no req) never skip — they must produce conforming data.
   //
@@ -378,8 +395,25 @@ export class ReqContextClass {
   // so nothing depends on an ungated bypass.
   public get skipSchemaValidation(): boolean {
     if (!this.req) return false;
-    const v = this.req.query?.skipSchemaValidation;
-    if (typeof v !== "string" || !stringToBoolean(v)) return false;
+    const queryValue = this.req.query?.skipSchemaValidation;
+    const requested =
+      this.bodyFlag("skipSchemaValidation") ||
+      (typeof queryValue === "string" && stringToBoolean(queryValue));
+    if (!requested) return false;
+    return this.permissions.canBypassApprovalChecks({ project: undefined });
+  }
+
+  // Force past a custom validation hook that rejected the change. Its own flag
+  // (not skipSchemaValidation — a hook failure isn't a schema error), honored
+  // only for callers with org-wide bypass authority (the bypassApprovalChecks
+  // permission on all projects); ignored otherwise.
+  public get skipHooks(): boolean {
+    if (!this.req) return false;
+    const queryValue = this.req.query?.skipHooks;
+    const requested =
+      this.bodyFlag("skipHooks") ||
+      (typeof queryValue === "string" && stringToBoolean(queryValue));
+    if (!requested) return false;
     return this.permissions.canBypassApprovalChecks({ project: undefined });
   }
 

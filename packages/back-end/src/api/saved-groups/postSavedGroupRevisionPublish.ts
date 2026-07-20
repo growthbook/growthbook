@@ -13,10 +13,19 @@ import {
 } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
 import {
+  evaluatePublishGates,
+  PublishBlockedError,
+  PublishGate,
+} from "back-end/src/revisions/publishGates";
+import {
   buildMergeDesiredState,
   isRevisionDiverged,
 } from "back-end/src/revisions/util";
 import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
+import {
+  archiveDependentsGateMessage,
+  collectSavedGroupArchiveDependents,
+} from "back-end/src/services/archiveDependentsGuard";
 import { loadRevisionByVersion } from "./validations";
 import { toApiSavedGroupRevision } from "./toApiSavedGroupRevision";
 
@@ -67,6 +76,98 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
       savedGroup as Record<string, unknown>,
     );
 
+  // Aggregate every publish gate up front so a blocked publish returns ONE
+  // structured 422 naming each gate, the flag that clears it, and a callable
+  // resolution route. Gates are assembled for every ACTIVE condition (whether
+  // or not the caller can bypass it) so a successful publish can report the ones
+  // that were bypassed. The sequential checks below stay in place as the
+  // enforcement backstop.
+  const version = req.params.version;
+
+  // Build the desired final state by layering proposed changes on top of LIVE,
+  // not the snapshot — this preserves any out-of-band writes to fields the
+  // revision didn't propose to change. See `buildMergeDesiredState`. Built up
+  // front so the archive transition is known before gate assembly.
+  const desiredState = buildMergeDesiredState(
+    savedGroup as unknown as Record<string, unknown>,
+    revision.target.snapshot as Record<string, unknown>,
+    revision.target.proposedChanges,
+    adapter.getUpdatableFields(),
+  );
+
+  const gates: PublishGate[] = [];
+  if (approvalRequired && revision.status !== "approved") {
+    gates.push({
+      type: "approval-required",
+      severity: "blocker",
+      messages: [
+        `Requires approval before publishing (status: "${revision.status}").`,
+      ],
+      override: null,
+      requiresPermission: "bypassApprovalChecks",
+      resolution: {
+        action: "request-review",
+        method: "POST",
+        path: `/saved-groups-revisions/${savedGroup.id}/${version}/request-review`,
+      },
+    });
+  }
+  if (
+    req.organization.settings?.requireRebaseBeforePublish &&
+    isRevisionDiverged(
+      adapter,
+      revision.target.snapshot as Record<string, unknown>,
+      savedGroup as unknown as Record<string, unknown>,
+    )
+  ) {
+    gates.push({
+      type: "stale-base",
+      severity: "blocker",
+      messages: ["This revision was created against an older version."],
+      override: "ignoreWarnings",
+      requiresPermission: "bypassApprovalChecks",
+      resolution: {
+        action: "rebase",
+        method: "POST",
+        path: `/saved-groups-revisions/${savedGroup.id}/${version}/rebase`,
+      },
+    });
+  }
+  // Archiving a saved group that live features/experiments/other groups still
+  // reference is a soft, acknowledgeable warning (bypassable by ignoreWarnings
+  // alone). Only the archive transition is guarded.
+  if (desiredState.archived === true && !savedGroup.archived) {
+    const dependents = await collectSavedGroupArchiveDependents(
+      req.context,
+      savedGroup.id,
+    );
+    if (dependents.ids.length) {
+      gates.push({
+        type: "archive-dependents",
+        severity: "warning",
+        messages: [archiveDependentsGateMessage("Saved Group", dependents)],
+        override: "ignoreWarnings",
+        requiresPermission: null,
+        resolution: null,
+      });
+    }
+  }
+
+  const { blocking, bypassed } = evaluatePublishGates(gates, {
+    ignoreWarnings: !!req.body.mergeNow || req.context.ignoreWarnings,
+    skipSchemaValidation: req.context.skipSchemaValidation,
+    skipHooks: req.context.skipHooks,
+    bypassApprovalPermission: adapter.canBypassApproval(
+      req.context,
+      savedGroup as Record<string, unknown>,
+    ),
+    restApiBypassesReviews: !!req.organization.settings?.restApiBypassesReviews,
+    canForceMergeStaleBase: canBypass,
+  });
+  if (blocking.length) {
+    throw new PublishBlockedError(blocking);
+  }
+
   if (approvalRequired && revision.status !== "approved" && !canBypass) {
     throw new BadRequestError(
       `This revision requires approval before publishing (status: "${revision.status}"). ` +
@@ -76,16 +177,6 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
   }
 
   const isBypass = approvalRequired && revision.status !== "approved";
-
-  // Build the desired final state by layering proposed changes on top of LIVE,
-  // not the snapshot — this preserves any out-of-band writes to fields the
-  // revision didn't propose to change. See `buildMergeDesiredState`.
-  const desiredState = buildMergeDesiredState(
-    savedGroup as unknown as Record<string, unknown>,
-    revision.target.snapshot as Record<string, unknown>,
-    revision.target.proposedChanges,
-    adapter.getUpdatableFields(),
-  );
 
   // The live check above covers the source projects. If the revision moves the
   // group to different projects, also require update permission on the
@@ -118,21 +209,27 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
 
   // Governance friction (parity with features): when the org enforces same-base
   // merges, a revision created against a snapshot that no longer matches the
-  // live saved group must be rebased first. `mergeNow` is the explicit "merge
-  // anyway" opt-in but only takes effect for bypass-approval callers; otherwise
-  // it's ignored and the revision must be rebased. Bypass callers stay exempt.
+  // live saved group must be rebased first. `ignoreWarnings` (or the deprecated
+  // `mergeNow` alias) force-merges the stale revision — but only for
+  // bypass-approval callers, and asking without the permission fails loudly
+  // rather than silently re-blocking.
   if (req.organization.settings?.requireRebaseBeforePublish) {
-    const forceMerge = !!req.body.mergeNow && canBypass;
+    const forceMergeRequested =
+      !!req.body.mergeNow || req.context.ignoreWarnings;
+    const forceMerge = forceMergeRequested && canBypass;
     if (!forceMerge) {
       const diverged = isRevisionDiverged(
         adapter,
         revision.target.snapshot as Record<string, unknown>,
         savedGroup as unknown as Record<string, unknown>,
       );
+      if (diverged && forceMergeRequested && !canBypass) {
+        req.context.permissions.throwPermissionError();
+      }
       if (diverged && !canBypass) {
         throw new ConflictError(
           "This revision was created against an older version of the saved group. " +
-            'Rebase the revision first. ("mergeNow": true bypasses this only with bypass-approval permission.)',
+            'Rebase the revision first, or pass `"ignoreWarnings": true` to force-merge (requires the bypass-approval permission).',
         );
       }
     }
@@ -164,6 +261,7 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
     });
     return {
       revision: await toApiSavedGroupRevision(merged, req.context),
+      ...(bypassed.length ? { bypassedGates: bypassed } : {}),
     };
   }
 
@@ -203,5 +301,6 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
 
   return {
     revision: await toApiSavedGroupRevision(merged, req.context),
+    ...(bypassed.length ? { bypassedGates: bypassed } : {}),
   };
 });

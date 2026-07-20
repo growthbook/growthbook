@@ -94,7 +94,24 @@ info:
     - **404** - Not Found - Unknown API route or requested resource
 
     - **422** - Soft Warning - The request failed, but can be re-submitted with
-    `?ignoreWarnings=true` to proceed anyway.
+    `"ignoreWarnings": true` in the request body to proceed anyway. Blocked
+    publishes include a `gates` array, one entry per blocking gate, each
+    carrying a uniform set of fields: `type`, `severity`, `messages`, `override`
+    (the body flag that clears it — `ignoreWarnings` for acknowledge-class
+    warnings, or the privileged `skipSchemaValidation`
+    (schema/invariant/schema-break) / `skipHooks` (custom-hook rejections), or
+    `null` when no flag applies), `requiresPermission` (a permission the
+    override needs, or `null`), and `resolution` (the non-flag way out as a
+    callable `{ action, method, path }` route, or `null`). So one response lists
+    every way past every gate. A gate with `override: null` (approval required)
+    clears by getting the revision approved, or implicitly for callers with the
+    `bypassApprovalChecks` permission; a locked config clears by calling its
+    `resolution` unlock route. On a SUCCESSFUL publish (200), if a gate that
+    would have blocked was bypassed by the caller's authority, the response
+    includes a `bypassedGates` array (`{ type, outcome: "bypassed", via }`,
+    where `via` is `ignoreWarnings`, `skipSchemaValidation`, `skipHooks`,
+    `bypassApprovalChecks`, or `restApiBypassesReviews`); the key is omitted
+    when nothing was bypassed.
 
     - **429** - Too Many Requests - You exceeded the rate limit of 60 requests
     per minute. Try again later.
@@ -233,36 +250,57 @@ tags:
   - name: constants
     x-displayName: Constants
     description: >-
+      **Beta** — these endpoints are new and may change in
+      backwards-incompatible ways.
+
+
       Reusable named values referenced from feature flag values as `@const:key`
       and resolved into the SDK payload at build time. String constants are
       interpolated via `{{ @const:key }}`; JSON (object) constants are composed
-      via an `$extends` array.
+      via an `$extends` array. A constant's own keys **replace** what its
+      `$extends` bases provide, wholesale — constants are atomic building
+      blocks. (Config and feature values compose as deep, targeted patches
+      instead.)
   - name: constant-revisions
     x-displayName: Constant Revisions
     description: >-
+      **Beta** — these endpoints are new and may change in
+      backwards-incompatible ways.
+
+
       Draft revisions for constants, including pending changes, approvals, and
       lifecycle (publish, discard, revert). Pass `version: "new"` on edit
       endpoints to auto-create a draft.
   - name: configs
     x-displayName: Configs
     description: >-
+      **Beta** — these endpoints are new and may change in
+      backwards-incompatible ways.
+
+
       Reusable, typed, inheritable JSON objects referenced from feature flag
       values as `@config:key`. A config carries a field `schema` (with
-      TypeScript/JSON Schema import-export) and a lineage `parent`; it resolves
-      like a `json` constant, composed via `$extends`. Inheritance is expressed
-      via `parent`, never an in-value `@config:` entry. Schema fields colliding
-      with a published ancestor's key follow 'base wins': identical
+      TypeScript/JSON Schema import-export) and a lineage `parent`. Inheritance
+      is expressed via `parent`, never an in-value `@config:` entry. Values
+      layer as a **deep, targeted patch**: a child (or a config-backed feature
+      value) restates only the leaves it changes and inherits the rest — unlike
+      a constant's `$extends`, whose own keys replace wholesale. Schema fields
+      colliding with a published ancestor's key follow 'base wins': identical
       re-declarations are stripped with a warning, differing ones are rejected.
   - name: config-revisions
     x-displayName: Config Revisions
     description: >-
+      **Beta** — these endpoints are new and may change in
+      backwards-incompatible ways.
+
+
       Draft revisions for configs, including value and schema edits, schema
       import (JSON Schema / TypeScript / inferred), approvals, and lifecycle
       (publish, discard, revert). Publishing a schema change cascades the "base
       wins" normalization to descendant configs; a publish that removes or
-      retypes fields descendants still use soft-blocks with a 422 unless
-      `?ignoreWarnings=true`. Pass `version: "new"` on edit endpoints to
-      auto-create a draft.
+      retypes fields descendants still use soft-blocks with a 422 unless the
+      request body sets `ignoreWarnings: true`. Pass `version: "new"` on edit
+      endpoints to auto-create a draft.
   - name: custom-hooks
     x-displayName: Custom Hooks
     description: >-
@@ -1511,6 +1549,43 @@ paths:
                     type: string
                   additionalProperties:
                     type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
+                    org-wide bypass authority (the `bypassApprovalChecks`
+                    permission on all projects); ignored otherwise. Validation
+                    is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
+                  type: boolean
               required:
                 - id
                 - valueType
@@ -2380,6 +2455,43 @@ paths:
                         - value
                       additionalProperties: false
                     - type: 'null'
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
+                    org-wide bypass authority (the `bypassApprovalChecks`
+                    permission on all projects); ignored otherwise. Validation
+                    is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -2540,7 +2652,8 @@ paths:
 
         Returns 422 with a list of `warnings` if the restored values no longer
         validate against the feature's current value type or JSON schema.
-        Re-submit with `?ignoreWarnings=true` to revert anyway.
+        Re-submit with `"ignoreWarnings": true` in the request body to revert
+        anyway.
       deprecated: true
       tags:
         - features
@@ -2557,6 +2670,43 @@ paths:
                   type: number
                 comment:
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
+                    org-wide bypass authority (the `bypassApprovalChecks`
+                    permission on all projects); ignored otherwise. Validation
+                    is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
+                  type: boolean
               required:
                 - revision
               additionalProperties: false
@@ -2795,6 +2945,22 @@ paths:
                   type: string
                 title:
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -3089,6 +3255,22 @@ paths:
                     - date
                     - enabled
                   additionalProperties: false
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -3156,6 +3338,43 @@ paths:
                   type: string
                 revisionComment:
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
+                    org-wide bypass authority (the `bypassApprovalChecks`
+                    permission on all projects); ignored otherwise. Validation
+                    is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
+                  type: boolean
               required:
                 - defaultValue
               additionalProperties: false
@@ -3236,6 +3455,22 @@ paths:
                   type: string
                 revisionComment:
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
               required:
                 - prerequisites
               additionalProperties: false
@@ -3315,6 +3550,22 @@ paths:
                   type: string
                 revisionComment:
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
               required:
                 - holdout
               additionalProperties: false
@@ -3382,6 +3633,22 @@ paths:
                   type: string
                 revisionComment:
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
               required:
                 - archived
               additionalProperties: false
@@ -3451,6 +3718,22 @@ paths:
                   type: string
                 revisionComment:
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
               required:
                 - environment
                 - enabled
@@ -4257,6 +4540,43 @@ paths:
                   type: string
                 revisionComment:
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
+                    org-wide bypass authority (the `bypassApprovalChecks`
+                    permission on all projects); ignored otherwise. Validation
+                    is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
+                  type: boolean
               required:
                 - environment
                 - rule
@@ -4859,6 +5179,43 @@ paths:
                   type: string
                 revisionComment:
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
+                    org-wide bypass authority (the `bypassApprovalChecks`
+                    permission on all projects); ignored otherwise. Validation
+                    is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
+                  type: boolean
               required:
                 - environment
                 - rule
@@ -4928,6 +5285,22 @@ paths:
                   type: string
                 revisionComment:
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
               required:
                 - environment
               additionalProperties: false
@@ -5001,6 +5374,22 @@ paths:
                   type: string
                 revisionComment:
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
               required:
                 - environment
                 - ruleIds
@@ -5476,6 +5865,22 @@ paths:
                   type: string
                 revisionComment:
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -5543,6 +5948,22 @@ paths:
                   type: string
                 revisionComment:
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -5739,7 +6160,7 @@ paths:
                       behind live (or its approval went stale) while the
                       organization enforces rebase-before-publish. When true
                       with no conflicts, callers with bypass-approval permission
-                      can still publish with `mergeNow: true`; others must
+                      can still publish with `ignoreWarnings: true`; others must
                       rebase first.
                     type: boolean
                   result:
@@ -5807,6 +6228,22 @@ paths:
                     enum:
                       - overwrite
                       - discard
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -5862,12 +6299,53 @@ paths:
                 comment:
                   type: string
                 mergeNow:
+                  description: 'Deprecated — pass `ignoreWarnings: true` instead.'
+                  deprecated: true
+                  type: boolean
+                bypassApproval:
                   description: >-
-                    When the org enforces same-base merges and the revision is
-                    behind the live version, set to true to force-merge the
-                    stale draft instead of rebasing first. This only takes
-                    effect for callers with bypass-approval permission;
-                    otherwise it is ignored and the revision must be rebased.
+                    Has no effect and is accepted only for backwards
+                    compatibility. Callers with the `bypassApprovalChecks`
+                    permission (or under the org-level REST bypass setting)
+                    bypass approval requirements automatically; all other
+                    callers must have the revision approved before publishing.
+                  type: boolean
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
+                    org-wide bypass authority (the `bypassApprovalChecks`
+                    permission on all projects); ignored otherwise. Validation
+                    is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
                   type: boolean
               additionalProperties: false
       responses:
@@ -5880,6 +6358,14 @@ paths:
                 properties:
                   revision:
                     $ref: '#/components/schemas/FeatureRevisionV1'
+                  bypassedGates:
+                    description: >-
+                      Gates that would have blocked this publish but were
+                      bypassed by the caller's authority. Present only when at
+                      least one gate was bypassed.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bypassedGates'
                 required:
                   - revision
                 additionalProperties: false
@@ -6638,6 +7124,43 @@ paths:
                     type: string
                   additionalProperties:
                     type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
+                    org-wide bypass authority (the `bypassApprovalChecks`
+                    permission on all projects); ignored otherwise. Validation
+                    is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
+                  type: boolean
               required:
                 - id
                 - valueType
@@ -7252,6 +7775,43 @@ paths:
                         - value
                       additionalProperties: false
                     - type: 'null'
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
+                    org-wide bypass authority (the `bypassApprovalChecks`
+                    permission on all projects); ignored otherwise. Validation
+                    is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -7390,7 +7950,7 @@ paths:
         Returns 422 with a list of `warnings` if the restored values no longer
         validate against the feature's current value type or JSON schema (e.g.
         reverting to a config the current schema can no longer read). Re-submit
-        with `?ignoreWarnings=true` to revert anyway.
+        with `"ignoreWarnings": true` in the request body to revert anyway.
       tags:
         - features-v2
       parameters:
@@ -7406,6 +7966,43 @@ paths:
                   type: number
                 comment:
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
+                    org-wide bypass authority (the `bypassApprovalChecks`
+                    permission on all projects); ignored otherwise. Validation
+                    is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
+                  type: boolean
               required:
                 - revision
               additionalProperties: false
@@ -7720,6 +8317,22 @@ paths:
                   type: string
                 title:
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -8163,6 +8776,22 @@ paths:
                     - date
                     - enabled
                   additionalProperties: false
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -8242,6 +8871,43 @@ paths:
                     Comment for a newly created draft. Only used when version is
                     "new"; ignored for existing revisions.
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
+                    org-wide bypass authority (the `bypassApprovalChecks`
+                    permission on all projects); ignored otherwise. Validation
+                    is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
+                  type: boolean
               required:
                 - defaultValue
               additionalProperties: false
@@ -8324,6 +8990,22 @@ paths:
                     Comment for a newly created draft. Only used when version is
                     "new"; ignored for existing revisions.
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
               required:
                 - prerequisites
               additionalProperties: false
@@ -8399,6 +9081,22 @@ paths:
                     Comment for a newly created draft. Only used when version is
                     "new"; ignored for existing revisions.
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
               required:
                 - holdout
               additionalProperties: false
@@ -8463,6 +9161,22 @@ paths:
                     Comment for a newly created draft. Only used when version is
                     "new"; ignored for existing revisions.
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
               required:
                 - archived
               additionalProperties: false
@@ -8529,6 +9243,22 @@ paths:
                     Comment for a newly created draft. Only used when version is
                     "new"; ignored for existing revisions.
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
               required:
                 - environment
                 - enabled
@@ -9048,6 +9778,43 @@ paths:
                     Comment for a newly created draft. Only used when version is
                     "new"; ignored for existing revisions.
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
+                    org-wide bypass authority (the `bypassApprovalChecks`
+                    permission on all projects); ignored otherwise. Validation
+                    is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
+                  type: boolean
               required:
                 - rule
               additionalProperties: false
@@ -9672,6 +10439,43 @@ paths:
                     Comment for a newly created draft. Only used when version is
                     "new"; ignored for existing revisions.
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
+                    org-wide bypass authority (the `bypassApprovalChecks`
+                    permission on all projects); ignored otherwise. Validation
+                    is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
+                  type: boolean
               required:
                 - rule
               additionalProperties: false
@@ -9737,6 +10541,22 @@ paths:
                     Comment for a newly created draft. Only used when version is
                     "new"; ignored for existing revisions.
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -9805,6 +10625,22 @@ paths:
                     Comment for a newly created draft. Only used when version is
                     "new"; ignored for existing revisions.
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
               required:
                 - ruleIds
               additionalProperties: false
@@ -10370,6 +11206,22 @@ paths:
                     Comment for a newly created draft. Only used when version is
                     "new"; ignored for existing revisions.
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -10442,6 +11294,22 @@ paths:
                     Comment for a newly created draft. Only used when version is
                     "new"; ignored for existing revisions.
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -11018,7 +11886,7 @@ paths:
                       behind live (or its approval went stale) while the
                       organization enforces rebase-before-publish. When true
                       with no conflicts, callers with bypass-approval permission
-                      can still publish with `mergeNow: true`; others must
+                      can still publish with `ignoreWarnings: true`; others must
                       rebase first.
                     type: boolean
                 required:
@@ -11095,6 +11963,22 @@ paths:
                     by a co-author), the request fails with `409` instead of
                     applying resolutions against changed draft content.
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -11249,6 +12133,22 @@ paths:
                     by a co-author), the request fails with `409` instead of
                     applying resolutions against changed draft content.
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -11300,12 +12200,53 @@ paths:
                 comment:
                   type: string
                 mergeNow:
+                  description: 'Deprecated — pass `ignoreWarnings: true` instead.'
+                  deprecated: true
+                  type: boolean
+                bypassApproval:
                   description: >-
-                    When the org enforces same-base merges and the revision is
-                    behind the live version, set to true to force-merge the
-                    stale draft instead of rebasing first. This only takes
-                    effect for callers with bypass-approval permission;
-                    otherwise it is ignored and the revision must be rebased.
+                    Has no effect and is accepted only for backwards
+                    compatibility. Callers with the `bypassApprovalChecks`
+                    permission (or under the org-level REST bypass setting)
+                    bypass approval requirements automatically; all other
+                    callers must have the revision approved before publishing.
+                  type: boolean
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
+                    org-wide bypass authority (the `bypassApprovalChecks`
+                    permission on all projects); ignored otherwise. Validation
+                    is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
                   type: boolean
               additionalProperties: false
       responses:
@@ -11318,6 +12259,14 @@ paths:
                 properties:
                   revision:
                     $ref: '#/components/schemas/FeatureRevisionV2'
+                  bypassedGates:
+                    description: >-
+                      Gates that would have blocked this publish but were
+                      bypassed by the caller's authority. Present only when at
+                      least one gate was bypassed.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bypassedGates'
                 required:
                   - revision
                 additionalProperties: false
@@ -12232,6 +13181,22 @@ paths:
                   required:
                     - startAt
                   additionalProperties: false
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
               required:
                 - trackingKey
                 - name
@@ -12877,6 +13842,22 @@ paths:
                   type: array
                   items:
                     type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -13007,6 +13988,22 @@ paths:
                   description: >-
                     If true, skips validating the experiment satisifies all
                     pre-launch checklist items
+                  type: boolean
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
                   type: boolean
               additionalProperties: false
       responses:
@@ -13200,6 +14197,22 @@ paths:
                     Optional ISO datetime for ending the latest phase. Defaults
                     to the current date and time.
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
               required:
                 - results
               additionalProperties: false
@@ -13271,6 +14284,22 @@ paths:
                     eligible for this experiment. Required if
                     enableTemporaryRollout is true.
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
               required:
                 - enableTemporaryRollout
               additionalProperties: false
@@ -17348,10 +18377,44 @@ paths:
     post:
       operationId: archiveSavedGroup
       summary: Archive a single saved group
+      description: >-
+        Archives a saved group. When live features, experiments, or other saved
+        groups still reference it, the request returns a 422 listing the
+        blocking gates — re-submit with `"ignoreWarnings": true` in the request
+        body to acknowledge the affected references and proceed. If the
+        organization requires approval for saved-group changes, the request
+        returns an approval-required gate instead: route the change through a
+        draft revision (`POST /saved-groups/{id}/revisions`), or use a role or
+        token with the bypass-approvals permission. Any gate the caller's
+        authority bypasses is reported in `bypassedGates` on success.
       tags:
         - saved-groups
       parameters:
         - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
+              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -17362,6 +18425,14 @@ paths:
                 properties:
                   savedGroup:
                     $ref: '#/components/schemas/SavedGroup'
+                  bypassedGates:
+                    description: >-
+                      Gates that would have blocked this publish but were
+                      bypassed by the caller's authority. Present only when at
+                      least one gate was bypassed.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bypassedGates'
                 required:
                   - savedGroup
                 additionalProperties: false
@@ -17375,6 +18446,13 @@ paths:
     post:
       operationId: unarchiveSavedGroup
       summary: Unarchive a single saved group
+      description: >-
+        Unarchives a saved group. Unarchiving never drops a dependent, but if
+        the organization requires approval for saved-group changes the request
+        returns an approval-required gate — route the change through a draft
+        revision (`POST /saved-groups/{id}/revisions`), or use a role or token
+        with the bypass-approvals permission. Any gate the caller's authority
+        bypasses is reported in `bypassedGates`.
       tags:
         - saved-groups
       parameters:
@@ -17389,6 +18467,14 @@ paths:
                 properties:
                   savedGroup:
                     $ref: '#/components/schemas/SavedGroup'
+                  bypassedGates:
+                    description: >-
+                      Gates that would have blocked this publish but were
+                      bypassed by the caller's authority. Present only when at
+                      least one gate was bypassed.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bypassedGates'
                 required:
                   - savedGroup
                 additionalProperties: false
@@ -18347,7 +19433,13 @@ paths:
       description: >-
         Publishes a draft revision, making it the live state of the saved group.
         Blocked if the org requires approvals and the revision is not approved
-        (callers with the bypass-approval permission may still publish).
+        (callers with the bypass-approval permission may still publish). Under
+        `requireRebaseBeforePublish`, a draft whose base has moved since it was
+        created is blocked until rebased — a caller with the bypass-approval
+        permission can force-merge instead by passing `ignoreWarnings: true`
+        (the permission alone does not silently skip the rebase). When blocked,
+        the 422 lists every applicable gate and how to clear each (see the
+        response docs).
       tags:
         - saved-group-revisions
       parameters:
@@ -18366,13 +19458,32 @@ paths:
               type: object
               properties:
                 mergeNow:
+                  description: 'Deprecated — pass `ignoreWarnings: true` instead.'
+                  deprecated: true
+                  type: boolean
+                bypassApproval:
                   description: >-
-                    When the org enforces same-base merges and the saved group
-                    changed since this revision was created, set to true to
-                    force-merge the stale revision instead of rebasing first.
-                    This only takes effect for callers with bypass-approval
-                    permission; otherwise it is ignored and the revision must be
-                    rebased.
+                    Has no effect and is accepted only for backwards
+                    compatibility. Callers with the `bypassApprovalChecks`
+                    permission (or under the org-level REST bypass setting)
+                    bypass approval requirements automatically; all other
+                    callers must have the revision approved before publishing.
+                  type: boolean
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
                   type: boolean
               additionalProperties: false
       responses:
@@ -18385,6 +19496,14 @@ paths:
                 properties:
                   revision:
                     $ref: '#/components/schemas/SavedGroupRevision'
+                  bypassedGates:
+                    description: >-
+                      Gates that would have blocked this publish but were
+                      bypassed by the caller's authority. Present only when at
+                      least one gate was bypassed.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bypassedGates'
                 required:
                   - revision
                 additionalProperties: false
@@ -18841,6 +19960,43 @@ paths:
                     bypass setting). When approvals aren't required, this flag
                     has no effect.
                   type: boolean
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
+                    org-wide bypass authority (the `bypassApprovalChecks`
+                    permission on all projects); ignored otherwise. Validation
+                    is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -18909,6 +20065,51 @@ paths:
           schema:
             description: The key of the constant
             type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
+                    org-wide bypass authority (the `bypassApprovalChecks`
+                    permission on all projects); ignored otherwise. Validation
+                    is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
+                  type: boolean
+              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -18919,6 +20120,14 @@ paths:
                 properties:
                   constant:
                     $ref: '#/components/schemas/Constant'
+                  bypassedGates:
+                    description: >-
+                      Gates that would have blocked this publish but were
+                      bypassed by the caller's authority. Present only when at
+                      least one gate was bypassed.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bypassedGates'
                 required:
                   - constant
                 additionalProperties: false
@@ -18943,6 +20152,51 @@ paths:
           schema:
             description: The key of the constant
             type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
+                    org-wide bypass authority (the `bypassApprovalChecks`
+                    permission on all projects); ignored otherwise. Validation
+                    is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
+                  type: boolean
+              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -18953,6 +20207,14 @@ paths:
                 properties:
                   constant:
                     $ref: '#/components/schemas/Constant'
+                  bypassedGates:
+                    description: >-
+                      Gates that would have blocked this publish but were
+                      bypassed by the caller's authority. Present only when at
+                      least one gate was bypassed.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bypassedGates'
                 required:
                   - constant
                 additionalProperties: false
@@ -19433,6 +20695,22 @@ paths:
               properties:
                 autoPublishOnApproval:
                   type: boolean
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -19645,7 +20923,13 @@ paths:
       description: >-
         Publishes a draft revision, making it the live state of the constant.
         Blocked if the org requires approvals and the revision is not approved
-        (callers with the bypass-approval permission may still publish).
+        (callers with the bypass-approval permission may still publish). Under
+        `requireRebaseBeforePublish`, a draft whose base has moved since it was
+        created is blocked until rebased — a caller with the bypass-approval
+        permission can force-merge instead by passing `ignoreWarnings: true`
+        (the permission alone does not silently skip the rebase). When blocked,
+        the 422 lists every applicable gate and how to clear each (see the
+        response docs).
       tags:
         - constant-revisions
       parameters:
@@ -19663,14 +20947,50 @@ paths:
             schema:
               type: object
               properties:
-                mergeNow:
+                bypassApproval:
                   description: >-
-                    When the org enforces same-base merges and the constant
-                    changed since this revision was created, set to true to
-                    force-merge the stale revision instead of rebasing first.
-                    This only takes effect for callers with bypass-approval
-                    permission; otherwise it is ignored and the revision must be
-                    rebased.
+                    Has no effect and is accepted only for backwards
+                    compatibility. Callers with the `bypassApprovalChecks`
+                    permission (or under the org-level REST bypass setting)
+                    bypass approval requirements automatically; all other
+                    callers must have the revision approved before publishing.
+                  type: boolean
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
+                    org-wide bypass authority (the `bypassApprovalChecks`
+                    permission on all projects); ignored otherwise. Validation
+                    is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
                   type: boolean
               additionalProperties: false
       responses:
@@ -19683,6 +21003,14 @@ paths:
                 properties:
                   revision:
                     $ref: '#/components/schemas/ConstantRevision'
+                  bypassedGates:
+                    description: >-
+                      Gates that would have blocked this publish but were
+                      bypassed by the caller's authority. Present only when at
+                      least one gate was bypassed.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bypassedGates'
                 required:
                   - revision
                 additionalProperties: false
@@ -19775,6 +21103,43 @@ paths:
                   type: string
                 comment:
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
+                    org-wide bypass authority (the `bypassApprovalChecks`
+                    permission on all projects); ignored otherwise. Validation
+                    is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -19981,6 +21346,43 @@ paths:
                       - name
                       - rule
                     additionalProperties: false
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
+                    org-wide bypass authority (the `bypassApprovalChecks`
+                    permission on all projects); ignored otherwise. Validation
+                    is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
+                  type: boolean
               required:
                 - key
                 - name
@@ -20607,6 +22009,43 @@ paths:
                     bypass setting). When approvals aren't required, this flag
                     has no effect.
                   type: boolean
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
+                    org-wide bypass authority (the `bypassApprovalChecks`
+                    permission on all projects); ignored otherwise. Validation
+                    is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -20672,10 +22111,12 @@ paths:
       description: >-
         Archives a config. A child config (including an environment/project
         override) is archived outright when its live value is an empty patch or
-        nothing serves it; when it IS actively serving a value, this returns a
-        422 soft warning — re-submit with `?ignoreWarnings=true` to proceed. A
-        root config that is still referenced by a feature or another config
-        cannot be archived (400).
+        nothing serves it. When archiving would strip a value that live features
+        or other configs still consume, the request returns a 422 listing the
+        blocking gates — re-submit with `"ignoreWarnings": true` in the request
+        body to acknowledge and proceed. A locked config, or one whose org
+        requires approval, returns its own gate (unlock or route the change
+        through a draft revision).
       tags:
         - configs
       parameters:
@@ -20686,31 +22127,52 @@ paths:
           schema:
             description: The key of the config
             type: string
-        - name: ignoreWarnings
-          in: query
-          description: >-
-            Proceed despite the soft warning raised when archiving a config that
-            is actively serving a value — archiving reverts anything resolving
-            it (features, or the environments an override applies to) back to
-            the base. Not needed when the config's live value is an empty patch
-            or nothing uses it.
-          schema:
-            description: >-
-              Proceed despite the soft warning raised when archiving a config
-              that is actively serving a value — archiving reverts anything
-              resolving it (features, or the environments an override applies
-              to) back to the base. Not needed when the config's live value is
-              an empty patch or nothing uses it.
-            anyOf:
-              - type: string
-                const: 'true'
-              - type: string
-                const: 'false'
-              - type: string
-                const: '0'
-              - type: string
-                const: '1'
-              - type: boolean
+        - $ref: '#/components/parameters/ignoreWarnings'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
+                    org-wide bypass authority (the `bypassApprovalChecks`
+                    permission on all projects); ignored otherwise. Validation
+                    is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
+                  type: boolean
+              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -20721,6 +22183,14 @@ paths:
                 properties:
                   config:
                     $ref: '#/components/schemas/Config'
+                  bypassedGates:
+                    description: >-
+                      Gates that would have blocked this publish but were
+                      bypassed by the caller's authority. Present only when at
+                      least one gate was bypassed.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bypassedGates'
                 required:
                   - config
                 additionalProperties: false
@@ -20744,6 +22214,51 @@ paths:
           schema:
             description: The key of the config
             type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
+                    org-wide bypass authority (the `bypassApprovalChecks`
+                    permission on all projects); ignored otherwise. Validation
+                    is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
+                  type: boolean
+              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -20754,6 +22269,14 @@ paths:
                 properties:
                   config:
                     $ref: '#/components/schemas/Config'
+                  bypassedGates:
+                    description: >-
+                      Gates that would have blocked this publish but were
+                      bypassed by the caller's authority. Present only when at
+                      least one gate was bypassed.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bypassedGates'
                 required:
                   - config
                 additionalProperties: false
@@ -21152,6 +22675,43 @@ paths:
                     type: string
                 extensible:
                   type: boolean
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
+                    org-wide bypass authority (the `bypassApprovalChecks`
+                    permission on all projects); ignored otherwise. Validation
+                    is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -21241,6 +22801,43 @@ paths:
                   description: >-
                     When the config has no schema yet, infer one from the
                     supplied `value` and stage it on the same draft.
+                  type: boolean
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
+                    org-wide bypass authority (the `bypassApprovalChecks`
+                    permission on all projects); ignored otherwise. Validation
+                    is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
                   type: boolean
               additionalProperties: false
       responses:
@@ -21332,6 +22929,43 @@ paths:
                     Whether the resulting object schema permits extra keys
                     (family extensibility).
                   type: boolean
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
+                    org-wide bypass authority (the `bypassApprovalChecks`
+                    permission on all projects); ignored otherwise. Validation
+                    is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -21413,6 +23047,43 @@ paths:
                   description: >-
                     Whether the resulting object schema permits extra keys
                     (family extensibility).
+                  type: boolean
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
+                    org-wide bypass authority (the `bypassApprovalChecks`
+                    permission on all projects); ignored otherwise. Validation
+                    is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
                   type: boolean
               required:
                 - source
@@ -21533,6 +23204,43 @@ paths:
                   type: string
                 archived:
                   type: boolean
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
+                    org-wide bypass authority (the `bypassApprovalChecks`
+                    permission on all projects); ignored otherwise. Validation
+                    is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
+                  type: boolean
               required:
                 - archived
               additionalProperties: false
@@ -21587,6 +23295,43 @@ paths:
               type: object
               properties:
                 autoPublishOnApproval:
+                  type: boolean
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
+                    org-wide bypass authority (the `bypassApprovalChecks`
+                    permission on all projects); ignored otherwise. Validation
+                    is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
                   type: boolean
               additionalProperties: false
       responses:
@@ -21805,6 +23550,43 @@ paths:
                   type: boolean
                 bypassApproval:
                   type: boolean
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
+                    org-wide bypass authority (the `bypassApprovalChecks`
+                    permission on all projects); ignored otherwise. Validation
+                    is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
+                  type: boolean
               required:
                 - scheduledPublishAt
               additionalProperties: false
@@ -21896,8 +23678,10 @@ paths:
       description: >-
         Updates the draft's base snapshot to the current live state, applying
         the draft's changes on top. Supply `conflictResolutions` to resolve any
-        conflicting fields. Strategies are `overwrite` (use the draft's value)
-        or `discard` (keep the live value).
+        conflicting fields. Strategies are `overwrite` (use the draft's value),
+        `discard` (keep the live value), or `union` (merge arrays without
+        duplicates — for array fields like `extends`; pass a `customValues`
+        entry to supply the resolved array yourself).
       tags:
         - config-revisions
       parameters:
@@ -21924,6 +23708,17 @@ paths:
                     enum:
                       - overwrite
                       - discard
+                      - union
+                customValues:
+                  description: >-
+                    Custom values to use for `union` strategy fields. Keyed by
+                    field name.
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties:
+                    type: array
+                    items: {}
               additionalProperties: false
       responses:
         '200':
@@ -21952,7 +23747,13 @@ paths:
       description: >-
         Publishes a draft revision, making it the live state of the config.
         Blocked if the org requires approvals and the revision is not approved
-        (callers with the bypass-approval permission may still publish).
+        (callers with the bypass-approval permission may still publish). Under
+        `requireRebaseBeforePublish`, a draft whose base has moved since it was
+        created is blocked until rebased — a caller with the bypass-approval
+        permission can force-merge instead by passing `ignoreWarnings: true`
+        (the permission alone does not silently skip the rebase). A locked
+        config is blocked until unlocked. When blocked, the 422 lists every
+        applicable gate and how to clear each (see the response docs).
         Publishing a schema change cascades the 'base wins' normalization to
         descendant configs.
       tags:
@@ -21974,14 +23775,50 @@ paths:
             schema:
               type: object
               properties:
-                mergeNow:
+                bypassApproval:
                   description: >-
-                    When the org enforces same-base merges and the config
-                    changed since this revision was created, set to true to
-                    force-merge the stale revision instead of rebasing first.
-                    This only takes effect for callers with bypass-approval
-                    permission; otherwise it is ignored and the revision must be
-                    rebased.
+                    Has no effect and is accepted only for backwards
+                    compatibility. Callers with the `bypassApprovalChecks`
+                    permission (or under the org-level REST bypass setting)
+                    bypass approval requirements automatically; all other
+                    callers must have the revision approved before publishing.
+                  type: boolean
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
+                    org-wide bypass authority (the `bypassApprovalChecks`
+                    permission on all projects); ignored otherwise. Validation
+                    is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
                   type: boolean
               additionalProperties: false
       responses:
@@ -21994,6 +23831,14 @@ paths:
                 properties:
                   revision:
                     $ref: '#/components/schemas/ConfigRevision'
+                  bypassedGates:
+                    description: >-
+                      Gates that would have blocked this publish but were
+                      bypassed by the caller's authority. Present only when at
+                      least one gate was bypassed.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bypassedGates'
                 required:
                   - revision
                 additionalProperties: false
@@ -22088,6 +23933,43 @@ paths:
                   type: string
                 comment:
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
+                    org-wide bypass authority (the `bypassApprovalChecks`
+                    permission on all projects); ignored otherwise. Validation
+                    is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -43891,17 +45773,10 @@ components:
     skipSchemaValidation:
       name: skipSchemaValidation
       in: query
-      description: >-
-        Skip JSON-schema validation of the value(s) being written. Only honored
-        for callers with org-wide bypass authority (the `bypassApprovalChecks`
-        permission on all projects); ignored otherwise. Validation is enforced
-        by default.
+      description: Deprecated — pass `skipSchemaValidation` in the request body instead.
       schema:
-        description: >-
-          Skip JSON-schema validation of the value(s) being written. Only
-          honored for callers with org-wide bypass authority (the
-          `bypassApprovalChecks` permission on all projects); ignored otherwise.
-          Validation is enforced by default.
+        description: Deprecated — pass `skipSchemaValidation` in the request body instead.
+        deprecated: true
         anyOf:
           - type: string
             const: 'true'
@@ -43915,15 +45790,10 @@ components:
     ignoreWarnings:
       name: ignoreWarnings
       in: query
-      description: >-
-        Proceed despite soft validation warnings — e.g. publishing values that
-        don't match the schema when the org has `blockPublishOnSchemaError`
-        disabled (warn mode).
+      description: Deprecated — pass `ignoreWarnings` in the request body instead.
       schema:
-        description: >-
-          Proceed despite soft validation warnings — e.g. publishing values that
-          don't match the schema when the org has `blockPublishOnSchemaError`
-          disabled (warn mode).
+        description: Deprecated — pass `ignoreWarnings` in the request body instead.
+        deprecated: true
         anyOf:
           - type: string
             const: 'true'
@@ -51088,8 +52958,9 @@ components:
           description: >-
             Whether the experiment guard is enabled: publishing a change served
             to a running experiment soft-blocks (unless overridden with
-            `?ignoreWarnings=true` or `bypassApprovalChecks`). Turning it off
-            requires `bypassApprovalChecks`.
+            `ignoreWarnings: true` in the request body or
+            `bypassApprovalChecks`). Turning it off requires
+            `bypassApprovalChecks`.
           type: boolean
         lockedRevision:
           description: >-
@@ -60836,6 +62707,29 @@ components:
                 - value
               additionalProperties: false
             - type: 'null'
+      additionalProperties: false
+    bypassedGates:
+      type: object
+      properties:
+        type:
+          description: >-
+            The gate that was bypassed (e.g. "approval-required", "stale-base",
+            "schema-break").
+          type: string
+        outcome:
+          type: string
+          const: bypassed
+        via:
+          description: >-
+            The bypass source: an override flag ("ignoreWarnings", or the
+            privileged "skipSchemaValidation" / "skipHooks"), the caller's
+            permission ("bypassApprovalChecks"), or the org setting
+            ("restApiBypassesReviews").
+          type: string
+      required:
+        - type
+        - outcome
+        - via
       additionalProperties: false
     log:
       type: object
