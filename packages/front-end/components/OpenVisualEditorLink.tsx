@@ -28,11 +28,8 @@ type OpenVisualEditorResponse =
   | { error: "NO_URL" }
   | { error: "NO_EXTENSION" };
 
-// Presence probe for the standalone Visual Editor extension. It has no
-// web-accessible resource to fetch and doesn't declare
-// externally_connectable, so we detect it the same way its content script
-// expects: post a ping on the page and wait for the pong its content
-// script replies with. Resolves false on timeout (not installed).
+// Presence probe for the standalone Visual Editor extension. Does a post a ping
+// on the page and wait for the pong its content
 function pingVisualEditorExtension(timeoutMs = 500): Promise<boolean> {
   if (typeof window === "undefined") return Promise.resolve(false);
   return new Promise((resolve) => {
@@ -59,9 +56,7 @@ function pingVisualEditorExtension(timeoutMs = 500): Promise<boolean> {
 
 // True if a Visual Editor extension capable of handling the launch is
 // installed. Prefers the new standalone extension (ping/pong); falls back
-// to probing the legacy DevTools extension's web-accessible icon so users
-// mid-migration who still rely on its in-page editor aren't nagged to
-// reinstall. The legacy extension is Chrome-only.
+// to probing the legacy DevTools extension's web-accessible icon
 async function isVisualEditorExtensionInstalled(
   browser: string,
 ): Promise<boolean> {
@@ -111,10 +106,7 @@ export async function openVisualEditor({
   // Gesture beacon for the Visual Editor extension, posted synchronously
   // inside the click handler — before any await. Chrome's sidePanel.open()
   // only works within ~5s of a user gesture, and the API round-trips below
-  // routinely eat that window, which made the panel's auto-open flaky. The
-  // extension origin-checks this and opens its side panel immediately; the
-  // panel then survives the same-tab navigation to the editor URL. No-op
-  // when the extension isn't installed.
+  // routinely eat that window, which made the panel's auto-open flaky.
   window.postMessage(
     { type: "GB_OPEN_VISUAL_EDITOR_CLICKED" },
     window.location.origin,
@@ -132,30 +124,14 @@ export async function openVisualEditor({
   });
 
   // Opt-in escape hatch for engineers developing the extension itself.
-  // The probe below pings the production Chrome Web Store extension ID,
-  // which won't match a locally-unpacked dev build (Chrome assigns those
-  // a random ID). Those devs can set this flag once and the probe is
-  // skipped from then on:
   //
   //   localStorage.setItem("gb-visual-editor-dev-extension", "1")
   //
-  // We deliberately do NOT key this off `window.location.hostname` —
-  // running the GrowthBook web app locally is completely independent of
-  // which extension build you have installed, and the common case is
-  // someone on `localhost` using the published extension. Keying off
-  // the host meant those users got no error feedback when their
-  // extension was missing or misconfigured, just a silent no-op.
   const isExtensionDev =
     typeof window !== "undefined" &&
     window.localStorage?.getItem("gb-visual-editor-dev-extension") === "1";
 
   if (!bypassChecks && !isExtensionDev) {
-    // Detect the extension first. When it responds, the browser is by
-    // definition supported (the ping crosses the extension boundary), so
-    // we don't second-guess it — this lets Chromium browsers like Edge and
-    // Brave through. Only when nothing responds do we fall back to the
-    // browser gate to show the right "unsupported browser" vs. "install it"
-    // message. The Visual Editor extension is Chrome-only for now.
     const installed = await isVisualEditorExtensionInstalled(browser);
     if (!installed) {
       if (browser !== "chrome" || deviceType !== "desktop") {
