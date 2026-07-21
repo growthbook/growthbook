@@ -617,6 +617,7 @@ describe("contextualBanditWeightsWereUpdated", () => {
     const result = makeResult();
     result.responses.push({
       context: { country: "MX" },
+      leafId: 2,
       sampleSizePerVariation: [10, 10],
       sampleMeans: [0.1, 0.1],
       updatedWeights: [0.5, 0.5],
@@ -624,8 +625,11 @@ describe("contextualBanditWeightsWereUpdated", () => {
       updateMessage: "ok",
     });
     result.leaf_map.push({
-      context: { country: "MX", device: "desktop" },
       leafId: 2,
+      context: [
+        { attribute: "country", levels: ["MX"], operator: "in" },
+        { attribute: "device", levels: ["desktop"], operator: "in" },
+      ],
     });
     expect(
       contextualBanditWeightsWereUpdated(
@@ -653,9 +657,23 @@ describe("contextualBanditWeightsWereUpdated", () => {
   it("returns true when a leafId is renumbered for an unchanged condition", () => {
     const result = makeResult();
     // Same conditions and weights, but the tree relabeled the leaves.
+    result.responses[0].leafId = 5;
+    result.responses[1].leafId = 6;
     result.leaf_map = [
-      { context: { country: "US", device: "mobile" }, leafId: 5 },
-      { context: { country: "CA", device: "desktop" }, leafId: 6 },
+      {
+        leafId: 5,
+        context: [
+          { attribute: "country", levels: ["US"], operator: "in" },
+          { attribute: "device", levels: ["mobile"], operator: "in" },
+        ],
+      },
+      {
+        leafId: 6,
+        context: [
+          { attribute: "country", levels: ["CA"], operator: "in" },
+          { attribute: "device", levels: ["desktop"], operator: "in" },
+        ],
+      },
     ];
     expect(
       contextualBanditWeightsWereUpdated(
