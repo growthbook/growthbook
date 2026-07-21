@@ -127,7 +127,7 @@ const TagsInput: FC<{
           return {
             value: t.id,
             label: t.id,
-            color: hexColor || "var(--form-multivalue-text-color)",
+            color: hexColor || "var(--slate-12)",
             tooltip: t.description,
           };
         }) ?? []

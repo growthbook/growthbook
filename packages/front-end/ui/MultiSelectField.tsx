@@ -33,6 +33,7 @@ import clsx from "clsx";
 import { PiCaretDown, PiCopy, PiX } from "react-icons/pi";
 import { Tooltip } from "@radix-ui/themes";
 import Text, { TextSizes, TextWeights } from "@/ui/Text";
+import Badge from "@/ui/Badge";
 import {
   ReactSelectProps,
   SingleValue,
@@ -578,18 +579,15 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
                         formatCreateLabel: (input: string) => {
                           return (
                             <span>
-                              <span className="text-muted">Create</span>{" "}
-                              <span
-                                className="badge bg-purple-light-2"
-                                style={{
-                                  fontWeight: 600,
-                                  padding: "3px 6px",
-                                  lineHeight: "1.5",
-                                  borderRadius: "2px",
-                                }}
-                              >
-                                {input}
-                              </span>
+                              <Text as="span" color="text-mid">
+                                Create
+                              </Text>{" "}
+                              <Badge
+                                color="violet"
+                                variant="soft"
+                                radius="small"
+                                label={input}
+                              />
                             </span>
                           );
                         },

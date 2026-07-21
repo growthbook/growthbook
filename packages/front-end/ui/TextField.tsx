@@ -117,7 +117,13 @@ export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(
             weight={labelWeight}
           >
             {label}
-            {markRequired ? <span className="text-danger ml-1">*</span> : null}
+            {markRequired ? (
+              <span
+                style={{ color: "var(--red-11)", marginLeft: "var(--space-1)" }}
+              >
+                *
+              </span>
+            ) : null}
           </Text>
         ) : label !== undefined ? (
           label

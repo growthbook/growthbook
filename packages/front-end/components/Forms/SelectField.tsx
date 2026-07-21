@@ -147,19 +147,19 @@ export const ReactSelectProps = {
       return {
         ...styles,
         backgroundColor: "var(--form-multivalue-background-color)",
-        color: "var(--form-multivalue-text-color) !important",
+        color: "var(--slate-12) !important",
       };
     },
     multiValueLabel: (styles) => {
       return {
         ...styles,
-        color: "var(--form-multivalue-text-color)",
+        color: "var(--slate-12)",
       };
     },
     multiValueRemove: (styles) => {
       return {
         ...styles,
-        color: "var(--form-multivalue-text-color)",
+        color: "var(--slate-12)",
       };
     },
     control: (styles, { isFocused }) => {
