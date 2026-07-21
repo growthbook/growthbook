@@ -2814,6 +2814,7 @@ Triggered when an experiment is ready to ship a variation.
             experimentName: string;
             experimentId: string;
             decisionDescription?: string | undefined;
+            source: "scheduled-end" | "analysis";
         };
     };
     user: {
@@ -2859,6 +2860,7 @@ Triggered when an experiment should be rolled back to the control.
             experimentName: string;
             experimentId: string;
             decisionDescription?: string | undefined;
+            source: "scheduled-end" | "analysis";
         };
     };
     user: {
@@ -2904,6 +2906,7 @@ Triggered when an experiment has reached the desired power point, but the result
             experimentName: string;
             experimentId: string;
             decisionDescription?: string | undefined;
+            source: "scheduled-end" | "analysis";
         };
     };
     user: {

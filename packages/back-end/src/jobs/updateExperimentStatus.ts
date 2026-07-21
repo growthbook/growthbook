@@ -164,6 +164,13 @@ const updateSingleExperimentStatus = async (
           experiment,
         });
 
+        // The scheduled end passing can flip the EDF status to decisive
+        // without a snapshot update. Compute the decision from the PRE-stop
+        // experiment (post-stop it's no longer "running", so scheduledEndPassed
+        // would be false) and fire the decision.* event for every outcome,
+        // ordered before the scheduled-status-update event.
+        await notifyScheduledEndDecision({ context, experiment });
+
         // Re-load: stopExperiment may have already mutated the experiment, and
         // the notification below needs fresh state either way.
         const latest =
@@ -183,10 +190,20 @@ const updateSingleExperimentStatus = async (
             action: "kept-running",
             recommendedVariationId: outcome.recommendedVariationId ?? undefined,
           });
-          // The end date passing can flip the EDF status to decisive without
-          // a snapshot update, so fire any resulting decision event now.
-          await notifyScheduledEndDecision({ context, experiment: latest });
         } else {
+          // The scheduled stop actually changed the experiment (status flipped
+          // to stopped, plus winner/results/releasedVariationId). Record it as
+          // a system `experiment.status` audit entry so the Compare Events
+          // timeline shows the diff, mirroring the scheduled-start path above.
+          // Kept-running makes no change, so it emits no audit entry.
+          await context.auditLog({
+            event: "experiment.status",
+            entity: {
+              object: "experiment",
+              id: experiment.id,
+            },
+            details: auditDetailsUpdate(experiment, latest),
+          });
           await notifyScheduledStatusUpdateApplied({
             context,
             experiment: latest,

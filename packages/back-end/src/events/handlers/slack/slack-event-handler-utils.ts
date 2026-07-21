@@ -1599,7 +1599,7 @@ const buildSlackMessageForExperimentShipEvent = (
 ): SlackMessage => {
   const text = (experimentName: string, description?: string) =>
     `Experiment ${experimentName} has reached the "Ship now" status.${
-      description ? ` ${description}` : null
+      description ? ` ${description}` : ""
     }`;
   return {
     text: text(data.experimentName, data.decisionDescription),
@@ -1622,7 +1622,7 @@ const buildSlackMessageForExperimentRollbackEvent = (
 ): SlackMessage => {
   const text = (experimentName: string, description?: string) =>
     `Experiment ${experimentName} has reached the "Roll back now" status.${
-      description ? ` ${description}` : null
+      description ? ` ${description}` : ""
     }`;
   return {
     text: text(data.experimentName, data.decisionDescription),
@@ -1645,7 +1645,7 @@ const buildSlackMessageForExperimentReviewEvent = (
 ): SlackMessage => {
   const text = (experimentName: string, description?: string) =>
     `Experiment ${experimentName} has reached the "Ready for review" status.${
-      description ? ` ${description}` : null
+      description ? ` ${description}` : ""
     }`;
   return {
     text: text(data.experimentName, data.decisionDescription),

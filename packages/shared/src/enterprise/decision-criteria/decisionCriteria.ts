@@ -18,6 +18,7 @@ import {
   SafeRolloutInterface,
   SafeRolloutSnapshotInterface,
 } from "shared/types/safe-rollout";
+import { SnapshotVariation } from "shared/types/experiment-snapshot";
 import { OrganizationSettings } from "shared/types/organization";
 import {
   DEFAULT_DECISION_FRAMEWORK_ENABLED,
@@ -266,7 +267,7 @@ export function getDecisionFrameworkStatus({
   goalMetrics,
   guardrailMetrics,
   daysNeeded,
-  forceDecisionReady,
+  scheduledEndPassed,
 }: {
   resultsStatus: ExperimentAnalysisSummaryResultsStatus;
   decisionCriteria: DecisionCriteriaData;
@@ -275,7 +276,7 @@ export function getDecisionFrameworkStatus({
   daysNeeded?: number;
   // For experiments that are over regardless of power (e.g. a scheduled end
   // date has passed). The returned `powerReached` stays honest.
-  forceDecisionReady?: boolean;
+  scheduledEndPassed?: boolean;
 }): ExperimentResultStatusData | undefined {
   const powerReached = daysNeeded === 0;
   const sequentialTesting = resultsStatus?.settings?.sequentialTesting;
@@ -283,11 +284,26 @@ export function getDecisionFrameworkStatus({
   // Rendering a decision with regular stat sig metrics is only valid
   // if you have reached your needed power or if you used sequential testing
   const decisionReady =
-    powerReached || sequentialTesting || !!forceDecisionReady;
+    powerReached || sequentialTesting || !!scheduledEndPassed;
 
-  const rollbackTooltip = `The test variation(s) should be rolled back.`;
-  const shipTooltip = `A test variation is ready to ship.`;
-  const reviewTooltip = `A test variation is ready to be reviewed.`;
+  // When the decision is driven solely by the scheduled end passing (not by
+  // reaching power), explain that in the tooltip.
+  const scheduledEndDrivesDecision = !!scheduledEndPassed && !powerReached;
+  const rollbackTooltip = `The test variation(s) should be rolled back.${
+    scheduledEndDrivesDecision
+      ? " The scheduled end date has passed and a recommendation can be made."
+      : ""
+  }`;
+  const shipTooltip = `A test variation is ready to ship.${
+    scheduledEndDrivesDecision
+      ? " The scheduled end date has passed and a recommendation can be made."
+      : ""
+  }`;
+  const reviewTooltip = `A test variation is ready to be reviewed.${
+    scheduledEndDrivesDecision
+      ? " The scheduled end date has passed and there is no clear ship or rollback recommendation."
+      : ""
+  }`;
 
   if (decisionReady) {
     const variationDecisions = getVariationDecisions({
@@ -295,7 +311,7 @@ export function getDecisionFrameworkStatus({
       decisionCriteria,
       goalMetrics,
       guardrailMetrics,
-      powerReached: powerReached || !!forceDecisionReady,
+      powerReached: powerReached || !!scheduledEndPassed,
     });
 
     const allRollbackNow =
@@ -307,6 +323,7 @@ export function getDecisionFrameworkStatus({
         variations: variationDecisions.map(({ variation }) => variation),
         sequentialUsed: sequentialTesting,
         powerReached: powerReached,
+        scheduledEndPassed: !!scheduledEndPassed,
         tooltip: rollbackTooltip,
       };
     }
@@ -320,13 +337,14 @@ export function getDecisionFrameworkStatus({
         variations: shipVariations.map(({ variation }) => variation),
         sequentialUsed: sequentialTesting,
         powerReached: powerReached,
+        scheduledEndPassed: !!scheduledEndPassed,
         tooltip: shipTooltip,
       };
     }
 
     // only return ready for review if power is reached, not for premature
     // sequential results
-    if (powerReached || forceDecisionReady) {
+    if (powerReached || scheduledEndPassed) {
       const reviewVariations = variationDecisions.filter(
         (d) => d.decisionCriteriaAction === "review",
       );
@@ -336,6 +354,7 @@ export function getDecisionFrameworkStatus({
           variations: reviewVariations.map(({ variation }) => variation),
           sequentialUsed: sequentialTesting,
           powerReached: powerReached,
+          scheduledEndPassed: !!scheduledEndPassed,
           tooltip: reviewTooltip,
         };
       }
@@ -365,6 +384,7 @@ export function getDecisionFrameworkStatus({
         ),
         sequentialUsed: sequentialTesting,
         powerReached: powerReached,
+        scheduledEndPassed: false,
         tooltip: rollbackTooltip,
       };
     }
@@ -395,6 +415,7 @@ export function getDecisionFrameworkStatus({
         variations: shipVariations.map(({ variation }) => variation),
         sequentialUsed: sequentialTesting,
         powerReached: powerReached,
+        scheduledEndPassed: false,
         tooltip: shipTooltip,
       };
     }
@@ -466,7 +487,7 @@ export function getExperimentResultStatus({
       goalMetrics: experimentData.goalMetrics,
       guardrailMetrics: experimentData.guardrailMetrics,
       daysNeeded,
-      forceDecisionReady: scheduledEndPassed,
+      scheduledEndPassed,
     });
   }
 
@@ -703,6 +724,7 @@ export function getSafeRolloutResultStatus({
       variations: decisionStatus.variations,
       sequentialUsed: true,
       powerReached: false,
+      scheduledEndPassed: false,
     };
   }
 
@@ -726,6 +748,7 @@ export function getSafeRolloutResultStatus({
       ],
       sequentialUsed: true,
       powerReached: false,
+      scheduledEndPassed: false,
     };
   }
 }
@@ -738,6 +761,33 @@ export function getPresetDecisionCriteriaForOrg(
     : PRESET_DECISION_CRITERIAS.find(
         (dc) => dc.id === settings.defaultDecisionCriteriaId,
       );
+}
+
+// Pure mapping of a snapshot dimension's variations to their tiebreaker-metric
+// relative lift, keyed by the snapshot's own variation ids (index-aligned with
+// the analysis results). Callers own loading the snapshot/metric.
+export function buildTiebreakerLiftMap({
+  variations,
+  snapshotVariationIds,
+  metricId,
+  inverse,
+}: {
+  variations: SnapshotVariation[];
+  snapshotVariationIds: string[];
+  metricId: string;
+  inverse?: boolean;
+}): Record<string, number> | null {
+  // For a lower-is-better (inverse) metric, flip the sign so that "highest
+  // lift" selects the best variation, not the worst. `expected` is the raw
+  // relative lift and is not direction-adjusted.
+  const sign = inverse ? -1 : 1;
+  const map: Record<string, number> = {};
+  variations.forEach((dv, i) => {
+    const id = snapshotVariationIds[i];
+    const expected = dv?.metrics?.[metricId]?.expected;
+    if (id && typeof expected === "number") map[id] = expected * sign;
+  });
+  return Object.keys(map).length > 0 ? map : null;
 }
 
 export type ScheduledShipDecision =

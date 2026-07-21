@@ -584,11 +584,13 @@ export const notifyDecision = async ({
   experiment,
   currentStatus,
   lastStatus,
+  source,
 }: {
   context: Context;
   experiment: ExperimentInterface;
   currentStatus: ExperimentResultStatusData;
   lastStatus?: ExperimentResultStatusData;
+  source: "scheduled-end" | "analysis";
 }) => {
   if (
     currentStatus.status === "ship-now" ||
@@ -616,6 +618,7 @@ export const notifyDecision = async ({
             experimentId: experiment.id,
             experimentName: experiment.name,
             decisionDescription: currentStatus.tooltip,
+            source,
           },
         },
       });
@@ -687,7 +690,13 @@ export const notifyScheduledEndDecision = async ({
     decisionCriteria,
   });
 
-  return notifyDecision({ context, experiment, currentStatus, lastStatus });
+  return notifyDecision({
+    context,
+    experiment,
+    currentStatus,
+    lastStatus,
+    source: "scheduled-end",
+  });
 };
 
 export const notifyExperimentChange = async ({
@@ -772,6 +781,7 @@ export const notifyExperimentChange = async ({
       experiment,
       lastStatus,
       currentStatus,
+      source: "analysis",
     });
     if (triggeredDecision) {
       notificationsTriggered.push("decision");

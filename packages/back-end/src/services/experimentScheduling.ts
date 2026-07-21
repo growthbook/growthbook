@@ -6,6 +6,7 @@ import {
 } from "shared/validators";
 import { getValidDate, resolveScheduledStop } from "shared/dates";
 import {
+  buildTiebreakerLiftMap,
   getDecisionFrameworkStatus,
   getExperimentResultStatus,
   getHealthSettings,
@@ -54,11 +55,7 @@ async function getTiebreakerLiftMap(
   const dimension = analysis?.results?.[0];
   if (!dimension) return null;
 
-  // For a lower-is-better (inverse) metric, flip the sign so that "highest
-  // lift" in resolveScheduledShipDecision selects the best variation, not the
-  // worst. `expected` is the raw relative lift and is not direction-adjusted.
   const metric = await getExperimentMetricById(context, metricId);
-  const sign = metric?.inverse ? -1 : 1;
 
   // Key by the SNAPSHOT's own variation ids, which are index-aligned with the
   // analysis results. The current experiment.variations order may have been
@@ -66,13 +63,12 @@ async function getTiebreakerLiftMap(
   // lift to the wrong variation.
   const snapshotVariationIds = snapshot.settings.variations.map((v) => v.id);
 
-  const map: Record<string, number> = {};
-  dimension.variations.forEach((dv, i) => {
-    const id = snapshotVariationIds[i];
-    const expected = dv?.metrics?.[metricId]?.expected;
-    if (id && typeof expected === "number") map[id] = expected * sign;
+  return buildTiebreakerLiftMap({
+    variations: dimension.variations,
+    snapshotVariationIds,
+    metricId,
+    inverse: metric?.inverse,
   });
-  return Object.keys(map).length > 0 ? map : null;
 }
 
 export type ScheduledStopOutcome =
@@ -131,7 +127,7 @@ async function computeScheduledVerdict(
     decisionCriteria,
     goalMetrics: experiment.goalMetrics,
     guardrailMetrics: experiment.guardrailMetrics,
-    forceDecisionReady: true,
+    scheduledEndPassed: true,
   });
   if (!resultStatus) return inconclusive;
 
@@ -200,6 +196,12 @@ export async function applyScheduledExperimentStop({
   const mode = shipping?.mode ?? "notify";
   const tiebreakerMetricId = shipping?.tiebreakerMetricId;
 
+  // Rendered as Markdown in the "Results Summary" banners (StoppedExperimentBanner,
+  // legacy StatusBanner, CompletedExperimentList), unlike the phase-level `reason`.
+  const nameFor = (id?: string | null) =>
+    experiment.variations.find((v) => v.id === id)?.name ??
+    "the selected variation";
+
   if (mode === "auto-ship" && canAutoShip(context)) {
     const verdict = await computeScheduledVerdict(
       context,
@@ -216,6 +218,9 @@ export async function applyScheduledExperimentStop({
           releasedVariationId: verdict.winnerVariationId,
           enableTemporaryRollout: true,
           reason: "Scheduled end: auto-shipped the winning variation.",
+          analysis: `Automatically stopped at the scheduled end date. The winning variation **${nameFor(
+            verdict.winnerVariationId,
+          )}** was shipped as a temporary rollout.`,
         },
       });
       return {
@@ -240,6 +245,9 @@ export async function applyScheduledExperimentStop({
           enableTemporaryRollout: true,
           reason:
             "Scheduled end: no clear winner — force-shipped the configured variation.",
+          analysis: `Automatically stopped at the scheduled end date with no clear winner; the pre-selected fallback variation **${nameFor(
+            fallbackTarget,
+          )}** was shipped.`,
         },
       });
       return {
@@ -279,6 +287,9 @@ export async function applyScheduledExperimentStop({
         releasedVariationId: forceShipTarget,
         enableTemporaryRollout: true,
         reason: "Scheduled end: shipped the pre-selected variation.",
+        analysis: `Automatically stopped at the scheduled end date. The pre-selected variation **${nameFor(
+          forceShipTarget,
+        )}** was shipped.`,
       },
     });
     return { kind: "shipped", variationId: forceShipTarget, forced: true };
@@ -298,6 +309,8 @@ export async function applyScheduledExperimentStop({
         winner: verdict?.winnerIndex ?? -1,
         enableTemporaryRollout: false,
         reason: "Scheduled end reached.",
+        analysis:
+          "Automatically stopped at the scheduled end date. No variation was shipped.",
       },
     });
     return { kind: "stopped" };
