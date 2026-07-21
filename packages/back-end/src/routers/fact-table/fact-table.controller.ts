@@ -956,8 +956,7 @@ export const putColumn = async (
     data.name = col.column;
   }
 
-  // Editing a virtual column's expression must not blank it out. (dependsOn is
-  // recomputed server-side inside updateColumn.)
+  // Editing a virtual column's expression must not blank it out.
   if (col.isVirtual && data.sql !== undefined && !data.sql.trim()) {
     throw new Error("Virtual columns require a SQL expression");
   }
@@ -1173,7 +1172,6 @@ export const postColumn = async (
     throw new Error("Virtual columns require a data type");
   }
 
-  // dependsOn is computed server-side inside createColumn.
   const column = await createColumn(factTable, data);
 
   res.status(200).json({

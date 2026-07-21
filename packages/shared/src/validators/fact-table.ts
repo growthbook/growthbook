@@ -438,20 +438,6 @@ export const apiFactTableColumnValidator = namedSchema(
           "For virtual columns, the SQL expression that computes the column value. Read-only via the API.",
         )
         .optional(),
-      dependsOn: z
-        .array(z.string())
-        .describe(
-          "For virtual columns, the columns referenced by the expression.",
-        )
-        .optional(),
-      invalid: z
-        .boolean()
-        .describe(
-          "For virtual columns, whether the expression references a column that no longer exists.",
-        )
-        .optional()
-        .meta({ default: false }),
-      invalidReason: z.string().optional(),
       dateCreated: z
         .string()
         .meta({ format: "date-time" })

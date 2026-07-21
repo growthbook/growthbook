@@ -53725,19 +53725,6 @@ components:
             For virtual columns, the SQL expression that computes the column
             value. Read-only via the API.
           type: string
-        dependsOn:
-          description: For virtual columns, the columns referenced by the expression.
-          type: array
-          items:
-            type: string
-        invalid:
-          default: false
-          description: >-
-            For virtual columns, whether the expression references a column that
-            no longer exists.
-          type: boolean
-        invalidReason:
-          type: string
         dateCreated:
           readOnly: true
           format: date-time
