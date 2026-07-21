@@ -1853,20 +1853,29 @@ export async function applyRampCreateActionsForRevision(
   );
 }
 
+/**
+ * Delete ramp schedules a failed publish created. Returns the ids it could NOT
+ * delete so the caller can surface them as a reversal failure — a swallowed
+ * delete would leave an armed `pending` schedule behind while the item reports
+ * a clean rollback (it activates if that revision is ever re-published).
+ */
 export async function rollbackCreatedRampSchedules(
   context: ReqContext | ApiReqContext,
   scheduleIds: string[],
-): Promise<void> {
+): Promise<string[]> {
+  const failed: string[] = [];
   for (const id of scheduleIds) {
     try {
       await context.models.rampSchedules.deleteById(id);
     } catch (deleteErr) {
+      failed.push(id);
       logger.error(
         deleteErr,
         `Failed to delete orphaned ramp schedule ${id} during publish rollback`,
       );
     }
   }
+  return failed;
 }
 
 export async function finalizeRampActionsAfterPublish(

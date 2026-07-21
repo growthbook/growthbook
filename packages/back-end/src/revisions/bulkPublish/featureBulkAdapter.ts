@@ -378,12 +378,21 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
   async restorePreImage(context, preImage, revision, desiredState) {
     const feature = preImage as unknown as FeatureInterface;
     const desired = desiredState as unknown as FeatureDesiredState;
+    // Accumulates every satellite reversal that couldn't complete; a non-empty
+    // list at the end makes the item report "published" (stuck) rather than a
+    // clean rollback. Declared FIRST so the ramp-schedule cleanup below feeds it.
+    const reversalFailures: string[] = [];
     // Ramp schedules created by this item's apply must not linger as orphans.
+    // A failed delete surfaces (not a silent log) so a leftover armed schedule
+    // can't hide behind a "rolled-back" report.
     if (desired.createdRampScheduleIds?.length) {
-      await rollbackCreatedRampSchedules(
+      const failedIds = await rollbackCreatedRampSchedules(
         context,
         desired.createdRampScheduleIds,
       );
+      if (failedIds.length) {
+        reversalFailures.push(`ramp schedule(s) ${failedIds.join(", ")}`);
+      }
     }
     const current = await getFeature(context, feature.id);
     // This apply wrote the feature, so it should exist. If it's gone (a
@@ -401,12 +410,12 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
 
     // Reverse the cross-collection writes BEFORE the feature-doc restore so a
     // failed reversal keeps the doc consistent with the side collections. Each
-    // reversal is attempted independently; ANY failure is surfaced at the end,
-    // so a satellite left at the failed publish's state (safe rollout advancing,
-    // stale experiment link, retained holdout) makes the item report "published"
-    // rather than a clean rollback. The safe-rollout restore is ownership-checked
-    // inside so worker progress is never clobbered.
-    const reversalFailures: string[] = [];
+    // reversal is attempted independently; ANY failure is surfaced at the end
+    // (via reversalFailures, declared above), so a satellite left at the failed
+    // publish's state (safe rollout advancing, stale experiment link, retained
+    // holdout) makes the item report "published" rather than a clean rollback.
+    // The safe-rollout restore is ownership-checked inside so worker progress is
+    // never clobbered.
     for (const entry of desired.safeRollouts ?? []) {
       try {
         await context.models.safeRollout.restoreAfterFailedBulkPublish(

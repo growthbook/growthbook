@@ -228,20 +228,31 @@ export function makeGenericBulkAdapter(
 
     async applyPrecomputed(context, entity, revision, desiredState) {
       const raw = revision.raw as Revision;
-      // The keys the write actually persisted (post updatable-filter and
-      // post-normalization) — the exact set compensation may roll back.
-      revision.persistedKeys = await adapter.applyChanges(
-        context,
-        entity,
-        desiredState,
-        { isRevert: !!raw.revertedFrom },
-      );
-      // The write may NORMALIZE what it persists (config schemas are stripped
-      // against ancestors), so the post-apply doc — not desiredState — is the
-      // ownership baseline compensation compares the live doc against.
       const model = adapter.getModel(context);
-      revision.writtenEntity =
-        (await model?.getById((entity as { id: string }).id)) ?? null;
+      try {
+        // The keys the write actually persisted (post updatable-filter and
+        // post-normalization) — the exact set compensation may roll back.
+        revision.persistedKeys = await adapter.applyChanges(
+          context,
+          entity,
+          desiredState,
+          { isRevert: !!raw.revertedFrom },
+        );
+      } finally {
+        // Capture the post-apply doc as the ownership baseline compensation
+        // compares the live doc against — the write may NORMALIZE what it
+        // persists (config schemas stripped against ancestors), so desiredState
+        // is not it. In `finally` because applyChanges can throw AFTER a partial
+        // write (config root written, descendant reconcile then throws): without
+        // the real post-write doc, a normalized field looks un-owned and the
+        // restore silently skips it. Guarded so it never masks the apply error.
+        try {
+          revision.writtenEntity =
+            (await model?.getById((entity as { id: string }).id)) ?? null;
+        } catch {
+          // Best-effort; restore falls back to the desired-state baseline.
+        }
+      }
     },
 
     async restorePreImage(context, preImage, revision, desiredState) {
@@ -259,8 +270,10 @@ export function makeGenericBulkAdapter(
       // Restore only the fields the apply ACTUALLY persisted — captured from
       // applyChanges, so a key dropped by the updatable filter or by config
       // normalization is never rolled back over a concurrent writer's value.
-      // (Falls back to the desired-state keys for a revision that never went
-      // through applyPrecomputed — defensive; that path doesn't reach here.)
+      // Falls back to the desired-state keys when applyChanges THREW before
+      // returning (a mid-cascade partial apply): paired with the finally-
+      // captured writtenEntity baseline, a key that wasn't actually written is
+      // a no-op restore, and one that was persisted still rolls back.
       const updatable = adapter.getUpdatableFields();
       const persistedKeys =
         revision.persistedKeys ??
