@@ -1,4 +1,9 @@
 {
+  "packages/front-end/components/ActivityList.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    }
+  },
   "packages/front-end/components/Admin/EditOrganization.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -12,6 +17,9 @@
   "packages/front-end/components/Archetype/AssignmentTester.tsx": {
     "no-restricted-imports": {
       "count": 3
+    },
+    "react/forbid-elements": {
+      "count": 1
     }
   },
   "packages/front-end/components/AuditHistoryExplorer/AuditHistoryExplorerModal.tsx": {
@@ -24,9 +32,44 @@
       "count": 1
     }
   },
+  "packages/front-end/components/Auth/CreateOrJoinOrganization.tsx": {
+    "react/forbid-elements": {
+      "count": 1
+    }
+  },
+  "packages/front-end/components/Auth/InAppHelp.tsx": {
+    "react/forbid-elements": {
+      "count": 2
+    }
+  },
+  "packages/front-end/components/Auth/SelectInitialPlan.tsx": {
+    "react/forbid-elements": {
+      "count": 2
+    }
+  },
+  "packages/front-end/components/Auth/Welcome.tsx": {
+    "react/forbid-elements": {
+      "count": 2
+    }
+  },
+  "packages/front-end/components/Carousel.tsx": {
+    "react/forbid-elements": {
+      "count": 2
+    }
+  },
+  "packages/front-end/components/Constants/ConstantReviews.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    }
+  },
   "packages/front-end/components/CustomHooks/CustomHookModal.tsx": {
     "no-restricted-imports": {
       "count": 1
+    }
+  },
+  "packages/front-end/components/CustomHooks/CustomHooksTable.tsx": {
+    "react/forbid-elements": {
+      "count": 3
     }
   },
   "packages/front-end/components/DataViz/DataVizConfigPanel.tsx": {
@@ -84,8 +127,23 @@
       "count": 1
     }
   },
+  "packages/front-end/components/DeleteButton/DeleteButton.tsx": {
+    "react/forbid-elements": {
+      "count": 1
+    }
+  },
   "packages/front-end/components/Dimensions/DimensionForm.tsx": {
     "no-restricted-imports": {
+      "count": 1
+    }
+  },
+  "packages/front-end/components/DocLink.tsx": {
+    "react/forbid-elements": {
+      "count": 1
+    }
+  },
+  "packages/front-end/components/EditButton/EditButton.tsx": {
+    "react/forbid-elements": {
       "count": 1
     }
   },
@@ -99,8 +157,18 @@
       "count": 1
     }
   },
+  "packages/front-end/components/EventWebHooks/EventWebHookList/EventWebHookListItem/EventWebHookListItem.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    }
+  },
   "packages/front-end/components/EventWebHooks/WebhookSecretModal.tsx": {
     "no-restricted-imports": {
+      "count": 1
+    }
+  },
+  "packages/front-end/components/Events/EventsPage/EventsTableRow.tsx": {
+    "react/forbid-elements": {
       "count": 1
     }
   },
@@ -199,6 +267,11 @@
       "count": 1
     }
   },
+  "packages/front-end/components/Experiment/ResultsDownloadButton.tsx": {
+    "react/forbid-elements": {
+      "count": 1
+    }
+  },
   "packages/front-end/components/Experiment/ResultsFilter/MigrateResultsToDashboardModalPages.tsx": {
     "no-restricted-imports": {
       "count": 2
@@ -216,6 +289,11 @@
   },
   "packages/front-end/components/Experiment/SafeRolloutTimeSeriesGraph.tsx": {
     "no-restricted-imports": {
+      "count": 1
+    }
+  },
+  "packages/front-end/components/Experiment/StatusBanner.tsx": {
+    "react/forbid-elements": {
       "count": 1
     }
   },
@@ -241,7 +319,7 @@
   },
   "packages/front-end/components/Experiment/TabbedPage/ResultsTab.tsx": {
     "no-restricted-imports": {
-      "count": 1
+      "count": 2
     }
   },
   "packages/front-end/components/Experiment/TabbedPage/RunningExperimentDecisionBanner.tsx": {
@@ -271,7 +349,7 @@
   },
   "packages/front-end/components/Experiment/holdout/HoldoutTimeline.tsx": {
     "no-restricted-imports": {
-      "count": 2
+      "count": 3
     }
   },
   "packages/front-end/components/FactTables/ColumnModal.tsx": {
@@ -324,9 +402,14 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Features/ExperimentSummary.tsx": {
+  "packages/front-end/components/Features/ExperimentRefSummary.tsx": {
     "no-restricted-imports": {
       "count": 1
+    }
+  },
+  "packages/front-end/components/Features/ExperimentSummary.tsx": {
+    "no-restricted-imports": {
+      "count": 2
     }
   },
   "packages/front-end/components/Features/FeatureDeleteModal.tsx": {
@@ -419,6 +502,11 @@
       "count": 1
     }
   },
+  "packages/front-end/components/Features/SparseTabbedEditor.tsx": {
+    "react/forbid-elements": {
+      "count": 1
+    }
+  },
   "packages/front-end/components/Features/ValueDisplay.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -472,6 +560,14 @@
   "packages/front-end/components/GeneralSettings/FeatureSettings.tsx": {
     "no-restricted-imports": {
       "count": 2
+    },
+    "react/forbid-elements": {
+      "count": 2
+    }
+  },
+  "packages/front-end/components/GeneralSettings/ImportSettings.tsx": {
+    "no-restricted-imports": {
+      "count": 1
     }
   },
   "packages/front-end/components/GeneralSettings/MetricsSettings.tsx": {
@@ -487,6 +583,9 @@
   "packages/front-end/components/GeneralSettings/OrganizationAndLicenseSettings.tsx": {
     "no-restricted-imports": {
       "count": 2
+    },
+    "react/forbid-elements": {
+      "count": 1
     }
   },
   "packages/front-end/components/GeneralSettings/RampScheduleTemplates.tsx": {
@@ -511,22 +610,25 @@
   },
   "packages/front-end/components/GetStarted/FeaturedCards.tsx": {
     "no-restricted-imports": {
-      "count": 2
+      "count": 3
     }
   },
   "packages/front-end/components/GetStarted/NeedingAttention.tsx": {
     "no-restricted-imports": {
-      "count": 1
+      "count": 2
     }
   },
   "packages/front-end/components/GetStarted/OverviewCard.tsx": {
     "no-restricted-imports": {
       "count": 1
+    },
+    "react/forbid-elements": {
+      "count": 1
     }
   },
   "packages/front-end/components/GetStarted/WorkspaceLinks.tsx": {
     "no-restricted-imports": {
-      "count": 1
+      "count": 2
     }
   },
   "packages/front-end/components/GetStarted/index.tsx": {
@@ -542,6 +644,9 @@
   "packages/front-end/components/HealthTab/DimensionIssues.tsx": {
     "no-restricted-imports": {
       "count": 1
+    },
+    "react/forbid-elements": {
+      "count": 3
     }
   },
   "packages/front-end/components/HealthTab/PowerCard.tsx": {
@@ -579,6 +684,11 @@
       "count": 1
     }
   },
+  "packages/front-end/components/HomePage/DocumentationLinksSidebar.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    }
+  },
   "packages/front-end/components/HomePage/NorthStar.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -594,6 +704,39 @@
       "count": 2
     }
   },
+  "packages/front-end/components/InitialSetup/SetupAbandonedPage.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    }
+  },
+  "packages/front-end/components/InitialSetup/SetupCompletedPage.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    }
+  },
+  "packages/front-end/components/Layout/AccountPlanNotices.tsx": {
+    "react/forbid-elements": {
+      "count": 1
+    }
+  },
+  "packages/front-end/components/Layout/GuidedGetStartedBar.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    }
+  },
+  "packages/front-end/components/Layout/Layout.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    }
+  },
+  "packages/front-end/components/Layout/SidebarLink.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "react/forbid-elements": {
+      "count": 1
+    }
+  },
   "packages/front-end/components/Layout/TopNav.tsx": {
     "no-restricted-imports": {
       "count": 2
@@ -601,7 +744,7 @@
   },
   "packages/front-end/components/Layout/TopNavLite.tsx": {
     "no-restricted-imports": {
-      "count": 1
+      "count": 2
     }
   },
   "packages/front-end/components/License/OptInModal.tsx": {
@@ -614,6 +757,11 @@
       "count": 2
     }
   },
+  "packages/front-end/components/Markdown/Markdown.tsx": {
+    "react/forbid-elements": {
+      "count": 2
+    }
+  },
   "packages/front-end/components/Markdown/MarkdownInput.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -621,6 +769,11 @@
   },
   "packages/front-end/components/Marketing/PremiumTooltip.tsx": {
     "no-restricted-imports": {
+      "count": 1
+    }
+  },
+  "packages/front-end/components/Marketing/UpgradeLabel.tsx": {
+    "react/forbid-elements": {
       "count": 1
     }
   },
@@ -657,6 +810,14 @@
   "packages/front-end/components/MetricDrilldown/MetricDrilldownSlices.tsx": {
     "no-restricted-imports": {
       "count": 1
+    },
+    "react/forbid-elements": {
+      "count": 1
+    }
+  },
+  "packages/front-end/components/Metrics/DateGraph.tsx": {
+    "no-restricted-imports": {
+      "count": 1
     }
   },
   "packages/front-end/components/Modal.tsx": {
@@ -671,6 +832,11 @@
   },
   "packages/front-end/components/OfficialResourceModal.tsx": {
     "no-restricted-imports": {
+      "count": 1
+    }
+  },
+  "packages/front-end/components/OrgSuspendedBanner/OrgSuspendedBanner.tsx": {
+    "react/forbid-elements": {
       "count": 1
     }
   },
@@ -691,6 +857,11 @@
   },
   "packages/front-end/components/PowerCalculation/PowerCalculationStatsEngineSettingsModal.tsx": {
     "no-restricted-imports": {
+      "count": 1
+    }
+  },
+  "packages/front-end/components/PreLaunchChecklist/PreLaunchChecklistItems.tsx": {
+    "react/forbid-elements": {
       "count": 1
     }
   },
@@ -719,12 +890,22 @@
       "count": 1
     }
   },
+  "packages/front-end/components/Report/LegacyReportPage.tsx": {
+    "react/forbid-elements": {
+      "count": 1
+    }
+  },
   "packages/front-end/components/Report/ReportAnalysisSettingsBar.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
   },
   "packages/front-end/components/Report/ReportMetaInfo.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    }
+  },
+  "packages/front-end/components/SafeRollout/Results/CompactResults.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
@@ -739,6 +920,11 @@
       "count": 1
     }
   },
+  "packages/front-end/components/SavedGroups/LargeSavedGroupSupportWarning.tsx": {
+    "react/forbid-elements": {
+      "count": 1
+    }
+  },
   "packages/front-end/components/SavedGroups/SavedGroupDeleteModal.tsx": {
     "no-restricted-imports": {
       "count": 2
@@ -747,6 +933,11 @@
   "packages/front-end/components/SavedGroups/SavedGroupForm.tsx": {
     "no-restricted-imports": {
       "count": 2
+    }
+  },
+  "packages/front-end/components/SavedGroups/SavedGroupReviews.tsx": {
+    "no-restricted-imports": {
+      "count": 1
     }
   },
   "packages/front-end/components/SavedQueries/SavedQueriesList.tsx": {
@@ -774,9 +965,19 @@
       "count": 1
     }
   },
+  "packages/front-end/components/Settings/BackupConfigYamlButton.tsx": {
+    "react/forbid-elements": {
+      "count": 1
+    }
+  },
   "packages/front-end/components/Settings/DataSourceForm.tsx": {
     "no-restricted-imports": {
       "count": 1
+    }
+  },
+  "packages/front-end/components/Settings/DataSourceSchemaChooser.tsx": {
+    "react/forbid-elements": {
+      "count": 3
     }
   },
   "packages/front-end/components/Settings/DataSourceTypeSelector.tsx": {
@@ -829,6 +1030,11 @@
       "count": 1
     }
   },
+  "packages/front-end/components/Settings/EditDataSource/EventForwarder/EventForwarder.tsx": {
+    "react/forbid-elements": {
+      "count": 2
+    }
+  },
   "packages/front-end/components/Settings/EditDataSource/ExperimentAssignmentQueries/AddEditExperimentAssignmentQueryModal.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -867,6 +1073,11 @@
   "packages/front-end/components/Settings/NewDataSourceForm.tsx": {
     "no-restricted-imports": {
       "count": 2
+    }
+  },
+  "packages/front-end/components/Settings/RestoreConfigYamlButton.tsx": {
+    "react/forbid-elements": {
+      "count": 1
     }
   },
   "packages/front-end/components/Settings/SubscriptionInfo.tsx": {
@@ -922,6 +1133,9 @@
   "packages/front-end/components/Settings/UpgradeModal/index.tsx": {
     "no-restricted-imports": {
       "count": 2
+    },
+    "react/forbid-elements": {
+      "count": 1
     }
   },
   "packages/front-end/components/Settings/WebhooksModal.tsx": {
@@ -951,6 +1165,11 @@
   },
   "packages/front-end/components/StaleFeatureIcon.tsx": {
     "no-restricted-imports": {
+      "count": 1
+    }
+  },
+  "packages/front-end/components/Tabs/TabButton.tsx": {
+    "react/forbid-elements": {
       "count": 1
     }
   },
@@ -1002,6 +1221,9 @@
   "packages/front-end/enterprise/components/Dashboards/DashboardEditor/DashboardBlock/index.tsx": {
     "no-restricted-imports": {
       "count": 1
+    },
+    "react/forbid-elements": {
+      "count": 1
     }
   },
   "packages/front-end/enterprise/components/Dashboards/DashboardEditor/DashboardEditorSidebar/EditSingleBlock.tsx": {
@@ -1011,6 +1233,11 @@
   },
   "packages/front-end/enterprise/components/Dashboards/DashboardEditor/DashboardEditorSidebar/MetricExplorerSettings.tsx": {
     "no-restricted-imports": {
+      "count": 1
+    }
+  },
+  "packages/front-end/enterprise/components/Dashboards/DashboardEditor/DashboardEditorSidebar/index.tsx": {
+    "react/forbid-elements": {
       "count": 1
     }
   },
@@ -1046,7 +1273,7 @@
   },
   "packages/front-end/enterprise/components/ExecReports/ExecExperimentImpact.tsx": {
     "no-restricted-imports": {
-      "count": 2
+      "count": 3
     }
   },
   "packages/front-end/enterprise/components/Insights/ExperimentTimeline.tsx": {
@@ -1067,10 +1294,21 @@
   "packages/front-end/enterprise/components/feature-promos/ExperimentTemplatePromoCard.tsx": {
     "no-restricted-imports": {
       "count": 1
+    },
+    "react/forbid-elements": {
+      "count": 1
     }
   },
   "packages/front-end/pages/admin.tsx": {
     "no-restricted-imports": {
+      "count": 1
+    }
+  },
+  "packages/front-end/pages/approval-requests.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    },
+    "react/forbid-elements": {
       "count": 1
     }
   },
@@ -1080,6 +1318,11 @@
     }
   },
   "packages/front-end/pages/attributes/[property].tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    }
+  },
+  "packages/front-end/pages/contextual-bandits/index.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
@@ -1114,6 +1357,11 @@
       "count": 1
     }
   },
+  "packages/front-end/pages/idea/[iid].tsx": {
+    "react/forbid-elements": {
+      "count": 1
+    }
+  },
   "packages/front-end/pages/interactions.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -1131,10 +1379,18 @@
   },
   "packages/front-end/pages/presentations.tsx": {
     "no-restricted-imports": {
+      "count": 2
+    },
+    "react/forbid-elements": {
       "count": 1
     }
   },
   "packages/front-end/pages/product-analytics/dashboards/index.tsx": {
+    "no-restricted-imports": {
+      "count": 2
+    }
+  },
+  "packages/front-end/pages/reports.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
@@ -1154,6 +1410,11 @@
       "count": 2
     }
   },
+  "packages/front-end/pages/settings/custom-hooks.tsx": {
+    "react/forbid-elements": {
+      "count": 1
+    }
+  },
   "packages/front-end/pages/settings/custom-markdown.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -1161,6 +1422,11 @@
   },
   "packages/front-end/pages/settings/index.tsx": {
     "no-restricted-imports": {
+      "count": 1
+    }
+  },
+  "packages/front-end/pages/settings/tags.tsx": {
+    "react/forbid-elements": {
       "count": 1
     }
   },
@@ -1177,6 +1443,11 @@
   "packages/front-end/services/auth.tsx": {
     "no-restricted-imports": {
       "count": 1
+    }
+  },
+  "packages/front-end/services/search.tsx": {
+    "react/forbid-elements": {
+      "count": 2
     }
   },
   "packages/sdk-js/rollup.config.mjs": {
