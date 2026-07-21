@@ -11,7 +11,6 @@
  * in files you're already touching.
  */
 const { execSync } = require("child_process");
-const fs = require("fs");
 const path = require("path");
 
 const ROOT = path.join(__dirname, "..");
@@ -40,10 +39,16 @@ function stagedFiles() {
 const NEXT_LINK_IMPORT = /from\s+["']next\/link["']/;
 
 function scan(rel) {
-  const full = path.join(ROOT, rel);
+  // Read the staged blob (index), not the working tree, so the reminder
+  // reflects exactly what will be committed. A partially-staged file can have
+  // different content on disk than in the index.
   let src;
   try {
-    src = fs.readFileSync(full, "utf8");
+    src = execSync(`git show ":${rel}"`, {
+      cwd: ROOT,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
   } catch {
     return null;
   }
