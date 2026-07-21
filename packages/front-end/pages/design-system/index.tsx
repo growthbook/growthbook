@@ -6,7 +6,7 @@ import Frame from "@/ui/Frame";
 
 import AnalysisResultSummaryStories from "@/ui/AnalysisResultSummary.stories";
 import AvatarStories from "@/ui/Avatar.stories";
-import BadgeStories from "@/ui/Badge.stories";
+import BadgeStories from "@/ui/Badge/Badge.stories";
 import BreadcrumbsStories from "@/ui/Breadcrumbs.stories";
 import ButtonStories from "@/ui/Button.stories";
 import CalloutStories from "@/ui/Callout.stories";

@@ -1,5 +1,5 @@
 import { Flex, Text } from "@radix-ui/themes";
-import Badge from "./Badge";
+import Badge from ".";
 
 export default function BadgeStories() {
   return (
