@@ -6,6 +6,7 @@ import { Flex, Box } from "@radix-ui/themes";
 import track from "@/services/track";
 import Text from "@/ui/Text";
 import { getApiHost } from "@/services/env";
+import Link from "@/ui/Link";
 import Field from "@/components/Forms/Field";
 import Button, { WhiteButton } from "@/ui/Button";
 import Heading from "@/ui/Heading";
@@ -228,15 +229,7 @@ export default function Welcome({
               <h3 className="h2">Register</h3>
               <p>
                 Already have an account?{" "}
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setState("login");
-                  }}
-                >
-                  Log In
-                </a>
+                <Link onClick={() => setState("login")}>Log In</Link>
               </p>
             </div>
           )}
@@ -264,15 +257,7 @@ export default function Welcome({
             <div>
               <h3 className="h2">Forgot Password</h3>
               <p>
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setState("login");
-                  }}
-                >
-                  Go back to Log In
-                </a>
+                <Link onClick={() => setState("login")}>Go back to Log In</Link>
               </p>
             </div>
           )}
@@ -285,15 +270,7 @@ export default function Welcome({
               <p>Click the link in the email to reset your password.</p>
               <p>
                 Sent to the wrong email or need to resend?{" "}
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setState("forgot");
-                  }}
-                >
-                  Go Back
-                </a>
+                <Link onClick={() => setState("forgot")}>Go Back</Link>
               </p>
             </div>
           )}
@@ -343,15 +320,9 @@ export default function Welcome({
               minLength={8}
               helpText={
                 state === "login" ? (
-                  <a
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setState("forgot");
-                    }}
-                  >
+                  <Link onClick={() => setState("forgot")}>
                     Forgot Password?
-                  </a>
+                  </Link>
                 ) : null
               }
             />

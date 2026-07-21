@@ -3,6 +3,7 @@ import clsx from "clsx";
 import { useUser } from "@/services/UserContext";
 import { isCloud } from "@/services/env";
 import { GBPremiumBadge } from "@/components/Icons";
+import Link from "@/ui/Link";
 import styles from "./UpgradeMessage.module.scss";
 
 export default function UpgradeMessage({
@@ -34,11 +35,9 @@ export default function UpgradeMessage({
   );
 
   return (
-    <a
+    <Link
       className={clsx(`${styles.ctaLink} cta mb-2`, className)}
-      href="#"
-      onClick={(e) => {
-        e.preventDefault();
+      onClick={() => {
         showUpgradeModal();
       }}
     >
@@ -53,6 +52,6 @@ export default function UpgradeMessage({
           Learn more <GBPremiumBadge />
         </div>
       </div>
-    </a>
+    </Link>
   );
 }

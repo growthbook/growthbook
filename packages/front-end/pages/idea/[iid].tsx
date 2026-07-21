@@ -31,6 +31,7 @@ import EditableH1 from "@/components/Forms/EditableH1";
 import InlineForm from "@/components/Forms/InlineForm";
 import TagsInput from "@/components/Tags/TagsInput";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
+import DropdownLink from "@/components/Dropdown/DropdownLink";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import SelectField from "@/components/Forms/SelectField";
@@ -181,12 +182,9 @@ const IdeaPage = (): ReactElement => {
             )}
           {canEdit && (
             <div className="col-auto d-flex">
-              <MoreMenu useRadix={false}>
-                <a
-                  href="#"
-                  className="dropdown-item"
-                  onClick={async (e) => {
-                    e.preventDefault();
+              <MoreMenu>
+                <DropdownLink
+                  onClick={async () => {
                     await apiCall(`/idea/${iid}`, {
                       method: "POST",
                       body: JSON.stringify({
@@ -203,7 +201,7 @@ const IdeaPage = (): ReactElement => {
                   }}
                 >
                   <FaArchive /> {idea.archived ? "Unarchive" : "Archive"}
-                </a>
+                </DropdownLink>
                 <DeleteButton
                   useRadix={false}
                   displayName="Idea"

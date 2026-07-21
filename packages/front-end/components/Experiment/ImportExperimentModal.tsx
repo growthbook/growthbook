@@ -7,6 +7,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import Modal from "@/components/Modal";
 import SelectField from "@/components/Forms/SelectField";
 import Callout from "@/ui/Callout";
+import Link from "@/ui/Link";
 import ImportExperimentList from "./ImportExperimentList";
 import NewExperimentForm from "./NewExperimentForm";
 
@@ -101,16 +102,9 @@ const ImportExperimentModal: FC<{
     >
       <Callout status="info" mb="3">
         Don&apos;t see your experiment listed below?{" "}
-        <a
-          role="button"
-          className="link"
-          onClick={(e) => {
-            e.preventDefault();
-            setImportModal(false);
-          }}
-        >
+        <Link className="link" onClick={() => setImportModal(false)}>
           Create From Scratch
-        </a>
+        </Link>
       </Callout>
       <h2>Import from Data source</h2>
       {importId && (

@@ -7,6 +7,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Modal from "@/components/Modal";
 import { useUser } from "@/services/UserContext";
 import Checkbox from "@/ui/Checkbox";
+import Link from "@/ui/Link";
 
 // hard coded agreements for now:
 const agreements: Record<
@@ -32,29 +33,29 @@ const agreements: Record<
         data analysis.
         <Box mt="2">
           For more information about how your data is used, please see our{" "}
-          <a
+          <Link
             href="https://docs.growthbook.io/integrations/ai"
             target="_blank"
             rel="noreferrer"
           >
             AI docs
-          </a>
+          </Link>
           , review our{" "}
-          <a
+          <Link
             href="https://www.growthbook.io/legal/privacy-policy/06-19-2025"
             target="_blank"
             rel="noreferrer"
           >
             privacy notice
-          </a>{" "}
+          </Link>{" "}
           and OpenAI&apos;s{" "}
-          <a
+          <Link
             href="https://openai.com/enterprise-privacy/"
             target="_blank"
             rel="noreferrer"
           >
             privacy policy
-          </a>
+          </Link>
           . You can disable these features at any time in your account settings.
         </Box>
       </>
@@ -78,21 +79,21 @@ const agreements: Record<
         enabling this feature you are agreeing to the terms of service of
         GrowthBook and Clickhouse, and allowing us to store your event data
         passed to us.
-        <a
+        <Link
           href="https://www.growthbook.io/legal/privacy-policy/06-19-2025"
           target="_blank"
           rel="noreferrer"
         >
           Privacy Notice
-        </a>{" "}
+        </Link>{" "}
         and Clickhouse&apos;s{" "}
-        <a
+        <Link
           href="https://clickhouse.com/legal/privacy-policy"
           target="_blank"
           rel="noreferrer"
         >
           Privacy Policy
-        </a>
+        </Link>
         .
       </>
     ),

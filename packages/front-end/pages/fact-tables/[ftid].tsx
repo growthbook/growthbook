@@ -513,15 +513,13 @@ export default function FactTablePage() {
             maxHeight="405px"
             filename={
               canEdit ? (
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
+                <Link
+                  onClick={() => {
                     setEditSQLOpen(true);
                   }}
                 >
                   Edit SQL <GBEdit />
-                </a>
+                </Link>
               ) : (
                 "SQL"
               )

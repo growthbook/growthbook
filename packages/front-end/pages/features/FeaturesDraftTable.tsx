@@ -1,7 +1,6 @@
 import { FeatureMetaInfo } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import React, { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { date, datetime } from "shared/dates";
 import {
   EventUserLoggedIn,
@@ -30,6 +29,7 @@ import Table, {
   TableColumnHeader,
   TableCell,
 } from "@/ui/Table";
+import Link from "@/ui/Link";
 
 type FeaturesAndRevisions = FeatureRevisionInterface & {
   featureMeta?: FeatureMetaInfo;

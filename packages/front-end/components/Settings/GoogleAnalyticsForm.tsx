@@ -3,6 +3,7 @@ import { GoogleAnalyticsParams } from "shared/types/integrations/googleanalytics
 import { FaKey, FaCheck } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
 
 const GoogleAnalyticsForm: FC<{
@@ -37,13 +38,13 @@ const GoogleAnalyticsForm: FC<{
         <Callout status="info">
           If you are using <strong>Google Analytics 4</strong>, you must use a{" "}
           <strong>BigQuery</strong> data source instead (
-          <a
+          <Link
             href="https://support.google.com/analytics/answer/9823238"
             target="_blank"
             rel="noreferrer"
           >
             instructions
-          </a>
+          </Link>
           ). Universal Analytics properties can connect below.
         </Callout>
         <button

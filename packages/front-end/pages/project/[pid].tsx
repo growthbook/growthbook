@@ -1,6 +1,5 @@
 import React, { FC, useEffect, useState } from "react";
 import router from "next/router";
-import NextLink from "next/link";
 import { useForm } from "react-hook-form";
 import isEqual from "lodash/isEqual";
 import { ProjectInterface, ProjectSettings } from "shared/types/project";
@@ -28,6 +27,7 @@ import Text from "@/ui/Text";
 import { capitalizeFirstLetter } from "@/services/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
+import DropdownLink from "@/components/Dropdown/DropdownLink";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import useApi from "@/hooks/useApi";
@@ -193,16 +193,13 @@ const ProjectPage: FC = () => {
             </Flex>
           </Flex>
           <MoreMenu>
-            <a
-              href="#"
-              className="dropdown-item"
-              onClick={(e) => {
-                e.preventDefault();
+            <DropdownLink
+              onClick={() => {
                 setModalOpen(p);
               }}
             >
               Edit Project Info
-            </a>
+            </DropdownLink>
           </MoreMenu>
         </Flex>
         {p.description ? (
@@ -211,15 +208,7 @@ const ProjectPage: FC = () => {
           </Box>
         ) : (
           <Box>
-            <NextLink
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                setModalOpen(p);
-              }}
-            >
-              Add a description
-            </NextLink>
+            <Link onClick={() => setModalOpen(p)}>Add a description</Link>
           </Box>
         )}
 

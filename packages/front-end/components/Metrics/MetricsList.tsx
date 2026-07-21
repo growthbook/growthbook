@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
 import { date, datetime } from "shared/dates";
 import { isProjectListValidForProject } from "shared/util";
 import { getMetricLink, isFactMetricId } from "shared/experiments";
@@ -55,6 +54,7 @@ import Table, {
   TableColumnHeader,
   TableCell,
 } from "@/ui/Table";
+import Link from "@/ui/Link";
 
 function MetricRowMenu({ metric }: { metric: MetricTableItem }) {
   const [open, setOpen] = useState(false);

@@ -1,6 +1,7 @@
 import { Flex } from "@radix-ui/themes";
 import { Permissions } from "shared/permissions";
 import { UserContext } from "@/services/UserContext";
+import Link from "@/ui/Link";
 import PremiumCallout from "./PremiumCallout";
 
 export default function PremiumCalloutStories() {
@@ -47,15 +48,7 @@ export default function PremiumCalloutStories() {
           docSection="bandits"
           dismissible={true}
           renderWhenDismissed={(undismiss) => (
-            <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                undismiss();
-              }}
-            >
-              Un-dismiss
-            </a>
+            <Link onClick={() => undismiss()}>Un-dismiss</Link>
           )}
         >
           You already have access to this premium feature. This gives you a docs

@@ -22,6 +22,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Modal from "@/components/Modal";
 import Text from "@/ui/Text";
+import Link from "@/ui/Link";
 import {
   PrerequisiteStateResult,
   usePrerequisiteStates,
@@ -198,7 +199,7 @@ export default function PrerequisiteStatusRow({
       <Flex align="center" style={{ borderTop: "1px solid var(--gray-4)" }}>
         <Box style={{ width: labelWidth, flexShrink: 0, minWidth: 0 }} py="2">
           <Flex align="center" gap="1">
-            <a
+            <Link
               href={`/features/${prerequisite.id}`}
               target="_blank"
               rel="noreferrer"
@@ -211,7 +212,7 @@ export default function PrerequisiteStatusRow({
               }}
             >
               {prerequisite.id}
-            </a>
+            </Link>
             <Box style={{ flexShrink: 0 }}>{menu}</Box>
           </Flex>
         </Box>

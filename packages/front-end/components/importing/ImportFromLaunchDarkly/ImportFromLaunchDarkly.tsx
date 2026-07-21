@@ -547,31 +547,27 @@ function FeatureImportRow({
         </td>
         <td>
           {data.feature ? (
-            <a
-              href="#"
+            <Link
               className="ml-1"
-              onClick={(e) => {
-                e.preventDefault();
+              onClick={() => {
                 setOpen(true);
               }}
             >
               open <FaRegWindowRestore />
-            </a>
+            </Link>
           ) : null}
         </td>
         <td>
           {data.error ? (
             <em>{data.error}</em>
           ) : data.status === "pending" && overallStatus === "ready" ? (
-            <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
+            <Link
+              onClick={() => {
                 skip();
               }}
             >
               skip
-            </a>
+            </Link>
           ) : null}
         </td>
       </tr>

@@ -16,6 +16,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
 import { getExposureQuery } from "@/services/datasources";
 import Callout from "@/ui/Callout";
+import Link from "@/ui/Link";
 import MetricsSelector from "./MetricsSelector";
 
 export interface Props {
@@ -272,14 +273,13 @@ export default function ExperimentMetricsSelector({
       {setSecondaryMetrics !== undefined && (
         <div className="form-group flex-1">
           {secondaryCollapsed ? (
-            <a
-              role="button"
+            <Link
               className="d-inline-block link-purple font-weight-bold mt-2"
               onClick={() => setSecondaryCollapsed(false)}
             >
               <FaPlusCircle className="mr-1" />
               Add Secondary Metrics
-            </a>
+            </Link>
           ) : (
             <>
               <label className="font-weight-bold mb-1">Secondary Metrics</label>
@@ -314,14 +314,13 @@ export default function ExperimentMetricsSelector({
       {setGuardrailMetrics !== undefined && (
         <div className="form-group flex-1">
           {guardrailCollapsed ? (
-            <a
-              role="button"
+            <Link
               className="d-inline-block link-purple font-weight-bold mt-2"
               onClick={() => setGuardrailCollapsed(false)}
             >
               <FaPlusCircle className="mr-1" />
               Add Guardrail Metrics
-            </a>
+            </Link>
           ) : (
             <>
               <label className="font-weight-bold mb-1">Guardrail Metrics</label>

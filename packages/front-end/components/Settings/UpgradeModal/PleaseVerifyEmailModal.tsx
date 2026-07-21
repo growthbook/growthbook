@@ -4,6 +4,7 @@ import { FaCheckCircle } from "react-icons/fa";
 import { useUser } from "@/services/UserContext";
 import Modal from "@/components/Modal";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import styles from "./index.module.scss";
@@ -78,29 +79,22 @@ export default function PleaseVerifyEmailModal({
           spam folder, {loading && <LoadingSpinner />}{" "}
           {success && <FaCheckCircle size={18} className="text-success" />}{" "}
           {(loading && (
-            <a
+            <Link
               onClick={resendVerificationEmail}
               className={clsx(styles.unclickable)}
             >
               sending
-            </a>
-          )) || (
-            <a onClick={resendVerificationEmail} className={""}>
-              resend
-            </a>
-          )}{" "}
-          email,{" "}
-          <a onClick={reenterEmail} className={""}>
-            re-enter
-          </a>{" "}
-          your email address, or{" "}
-          <a
-            href="mailto: support@growthbook.io"
+            </Link>
+          )) || <Link onClick={resendVerificationEmail}>resend</Link>}{" "}
+          email, <Link onClick={reenterEmail}>re-enter</Link> your email
+          address, or{" "}
+          <Link
+            href="mailto:support@growthbook.io"
             target="_blank"
             rel="noreferrer"
           >
             contact&nbsp;support
-          </a>
+          </Link>
           .
         </div>
       }

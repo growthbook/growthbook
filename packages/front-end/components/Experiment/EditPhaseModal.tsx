@@ -10,6 +10,7 @@ import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";
 import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
 import DatePicker from "@/components/DatePicker";
+import Link from "@/ui/Link";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Callout from "@/ui/Callout";
 
@@ -90,16 +91,9 @@ export default function EditPhaseModal({
           />
           <div className="mb-3 mt-1 small">
             Leave blank if still running.{" "}
-            <a
-              role="button"
-              className="a"
-              onClick={(e) => {
-                e.preventDefault();
-                form.setValue("dateEnded", "");
-              }}
-            >
+            <Link className="a" onClick={() => form.setValue("dateEnded", "")}>
               Clear Input
-            </a>
+            </Link>
           </div>
           {form.watch("dateEnded") && (
             <Field
@@ -116,8 +110,7 @@ export default function EditPhaseModal({
         <Callout status="info" mt="4">
           Trying to change targeting rules, traffic allocation, or start a new
           phase? Use the{" "}
-          <a
-            role="button"
+          <Link
             className="a"
             onClick={() => {
               editTargeting?.();
@@ -125,7 +118,7 @@ export default function EditPhaseModal({
             }}
           >
             Make Changes
-          </a>{" "}
+          </Link>{" "}
           button instead.
         </Callout>
       ) : null}

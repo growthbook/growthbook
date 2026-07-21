@@ -1,6 +1,5 @@
 import { PiArrowRight, PiCheckCircleFill } from "react-icons/pi";
 import { useState, useEffect } from "react";
-import NextLink from "next/link";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { Box, Separator } from "@radix-ui/themes";
 import Link from "@/ui/Link";
@@ -106,7 +105,7 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
                 )}
               </div>
               <div className="col">
-                <NextLink
+                <Link
                   href="/sdks"
                   style={{
                     fontSize: "17px",
@@ -122,7 +121,7 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
                   }
                 >
                   Integrate the GrowthBook SDK into your app
-                </NextLink>
+                </Link>
                 <Box mt="2">Allow GrowthBook to communicate with your app.</Box>
                 <Separator size="4" my="4" />
               </div>
@@ -154,7 +153,7 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
                 )}
               </div>
               <div className="col">
-                <NextLink
+                <Link
                   href="/features"
                   style={{
                     fontSize: "17px",
@@ -172,7 +171,7 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
                   }
                 >
                   Create a Test Feature Flag{project && " in this Project"}
-                </NextLink>
+                </Link>
                 <Box mt="2">
                   Add your first feature flag to test your setup.
                 </Box>

@@ -1,8 +1,9 @@
-import Link from "next/link";
+import NextLink from "next/link";
 import { FiArrowRight } from "react-icons/fi";
 import usePermissions from "@/hooks/usePermissions";
 import track from "@/services/track";
 import { DocLink } from "@/components/DocLink";
+import Link from "@/ui/Link";
 
 export default function DocumentationLinksSidebar() {
   const permissions = usePermissions();
@@ -29,7 +30,7 @@ export default function DocumentationLinksSidebar() {
           <div className="d-flex flex-row">
             <div className="p-1 w-100">
               Watch a quick{" "}
-              <a
+              <Link
                 href="https://youtu.be/1ASe3K46BEw"
                 target="_blank"
                 rel="noreferrer"
@@ -40,7 +41,7 @@ export default function DocumentationLinksSidebar() {
                 }}
               >
                 <strong>Video&nbsp;Tour</strong>
-              </a>
+              </Link>
             </div>
           </div>
           <div className="d-flex flex-row">
@@ -58,25 +59,25 @@ export default function DocumentationLinksSidebar() {
           <div className="d-flex flex-row">
             <div className="p-1 w-100">
               Chat with us on{" "}
-              <a
+              <Link
                 target="_blank"
                 rel="noreferrer"
                 href="https://slack.growthbook.io?ref=app-getstarted"
               >
                 <strong>Slack</strong>
-              </a>
+              </Link>
             </div>
           </div>
           <div className="d-flex flex-row">
             <div className="p-1 w-100">
               Open an issue on{" "}
-              <a
+              <Link
                 target="_blank"
                 rel="noreferrer"
                 href="https://github.com/growthbook/growthbook/issues"
               >
                 <strong>GitHub</strong>
-              </a>
+              </Link>
             </div>
           </div>
         </div>
@@ -88,10 +89,10 @@ export default function DocumentationLinksSidebar() {
           </div>
           <p className="card-text">Add teammates to your account</p>
           <span className="action-link non-active-step">
-            <Link href="/settings/team" className="boxlink">
+            <NextLink href="/settings/team" className="boxlink">
               Invite team
               <FiArrowRight />
-            </Link>
+            </NextLink>
           </span>
         </div>
       )}
@@ -100,13 +101,13 @@ export default function DocumentationLinksSidebar() {
           <h4 className="">Have questions?</h4>
         </div>
         Talk to us in our{" "}
-        <a
+        <Link
           target="_blank"
           rel="noreferrer"
           href="https://slack.growthbook.io?ref=app-havequestions"
         >
           <strong>Slack channel</strong>
-        </a>
+        </Link>
       </div>
     </div>
   );

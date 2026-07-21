@@ -6,6 +6,7 @@ import SelectField from "@/components/Forms/SelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Text from "@/ui/Text";
+import Link from "@/ui/Link";
 import SingleRoleSelector from "./SingleRoleSelector";
 
 export default function ProjectRolesSelector({
@@ -37,18 +38,16 @@ export default function ProjectRolesSelector({
       {projectRoles.map((projectRole, i) => (
         <div className="appbox px-3 pt-2 bg-light" key={i}>
           <div style={{ float: "right" }}>
-            <a
-              href="#"
-              className="text-danger"
-              onClick={(e) => {
-                e.preventDefault();
+            <Link
+              color="red"
+              onClick={() => {
                 const newProjectRoles = [...projectRoles];
                 newProjectRoles.splice(i, 1);
                 setProjectRoles(newProjectRoles);
               }}
             >
               remove
-            </a>
+            </Link>
           </div>
           <SingleRoleSelector
             value={{

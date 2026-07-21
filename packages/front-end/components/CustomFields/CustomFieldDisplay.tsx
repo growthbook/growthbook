@@ -17,9 +17,9 @@ import Markdown from "@/components/Markdown/Markdown";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import DataList, { DataListItem } from "@/ui/DataList";
 import Frame from "@/ui/Frame";
+import Link from "@/ui/Link";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
-import Link from "@/ui/Link";
 import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
@@ -164,9 +164,9 @@ const CustomFieldDisplay: FC<{
     ) : v.type === "textarea" ? (
       <div style={{ whiteSpace: "pre" }}>{cValue ?? ""}</div>
     ) : v.type === "url" && cValue !== "" ? (
-      <a href={cValue} target="_blank" rel="noreferrer">
+      <Link href={cValue} target="_blank" rel="noreferrer">
         {cValue ?? ""}
-      </a>
+      </Link>
     ) : v.type === "boolean" ? (
       <>{cValue ? "yes" : "no"}</>
     ) : v.type === "date" && cValue ? (

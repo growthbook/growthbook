@@ -10,6 +10,7 @@ import {
   includeExperimentInPayload,
 } from "shared/util";
 import { DocLink } from "@/components/DocLink";
+import Link from "@/ui/Link";
 import ConfirmButton from "@/components/Modal/ConfirmButton";
 import { useAuth } from "@/services/auth";
 import Markdown from "@/components/Markdown/Markdown";
@@ -94,16 +95,14 @@ export default function StoppedExperimentBanner({
           )}
         {editResult && !isHoldout && (
           <div>
-            <a
-              href="#"
-              className="alert-link float-right ml-2"
-              onClick={(e) => {
-                e.preventDefault();
+            <Link
+              className="float-right ml-2"
+              onClick={() => {
                 editResult();
               }}
             >
               <FaPencilAlt />
-            </a>
+            </Link>
           </div>
         )}
       </div>

@@ -200,9 +200,13 @@ export default function HealthTab({
 
         <div>
           For more advice, see the documentation on the Health Tab{" "}
-          <a href="https://docs.growthbook.io/app/experiment-results#adding-dimensions-to-health-tab">
+          <Link
+            href="https://docs.growthbook.io/app/experiment-results#adding-dimensions-to-health-tab"
+            target="_blank"
+            rel="noreferrer"
+          >
             here
-          </a>
+          </Link>
           .
         </div>
       </Callout>

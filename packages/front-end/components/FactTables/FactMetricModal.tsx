@@ -54,6 +54,7 @@ import SelectField, {
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Field from "@/components/Forms/Field";
 import Switch from "@/ui/Switch";
+import Link from "@/ui/Link";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { GBCuped } from "@/components/Icons";
@@ -655,15 +656,9 @@ function ColumnRefSelector({
                 </div>
               ) : (
                 <div className="py-1">
-                  <a
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setAddUserFilter(true);
-                    }}
-                  >
+                  <Link onClick={() => setAddUserFilter(true)}>
                     <PiPlus /> Add
-                  </a>
+                  </Link>
                 </div>
               )}
             </div>
@@ -1673,15 +1668,9 @@ export default function FactMetricModal({
           {showSwitchToLegacy && switchToLegacy && (
             <Callout status="info" mb="3">
               You are creating a Fact Table Metric.{" "}
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  switchToLegacy();
-                }}
-              >
+              <Link onClick={() => switchToLegacy()}>
                 Switch to legacy SQL <FaArrowRight />
-              </a>
+              </Link>
             </Callout>
           )}
           <Field
@@ -2224,10 +2213,8 @@ export default function FactMetricModal({
                 })()}
 
               {!advancedOpen && (
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
+                <Link
+                  onClick={() => {
                     setAdvancedOpen(true);
                     track("View Advanced Fact Metric Settings", {
                       source,
@@ -2235,7 +2222,7 @@ export default function FactMetricModal({
                   }}
                 >
                   Show Advanced Settings
-                </a>
+                </Link>
               )}
               {advancedOpen && (
                 <>
@@ -2246,17 +2233,13 @@ export default function FactMetricModal({
                         Display Settings
                       </TabsTrigger>
                       <div className="ml-auto">
-                        <a
-                          href="#"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setAdvancedOpen(false);
-                          }}
+                        <Link
+                          onClick={() => setAdvancedOpen(false)}
                           style={{ verticalAlign: "middle" }}
                           title="Hide advanced settings"
                         >
                           <FaTimes /> Hide
-                        </a>
+                        </Link>
                       </div>
                     </TabsList>
 
@@ -2565,16 +2548,12 @@ export default function FactMetricModal({
             <div>
               <div className="d-flex align-items-center">
                 <strong>Experiment Results</strong>
-                <a
-                  href="#"
+                <Link
                   className="ml-2 small"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setShowExperimentSQL(!showExperimentSQL);
-                  }}
+                  onClick={() => setShowExperimentSQL(!showExperimentSQL)}
                 >
                   {showExperimentSQL ? "hide" : "show"}
-                </a>
+                </Link>
               </div>
               <div
                 style={{

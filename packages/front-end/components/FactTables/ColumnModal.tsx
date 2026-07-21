@@ -419,17 +419,15 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                         <td>{key}</td>
                         <td>{value.datatype}</td>
                         <td>
-                          <a
-                            href="#"
-                            onClick={(e) => {
-                              e.preventDefault();
+                          <Link
+                            onClick={() => {
                               const newFields = { ...form.watch("jsonFields") };
                               delete newFields[key];
                               form.setValue("jsonFields", newFields);
                             }}
                           >
                             <PiX />
-                          </a>
+                          </Link>
                         </td>
                       </tr>
                     ),
@@ -524,15 +522,11 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
           ) : null}
           {!newJSONField.adding && (
             <div>
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setNewJSONField((v) => ({ ...v, adding: true }));
-                }}
+              <Link
+                onClick={() => setNewJSONField((v) => ({ ...v, adding: true }))}
               >
                 <PiPlus /> Add
-              </a>
+              </Link>
             </div>
           )}
         </div>

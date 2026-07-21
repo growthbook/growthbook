@@ -1,4 +1,5 @@
 import { FaExternalLinkAlt } from "react-icons/fa";
+import Link from "@/ui/Link";
 import DataList from "./DataList";
 
 export default function DataListStories() {
@@ -20,14 +21,9 @@ export default function DataListStories() {
         {
           label: "Label 4",
           value: (
-            <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-              }}
-            >
+            <Link onClick={() => {}}>
               Link Value <FaExternalLinkAlt />
-            </a>
+            </Link>
           ),
         },
         {

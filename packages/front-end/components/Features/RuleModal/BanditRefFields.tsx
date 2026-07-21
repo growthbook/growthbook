@@ -137,17 +137,15 @@ export default function BanditRefFields({
           {experiments.length > 0
             ? `You don't have any eligible Bandits yet.`
             : `You don't have any existing Bandits yet.`}{" "}
-          <a
-            role="button"
+          <Link
             className="link-purple"
-            onClick={(e) => {
-              e.preventDefault();
+            onClick={() => {
               changeRuleType("experiment-ref-new");
               form.setValue("experimentType", "multi-armed-bandit");
             }}
           >
             Create New Bandit
-          </a>
+          </Link>
         </Callout>
       ) : (
         <Callout status="error" mb="4">

@@ -16,6 +16,7 @@ import Field from "@/components/Forms/Field";
 import { getDefaultFactMetricProps } from "@/services/metrics";
 import { GBInfo } from "@/components/Icons";
 import FactMetricTypeDisplayName from "@/components/Metrics/FactMetricTypeDisplayName";
+import Link from "@/ui/Link";
 
 type RecommendedMetric = Pick<
   CreateFactMetricProps,
@@ -220,30 +221,22 @@ export default function RecommendedFactMetricsModal({
       </p>
       <div className="row align-items-center mb-1">
         <div className="col-auto">
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              checkAll();
-            }}
+          <Link
+            onClick={() => checkAll()}
             className={
               checked.size === metrics.length ? "disabled text-muted" : ""
             }
           >
             Select All
-          </a>
+          </Link>
         </div>
         <div className="col-auto">
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              setChecked(new Set());
-            }}
+          <Link
+            onClick={() => setChecked(new Set())}
             className={checked.size === 0 ? "disabled text-muted" : ""}
           >
             Unselect All
-          </a>
+          </Link>
         </div>
 
         <div className="col-auto ml-auto">

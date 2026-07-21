@@ -11,6 +11,7 @@ import OrbPortal from "@/enterprise/components/Billing/OrbPortal";
 import { isCloud } from "@/services/env";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
+import Link from "@/ui/Link";
 
 const BillingPage: FC = () => {
   const [upgradeModal, setUpgradeModal] = useState(false);
@@ -125,7 +126,8 @@ const BillingPage: FC = () => {
           </div>
         ) : (
           <div>
-            Contact <a href="mailto:sales@growthbook.io">sales@growthbook.io</a>{" "}
+            Contact{" "}
+            <Link href="mailto:sales@growthbook.io">sales@growthbook.io</Link>{" "}
             to make changes to your subscription plan.
           </div>
         )}

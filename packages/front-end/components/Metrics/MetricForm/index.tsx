@@ -674,15 +674,9 @@ const MetricForm: FC<MetricFormProps> = ({
           ) : switchToFact && factTables.length > 0 ? (
             <Callout status="info" mb="3">
               You are creating a legacy SQL metric.{" "}
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  switchToFact();
-                }}
-              >
+              <Link onClick={() => switchToFact()}>
                 Switch to use Fact Tables <FaArrowRight />
-              </a>
+              </Link>
             </Callout>
           ) : switchToFact && hasSQLDataSources ? (
             <Callout status="info" mb="3">
@@ -703,16 +697,12 @@ const MetricForm: FC<MetricFormProps> = ({
           </div>
           <div className="form-group">
             {hideTags ? (
-              <a
-                href="#"
+              <Link
                 style={{ fontSize: "0.8rem" }}
-                onClick={(e) => {
-                  e.preventDefault();
-                  setHideTags(false);
-                }}
+                onClick={() => setHideTags(false)}
               >
                 Add tags{" "}
-              </a>
+              </Link>
             ) : (
               <>
                 <label>Tags</label>
@@ -1228,16 +1218,12 @@ const MetricForm: FC<MetricFormProps> = ({
           )}
 
           {!showAdvanced ? (
-            <a
-              href="#"
+            <Link
               style={{ fontSize: "0.8rem" }}
-              onClick={(e) => {
-                e.preventDefault();
-                setShowAdvanced(true);
-              }}
+              onClick={() => setShowAdvanced(true)}
             >
               Show advanced options{" "}
-            </a>
+            </Link>
           ) : (
             <>
               <MetricDelaySettings form={form} />

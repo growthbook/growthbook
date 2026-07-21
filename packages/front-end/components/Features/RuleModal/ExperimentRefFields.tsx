@@ -157,16 +157,14 @@ export default function ExperimentRefFields({
           {experiments.length > 0
             ? `You don't have any eligible Experiments yet.`
             : `You don't have any existing Experiments yet.`}{" "}
-          <a
-            role="button"
+          <Link
             className="link-purple"
-            onClick={(e) => {
-              e.preventDefault();
+            onClick={() => {
               changeRuleType("experiment-ref-new");
             }}
           >
             Create New Experiment
-          </a>
+          </Link>
         </Callout>
       ) : (
         <Callout status="error" mb="4">

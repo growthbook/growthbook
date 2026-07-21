@@ -24,6 +24,7 @@ import {
   DropdownMenuSeparator,
   DropdownSubMenu,
 } from "@/ui/DropdownMenu";
+import Link from "@/ui/Link";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import {
@@ -447,19 +448,17 @@ const TopNav: FC<{
       >
         <div className={styles.navbar}>
           {toggleLeftMenu ? (
-            <a
-              href="#main-menu"
+            <Link
               id="main-menu-toggle"
               className={styles.mobilemenu}
               aria-label="Open main menu"
-              onClick={(e) => {
-                e.preventDefault();
+              onClick={() => {
                 toggleLeftMenu();
               }}
             >
               <span className="sr-only">Open main menu</span>
               <FaBars />
-            </a>
+            </Link>
           ) : showLogo ? (
             <div>
               <img

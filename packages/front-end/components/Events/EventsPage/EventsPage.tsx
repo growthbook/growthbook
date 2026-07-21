@@ -119,8 +119,7 @@ export const EventsPage: FC<EventsPageProps> = ({
                 }}
               >
                 Date{" "}
-                <a
-                  href="#"
+                <span
                   className={
                     sort.field === "dateCreated" ? "activesort" : "inactivesort"
                   }
@@ -134,7 +133,7 @@ export const EventsPage: FC<EventsPageProps> = ({
                   ) : (
                     <FaSort />
                   )}
-                </a>
+                </span>
               </span>
             </th>
             <th>Type</th>

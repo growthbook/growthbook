@@ -1,6 +1,7 @@
 import { FC, ChangeEventHandler } from "react";
 import { MixpanelConnectionParams } from "shared/types/integrations/mixpanel";
 import SelectField from "@/components/Forms/SelectField";
+import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
 
 const MixpanelForm: FC<{
@@ -13,13 +14,13 @@ const MixpanelForm: FC<{
     <>
       <Callout status="info">
         To connect to Mixpanel, first create a Service Account from your{" "}
-        <a
+        <Link
           href="https://mixpanel.com/settings/project#serviceaccounts"
           target="_blank"
           rel="noreferrer noopener"
         >
           Mixpanel Project Settings
-        </a>
+        </Link>
         .
       </Callout>
       <div className="row">

@@ -566,15 +566,13 @@ export default function FactTablesPage() {
                 <TableRow>
                   <TableCell colSpan={10} style={{ textAlign: "center" }}>
                     No matching fact tables.{" "}
-                    <a
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault();
+                    <Link
+                      onClick={() => {
                         clear();
                       }}
                     >
                       Clear search field
-                    </a>
+                    </Link>
                   </TableCell>
                 </TableRow>
               )}

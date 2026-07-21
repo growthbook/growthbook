@@ -15,6 +15,7 @@ import useApi from "@/hooks/useApi";
 import SelectField from "@/components/Forms/SelectField";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
+import DropdownLink from "@/components/Dropdown/DropdownLink";
 import Callout from "@/ui/Callout";
 import styles from "./ExperimentGraph.module.scss";
 
@@ -302,46 +303,34 @@ export default function ExperimentGraph({
         <div className="pt-2">
           <MoreMenu useRadix={false}>
             <div className="p-2 px-3">Download data as CSV...</div>
-            <a
-              href="#"
-              className="dropdown-item"
-              onClick={(e) => {
-                e.preventDefault();
+            <DropdownLink
+              onClick={() => {
                 downloadCSV("all");
               }}
             >
               Totals
-            </a>
-            <a
-              href="#"
-              className="dropdown-item"
-              onClick={(e) => {
-                e.preventDefault();
+            </DropdownLink>
+            <DropdownLink
+              onClick={() => {
                 downloadCSV("projects");
               }}
             >
               By Projects
-            </a>
-            <a
-              href="#"
-              className="dropdown-item"
-              onClick={(e) => {
-                e.preventDefault();
+            </DropdownLink>
+            <DropdownLink
+              onClick={() => {
                 downloadCSV("status");
               }}
             >
               By Status
-            </a>
-            <a
-              href="#"
-              className="dropdown-item"
-              onClick={(e) => {
-                e.preventDefault();
+            </DropdownLink>
+            <DropdownLink
+              onClick={() => {
                 downloadCSV("results");
               }}
             >
               By Results
-            </a>
+            </DropdownLink>
           </MoreMenu>
         </div>
       </div>

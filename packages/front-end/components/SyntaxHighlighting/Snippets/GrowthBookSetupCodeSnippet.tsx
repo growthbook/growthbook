@@ -9,6 +9,7 @@ import EventTrackerSelector, {
 } from "@/components/SyntaxHighlighting/Snippets/EventTrackerSelector";
 import ClickToCopy from "@/components/Settings/ClickToCopy";
 import { getAppOrigin, isCloud } from "@/services/env";
+import Link from "@/ui/Link";
 
 function indentLines(code: string, indent: number | string = 2) {
   const spaces = typeof indent === "string" ? indent : " ".repeat(indent);
@@ -222,13 +223,13 @@ export default function MyApp() {
 `.trim()}
         />
         If you are using <strong>Next.js</strong>,{" "}
-        <a
+        <Link
           href="https://github.com/growthbook/examples/tree/main/next-js"
           target="_blank"
           rel="noreferrer"
         >
           check out our sample app on GitHub
-        </a>{" "}
+        </Link>{" "}
         with examples of using GrowthBook with SSR, API routes, static pages,
         and more.
         {eventTracker === "growthbook" && (
@@ -876,21 +877,21 @@ features = GrowthBook.Config.features_from_config(features)
         </div>
         <p>
           See the official Cloudflare Workers{" "}
-          <a
+          <Link
             href="https://developers.cloudflare.com/workers/get-started/guide/"
             target="_blank"
             rel="noreferrer"
           >
             Get started guide <FaExternalLinkAlt />
-          </a>{" "}
+          </Link>{" "}
           to set up your project. Or have a look at our{" "}
-          <a
+          <Link
             href="https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-cloudflare/example"
             target="_blank"
             rel="noreferrer"
           >
             example implementation <FaExternalLinkAlt />
-          </a>
+          </Link>
           .
         </p>
 
@@ -988,21 +989,21 @@ GROWTHBOOK_CLIENT_KEY=${JSON.stringify(apiKey)}${
         </div>
         <p>
           See the official Fastly Compute{" "}
-          <a
+          <Link
             href="https://www.fastly.com/documentation/guides/compute/"
             target="_blank"
             rel="noreferrer"
           >
             Developer guide <FaExternalLinkAlt />
-          </a>{" "}
+          </Link>{" "}
           to set up your project. Or have a look at our{" "}
-          <a
+          <Link
             href="https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-fastly/example"
             target="_blank"
             rel="noreferrer"
           >
             example implementation <FaExternalLinkAlt />
-          </a>
+          </Link>
           .
         </p>
 
@@ -1142,13 +1143,13 @@ GROWTHBOOK_CLIENT_KEY=${JSON.stringify(apiKey)}${
         <div className="h4 mt-4 mb-3">Step 1: Set up a Lambda@Edge project</div>
         <p>
           See the official AWS{" "}
-          <a
+          <Link
             href="https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/lambda-edge-how-it-works-tutorial.html"
             target="_blank"
             rel="noreferrer"
           >
             Tutorial: Create a basic Lambda@Edge function <FaExternalLinkAlt />
-          </a>{" "}
+          </Link>{" "}
           to see how to set up an example Lambda@Edge project. Our Edge App will
           differ from the example app, but it is a worthwhile read.
         </p>

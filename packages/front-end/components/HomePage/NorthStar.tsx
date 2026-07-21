@@ -13,6 +13,7 @@ import MetricsSelector from "@/components/Experiment/MetricsSelector";
 import Field from "@/components/Forms/Field";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Frame from "@/ui/Frame";
+import Link from "@/ui/Link";
 import NorthStarMetricDisplay from "./NorthStarMetricDisplay";
 
 const NorthStar: FC<{
@@ -83,8 +84,7 @@ const NorthStar: FC<{
       {hasNorthStar && (
         <Frame className="position-relative">
           {showEdit && permissionsUtil.canManageNorthStarMetric() && (
-            <a
-              role="button"
+            <Link
               className="p-1"
               style={{
                 position: "absolute",
@@ -92,13 +92,12 @@ const NorthStar: FC<{
                 right: "10px",
                 zIndex: 1,
               }}
-              onClick={(e) => {
-                e.preventDefault();
+              onClick={() => {
                 setOpenNorthStarModal(true);
               }}
             >
               <BsGear size={16} />
-            </a>
+            </Link>
           )}
           <div className="row">
             <div className="col">

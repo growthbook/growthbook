@@ -1,7 +1,6 @@
 import React, { FC, useState } from "react";
 import { FaPencilAlt } from "react-icons/fa";
 import { DimensionInterface } from "shared/types/dimension";
-import NextLink from "next/link";
 import { ago } from "shared/dates";
 import { Box, Flex } from "@radix-ui/themes";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
@@ -227,12 +226,12 @@ const DimensionsPage: FC = () => {
                   </TableCell>
                   <TableCell style={{ width: 30 }} className="text-right">
                     <MoreMenu>
-                      <NextLink
+                      <Link
                         className="dropdown-item"
                         href={`/datasources/${item.datasourceId}#${EAQ_ANCHOR_ID}`}
                       >
                         Manage via Data Source
-                      </NextLink>
+                      </Link>
                     </MoreMenu>
                   </TableCell>
                 </TableRow>
@@ -350,17 +349,15 @@ const DimensionsPage: FC = () => {
                     {!s.managedBy ? (
                       <TableCell>
                         {hasEditDimensionPermission ? (
-                          <a
-                            href="#"
+                          <Link
                             className="tr-hover text-primary mr-3"
                             title="Edit this dimension"
-                            onClick={(e) => {
-                              e.preventDefault();
+                            onClick={() => {
                               setDimensionForm(s);
                             }}
                           >
                             <FaPencilAlt />
-                          </a>
+                          </Link>
                         ) : null}
                         {hasDeleteDimensionPermissions ? (
                           <DeleteButton

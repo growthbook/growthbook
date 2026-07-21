@@ -1465,13 +1465,13 @@ export default function FeaturesOverview({
                         <ul className="pl-4">
                           {dependentFeatures.map((fid, i) => (
                             <li className="my-1" key={i}>
-                              <a
+                              <Link
                                 href={`/features/${fid}`}
                                 target="_blank"
                                 rel="noreferrer"
                               >
                                 {fid}
-                              </a>
+                              </Link>
                             </li>
                           ))}
                         </ul>
@@ -1483,35 +1483,33 @@ export default function FeaturesOverview({
                         <ul className="pl-4">
                           {dependentExperiments.map((exp, i) => (
                             <li className="my-1" key={i}>
-                              <a
+                              <Link
                                 href={`/experiment/${exp.id}`}
                                 target="_blank"
                                 rel="noreferrer"
                               >
                                 {exp.name}
-                              </a>
+                              </Link>
                             </li>
                           ))}
                         </ul>
                       </>
                     )}
-                    <a
-                      role="button"
+                    <Link
                       className="d-inline-block a link-purple mt-1"
                       onClick={() => setShowDependents(false)}
                     >
                       <BiHide /> Hide details
-                    </a>
+                    </Link>
                   </div>
                 ) : (
                   <>
-                    <a
-                      role="button"
+                    <Link
                       className="d-inline-block a link-purple"
                       onClick={() => setShowDependents(true)}
                     >
                       <BiShow /> Show details
-                    </a>
+                    </Link>
                   </>
                 )}
               </>

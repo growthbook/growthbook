@@ -389,8 +389,7 @@ export default function FeatureVariationsInput({
                             usePortal={true}
                             tipPosition="top"
                           >
-                            <a
-                              role="button"
+                            <Link
                               className="ml-1 mb-0"
                               onClick={() => {
                                 setEditingSplits(true);
@@ -400,7 +399,7 @@ export default function FeatureVariationsInput({
                                 className="text-purple"
                                 size={15}
                               />
-                            </a>
+                            </Link>
                           </Tooltip>
                         )}
                       {editingSplits &&
@@ -412,17 +411,13 @@ export default function FeatureVariationsInput({
                             usePortal={true}
                             tipPosition="top"
                           >
-                            <a
-                              role="button"
+                            <Link
                               className="ml-2 link-purple small"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                setEqualWeights();
-                              }}
+                              onClick={() => setEqualWeights()}
                             >
                               <PiArrowsClockwise className="mr-1" size={12} />
                               set equal
-                            </a>
+                            </Link>
                           </Tooltip>
                         )}
                     </th>

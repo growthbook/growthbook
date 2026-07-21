@@ -30,13 +30,12 @@ export default function YouTubeLightBox({ close, videoId }: Props) {
           className="bg-white rounded position-relative p-5"
           style={{ zIndex: 1050, maxWidth: "100%" }}
         >
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
+          <button
+            type="button"
+            onClick={() => {
               close();
             }}
-            className="text-muted position-absolute"
+            className="text-muted position-absolute border-0 bg-transparent p-0"
             style={{
               top: 5,
               right: 13,
@@ -44,7 +43,7 @@ export default function YouTubeLightBox({ close, videoId }: Props) {
             }}
           >
             <MdClose />
-          </a>
+          </button>
           <div
             className="video position-relative"
             style={{

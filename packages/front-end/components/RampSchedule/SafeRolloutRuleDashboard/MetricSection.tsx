@@ -883,13 +883,13 @@ export function HealthChecks({
                     </li>
                   </ul>
                   <Text as="div" size="small" mt="2">
-                    <a
+                    <Link
                       target="_blank"
                       rel="noreferrer"
                       href="https://docs.growthbook.io/kb/experiments/troubleshooting-experiments"
                     >
                       Read about troubleshooting in our docs
-                    </a>
+                    </Link>
                   </Text>
                 </Box>
               )}
@@ -1034,13 +1034,9 @@ export function HealthChecks({
                     <Callout status="warning" size="sm">
                       <strong>Sample Ratio Mismatch (SRM) detected.</strong>{" "}
                       P-value {pValueFmt(srmPValue!)} is below {srmThreshold}.{" "}
-                      <a
-                        className="a"
-                        role="button"
-                        onClick={() => setSrmModalOpen(true)}
-                      >
+                      <Link className="a" onClick={() => setSrmModalOpen(true)}>
                         Learn More {">"}
-                      </a>
+                      </Link>
                     </Callout>
                   ) : (
                     <Callout status="success" size="sm">
@@ -1048,13 +1044,9 @@ export function HealthChecks({
                       {srmHealth === "healthy" && (
                         <> P-value above {srmThreshold}.</>
                       )}{" "}
-                      <a
-                        className="a"
-                        role="button"
-                        onClick={() => setSrmModalOpen(true)}
-                      >
+                      <Link className="a" onClick={() => setSrmModalOpen(true)}>
                         Learn More {">"}
-                      </a>
+                      </Link>
                     </Callout>
                   )}
                 </div>

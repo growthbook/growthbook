@@ -24,6 +24,7 @@ import {
   useFeaturesList,
   useAttributeSchema,
 } from "@/services/features";
+import Link from "@/ui/Link";
 import Switch from "@/ui/Switch";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useUser } from "@/services/UserContext";
@@ -1378,17 +1379,15 @@ export default function ImportFromStatsig() {
                           );
                         }}
                       />
-                      <a
-                        role="button"
+                      <Link
                         className="mt-1 small float-right"
                         style={{ cursor: "pointer" }}
-                        onClick={(e) => {
-                          e.preventDefault();
+                        onClick={() => {
                           setSelectByTags(getAllTags);
                         }}
                       >
                         Select all tags
-                      </a>
+                      </Link>
                     </div>
                     <div className="col-auto px-4">
                       <label className="mb-1 font-weight-bold d-block">

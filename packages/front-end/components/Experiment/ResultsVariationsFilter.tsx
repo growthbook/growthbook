@@ -71,10 +71,10 @@ export default function ResultsVariationsFilter({
         }
         usePortal={true}
       >
-        <a
-          role="button"
+        <button
+          type="button"
           onClick={() => setShowVariationsFilter(!showVariationsFilter)}
-          className={`d-inline-block px-1 ${
+          className={`d-inline-block px-1 border-0 bg-transparent ${
             filteringApplied ? "btn-link-filter-on" : "btn-link-filter-off"
           }`}
           style={{ transform: "scale(1.1)", marginRight: -4 }}
@@ -87,7 +87,7 @@ export default function ResultsVariationsFilter({
               style={{ bottom: 1 }}
             />
           )}
-        </a>
+        </button>
       </Tooltip>
       <Tooltip
         tipPosition="bottom"
@@ -97,20 +97,19 @@ export default function ResultsVariationsFilter({
         state={showVariationsFilter}
         body={
           <div style={{ width: 245 }}>
-            <a
-              role="button"
+            <button
+              type="button"
               style={{
                 top: 3,
                 right: 5,
               }}
-              className="position-absolute text-gray cursor-pointer"
-              onClick={(e) => {
-                e.preventDefault();
+              className="position-absolute text-gray cursor-pointer border-0 bg-transparent p-0"
+              onClick={() => {
                 setShowVariationsFilter(false);
               }}
             >
               <BsXCircle size={16} />
-            </a>
+            </button>
 
             <div className="mt-1 mb-4">
               <label className="uppercase-title mb-1">Order variations</label>

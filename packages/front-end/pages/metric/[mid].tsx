@@ -643,15 +643,13 @@ const MetricPage: FC = () => {
                               <span className="mr-1">Apply a segment</span>
                             )}
                             {canEditMetric && canRunMetricQuery && (
-                              <a
-                                onClick={(e) => {
-                                  e.preventDefault();
+                              <Link
+                                onClick={() => {
                                   setSegmentOpen(true);
                                 }}
-                                href="#"
                               >
                                 <BsGear />
-                              </a>
+                              </Link>
                             )}
                           </>
                         )}

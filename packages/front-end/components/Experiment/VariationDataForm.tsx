@@ -1,5 +1,6 @@
 import { FC, useState } from "react";
 import { FaTrash, FaPlus } from "react-icons/fa";
+import Link from "@/ui/Link";
 
 const VariationDataForm: FC<{
   variationNames: string[];
@@ -71,16 +72,14 @@ const VariationDataForm: FC<{
                   </td>
                 ))}
                 <td>
-                  <a
-                    href="#"
-                    className="text-danger"
-                    onClick={(e) => {
-                      e.preventDefault();
+                  <Link
+                    color="red"
+                    onClick={() => {
                       removeKey(key);
                     }}
                   >
                     <FaTrash />
-                  </a>
+                  </Link>
                 </td>
               </tr>
             ))}

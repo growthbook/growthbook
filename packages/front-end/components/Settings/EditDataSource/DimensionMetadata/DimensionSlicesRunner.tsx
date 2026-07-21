@@ -111,16 +111,13 @@ export const DimensionSlicesRunner: FC<DimensionSlicesRunnerProps> = ({
     </div>
   ) : (
     <span className="mt-1 small">
-      <a
-        role="button"
-        className="a"
-        onClick={(e) => {
-          e.preventDefault();
+      <Link
+        onClick={() => {
           setOpenLookbackField(!openLookbackField);
         }}
       >
         <BsGear />
-      </a>{" "}
+      </Link>{" "}
       {form.getValues("lookbackDays")} days to look back
     </span>
   );

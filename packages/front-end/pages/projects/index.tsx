@@ -1,6 +1,5 @@
 import React, { useState, FC } from "react";
 import { ProjectInterface } from "shared/types/project";
-import Link from "next/link";
 import { ago } from "shared/dates";
 import { Box } from "@radix-ui/themes";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
@@ -17,6 +16,7 @@ import { capitalizeFirstLetter } from "@/services/utils";
 import { useSearch } from "@/services/search";
 import Field from "@/components/Forms/Field";
 import ProjectRowMenu from "@/components/Projects/ProjectRowMenu";
+import Link from "@/ui/Link";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 
 const ProjectsPage: FC = () => {
@@ -163,12 +163,7 @@ const ProjectsPage: FC = () => {
                     <tr key={p.id}>
                       <td className="text-gray">
                         {canEdit ? (
-                          <Link
-                            className="link-purple"
-                            href={`/project/${p.id}`}
-                          >
-                            {p.name}
-                          </Link>
+                          <Link href={`/project/${p.id}`}>{p.name}</Link>
                         ) : (
                           <span>{p.name}</span>
                         )}

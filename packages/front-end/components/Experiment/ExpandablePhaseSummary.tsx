@@ -6,6 +6,7 @@ import { calculateNamespaceCoverage } from "shared/util";
 import { phaseSummary } from "@/services/utils";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import { GBEdit } from "@/components/Icons";
+import Link from "@/ui/Link";
 
 export interface Props {
   i: number;
@@ -30,13 +31,9 @@ export default function ExpandablePhaseSummary({ i, phase, editPhase }: Props) {
 
   return (
     <div className={i ? "border-top" : ""}>
-      <a
+      <Link
         className={`d-flex text-dark ${i ? "pt-3" : ""} px-3 pb-3`}
-        href="#"
-        onClick={(e) => {
-          e.preventDefault();
-          setExpanded(!expanded);
-        }}
+        onClick={() => setExpanded(!expanded)}
       >
         <div className="mr-2">{i + 1}:</div>
         <div className="small">
@@ -51,20 +48,14 @@ export default function ExpandablePhaseSummary({ i, phase, editPhase }: Props) {
         <div className="ml-auto">
           {expanded ? <FaCaretDown /> : <FaCaretRight />}
         </div>
-      </a>
+      </Link>
       {expanded && (
         <div className="mx-3">
           {editPhase && (
             <div className="mb-2">
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  editPhase(i);
-                }}
-              >
+              <Link onClick={() => editPhase(i)}>
                 <GBEdit /> edit phase
-              </a>
+              </Link>
             </div>
           )}
           <table className="table table-sm">

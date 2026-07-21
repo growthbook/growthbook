@@ -2,8 +2,8 @@ import { useRouter } from "next/router";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { date, daysLeft } from "shared/dates";
 import { useState } from "react";
-import Link from "next/link";
 import { Box, Flex } from "@radix-ui/themes";
+import Link from "@/ui/Link";
 import { useUser } from "@/services/UserContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -27,7 +27,7 @@ export default function AccountPlanNotices() {
   ) : (
     <Box className={styles["notice-tooltip"]}>
       Click to upgrade, or visit{" "}
-      <a
+      <Link
         href="https://docs.growthbook.io/faq#what-are-the-growthbook-cloud-cdn-usage-limits"
         className="text-decoration-none"
         target="_blank"
@@ -37,7 +37,7 @@ export default function AccountPlanNotices() {
         }}
       >
         Growthbook Docs &gt; FAQ
-      </a>
+      </Link>
     </Box>
   );
 
@@ -57,9 +57,9 @@ export default function AccountPlanNotices() {
         <Tooltip body={usageTooltipBody}>
           <Box className={styles["warning-notification"]}>
             Approaching CDN usage limit.{" "}
-            <a href="#" onClick={() => setUpgradeModal(true)}>
+            <Link onClick={() => setUpgradeModal(true)}>
               Upgrade license.
-            </a>{" "}
+            </Link>{" "}
           </Box>
         </Tooltip>
       </>
@@ -79,9 +79,9 @@ export default function AccountPlanNotices() {
         <Tooltip body={usageTooltipBody}>
           <Box className={styles["error-notification"]}>
             CDN usage limit exceeded.{" "}
-            <a href="#" onClick={() => setUpgradeModal(true)}>
+            <Link onClick={() => setUpgradeModal(true)}>
               Upgrade license.
-            </a>{" "}
+            </Link>{" "}
           </Box>
         </Tooltip>
       </>
@@ -96,7 +96,7 @@ export default function AccountPlanNotices() {
   ) : (
     <Box className={styles["notice-tooltip"]}>
       Click to upgrade, or visit{" "}
-      <a
+      <Link
         href="https://docs.growthbook.io/app/managed-warehouse#limits"
         className="text-decoration-none"
         target="_blank"
@@ -106,7 +106,7 @@ export default function AccountPlanNotices() {
         }}
       >
         Growthbook Docs &gt; FAQ
-      </a>
+      </Link>
     </Box>
   );
 
@@ -126,9 +126,9 @@ export default function AccountPlanNotices() {
         <Tooltip body={managedWarehouseUsageTooltipBody}>
           <Box className={styles["warning-notification"]}>
             Approaching Managed Warehouse event limit.{" "}
-            <a href="#" onClick={() => setUpgradeModal(true)}>
+            <Link onClick={() => setUpgradeModal(true)}>
               Upgrade license.
-            </a>{" "}
+            </Link>{" "}
           </Box>
         </Tooltip>
       </>
@@ -148,9 +148,9 @@ export default function AccountPlanNotices() {
         <Tooltip body={managedWarehouseUsageTooltipBody}>
           <Box className={styles["error-notification"]}>
             Managed Warehouse event limit exceeded.{" "}
-            <a href="#" onClick={() => setUpgradeModal(true)}>
+            <Link onClick={() => setUpgradeModal(true)}>
               Upgrade license.
-            </a>{" "}
+            </Link>{" "}
           </Box>
         </Tooltip>
       </>
@@ -297,9 +297,9 @@ export default function AccountPlanNotices() {
                   >
                     <Box className={styles["warning-notification"]}>
                       Approaching CDN usage limit.{" "}
-                      <a href="#" onClick={() => setUpgradeModal(true)}>
+                      <Link onClick={() => setUpgradeModal(true)}>
                         Upgrade License
-                      </a>
+                      </Link>
                     </Box>
                   </Tooltip>
                 </>
@@ -334,9 +334,9 @@ export default function AccountPlanNotices() {
                   >
                     <Box className={styles["error-notification"]}>
                       CDN usage limit exceeded.{" "}
-                      <a href="#" onClick={() => setUpgradeModal(true)}>
+                      <Link onClick={() => setUpgradeModal(true)}>
                         Upgrade License
-                      </a>
+                      </Link>
                     </Box>
                   </Tooltip>
                 </>

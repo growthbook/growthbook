@@ -15,6 +15,7 @@ import { formatNumber, getExperimentMetricFormatter } from "@/services/metrics";
 import MetricSelector from "@/components/Experiment/MetricSelector";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Switch from "@/ui/Switch";
+import Link from "@/ui/Link";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
@@ -504,16 +505,13 @@ export default function ExperimentImpact({
               helpText={
                 form.getValues("endDate") !== "" ? (
                   <div style={{ marginRight: -10 }}>
-                    <a
-                      role="button"
-                      className="a"
-                      onClick={(e) => {
-                        e.preventDefault();
+                    <Link
+                      onClick={() => {
                         form.setValue("endDate", "");
                       }}
                     >
                       Clear Input
-                    </a>{" "}
+                    </Link>{" "}
                     to include today
                   </div>
                 ) : null

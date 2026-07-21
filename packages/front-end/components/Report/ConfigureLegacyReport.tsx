@@ -42,6 +42,7 @@ import DimensionChooser from "@/components/Dimensions/DimensionChooser";
 import { AttributionModelTooltip } from "@/components/Experiment/AttributionModelTooltip";
 import MetricSelector from "@/components/Experiment/MetricSelector";
 import Switch from "@/ui/Switch";
+import Link from "@/ui/Link";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetricsSelector";
 import DatePicker from "@/components/DatePicker";
@@ -341,16 +342,13 @@ export default function ConfigureLegacyReport({
           />
           <div className="mb-3 mt-1 small">
             Leave blank to use latest data whenever report is run.{" "}
-            <a
-              role="button"
-              className="a"
-              onClick={(e) => {
-                e.preventDefault();
+            <Link
+              onClick={() => {
                 form.setValue("endDate", "");
               }}
             >
               Clear Input
-            </a>
+            </Link>
           </div>
         </div>
       </div>

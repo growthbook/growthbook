@@ -2,6 +2,7 @@ import { FeatureInterface } from "shared/types/feature";
 import { useEffect, useState } from "react";
 import { SDKLanguage } from "shared/types/sdk-connection";
 import Modal from "@/components/Modal";
+import Link from "@/ui/Link";
 import { DocLink } from "@/components/DocLink";
 import BooleanFeatureCodeSnippet from "@/components/SyntaxHighlighting/Snippets/BooleanFeatureCodeSnippet";
 import MultivariateFeatureCodeSnippet from "@/components/SyntaxHighlighting/Snippets/MultivariateFeatureCodeSnippet";
@@ -75,19 +76,11 @@ export default function FeatureImplementationModal({
         </h3>
         <p>
           Read the{" "}
-          <DocLink useRadix={false} docSection={data.docs}>
-            {data.label} SDK docs
-          </DocLink>{" "}
-          or view a{" "}
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              setFullSnippet(true);
-            }}
-          >
+          <DocLink docSection={data.docs}>{data.label} SDK docs</DocLink> or
+          view a{" "}
+          <Link onClick={() => setFullSnippet(true)}>
             complete implementation example
-          </a>
+          </Link>
           .
         </p>
 

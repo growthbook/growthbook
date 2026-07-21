@@ -146,17 +146,17 @@ export default function ResultsTableTooltip({
             style={{ position: "absolute", bottom: -30, left: arrowLeft }}
           />
         )}
-        <a
-          role="button"
+        <button
+          type="button"
           style={{
             top: 3,
             right: 5,
           }}
-          className="position-absolute text-gray cursor-pointer"
+          className="position-absolute text-gray cursor-pointer border-0 bg-transparent p-0"
           onClick={close}
         >
           <BsX size={16} />
-        </a>
+        </button>
 
         {/*tooltip contents*/}
         <AnalysisResultSummary

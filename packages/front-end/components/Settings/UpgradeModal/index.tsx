@@ -13,6 +13,7 @@ import Modal from "@/components/Modal";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import RadioCards from "@/ui/RadioCards";
+import Link from "@/ui/Link";
 import CloudProUpgradeModal from "@/enterprise/components/Billing/CloudProUpgradeModal";
 import { StripeProvider } from "@/enterprise/components/Billing/StripeProvider";
 import Callout from "@/ui/Callout";
@@ -357,19 +358,18 @@ export default function UpgradeModal({
   const enterpriseCallout = (
     <p className="mb-0" style={{ color: "var(--color-text-mid)" }}>
       Interested in an Enterprise Plan?
-      <a
+      <Link
         href="https://www.growthbook.io/demo"
         className="text-decoration-none pl-1"
         target="_blank"
         rel="noopener noreferrer"
+        weight="bold"
         onClick={() => {
           track("Start Enterprise Checkout", trackContext);
         }}
       >
-        <strong className="a link-purple text-decoration-none">
-          Talk to Sales
-        </strong>
-      </a>
+        Talk to Sales
+      </Link>
     </p>
   );
 
@@ -612,22 +612,21 @@ export default function UpgradeModal({
             </Box>
             <Callout status="info">
               Interested in an Enterprise Plan with volume discounts?
-              <a
+              <Link
                 href="https://www.growthbook.io/demo"
                 className="text-decoration-none pl-1"
                 target="_blank"
                 rel="noopener noreferrer"
+                weight="bold"
                 onClick={() => {
                   track("Start Enterprise Checkout", trackContext);
                 }}
               >
-                <strong className="a link-purple">
-                  Talk to Sales{" "}
-                  <PiArrowSquareOut
-                    style={{ position: "relative", top: "-2px" }}
-                  />{" "}
-                </strong>
-              </a>
+                Talk to Sales{" "}
+                <PiArrowSquareOut
+                  style={{ position: "relative", top: "-2px" }}
+                />{" "}
+              </Link>
             </Callout>
           </>
         )}{" "}
@@ -790,14 +789,13 @@ export default function UpgradeModal({
                 <span className="pl-1">
                   To upgrade to Enterprise, please email{" "}
                   <b>
-                    <a
+                    <Link
                       href="mailto:sales@growthbook.io"
                       target="_blank"
                       rel="noreferrer"
-                      className="link-purple"
                     >
                       sales@growthbook.io
-                    </a>
+                    </Link>
                   </b>
                   .
                 </span>

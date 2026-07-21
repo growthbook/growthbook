@@ -10,6 +10,7 @@ import Webhooks from "@/components/Settings/Webhooks";
 import useApi from "@/hooks/useApi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { GBArrowLeft } from "@/components/Icons";
+import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
@@ -33,10 +34,8 @@ export default function SDKsPage() {
     <div className="container py-4">
       {legacyEnabled && (
         <div className="mb-3">
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
+          <Link
+            onClick={() => {
               setLegacy(!legacy);
             }}
           >
@@ -47,7 +46,7 @@ export default function SDKsPage() {
             ) : (
               "View Legacy SDK Endpoints and Webhooks"
             )}
-          </a>
+          </Link>
         </div>
       )}
 

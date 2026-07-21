@@ -26,6 +26,7 @@ import SelectField from "@/components/Forms/SelectField";
 import { GBAddCircle } from "@/components/Icons";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
+import Link from "@/ui/Link";
 import EditSchemaField from "@/components/Features/EditSchemaField";
 import DraftSelectorForChanges, {
   DraftMode,
@@ -131,11 +132,9 @@ function EditSimpleSchema({
             {schema.fields.map((field, i) => (
               <div key={i} className="d-flex align-items-top mb-2">
                 <div className="flex-1 border rounded ">
-                  <a
-                    href="#"
+                  <Link
                     className="d-flex align-items-center cursor-pointer p-2 no-underline"
-                    onClick={(e) => {
-                      e.preventDefault();
+                    onClick={() => {
                       const newExpandedFields = new Set(expandedFields);
                       if (expandedFields.has(i)) {
                         newExpandedFields.delete(i);
@@ -183,7 +182,7 @@ function EditSimpleSchema({
                         <FaAngleRight />
                       )}
                     </div>
-                  </a>
+                  </Link>
                   {expandedFields.has(i) ? (
                     <div className="border-top bg-light p-3 mb-0">
                       <EditSchemaField
@@ -221,12 +220,9 @@ function EditSimpleSchema({
                 </div>
               </div>
             ))}
-            <a
-              href="#"
+            <Link
               className="text-purple"
-              onClick={(e) => {
-                e.preventDefault();
-                // Expand new field and collapse old one if it was filled out
+              onClick={() => {
                 const newExpandedFields = new Set(expandedFields);
                 newExpandedFields.add(schema.fields.length);
                 if (schema.fields[schema.fields.length - 1]?.key) {
@@ -253,7 +249,7 @@ function EditSimpleSchema({
               }}
             >
               <GBAddCircle /> Add property
-            </a>
+            </Link>
           </div>
         </div>
       )}

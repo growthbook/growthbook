@@ -16,6 +16,7 @@ import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
+import Link from "@/ui/Link";
 import Avatar from "@/ui/Avatar";
 import ColumnModal from "./ColumnModal";
 
@@ -315,15 +316,7 @@ export default function ColumnList({ factTable, canEdit = false }: Props) {
                 <tr>
                   <td colSpan={4} align={"center"}>
                     No matching columns.{" "}
-                    <a
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        clear();
-                      }}
-                    >
-                      Clear search field
-                    </a>
+                    <Link onClick={() => clear()}>Clear search field</Link>
                   </td>
                 </tr>
               )}

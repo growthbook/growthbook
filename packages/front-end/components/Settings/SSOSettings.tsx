@@ -3,6 +3,7 @@ import { useState } from "react";
 import { isDefined } from "shared/util";
 import { isCloud } from "@/services/env";
 import Code from "@/components/SyntaxHighlighting/Code";
+import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
 
 export interface Props {
@@ -43,21 +44,15 @@ export default function SSOSettings({ ssoConnection }: Props) {
           {isCloud() && (
             <div className="mt-2">
               Contact{" "}
-              <a href="mailto:hello@growthbook.io">hello@growthbook.io</a> to
-              make changes to your SSO configuration.
+              <Link href="mailto:hello@growthbook.io">hello@growthbook.io</Link>{" "}
+              to make changes to your SSO configuration.
             </div>
           )}
         </div>
         <div className="ml-auto pl-3">
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              setExpanded(!expanded);
-            }}
-          >
+          <Link onClick={() => setExpanded(!expanded)}>
             {expanded ? "hide" : "view"} details
-          </a>
+          </Link>
         </div>
       </div>
       {expanded && (

@@ -76,21 +76,20 @@ const MoreMenu: FC<{
           </IconButton>
         </div>
       ) : (
-        <a
-          href="#"
-          className="text-dark"
+        <button
+          type="button"
+          className="text-dark border-0 bg-transparent p-0"
           style={{
             fontSize: "1.5em",
             lineHeight: "1em",
           }}
           ref={refs.setReference}
-          onClick={(e) => {
-            e.preventDefault();
+          onClick={() => {
             setOpen(!open);
           }}
         >
           <BsThreeDotsVertical />
-        </a>
+        </button>
       )}
       <FloatingPortal>
         <RadixTheme>

@@ -15,6 +15,7 @@ import Modal from "@/components/Modal";
 import TagsInput from "@/components/Tags/TagsInput";
 import Field from "@/components/Forms/Field";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
+import Link from "@/ui/Link";
 
 type SlackIntegrationAddEditModalProps = {
   projects: {
@@ -124,13 +125,13 @@ export const SlackIntegrationAddEditModal: FC<
     >
       <p>
         Create an app in Slack and add the information here. For help, please{" "}
-        <a
+        <Link
           target="_blank"
           rel="noreferrer noopener"
           href="https://docs.growthbook.io/integrations/slack"
         >
           see the documentation
-        </a>
+        </Link>
         .
       </p>
       <Field

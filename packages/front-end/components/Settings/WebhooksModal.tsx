@@ -371,13 +371,13 @@ export function CreateSDKWebhookModal({
               <Callout status="error">
                 <strong>Error: </strong>Localhost not supported directly. Try
                 using{" "}
-                <a
+                <Link
                   href="https://www.npmjs.com/package/ngrok"
                   target="_blank"
                   rel="noreferrer"
                 >
                   ngrok
-                </a>{" "}
+                </Link>{" "}
                 instead.
               </Callout>
             )}
@@ -631,13 +631,13 @@ const EditSDKWebhooksModal: FC<{
       {form.watch("endpoint").match(/localhost/) && (
         <Callout status="error">
           <strong>Error: </strong>Localhost not supported directly. Try using{" "}
-          <a
+          <Link
             href="https://www.npmjs.com/package/ngrok"
             target="_blank"
             rel="noreferrer"
           >
             ngrok
-          </a>{" "}
+          </Link>{" "}
           instead.
         </Callout>
       )}

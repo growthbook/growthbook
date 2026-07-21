@@ -49,6 +49,7 @@ import OutdatedBadge from "@/components/OutdatedBadge";
 import MetricAnalysisMoreMenu from "@/components/MetricAnalysis/MetricAnalysisMoreMenu";
 import track from "@/services/track";
 import Callout from "@/ui/Callout";
+import Link from "@/ui/Link";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import { getMetricAnalysisProps } from "@/components/MetricAnalysis/metric-analysis-props";
 import { useCurrency } from "@/hooks/useCurrency";
@@ -562,11 +563,8 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                   <Callout status="warning" mt="2" mb="2">
                     <span style={{ fontSize: "1.2em" }}>
                       Analysis settings changed. Update results or{" "}
-                      <a
-                        role="button"
-                        className="btn-link"
-                        onClick={(e) => {
-                          e.preventDefault();
+                      <Link
+                        onClick={() => {
                           setError(null);
                           track("MetricAnalysis_ResetSettings");
                           reset(
@@ -578,7 +576,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                         }}
                       >
                         return to latest analysis
-                      </a>
+                      </Link>
                       .
                     </span>
                   </Callout>

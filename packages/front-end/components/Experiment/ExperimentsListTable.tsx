@@ -1,5 +1,4 @@
 import React, { FC, useEffect, useState } from "react";
-import Link from "next/link";
 import { RxDesktop } from "react-icons/rx";
 import { BsFlag } from "react-icons/bs";
 import { PiShuffle } from "react-icons/pi";
@@ -18,6 +17,7 @@ import Table, {
   TableCell,
 } from "@/ui/Table";
 import { tagFilterOnClick, tagLinkProps } from "@/services/search";
+import Link from "@/ui/Link";
 
 interface ExperimentsListTableProps {
   tab: string;

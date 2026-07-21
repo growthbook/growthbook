@@ -293,8 +293,9 @@ export default function ResultsTable({
         body={getTooltipText()}
         style={{ display: "inline-flex", alignItems: "center" }}
       >
-        <a
-          role="button"
+        <button
+          type="button"
+          className="border-0 bg-transparent p-0"
           onClick={handleClick}
           style={{
             marginLeft: "2px",
@@ -306,7 +307,7 @@ export default function ResultsTable({
           }}
         >
           {getIcon()}
-        </a>
+        </button>
       </Tooltip>
     );
   };
@@ -570,16 +571,16 @@ export default function ResultsTable({
                           </div>
                           {editMetrics ? (
                             <div className="col d-flex align-items-end px-0">
-                              <a
-                                role="button"
-                                className="cursor-pointer link-purple"
+                              <button
+                                type="button"
+                                className="ml-1 cursor-pointer link-purple border-0 bg-transparent p-0"
                                 onClick={(e) => {
                                   e.preventDefault();
                                   editMetrics();
                                 }}
                               >
                                 <PiPencilSimpleFill size={15} />
-                              </a>
+                              </button>
                             </div>
                           ) : null}
                         </div>

@@ -8,6 +8,7 @@ import Modal from "@/components/Modal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { GBInfo } from "@/components/Icons";
 import Callout from "@/ui/Callout";
+import Link from "@/ui/Link";
 import { ExperimentTab } from "./TabbedPage";
 import { useSnapshot } from "./SnapshotProvider";
 import VariationUsersTable from "./TabbedPage/VariationUsersTable";
@@ -26,15 +27,14 @@ const LearnMore = ({
 }) => {
   if (type === "with_modal") {
     return (
-      <a
+      <Link
         className="a"
-        role="button"
         onClick={() => {
           setOpen(true);
         }}
       >
         Learn More {">"}
-      </a>
+      </Link>
     );
   } else {
     return (
@@ -161,13 +161,13 @@ const SRMWarning: FC<{
                   </li>
                 </ul>
                 <p>
-                  <a
+                  <Link
                     target="_blank"
                     rel="noreferrer"
                     href="https://docs.growthbook.io/kb/experiments/troubleshooting-experiments"
                   >
                     Read about troubleshooting experiments in our docs
-                  </a>
+                  </Link>
                 </p>
               </>
             )}
@@ -201,9 +201,8 @@ const SRMWarning: FC<{
           snapshot?.health?.traffic.dimension?.dim_exposure_date ? (
             <p className="mb-0">
               Results are likely untrustworthy. See the{" "}
-              <a
+              <Link
                 className="a"
-                role="button"
                 onClick={() => {
                   track("Open health tab", {
                     source: "results-tab-srm-warning",
@@ -212,7 +211,7 @@ const SRMWarning: FC<{
                 }}
               >
                 health tab
-              </a>{" "}
+              </Link>{" "}
               for more details.
             </p>
           ) : (

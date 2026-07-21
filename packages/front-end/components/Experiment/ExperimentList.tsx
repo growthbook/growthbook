@@ -1,4 +1,3 @@
-import NextLink from "next/link";
 import React, { useCallback } from "react";
 import {
   ComputedExperimentInterface,
@@ -156,7 +155,7 @@ export default function ExperimentList({
           return (
             <li key={i} className="w-100 px-1 hover-highlight">
               <div key={test.id} className="d-flex">
-                <NextLink
+                <Link
                   href={`/experiment/${test.id}`}
                   className="w-100 no-link-color"
                 >
@@ -184,7 +183,7 @@ export default function ExperimentList({
                       {currentPhase?.name} ({test.variations.length} variations)
                     </div>
                   </div>
-                </NextLink>
+                </Link>
               </div>
             </li>
           );

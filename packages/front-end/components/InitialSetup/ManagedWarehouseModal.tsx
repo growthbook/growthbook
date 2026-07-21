@@ -17,6 +17,7 @@ import Modal from "@/components/Modal";
 import Badge from "@/ui/Badge";
 import SelectField from "@/components/Forms/SelectField";
 import Checkbox from "@/ui/Checkbox";
+import Link from "@/ui/Link";
 
 export default function ManagedWarehouseModal({
   close,
@@ -180,13 +181,13 @@ export default function ManagedWarehouseModal({
             label={
               <>
                 I agree to the{" "}
-                <a
+                <Link
                   href="https://www.growthbook.io/legal"
                   target="_blank"
                   rel="noreferrer"
                 >
                   terms and conditions
-                </a>
+                </Link>
               </>
             }
             required

@@ -14,6 +14,7 @@ import { useAuth } from "@/services/auth";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import SelectOwner from "@/components/Owner/SelectOwner";
+import Link from "@/ui/Link";
 
 type Props = {
   goBack: () => void;
@@ -153,15 +154,9 @@ export default function FactSegmentForm({
       <>
         {!current?.id ? (
           <div className="mb-3">
-            <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                goBack();
-              }}
-            >
+            <Link onClick={() => goBack()}>
               <GBArrowLeft /> Go Back
-            </a>
+            </Link>
           </div>
         ) : null}
         <Field

@@ -351,15 +351,9 @@ export default function FactMetricList({
           <strong>{recommendedMetrics.length}</strong> metric
           {recommendedMetrics.length === 1 ? "" : "s"} we recommend creating for
           this fact table.{" "}
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              setShowRecommendedMetricsModal(true);
-            }}
-          >
+          <Link onClick={() => setShowRecommendedMetricsModal(true)}>
             View Recommendation{recommendedMetrics.length === 1 ? "" : "s"}
-          </a>
+          </Link>
         </Callout>
       )}
 
@@ -542,15 +536,7 @@ export default function FactMetricList({
                 <tr>
                   <td colSpan={5} align={"center"}>
                     No matching metrics.{" "}
-                    <a
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        clear();
-                      }}
-                    >
-                      Clear search field
-                    </a>
+                    <Link onClick={() => clear()}>Clear search field</Link>
                   </td>
                 </tr>
               )}

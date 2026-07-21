@@ -46,6 +46,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import { useCustomFields } from "@/hooks/useCustomFields";
 import Checkbox from "@/ui/Checkbox";
+import Link from "@/ui/Link";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import HelperText from "@/ui/HelperText";
@@ -524,18 +525,14 @@ export default function SDKConnectionForm({
                     }}
                   />
                   {!usingLatestVersion && (
-                    <a
-                      role="button"
-                      className="small"
-                      onClick={useLatestSdkVersion}
-                    >
+                    <Link className="small" onClick={useLatestSdkVersion}>
                       Use latest
-                    </a>
+                    </Link>
                   )}
                 </div>
                 {languageMapping[form.watch("languages")[0]]?.packageUrl && (
                   <div className="ml-3">
-                    <a
+                    <Link
                       href={
                         languageMapping[form.watch("languages")[0]].packageUrl
                       }
@@ -551,7 +548,7 @@ export default function SDKConnectionForm({
                         languageMapping[form.watch("languages")[0]]
                           .packageUrl || "",
                       )}
-                    </a>
+                    </Link>
                     <code
                       className="d-block text-muted"
                       style={{ fontSize: "0.7rem" }}
@@ -978,13 +975,13 @@ export default function SDKConnectionForm({
                       <Callout status="info" mb="0" mt="3">
                         Cloud customers must self-host a remote evaluation
                         service such as{" "}
-                        <a
+                        <Link
                           target="_blank"
                           href="https://github.com/growthbook/growthbook-proxy"
                           rel="noreferrer"
                         >
                           GrowthBook Proxy
-                        </a>{" "}
+                        </Link>{" "}
                         or a CDN edge worker.
                       </Callout>
                     )}

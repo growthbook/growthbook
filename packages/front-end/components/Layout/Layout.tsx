@@ -11,6 +11,7 @@ import { inferDocUrl } from "@/components/DocLink";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { WhiteButton } from "@/ui/Button";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import UiLink from "@/ui/Link";
 import ProjectSelector from "./ProjectSelector";
 import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
 import { navlinks } from "./sidebarNav";
@@ -202,10 +203,9 @@ const Layout = (): React.ReactElement => {
                 }}
               >
                 <li>
-                  <a
-                    href="#"
+                  <UiLink
                     className={`${styles.closebutton} closebutton`}
-                    onClick={(e) => e.preventDefault()}
+                    onClick={() => setOpen(false)}
                   >
                     <svg
                       className="bi bi-x"
@@ -224,7 +224,7 @@ const Layout = (): React.ReactElement => {
                         d="M4.146 4.146a.5.5 0 0 0 0 .708l7 7a.5.5 0 0 0 .708-.708l-7-7a.5.5 0 0 0-.708 0z"
                       />
                     </svg>
-                  </a>
+                  </UiLink>
                 </li>
                 <li>
                   <button
@@ -258,22 +258,22 @@ const Layout = (): React.ReactElement => {
               <>Upgrade</>
             </WhiteButton>
           )}
-          <a href={inferDocUrl()} target="_blank" rel="noreferrer">
+          <UiLink href={inferDocUrl()} target="_blank" rel="noreferrer">
             <WhiteButton variant="outline">View docs</WhiteButton>
-          </a>
+          </UiLink>
         </Flex>
         {build.sha && (
           <div className="px-3 my-1 text-center">
             <small>
               <span className="text-muted">Build:</span>{" "}
-              <a
+              <UiLink
                 href={`https://github.com/growthbook/growthbook/commit/${build.sha}`}
                 target="_blank"
                 rel="noreferrer"
                 className="text-white"
               >
                 {build.lastVersion}+{build.sha.substr(0, 7)}
-              </a>{" "}
+              </UiLink>{" "}
               {build.date && (
                 <span className="text-muted">({build.date.substr(0, 10)})</span>
               )}

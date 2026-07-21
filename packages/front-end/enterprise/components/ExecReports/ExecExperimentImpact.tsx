@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { useForm } from "react-hook-form";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
-import Link from "next/link";
+import NextLink from "next/link";
 import { getValidDate } from "shared/dates";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import { useAuth } from "@/services/auth";
@@ -22,6 +22,7 @@ import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
 import SelectField from "@/components/Forms/SelectField";
 import DSTooltip from "@/ui/Tooltip";
+import Link from "@/ui/Link";
 
 interface ExperimentSummaryType {
   experiment: ExperimentInterfaceStringDates;
@@ -674,7 +675,7 @@ export default function ExecExperimentImpact({
                           className="text-left"
                           style={{ padding: "0.5rem 0.2rem" }}
                         >
-                          <Link
+                          <NextLink
                             href={`/experiment/${obj.experiment.id}`}
                             className="d-block"
                           >
@@ -690,7 +691,7 @@ export default function ExecExperimentImpact({
                               />{" "}
                               {obj.experiment.name}
                             </Flex>
-                          </Link>
+                          </NextLink>
                         </td>
                         <td style={{ padding: "0.4rem" }}>
                           {obj.type === "other" ? (
@@ -766,17 +767,15 @@ export default function ExecExperimentImpact({
               {showMoreExperiments && (
                 <Box mb="4" mt="2">
                   <Flex justify="center">
-                    <a
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault();
+                    <Link
+                      onClick={() => {
                         setShowAllExperiments(!showAllExperiments);
                       }}
                     >
                       {showAllExperiments
                         ? "Show fewer"
                         : `Show all ${showExperiments.length} experiments`}
-                    </a>
+                    </Link>
                   </Flex>
                 </Box>
               )}
