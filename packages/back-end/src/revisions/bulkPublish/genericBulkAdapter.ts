@@ -1,3 +1,4 @@
+import { isEqual } from "lodash";
 import {
   Revision,
   RevisionTargetType,
@@ -277,11 +278,36 @@ export function makeGenericBulkAdapter(
         current: current as Record<string, unknown>,
       });
       if (!Object.keys(restore).length) return;
-      await adapter.applyChanges(context, current, restore, {
-        // Restoring a pre-image is semantically a revert to a known-good
-        // published state — skip validations that would block a restore.
-        isRevert: true,
-      });
+      const restoredKeys = await adapter.applyChanges(
+        context,
+        current,
+        restore,
+        {
+          // Restoring a pre-image is semantically a revert to a known-good
+          // published state — skip validations that would block a restore.
+          isRevert: true,
+        },
+      );
+      // The restore write re-runs the adapter's normalization against CURRENT
+      // ancestry (configs strip fields an ancestor now owns). If that drops a
+      // field we needed to restore — and it isn't already at the pre-image
+      // value (a no-op the filter legitimately skips) — the rollback is
+      // partial: throw so the item is reported published, not a clean rollback
+      // missing a field the failed publish wrote.
+      const cur = current as Record<string, unknown>;
+      const restoredSet = new Set(restoredKeys);
+      const dropped = Object.keys(restore).filter(
+        (k) => !restoredSet.has(k) && !isEqual(restore[k], cur[k]),
+      );
+      if (dropped.length) {
+        throw new Error(
+          `bulk publish compensation: ${targetType} "${
+            (preImage as { id: string }).id
+          }" restore dropped field(s) ${dropped.join(
+            ", ",
+          )} (normalized against current ancestry) — left partially published`,
+        );
+      }
     },
 
     async emitPublished(context, entity, revision) {
