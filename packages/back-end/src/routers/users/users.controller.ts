@@ -272,14 +272,13 @@ export async function postNpsResponse(
     npsSurveyAt: new Date(),
   });
 
-  // Internal-only: forward actual responses to GrowthBook's own Slack.
-  // Gated on IS_CLOUD plus a private webhook env var that only GrowthBook
-  // Cloud sets, so self-hosted and Cloud users never trigger or see this.
-  // Feedback text is only forwarded on an explicit "submitted" exit, matching
-  // the client contract. Fire-and-forget — a Slack failure must never affect
-  // the user's request.
+  // Forward actual responses to Slack. Gated solely on the private webhook env
+  // var — only GrowthBook Cloud sets it, and the survey itself is isCloud()-
+  // gated on the front-end, so self-hosted deployments never generate a
+  // response to forward. Feedback text is only forwarded on an explicit
+  // "submitted" exit, matching the client contract. Fire-and-forget — a Slack
+  // failure must never affect the user's request.
   if (
-    IS_CLOUD &&
     status === "responded" &&
     score !== undefined &&
     NPS_SLACK_WEBHOOK &&
