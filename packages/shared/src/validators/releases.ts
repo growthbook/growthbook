@@ -155,7 +155,12 @@ export const postReleasePublishRevisionsValidator = {
         .describe(
           "Force past custom validation-hook rejections. Only honored with the `bypassApprovalChecks` permission.",
         ),
-      comment: z.string().optional(),
+      comment: z
+        .string()
+        .optional()
+        .describe(
+          "An optional publish comment recorded on every revision in this release — it appears in each entity's revision history and is passed to any custom validation hooks that run for the publish.",
+        ),
     })
     .strict(),
   responseSchema: z.object({

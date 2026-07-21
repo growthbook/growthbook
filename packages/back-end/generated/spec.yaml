@@ -24096,6 +24096,11 @@ paths:
                     with the `bypassApprovalChecks` permission.
                   type: boolean
                 comment:
+                  description: >-
+                    An optional publish comment recorded on every revision in
+                    this release — it appears in each entity's revision history
+                    and is passed to any custom validation hooks that run for
+                    the publish.
                   type: string
               required:
                 - revisions
