@@ -33,6 +33,10 @@ jobs:
           IMAGE=$(aws ecs describe-task-definition --task-definition "$CURRENT_ARN" \
             --query "taskDefinition.containerDefinitions[?name=='${{ matrix.container }}'].image | [0]" \
             --output text --region us-east-1)
+          if [ -z "$IMAGE" ] || [ "$IMAGE" = "None" ]; then
+            echo "::error::No image found for container '${{ matrix.container }}' in ${{ matrix.service }} task def $CURRENT_ARN"
+            exit 1
+          fi
           echo "Re-pinning ${{ matrix.service }} image: $IMAGE"
           echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
 
