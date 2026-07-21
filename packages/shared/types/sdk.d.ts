@@ -16,6 +16,7 @@ export type ExperimentMetadata = {
 export type FeatureDefinitionRule = FeatureRule & {
   metadata?: ExperimentMetadata;
   contextualBanditRef?: string;
+  contextualVariations?: unknown[];
 };
 
 export type ContextualBanditDefinition = {

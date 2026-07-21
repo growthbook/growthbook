@@ -26,9 +26,9 @@ const mockCallback = (options: Options) => {
 
 const mockAsyncCallback = (options: Options) => {
   const onExperimentViewed = jest.fn();
-  options.trackingCallback = async (experiment, result, attributes) => {
+  options.trackingCallback = async (experiment, result, user) => {
     await sleep(500);
-    onExperimentViewed(experiment, result, attributes);
+    onExperimentViewed(experiment, result, user);
   };
   return onExperimentViewed.mock;
 };
