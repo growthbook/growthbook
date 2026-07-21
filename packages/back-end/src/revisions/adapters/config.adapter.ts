@@ -210,7 +210,7 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
     entity: ConfigInterface,
     changes: Record<string, unknown>,
     options?: { isRevert?: boolean },
-  ): Promise<void> {
+  ): Promise<string[]> {
     // Guard asserts are skipped when (a) restoring a pre-image (isRevert — a
     // revert to known-good published state must not be vetoed by guards
     // judging mid-restore state) or (b) a bulk-publish commit is applying
@@ -225,7 +225,7 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
       UPDATABLE_FIELDS,
     );
 
-    if (Object.keys(filteredChanges).length === 0) return;
+    if (Object.keys(filteredChanges).length === 0) return [];
 
     // Publish-time "base wins" reconciliation: strip any contract-identical
     // field this config declares whose key a published ancestor now owns
@@ -324,6 +324,10 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
     if (touchesLineageOrSchema) {
       await reconcileConfigDescendants(context, entity.key);
     }
+
+    // Only the normalized set was persisted on THIS config — a field stripped
+    // as ancestor-owned was never written, so it must not be rolled back.
+    return Object.keys(normalizedChanges);
   },
 
   // Self-heal path: a retry after applyChanges wrote the root but failed before

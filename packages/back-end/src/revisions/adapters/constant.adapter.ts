@@ -208,7 +208,7 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
     // adapter's stale-attribute skip, there's no revert-safe validation to opt
     // out of here — so the flag is accepted for interface conformance only.
     options?: { isRevert?: boolean },
-  ): Promise<void> {
+  ): Promise<string[]> {
     void options;
     const filteredChanges = filterUpdatableChanges(
       changes,
@@ -216,12 +216,13 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
       UPDATABLE_FIELDS,
     );
 
-    if (Object.keys(filteredChanges).length === 0) return;
+    if (Object.keys(filteredChanges).length === 0) return [];
 
     await context.models.constants.update(
       entity,
       filteredChanges as Parameters<typeof context.models.constants.update>[1],
     );
+    return Object.keys(filteredChanges);
   },
 
   // Snapshot the deferred-publish guard fingerprints when arming (schedule /

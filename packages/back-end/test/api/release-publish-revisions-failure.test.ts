@@ -21,6 +21,7 @@ let mockFailConstantRestore = false;
 let mockFailConstantReleaseClaim = false;
 let mockFeatureClaimConflict = false;
 let mockFeatureReleaseNoop = false;
+let mockBeforeFeatureApply: (() => Promise<void>) | null = null;
 jest.mock("back-end/src/revisions/bulkPublish/registry", () => {
   return new Proxy(
     {},
@@ -41,6 +42,7 @@ jest.mock("back-end/src/revisions/bulkPublish/registry", () => {
                 return adapter.claim(...args);
               },
               applyPrecomputed: async (...args: unknown[]) => {
+                if (mockBeforeFeatureApply) await mockBeforeFeatureApply();
                 if (mockFailFeatureApply) {
                   throw new Error("simulated infra failure");
                 }
@@ -110,6 +112,7 @@ describe("POST /api/v2/releases/publish-revisions — commit failure", () => {
     mockFailConstantReleaseClaim = false;
     mockFeatureClaimConflict = false;
     mockFeatureReleaseNoop = false;
+    mockBeforeFeatureApply = null;
   });
 
   it("rolls back applied entities, reopens revisions, and emits only publishFailed", async () => {
@@ -679,5 +682,131 @@ describe("POST /api/v2/releases/publish-revisions — commit failure", () => {
       failed.some((e) => e.data?.data?.object?.featureId === "noop-feat"),
     ).toBe(false);
     expect(failed.length).toBe(1);
+  });
+
+  it("does not clobber a generic revision re-published concurrently during compensation", async () => {
+    // The GENERIC fingerprint end-to-end, through the real releaseClaim +
+    // reopenAfterFailedApply (releaseClaim is NOT mocked here): the constant
+    // claims and applies, then during the feature apply a concurrent actor
+    // reopens and re-publishes the constant's revision (a fresh merge → new
+    // dateUpdated, status still "merged"). When the feature apply throws,
+    // compensation's fingerprinted reopen must MISS — leaving the concurrent
+    // publish intact and reporting the item still-published, rather than
+    // clobbering it back open.
+    setReqContext(makeContext());
+    const now = new Date();
+
+    await mongoose.connection.collection("constants").insertOne({
+      id: "const_restamp",
+      organization: ORG_ID,
+      key: "restamp",
+      name: "restamp",
+      owner: "",
+      type: "string",
+      value: "before",
+      dateCreated: now,
+      dateUpdated: now,
+    });
+    const stageRes = await request(app)
+      .put(`/api/v1/constants-revisions/restamp/new/value`)
+      .send({ value: "after" })
+      .set("Authorization", "Bearer foo");
+    expect(stageRes.status).toBe(200);
+    const constVersion = stageRes.body.revision.version;
+
+    await mongoose.connection.collection("features").insertOne({
+      id: "restamp-feat",
+      organization: ORG_ID,
+      owner: "",
+      valueType: "string",
+      defaultValue: "live",
+      version: 1,
+      environmentSettings: {},
+      dateCreated: now,
+      dateUpdated: now,
+    });
+    await mongoose.connection.collection("featurerevisions").insertMany([
+      {
+        organization: ORG_ID,
+        featureId: "restamp-feat",
+        version: 1,
+        baseVersion: 0,
+        status: "published",
+        defaultValue: "live",
+        rules: [],
+        dateCreated: now,
+        dateUpdated: now,
+        datePublished: now,
+      },
+      {
+        organization: ORG_ID,
+        featureId: "restamp-feat",
+        version: 2,
+        baseVersion: 1,
+        status: "draft",
+        defaultValue: "new-value",
+        rules: [],
+        dateCreated: now,
+        dateUpdated: now,
+      },
+    ]);
+
+    // The concurrent re-publish: bump our published constant revision's
+    // dateUpdated (scoped to its version — a constant has other, base
+    // revisions) while it stays "merged", so our claim stamp no longer matches.
+    const restampedAt = new Date(now.getTime() + 999999);
+    mockFailFeatureApply = true;
+    mockBeforeFeatureApply = async () => {
+      await mongoose.connection.collection("revisions").updateOne(
+        {
+          organization: ORG_ID,
+          "target.type": "constant",
+          version: constVersion,
+        },
+        { $set: { dateUpdated: restampedAt } },
+      );
+    };
+
+    const res = await request(app)
+      .post("/api/v2/releases/publish-revisions")
+      .send({
+        revisions: [
+          { entityType: "constant", key: "restamp", version: constVersion },
+          { entityType: "feature", id: "restamp-feat", version: 2 },
+        ],
+      })
+      .set("Authorization", "Bearer foo");
+    expect(res.status).toBe(500);
+
+    const byId = Object.fromEntries(
+      (res.body.items as { id: string; status: string }[]).map((item) => [
+        item.id,
+        item.status,
+      ]),
+    );
+    // Fingerprint miss → the real releaseClaim returns false → still published.
+    expect(byId["restamp"]).toBe("published");
+    expect(byId["restamp-feat"]).toBe("rolled-back");
+
+    // The concurrent publisher's revision is untouched: still merged, still
+    // carrying the re-stamped dateUpdated (compensation did NOT reopen it).
+    const constRevision = await mongoose.connection
+      .collection("revisions")
+      .findOne({
+        organization: ORG_ID,
+        "target.type": "constant",
+        version: constVersion,
+      });
+    expect(constRevision?.status).toBe("merged");
+    expect(constRevision?.dateUpdated?.getTime()).toBe(restampedAt.getTime());
+
+    // No contradictory publishFailed for the still-merged constant.
+    const failed = await mongoose.connection
+      .collection("events")
+      .find({ organizationId: ORG_ID, event: /revision\.publishFailed/ })
+      .toArray();
+    expect(failed.some((e) => e.data?.data?.object?.key === "restamp")).toBe(
+      false,
+    );
   });
 });

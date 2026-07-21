@@ -25,6 +25,12 @@ export type BulkRevisionRef = {
    * may normalize), the ownership baseline for restorePreImage.
    */
   writtenEntity?: Record<string, unknown> | null;
+  /**
+   * Set by applyPrecomputed(): the entity fields the apply actually persisted
+   * (post updatable-filter and post-normalization). restorePreImage rolls back
+   * ONLY these, so a field the write dropped never clobbers a concurrent value.
+   */
+  persistedKeys?: string[];
 };
 
 /**

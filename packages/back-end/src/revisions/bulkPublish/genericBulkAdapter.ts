@@ -1,4 +1,3 @@
-import { isEqual } from "lodash";
 import {
   Revision,
   RevisionTargetType,
@@ -228,9 +227,14 @@ export function makeGenericBulkAdapter(
 
     async applyPrecomputed(context, entity, revision, desiredState) {
       const raw = revision.raw as Revision;
-      await adapter.applyChanges(context, entity, desiredState, {
-        isRevert: !!raw.revertedFrom,
-      });
+      // The keys the write actually persisted (post updatable-filter and
+      // post-normalization) — the exact set compensation may roll back.
+      revision.persistedKeys = await adapter.applyChanges(
+        context,
+        entity,
+        desiredState,
+        { isRevert: !!raw.revertedFrom },
+      );
       // The write may NORMALIZE what it persists (config schemas are stripped
       // against ancestors), so the post-apply doc — not desiredState — is the
       // ownership baseline compensation compares the live doc against.
@@ -251,10 +255,15 @@ export function makeGenericBulkAdapter(
           `bulk publish compensation: ${targetType} "${(preImage as { id: string }).id}" no longer exists — cannot restore its pre-image`,
         );
       }
-      // Restore only the fields the apply wrote — writing back every
-      // updatable field would clobber an unrelated concurrent update landing
-      // between the drift check and compensation.
+      // Restore only the fields the apply ACTUALLY persisted — captured from
+      // applyChanges, so a key dropped by the updatable filter or by config
+      // normalization is never rolled back over a concurrent writer's value.
+      // (Falls back to the desired-state keys for a revision that never went
+      // through applyPrecomputed — defensive; that path doesn't reach here.)
       const updatable = adapter.getUpdatableFields();
+      const persistedKeys =
+        revision.persistedKeys ??
+        Object.keys(desiredState).filter((k) => updatable.has(k));
       // What the apply actually persisted: the post-apply doc when the write
       // completed (normalization-aware), else the precomputed desired state.
       const written =
@@ -262,13 +271,10 @@ export function makeGenericBulkAdapter(
         desiredState;
       const pre = preImage as Record<string, unknown>;
       const restore = ownedRestoreValues({
-        keys: Object.keys(desiredState).filter((k) => updatable.has(k)),
+        keys: persistedKeys,
         preImage: pre,
         written,
         current: current as Record<string, unknown>,
-        // A key whose desired value already equals the pre-image asked for no
-        // net change — nothing to restore.
-        skip: (key) => isEqual(desiredState[key], pre[key]),
       });
       if (!Object.keys(restore).length) return;
       await adapter.applyChanges(context, current, restore, {
