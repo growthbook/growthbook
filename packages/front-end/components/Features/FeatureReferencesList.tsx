@@ -3,7 +3,7 @@ import { Box, Flex, Heading } from "@radix-ui/themes";
 import { PiCaretRightFill } from "react-icons/pi";
 import Collapsible from "react-collapsible";
 import Link from "@/ui/Link";
-import Badge from "@/ui/Badge";
+import CounterBadge from "@/ui/Badge/CounterBadge";
 
 interface FeatureReferencesListProps {
   features?: string[];
@@ -32,7 +32,7 @@ const FeatureReferencesList: FC<FeatureReferencesListProps> = ({
                 <Heading size="2" mb="0">
                   Dependent Features
                 </Heading>
-                <Badge radius="full" label={features.length.toString()} />
+                <CounterBadge color="slate" count={features.length} />
               </Flex>
             }
             open={true}
@@ -79,7 +79,7 @@ const FeatureReferencesList: FC<FeatureReferencesListProps> = ({
                 <Heading size="2" mb="0">
                   Dependent Experiments
                 </Heading>
-                <Badge radius="full" label={experiments.length.toString()} />
+                <CounterBadge color="slate" count={experiments.length} />
               </Flex>
             }
             open={true}

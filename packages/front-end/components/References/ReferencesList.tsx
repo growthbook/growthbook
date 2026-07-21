@@ -4,7 +4,7 @@ import { PiCaretRightFill } from "react-icons/pi";
 import Collapsible from "react-collapsible";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
-import Badge from "@/ui/Badge";
+import CounterBadge from "@/ui/Badge/CounterBadge";
 import ProjectBadges from "@/components/ProjectBadges";
 import Pagination from "@/ui/Pagination";
 
@@ -50,7 +50,7 @@ const ReferencesListSection: FC<ReferenceSection> = ({
             <Heading as="h3" size="small" mb="0">
               {title}
             </Heading>
-            <Badge radius="full" label={items.length.toString()} />
+            <CounterBadge color="slate" count={items.length} />
           </Flex>
         }
         open={true}
