@@ -7,6 +7,7 @@ import {
 import {
   calculateProductAnalyticsDateRange,
   encodeExplorationConfig,
+  isFunnelSupportedDatasourceType,
 } from "shared/enterprise";
 import { isReadOnlySQL } from "shared/sql";
 import {
@@ -44,6 +45,12 @@ function withRequestedDisplayConfig(
     },
   };
 }
+
+// Max time to wait synchronously for an exploration's queries before
+// returning the in-progress model and letting the frontend poll for the
+// result. Bounds request latency for heavy funnel/metric queries over large
+// event tables.
+const PRODUCT_ANALYTICS_SYNC_TIMEOUT_MS = 5000;
 
 export async function runProductAnalyticsExploration(
   context: ReqContext | ApiReqContext,
@@ -148,6 +155,55 @@ export async function runProductAnalyticsExploration(
     if (dataset.columnTypes[dataset.timestampColumn] !== "date") {
       throw new BadRequestError("Timestamp column must be a date or timestamp");
     }
+  } else if (dataset.type === "funnel") {
+    if (dataset.steps.length < 2) {
+      throw new BadRequestError("Funnels require at least two steps");
+    }
+    if (!dataset.unit) {
+      throw new BadRequestError("Funnel unit is required");
+    }
+    const unit = dataset.unit;
+
+    // D-PA2: the funnel explorer launches on a validated subset of warehouse
+    // types. Reject datasources whose funnel SQL hasn't been execution-verified
+    // yet, rather than running SQL that may be invalid on that engine. Expand
+    // the allowlist as each type is tested.
+    if (!isFunnelSupportedDatasourceType(datasource.type)) {
+      throw new BadRequestError(
+        "Funnel explorations aren't supported for this data source yet. Supported warehouses will expand as each is validated.",
+      );
+    }
+
+    // Load every fact table referenced by any funnel step. We don't fold
+    // ids into a Set first because the order in `dataset.steps` is
+    // significant for SQL generation; getFactTablesByIds dedupes for us.
+    const factTableIds = Array.from(
+      new Set(dataset.steps.map((s) => s.factTable).filter(Boolean)),
+    );
+    if (
+      factTableIds.length === 0 ||
+      dataset.steps.some((step) => !step.factTable)
+    ) {
+      throw new BadRequestError("Funnel steps require fact tables");
+    }
+    const factTables = await getFactTablesByIds(context, factTableIds);
+    factTables.forEach((ft) => factTableMap.set(ft.id, ft));
+    for (const id of factTableIds) {
+      const ft = factTableMap.get(id);
+      if (!ft) {
+        throw new NotFoundError(`Fact table ${id} not found`);
+      }
+      if (ft.datasource !== datasource.id) {
+        throw new BadRequestError(
+          "Funnel fact tables must belong to the same datasource as the exploration",
+        );
+      }
+      if (!ft.userIdTypes.includes(unit)) {
+        throw new BadRequestError(
+          `Funnel unit "${unit}" must exist on every step's fact table`,
+        );
+      }
+    }
   } else {
     throw new BadRequestError("Invalid dataset type");
   }
@@ -191,16 +247,33 @@ export async function runProductAnalyticsExploration(
     true,
   );
 
+  let syncTimer: ReturnType<typeof setTimeout> | undefined;
   try {
     await queryRunner.startAnalysis({
       factTableMap,
       factMetricMap: metricMap,
     });
-    // TODO: add a timeout - if results are taking longer than 5 seconds, return the in progress exploration
-    // Frontend will handle this by showing a loading state and polling for updates
-    await queryRunner.waitForResults();
+    // If results aren't ready within the sync budget, return the in-progress
+    // exploration (status "running") instead of blocking the request. The
+    // warehouse query is NOT cancelled — the QueryRunner keeps driving it and
+    // persists status updates via its own background timers, so the frontend
+    // shows a loading state and polls getExplorationById for the result.
+    // This bounds request latency (no UI hang) without re-running the query.
+    const timeout = new Promise<void>((resolve) => {
+      syncTimer = setTimeout(resolve, PRODUCT_ANALYTICS_SYNC_TIMEOUT_MS);
+    });
+    await Promise.race([
+      // Swallow a late resolve/reject so it can't surface as an unhandled
+      // rejection after the timeout wins; errors are persisted to the model
+      // and surfaced to the client via polling.
+      queryRunner.waitForResults().catch(() => {}),
+      timeout,
+    ]);
   } catch (e) {
     // Ignore errors here, still return the model
+  } finally {
+    // Clear the timer so the fast path doesn't leave a dangling timeout.
+    if (syncTimer) clearTimeout(syncTimer);
   }
 
   return queryRunner.model;
@@ -212,6 +285,7 @@ const DATASET_TYPE_PATH: Record<ExplorationConfig["dataset"]["type"], string> =
     fact_table: "fact-table",
     data_source: "data-source",
     sql: "sql",
+    funnel: "funnel",
   };
 
 export function getProductAnalyticsExplorationUrl(config: ExplorationConfig) {

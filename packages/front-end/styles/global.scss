@@ -47,6 +47,11 @@ body {
 
 .main {
   padding-left: 240px;
+  &.product-analytics-explore-landing {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+  }
   &.lite {
     padding-left: 0;
   }
@@ -644,6 +649,28 @@ pre {
 .bandit-summary-results-wrapper {
   @media (max-width: 900px) {
     overflow-x: auto;
+  }
+}
+
+// Wide config tables (the field editor + the usage tables on the config page).
+// Same trade-off as .experiment-results-wrapper: an `overflow-x` ancestor breaks
+// a document-sticky header AND would clip the inline edit-field dropdowns, so we
+// only enable x-scroll once the viewport is too narrow to show the table without
+// squeezing/truncating, and drop the sticky header at that same breakpoint.
+// Above it there is no scroll container (header sticks, dropdowns aren't
+// clipped); below it we trade the sticky header for horizontal scroll. Viewport
+// (not container) query on purpose — a container-query ancestor would establish a
+// containing block that re-clips the `position: fixed` react-select menus.
+// Keep the breakpoint in the two rules in sync.
+.config-table-scroll {
+  @media (max-width: 1400px) {
+    overflow-x: auto;
+  }
+}
+.config-table-sticky-header {
+  position: sticky;
+  @media (max-width: 1400px) {
+    position: static;
   }
 }
 

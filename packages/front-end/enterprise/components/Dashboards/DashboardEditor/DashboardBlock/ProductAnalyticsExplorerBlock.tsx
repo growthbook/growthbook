@@ -5,6 +5,7 @@ import {
   FactTableExplorationBlockInterface,
   DataSourceExplorationBlockInterface,
   SqlExplorationBlockInterface,
+  FunnelExplorationBlockInterface,
   blockUsesDashboardDateControl,
   getEffectiveExplorationConfig,
   getExplorationDateControlFingerprint,
@@ -16,12 +17,25 @@ import { isEqual } from "lodash";
 import { ProductAnalyticsExploration } from "shared/validators";
 import { QueryInterface } from "shared/types/query";
 import useApi from "@/hooks/useApi";
+import { explorationPollDelayMs } from "@/enterprise/components/ProductAnalytics/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ExplorerChart from "@/enterprise/components/ProductAnalytics/MainSection/ExplorerChart";
 import ExplorerDataTable from "@/enterprise/components/ProductAnalytics/MainSection/ExplorerDataTable";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Callout from "@/ui/Callout";
 import { BlockProps } from ".";
+
+// Poll interval for a tile's exploration: back off while it's still running,
+// stop (0) once it's terminal (success/error) or absent.
+function pollDelayForExploration(
+  exploration: ProductAnalyticsExploration | undefined | null,
+): number {
+  if (exploration?.status !== "running") return 0;
+  const started = exploration.runStarted
+    ? new Date(exploration.runStarted).getTime()
+    : Date.now();
+  return explorationPollDelayMs(Math.floor((Date.now() - started) / 1000));
+}
 
 export default function ProductAnalyticsExplorerBlock({
   block,
@@ -31,6 +45,7 @@ export default function ProductAnalyticsExplorerBlock({
   | FactTableExplorationBlockInterface
   | DataSourceExplorationBlockInterface
   | SqlExplorationBlockInterface
+  | FunnelExplorationBlockInterface
 >) {
   return (
     <ProductAnalyticsExplorerVisualization
@@ -59,6 +74,10 @@ export function ProductAnalyticsExplorerVisualization({
     query: QueryInterface | null;
   }>(`/product-analytics/exploration/${block.explorerAnalysisId}`, {
     shouldRun: () => !!block.explorerAnalysisId,
+    // A tile's exploration can be returned still "running" (a refresh query
+    // that exceeded the ~5s sync budget keeps executing server-side). Poll on
+    // a backoff until it reaches a terminal state; 0 stops the interval.
+    refreshInterval: (latest) => pollDelayForExploration(latest?.exploration),
   });
 
   // Comparison is resolved through the shared seam so a future dashboard-wide
@@ -72,6 +91,7 @@ export function ProductAnalyticsExplorerVisualization({
     query: QueryInterface | null;
   }>(`/product-analytics/exploration/${block.comparisonExplorerAnalysisId}`, {
     shouldRun: () => compareEnabled && !!block.comparisonExplorerAnalysisId,
+    refreshInterval: (latest) => pollDelayForExploration(latest?.exploration),
   });
   const rawComparisonExploration = comparisonData?.exploration ?? null;
   // The resolved previous window lives on the comparison exploration's config.
@@ -162,6 +182,10 @@ export function ProductAnalyticsExplorerVisualization({
     );
   }
 
+  if (data.exploration.status === "running") {
+    return <LoadingSpinner />;
+  }
+
   if (hasStaleDashboardDateResults) {
     return (
       <Box p="4" style={{ textAlign: "center" }}>
@@ -178,7 +202,7 @@ export function ProductAnalyticsExplorerVisualization({
   );
 
   return (
-    <Flex direction="column" gap="2" style={{ height: "100%" }}>
+    <Flex direction="column" gap="2" style={{ height: "100%", minHeight: 0 }}>
       {shouldShowTable ? (
         <ExplorerDataTable
           exploration={data.exploration}

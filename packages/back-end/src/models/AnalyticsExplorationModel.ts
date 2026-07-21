@@ -26,6 +26,7 @@ import analyticsExplorationApiSpec, {
   postFactTableExplorationEndpoint,
   postDataSourceExplorationEndpoint,
   postSqlExplorationEndpoint,
+  postFunnelExplorationEndpoint,
 } from "back-end/src/api/specs/analytics-exploration.spec";
 import { MakeModelClass } from "./BaseModel";
 
@@ -97,6 +98,7 @@ const BaseClass = MakeModelClass({
       makeExplorationHandler(postFactTableExplorationEndpoint),
       makeExplorationHandler(postDataSourceExplorationEndpoint),
       makeExplorationHandler(postSqlExplorationEndpoint),
+      makeExplorationHandler(postFunnelExplorationEndpoint),
     ],
   },
 });
@@ -136,13 +138,24 @@ export class AnalyticsExplorationModel extends BaseClass {
           dataset.type === "data_source" || dataset.type === "sql"
             ? dataset.timestampColumn
             : null,
+        // Funnel-specific keys: unit and concurrency window affect query
+        // results but live at the dataset level rather than per-step.
+        funnelUnit: dataset.type === "funnel" ? dataset.unit : null,
+        funnelConcurrencyWindowSeconds:
+          dataset.type === "funnel"
+            ? (dataset.concurrencyWindowSeconds ?? 0)
+            : null,
       }),
     );
 
-    // Value hashes
-    const valueHashes = dataset.values.map((value) => {
-      return md5(JSON.stringify(value));
-    });
+    // Value hashes. Funnels treat the whole steps array as one logical
+    // "value" (decision in the funnels plan): a single hash invalidates
+    // the cache on any step change. Per-step incremental refresh is a
+    // future optimization.
+    const valueHashes =
+      dataset.type === "funnel"
+        ? [md5(JSON.stringify(dataset.steps))]
+        : dataset.values.map((value) => md5(JSON.stringify(value)));
 
     return {
       generalSettingsHash,

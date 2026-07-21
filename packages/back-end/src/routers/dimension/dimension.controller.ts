@@ -9,9 +9,13 @@ import {
   deleteDimensionById,
   findDimensionById,
   findDimensionsByOrganization,
+  hasDimensionDatasourceAccess,
   updateDimension,
 } from "back-end/src/models/DimensionModel";
-import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import {
+  getDataSourceById,
+  getDataSourcesByOrganization,
+} from "back-end/src/models/DataSourceModel";
 
 // region GET /dimensions
 
@@ -32,11 +36,20 @@ export const getDimensions = async (
   req: GetDimensionsRequest,
   res: Response<GetDimensionsResponse | PrivateApiErrorResponse>,
 ) => {
-  const { org } = getContextFromReq(req);
-  const dimensions = await findDimensionsByOrganization(org.id);
+  const context = getContextFromReq(req);
+  const dimensions = await findDimensionsByOrganization(context.org.id);
+
+  // A dimension inherits project access from its datasource, so drop any whose
+  // datasource is inaccessible or no longer exists.
+  const readableDatasourceIds = new Set(
+    (await getDataSourcesByOrganization(context)).map((ds) => ds.id),
+  );
+
   res.status(200).json({
     status: 200,
-    dimensions,
+    dimensions: dimensions.filter((dimension) =>
+      readableDatasourceIds.has(dimension.datasource),
+    ),
   });
 };
 
@@ -142,6 +155,9 @@ export const putDimension = async (
   if (!dimension) {
     throw new Error("Could not find dimension");
   }
+  if (!(await hasDimensionDatasourceAccess(context, dimension))) {
+    throw new Error("You don't have access to this dimension");
+  }
 
   const { datasource, name, sql, userIdType, owner, description } = req.body;
 
@@ -196,6 +212,9 @@ export const deleteDimension = async (
 
   if (!dimension) {
     throw new Error("Could not find dimension");
+  }
+  if (!(await hasDimensionDatasourceAccess(context, dimension))) {
+    throw new Error("You don't have access to this dimension");
   }
   try {
     await deleteDimensionById(context, dimension);

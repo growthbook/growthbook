@@ -5,6 +5,7 @@ import { format } from "date-fns";
 import { abbreviateAgo } from "shared/dates";
 import {
   isReadyForApproval,
+  isAwaitingStartApproval,
   RampScheduleInterface,
   RampScheduleStatus,
   RampStepAction,
@@ -764,12 +765,15 @@ export default function RampTimeline({
     (t) => !!t.activatingRevisionVersion,
   )?.activatingRevisionVersion;
   const doneCount = completedNodeCount(rs);
+  const awaitingStartApproval = isAwaitingStartApproval(rs);
 
   function getState(i: number): NodeState {
     if (pendingDetach) return "future";
     if (i < doneCount) return "completed";
     if (status === "pending") return "future";
     if (status === "ready") {
+      // An approval hold parks the playhead at Start until approved.
+      if (awaitingStartApproval) return i === 0 ? "active" : "future";
       if (startDate && i === 0) return "active";
       return "future";
     }
@@ -954,11 +958,20 @@ export default function RampTimeline({
   const revisionSublabel = (
     <>
       {sublabelLine(<Text size="small">awaiting publish</Text>)}
+      {awaitingStartApproval &&
+        sublabelLine(<Text size="small">starts on approval</Text>)}
       {!!activatingRevisionVersion &&
         sublabelLine(
           <Text size="small">Revision {activatingRevisionVersion}</Text>,
         )}
     </>
+  );
+
+  // Live (published) approval hold: the schedule is "ready" with the rule
+  // off until approved. Surface a pre-Start indicator so it reads the same as
+  // the draft-preview hold.
+  const approvalSublabel = sublabelLine(
+    <Text size="small">awaiting approval</Text>,
   );
 
   // Resolve each node's visuals once, shared by the node and its connector.
@@ -991,13 +1004,20 @@ export default function RampTimeline({
             </>
           ) : (
             /* Normal pre-timeline indicator node for states where the ramp hasn't started yet */
-            status === "pending" && (
+            (status === "pending" ||
+              (awaitingStartApproval && status === "ready")) && (
               <>
                 <Node
                   node={{
                     key: "pre-indicator",
-                    label: "pending",
-                    sublabel: revisionSublabel,
+                    label:
+                      awaitingStartApproval && status === "ready"
+                        ? "approve"
+                        : "pending",
+                    sublabel:
+                      awaitingStartApproval && status === "ready"
+                        ? approvalSublabel
+                        : revisionSublabel,
                   }}
                   state="active"
                   dotColor={pendingVisual.dotColor}

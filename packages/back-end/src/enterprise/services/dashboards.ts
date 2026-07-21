@@ -358,6 +358,7 @@ const PRODUCT_ANALYTICS_EXPLORATION_BLOCK_TYPES = [
   "fact-table-exploration",
   "data-source-exploration",
   "sql-exploration",
+  "funnel-exploration",
 ] as const;
 
 type ProductAnalyticsExplorationBlock = Extract<

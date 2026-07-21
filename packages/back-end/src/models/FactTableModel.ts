@@ -729,6 +729,16 @@ export async function deleteFactTable(
   await audit.logDelete(context, factTable);
 }
 
+export async function projectHasFactTables(
+  context: ReqContext | ApiReqContext,
+  projectId: string,
+): Promise<boolean> {
+  return !!(await FactTableModel.exists({
+    organization: context.org.id,
+    projects: [projectId],
+  }));
+}
+
 export async function deleteAllFactTablesForAProject({
   projectId,
   context,

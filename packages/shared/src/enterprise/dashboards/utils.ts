@@ -10,12 +10,14 @@ import {
   FactTableExplorationBlockInterface,
   DataSourceExplorationBlockInterface,
   SqlExplorationBlockInterface,
+  FunnelExplorationBlockInterface,
 } from "shared/enterprise";
 import {
   MetricExplorationConfig,
   FactTableExplorationConfig,
   DataSourceExplorationConfig,
   SqlExplorationConfig,
+  FunnelExplorationConfig,
   ExplorationDateRange,
   dateGranularity,
 } from "shared/validators";
@@ -40,6 +42,18 @@ import { DataVizConfig } from "../../../validators";
 import { getInitialConfigByBlockType } from "../product-analytics/utils";
 
 export const differenceTypes = ["absolute", "relative", "scaled"] as const;
+
+// Single source of truth for the Difference Type selector's options (label +
+// value), shared by every block editor that renders the control so the option
+// set can't drift between copies. Ordered as shown in the UI.
+export const DIFFERENCE_TYPE_OPTIONS: {
+  label: string;
+  value: (typeof differenceTypes)[number];
+}[] = [
+  { label: "Relative", value: "relative" },
+  { label: "Absolute", value: "absolute" },
+  { label: "Scaled", value: "scaled" },
+];
 
 export const DEFAULT_DASHBOARD_GLOBAL_CONTROLS = {
   dateRange: {
@@ -85,6 +99,7 @@ type DashboardGlobalControlSupportedBlock = DashboardBlockInterfaceOrData<
   | FactTableExplorationBlockInterface
   | DataSourceExplorationBlockInterface
   | SqlExplorationBlockInterface
+  | FunnelExplorationBlockInterface
 >;
 
 const dashboardGlobalControlSupportedBlockTypes = new Set<DashboardBlockType>([
@@ -92,6 +107,7 @@ const dashboardGlobalControlSupportedBlockTypes = new Set<DashboardBlockType>([
   "fact-table-exploration",
   "data-source-exploration",
   "sql-exploration",
+  "funnel-exploration",
 ]);
 
 export function getTemporaryDashboardBlockId(index: number): string {
@@ -203,7 +219,8 @@ type DashboardGlobalControlSupportedConfig =
   | MetricExplorationConfig
   | FactTableExplorationConfig
   | DataSourceExplorationConfig
-  | SqlExplorationConfig;
+  | SqlExplorationConfig
+  | FunnelExplorationConfig;
 
 function applyDateGranularity<T extends DashboardGlobalControlSupportedBlock>(
   config: T["config"],
@@ -526,6 +543,49 @@ export const CREATE_BLOCK_TYPE: {
     sortDirection: null,
     ...(initialValues || {}),
   }),
+  "metric-experiments": ({ initialValues }) => ({
+    type: "metric-experiments",
+    title: "",
+    description: "",
+    metricId: "",
+    projects: [],
+    experimentSearchString: "",
+    differenceType: "relative",
+    bandits: false,
+    ...(initialValues || {}),
+  }),
+  "experiments-scaled-impact": ({ initialValues }) => ({
+    type: "experiments-scaled-impact",
+    title: "Scaled Impact",
+    description: "",
+    dateRange: { predefined: "last90Days" },
+    projects: [],
+    experimentSearchString: "",
+    metricId: "",
+    ...(initialValues || {}),
+  }),
+  "experiments-win-rate": ({ initialValues }) => ({
+    type: "experiments-win-rate",
+    title: "Win Percentage",
+    description: "",
+    dateRange: { predefined: "last90Days" },
+    projects: [],
+    experimentSearchString: "",
+    showProjectBreakdown: true,
+    comparison: { enabled: false },
+    ...(initialValues || {}),
+  }),
+  "experiments-status": ({ initialValues }) => ({
+    type: "experiments-status",
+    title: "Team Velocity",
+    description: "",
+    dateRange: { predefined: "last90Days" },
+    projects: [],
+    experimentSearchString: "",
+    dateGranularity: "auto",
+    comparison: { enabled: false },
+    ...(initialValues || {}),
+  }),
   "experiment-dimension": ({ initialValues, experiment }) => ({
     type: "experiment-dimension",
     title: "",
@@ -633,6 +693,19 @@ export const CREATE_BLOCK_TYPE: {
         "data-source-exploration",
         initialValues?.config?.datasource ?? "",
       ) as DataSourceExplorationConfig),
+    ...(initialValues || {}),
+  }),
+  "funnel-exploration": ({ initialValues }) => ({
+    type: "funnel-exploration",
+    title: "",
+    description: "",
+    explorerAnalysisId: "",
+    config:
+      initialValues?.config ??
+      (getInitialConfigByBlockType(
+        "funnel-exploration",
+        initialValues?.config?.datasource ?? "",
+      ) as FunnelExplorationConfig),
     ...(initialValues || {}),
   }),
   "sql-exploration": ({ initialValues }) => ({

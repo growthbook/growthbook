@@ -6,6 +6,8 @@ import {
   apiDataSourceExplorationValidator,
   apiSqlExplorationValidator,
   metricExplorationConfigValidator,
+  apiFunnelExplorationValidator,
+  funnelExplorationConfigValidator,
   factTableExplorationConfigValidator,
   dataSourceExplorationConfigValidator,
   sqlExplorationConfigValidator,
@@ -94,6 +96,16 @@ export const postSqlExplorationEndpoint = makeExplorationEndpoint(
   },
 );
 
+export const postFunnelExplorationEndpoint = makeExplorationEndpoint(
+  apiFunnelExplorationValidator,
+  funnelExplorationConfigValidator,
+  {
+    pathFragment: "/funnel-exploration",
+    operationId: "postFunnelExploration",
+    summary: "Run a Funnel based visualization",
+  },
+);
+
 export const analyticsExplorationApiSpec = {
   modelSingular: "analyticsExploration",
   modelPlural: "analyticsExplorations",
@@ -113,6 +125,7 @@ export const analyticsExplorationApiSpec = {
     postFactTableExplorationEndpoint,
     postDataSourceExplorationEndpoint,
     postSqlExplorationEndpoint,
+    postFunnelExplorationEndpoint,
   ],
 } satisfies OpenApiModelSpec;
 

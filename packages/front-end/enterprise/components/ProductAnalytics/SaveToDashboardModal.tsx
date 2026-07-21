@@ -38,12 +38,13 @@ import DashboardUpdateScheduleSelector from "@/enterprise/components/Dashboards/
 import track from "@/services/track";
 
 function datasetTypeToBlockType(
-  type: "metric" | "fact_table" | "data_source" | "sql",
+  type: "metric" | "fact_table" | "data_source" | "funnel" | "sql",
 ):
   | "metric-exploration"
   | "fact-table-exploration"
   | "data-source-exploration"
-  | "sql-exploration" {
+  | "sql-exploration"
+  | "funnel-exploration" {
   switch (type) {
     case "metric":
       return "metric-exploration";
@@ -53,6 +54,8 @@ function datasetTypeToBlockType(
       return "data-source-exploration";
     case "sql":
       return "sql-exploration";
+    case "funnel":
+      return "funnel-exploration";
   }
 }
 

@@ -4,13 +4,14 @@ import {
   MetricExplorationBlockInterface,
   FactTableExplorationBlockInterface,
   DataSourceExplorationBlockInterface,
-  SqlExplorationBlockInterface,
+  FunnelExplorationBlockInterface,
   buildComparisonDateRange,
   dashboardBlockHasIds,
   getEffectiveExplorationConfig,
   getExplorationDateControlFingerprint,
   restoreBlockLocalDateControls,
   blockUsesDashboardDateControl,
+  SqlExplorationBlockInterface,
 } from "shared/enterprise";
 import { isEqual } from "lodash";
 import type {
@@ -30,6 +31,7 @@ interface Props {
     | FactTableExplorationBlockInterface
     | DataSourceExplorationBlockInterface
     | SqlExplorationBlockInterface
+    | FunnelExplorationBlockInterface
   >;
   setBlock: React.Dispatch<
     DashboardBlockInterfaceOrData<
@@ -37,6 +39,7 @@ interface Props {
       | FactTableExplorationBlockInterface
       | DataSourceExplorationBlockInterface
       | SqlExplorationBlockInterface
+      | FunnelExplorationBlockInterface
     >
   >;
   dashboardGlobalControls?: DashboardInterface["globalControls"];
@@ -185,7 +188,8 @@ export default function ProductAnalyticsExplorerSettings({
           | MetricExplorationBlockInterface
           | FactTableExplorationBlockInterface
           | DataSourceExplorationBlockInterface
-          | SqlExplorationBlockInterface);
+          | SqlExplorationBlockInterface
+          | FunnelExplorationBlockInterface);
       }}
     >
       <ProductAnalyticsExplorerSideBarWrapper

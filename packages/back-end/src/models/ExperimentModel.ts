@@ -59,6 +59,7 @@ import {
   notifyLicenseServerEvent,
 } from "back-end/src/enterprise/licenseUtil";
 import { getObjectDiff } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
+import { runValidateExperimentHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
 import { createEvent } from "./EventModel";
@@ -429,6 +430,26 @@ async function findExperiments(
   );
 }
 
+export async function findVisualExperimentsByName(
+  context: ReqContext | ApiReqContext,
+  name: string,
+  limit: number,
+): Promise<ExperimentInterface[]> {
+  // Escape regex metacharacters so a user's literal text isn't treated as a
+  // pattern (and can't inject an expensive/malformed regex).
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return findExperiments(
+    context,
+    {
+      organization: context.org.id,
+      name: { $regex: escaped, $options: "i" },
+      hasVisualChangesets: true,
+    },
+    limit,
+    { dateUpdated: -1 },
+  );
+}
+
 export async function getExperimentById(
   context: ReqContext | ApiReqContext,
   id: string,
@@ -686,7 +707,7 @@ export async function createExperiment({
 
   validateMetricOverrides(data.metricOverrides);
 
-  const exp = await ExperimentModel.create({
+  const experimentToCreate = {
     id: uniqid("exp_"),
     uid: uuidv4().replace(/-/g, ""),
     // If this is a sample experiment, we'll override the id with data.id
@@ -704,8 +725,16 @@ export async function createExperiment({
     dateUpdated: new Date(),
     autoSnapshots: nextUpdate !== null,
     lastSnapshotAttempt: new Date(),
-    nextSnapshotAttempt: nextUpdate,
+    nextSnapshotAttempt: nextUpdate ?? undefined,
+  } satisfies Partial<ExperimentInterface> as ExperimentInterface;
+
+  await runValidateExperimentHooks({
+    context,
+    experiment: experimentToCreate,
+    original: null,
   });
+
+  const exp = await ExperimentModel.create(experimentToCreate);
 
   const experiment = toInterface(exp);
 
@@ -1328,6 +1357,20 @@ export async function deleteExperimentByIdForOrganization(
  * @param projectId
  * @param organization
  */
+export async function projectHasExperiments(
+  context: ReqContext | ApiReqContext,
+  projectId: string,
+): Promise<boolean> {
+  const experiment = await getCollection(COLLECTION).findOne(
+    {
+      organization: context.org.id,
+      project: projectId,
+    },
+    { projection: { _id: 1 } },
+  );
+  return !!experiment;
+}
+
 export async function deleteAllExperimentsForAProject({
   projectId,
   context,

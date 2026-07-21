@@ -8,6 +8,26 @@
 - Use existing ESLint rules - they're comprehensive and enforced in CI
 - Do not use `//eslint-disable-next-line` comments to fix type issues
 
+## Comments
+
+Keep comments sparse — only write ones that are necessary.
+
+- Do NOT narrate what the code does (e.g. `// loop over items`, `// GET /configs — ...`, `// Create the modal`). The code and signatures already say this.
+- Only comment non-obvious intent, trade-offs, or constraints the code can't convey (e.g. why a workaround exists, a subtle ordering requirement).
+- Prefer one short line over a multi-line block. Cut rationale down to the load-bearing sentence.
+- Don't add header/banner comments summarizing a component or function; let the name and types speak.
+
+```typescript
+// ❌ BAD — narrates the obvious, over-explains
+// GET /configs/:id/references — features, constants, and configs that
+// reference this config via `@const:key`. Scoped to the project + globals.
+router.get("/:id/references", ...)
+
+// ✅ GOOD — only the non-obvious caveat survives
+// Spans both collections: configs and constants share the @const: namespace.
+router.get("/:id/references", ...)
+```
+
 ## Code Quality
 
 - TypeScript: Use strict types. Never use `any`. If you don't know the type, use `unknown`.

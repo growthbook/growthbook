@@ -133,6 +133,8 @@ export const getSlackMessageForNotificationEvent = async (
     case "feature.rampSchedule.actions.jumped":
     case "feature.rampSchedule.actions.step.advanced":
     case "feature.rampSchedule.actions.step.approvalRequired":
+    case "feature.rampSchedule.actions.awaitingStartApproval":
+    case "feature.rampSchedule.actions.startApproved":
       return buildSlackMessageForRampScheduleEvent(
         event.event,
         event.data.object,
@@ -150,6 +152,7 @@ export const getSlackMessageForNotificationEvent = async (
     case "feature.revision.rebased":
     case "feature.revision.published":
     case "feature.revision.reverted":
+    case "feature.revision.publishFailed":
       return buildSlackMessageForRevisionEvent(
         event.event,
         event.data.object,
@@ -185,6 +188,7 @@ export const getSlackMessageForNotificationEvent = async (
     case "savedGroup.revision.published":
     case "savedGroup.revision.reverted":
     case "savedGroup.revision.reopened":
+    case "savedGroup.revision.publishFailed":
       return buildSlackMessageForSavedGroupRevisionEvent(
         event.event,
         event.data.object,
@@ -220,7 +224,35 @@ export const getSlackMessageForNotificationEvent = async (
     case "constant.revision.published":
     case "constant.revision.reverted":
     case "constant.revision.reopened":
+    case "constant.revision.publishFailed":
       return buildSlackMessageForConstantRevisionEvent(
+        event.event,
+        event.data.object,
+        eventId,
+      );
+
+    case "config.created":
+      return buildSlackMessageForConfigCreatedEvent(event.data.object, eventId);
+
+    case "config.updated":
+      return buildSlackMessageForConfigUpdatedEvent(event.data.object, eventId);
+
+    case "config.deleted":
+      return buildSlackMessageForConfigDeletedEvent(event.data.object, eventId);
+
+    case "config.revision.created":
+    case "config.revision.updated":
+    case "config.revision.reviewRequested":
+    case "config.revision.approved":
+    case "config.revision.changesRequested":
+    case "config.revision.commented":
+    case "config.revision.discarded":
+    case "config.revision.rebased":
+    case "config.revision.published":
+    case "config.revision.reverted":
+    case "config.revision.reopened":
+    case "config.revision.publishFailed":
+      return buildSlackMessageForConfigRevisionEvent(
         event.event,
         event.data.object,
         eventId,
@@ -589,6 +621,12 @@ const buildSlackMessageForRampScheduleEvent = (
     case "feature.rampSchedule.actions.step.approvalRequired":
       text = `Ramp schedule ${name} step ${step} requires approval`;
       break;
+    case "feature.rampSchedule.actions.awaitingStartApproval":
+      text = `Ramp schedule ${name} is awaiting start approval`;
+      break;
+    case "feature.rampSchedule.actions.startApproved":
+      text = `Ramp schedule ${name} start was approved`;
+      break;
     default:
       text = `Ramp schedule ${name}: ${eventType}`;
   }
@@ -626,6 +664,23 @@ type RevisionSlackData = {
   reviewComment?: string | null;
   reviewer?: { id?: string; name?: string; email?: string };
   revertedToVersion?: number;
+  failureReason?: string;
+  terminal?: boolean;
+  attempts?: number;
+};
+
+// Shared suffix for a `*.revision.publishFailed` Slack message: the reason plus
+// whether it was terminal or gave up after N retries.
+const formatPublishFailedSuffix = (data: {
+  failureReason?: string;
+  terminal?: boolean;
+  attempts?: number;
+}): string => {
+  const cause = data.terminal
+    ? "won't retry"
+    : `gave up after ${data.attempts ?? 0} attempts`;
+  const reason = data.failureReason ? ` — _${data.failureReason}_` : "";
+  return ` (${cause})${reason}`;
 };
 
 const buildSlackMessageForRevisionEvent = (
@@ -672,6 +727,9 @@ const buildSlackMessageForRevisionEvent = (
       break;
     case "feature.revision.reverted":
       text = `Feature ${feature} was reverted to revision v${data.revertedToVersion ?? "?"}`;
+      break;
+    case "feature.revision.publishFailed":
+      text = `Scheduled publish of revision ${version} for feature ${feature} failed${formatPublishFailedSuffix(data)}`;
       break;
     default:
       text = `Feature ${feature} revision ${version}: ${eventType}`;
@@ -809,6 +867,9 @@ type SavedGroupRevisionSlackData = {
   reviewComment?: string | null;
   reviewer?: { id?: string; name?: string; email?: string };
   revertedToVersion?: number;
+  failureReason?: string;
+  terminal?: boolean;
+  attempts?: number;
 };
 
 const buildSlackMessageForSavedGroupRevisionEvent = (
@@ -855,6 +916,9 @@ const buildSlackMessageForSavedGroupRevisionEvent = (
       break;
     case "savedGroup.revision.reopened":
       text = `Draft revision ${version} of saved group ${group} was reopened`;
+      break;
+    case "savedGroup.revision.publishFailed":
+      text = `Scheduled publish of revision ${version} for saved group ${group} failed${formatPublishFailedSuffix(data)}`;
       break;
     default:
       text = `Saved group ${group} revision ${version}: ${eventType}`;
@@ -992,6 +1056,9 @@ type ConstantRevisionSlackData = {
   reviewComment?: string | null;
   reviewer?: { id?: string; name?: string; email?: string };
   revertedToVersion?: number;
+  failureReason?: string;
+  terminal?: boolean;
+  attempts?: number;
 };
 
 const buildSlackMessageForConstantRevisionEvent = (
@@ -1039,6 +1106,9 @@ const buildSlackMessageForConstantRevisionEvent = (
     case "constant.revision.reopened":
       text = `Draft revision ${version} of constant ${name} was reopened`;
       break;
+    case "constant.revision.publishFailed":
+      text = `Scheduled publish of revision ${version} for constant ${name} failed${formatPublishFailedSuffix(data)}`;
+      break;
     default:
       text = `Constant ${name} revision ${version}: ${eventType}`;
   }
@@ -1061,6 +1131,195 @@ const buildSlackMessageForConstantRevisionEvent = (
 };
 
 // endregion Event-specific messages -> Constant
+
+// region Event-specific messages -> Config
+
+// The detail page is addressed by the config's `key`, not its internal id.
+export const getConfigUrlFormatted = (configKey: string): string =>
+  `\n• <${APP_ORIGIN}/configs/${configKey}|View Config>`;
+
+const buildSlackMessageForConfigCreatedEvent = async (
+  config: { id: string; name: string; key: string },
+  eventId: string,
+): Promise<SlackMessage> => {
+  const eventUser = await getEventUserFormatted(eventId);
+  const text = `The config ${config.name} has been created by ${eventUser}.`;
+  return {
+    text,
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text:
+            `The config *${config.name}* has been created by ${eventUser}.` +
+            getConfigUrlFormatted(config.key) +
+            getEventUrlFormatted(eventId),
+        },
+      },
+    ],
+  };
+};
+
+const buildSlackMessageForConfigUpdatedEvent = async (
+  config: { id: string; name: string; key: string },
+  eventId: string,
+): Promise<SlackMessage> => {
+  const eventUser = await getEventUserFormatted(eventId);
+  const event = await getEvent(eventId);
+
+  let changeBlocks: KnownBlock[] = [];
+  if (event?.data?.data && "changes" in event.data.data) {
+    const formattedDiff = formatDiffForSlack(
+      event.data.data.changes as DiffResult,
+      {
+        itemLabelFields: [
+          "name",
+          "value",
+          "description",
+          "project",
+          "schema",
+          "archived",
+        ],
+      },
+    );
+    changeBlocks = formattedDiff.blocks;
+  }
+
+  const isUnknownUser = eventUser === "an unknown user";
+  const text = `The config ${config.name} has been updated ${isUnknownUser ? "automatically" : `by ${eventUser}`}`;
+
+  if (changeBlocks.length === 0) {
+    changeBlocks = [
+      {
+        type: "section",
+        text: { type: "mrkdwn", text: "_Changes cannot be displayed here._" },
+      },
+    ];
+  }
+
+  return {
+    text,
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text:
+            `The config *${config.name}* has been updated ${isUnknownUser ? "automatically" : `by ${eventUser}`}.` +
+            getConfigUrlFormatted(config.key) +
+            getEventUrlFormatted(eventId),
+        },
+      },
+      ...changeBlocks,
+    ],
+  };
+};
+
+const buildSlackMessageForConfigDeletedEvent = async (
+  config: { id: string; name: string },
+  eventId: string,
+): Promise<SlackMessage> => {
+  const eventUser = await getEventUserFormatted(eventId);
+  const text = `The config ${config.name} has been deleted by ${eventUser}.`;
+  return {
+    text,
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text:
+            `The config *${config.name}* has been deleted by ${eventUser}.` +
+            getEventUrlFormatted(eventId),
+        },
+      },
+    ],
+  };
+};
+
+type ConfigRevisionSlackData = {
+  version?: number;
+  baseConfig: { id: string; name: string; key: string };
+  change?: string;
+  reviewComment?: string | null;
+  reviewer?: { id?: string; name?: string; email?: string };
+  revertedToVersion?: number;
+  failureReason?: string;
+  terminal?: boolean;
+  attempts?: number;
+};
+
+const buildSlackMessageForConfigRevisionEvent = (
+  eventType: string,
+  data: ConfigRevisionSlackData,
+  eventId: string,
+): SlackMessage => {
+  const name = `*${data.baseConfig.name}*`;
+  const version = `v${data.version ?? "?"}`;
+  const reviewerName = data.reviewer?.name || data.reviewer?.email || "someone";
+  const commentSuffix = data.reviewComment ? ` — _${data.reviewComment}_` : "";
+
+  let text: string;
+  switch (eventType) {
+    case "config.revision.created":
+      text = `Draft revision ${version} created for config ${name}`;
+      break;
+    case "config.revision.updated":
+      text = `Draft revision ${version} of config ${name} was updated${data.change ? ` (${data.change})` : ""}`;
+      break;
+    case "config.revision.reviewRequested":
+      text = `Review requested for revision ${version} of config ${name}`;
+      break;
+    case "config.revision.approved":
+      text = `Revision ${version} of config ${name} approved by ${reviewerName}${commentSuffix}`;
+      break;
+    case "config.revision.changesRequested":
+      text = `Changes requested on revision ${version} of config ${name} by ${reviewerName}${commentSuffix}`;
+      break;
+    case "config.revision.commented":
+      text = `Comment on revision ${version} of config ${name} by ${reviewerName}${commentSuffix}`;
+      break;
+    case "config.revision.discarded":
+      text = `Draft revision ${version} of config ${name} was discarded`;
+      break;
+    case "config.revision.rebased":
+      text = `Draft revision ${version} of config ${name} was rebased`;
+      break;
+    case "config.revision.published":
+      text = `Revision ${version} of config ${name} was published`;
+      break;
+    case "config.revision.reverted":
+      text = `Config ${name} was reverted${data.revertedToVersion ? ` to revision v${data.revertedToVersion}` : ""}`;
+      break;
+    case "config.revision.reopened":
+      text = `Draft revision ${version} of config ${name} was reopened`;
+      break;
+    case "config.revision.publishFailed":
+      text = `Scheduled publish of revision ${version} for config ${name} failed${formatPublishFailedSuffix(data)}`;
+      break;
+    default:
+      text = `Config ${name} revision ${version}: ${eventType}`;
+  }
+
+  return {
+    text,
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text:
+            text +
+            getConfigUrlFormatted(data.baseConfig.key) +
+            getEventUrlFormatted(eventId),
+        },
+      },
+    ],
+  };
+};
+
+// endregion Event-specific messages -> Config
 
 // region Event-specific messages -> Experiment
 

@@ -18,6 +18,9 @@ import {
   PiDatabase,
   PiTable,
   PiChartBar,
+  PiFunnel,
+  PiChartBarDuotone,
+  PiGaugeDuotone,
 } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import {
@@ -73,13 +76,18 @@ import DashboardBlock from "./DashboardBlock";
 import DashboardGlobalControlsBar from "./DashboardGlobalControlsBar";
 
 export const DASHBOARD_TOPBAR_HEIGHT = "40px";
-export const BLOCK_TYPE_INFO: Record<
-  DashboardBlockType,
-  { name: string; icon: ReactElement; deprecated?: boolean }
-> = {
+type BlockTypeInfo = {
+  name: string;
+  icon: ReactElement;
+  description?: string;
+  deprecated?: boolean;
+};
+
+export const BLOCK_TYPE_INFO: Record<DashboardBlockType, BlockTypeInfo> = {
   markdown: {
     name: "Markdown",
     icon: <PiArticleMediumDuotone />,
+    description: "Adds formatted text, links, and images to your dashboard.",
   },
   "experiment-metadata": {
     name: "Experiment Metadata",
@@ -88,6 +96,29 @@ export const BLOCK_TYPE_INFO: Record<
   "experiment-metric": {
     name: "Metric Results",
     icon: <PiTableDuotone />,
+  },
+  "metric-experiments": {
+    name: "Experiments with Lift",
+    icon: <PiTableDuotone />,
+    description: "Shows experiments with lift for a selected metric.",
+  },
+  "experiments-scaled-impact": {
+    name: "Scaled Impact",
+    icon: <PiChartLineDuotone />,
+    description:
+      "Shows the scaled impact of a metric across multiple experiments.",
+  },
+  "experiments-win-rate": {
+    name: "Win Percentage",
+    icon: <PiGaugeDuotone />,
+    description:
+      "Shows the win percentage for selected experiments, optionally filtered by project.",
+  },
+  "experiments-status": {
+    name: "Team Velocity",
+    icon: <PiChartBarDuotone />,
+    description:
+      "Shows number of experiments in each status (won, lost, inconclusive, and dnf) over a selected date range.",
   },
   "experiment-dimension": {
     name: "Dimension Results",
@@ -105,23 +136,38 @@ export const BLOCK_TYPE_INFO: Record<
     name: "Custom SQL Query",
     icon: <PiFileSqlDuotone />,
     deprecated: true,
+    description:
+      "Displays results and saved visualizations from a custom SQL query.",
   },
   "metric-explorer": {
     name: "Metric",
     icon: <PiFileSqlDuotone />,
+    description: "Shows an analysis of a single Fact Metric.",
     deprecated: true,
   },
   "metric-exploration": {
     name: "Metric Explorer",
     icon: <PiChartBar />,
+    description:
+      "Charts one or more of your existing GrowthBook Metrics over a selected date range. View trends, compare time periods, and slice/dice your data.",
   },
   "fact-table-exploration": {
     name: "Fact Table Explorer",
     icon: <PiTable />,
+    description:
+      "Builds an analysis directly from events and columns in one of your existing Fact Tables.",
   },
   "data-source-exploration": {
     name: "Data Source Explorer",
     icon: <PiDatabase />,
+    description:
+      "Builds a custom analysis from tables and columns from one of your connected Data Sources.",
+  },
+  "funnel-exploration": {
+    name: "Funnel Explorer",
+    icon: <PiFunnel />,
+    description:
+      "Builds a custom funnel from events and columns from one of your connected Fact Tables.",
   },
   "sql-exploration": {
     name: "SQL Explorer",
@@ -142,6 +188,16 @@ export const BLOCK_SUBGROUPS: [string, DashboardBlockType[]][] = [
       "fact-table-exploration",
       "data-source-exploration",
       "sql-exploration",
+      "funnel-exploration",
+    ],
+  ],
+  [
+    "Experimentation",
+    [
+      "experiments-status",
+      "experiments-win-rate",
+      "metric-experiments",
+      "experiments-scaled-impact",
     ],
   ],
   ["Other", ["sql-explorer", "markdown", "metric-explorer"]],
@@ -155,6 +211,11 @@ export const GENERAL_DASHBOARD_BLOCK_TYPES: DashboardBlockType[] = [
   "fact-table-exploration",
   "data-source-exploration",
   "sql-exploration",
+  "funnel-exploration",
+  "metric-experiments",
+  "experiments-scaled-impact",
+  "experiments-win-rate",
+  "experiments-status",
   "markdown",
 ];
 

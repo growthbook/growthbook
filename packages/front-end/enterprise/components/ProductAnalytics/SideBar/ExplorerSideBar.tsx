@@ -15,6 +15,7 @@ import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/Exp
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import GraphTypeSelector from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/GraphTypeSelector";
+import FunnelGraphTypeSelector from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/FunnelGraphTypeSelector";
 import DateRangePicker, {
   ComparisonDateControls,
 } from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/DateRangePicker";
@@ -26,6 +27,7 @@ import { formatExplorationDateRange } from "@/enterprise/components/ProductAnaly
 import Switch from "@/ui/Switch";
 import {
   createEmptyValue,
+  getInitialInlineFilters,
   showAsAppliesTo,
   stripExplorerDraftFields,
 } from "@/enterprise/components/ProductAnalytics/util";
@@ -36,6 +38,7 @@ import MetricTabContent from "./MetricTabContent";
 import FactTableTabContent from "./FactTableTabContent";
 import DatasourceTabContent from "./DatasourceTabContent";
 import SqlTabContent from "./SqlTabContent";
+import FunnelTabContent from "./FunnelTabContent";
 import GroupBySection from "./GroupBySection";
 import ShowAsSection from "./ShowAsSection";
 import DatasourceConfigurator from "./DatasourceConfigurator";
@@ -76,7 +79,8 @@ export default function ExplorerSideBar({
     submittedExploreState,
     managedWarehouseUnavailable,
   } = useExplorerContext();
-  const { factTables, getFactMetricById, project } = useDefinitions();
+  const { factTables, getFactMetricById, getFactTableById, project } =
+    useDefinitions();
   const { hasCommercialFeature, permissionsUtil } = useUser();
   const canCreateDashboards = permissionsUtil.canCreateGeneralDashboards({
     projects: [project],
@@ -107,6 +111,13 @@ export default function ExplorerSideBar({
     activeType === "sql" &&
     dataset?.type === "sql" &&
     Object.keys(dataset.columnTypes).length === 0;
+
+  const hasFunnelInputs =
+    dataset?.type === "funnel" && !!dataset.steps?.some((s) => !!s.factTable);
+  const hasInputs =
+    dataset?.type === "funnel"
+      ? hasFunnelInputs
+      : (dataset?.values?.length ?? 0) > 0;
   const showComparisonDateControls =
     compareEnabled &&
     draftExploreState.dateRange.predefined === "customDateRange" &&
@@ -213,11 +224,7 @@ export default function ExplorerSideBar({
               <Button
                 size="sm"
                 variant="solid"
-                disabled={
-                  loading ||
-                  !draftExploreState?.dataset?.values?.length ||
-                  !isSubmittable
-                }
+                disabled={loading || !hasInputs || !isSubmittable}
                 onClick={() =>
                   onSubmit ? onSubmit() : handleSubmit({ force: isStale })
                 }
@@ -273,7 +280,11 @@ export default function ExplorerSideBar({
                 disabled={!submittedExploreState || managedWarehouseUnavailable}
               />
             </Flex>
-            <GraphTypeSelector />
+            {activeType === "funnel" ? (
+              <FunnelGraphTypeSelector />
+            ) : (
+              <GraphTypeSelector />
+            )}
           </Flex>
           <Flex direction="column" gap="2" width="100%" style={{ minWidth: 0 }}>
             <Flex justify="between" align="center" gap="2" width="100%">
@@ -355,14 +366,31 @@ export default function ExplorerSideBar({
               setDraftExploreState((prev) => {
                 const prevDataset =
                   prev.dataset?.type === "fact_table" ? prev.dataset : null;
+                const newFactTable = factTableId
+                  ? getFactTableById(factTableId)
+                  : null;
+                const baseValues = prevDataset?.values?.length
+                  ? prevDataset.values
+                  : [createEmptyValue("fact_table") as FactTableValue];
+                // Seed alwaysInlineFilter columns on every value (newly
+                // created or carried over). getInitialInlineFilters is a
+                // no-op when the column is already in rowFilters, so this
+                // is safe to apply on each fact-table change.
+                const values = newFactTable
+                  ? baseValues.map((v) => ({
+                      ...v,
+                      rowFilters: getInitialInlineFilters(
+                        newFactTable,
+                        v.rowFilters,
+                      ),
+                    }))
+                  : baseValues;
                 return {
                   ...prev,
                   dataset: {
                     ...factTableDataset,
                     factTableId,
-                    values: prevDataset?.values?.length
-                      ? prevDataset.values
-                      : [createEmptyValue("fact_table") as FactTableValue],
+                    values,
                   },
                 } as ExplorationConfig;
               });
@@ -394,20 +422,19 @@ export default function ExplorerSideBar({
           <DatasourceConfigurator dataset={dataset} />
         </Flex>
       )}
-      {!renderingInDashboardSidebar && activeType === "sql" && (
-        <SchemaBrowserSection />
-      )}
       <Box p="0">
         {activeType === "metric" && <MetricTabContent />}
         {activeType === "fact_table" && <FactTableTabContent />}
         {activeType === "data_source" && <DatasourceTabContent />}
         {activeType === "sql" && <SqlTabContent />}
+        {activeType === "funnel" && <FunnelTabContent />}
       </Box>
 
-      {showAsAppliesTo(draftExploreState, getFactMetricById) && (
-        <ShowAsSection />
-      )}
-      {dataset?.values?.length > 0 && <GroupBySection />}
+      {activeType !== "funnel" &&
+        showAsAppliesTo(draftExploreState, getFactMetricById) && (
+          <ShowAsSection />
+        )}
+      {hasInputs && <GroupBySection />}
     </Flex>
   );
 }
