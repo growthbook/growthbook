@@ -186,6 +186,23 @@ export const JOB_TIMEOUT_MS = parseEnvInt(
   { min: 1, name: "JOB_TIMEOUT_MS" },
 ); // Defaults to 2 hours
 
+// TTL for the per-org feature-graph snapshot cache backing /features/stale
+// and /features/dependents. 0 disables the cache (every request loads
+// fresh — the pre-cache behavior).
+export const FEATURE_GRAPH_CACHE_TTL_MS = parseEnvInt(
+  process.env.FEATURE_GRAPH_CACHE_TTL_MS,
+  30_000,
+  { min: 0, name: "FEATURE_GRAPH_CACHE_TTL_MS" },
+);
+
+// Deadline on the shared feature-graph snapshot load. Bounds how long
+// requests can pile onto one hung load; 0 disables the deadline.
+export const FEATURE_GRAPH_LOAD_TIMEOUT_MS = parseEnvInt(
+  process.env.FEATURE_GRAPH_LOAD_TIMEOUT_MS,
+  60_000,
+  { min: 0, name: "FEATURE_GRAPH_LOAD_TIMEOUT_MS" },
+);
+
 export const FASTLY_API_TOKEN = process.env.FASTLY_API_TOKEN || "";
 export const FASTLY_SERVICE_ID = process.env.FASTLY_SERVICE_ID || "";
 

@@ -9,11 +9,17 @@ import { ExperimentInterface } from "shared/types/experiment";
  * acyclic.
  */
 
-export const FEATURE_GRAPH_TTL_MS = 30_000;
+// Env knobs live in util/secrets.ts alongside the other tunables
+// (FEATURE_GRAPH_CACHE_TTL_MS, FEATURE_GRAPH_LOAD_TIMEOUT_MS); re-exported
+// here so cache consumers and tests have one import site.
+export {
+  FEATURE_GRAPH_CACHE_TTL_MS,
+  FEATURE_GRAPH_LOAD_TIMEOUT_MS,
+} from "back-end/src/util/secrets";
 
 // Bound on cached orgs: expired entries are swept opportunistically, and if
 // the map is still full of live entries (many-tenant deployment), the
-// soonest-expiring one is evicted to make room.
+// least-recently-hit one is evicted to make room.
 export const FEATURE_GRAPH_MAX_ORGS = 50;
 
 export interface FeatureGraphSnapshot {
@@ -32,6 +38,9 @@ export interface FeatureGraphCacheEntry {
   // served, so slow loads coalesce instead of stampeding. Stamped with the
   // real deadline when the load resolves.
   expiresAt: number;
+  // Updated on every served hit; drives least-recently-hit eviction so a
+  // full map drops cold orgs, not the warm ones about to be re-read.
+  lastHitAt: number;
 }
 
 export const featureGraphSnapshotCache = new Map<
@@ -42,11 +51,12 @@ export const featureGraphSnapshotCache = new Map<
 /**
  * Drops one org's snapshot (or all of them) so the next read refetches.
  *
- * Called from the feature/experiment write hooks so a writer's next read on
- * the same pod is fresh (session→pod affinity makes that the common case).
- * Being per-process it can never reach sibling pods — other pods serve the
- * old snapshot until their TTL rolls over, so this is a freshness
- * improvement, not a correctness mechanism.
+ * Called from the feature/experiment/revision write hooks. Per-process and
+ * best-effort: it only helps when the writer's next read lands on the
+ * writing pod, which without session affinity is a 1-in-N chance behind a
+ * round-robin balancer. Other pods serve the old snapshot until their TTL
+ * rolls over — this is a freshness improvement, not a correctness mechanism;
+ * the TTL is the staleness bound.
  */
 export function invalidateFeatureGraph(orgId?: string): void {
   if (orgId !== undefined) {

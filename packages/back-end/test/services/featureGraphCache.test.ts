@@ -1,5 +1,5 @@
 import {
-  FEATURE_GRAPH_TTL_MS,
+  FEATURE_GRAPH_CACHE_TTL_MS,
   getOrgFeatureGraph,
   invalidateFeatureGraph,
 } from "back-end/src/services/featureGraphCache";
@@ -107,7 +107,7 @@ describe("featureGraphCache", () => {
     );
     const ctx = makeContext("org1");
     const p1 = getOrgFeatureGraph(ctx);
-    now += FEATURE_GRAPH_TTL_MS * 2;
+    now += FEATURE_GRAPH_CACHE_TTL_MS * 2;
     const p2 = getOrgFeatureGraph(ctx);
     resolveFeatures(FEATURES);
     await Promise.all([p1, p2]);
@@ -123,7 +123,7 @@ describe("featureGraphCache", () => {
     const ctx = makeContext("org1");
     await getOrgFeatureGraph(ctx);
     // Jitter extends the window by at most 10% of the TTL.
-    now += FEATURE_GRAPH_TTL_MS * 1.1 + 1;
+    now += FEATURE_GRAPH_CACHE_TTL_MS * 1.1 + 1;
     await getOrgFeatureGraph(ctx);
     expect(mockFetchFeatures).toHaveBeenCalledTimes(2);
   });
@@ -229,13 +229,42 @@ describe("featureGraphCache", () => {
         await getOrgFeatureGraph(makeContext(`org${i}`));
       }
       expect(mockFetchFeatures).toHaveBeenCalledTimes(60);
-      // org0 (soonest-expiring) was evicted to make room, so re-reading it
+      // org0 (least-recently-hit) was evicted to make room, so re-reading it
       // loads again...
       await getOrgFeatureGraph(makeContext("org0"));
       expect(mockFetchFeatures).toHaveBeenCalledTimes(61);
       // ...while a recently-loaded org is still served from cache.
       await getOrgFeatureGraph(makeContext("org59"));
       expect(mockFetchFeatures).toHaveBeenCalledTimes(61);
+    } finally {
+      randomSpy.mockRestore();
+    }
+  });
+
+  it("evicts the least-recently-hit org, not the oldest-loaded one", async () => {
+    const randomSpy = jest.spyOn(Math, "random").mockReturnValue(0);
+    try {
+      // Fill the cache to the 50-org cap in load order org0..org49.
+      for (let i = 0; i < 50; i++) {
+        now += 1;
+        await getOrgFeatureGraph(makeContext(`org${i}`));
+      }
+      expect(mockFetchFeatures).toHaveBeenCalledTimes(50);
+
+      // A hit on org0 makes org1 the least-recently-hit entry.
+      now += 1;
+      await getOrgFeatureGraph(makeContext("org0"));
+      expect(mockFetchFeatures).toHaveBeenCalledTimes(50);
+
+      // Adding a 51st org evicts org1, not the warm org0.
+      now += 1;
+      await getOrgFeatureGraph(makeContext("org50"));
+      expect(mockFetchFeatures).toHaveBeenCalledTimes(51);
+
+      await getOrgFeatureGraph(makeContext("org0"));
+      expect(mockFetchFeatures).toHaveBeenCalledTimes(51);
+      await getOrgFeatureGraph(makeContext("org1"));
+      expect(mockFetchFeatures).toHaveBeenCalledTimes(52);
     } finally {
       randomSpy.mockRestore();
     }

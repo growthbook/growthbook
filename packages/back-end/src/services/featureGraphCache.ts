@@ -6,9 +6,11 @@ import { fetchAllExperimentsForStaleGraphUnfiltered } from "back-end/src/models/
 import { getRevisionsByStatus } from "back-end/src/models/FeatureRevisionModel";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
+import { metrics } from "back-end/src/util/metrics";
 import {
+  FEATURE_GRAPH_CACHE_TTL_MS,
+  FEATURE_GRAPH_LOAD_TIMEOUT_MS,
   FEATURE_GRAPH_MAX_ORGS,
-  FEATURE_GRAPH_TTL_MS,
   FeatureGraphCacheEntry,
   FeatureGraphSnapshot,
   featureGraphSnapshotCache,
@@ -35,7 +37,7 @@ import {
  * see the true data age.
  */
 
-export { FEATURE_GRAPH_TTL_MS, invalidateFeatureGraph };
+export { FEATURE_GRAPH_CACHE_TTL_MS, invalidateFeatureGraph };
 
 async function loadSnapshot(
   context: ReqContext | ApiReqContext,
@@ -70,47 +72,97 @@ async function loadSnapshot(
   };
 }
 
+/**
+ * A hung load must not pin the org forever: the shared in-flight promise is
+ * served until it settles, so without a deadline every request for the org
+ * would queue behind one stuck Mongo query with no retry path. Rejecting
+ * routes into the failed-load eviction in getSnapshot, so the next request
+ * retries. The underlying query is not cancelled — the deadline bounds
+ * callers, not Mongo.
+ */
+function withLoadDeadline(
+  promise: Promise<FeatureGraphSnapshot>,
+): Promise<FeatureGraphSnapshot> {
+  if (FEATURE_GRAPH_LOAD_TIMEOUT_MS === 0) return promise;
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      metrics.getCounter("feature_graph_cache.load_timeouts").increment();
+      reject(
+        new Error(
+          `org feature-graph load exceeded ${FEATURE_GRAPH_LOAD_TIMEOUT_MS}ms`,
+        ),
+      );
+    }, FEATURE_GRAPH_LOAD_TIMEOUT_MS);
+    timer.unref?.();
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
 function getSnapshot(
   context: ReqContext | ApiReqContext,
 ): Promise<FeatureGraphSnapshot> {
+  // TTL 0 disables the cache: every request loads fresh (the pre-cache
+  // behavior), still bounded by the load deadline.
+  if (FEATURE_GRAPH_CACHE_TTL_MS === 0) {
+    return withLoadDeadline(loadSnapshot(context));
+  }
+
   const orgId = context.org.id;
   const now = Date.now();
 
   const existing = featureGraphSnapshotCache.get(orgId);
   if (existing && existing.expiresAt > now) {
+    metrics.getCounter("feature_graph_cache.hits").increment();
+    existing.lastHitAt = now;
     return existing.promise;
   }
+  metrics.getCounter("feature_graph_cache.misses").increment();
 
   if (featureGraphSnapshotCache.size >= FEATURE_GRAPH_MAX_ORGS) {
     for (const [key, entry] of featureGraphSnapshotCache) {
       if (entry.expiresAt <= now) featureGraphSnapshotCache.delete(key);
     }
     // Still full of live entries (many-tenant deployment): evict the
-    // soonest-expiring org so memory stays bounded.
+    // least-recently-hit org so memory stays bounded and warm orgs survive.
     if (featureGraphSnapshotCache.size >= FEATURE_GRAPH_MAX_ORGS) {
       let evictKey: string | undefined;
-      let evictAt = Number.POSITIVE_INFINITY;
+      let evictHitAt = Number.POSITIVE_INFINITY;
       for (const [key, entry] of featureGraphSnapshotCache) {
-        if (entry.expiresAt <= evictAt) {
+        if (entry.lastHitAt <= evictHitAt) {
           evictKey = key;
-          evictAt = entry.expiresAt;
+          evictHitAt = entry.lastHitAt;
         }
       }
-      if (evictKey !== undefined) featureGraphSnapshotCache.delete(evictKey);
+      if (evictKey !== undefined) {
+        featureGraphSnapshotCache.delete(evictKey);
+        metrics.getCounter("feature_graph_cache.evictions").increment();
+      }
     }
   }
 
   const entry: FeatureGraphCacheEntry = {
-    promise: loadSnapshot(context),
+    promise: withLoadDeadline(loadSnapshot(context)),
     expiresAt: Number.POSITIVE_INFINITY,
+    lastHitAt: now,
   };
   featureGraphSnapshotCache.set(orgId, entry);
   entry.promise.then(
     () => {
       if (featureGraphSnapshotCache.get(orgId) !== entry) return;
       // Random jitter to avoid synchronized refresh across orgs.
-      const jitter = Math.floor(Math.random() * FEATURE_GRAPH_TTL_MS * 0.1);
-      entry.expiresAt = Date.now() + FEATURE_GRAPH_TTL_MS + jitter;
+      const jitter = Math.floor(
+        Math.random() * FEATURE_GRAPH_CACHE_TTL_MS * 0.1,
+      );
+      entry.expiresAt = Date.now() + FEATURE_GRAPH_CACHE_TTL_MS + jitter;
     },
     () => {
       // A failed load must not poison the cache — drop it so the next

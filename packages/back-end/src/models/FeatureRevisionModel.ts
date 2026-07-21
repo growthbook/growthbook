@@ -2546,4 +2546,7 @@ export async function markRevisionAsPendingParent(
     { organization, featureId, version },
     { $set: { status: "pending-parent" } },
   );
+
+  // Leaves the active-draft set, which feeds the feature-graph snapshot.
+  invalidateFeatureGraph(organization);
 }
