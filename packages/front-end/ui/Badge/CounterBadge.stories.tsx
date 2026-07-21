@@ -1,18 +1,34 @@
 import { Flex, Text } from "@radix-ui/themes";
 import CounterBadge from "./CounterBadge";
 
+const USAGE = [
+  { color: "slate", context: "Watchers", caption: "Neutral count" },
+  {
+    color: "indigo",
+    context: "Filters applied",
+    caption: "Actively-applied state",
+  },
+  { color: "amber", context: "Warnings", caption: "Warning" },
+  { color: "red", context: "Errors", caption: "Error / needs attention" },
+] as const;
+
 export default function CounterBadgeStories() {
   return (
     <Flex direction="column" gap="4">
       <Flex direction="column" gap="2">
         <Text size="2" weight="bold">
-          Colors
+          Usage
         </Text>
-        <Flex gap="2" align="center">
-          <CounterBadge color="slate" count={3} />
-          <CounterBadge color="amber" count={3} />
-          <CounterBadge color="red" count={3} />
-          <CounterBadge color="indigo" count={3} />
+        <Flex direction="column" gap="2">
+          {USAGE.map(({ color, context, caption }) => (
+            <Flex key={color} gap="2" align="center">
+              <Text size="2">{context}</Text>
+              <CounterBadge color={color} count={3} />
+              <Text size="1" style={{ color: "var(--gray-9)" }}>
+                {color} — {caption}
+              </Text>
+            </Flex>
+          ))}
         </Flex>
       </Flex>
 
