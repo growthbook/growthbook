@@ -95,7 +95,7 @@ You can add metrics as goal metrics, guardrail metrics, or both. You also can ad
 
 ### Experiment Phases
 
-Experiment Phases are used primarily to separate stages of an experiment that are to be analyzed separately (e.g. you needed to restart an experiment and change variation weights). They also help you filter the dates used in the experiment analysis. Be very careful using phases. If you move the start date of the phase to past the start date of the experiment (and users were not re-randomized across phases), then your analysis could suffer from [carryover bias](/kb/experiments/carryover-bias). It is best to always look at the full history of an experiment if possible.
+Experiment Phases are used primarily to separate stages of an experiment that are to be analyzed separately (e.g. you needed to restart an experiment and change variation weights). For analyzing by specific date ranges, use [Custom Reports](/app/experiment-results#creating-a-custom-report) instead. Be aware that if you move the start date of your analysis to later than the actual start date of the experiment or a new phase (or users were not re-randomized across phases), then your analysis could suffer from [carryover bias](/kb/experiments/carryover-bias). It is best to always look at the full history of an experiment if possible.
 
 ### Making Changes While Running
 
