@@ -17,11 +17,18 @@ Use the `callApi` tool for every REST request. This skill is read-only — it pr
    {
      "method": "GET",
      "path": "/api/v1/experiments",
-     "query": { "limit": "50", "status": "stopped" }
+     "query": {
+       "limit": "50",
+       "status": "stopped",
+       "sortBy": "dateCreated",
+       "sortOrder": "desc"
+     }
    }
    ```
 
-   Returns up to 50 experiments per page (the API cap).
+   Returns up to 50 experiments per page (`limit` caps at 100). Keep `sortBy=dateCreated` with `sortOrder=desc` — the API's default order is oldest-first, and on an org with more than one page of history an unsorted pull grounds every proposal in ancient experiments.
+
+   If the user scoped the brainstorm ("ideas for checkout", "what should the growth team test next"), narrow the pull with filters instead of discarding results after the fact: add `"tag": "checkout"`, `"projectId": "prj_abc123"`, or `"owner": "<email>"` to the query. Filter params take comma-separated values (ORed within a param; separate params AND together).
 
 2. **Fetch results for each stopped experiment.** Loop over the stopped IDs:
 
@@ -65,7 +72,7 @@ Use the `callApi` tool for every REST request. This skill is read-only — it pr
 
 ## Endpoints used
 
-- `GET /api/v1/experiments?limit=50&status=stopped` — list experiments (returns metadata including status). Cap is 50 per page.
+- `GET /api/v1/experiments?limit=50&status=stopped&sortBy=dateCreated&sortOrder=desc` — list stopped experiments, newest first (`limit` caps at 100). Optional scoping filters: `tag`, `projectId`, `owner` (comma-separated values ORed within a param).
 - `GET /api/v1/experiments/{id}/results` — full results for one experiment. One call per stopped experiment in scope.
 
 ## Output template

@@ -79,6 +79,32 @@ export const paginationQueryFields = {
     .meta({ default: 0 }),
 };
 
+/**
+ * Comma-separated query param restricted to a fixed set of values
+ * (case-insensitive), e.g. `?result=won,lost`.
+ */
+export const csvQueryField = (
+  allowed: readonly string[],
+  description: string,
+) => {
+  const allowedSet = new Set(allowed.map((v) => v.toLowerCase()));
+  return z
+    .string()
+    .describe(description)
+    .refine(
+      (v) =>
+        v
+          .split(",")
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0)
+          .every((t) => allowedSet.has(t.toLowerCase())),
+      {
+        message: `Must be a comma-separated list of: ${allowed.join(", ")}`,
+      },
+    )
+    .optional();
+};
+
 /** Accepts boolean query params in both string and native boolean form. */
 export const booleanQueryField = z
   .union([

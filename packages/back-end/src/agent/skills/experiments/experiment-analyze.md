@@ -13,6 +13,23 @@ Use the `callApi` tool for every REST request. This skill is read-only — it ne
 
 1. **Fetch results + experiment metadata in one call.** `/results` returns `{ experiment, result }` — the same payload that powers the GrowthBook UI's results view, so there's no need for a separate metadata call.
 
+   If the user gave a name instead of an ID ("the checkout test"), resolve it first — `q` matches against name, tracking key, description, and hypothesis:
+
+   ```json
+   {
+     "method": "GET",
+     "path": "/api/v1/experiments",
+     "query": {
+       "q": "checkout",
+       "sortBy": "dateUpdated",
+       "sortOrder": "desc",
+       "limit": "10"
+     }
+   }
+   ```
+
+   If more than one experiment plausibly matches, list the candidates and let the user pick — don't guess.
+
    ```json
    { "method": "GET", "path": "/api/v1/experiments/<experiment-id>/results" }
    ```
@@ -170,9 +187,11 @@ Use the `callApi` tool for every REST request. This skill is read-only — it ne
 - **Snapshot timestamp matters.** Always surface `result.dateUpdated` when reporting results — it's both how step 2 decides whether to refresh and how the user judges whether a slow-traffic experiment has moved. Stale snapshots are common; don't hide them.
 - **24h is a deliberate ceiling, not the auto-refresh cadence.** The server auto-refreshes every 6h by default, so a snapshot under 24h has almost always been refreshed at least once. Don't drop it to "any data older than a minute" — that's how you pin a busy org against the 60 rpm limit.
 - **Read-only.** This skill never stops or modifies the experiment. Hand off to `experiment-stop` when the user wants to act.
+- **`q` rejects negation and operators with a 400.** The list endpoint's `q` param takes the app's search syntax (`status:running tag:checkout` plus free text) but hard-rejects `!`, `~`, `^`, `>`, `<`, `=`. Send plain `field:value` tokens and free text only.
 
 ## Endpoints used
 
+- `GET /api/v1/experiments?q=<text>` — resolve an experiment ID when the user only gave a name or keyword. `q` matches name, tracking key, description, and hypothesis; pair with `sortBy=dateUpdated&sortOrder=desc` so active experiments surface first.
 - `GET /api/v1/experiments/<id>/results` — primary entry point; returns `{ experiment, result }` so step 1 grabs metadata, status, and the snapshot timestamp (`result.dateUpdated`) in a single call. Accepts `phase` / `dimension` query params.
 - `POST /api/v1/experiments/<id>/snapshot` — trigger a fresh snapshot when results are over 24h old or the user wants a phase/dimension cut the cached snapshot doesn't cover. Body accepts `phase` (integer) and `dimension` (string).
 - `GET /api/v1/snapshots/<snapshot-id>` — check snapshot completion (one call, not a poll loop). Returns `{ snapshot: { id, experiment, status } }`.

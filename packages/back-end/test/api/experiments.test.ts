@@ -72,6 +72,7 @@ describe("experiments API", () => {
         projects: {
           getById: jest.fn().mockResolvedValue(null),
           getByIds: jest.fn().mockResolvedValue([]),
+          getAll: jest.fn().mockResolvedValue([]),
           ensureProjectsExist: jest.fn().mockResolvedValue(undefined),
         },
         dataSources: {
@@ -515,6 +516,208 @@ describe("experiments API", () => {
 
       expect(res.status).toBe(200);
       expect(res.body.experiments).toHaveLength(2);
+    });
+
+    it("sorts by dateCreated ascending by default", async () => {
+      (getAllExperiments as jest.Mock).mockResolvedValue([experiment]);
+      const res = await request(app)
+        .get("/api/v1/experiments")
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      expect(getAllExperiments).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ sortBy: { dateCreated: 1 } }),
+      );
+    });
+
+    it("passes sortBy and sortOrder to the query", async () => {
+      (getAllExperiments as jest.Mock).mockResolvedValue([experiment]);
+      const res = await request(app)
+        .get("/api/v1/experiments?sortBy=name&sortOrder=desc")
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      expect(getAllExperiments).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ sortBy: { name: -1 } }),
+      );
+    });
+
+    it("rejects an unsupported sortBy field", async () => {
+      const res = await request(app)
+        .get("/api/v1/experiments?sortBy=owner")
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(400);
+    });
+
+    it("filters by comma-separated tags", async () => {
+      const tagged = { ...experiment, id: "exp_tagged", tags: ["checkout"] };
+      (getAllExperiments as jest.Mock).mockResolvedValue([experiment, tagged]);
+      const res = await request(app)
+        .get("/api/v1/experiments?tag=checkout,promo")
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      expect(res.body.experiments).toHaveLength(1);
+      expect(res.body.experiments[0].id).toBe("exp_tagged");
+    });
+
+    it("filters by linked-change type", async () => {
+      const withFeature = {
+        ...experiment,
+        id: "exp_feature",
+        linkedFeatures: ["feat_1"],
+      };
+      (getAllExperiments as jest.Mock).mockResolvedValue([
+        experiment,
+        withFeature,
+      ]);
+      const res = await request(app)
+        .get("/api/v1/experiments?type=feature")
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      expect(res.body.experiments).toHaveLength(1);
+      expect(res.body.experiments[0].id).toBe("exp_feature");
+    });
+
+    it("rejects an unsupported type value", async () => {
+      const res = await request(app)
+        .get("/api/v1/experiments?type=banana")
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(400);
+    });
+
+    it("filters by owner id", async () => {
+      const owned = { ...experiment, id: "exp_owned", owner: "u_123" };
+      (getAllExperiments as jest.Mock).mockResolvedValue([experiment, owned]);
+      const res = await request(app)
+        .get("/api/v1/experiments?owner=u_123")
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      expect(res.body.experiments).toHaveLength(1);
+      expect(res.body.experiments[0].id).toBe("exp_owned");
+    });
+
+    it("filters by result", async () => {
+      const won = {
+        ...experiment,
+        id: "exp_won",
+        status: "stopped",
+        results: "won",
+      };
+      (getAllExperiments as jest.Mock).mockResolvedValue([experiment, won]);
+      const res = await request(app)
+        .get("/api/v1/experiments?result=won,lost")
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      expect(res.body.experiments).toHaveLength(1);
+      expect(res.body.experiments[0].id).toBe("exp_won");
+    });
+
+    it("rejects an unsupported result value", async () => {
+      const res = await request(app)
+        .get("/api/v1/experiments?result=maybe")
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(400);
+    });
+
+    it("filters by metric id across goal, secondary, and guardrail metrics", async () => {
+      const withMetric = {
+        ...experiment,
+        id: "exp_metric",
+        guardrailMetrics: ["met_1"],
+      };
+      (getAllExperiments as jest.Mock).mockResolvedValue([
+        experiment,
+        withMetric,
+      ]);
+      const res = await request(app)
+        .get("/api/v1/experiments?metricId=met_1")
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      expect(res.body.experiments).toHaveLength(1);
+      expect(res.body.experiments[0].id).toBe("exp_metric");
+    });
+
+    it("filters bandits in or out with the bandits param", async () => {
+      const bandit = {
+        ...experiment,
+        id: "exp_bandit",
+        type: "multi-armed-bandit",
+      };
+      (getAllExperiments as jest.Mock).mockResolvedValue([experiment, bandit]);
+
+      const onlyBandits = await request(app)
+        .get("/api/v1/experiments?bandits=true")
+        .set("Authorization", "Bearer foo");
+      expect(onlyBandits.status).toBe(200);
+      expect(onlyBandits.body.experiments).toHaveLength(1);
+      expect(onlyBandits.body.experiments[0].id).toBe("exp_bandit");
+
+      (getAllExperiments as jest.Mock).mockResolvedValue([experiment, bandit]);
+      const noBandits = await request(app)
+        .get("/api/v1/experiments?bandits=false")
+        .set("Authorization", "Bearer foo");
+      expect(noBandits.status).toBe(200);
+      expect(noBandits.body.experiments).toHaveLength(1);
+      expect(noBandits.body.experiments[0].id).toBe("exp_123");
+    });
+
+    it("applies filters from a q search string", async () => {
+      const tagged = { ...experiment, id: "exp_tagged", tags: ["checkout"] };
+      (getAllExperiments as jest.Mock).mockResolvedValue([experiment, tagged]);
+      const res = await request(app)
+        .get("/api/v1/experiments?q=tag:checkout")
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      expect(res.body.experiments).toHaveLength(1);
+      expect(res.body.experiments[0].id).toBe("exp_tagged");
+    });
+
+    it("rejects unsupported q search syntax", async () => {
+      const res = await request(app)
+        .get("/api/v1/experiments?q=tag:!checkout")
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(400);
+    });
+
+    it("leaves the archived filter unset when the param is omitted", async () => {
+      (getAllExperiments as jest.Mock).mockResolvedValue([experiment]);
+      const res = await request(app)
+        .get("/api/v1/experiments")
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      expect(getAllExperiments).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ archived: undefined, includeArchived: true }),
+      );
+    });
+
+    it.each([
+      ["true", true],
+      ["false", false],
+    ])("passes archived=%s through as a boolean", async (param, value) => {
+      (getAllExperiments as jest.Mock).mockResolvedValue([experiment]);
+      const res = await request(app)
+        .get(`/api/v1/experiments?archived=${param}`)
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      expect(getAllExperiments).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ archived: value }),
+      );
     });
   });
 
