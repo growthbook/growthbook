@@ -152,7 +152,8 @@ function getPrompts(data: { prompts: AIPromptInterface[] }): Array<{
         data.prompts.find((p) => p.type === "experiment-hypothesis")?.prompt ||
         AI_PROMPT_DEFAULTS["experiment-hypothesis"],
       promptDefaultValue: AI_PROMPT_DEFAULTS["experiment-hypothesis"],
-      promptHelpText: "",
+      promptHelpText:
+        "Used to check hypotheses against your organization's standards and to suggest rewrites that match this format.",
       overrideModel: data.prompts.find(
         (p) => p.type === "experiment-hypothesis",
       )?.overrideModel,
@@ -706,6 +707,38 @@ export default function AISettings({
                                 </a>
                               </Box>
                             </Box>
+                          )}
+                          {prompt.promptType === "experiment-hypothesis" && (
+                            <Flex align="start" gap="3" mt="3">
+                              <Box>
+                                <Checkbox
+                                  value={
+                                    !form.watch("disableAutoHypothesisCheck")
+                                  }
+                                  setValue={(v) =>
+                                    form.setValue(
+                                      "disableAutoHypothesisCheck",
+                                      !v,
+                                    )
+                                  }
+                                  id="toggle-autoHypothesisCheck"
+                                  mt="1"
+                                />
+                              </Box>
+                              <Flex direction="column">
+                                <Text size="2" className="font-weight-semibold">
+                                  <label htmlFor="toggle-autoHypothesisCheck">
+                                    Automatically check hypotheses
+                                  </label>
+                                </Text>
+                                <Text size="2">
+                                  When enabled, hypotheses entered on the new
+                                  experiment form are automatically checked
+                                  against this prompt when the field loses
+                                  focus.
+                                </Text>
+                              </Flex>
+                            </Flex>
                           )}
                         </Box>
                       ))}

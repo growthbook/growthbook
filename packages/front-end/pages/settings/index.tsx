@@ -226,6 +226,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         settings.requireRegisteredAttributes,
       ),
       aiEnabled: settings.aiEnabled ?? false,
+      disableAutoHypothesisCheck: settings.disableAutoHypothesisCheck ?? false,
       defaultAIModel: settings.defaultAIModel || "gpt-4o-mini",
       embeddingModel: settings.embeddingModel || "text-embedding-ada-002",
       // `undefined` represents "use default" — the back-end's resolver
@@ -299,6 +300,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     codeRefsBranchesToFilter: form.watch("codeRefsBranchesToFilter"),
     codeRefsPlatformUrl: form.watch("codeRefsPlatformUrl"),
     aiEnabled: form.watch("aiEnabled"),
+    disableAutoHypothesisCheck: form.watch("disableAutoHypothesisCheck"),
     defaultAIModel: form.watch("defaultAIModel"),
     embeddingModel: form.watch("embeddingModel"),
     // Empty string from the form → undefined on the wire so we don't

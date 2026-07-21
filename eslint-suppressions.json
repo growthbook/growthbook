@@ -180,6 +180,12 @@
     }
   },
   "packages/front-end/components/Experiment/NewExperimentForm.tsx": {
+    "import/no-unresolved": {
+      "count": 1
+    },
+    "import/order": {
+      "count": 1
+    },
     "no-restricted-imports": {
       "count": 1
     }

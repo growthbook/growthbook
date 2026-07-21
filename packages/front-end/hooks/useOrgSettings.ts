@@ -33,6 +33,7 @@ export const useAISettings = (): {
   aiEnabled: boolean;
   aiAgreedTo: boolean;
   defaultAIModel: string;
+  autoHypothesisCheckEnabled: boolean;
 } => {
   const { settings, agreements } = useUser();
 
@@ -44,5 +45,11 @@ export const useAISettings = (): {
     : true;
 
   const defaultAIModel = settings?.defaultAIModel || "gpt-4o-mini";
-  return { aiEnabled, defaultAIModel, aiAgreedTo };
+  const autoHypothesisCheckEnabled = !settings?.disableAutoHypothesisCheck;
+  return {
+    aiEnabled,
+    defaultAIModel,
+    aiAgreedTo,
+    autoHypothesisCheckEnabled,
+  };
 };
