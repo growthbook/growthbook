@@ -123,8 +123,7 @@ export type AppFeatures = {
   "events-forwarder": boolean;
   "enable-error-tracking": boolean;
   "managed-warehouse-diagnostics": boolean;
-  "managed-warehouse-json-migration": boolean;
-  "managed-warehouse-migration-sweep": boolean;
+  "managed-warehouse-json-ergonomics-sweep": boolean;
   "session-replays": boolean;
   "login-page-content": Record<string, unknown>;
   "slackbot-enabled": boolean;

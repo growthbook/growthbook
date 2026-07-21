@@ -8,14 +8,13 @@ import {
 } from "shared/types/integrations";
 import { ClickHouseConnectionParams } from "shared/types/integrations/clickhouse";
 import {
-  isManagedWarehouseAwaitingJsonMigration,
+  isManagedWarehouse,
   isManagedWarehouseAwaitingProvisioning,
   isManagedWarehouseMigrating,
   ManagedWarehousePendingError,
 } from "shared/util";
 import { SqlDialect } from "shared/types/sql";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
-import { queueMigrateManagedWarehouse } from "back-end/src/jobs/migrateManagedWarehouse";
 import { getHost } from "back-end/src/util/sql";
 import { logger } from "back-end/src/util/logger";
 import SqlIntegration from "./SqlIntegration";
@@ -53,20 +52,6 @@ export default class ClickHouse extends SqlIntegration {
   }
 
   async runQuery(sql: string): Promise<QueryResponse> {
-    // Legacy (materialized-column) managed warehouses migrate to native JSON
-    // columns on first use — enqueued async + deduped so it never blocks the query.
-    // Runs before the guards below so a warehouse left mid-migration (pending +
-    // matcols still present) OR stuck fully-migrated-but-still-`migrating` (the
-    // flag clear failed) can re-trigger and recover itself on next use.
-    if (
-      isManagedWarehouseAwaitingJsonMigration(this.datasource) ||
-      isManagedWarehouseMigrating(this.datasource)
-    ) {
-      void queueMigrateManagedWarehouse(this.datasource.organization).catch(
-        (e) =>
-          logger.error(e, "Failed to queue managed warehouse JSON migration"),
-      );
-    }
     // Block queries while never-provisioned OR mid-migration (tables being recreated).
     // Reuse the pending error so existing UI surfaces show the managed-warehouse callout;
     // the callout distinguishes the migrating case for honest "upgrading" copy.
@@ -88,6 +73,17 @@ export default class ClickHouse extends SqlIntegration {
           this.params.maxExecutionTime ?? 1800,
           3600,
         ),
+        // Managed warehouse only: allow bare Dynamic JSON paths
+        // (`attributes.x` / `properties.x`) in GROUP BY / ORDER BY. Generated
+        // SQL always casts, so this only affects hand-written queries; gated to
+        // managed warehouses because customer ClickHouse versions may not know
+        // these settings.
+        ...(isManagedWarehouse(this.datasource)
+          ? {
+              allow_suspicious_types_in_group_by: 1,
+              allow_suspicious_types_in_order_by: 1,
+            }
+          : {}),
       },
     });
     const results = await client.query({ query: sql, format: "JSON" });

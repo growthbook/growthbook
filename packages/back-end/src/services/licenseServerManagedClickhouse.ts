@@ -159,6 +159,25 @@ export async function deleteClickhouseUser(orgId: string): Promise<void> {
   await postManagedClickhouse("delete", { orgId });
 }
 
+/**
+ * Apply the JSON-ergonomics affordances (per-org user settings + typed
+ * `attributes.<property>` ALIAS columns) to a provisioned JSON-columns
+ * warehouse. The license server reads the desired column list from
+ * `settings.typedAttributeColumns` on the datasource doc, so persist that
+ * (via syncManagedWarehouseIdentifiers) before calling. Idempotent. Returns
+ * whether the DDL was actually applied (false = the license server skipped a
+ * warehouse with no JSON tables to alter yet).
+ */
+export async function syncJsonErgonomicsInClickhouse(
+  orgId: string,
+): Promise<boolean> {
+  const res = await postManagedClickhouseJson<{
+    ok: boolean;
+    applied?: boolean;
+  }>("sync-json-ergonomics", { orgId });
+  return res.applied === true;
+}
+
 export async function addCloudSDKMapping(
   key: string,
   organization: string,

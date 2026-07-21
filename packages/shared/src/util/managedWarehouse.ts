@@ -4,6 +4,7 @@ import type {
   ExposureQuery,
   GrowthbookClickhouseSettings,
   MaterializedColumn,
+  TypedAttributeColumn,
   UserIdType,
 } from "shared/types/datasource";
 import type {
@@ -100,25 +101,6 @@ export function isManagedWarehouseAwaitingProvisioning(
     hasBeenProvisioned?: boolean;
   };
   return settings?.hasBeenProvisioned === false;
-}
-
-/**
- * A managed warehouse still on the legacy materialized-column model, i.e. not yet
- * fully migrated to native JSON columns. "Migrated" means `useJsonColumns` is set
- * AND `materializedColumns` has been cleared, so a partially-migrated warehouse
- * (flag flipped but matcols not yet cleared) still counts as awaiting migration.
- */
-export function isManagedWarehouseAwaitingJsonMigration(
-  datasource: Pick<DataSourceInterface, "type" | "settings">,
-): boolean {
-  if (!isManagedWarehouse(datasource)) {
-    return false;
-  }
-  const settings = datasource.settings as {
-    useJsonColumns?: boolean;
-    materializedColumns?: unknown[];
-  };
-  return !(settings?.useJsonColumns && !settings.materializedColumns?.length);
 }
 
 /**
@@ -345,6 +327,47 @@ export function getManagedWarehouseAttributesJsonFields(
   return fields;
 }
 
+/**
+ * Version of the JSON-ergonomics setup (per-org user settings + typed attribute
+ * ALIAS columns). Persisted per warehouse as `settings.jsonErgonomicsVersion`
+ * once applied; bump to make the backfill sweep re-apply everywhere.
+ */
+export const MANAGED_WAREHOUSE_JSON_ERGONOMICS_VERSION = 1;
+
+/**
+ * Attributes to expose as typed `attributes.<property>` ALIAS columns on the
+ * per-org JSON tables: everything the SDK actually stores inside the
+ * `attributes` JSON column — i.e. all non-archived attributes except the keys
+ * the SDK extracts to dedicated top-level columns. Identifiers are included
+ * (their top-level aliases only exist in fact-table SQL, not on the physical
+ * tables that SQL Explorer queries). Dotted names can't collide with real
+ * columns, so no reserved-name filtering is needed. Sorted for determinism.
+ */
+export function getManagedWarehouseTypedAttributeColumns(
+  attributeSchema: SDKAttributeSchema | undefined,
+  extraIdentifiers: string[] = [],
+): TypedAttributeColumn[] {
+  const out = new Map<string, TypedAttributeColumn>();
+  for (const a of attributeSchema || []) {
+    if (a.archived) continue;
+    if (RESERVED_TOP_LEVEL_ATTRIBUTE_KEYS.has(a.property)) continue;
+    out.set(a.property, {
+      property: a.property,
+      datatype: a.datatype === "number" ? "number" : "string",
+    });
+  }
+  // Preserved legacy identifiers may be gone from the schema but still queried.
+  for (const property of extraIdentifiers) {
+    if (RESERVED_TOP_LEVEL_ATTRIBUTE_KEYS.has(property)) continue;
+    if (!out.has(property)) {
+      out.set(property, { property, datatype: "string" });
+    }
+  }
+  return [...out.values()].sort((a, b) =>
+    a.property < b.property ? -1 : a.property > b.property ? 1 : 0,
+  );
+}
+
 /** Full identifier/userIdType list: built-in identity columns + custom JSON identifiers. */
 export function getManagedWarehouseUserIdTypes(
   attributeSchema: SDKAttributeSchema | undefined,
@@ -451,9 +474,9 @@ function customIdentifierSelectExpr(property: string): string {
 // re-exposed as top-level SELECT aliases out of `attributes` (under their legacy column
 // name) so bare references keep resolving. Drops any whose name collides with a real
 // `SELECT *` column (reserved names) or a custom identifier alias (identifiers win), and
-// de-dupes by column name to keep the SELECT valid. The write path
-// (getMigratedDimensionColumns) already excludes reserved names; re-checking here keeps
-// the SELECT valid on read even if that invariant drifts (e.g. the reserved set grows in
+// de-dupes by column name to keep the SELECT valid. The (now-removed) migration that
+// wrote `migratedColumns` already excluded reserved names; re-checking here keeps the
+// SELECT valid on read even if that invariant drifts (e.g. the reserved set grows in
 // a later release), matching the identifier path which re-filters on every read.
 function dedupeMigratedDimensions(
   customIdentifiers: string[],
