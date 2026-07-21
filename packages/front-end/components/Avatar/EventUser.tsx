@@ -114,6 +114,11 @@ export default function EventUser({
     }
   }
 
+  // Treat a blank/whitespace-only name as absent so it never renders as an
+  // empty label line or a blank avatar initial (some user records carry " ").
+  name = (name || "").trim();
+  email = (email || "").trim();
+
   if (display === "avatar") {
     return (
       <UserAvatar

@@ -26,7 +26,10 @@ export function PersonRow({
   email: string;
   trailing?: React.ReactNode;
 }) {
-  const displayName = name || email || "Unknown";
+  // Treat a blank/whitespace-only name as absent so the top line never renders
+  // empty (some user records carry " "); the email then becomes the sole line.
+  const trimmedName = (name || "").trim();
+  const displayName = trimmedName || email || "Unknown";
   return (
     <Flex align="start" gap="2">
       <Box flexShrink="0" mt="1">
@@ -40,7 +43,7 @@ export function PersonRow({
         <Text size="small" color="text-high" as="div" overflowWrap="anywhere">
           {displayName}
         </Text>
-        {name && email && (
+        {trimmedName && email && (
           <Text size="small" color="text-low" as="div" overflowWrap="anywhere">
             {email}
           </Text>
