@@ -32,7 +32,10 @@ export type ContextualBanditDefinition = {
   }[];
 };
 
-export type ContextualBanditsMap = Record<string, ContextualBanditDefinition>;
+export type ContextualBanditDefinitions = Record<
+  string,
+  ContextualBanditDefinition
+>;
 
 export type AutoExperimentWithMetadata = AutoExperiment & {
   metadata?: ExperimentMetadata;

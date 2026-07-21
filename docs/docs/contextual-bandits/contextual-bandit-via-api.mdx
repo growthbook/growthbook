@@ -159,6 +159,22 @@ The `/current` response looks like:
         { "variationId": "0", "weight": 0.38 },
         { "variationId": "1", "weight": 0.62 }
       ]
+    },
+    {
+      "leafId": 1,
+      "condition": { "country": { "$in": ["US", "UK"] } },
+      "weights": [
+        { "variationId": "0", "weight": 0.41 },
+        { "variationId": "1", "weight": 0.59 }
+      ]
+    },
+    {
+      "leafId": 2,
+      "condition": { "browser": { "$nin": ["Chrome", "Firefox"] } },
+      "weights": [
+        { "variationId": "0", "weight": 0.55 },
+        { "variationId": "1", "weight": 0.45 }
+      ]
     }
   ],
   "latestEvent": {

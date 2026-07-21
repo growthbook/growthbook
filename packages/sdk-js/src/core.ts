@@ -358,20 +358,12 @@ export function evalFeature<V = unknown>(
       if (rule.hashVersion) exp.hashVersion = rule.hashVersion;
       if (rule.filters) exp.filters = rule.filters;
       if (rule.condition) exp.condition = rule.condition;
-
-      // A contextual-bandit rule is identified by the presence of
-      // `contextualBanditRef` (the key into the payload's contextualBandits
-      // map). Apply leaf selection in place; the rule always runs (matched
-      // users fall back to aggregate weights rather than being skipped).
       if (rule.contextualBanditRef) {
         buildContextualBanditExperiment(exp, rule.contextualBanditRef, id, ctx);
       }
 
       // Only return a value if the user is part of the experiment
       const { result } = runExperiment(exp, id, ctx);
-      // Keep CB leaf metadata on the experiment consistent with the Result:
-      // only expose it for a genuine hash-bucketed assignment (not when the
-      // user was forced, in QA mode, or otherwise not enrolled via bucketing).
       if (exp.contextualBandit && !(result.hashUsed && result.inExperiment)) {
         delete exp.contextualBandit;
       }

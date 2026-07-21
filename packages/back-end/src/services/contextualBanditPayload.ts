@@ -1,4 +1,7 @@
-import { ContextualBanditsMap, FeatureDefinition } from "shared/types/sdk";
+import {
+  ContextualBanditDefinitions,
+  FeatureDefinition,
+} from "shared/types/sdk";
 import { logger } from "back-end/src/util/logger";
 import { Histogram, metrics } from "back-end/src/util/metrics";
 
@@ -17,7 +20,7 @@ export type ContextualBanditPayloadStats = {
 };
 
 export function measureContextualBanditPayload(
-  contextualBandits: ContextualBanditsMap,
+  contextualBandits: ContextualBanditDefinitions,
   features: Record<string, FeatureDefinition>,
 ): ContextualBanditPayloadStats {
   let cbBytes = 0;

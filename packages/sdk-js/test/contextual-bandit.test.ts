@@ -1,6 +1,6 @@
 import { GrowthBook } from "../src";
 import { GrowthBookClient } from "../src/GrowthBookClient";
-import { ContextualBanditsMap } from "../src/types/growthbook";
+import { ContextualBanditDefinitions } from "../src/types/growthbook";
 
 function cbRule(overrides: Record<string, unknown> = {}) {
   return {
@@ -26,7 +26,9 @@ function cbFeatures(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function cbMap(overrides: Record<string, unknown> = {}): ContextualBanditsMap {
+function cbMap(
+  overrides: Record<string, unknown> = {},
+): ContextualBanditDefinitions {
   return {
     cb_promo: {
       banditVersion: 7,

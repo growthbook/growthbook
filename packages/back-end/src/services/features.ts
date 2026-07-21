@@ -56,7 +56,7 @@ import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { ArchetypeAttributeValues } from "shared/types/archetype";
 import {
   AutoExperimentWithMetadata,
-  ContextualBanditsMap,
+  ContextualBanditDefinitions,
   ExperimentMetadata,
   FeatureDefinition,
 } from "shared/types/sdk";
@@ -649,7 +649,7 @@ export function filterUsedSavedGroups(
 export function filterUsedContextualBandits(
   cbMap: Map<string, ContextualBanditInterface> | undefined,
   features: Record<string, FeatureDefinition>,
-): ContextualBanditsMap | undefined {
+): ContextualBanditDefinitions | undefined {
   if (!cbMap || cbMap.size === 0) return undefined;
 
   const usedIds = new Set<string>();
@@ -661,7 +661,7 @@ export function filterUsedContextualBandits(
     });
   });
 
-  const map: ContextualBanditsMap = {};
+  const map: ContextualBanditDefinitions = {};
   usedIds.forEach((id) => {
     const cb = cbMap.get(id);
     if (!cb) return;
@@ -1065,7 +1065,7 @@ export type FeatureDefinitionsResponseArgs = {
   capabilities: SDKCapability[];
   usedSavedGroups: SavedGroupInterface[];
   savedGroupReferencesEnabled?: boolean;
-  contextualBandits?: ContextualBanditsMap;
+  contextualBandits?: ContextualBanditDefinitions;
   organization: OrganizationInterface;
 };
 export async function getFeatureDefinitionsResponse({
@@ -1090,7 +1090,7 @@ export async function getFeatureDefinitionsResponse({
   encryptedExperiments?: string;
   savedGroups?: SavedGroupsValues;
   encryptedSavedGroups?: string;
-  contextualBandits?: ContextualBanditsMap;
+  contextualBandits?: ContextualBanditDefinitions;
   encryptedContextualBandits?: string;
 }> {
   features = cloneDeep(features);
@@ -1553,7 +1553,7 @@ export type FeatureDefinitionSDKPayload = {
   encryptedExperiments?: string;
   savedGroups?: SavedGroupsValues;
   encryptedSavedGroups?: string;
-  contextualBandits?: ContextualBanditsMap;
+  contextualBandits?: ContextualBanditDefinitions;
   encryptedContextualBandits?: string;
 };
 

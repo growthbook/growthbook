@@ -48,9 +48,6 @@ export type FeatureRule<T = any> = {
     experiment: Experiment<T>;
     result: Result<T>;
   }>;
-  // Present only on contextual-bandit rules: the key into the payload's
-  // top-level `contextualBandits` map. Its presence is what identifies a rule
-  // as a contextual bandit (no separate boolean flag is needed).
   contextualBanditRef?: string;
   // Contextual bandit rules carry their variations here instead of under
   // `variations` so that older SDKs (which key off `variations` to detect an
@@ -69,7 +66,10 @@ export type ContextualBanditDefinition = {
   }[];
 };
 
-export type ContextualBanditsMap = Record<string, ContextualBanditDefinition>;
+export type ContextualBanditDefinitions = Record<
+  string,
+  ContextualBanditDefinition
+>;
 
 export interface FeatureDefinition<T = any> {
   defaultValue?: T;
@@ -132,10 +132,7 @@ export type Experiment<T> = {
   minBucketVersion?: number;
   active?: boolean;
   persistQueryString?: boolean;
-  // Contextual bandit leaf selection metadata, set when an experiment is built
-  // from a contextual-bandit feature rule. Drives the leafId/variationWeights/
-  // banditVersion fields on the Result.
-  contextualBandit?: ContextualBanditInfo;
+  contextualBandit?: CBContext;
   /** @deprecated */
   status?: ExperimentStatus;
   /** @deprecated */
@@ -182,7 +179,7 @@ export interface Result<T> {
   banditVersion?: number;
 }
 
-export type ContextualBanditInfo = {
+export type CBContext = {
   leafId: number;
   variationWeights: number[];
   banditVersion?: number;
@@ -312,7 +309,7 @@ export type Options = {
   antiFlickerTimeout?: number;
   applyDomChangesCallback?: ApplyDomChangesCallback;
   savedGroups?: SavedGroupsValues;
-  contextualBandits?: ContextualBanditsMap;
+  contextualBandits?: ContextualBanditDefinitions;
   plugins?: Plugin[];
 };
 
@@ -339,7 +336,7 @@ export type ClientOptions = {
   clientKey?: string;
   decryptionKey?: string;
   savedGroups?: SavedGroupsValues;
-  contextualBandits?: ContextualBanditsMap;
+  contextualBandits?: ContextualBanditDefinitions;
   plugins?: Plugin[];
 };
 
@@ -351,7 +348,7 @@ export type GlobalContext = {
   enabled?: boolean;
   qaMode?: boolean;
   savedGroups?: SavedGroupsValues;
-  contextualBandits?: ContextualBanditsMap;
+  contextualBandits?: ContextualBanditDefinitions;
   forcedVariations?: Record<string, number>;
   forcedFeatureValues?: Map<string, any>;
   trackingCallback?: TrackingCallbackWithUser;
@@ -488,7 +485,7 @@ export type FeatureApiResponse = {
   encryptedExperiments?: string;
   savedGroups?: SavedGroupsValues;
   encryptedSavedGroups?: string;
-  contextualBandits?: ContextualBanditsMap;
+  contextualBandits?: ContextualBanditDefinitions;
   encryptedContextualBandits?: string;
 };
 

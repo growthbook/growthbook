@@ -25,11 +25,6 @@ export async function refreshLinkedFeaturePayloads(
     | "contextualBandit.stop"
     | "contextualBandit.refresh",
 ): Promise<void> {
-  // Refresh every feature whose rules actually reference this contextual
-  // bandit, derived from the rules themselves rather than the cached
-  // `cb.linkedFeatures` array (which can drift out of sync and leave SDKs on
-  // stale weights). getAffectedSDKPayloadKeys applies the reference filter
-  // below, so unrelated features contribute no payload keys.
   const features = await getAllFeatures(context);
   if (!features.length) return;
 
