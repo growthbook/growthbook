@@ -1238,7 +1238,10 @@ function deriveStickyBucketIdentifierAttributes(
     const feature = features[id];
     if (feature.rules) {
       for (const rule of feature.rules) {
-        if (rule.variations) {
+        // Contextual bandit rules carry their variations under
+        // `contextualVariations`; match either so CB rules also register
+        // their hash/fallback attributes for sticky bucketing.
+        if (rule.variations || rule.contextualVariations) {
           attributes.add(rule.hashAttribute || "id");
           if (rule.fallbackAttribute) {
             attributes.add(rule.fallbackAttribute);
