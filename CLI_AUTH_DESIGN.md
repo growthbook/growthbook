@@ -1,9 +1,35 @@
 # CLI / Agent Authentication for GrowthBook
 
-**Status:** Draft v1
+**Status:** SUPERSEDED — see below
 **Author:** (design pass with Claude)
-**Date:** 2026-05-13
+**Date:** 2026-05-13 (superseded 2026-07-21)
 **Scope:** Cloud only (self-hosted deferred)
+
+> ## ⚠️ Superseded by [PR #6371](https://github.com/growthbook/growthbook/pull/6371)
+>
+> PR #6371 adds a standards-based **OAuth 2.1 authorization server** (RFC 8414
+> discovery, RFC 7591 dynamic client registration, auth-code + PKCE, refresh
+> rotation, RFC 7009 revoke, consent page at `/oauth/authorize`) that covers
+> this design's custom `/cli-auth/*` protocol — and, being spec-compliant,
+> works out of the box with MCP clients. The custom backend implemented from
+> this doc has been removed from this branch.
+>
+> **What carries forward from this doc:**
+>
+> - The **zero-org inline org creation** UX (see "Zero-org case") — ported to
+>   the `/oauth/authorize` consent page, which otherwise dead-ends for
+>   brand-new users.
+> - The **threat analysis and pre-prod hardening checklist** — several items
+>   are resolved natively by #6371 (mint-at-exchange, short-lived tokens,
+>   audit logging, revocation, redirect-URI validation via registration), but
+>   these remain open against #6371: user-code phishing defense, device code
+>   grant, `enforceSSO` respect, DCR/IP rate limiting, per-grant brute-force
+>   throttling.
+> - The **agent skill / CLI orchestration** sections — the client is now an
+>   OAuth 2.1 public client (DCR + loopback + PKCE + refresh) instead of the
+>   custom init/approve/exchange protocol.
+>
+> The protocol details below are retained for historical context only.
 
 ## Problem
 
