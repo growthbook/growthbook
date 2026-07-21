@@ -390,4 +390,33 @@ describe("legacy ratio percentile-cap populations", () => {
     expect(sql).not.toMatch(/__capValue\s+AS\s*\(/i);
     expect(banditStatistics).not.toMatch(/CROSS JOIN __capValue cap\b/i);
   });
+
+  it.each([
+    {
+      name: "numerator-only",
+      denominatorCappingType: "" as const,
+      hasDenominatorCap: false,
+    },
+    {
+      name: "dual-capped",
+      denominatorCappingType: "percentile" as const,
+      hasDenominatorCap: true,
+    },
+  ])(
+    "joins the numerator cap into $name bandit queries",
+    ({ denominatorCappingType, hasDenominatorCap }) => {
+      const sql = buildQuery(bigQueryDialect, {
+        ignoreZeros: false,
+        denominatorCappingType,
+        bandit: true,
+      });
+      const banditStatistics = getCteBody(sql, "__banditPeriodStatistics");
+
+      expect(sql).toMatch(/__capValue\s+AS\s*\(/i);
+      expect(banditStatistics).toMatch(/CROSS JOIN __capValue cap\b/i);
+      expect(
+        /CROSS JOIN __capValueDenominator capd\b/i.test(banditStatistics),
+      ).toBe(hasDenominatorCap);
+    },
+  );
 });
