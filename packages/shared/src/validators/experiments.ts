@@ -1874,8 +1874,17 @@ export const postExperimentModifyTemporaryRolloutValidator = {
   possibleErrors: ["invalid_status"] as const,
 };
 
-const postExperimentScheduleStopBody = z
+const putExperimentScheduleBody = z
   .object({
+    startAt: z
+      .string()
+      .meta({ format: "date-time" })
+      .optional()
+      .describe(
+        "ISO datetime when the experiment should start; must be in the future. " +
+          "Omit to clear a scheduled start. Staging still happens via POST " +
+          "/experiments/{id}/start.",
+      ),
     stopAt: z
       .string()
       .meta({ format: "date-time" })
@@ -1887,14 +1896,18 @@ const postExperimentScheduleStopBody = z
         "Deferred relative end, resolved to a concrete stop at the " +
           "experiment's actual start (or now, if already running).",
       ),
+    shippingCriteria: apiExperimentShippingCriteriaValidator
+      .optional()
+      .describe("End-of-experiment automation. Omit to reset to notify-only."),
   })
   .strict()
-  .refine((b) => !!b.stopAt !== !!b.stopAfter, {
-    message: "Provide exactly one of stopAt or stopAfter",
+  .refine((b) => !(b.stopAt && b.stopAfter), {
+    message: "Provide either stopAt or stopAfter, not both.",
+    path: ["stopAfter"],
   });
 
-export const postExperimentScheduleStopValidator = {
-  bodySchema: postExperimentScheduleStopBody,
+export const putExperimentScheduleValidator = {
+  bodySchema: putExperimentScheduleBody,
   querySchema: z.never(),
   paramsSchema: idParams,
   responseSchema: z
@@ -1903,76 +1916,27 @@ export const postExperimentScheduleStopValidator = {
       warnings: z.array(z.string()).optional(),
     })
     .strict(),
-  summary: "Schedule when an experiment stops",
+  summary: "Set an experiment's schedule and shipping automation",
   description:
-    "Sets the experiment's scheduled end as an absolute `stopAt` or a deferred relative `stopAfter`. A relative end is resolved to a concrete stop time when the experiment starts.",
-  operationId: "postExperimentScheduleStop",
-  tags: ["experiments"],
-  method: "post" as const,
-  path: "/experiments/:id/schedule-stop",
-  exampleRequest: {
-    params: { id: "exp_abc123" },
-    body: { stopAfter: { value: 14, unit: "days" as const } },
-  },
-  possibleErrors: ["invalid_status"] as const,
-};
-
-export const deleteExperimentScheduleStopValidator = {
-  bodySchema: z.never(),
-  querySchema: z.never(),
-  paramsSchema: idParams,
-  responseSchema: z
-    .object({ experiment: apiExperimentWithEnhancedStatus })
-    .strict(),
-  summary: "Clear an experiment's scheduled stop",
-  operationId: "deleteExperimentScheduleStop",
-  tags: ["experiments"],
-  method: "delete" as const,
-  path: "/experiments/:id/schedule-stop",
-  exampleRequest: { params: { id: "exp_abc123" } },
-};
-
-export const putExperimentShippingCriteriaValidator = {
-  bodySchema: apiExperimentShippingCriteriaValidator,
-  querySchema: z.never(),
-  paramsSchema: idParams,
-  responseSchema: z
-    .object({
-      experiment: apiExperimentWithEnhancedStatus,
-      warnings: z.array(z.string()).optional(),
-    })
-    .strict(),
-  summary: "Set the end-of-experiment shipping automation",
-  description:
-    "Configures what happens at the scheduled end: notify only, or auto-ship the winning variation (with an optional tiebreaker metric and a notify/force-ship fallback). Auto-ship requires the Decision Framework.",
-  operationId: "putExperimentShippingCriteria",
+    "Full-replace of the experiment's scheduled start/end and end-of-experiment shipping automation. The body is the complete desired state: any omitted field is cleared (omit `startAt` to remove a scheduled start; send an empty body to clear the whole schedule). Provide either `stopAt` or `stopAfter`, not both; a relative `stopAfter` resolves to a concrete stop when the experiment starts. Auto-ship shipping requires the Decision Framework.",
+  operationId: "putExperimentSchedule",
   tags: ["experiments"],
   method: "put" as const,
-  path: "/experiments/:id/shipping-criteria",
+  path: "/experiments/:id/schedule",
   exampleRequest: {
     params: { id: "exp_abc123" },
     body: {
-      mode: "auto-ship" as const,
-      tiebreakerMetricId: "met_revenue",
-      fallback: "force-ship" as const,
-      fallbackVariationId: "var_treatment",
+      startAt: "2026-08-01T00:00:00Z",
+      stopAfter: { value: 14, unit: "days" as const },
+      shippingCriteria: {
+        mode: "auto-ship" as const,
+        tiebreakerMetricId: "met_revenue",
+        fallback: "force-ship" as const,
+        fallbackVariationId: "var_treatment",
+      },
     },
   },
-};
-
-export const deleteExperimentShippingCriteriaValidator = {
-  bodySchema: z.never(),
-  querySchema: z.never(),
-  paramsSchema: idParams,
-  responseSchema: z
-    .object({ experiment: apiExperimentWithEnhancedStatus })
-    .strict(),
-  summary: "Reset shipping automation to notify-only",
-  operationId: "deleteExperimentShippingCriteria",
-  tags: ["experiments"],
-  method: "delete" as const,
-  path: "/experiments/:id/shipping-criteria",
-  exampleRequest: { params: { id: "exp_abc123" } },
+  possibleErrors: ["invalid_status"] as const,
 };
 
 export const postExperimentSnapshotValidator = {
