@@ -363,6 +363,26 @@ export function validateCappingSettingsOrdering(
   }
 }
 
+/**
+ * Ratio metrics only support percentile capping.
+ */
+export function validateCappingSettingsMetricTypeCompatibility(
+  metricType: string,
+  upper: CappingSettingsTailInput | null | undefined,
+  lower?: CappingSettingsTailInput | null | undefined,
+): void {
+  if (metricType !== "ratio") return;
+
+  const upperType = normalizeCappingTypeForTails(upper?.type);
+  const lowerType = normalizeCappingTypeForTails(lower?.type);
+
+  if (upperType === "absolute" || lowerType === "absolute") {
+    throw new Error(
+      "Ratio metrics support only percentile capping, not absolute capping.",
+    );
+  }
+}
+
 export const legacyWindowSettingsValidator = z.object({
   type: windowTypeValidator.optional(),
   delayHours: z.coerce.number().optional(),

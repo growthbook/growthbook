@@ -13,6 +13,7 @@ import {
   factMetricValidator,
   ApiFactMetric,
   validateCappingSettingsOrdering,
+  validateCappingSettingsMetricTypeCompatibility,
 } from "shared/validators";
 import {
   ColumnRef,
@@ -244,6 +245,16 @@ export class FactMetricModel extends BaseClass {
       newDoc.denominator = null;
     }
 
+    // Ratio metrics support only percentile capping.
+    if (newDoc.metricType === "ratio") {
+      if (newDoc.cappingSettings?.type === "absolute") {
+        newDoc.cappingSettings = { type: "", value: 0 };
+      }
+      if (newDoc.lowerCappingSettings?.type === "absolute") {
+        newDoc.lowerCappingSettings = null;
+      }
+    }
+
     if (newDoc.denominator) {
       newDoc.denominator = FactMetricModel.migrateColumnRef(newDoc.denominator);
     }
@@ -358,6 +369,12 @@ export class FactMetricModel extends BaseClass {
     const existingMetric = previousData || null;
 
     validateCappingSettingsOrdering(
+      data.cappingSettings,
+      data.lowerCappingSettings,
+    );
+
+    validateCappingSettingsMetricTypeCompatibility(
+      data.metricType,
       data.cappingSettings,
       data.lowerCappingSettings,
     );
