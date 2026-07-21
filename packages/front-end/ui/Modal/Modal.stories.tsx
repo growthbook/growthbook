@@ -1,6 +1,13 @@
 import { Box, Flex, TextField } from "@radix-ui/themes";
 import { useState } from "react";
 import Modal, { Size } from "@/ui/Modal";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+} from "../Table";
 import Button from "../Button";
 import { Select, SelectItem } from "../Select";
 import Text from "../Text";
@@ -16,10 +23,48 @@ function SubmitButton() {
   );
 }
 
+// A table wider than the modal. It proves horizontal overflow is handled by the
+// child itself and never spills into the modal body, which is vertical-scroll
+// only. The design-system <Table> supplies the markup; the wrapping Box is the
+// child-level horizontal scroll container.
+function WideTable() {
+  const columns = Array.from({ length: 12 }, (_, i) => `Metric ${i + 1}`);
+  const rows = Array.from({ length: 4 }, (_, r) =>
+    columns.map((_, c) => `R${r + 1}·C${c + 1}`),
+  );
+  return (
+    <Box style={{ overflowX: "auto", maxWidth: "100%" }}>
+      <Table variant="surface" style={{ minWidth: "1000px" }}>
+        <TableHeader>
+          <TableRow>
+            {columns.map((column) => (
+              <TableColumnHeader key={column}>{column}</TableColumnHeader>
+            ))}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((cells, r) => (
+            <TableRow key={r}>
+              {cells.map((cell, c) => (
+                <TableCell key={c}>{cell}</TableCell>
+              ))}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </Box>
+  );
+}
+
 export default function ModalStories() {
   const [size, setSize] = useState<Size | null>(null);
+  const [scrolling, setScrolling] = useState(false);
   const [environment, setEnvironment] = useState("production");
   const [disableStickyBucketing, setDisableStickyBucketing] = useState(false);
+  const openModal = (nextSize: Size, nextScrolling: boolean) => {
+    setSize(nextSize);
+    setScrolling(nextScrolling);
+  };
   return (
     <>
       <Modal.Root
@@ -63,6 +108,22 @@ export default function ModalStories() {
                 value={disableStickyBucketing}
                 setValue={setDisableStickyBucketing}
               />
+              {scrolling && (
+                <>
+                  {Array.from({ length: 10 }).map((_, i) => (
+                    <Flex key={i} direction="column" gap="1">
+                      <Text weight="semibold">{`Additional field ${i + 1}`}</Text>
+                      <TextField.Root placeholder="Extra content to demonstrate the scrollbar" />
+                    </Flex>
+                  ))}
+                  <Flex direction="column" gap="1">
+                    <Text weight="semibold">
+                      Wide table (scrolls horizontally on its own)
+                    </Text>
+                    <WideTable />
+                  </Flex>
+                </>
+              )}
             </Flex>
           </Modal.Body>
           <Modal.Footer>
@@ -76,9 +137,15 @@ export default function ModalStories() {
         </ModalForm>
       </Modal.Root>
 
-      <Flex direction="row" gap="3">
-        <Button onClick={() => setSize("md")}>Medium Modal</Button>
-        <Button onClick={() => setSize("lg")}>Large Modal</Button>
+      <Flex direction="row" gap="3" wrap="wrap">
+        <Button onClick={() => openModal("md", false)}>Medium Modal</Button>
+        <Button onClick={() => openModal("lg", false)}>Large Modal</Button>
+        <Button onClick={() => openModal("md", true)}>
+          Medium Modal (scrolling)
+        </Button>
+        <Button onClick={() => openModal("lg", true)}>
+          Large Modal (scrolling)
+        </Button>
       </Flex>
     </>
   );
