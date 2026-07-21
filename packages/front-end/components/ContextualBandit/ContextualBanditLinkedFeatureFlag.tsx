@@ -15,6 +15,7 @@ import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
+import VariationLabel from "@/ui/VariationLabel";
 import { decimalToPercent } from "@/services/utils";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -250,21 +251,13 @@ export default function ContextualBanditLinkedFeatureFlag({
                       gap="9"
                       minHeight="24px"
                     >
-                      <Flex
-                        gap="1"
-                        flexBasis="15%"
-                        flexShrink="0"
-                        className={`variation with-variation-label variation${j}`}
-                      >
-                        <Box as="span" className="label">
-                          {j}
-                        </Box>
-                        <Box as="span" className="text-ellipsis" title={v.name}>
-                          <Text color="text-high" weight="medium">
-                            {v.name}
-                          </Text>
-                        </Box>
-                      </Flex>
+                      <Box flexBasis="15%" flexShrink="0" minWidth="0">
+                        <VariationLabel
+                          number={j}
+                          name={v.name}
+                          size="medium"
+                        />
+                      </Box>
                       <Flex flexBasis="90px" flexShrink="0" justify="end">
                         <Text>
                           {decimalToPercent(weightForIndex(j))}% Split

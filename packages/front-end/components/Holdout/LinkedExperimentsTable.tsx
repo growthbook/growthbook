@@ -9,6 +9,7 @@ import { useUser } from "@/services/UserContext";
 import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
 import Link from "@/ui/Link";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import VariationLabel from "@/ui/VariationLabel";
 
 interface Props {
   holdout: HoldoutInterfaceStringDates;
@@ -103,25 +104,13 @@ const LinkedExperimentsTable = ({ holdout, experiments }: Props) => {
                 </td>
                 <td data-title="Shipped Variation">
                   {variation ? (
-                    <div
-                      className={`variation variation${variationIndex} with-variation-label d-flex align-items-center`}
-                    >
-                      <span
-                        className="label"
-                        style={{ width: 20, height: 20, flex: "none" }}
-                      >
-                        {variationIndex}
-                      </span>
-                      <span
-                        className="d-inline-block"
-                        style={{
-                          width: 150,
-                          lineHeight: "14px",
-                        }}
-                      >
-                        {variation?.name}
-                      </span>
-                    </div>
+                    <Box style={{ maxWidth: 150 }} minWidth="0">
+                      <VariationLabel
+                        number={variationIndex}
+                        name={variation.name}
+                        size="medium"
+                      />
+                    </Box>
                   ) : (
                     <span>--</span>
                   )}

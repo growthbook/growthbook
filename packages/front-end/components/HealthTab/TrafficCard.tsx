@@ -18,6 +18,7 @@ import ExperimentDateGraph, {
 } from "@/components/Experiment/ExperimentDateGraph";
 import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import VariationLabel from "@/ui/VariationLabel";
 import { transformDimensionData } from "./DimensionIssues";
 
 const numberFormatter = new Intl.NumberFormat();
@@ -165,20 +166,12 @@ export default function TrafficCard({
                 {dimensionWithIssues?.label}
               </th>
               {variations.map((v) => (
-                <th
-                  className={`border-top-0 variation with-variation-label variation${v.index}`}
-                  key={v.id}
-                >
-                  <span
-                    className="label"
-                    style={{
-                      width: 20,
-                      height: 20,
-                    }}
-                  >
-                    {v.index}
-                  </span>
-                  {v.name}
+                <th className="border-top-0" key={v.id}>
+                  <VariationLabel
+                    number={v.index}
+                    name={v.name}
+                    size="medium"
+                  />
                 </th>
               ))}
               <th className="border-top-0">Expected %</th>
