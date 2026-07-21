@@ -136,6 +136,7 @@ interface ExplorerProviderProps {
   initialConfig: ExplorerDraftConfig;
   initialSubmittedConfig?: ExplorerDraftConfig;
   hasExistingResults?: boolean;
+  initialSchemaCollapsed?: boolean;
   onRunComplete?: (
     exploration: ProductAnalyticsExploration,
     comparisonExploration: ProductAnalyticsExploration | null,
@@ -149,6 +150,7 @@ export function ExplorerProvider({
   initialConfig,
   initialSubmittedConfig,
   hasExistingResults = false,
+  initialSchemaCollapsed = false,
   onRunComplete,
   trackingSource,
 }: ExplorerProviderProps) {
@@ -1101,6 +1103,7 @@ export function ExplorerProvider({
         <SqlEditorProvider
           datasourceId={draftExploreState.datasource}
           sql={draftExploreState.dataset.sql}
+          initialSchemaCollapsed={initialSchemaCollapsed}
         >
           {children}
         </SqlEditorProvider>

@@ -24,56 +24,48 @@ export default function Toolbar() {
     Boolean(draftExploreState.dateRange.endDate);
 
   return (
-    <Flex align="start" gap="3" style={{ minHeight: "32px" }}>
+    <Flex align="start" gap="3" width="100%" style={{ minHeight: "32px" }}>
       {/* Left Side */}
       <Flex align="center" gap="3" style={{ flexShrink: 0, height: "32px" }}>
-        <GraphTypeSelector />
+        {isFunnel ? <FunnelGraphTypeSelector /> : <GraphTypeSelector />}
+        {isFunnel && draftExploreState.chartType !== "table" && (
+          <FunnelYAxisSelector />
+        )}
       </Flex>
 
-      {/* Bottom Toolbar */}
-      <Flex align="start" gap="3" style={{ minHeight: "32px" }}>
-        {/* Left Side */}
-        <Flex align="center" gap="3" style={{ flexShrink: 0, height: "32px" }}>
-          {isFunnel ? <FunnelGraphTypeSelector /> : <GraphTypeSelector />}
-          {isFunnel && draftExploreState.chartType !== "table" && (
-            <FunnelYAxisSelector />
-          )}
-        </Flex>
-
-        {/* Right Side — everything wraps and stays right-aligned as one row. */}
-        <Flex
-          align="center"
-          justify="end"
-          wrap="wrap"
-          gap="3"
-          style={{ flexGrow: 1, minWidth: 0 }}
-        >
-          <Switch
-            label="Compare"
-            value={compareEnabled}
-            onChange={setCompareEnabled}
-            disabled={!submittedExploreState || managedWarehouseUnavailable}
+      {/* Right Side — everything wraps and stays right-aligned as one row. */}
+      <Flex
+        align="center"
+        justify="end"
+        wrap="wrap"
+        gap="3"
+        style={{ flexGrow: 1, minWidth: 0 }}
+      >
+        <Switch
+          label="Compare"
+          value={compareEnabled}
+          onChange={setCompareEnabled}
+          disabled={!submittedExploreState || managedWarehouseUnavailable}
+        />
+        {showComparisonDateControls ? (
+          <ComparisonDateControls
+            groupBySlot={
+              ["line", "area", "timeseries-table"].includes(
+                draftExploreState.chartType,
+              ) ? (
+                <GranularitySelector />
+              ) : null
+            }
           />
-          {showComparisonDateControls ? (
-            <ComparisonDateControls
-              groupBySlot={
-                ["line", "area", "timeseries-table"].includes(
-                  draftExploreState.chartType,
-                ) ? (
-                  <GranularitySelector />
-                ) : null
-              }
-            />
-          ) : (
-            <>
-              <DateRangePicker />
-              {!isFunnel &&
-                ["line", "area", "timeseries-table"].includes(
-                  draftExploreState.chartType,
-                ) && <GranularitySelector />}
-            </>
-          )}
-        </Flex>
+        ) : (
+          <>
+            <DateRangePicker />
+            {!isFunnel &&
+              ["line", "area", "timeseries-table"].includes(
+                draftExploreState.chartType,
+              ) && <GranularitySelector />}
+          </>
+        )}
       </Flex>
     </Flex>
   );

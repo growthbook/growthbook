@@ -422,6 +422,9 @@ export default function ExplorerSideBar({
           <DatasourceConfigurator dataset={dataset} />
         </Flex>
       )}
+      {!renderingInDashboardSidebar && activeType === "sql" && (
+        <SchemaBrowserSection />
+      )}
       <Box p="0">
         {activeType === "metric" && <MetricTabContent />}
         {activeType === "fact_table" && <FactTableTabContent />}

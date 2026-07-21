@@ -28,13 +28,17 @@ export function SqlEditorProvider({
   children,
   datasourceId,
   sql,
+  initialSchemaCollapsed = false,
 }: {
   children: ReactNode;
   datasourceId: string;
   sql: string;
+  initialSchemaCollapsed?: boolean;
 }) {
   const [localSql, setLocalSql] = useState(sql);
-  const [schemaCollapsed, setSchemaCollapsed] = useState(false);
+  const [schemaCollapsed, setSchemaCollapsed] = useState(
+    initialSchemaCollapsed,
+  );
   const {
     autoCompletions,
     cursorData,

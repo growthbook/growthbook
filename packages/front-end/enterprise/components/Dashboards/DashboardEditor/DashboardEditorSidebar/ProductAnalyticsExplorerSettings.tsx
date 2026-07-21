@@ -147,6 +147,7 @@ export default function ProductAnalyticsExplorerSettings({
       initialConfig={initialConfig}
       initialSubmittedConfig={initialSubmittedConfig}
       hasExistingResults={!!block.explorerAnalysisId}
+      initialSchemaCollapsed={dashboardBlockHasIds(block)}
       trackingSource="dashboard-editor"
       onRunComplete={(
         exploration,
