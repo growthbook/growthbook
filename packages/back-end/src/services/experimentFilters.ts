@@ -12,7 +12,10 @@ import { getExperimentsUsingMetric } from "back-end/src/models/ExperimentModel";
  *
  * - `search` is the free-text remainder (matched against name / trackingKey /
  *   description / hypothesis).
- * - `types` tokens are normalized to "feature" | "visualChange" | "redirect".
+ * - `implementationTypes` tokens are normalized to
+ *   "feature" | "visualChange" | "redirect". (Named to avoid confusion with
+ *   the top-level `experiment.type` field, which means standard vs bandit vs
+ *   holdout.)
  */
 export type StructuredExperimentFilters = {
   projects?: string[];
@@ -21,7 +24,7 @@ export type StructuredExperimentFilters = {
   results?: string[];
   statuses?: string[];
   tags?: string[];
-  types?: string[];
+  implementationTypes?: string[];
   search?: string;
 };
 
@@ -49,7 +52,7 @@ const SEARCH_FILTER_KEYS = [
 
 // Normalize the various "has" tokens that useExperimentSearch recognizes down
 // to the three experiment types ExperimentSearchFilters can set.
-function normalizeTypeToken(token: string): string | undefined {
+function normalizeImplementationTypeToken(token: string): string | undefined {
   const t = token.toLowerCase();
   if (t === "feature" || t === "features") return "feature";
   if (t === "visualchange" || t === "visualchanges") return "visualChange";
@@ -134,9 +137,9 @@ export function parseExperimentSearchString(
         break;
       case "has":
         addValues(
-          "types",
+          "implementationTypes",
           values
-            .map(normalizeTypeToken)
+            .map(normalizeImplementationTypeToken)
             .filter((v): v is string => v !== undefined),
         );
         break;
@@ -181,10 +184,10 @@ export function normalizeExperimentFilters({
   filters?: StructuredExperimentFilters;
 }): StructuredExperimentFilters {
   const parsed = searchString ? parseExperimentSearchString(searchString) : {};
-  const types = mergeStringArrays(
-    parsed.types,
-    filters?.types
-      ?.map(normalizeTypeToken)
+  const implementationTypes = mergeStringArrays(
+    parsed.implementationTypes,
+    filters?.implementationTypes
+      ?.map(normalizeImplementationTypeToken)
       .filter((v): v is string => v !== undefined),
   );
   return {
@@ -194,7 +197,7 @@ export function normalizeExperimentFilters({
     results: mergeStringArrays(parsed.results, filters?.results),
     statuses: mergeStringArrays(parsed.statuses, filters?.statuses),
     tags: mergeStringArrays(parsed.tags, filters?.tags),
-    types,
+    implementationTypes,
     search: filters?.search ?? parsed.search,
   };
 }
@@ -220,7 +223,7 @@ function matchesCategory(
   return values.some((v) => haystack.has(v.toLowerCase()));
 }
 
-function experimentHasType(
+function experimentHasImplementationType(
   experiment: ExperimentInterface,
   type: string,
 ): boolean {
@@ -303,7 +306,9 @@ export function filterExperiments({
       return false;
     }
 
-    // Result (only stopped experiments carry a result)
+    // Result — matches the recorded `results` field regardless of status.
+    // Results are set when an experiment is stopped but are retained if it's
+    // later restarted, so a running experiment can carry (and match) one.
     if (!matchesCategory(filters.results, [e.results])) return false;
 
     // Status
@@ -326,8 +331,13 @@ export function filterExperiments({
     }
 
     // Type / has (OR across requested types)
-    if (filters.types && filters.types.length > 0) {
-      if (!filters.types.some((t) => experimentHasType(e, t))) return false;
+    if (filters.implementationTypes && filters.implementationTypes.length > 0) {
+      if (
+        !filters.implementationTypes.some((t) =>
+          experimentHasImplementationType(e, t),
+        )
+      )
+        return false;
     }
 
     // Free-text search (approximation of useExperimentSearch's fuzzy match

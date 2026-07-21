@@ -12643,7 +12643,7 @@ paths:
         - $ref: '#/components/parameters/owner'
         - $ref: '#/components/parameters/result'
         - $ref: '#/components/parameters/tag'
-        - $ref: '#/components/parameters/type'
+        - $ref: '#/components/parameters/implementationType'
         - $ref: '#/components/parameters/metricId'
         - $ref: '#/components/parameters/bandits'
         - name: archived
@@ -16224,16 +16224,7 @@ paths:
             description: Filter by comma-separated results (won, lost, inconclusive, dnf)
             type: string
         - $ref: '#/components/parameters/tag'
-        - name: type
-          in: query
-          description: >-
-            Filter by comma-separated experiment types (feature, visualChange,
-            redirect)
-          schema:
-            description: >-
-              Filter by comma-separated experiment types (feature, visualChange,
-              redirect)
-            type: string
+        - $ref: '#/components/parameters/type'
         - $ref: '#/components/parameters/bandits'
         - $ref: '#/components/parameters/startDate'
         - $ref: '#/components/parameters/endDate'
@@ -45946,12 +45937,16 @@ components:
       name: result
       in: query
       description: >-
-        Filter by comma-separated results (won, lost, inconclusive, dnf). Only
-        stopped experiments carry a result
+        Filter by comma-separated results (won, lost, inconclusive, dnf).
+        Matches the experiment's recorded result — set when an experiment is
+        stopped and retained if it's later restarted, so running experiments can
+        match too
       schema:
         description: >-
-          Filter by comma-separated results (won, lost, inconclusive, dnf). Only
-          stopped experiments carry a result
+          Filter by comma-separated results (won, lost, inconclusive, dnf).
+          Matches the experiment's recorded result — set when an experiment is
+          stopped and retained if it's later restarted, so running experiments
+          can match too
         type: array
         items:
           type: string
@@ -45968,16 +45963,18 @@ components:
       schema:
         description: Filter by comma-separated tags
         type: string
-    type:
-      name: type
+    implementationType:
+      name: implementationType
       in: query
       description: >-
-        Filter by comma-separated experiment types (feature, visualChange,
-        redirect)
+        Filter by comma-separated implementation types (feature, visualChange,
+        redirect) — the kinds of changes linked to the experiment. To filter
+        standard experiments vs bandits, use `bandits` instead
       schema:
         description: >-
-          Filter by comma-separated experiment types (feature, visualChange,
-          redirect)
+          Filter by comma-separated implementation types (feature, visualChange,
+          redirect) — the kinds of changes linked to the experiment. To filter
+          standard experiments vs bandits, use `bandits` instead
         type: array
         items:
           type: string
@@ -46064,6 +46061,17 @@ components:
       description: The event id
       schema:
         description: The event id
+        type: string
+    type:
+      name: type
+      in: query
+      description: >-
+        Filter by comma-separated experiment types (feature, visualChange,
+        redirect)
+      schema:
+        description: >-
+          Filter by comma-separated experiment types (feature, visualChange,
+          redirect)
         type: string
     startDate:
       name: startDate

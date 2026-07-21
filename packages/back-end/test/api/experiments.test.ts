@@ -564,7 +564,7 @@ describe("experiments API", () => {
       expect(res.body.experiments[0].id).toBe("exp_tagged");
     });
 
-    it("filters by linked-change type", async () => {
+    it("filters by implementation type", async () => {
       const withFeature = {
         ...experiment,
         id: "exp_feature",
@@ -575,7 +575,7 @@ describe("experiments API", () => {
         withFeature,
       ]);
       const res = await request(app)
-        .get("/api/v1/experiments?type=feature")
+        .get("/api/v1/experiments?implementationType=feature")
         .set("Authorization", "Bearer foo");
 
       expect(res.status).toBe(200);
@@ -583,9 +583,9 @@ describe("experiments API", () => {
       expect(res.body.experiments[0].id).toBe("exp_feature");
     });
 
-    it("rejects an unsupported type value", async () => {
+    it("rejects an unsupported implementationType value", async () => {
       const res = await request(app)
-        .get("/api/v1/experiments?type=banana")
+        .get("/api/v1/experiments?implementationType=banana")
         .set("Authorization", "Bearer foo");
 
       expect(res.status).toBe(400);

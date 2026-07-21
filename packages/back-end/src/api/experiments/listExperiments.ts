@@ -66,7 +66,7 @@ export const listExperiments = createApiRequestHandler(
       owners: splitCsv(req.query.owner),
       results: splitCsv(req.query.result),
       tags: splitCsv(req.query.tag),
-      types: splitCsv(req.query.type),
+      implementationTypes: splitCsv(req.query.implementationType),
       metrics: splitCsv(req.query.metricId),
     },
   });

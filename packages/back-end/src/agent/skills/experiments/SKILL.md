@@ -41,10 +41,13 @@ When the user message starts with `[Page context: <path>]`:
 - **List filtering/sorting:** `GET /api/v1/experiments` filters by `q` (the
   app's search syntax plus free text — rejects `!` and operators with a 400),
   `projectId`, `status` (`draft` | `running` | `stopped`), `tag`, `owner`,
-  `result` (`won` | `lost` | `inconclusive` | `dnf`), `type` (`feature` |
-  `visualChange` | `redirect`), `metricId`, `bandits` (`true` | `false`), and
+  `result` (`won` | `lost` | `inconclusive` | `dnf` — the recorded result,
+  retained even if the experiment is restarted), `implementationType`
+  (`feature` | `visualChange` | `redirect` — the linked-change kind, not the
+  response's `type` field), `metricId`, `bandits` (`true` | `false`), and
   `archived` (`true` | `false`; omit for both). `tag`, `owner`, `result`,
-  `type`, and `metricId` take comma-separated values, ORed within a param;
+  `implementationType`, and `metricId` take comma-separated values, ORed
+  within a param;
   separate params AND together. Sort with `sortBy`
   (`dateCreated` | `dateUpdated` | `name`) + `sortOrder` (default is
   `dateCreated` ascending — oldest first). Filter and sort API-side instead

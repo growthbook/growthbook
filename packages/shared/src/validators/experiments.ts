@@ -210,10 +210,12 @@ export type ExperimentType = (typeof experimentType)[number];
 export const banditStageType = ["explore", "exploit", "paused"] as const;
 export type BanditStageType = (typeof banditStageType)[number];
 
-// The linked-change types the app's experiment "Type" filter recognizes; the
-// back-end normalizer (normalizeTypeToken in services/experimentFilters) also
+// The implementation (linked-change) types the app's experiment "Type" filter
+// recognizes — distinct from the top-level `experiment.type` field (standard
+// vs bandit vs holdout). The back-end normalizer
+// (normalizeImplementationTypeToken in services/experimentFilters) also
 // accepts plural and differently-cased forms of these tokens.
-export const experimentLinkedChangeTypes = [
+export const experimentImplementationTypes = [
   "feature",
   "visualChange",
   "redirect",
@@ -1565,12 +1567,12 @@ export const listExperimentsValidator = {
         .optional(),
       result: csvQueryField(
         experimentResultsType,
-        "Filter by comma-separated results (won, lost, inconclusive, dnf). Only stopped experiments carry a result",
+        "Filter by comma-separated results (won, lost, inconclusive, dnf). Matches the experiment's recorded result — set when an experiment is stopped and retained if it's later restarted, so running experiments can match too",
       ),
       tag: z.string().describe("Filter by comma-separated tags").optional(),
-      type: csvQueryField(
-        experimentLinkedChangeTypes,
-        "Filter by comma-separated experiment types (feature, visualChange, redirect)",
+      implementationType: csvQueryField(
+        experimentImplementationTypes,
+        "Filter by comma-separated implementation types (feature, visualChange, redirect) — the kinds of changes linked to the experiment. To filter standard experiments vs bandits, use `bandits` instead",
       ),
       metricId: z
         .string()
