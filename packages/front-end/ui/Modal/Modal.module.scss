@@ -1,55 +1,21 @@
+// Themes sets width: fit-content for horizontal scroll measurement. Force 100%
+// so the modal body stays vertical-only; wide children manage their own overflow.
+.bodyScrollArea :global(.rt-ScrollAreaViewport) > * {
+  width: 100%;
+}
+
 .body {
   min-width: 0;
-
-  // Scroll the body vertically only. Wide children manage their own overflow
-  // (tables, code blocks, etc.), so horizontal overflow is clipped here rather
-  // than spawning a modal-level horizontal scrollbar.
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-
-  // Keep a thin scrollbar and always reserve its gutter so the content stays
-  // horizontally centered whether or not the scrollbar is visible. The reserved
-  // gutter (8px, see below) plus this box's reduced right padding (pr="6" = 32px)
-  // adds up to the 40px left padding, so the visual left/right gutters stay equal.
-  scrollbar-gutter: stable;
-
-  // Chromium / Safari: the gutter stays a fixed 8px so the centering math above
-  // holds, but the painted thumb is slimmed to ~4px with a transparent border +
-  // background-clip, giving a delicate floating pill like the Radix ScrollArea.
-  // We intentionally do NOT set `scrollbar-width` here — in Chromium `thin`
-  // renders wider (~11px) AND overrides this fixed width, breaking the centering.
-  &::-webkit-scrollbar {
-    width: 8px;
-  }
-  &::-webkit-scrollbar-track {
-    background-color: var(--gray-a3);
-    border-radius: var(--radius-full);
-    border: 2px solid transparent;
-    background-clip: padding-box;
-  }
-  &::-webkit-scrollbar-thumb {
-    background-color: var(--gray-a8);
-    border-radius: var(--radius-full);
-    border: 2px solid transparent;
-    background-clip: padding-box;
-    transition: background-color 100ms;
-  }
-  &::-webkit-scrollbar-thumb:hover {
-    background-color: var(--gray-a9);
-  }
-
-  // Firefox has no ::-webkit-scrollbar; give it a thin native scrollbar with the
-  // same thumb + faint track colors. Scoped to Firefox (@supports -moz-appearance)
-  // so it can't override the fixed 8px gutter above.
-  @supports (-moz-appearance: none) {
-    scrollbar-width: thin;
-    scrollbar-color: var(--gray-a8) var(--gray-a3);
-  }
-
   label:not(.rt-Text) {
     color: var(--text-color-main);
     font-weight: var(--font-weight-bold);
+  }
+
+  // Prevents margin-collapsing artifacts from causing a spurious
+  // scrollbar inside the ScrollArea.
+  &::after {
+    content: "";
+    display: block;
+    height: 0;
   }
 }
