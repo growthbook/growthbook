@@ -1,4 +1,4 @@
-import React, { ChangeEvent, FC, useMemo, useState } from "react";
+import React, { ChangeEvent, FC, useEffect, useMemo, useState } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiCaretRight, PiCaretDown, PiPlus, PiX } from "react-icons/pi";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -152,6 +152,17 @@ const SidebarExperimentFilters: FC<Props> = ({
   const [optionsOpenField, setOptionsOpenField] = useState("");
   // Text typed into the expanded category's combobox search.
   const [filterSearch, setFilterSearch] = useState("");
+  // Keyboard-highlighted option in the open combobox (aria-activedescendant
+  // pattern). Focus stays in the input; Arrow keys move this, Enter selects.
+  const [activeOptionIndex, setActiveOptionIndex] = useState(0);
+
+  // Keep the keyboard-highlighted option scrolled into view as it moves.
+  useEffect(() => {
+    if (!optionsOpenField) return;
+    document
+      .getElementById(`${optionsOpenField}-option-${activeOptionIndex}`)
+      ?.scrollIntoView({ block: "nearest" });
+  }, [optionsOpenField, activeOptionIndex]);
 
   // Shared source of truth for the filter taxonomy (see ExperimentSearchFilters).
   const {
@@ -401,10 +412,12 @@ const SidebarExperimentFilters: FC<Props> = ({
   // The combobox options for an expanded category (not-yet-selected values).
   // Rendered as popover content, so it overlays instead of pushing the accordion
   // open. The popover itself provides the border/background/shadow.
-  const renderOptions = (category: FilterCategory) => {
+  // Visible (not-yet-selected, search-matching) options for a category's
+  // combobox. Also used to drive keyboard navigation in renderCategoryPanel.
+  const visibleOptionsFor = (category: FilterCategory) => {
     const selected = selectedValuesFor(category.key);
     const q = filterSearch.toLowerCase();
-    const options = category.items.filter((item) => {
+    return category.items.filter((item) => {
       const isSelected = selected.some(
         (v) => v.toLowerCase() === item.searchValue.toLowerCase(),
       );
@@ -414,9 +427,19 @@ const SidebarExperimentFilters: FC<Props> = ({
         typeof item.name === "string" ? item.name : item.searchValue;
       return haystack.toLowerCase().includes(q);
     });
+  };
 
+  const renderOptions = (
+    category: FilterCategory,
+    options: FilterCategory["items"],
+    activeIndex: number,
+  ) => {
     return (
-      <Box style={{ maxHeight: 240, overflowY: "auto" }}>
+      <Box
+        id={`${category.key}-listbox`}
+        role="listbox"
+        style={{ maxHeight: 240, overflowY: "auto" }}
+      >
         {options.length === 0 ? (
           <Box px="2" py="2">
             <Text size="small" color="text-low">
@@ -425,37 +448,36 @@ const SidebarExperimentFilters: FC<Props> = ({
           </Box>
         ) : (
           <Box>
-            {options.map((item) => (
-              <Box
-                key={item.id}
-                px="2"
-                py="1"
-                role="button"
-                tabIndex={item.disabled ? undefined : 0}
-                aria-disabled={item.disabled}
-                className={item.disabled ? undefined : "hover-highlight"}
-                style={{
-                  borderRadius: 6,
-                  cursor: item.disabled ? "default" : "pointer",
-                  opacity: item.disabled ? 0.5 : 1,
-                }}
-                // Keep the combobox input focused so the dropdown stays open
-                // across multiple selections.
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => {
-                  if (item.disabled) return;
-                  addValue(category.key, item.searchValue);
-                }}
-                onKeyDown={(e) =>
-                  !item.disabled &&
-                  activateOnKey(e, () =>
-                    addValue(category.key, item.searchValue),
-                  )
-                }
-              >
-                <Text size="small">{item.name}</Text>
-              </Box>
-            ))}
+            {options.map((item, index) => {
+              const active = index === activeIndex && !item.disabled;
+              return (
+                <Box
+                  key={item.id}
+                  id={`${category.key}-option-${index}`}
+                  px="2"
+                  py="1"
+                  role="option"
+                  aria-selected={active}
+                  aria-disabled={item.disabled}
+                  className={item.disabled ? undefined : "hover-highlight"}
+                  style={{
+                    borderRadius: 6,
+                    cursor: item.disabled ? "default" : "pointer",
+                    opacity: item.disabled ? 0.5 : 1,
+                    backgroundColor: active ? "var(--gray-a3)" : undefined,
+                  }}
+                  // Keep the combobox input focused so the dropdown stays open
+                  // across multiple selections.
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => {
+                    if (item.disabled) return;
+                    addValue(category.key, item.searchValue);
+                  }}
+                >
+                  <Text size="small">{item.name}</Text>
+                </Box>
+              );
+            })}
           </Box>
         )}
       </Box>
@@ -467,6 +489,14 @@ const SidebarExperimentFilters: FC<Props> = ({
   const renderCategoryPanel = (category: FilterCategory) => {
     const selected = selectedValuesFor(category.key);
     const optionsOpen = optionsOpenField === category.key;
+    const options = visibleOptionsFor(category);
+    // Clamp the highlighted index in case the list shrank (e.g. after a
+    // selection or a narrower search).
+    const activeIndex = Math.min(
+      activeOptionIndex,
+      Math.max(options.length - 1, 0),
+    );
+    const activeOption = options[activeIndex];
     return (
       <Box pb="3">
         <Popover
@@ -497,13 +527,49 @@ const SidebarExperimentFilters: FC<Props> = ({
                 type="text"
                 placeholder={`Search by ${category.heading.toLowerCase()} name...`}
                 value={filterSearch}
-                onChange={(e) => setFilterSearch(e.target.value)}
-                onFocus={() => setOptionsOpenField(category.key)}
+                onChange={(e) => {
+                  setFilterSearch(e.target.value);
+                  setActiveOptionIndex(0);
+                }}
+                onFocus={() => {
+                  setOptionsOpenField(category.key);
+                  setActiveOptionIndex(0);
+                }}
                 onBlur={() => setOptionsOpenField("")}
+                // Combobox keyboard navigation: focus stays in the input while
+                // Arrow keys move the highlight and Enter selects, so the
+                // portaled options list never needs to receive focus.
+                role="combobox"
+                aria-expanded={optionsOpen}
+                aria-controls={`${category.key}-listbox`}
+                aria-activedescendant={
+                  optionsOpen && activeOption
+                    ? `${category.key}-option-${activeIndex}`
+                    : undefined
+                }
+                onKeyDown={(e) => {
+                  if (!optionsOpen) return;
+                  if (e.key === "ArrowDown") {
+                    e.preventDefault();
+                    setActiveOptionIndex((i) =>
+                      Math.min(i + 1, options.length - 1),
+                    );
+                  } else if (e.key === "ArrowUp") {
+                    e.preventDefault();
+                    setActiveOptionIndex((i) => Math.max(i - 1, 0));
+                  } else if (e.key === "Enter") {
+                    if (activeOption && !activeOption.disabled) {
+                      e.preventDefault();
+                      addValue(category.key, activeOption.searchValue);
+                    }
+                  } else if (e.key === "Escape") {
+                    setOptionsOpenField("");
+                  }
+                }}
               />
             </div>
           }
-          content={renderOptions(category)}
+          content={renderOptions(category, options, activeIndex)}
         />
         {selected.length > 0 && (
           <Flex wrap="wrap" gap="1" mt="2">

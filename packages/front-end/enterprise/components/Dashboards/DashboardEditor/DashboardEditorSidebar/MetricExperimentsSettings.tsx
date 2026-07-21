@@ -238,10 +238,10 @@ export default function MetricExperimentsSettings({
         />
       </SidebarSettingField>
 
-      <Box>
-        <Flex justify="between" align="center" mb="2">
-          <Text weight="semibold">Filter Experiments</Text>
-          {searchSet ? (
+      <SidebarSettingField
+        label="Filter Experiments"
+        accessory={
+          searchSet ? (
             <DashboardFollowToggle
               label="Use dashboard filter"
               tooltip="Follow the dashboard's experiment filter instead of this block's own. Turn off to filter experiments just for this block."
@@ -250,8 +250,9 @@ export default function MetricExperimentsSettings({
                 setFollow("experimentSearchString", enabled)
               }
             />
-          ) : null}
-        </Flex>
+          ) : undefined
+        }
+      >
         {/* The start/end phase-date windows below are specific to this block and
             are never driven by the dashboard filter, so they stay editable even
             when the experiment text filter follows the dashboard. */}
@@ -263,7 +264,7 @@ export default function MetricExperimentsSettings({
           showProjectFilter={false}
           searchDisabled={experimentControlled}
         />
-      </Box>
+      </SidebarSettingField>
 
       <Box>
         <Box mb="2">
