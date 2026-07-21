@@ -1,15 +1,15 @@
 import {
   ExperimentInterfaceExcludingHoldouts,
-  putExperimentShippingCriteriaValidator,
+  putExperimentScheduleValidator,
 } from "shared/validators";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
-import { setExperimentShippingCriteria } from "back-end/src/services/experimentScheduling";
+import { setExperimentSchedule } from "back-end/src/services/experimentScheduling";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { toEnhancedExperimentApiResponse } from "./enhancedExperimentResponse";
 
-export const putExperimentShippingCriteria = createApiRequestHandler(
-  putExperimentShippingCriteriaValidator,
+export const putExperimentSchedule = createApiRequestHandler(
+  putExperimentScheduleValidator,
 )(async (req) => {
   const experiment = await getExperimentById(req.context, req.params.id);
   if (!experiment) throw new Error("Could not find the experiment");
@@ -20,13 +20,16 @@ export const putExperimentShippingCriteria = createApiRequestHandler(
     req.context.permissions.throwPermissionError();
   }
 
-  const { experiment: updated, warnings } = await setExperimentShippingCriteria(
-    {
-      context: req.context,
-      experiment,
-      criteria: req.body,
-    },
-  );
+  // Full-replace: the body is the complete desired schedule + shipping state, so
+  // omitted fields are passed through as cleared.
+  const { experiment: updated, warnings } = await setExperimentSchedule({
+    context: req.context,
+    experiment,
+    startAt: req.body.startAt ?? null,
+    stopAt: req.body.stopAt ?? null,
+    stopAfter: req.body.stopAfter ?? null,
+    shippingCriteria: req.body.shippingCriteria ?? null,
+  });
 
   await req.audit({
     event: "experiment.update",

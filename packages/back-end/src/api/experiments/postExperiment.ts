@@ -1,5 +1,6 @@
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import {
+  ExperimentInterface,
   ExperimentInterfaceExcludingHoldouts,
   ExperimentTemplateInterface,
   Variation,
@@ -18,6 +19,7 @@ import {
   validateVariationIds,
 } from "back-end/src/services/experiments";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
+import { validateShippingCriteria } from "back-end/src/services/experimentScheduling";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { assertExperimentPrecomputedUnitDimensionIdsAreValid } from "back-end/src/services/dimensions";
 import {
@@ -316,6 +318,22 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       req.organization,
       datasource,
     );
+
+    // Same shipping validation as PUT /schedule so create can't persist an
+    // invalid config. Note variation ids are generated here, so a force-ship
+    // fallbackVariationId can't match yet — that's rejected by design.
+    if (newExperiment.shippingCriteria) {
+      const hasScheduledEnd = !!(
+        newExperiment.statusUpdateSchedule?.stopAt ||
+        newExperiment.statusUpdateSchedule?.stopAfter
+      );
+      validateShippingCriteria(
+        req.context,
+        newExperiment as ExperimentInterface,
+        newExperiment.shippingCriteria,
+        hasScheduledEnd,
+      );
+    }
 
     const experiment = await createExperiment({
       data: newExperiment,

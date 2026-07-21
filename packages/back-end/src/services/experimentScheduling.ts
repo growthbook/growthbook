@@ -343,93 +343,17 @@ function assertSchedulable(experiment: ExperimentInterface) {
   }
 }
 
-// A relative `stopAfter` is resolved now for a running experiment, but
-// deferred for a draft (resolved at start by executeExperimentStart).
-export async function setExperimentScheduledStop({
-  context,
-  experiment,
-  stopAt,
-  stopAfter,
-}: {
-  context: Context;
-  experiment: ExperimentInterface;
-  stopAt?: string | Date | null;
-  stopAfter?: ScheduleStopAfter | null;
-}): Promise<{ experiment: ExperimentInterface; warnings: string[] }> {
-  assertSchedulable(experiment);
-  const warnings: string[] = [];
-  const running = experiment.status === "running";
-
-  const dateStarted =
-    experiment.phases[experiment.phases.length - 1]?.dateStarted;
-  const { stopAt: resolvedStopAt, stopAfter: deferredStopAfter } =
-    resolveScheduledStop({
-      stopAt,
-      stopAfter,
-      base: dateStarted ? getValidDate(dateStarted) : new Date(),
-      active: running,
-    });
-
-  if (resolvedStopAt && resolvedStopAt <= new Date()) {
-    warnings.push(
-      "The resolved stop time is in the past; the experiment will stop on the next scheduler run.",
-    );
-  }
-
-  const startAt = experiment.statusUpdateSchedule?.startAt;
-  const changes: Partial<ExperimentInterface> = {
-    statusUpdateSchedule: {
-      ...(startAt ? { startAt } : {}),
-      ...(resolvedStopAt ? { stopAt: resolvedStopAt } : {}),
-      ...(deferredStopAfter ? { stopAfter: deferredStopAfter } : {}),
-    },
-  };
-  // Only a running experiment stages the stop now; a draft stages it at start.
-  if (running) {
-    changes.nextScheduledStatusUpdate = resolvedStopAt
-      ? { type: "stop", date: resolvedStopAt }
-      : null;
-  }
-
-  const updated = await updateExperiment({ context, experiment, changes });
-  return { experiment: updated, warnings };
-}
-
-// Preserves any scheduled start; only the stop is cleared.
-export async function clearExperimentScheduledStop({
-  context,
-  experiment,
-}: {
-  context: Context;
-  experiment: ExperimentInterface;
-}): Promise<{ experiment: ExperimentInterface }> {
-  const startAt = experiment.statusUpdateSchedule?.startAt;
-  const changes: Partial<ExperimentInterface> = {
-    statusUpdateSchedule: startAt ? { startAt } : null,
-    ...(experiment.nextScheduledStatusUpdate?.type === "stop"
-      ? { nextScheduledStatusUpdate: null }
-      : {}),
-  };
-  const updated = await updateExperiment({ context, experiment, changes });
-  return { experiment: updated };
-}
-
-// Validate + persist the shipping automation. Surfaces soft issues (feature not
-// enabled, tiebreaker not a goal metric) as warnings; hard config errors throw.
-export async function setExperimentShippingCriteria({
-  context,
-  experiment,
-  criteria,
-}: {
-  context: Context;
-  experiment: ExperimentInterface;
-  criteria: ExperimentShippingCriteria;
-}): Promise<{ experiment: ExperimentInterface; warnings: string[] }> {
-  if (experiment.type === "multi-armed-bandit") {
-    throw new BadRequestError(
-      "Shipping automation is not supported for Bandit experiments.",
-    );
-  }
+// Validate shipping automation against the experiment and the scheduled end
+// this update is setting. Throws on hard config errors; returns soft warnings
+// (feature not enabled, no scheduled end, tiebreaker not a goal metric).
+// Exported so the create/update experiment body paths run the same checks as
+// the dedicated PUT /schedule endpoint and can't diverge.
+export function validateShippingCriteria(
+  context: Context,
+  experiment: ExperimentInterface,
+  criteria: ExperimentShippingCriteria,
+  hasScheduledEnd: boolean,
+): string[] {
   const warnings: string[] = [];
   const mode = criteria.mode;
   const hasEDF = canAutoShip(context);
@@ -454,10 +378,6 @@ export async function setExperimentShippingCriteria({
   }
   // Every mode except the soft default only acts at a scheduled end — never on
   // a manual stop — so warn if there's no scheduled end for it to attach to.
-  const hasScheduledEnd = !!(
-    experiment.statusUpdateSchedule?.stopAt ||
-    experiment.statusUpdateSchedule?.stopAfter
-  );
   if (mode !== "notify" && !hasScheduledEnd) {
     warnings.push(
       "This only runs at a scheduled end; set a stopAt or stopAfter (a manual stop won't trigger it).",
@@ -492,26 +412,100 @@ export async function setExperimentShippingCriteria({
       "tiebreakerMetricId is not one of the experiment's goal metrics; it will be ignored.",
     );
   }
-
-  const updated = await updateExperiment({
-    context,
-    experiment,
-    changes: { shippingCriteria: criteria },
-  });
-  return { experiment: updated, warnings };
+  return warnings;
 }
 
-export async function clearExperimentShippingCriteria({
+// Full-replace of an experiment's schedule (start + end) and shipping automation
+// in a single write. The arguments represent the COMPLETE desired state: any
+// value left undefined/null is cleared. A relative `stopAfter` is resolved now
+// for a running experiment and deferred for a draft (resolved at start by
+// executeExperimentStart). Hard config errors throw; soft issues are warnings.
+export async function setExperimentSchedule({
   context,
   experiment,
+  startAt,
+  stopAt,
+  stopAfter,
+  shippingCriteria,
 }: {
   context: Context;
   experiment: ExperimentInterface;
-}): Promise<{ experiment: ExperimentInterface }> {
-  const updated = await updateExperiment({
-    context,
-    experiment,
-    changes: { shippingCriteria: null },
+  startAt?: string | Date | null;
+  stopAt?: string | Date | null;
+  stopAfter?: ScheduleStopAfter | null;
+  shippingCriteria?: ExperimentShippingCriteria | null;
+}): Promise<{ experiment: ExperimentInterface; warnings: string[] }> {
+  assertSchedulable(experiment);
+  const warnings: string[] = [];
+  const running = experiment.status === "running";
+
+  const startAtDate = startAt ? getValidDate(startAt) : null;
+
+  // A start can only be (re)scheduled into the future. Skip the check when the
+  // start is unchanged so end/shipping edits on an already-scheduled experiment
+  // don't trip on a start that's now in the past.
+  if (startAtDate) {
+    const existingStartAt = experiment.statusUpdateSchedule?.startAt;
+    const startAtChanged =
+      !existingStartAt ||
+      getValidDate(existingStartAt).getTime() !== startAtDate.getTime();
+    if (startAtChanged && startAtDate <= new Date()) {
+      throw new BadRequestError("startAt must be in the future.");
+    }
+  }
+
+  const dateStarted =
+    experiment.phases[experiment.phases.length - 1]?.dateStarted;
+  const {
+    stopAt: resolvedStopAt,
+    stopAfter: deferredStopAfter,
+    stagedStop,
+  } = resolveScheduledStop({
+    stopAt,
+    stopAfter,
+    base: dateStarted ? getValidDate(dateStarted) : new Date(),
+    active: running,
   });
-  return { experiment: updated };
+
+  if (resolvedStopAt && startAtDate && resolvedStopAt <= startAtDate) {
+    throw new BadRequestError("stopAt must be after startAt.");
+  }
+  if (resolvedStopAt && resolvedStopAt <= new Date()) {
+    warnings.push(
+      "The resolved stop time is in the past; the experiment will stop on the next scheduler run.",
+    );
+  }
+
+  // Validate shipping against the end we're setting in THIS request, not the
+  // stale stored one.
+  const hasScheduledEnd = !!(resolvedStopAt || deferredStopAfter);
+  if (shippingCriteria) {
+    warnings.push(
+      ...validateShippingCriteria(
+        context,
+        experiment,
+        shippingCriteria,
+        hasScheduledEnd,
+      ),
+    );
+  }
+
+  const schedule = {
+    ...(startAtDate ? { startAt: startAtDate } : {}),
+    ...(resolvedStopAt ? { stopAt: resolvedStopAt } : {}),
+    ...(deferredStopAfter ? { stopAfter: deferredStopAfter } : {}),
+  };
+
+  const changes: Partial<ExperimentInterface> = {
+    statusUpdateSchedule: Object.keys(schedule).length > 0 ? schedule : null,
+    // Running experiments stage the stop immediately; drafts stage nothing here
+    // (a scheduled start is staged later via the start endpoint). Either way any
+    // previously-staged action is reset so it must be re-staged from the new
+    // schedule.
+    nextScheduledStatusUpdate: stagedStop,
+    shippingCriteria: shippingCriteria ?? null,
+  };
+
+  const updated = await updateExperiment({ context, experiment, changes });
+  return { experiment: updated, warnings };
 }

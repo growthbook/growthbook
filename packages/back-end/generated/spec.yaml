@@ -12959,14 +12959,18 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"results":"won","releasedVariationId":"var_treatment","winnerVariationId":"var_treatment","enableTemporaryRollout":true,"analysis":"Reached desired sample size with statistically significant positive lift; shipping treatment"}'
-  /v1/experiments/{id}/schedule-stop:
-    post:
-      operationId: postExperimentScheduleStop
-      summary: Schedule when an experiment stops
+  /v1/experiments/{id}/schedule:
+    put:
+      operationId: putExperimentSchedule
+      summary: Set an experiment's schedule and shipping automation
       description: >-
-        Sets the experiment's scheduled end as an absolute `stopAt` or a
-        deferred relative `stopAfter`. A relative end is resolved to a concrete
-        stop time when the experiment starts.
+        Full-replace of the experiment's scheduled start/end and
+        end-of-experiment shipping automation. The body is the complete desired
+        state: any omitted field is cleared (omit `startAt` to remove a
+        scheduled start; send an empty body to clear the whole schedule).
+        Provide either `stopAt` or `stopAfter`, not both; a relative `stopAfter`
+        resolves to a concrete stop when the experiment starts. Auto-ship
+        shipping requires the Decision Framework.
       tags:
         - experiments
       parameters:
@@ -12978,6 +12982,13 @@ paths:
             schema:
               type: object
               properties:
+                startAt:
+                  description: >-
+                    ISO datetime when the experiment should start; must be in
+                    the future. Omit to clear a scheduled start. Staging still
+                    happens via POST /experiments/{id}/start.
+                  format: date-time
+                  type: string
                 stopAt:
                   description: Absolute ISO datetime to stop the experiment.
                   format: date-time
@@ -13000,10 +13011,12 @@ paths:
                     - value
                     - unit
                   additionalProperties: false
+                shippingCriteria:
+                  $ref: '#/components/schemas/ExperimentShippingCriteria'
               additionalProperties: false
       responses:
         '200':
-          description: Resource created
+          description: Resource updated
           content:
             application/json:
               schema:
@@ -13041,143 +13054,11 @@ paths:
       x-codeSamples:
         - lang: cURL
           source: >-
-            curl -X POST
-            'https://api.growthbook.io/api/v1/experiments/exp_abc123/schedule-stop'
-            \
-              -H 'Authorization: Bearer YOUR_API_KEY' \
-              -H 'Content-Type: application/json' \
-              -d '{"stopAfter":{"value":14,"unit":"days"}}'
-    delete:
-      operationId: deleteExperimentScheduleStop
-      summary: Clear an experiment's scheduled stop
-      tags:
-        - experiments
-      parameters:
-        - $ref: '#/components/parameters/id'
-      responses:
-        '200':
-          description: Resource deleted
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  experiment:
-                    $ref: '#/components/schemas/ExperimentWithEnhancedStatus'
-                required:
-                  - experiment
-                additionalProperties: false
-      x-codeSamples:
-        - lang: cURL
-          source: >-
-            curl -X DELETE
-            'https://api.growthbook.io/api/v1/experiments/exp_abc123/schedule-stop'
-            \
-              -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/experiments/{id}/shipping-criteria:
-    put:
-      operationId: putExperimentShippingCriteria
-      summary: Set the end-of-experiment shipping automation
-      description: >-
-        Configures what happens at the scheduled end: notify only, or auto-ship
-        the winning variation (with an optional tiebreaker metric and a
-        notify/force-ship fallback). Auto-ship requires the Decision Framework.
-      tags:
-        - experiments
-      parameters:
-        - $ref: '#/components/parameters/id'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              description: >-
-                What happens at the scheduled end date. `notify` keeps the
-                experiment running and just notifies (soft). `auto-ship`
-                (requires the Decision Framework) ships the winning variation
-                and stops; multi-winner ties break on `tiebreakerMetricId`
-                (higher lift); with no clear winner, `fallback` either keeps
-                running (`notify`) or ships `fallbackVariationId`. `force-ship`
-                stops and rolls out `fallbackVariationId`. `stop` is a hard
-                deadline that stops with no rollout. For `force-ship` and
-                `stop`, the Decision Framework verdict (won/lost/inconclusive)
-                is recorded as metadata when available.
-              id: ExperimentShippingCriteria
-              type: object
-              properties:
-                mode:
-                  type: string
-                  enum:
-                    - notify
-                    - auto-ship
-                    - force-ship
-                    - stop
-                tiebreakerMetricId:
-                  type: string
-                fallback:
-                  type: string
-                  enum:
-                    - notify
-                    - force-ship
-                fallbackVariationId:
-                  type: string
-              required:
-                - mode
-                - fallback
-              additionalProperties: false
-      responses:
-        '200':
-          description: Resource updated
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  experiment:
-                    $ref: '#/components/schemas/ExperimentWithEnhancedStatus'
-                  warnings:
-                    type: array
-                    items:
-                      type: string
-                required:
-                  - experiment
-                additionalProperties: false
-      x-codeSamples:
-        - lang: cURL
-          source: >-
             curl -X PUT
-            'https://api.growthbook.io/api/v1/experiments/exp_abc123/shipping-criteria'
-            \
+            'https://api.growthbook.io/api/v1/experiments/exp_abc123/schedule' \
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
-              -d '{"mode":"auto-ship","tiebreakerMetricId":"met_revenue","fallback":"force-ship","fallbackVariationId":"var_treatment"}'
-    delete:
-      operationId: deleteExperimentShippingCriteria
-      summary: Reset shipping automation to notify-only
-      tags:
-        - experiments
-      parameters:
-        - $ref: '#/components/parameters/id'
-      responses:
-        '200':
-          description: Resource deleted
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  experiment:
-                    $ref: '#/components/schemas/ExperimentWithEnhancedStatus'
-                required:
-                  - experiment
-                additionalProperties: false
-      x-codeSamples:
-        - lang: cURL
-          source: >-
-            curl -X DELETE
-            'https://api.growthbook.io/api/v1/experiments/exp_abc123/shipping-criteria'
-            \
-              -H 'Authorization: Bearer YOUR_API_KEY'
+              -d '{"startAt":"2026-08-01T00:00:00Z","stopAfter":{"value":14,"unit":"days"},"shippingCriteria":{"mode":"auto-ship","tiebreakerMetricId":"met_revenue","fallback":"force-ship","fallbackVariationId":"var_treatment"}}'
   /v1/experiments/{id}/modify-temporary-rollout:
     post:
       operationId: postExperimentModifyTemporaryRollout
