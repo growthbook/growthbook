@@ -132,6 +132,21 @@ export const postReleasePublishRevisions = createApiRequestHandler(
   const callerIdFor = (entityType: string, entityId: string) =>
     callerIdByInternal.get(`${entityType}:${entityId}`) ?? entityId;
 
+  // One flat result-item shape for every response surface (dry-run, success,
+  // and the commit-error body) — `id` speaks the caller's identifier, never
+  // the internal entityId.
+  const toResponseItem = <S extends string>(
+    ref: BulkPublishItemRef,
+    revisionId: string,
+    status: S,
+  ) => ({
+    entityType: ref.entityType,
+    id: callerIdFor(ref.entityType, ref.entityId),
+    version: ref.version,
+    revisionId,
+    status,
+  });
+
   const serializeGate = (gate: BulkPublishGate) => ({
     entityType: gate.entityType,
     id: callerIdFor(gate.entityType, gate.entityId),
@@ -166,13 +181,9 @@ export const postReleasePublishRevisions = createApiRequestHandler(
   if (req.body.dryRun) {
     return {
       dryRun: true,
-      results: plan.items.map((item) => ({
-        entityType: item.ref.entityType,
-        id: callerIdFor(item.ref.entityType, item.ref.entityId),
-        version: item.ref.version,
-        revisionId: item.revision.id,
-        status: "would-publish" as const,
-      })),
+      results: plan.items.map((item) =>
+        toResponseItem(item.ref, item.revision.id, "would-publish"),
+      ),
       gates: plan.gates.map(serializeGate),
       bypassedGates: serializeBypassed(plan),
       warnings: plan.warnings,
@@ -192,13 +203,9 @@ export const postReleasePublishRevisions = createApiRequestHandler(
     if (e instanceof BulkPublishCommitError) {
       throw new BulkPublishCommitError(
         e.message,
-        (e.items as BulkPublishItemResult[]).map((item) => ({
-          entityType: item.ref.entityType,
-          id: callerIdFor(item.ref.entityType, item.ref.entityId),
-          version: item.ref.version,
-          revisionId: item.revisionId,
-          status: item.status,
-        })),
+        (e.items as BulkPublishItemResult[]).map((item) =>
+          toResponseItem(item.ref, item.revisionId, item.status),
+        ),
       );
     }
     throw e;
@@ -207,13 +214,9 @@ export const postReleasePublishRevisions = createApiRequestHandler(
   return {
     dryRun: false,
     bulkPublishId: result.bulkPublishId,
-    results: result.items.map((item) => ({
-      entityType: item.ref.entityType,
-      id: callerIdFor(item.ref.entityType, item.ref.entityId),
-      version: item.ref.version,
-      revisionId: item.revisionId,
-      status: "published" as const,
-    })),
+    results: result.items.map((item) =>
+      toResponseItem(item.ref, item.revisionId, "published"),
+    ),
     gates: [],
     bypassedGates: serializeBypassed(plan),
     warnings: result.warnings,

@@ -1,4 +1,3 @@
-import { isEqual } from "lodash";
 import type { MergeResultChanges } from "shared/util";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
@@ -42,6 +41,7 @@ import {
 import { assertFeatureNotLockedByRamp } from "back-end/src/services/rampSchedule";
 import { bulkPublishFields } from "back-end/src/events/bulkPublishCorrelation";
 import { getErrorMessage } from "back-end/src/util/errors";
+import { ownedRestoreValues } from "back-end/src/revisions/bulkPublish/ownedRestore";
 import type { PublishGate } from "back-end/src/revisions/publishGates";
 import type {
   BulkPublishableAdapter,
@@ -260,6 +260,13 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
         })),
       );
     } catch (e) {
+      // Only the structural config-backed-default rejection (a 4xx payload
+      // error, the one thing this collector throws rather than gates) becomes a
+      // no-override gate. Infra failures — transient DB errors in the
+      // archive-dependents / value scans inside — propagate as the 5xx they
+      // are, instead of masquerading as a permanent unfixable blocker.
+      const status = (e as { status?: number }).status;
+      if (typeof status !== "number" || status >= 500) throw e;
       gates.push({
         type: "config-backed-default",
         severity: "blocker",
@@ -463,25 +470,16 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
           ...changes,
           ...(mergeResult.holdout === null ? { holdout: undefined } : {}),
         };
-    const currentDoc = current as unknown as Record<string, unknown>;
-    const restore = Object.fromEntries(
-      [...restoreKeys]
-        // Same ownership rule as the generic adapter: restore a key only
-        // while the live doc still holds the failed publish's value —
-        // anything else was moved by a concurrent writer (or never written
-        // by this apply) and must not be clobbered with the pre-image.
-        .filter((key) => isEqual(currentDoc[key], written[key]))
-        // The doc's holdout pointer follows the side collections: if their
-        // reversal failed, keep the doc at the failed publish's holdout state
-        // so membership stays consistent end to end.
-        .filter((key) => key !== "holdout" || holdoutReversalOk)
-        .map((key) => [
-          key,
-          // null-as-clear: undefined pre-image values would be dropped by the
-          // update path's changes filter, leaving apply-added fields in place.
-          feature[key as keyof FeatureInterface] ?? null,
-        ]),
-    ) as Partial<FeatureInterface>;
+    const restore = ownedRestoreValues({
+      keys: restoreKeys,
+      preImage: feature as unknown as Record<string, unknown>,
+      written,
+      current: current as unknown as Record<string, unknown>,
+      // The doc's holdout pointer follows the side collections: if their
+      // reversal failed, keep the doc at the failed publish's holdout state so
+      // membership stays consistent end to end.
+      skip: (key) => key === "holdout" && !holdoutReversalOk,
+    }) as Partial<FeatureInterface>;
     if (Object.keys(restore).length) {
       await updateFeature(context, current, restore);
     }

@@ -6,10 +6,14 @@ import {
   normalizeProposedChanges,
 } from "shared/enterprise";
 import type { Context } from "back-end/src/models/BaseModel";
-import type { EntityRevisionAdapter } from "back-end/src/revisions/EntityRevisionAdapter";
+import {
+  type EntityRevisionAdapter,
+  filterUpdatableChanges,
+} from "back-end/src/revisions/EntityRevisionAdapter";
 import type { PublishGate } from "back-end/src/revisions/publishGates";
 import { buildMergeDesiredState } from "back-end/src/revisions/util";
 import { collectRevisionGovernanceGates } from "back-end/src/revisions/governanceGates";
+import { ownedRestoreValues } from "back-end/src/revisions/bulkPublish/ownedRestore";
 import { getRevisionWebhookAdapter } from "back-end/src/events/revisionWebhookAdapters";
 import { ConflictError, MergeConflictError } from "back-end/src/util/errors";
 import type {
@@ -101,11 +105,11 @@ export function makeGenericBulkAdapter(
         raw.target.proposedChanges,
         updatable,
       );
-      // isEqual, matching filterUpdatableChanges — key-order-sensitive
-      // stringify would misroute deep-equal no-ops into the apply path.
-      const hasChanges = Object.keys(desiredState).some(
-        (key) => updatable.has(key) && !isEqual(desiredState[key], entity[key]),
-      );
+      // Exactly what applyChanges will write — same filter, so hasChanges can
+      // never disagree with the apply about whether there's a net change.
+      const hasChanges =
+        Object.keys(filterUpdatableChanges(desiredState, entity, updatable))
+          .length > 0;
       return {
         desiredState,
         hasChanges,
@@ -239,24 +243,16 @@ export function makeGenericBulkAdapter(
       const written =
         (revision.writtenEntity as Record<string, unknown> | null) ??
         desiredState;
-      const restore: Record<string, unknown> = {};
-      for (const key of Object.keys(desiredState)) {
-        if (!updatable.has(key)) continue;
-        const original = (preImage as Record<string, unknown>)[key];
-        if (isEqual(desiredState[key], original)) continue;
-        // Restore a key only while the live doc still holds the value this
-        // apply wrote — a later writer's different value is newer intent and
-        // must not be clobbered. Value-based, so it can't catch a concurrent
-        // writer that set the key to the SAME value our apply wrote: that
-        // residual overwrite is the entity-write lost-update window, closed
-        // only by CAS-guarding the apply itself.
-        if (!isEqual((current as Record<string, unknown>)[key], written[key])) {
-          continue;
-        }
-        // null (not undefined) as the clear signal so the write layer's
-        // updatable-changes filter doesn't drop fields the apply added.
-        restore[key] = original === undefined ? null : original;
-      }
+      const pre = preImage as Record<string, unknown>;
+      const restore = ownedRestoreValues({
+        keys: Object.keys(desiredState).filter((k) => updatable.has(k)),
+        preImage: pre,
+        written,
+        current: current as Record<string, unknown>,
+        // A key whose desired value already equals the pre-image asked for no
+        // net change — nothing to restore.
+        skip: (key) => isEqual(desiredState[key], pre[key]),
+      });
       if (!Object.keys(restore).length) return;
       await adapter.applyChanges(context, current, restore, {
         // Restoring a pre-image is semantically a revert to a known-good

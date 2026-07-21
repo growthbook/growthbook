@@ -10,6 +10,7 @@ import { UpdateFilter } from "mongodb";
 import { savedGroupUpdated } from "back-end/src/services/savedGroups";
 import { emitOrDeferBulkPublishEvent } from "back-end/src/events/bulkPublishCorrelation";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
+import { overlayDocsById } from "back-end/src/util/scanOverlay.util";
 import {
   logSavedGroupCreatedEvent,
   logSavedGroupUpdatedEvent,
@@ -43,6 +44,21 @@ const BaseClass = MakeModelClass({
 });
 
 export class SavedGroupModel extends BaseClass<WriteOptions> {
+  // Substitutes proposed (unwritten) saved-group docs into getAll() reads so a
+  // publish-time scan (the archive-dependents gate resolves saved-group →
+  // saved-group condition references) sees the batch's combined end-state.
+  // Only ever set on a dedicated plan-scoped scan context — never a request
+  // context that writes. No-op when unset (overlayDocsById returns as-is).
+  private scanOverlay: Map<string, SavedGroupInterface> | null = null;
+
+  public setScanOverlay(docs: SavedGroupInterface[]): void {
+    this.scanOverlay = new Map(docs.map((d) => [d.id, d]));
+  }
+
+  public async getAll(): Promise<SavedGroupInterface[]> {
+    return overlayDocsById(await super.getAll(), this.scanOverlay);
+  }
+
   protected canRead(doc: SavedGroupInterface): boolean {
     return this.context.permissions.canReadMultiProjectResource(doc.projects);
   }

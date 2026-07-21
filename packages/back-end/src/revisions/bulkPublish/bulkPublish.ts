@@ -1,6 +1,7 @@
 import { ConfigInterface } from "shared/types/config";
 import { ConstantInterface } from "shared/types/constant";
 import { FeatureInterface } from "shared/types/feature";
+import { SavedGroupInterface } from "shared/types/saved-group";
 import uniqid from "uniqid";
 import type { Context } from "back-end/src/models/BaseModel";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
@@ -42,12 +43,18 @@ function tag(ref: BulkPublishItemRef, gates: PublishGate[]): BulkPublishGate[] {
   }));
 }
 
+// User-facing entity noun per the copy glossary: first-class resources are
+// Title Case; configs/constants are lowercase common nouns.
 function displayEntityName(entityType: BulkPublishTargetType): string {
   switch (entityType) {
     case "feature":
       return "Feature Flag";
     case "saved-group":
       return "Saved Group";
+    case "config":
+      return "config";
+    case "constant":
+      return "constant";
     default:
       return entityType;
   }
@@ -232,25 +239,29 @@ export async function planBulkPublish(
   // introduced-violation diffs need a live baseline for X.
   const overlayContext = getContextForAgendaJobByOrgObject(context.org);
   overlayContext.scanContextOverride = overlayContext;
+  // NOTE: every entity type whose guards resolve cross-entity state needs a
+  // branch here, or its items are validated against live state (a false
+  // positive — exactly what the overlay prevents). Lifting this into a
+  // per-adapter overlay method is tracked follow-up work.
+  const proposedOf = <T>(others: Loaded[], type: string): T[] =>
+    others
+      .filter((l) => l.ref.entityType === type)
+      .map((l) => l.proposedEntity as unknown as T);
   const applyOverlaysExcluding = (excluded: Loaded) => {
     const others = loaded.filter((l) => l !== excluded);
     overlayContext.models.configs.setScanOverlay(
-      others
-        .filter((l) => l.ref.entityType === "config")
-        .map((l) => l.proposedEntity as unknown as ConfigInterface),
+      proposedOf<ConfigInterface>(others, "config"),
     );
     overlayContext.models.constants.setScanOverlay(
-      others
-        .filter((l) => l.ref.entityType === "constant")
-        .map((l) => l.proposedEntity as unknown as ConstantInterface),
+      proposedOf<ConstantInterface>(others, "constant"),
+    );
+    // Saved-group → saved-group condition references (the archive-dependents
+    // gate) resolve against getAll(), so overlay proposed saved groups too.
+    overlayContext.models.savedGroups.setScanOverlay(
+      proposedOf<SavedGroupInterface>(others, "saved-group"),
     );
     overlayContext.featureScanOverlay = new Map(
-      others
-        .filter((l) => l.ref.entityType === "feature")
-        .map((l) => [
-          l.ref.entityId,
-          l.proposedEntity as unknown as FeatureInterface,
-        ]),
+      proposedOf<FeatureInterface>(others, "feature").map((f) => [f.id, f]),
     );
   };
 
