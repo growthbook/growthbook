@@ -67,7 +67,7 @@ Use the `/api/v2/features` list endpoint with query params to narrow results. `t
 }
 ```
 
-Only environment state and rule shape have no API filter — for those, fetch the (param-narrowed) set and filter client-side from the response fields.
+Not everything the app's search box supports has an API filter. No list filter exists for: environment on/off state, rule shape (no rules, prerequisites, saved groups, linked experiments, temp rollouts), free-text description search, or created/updated date ranges — for those, fetch the (param-narrowed) set and filter client-side from the response fields. Staleness, drafts, and dependency lookups are better served by their dedicated endpoints (Path C below, `flag-revisions`, `flag-graph`) than by client-side filtering.
 
 Common searches:
 
