@@ -13,7 +13,7 @@ import { isCloud, isMultiOrg } from "@/services/env";
 import { PermissionFunctions, useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Badge from "@/ui/Badge";
+import BetaBadge from "@/ui/Badge/BetaBadge";
 import styles from "./SidebarLink.module.scss";
 
 export type SidebarLinkFilterProps = {
@@ -159,14 +159,7 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
             </span>
           )}
           {props.name}
-          {props.beta && (
-            <div
-              className="badge border text-uppercase ml-2"
-              style={{ opacity: 0.65 }}
-            >
-              beta
-            </div>
-          )}
+          {props.beta && <BetaBadge ml="2" />}
           {props.subLinks && (
             <div className={clsx("float-right", styles.chevron)}>
               <FiChevronRight />
@@ -215,15 +208,7 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
                     </>
                   )}
                   {l.name}
-                  {l.beta && (
-                    <Badge
-                      color="indigo"
-                      label="Beta"
-                      variant="solid"
-                      size="xs"
-                      ml="1"
-                    />
-                  )}
+                  {l.beta && <BetaBadge ml="1" />}
                 </Link>
               </li>
             );
