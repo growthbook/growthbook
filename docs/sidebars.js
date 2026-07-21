@@ -334,7 +334,7 @@ export default {
             {
               type: "doc",
               id: "experimentation-analysis/experiment-configuration",
-              label: "Experiment Settings",
+              label: "Experiment Configuration",
             },
             {
               type: "doc",

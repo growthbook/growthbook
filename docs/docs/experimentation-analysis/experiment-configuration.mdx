@@ -3,6 +3,8 @@ description: Create, configure, and analyze your experiments.
 slug: /app/experiment-configuration
 ---
 
+import ExternalLink from '@site/src/components/ExternalLink';
+
 # Experiment Configuration
 
 The Experiments section in GrowthBook is where you create experiments, configure their analysis, and review results.
@@ -19,7 +21,7 @@ Before [analyzing results](/app/experiment-results), you need to run the experim
 
 GrowthBook uses a slim creation flow: you start by creating a minimal experiment, then configure everything else afterward on the experiment's **Overview** page.
 
-To create a new experiment, go to **Experiments → Add → Create New Experiment**. The creation modal only asks for the essentials:
+To create a new experiment, go to the [**Experiments** <ExternalLink />](https://app.growthbook.io/experiments) page and click **Add → Create New Experiment**. The creation modal only asks for the essentials:
 
 - **Name**
 - **Project** (if you use projects)
@@ -27,8 +29,9 @@ To create a new experiment, go to **Experiments → Add → Create New Experimen
 - **Holdout** (optional)
 - **Hypothesis**
 - **Assignment Attribute** — the attribute hashed together with the tracking key to bucket users into variations
+- **Custom Fields** — optional [custom fields](/using/growthbook-best-practices#custom-fields) added by your organization to experiments
 
-GrowthBook creates the experiment as a **draft** with two default variations and, when possible, auto-selects your data source. You are then taken to the experiment's Overview tab, where you finish setup (see [Configuring an Experiment](#configuring-an-experiment)).
+GrowthBook creates the experiment as a **draft** with two default variations and, when possible, auto-selects your data source and experiment assignment table. You are then taken to the experiment's Overview tab, where you finish setup (see [Configuring an Experiment](#configuring-an-experiment)).
 
 ### Start From a Template
 
