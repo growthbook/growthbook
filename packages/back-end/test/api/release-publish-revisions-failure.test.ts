@@ -21,6 +21,7 @@ let mockFailConstantRestore = false;
 let mockFailConstantReleaseClaim = false;
 let mockFeatureClaimConflict = false;
 let mockFeatureReleaseNoop = false;
+let mockConstantBaselineUnavailable = false;
 let mockBeforeFeatureApply: (() => Promise<void>) | null = null;
 jest.mock("back-end/src/revisions/bulkPublish/registry", () => {
   return new Proxy(
@@ -59,6 +60,21 @@ jest.mock("back-end/src/revisions/bulkPublish/registry", () => {
           if (type === "constant") {
             return {
               ...adapter,
+              applyPrecomputed: async (...args: unknown[]) => {
+                const result = await adapter.applyPrecomputed(...args);
+                // Simulate the post-apply baseline read failing: the real apply
+                // persisted (maybe normalized), but writtenEntity couldn't be
+                // captured, so compensation has no trustworthy ownership baseline.
+                if (mockConstantBaselineUnavailable) {
+                  const ref = args[2] as {
+                    writtenEntity?: unknown;
+                    writtenEntityUnavailable?: boolean;
+                  };
+                  ref.writtenEntity = undefined;
+                  ref.writtenEntityUnavailable = true;
+                }
+                return result;
+              },
               restorePreImage: async (...args: unknown[]) => {
                 if (mockFailConstantRestore) {
                   throw new Error("simulated restore failure");
@@ -112,6 +128,7 @@ describe("POST /api/v2/releases/publish-revisions — commit failure", () => {
     mockFailConstantReleaseClaim = false;
     mockFeatureClaimConflict = false;
     mockFeatureReleaseNoop = false;
+    mockConstantBaselineUnavailable = false;
     mockBeforeFeatureApply = null;
   });
 
@@ -808,5 +825,99 @@ describe("POST /api/v2/releases/publish-revisions — commit failure", () => {
     expect(failed.some((e) => e.data?.data?.object?.key === "restamp")).toBe(
       false,
     );
+  });
+
+  it("reports a generic item published when its post-apply baseline is unavailable", async () => {
+    // The constant applies (possibly normalized), but the post-apply read that
+    // captures the ownership baseline fails. Compensation then has no
+    // trustworthy baseline — restoring against desiredState could silently skip
+    // a normalized field — so the item must be reported published (left whole
+    // at the publish state), not a clean rollback.
+    setReqContext(makeContext());
+    const now = new Date();
+
+    await mongoose.connection.collection("constants").insertOne({
+      id: "const_nobaseline",
+      organization: ORG_ID,
+      key: "nobaseline",
+      name: "nobaseline",
+      owner: "",
+      type: "string",
+      value: "before",
+      dateCreated: now,
+      dateUpdated: now,
+    });
+    const stageRes = await request(app)
+      .put(`/api/v1/constants-revisions/nobaseline/new/value`)
+      .send({ value: "after" })
+      .set("Authorization", "Bearer foo");
+    expect(stageRes.status).toBe(200);
+    const constVersion = stageRes.body.revision.version;
+
+    await mongoose.connection.collection("features").insertOne({
+      id: "nobaseline-feat",
+      organization: ORG_ID,
+      owner: "",
+      valueType: "string",
+      defaultValue: "live",
+      version: 1,
+      environmentSettings: {},
+      dateCreated: now,
+      dateUpdated: now,
+    });
+    await mongoose.connection.collection("featurerevisions").insertMany([
+      {
+        organization: ORG_ID,
+        featureId: "nobaseline-feat",
+        version: 1,
+        baseVersion: 0,
+        status: "published",
+        defaultValue: "live",
+        rules: [],
+        dateCreated: now,
+        dateUpdated: now,
+        datePublished: now,
+      },
+      {
+        organization: ORG_ID,
+        featureId: "nobaseline-feat",
+        version: 2,
+        baseVersion: 1,
+        status: "draft",
+        defaultValue: "new-value",
+        rules: [],
+        dateCreated: now,
+        dateUpdated: now,
+      },
+    ]);
+
+    mockConstantBaselineUnavailable = true;
+    mockFailFeatureApply = true;
+    const res = await request(app)
+      .post("/api/v2/releases/publish-revisions")
+      .send({
+        revisions: [
+          { entityType: "constant", key: "nobaseline", version: constVersion },
+          { entityType: "feature", id: "nobaseline-feat", version: 2 },
+        ],
+      })
+      .set("Authorization", "Bearer foo");
+    expect(res.status).toBe(500);
+
+    const byId = Object.fromEntries(
+      (res.body.items as { id: string; status: string }[]).map((item) => [
+        item.id,
+        item.status,
+      ]),
+    );
+    // No trustworthy baseline → reported published, not rolled-back.
+    expect(byId["nobaseline"]).toBe("published");
+    expect(byId["nobaseline-feat"]).toBe("rolled-back");
+
+    // Left whole at the publish state: value NOT restored to the pre-image.
+    const constant = await mongoose.connection
+      .collection("constants")
+      .findOne({ organization: ORG_ID, key: "nobaseline" });
+    expect(constant?.value).toBe("after");
   });
 });

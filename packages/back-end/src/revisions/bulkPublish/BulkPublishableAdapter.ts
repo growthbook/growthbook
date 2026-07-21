@@ -31,6 +31,12 @@ export type BulkRevisionRef = {
    * ONLY these, so a field the write dropped never clobbers a concurrent value.
    */
   persistedKeys?: string[];
+  /**
+   * Set by applyPrecomputed() when the post-apply read that captures
+   * `writtenEntity` failed: compensation has no trustworthy ownership baseline,
+   * so restorePreImage reports the item published rather than best-guessing.
+   */
+  writtenEntityUnavailable?: boolean;
 };
 
 /**

@@ -250,7 +250,12 @@ export function makeGenericBulkAdapter(
           revision.writtenEntity =
             (await model?.getById((entity as { id: string }).id)) ?? null;
         } catch {
-          // Best-effort; restore falls back to the desired-state baseline.
+          // The post-apply read failed → we have no reliable ownership baseline
+          // (desiredState isn't it: a normalized config value differs from what
+          // Mongo stored). Flag it so compensation reports the item published
+          // rather than a best-guess restore that could silently skip a written
+          // field. Never rethrow here — must not mask the original apply error.
+          revision.writtenEntityUnavailable = true;
         }
       }
     },
@@ -265,6 +270,16 @@ export function makeGenericBulkAdapter(
       if (!current) {
         throw new Error(
           `bulk publish compensation: ${targetType} "${(preImage as { id: string }).id}" no longer exists — cannot restore its pre-image`,
+        );
+      }
+      // The post-apply read failed during apply, so we have no trustworthy
+      // ownership baseline. Restoring against desiredState would silently skip a
+      // normalized field the publish wrote; surface it instead (item reported
+      // published, left whole at the publish state) rather than a partial roll-
+      // back reported clean.
+      if (revision.writtenEntityUnavailable) {
+        throw new Error(
+          `bulk publish compensation: ${targetType} "${(preImage as { id: string }).id}" — post-apply baseline unavailable; cannot safely roll back, left at the published state`,
         );
       }
       // Restore only the fields the apply ACTUALLY persisted — captured from
