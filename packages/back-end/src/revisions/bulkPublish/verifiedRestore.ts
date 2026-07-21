@@ -1,20 +1,12 @@
 import { isEqual } from "lodash";
 
 /**
- * Apply a compensation restore and PROVE it landed. `write` persists the given
- * fields and returns the keys it actually wrote (post updatable-filter and
- * post-normalization). If any intended field was dropped — and isn't already at
- * its restore value (a no-op the write filter legitimately skips) — the
- * rollback is partial: throw so the caller records a reversal failure and the
- * item is reported still-published, never a clean rollback missing a field a
- * failed publish wrote.
- *
- * This is the single enforcement point behind the compensation invariant: a
- * restore step reports success ONLY when its write is provably complete. It
- * turns a "silently partial write" (a config field stripped by normalization
- * against changed ancestry, a filter-dropped key) into a surfaced failure, and
- * makes an upstream best-effort baseline capture safe — its degraded input can
- * no longer masquerade as a clean rollback.
+ * Apply a compensation restore and confirm it fully landed. `write` persists
+ * the fields and returns the keys it actually wrote (post updatable-filter and
+ * normalization). A field that was dropped but isn't already at its restore
+ * value (a no-op the filter skips) means the rollback is partial — throw so the
+ * caller surfaces it and the item is reported published, not a clean rollback
+ * missing a field the publish wrote.
  */
 export async function applyVerifiedRestore(params: {
   restore: Record<string, unknown>;

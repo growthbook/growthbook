@@ -378,13 +378,12 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
   async restorePreImage(context, preImage, revision, desiredState) {
     const feature = preImage as unknown as FeatureInterface;
     const desired = desiredState as unknown as FeatureDesiredState;
-    // Accumulates every satellite reversal that couldn't complete; a non-empty
-    // list at the end makes the item report "published" (stuck) rather than a
-    // clean rollback. Declared FIRST so the ramp-schedule cleanup below feeds it.
+    // Every satellite reversal that couldn't complete; a non-empty list at the
+    // end reports the item "published" (stuck), not a clean rollback. Declared
+    // before the ramp cleanup below so that feeds it too.
     const reversalFailures: string[] = [];
-    // Ramp schedules created by this item's apply must not linger as orphans.
-    // A failed delete surfaces (not a silent log) so a leftover armed schedule
-    // can't hide behind a "rolled-back" report.
+    // Delete ramp schedules this apply created; a failed delete surfaces (not a
+    // silent log) so a leftover armed schedule can't hide behind a rollback.
     if (desired.createdRampScheduleIds?.length) {
       const failedIds = await rollbackCreatedRampSchedules(
         context,
@@ -395,12 +394,9 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       }
     }
     const current = await getFeature(context, feature.id);
-    // This apply wrote the feature, so it should exist. If it's gone (a
-    // concurrent hard-delete between apply and compensation), surface it —
-    // reporting the item "rolled-back" would assert a pre-image that no longer
-    // exists, and the doc-dependent satellite reversals below can't run without
-    // it. Throwing routes the item to restore-failed (needs attention), the
-    // same honest outcome the generic adapter gives.
+    // Entity gone (concurrent hard-delete): can't restore a pre-image that no
+    // longer exists, and the doc-dependent reversals below need it → route to
+    // restore-failed (reported published).
     if (!current) {
       throw new Error(
         `bulk publish compensation: feature "${feature.id}" no longer exists — cannot restore its pre-image`,

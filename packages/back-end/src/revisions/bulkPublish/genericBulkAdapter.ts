@@ -239,22 +239,17 @@ export function makeGenericBulkAdapter(
           { isRevert: !!raw.revertedFrom },
         );
       } finally {
-        // Capture the post-apply doc as the ownership baseline compensation
-        // compares the live doc against — the write may NORMALIZE what it
-        // persists (config schemas stripped against ancestors), so desiredState
-        // is not it. In `finally` because applyChanges can throw AFTER a partial
-        // write (config root written, descendant reconcile then throws): without
-        // the real post-write doc, a normalized field looks un-owned and the
-        // restore silently skips it. Guarded so it never masks the apply error.
+        // The post-apply doc is compensation's ownership baseline — the write
+        // may normalize what it persists (config schemas stripped against
+        // ancestors), so desiredState isn't it. Captured in `finally` so a
+        // mid-cascade throw (root written, reconcile then fails) still records
+        // it. If even this read fails, flag it: without a baseline the restore
+        // can't run safely, so compensation reports the item published. Never
+        // rethrow — that would mask the original apply error.
         try {
           revision.writtenEntity =
             (await model?.getById((entity as { id: string }).id)) ?? null;
         } catch {
-          // The post-apply read failed → we have no reliable ownership baseline
-          // (desiredState isn't it: a normalized config value differs from what
-          // Mongo stored). Flag it so compensation reports the item published
-          // rather than a best-guess restore that could silently skip a written
-          // field. Never rethrow here — must not mask the original apply error.
           revision.writtenEntityUnavailable = true;
         }
       }
@@ -263,38 +258,30 @@ export function makeGenericBulkAdapter(
     async restorePreImage(context, preImage, revision, desiredState) {
       const model = adapter.getModel(context);
       const current = await model?.getById((preImage as { id: string }).id);
-      // This apply wrote the entity, so it should exist. If it's gone (a
-      // concurrent hard-delete between apply and compensation), surface it —
-      // reporting the item "rolled-back" would assert a pre-image that no
-      // longer exists. Throwing routes it to restore-failed (needs attention).
+      // Entity gone (concurrent hard-delete): can't restore a pre-image that no
+      // longer exists → route to restore-failed (reported published).
       if (!current) {
         throw new Error(
           `bulk publish compensation: ${targetType} "${(preImage as { id: string }).id}" no longer exists — cannot restore its pre-image`,
         );
       }
-      // The post-apply read failed during apply, so we have no trustworthy
-      // ownership baseline. Restoring against desiredState would silently skip a
-      // normalized field the publish wrote; surface it instead (item reported
-      // published, left whole at the publish state) rather than a partial roll-
-      // back reported clean.
+      // No ownership baseline (the post-apply read failed): restoring against
+      // desiredState could silently skip a normalized field, so report the item
+      // published (left whole at the publish state) rather than guess.
       if (revision.writtenEntityUnavailable) {
         throw new Error(
           `bulk publish compensation: ${targetType} "${(preImage as { id: string }).id}" — post-apply baseline unavailable; cannot safely roll back, left at the published state`,
         );
       }
-      // Restore only the fields the apply ACTUALLY persisted — captured from
-      // applyChanges, so a key dropped by the updatable filter or by config
-      // normalization is never rolled back over a concurrent writer's value.
-      // Falls back to the desired-state keys when applyChanges THREW before
-      // returning (a mid-cascade partial apply): paired with the finally-
-      // captured writtenEntity baseline, a key that wasn't actually written is
-      // a no-op restore, and one that was persisted still rolls back.
+      // Restore only the fields the apply persisted, so a key dropped by the
+      // filter or by normalization can't clobber a concurrent writer's value.
+      // Fall back to the desired-state keys if applyChanges threw before
+      // returning them; with the finally-captured baseline an unwritten key is
+      // a no-op restore and a written one still rolls back.
       const updatable = adapter.getUpdatableFields();
       const persistedKeys =
         revision.persistedKeys ??
         Object.keys(desiredState).filter((k) => updatable.has(k));
-      // What the apply actually persisted: the post-apply doc when the write
-      // completed (normalization-aware), else the precomputed desired state.
       const written =
         (revision.writtenEntity as Record<string, unknown> | null) ??
         desiredState;
