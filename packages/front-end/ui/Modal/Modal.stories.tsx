@@ -1,6 +1,13 @@
-import { Box, Flex, TextField } from "@radix-ui/themes";
-import { CSSProperties, useState } from "react";
+import { Box, Flex, ScrollArea, TextField } from "@radix-ui/themes";
+import { useState } from "react";
 import Modal, { Size } from "@/ui/Modal";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+} from "../Table";
 import Button from "../Button";
 import { Select, SelectItem } from "../Select";
 import Text from "../Text";
@@ -17,63 +24,36 @@ function SubmitButton() {
 }
 
 // A table wider than the modal. It proves horizontal overflow is handled by the
-// child itself (its own overflow-x: auto), and never spills into the modal body,
-// which is vertical-scroll only.
+// child itself and never spills into the modal body, which is vertical-scroll
+// only. The design-system <Table> supplies the markup, and a Radix <ScrollArea
+// scrollbars="horizontal"> owns the sideways scroll — the same primitive the
+// modal body uses, so the two scrollbars stay visually consistent.
 function WideTable() {
   const columns = Array.from({ length: 12 }, (_, i) => `Metric ${i + 1}`);
   const rows = Array.from({ length: 4 }, (_, r) =>
     columns.map((_, c) => `R${r + 1}·C${c + 1}`),
   );
-  const cellStyle: CSSProperties = {
-    border: "1px solid var(--gray-a5)",
-    padding: "8px 12px",
-    whiteSpace: "nowrap",
-    textAlign: "left",
-  };
   return (
-    <Box
-      style={{
-        overflowX: "auto",
-        maxWidth: "100%",
-        border: "1px solid var(--gray-a5)",
-        borderRadius: "var(--radius-2)",
-      }}
-    >
-      <table
-        style={{
-          borderCollapse: "collapse",
-          minWidth: "1000px",
-          fontSize: "var(--font-size-1)",
-        }}
-      >
-        <thead>
-          <tr>
+    <ScrollArea type="auto" scrollbars="horizontal">
+      <Table variant="surface" style={{ minWidth: "1000px" }}>
+        <TableHeader>
+          <TableRow>
             {columns.map((column) => (
-              <th
-                key={column}
-                style={{
-                  ...cellStyle,
-                  fontWeight: "bold",
-                }}
-              >
-                {column}
-              </th>
+              <TableColumnHeader key={column}>{column}</TableColumnHeader>
             ))}
-          </tr>
-        </thead>
-        <tbody>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {rows.map((cells, r) => (
-            <tr key={r}>
+            <TableRow key={r}>
               {cells.map((cell, c) => (
-                <td key={c} style={cellStyle}>
-                  {cell}
-                </td>
+                <TableCell key={c}>{cell}</TableCell>
               ))}
-            </tr>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
-    </Box>
+        </TableBody>
+      </Table>
+    </ScrollArea>
   );
 }
 
