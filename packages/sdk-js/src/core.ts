@@ -1013,8 +1013,7 @@ export function getExperimentResult<T>(
   if (meta.name) res.name = meta.name;
   if (bucket !== undefined) res.bucket = bucket;
   if (meta.passthrough) res.passthrough = meta.passthrough;
-  // Only a genuine hash-bucketed assignment (not forced/QA/override) counts as
-  // a contextual bandit exposure, matching how the leaf metadata is surfaced.
+
   const cb = experiment.contextualBandit;
   if (cb && hashUsed && inExperiment) {
     res.leafId = cb.leafId;
