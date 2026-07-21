@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { FaAngleRight, FaPlusCircle } from "react-icons/fa";
 import { PiSlidersHorizontal } from "react-icons/pi";
 import Collapsible from "react-collapsible";
-import Badge from "@/ui/Badge";
+import CounterBadge from "@/ui/Badge/CounterBadge";
 import { requiresXAxis } from "@/services/dataVizTypeGuards";
 import { getXAxisConfig } from "@/services/dataVizConfigUtilities";
 import Button from "@/ui/Button";
@@ -121,12 +121,7 @@ export default function DataVizFilterPanel({
                       size={20}
                     />
                     Filters
-                    <Badge
-                      label={filters.length.toString()}
-                      color="violet"
-                      radius="full"
-                      variant="soft"
-                    />
+                    <CounterBadge color="indigo" count={filters.length} />
                   </Flex>
                   <Flex align="center" gap="1">
                     <Button

@@ -5,7 +5,7 @@ import { FaAngleRight, FaPlusCircle } from "react-icons/fa";
 import { DataVizConfig, dimensionAxisConfiguration } from "shared/validators";
 import { Select, SelectItem } from "@/ui/Select";
 import { supportsDimension } from "@/services/dataVizTypeGuards";
-import Badge from "@/ui/Badge";
+import CounterBadge from "@/ui/Badge/CounterBadge";
 import Button from "@/ui/Button";
 
 export default function DataVizDimensionPanel({
@@ -63,12 +63,7 @@ export default function DataVizDimensionPanel({
                       />
                     ) : null}
                     {label}s
-                    <Badge
-                      label={dimensions.length.toString()}
-                      color="violet"
-                      radius="full"
-                      variant="soft"
-                    />
+                    <CounterBadge color="indigo" count={dimensions.length} />
                   </Flex>
                   <Flex align="center" gap="1">
                     <Button
