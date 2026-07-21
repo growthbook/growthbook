@@ -5,6 +5,7 @@ import { Flex, Box } from "@radix-ui/themes";
 import Collapsible from "react-collapsible";
 import { PiCaretRightFill } from "react-icons/pi";
 import {
+  DEFAULT_DASHBOARD_GLOBAL_CONTROLS,
   DashboardInterface,
   DashboardEditLevel,
   DashboardShareLevel,
@@ -37,8 +38,12 @@ import DashboardUpdateScheduleSelector from "@/enterprise/components/Dashboards/
 import track from "@/services/track";
 
 function datasetTypeToBlockType(
-  type: "metric" | "fact_table" | "data_source",
-): "metric-exploration" | "fact-table-exploration" | "data-source-exploration" {
+  type: "metric" | "fact_table" | "data_source" | "funnel",
+):
+  | "metric-exploration"
+  | "fact-table-exploration"
+  | "data-source-exploration"
+  | "funnel-exploration" {
   switch (type) {
     case "metric":
       return "metric-exploration";
@@ -46,6 +51,8 @@ function datasetTypeToBlockType(
       return "fact-table-exploration";
     case "data_source":
       return "data-source-exploration";
+    case "funnel":
+      return "funnel-exploration";
   }
 }
 
@@ -156,6 +163,7 @@ export default function SaveToDashboardModal({
           projects: formValues.projects,
           experimentId: "",
           blocks: [newBlock],
+          globalControls: DEFAULT_DASHBOARD_GLOBAL_CONTROLS,
         }),
       });
       if (res.status !== 200) throw new Error("Failed to create dashboard");

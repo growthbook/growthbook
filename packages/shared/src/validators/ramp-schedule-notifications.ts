@@ -54,6 +54,18 @@ export type RampScheduleRolledBackPayload = z.infer<
   typeof rampScheduleRolledBackPayload
 >;
 
+export const rampScheduleAwaitingStartApprovalPayload =
+  rampScheduleBaseNotificationPayload.strict();
+export type RampScheduleAwaitingStartApprovalPayload = z.infer<
+  typeof rampScheduleAwaitingStartApprovalPayload
+>;
+
+export const rampScheduleStartApprovedPayload =
+  rampScheduleBaseNotificationPayload.strict();
+export type RampScheduleStartApprovedPayload = z.infer<
+  typeof rampScheduleStartApprovedPayload
+>;
+
 export const rampScheduleCreatedPayload = z
   .object({
     rampScheduleId: z.string(),

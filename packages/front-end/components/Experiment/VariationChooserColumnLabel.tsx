@@ -173,7 +173,12 @@ export default function VariationChooserColumnLabel({
     const selectedVariation = filteredVariations[0];
     triggerContent = (
       <Box
-        style={{ maxWidth: labelMaxWidth + 20, minWidth: 0, marginLeft: -4 }}
+        style={{
+          width: labelMaxWidth + 20,
+          maxWidth: "100%",
+          minWidth: 0,
+          marginLeft: -4,
+        }}
       >
         <VariationLabel
           number={selectedVariation.index}

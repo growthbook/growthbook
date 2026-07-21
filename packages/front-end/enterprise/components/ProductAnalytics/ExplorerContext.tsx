@@ -21,6 +21,7 @@ import { QueryInterface } from "shared/types/query";
 import {
   buildComparisonDateRange,
   buildContiguousPreviousCustomDateRange,
+  computeExplorationComparisonPayload,
 } from "shared/enterprise";
 import { isEqual } from "lodash";
 import { isManagedWarehouseUnavailable } from "shared/util";
@@ -28,14 +29,18 @@ import {
   cleanConfigForSubmission,
   clearInapplicableShowAs,
   compareConfig,
+  explorationPollDelayMs,
   createEmptyDataset,
   createEmptyValue,
   ExplorerDraftConfig,
   fillMissingUnits,
   generateUniqueValueName,
   getCommonColumns,
+  getInitialInlineFilters,
+  hasUnsatisfiedInlineFilters,
   isSubmittableConfig,
   stripExplorerDraftFields,
+  toFetchKey,
   validateDimensions,
 } from "@/enterprise/components/ProductAnalytics/util";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
@@ -101,6 +106,9 @@ export interface ExplorerContextValue {
   updateTimestampColumn: (column: string) => void;
   changeChartType: (chartType: ExplorationConfig["chartType"]) => void;
   clearAllDatasets: (newDatasourceId?: string) => void;
+  /** Funnel sidebar registers a handler; main empty-state CTA invokes before analyze. */
+  registerFunnelAnalyzeCollapseHandler: (fn: (() => void) | null) => void;
+  collapseFunnelStepsForAnalyze: () => void;
 }
 const ExplorerContext = createContext<ExplorerContextValue | null>(null);
 
@@ -125,6 +133,7 @@ export function useDefaultDataSourceId(): string | undefined {
 interface ExplorerProviderProps {
   children: ReactNode;
   initialConfig: ExplorerDraftConfig;
+  initialSubmittedConfig?: ExplorerDraftConfig;
   hasExistingResults?: boolean;
   onRunComplete?: (
     exploration: ProductAnalyticsExploration,
@@ -137,11 +146,12 @@ interface ExplorerProviderProps {
 export function ExplorerProvider({
   children,
   initialConfig,
+  initialSubmittedConfig,
   hasExistingResults = false,
   onRunComplete,
   trackingSource,
 }: ExplorerProviderProps) {
-  const { loading, fetchData } = useExploreData();
+  const { loading, fetchData, fetchExplorationById } = useExploreData();
   const {
     getFactTableById,
     getFactMetricById,
@@ -170,15 +180,35 @@ export function ExplorerProvider({
       withUnits,
       getFactMetricById,
     );
+    const normalizedSubmitted = initialSubmittedConfig
+      ? clearInapplicableShowAs(
+          fillMissingUnits(
+            initialSubmittedConfig,
+            getFactTableById,
+            getFactMetricById,
+          ),
+          getFactMetricById,
+        )
+      : normalizedInitial;
     return {
       draftState: normalizedInitial,
-      submittedState: hasExistingResults ? normalizedInitial : null,
+      submittedState: hasExistingResults ? normalizedSubmitted : null,
       exploration: null,
       error: null,
       query: null,
     };
   });
   const [isStale, setIsStale] = useState(false);
+  // True while polling a still-running exploration for completion (B4). Folded
+  // into the exposed `loading` so the UI keeps showing a loading state.
+  const [polling, setPolling] = useState(false);
+  const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Stop polling if the provider unmounts mid-flight.
+  useEffect(() => {
+    return () => {
+      if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
+    };
+  }, []);
   const [comparisonExploration, setComparisonExploration] =
     useState<ProductAnalyticsExploration | null>(null);
   const [comparisonQuery, setComparisonQuery] = useState<QueryInterface | null>(
@@ -200,9 +230,10 @@ export function ExplorerProvider({
     customPrimaryBoundsKey(normalizedInitialDateRange),
   );
 
-  const hasEverFetchedRef = useRef(false);
+  const hasEverFetchedRef = useRef(hasExistingResults);
   const skipNextAutoSubmitRef = useRef(false);
   const submitRequestIdRef = useRef(0);
+  const funnelAnalyzeCollapseRef = useRef<(() => void) | null>(null);
 
   const draftExploreState: ExplorerDraftConfig = explorerState.draftState;
 
@@ -380,8 +411,14 @@ export function ExplorerProvider({
   ]);
 
   const isSubmittable = useMemo(() => {
-    return isSubmittableConfig(cleanedDraftExploreState);
-  }, [cleanedDraftExploreState]);
+    return (
+      isSubmittableConfig(cleanedDraftExploreState, getFactTableById) &&
+      // Block submission while alwaysInlineFilter columns are seeded but empty.
+      // cleanConfigForSubmission would otherwise strip the placeholder filter
+      // and let the query run unfiltered, contradicting the "always filter" intent.
+      !hasUnsatisfiedInlineFilters(draftExploreState, getFactTableById)
+    );
+  }, [cleanedDraftExploreState, draftExploreState, getFactTableById]);
 
   const doSubmit = useCallback(
     async (options?: { cache?: CacheOption; config?: ExplorerDraftConfig }) => {
@@ -419,6 +456,11 @@ export function ExplorerProvider({
       hasEverFetchedRef.current = true;
       const requestId = ++submitRequestIdRef.current;
 
+      setExplorerState((prev) => ({
+        ...prev,
+        error: null,
+      }));
+
       const startTime = Date.now();
       const {
         data: fetchResult,
@@ -431,7 +473,6 @@ export function ExplorerProvider({
           ? { previousTimeFrame: previousForRequest }
           : {}),
       });
-      const durationMs = Date.now() - startTime;
 
       // Ignore out-of-order responses from older in-flight requests.
       if (requestId !== submitRequestIdRef.current) return;
@@ -442,89 +483,234 @@ export function ExplorerProvider({
         return;
       }
 
-      if (comparison) {
-        setComparisonExploration(comparison.exploration);
-        setComparisonQuery(comparison.query ?? null);
-        setComparisonComputed({
-          bigNumberTrends: comparison.bigNumberTrends,
-          tableTrendsByRow: comparison.tableTrendsByRow,
-          previousPeriod: comparison.previousPeriod,
-        });
-      } else {
-        setComparisonExploration(null);
-        setComparisonQuery(null);
-        setComparisonComputed(null);
-      }
-
       const submittedConfig: ExplorerDraftConfig = previousForRequest
         ? { ...configToSubmit, previousTimeFrame: previousForRequest }
         : configToSubmit;
 
-      // Clear staleness when there is an error
-      if (fetchError) {
-        setIsStale(false);
-        setSubmittedExploreState(submittedConfig);
-      }
-
-      // Set staleness to false and update submitted state when there is a result
-      if (fetchResult) {
-        setSubmittedExploreState(submittedConfig);
-        setIsStale(false);
-      }
-
-      setExplorerState((prev) => ({
-        ...prev,
-        exploration: fetchResult,
-        query,
-        error: fetchError || fetchResult?.error || null,
-      }));
-      if (fetchResult) {
-        onRunComplete?.(
-          fetchResult,
-          comparison?.exploration ?? null,
-          previousForRequest,
-        );
-      }
-
-      if (trackingSource) {
-        const datasourceType =
-          getDatasourceById(configToSubmit.datasource)?.type ?? null;
-        const errorMessage = fetchError || fetchResult?.error || null;
-        const baseProps = {
-          source: trackingSource,
-          type: configToSubmit.type,
-          chart_type: configToSubmit.chartType,
-          datasource_type: datasourceType,
-          duration_ms: durationMs,
-          cache,
-          num_values: configToSubmit.dataset?.values?.length ?? 0,
-          num_dimensions: configToSubmit.dimensions?.length ?? 0,
-        };
-        if (errorMessage) {
-          track("Product Analytics Explorer: Refresh Failure", {
-            ...baseProps,
-            error_message: errorMessage.slice(0, MAX_TRACKED_ERROR_LENGTH),
-          });
-        } else if (fetchResult) {
-          track("Product Analytics Explorer: Refresh Success", {
-            ...baseProps,
-            row_count: fetchResult.result?.rows?.length ?? 0,
-          });
+      // Apply a terminal (success or error) result: update state, fire the
+      // completion callback, and emit analytics. Shared by the synchronous
+      // response and the async poll below so both behave identically.
+      const finalize = (
+        result: ProductAnalyticsExploration | null,
+        resultQuery: QueryInterface | null,
+        resultError: string | null,
+        resultComparison: ProductAnalyticsExploration | null = comparison?.exploration ??
+          null,
+        resultComparisonQuery: QueryInterface | null = comparison?.query ??
+          null,
+        resultComparisonComputed: ExplorerContextValue["comparisonComputed"] = comparison
+          ? {
+              bigNumberTrends: comparison.bigNumberTrends,
+              tableTrendsByRow: comparison.tableTrendsByRow,
+              previousPeriod: comparison.previousPeriod,
+            }
+          : null,
+      ) => {
+        if (requestId !== submitRequestIdRef.current) return;
+        setPolling(false);
+        if (result || resultError) {
+          setSubmittedExploreState(submittedConfig);
+          setIsStale(false);
         }
+        setExplorerState((prev) => ({
+          ...prev,
+          exploration: result,
+          query: resultQuery,
+          error: resultError || result?.error || null,
+        }));
+        setComparisonExploration(resultComparison);
+        setComparisonQuery(resultComparisonQuery);
+        setComparisonComputed(resultComparisonComputed);
+        if (result && !resultError) {
+          onRunComplete?.(result, resultComparison, previousForRequest);
+        }
+        if (trackingSource) {
+          const datasourceType =
+            getDatasourceById(configToSubmit.datasource)?.type ?? null;
+          const errorMessage = resultError || result?.error || null;
+          const baseProps = {
+            source: trackingSource,
+            type: configToSubmit.type,
+            chart_type: configToSubmit.chartType,
+            datasource_type: datasourceType,
+            duration_ms: Date.now() - startTime,
+            cache,
+            num_values:
+              configToSubmit.dataset?.type === "funnel"
+                ? (configToSubmit.dataset.steps?.length ?? 0)
+                : (configToSubmit.dataset?.values?.length ?? 0),
+            num_dimensions: configToSubmit.dimensions?.length ?? 0,
+          };
+          if (errorMessage) {
+            track("Product Analytics Explorer: Refresh Failure", {
+              ...baseProps,
+              error_message: errorMessage.slice(0, MAX_TRACKED_ERROR_LENGTH),
+            });
+          } else if (result) {
+            track("Product Analytics Explorer: Refresh Success", {
+              ...baseProps,
+              row_count: result.result?.rows?.length ?? 0,
+            });
+          }
+        }
+      };
+
+      // Cancel any in-flight poll from a previous submit.
+      if (pollTimerRef.current) {
+        clearTimeout(pollTimerRef.current);
+        pollTimerRef.current = null;
       }
+
+      const comparisonResult = comparison?.exploration ?? null;
+      const primaryIsRunning =
+        !fetchError && fetchResult?.status === "running" && !!fetchResult.id;
+      const comparisonIsRunning =
+        comparisonResult?.status === "running" && !!comparisonResult.id;
+
+      // Primary and comparison explorations run independently. If either
+      // exceeds the backend's sync budget, poll both running ids until each is
+      // terminal, then rebuild the shared comparison payload from final rows.
+      if (primaryIsRunning || comparisonIsRunning) {
+        setSubmittedExploreState(submittedConfig);
+        setIsStale(false);
+        setExplorerState((prev) => ({
+          ...prev,
+          exploration: primaryIsRunning ? null : fetchResult,
+          query: primaryIsRunning ? null : query,
+          error: null,
+        }));
+        setComparisonExploration(comparisonIsRunning ? null : comparisonResult);
+        setComparisonQuery(
+          comparisonIsRunning ? null : (comparison?.query ?? null),
+        );
+        setComparisonComputed(null);
+        setPolling(true);
+
+        let latestPrimary = fetchResult;
+        let latestPrimaryQuery = query;
+        let latestPrimaryError = fetchError;
+        let latestComparison = comparisonResult;
+        let latestComparisonQuery = comparison?.query ?? null;
+
+        const poll = async () => {
+          pollTimerRef.current = null;
+          if (requestId !== submitRequestIdRef.current) return;
+
+          const primaryPoll =
+            latestPrimary?.status === "running" && latestPrimary.id
+              ? fetchExplorationById(latestPrimary.id)
+              : Promise.resolve(null);
+          const comparisonPoll =
+            latestComparison?.status === "running" && latestComparison.id
+              ? fetchExplorationById(latestComparison.id)
+              : Promise.resolve(null);
+          const [polledPrimary, polledComparison] = await Promise.all([
+            primaryPoll,
+            comparisonPoll,
+          ]);
+
+          if (polledPrimary) {
+            latestPrimary = polledPrimary.data;
+            latestPrimaryQuery = polledPrimary.query;
+            latestPrimaryError = polledPrimary.error;
+          }
+
+          if (polledComparison) {
+            latestComparison = polledComparison.data;
+            latestComparisonQuery = polledComparison.query;
+          }
+
+          if (requestId !== submitRequestIdRef.current) return;
+
+          const primaryStillRunning =
+            !latestPrimaryError && latestPrimary?.status === "running";
+          const comparisonStillRunning = latestComparison?.status === "running";
+          if (primaryStillRunning || comparisonStillRunning) {
+            const delay = explorationPollDelayMs(
+              Math.floor((Date.now() - startTime) / 1000),
+            );
+            if (delay <= 0) {
+              if (primaryStillRunning) {
+                finalize(
+                  null,
+                  latestPrimaryQuery,
+                  "This query is taking longer than expected. Try a shorter date range or fewer steps, then run again.",
+                  null,
+                  latestComparisonQuery,
+                  null,
+                );
+              } else {
+                finalize(
+                  latestPrimary,
+                  latestPrimaryQuery,
+                  latestPrimaryError,
+                  null,
+                  latestComparisonQuery,
+                  null,
+                );
+              }
+              return;
+            }
+            pollTimerRef.current = setTimeout(poll, delay);
+            return;
+          }
+
+          const finalComparisonPayload =
+            latestPrimary && previousForRequest
+              ? computeExplorationComparisonPayload(
+                  latestPrimary,
+                  latestComparison,
+                  configToSubmit,
+                  previousForRequest,
+                  (id) => getFactMetricById(id) ?? null,
+                )
+              : null;
+          finalize(
+            latestPrimary,
+            latestPrimaryQuery,
+            latestPrimaryError,
+            finalComparisonPayload?.exploration ?? latestComparison,
+            latestComparisonQuery,
+            finalComparisonPayload
+              ? {
+                  bigNumberTrends: finalComparisonPayload.bigNumberTrends,
+                  tableTrendsByRow: finalComparisonPayload.tableTrendsByRow,
+                  previousPeriod: finalComparisonPayload.previousPeriod,
+                }
+              : null,
+          );
+        };
+        pollTimerRef.current = setTimeout(poll, explorationPollDelayMs(0));
+        return;
+      }
+
+      finalize(fetchResult, query, fetchError);
     },
     [
       draftExploreState,
       submittedPreviousTimeFrame,
       setSubmittedExploreState,
       fetchData,
+      fetchExplorationById,
       onRunComplete,
       isManagedWarehouse,
       managedWarehouseUnavailable,
       trackingSource,
       getDatasourceById,
+      getFactMetricById,
     ],
   );
+
+  const registerFunnelAnalyzeCollapseHandler = useCallback(
+    (fn: (() => void) | null) => {
+      funnelAnalyzeCollapseRef.current = fn;
+    },
+    [],
+  );
+
+  const collapseFunnelStepsForAnalyze = useCallback(() => {
+    funnelAnalyzeCollapseRef.current?.();
+  }, []);
 
   const handleSubmit = useCallback(
     async (submitOptions?: {
@@ -540,7 +726,7 @@ export function ExplorerProvider({
       if (submitOptions?.force) {
         await doSubmit({ cache: "never", config: submitOptions?.config });
       } else {
-        await doSubmit({ config: submitOptions?.config });
+        await doSubmit({ cache: "preferred", config: submitOptions?.config });
       }
     },
     [doSubmit, setDraftExploreState],
@@ -554,8 +740,30 @@ export function ExplorerProvider({
       skipNextAutoSubmitRef.current = false;
       return;
     }
+    const draftIsFunnel = cleanedDraftExploreState.dataset.type === "funnel";
+    // Funnels on customer warehouses auto-run as soon as the config becomes
+    // fetchable (e.g. second step added), which fires an expensive query.
+    // Managed Warehouse stays auto-run — queries are cheap there.
+    // Exception: toggling Compare on/off only changes previousTimeFrame — the
+    // primary result is already cached, so don't defer.
+    const onlyComparisonChanged =
+      baselineConfig !== null &&
+      isEqual(
+        toFetchKey(stripExplorerDraftFields(baselineConfig)),
+        toFetchKey(cleanedDraftExploreState),
+      );
+    const deferFunnelFetchUntilManualRefresh =
+      draftIsFunnel &&
+      !isManagedWarehouse &&
+      needsFetch &&
+      !onlyComparisonChanged;
+
     if (needsFetch) {
-      doSubmit();
+      if (deferFunnelFetchUntilManualRefresh) {
+        setIsStale(true);
+      } else {
+        doSubmit();
+      }
     } else if (needsUpdate && !needsFetch) {
       const submittedConfig: ExplorerDraftConfig =
         draftExploreState.previousTimeFrame
@@ -570,11 +778,13 @@ export function ExplorerProvider({
     needsFetch,
     needsUpdate,
     doSubmit,
+    baselineConfig,
     cleanedDraftExploreState,
     draftExploreState.previousTimeFrame,
     setSubmittedExploreState,
     isSubmittable,
     managedWarehouseUnavailable,
+    isManagedWarehouse,
   ]);
 
   /** Clear staleness when draft matches submitted (known state) */
@@ -593,8 +803,15 @@ export function ExplorerProvider({
 
   const addValueToDataset = useCallback(
     (datasetType: DatasetType) => {
+      // Funnels don't carry "values"; the FunnelTabContent manages steps
+      // directly via setDraftExploreState.
+      if (datasetType === "funnel") return;
       setDraftExploreState((prev) => {
-        if (!prev.dataset || prev.dataset.type !== datasetType) {
+        if (
+          !prev.dataset ||
+          prev.dataset.type === "funnel" ||
+          prev.dataset.type !== datasetType
+        ) {
           return prev;
         }
         const value = createDefaultValue(datasetType);
@@ -602,6 +819,15 @@ export function ExplorerProvider({
         // Generate unique name
         if (value.name) {
           value.name = generateUniqueValueName(value.name, prev.dataset.values);
+        }
+
+        // Pre-seed alwaysInlineFilter columns for fact_table values so the
+        // user is prompted to fill them in (matches fact-metric authoring UX).
+        if (prev.dataset.type === "fact_table" && prev.dataset.factTableId) {
+          const ft = getFactTableById(prev.dataset.factTableId);
+          if (ft) {
+            value.rowFilters = getInitialInlineFilters(ft, value.rowFilters);
+          }
         }
 
         return {
@@ -613,13 +839,17 @@ export function ExplorerProvider({
         } as ExplorationConfig;
       });
     },
-    [createDefaultValue, setDraftExploreState],
+    [createDefaultValue, setDraftExploreState, getFactTableById],
   );
 
   const updateValueInDataset = useCallback(
     (index: number, value: ProductAnalyticsValue) => {
       setDraftExploreState((prev) => {
-        if (!prev.dataset || prev.dataset.type !== value.type) {
+        if (
+          !prev.dataset ||
+          prev.dataset.type === "funnel" ||
+          prev.dataset.type !== value.type
+        ) {
           return prev;
         }
         return {
@@ -641,7 +871,7 @@ export function ExplorerProvider({
   const deleteValueFromDataset = useCallback(
     (index: number) => {
       setDraftExploreState((prev) => {
-        if (!prev.dataset) {
+        if (!prev.dataset || prev.dataset.type === "funnel") {
           return prev;
         }
         const newValues = [
@@ -684,10 +914,23 @@ export function ExplorerProvider({
       }
       setDraftExploreState((prev) => {
         let dimensions = prev.dimensions;
+        let dataset = prev.dataset;
 
         // Big Number: no dimensions; keep full dataset values unchanged
         if (chartType === "bigNumber") {
           dimensions = [];
+          // Funnels don't carry `values` and the bigNumber chart doesn't
+          // apply to them anyway; the FunnelGraphTypeSelector doesn't
+          // expose bigNumber, but guard defensively in case it slips in.
+          if (prev.dataset?.type !== "funnel") {
+            const values = prev.dataset?.values ?? [];
+            if (values.length > 1) {
+              dataset = {
+                ...prev.dataset,
+                values: values.slice(0, 1),
+              } as ExplorationConfig["dataset"];
+            }
+          }
         } else {
           // Time-series charts (line, area) need date dimensions
           const isTimeSeriesChart =
@@ -702,13 +945,13 @@ export function ExplorerProvider({
               {
                 dimensionType: "date",
                 column: "date",
-                dateGranularity: "day",
+                dateGranularity: "auto",
               },
               ...dimensions,
             ];
           }
         }
-        return { ...prev, chartType, dimensions } as ExplorationConfig;
+        return { ...prev, chartType, dimensions, dataset } as ExplorationConfig;
       });
     },
     [
@@ -748,14 +991,23 @@ export function ExplorerProvider({
 
       setExplorerState((prev) => {
         const type = prev.draftState.dataset.type;
+        const emptyDataset = createEmptyDataset(type);
+        // Funnel datasets manage their own initial state (a single empty
+        // step) inside createEmptyDataset and have no `values`. For the
+        // other dataset types we still want to seed one default value so
+        // the sidebar opens with a ready-to-edit row.
+        const dataset =
+          type === "funnel"
+            ? emptyDataset
+            : ({
+                ...emptyDataset,
+                values: [createDefaultValue(type)],
+              } as ExplorationConfig["dataset"]);
         return {
           draftState: {
             ...stripExplorerDraftFields(initialConfig),
             datasource: datasourceId,
-            dataset: {
-              ...createEmptyDataset(type),
-              values: [createDefaultValue(type)],
-            },
+            dataset,
           } as ExplorerDraftConfig,
           submittedState: null,
           exploration: null,
@@ -781,7 +1033,7 @@ export function ExplorerProvider({
       draftExploreState,
       submittedExploreState,
       exploration: data,
-      loading,
+      loading: loading || polling,
       error,
       commonColumns,
       setDraftExploreState,
@@ -799,6 +1051,8 @@ export function ExplorerProvider({
       clearAllDatasets,
       query,
       trackingSource,
+      registerFunnelAnalyzeCollapseHandler,
+      collapseFunnelStepsForAnalyze,
       compareEnabled,
       submittedPreviousTimeFrame,
       comparisonExploration,
@@ -823,6 +1077,7 @@ export function ExplorerProvider({
       isStale,
       isSubmittable,
       loading,
+      polling,
       managedWarehouseUnavailable,
       needsFetch,
       needsUpdate,
@@ -832,6 +1087,8 @@ export function ExplorerProvider({
       submittedExploreState,
       submittedPreviousTimeFrame,
       trackingSource,
+      registerFunnelAnalyzeCollapseHandler,
+      collapseFunnelStepsForAnalyze,
       updateTimestampColumn,
       updateValueInDataset,
     ],

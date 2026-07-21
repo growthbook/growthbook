@@ -1,5 +1,5 @@
 import React from "react";
-import { dateGranularity } from "shared/validators";
+import { dateGranularity, ExplorationDateRange } from "shared/validators";
 import {
   calculateProductAnalyticsDateRange,
   getDateGranularity,
@@ -21,43 +21,44 @@ const dateGranularityLabels: Record<(typeof dateGranularity)[number], string> =
     year: "By Year",
   };
 
-export default function GranularitySelector() {
-  const { draftExploreState, setDraftExploreState } = useExplorerContext();
-
-  const dateDimension = draftExploreState.dimensions.find(
-    (d) => d.dimensionType === "date",
-  );
-  const granularity = dateDimension?.dateGranularity || "day";
-
-  const dateRange = calculateProductAnalyticsDateRange(
-    draftExploreState.dateRange,
-  );
-  const autoGranularity = getDateGranularity("auto", dateRange);
-  const validGranularities = getValidDateGranularities(dateRange);
+export function ControlledGranularitySelector({
+  dateRange,
+  granularity,
+  onChange,
+  disabled,
+  width,
+}: {
+  dateRange: ExplorationDateRange;
+  granularity: (typeof dateGranularity)[number];
+  onChange: (granularity: (typeof dateGranularity)[number]) => void;
+  disabled?: boolean;
+  width?: number;
+}) {
+  const resolvedDateRange = calculateProductAnalyticsDateRange(dateRange);
+  const autoGranularity = getDateGranularity("auto", resolvedDateRange);
+  const validGranularities = getValidDateGranularities(resolvedDateRange);
+  const selectedGranularity = validGranularities.includes(granularity)
+    ? granularity
+    : "auto";
 
   return (
     <Select
       size="2"
-      value={granularity}
+      value={selectedGranularity}
       placeholder="Granularity"
-      setValue={(v) => {
-        setDraftExploreState((prev) => ({
-          ...prev,
-          dimensions: prev.dimensions.map((d) =>
-            d.dimensionType === "date"
-              ? {
-                  ...d,
-                  dateGranularity: v as (typeof dateGranularity)[number],
-                }
-              : d,
-          ),
-        }));
-      }}
+      disabled={disabled}
+      style={width ? { width } : undefined}
+      setValue={(v) => onChange(v as (typeof dateGranularity)[number])}
     >
       {validGranularities.map((g) => (
         <SelectItem key={g} value={g}>
           {g === "auto" ? (
-            <Flex direction="row" align="center" gap="2">
+            <Flex
+              direction="row"
+              align="center"
+              gap="2"
+              style={{ whiteSpace: "nowrap" }}
+            >
               <Text>{dateGranularityLabels[autoGranularity]}</Text>
               <Badge label="Auto" />
             </Flex>
@@ -67,5 +68,34 @@ export default function GranularitySelector() {
         </SelectItem>
       ))}
     </Select>
+  );
+}
+
+export default function GranularitySelector() {
+  const { draftExploreState, setDraftExploreState } = useExplorerContext();
+
+  const dateDimension = draftExploreState.dimensions.find(
+    (d) => d.dimensionType === "date",
+  );
+  const granularity = dateDimension?.dateGranularity || "auto";
+
+  return (
+    <ControlledGranularitySelector
+      dateRange={draftExploreState.dateRange}
+      granularity={granularity}
+      onChange={(v) => {
+        setDraftExploreState((prev) => ({
+          ...prev,
+          dimensions: prev.dimensions.map((d) =>
+            d.dimensionType === "date"
+              ? {
+                  ...d,
+                  dateGranularity: v,
+                }
+              : d,
+          ),
+        }));
+      }}
+    />
   );
 }

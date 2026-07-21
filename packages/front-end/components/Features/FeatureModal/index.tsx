@@ -4,8 +4,17 @@ import {
   FeatureInterface,
   FeatureValueType,
 } from "shared/types/feature";
-import React, { ReactElement, useState } from "react";
-import { validateFeatureValue } from "shared/util";
+import React, { ReactElement, useMemo, useState } from "react";
+import {
+  validateFeatureValue,
+  getConfigBackingKey,
+  getConfigBackingPatch,
+  getConfigSubtree,
+  setConfigBacking,
+  stripConfigExtends,
+  orderConfigsByLineage,
+  isScopedConfig,
+} from "shared/util";
 import { PiInfo } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
 import { HoldoutSelect } from "@/components/Holdout/HoldoutSelect";
@@ -158,7 +167,7 @@ export default function FeatureModal({
   secondaryCTA,
   featureToDuplicate,
 }: Props) {
-  const { project, refreshTags } = useDefinitions();
+  const { project, refreshTags, configs } = useDefinitions();
   const environments = useEnvironments();
   const permissionsUtil = usePermissionsUtil();
   const { refreshWatching } = useWatching();
@@ -186,6 +195,9 @@ export default function FeatureModal({
     !!defaultValues.description?.length,
   );
   const [showTags, setShowTags] = useState(!!defaultValues.tags?.length);
+  // The default value is rarely changed at creation time (it falls back to the
+  // type default / bare config), so it's progressively disclosed behind a link.
+  const [showDefaultValue, setShowDefaultValue] = useState(false);
 
   const form = useForm({ defaultValues });
 
@@ -204,6 +216,8 @@ export default function FeatureModal({
     selectedProject,
   );
   const { projectId: demoProjectId } = useDemoDataSourceProject();
+  const creatingInDemoProject =
+    !!demoProjectId && selectedProject === demoProjectId;
   const { apiCall } = useAuth();
   // During early onboarding the holdouts promo is noise. We still want to show
   // the real holdout selector if the org has set holdouts up.
@@ -212,6 +226,42 @@ export default function FeatureModal({
 
   const valueType = form.watch("valueType") as FeatureValueType;
   const environmentSettings = form.watch("environmentSettings");
+
+  // "config" is a UI authoring type: stored as valueType "json" but the default
+  // value must be backed by a config. Tracked separately from the stored type.
+  // Seed from the source when duplicating so a config-backed flag stays one (the
+  // type/config pickers are hidden in duplicate mode).
+  const duplicateBaseConfig = featureToDuplicate?.baseConfig ?? null;
+  const [configType, setConfigType] = useState(duplicateBaseConfig !== null);
+  // The chosen base config (the feature's authoritative `baseConfig`). The
+  // default-value editor's own picker is constrained to this config's family and
+  // seeds from it; picking a descendant there layers an extra config on top.
+  const [baseConfigKey, setBaseConfigKey] = useState<string | null>(
+    duplicateBaseConfig,
+  );
+
+  const eligibleBaseConfigs = useMemo(
+    () =>
+      configs.filter(
+        (c) =>
+          !c.archived &&
+          // Env/project overrides are variants of another config, never an
+          // independent base — they must stay implicit (never selectable as a
+          // feature's backing config), matching the value-field picker.
+          !isScopedConfig(c) &&
+          (!c.project || !selectedProject || c.project === selectedProject),
+      ),
+    [configs, selectedProject],
+  );
+  const baseConfigOptions = useMemo(
+    () =>
+      orderConfigsByLineage(eligibleBaseConfigs).map(({ config, depth }) => ({
+        label: config.name,
+        value: config.key,
+        depth,
+      })),
+    [eligibleBaseConfigs],
+  );
 
   const modalHeader = featureToDuplicate
     ? `Duplicate Feature (${featureToDuplicate.id})`
@@ -231,9 +281,6 @@ export default function FeatureModal({
         ? "Select a project to continue."
         : "You don't have permission to create feature flag drafts.";
   }
-
-  // We want to show a warning when someone tries to create a feature under the demo project
-  const { currentProjectIsDemo } = useDemoDataSourceProject();
 
   return (
     <Modal
@@ -255,6 +302,11 @@ export default function FeatureModal({
 
         if (!valueType) {
           throw new Error("Please select a value type");
+        }
+
+        // A "config" flag must actually pick a base config.
+        if (configType && !baseConfigKey) {
+          throw new Error("Select a base config for this config flag");
         }
 
         // When duplicating, skip JSON schema validation since the value is
@@ -279,12 +331,30 @@ export default function FeatureModal({
           );
         }
 
+        // "config" flags are stored first-class: the mainline picker's choice is
+        // the authoritative `baseConfig`. The default is exactly a config (no
+        // overrides): when it matches the base (the common case) we store an empty
+        // patch, otherwise it kept a descendant config as its `$extends` layer,
+        // which we preserve.
+        const configKey = configType ? baseConfigKey : null;
+        const defaultOwnConfig = getConfigBackingKey(defaultValue);
+        const parsedDefault = parseDefaultValue(defaultValue, valueType);
+        const storedDefault =
+          configKey !== null
+            ? defaultOwnConfig === null || defaultOwnConfig === configKey
+              ? getConfigBackingPatch(defaultValue)
+              : defaultValue
+            : // Non-config flag: strip any manually-entered `@config:` so a plain
+              // JSON flag can never carry config backing (keeps `@const:` refs).
+              (stripConfigExtends(parsedDefault) ?? parsedDefault);
+
         const body = {
           ...feature,
-          defaultValue: parseDefaultValue(defaultValue, valueType),
+          baseConfig: configKey,
+          defaultValue: storedDefault,
           holdout: {
             id: holdout?.id ?? "",
-            value: parseDefaultValue(defaultValue, valueType),
+            value: storedDefault,
           },
         };
 
@@ -305,37 +375,30 @@ export default function FeatureModal({
       })}
     >
       <FormProvider {...form}>
-        {currentProjectIsDemo && (
+        {creatingInDemoProject && (
           <Callout status="warning" mb="3">
-            You are creating a feature under the demo datasource project.
+            You are creating a feature in the Sample Data Project.
           </Callout>
         )}
 
         <FeatureKeyField keyField={form.register("id")} />
 
         {projectOptions.length > 0 && (
-          <>
-            {selectedProject === demoProjectId && (
-              <Callout status="warning" mb="3">
-                You are creating a feature under the demo datasource project.
-              </Callout>
-            )}
-            <SelectField
-              label={
-                <>
-                  Project{" "}
-                  <Tooltip body="The dropdown below has been filtered to only include projects where you have permission to update Features" />
-                </>
-              }
-              value={selectedProject || ""}
-              onChange={(v) => {
-                form.setValue("project", v);
-              }}
-              initialOption={canCreateWithoutProject ? "None" : undefined}
-              options={projectOptions}
-              required={requireProjectForFeatures}
-            />
-          </>
+          <SelectField
+            label={
+              <>
+                Project{" "}
+                <Tooltip body="The dropdown below has been filtered to only include projects where you have permission to update Features" />
+              </>
+            }
+            value={selectedProject || ""}
+            onChange={(v) => {
+              form.setValue("project", v);
+            }}
+            initialOption={canCreateWithoutProject ? "None" : undefined}
+            options={projectOptions}
+            required={requireProjectForFeatures}
+          />
         )}
 
         <HoldoutSelect
@@ -350,21 +413,113 @@ export default function FeatureModal({
 
         {!featureToDuplicate && (
           <ValueTypeField
-            value={valueType}
+            allowConfig
+            value={configType ? "config" : valueType}
             onChange={(val) => {
-              const defaultValue = getDefaultValue(val);
-              form.setValue("valueType", val);
-              form.setValue("defaultValue", defaultValue);
+              if (val === "config") {
+                setConfigType(true);
+                form.setValue("valueType", "json");
+                // Seed the base config with the first eligible; the mainline
+                // picker below drives it. The default value starts as a bare
+                // patch on that base.
+                const seed = eligibleBaseConfigs[0]?.key ?? null;
+                setBaseConfigKey(seed);
+                form.setValue(
+                  "defaultValue",
+                  seed ? setConfigBacking(seed, "{}") : "{}",
+                );
+              } else {
+                setConfigType(false);
+                setBaseConfigKey(null);
+                form.setValue("valueType", val);
+                form.setValue("defaultValue", getDefaultValue(val));
+              }
             }}
           />
         )}
+
+        {!featureToDuplicate &&
+          configType &&
+          eligibleBaseConfigs.length === 0 && (
+            <Callout status="info" mb="3">
+              No configs available in this project yet.{" "}
+              <Link href="/configs" target="_blank">
+                Create a config
+              </Link>{" "}
+              to back this flag.
+            </Callout>
+          )}
+
+        {!featureToDuplicate &&
+          configType &&
+          eligibleBaseConfigs.length > 0 && (
+            <SelectField
+              label="Config"
+              value={baseConfigKey ?? ""}
+              placeholder="Choose a config..."
+              options={baseConfigOptions}
+              formatOptionLabel={(option, meta) => {
+                const depth = (option as { depth?: number }).depth ?? 0;
+                return (
+                  <Flex
+                    as="span"
+                    align="center"
+                    gap="2"
+                    width="100%"
+                    style={
+                      meta.context === "menu" && depth
+                        ? { paddingLeft: depth * 16 }
+                        : undefined
+                    }
+                  >
+                    <span>{option.label}</span>
+                    <code
+                      style={{
+                        marginLeft: "auto",
+                        paddingLeft: "var(--space-5)",
+                        color: "var(--slate-12)",
+                      }}
+                    >
+                      {option.value}
+                    </code>
+                  </Flex>
+                );
+              }}
+              onChange={(key) => {
+                setBaseConfigKey(key || null);
+                // Re-point the default value onto the new base, keeping its patch.
+                const patch = getConfigBackingPatch(form.watch("defaultValue"));
+                form.setValue(
+                  "defaultValue",
+                  key ? setConfigBacking(key, patch) : patch,
+                );
+              }}
+              sort={false}
+              required
+              helpText={
+                <>
+                  The config that backs this flag. The default value and any
+                  rules override it with a patch.{" "}
+                  <strong>Cannot be changed later!</strong>
+                </>
+              }
+            />
+          )}
 
         {/*
           We hide rule configuration when duplicating a feature since the
           decision of which rule to display (out of potentially many) in the
           modal is not deterministic.
         */}
-        {!featureToDuplicate && valueType && (
+        {!featureToDuplicate && valueType && !showDefaultValue && (
+          <Box mb="5">
+            <Link onClick={() => setShowDefaultValue(true)}>
+              {configType ? "+ Choose default config" : "+ Set default value"}
+            </Link>
+          </Box>
+        )}
+
+        {!featureToDuplicate && valueType && showDefaultValue && (
           <FeatureValueField
             label={
               <>
@@ -387,11 +542,26 @@ export default function FeatureModal({
             value={form.watch("defaultValue")}
             setValue={(v) => form.setValue("defaultValue", v)}
             valueType={valueType}
-            // The feature doesn't exist yet, so scope the constant picker to the
-            // selected project instead of passing a `feature`.
+            // The feature doesn't exist yet, so scope the constant/config picker
+            // to the selected project instead of passing a `feature`.
+            project={selectedProject || undefined}
             constantContext={{ project: selectedProject || undefined }}
             useCodeInput={true}
             showFullscreenButton={true}
+            // Config-backing is offered only for the "config" authoring type — a
+            // plain JSON flag can't extend a config (any manual `@config:` in its
+            // value is stripped on submit).
+            allowConfigBacking={configType}
+            // "config" type: the mainline picker chose the base; the default is
+            // exactly a config in that family — the base itself, or a descendant
+            // picked here. No inline overrides (config selection only), so no
+            // patch editor (configBackingShowPatch stays false).
+            configBackingOptionKeys={
+              configType && baseConfigKey
+                ? getConfigSubtree(baseConfigKey, configs)
+                : undefined
+            }
+            lockConfigBacking={configType}
           />
         )}
 

@@ -1,7 +1,6 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { hasAttributeCondition } from "shared/experiments";
 import { Box } from "@radix-ui/themes";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { useAttributeSchema, useEnvironments } from "@/services/features";
 import TargetingFieldsGroup from "@/components/Features/TargetingFieldsGroup";
 import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
@@ -113,8 +112,6 @@ export default function EditTargetingModal({
 
   const orgStickyBucketing = !!settings.useStickyBucketing;
 
-  const simpleExperimentFlow = useFeatureIsOn("simple-experiment-flow");
-
   if (safeToEdit) {
     return (
       <ModalStandard
@@ -130,83 +127,77 @@ export default function EditTargetingModal({
         size="lg"
       >
         <div className="pt-2">
-          {simpleExperimentFlow ? (
-            <>
-              {experiment.hashVersion === 1 && (
-                <SDKCapabilityWarning
-                  capability="bucketingV2"
-                  project={experiment.project}
-                  someMessage="Using V1 hashing algorithm as some of your SDK Connections may not support V2 hashing."
-                  noneMessage="Using V1 hashing algorithm as none of your SDK Connections support V2 hashing."
-                  popoverTriggerText="Show incompatible SDKs"
-                  size="medium"
-                  mb="6"
-                />
-              )}
-              <SelectField
-                withRadixThemedPortal
-                containerClassName="flex-1"
-                label="Assignment Attribute"
-                labelClassName="font-weight-bold"
-                options={hashAttributeOptions}
-                sort={false}
-                value={form.watch("hashAttribute")}
-                onChange={(v) => {
-                  form.setValue("hashAttribute", v);
-                }}
-                formatOptionLabel={(o, meta) => {
-                  return (
-                    <AttributeOptionWithTooltip
-                      option={o as AttributeOptionForTooltip}
-                      context={meta.context}
-                    >
-                      {o.label}
-                    </AttributeOptionWithTooltip>
-                  );
-                }}
-                helpText={
-                  "Will be hashed together with the Tracking Key to determine which variation to assign"
-                }
-              />
-              {orgStickyBucketing ? (
-                <Switch
-                  my="6"
-                  label={
-                    <>
-                      <Text weight="medium" color="text-high">
-                        Sticky Bucketing
-                      </Text>{" "}
-                      <Text color="text-high">
-                        (Organization default: Enabled)
-                      </Text>
-                    </>
-                  }
-                  description="Keep users in their assigned variation even when experiment traffic, targeting, or rollout settings change."
-                  value={!form.watch("disableStickyBucketing")}
-                  onChange={(v) => {
-                    form.setValue("disableStickyBucketing", !v);
-                  }}
-                />
-              ) : null}
-              {!disableStickyBucketing && (
-                <FallbackAttributeSelector
-                  form={form}
-                  attributeSchema={attributeSchema}
-                />
-              )}
-              {!sdkConnectionsLoading &&
-                !hasSDKWithNoBucketingV2 &&
-                experiment.hashVersion === 1 && (
-                  <HashVersionSelector
-                    value={form.watch("hashVersion")}
-                    onChange={(v) => form.setValue("hashVersion", v)}
-                    project={experiment.project}
-                  />
-                )}
-            </>
+          {experiment.hashVersion === 1 && (
+            <SDKCapabilityWarning
+              capability="bucketingV2"
+              project={experiment.project}
+              someMessage="Using V1 hashing algorithm as some of your SDK Connections may not support V2 hashing."
+              noneMessage="Using V1 hashing algorithm as none of your SDK Connections support V2 hashing."
+              popoverTriggerText="Show incompatible SDKs"
+              size="medium"
+              mb="6"
+            />
+          )}
+          <SelectField
+            withRadixThemedPortal
+            containerClassName="flex-1"
+            label="Assignment Attribute"
+            labelClassName="font-weight-bold"
+            options={hashAttributeOptions}
+            sort={false}
+            value={form.watch("hashAttribute")}
+            onChange={(v) => {
+              form.setValue("hashAttribute", v);
+            }}
+            formatOptionLabel={(o, meta) => {
+              return (
+                <AttributeOptionWithTooltip
+                  option={o as AttributeOptionForTooltip}
+                  context={meta.context}
+                >
+                  {o.label}
+                </AttributeOptionWithTooltip>
+              );
+            }}
+            helpText={
+              "Will be hashed together with the Tracking Key to determine which variation to assign"
+            }
+          />
+          {orgStickyBucketing ? (
+            <Switch
+              my="6"
+              label={
+                <>
+                  <Text weight="medium" color="text-high">
+                    Sticky Bucketing
+                  </Text>{" "}
+                  <Text color="text-high">(Organization default: Enabled)</Text>
+                </>
+              }
+              description="Keep users in their assigned variation even when experiment traffic, targeting, or rollout settings change."
+              value={!form.watch("disableStickyBucketing")}
+              onChange={(v) => {
+                form.setValue("disableStickyBucketing", !v);
+              }}
+            />
           ) : null}
+          {!disableStickyBucketing && (
+            <FallbackAttributeSelector
+              form={form}
+              attributeSchema={attributeSchema}
+            />
+          )}
+          {!sdkConnectionsLoading &&
+            !hasSDKWithNoBucketingV2 &&
+            experiment.hashVersion === 1 && (
+              <HashVersionSelector
+                value={form.watch("hashVersion")}
+                onChange={(v) => form.setValue("hashVersion", v)}
+                project={experiment.project}
+              />
+            )}
 
-          <Box mt={simpleExperimentFlow ? "6" : "0"}>
+          <Box mt="6">
             <TargetingFieldsGroup
               project={experiment.project || ""}
               environments={envs}

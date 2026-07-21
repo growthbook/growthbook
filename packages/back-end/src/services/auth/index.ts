@@ -21,7 +21,6 @@ import {
 } from "back-end/src/models/UserModel";
 import {
   getOrganizationById,
-  isEnterpriseSSO,
   validateLoginMethod,
 } from "back-end/src/services/organizations";
 import {
@@ -123,21 +122,6 @@ export async function processJWT(
 ): Promise<void> {
   const parsedJWT = getInitialDataFromJWT(req.user);
   const { email, name, verified } = parsedJWT;
-
-  // Enterprise / self-hosted SSO ties access to email (including domain auto-join).
-  // Without a positive email_verified claim, a permissive or malicious IdP could
-  // assert arbitrary emails and match or join as an existing user. For now we only
-  // log the mismatch (monitor-only) so we can identify affected orgs before enforcing.
-  if (usingOpenId() && isEnterpriseSSO(req.loginMethod) && !verified) {
-    logger.error(
-      {
-        email,
-        loginMethod: req.loginMethod?.id,
-        organization: req.loginMethod?.organization,
-      },
-      "SSO login without a verified email_verified claim",
-    );
-  }
 
   req.authSubject = parsedJWT.sub || "";
   req.email = email || "";

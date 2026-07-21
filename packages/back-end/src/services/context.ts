@@ -3,7 +3,7 @@ import { uniq } from "lodash";
 import type pino from "pino";
 import type { Request } from "express";
 import { ExperimentMetricInterface } from "shared/experiments";
-import { CommercialFeature } from "shared/enterprise";
+import { CommercialFeature, OrgLimitsAccessor } from "shared/enterprise";
 import { AuditInterfaceInput } from "shared/types/audit";
 import {
   OrganizationInterface,
@@ -22,6 +22,7 @@ import { stringToBoolean } from "shared/util";
 import {
   BadRequestError,
   UnauthorizedError,
+  PaymentRequiredError,
   PlanDoesNotAllowError,
   NotFoundError,
   InternalServerError,
@@ -29,6 +30,7 @@ import {
 import { SdkConnectionCacheModel } from "back-end/src/models/SdkConnectionCacheModel";
 import { DashboardModel } from "back-end/src/enterprise/models/DashboardModel";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
+import { getEffectiveOrgLimits } from "back-end/src/services/plan-limits";
 import { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
 import { MetricAnalysisModel } from "back-end/src/models/MetricAnalysisModel";
 import {
@@ -60,6 +62,7 @@ import { HoldoutModel } from "back-end/src/models/HoldoutModel";
 import { SavedQueryDataModel } from "back-end/src/models/SavedQueryDataModel";
 import { SavedGroupModel } from "back-end/src/models/SavedGroupModel";
 import { ConstantModel } from "back-end/src/models/ConstantModel";
+import { ConfigModel } from "back-end/src/models/ConfigModel";
 import { FeatureRevisionLogModel } from "back-end/src/models/FeatureRevisionLogModel";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { AiPromptModel } from "back-end/src/enterprise/models/AIPromptModel";
@@ -127,6 +130,7 @@ export type ModelName =
   | "sdkWebhooks"
   | "savedGroups"
   | "constants"
+  | "configs"
   | "teams"
   | "analyticsExplorations"
   | "presentationThemes"
@@ -176,6 +180,7 @@ export const modelClasses = {
   sdkWebhooks: SdkWebhookModel,
   savedGroups: SavedGroupModel,
   constants: ConstantModel,
+  configs: ConfigModel,
   teams: TeamModel,
   analyticsExplorations: AnalyticsExplorationModel,
   revisions: RevisionModel,
@@ -243,6 +248,7 @@ export class ReqContextClass {
       sdkWebhooks: new SdkWebhookModel(this),
       savedGroups: new SavedGroupModel(this),
       constants: new ConstantModel(this),
+      configs: new ConfigModel(this),
       teams: new TeamModel(this),
       analyticsExplorations: new AnalyticsExplorationModel(this),
       revisions: new RevisionModel(this),
@@ -353,15 +359,70 @@ export class ReqContextClass {
   }
 
   // True to skip soft warnings; background jobs (no req) always ignore.
+  // Body-canonical (`{ "ignoreWarnings": true }`) with the querystring form
+  // kept as a deprecated alias — the flag is request disposition, but callers
+  // (agents especially) discover and retry flags far more reliably in the body
+  // schema. Strict zod body schemas mostly limit the flag to endpoints that
+  // declare the field, but not fully: `z.never()` bodies and internal routes
+  // skip body validation, so this getter can still see the raw flag there.
   public get ignoreWarnings(): boolean {
     if (!this.req) return true;
+    if (this.bodyFlag("ignoreWarnings")) return true;
     const v = this.req.query?.ignoreWarnings;
     if (typeof v !== "string") return false;
     return stringToBoolean(v);
   }
 
+  private bodyFlag(field: string): boolean {
+    const body = this.req?.body;
+    return (
+      !!body &&
+      typeof body === "object" &&
+      (body as Record<string, unknown>)[field] === true
+    );
+  }
+
+  // Opt-in escape hatch to skip JSON-schema / value-shape conformance checks on
+  // write paths (body-canonical `{ "skipSchemaValidation": true }`, with the
+  // querystring form as a deprecated alias). Validation is enforced by
+  // default; this only relaxes it when a caller explicitly asks. Background jobs
+  // (no req) never skip — they must produce conforming data.
+  //
+  // Gated: turning off hard validation is only honored for callers with org-wide
+  // bypass authority (`bypassApprovalChecks` on all projects). A project-scoped
+  // writer can't silently ship non-conforming data — the flag is ignored and
+  // validation still runs (a 4xx, the secure default). Schema validation is new,
+  // so nothing depends on an ungated bypass.
+  public get skipSchemaValidation(): boolean {
+    if (!this.req) return false;
+    const queryValue = this.req.query?.skipSchemaValidation;
+    const requested =
+      this.bodyFlag("skipSchemaValidation") ||
+      (typeof queryValue === "string" && stringToBoolean(queryValue));
+    if (!requested) return false;
+    return this.permissions.canBypassApprovalChecks({ project: undefined });
+  }
+
+  // Force past a custom validation hook that rejected the change. Its own flag
+  // (not skipSchemaValidation — a hook failure isn't a schema error), honored
+  // only for callers with org-wide bypass authority (the bypassApprovalChecks
+  // permission on all projects); ignored otherwise.
+  public get skipHooks(): boolean {
+    if (!this.req) return false;
+    const queryValue = this.req.query?.skipHooks;
+    const requested =
+      this.bodyFlag("skipHooks") ||
+      (typeof queryValue === "string" && stringToBoolean(queryValue));
+    if (!requested) return false;
+    return this.permissions.canBypassApprovalChecks({ project: undefined });
+  }
+
   public throwBadRequestError(message: string): never {
     throw new BadRequestError(message);
+  }
+
+  public throwPaymentRequiredError(message: string): never {
+    throw new PaymentRequiredError(message);
   }
 
   public throwUnauthorizedError(message: string): never {
@@ -407,6 +468,14 @@ export class ReqContextClass {
 
   public hasPremiumFeature(feature: CommercialFeature) {
     return orgHasPremiumFeature(this.org, feature);
+  }
+
+  private _limits: OrgLimitsAccessor | null = null;
+  public get limits(): OrgLimitsAccessor {
+    if (!this._limits) {
+      this._limits = getEffectiveOrgLimits(this.org);
+    }
+    return this._limits;
   }
 
   // Record an audit log entry

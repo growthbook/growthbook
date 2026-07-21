@@ -10,6 +10,14 @@ import Link from "@/ui/Link";
 import Modal from "./Modal";
 import Button from "./Button";
 
+// The standalone GrowthBook Visual Editor extension (Chrome side panel).
+// This replaced the old DevTools extension's bundled in-page editor.
+export const VISUAL_EDITOR_EXTENSION_LINK =
+  "https://chromewebstore.google.com/detail/growthbook-visual-editor/nbomejknbpkcpjdagefhichaajpoempk";
+
+// The GrowthBook DevTools extension — still the tool for debugging feature
+// flags, experiments, attributes, and SDK health. Only its bundled visual
+// editor is deprecated (replaced by the standalone extension above).
 export const CHROME_EXTENSION_LINK =
   "https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia";
 export const FIREFOX_EXTENSION_LINK =
@@ -19,6 +27,53 @@ type OpenVisualEditorResponse =
   | { error: "INVALID_BROWSER" }
   | { error: "NO_URL" }
   | { error: "NO_EXTENSION" };
+
+// Presence probe for the standalone Visual Editor extension. Does a post a ping
+// on the page and wait for the pong its content
+function pingVisualEditorExtension(timeoutMs = 500): Promise<boolean> {
+  if (typeof window === "undefined") return Promise.resolve(false);
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (found: boolean) => {
+      if (settled) return;
+      settled = true;
+      window.removeEventListener("message", onMessage);
+      resolve(found);
+    };
+    const onMessage = (event: MessageEvent) => {
+      if (event.source !== window) return;
+      const d = event.data as { type?: string } | undefined;
+      if (d?.type === "GB_VISUAL_EDITOR_PONG") finish(true);
+    };
+    window.addEventListener("message", onMessage);
+    window.postMessage(
+      { type: "GB_PING_VISUAL_EDITOR" },
+      window.location.origin,
+    );
+    setTimeout(() => finish(false), timeoutMs);
+  });
+}
+
+// True if a Visual Editor extension capable of handling the launch is
+// installed. Prefers the new standalone extension (ping/pong); falls back
+// to probing the legacy DevTools extension's web-accessible icon
+async function isVisualEditorExtensionInstalled(
+  browser: string,
+): Promise<boolean> {
+  if (await pingVisualEditorExtension()) return true;
+  if (browser === "chrome") {
+    try {
+      const res = await fetch(
+        "chrome-extension://opemhndcehfgipokneipaafbglcecjia/js/logo128.png",
+        { method: "HEAD" },
+      );
+      if (res?.ok) return true;
+    } catch {
+      // legacy extension not installed / unreachable
+    }
+  }
+  return false;
+}
 
 export async function openVisualEditor({
   vc,
@@ -48,6 +103,15 @@ export async function openVisualEditor({
     url = "http://" + url;
   }
 
+  // Gesture beacon for the Visual Editor extension, posted synchronously
+  // inside the click handler — before any await. Chrome's sidePanel.open()
+  // only works within ~5s of a user gesture, and the API round-trips below
+  // routinely eat that window, which made the panel's auto-open flaky.
+  window.postMessage(
+    { type: "GB_OPEN_VISUAL_EDITOR_CLICKED" },
+    window.location.origin,
+  );
+
   const apiHost = getApiHost();
   const { enabled: aiFeatureMeta } = await apiCall<{ enabled: boolean }>(
     `/meta/ai`,
@@ -60,53 +124,24 @@ export async function openVisualEditor({
   });
 
   // Opt-in escape hatch for engineers developing the extension itself.
-  // The probe below pings the production Chrome Web Store extension ID,
-  // which won't match a locally-unpacked dev build (Chrome assigns those
-  // a random ID). Those devs can set this flag once and the probe is
-  // skipped from then on:
   //
   //   localStorage.setItem("gb-visual-editor-dev-extension", "1")
   //
-  // We deliberately do NOT key this off `window.location.hostname` —
-  // running the GrowthBook web app locally is completely independent of
-  // which extension build you have installed, and the common case is
-  // someone on `localhost` using the published extension. Keying off
-  // the host meant those users got no error feedback when their
-  // extension was missing or misconfigured, just a silent no-op.
   const isExtensionDev =
     typeof window !== "undefined" &&
     window.localStorage?.getItem("gb-visual-editor-dev-extension") === "1";
 
   if (!bypassChecks && !isExtensionDev) {
-    if (!["chrome", "firefox"].includes(browser) || deviceType !== "desktop") {
-      track("Open visual editor", {
-        source: "visual-editor-ui",
-        status: "invalid browser",
-        type: browser + " - " + deviceType,
-      });
-      return { error: "INVALID_BROWSER" };
-    }
-
-    try {
-      let res: Response | undefined = undefined;
-      switch (browser) {
-        case "chrome":
-          res = await fetch(
-            "chrome-extension://opemhndcehfgipokneipaafbglcecjia/js/logo128.png",
-            { method: "HEAD" },
-          );
-          break;
-        case "firefox":
-          res = await fetch(
-            "moz-extension://a69dc869-b91d-4fd3-adb2-71dc23cdc01c/js/logo128.png",
-            { method: "HEAD" },
-          );
-          break;
+    const installed = await isVisualEditorExtensionInstalled(browser);
+    if (!installed) {
+      if (browser !== "chrome" || deviceType !== "desktop") {
+        track("Open visual editor", {
+          source: "visual-editor-ui",
+          status: "invalid browser",
+          type: browser + " - " + deviceType,
+        });
+        return { error: "INVALID_BROWSER" };
       }
-      if (!res?.ok) {
-        throw new Error("Could not reach extension");
-      }
-    } catch (e) {
       track("Open visual editor", {
         source: "visual-editor-ui",
         status: "no extension",
@@ -252,22 +287,18 @@ const OpenVisualEditorLink: FC<{
           useRadixButton={false}
           trackingEventModalType=""
           open
-          header="GrowthBook DevTools Extension"
+          header="GrowthBook Visual Editor Extension"
           close={() => setShowExtensionDialog(false)}
           closeCta="Close"
           cta="View extension"
           submit={() => {
-            if (browser === "firefox") {
-              window.open(FIREFOX_EXTENSION_LINK);
-            } else {
-              window.open(CHROME_EXTENSION_LINK);
-            }
+            window.open(VISUAL_EDITOR_EXTENSION_LINK);
           }}
         >
-          {["chrome", "firefox"].includes(browser) ? (
+          {browser === "chrome" ? (
             <>
-              You&apos;ll need to install the GrowthBook DevTools browser
-              extension to use the visual editor.{" "}
+              You&apos;ll need to install the GrowthBook Visual Editor browser
+              extension to use the Visual Editor.{" "}
               <a
                 href="#"
                 onClick={(e) => {
@@ -287,9 +318,8 @@ const OpenVisualEditorLink: FC<{
             </>
           ) : (
             <>
-              The Visual Editor is currently only supported in Chrome and
-              Firefox. We are working on bringing the Visual Editor to other
-              browsers.
+              The Visual Editor extension is currently available for Chrome.
+              We&apos;re working on bringing it to other browsers.
             </>
           )}
         </Modal>

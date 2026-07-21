@@ -1,9 +1,19 @@
 import { z } from "zod";
 import { baseSchema } from "./base-model";
 
+export const contextualLeafClauseValidator = z.object({
+  attribute: z.string(),
+  levels: z.array(z.string()),
+  operator: z.enum(["in", "not in"]),
+});
+export type ContextualLeafClauseInterface = z.infer<
+  typeof contextualLeafClauseValidator
+>;
+
+/** One tree leaf's targeting condition: the AND of its per-attribute clauses. */
 export const contextualLeafMapEntryValidator = z.object({
-  context: z.record(z.string(), z.string()),
   leafId: z.number().int(),
+  context: z.array(contextualLeafClauseValidator),
 });
 export type ContextualLeafMapEntryInterface = z.infer<
   typeof contextualLeafMapEntryValidator
@@ -31,6 +41,7 @@ export type ContextualSseTrajectoryEntryInterface = z.infer<
 /** Mirrors gbstats `ContextualBanditResponse`. */
 export const contextualBanditResponseValidator = z.object({
   context: z.record(z.string(), z.unknown()),
+  leafId: z.number().int().optional(),
   sampleSizePerVariation: z.array(z.number()).nullable().optional(),
   sampleMeans: z.array(z.number()).nullable().optional(),
   sampleVariances: z.array(z.number()).nullable().optional(),

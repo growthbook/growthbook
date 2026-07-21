@@ -113,8 +113,15 @@ Response (abbreviated; `contextualBanditSnapshot` and `latest` are each `null` u
 {
   "contextualBanditSnapshot": {
     "attributes": ["country"],
-    "responses": [ /* per-context stats rows from the stats engine */ ],
-    "leaf_map": [ /* optional decision-tree leaf mapping */ ]
+    "responses": [ /* per-context stats rows (each tagged with its `leafId`) */ ],
+    "leaf_map": [
+      /* one entry per decision-tree leaf; `context` is the AND of per-attribute
+         clauses, e.g.
+         { "leafId": 2, "context": [
+             { "attribute": "country", "levels": ["US", "UK"], "operator": "in" },
+             { "attribute": "browser", "levels": ["Chrome", "Firefox"], "operator": "not in" }
+         ] } */
+    ]
   },
   "latest": {
     "id": "cbs_abc",
