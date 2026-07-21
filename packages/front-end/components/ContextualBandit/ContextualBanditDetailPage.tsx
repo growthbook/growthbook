@@ -157,9 +157,6 @@ export default function ContextualBanditDetailPage({
     (cb.savedGroups?.length ?? 0) > 0 ||
     (cb.prerequisites?.length ?? 0) > 0;
 
-  // Warn when the global attribute-targeting condition references an attribute
-  // that the bandit also uses as a contextual attribute. Overlap can create
-  // unreachable leaves (e.g. global excludes a country that a leaf targets).
   const attributeMap = useAttributeMap(cb.project);
   const conflictingAttributes = useMemo(() => {
     const contextual = new Set(cb.contextualAttributes);
@@ -501,9 +498,8 @@ export default function ContextualBanditDetailPage({
                     <Text as="span">
                       Your attribute targeting overlaps with the bandit&apos;s
                       contextual attributes. Overlapping targeting can create
-                      unreachable variations — for example, if targeting
-                      excludes a value that a contextual segment relies on.
-                      Review your targeting to avoid conflicts.
+                      unreachable variations. Please review your targeting to
+                      avoid conflicts.
                     </Text>
                     <Flex align="center" gap="1" wrap="wrap">
                       {conflictingAttributes.map((a) => (
