@@ -241,13 +241,11 @@ export function makeGenericBulkAdapter(
         const original = (preImage as Record<string, unknown>)[key];
         if (isEqual(desiredState[key], original)) continue;
         // Restore a key only while the live doc still holds the value this
-        // apply wrote — if a later writer moved it to a different value, that
-        // newer intent must not be clobbered. This is value-based, so it
-        // cannot catch a concurrent writer that set the key to the SAME value
-        // our apply wrote (before or after apply): that residual overwrite is
-        // the entity-write lost-update window, closed only by CAS-guarding the
-        // apply itself (tracked follow-up), which the single-entity publish
-        // path also lacks.
+        // apply wrote — a later writer's different value is newer intent and
+        // must not be clobbered. Value-based, so it can't catch a concurrent
+        // writer that set the key to the SAME value our apply wrote: that
+        // residual overwrite is the entity-write lost-update window, closed
+        // only by CAS-guarding the apply itself.
         if (!isEqual((current as Record<string, unknown>)[key], written[key])) {
           continue;
         }

@@ -149,14 +149,12 @@ featureRevisionSchema.index(
   { organization: 1, featureId: 1, version: 1 },
   { unique: true },
 );
-// Non-unique: the by-id resolver (findFeatureRevisionCoordinatesByRevisionId)
-// only needs this for lookup speed, and nothing relies on the DB enforcing
-// id-uniqueness — minted ids come from uniqid, and the real identity guarantee
-// is the (organization, featureId, version) triplet above. A unique index here
-// would risk a build-time collision on any legacy `id: null` ($exists matches
-// null) and is heavier to build on a large existing collection, all for a
-// collision guard uniqid makes moot. Partial so it covers only id-bearing
-// docs — legacy docs (no stored id) resolve via the tuple decode instead.
+// Non-unique + partial (id-bearing docs only): a lookup-speed index for the
+// by-id resolver. Nothing relies on the DB enforcing id-uniqueness — minted
+// ids come from uniqid and the real identity guarantee is the (organization,
+// featureId, version) triplet above. A unique index would risk a build-time
+// collision on legacy `id: null` docs and is heavier to build, for a guard
+// uniqid makes moot. Legacy docs (no stored id) resolve via the tuple decode.
 featureRevisionSchema.index(
   { organization: 1, id: 1 },
   { partialFilterExpression: { id: { $exists: true } } },

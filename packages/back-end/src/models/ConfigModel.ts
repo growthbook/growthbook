@@ -140,10 +140,10 @@ export class ConfigModel extends BaseClass {
     // deferred fire) always ignore warnings, so an armed archive publish already
     // re-checked its fingerprint at assertPublishable passes here. A direct write
     // without ignoreWarnings still surfaces the warning on any write path.
-    // A bulk-publish commit (bulkPublishId set) already evaluated this guard
-    // as a plan gate against the release's combined end-state; re-running it
-    // here would judge the mid-commit mix (a sibling item that removes the
-    // last dependent may not have applied yet) and spuriously fail the release.
+    // A bulk-publish commit already evaluated this guard as a plan gate against
+    // the release's combined end-state; re-running it here would judge the
+    // mid-commit mix (a sibling that removes the last dependent may not have
+    // applied yet) and spuriously fail the release.
     if (
       updates.archived === true &&
       !existing.archived &&

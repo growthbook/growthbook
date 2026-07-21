@@ -215,13 +215,12 @@ type ModelInstances = {
 export class ReqContextClass {
   /**
    * When set, guard evaluators use this as their org-wide scan context instead
-   * of minting a fresh one per evaluation (getContextForAgendaJobByOrgObject).
-   * Sharing one scan context makes the model-instance snapshot memos (e.g.
-   * ConfigModel.getAllForReconcile) span all guards in the operation, and lets
-   * the bulk publisher substitute an overlay context whose reads reflect a
-   * hypothetical multi-entity end-state. Set it self-referentially on the scan
-   * context itself so nested evaluations inherit it. Request-scoped only —
-   * never cache one of these across requests.
+   * of minting a fresh one per evaluation. Sharing one context makes the
+   * model-instance snapshot memos (e.g. ConfigModel.getAllForReconcile) span all
+   * guards in the operation, and lets the bulk publisher substitute an overlay
+   * whose reads reflect a hypothetical multi-entity end-state. Set
+   * self-referentially so nested evaluations inherit it. Request-scoped only —
+   * never cache one across requests.
    */
   public scanContextOverride?: ReqContextClass;
 

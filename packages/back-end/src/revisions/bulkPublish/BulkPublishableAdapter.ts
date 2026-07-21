@@ -35,11 +35,9 @@ export type BulkRevisionRef = {
  *
  * Atomicity contract: everything that can fail deterministically
  * (permissions, validation, guards, hooks, merge computation) runs in the
- * plan-phase methods; claim() may fail ONLY on a CAS/baseline conflict —
- * before any live write; applyPrecomputed() may still throw on residual
- * model-level write validation, which the orchestrator treats as
- * compensation-triggering. SDK payload refreshes are captured by the
- * context's sdkPayloadRefreshBuffer.
+ * plan-phase methods; claim() may fail ONLY on a CAS/baseline conflict, before
+ * any live write; applyPrecomputed() may still throw on residual model-level
+ * write validation, which the orchestrator treats as compensation-triggering.
  */
 export interface BulkPublishableAdapter {
   /**

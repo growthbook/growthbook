@@ -331,13 +331,11 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
         mergeResult,
       );
     } finally {
-      // Re-snapshot the safe rollouts once the sync inside applyRevisionChanges
-      // has written them — the per-field ownership baseline compensation needs.
-      // Captured in `finally` because a later step of applyRevisionChanges (the
-      // feature write) can throw AFTER the sync ran: without this baseline the
-      // restore can't distinguish the sync's stamp from a concurrent worker
-      // advance and would leave the timing fields untouched. Best-effort — a
-      // failure here must not mask the original apply error.
+      // Re-snapshot the safe rollouts after applyRevisionChanges' sync wrote
+      // them — the per-field ownership baseline compensation needs. In `finally`
+      // because a later apply step (the feature write) can throw AFTER the sync
+      // ran; without this baseline the restore can't tell the sync's stamp from
+      // a concurrent worker advance. Best-effort — must not mask the apply error.
       if (desired.safeRollouts?.length) {
         try {
           const postImages =
@@ -376,13 +374,10 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
 
     // Reverse the cross-collection writes BEFORE the feature-doc restore so a
     // failed reversal keeps the doc consistent with the side collections. Each
-    // reversal is attempted independently (a later one shouldn't be skipped
-    // because an earlier one failed), but ANY failure is surfaced at the end:
-    // a satellite left at the failed publish's state (a safe rollout still
-    // advancing, a stale experiment link, a retained holdout) means the item
-    // did NOT fully roll back, so it must be reported "published"/needs-
-    // attention rather than a clean rollback — matching how restore failures
-    // elsewhere are handled. The safe-rollout restore is ownership-checked
+    // reversal is attempted independently; ANY failure is surfaced at the end,
+    // so a satellite left at the failed publish's state (safe rollout advancing,
+    // stale experiment link, retained holdout) makes the item report "published"
+    // rather than a clean rollback. The safe-rollout restore is ownership-checked
     // inside so worker progress is never clobbered.
     const reversalFailures: string[] = [];
     for (const entry of desired.safeRollouts ?? []) {
@@ -491,10 +486,9 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       await updateFeature(context, current, restore);
     }
 
-    // Any satellite reversal that failed leaves the feature partly at the
-    // failed publish's state. Surface it so commitBulkPublish marks the item
-    // restore-failed — keeping its claim and reporting it "published" rather
-    // than falsely claiming a clean rollback of a still-mixed entity.
+    // A failed satellite reversal leaves the feature partly published — throw
+    // so commitBulkPublish marks the item restore-failed and reports it
+    // "published" rather than a clean rollback.
     if (reversalFailures.length) {
       throw new Error(
         `bulk publish compensation: could not fully roll back feature ${feature.id} — ${reversalFailures.join(", ")} left at the failed publish's state`,

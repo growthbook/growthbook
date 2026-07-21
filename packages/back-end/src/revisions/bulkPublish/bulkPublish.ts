@@ -87,8 +87,7 @@ function itemGate(
  * multi-entity end-state overlay, evaluates every publish gate against it,
  * captures CAS baselines and pre-images, and dispositions each gate against
  * the caller's flags and per-entity authority. The returned plan is both the
- * dry-run report and the exact input commitBulkPublish executes — one code
- * path, so a dry run can never disagree with a real run.
+ * dry-run report and the exact input commitBulkPublish executes.
  */
 export async function planBulkPublish(
   context: Context,
@@ -257,10 +256,10 @@ export async function planBulkPublish(
 
   const items: PlannedItemPublish[] = [];
 
-  // The privileged validation overrides require ORG-WIDE bypass authority —
-  // the same scope the single-entity paths enforce via the context's
-  // skipSchemaValidation/skipHooks getters. A project-scoped bypass clears
-  // approval (per entity, below) but never a validation failure.
+  // The privileged validation overrides require ORG-WIDE bypass authority (the
+  // scope the single-entity paths enforce via the context's skipSchemaValidation
+  // /skipHooks getters). A project-scoped bypass clears approval (per entity,
+  // below) but never a validation failure.
   const orgWideBypass = context.permissions.canBypassApprovalChecks({
     project: undefined,
   });
@@ -361,9 +360,6 @@ export async function commitBulkPublish(
 
   // Correlation token stamped on every event this publish emits (success and
   // failure alike) and returned to the caller for joining response ↔ webhooks.
-  // While set, write-path guard asserts stand down: every guard already ran
-  // as a plan gate against the release's combined end-state, and re-running
-  // them mid-commit would judge a partially-applied mix.
   const bulkPublishId = uniqid("pub_");
   context.bulkPublishId = bulkPublishId;
   // Durable breadcrumb BEFORE the first claim: a crash mid-commit leaves the
@@ -383,9 +379,8 @@ export async function commitBulkPublish(
   // Pre-apply bailout (entity drift, or a lost claim CAS): release whatever we
   // claimed and rethrow the original conflict as a clean retryable 409. But if
   // a reopen ITSELF fails, that revision is stuck merged while its entity was
-  // never written — a state contradiction, not a clean no-write abort — so
-  // surface it like the compensation path: a 500 with per-item results (stuck
-  // revisions "published", the rest "not-applied") instead of the bare 409.
+  // never written — so surface it like the compensation path (500 with per-item
+  // results: stuck revisions "published", the rest "not-applied") not the 409.
   const abort = async (claimed: PlannedItemPublish[], e: unknown) => {
     const releaseFailed = await releaseClaims(context, claimed);
     if (releaseFailed.size) {
@@ -403,14 +398,12 @@ export async function commitBulkPublish(
     throw e;
   };
 
-  // Everything past here writes or claims; the finally guarantees both the
-  // correlation token AND the guard-suppression flag are cleared on every exit
-  // (success, 409/500 throw, or a raw infra throw in the drift/no-op phase).
+  // The finally clears both the correlation token AND the guard-suppression
+  // flag on every exit (success, 409/500 throw, or a raw infra throw).
   try {
     // Entity drift check FIRST: claims guard revisions, not entities. Re-read
-    // each target and abort (zero claims, zero entity writes) if anything moved
-    // since plan. Runs before the no-op replays below, whose self-heal writes
-    // can legitimately bump a sibling item's dateUpdated.
+    // each target and abort (zero writes) if anything moved since plan. Before
+    // the no-op replays, whose self-heal writes can bump a sibling's dateUpdated.
     for (const item of plan.items) {
       const adapter = getBulkAdapter(item.ref.entityType);
       const current = await adapter.loadEntity(context, item.ref.entityId);
@@ -566,10 +559,8 @@ export async function commitBulkPublish(
       // rejections and claim conflicts never reach here and stay silent.
       const reason = `Release publish failed and was rolled back: ${getErrorMessage(e)}`;
       for (const item of plan.items) {
-        // Any item whose revision stays merged (restore failed, or reopen
-        // failed) must NOT get a "rolled back" failure event — that would
-        // contradict the still-published revision. Its `status: "published"`
-        // result row is the operator signal instead.
+        // An item whose revision stays merged must NOT get a "rolled back"
+        // event — its `status: "published"` result row is the signal instead.
         if (stuckPublished(item)) continue;
         try {
           await getBulkAdapter(item.ref.entityType).emitPublishFailed(
@@ -594,10 +585,9 @@ export async function commitBulkPublish(
       );
     }
 
-    // Commit succeeded: guard suppression ends here so post-commit side-effect
-    // writes (ramp activation etc. — genuine writes NOT covered by the plan
-    // gates) run with validation active. The correlation token stays set so the
-    // events below still carry it.
+    // Commit succeeded: guard suppression ends so post-commit side-effect writes
+    // (ramp activation etc. — genuine writes NOT covered by plan gates) run with
+    // validation active. The correlation token stays set for the events below.
     context.bulkPublishApplying = false;
 
     // Success: detach the buffers FIRST so the flushes themselves fire, then
@@ -675,9 +665,8 @@ function flushPayloadRefreshBuffer(context: Context, event: string): void {
 }
 
 // Reopen each claimed revision. Returns the items whose reopen FAILED — their
-// revision stays merged/published, so compensation must report them
-// "published" (not "rolled-back") even when their entity restored cleanly, or
-// the result/events would contradict the durable revision state.
+// revision stays merged/published, so compensation must report them "published"
+// (not "rolled-back") even when their entity restored cleanly.
 async function releaseClaims(
   context: Context,
   claimed: PlannedItemPublish[],
