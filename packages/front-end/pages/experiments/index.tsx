@@ -4,6 +4,7 @@ import { PiCaretDown } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import Link from "@/ui/Link";
+import CounterBadge from "@/ui/Badge/CounterBadge";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
@@ -276,19 +277,12 @@ const ExperimentsPage = (): React.ReactElement => {
                               {tabValue.slice(0, 1).toUpperCase()}
                               {tabValue.slice(1)}
                               {tabValue !== "archived" && (
-                                <span
-                                  style={{
-                                    marginLeft: "var(--space-2)",
-                                    background: "var(--gray-3)",
-                                    border: "1px solid var(--gray-6)",
-                                    borderRadius: "var(--radius-2)",
-                                    padding: "0 var(--space-2)",
-                                    fontSize: "var(--font-size-1)",
-                                    color: "var(--gray-11)",
-                                  }}
-                                >
-                                  {tabCounts[tabValue] || 0}
-                                </span>
+                                <CounterBadge
+                                  color="slate"
+                                  count={tabCounts[tabValue] || 0}
+                                  showFullCount
+                                  ml="2"
+                                />
                               )}
                             </TabsTrigger>
                           );

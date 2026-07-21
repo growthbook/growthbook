@@ -16,6 +16,7 @@ import Head from "next/head";
 import { Flex, Text } from "@radix-ui/themes";
 import router from "next/router";
 import Breadcrumbs from "@/ui/Breadcrumbs";
+import CounterBadge from "@/ui/Badge/CounterBadge";
 import {
   DropdownMenu,
   DropdownMenuGroup,
@@ -244,24 +245,7 @@ const TopNav: FC<{
           <PiHourglassHigh size="16" className="mr-1" />
           Pending Reviews
           {pendingReviewCount > 0 && (
-            <span
-              style={{
-                backgroundColor: "var(--red-9)",
-                color: "white",
-                borderRadius: "50%",
-                minWidth: 18,
-                height: 18,
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: 11,
-                fontWeight: 600,
-                marginLeft: 6,
-                padding: "0 4px",
-              }}
-            >
-              {pendingReviewCount}
-            </span>
+            <CounterBadge color="red" count={pendingReviewCount} ml="2" />
           )}
         </div>
       </DropdownMenuItem>
