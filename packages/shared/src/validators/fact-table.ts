@@ -41,8 +41,7 @@ export const numberFormatValidator = z.enum([
   "memory:kilobytes",
 ]);
 
-// Stored shape: every JSON field carries a datatype (auto-detection fills ""
-// until the type is known). This is the canonical persisted `JSONColumnFields`.
+/** Persisted JSON fields: every field has a datatype (`""` until detected). */
 export const jsonColumnFieldsValidator = z.record(
   z.string(),
   z.object({
@@ -50,8 +49,10 @@ export const jsonColumnFieldsValidator = z.record(
   }),
 );
 
-// Input shape: a caller may omit a JSON field's datatype. buildColumnInterface
-// normalizes an omitted value to "" so the stored shape's invariant holds.
+/**
+ * Input JSON fields may omit datatype; buildColumnInterface normalizes
+ * omitted values to `""`.
+ */
 export const jsonColumnFieldsInputValidator = z.record(
   z.string(),
   z.object({
@@ -65,7 +66,7 @@ export const createColumnPropsValidator = z
     name: z.string().optional(),
     description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     numberFormat: numberFormatValidator.optional(),
-    // Optional so an omitted datatype flows through as "auto-detect later"
+    // Omitted datatype means auto-detect later
     datatype: factTableColumnTypeValidator.optional(),
     jsonFields: jsonColumnFieldsInputValidator.optional(),
     deleted: z.boolean().optional(),

@@ -628,47 +628,36 @@ export function mergeUpsertColumns(
   for (const incomingColumn of incoming) {
     const index = columns.findIndex((c) => c.column === incomingColumn.column);
 
-    let nextColumn: ColumnInterface;
-    let originalColumn: ColumnInterface | undefined;
-
     if (index < 0) {
-      nextColumn = buildColumnInterface(incomingColumn);
-    } else {
-      originalColumn = columns[index];
-      const effectiveDatatype =
-        incomingColumn.datatype !== undefined
-          ? incomingColumn.datatype
-          : originalColumn.datatype;
-
-      nextColumn = normalizePersistedColumn({
-        ...originalColumn,
-        ...omit(incomingColumn, [
-          "column",
-          "datatype",
-          "jsonFields",
-          "dateCreated",
-          "dateUpdated",
-        ]),
-        datatype: effectiveDatatype,
-        jsonFields:
-          incomingColumn.jsonFields !== undefined
-            ? normalizeJSONFieldsInput(incomingColumn.jsonFields)
-            : originalColumn.jsonFields,
-        ...(incomingColumn.topValues ? { topValuesDate: new Date() } : {}),
-        dateUpdated: new Date(),
-      });
+      columns.push(buildColumnInterface(incomingColumn));
+      continue;
     }
 
-    if (index < 0) {
-      columns.push(nextColumn);
-    } else {
-      columns[index] = nextColumn;
-      if (
-        nextColumn.deleted ||
-        (!nextColumn.isAutoSliceColumn && originalColumn?.isAutoSliceColumn)
-      ) {
-        removedAutoSliceColumns.push(incomingColumn.column);
-      }
+    const originalColumn = columns[index];
+    const nextColumn = normalizePersistedColumn({
+      ...originalColumn,
+      ...omit(incomingColumn, [
+        "column",
+        "datatype",
+        "jsonFields",
+        "dateCreated",
+        "dateUpdated",
+      ]),
+      datatype: incomingColumn.datatype ?? originalColumn.datatype,
+      jsonFields:
+        incomingColumn.jsonFields !== undefined
+          ? normalizeJSONFieldsInput(incomingColumn.jsonFields)
+          : originalColumn.jsonFields,
+      ...(incomingColumn.topValues ? { topValuesDate: new Date() } : {}),
+      dateUpdated: new Date(),
+    });
+
+    columns[index] = nextColumn;
+    if (
+      nextColumn.deleted ||
+      (!nextColumn.isAutoSliceColumn && originalColumn.isAutoSliceColumn)
+    ) {
+      removedAutoSliceColumns.push(incomingColumn.column);
     }
   }
 

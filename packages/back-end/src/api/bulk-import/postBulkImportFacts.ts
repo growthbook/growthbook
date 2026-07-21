@@ -87,9 +87,7 @@ export const postBulkImportFacts = createApiRequestHandler(
         data.managedBy = "api";
       }
 
-      // Enforce the metric-slices premium gate before any write. Bulk-import is
-      // not transactional across resources, so this must run before mutating
-      // this fact table.
+      // Bulk-import is not transactional, so gate slices before any write.
       if (
         columnsHaveAutoSlices(data.columns) &&
         !req.context.hasPremiumFeature("metric-slices")
@@ -117,9 +115,6 @@ export const postBulkImportFacts = createApiRequestHandler(
             (await resolveOwnerToUserId(data.owner, req.context)) ?? "";
         }
 
-        // Upsert columns by `column` (patch existing, insert new, leave omitted
-        // untouched), then drop them from `data` so the model $set leaves the
-        // columns array alone.
         if (data.columns) {
           await upsertColumns({
             context: req.context,
@@ -139,7 +134,6 @@ export const postBulkImportFacts = createApiRequestHandler(
         factTableMap.set(existing.id, {
           ...existing,
           ...data,
-          // `existing.columns` reflects the merged result of upsertColumns
           columns: existing.columns,
         });
         numUpdated.factTables++;

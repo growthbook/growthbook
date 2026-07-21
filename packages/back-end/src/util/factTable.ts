@@ -8,8 +8,10 @@ import {
 } from "shared/types/fact-table";
 import { DataSourceInterface } from "shared/types/datasource";
 
-// Clears datatype-incompatible props. Empty datatype skips checks while
-// auto-detection is pending.
+/**
+ * Clears datatype-incompatible props. Empty datatype skips checks while
+ * auto-detection is pending.
+ */
 export function stripIncompatibleFields(
   column: ColumnInterface,
 ): ColumnInterface {
@@ -45,10 +47,12 @@ export function stripIncompatibleFields(
   return next;
 }
 
-// Auto-slice columns default to an empty slice list until the refresh job
-// populates it. Boolean columns always slice on ["true", "false"]; the stored
-// value for a boolean is otherwise ignored downstream (see slice generation in
-// shared/experiments). Keeps every write path in agreement.
+/**
+ * Auto-slice columns default to an empty slice list until the refresh job
+ * populates it. Boolean columns always use `["true", "false"]`; any other
+ * stored value is ignored downstream (see slice generation in
+ * shared/experiments).
+ */
 export function ensureAutoSliceDefaults(
   column: ColumnInterface,
 ): ColumnInterface {
@@ -65,9 +69,10 @@ export function ensureAutoSliceDefaults(
   return next;
 }
 
-// Brings a column into its valid persisted state: strips datatype-incompatible
-// props (matching the async detection job) and applies auto-slice defaults.
-// Create and upsert share this so a column stored one way is identical either way.
+/**
+ * Shared create/upsert/detection path so a stored column looks the same
+ * regardless of which write produced it.
+ */
 export function normalizePersistedColumn(
   column: ColumnInterface,
 ): ColumnInterface {

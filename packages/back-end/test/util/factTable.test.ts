@@ -222,7 +222,7 @@ describe("ensureAutoSliceDefaults", () => {
 });
 
 describe("normalizePersistedColumn", () => {
-  it("heals an incompatible prop instead of throwing (matches the async job)", () => {
+  it("clears an incompatible prop instead of throwing", () => {
     const column = makeConstraintColumn({
       datatype: "number",
       alwaysInlineFilter: true,

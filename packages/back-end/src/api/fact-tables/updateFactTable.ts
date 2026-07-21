@@ -99,7 +99,6 @@ export const updateFactTable = createApiRequestHandler(
       columns: data.columns,
     });
     columnsUpserted = true;
-    // Remove columns from the main update since we handled them via upsert
     delete data.columns;
   }
 
