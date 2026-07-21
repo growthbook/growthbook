@@ -43,6 +43,10 @@ import { bulkPublishFields } from "back-end/src/events/bulkPublishCorrelation";
 import { getErrorMessage } from "back-end/src/util/errors";
 import { ownedRestoreValues } from "back-end/src/revisions/bulkPublish/ownedRestore";
 import type { PublishGate } from "back-end/src/revisions/publishGates";
+import {
+  gateOr5xx,
+  makeBlockingGate,
+} from "back-end/src/revisions/publishGates";
 import type {
   BulkPublishableAdapter,
   BulkRevisionRef,
@@ -93,6 +97,14 @@ function rawRevision(ref: BulkRevisionRef): FeatureRevisionInterface {
 export const featureBulkAdapter: BulkPublishableAdapter = {
   // Features gate stale-base force-merge on the permission alone.
   staleBaseForceAllowsRestBypass: false,
+
+  applyScanOverlay(overlayContext, proposedEntities) {
+    // Feature guards resolve cross-entity state through featureScanOverlay
+    // (an id→feature map), not a model overlay.
+    overlayContext.featureScanOverlay = new Map(
+      (proposedEntities as unknown as FeatureInterface[]).map((f) => [f.id, f]),
+    );
+  },
 
   async loadEntity(context, entityId) {
     const feature = await getFeature(context, entityId);
@@ -181,29 +193,25 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       environmentIds: plan.environmentIds,
     });
     if (!callerContext.permissions.canPublishFeature(feature, envsToCheck)) {
-      gates.push({
-        type: "permission-denied",
-        severity: "blocker",
-        messages: [
-          "You do not have permission to publish this Feature Flag in the environments this revision changes.",
-        ],
-        override: null,
-        requiresPermission: null,
-        resolution: null,
-      });
+      gates.push(
+        makeBlockingGate({
+          type: "permission-denied",
+          messages: [
+            "You do not have permission to publish this Feature Flag in the environments this revision changes.",
+          ],
+        }),
+      );
     }
 
     // The generic no-op merge path doesn't apply to features — a publish must
     // advance the live version pointer — so an empty revision blocks.
     if (!plan.hasChanges) {
-      gates.push({
-        type: "no-changes",
-        severity: "blocker",
-        messages: ["No changes detected in this revision."],
-        override: null,
-        requiresPermission: null,
-        resolution: null,
-      });
+      gates.push(
+        makeBlockingGate({
+          type: "no-changes",
+          messages: ["No changes detected in this revision."],
+        }),
+      );
     }
 
     // Lockdown blocks, surfaced as plan-time gates. Both auto-clear for the
@@ -213,14 +221,17 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     try {
       await assertFeatureNotLockedByRamp(overlayContext, feature.id);
     } catch (e) {
-      gates.push({
-        type: "ramp-locked",
-        severity: "blocker",
-        messages: [getErrorMessage(e)],
-        override: null,
-        requiresPermission: "bypassApprovalChecks",
-        resolution: null,
-      });
+      // The lockdown signal is a plain Error (no status), so gateOr5xx can't
+      // separate it from an infra failure of the schedule read — both would be
+      // caught as a ramp-locked gate. That read is a single indexed lookup, so
+      // treat any throw as the lock it almost always is.
+      gates.push(
+        makeBlockingGate({
+          type: "ramp-locked",
+          messages: [getErrorMessage(e)],
+          requiresPermission: "bypassApprovalChecks",
+        }),
+      );
     }
     if (
       await hasPublishLockingScheduledSibling(
@@ -229,16 +240,15 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
         raw.version,
       )
     ) {
-      gates.push({
-        type: "publish-locking-sibling",
-        severity: "blocker",
-        messages: [
-          "Another draft of this Feature Flag has a scheduled publish that locks other drafts. Cancel that schedule first.",
-        ],
-        override: null,
-        requiresPermission: "bypassApprovalChecks",
-        resolution: null,
-      });
+      gates.push(
+        makeBlockingGate({
+          type: "publish-locking-sibling",
+          messages: [
+            "Another draft of this Feature Flag has a scheduled publish that locks other drafts. Cancel that schedule first.",
+          ],
+          requiresPermission: "bypassApprovalChecks",
+        }),
+      );
     }
 
     // The shared gate set, evaluated against the overlay context so
@@ -265,16 +275,14 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       // no-override gate. Infra failures — transient DB errors in the
       // archive-dependents / value scans inside — propagate as the 5xx they
       // are, instead of masquerading as a permanent unfixable blocker.
-      const status = (e as { status?: number }).status;
-      if (typeof status !== "number" || status >= 500) throw e;
-      gates.push({
-        type: "config-backed-default",
-        severity: "blocker",
-        messages: [getErrorMessage(e)],
-        override: null,
-        requiresPermission: null,
-        resolution: null,
-      });
+      gates.push(
+        gateOr5xx(e, (message) =>
+          makeBlockingGate({
+            type: "config-backed-default",
+            messages: [message],
+          }),
+        ),
+      );
     }
 
     return gates;
@@ -376,7 +384,17 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       );
     }
     const current = await getFeature(context, feature.id);
-    if (!current) return;
+    // This apply wrote the feature, so it should exist. If it's gone (a
+    // concurrent hard-delete between apply and compensation), surface it —
+    // reporting the item "rolled-back" would assert a pre-image that no longer
+    // exists, and the doc-dependent satellite reversals below can't run without
+    // it. Throwing routes the item to restore-failed (needs attention), the
+    // same honest outcome the generic adapter gives.
+    if (!current) {
+      throw new Error(
+        `bulk publish compensation: feature "${feature.id}" no longer exists — cannot restore its pre-image`,
+      );
+    }
     const { mergeResult } = desired;
 
     // Reverse the cross-collection writes BEFORE the feature-doc restore so a

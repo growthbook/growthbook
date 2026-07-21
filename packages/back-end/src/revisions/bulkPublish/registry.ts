@@ -1,4 +1,5 @@
 import { ConfigInterface } from "shared/types/config";
+import { ConstantInterface } from "shared/types/constant";
 import { SavedGroupInterface } from "shared/types/saved-group";
 import type { Revision } from "shared/enterprise";
 import type { Context } from "back-end/src/models/BaseModel";
@@ -10,9 +11,12 @@ import {
 import { collectConfigLockGate } from "back-end/src/services/configLock";
 import { collectSavedGroupArchiveDependentsGate } from "back-end/src/services/archiveDependentsGuard";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
-import { getErrorMessage } from "back-end/src/util/errors";
 import type { ReqContext } from "back-end/types/request";
 import type { PublishGate } from "back-end/src/revisions/publishGates";
+import {
+  gateOr5xx,
+  makeBlockingGate,
+} from "back-end/src/revisions/publishGates";
 import { makeGenericBulkAdapter } from "back-end/src/revisions/bulkPublish/genericBulkAdapter";
 import { featureBulkAdapter } from "back-end/src/revisions/bulkPublish/featureBulkAdapter";
 import type { BulkPublishableAdapter } from "back-end/src/revisions/bulkPublish/BulkPublishableAdapter";
@@ -92,14 +96,14 @@ async function savedGroupExtraGates(args: {
           savedGroup.projects,
       );
     } catch (e) {
-      gates.push({
-        type: "unregistered-attribute",
-        severity: "blocker",
-        messages: [getErrorMessage(e)],
-        override: null,
-        requiresPermission: null,
-        resolution: null,
-      });
+      gates.push(
+        gateOr5xx(e, (message) =>
+          makeBlockingGate({
+            type: "unregistered-attribute",
+            messages: [message],
+          }),
+        ),
+      );
     }
   }
   return gates;
@@ -109,14 +113,30 @@ const registry: Record<BulkPublishTargetType, () => BulkPublishableAdapter> = {
   "saved-group": () =>
     makeGenericBulkAdapter("saved-group", getAdapter("saved-group"), {
       extraGates: savedGroupExtraGates,
+      setScanOverlay: (ctx, proposed) =>
+        ctx.models.savedGroups.setScanOverlay(
+          proposed as SavedGroupInterface[],
+        ),
     }),
-  constant: () => makeGenericBulkAdapter("constant", getAdapter("constant")),
+  constant: () =>
+    makeGenericBulkAdapter("constant", getAdapter("constant"), {
+      setScanOverlay: (ctx, proposed) =>
+        ctx.models.constants.setScanOverlay(proposed as ConstantInterface[]),
+    }),
   config: () =>
     makeGenericBulkAdapter("config", getAdapter("config"), {
       extraGates: configExtraGates,
+      setScanOverlay: (ctx, proposed) =>
+        ctx.models.configs.setScanOverlay(proposed as ConfigInterface[]),
     }),
   feature: () => featureBulkAdapter,
 };
+
+// Every bulk-publishable target type — the orchestrator iterates this to
+// install each type's slice of the end-state overlay without a per-type switch.
+export const bulkPublishTargetTypes = Object.keys(
+  registry,
+) as BulkPublishTargetType[];
 
 // Adapters are stateless (per-item state rides in the plan), so each type
 // resolves to one shared instance.

@@ -2,6 +2,7 @@ import type { Revision, RevisionTargetType } from "shared/enterprise";
 import type { Context } from "back-end/src/models/BaseModel";
 import type { EntityRevisionAdapter } from "back-end/src/revisions/EntityRevisionAdapter";
 import type { PublishGate } from "back-end/src/revisions/publishGates";
+import { makeBlockingGate } from "back-end/src/revisions/publishGates";
 import { isRevisionDiverged } from "back-end/src/revisions/util";
 
 /**
@@ -36,20 +37,20 @@ export function collectRevisionGovernanceGates({
     ? adapter.isApprovalRequiredForRevision(context, revision)
     : adapter.isApprovalRequired(context);
   if (approvalRequired && revision.status !== "approved") {
-    gates.push({
-      type: "approval-required",
-      severity: "blocker",
-      messages: [
-        `Requires approval before publishing (status: "${revision.status}").`,
-      ],
-      override: null,
-      requiresPermission: "bypassApprovalChecks",
-      resolution: {
-        action: "request-review",
-        method: "POST",
-        path: `${routeBase}/request-review`,
-      },
-    });
+    gates.push(
+      makeBlockingGate({
+        type: "approval-required",
+        messages: [
+          `Requires approval before publishing (status: "${revision.status}").`,
+        ],
+        requiresPermission: "bypassApprovalChecks",
+        resolution: {
+          action: "request-review",
+          method: "POST",
+          path: `${routeBase}/request-review`,
+        },
+      }),
+    );
   }
 
   if (
@@ -60,18 +61,19 @@ export function collectRevisionGovernanceGates({
       entity,
     )
   ) {
-    gates.push({
-      type: "stale-base",
-      severity: "blocker",
-      messages: ["This revision was created against an older version."],
-      override: "ignoreWarnings",
-      requiresPermission: "bypassApprovalChecks",
-      resolution: {
-        action: "rebase",
-        method: "POST",
-        path: `${routeBase}/rebase`,
-      },
-    });
+    gates.push(
+      makeBlockingGate({
+        type: "stale-base",
+        messages: ["This revision was created against an older version."],
+        override: "ignoreWarnings",
+        requiresPermission: "bypassApprovalChecks",
+        resolution: {
+          action: "rebase",
+          method: "POST",
+          path: `${routeBase}/rebase`,
+        },
+      }),
+    );
   }
 
   return gates;
@@ -97,21 +99,19 @@ export function collectArchiveApprovalGate({
 }): PublishGate[] {
   if (!approvalRequired) return [];
   return [
-    {
+    makeBlockingGate({
       type: "approval-required",
-      severity: "blocker",
       messages: [
         `This organization requires approval to ${
           archived ? "archive" : "unarchive"
         } this ${noun}.`,
       ],
-      override: null,
       requiresPermission: "bypassApprovalChecks",
       resolution: {
         action: "create-draft",
         method: "POST",
         path: createDraftPath,
       },
-    },
+    }),
   ];
 }

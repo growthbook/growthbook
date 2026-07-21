@@ -1,3 +1,5 @@
+import { getErrorMessage } from "back-end/src/util/errors";
+
 // Aggregated publish-gate reporting for the REST revision-publish endpoints.
 // A blocked publish returns ONE structured 422 naming every gate with a uniform
 // set of fields (override flag, required permission, and a callable resolution
@@ -91,6 +93,45 @@ export function schemaFailureGateOverride(
         requiresPermission: "bypassApprovalChecks",
       }
     : { override: "ignoreWarnings", requiresPermission: null };
+}
+
+/**
+ * The single factory for a blocking gate — the {severity:"blocker", ...} shape
+ * with all five always-present fields, so a PublishGate shape change touches
+ * one place and a per-site override/permission/resolution slip can't happen.
+ */
+export function makeBlockingGate(args: {
+  type: string;
+  messages: string[];
+  override?: PublishGateOverride | null;
+  requiresPermission?: string | null;
+  resolution?: PublishGateResolution | null;
+}): PublishGate {
+  return {
+    type: args.type,
+    severity: "blocker",
+    messages: args.messages,
+    override: args.override ?? null,
+    requiresPermission: args.requiresPermission ?? null,
+    resolution: args.resolution ?? null,
+  };
+}
+
+/**
+ * Convert a thrown error into a plan gate ONLY when it's a 4xx-class
+ * application rejection; rethrow infra/5xx (or non-status) errors so a
+ * transient failure surfaces as the 5xx it is instead of a permanent,
+ * unfixable gate. Shared by every plan-gate collector that wraps a
+ * DB-touching validation call. Generic in the gate type so callers that build
+ * a tagged gate (the orchestrator's itemGate) keep their concrete type.
+ */
+export function gateOr5xx<G extends PublishGate>(
+  e: unknown,
+  makeGate: (message: string) => G,
+): G {
+  const status = (e as { status?: number }).status;
+  if (typeof status !== "number" || status >= 500) throw e;
+  return makeGate(getErrorMessage(e));
 }
 
 /** A gate that would have blocked the publish but was bypassed by the caller. */

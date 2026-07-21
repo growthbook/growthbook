@@ -11,6 +11,7 @@ import {
 } from "back-end/src/util/errors";
 import {
   findFeatureRevisionCoordinatesByRevisionId,
+  isFeatureRevisionId,
   parseFeatureRevisionId,
 } from "back-end/src/models/FeatureRevisionModel";
 import { PublishBlockedError } from "back-end/src/revisions/publishGates";
@@ -69,7 +70,7 @@ export const postReleasePublishRevisions = createApiRequestHandler(
       // up front with a clear 400 — otherwise a `frev_` sent with a generic
       // entityType (or vice versa) silently misses its model and degrades to a
       // confusing "not found" gate for an id that does exist.
-      const isFeatureShape = revisionId.startsWith("frev_");
+      const isFeatureShape = isFeatureRevisionId(revisionId);
       if (isFeatureShape !== (item.entityType === "feature")) {
         throw new BadRequestError(
           `Revision id "${revisionId}" is ${
@@ -147,16 +148,11 @@ export const postReleasePublishRevisions = createApiRequestHandler(
     status,
   });
 
-  const serializeGate = (gate: BulkPublishGate) => ({
-    entityType: gate.entityType,
-    id: callerIdFor(gate.entityType, gate.entityId),
-    version: gate.version,
-    type: gate.type,
-    severity: gate.severity,
-    messages: gate.messages,
-    override: gate.override,
-    requiresPermission: gate.requiresPermission,
-    resolution: gate.resolution,
+  // Spread the gate so a PublishGate field change flows through untouched;
+  // only the internal entityId is swapped for the caller's identifier.
+  const serializeGate = ({ entityId, ...gate }: BulkPublishGate) => ({
+    ...gate,
+    id: callerIdFor(gate.entityType, entityId),
   });
 
   const serializeBypassed = (plan: BulkPublishPlan) =>

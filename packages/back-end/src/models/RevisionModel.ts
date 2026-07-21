@@ -23,6 +23,7 @@ import { ConflictError } from "back-end/src/util/errors";
 import {
   createWithVersionRetry,
   getCollection,
+  isDuplicateKeyErrorForIndex,
 } from "back-end/src/util/mongo.util";
 
 // Derived from the validator so the two can't drift apart.
@@ -63,14 +64,7 @@ const SCHEDULED_PUBLISH_UNSET = {
 // True for the duplicate-key error from the lock-others partial unique index —
 // i.e. a concurrent arming request won the race for this entity's lock.
 function isPublishLockIndexConflict(e: unknown): boolean {
-  return (
-    !!e &&
-    typeof e === "object" &&
-    (e as { code?: number }).code === 11000 &&
-    String((e as { message?: string }).message ?? "").includes(
-      LOCK_OTHERS_INDEX_NAME,
-    )
-  );
+  return isDuplicateKeyErrorForIndex(e, LOCK_OTHERS_INDEX_NAME);
 }
 
 const BaseClass = MakeModelClass({
@@ -1435,11 +1429,17 @@ export class RevisionModel extends BaseClass {
    *
    * Status-guarded raw write: only applies while the doc is still "merged" from
    * the failed publish; returns null if something else moved it concurrently.
+   * `expectedDateUpdated` (bulk publish) additionally pins the write to the
+   * exact merge this call is compensating — if a concurrent actor reopened and
+   * re-published the revision (a new, successful merge with a fresh
+   * dateUpdated), the filter misses and we return null rather than clobbering
+   * their published state.
    */
   async reopenAfterFailedApply(
     id: string,
     userId: string,
     prior: Revision,
+    expectedDateUpdated?: Date | null,
   ): Promise<Revision | null> {
     const now = new Date();
     const buildSet = (lockOthers: boolean): Record<string, unknown> => ({
@@ -1486,6 +1486,7 @@ export class RevisionModel extends BaseClass {
       organization: this.context.org.id,
       id,
       status: "merged" as const,
+      ...(expectedDateUpdated ? { dateUpdated: expectedDateUpdated } : {}),
     };
     const update = (lockOthers: boolean) => ({
       $set: buildSet(lockOthers),

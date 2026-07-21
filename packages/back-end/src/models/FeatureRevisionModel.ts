@@ -47,7 +47,10 @@ import { getEnvironments } from "back-end/src/util/organization.util";
 import { logger } from "back-end/src/util/logger";
 import { syncFeatureExperimentLinkages } from "back-end/src/util/featureExperimentSync";
 import { syncFeatureContextualBanditLinkages } from "back-end/src/util/featureContextualBanditSync";
-import { createWithVersionRetry } from "back-end/src/util/mongo.util";
+import {
+  createWithVersionRetry,
+  isDuplicateKeyErrorForIndex,
+} from "back-end/src/util/mongo.util";
 import { runValidateFeatureRevisionHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import {
   migrateRampScheduleEndCondition,
@@ -55,6 +58,17 @@ import {
 } from "./RampScheduleModel";
 
 export type ReviewSubmittedType = "Comment" | "Approved" | "Requested Changes";
+
+/** Shared prefix for every feature revision id (minted and legacy-tuple). */
+export const FEATURE_REVISION_ID_PREFIX = "frev_";
+
+/**
+ * Whether an id is a feature revision id (vs a generic `rev_…` revision id) —
+ * the shape check the REST publish handler uses to route to the right model.
+ */
+export function isFeatureRevisionId(id: string): boolean {
+  return id.startsWith(FEATURE_REVISION_ID_PREFIX);
+}
 
 // Read-time migration: old docs stored contributors as EventUser objects;
 // new docs store plain user-ID strings. Normalize to string[] so callers
@@ -184,7 +198,7 @@ type FeatureRevisionDocument = mongoose.Document & FeatureRevisionInterface;
 // save middleware — those docs are legacy-shaped and the computed tuple id
 // covers them).
 featureRevisionSchema.pre("save", function () {
-  if (!this.id) this.id = uniqid("frev_");
+  if (!this.id) this.id = uniqid(FEATURE_REVISION_ID_PREFIX);
 });
 
 const FeatureRevisionModel = mongoose.model<FeatureRevisionInterface>(
@@ -323,7 +337,7 @@ export function buildFeatureRevisionInterface(
  * resolves by decoding back onto the (organization, featureId, version) index.
  */
 export function featureRevisionId(featureId: string, version: number): string {
-  return `frev_${version}_${featureId}`;
+  return `${FEATURE_REVISION_ID_PREFIX}${version}_${featureId}`;
 }
 
 /**
@@ -1987,14 +2001,7 @@ async function assertNoConflictingPublishLock(
 // True for the duplicate-key error from the lock-others partial unique index —
 // i.e. a concurrent arming request won the race for this feature's lock.
 function isPublishLockIndexConflict(e: unknown): boolean {
-  return (
-    !!e &&
-    typeof e === "object" &&
-    (e as { code?: number }).code === 11000 &&
-    String((e as { message?: string }).message ?? "").includes(
-      PUBLISH_LOCK_OTHERS_INDEX,
-    )
-  );
+  return isDuplicateKeyErrorForIndex(e, PUBLISH_LOCK_OTHERS_INDEX);
 }
 
 // Cancel pending schedules across a feature's revisions (e.g. on archive).

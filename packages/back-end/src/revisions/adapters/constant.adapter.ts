@@ -44,7 +44,10 @@ import {
 } from "back-end/src/services/archiveDependentsGuard";
 import { assertConstantPublishGuards } from "back-end/src/services/publishGuards";
 import type { PublishGate } from "back-end/src/revisions/publishGates";
-import { schemaFailureGateOverride } from "back-end/src/revisions/publishGates";
+import {
+  makeBlockingGate,
+  schemaFailureGateOverride,
+} from "back-end/src/revisions/publishGates";
 import { applyPatchToSnapshot } from "back-end/src/revisions/util";
 import { logger } from "back-end/src/util/logger";
 
@@ -331,18 +334,16 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
           | undefined) ?? entity.environmentValues,
       );
       if (cyclic.length) {
-        gates.push({
-          type: "reference-cycle",
-          severity: "blocker",
-          messages: [
-            `This value references ${cyclic
-              .map((k) => `@const:${k}`)
-              .join(", ")}, which would create a reference cycle.`,
-          ],
-          override: null,
-          requiresPermission: null,
-          resolution: null,
-        });
+        gates.push(
+          makeBlockingGate({
+            type: "reference-cycle",
+            messages: [
+              `This value references ${cyclic
+                .map((k) => `@const:${k}`)
+                .join(", ")}, which would create a reference cycle.`,
+            ],
+          }),
+        );
       }
     }
 

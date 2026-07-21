@@ -57,9 +57,13 @@ import {
 } from "back-end/src/services/archiveDependentsGuard";
 import { assertConfigPublishGuards } from "back-end/src/services/publishGuards";
 import type { PublishGate } from "back-end/src/revisions/publishGates";
-import { schemaFailureGateOverride } from "back-end/src/revisions/publishGates";
+import {
+  gateOr5xx,
+  makeBlockingGate,
+  schemaFailureGateOverride,
+} from "back-end/src/revisions/publishGates";
 import { applyPatchToSnapshot } from "back-end/src/revisions/util";
-import { BadRequestError, getErrorMessage } from "back-end/src/util/errors";
+import { BadRequestError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import { normalizeConfigChangesAgainstAncestors } from "./configSchemaNormalize";
 
@@ -580,26 +584,27 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
       // gates so a plan/dryRun reports a clean 422 against the combined
       // end-state. Neither is strip-resolvable, so no override flag clears them.
       if (conflicting.length) {
-        gates.push({
-          type: "ancestor-conflict",
-          severity: "blocker",
-          messages: [formatAncestorFieldConflictMessage(conflicting)],
-          override: null,
-          requiresPermission: null,
-          resolution: null,
-        });
+        gates.push(
+          makeBlockingGate({
+            type: "ancestor-conflict",
+            messages: [formatAncestorFieldConflictMessage(conflicting)],
+          }),
+        );
       }
       try {
         await assertConfigDescendantsReconcilable(context, proposedRoot);
       } catch (e) {
-        gates.push({
-          type: "descendant-conflict",
-          severity: "blocker",
-          messages: [getErrorMessage(e)],
-          override: null,
-          requiresPermission: null,
-          resolution: null,
-        });
+        // Only a 4xx-class reconcilability rejection is a real blocking gate;
+        // an infra/5xx failure of the descendant scan must surface as itself,
+        // not congeal into a permanent, unfixable descendant-conflict gate.
+        gates.push(
+          gateOr5xx(e, (message) =>
+            makeBlockingGate({
+              type: "descendant-conflict",
+              messages: [message],
+            }),
+          ),
+        );
       }
       gates.push(
         ...(await collectConfigSchemaChangeImpactGates(context, proposedRoot)),
@@ -621,18 +626,16 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
         ...filteredChanges,
       } as ConfigInterface);
       if (cyclic.length) {
-        gates.push({
-          type: "reference-cycle",
-          severity: "blocker",
-          messages: [
-            `This config references ${cyclic.join(
-              ", ",
-            )}, which would create a reference cycle.`,
-          ],
-          override: null,
-          requiresPermission: null,
-          resolution: null,
-        });
+        gates.push(
+          makeBlockingGate({
+            type: "reference-cycle",
+            messages: [
+              `This config references ${cyclic.join(
+                ", ",
+              )}, which would create a reference cycle.`,
+            ],
+          }),
+        );
       }
     }
 

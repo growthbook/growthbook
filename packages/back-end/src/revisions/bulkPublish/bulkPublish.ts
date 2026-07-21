@@ -1,7 +1,3 @@
-import { ConfigInterface } from "shared/types/config";
-import { ConstantInterface } from "shared/types/constant";
-import { FeatureInterface } from "shared/types/feature";
-import { SavedGroupInterface } from "shared/types/saved-group";
 import uniqid from "uniqid";
 import type { Context } from "back-end/src/models/BaseModel";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
@@ -16,10 +12,15 @@ import {
 import { logger } from "back-end/src/util/logger";
 import {
   classifyPublishGate,
+  gateOr5xx,
+  makeBlockingGate,
   PublishGate,
   PublishGateClearance,
 } from "back-end/src/revisions/publishGates";
-import { getBulkAdapter } from "back-end/src/revisions/bulkPublish/registry";
+import {
+  bulkPublishTargetTypes,
+  getBulkAdapter,
+} from "back-end/src/revisions/bulkPublish/registry";
 import type { BulkPublishableAdapter } from "back-end/src/revisions/bulkPublish/BulkPublishableAdapter";
 import type {
   BulkPublishFlags,
@@ -77,12 +78,7 @@ function itemGate(
   message: string,
 ): BulkPublishGate {
   return {
-    type,
-    severity: "blocker",
-    messages: [message],
-    override: null,
-    requiresPermission: null,
-    resolution: null,
+    ...makeBlockingGate({ type, messages: [message] }),
     entityType: ref.entityType,
     entityId: ref.entityId,
     version: ref.version,
@@ -215,19 +211,14 @@ export async function planBulkPublish(
       // Application-level rejections (4xx-classed errors) are the item's
       // problem and become gates; infra failures propagate as the 5xx they
       // are — a transient DB error must not masquerade as an unfixable gate.
-      const status = (e as { status?: number }).status;
-      if (
-        !(e instanceof MergeConflictError) &&
-        (typeof status !== "number" || status >= 500)
-      ) {
-        throw e;
+      // A merge conflict is always the item's problem (it carries no status).
+      if (e instanceof MergeConflictError) {
+        blockLoad(itemGate(ref, "merge-conflict", getErrorMessage(e)));
+      } else {
+        blockLoad(
+          gateOr5xx(e, (message) => itemGate(ref, "plan-failed", message)),
+        );
       }
-      const gate = itemGate(
-        ref,
-        e instanceof MergeConflictError ? "merge-conflict" : "plan-failed",
-        getErrorMessage(e),
-      );
-      blockLoad(gate);
     }
   }
 
@@ -239,30 +230,22 @@ export async function planBulkPublish(
   // introduced-violation diffs need a live baseline for X.
   const overlayContext = getContextForAgendaJobByOrgObject(context.org);
   overlayContext.scanContextOverride = overlayContext;
-  // NOTE: every entity type whose guards resolve cross-entity state needs a
-  // branch here, or its items are validated against live state (a false
-  // positive — exactly what the overlay prevents). Lifting this into a
-  // per-adapter overlay method is tracked follow-up work.
-  const proposedOf = <T>(others: Loaded[], type: string): T[] =>
-    others
-      .filter((l) => l.ref.entityType === type)
-      .map((l) => l.proposedEntity as unknown as T);
+  // Install every type's slice of the end-state overlay via its adapter — each
+  // item is validated with every OTHER item's proposal in place and its own
+  // excluded (evaluators substitute the item under test themselves and need a
+  // live baseline for it). Looping the full registry (empty slices clear)
+  // keeps this free of per-type branches; a new bulk type gets overlaid the
+  // moment it registers.
   const applyOverlaysExcluding = (excluded: Loaded) => {
     const others = loaded.filter((l) => l !== excluded);
-    overlayContext.models.configs.setScanOverlay(
-      proposedOf<ConfigInterface>(others, "config"),
-    );
-    overlayContext.models.constants.setScanOverlay(
-      proposedOf<ConstantInterface>(others, "constant"),
-    );
-    // Saved-group → saved-group condition references (the archive-dependents
-    // gate) resolve against getAll(), so overlay proposed saved groups too.
-    overlayContext.models.savedGroups.setScanOverlay(
-      proposedOf<SavedGroupInterface>(others, "saved-group"),
-    );
-    overlayContext.featureScanOverlay = new Map(
-      proposedOf<FeatureInterface>(others, "feature").map((f) => [f.id, f]),
-    );
+    for (const type of bulkPublishTargetTypes) {
+      getBulkAdapter(type).applyScanOverlay(
+        overlayContext as Context,
+        others
+          .filter((l) => l.ref.entityType === type)
+          .map((l) => l.proposedEntity),
+      );
+    }
   };
 
   const items: PlannedItemPublish[] = [];

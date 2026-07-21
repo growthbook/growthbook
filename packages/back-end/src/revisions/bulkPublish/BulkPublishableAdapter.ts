@@ -86,6 +86,19 @@ export interface BulkPublishableAdapter {
   }>;
 
   /**
+   * Install this entity type's slice of the multi-entity end-state overlay on
+   * `overlayContext`: the proposed post-merge docs of every OTHER item of this
+   * type (the excluded item is validated against its own live baseline). Called
+   * once per type per item, so an empty list clears the overlay. Keeps the
+   * orchestrator free of any per-type overlay switch — each adapter owns its
+   * own overlay sink (a model's setScanOverlay, or the feature scan map).
+   */
+  applyScanOverlay(
+    overlayContext: Context,
+    proposedEntities: Record<string, unknown>[],
+  ): void;
+
+  /**
    * Every publish gate for this item, evaluated against `overlayContext` (the
    * hypothetical multi-entity end-state): approval-required, stale-base,
    * entity locks, guard warnings, schema/hook validation. `callerContext`

@@ -41,7 +41,7 @@ function toRef(revision: Revision): BulkRevisionRef {
 export function makeGenericBulkAdapter(
   targetType: RevisionTargetType,
   adapter: EntityRevisionAdapter,
-  options?: {
+  options: {
     extraGates?: (args: {
       callerContext: Context;
       overlayContext: Context;
@@ -49,10 +49,20 @@ export function makeGenericBulkAdapter(
       revision: Revision;
       desiredState: Record<string, unknown>;
     }) => Promise<PublishGate[]>;
+    // Install this type's proposed docs on the overlay context — wired per type
+    // in the registry, since each model's setScanOverlay is strongly typed.
+    setScanOverlay: (
+      overlayContext: Context,
+      proposedEntities: Record<string, unknown>[],
+    ) => void;
   },
 ): BulkPublishableAdapter {
   return {
     staleBaseForceAllowsRestBypass: true,
+
+    applyScanOverlay(overlayContext, proposedEntities) {
+      options.setScanOverlay(overlayContext, proposedEntities);
+    },
 
     async loadEntity(context, entityId) {
       const model = adapter.getModel(context);
@@ -152,7 +162,7 @@ export function makeGenericBulkAdapter(
         );
       }
 
-      if (options?.extraGates) {
+      if (options.extraGates) {
         gates.push(
           ...(await options.extraGates({
             callerContext,
@@ -177,14 +187,21 @@ export function makeGenericBulkAdapter(
 
     async claim(context, revision, baseline, { isApprovalBypass, comment }) {
       try {
-        await context.models.revisions.merge(revision.id, context.userId, {
-          bypass: isApprovalBypass,
-          comment,
-          expected: {
-            status: baseline.revisionStatus,
-            dateUpdated: baseline.revisionDateUpdated,
+        const merged = await context.models.revisions.merge(
+          revision.id,
+          context.userId,
+          {
+            bypass: isApprovalBypass,
+            comment,
+            expected: {
+              status: baseline.revisionStatus,
+              dateUpdated: baseline.revisionDateUpdated,
+            },
           },
-        });
+        );
+        // The dateUpdated our merge left behind — releaseClaim pins its reopen
+        // to it so a concurrent re-publish's successful merge isn't clobbered.
+        revision.claimStamp = merged.dateUpdated;
         return true;
       } catch (e) {
         // A lost CAS race is the expected "false" outcome; anything else
@@ -195,18 +212,18 @@ export function makeGenericBulkAdapter(
     },
 
     async releaseClaim(context, revision) {
+      // Reopen only the exact merge we made (status still "merged" AND the
+      // dateUpdated our claim stamped). If a concurrent actor reopened and
+      // re-published the revision in the meantime, the fingerprint misses and
+      // we leave their published state alone — the orchestrator reports this
+      // item as still-published (needs attention), never a silent clobber.
       const restored = await context.models.revisions.reopenAfterFailedApply(
         revision.id,
         context.userId,
         revision.raw as Revision,
+        revision.claimStamp ?? null,
       );
-      if (!restored) {
-        // Generic merges are CAS-guarded, so a concurrent re-publish loses at
-        // claim time — reopen always applies to an existing revision (or throws
-        // "not found"), never a silent no-op.
-        await context.models.revisions.reopen(revision.id, context.userId);
-      }
-      return true;
+      return restored !== null;
     },
 
     async applyPrecomputed(context, entity, revision, desiredState) {
