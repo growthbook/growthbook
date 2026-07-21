@@ -163,7 +163,7 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
       targetURLRegex: initialValue?.targetURLRegex || "",
       description: initialValue?.description || "",
       variations: initialExpVariations,
-      coverage: initialValue?.coverage || 1,
+      coverage: initialValue?.coverage ?? 1,
       condition: initialValue?.condition,
       savedGroups: initialValue?.savedGroups,
       prerequisites: initialValue?.prerequisites,
@@ -517,9 +517,7 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
           <div className="px-2">
             {currentProjectIsDemo && (
               <Callout status="warning" mb="3">
-                You are creating an experiment under the demo datasource
-                project. This experiment will be deleted when the demo
-                datasource project is deleted.
+                You are creating an experiment in the Sample Data Project.
               </Callout>
             )}
 

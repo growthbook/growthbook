@@ -1,4 +1,4 @@
-import { validateConstantValue } from "shared/validators";
+import { validateResolvableValue } from "shared/validators";
 import type { ConstantInterface } from "shared/types/constant";
 import {
   Revision,
@@ -157,9 +157,19 @@ export function assertValidConstantValueEdit(
 ): void {
   try {
     if (value !== undefined)
-      validateConstantValue(constant.type, value, "value");
+      validateResolvableValue({
+        type: constant.type,
+        value,
+        label: "value",
+        refSource: "constant",
+      });
     for (const [env, v] of Object.entries(environmentValues ?? {})) {
-      validateConstantValue(constant.type, v, env);
+      validateResolvableValue({
+        type: constant.type,
+        value: v,
+        label: env,
+        refSource: "constant",
+      });
     }
   } catch (e) {
     throw new BadRequestError(e instanceof Error ? e.message : String(e));

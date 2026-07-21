@@ -254,7 +254,7 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
                 hashAttribute={holdoutExperiment.hashAttribute || ""}
                 holdoutWeight={
                   holdoutExperiment.phases[0].coverage *
-                    holdoutExperiment.phases[0].variationWeights[0] || 1
+                  holdoutExperiment.phases[0].variationWeights[0]
                 }
               />
             </Box>

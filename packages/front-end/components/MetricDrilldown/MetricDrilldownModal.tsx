@@ -3,7 +3,7 @@ import { PiArrowSquareOut } from "react-icons/pi";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import {
   getMetricLink,
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
   ExperimentSortBy,
   isDimensionPrecomputed,
 } from "shared/experiments";
@@ -123,7 +123,7 @@ interface MetricDrilldownModalProps {
  */
 interface MetricDrilldownContentProps {
   row: ExperimentTableRow;
-  metric: ExperimentMetricInterface;
+  metric: ExperimentMetricDefinition;
   initialResults: ExperimentReportResultDimension;
   goalMetrics: string[];
   secondaryMetrics: string[];

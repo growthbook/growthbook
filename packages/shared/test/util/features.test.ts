@@ -1275,6 +1275,40 @@ describe("simpleToJSONSchema", () => {
       additionalProperties: false,
     });
   });
+  it("honors a field's raw jsonSchema, superseding the simple type", () => {
+    const schema: SimpleSchema = {
+      type: "object",
+      fields: [
+        {
+          key: "kv",
+          type: "string",
+          description: "",
+          required: true,
+          enum: [],
+          default: "",
+          jsonSchema: JSON.stringify({ type: "object" }),
+        },
+        {
+          key: "ship",
+          type: "string",
+          description: "how it ships",
+          required: true,
+          enum: [],
+          default: "",
+          jsonSchema: JSON.stringify({ type: ["string", "null"] }),
+        },
+      ],
+    };
+    expect(JSON.parse(simpleToJSONSchema(schema))).toEqual({
+      type: "object",
+      properties: {
+        kv: { type: "object" },
+        ship: { type: ["string", "null"], description: "how it ships" },
+      },
+      required: ["kv", "ship"],
+      additionalProperties: false,
+    });
+  });
   it("converts array of objects", () => {
     const arraySchema: SimpleSchema = { ...simpleSchema, type: "object[]" };
     expect(JSON.parse(simpleToJSONSchema(arraySchema))).toEqual({

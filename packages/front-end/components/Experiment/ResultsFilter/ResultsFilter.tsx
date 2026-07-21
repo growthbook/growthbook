@@ -5,7 +5,7 @@ import { FactTableColumnType } from "shared/types/fact-table";
 import {
   parseSliceQueryString,
   isMetricGroupId,
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
   isSliceTagSelectAll,
   generateSelectAllSliceString,
 } from "shared/experiments";
@@ -165,7 +165,7 @@ export function isSliceCoveredBySelectAll(
 
 export function formatMetricOptionLabel(
   option: { value: string; label: string; isOrphaned?: boolean },
-  getExperimentMetricById: (id: string) => ExperimentMetricInterface | null,
+  getExperimentMetricById: (id: string) => ExperimentMetricDefinition | null,
   getMetricGroupById: (id: string) => MetricGroupInterface | null,
   showGroupIcon?: boolean,
 ) {

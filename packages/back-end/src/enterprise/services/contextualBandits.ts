@@ -11,7 +11,7 @@ import {
   ContextualBanditSnapshotSettings,
   LeafWeight,
 } from "shared/validators";
-import { leafConditionFromContexts } from "shared/experiments";
+import { conditionFromLeafClauses } from "shared/experiments";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
@@ -24,12 +24,23 @@ import {
   ContextualBanditResultsQueryRunner,
   ContextualBanditSrmResult,
 } from "back-end/src/enterprise/queryRunners/ContextualBanditResultsQueryRunner";
-import { logger } from "back-end/src/util/logger";
 import {
   ContextualBanditResult,
   ContextualBanditStatsSettings,
 } from "./contextualBanditStats";
 
+/**
+ * Every contextual bandit snapshot only considers the trailing 90 days of data
+ * so weight updates reflect recent behavior rather than the full lifetime.
+ */
+const CONTEXTUAL_BANDIT_LOOKBACK_DAYS = 90;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Enriched info for the features that link to this Contextual Bandit (via
+ * `contextual-bandit-ref` rules). Mirrors `getLinkedFeatureInfo` for experiments
+ * so the CB detail page can reuse the same `LinkedFeatureInfo` UI shape.
+ */
 export async function getContextualBanditLinkedFeatureInfo(
   context: ReqContext | ApiReqContext,
   contextualBandit: ContextualBanditInterface,
@@ -210,46 +221,41 @@ export async function runContextualBanditSnapshot(
   };
 }
 
+/**
+ * Collapses a run's per-leaf `leaf_map` into one `LeafWeight` per tree leaf:
+ * `{ leafId, condition, weights }`. `condition` is the targeting predicate that
+ * routes a context to the leaf (derived from the leaf's structured clauses), so
+ * the persisted weights are self-contained for the SDK payload without re-joining
+ * the event's `leaf_map`. Leaves whose responses carry no updated weights are
+ * skipped.
+ */
 export function leafWeightsFromContextualBanditResult(
   result: ContextualBanditResult,
   variations: { id: string }[],
 ): LeafWeight[] {
   const responses = result.responses ?? [];
   const leafMap = result.leaf_map ?? [];
-  const attributeOrder = result.attributes ?? [];
 
-  const indicesByLeaf = new Map<number, number[]>();
-  const leafOrder: number[] = [];
-  responses.forEach((_, i) => {
-    const leafId = leafMap[i]?.leafId ?? 0;
-    const existing = indicesByLeaf.get(leafId);
-    if (existing) {
-      existing.push(i);
-    } else {
-      indicesByLeaf.set(leafId, [i]);
-      leafOrder.push(leafId);
+  const updatedWeightsByLeaf = new Map<number, number[]>();
+  responses.forEach((response) => {
+    const leafId = response.leafId ?? 0;
+    const updatedWeights = response.updatedWeights;
+    if (updatedWeights && updatedWeights.length > 0) {
+      if (!updatedWeightsByLeaf.has(leafId)) {
+        updatedWeightsByLeaf.set(leafId, updatedWeights);
+      }
     }
   });
 
   const leafWeights: LeafWeight[] = [];
-  for (const leafId of [...leafOrder].sort((a, b) => a - b)) {
-    const indices = indicesByLeaf.get(leafId) ?? [];
-    const updatedWeights = responses[indices[0]]?.updatedWeights;
+  for (const entry of [...leafMap].sort((a, b) => a.leafId - b.leafId)) {
+    const updatedWeights = updatedWeightsByLeaf.get(entry.leafId);
     if (!updatedWeights || updatedWeights.length === 0) {
       continue;
     }
-    const contexts = indices.map((i) => leafMap[i]?.context ?? {});
-    logger.info(
-      {
-        leafId,
-        contexts,
-        attributeOrder,
-      },
-      "Building contextual bandit leaf condition from stats engine contexts",
-    );
     leafWeights.push({
-      leafId,
-      condition: leafConditionFromContexts(contexts, attributeOrder),
+      leafId: entry.leafId,
+      condition: conditionFromLeafClauses(entry.context),
       weights: updatedWeights.map((weight, i) => ({
         variationId: variations[i]?.id ?? String(i),
         weight,
@@ -353,6 +359,15 @@ export function buildContextualBanditSnapshotSettings(
 ): ContextualBanditSnapshotSettings {
   const numVariations = cb.variations?.length || 1;
 
+  const banditStart = cb.dateStarted ?? new Date();
+  const effectiveEnd = cb.dateStopped ?? new Date();
+  const lookbackStart = new Date(
+    effectiveEnd.getTime() - CONTEXTUAL_BANDIT_LOOKBACK_DAYS * DAY_MS,
+  );
+  const startDate = new Date(
+    Math.max(banditStart.getTime(), lookbackStart.getTime()),
+  );
+
   return {
     experimentId: cb.id,
     trackingKey: cb.trackingKey || cb.id,
@@ -379,7 +394,7 @@ export function buildContextualBanditSnapshotSettings(
     maxLeaves: cb.maxLeaves,
     banditModelVersion: cb.banditModelVersion,
 
-    startDate: cb.dateStarted ?? new Date(),
+    startDate,
     endDate: cb.dateStopped ?? null,
     reweight: true,
     banditWeightsSeed: 0,

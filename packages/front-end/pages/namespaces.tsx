@@ -1,7 +1,6 @@
 import { useState, FC } from "react";
 import { Flex } from "@radix-ui/themes";
 import { Namespaces, NamespaceUsage } from "shared/types/organization";
-import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import NamespaceModal from "@/components/Experiment/NamespaceModal";
@@ -31,9 +30,7 @@ const NamespacesPage: FC = () => {
   );
 
   const permissionsUtil = usePermissionsUtil();
-  const { currentProjectIsDemo } = useDemoDataSourceProject();
-  const canCreate =
-    permissionsUtil.canCreateNamespace() && !currentProjectIsDemo;
+  const canCreate = permissionsUtil.canCreateNamespace();
 
   const { refreshOrganization } = useUser();
   const { namespaces = [] } = useOrgSettings();

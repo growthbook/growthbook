@@ -233,6 +233,14 @@ export class ContextualBanditModel extends BaseClass {
           `Contextual bandit decision metric ${doc.decisionMetric} must belong to datasource ${doc.datasource}`,
         );
       }
+      if (
+        decisionMetric.metricType !== "mean" &&
+        decisionMetric.metricType !== "proportion"
+      ) {
+        throw new Error(
+          `Contextual bandit decision metric must be a mean or proportion metric: ${doc.decisionMetric} is a ${decisionMetric.metricType} metric`,
+        );
+      }
     }
 
     const targetingAttributeColumns =

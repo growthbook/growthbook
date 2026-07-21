@@ -125,6 +125,10 @@ import {
   constantsRouter,
   constantDraftStatesRouter,
 } from "./routers/constant/constant.router";
+import {
+  configsRouter,
+  configDraftStatesRouter,
+} from "./routers/config/config.router";
 import { segmentRouter } from "./routers/segment/segment.router";
 import { dimensionRouter } from "./routers/dimension/dimension.router";
 import { sdkConnectionRouter } from "./routers/sdk-connection/sdk-connection.router";
@@ -271,9 +275,10 @@ app.get("/", (req, res) => {
     res.json({
       name: "GrowthBook API",
       production: ENVIRONMENT === "production",
-      api_host:
+      api_host: (
         process.env.API_HOST ||
-        req.protocol + "://" + req.hostname + ":" + app.get("port"),
+        req.protocol + "://" + req.hostname + ":" + app.get("port")
+      ).replace(/\/+$/, ""),
       app_origin: APP_ORIGIN,
       config_source: usingFileConfig() ? "file" : "db",
       email_enabled: isEmailEnabled(),
@@ -643,6 +648,8 @@ app.use("/custom-fields", customFieldsRouter);
 
 app.use("/constants", constantsRouter);
 app.use("/constants-draft-states", constantDraftStatesRouter);
+app.use("/configs", configsRouter);
+app.use("/configs-draft-states", configDraftStatesRouter);
 
 // Ideas
 app.get("/ideas", ideasController.getIdeas);
@@ -1087,20 +1094,12 @@ app.post(
   datasourcesController.fetchBigQueryDatasets,
 );
 app.post(
-  "/datasource/:datasourceId/materializedColumn",
-  datasourcesController.postMaterializedColumn,
-);
-app.put(
-  "/datasource/:datasourceId/materializedColumn/:matColumnName",
-  datasourcesController.updateMaterializedColumn,
-);
-app.delete(
-  "/datasource/:datasourceId/materializedColumn/:matColumnName",
-  datasourcesController.deleteMaterializedColumn,
-);
-app.post(
   "/datasource/:datasourceId/recreate-managed-warehouse",
   datasourcesController.postRecreateManagedWarehouse,
+);
+app.post(
+  "/datasource/:datasourceId/managed-warehouse/remove-legacy-identifier",
+  datasourcesController.postRemoveManagedWarehouseLegacyIdentifier,
 );
 
 if (IS_CLOUD) {

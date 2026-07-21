@@ -525,6 +525,13 @@ export class FactMetricModel extends BaseClass {
     }
   }
 
+  public async projectHasFactMetrics(projectId: string): Promise<boolean> {
+    const factMetrics = await this._find({
+      projects: [projectId],
+    });
+    return factMetrics.length > 0;
+  }
+
   public async deleteAllFactMetricsForAProject(projectId: string) {
     const factMetrics = await this._find({
       projects: [projectId],

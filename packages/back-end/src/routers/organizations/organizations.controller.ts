@@ -44,6 +44,8 @@ import {
   acceptInvite,
   addMemberToOrg,
   addPendingMemberToOrg,
+  assertRoleAssignmentAllowed,
+  assertRoleChangeAllowed,
   expandOrgMembers,
   findVerifiedOrgsForNewUser,
   getContextFromReq,
@@ -87,7 +89,7 @@ import {
   sendOwnerEmailChangeEmail,
 } from "back-end/src/services/email";
 import { getDataSourcesByOrganization } from "back-end/src/models/DataSourceModel";
-import { getMetricsByOrganization } from "back-end/src/models/MetricModel";
+import { getMetricsForDefinitions } from "back-end/src/models/MetricModel";
 import {
   createOrganization,
   findOrganizationByInviteKey,
@@ -133,9 +135,10 @@ import {
   countAllAuditsByEntityType,
   countAllAuditsByEntityTypeParent,
 } from "back-end/src/models/AuditModel";
-import { getAllFactTablesForOrganization } from "back-end/src/models/FactTableModel";
+import { getAllFactTablesForDefinitions } from "back-end/src/models/FactTableModel";
 import { fireSdkWebhook } from "back-end/src/jobs/sdkWebhooks";
 import {
+  getInstallationName,
   getLicenseMetaData,
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
@@ -174,6 +177,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     tags,
     savedGroups,
     constants,
+    configs,
     customFields,
     projects,
     factTables,
@@ -181,32 +185,43 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     decisionCriteria,
     webhookSecrets,
   ] = await Promise.all([
-    getMetricsByOrganization(context),
-    getDataSourcesByOrganization(context),
+    getMetricsForDefinitions(context),
+    getDataSourcesByOrganization(context).then((ds) =>
+      getDataSourcesWithParams(context, ds),
+    ),
     findDimensionsByOrganization(orgId),
     context.models.segments.getAll(),
     context.models.metricGroups.getAll(),
     getAllTags(orgId),
     context.models.savedGroups.getAllWithoutValues(),
     context.models.constants.getAllWithoutValues(),
+    context.models.configs.getAllWithoutValues(),
     context.models.customFields.getCustomFields(),
     context.models.projects.getAll(),
-    getAllFactTablesForOrganization(context),
+    getAllFactTablesForDefinitions(context),
     context.models.factMetrics.getAll(),
     context.models.decisionCriteria.getAll(),
     context.models.webhookSecrets.getAllForFrontEnd(),
   ]);
 
+  // A dimension inherits project access from its datasource, so drop any whose
+  // datasource is inaccessible or no longer exists.
+  const readableDatasourceIds = new Set(datasources.map((ds) => ds.id));
+  const visibleDimensions = dimensions.filter((dimension) =>
+    readableDatasourceIds.has(dimension.datasource),
+  );
+
   return res.status(200).json({
     status: 200,
     metrics,
-    datasources: await getDataSourcesWithParams(context, datasources),
-    dimensions,
+    datasources,
+    dimensions: visibleDimensions,
     segments,
     metricGroups,
     tags,
     savedGroups,
     constants,
+    configs,
     customFields: customFields?.fields ?? [],
     projects,
     factTables,
@@ -459,14 +474,31 @@ export async function putMemberRole(
     });
   }
 
-  let found = false;
+  const existingMember = [...org.members, ...(org.pendingMembers || [])].find(
+    (m) => m.id === id,
+  );
+  if (!existingMember) {
+    return res.status(404).json({
+      status: 404,
+      message: "Cannot find member",
+    });
+  }
+  try {
+    // Only gate a role change so existing assignments keep working
+    assertRoleChangeAllowed(org, existingMember.role, role);
+  } catch (e) {
+    return res.status(e.status || 400).json({
+      status: e.status || 400,
+      message: e.message,
+    });
+  }
+
   org.members.forEach((m) => {
     if (m.id === id) {
       m.role = role;
       m.limitAccessByEnvironment = !!limitAccessByEnvironment;
       m.environments = environments || [];
       m.projectRoles = projectRoles || [];
-      found = true;
     }
   });
   org?.pendingMembers?.forEach((m) => {
@@ -475,16 +507,8 @@ export async function putMemberRole(
       m.limitAccessByEnvironment = !!limitAccessByEnvironment;
       m.environments = environments || [];
       m.projectRoles = projectRoles || [];
-      found = true;
     }
   });
-
-  if (!found) {
-    return res.status(404).json({
-      status: 404,
-      message: "Cannot find member",
-    });
-  }
 
   try {
     await updateOrganization(org.id, {
@@ -638,7 +662,7 @@ export async function putMember(
     );
     if (invite) {
       // if user already invited, accept invite
-      await acceptInvite(invite.key, req.userId);
+      await acceptInvite(invite.key, req.userId, req.email);
     } else if (organization.autoApproveMembers) {
       // if auto approve, add user as member
       await addMemberToOrg({
@@ -805,7 +829,22 @@ export async function putInviteRole(
     });
   }
 
-  let found = false;
+  const existingInvite = originalInvites.find((m) => m.key === key);
+  if (!existingInvite) {
+    return res.status(404).json({
+      status: 404,
+      message: "Cannot find member",
+    });
+  }
+  try {
+    // Only gate a role change so existing invites keep working
+    assertRoleChangeAllowed(org, existingInvite.role, role);
+  } catch (e) {
+    return res.status(e.status || 400).json({
+      status: e.status || 400,
+      message: e.message,
+    });
+  }
 
   org.invites.forEach((m) => {
     if (m.key === key) {
@@ -813,16 +852,8 @@ export async function putInviteRole(
       m.limitAccessByEnvironment = !!limitAccessByEnvironment;
       m.environments = environments || [];
       m.projectRoles = projectRoles || [];
-      found = true;
     }
   });
-
-  if (!found) {
-    return res.status(404).json({
-      status: 404,
-      message: "Cannot find member",
-    });
-  }
 
   try {
     await updateOrganization(org.id, {
@@ -881,22 +912,36 @@ export async function getOrganization(
     isVercelIntegration,
   } = org;
 
-  let license: Partial<LicenseInterface> | null = null;
-  if (licenseKey || process.env.LICENSE_KEY) {
-    // automatically set the license data based on org license key
-    license = getLicense(licenseKey || process.env.LICENSE_KEY);
-    if (!license || (license.organizationId && license.organizationId !== id)) {
-      try {
-        license =
-          (await licenseInit(org, getUserCodesForOrg, getLicenseMetaData)) ||
-          null;
-      } catch (e) {
-        logger.error(e, "setting license failed");
+  const resolveLicense =
+    async (): Promise<Partial<LicenseInterface> | null> => {
+      if (!licenseKey && !process.env.LICENSE_KEY) return null;
+      // automatically set the license data based on org license key
+      let license: Partial<LicenseInterface> | null =
+        getLicense(licenseKey || process.env.LICENSE_KEY) || null;
+      if (
+        !license ||
+        (license.organizationId && license.organizationId !== id)
+      ) {
+        try {
+          license =
+            (await licenseInit(org, getUserCodesForOrg, getLicenseMetaData)) ||
+            null;
+        } catch (e) {
+          logger.error(e, "setting license failed");
+        }
       }
-    }
-  }
+      return license;
+    };
 
-  const installationName = (await getLicenseMetaData())?.installationName;
+  // These lookups don't depend on each other, so run them in parallel
+  const [license, installationName, expandedMembers, agreements, watch] =
+    await Promise.all([
+      resolveLicense(),
+      getInstallationName(org),
+      expandOrgMembers(members, userId),
+      context.models.agreements.getAll(),
+      context.models.watch.getWatchedByUser(userId),
+    ]);
 
   const filteredAttributes = settings?.attributeSchema?.filter((attribute) =>
     context.permissions.canReadMultiProjectResource(attribute.projects),
@@ -918,9 +963,8 @@ export async function getOrganization(
     ? getSSOConnectionSummary(req.loginMethod)
     : null;
 
-  const expandedMembers = await expandOrgMembers(members, userId);
-
-  const teams = await context.models.teams.getAll();
+  // Teams were already loaded (unfiltered) by the auth middleware
+  const teams = context.teams;
 
   const teamsWithMembers: TeamInterface[] = teams.map((team) => {
     const memberIds = getMembersOfTeam(org, team.id);
@@ -935,23 +979,21 @@ export async function getOrganization(
     org,
     teams || [],
   );
-  const agreements = await context.models.agreements.getAll();
   const agreementsAgreed = Array.from(
     new Set(agreements.map((a) => a.agreement as AgreementType)),
   );
   const seatsInUse = getNumberOfUniqueMembersAndInvites(org);
 
-  const watch = await context.models.watch.getWatchedByUser(userId);
-
   const commercialFeatureLowestPlan = getLowestPlanPerFeature(accountFeatures);
+  const effectiveAccountPlan = getEffectiveAccountPlan(org);
 
   return res.status(200).json({
     status: 200,
     enterpriseSSO,
     accountPlan: getAccountPlan(org),
-    effectiveAccountPlan: getEffectiveAccountPlan(org),
+    effectiveAccountPlan,
     licenseError: getLicenseError(org),
-    commercialFeatures: [...accountFeatures[getEffectiveAccountPlan(org)]],
+    commercialFeatures: [...accountFeatures[effectiveAccountPlan]],
     commercialFeatureLowestPlan: commercialFeatureLowestPlan,
     roles: getRoles(org),
     members: expandedMembers,
@@ -982,6 +1024,7 @@ export async function getOrganization(
       customRoles: org.customRoles,
       deactivatedRoles: org.deactivatedRoles,
       isVercelIntegration,
+      limits: org.limits,
       settings: {
         ...settings,
         attributeSchema: filteredAttributes,
@@ -1331,10 +1374,10 @@ export async function postInviteAccept(
   const { key } = req.body;
 
   try {
-    if (!req.userId) {
+    if (!req.userId || !req.email) {
       throw new Error("Must be logged in");
     }
-    const org = await acceptInvite(key, req.userId);
+    const org = await acceptInvite(key, req.userId, req.email);
     await licenseInit(org, getUserCodesForOrg, getLicenseMetaData, true);
 
     return res.status(200).json({
@@ -1622,6 +1665,15 @@ export async function putOrganization(
         throw new Error(
           "Not supported: Updating namespaces not supported via this route.",
         );
+      } else if (k === "defaultRole") {
+        if (!context.permissions.canManageOrgSettings()) {
+          context.permissions.throwPermissionError();
+        }
+        const newRole = settings.defaultRole?.role;
+        if (newRole) {
+          // Only gate a change so an existing non-admin default keeps working
+          assertRoleChangeAllowed(org, getDefaultRole(org).role, newRole);
+        }
       } else {
         if (!context.permissions.canManageOrgSettings()) {
           context.permissions.throwPermissionError();
@@ -2272,6 +2324,15 @@ export async function addOrphanedUser(
     });
   }
 
+  try {
+    assertRoleAssignmentAllowed(org, role);
+  } catch (e) {
+    return res.status(e.status || 400).json({
+      status: e.status || 400,
+      message: e.message,
+    });
+  }
+
   const license = getLicense();
   if (
     license &&
@@ -2447,6 +2508,9 @@ export async function putDefaultRole(
   if (!context.permissions.canManageTeam()) {
     context.permissions.throwPermissionError();
   }
+
+  // Only gate a change so an existing non-admin default keeps working
+  assertRoleChangeAllowed(org, getDefaultRole(org).role, defaultRole.role);
 
   const { memberIsValid, reason } = validateRoleAndEnvs(
     org,
