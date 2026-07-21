@@ -8,40 +8,9 @@ import {
 } from "shared/types/fact-table";
 import { DataSourceInterface } from "shared/types/datasource";
 
-// Throws if a column property is incompatible with its datatype. Empty datatype
-// skips checks while auto-detection is pending.
-export function assertColumnDatatypeConstraints(column: ColumnInterface): void {
-  if (column.datatype === "") return;
-
-  if (column.alwaysInlineFilter && column.datatype !== "string") {
-    throw new Error("Only string columns are eligible for inline filtering");
-  }
-
-  if (
-    column.isAutoSliceColumn &&
-    column.datatype !== "string" &&
-    column.datatype !== "boolean"
-  ) {
-    throw new Error(
-      "Only string or boolean columns are eligible for auto slice analysis",
-    );
-  }
-
-  if (column.numberFormat && column.datatype !== "number") {
-    throw new Error("Only number columns are eligible for a number format");
-  }
-
-  if (
-    column.jsonFields &&
-    Object.keys(column.jsonFields).length > 0 &&
-    column.datatype !== "json"
-  ) {
-    throw new Error("Only JSON columns are eligible for jsonFields");
-  }
-}
-
-// Clears datatype-incompatible props; used by the async column-type detection job.
-export function reconcileColumnDatatypeConstraints(
+// Clears datatype-incompatible props. Empty datatype skips checks while
+// auto-detection is pending.
+export function stripIncompatibleFields(
   column: ColumnInterface,
 ): ColumnInterface {
   if (column.datatype === "") return column;
@@ -74,6 +43,35 @@ export function reconcileColumnDatatypeConstraints(
   }
 
   return next;
+}
+
+// Auto-slice columns default to an empty slice list until the refresh job
+// populates it. Boolean columns always slice on ["true", "false"]; the stored
+// value for a boolean is otherwise ignored downstream (see slice generation in
+// shared/experiments). Keeps every write path in agreement.
+export function ensureAutoSliceDefaults(
+  column: ColumnInterface,
+): ColumnInterface {
+  const next = { ...column };
+
+  if (next.isAutoSliceColumn && !next.autoSlices) {
+    next.autoSlices = [];
+  }
+
+  if (next.datatype === "boolean" && next.autoSlices) {
+    next.autoSlices = ["true", "false"];
+  }
+
+  return next;
+}
+
+// Brings a column into its valid persisted state: strips datatype-incompatible
+// props (matching the async detection job) and applies auto-slice defaults.
+// Create and upsert share this so a column stored one way is identical either way.
+export function normalizePersistedColumn(
+  column: ColumnInterface,
+): ColumnInterface {
+  return ensureAutoSliceDefaults(stripIncompatibleFields(column));
 }
 
 export function normalizeJSONFieldsInput(

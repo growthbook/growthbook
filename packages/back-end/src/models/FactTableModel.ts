@@ -21,8 +21,9 @@ import { projectFilterQuery } from "back-end/src/util/mongo.util";
 import { createModelAuditLogger } from "back-end/src/services/audit";
 import { deferAggregatedFactTableToNextSlot } from "back-end/src/services/aggregatedFactTables";
 import {
-  assertColumnDatatypeConstraints,
+  ensureAutoSliceDefaults,
   normalizeJSONFieldsInput,
+  normalizePersistedColumn,
 } from "back-end/src/util/factTable";
 
 const audit = createModelAuditLogger({
@@ -133,9 +134,7 @@ export function buildColumnInterface(
     deleted: false,
   };
 
-  assertColumnDatatypeConstraints(columnInterface);
-
-  return columnInterface;
+  return normalizePersistedColumn(columnInterface);
 }
 
 function createPropsToInterface(
@@ -579,7 +578,7 @@ export async function updateColumn({
   }
 
   const originalColumn = factTable.columns[columnIndex];
-  const updatedColumn: ColumnInterface = {
+  const updatedColumn = ensureAutoSliceDefaults({
     ...originalColumn,
     ...changes,
     jsonFields:
@@ -588,17 +587,7 @@ export async function updateColumn({
         : originalColumn.jsonFields,
     ...(changes.topValues ? { topValuesDate: new Date() } : {}),
     dateUpdated: new Date(),
-  };
-
-  // If auto slice settings changed, reset autoSlices to empty array
-  if (updatedColumn.isAutoSliceColumn && !updatedColumn.autoSlices) {
-    updatedColumn.autoSlices = [];
-  }
-
-  // Ensure boolean columns only save ["true", "false"]
-  if (updatedColumn.datatype === "boolean" && updatedColumn.autoSlices) {
-    updatedColumn.autoSlices = ["true", "false"];
-  }
+  });
 
   factTable.columns[columnIndex] = updatedColumn;
 
@@ -651,7 +640,7 @@ export function mergeUpsertColumns(
           ? incomingColumn.datatype
           : originalColumn.datatype;
 
-      nextColumn = {
+      nextColumn = normalizePersistedColumn({
         ...originalColumn,
         ...omit(incomingColumn, [
           "column",
@@ -667,18 +656,7 @@ export function mergeUpsertColumns(
             : originalColumn.jsonFields,
         ...(incomingColumn.topValues ? { topValuesDate: new Date() } : {}),
         dateUpdated: new Date(),
-      };
-      assertColumnDatatypeConstraints(nextColumn);
-    }
-
-    // If auto slice settings changed, reset autoSlices to empty array
-    if (nextColumn.isAutoSliceColumn && !nextColumn.autoSlices) {
-      nextColumn.autoSlices = [];
-    }
-
-    // Ensure boolean columns only save ["true", "false"]
-    if (nextColumn.datatype === "boolean" && nextColumn.autoSlices) {
-      nextColumn.autoSlices = ["true", "false"];
+      });
     }
 
     if (index < 0) {

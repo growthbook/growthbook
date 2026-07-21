@@ -162,14 +162,14 @@ describe("mergeUpsertColumns", () => {
     expect(columns[0].datatype).toBe("");
   });
 
-  it("throws when alwaysInlineFilter is set on a non-string column", () => {
+  it("heals alwaysInlineFilter set on a non-string column instead of throwing", () => {
     const existing = [makeColumn({ column: "amount", datatype: "number" })];
 
-    expect(() =>
-      mergeUpsertColumns(existing, [
-        { column: "amount", alwaysInlineFilter: true },
-      ]),
-    ).toThrow("Only string columns are eligible for inline filtering");
+    const { columns } = mergeUpsertColumns(existing, [
+      { column: "amount", alwaysInlineFilter: true },
+    ]);
+
+    expect(columns[0].alwaysInlineFilter).toBe(false);
   });
 
   it("allows alwaysInlineFilter on a string column", () => {

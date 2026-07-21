@@ -25,7 +25,7 @@ import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import {
   deriveUserIdTypesFromColumns,
-  reconcileColumnDatatypeConstraints,
+  normalizePersistedColumn,
 } from "back-end/src/util/factTable";
 import { logger } from "back-end/src/util/logger";
 
@@ -358,13 +358,7 @@ export async function runRefreshColumnsQuery(
       col.numberFormat = "";
     }
 
-    if (col.datatype === "boolean" && col.isAutoSliceColumn) {
-      col.autoSlices = ["true", "false"];
-    }
-  }
-
-  for (const col of columns) {
-    Object.assign(col, reconcileColumnDatatypeConstraints(col));
+    Object.assign(col, normalizePersistedColumn(col));
   }
 
   const columnsNeedingTopValues = selectColumnsForTopValues({
