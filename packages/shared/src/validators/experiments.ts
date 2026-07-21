@@ -10,6 +10,7 @@ import {
   savedGroupTargeting,
   paginationQueryFields,
   apiPaginationFieldsValidator,
+  ignoreWarningsBodyField,
 } from "./shared";
 import { windowTypeValidator } from "./fact-table";
 import {
@@ -174,6 +175,7 @@ export const experimentNotification = [
   "srm",
   "no-data",
   "significance",
+  "underpowered",
 ] as const;
 export type ExperimentNotification = (typeof experimentNotification)[number];
 
@@ -1184,6 +1186,7 @@ const postExperimentBody = z
       .max(MAX_PRECOMPUTED_UNIT_DIMENSIONS, maxPrecomputedUnitDimensionsError)
       .optional(),
     statusUpdateSchedule: apiStatusUpdateSchedule.optional(),
+    ignoreWarnings: ignoreWarningsBodyField,
   })
   .strict();
 
@@ -1399,6 +1402,7 @@ const updateExperimentBody = z
       )
       .max(MAX_PRECOMPUTED_UNIT_DIMENSIONS, maxPrecomputedUnitDimensionsError)
       .optional(),
+    ignoreWarnings: ignoreWarningsBodyField,
   })
   .strict();
 
@@ -1410,6 +1414,7 @@ const postExperimentStartBody = z
         "If true, skips validating the experiment satisifies all pre-launch checklist items",
       )
       .optional(),
+    ignoreWarnings: ignoreWarningsBodyField,
   })
   .strict()
   .optional();
@@ -1466,6 +1471,7 @@ const postExperimentStopBody = z
         "Optional ISO datetime for ending the latest phase. Defaults to the current date and time.",
       )
       .optional(),
+    ignoreWarnings: ignoreWarningsBodyField,
   })
   .strict();
 
@@ -1482,6 +1488,7 @@ const postExperimentModifyTemporaryRolloutBody = z
         "Variation ID (e.g. var_abc123) to release to 100% of traffic eligible for this experiment. Required if enableTemporaryRollout is true.",
       )
       .optional(),
+    ignoreWarnings: ignoreWarningsBodyField,
   })
   .strict();
 

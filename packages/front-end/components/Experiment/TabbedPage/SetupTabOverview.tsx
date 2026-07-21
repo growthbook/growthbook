@@ -294,7 +294,7 @@ export default function SetupTabOverview({
                     </span>
                   </Callout>
                 ) : !aiEnabled && aiAgreedTo ? (
-                  <Callout status="wizard" contentsAs="div">
+                  <Callout status="wizard">
                     <span>
                       Improve your hypothesis with AI.{" "}
                       <Link
@@ -309,7 +309,7 @@ export default function SetupTabOverview({
                     </span>
                   </Callout>
                 ) : (
-                  <Callout status="wizard" contentsAs="div">
+                  <Callout status="wizard">
                     <span>
                       Improve your hypothesis with AI.{" "}
                       <Link
@@ -384,7 +384,7 @@ export default function SetupTabOverview({
                     <PremiumCallout
                       mt="3"
                       commercialFeature="custom-metadata"
-                      dismissable={true}
+                      dismissible={true}
                       id="exp-description-custom-metadata"
                       docSection="customMetadata"
                     >

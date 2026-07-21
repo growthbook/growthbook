@@ -5,6 +5,7 @@ import {
   CreateFactFilterProps,
   CreateFactTableProps,
   FactFilterInterface,
+  FactTableDefinition,
   FactTableInterface,
   UpdateFactFilterProps,
   UpdateColumnProps,
@@ -178,6 +179,22 @@ export async function getAllFactTablesForOrganization(
   };
 
   const docs = await FactTableModel.find(query).sort({ id: 1 });
+  return docs
+    .map((doc) => toInterface(doc))
+    .filter((f) => context.permissions.canReadMultiProjectResource(f.projects));
+}
+
+// Slimmed version of getAllFactTablesForOrganization for the definitions
+// endpoint. The sql field and per-column jsonFields maps are excluded at the DB
+// layer to keep the payload small; consumers fetch the full fact table by id
+// when they need them.
+export async function getAllFactTablesForDefinitions(
+  context: ReqContext | ApiReqContext,
+): Promise<FactTableDefinition[]> {
+  const docs = await FactTableModel.find(
+    { organization: context.org.id },
+    { sql: 0, "columns.jsonFields": 0 },
+  ).sort({ id: 1 });
   return docs
     .map((doc) => toInterface(doc))
     .filter((f) => context.permissions.canReadMultiProjectResource(f.projects));
@@ -710,6 +727,16 @@ export async function deleteFactTable(
   });
 
   await audit.logDelete(context, factTable);
+}
+
+export async function projectHasFactTables(
+  context: ReqContext | ApiReqContext,
+  projectId: string,
+): Promise<boolean> {
+  return !!(await FactTableModel.exists({
+    organization: context.org.id,
+    projects: [projectId],
+  }));
 }
 
 export async function deleteAllFactTablesForAProject({

@@ -15,6 +15,7 @@ import {
   AccountPlan,
   CommercialFeature,
   LicenseInterface,
+  OrgLimits,
   SubscriptionInfo,
 } from "shared/enterprise";
 import { AIModel, EmbeddingModel } from "shared/ai";
@@ -267,6 +268,24 @@ export interface OrganizationSettings {
   /** @deprecated */
   killswitchConfirmation?: boolean;
   requireReviews?: boolean | RequireReview[];
+  // Default extensibility for newly authored configs. When true (default),
+  // base configs allow child configs / feature rules to add extra keys unless
+  // a config explicitly opts out via its own `extensible` flag.
+  configsExtensibleByDefault?: boolean;
+  // Default value of the per-config "experiment guard" for newly created configs.
+  // The guard soft-blocks publishing a config whose value is served to a running
+  // experiment. Seeded onto each config at creation (a concrete per-config flag),
+  // so changing this default doesn't retroactively affect existing configs.
+  // Absent = off.
+  configExperimentGuardDefault?: boolean;
+  // Whether publishing a revision is BLOCKED when its values don't match the
+  // JSON schema (features and configs). Per-write validation always runs (opt
+  // out per request with ?skipSchemaValidation=true); this governs the re-check
+  // at publish, which catches values that became invalid after the fact (e.g. a
+  // schema change, an ancestor-config change, or a value staged with the skip
+  // flag). true (default) blocks the publish; false surfaces a bypassable soft
+  // warning instead. Absent = true.
+  blockPublishOnSchemaError?: boolean;
   // When enabled, a feature draft whose base version is behind the current
   // live version (or whose approval has gone stale) must be rebased
   // ("Rebase with live") before it can be published.
@@ -434,6 +453,7 @@ export interface OrganizationInterface {
   // settings) so the org cannot re-enable itself. Mirrors `disabled`/`suspended`.
   sessionReplayDisabled?: boolean;
   sessionReplayDisabledConnectionIds?: string[];
+  limits?: OrgLimits;
 }
 
 export type NamespaceUsage = Record<

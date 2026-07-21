@@ -27,6 +27,18 @@ export const baseDialect: Omit<SqlDialect, "unpivotLabeledPairs"> = {
   dateDiff: (startCol: string, endCol: string) =>
     `datediff(day, ${startCol}, ${endCol})`,
 
+  dateDiffMs: () => {
+    throw new Error(
+      "Millisecond date differences are not supported by this data source.",
+    );
+  },
+
+  addIntervalSeconds: () => {
+    throw new Error(
+      "Adding timestamp intervals is not supported by this data source.",
+    );
+  },
+
   percentileApprox: (column: string, percentile: number | string) =>
     `APPROX_PERCENTILE(${column}, ${percentile})`,
 
@@ -41,7 +53,25 @@ export const baseDialect: Omit<SqlDialect, "unpivotLabeledPairs"> = {
 
   castToDate: (col: string) => `CAST(${col} AS DATE)`,
 
+  castToTimestamp: (col: string) => `CAST(${col} AS TIMESTAMP)`,
+
   castUserDateCol: (column: string) => column,
+
+  arrayAggSorted: () => {
+    throw new Error("Array aggregation is not supported by this data source.");
+  },
+
+  argMinByTimestamp: () => {
+    throw new Error(
+      "Finding a value at the minimum timestamp is not supported by this data source.",
+    );
+  },
+
+  arrayMinInRange: () => {
+    throw new Error(
+      "Finding a minimum array value is not supported by this data source.",
+    );
+  },
 
   getCurrentTimestamp: () => `CURRENT_TIMESTAMP`,
 

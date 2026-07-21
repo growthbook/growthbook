@@ -1,13 +1,14 @@
 import { FC, ReactNode, useCallback, useMemo, useState } from "react";
 import { isProjectListValidForProject } from "shared/util";
 import {
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
   isFactMetric,
   isMetricGroupId,
   isMetricJoinable,
   quantileMetricType,
 } from "shared/experiments";
 import { Flex } from "@radix-ui/themes";
+import { FactMetricType } from "shared/types/fact-table";
 import { PiInfo } from "react-icons/pi";
 import Text from "@/ui/Text";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -93,6 +94,7 @@ const MetricsSelector: FC<{
   includeFacts?: boolean;
   includeGroups?: boolean;
   excludeQuantiles?: boolean;
+  allowedFactMetricTypes?: FactMetricType[];
   forceSingleMetric?: boolean;
   noManual?: boolean;
   noLegacyMetrics?: boolean;
@@ -118,6 +120,7 @@ const MetricsSelector: FC<{
   includeFacts,
   includeGroups = true,
   excludeQuantiles,
+  allowedFactMetricTypes,
   forceSingleMetric = false,
   noManual = false,
   noLegacyMetrics = false,
@@ -187,6 +190,12 @@ const MetricsSelector: FC<{
         ? factMetrics
             .filter((m) => {
               if (quantileMetricType(m) && excludeQuantiles) {
+                return false;
+              }
+              if (
+                allowedFactMetricTypes &&
+                !allowedFactMetricTypes.includes(m.metricType)
+              ) {
                 return false;
               }
               if (filterConversionWindowMetrics) {
@@ -271,6 +280,7 @@ const MetricsSelector: FC<{
     includeFacts,
     includeGroups,
     excludeQuantiles,
+    allowedFactMetricTypes,
     filterConversionWindowMetrics,
     getMetricDisabledInfo,
     requireDatasource,
@@ -322,7 +332,7 @@ const MetricsSelector: FC<{
   const groupMetricsJoinableMap = useMemo(() => {
     const map = new Map<
       string,
-      { metric: ExperimentMetricInterface | null; joinable: boolean }[]
+      { metric: ExperimentMetricDefinition | null; joinable: boolean }[]
     >();
     for (const opt of filteredOptions) {
       if (!opt.isGroup || !opt.metrics) continue;

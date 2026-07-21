@@ -15,6 +15,7 @@ import {
   Role,
 } from "shared/types/organization";
 import { ApiOrganization } from "shared/validators";
+import { getStampedOrgLimits } from "back-end/src/services/plan-limits";
 import { upgradeOrganizationDoc } from "back-end/src/util/migrations";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
@@ -148,6 +149,11 @@ const organizationSchema = new mongoose.Schema({
   sessionReplayDisabled: Boolean,
   sessionReplayDisabledConnectionIds: [String],
   trackingDisabled: Boolean,
+  limits: {
+    maxProjects: Number,
+    customEnvironments: Boolean,
+    roleManagement: Boolean,
+  },
 });
 
 organizationSchema.index({ "members.id": 1 });
@@ -236,6 +242,8 @@ export async function createOrganization({
       restApiBypassesReviews: false,
       requireRebaseBeforePublish: false,
       revertsBypassApproval: false,
+      configsExtensibleByDefault: true,
+      blockPublishOnSchemaError: true,
       requireReviews: [
         {
           requireReviewOn: false,
@@ -250,6 +258,9 @@ export async function createOrganization({
     getStartedChecklistItems: [],
     isVercelIntegration,
     ...(restrictLoginMethod ? { restrictLoginMethod } : {}),
+    // Cloud stamps from the pricing-phase-1-limits flag; self-hosted uses defaults
+    // so the limits for future orgs can be tuned without a deploy.
+    limits: await getStampedOrgLimits(),
   });
   return toInterface(doc);
 }

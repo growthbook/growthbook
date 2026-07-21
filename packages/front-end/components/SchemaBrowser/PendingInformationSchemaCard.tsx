@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import LoadingSpinner from "@/components/LoadingSpinner";
+import Callout from "@/ui/Callout";
+import Button from "@/ui/Button";
 
 export default function PendingInformationSchemaCard({
   mutate,
@@ -32,17 +33,19 @@ export default function PendingInformationSchemaCard({
   return (
     <div>
       {!error ? (
-        <div className="alert alert-info d-flex align-items-center">
-          <div>
-            We&apos;re generating the information schema for this datasource.
-            This may take a minute, depending on the size of the datasource.
-          </div>
-          <button disabled={true} className="btn btn-link">
-            {fetching && <LoadingSpinner />} Checking Status
-          </button>
-        </div>
+        <Callout
+          status="info"
+          action={
+            <Button color="inherit" variant="ghost" disabled loading={fetching}>
+              Checking Status
+            </Button>
+          }
+        >
+          We&apos;re generating the information schema for this datasource. This
+          may take a minute, depending on the size of the datasource.
+        </Callout>
       ) : (
-        <div className="alert alert-danger">{error}</div>
+        <Callout status="error">{error}</Callout>
       )}
     </div>
   );

@@ -1,6 +1,7 @@
 import type { FeatureInterface, FeatureRule } from "shared/types/feature";
 import {
   ApiRuleV2Input,
+  composeConfigBacking,
   extractRevisionMetadata,
   mapV2ApiRuleToFeatureRule,
   resolveScopeFromInput,
@@ -57,7 +58,65 @@ describe("resolveScopeFromInput", () => {
   });
 });
 
+describe("composeConfigBacking", () => {
+  it("composes an object patch onto the config backing", () => {
+    expect(
+      composeConfigBacking("pricing", '{"discount":5}', "Rule value"),
+    ).toBe('{"$extends":["@config:pricing"],"discount":5}');
+  });
+
+  it("keeps a pure backing ref for an empty/whitespace patch", () => {
+    expect(composeConfigBacking("pricing", "", "Rule value")).toBe(
+      '{"$extends":["@config:pricing"]}',
+    );
+    expect(composeConfigBacking("pricing", "   ", "Rule value")).toBe(
+      '{"$extends":["@config:pricing"]}',
+    );
+    expect(composeConfigBacking("pricing", undefined, "Rule value")).toBe(
+      '{"$extends":["@config:pricing"]}',
+    );
+  });
+
+  it("rejects a scalar or array value when a config is supplied (would silently drop the backing)", () => {
+    expect(() => composeConfigBacking("pricing", "42", "Rule value")).toThrow(
+      /must be a JSON object when backed by a config/,
+    );
+    expect(() =>
+      composeConfigBacking("pricing", '"hello"', "Variation value"),
+    ).toThrow(/Variation value must be a JSON object/);
+    expect(() =>
+      composeConfigBacking("pricing", "[1,2]", "Rule value"),
+    ).toThrow(/must be a JSON object when backed by a config/);
+    expect(() => composeConfigBacking("pricing", "true", "Rule value")).toThrow(
+      /must be a JSON object when backed by a config/,
+    );
+  });
+
+  it("leaves a scalar value untouched when no config is supplied (detach)", () => {
+    expect(composeConfigBacking(null, "42", "Rule value")).toBe("42");
+  });
+});
+
 describe("mapV2ApiRuleToFeatureRule", () => {
+  it("rejects a config-backed variation whose value is a scalar", () => {
+    expect(() =>
+      mapV2ApiRuleToFeatureRule({
+        type: "experiment-ref",
+        experimentId: "exp_1",
+        variations: [{ variationId: "0", value: "42", config: "pricing" }],
+      } as ApiRuleV2Input),
+    ).toThrow(/Variation value must be a JSON object/);
+  });
+
+  it("composes a config-backed force value from an object patch", () => {
+    const out = mapV2ApiRuleToFeatureRule({
+      type: "force",
+      value: '{"discount":5}',
+      config: "pricing",
+    } as ApiRuleV2Input);
+    expect(out.value).toBe('{"$extends":["@config:pricing"],"discount":5}');
+  });
+
   describe("force rule", () => {
     it("maps minimal force input with default scope (allEnvironments:true)", () => {
       const out = mapV2ApiRuleToFeatureRule({

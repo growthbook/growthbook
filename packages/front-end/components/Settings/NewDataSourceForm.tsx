@@ -12,7 +12,10 @@ import {
   SchemaFormat,
 } from "shared/types/datasource";
 import { useForm } from "react-hook-form";
-import { isDemoDatasourceProject } from "shared/demo-datasource";
+import {
+  getDefaultProjectsForNewResource,
+  isDemoDatasourceProject,
+} from "shared/demo-datasource";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { Text } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
@@ -103,7 +106,10 @@ const NewDataSourceForm: FC<{
   >({
     name: "My Datasource",
     settings: {},
-    projects: project ? [project] : [],
+    projects: getDefaultProjectsForNewResource({
+      project,
+      organizationId: orgId || undefined,
+    }),
     ...initial,
   });
 
@@ -622,7 +628,7 @@ const NewDataSourceForm: FC<{
                   />
                 </>
               }
-              placeholder="All projects"
+              placeholder="All Projects"
               value={connectionInfo.projects || []}
               options={projectOptions}
               onChange={(v) => onManualChange("projects", v)}

@@ -31,6 +31,8 @@ Each step also has an **Action** that controls when it advances:
 
 When a step's Action clears, GrowthBook applies the step's changes to the rule and starts the next step. Each advance publishes a new feature revision automatically, so your SDKs pick up the change through the normal feature payload.
 
+If a schedule falls behind (for example, background processing was interrupted past several steps' hold times — pausing doesn't cause this, since pause shifts the timers), the overdue steps are caught up in a **single** advance: one revision publish (labeled with the folded range, such as "Ramp steps 4–12 of 20") and one webhook whose `previousStepIndex` shows the gap — `rampSchedule.actions.step.advanced`, or `rampSchedule.actions.completed` when the fold finishes the ramp. Consumers mirroring ramp progress should diff `currentStepIndex - previousStepIndex` rather than counting events. Approval and monitored steps are never skipped by a catch-up — the schedule always stops at them.
+
 The grid always ends with an **end** row, set to 100% by default. That is the state the rule lands in when the schedule finishes; open its menu to attach final rule changes, such as removing targeting.
 
 <MaxWidthImage border>

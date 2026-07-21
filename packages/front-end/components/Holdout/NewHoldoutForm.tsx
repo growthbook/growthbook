@@ -402,14 +402,12 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
       >
         <Page display="Overview">
           <div className="px-2">
-            {msg && <div className="alert alert-info">{msg}</div>}
+            {msg && <Callout status="info">{msg}</Callout>}
 
             {currentProjectIsDemo && (
-              <div className="alert alert-warning">
-                You are creating a holdout under the demo datasource project.
-                This experiment will be deleted when the demo datasource project
-                is deleted.
-              </div>
+              <Callout status="warning">
+                You are creating a holdout in the Sample Data Project.
+              </Callout>
             )}
 
             {prerequisiteAlert}
@@ -456,7 +454,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
                   }
                   placeholder={
                     canCreateWithoutProject
-                      ? "All projects"
+                      ? "All Projects"
                       : "Select projects..."
                   }
                   value={form.watch("projects") || []}

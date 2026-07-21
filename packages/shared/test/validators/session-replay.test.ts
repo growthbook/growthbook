@@ -24,8 +24,10 @@ function validSession() {
     startedAt: now,
     endedAt: new Date("2026-04-29T17:43:00.000Z"),
     lastEventAt: new Date("2026-04-29T17:42:59.000Z"),
+    ingestedAt: new Date("2026-04-29T17:43:01.000Z"),
     durationMs: 60000,
     eventCount: 10,
+    meaningfulEventCount: 3,
     errorCount: 0,
     urlFirst: "https://example.com",
     urlsVisited: ["https://example.com"],
@@ -260,6 +262,14 @@ describe("sessionReplayValidator", () => {
     const result = sessionReplayValidator.safeParse({
       ...validSession(),
       eventCount: -1,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects a negative meaningfulEventCount", () => {
+    const result = sessionReplayValidator.safeParse({
+      ...validSession(),
+      meaningfulEventCount: -1,
     });
     expect(result.success).toBe(false);
   });

@@ -9,6 +9,7 @@ import { DEFAULT_SRM_THRESHOLD } from "shared/constants";
 import { formatTrafficSplit } from "@/services/utils";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { pValueFormatter } from "@/services/experiments";
+import Callout from "@/ui/Callout";
 import { includeVariation } from "./BreakDownResults";
 
 const numberFormatter = new Intl.NumberFormat();
@@ -27,14 +28,14 @@ const UsersTable: FC<{
   return (
     <div className="mt-1 overflow-auto">
       {hasSrm && (
-        <div className="alert alert-danger">
+        <Callout status="error">
           One or more dimensions has a Sample Ratio Mismatch (SRM){" "}
           <Tooltip
             body={`An SRM occurs when the observed traffic split is significantly different than expected. This indicates a likely bug.`}
           >
             <FaQuestionCircle />
           </Tooltip>
-        </div>
+        </Callout>
       )}
       <table
         className="table mx-2 mt-0 mb-2"

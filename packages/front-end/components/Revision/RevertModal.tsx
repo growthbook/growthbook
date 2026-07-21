@@ -206,7 +206,16 @@ export default function RevertModal<T extends RevertableEntity>({
           title,
           revertedFrom: targetRevision.id,
         });
-        if (publishNow) params.set("autoPublish", "1");
+        // Mirrors ArchiveModal: when approval is still required for this
+        // revert and the caller can bypass it, record a bypass (for the audit
+        // trail) instead of a plain auto-publish.
+        if (publishNow) {
+          if (effectiveApprovalRequired && canBypassApproval) {
+            params.set("bypassApproval", "1");
+          } else {
+            params.set("autoPublish", "1");
+          }
+        }
         if (comment.trim()) params.set("comment", comment.trim());
 
         const res = await apiCall<{
