@@ -20,6 +20,7 @@ let mockFailFeatureApply = false;
 let mockFailConstantRestore = false;
 let mockFailConstantReleaseClaim = false;
 let mockFeatureClaimConflict = false;
+let mockFeatureReleaseNoop = false;
 jest.mock("back-end/src/revisions/bulkPublish/registry", () => {
   return new Proxy(
     {},
@@ -44,6 +45,12 @@ jest.mock("back-end/src/revisions/bulkPublish/registry", () => {
                   throw new Error("simulated infra failure");
                 }
                 return adapter.applyPrecomputed(...args);
+              },
+              releaseClaim: async (...args: unknown[]) => {
+                // Simulate a no-op reopen (concurrent publish re-stamped, so
+                // the claimStamp filter matches nothing): revision stays merged.
+                if (mockFeatureReleaseNoop) return false;
+                return adapter.releaseClaim(...args);
               },
             };
           }
@@ -102,6 +109,7 @@ describe("POST /api/v2/releases/publish-revisions — commit failure", () => {
     mockFailConstantRestore = false;
     mockFailConstantReleaseClaim = false;
     mockFeatureClaimConflict = false;
+    mockFeatureReleaseNoop = false;
   });
 
   it("rolls back applied entities, reopens revisions, and emits only publishFailed", async () => {
@@ -571,5 +579,105 @@ describe("POST /api/v2/releases/publish-revisions — commit failure", () => {
         e.data?.data?.object?.key === "abort-stuck",
     );
     expect(forThisRelease.length).toBe(0);
+  });
+
+  it("reports a no-op feature reopen as published, not rolled-back", async () => {
+    setReqContext(makeContext());
+    const now = new Date();
+
+    // Constant applies and rolls back cleanly; the feature applies, then its
+    // apply throws, so compensation restores its pre-image and reopens its
+    // revision — but the reopen is a NO-OP (concurrent publish re-stamped, so
+    // the claimStamp filter matches nothing). The revision stays published, so
+    // the item must be reported "published", not a clean rollback, with no
+    // contradictory publishFailed event.
+    await mongoose.connection.collection("constants").insertOne({
+      id: "const_noop-reopen",
+      organization: ORG_ID,
+      key: "noop-reopen",
+      name: "noop-reopen",
+      owner: "",
+      type: "string",
+      value: "before",
+      dateCreated: now,
+      dateUpdated: now,
+    });
+    const stageRes = await request(app)
+      .put(`/api/v1/constants-revisions/noop-reopen/new/value`)
+      .send({ value: "after" })
+      .set("Authorization", "Bearer foo");
+    expect(stageRes.status).toBe(200);
+    const constVersion = stageRes.body.revision.version;
+
+    await mongoose.connection.collection("features").insertOne({
+      id: "noop-feat",
+      organization: ORG_ID,
+      owner: "",
+      valueType: "string",
+      defaultValue: "live",
+      version: 1,
+      environmentSettings: {},
+      dateCreated: now,
+      dateUpdated: now,
+    });
+    await mongoose.connection.collection("featurerevisions").insertMany([
+      {
+        organization: ORG_ID,
+        featureId: "noop-feat",
+        version: 1,
+        baseVersion: 0,
+        status: "published",
+        defaultValue: "live",
+        rules: [],
+        dateCreated: now,
+        dateUpdated: now,
+        datePublished: now,
+      },
+      {
+        organization: ORG_ID,
+        featureId: "noop-feat",
+        version: 2,
+        baseVersion: 1,
+        status: "draft",
+        defaultValue: "new-value",
+        rules: [],
+        dateCreated: now,
+        dateUpdated: now,
+      },
+    ]);
+
+    mockFailFeatureApply = true;
+    mockFeatureReleaseNoop = true;
+    const res = await request(app)
+      .post("/api/v2/releases/publish-revisions")
+      .send({
+        revisions: [
+          { entityType: "constant", key: "noop-reopen", version: constVersion },
+          { entityType: "feature", id: "noop-feat", version: 2 },
+        ],
+      })
+      .set("Authorization", "Bearer foo");
+    expect(res.status).toBe(500);
+
+    const byId = Object.fromEntries(
+      (res.body.items as { id: string; status: string }[]).map((item) => [
+        item.id,
+        item.status,
+      ]),
+    );
+    // Feature revision stayed merged (no-op reopen) → published, not rolled-back.
+    expect(byId["noop-feat"]).toBe("published");
+    expect(byId["noop-reopen"]).toBe("rolled-back");
+
+    // No publishFailed for the still-merged feature; only the rolled-back
+    // constant gets one.
+    const failed = await mongoose.connection
+      .collection("events")
+      .find({ organizationId: ORG_ID, event: /revision\.publishFailed/ })
+      .toArray();
+    expect(
+      failed.some((e) => e.data?.data?.object?.featureId === "noop-feat"),
+    ).toBe(false);
+    expect(failed.length).toBe(1);
   });
 });

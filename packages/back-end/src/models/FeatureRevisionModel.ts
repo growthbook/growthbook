@@ -1441,10 +1441,15 @@ export async function claimFeatureRevisionAsPublished(
  * pre-claim state (status, publish stamps, schedule, arming). Guarded on the
  * claimed "published" status so it can't clobber an unrelated later change.
  */
+// Returns whether the revision was actually reopened. It is NOT when the
+// claimStamp fingerprint no longer matches (a concurrent legitimate publish
+// re-stamped it) — the revision stays published under that other publish, and
+// the caller must treat this no-op as a failed release so the item is reported
+// stuck-published rather than a clean rollback.
 export async function restoreFeatureRevisionAfterFailedBulkPublish(
   original: FeatureRevisionInterface,
   claimStamp: Date | null,
-): Promise<void> {
+): Promise<boolean> {
   const filter = {
     organization: original.organization,
     featureId: original.featureId,
@@ -1488,13 +1493,15 @@ export async function restoreFeatureRevisionAfterFailedBulkPublish(
     },
   });
   try {
-    await FeatureRevisionModel.updateOne(filter, update(true));
+    const res = await FeatureRevisionModel.updateOne(filter, update(true));
+    return res.matchedCount > 0;
   } catch (e) {
     // A sibling draft armed a lock-others schedule while we held the claim
     // (the claim's $unset freed the partial-index slot). Restore without the
     // lock rather than stranding the revision as published.
     if (!isPublishLockIndexConflict(e)) throw e;
-    await FeatureRevisionModel.updateOne(filter, update(false));
+    const res = await FeatureRevisionModel.updateOne(filter, update(false));
+    return res.matchedCount > 0;
   }
 }
 

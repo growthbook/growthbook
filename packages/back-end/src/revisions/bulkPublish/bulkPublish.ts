@@ -674,10 +674,14 @@ async function releaseClaims(
   const failed = new Set<PlannedItemPublish>();
   for (const item of claimed) {
     try {
-      await getBulkAdapter(item.ref.entityType).releaseClaim(
+      const reopened = await getBulkAdapter(item.ref.entityType).releaseClaim(
         context,
         item.revision,
       );
+      // A no-op reopen (the claim fingerprint no longer matches — a concurrent
+      // publish owns the revision) leaves it merged/published, same as a throw:
+      // the item is stuck-published, not cleanly rolled back.
+      if (!reopened) failed.add(item);
     } catch (e) {
       failed.add(item);
       logger.error(

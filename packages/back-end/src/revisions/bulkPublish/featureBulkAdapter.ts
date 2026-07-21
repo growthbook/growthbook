@@ -288,7 +288,7 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
   },
 
   async releaseClaim(context, revision) {
-    await restoreFeatureRevisionAfterFailedBulkPublish(
+    return restoreFeatureRevisionAfterFailedBulkPublish(
       rawRevision(revision),
       revision.claimStamp ?? null,
     );

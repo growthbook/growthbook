@@ -133,8 +133,13 @@ export interface BulkPublishableAdapter {
     options: { isApprovalBypass: boolean; comment?: string },
   ): Promise<boolean>;
 
-  /** Compensation: restore the revision to its pre-claim state. */
-  releaseClaim(context: Context, revision: BulkRevisionRef): Promise<void>;
+  /**
+   * Compensation: reopen the revision to its pre-claim state. Returns false
+   * when it was a NO-OP (the claim fingerprint no longer matches — a concurrent
+   * publish re-claimed it, so it stays merged/published); the orchestrator then
+   * reports the item stuck-published rather than a clean rollback.
+   */
+  releaseClaim(context: Context, revision: BulkRevisionRef): Promise<boolean>;
 
   /** Write the precomputed desired state to the live entity. */
   applyPrecomputed(

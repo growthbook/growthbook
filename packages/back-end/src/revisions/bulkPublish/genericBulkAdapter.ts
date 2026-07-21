@@ -197,8 +197,12 @@ export function makeGenericBulkAdapter(
         revision.raw as Revision,
       );
       if (!restored) {
+        // Generic merges are CAS-guarded, so a concurrent re-publish loses at
+        // claim time — reopen always applies to an existing revision (or throws
+        // "not found"), never a silent no-op.
         await context.models.revisions.reopen(revision.id, context.userId);
       }
+      return true;
     },
 
     async applyPrecomputed(context, entity, revision, desiredState) {
