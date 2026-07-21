@@ -1,4 +1,4 @@
-import { Box, Flex, ScrollArea, TextField } from "@radix-ui/themes";
+import { Box, Flex, TextField } from "@radix-ui/themes";
 import { useState } from "react";
 import Modal, { Size } from "@/ui/Modal";
 import Table, {
@@ -25,16 +25,15 @@ function SubmitButton() {
 
 // A table wider than the modal. It proves horizontal overflow is handled by the
 // child itself and never spills into the modal body, which is vertical-scroll
-// only. The design-system <Table> supplies the markup, and a Radix <ScrollArea
-// scrollbars="horizontal"> owns the sideways scroll — the same primitive the
-// modal body uses, so the two scrollbars stay visually consistent.
+// only. The design-system <Table> supplies the markup; the wrapping Box is the
+// child-level horizontal scroll container.
 function WideTable() {
   const columns = Array.from({ length: 12 }, (_, i) => `Metric ${i + 1}`);
   const rows = Array.from({ length: 4 }, (_, r) =>
     columns.map((_, c) => `R${r + 1}·C${c + 1}`),
   );
   return (
-    <ScrollArea type="auto" scrollbars="horizontal">
+    <Box style={{ overflowX: "auto", maxWidth: "100%" }}>
       <Table variant="surface" style={{ minWidth: "1000px" }}>
         <TableHeader>
           <TableRow>
@@ -53,7 +52,7 @@ function WideTable() {
           ))}
         </TableBody>
       </Table>
-    </ScrollArea>
+    </Box>
   );
 }
 
