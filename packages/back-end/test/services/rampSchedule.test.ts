@@ -786,6 +786,57 @@ describe("computeEffectivePatch", () => {
       force: "variant-b",
     });
   });
+
+  it("drops enabled from the startActions seed", () => {
+    // A snapshot captured from a disabled rule must not re-disable the rule
+    // on forward publishes (e.g. zero-step schedule auto-completion).
+    const sched = {
+      steps: [],
+      startActions: [
+        {
+          targetType: "feature-rule" as const,
+          targetId: TARGET_ID,
+          patch: {
+            ruleId: RULE_ID,
+            coverage: 1.0,
+            condition: "{}",
+            enabled: false,
+          },
+        },
+      ],
+    };
+    const patch = computeEffectivePatch(sched, 0).get(TARGET_ID);
+    expect(patch).not.toHaveProperty("enabled");
+    expect(patch).toMatchObject({ coverage: 1.0, condition: "{}" });
+  });
+
+  it("steps and endActions can still set enabled explicitly", () => {
+    const sched = {
+      steps: [
+        {
+          interval: 300,
+          actions: [action(TARGET_ID, { coverage: 0.5, enabled: true })],
+        },
+      ],
+      startActions: [
+        {
+          targetType: "feature-rule" as const,
+          targetId: TARGET_ID,
+          patch: { ruleId: RULE_ID, coverage: 0.0, enabled: false },
+        },
+      ],
+      endActions: [action(TARGET_ID, { enabled: false })],
+    } as Pick<RampScheduleInterface, "steps" | "endActions" | "startActions">;
+
+    // At step 0: enabled comes from the step, not the seed.
+    expect(computeEffectivePatch(sched, 0).get(TARGET_ID)).toMatchObject({
+      enabled: true,
+    });
+    // At completion: endActions' explicit enabled:false wins.
+    expect(computeEffectivePatch(sched, 1).get(TARGET_ID)).toMatchObject({
+      enabled: false,
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------

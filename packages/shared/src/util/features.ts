@@ -1194,6 +1194,22 @@ export function buildEffectiveDraft(
   };
 }
 
+// Reconciles a raw (live, base) revision pair against the live feature document
+// so every autoMerge caller compares against the same feature-model-anchored
+// baseline. Passing raw revision snapshots straight into autoMerge lets drift
+// between a snapshot and feature.environmentSettings/rules (e.g. from the legacy
+// v1/v2 write bridge) hide or invent changes, and leaves callers out of unison.
+export function reconcileMergeBaselines(
+  feature: FeatureInterface,
+  live: RevisionFields,
+  base: RevisionFields,
+): { live: RevisionFields; base: RevisionFields } {
+  return {
+    live: liveRevisionFromFeature(live, feature),
+    base: fillRevisionFromFeature(base, feature),
+  };
+}
+
 // Returns true if the draft differs from live across any tracked field.
 export function draftDiffersFromLive(
   draftRevision: RevisionFields,
@@ -1775,11 +1791,17 @@ export function autoMerge(
       result.rules = revRules;
     }
 
-    // environmentsEnabled
+    // environmentsEnabled — anchor to the live feature model, not the base
+    // snapshot. `base` and `live` share a version here, so they should match;
+    // when they drift (e.g. a legacy v1 REST write that updated the feature doc
+    // but not the revision), a stale base value that equals the draft would
+    // otherwise swallow a real toggle and report "no changes to publish".
+    // `live` is feature-model-sourced (liveRevisionFromFeature), matching
+    // draftDiffersFromLive so the dashboard and REST publish gates stay in unison.
     if (revision.environmentsEnabled) {
       for (const env of Object.keys(revision.environmentsEnabled)) {
         const revVal = revision.environmentsEnabled[env];
-        if (revVal !== base.environmentsEnabled?.[env]) {
+        if (revVal !== live.environmentsEnabled?.[env]) {
           result.environmentsEnabled = result.environmentsEnabled || {};
           result.environmentsEnabled[env] = revVal;
         }
