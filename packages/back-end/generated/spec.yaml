@@ -786,6 +786,20 @@ paths:
                 project:
                   description: An associated project ID
                   type: string
+                visibilityAllProjects:
+                  description: >-
+                    Make this feature discoverable in — and served to — every
+                    project, beyond its primary `project`. Governance/approvals
+                    stay with `project`.
+                  type: boolean
+                visibilityProjects:
+                  description: >-
+                    Secondary project IDs this feature is visible in and served
+                    to, beyond its primary `project`. Governance/approvals stay
+                    with `project`.
+                  type: array
+                  items:
+                    type: string
                 valueType:
                   description: The data type of the feature payload. Boolean by default.
                   type: string
@@ -1679,6 +1693,20 @@ paths:
                 project:
                   description: An associated project ID
                   type: string
+                visibilityAllProjects:
+                  description: >-
+                    Make this feature discoverable in — and served to — every
+                    project, beyond its primary `project`. Governance/approvals
+                    stay with `project`.
+                  type: boolean
+                visibilityProjects:
+                  description: >-
+                    Secondary project IDs this feature is visible in and served
+                    to, beyond its primary `project`. Governance/approvals stay
+                    with `project`.
+                  type: array
+                  items:
+                    type: string
                 owner:
                   description: >-
                     The userId or email address of the owner. If an email
@@ -6617,6 +6645,20 @@ paths:
                 project:
                   description: An associated project ID
                   type: string
+                visibilityAllProjects:
+                  description: >-
+                    Make this feature discoverable in — and served to — every
+                    project, beyond its primary `project`. Governance/approvals
+                    stay with `project`.
+                  type: boolean
+                visibilityProjects:
+                  description: >-
+                    Secondary project IDs this feature is visible in and served
+                    to, beyond its primary `project`. Governance/approvals stay
+                    with `project`.
+                  type: array
+                  items:
+                    type: string
                 valueType:
                   description: The data type of the feature payload. Boolean by default.
                   type: string
@@ -7248,6 +7290,20 @@ paths:
                 project:
                   description: An associated project ID
                   type: string
+                visibilityAllProjects:
+                  description: >-
+                    Make this feature discoverable in — and served to — every
+                    project, beyond its primary `project`. Governance/approvals
+                    stay with `project`.
+                  type: boolean
+                visibilityProjects:
+                  description: >-
+                    Secondary project IDs this feature is visible in and served
+                    to, beyond its primary `project`. Governance/approvals stay
+                    with `project`.
+                  type: array
+                  items:
+                    type: string
                 owner:
                   description: >-
                     The userId or email address of the owner. If an email
@@ -46256,6 +46312,12 @@ components:
           type: string
         project:
           type: string
+        visibilityAllProjects:
+          type: boolean
+        visibilityProjects:
+          type: array
+          items:
+            type: string
         valueType:
           type: string
           enum:
@@ -48195,6 +48257,12 @@ components:
           type: string
         project:
           type: string
+        visibilityAllProjects:
+          type: boolean
+        visibilityProjects:
+          type: array
+          items:
+            type: string
         valueType:
           type: string
           enum:
@@ -54792,6 +54860,24 @@ components:
                 type: boolean
               autopublishOnApproval:
                 type: boolean
+            additionalProperties: false
+        visibilityReviewMode:
+          type: array
+          items:
+            type: object
+            properties:
+              projects:
+                type: array
+                items:
+                  type: string
+              mode:
+                type: string
+                enum:
+                  - strict
+                  - loose
+            required:
+              - projects
+              - mode
             additionalProperties: false
         restApiBypassesReviews:
           type: boolean

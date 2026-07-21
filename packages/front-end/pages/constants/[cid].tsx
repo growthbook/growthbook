@@ -419,6 +419,21 @@ export default function ConstantDetailPage(): React.ReactElement {
             <Metadata label="Key" value={constant.key} />
             <Metadata label="Type" value={TYPE_LABEL[constant.type]} />
             <Metadata label="Project" value={projectName || "All Projects"} />
+            {(displayedConstant.visibilityAllProjects ||
+              (displayedConstant.visibilityProjects?.length ?? 0) > 0) && (
+              <Metadata
+                label="Visibility"
+                value={
+                  displayedConstant.visibilityAllProjects
+                    ? "All projects"
+                    : (displayedConstant.visibilityProjects ?? [])
+                        .map(
+                          (id) => projects.find((p) => p.id === id)?.name || id,
+                        )
+                        .join(", ")
+                }
+              />
+            )}
             <Box>
               <Text weight="medium">Owner: </Text>
               <Owner ownerId={displayedConstant.owner} gap="1" />

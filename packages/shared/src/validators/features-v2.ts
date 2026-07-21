@@ -355,6 +355,8 @@ export const apiFeatureV2Validator = namedSchema(
       description: z.string().max(MAX_DESCRIPTION_LENGTH),
       owner: ownerInputField,
       project: z.string(),
+      visibilityAllProjects: z.boolean().optional(),
+      visibilityProjects: z.array(z.string()).optional(),
       valueType: z.enum(["boolean", "string", "number", "json"]),
       defaultValue: z.string(),
       baseConfig: apiBaseConfigField,
@@ -583,6 +585,18 @@ export const postFeatureBodyV2 = z
       .optional(),
     owner: requiredUnlessPatOwnerInputField,
     project: z.string().describe("An associated project ID").optional(),
+    visibilityAllProjects: z
+      .boolean()
+      .describe(
+        "Make this feature discoverable in — and served to — every project, beyond its primary `project`. Governance/approvals stay with `project`.",
+      )
+      .optional(),
+    visibilityProjects: z
+      .array(z.string())
+      .describe(
+        "Secondary project IDs this feature is visible in and served to, beyond its primary `project`. Governance/approvals stay with `project`.",
+      )
+      .optional(),
     valueType: z
       .enum(["boolean", "string", "number", "json"])
       .describe("The data type of the feature payload. Boolean by default."),
@@ -631,6 +645,18 @@ export const updateFeatureBodyV2 = z
       .optional(),
     archived: z.boolean().optional(),
     project: z.string().describe("An associated project ID").optional(),
+    visibilityAllProjects: z
+      .boolean()
+      .describe(
+        "Make this feature discoverable in — and served to — every project, beyond its primary `project`. Governance/approvals stay with `project`.",
+      )
+      .optional(),
+    visibilityProjects: z
+      .array(z.string())
+      .describe(
+        "Secondary project IDs this feature is visible in and served to, beyond its primary `project`. Governance/approvals stay with `project`.",
+      )
+      .optional(),
     owner: ownerInputField.optional(),
     defaultValue: z.string().optional(),
     baseConfig: apiBaseConfigUpdateField,

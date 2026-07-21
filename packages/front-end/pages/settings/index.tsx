@@ -175,6 +175,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
           featureRequireMetadataReview: true,
         },
       ],
+      visibilityReviewMode: settings.visibilityReviewMode ?? [],
       restApiBypassesReviews: settings.restApiBypassesReviews ?? false,
       requireRebaseBeforePublish: settings.requireRebaseBeforePublish ?? false,
       revertsBypassApproval: settings.revertsBypassApproval ?? false,

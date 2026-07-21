@@ -487,6 +487,20 @@ export default function FeaturesHeader({
               />
             )}
 
+            {(feature.visibilityAllProjects ||
+              (feature.visibilityProjects?.length ?? 0) > 0) && (
+              <Metadata
+                label="Visibility"
+                value={
+                  feature.visibilityAllProjects
+                    ? "All projects"
+                    : (feature.visibilityProjects ?? [])
+                        .map((id) => getProjectById(id)?.name || id)
+                        .join(", ")
+                }
+              />
+            )}
+
             <Box>
               <Text weight="medium">Feature Key: </Text>
               {feature.id || "-"}

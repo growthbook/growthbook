@@ -142,6 +142,8 @@ const featureSchema = new mongoose.Schema({
   nextScheduledUpdate: Date,
   owner: String,
   project: String,
+  visibilityAllProjects: Boolean,
+  visibilityProjects: [String],
   dateCreated: Date,
   dateUpdated: Date,
   version: Number,
@@ -178,6 +180,7 @@ const featureSchema = new mongoose.Schema({
 
 featureSchema.index({ id: 1, organization: 1 }, { unique: true });
 featureSchema.index({ organization: 1, project: 1 });
+featureSchema.index({ organization: 1, visibilityProjects: 1 });
 
 type FeatureDocument = mongoose.Document & LegacyFeatureInterface;
 
@@ -469,10 +472,8 @@ export async function getAllFeatures(
   }: { projects?: string[]; includeArchived?: boolean } = {},
 ): Promise<FeatureInterface[]> {
   const q: FilterQuery<FeatureDocument> = { organization: context.org.id };
-  if (projects && projects.length === 1) {
-    q.project = projects[0];
-  } else if (projects && projects.length > 1) {
-    q.project = { $in: projects };
+  if (projects && projects.length) {
+    Object.assign(q, visibilityScopedProjectClause(projects));
   }
 
   if (!includeArchived) {
@@ -484,7 +485,7 @@ export async function getAllFeatures(
   );
 
   return features.filter((feature) =>
-    context.permissions.canReadSingleProjectResource(feature.project),
+    context.permissions.canReadVisibilityScopedResource(feature),
   );
 }
 
@@ -524,8 +525,23 @@ export async function getAllFeaturesWithoutEditorFields(
   );
 
   return features.filter((feature) =>
-    context.permissions.canReadSingleProjectResource(feature.project),
+    context.permissions.canReadVisibilityScopedResource(feature),
   );
+}
+
+// Mongo pre-filter mirroring canReadVisibilityScopedResource: match by governance
+// `project`, secondary `visibilityProjects`, or the all-projects flag, so
+// visibility-only features survive before the in-memory permission check.
+function visibilityScopedProjectClause(
+  projects: string[],
+): FilterQuery<FeatureDocument> {
+  return {
+    $or: [
+      { project: { $in: projects } },
+      { visibilityProjects: { $in: projects } },
+      { visibilityAllProjects: true },
+    ],
+  };
 }
 
 function featureListQuery(
@@ -533,13 +549,15 @@ function featureListQuery(
   opts: { project?: string; projectIds?: string[]; includeArchived?: boolean },
 ): FilterQuery<FeatureDocument> {
   const { project, projectIds, includeArchived = false } = opts;
+  const scopeClause =
+    project != null
+      ? visibilityScopedProjectClause([project])
+      : projectIds != null
+        ? visibilityScopedProjectClause(projectIds)
+        : {};
   return {
     organization: orgId,
-    ...(project != null
-      ? { project }
-      : projectIds != null
-        ? { project: { $in: projectIds } }
-        : {}),
+    ...scopeClause,
     ...(includeArchived ? {} : { archived: { $ne: true } }),
   };
 }
@@ -573,7 +591,7 @@ export async function getFeaturesPage(
   return docs
     .map((m) => toInterface(m, context))
     .filter((feature) =>
-      context.permissions.canReadSingleProjectResource(feature.project),
+      context.permissions.canReadVisibilityScopedResource(feature),
     );
 }
 
@@ -617,7 +635,7 @@ export async function getFeature(
   });
   if (!feature) return null;
 
-  return context.permissions.canReadSingleProjectResource(feature.project)
+  return context.permissions.canReadVisibilityScopedResource(feature)
     ? toInterface(feature, context)
     : null;
 }
@@ -658,7 +676,7 @@ export async function getFeaturesByIds(
   ).map((m) => toInterface(m, context));
 
   return features.filter((feature) =>
-    context.permissions.canReadSingleProjectResource(feature.project),
+    context.permissions.canReadVisibilityScopedResource(feature),
   );
 }
 
@@ -1645,6 +1663,10 @@ export function computeRevisionMergeChanges(
     if (m.description !== undefined) changes.description = m.description;
     if (m.owner !== undefined) changes.owner = m.owner;
     if (m.project !== undefined) changes.project = m.project;
+    if (m.visibilityAllProjects !== undefined)
+      changes.visibilityAllProjects = m.visibilityAllProjects;
+    if (m.visibilityProjects !== undefined)
+      changes.visibilityProjects = m.visibilityProjects;
     if (m.tags !== undefined) changes.tags = m.tags;
     if (m.neverStale !== undefined) changes.neverStale = m.neverStale;
     if (m.customFields !== undefined)
@@ -2848,7 +2870,7 @@ export async function getFeatureMetaInfoById(
 
   const query: Record<string, unknown> = { organization: context.org.id };
   if (project) {
-    query.project = project;
+    Object.assign(query, visibilityScopedProjectClause([project]));
   }
   if (ids?.length) {
     query.id = { $in: ids };
@@ -2857,6 +2879,8 @@ export async function getFeatureMetaInfoById(
   const projection: Record<string, number> = {
     id: 1,
     project: 1,
+    visibilityAllProjects: 1,
+    visibilityProjects: 1,
     archived: 1,
     description: 1,
     dateCreated: 1,
@@ -2883,7 +2907,7 @@ export async function getFeatureMetaInfoById(
   const features = await FeatureModel.find(query, projection);
 
   return features
-    .filter((f) => context.permissions.canReadSingleProjectResource(f.project))
+    .filter((f) => context.permissions.canReadVisibilityScopedResource(f))
     .map((f) => {
       const doc = f as unknown as Record<string, unknown>;
       const rules = doc.rules as
@@ -2942,6 +2966,8 @@ export async function getFeatureMetaInfoByIds(
     {
       id: 1,
       project: 1,
+      visibilityAllProjects: 1,
+      visibilityProjects: 1,
       archived: 1,
       description: 1,
       dateCreated: 1,
@@ -2958,7 +2984,7 @@ export async function getFeatureMetaInfoByIds(
   );
 
   return features
-    .filter((f) => context.permissions.canReadSingleProjectResource(f.project))
+    .filter((f) => context.permissions.canReadVisibilityScopedResource(f))
     .map((f) => ({
       id: f.id,
       project: f.project,

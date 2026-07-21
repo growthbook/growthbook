@@ -33,6 +33,7 @@ import {
   getConfigBackingKey,
   getConfigBackingPatch,
   stripConfigExtends,
+  entityVisibleInProject,
 } from "shared/util";
 import {
   getConnectionSDKCapabilities,
@@ -1277,7 +1278,9 @@ export async function buildSDKPayloadForConnection(
   const projectList = projects && projects.length > 0 ? projects : [];
   const filteredFeatures =
     projectList.length > 0
-      ? data.features.filter((f) => projectList.includes(f.project || ""))
+      ? data.features.filter((f) =>
+          projectList.some((p) => entityVisibleInProject(f, p)),
+        )
       : data.features;
   const filteredExperimentMap =
     projectList.length > 0
@@ -2420,6 +2423,8 @@ export function getApiFeatureObjV2({
     prerequisites: (feature?.prerequisites || []).map((p) => p.id),
     owner: feature.owner || "",
     project: feature.project || "",
+    visibilityAllProjects: feature.visibilityAllProjects ?? false,
+    visibilityProjects: feature.visibilityProjects ?? [],
     tags: feature.tags || [],
     valueType: feature.valueType,
     revision: {
@@ -2665,6 +2670,8 @@ export function getApiFeatureObj({
     prerequisites: (feature?.prerequisites || []).map((p) => p.id),
     owner: feature.owner || "",
     project: feature.project || "",
+    visibilityAllProjects: feature.visibilityAllProjects ?? false,
+    visibilityProjects: feature.visibilityProjects ?? [],
     tags: feature.tags || [],
     valueType: feature.valueType,
     revision: {

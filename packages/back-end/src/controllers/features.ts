@@ -29,6 +29,8 @@ import {
   fillRevisionFromFeature,
   reconcileMergeBaselines,
   getReviewSetting,
+  normalizeVisibilityProjects,
+  normalizeVisibilityInUpdates,
   namespacesToMap,
   pruneOrphanedRampActions,
   assertSchemaMatchesValueType,
@@ -783,6 +785,7 @@ export async function postFeatures(
     holdout: holdout?.id ? holdout : undefined,
     jsonSchema: initialJsonSchema,
   };
+  Object.assign(feature, normalizeVisibilityProjects(feature));
 
   const allEnvironments = getEnvironments(org);
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
@@ -2409,6 +2412,20 @@ export async function postFeatureRevert(
     }
     if (m.project !== undefined && m.project !== (feature.project ?? "")) {
       metadataChanges.project = m.project;
+      hasMetadataChanges = true;
+    }
+    if (
+      m.visibilityAllProjects !== undefined &&
+      m.visibilityAllProjects !== (feature.visibilityAllProjects ?? false)
+    ) {
+      metadataChanges.visibilityAllProjects = m.visibilityAllProjects;
+      hasMetadataChanges = true;
+    }
+    if (
+      m.visibilityProjects !== undefined &&
+      !isEqual(m.visibilityProjects, feature.visibilityProjects ?? [])
+    ) {
+      metadataChanges.visibilityProjects = m.visibilityProjects;
       hasMetadataChanges = true;
     }
     if (m.tags !== undefined && !isEqual(m.tags, feature.tags ?? [])) {
@@ -5048,6 +5065,8 @@ export async function putFeature(
     "tags",
     "description",
     "project",
+    "visibilityAllProjects",
+    "visibilityProjects",
     "owner",
     "customFields",
     "holdout",
@@ -5082,6 +5101,8 @@ export async function putFeature(
     "tags",
     "description",
     "project",
+    "visibilityAllProjects",
+    "visibilityProjects",
     "owner",
     "customFields",
   ];
@@ -5090,6 +5111,7 @@ export async function putFeature(
       metadataKeys.includes(k as keyof FeatureInterface),
     ),
   ) as Partial<FeatureInterface>;
+  normalizeVisibilityInUpdates(metadataUpdates, feature);
   const holdoutUpdate = "holdout" in updates ? updates.holdout : undefined;
 
   if (Object.keys(metadataUpdates).length > 0 || holdoutUpdate !== undefined) {
@@ -5107,6 +5129,12 @@ export async function putFeature(
         }),
         ...(metadataUpdates.project !== undefined && {
           project: metadataUpdates.project,
+        }),
+        ...(metadataUpdates.visibilityAllProjects !== undefined && {
+          visibilityAllProjects: metadataUpdates.visibilityAllProjects,
+        }),
+        ...(metadataUpdates.visibilityProjects !== undefined && {
+          visibilityProjects: metadataUpdates.visibilityProjects,
         }),
         ...(metadataUpdates.tags !== undefined && {
           tags: metadataUpdates.tags,
@@ -5131,6 +5159,8 @@ export async function putFeature(
         tags: "tags",
         owner: "owner",
         project: "project",
+        visibilityAllProjects: "visibility",
+        visibilityProjects: "visibility projects",
         customFields: "custom fields",
         holdout: "holdout",
       };

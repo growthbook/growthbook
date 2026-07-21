@@ -13,6 +13,7 @@ import {
   MemberRoleInfo,
   OrganizationInterface,
   RequireReview,
+  VisibilityReviewRule,
 } from "shared/types/organization";
 import { StatsEngine, PValueCorrection } from "shared/types/stats";
 import { ProjectInterface } from "shared/types/project";
@@ -87,6 +88,7 @@ interface BaseSettings {
   secureAttributeSalt: string;
   killswitchConfirmation: boolean;
   requireReviews: boolean | RequireReview[];
+  visibilityReviewMode: VisibilityReviewRule[];
   featureKeyExample: string;
   featureRegexValidator: string;
   banditScheduleValue: number;

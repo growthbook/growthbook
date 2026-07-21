@@ -98,6 +98,8 @@ export const CONSTANT_METADATA_FIELDS: ReadonlySet<string> = new Set([
   "owner",
   "description",
   "project",
+  "visibilityAllProjects",
+  "visibilityProjects",
   "archived",
 ]);
 

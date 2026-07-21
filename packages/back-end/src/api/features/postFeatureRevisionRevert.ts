@@ -192,6 +192,20 @@ export async function revertFeatureRevision(
       metadataChanges.project = m.project;
       hasMetaChange = true;
     }
+    if (
+      m.visibilityAllProjects !== undefined &&
+      m.visibilityAllProjects !== (feature.visibilityAllProjects ?? false)
+    ) {
+      metadataChanges.visibilityAllProjects = m.visibilityAllProjects;
+      hasMetaChange = true;
+    }
+    if (
+      m.visibilityProjects !== undefined &&
+      !isEqual(m.visibilityProjects, feature.visibilityProjects ?? [])
+    ) {
+      metadataChanges.visibilityProjects = m.visibilityProjects;
+      hasMetaChange = true;
+    }
     if (m.tags !== undefined && !isEqual(m.tags, feature.tags ?? [])) {
       metadataChanges.tags = m.tags;
       hasMetaChange = true;

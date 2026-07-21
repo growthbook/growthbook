@@ -75,6 +75,14 @@ export type RequireReview = {
   autopublishOnApproval?: boolean;
 };
 
+// Governs whether an entity's secondary visibility projects impose their own
+// review requirements (strict) or only the primary project governs approvals
+// (loose). Project-scoped, most-specific-wins; no matching rule = strict.
+export type VisibilityReviewRule = {
+  projects: string[];
+  mode: "strict" | "loose";
+};
+
 export type OwnerJobTitle = keyof typeof OWNER_JOB_TITLES;
 
 export type UsageIntent = keyof typeof USAGE_INTENTS;
@@ -268,6 +276,9 @@ export interface OrganizationSettings {
   /** @deprecated */
   killswitchConfirmation?: boolean;
   requireReviews?: boolean | RequireReview[];
+  // Whether secondary visibility projects impose their own review requirements.
+  // Array of project-scoped rules, most-specific-wins; absent/no-match = strict.
+  visibilityReviewMode?: VisibilityReviewRule[];
   // Default extensibility for newly authored configs. When true (default),
   // base configs allow child configs / feature rules to add extra keys unless
   // a config explicitly opts out via its own `extensible` flag.

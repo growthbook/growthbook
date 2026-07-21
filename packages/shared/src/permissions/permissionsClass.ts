@@ -34,7 +34,11 @@ import { CustomHookInterface } from "../validators/custom-hooks";
 import { ContextualBanditInterface } from "../validators/contextual-bandit";
 import { EventForwarderConfigInterface } from "../validators/event-forwarder-config";
 import { HoldoutInterface } from "../validators/holdout";
-import { PermissionError } from "../util/";
+import {
+  PermissionError,
+  getVisibilityProjectIds,
+  VisibilityScopedEntity,
+} from "../util/";
 import { READ_ONLY_PERMISSIONS } from "./permissions.constants";
 
 type NotificationEvent = {
@@ -953,11 +957,18 @@ export class Permissions {
   };
 
   public canReviewFeatureDrafts = (
-    feature: Pick<FeatureInterface, "project">,
+    feature: Pick<FeatureInterface, "project" | "visibilityProjects">,
   ): boolean => {
-    return this.checkProjectFilterPermission(
-      { projects: feature.project ? [feature.project] : [] },
-      "canReview",
+    // Naive union: eligible if you can review the primary OR any project the
+    // feature is visible in. Stricter, mode-aware eligibility is a follow-up.
+    const projects = Array.from(
+      new Set([feature.project ?? "", ...(feature.visibilityProjects ?? [])]),
+    );
+    return projects.some((project) =>
+      this.checkProjectFilterPermission(
+        { projects: project ? [project] : [] },
+        "canReview",
+      ),
     );
   };
 
@@ -1620,6 +1631,21 @@ export class Permissions {
 
     // Otherwise, check if they have read access for atleast 1 of the resource's projects
     return projects.some((p) => this.hasPermission("readData", p));
+  };
+
+  // Visibility-scoped read for entities (features/constants/configs) that pair a
+  // single governance `project` with a secondary visibility scope. Readable if
+  // the user can read the governance project OR any visibility project (or it's
+  // visible in all projects). Governance/write still keys on `project` alone —
+  // this widens READ/discovery only.
+  public canReadVisibilityScopedResource = (
+    entity: VisibilityScopedEntity,
+  ): boolean => {
+    // getVisibilityProjectIds returns null for "all projects", which maps to the
+    // empty-array "all" convention canReadMultiProjectResource already handles.
+    return this.canReadMultiProjectResource(
+      getVisibilityProjectIds(entity) ?? [],
+    );
   };
 
   public canManageCustomRoles = (): boolean => {

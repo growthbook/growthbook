@@ -140,6 +140,11 @@ export const configValidator = z
       .optional(),
     description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     project: z.string().optional(),
+    // Secondary-visibility scope (read/discovery + payload scoping) beyond the
+    // governance `project`; `visibilityAllProjects` overrides the list. Mirrors
+    // features. Governance/approvals stay with `project`.
+    visibilityAllProjects: z.boolean().optional(),
+    visibilityProjects: z.array(z.string()).optional(),
     archived: z.boolean().optional(),
     // `.nullish()`, not `.optional()`: `null` is the explicit "clear the schema"
     // signal (a revert to a schema-less revision); undefined = never had one. Only
@@ -179,6 +184,8 @@ export const configUpdatableFieldsSchema = configValidator.pick({
   value: true,
   description: true,
   project: true,
+  visibilityAllProjects: true,
+  visibilityProjects: true,
   archived: true,
   schema: true,
   extensible: true,

@@ -330,6 +330,8 @@ const METADATA_FIELDS = [
   "owner",
   "description",
   "project",
+  "visibilityAllProjects",
+  "visibilityProjects",
   "tags",
   "customFields",
   "jsonSchema",

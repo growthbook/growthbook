@@ -1646,6 +1646,22 @@ export default function ConfigDetailPage(): React.ReactElement {
             <Flex align="center" gap="4" mb="4" wrap="wrap">
               <Metadata label="Key" value={config.key} />
               <Metadata label="Project" value={projectName || "All projects"} />
+              {(displayedConfig.visibilityAllProjects ||
+                (displayedConfig.visibilityProjects?.length ?? 0) > 0) && (
+                <Metadata
+                  label="Visibility"
+                  value={
+                    displayedConfig.visibilityAllProjects
+                      ? "All projects"
+                      : (displayedConfig.visibilityProjects ?? [])
+                          .map(
+                            (id) =>
+                              projects.find((p) => p.id === id)?.name || id,
+                          )
+                          .join(", ")
+                  }
+                />
+              )}
               <Box>
                 <Text weight="medium">Owner: </Text>
                 <Owner ownerId={displayedConfig.owner} gap="1" />

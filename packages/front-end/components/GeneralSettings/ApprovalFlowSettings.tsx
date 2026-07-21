@@ -70,6 +70,26 @@ export default function ApprovalFlowSettings() {
     });
   }, [requireReviewsWatched]);
 
+  // Org-wide visibility review governance. The UI edits the all-projects default
+  // rule; any project-specific override rules (API-only for now) are preserved.
+  const visibilityReviewRules = form.watch("visibilityReviewMode") || [];
+  const orgWideVisibilityRule = visibilityReviewRules.find(
+    (r) => (r.projects?.length ?? 0) === 0,
+  );
+  const visibilityStrict = orgWideVisibilityRule
+    ? orgWideVisibilityRule.mode === "strict"
+    : true;
+  const setVisibilityMode = (strict: boolean) => {
+    const mode: "strict" | "loose" = strict ? "strict" : "loose";
+    const perProject = visibilityReviewRules.filter(
+      (r) => (r.projects?.length ?? 0) > 0,
+    );
+    form.setValue("visibilityReviewMode", [
+      ...perProject,
+      { projects: [], mode },
+    ]);
+  };
+
   return (
     <Frame>
       <Flex gap="4">
@@ -297,6 +317,15 @@ export default function ApprovalFlowSettings() {
                     )}
                   </Box>
                 ))}
+                <Box mt="4">
+                  <Checkbox
+                    id="toggle-visibility-review-mode"
+                    label="Require review from secondary (visibility) projects"
+                    description="When a feature or config is visible in secondary projects, also apply those projects' approval requirements before publishing (strict). Disable to let only the primary project govern approvals (loose)."
+                    value={visibilityStrict}
+                    setValue={setVisibilityMode}
+                  />
+                </Box>
               </>
             )}
           </Frame>

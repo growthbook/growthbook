@@ -27,6 +27,7 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import {
   OrganizationSettings,
   RequireReview,
+  VisibilityReviewRule,
   Environment,
   SDKAttributeSchema,
 } from "shared/types/organization";
@@ -194,6 +195,10 @@ export function mergeRevision(
     if (m.description !== undefined) newFeature.description = m.description;
     if (m.owner !== undefined) newFeature.owner = m.owner;
     if (m.project !== undefined) newFeature.project = m.project;
+    if (m.visibilityAllProjects !== undefined)
+      newFeature.visibilityAllProjects = m.visibilityAllProjects;
+    if (m.visibilityProjects !== undefined)
+      newFeature.visibilityProjects = m.visibilityProjects;
     if (m.tags !== undefined) newFeature.tags = m.tags;
     if (m.neverStale !== undefined) newFeature.neverStale = m.neverStale;
     if (m.customFields !== undefined)
@@ -1502,7 +1507,9 @@ export function normalizeMetadataValue(
   k: keyof RevisionMetadata,
   v: RevisionMetadata[keyof RevisionMetadata],
 ): unknown {
-  if (k === "tags") return (v as string[] | null | undefined) ?? [];
+  if (k === "tags" || k === "visibilityProjects")
+    return (v as string[] | null | undefined) ?? [];
+  if (k === "visibilityAllProjects") return !!v;
   if (k === "description" || k === "owner" || k === "project")
     return (v as string | null | undefined) ?? "";
   // Normalize unset/undefined to null so a non-config snapshot doesn't diff
@@ -2605,6 +2612,34 @@ export type ResetReviewOnChange = {
   defaultValueChanged: boolean;
   settings?: OrganizationSettings;
 };
+// Resolve strict/loose review governance for a single visibility project.
+// Most-specific-wins: a rule naming the project beats an all-projects rule.
+// No matching rule (or no rules configured) defaults to strict.
+export function getVisibilityReviewMode(
+  rules: VisibilityReviewRule[] | undefined,
+  projectId: string,
+): "strict" | "loose" {
+  if (!rules?.length) return "strict";
+  const specific = rules.find((r) => r.projects.includes(projectId));
+  if (specific) return specific.mode;
+  const all = rules.find((r) => r.projects.length === 0);
+  return all ? all.mode : "strict";
+}
+
+// Projects whose `requireReviews` rules govern a change to a visibility-scoped
+// entity: the primary (always) plus any visibility project in strict mode. Pass
+// the union of current + staged visibility projects so de-scoping is governed too.
+export function getGoverningReviewProjects(
+  primary: string | undefined,
+  visibilityProjects: string[],
+  visibilityReviewMode: VisibilityReviewRule[] | undefined,
+): string[] {
+  const strict = visibilityProjects.filter(
+    (p) => getVisibilityReviewMode(visibilityReviewMode, p) === "strict",
+  );
+  return Array.from(new Set([primary ?? "", ...strict]));
+}
+
 export function getReviewSetting(
   requireReviewSettings: RequireReview[],
   // Any project-scoped entity (features, and constants which mirror the feature
@@ -2660,15 +2695,17 @@ export function featureRequiresReview(
   ) {
     return !!requiresReviewSettings;
   }
-  const reviewSetting = getReviewSetting(requiresReviewSettings, feature);
-
-  if (!reviewSetting || !reviewSetting.requireReviewOn) {
-    return false;
-  }
-  if (defaultValueChanged) {
-    return true;
-  }
-  return checkEnvironmentsMatch(changedEnvironments, reviewSetting);
+  // OR the primary's review requirement with each strict visibility project's.
+  return getGoverningReviewProjects(
+    feature.project,
+    feature.visibilityProjects ?? [],
+    settings?.visibilityReviewMode,
+  ).some((project) => {
+    const reviewSetting = getReviewSetting(requiresReviewSettings, { project });
+    if (!reviewSetting?.requireReviewOn) return false;
+    if (defaultValueChanged) return true;
+    return checkEnvironmentsMatch(changedEnvironments, reviewSetting);
+  });
 }
 
 // Constants are a drop-in for feature config and borrow the exact same
@@ -3092,8 +3129,23 @@ export function checkIfRevisionNeedsReview({
   // Boolean format: true = all changes require review, false/undefined = none do.
   if (!Array.isArray(requireReviews)) return !!requireReviews;
 
-  const reviewSetting = getReviewSetting(requireReviews, feature);
-  if (!reviewSetting?.requireReviewOn) return false;
+  // Governing review settings = the primary project (always) plus any secondary
+  // visibility project in strict mode, across the union of current and staged
+  // visibility (so both adding and removing a project is governed). Each project's
+  // matched requireReviews rule is evaluated independently and OR'd together.
+  const stagedVisibility =
+    revision.metadata?.visibilityProjects ?? feature.visibilityProjects ?? [];
+  const visibilityUnion = Array.from(
+    new Set([...(feature.visibilityProjects ?? []), ...stagedVisibility]),
+  );
+  const reviewSettings = getGoverningReviewProjects(
+    feature.project,
+    visibilityUnion,
+    settings?.visibilityReviewMode,
+  )
+    .map((project) => getReviewSetting(requireReviews, { project }))
+    .filter((rs): rs is RequireReview => !!rs?.requireReviewOn);
+  if (!reviewSettings.length) return false;
 
   const affected = getDraftAffectedEnvironments(
     revision,
@@ -3102,71 +3154,156 @@ export function checkIfRevisionNeedsReview({
     liveRampScheduleEnvs,
   );
 
-  if (affected === "all") {
-    // Metadata-only changes respect the featureRequireMetadataReview gate;
-    // all other global changes (prerequisites, archived, holdout, defaultValue) always require review.
-    if (!revisionHasMetadataOnlyGlobalChange(revision, baseRevision))
-      return true;
-    return reviewSetting.featureRequireMetadataReview !== false;
-  }
-  if (affected.length === 0) return false;
-
-  // Env-specific changes split into rules/values vs kill switches.
-  // Rules/values always require approval; kill switches only when
-  // `featureRequireEnvironmentReview` is true (default when unset).
-  // Project rules per-env to account for `allEnvironments` / `environments` scopes.
-  const revRulesAll = naiveFlattenV1Rules(revision.rules);
-  const baseRulesAll = naiveFlattenV1Rules(baseRevision.rules);
-  const envsWithRuleChanges = affected.filter((env) => {
-    const revRules = getRulesForEnvironment(revRulesAll, env).map(
-      normalizeRuleForDiff,
-    );
-    const baseRules = getRulesForEnvironment(baseRulesAll, env).map(
-      normalizeRuleForDiff,
-    );
-    return !isEqual(revRules, baseRules);
-  });
-  const envKillSwitchChanges = affected.filter(
-    (env) =>
-      revision.environmentsEnabled?.[env] !== undefined &&
-      revision.environmentsEnabled[env] !==
-        (baseRevision.environmentsEnabled?.[env] ?? false),
-  );
-
-  const gatedEnvs = reviewSetting.environments;
-
-  // Rules/values always gate
-  if (envsWithRuleChanges.length > 0) {
-    if (gatedEnvs.length === 0) return true;
-    if (envsWithRuleChanges.some((env) => gatedEnvs.includes(env))) return true;
-  }
-
-  // Kill switch changes only gate when featureRequireEnvironmentReview is enabled
-  if (
-    envKillSwitchChanges.length > 0 &&
-    reviewSetting.featureRequireEnvironmentReview !== false
-  ) {
-    if (gatedEnvs.length === 0) return true;
-    if (envKillSwitchChanges.some((env) => gatedEnvs.includes(env)))
-      return true;
-  }
-
-  // Ramp actions (create/update/detach) change how the feature is rolled out
-  // across environments. They are treated like rule changes and always require
-  // approval when any of the targeted environments are gated.
-  if ((revision.rampActions ?? []).length > 0) {
-    const rampEnvs = affected.filter(
+  // Change classification is independent of which review rule is evaluated, so
+  // compute it once and reuse across every governing setting.
+  const metadataOnlyGlobal =
+    affected === "all"
+      ? revisionHasMetadataOnlyGlobalChange(revision, baseRevision)
+      : false;
+  let envsWithRuleChanges: string[] = [];
+  let envKillSwitchChanges: string[] = [];
+  if (affected !== "all") {
+    // Env-specific changes split into rules/values vs kill switches.
+    // Rules/values always require approval; kill switches only when
+    // `featureRequireEnvironmentReview` is true (default when unset).
+    // Project rules per-env to account for `allEnvironments`/`environments` scopes.
+    const revRulesAll = naiveFlattenV1Rules(revision.rules);
+    const baseRulesAll = naiveFlattenV1Rules(baseRevision.rules);
+    envsWithRuleChanges = affected.filter((env) => {
+      const revRules = getRulesForEnvironment(revRulesAll, env).map(
+        normalizeRuleForDiff,
+      );
+      const baseRules = getRulesForEnvironment(baseRulesAll, env).map(
+        normalizeRuleForDiff,
+      );
+      return !isEqual(revRules, baseRules);
+    });
+    envKillSwitchChanges = affected.filter(
       (env) =>
-        !envsWithRuleChanges.includes(env) &&
-        !envKillSwitchChanges.includes(env),
+        revision.environmentsEnabled?.[env] !== undefined &&
+        revision.environmentsEnabled[env] !==
+          (baseRevision.environmentsEnabled?.[env] ?? false),
     );
-    if (rampEnvs.length > 0) {
-      if (gatedEnvs.length === 0) return true;
-      if (rampEnvs.some((env) => gatedEnvs.includes(env))) return true;
-    }
   }
 
-  return false;
+  const needsReviewForSetting = (reviewSetting: RequireReview): boolean => {
+    if (affected === "all") {
+      // Metadata-only changes respect the featureRequireMetadataReview gate; all
+      // other global changes (prerequisites, archived, holdout, defaultValue)
+      // always require review.
+      if (!metadataOnlyGlobal) return true;
+      return reviewSetting.featureRequireMetadataReview !== false;
+    }
+    if (affected.length === 0) return false;
+
+    const gatedEnvs = reviewSetting.environments;
+
+    // Rules/values always gate
+    if (envsWithRuleChanges.length > 0) {
+      if (gatedEnvs.length === 0) return true;
+      if (envsWithRuleChanges.some((env) => gatedEnvs.includes(env)))
+        return true;
+    }
+
+    // Kill switch changes only gate when featureRequireEnvironmentReview is enabled
+    if (
+      envKillSwitchChanges.length > 0 &&
+      reviewSetting.featureRequireEnvironmentReview !== false
+    ) {
+      if (gatedEnvs.length === 0) return true;
+      if (envKillSwitchChanges.some((env) => gatedEnvs.includes(env)))
+        return true;
+    }
+
+    // Ramp actions (create/update/detach) change how the feature is rolled out
+    // across environments. They are treated like rule changes and always require
+    // approval when any of the targeted environments are gated.
+    if ((revision.rampActions ?? []).length > 0) {
+      const rampEnvs = affected.filter(
+        (env) =>
+          !envsWithRuleChanges.includes(env) &&
+          !envKillSwitchChanges.includes(env),
+      );
+      if (rampEnvs.length > 0) {
+        if (gatedEnvs.length === 0) return true;
+        if (rampEnvs.some((env) => gatedEnvs.includes(env))) return true;
+      }
+    }
+
+    return false;
+  };
+
+  return reviewSettings.some(needsReviewForSetting);
+}
+
+// Any entity that pairs a single governance `project` with a secondary
+// visibility scope (features, constants, configs).
+export type VisibilityScopedEntity = {
+  project?: string;
+  visibilityAllProjects?: boolean;
+  visibilityProjects?: string[];
+};
+
+// The set of project ids an entity is visible in — the governance project plus
+// its secondary visibility projects, deduped. Returns null when visible in ALL
+// projects (visibilityAllProjects), matching the empty-array "all" convention.
+export function getVisibilityProjectIds(
+  entity: VisibilityScopedEntity,
+): string[] | null {
+  if (entity.visibilityAllProjects) return null;
+  return Array.from(
+    new Set([entity.project ?? "", ...(entity.visibilityProjects ?? [])]),
+  );
+}
+
+export function entityVisibleInProject(
+  entity: VisibilityScopedEntity,
+  projectId: string,
+): boolean {
+  if (entity.visibilityAllProjects) return true;
+  if ((entity.project ?? "") === projectId) return true;
+  return (entity.visibilityProjects ?? []).includes(projectId);
+}
+
+// Write-time normalization: drop blanks, dupes, and the governance project from
+// the visibility list, and clear the list entirely when visible in all projects.
+export function normalizeVisibilityProjects(entity: VisibilityScopedEntity): {
+  visibilityAllProjects: boolean;
+  visibilityProjects: string[];
+} {
+  if (entity.visibilityAllProjects) {
+    return { visibilityAllProjects: true, visibilityProjects: [] };
+  }
+  const primary = entity.project ?? "";
+  const visibilityProjects = Array.from(
+    new Set(
+      (entity.visibilityProjects ?? []).filter((p) => p && p !== primary),
+    ),
+  );
+  return { visibilityAllProjects: false, visibilityProjects };
+}
+
+// Normalize any visibility fields present in a partial feature update, in place.
+// Resolves against the update's project when it's changing, else the current
+// entity's, so the primary is correctly stripped from the visibility list.
+export function normalizeVisibilityInUpdates(
+  updates: VisibilityScopedEntity,
+  current: VisibilityScopedEntity,
+): void {
+  const hasAll = "visibilityAllProjects" in updates;
+  const hasList = "visibilityProjects" in updates;
+  if (!hasAll && !hasList) return;
+  const norm = normalizeVisibilityProjects({
+    project: "project" in updates ? updates.project : current.project,
+    visibilityAllProjects: hasAll
+      ? updates.visibilityAllProjects
+      : current.visibilityAllProjects,
+    visibilityProjects: hasList
+      ? updates.visibilityProjects
+      : current.visibilityProjects,
+  });
+  if (hasAll) updates.visibilityAllProjects = norm.visibilityAllProjects;
+  if (hasList) updates.visibilityProjects = norm.visibilityProjects;
 }
 
 export function filterProjectsByEnvironment(

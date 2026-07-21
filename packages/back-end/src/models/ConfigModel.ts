@@ -67,7 +67,7 @@ export class ConfigModel extends BaseClass {
   private reconcileSnapshot: Promise<ConfigInterface[]> | null = null;
 
   protected canRead(doc: ConfigInterface): boolean {
-    return this.context.permissions.canReadSingleProjectResource(doc.project);
+    return this.context.permissions.canReadVisibilityScopedResource(doc);
   }
 
   protected canCreate(doc: ConfigInterface): boolean {
@@ -238,8 +238,8 @@ export class ConfigModel extends BaseClass {
       const unreadable = baseKeys.filter(
         (k) =>
           !prior.has(k) &&
-          !this.context.permissions.canReadSingleProjectResource(
-            byKey.get(k)?.project || "",
+          !this.context.permissions.canReadVisibilityScopedResource(
+            byKey.get(k) ?? {},
           ),
       );
       if (unreadable.length) {
