@@ -26,6 +26,10 @@ fi
 echo "#### Linting typescript, scss, and markdown files"
 pnpm lint-staged
 
+# Non-blocking "while you're here" reminder for staged files that still use
+# raw <a> tags or next/link. Never fails the commit.
+node scripts/link-nudge.js || true
+
 # Add eslint-suppressions.json if it was modified during linting
 if [ -n "$(git status --porcelain eslint-suppressions.json)" ]
   then
