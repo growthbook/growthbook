@@ -110,11 +110,14 @@ export async function loadFeaturesPage(
   }
 
   // CSV filters — values within a param are ORed, params AND together. The
-  // valueType tokens are enum-validated by the v2 query schema.
+  // valueType tokens are enum-validated (case-insensitively) by the v2 query
+  // schema; lowercase them so mixed-case input still matches the exact $in
   const filters = {
     tags: splitCsv(query.tag),
     owners,
-    valueTypes: splitCsv(query.valueType) as FeatureValueType[] | undefined,
+    valueTypes: splitCsv(query.valueType)?.map(
+      (v) => v.toLowerCase() as FeatureValueType,
+    ),
     baseConfig: query.baseConfig || undefined,
   };
 
