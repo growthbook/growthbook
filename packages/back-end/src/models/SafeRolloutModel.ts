@@ -93,12 +93,12 @@ export class SafeRolloutModel extends BaseClass {
     // Apply stamped start metadata but the post-apply snapshot is missing: we
     // can't prove ownership of the timing fields, and restoring status alone
     // would leave a rolled-back rollout carrying the publish's startedAt/
-    // schedule. Refuse the partial — throw so the item is reported published
-    // (whole rollout left at the publish state), not a half-restore.
+    // schedule. Refuse that half-restore — throw so this rollout is left
+    // running (untouched) and the caller records a reversal failure.
     if (applyStartedIt && !written) {
       throw new Error(
         `safe rollout ${pre.id}: post-apply baseline missing — cannot reverse ` +
-          `start metadata; left at the published state`,
+          `start metadata; rollout left running`,
       );
     }
     const ownsStartedAt =
