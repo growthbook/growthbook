@@ -11,21 +11,28 @@ import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypa
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
 import {
+  evaluatePublishGates,
+  PublishBlockedError,
+  PublishGate,
+  BypassedGate,
+} from "back-end/src/revisions/publishGates";
+import {
   buildPatchOps,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
 import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
-import { assertConstantArchivable } from "back-end/src/services/constants";
 
 async function buildResponse(
   context: ApiReqContext,
   constant: ConstantInterface,
+  bypassed: BypassedGate[],
 ) {
   return {
     constant: await resolveOwnerEmail(
       context.models.constants.toApiInterface(constant),
       context,
     ),
+    ...(bypassed.length ? { bypassedGates: bypassed } : {}),
   };
 }
 
@@ -46,20 +53,9 @@ async function setArchivedState(
 
   // Idempotent: skip the write if already in the desired state.
   if (!!constant.archived === archived) {
-    return buildResponse(context, constant);
+    return buildResponse(context, constant, []);
   }
 
-  // Block archiving a still-referenced constant (parity with saved groups and
-  // the internal/UI archive flow). Unarchiving is always allowed.
-  if (archived) {
-    await assertConstantArchivable(context, constant.id);
-  }
-
-  // Archiving/unarchiving is a metadata-only change to the constant. Respect the
-  // same approval gate as the dashboard archive flow and the REST update
-  // endpoint — otherwise these endpoints would be a way to bypass required
-  // (metadata) reviews. These endpoints take no body, so bypass is only via the
-  // org's `restApiBypassesReviews` setting or the caller's bypass permission.
   const adapter = getAdapter("constant");
   const patchOps = buildPatchOps({ archived });
   const approvalRequired = adapter.isApprovalRequiredForRevision
@@ -67,26 +63,80 @@ async function setArchivedState(
         target: { snapshot: constant, proposedChanges: patchOps },
       } as unknown as Revision)
     : adapter.isApprovalRequired(context);
+  const canBypass =
+    canUseRestApiBypassSetting(req) ||
+    adapter.canBypassApproval(
+      context,
+      constant as unknown as Record<string, unknown>,
+    );
 
-  // Unlike saved groups, archiving a referenced constant is allowed — while
-  // archived, its references are stripped from the SDK payload (string interps
-  // removed, JSON refs dropped) rather than resolving to a value.
+  // Aggregate every publish gate into one structured 422 (same contract as the
+  // revision-publish endpoints). Unlike configs, a constant has no revision pin,
+  // so there's no config-locked gate here.
+  const gates: PublishGate[] = [];
+  // Metadata-only, but still gated so it can't bypass a required metadata review.
+  // No draft to approve here, so the resolution routes through a draft revision.
   if (approvalRequired) {
-    const canBypass =
-      canUseRestApiBypassSetting(req) ||
-      adapter.canBypassApproval(context, constant);
-    if (!canBypass) {
-      throw new BadRequestError(
-        "This organization requires approvals for this constant. " +
-          `Use \`POST /constants-revisions/${constant.key}\` to ${
-            archived ? "archive" : "unarchive"
-          } it through a draft, or use a role/token with the bypass permission.`,
-      );
-    }
-    // Record the already-merged revision FIRST, then apply it to the live
-    // entity. If the apply fails, delete the just-created revision so we never
-    // leave a merged record with no corresponding live change (mirrors the
-    // revert handler's record-first-then-rollback ordering).
+    gates.push({
+      type: "approval-required",
+      severity: "blocker",
+      messages: [
+        `This organization requires approval to ${
+          archived ? "archive" : "unarchive"
+        } this constant.`,
+      ],
+      override: null,
+      requiresPermission: "bypassApprovalChecks",
+      resolution: {
+        action: "create-draft",
+        method: "POST",
+        path: `/constants-revisions/${constant.key}`,
+      },
+    });
+  }
+  // Soft guards (experiment / locked-dependent / schema-break / archive-dependents)
+  // for the archived flip. Archived refs are scrubbed at resolution, so the
+  // transition rewrites consumers' values even though the constant's own values
+  // are unchanged.
+  gates.push(
+    ...((await adapter.collectPublishGates?.(
+      context,
+      constant,
+      {
+        target: { snapshot: constant, proposedChanges: patchOps },
+      } as unknown as Revision,
+      { archived },
+    )) ?? []),
+  );
+
+  const { blocking, bypassed } = evaluatePublishGates(gates, {
+    ignoreWarnings: context.ignoreWarnings,
+    skipSchemaValidation: context.skipSchemaValidation,
+    skipHooks: context.skipHooks,
+    bypassApprovalPermission: adapter.canBypassApproval(
+      context,
+      constant as Record<string, unknown>,
+    ),
+    restApiBypassesReviews: canUseRestApiBypassSetting(req),
+    canForceMergeStaleBase: canBypass,
+  });
+  if (blocking.length) {
+    throw new PublishBlockedError(blocking);
+  }
+
+  // Approval backstop behind the gate above.
+  if (approvalRequired && !canBypass) {
+    throw new BadRequestError(
+      "This organization requires approvals for this constant. " +
+        `Use \`POST /constants-revisions/${constant.key}\` to ${
+          archived ? "archive" : "unarchive"
+        } it through a draft, or use a role/token with the bypass permission.`,
+    );
+  }
+
+  if (approvalRequired) {
+    // Record the merged revision FIRST, then apply; roll it back if the apply
+    // fails, so a merged record never lacks a live change.
     await ensureLiveRevisionExists(
       context,
       "constant",
@@ -115,11 +165,11 @@ async function setArchivedState(
       throw e;
     }
     await dispatchConstantRevisionEvent(context, merged, { type: "published" });
-    return buildResponse(context, { ...constant, ...updated });
+    return buildResponse(context, { ...constant, ...updated }, bypassed);
   }
 
   const updated = await context.models.constants.update(constant, { archived });
-  return buildResponse(context, { ...constant, ...updated });
+  return buildResponse(context, { ...constant, ...updated }, bypassed);
 }
 
 export const archiveConstant = createApiRequestHandler(

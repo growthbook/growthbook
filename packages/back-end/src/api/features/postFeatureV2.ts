@@ -1,4 +1,4 @@
-import { validateFeatureValue, setConfigBacking } from "shared/util";
+import { validateFeatureValue } from "shared/util";
 import { postFeatureV2Validator } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -32,6 +32,7 @@ import {
   assertValidBaseConfig,
   assertValidDefaultValueConfig,
   assertNoRawConfigExtends,
+  composeConfigBacking,
   mapV2ApiRuleToFeatureRule,
 } from "./v2Shared";
 
@@ -133,16 +134,19 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
       req.context,
       feature.baseConfig,
       feature.valueType,
+      feature.project,
     );
     await assertValidDefaultValueConfig(
       req.context,
       feature.baseConfig,
       req.body.defaultValueConfig,
+      feature.project,
     );
     if ((req.body.defaultValueConfig ?? null) !== null) {
-      feature.defaultValue = setConfigBacking(
+      feature.defaultValue = composeConfigBacking(
         req.body.defaultValueConfig as string,
         feature.defaultValue,
+        "Default value",
       );
     }
 
@@ -158,6 +162,7 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
       ]),
       feature.defaultValue,
       feature.baseConfig,
+      feature.project,
     );
 
     const jsonSchema = parseApiJsonSchema(

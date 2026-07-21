@@ -11,6 +11,7 @@ import {
 } from "shared/api-spec";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ApiErrorResponse, ApiRequestLocals } from "back-end/types/api";
+import { PublishBlockedError } from "back-end/src/revisions/publishGates";
 import { ApiError, MergeConflictError, SoftWarningError } from "./errors";
 import { IS_MULTI_ORG } from "./secrets";
 
@@ -185,15 +186,22 @@ export async function runApiHandler(
         body.conflicts = e.details.conflicts;
       }
     }
-    // Surface soft warnings so clients can re-submit with `?ignoreWarnings=true`
+    // Aggregated publish gates: the typed `gates` list names each blocking
+    // gate and the body flag that clears it, plus a flattened `warnings`
+    // array so existing SoftWarningError-style retry flows keep working.
+    if (e instanceof PublishBlockedError) {
+      body.gates = e.gates;
+      body.warnings = e.warnings;
+    }
+    // Surface soft warnings so clients can re-submit with ignoreWarnings
     if (e instanceof SoftWarningError) {
       body.warnings = e.warnings;
-      // Front-end shows a "Save anyway" dialog and doesn't need a querystring hint
+      // Front-end shows a "Save anyway" dialog and doesn't need a retry hint
       const isJwtAuth = (req as unknown as ApiRequestLocals).isJwtAuth;
       if (!isJwtAuth) {
         body.message =
           e.message +
-          "\n\nEither address the warnings or append '?ignoreWarnings=true' to the URL to proceed.";
+          '\n\nEither address the warnings or re-send with `"ignoreWarnings": true` in the request body to acknowledge them and proceed.';
       }
     }
     return { status: e.status || 400, body };

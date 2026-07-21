@@ -6,7 +6,12 @@ import {
   ownerInputField,
   optionalOwnerInputField,
 } from "./owner-field";
-import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
+import {
+  apiPaginationFieldsValidator,
+  paginationQueryFields,
+  publishOverrideBodyFields,
+  publishBypassedGatesField,
+} from "./shared";
 import { namedSchema } from "./openapi-helpers";
 
 // A raw `string` (interpolated as `{{ @const:key }}`) or a `json` object (merged
@@ -305,9 +310,29 @@ export function validateResolvableValue({
   label?: string;
   refSource?: RefSource;
 }): void {
-  if (type !== "json") return;
-  if (value === "") return; // empty permitted
   const prefix = label ? `${label}: ` : "";
+  if (type !== "json") {
+    // Constants can't reference configs. The JSON path enforces this on
+    // `$extends` entries below, but a STRING value could smuggle the same edge
+    // in through a `{{ @config:key }}` interpolation the resolver would
+    // happily resolve — inverting the constants ← configs dependency direction
+    // with no cycle check, and invisibly to reference tracking (payload
+    // refresh and publish guards never see the edge). Backtick-escaped
+    // literals are exempt, matching the resolver.
+    if (refSource === "constant" && value) {
+      const configRefs = new Set<string>();
+      collectStringInterpRefs(value, configRefs, "config");
+      if (configRefs.size) {
+        throw new Error(
+          `${prefix}Constants cannot reference configs — remove the "{{ @config:${
+            [...configRefs][0]
+          } }}" interpolation. To keep it as literal text, escape it with backticks.`,
+        );
+      }
+    }
+    return;
+  }
+  if (value === "") return; // empty permitted
   let parsed: unknown;
   try {
     parsed = JSON.parse(value);
@@ -464,6 +489,7 @@ const updateConstantApiBody = z
     project: z.string().optional(),
     owner: ownerInputField.optional(),
     bypassApproval: bypassApprovalField,
+    ...publishOverrideBodyFields,
   })
   .strict();
 
@@ -475,6 +501,12 @@ const constantKeyParams = z
 const apiConstantResponse = z
   .object({ constant: apiConstantValidator })
   .strict();
+
+// Archive/unarchive publish through the standard gate contract, so a successful
+// call can report gates that were bypassed by the caller's authority.
+const apiConstantArchiveResponse = apiConstantResponse.extend({
+  bypassedGates: publishBypassedGatesField,
+});
 
 export const apiConstantReferencesValidator = namedSchema(
   "ConstantReferences",
@@ -568,10 +600,10 @@ export const updateConstantValidator = {
 };
 
 export const archiveConstantValidator = {
-  bodySchema: z.never(),
+  bodySchema: z.object({ ...publishOverrideBodyFields }).strict(),
   querySchema: z.never(),
   paramsSchema: constantKeyParams,
-  responseSchema: apiConstantResponse,
+  responseSchema: apiConstantArchiveResponse,
   summary: "Archive a single constant",
   operationId: "archiveConstant",
   tags: ["constants"],
@@ -581,10 +613,10 @@ export const archiveConstantValidator = {
 };
 
 export const unarchiveConstantValidator = {
-  bodySchema: z.never(),
+  bodySchema: z.object({ ...publishOverrideBodyFields }).strict(),
   querySchema: z.never(),
   paramsSchema: constantKeyParams,
-  responseSchema: apiConstantResponse,
+  responseSchema: apiConstantArchiveResponse,
   summary: "Unarchive a single constant",
   operationId: "unarchiveConstant",
   tags: ["constants"],

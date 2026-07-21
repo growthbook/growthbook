@@ -7,10 +7,8 @@ import {
 } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
 import { BadRequestError } from "back-end/src/util/errors";
-import {
-  resolvableValueChanged,
-  assertConstantArchivable,
-} from "back-end/src/services/constants";
+import { resolvableValueChanged } from "back-end/src/services/constants";
+import { assertConstantArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import {
   logConstantCreatedEvent,
@@ -127,12 +125,17 @@ export class ConstantModel extends BaseClass {
     newDoc: ConstantInterface,
   ) {
     // Model-level backstop (handlers also check, for earlier/friendlier errors):
-    // block archiving a still-referenced constant on ANY write path, so a revert-
-    // to-publish or a publish-after-staging can't slip an archive past the
-    // handler-level guards and leave its `@const:` refs resolving verbatim.
-    // Mirrors ConfigModel.beforeUpdate.
+    // archiving a still-referenced constant on ANY write path is a uniform SOFT
+    // warning, bypassable by ignoreWarnings — background jobs (the deferred fire)
+    // always ignore warnings, so an armed archive publish that already re-checked
+    // its fingerprint at assertPublishable passes here; a direct write without
+    // ignoreWarnings still surfaces the warning. Mirrors ConfigModel.beforeUpdate.
     if (updates.archived === true && !existing.archived) {
-      await assertConstantArchivable(this.context, existing.id);
+      await assertConstantArchiveDependentsGuard(
+        this.context,
+        { id: existing.id, key: existing.key, project: existing.project },
+        { armed: false },
+      );
     }
     if (
       updates.value !== undefined ||

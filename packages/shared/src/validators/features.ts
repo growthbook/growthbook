@@ -8,6 +8,7 @@ import {
   paginationQueryFields,
   skipPaginationQueryField,
   apiPaginationFieldsValidator,
+  publishOverrideBodyFields,
 } from "./shared";
 import { safeRolloutStatusArray } from "./safe-rollout";
 import {
@@ -1531,6 +1532,7 @@ const postFeatureBody = z
       )
       .optional(),
     customFields: z.record(z.string(), z.string()).optional(),
+    ...publishOverrideBodyFields,
   })
   .strict();
 
@@ -1585,6 +1587,7 @@ const updateFeatureBody = z
         "Holdout to assign this feature to. Pass `null` to remove the feature from its current holdout. Omit the field entirely to leave the holdout unchanged.\n",
       )
       .optional(),
+    ...publishOverrideBodyFields,
   })
   .strict();
 
@@ -1763,6 +1766,7 @@ export const revertFeatureValidator = {
     .object({
       revision: z.number(),
       comment: z.string().optional(),
+      ...publishOverrideBodyFields,
     })
     .strict(),
   querySchema: z.never(),
@@ -1770,7 +1774,7 @@ export const revertFeatureValidator = {
   responseSchema: featureResponseSchema,
   summary: "Revert a feature to a specific revision",
   description:
-    '**Deprecated.** Use [POST /v2/features/:id/revert](#operation/revertFeatureV2) instead.\n\nCreates a new revision whose rules and values match a previously-published revision, then immediately publishes it. This leaves a clear audit trail of the revert action in the revision history.\n\nReturns 403 if the API key lacks permission, or if approval rules are enabled for an affected environment and neither the "REST API always bypasses approval requirements" nor the "Allow reverts without approval" org setting is enabled.\n\nReturns 422 with a list of `warnings` if the restored values no longer validate against the feature\'s current value type or JSON schema. Re-submit with `?ignoreWarnings=true` to revert anyway.\n',
+    '**Deprecated.** Use [POST /v2/features/:id/revert](#operation/revertFeatureV2) instead.\n\nCreates a new revision whose rules and values match a previously-published revision, then immediately publishes it. This leaves a clear audit trail of the revert action in the revision history.\n\nReturns 403 if the API key lacks permission, or if approval rules are enabled for an affected environment and neither the "REST API always bypasses approval requirements" nor the "Allow reverts without approval" org setting is enabled.\n\nReturns 422 with a list of `warnings` if the restored values no longer validate against the feature\'s current value type or JSON schema. Re-submit with `"ignoreWarnings": true` in the request body to revert anyway.\n',
   deprecated: true,
   deprecationDate: FEATURE_V1_DEPRECATED,
   operationId: "revertFeature",

@@ -186,6 +186,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       req.context,
       effectiveBaseConfig,
       feature.valueType,
+      effectiveProject,
     );
     assertConfigSchemaCompat({
       jsonSchemaEnabled: (jsonSchema ?? feature.jsonSchema)?.enabled,

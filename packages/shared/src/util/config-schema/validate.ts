@@ -76,7 +76,10 @@ export function collectInvalidConfigValueKeys({
     // schema itself is surfaced as invalid elsewhere.
     return [];
   }
-  schemaObj.required = [];
+  // At every depth, not just top-level — a nested `required` (or conditional
+  // form) would flag sparse deep-merge patches as incompatible here while
+  // `validateConfigValue` accepts them.
+  stripRequiredDeep(schemaObj);
 
   let validate: ReturnType<Ajv["compile"]>;
   try {
@@ -129,14 +132,37 @@ function stripRequiredDeep(schema: unknown): void {
   }
   const s = schema as Record<string, unknown>;
   delete s.required;
-  if (s.properties && typeof s.properties === "object") {
-    for (const sub of Object.values(s.properties as Record<string, unknown>)) {
-      stripRequiredDeep(sub);
+  // `dependentRequired` (2019-09) and draft-07's array-form `dependencies` are
+  // the same completeness constraint in conditional form. (The Ajv instance
+  // below is draft-07, so `dependencies` is the spelling it actually enforces.)
+  delete s.dependentRequired;
+  if (s.dependencies && typeof s.dependencies === "object") {
+    const deps = s.dependencies as Record<string, unknown>;
+    for (const [k, dep] of Object.entries(deps)) {
+      if (Array.isArray(dep)) delete deps[k];
+      else stripRequiredDeep(dep);
+    }
+  }
+  for (const k of ["properties", "patternProperties", "dependentSchemas"]) {
+    if (s[k] && typeof s[k] === "object") {
+      for (const sub of Object.values(s[k] as Record<string, unknown>)) {
+        stripRequiredDeep(sub);
+      }
     }
   }
   if (s.items) stripRequiredDeep(s.items);
   if (s.additionalProperties && typeof s.additionalProperties === "object") {
     stripRequiredDeep(s.additionalProperties);
+  }
+  // `then`/`else` demand completeness once triggered, so strip inside them. Do
+  // NOT descend `if` (its `required` is the condition's trigger — stripping it
+  // makes the branch fire for every value) or `not` (a `required` under
+  // negation is a PROHIBITION — stripping turns `not:{required:[...]}` into
+  // `not:{}`, which rejects everything). `contains`/`items` element schemas
+  // apply to arrays, which replace wholesale (never merged sparsely), but
+  // `items` descent predates this and is kept as-is.
+  for (const k of ["then", "else"]) {
+    if (s[k]) stripRequiredDeep(s[k]);
   }
   for (const k of ["allOf", "anyOf", "oneOf"]) {
     if (Array.isArray(s[k])) (s[k] as unknown[]).forEach(stripRequiredDeep);
@@ -200,21 +226,28 @@ export function validateConfigValue({
   if (!requireAll) stripRequiredDeep(schemaObj);
 
   try {
-    const ajv = new Ajv({ strictSchema: false });
+    // allErrors: report every violation, not just the first — callers surface
+    // the full list (and the schema-break guard fingerprints it, so a masked
+    // second violation would otherwise only appear once the first is fixed).
+    const ajv = new Ajv({ strictSchema: false, allErrors: true });
     const validate = ajv.compile(schemaObj);
     const valid = validate(data);
     return {
       valid: !!valid,
-      errors:
-        validate.errors?.map((v) => {
-          const field =
-            v.instancePath?.replace(/^\//, "") ||
-            (v.params as { missingProperty?: string })?.missingProperty ||
-            (v.params as { additionalProperty?: string })?.additionalProperty ||
-            "";
-          const where = field ? `"${field}" ` : "";
-          return `${where}${v.message ?? "is invalid"}`;
-        }) ?? [],
+      errors: [
+        ...new Set(
+          validate.errors?.map((v) => {
+            const field =
+              v.instancePath?.replace(/^\//, "") ||
+              (v.params as { missingProperty?: string })?.missingProperty ||
+              (v.params as { additionalProperty?: string })
+                ?.additionalProperty ||
+              "";
+            const where = field ? `"${field}" ` : "";
+            return `${where}${v.message ?? "is invalid"}`;
+          }) ?? [],
+        ),
+      ],
     };
   } catch (e) {
     return {
