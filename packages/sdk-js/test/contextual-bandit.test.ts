@@ -32,7 +32,6 @@ function cbMap(
   return {
     cb_promo: {
       banditVersion: 7,
-      attributesRequired: ["plan"],
       contexts: [
         { leafId: 1, condition: { plan: "enterprise" }, weights: [1, 0] },
         { leafId: 2, condition: {}, weights: [0, 1] },
@@ -178,11 +177,10 @@ describe("contextual bandit feature rules", () => {
     gb.destroy();
   });
 
-  it("buckets on fallback weights (leafId -1) and tracks when a required attribute is missing", () => {
-    // The user passes global targeting (no rule condition here) but is missing
-    // the required `plan` attribute, so no leaf can be selected. They must be
-    // bucketed on the CB's aggregate/fallback weights and tracked, tagged with
-    // the fallback-leaf sentinel — not dropped.
+  it("falls into the catch-all leaf when an attribute used by a leaf condition is missing", () => {
+    // The SDK no longer enforces a list of required attributes. A user missing
+    // `plan` simply fails the specific leaf condition and matches the catch-all
+    // leaf like any other non-enterprise user.
     const trackingCallback = jest.fn();
     const gb = new GrowthBook({
       attributes: { id: "u1" },
@@ -193,11 +191,11 @@ describe("contextual bandit feature rules", () => {
 
     const res = gb.evalFeature("promo");
     expect(res.source).toEqual("experiment");
-    expect(res.value).toEqual("control");
+    expect(res.value).toEqual("treatment");
     expect(res.experimentResult?.inExperiment).toEqual(true);
-    expect(res.experimentResult?.variationId).toEqual(0);
-    expect(res.experimentResult?.leafId).toEqual(-1);
-    expect(res.experimentResult?.variationWeights).toEqual([1, 0]);
+    expect(res.experimentResult?.variationId).toEqual(1);
+    expect(res.experimentResult?.leafId).toEqual(2);
+    expect(res.experimentResult?.variationWeights).toEqual([0, 1]);
     expect(res.experimentResult?.banditVersion).toEqual(7);
     expect(trackingCallback.mock.calls.length).toEqual(1);
 

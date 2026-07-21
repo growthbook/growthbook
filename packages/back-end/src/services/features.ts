@@ -667,7 +667,6 @@ export function filterUsedContextualBandits(
     if (!cb) return;
     map[id] = {
       banditVersion: cb.banditVersion,
-      attributesRequired: cb.contextualAttributes,
       contexts: (cb.currentLeafWeights ?? []).map((lw) => ({
         leafId: lw.leafId,
         condition: lw.condition,

@@ -21,7 +21,6 @@ export type FeatureDefinitionRule = FeatureRule & {
 
 export type ContextualBanditDefinition = {
   banditVersion?: number;
-  attributesRequired?: string[];
   contexts: {
     leafId: number;
     condition: Record<string, unknown>;

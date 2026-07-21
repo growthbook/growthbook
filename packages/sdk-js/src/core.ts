@@ -846,18 +846,6 @@ function getContextualBanditLeaf(
   cbDefinition: ContextualBanditDefinition,
   ctx: EvalContext,
 ): { leafId: number; weights: number[] } | null {
-  if (
-    cbDefinition.attributesRequired &&
-    cbDefinition.attributesRequired.length
-  ) {
-    const attributes = getAttributes(ctx);
-    for (const attr of cbDefinition.attributesRequired) {
-      if (attributes[attr] === undefined || attributes[attr] === null) {
-        return null;
-      }
-    }
-  }
-
   for (const context of cbDefinition.contexts || []) {
     if (conditionPasses((context.condition || {}) as ConditionInterface, ctx)) {
       return { leafId: context.leafId, weights: context.weights };

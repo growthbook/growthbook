@@ -119,7 +119,6 @@ describe("getFeatureDefinition contextual-bandit-ref rules", () => {
     expect(rule?.disableStickyBucketing).toEqual(true);
     // Nothing bulky on the rule — it all lives in the top-level map
     expect(rule).not.toHaveProperty("contexts");
-    expect(rule).not.toHaveProperty("attributesRequired");
     expect(rule).not.toHaveProperty("banditVersion");
     // Variations live under `contextualVariations` (not `variations`) so older
     // SDKs skip the rule; aggregate weights remain for the CB MAB fallback.
@@ -178,7 +177,6 @@ describe("filterUsedContextualBandits", () => {
     expect(map).toEqual({
       cb_1: {
         banditVersion: 7,
-        attributesRequired: ["country", "device"],
         contexts: [
           { leafId: 0, condition: { country: "US" }, weights: [0.3, 0.7] },
           {
@@ -235,12 +233,10 @@ describe("filterUsedContextualBandits", () => {
 describe("measureContextualBanditPayload", () => {
   const smallEntry = {
     banditVersion: 1,
-    attributesRequired: ["country"],
     contexts: [{ leafId: 0, condition: { country: "US" }, weights: [1, 0] }],
   };
   const bigEntry = {
     banditVersion: 2,
-    attributesRequired: ["country"],
     contexts: [
       {
         leafId: 0,

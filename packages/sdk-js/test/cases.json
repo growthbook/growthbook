@@ -5209,7 +5209,6 @@
         "contextualBandits": {
           "cb_promo_bandit": {
             "banditVersion": 7,
-            "attributesRequired": ["plan"],
             "contexts": []
           }
         }
@@ -5293,8 +5292,7 @@
         },
         "contextualBandits": {
           "cb_promo_bandit": {
-            "banditVersion": 7,
-            "attributesRequired": ["plan"]
+            "banditVersion": 7
           }
         }
       },
@@ -5345,7 +5343,7 @@
       }
     ],
     [
-      "CB rule with empty contexts does not enforce attributesRequired (fallback leaf -1)",
+      "CB rule with empty contexts uses marginal weights (fallback leaf -1)",
       {
         "attributes": {
           "id": "1"
@@ -5378,7 +5376,6 @@
         "contextualBandits": {
           "cb_promo_bandit": {
             "banditVersion": 7,
-            "attributesRequired": ["plan"],
             "contexts": []
           }
         }
@@ -5671,7 +5668,6 @@
         "contextualBandits": {
           "cb_promo_bandit": {
             "banditVersion": 7,
-            "attributesRequired": ["plan"],
             "contexts": []
           }
         }
@@ -7838,7 +7834,6 @@
         "contextualBandits": {
           "cb_promo_bandit": {
             "banditVersion": 7,
-            "attributesRequired": ["plan"],
             "contexts": [
               {
                 "leafId": 1,
@@ -7930,7 +7925,6 @@
         "contextualBandits": {
           "cb_promo_bandit": {
             "banditVersion": 7,
-            "attributesRequired": ["plan"],
             "contexts": [
               {
                 "leafId": 1,
@@ -8029,7 +8023,6 @@
         "contextualBandits": {
           "cb_promo_bandit": {
             "banditVersion": 7,
-            "attributesRequired": ["plan"],
             "contexts": [
               {
                 "leafId": 1,
@@ -8129,7 +8122,6 @@
         "contextualBandits": {
           "cb_promo_bandit": {
             "banditVersion": 7,
-            "attributesRequired": ["plan", "cartValue"],
             "contexts": [
               {
                 "leafId": 1,
@@ -8240,7 +8232,6 @@
         "contextualBandits": {
           "cb_promo_bandit": {
             "banditVersion": 7,
-            "attributesRequired": ["plan", "cartValue"],
             "contexts": [
               {
                 "leafId": 1,
@@ -8351,7 +8342,6 @@
         "contextualBandits": {
           "cb_promo_bandit": {
             "banditVersion": 7,
-            "attributesRequired": ["plan", "country"],
             "contexts": [
               {
                 "leafId": 1,
@@ -8423,7 +8413,7 @@
       }
     ],
     [
-      "missing required attribute falls back to marginal weights (fallback leaf -1)",
+      "missing attribute used by a leaf condition falls into the catch-all leaf",
       {
         "attributes": {
           "id": "1"
@@ -8456,7 +8446,6 @@
         "contextualBandits": {
           "cb_promo_bandit": {
             "banditVersion": 7,
-            "attributesRequired": ["plan"],
             "contexts": [
               {
                 "leafId": 1,
@@ -8476,21 +8465,21 @@
       },
       "promo",
       {
-        "value": "control",
+        "value": "treatment",
         "on": true,
         "off": false,
         "source": "experiment",
         "ruleId": "",
         "experiment": {
           "contextualBandit": {
-            "leafId": -1,
-            "variationWeights": [0.5, 0.5],
+            "leafId": 2,
+            "variationWeights": [0, 1],
             "banditVersion": 7
           },
           "variations": ["control", "treatment"],
           "key": "promo_bandit",
           "coverage": 1,
-          "weights": [0.5, 0.5],
+          "weights": [0, 1],
           "hashAttribute": "id",
           "meta": [
             {
@@ -8504,18 +8493,18 @@
           "hashVersion": 2
         },
         "experimentResult": {
-          "key": "0",
+          "key": "1",
           "featureId": "promo",
           "inExperiment": true,
           "hashUsed": true,
-          "variationId": 0,
-          "value": "control",
+          "variationId": 1,
+          "value": "treatment",
           "hashAttribute": "id",
           "hashValue": "1",
           "stickyBucketUsed": false,
           "bucket": 0.3094,
-          "leafId": -1,
-          "variationWeights": [0.5, 0.5],
+          "leafId": 2,
+          "variationWeights": [0, 1],
           "banditVersion": 7
         }
       }
@@ -8560,7 +8549,6 @@
         "contextualBandits": {
           "cb_promo_bandit": {
             "banditVersion": 7,
-            "attributesRequired": ["plan"],
             "contexts": [
               {
                 "leafId": 1,
@@ -8625,7 +8613,6 @@
         "contextualBandits": {
           "cb_promo_bandit": {
             "banditVersion": 7,
-            "attributesRequired": ["plan"],
             "contexts": [
               {
                 "leafId": 1,
@@ -8687,7 +8674,6 @@
         "contextualBandits": {
           "cb_promo_bandit": {
             "banditVersion": 7,
-            "attributesRequired": ["plan"],
             "contexts": [
               {
                 "leafId": 1,
@@ -8752,7 +8738,6 @@
         "contextualBandits": {
           "cb_promo_bandit": {
             "banditVersion": 7,
-            "attributesRequired": ["plan"],
             "contexts": [
               {
                 "leafId": 1,
@@ -8874,7 +8859,6 @@
         "contextualBandits": {
           "cb_promo_bandit": {
             "banditVersion": 7,
-            "attributesRequired": ["plan"],
             "contexts": [
               {
                 "leafId": 1,
@@ -9423,7 +9407,6 @@
         "contextualBandits": {
           "cb_promo_bandit": {
             "banditVersion": 7,
-            "attributesRequired": ["plan"],
             "contexts": [
               {
                 "leafId": 1,
@@ -9485,7 +9468,6 @@
         "contextualBandits": {
           "cb_promo_bandit": {
             "banditVersion": 7,
-            "attributesRequired": ["plan"],
             "contexts": [
               {
                 "leafId": 1,
@@ -9546,7 +9528,6 @@
         "contextualBandits": {
           "cb_promo_bandit": {
             "banditVersion": 7,
-            "attributesRequired": ["plan"],
             "contexts": [
               {
                 "leafId": 1,
@@ -9608,7 +9589,6 @@
         "contextualBandits": {
           "cb_promo_bandit": {
             "banditVersion": 7,
-            "attributesRequired": ["plan"],
             "contexts": [
               {
                 "leafId": 1,
@@ -9710,7 +9690,6 @@
         "contextualBandits": {
           "cb_promo_bandit": {
             "banditVersion": 7,
-            "attributesRequired": ["plan"],
             "contexts": [
               {
                 "leafId": 1,
@@ -9801,7 +9780,6 @@
         "contextualBandits": {
           "cb_promo_bandit": {
             "banditVersion": 7,
-            "attributesRequired": ["plan"],
             "contexts": [
               {
                 "leafId": 1,
@@ -9892,7 +9870,6 @@
         "contextualBandits": {
           "cb_promo_bandit": {
             "banditVersion": 7,
-            "attributesRequired": ["plan"],
             "contexts": [
               {
                 "leafId": 1,
@@ -9958,7 +9935,6 @@
         "contextualBandits": {
           "cb_promo_bandit": {
             "banditVersion": 7,
-            "attributesRequired": ["plan"],
             "contexts": [
               {
                 "leafId": 1,
@@ -10049,7 +10025,6 @@
         "contextualBandits": {
           "cb_promo_bandit": {
             "banditVersion": 7,
-            "attributesRequired": ["plan"],
             "contexts": [
               {
                 "leafId": 1,
@@ -10120,7 +10095,6 @@
         "contextualBandits": {
           "cb_promo_bandit": {
             "banditVersion": 7,
-            "attributesRequired": ["plan"],
             "contexts": [
               {
                 "leafId": 1,
@@ -10227,7 +10201,6 @@
         "contextualBandits": {
           "cb_promo_bandit": {
             "banditVersion": 7,
-            "attributesRequired": ["plan"],
             "contexts": [
               {
                 "leafId": 1,
@@ -10286,7 +10259,6 @@
         "contextualBandits": {
           "cb_promo_bandit": {
             "banditVersion": 7,
-            "attributesRequired": ["plan"],
             "contexts": [
               {
                 "leafId": 1,
@@ -10388,7 +10360,6 @@
         "contextualBandits": {
           "cb_promo_bandit": {
             "banditVersion": 7,
-            "attributesRequired": ["plan"],
             "contexts": [
               {
                 "leafId": 1,
@@ -10487,7 +10458,6 @@
         "contextualBandits": {
           "cb_promo_bandit": {
             "banditVersion": 7,
-            "attributesRequired": ["plan"],
             "contexts": [
               {
                 "leafId": 1,
@@ -10620,7 +10590,6 @@
         "contextualBandits": {
           "cb_promo_bandit": {
             "banditVersion": 7,
-            "attributesRequired": ["plan"],
             "contexts": []
           }
         }
@@ -10705,7 +10674,6 @@
         },
         "contextualBandits": {
           "cb_promo_bandit": {
-            "attributesRequired": ["plan"],
             "contexts": [
               {
                 "leafId": 1,
@@ -10795,7 +10763,6 @@
         "contextualBandits": {
           "cb_promo_bandit": {
             "banditVersion": 7,
-            "attributesRequired": ["plan"],
             "contexts": [
               {
                 "leafId": 1,

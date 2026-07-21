@@ -323,7 +323,6 @@ describe("getPayloadAllowedKeys (contextual bandits)", () => {
     expect(featureRuleKeys).toContain("contextualBanditRef");
     expect(featureRuleKeys).toContain("contextualVariations");
     expect(featureRuleKeys).not.toContain("contexts");
-    expect(featureRuleKeys).not.toContain("attributesRequired");
     expect(featureRuleKeys).not.toContain("banditVersion");
   });
 
