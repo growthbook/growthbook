@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ownerInputField } from "./owner-field";
+import { apiFactTableColumnInputValidator } from "./fact-table";
 
 // The body references PostFactTablePayload, PostFactTableFilterPayload, and PostFactMetricPayload
 const postBulkImportFactsBody = z
@@ -33,6 +34,12 @@ const postBulkImportFactsBody = z
             eventName: z
               .string()
               .describe("The event name used in SQL template variables")
+              .optional(),
+            columns: z
+              .array(apiFactTableColumnInputValidator)
+              .describe(
+                'Optional array of column definitions for this fact table. On create, columns are stored as-is. On update, columns upsert by `column`: existing columns are patched, new columns are created, and columns not included are left unchanged. Omit `datatype` to leave an existing column\'s type untouched; send "" to reset it for auto-detection; new columns are auto-detected when `datatype` is omitted or "". Datatype-dependent properties (e.g. `alwaysInlineFilter`) are validated once the datatype is known. Slice-related properties require an enterprise license.',
+              )
               .optional(),
             managedBy: z
               .enum(["", "api", "admin"])

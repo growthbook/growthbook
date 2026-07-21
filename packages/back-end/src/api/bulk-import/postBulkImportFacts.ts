@@ -11,12 +11,17 @@ import {
   createFactTable,
   updateFactTable,
   updateFactFilter,
+  upsertColumns,
   getFactTableMap,
 } from "back-end/src/models/FactTableModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getCreateMetricPropsFromBody } from "back-end/src/api/fact-metrics/postFactMetric";
 import { getUpdateFactMetricPropsFromBody } from "back-end/src/api/fact-metrics/updateFactMetric";
-import { needsColumnRefresh } from "back-end/src/api/fact-tables/updateFactTable";
+import {
+  needsColumnRefresh,
+  columnsNeedDetection,
+} from "back-end/src/api/fact-tables/updateFactTable";
+import { columnsHaveAutoSlices } from "back-end/src/util/factTable";
 import { resolveOwnerToUserId } from "back-end/src/services/owner";
 
 export const postBulkImportFacts = createApiRequestHandler(
@@ -82,6 +87,16 @@ export const postBulkImportFacts = createApiRequestHandler(
         data.managedBy = "api";
       }
 
+      // Enforce the metric-slices premium gate before any write. Bulk-import is
+      // not transactional across resources, so this must run before mutating
+      // this fact table.
+      if (
+        columnsHaveAutoSlices(data.columns) &&
+        !req.context.hasPremiumFeature("metric-slices")
+      ) {
+        throw new Error("Metric slices require an enterprise license");
+      }
+
       const existing = factTableMap.get(id);
       // Update existing fact table
       if (existing) {
@@ -101,13 +116,31 @@ export const postBulkImportFacts = createApiRequestHandler(
           data.owner =
             (await resolveOwnerToUserId(data.owner, req.context)) ?? "";
         }
+
+        // Upsert columns by `column` (patch existing, insert new, leave omitted
+        // untouched), then drop them from `data` so the model $set leaves the
+        // columns array alone.
+        if (data.columns) {
+          await upsertColumns({
+            context: req.context,
+            factTable: existing,
+            columns: data.columns,
+          });
+          delete data.columns;
+        }
+
         await updateFactTable(req.context, existing, data);
-        if (needsColumnRefresh(existing, data)) {
+        if (
+          needsColumnRefresh(existing, data) ||
+          columnsNeedDetection(existing.columns)
+        ) {
           await queueFactTableColumnsRefresh(existing);
         }
         factTableMap.set(existing.id, {
           ...existing,
           ...data,
+          // `existing.columns` reflects the merged result of upsertColumns
+          columns: existing.columns,
         });
         numUpdated.factTables++;
       }

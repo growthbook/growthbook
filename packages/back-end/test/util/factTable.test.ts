@@ -4,8 +4,12 @@ import {
   GrowthbookClickhouseDataSource,
 } from "shared/types/datasource";
 import {
+  assertColumnDatatypeConstraints,
+  columnsHaveAutoSlices,
   deriveUserIdTypesFromColumns,
   getMostRecentUpdateOccurrence,
+  normalizeJSONFieldsInput,
+  reconcileColumnDatatypeConstraints,
 } from "back-end/src/util/factTable";
 
 function makeColumn(column: string, deleted = false): ColumnInterface {
@@ -39,6 +43,302 @@ function makeStandardDatasource(
     settings: { userIdTypes },
   } as unknown as DataSourceInterface;
 }
+
+describe("columnsHaveAutoSlices", () => {
+  it("returns false when columns is undefined", () => {
+    expect(columnsHaveAutoSlices()).toBe(false);
+  });
+
+  it("returns false for an empty array", () => {
+    expect(columnsHaveAutoSlices([])).toBe(false);
+  });
+
+  it("returns false when no column configures auto slices", () => {
+    expect(
+      columnsHaveAutoSlices([
+        { isAutoSliceColumn: false },
+        { isAutoSliceColumn: false, autoSlices: undefined },
+      ]),
+    ).toBe(false);
+  });
+
+  it("returns true when a column is flagged isAutoSliceColumn", () => {
+    expect(
+      columnsHaveAutoSlices([
+        { isAutoSliceColumn: false },
+        { isAutoSliceColumn: true },
+      ]),
+    ).toBe(true);
+  });
+
+  it("returns true when a column supplies autoSlices values", () => {
+    expect(columnsHaveAutoSlices([{ autoSlices: ["us", "ca"] }])).toBe(true);
+  });
+
+  it("treats an empty autoSlices array as truthy (matches existing handler behavior)", () => {
+    expect(columnsHaveAutoSlices([{ autoSlices: [] }])).toBe(true);
+  });
+});
+
+describe("normalizeJSONFieldsInput", () => {
+  it("returns undefined when jsonFields is undefined", () => {
+    expect(normalizeJSONFieldsInput(undefined)).toBeUndefined();
+  });
+
+  it("fills an omitted nested datatype with the empty-string sentinel", () => {
+    expect(normalizeJSONFieldsInput({ foo: {} })).toEqual({
+      foo: { datatype: "" },
+    });
+  });
+
+  it("preserves a supplied nested datatype", () => {
+    expect(normalizeJSONFieldsInput({ foo: { datatype: "number" } })).toEqual({
+      foo: { datatype: "number" },
+    });
+  });
+
+  it("normalizes each field independently", () => {
+    expect(
+      normalizeJSONFieldsInput({
+        user_id: { datatype: "string" },
+        age: {},
+      }),
+    ).toEqual({
+      user_id: { datatype: "string" },
+      age: { datatype: "" },
+    });
+  });
+});
+
+function makeConstraintColumn(
+  overrides: Partial<ColumnInterface> = {},
+): ColumnInterface {
+  return {
+    column: "col",
+    name: "col",
+    description: "",
+    numberFormat: "",
+    datatype: "string",
+    dateCreated: new Date("2020-01-01"),
+    dateUpdated: new Date("2020-01-01"),
+    deleted: false,
+    ...overrides,
+  };
+}
+
+describe("assertColumnDatatypeConstraints", () => {
+  it("defers all checks when datatype is empty (detection pending)", () => {
+    expect(() =>
+      assertColumnDatatypeConstraints(
+        makeConstraintColumn({
+          datatype: "",
+          alwaysInlineFilter: true,
+          isAutoSliceColumn: true,
+          numberFormat: "currency",
+          jsonFields: { foo: { datatype: "string" } },
+        }),
+      ),
+    ).not.toThrow();
+  });
+
+  describe("alwaysInlineFilter", () => {
+    it("is valid on a string column", () => {
+      expect(() =>
+        assertColumnDatatypeConstraints(
+          makeConstraintColumn({
+            datatype: "string",
+            alwaysInlineFilter: true,
+          }),
+        ),
+      ).not.toThrow();
+    });
+
+    it("is invalid on a non-string column", () => {
+      expect(() =>
+        assertColumnDatatypeConstraints(
+          makeConstraintColumn({
+            datatype: "number",
+            alwaysInlineFilter: true,
+          }),
+        ),
+      ).toThrow("Only string columns are eligible for inline filtering");
+    });
+  });
+
+  describe("isAutoSliceColumn", () => {
+    it("is valid on a string column", () => {
+      expect(() =>
+        assertColumnDatatypeConstraints(
+          makeConstraintColumn({ datatype: "string", isAutoSliceColumn: true }),
+        ),
+      ).not.toThrow();
+    });
+
+    it("is valid on a boolean column", () => {
+      expect(() =>
+        assertColumnDatatypeConstraints(
+          makeConstraintColumn({
+            datatype: "boolean",
+            isAutoSliceColumn: true,
+          }),
+        ),
+      ).not.toThrow();
+    });
+
+    it("is invalid on a non-string, non-boolean column", () => {
+      expect(() =>
+        assertColumnDatatypeConstraints(
+          makeConstraintColumn({ datatype: "number", isAutoSliceColumn: true }),
+        ),
+      ).toThrow(
+        "Only string or boolean columns are eligible for auto slice analysis",
+      );
+    });
+  });
+
+  describe("numberFormat", () => {
+    it("is valid on a number column", () => {
+      expect(() =>
+        assertColumnDatatypeConstraints(
+          makeConstraintColumn({
+            datatype: "number",
+            numberFormat: "currency",
+          }),
+        ),
+      ).not.toThrow();
+    });
+
+    it("is invalid on a non-number column", () => {
+      expect(() =>
+        assertColumnDatatypeConstraints(
+          makeConstraintColumn({
+            datatype: "string",
+            numberFormat: "currency",
+          }),
+        ),
+      ).toThrow("Only number columns are eligible for a number format");
+    });
+
+    it("ignores an empty numberFormat on a non-number column", () => {
+      expect(() =>
+        assertColumnDatatypeConstraints(
+          makeConstraintColumn({ datatype: "string", numberFormat: "" }),
+        ),
+      ).not.toThrow();
+    });
+  });
+
+  describe("jsonFields", () => {
+    it("is valid on a json column", () => {
+      expect(() =>
+        assertColumnDatatypeConstraints(
+          makeConstraintColumn({
+            datatype: "json",
+            jsonFields: { foo: { datatype: "string" } },
+          }),
+        ),
+      ).not.toThrow();
+    });
+
+    it("is invalid on a non-json column", () => {
+      expect(() =>
+        assertColumnDatatypeConstraints(
+          makeConstraintColumn({
+            datatype: "string",
+            jsonFields: { foo: { datatype: "string" } },
+          }),
+        ),
+      ).toThrow("Only JSON columns are eligible for jsonFields");
+    });
+
+    it("ignores an empty jsonFields map on a non-json column", () => {
+      expect(() =>
+        assertColumnDatatypeConstraints(
+          makeConstraintColumn({ datatype: "string", jsonFields: {} }),
+        ),
+      ).not.toThrow();
+    });
+  });
+
+  it("throws the first violation when several props are incompatible", () => {
+    expect(() =>
+      assertColumnDatatypeConstraints(
+        makeConstraintColumn({
+          datatype: "number",
+          alwaysInlineFilter: true,
+          isAutoSliceColumn: true,
+        }),
+      ),
+    ).toThrow("Only string columns are eligible for inline filtering");
+  });
+});
+
+describe("reconcileColumnDatatypeConstraints", () => {
+  it("returns an unchanged-equivalent column when datatype is empty", () => {
+    const column = makeConstraintColumn({
+      datatype: "",
+      alwaysInlineFilter: true,
+      isAutoSliceColumn: true,
+      numberFormat: "currency",
+      jsonFields: { foo: { datatype: "string" } },
+    });
+    expect(reconcileColumnDatatypeConstraints(column)).toEqual(column);
+  });
+
+  it("leaves a valid column untouched", () => {
+    const column = makeConstraintColumn({
+      datatype: "string",
+      alwaysInlineFilter: true,
+    });
+    expect(reconcileColumnDatatypeConstraints(column)).toEqual(column);
+  });
+
+  it("clears alwaysInlineFilter when the datatype is not string", () => {
+    const column = makeConstraintColumn({
+      datatype: "number",
+      alwaysInlineFilter: true,
+    });
+    expect(reconcileColumnDatatypeConstraints(column)).toEqual({
+      ...column,
+      alwaysInlineFilter: false,
+    });
+  });
+
+  it("clears isAutoSliceColumn and autoSlices when the datatype is not string or boolean", () => {
+    const column = makeConstraintColumn({
+      datatype: "number",
+      isAutoSliceColumn: true,
+      autoSlices: ["1", "2"],
+    });
+    expect(reconcileColumnDatatypeConstraints(column)).toEqual({
+      ...column,
+      isAutoSliceColumn: false,
+      autoSlices: undefined,
+    });
+  });
+
+  it("resets numberFormat to an empty string when the datatype is not number", () => {
+    const column = makeConstraintColumn({
+      datatype: "string",
+      numberFormat: "currency",
+    });
+    expect(reconcileColumnDatatypeConstraints(column)).toEqual({
+      ...column,
+      numberFormat: "",
+    });
+  });
+
+  it("clears jsonFields when the datatype is not json", () => {
+    const column = makeConstraintColumn({
+      datatype: "string",
+      jsonFields: { foo: { datatype: "string" } },
+    });
+    expect(reconcileColumnDatatypeConstraints(column)).toEqual({
+      ...column,
+      jsonFields: undefined,
+    });
+  });
+});
 
 describe("getMostRecentUpdateOccurrence", () => {
   const updateTime = { time: "02:00", timezone: "UTC" };

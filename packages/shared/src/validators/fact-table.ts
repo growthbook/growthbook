@@ -3,7 +3,7 @@ import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 
-import { namedSchema } from "./openapi-helpers";
+import { componentSchema, namedSchema } from "./openapi-helpers";
 import {
   apiAggregatedTableRefreshTriggerValidator,
   apiAggregatedTableRunSummaryValidator,
@@ -41,10 +41,21 @@ export const numberFormatValidator = z.enum([
   "memory:kilobytes",
 ]);
 
+// Stored shape: every JSON field carries a datatype (auto-detection fills ""
+// until the type is known). This is the canonical persisted `JSONColumnFields`.
 export const jsonColumnFieldsValidator = z.record(
   z.string(),
   z.object({
     datatype: factTableColumnTypeValidator,
+  }),
+);
+
+// Input shape: a caller may omit a JSON field's datatype. buildColumnInterface
+// normalizes an omitted value to "" so the stored shape's invariant holds.
+export const jsonColumnFieldsInputValidator = z.record(
+  z.string(),
+  z.object({
+    datatype: factTableColumnTypeValidator.optional(),
   }),
 );
 
@@ -54,8 +65,9 @@ export const createColumnPropsValidator = z
     name: z.string().optional(),
     description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     numberFormat: numberFormatValidator.optional(),
-    datatype: factTableColumnTypeValidator,
-    jsonFields: jsonColumnFieldsValidator.optional(),
+    // Optional so an omitted datatype flows through as "auto-detect later"
+    datatype: factTableColumnTypeValidator.optional(),
+    jsonFields: jsonColumnFieldsInputValidator.optional(),
     deleted: z.boolean().optional(),
     alwaysInlineFilter: z.boolean().optional(),
     topValues: z.array(z.string()).optional(),
@@ -71,7 +83,7 @@ export const updateColumnPropsValidator = z
     description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     numberFormat: numberFormatValidator.optional(),
     datatype: factTableColumnTypeValidator.optional(),
-    jsonFields: jsonColumnFieldsValidator.optional(),
+    jsonFields: jsonColumnFieldsInputValidator.optional(),
     alwaysInlineFilter: z.boolean().optional(),
     topValues: z.array(z.string()).optional(),
     deleted: z.boolean().optional(),
@@ -422,6 +434,19 @@ export const apiFactTableColumnValidator = namedSchema(
     .strict(),
 );
 
+export const apiFactTableColumnInputValidator = componentSchema(
+  "FactTableColumnInput",
+  apiFactTableColumnValidator
+    .extend({
+      datatype: apiFactTableColumnValidator.shape.datatype
+        .describe(
+          'The column\'s data type. Omit (or send "") to have it auto-detected from the SQL.',
+        )
+        .optional(),
+    })
+    .strict(),
+);
+
 // Corresponds to schemas/FactTable.yaml
 export const apiFactTableValidator = namedSchema(
   "FactTable",
@@ -584,6 +609,12 @@ const postFactTableBody = z
       .string()
       .describe("The event name used in SQL template variables")
       .optional(),
+    columns: z
+      .array(apiFactTableColumnInputValidator)
+      .describe(
+        'Optional array of column definitions to store for this fact table. Supplied columns are stored as-is. Omit `datatype` (or send "") on a column to have it auto-detected from the SQL.',
+      )
+      .optional(),
     managedBy: z
       .enum(["", "api", "admin"])
       .describe('Set this to "api" to disable editing in the GrowthBook UI')
@@ -623,9 +654,9 @@ const updateFactTableBody = z
       .describe("The event name used in SQL template variables")
       .optional(),
     columns: z
-      .array(apiFactTableColumnValidator)
+      .array(apiFactTableColumnInputValidator)
       .describe(
-        "Optional array of columns that you want to update. Only allows updating properties of existing columns. Cannot create new columns or delete existing ones. Columns cannot be added or deleted; column structure is determined by SQL parsing. Slice-related properties require an enterprise license.",
+        'Optional array of columns to upsert by `column`: existing columns are patched, new columns are created, and columns not included are left unchanged. Omit `datatype` to leave an existing column\'s type untouched; send "" to reset it for auto-detection; new columns are auto-detected when `datatype` is omitted or "". Slice-related properties require an enterprise license.',
       )
       .optional(),
     columnsError: z
