@@ -1,0 +1,14 @@
+// Center the count within the fixed 16px-wide/tall pill. Combined with
+// :global(.rt-Badge) so these outrank Radix's own badge styling.
+.counterBadge:global(.rt-Badge) {
+  height: 16px;
+  justify-content: center;
+  text-align: center;
+}
+
+// slate-a3 is an alpha gray scale, not a Radix accent, so force it here.
+// slate-12 text tracks the opposite end of the scale in light and dark.
+.slate:global(.rt-Badge) {
+  background-color: var(--slate-a3);
+  color: var(--slate-12);
+}

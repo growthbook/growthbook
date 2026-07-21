@@ -8,6 +8,7 @@ import AnalysisResultSummaryStories from "@/ui/AnalysisResultSummary.stories";
 import AvatarStories from "@/ui/Avatar.stories";
 import BadgeStories from "@/ui/Badge/Badge.stories";
 import BetaBadgeStories from "@/ui/Badge/BetaBadge.stories";
+import CounterBadgeStories from "@/ui/Badge/CounterBadge.stories";
 import BreadcrumbsStories from "@/ui/Breadcrumbs.stories";
 import ButtonStories from "@/ui/Button.stories";
 import CalloutStories from "@/ui/Callout.stories";
@@ -73,7 +74,10 @@ export default function DesignSystemPage() {
       {
         name: "Badge",
         Stories: BadgeStories,
-        flavors: [{ name: "BetaBadge", Stories: BetaBadgeStories }],
+        flavors: [
+          { name: "BetaBadge", Stories: BetaBadgeStories },
+          { name: "CounterBadge", Stories: CounterBadgeStories },
+        ],
       },
       { name: "Breadcrumbs", Stories: BreadcrumbsStories },
       { name: "Button", Stories: ButtonStories },
