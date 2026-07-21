@@ -234,6 +234,11 @@ export default defineConfig([
               message:
                 "Use the new Modal from @/ui/Modal instead of the legacy Modal component.",
             },
+            {
+              name: "next/link",
+              message:
+                "Don't import next/link directly. Use @/ui/Link for text links or @/ui/LinkButton for button-styled navigation.",
+            },
           ],
 
           patterns: [
@@ -248,6 +253,19 @@ export default defineConfig([
               group: ["shared/src", "shared/src/*", "shared/src/**"],
               message:
                 "Import from the package (e.g., 'shared/validators') instead of 'shared/src/...'",
+            },
+          ],
+        },
+      ],
+
+      "react/forbid-elements": [
+        "error",
+        {
+          forbid: [
+            {
+              element: "a",
+              message:
+                "Don't use a raw <a> tag. Use @/ui/Link (text links), @/ui/LinkButton (button-styled navigation), or @/ui/Button (actions). For genuine edge cases (e.g. download attribute), add an eslint-disable-next-line with a reason.",
             },
           ],
         },
