@@ -676,11 +676,13 @@ curl https://api.growthbook.io/api/v1/features \
       stripDefaultedFromRequired(jsonSchema);
       Object.entries(jsonSchema.properties ?? {}).forEach(([name, schema]) => {
         const isRequired = (jsonSchema.required ?? []).includes(name);
-        // Hoist x- extension fields from schema to parameter level
+        // Hoist x- extension fields — plus serialization fields like
+        // `explode`/`style`, which schemas can set via .meta() but belong on
+        // the parameter — from schema to parameter level
         const schemaObj = schema as Record<string, unknown>;
         const extensions: Record<string, unknown> = {};
         for (const key of Object.keys(schemaObj)) {
-          if (key.startsWith("x-")) {
+          if (key.startsWith("x-") || key === "explode" || key === "style") {
             extensions[key] = schemaObj[key];
             delete schemaObj[key];
           }

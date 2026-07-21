@@ -3,6 +3,7 @@ import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import {
   apiPaginationFieldsValidator,
   booleanQueryField,
+  csvQueryField,
   paginationQueryFields,
   publishOverrideBodyFields,
   schemaValidationQueryFields,
@@ -24,6 +25,7 @@ import {
   apiFeatureHoldout,
   revisionStatusFilterSchema,
   apiRevisionRampAction,
+  featureValueType,
 } from "./features";
 import { namedSchema } from "./openapi-helpers";
 
@@ -684,6 +686,15 @@ export const updateFeatureBodyV2 = z
 
 // ---- Route validators ----
 
+// Each sortable field is backed by a compound { organization, <field> } index
+// in FeatureModel — keep the two lists in sync when adding fields.
+export const sortableFeatureFields = [
+  "id",
+  "dateCreated",
+  "dateUpdated",
+] as const;
+export type SortableFeatureField = (typeof sortableFeatureFields)[number];
+
 export const listFeaturesV2Validator = {
   bodySchema: z.never(),
   querySchema: z
@@ -697,6 +708,38 @@ export const listFeaturesV2Validator = {
       archived: booleanQueryField.describe(
         "Whether to include archived features. Defaults to `false` (non-archived only). Pass `true` to include archived features alongside non-archived ones.",
       ),
+      tag: z
+        .string()
+        .describe(
+          "Filter by comma-separated tags (returns features that have any of them)",
+        )
+        .optional(),
+      owner: ownerInputField
+        .describe(
+          "Filter by comma-separated owners. Each value may be a userId (u_...) or an email address (resolved to the matching organization member); legacy features that store a raw name or email as their owner are matched exactly",
+        )
+        .optional(),
+      valueType: csvQueryField(
+        featureValueType,
+        "Filter by comma-separated value types (boolean, string, number, json). Note: config-backed flags are JSON flags — filter those with `baseConfig`",
+      ),
+      baseConfig: z
+        .string()
+        .describe(
+          "Filter by the key of the config backing the flag (Config mode). Returns only flags whose baseConfig equals this key",
+        )
+        .optional(),
+      sortBy: z
+        .enum(sortableFeatureFields)
+        .describe(
+          "Field to sort the results by. If omitted, results are returned in insertion order",
+        )
+        .optional(),
+      sortOrder: z
+        .enum(["asc", "desc"])
+        .describe("Sort direction (used with `sortBy`)")
+        .optional()
+        .meta({ default: "asc" }),
       ...skipPaginationQueryField,
     })
     .strict(),

@@ -29,6 +29,7 @@ import {
   FeatureInterface,
   FeatureMetaInfo,
   FeatureRule,
+  FeatureValueType,
   JSONSchemaDef,
   LegacyFeatureInterface,
   V1FeatureInterface,
@@ -178,6 +179,11 @@ const featureSchema = new mongoose.Schema({
 
 featureSchema.index({ id: 1, organization: 1 }, { unique: true });
 featureSchema.index({ organization: 1, project: 1 });
+// Compound indexes for API list sorting (org equality + sort field) — keep in
+// sync with sortableFeatureFields in shared/validators/features-v2.ts
+featureSchema.index({ organization: 1, id: 1 });
+featureSchema.index({ organization: 1, dateCreated: 1 });
+featureSchema.index({ organization: 1, dateUpdated: 1 });
 
 type FeatureDocument = mongoose.Document & LegacyFeatureInterface;
 
@@ -466,7 +472,14 @@ export async function getAllFeatures(
   {
     projects,
     includeArchived = false,
-  }: { projects?: string[]; includeArchived?: boolean } = {},
+    tags,
+    owners,
+    valueTypes,
+    baseConfig,
+  }: {
+    projects?: string[];
+    includeArchived?: boolean;
+  } & FeatureListFilters = {},
 ): Promise<FeatureInterface[]> {
   const q: FilterQuery<FeatureDocument> = { organization: context.org.id };
   if (projects && projects.length === 1) {
@@ -477,6 +490,19 @@ export async function getAllFeatures(
 
   if (!includeArchived) {
     q.archived = { $ne: true };
+  }
+
+  if (tags?.length) {
+    q.tags = { $in: tags };
+  }
+  if (owners?.length) {
+    q.owner = { $in: owners };
+  }
+  if (valueTypes?.length) {
+    q.valueType = { $in: valueTypes };
+  }
+  if (baseConfig) {
+    q.baseConfig = baseConfig;
   }
 
   const features = (await FeatureModel.find(q)).map((m) =>
@@ -528,9 +554,23 @@ export async function getAllFeaturesWithoutEditorFields(
   );
 }
 
+// Optional field filters shared by the list/count/page query builders. Values
+// within a filter are ORed ($in); separate filters AND together.
+export type FeatureListFilters = {
+  tags?: string[];
+  owners?: string[];
+  valueTypes?: FeatureValueType[];
+  // Exact config key — matches Config-mode flags backed by that config
+  baseConfig?: string;
+};
+
 function featureListQuery(
   orgId: string,
-  opts: { project?: string; projectIds?: string[]; includeArchived?: boolean },
+  opts: {
+    project?: string;
+    projectIds?: string[];
+    includeArchived?: boolean;
+  } & FeatureListFilters,
 ): FilterQuery<FeatureDocument> {
   const { project, projectIds, includeArchived = false } = opts;
   return {
@@ -541,8 +581,16 @@ function featureListQuery(
         ? { project: { $in: projectIds } }
         : {}),
     ...(includeArchived ? {} : { archived: { $ne: true } }),
+    ...(opts.tags?.length ? { tags: { $in: opts.tags } } : {}),
+    ...(opts.owners?.length ? { owner: { $in: opts.owners } } : {}),
+    ...(opts.valueTypes?.length ? { valueType: { $in: opts.valueTypes } } : {}),
+    ...(opts.baseConfig ? { baseConfig: opts.baseConfig } : {}),
   };
 }
+
+export type FeatureSortFilter = {
+  [key in keyof Partial<FeatureInterface & { _id: string }>]: 1 | -1;
+};
 
 export async function getFeaturesPage(
   context: ReqContext | ApiReqContext,
@@ -552,24 +600,34 @@ export async function getFeaturesPage(
     includeArchived = false,
     limit = 10,
     offset = 0,
+    tags,
+    owners,
+    valueTypes,
+    baseConfig,
+    // Default preserves the endpoint's historical insertion order; callers
+    // passing a field sort should include an _id tiebreak so ties paginate
+    // deterministically
+    sort = { _id: 1 },
   }: {
     project?: string;
     projectIds?: string[];
     includeArchived?: boolean;
     limit?: number;
     offset?: number;
-  },
+    sort?: FeatureSortFilter;
+  } & FeatureListFilters,
 ): Promise<FeatureInterface[]> {
   if (projectIds?.length === 0) return [];
   const q = featureListQuery(context.org.id, {
     project,
     projectIds,
     includeArchived,
+    tags,
+    owners,
+    valueTypes,
+    baseConfig,
   });
-  const docs = await FeatureModel.find(q)
-    .sort({ _id: 1 })
-    .skip(offset)
-    .limit(limit);
+  const docs = await FeatureModel.find(q).sort(sort).skip(offset).limit(limit);
   return docs
     .map((m) => toInterface(m, context))
     .filter((feature) =>
@@ -583,11 +641,27 @@ export async function countFeatures(
     project,
     projectIds,
     includeArchived = false,
-  }: { project?: string; projectIds?: string[]; includeArchived?: boolean },
+    tags,
+    owners,
+    valueTypes,
+    baseConfig,
+  }: {
+    project?: string;
+    projectIds?: string[];
+    includeArchived?: boolean;
+  } & FeatureListFilters,
 ): Promise<number> {
   if (projectIds?.length === 0) return 0;
   return FeatureModel.countDocuments(
-    featureListQuery(context.org.id, { project, projectIds, includeArchived }),
+    featureListQuery(context.org.id, {
+      project,
+      projectIds,
+      includeArchived,
+      tags,
+      owners,
+      valueTypes,
+      baseConfig,
+    }),
   );
 }
 

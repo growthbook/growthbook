@@ -45,34 +45,45 @@ Group output by project if the org uses projects. Flag keys that look like orpha
 
 ### Path B — Search by criteria
 
-Use the `/api/v2/features` list endpoint with query params to narrow results. Available filters:
+Use the `/api/v2/features` list endpoint with query params to narrow results. `tag`, `owner`, and `valueType` take comma-separated values (ORed within a param; separate params AND together), and `sortBy`/`sortOrder` control ordering:
 
 ```json
 {
   "method": "GET",
   "path": "/api/v2/features",
-  "query": { "projectId": "<project-id>" }
+  "query": { "projectId": "<project-id>", "tag": "payments,checkout" }
 }
 ```
 
 ```json
-{ "method": "GET", "path": "/api/v2/features", "query": { "tag": "<tag>" } }
+{
+  "method": "GET",
+  "path": "/api/v2/features",
+  "query": {
+    "owner": "bryce@company.com",
+    "sortBy": "dateUpdated",
+    "sortOrder": "desc"
+  }
+}
 ```
 
-For filters not supported by the API (owner, environment state, value type), fetch the full set and filter client-side from the response fields.
+Only environment state and rule shape have no API filter — for those, fetch the (param-narrowed) set and filter client-side from the response fields.
 
 Common searches:
 
-| Request                       | Approach                                                               |
-| ----------------------------- | ---------------------------------------------------------------------- |
-| "Flags owned by X"            | Fetch all, filter on `owner.email`                                     |
-| "Boolean flags"               | Fetch all, filter on `valueType === "boolean"`                         |
-| "Flags enabled in production" | Fetch all, filter on `environmentSettings.production.enabled === true` |
-| "Flags with no rules"         | Fetch all, filter on `rules.length === 0`                              |
-| "Flags tagged payments"       | `GET /api/v2/features?tag=payments`                                    |
-| "Flags in project Y"          | Resolve project name → ID, then `GET /api/v2/features?projectId=<id>`  |
+| Request                       | Approach                                                                 |
+| ----------------------------- | ------------------------------------------------------------------------ |
+| "Flags owned by X"            | `GET /api/v2/features?owner=<email or u_...>`                            |
+| "Boolean flags"               | `GET /api/v2/features?valueType=boolean`                                 |
+| "Flags tagged payments"       | `GET /api/v2/features?tag=payments`                                      |
+| "Flags in project Y"          | Resolve project name → ID, then `GET /api/v2/features?projectId=<id>`    |
+| "Recently changed flags"      | `GET /api/v2/features?sortBy=dateUpdated&sortOrder=desc`                 |
+| "Flags backed by config X"    | `GET /api/v2/features?baseConfig=<config-key>`                           |
+| "Archived flags too"          | Add `archived=true` (default excludes archived)                          |
+| "Flags enabled in production" | Fetch (narrowed) set, filter on `environmentSettings.production.enabled` |
+| "Flags with no rules"         | Fetch (narrowed) set, filter on `rules.length === 0`                     |
 
-When filtering client-side on a large org, paginate through the full set first, then filter.
+When a search needs client-side filtering on a large org, narrow with API params first, then paginate through the remainder.
 
 ### Path C — Stale flag audit ("what can we clean up?")
 
@@ -133,14 +144,15 @@ Do not delete anything. Call `loadSkill('flag-cleanup')` for actual removal.
 - **`/feature-keys` is unpaginated; `/features` is paginated (100/page).** Use `/feature-keys` for full ID inventory; `/features` for detail queries.
 - **`neverStale: true` flags are excluded from cleanup recommendations.** They appear as `staleReason: "never-stale"` — surface them separately but never suggest removing them.
 - **Don't infer staleness yourself.** Use `/stale-features` for the canonical determination; it encodes GrowthBook's own rules and surfaces replacement values you can't compute locally.
-- **Client-side filters on large orgs can be slow.** Rate limit is 60 rpm. If paginating through hundreds of flags, surface progress updates.
+- **Owner filter values are userIds or emails.** Emails are resolved to the matching org member; legacy flags that store a raw display name as their owner only match that exact string.
+- **Client-side filters on large orgs can be slow.** Rate limit is 60 rpm. Narrow with API params (`tag`, `owner`, `valueType`, `projectId`) before paginating; if still paginating through hundreds of flags, surface progress updates.
 - **v2 rules are flat.** Under v2, the `rules` array is top-level on the flag object with `allEnvironments`/`environments` scope per rule — not nested under each environment as in v1.
 - **Read-only.** Never POST, PUT, PATCH, or DELETE from this skill. Route to flag-cleanup for removals.
 
 ## Endpoints used
 
 - `GET /api/v2/feature-keys` — full ID list, no pagination cap
-- `GET /api/v2/features` — paginated list with full configuration (`limit`, `offset`, `projectId`, `tag` filters)
+- `GET /api/v2/features` — paginated list with full configuration. Filters: `projectId`, `tag`, `owner`, `valueType`, `baseConfig`, `archived`, `clientKey` (CSV values ORed within `tag`/`owner`/`valueType`); sorting: `sortBy` (`id`, `dateCreated`, `dateUpdated`) + `sortOrder`
 - `GET /api/v2/features/:id` — full configuration for one flag
 - `GET /api/v2/stale-features?ids=a,b,c` — staleness audit (requires explicit `ids`)
 - `GET /api/v1/projects` — resolve project name to ID for project-scoped searches
