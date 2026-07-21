@@ -163,6 +163,7 @@ export function getColumnRefWhereClause({
   stringMatch,
   jsonExtract,
   evalBoolean,
+  castToTimestamp,
   showSourceComment = false,
   sliceInfo,
 }: {
@@ -172,6 +173,7 @@ export function getColumnRefWhereClause({
   stringMatch: StringMatchFn;
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string;
   evalBoolean: (col: string, value: boolean) => string;
+  castToTimestamp?: (column: string) => string;
   showSourceComment?: boolean;
   sliceInfo?: SliceMetricInfo;
 }): string[] {
@@ -236,6 +238,7 @@ export function getColumnRefWhereClause({
       escapeStringLiteral,
       stringMatch,
       evalBoolean,
+      castToTimestamp,
       showSourceComment,
     });
     if (filterSQL) {
@@ -246,6 +249,23 @@ export function getColumnRefWhereClause({
   return [...where];
 }
 
+/**
+ * Normalize a stored `date`-column row-filter value into a timestamp literal
+ * body the warehouse dialects can cast. The date picker stores a UTC ISO
+ * instant (e.g. `2024-01-01T17:00:00.000Z`); this reshapes it to
+ * `2024-01-01 17:00:00`. Date-only values (`2024-01-01`) and manually-typed
+ * `2024-01-01 09:00:00` values pass through unchanged. The value is already
+ * UTC — this only adjusts the text, it does not shift the instant.
+ */
+export function normalizeRowFilterDateValue(value: string): string {
+  return value
+    .trim()
+    .replace("T", " ")
+    .replace(/\.\d+/, "")
+    .replace(/Z$/, "")
+    .trim();
+}
+
 export function getRowFilterSQL({
   rowFilter,
   factTable,
@@ -253,6 +273,7 @@ export function getRowFilterSQL({
   escapeStringLiteral,
   stringMatch,
   evalBoolean,
+  castToTimestamp,
   showSourceComment = false,
 }: {
   rowFilter: RowFilter;
@@ -261,6 +282,10 @@ export function getRowFilterSQL({
   escapeStringLiteral: (s: string) => string;
   stringMatch: StringMatchFn;
   evalBoolean: (col: string, value: boolean) => string;
+  // Casts an expression to the dialect's TIMESTAMP type. When provided, `date`
+  // columns compared with </<=/>/>=/=/!=/in/not_in cast both the column and the
+  // value literal so the comparison is temporal (UTC) rather than lexicographic.
+  castToTimestamp?: (column: string) => string;
   showSourceComment?: boolean;
 }): string | null {
   // Some operators do not require a column
@@ -328,6 +353,17 @@ export function getRowFilterSQL({
   if (!rowFilter.values?.length) {
     return null;
   }
+  // Date columns — and string columns the user has opted to treat as dates —
+  // compare as UTC timestamps (temporal) rather than as quoted strings
+  // (lexicographic), when the dialect provides a timestamp cast. `treatAsDate`
+  // only applies to string columns; guard against casting numbers/booleans.
+  const isDate =
+    columnType === "date" ||
+    (rowFilter.treatAsDate === true &&
+      columnType !== "number" &&
+      columnType !== "boolean");
+  const castDates = isDate && !!castToTimestamp;
+
   const escapedValues = [
     ...new Set(
       rowFilter.values.map((v) => {
@@ -336,12 +372,22 @@ export function getRowFilterSQL({
           return v;
         }
 
+        if (castDates && castToTimestamp) {
+          return castToTimestamp(
+            "'" + escapeStringLiteral(normalizeRowFilterDateValue(v)) + "'",
+          );
+        }
+
         return "'" + escapeStringLiteral(v) + "'";
       }),
     ),
   ];
 
   const firstEscapedValue = escapedValues[0];
+
+  // For date comparisons, cast the column so both sides are timestamps
+  const comparisonColumn =
+    castDates && castToTimestamp ? castToTimestamp(columnExpr) : columnExpr;
 
   // Convert single-value in/not_in to =/!=
   if (escapedValues.length === 1) {
@@ -360,11 +406,11 @@ export function getRowFilterSQL({
     case "<=":
     case ">":
     case ">=":
-      return `(${columnExpr} ${operator} ${firstEscapedValue})`;
+      return `(${comparisonColumn} ${operator} ${firstEscapedValue})`;
     case "in":
-      return `(${columnExpr} IN (\n  ${escapedValues.join(",\n  ")}\n))`;
+      return `(${comparisonColumn} IN (\n  ${escapedValues.join(",\n  ")}\n))`;
     case "not_in":
-      return `(${columnExpr} NOT IN (\n  ${escapedValues.join(",\n  ")}\n))`;
+      return `(${comparisonColumn} NOT IN (\n  ${escapedValues.join(",\n  ")}\n))`;
     case "starts_with":
     case "ends_with":
     case "contains":

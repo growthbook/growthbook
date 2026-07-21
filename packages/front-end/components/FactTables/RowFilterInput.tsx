@@ -2,6 +2,7 @@ import { Flex } from "@radix-ui/themes";
 import { FactTableInterface, RowFilter } from "shared/types/fact-table";
 import { PiPlus, PiX } from "react-icons/pi";
 import { useState } from "react";
+import DatePicker from "@/components/DatePicker";
 import Field from "@/components/Forms/Field";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import SelectField, {
@@ -10,6 +11,7 @@ import SelectField, {
 } from "@/components/Forms/SelectField";
 import StringArrayField from "@/components/Forms/StringArrayField";
 import Button from "@/ui/Button";
+import Switch from "@/ui/Switch";
 import {
   NUMBER_PATTERN,
   numberRegex,
@@ -17,6 +19,7 @@ import {
   operatorLabelMap,
   getColumnInfo,
   getAttributeFieldsExposedAsColumns,
+  valuesLookLikeDates,
 } from "./rowFilterUtils";
 
 export function RowFilterInput({
@@ -38,7 +41,6 @@ export function RowFilterInput({
         const columnOptions: SingleValue[] = [];
 
         factTable.columns.forEach((col) => {
-          if (col.datatype === "date") return;
           if (factTable.userIdTypes?.includes(col.column)) return;
           if (col.deleted) return;
 
@@ -125,18 +127,29 @@ export function RowFilterInput({
           }
         }
 
+        const { datatype, topValues } = getColumnInfo(factTable, filter.column);
+        // A string column whose sampled values look like ISO dates can be
+        // opted into date (UTC timestamp) comparison via a toggle. Respect an
+        // already-saved choice even if the current sample no longer detects as
+        // dates, so the UI stays consistent with the generated SQL.
+        const treatAsDate = !!filter.treatAsDate && datatype === "string";
+        const canTreatAsDate =
+          datatype === "string" &&
+          (treatAsDate || valuesLookLikeDates(topValues));
+        const effectiveDatatype = treatAsDate ? "date" : datatype;
+
         let inputType: "text" | "number" = "text";
+        let isDateColumn = false;
 
         if (operatorInputRequired) {
-          const { datatype, topValues } = getColumnInfo(
-            factTable,
-            filter.column,
-          );
+          const allowedOperators = getAllowedOperators(effectiveDatatype);
 
-          const allowedOperators = getAllowedOperators(datatype);
-
-          if (datatype === "number") {
+          if (effectiveDatatype === "number") {
             inputType = "number";
+          }
+
+          if (effectiveDatatype === "date") {
+            isDateColumn = true;
           }
 
           if (topValues) {
@@ -252,10 +265,18 @@ export function RowFilterInput({
                     newValues = newValues.filter((v) => numberRegex.test(v));
                   }
 
+                  if (datatype === "date") {
+                    // If changing to date, remove any unparseable values
+                    newValues = newValues.filter(
+                      (v) => !isNaN(new Date(v).getTime()),
+                    );
+                  }
+
                   updateRowFilter({
                     operator: newOperator,
                     column: v,
                     values: newValues,
+                    treatAsDate: false,
                   });
                 }
               }}
@@ -291,7 +312,19 @@ export function RowFilterInput({
             )}
             {valueInputRequired && firstSelectCompleted && (
               <>
-                {multiValueInput && useValueOptions ? (
+                {isDateColumn && !multiValueInput ? (
+                  <DatePicker
+                    date={filter.values?.[0] || undefined}
+                    setDate={(d) => {
+                      updateRowFilter({
+                        values: [d ? d.toISOString() : ""],
+                      });
+                    }}
+                    precision="datetime"
+                    inputWidth={200}
+                    helpText="UTC"
+                  />
+                ) : multiValueInput && useValueOptions ? (
                   <MultiSelectField
                     value={filter.values || []}
                     onChange={(v) => {
@@ -358,6 +391,32 @@ export function RowFilterInput({
                 )}
               </>
             )}
+            {canTreatAsDate &&
+              operatorInputRequired &&
+              firstSelectCompleted && (
+                <Switch
+                  label="Treat as date"
+                  value={treatAsDate}
+                  onChange={(checked) => {
+                    // Switching between string and date changes which operators
+                    // are valid; reset the operator/values if needed.
+                    const allowed = getAllowedOperators(
+                      checked ? "date" : "string",
+                    );
+                    let newOperator = filter.operator;
+                    let newValues = filter.values || [];
+                    if (!allowed.includes(newOperator)) {
+                      newOperator = allowed[0];
+                      newValues = [];
+                    }
+                    updateRowFilter({
+                      treatAsDate: checked,
+                      operator: newOperator,
+                      values: newValues,
+                    });
+                  }}
+                />
+              )}
             <Button
               variant="ghost"
               color="red"

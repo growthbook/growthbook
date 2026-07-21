@@ -184,6 +184,9 @@ export const rowFilterValidator = z.object({
   operator: z.enum(rowFilterOperators),
   column: z.string().optional(),
   values: z.array(z.string()).optional(),
+  // When true, a `string` column holding ISO date values is compared as a
+  // UTC timestamp (cast on both sides) rather than lexicographically.
+  treatAsDate: z.boolean().optional(),
 });
 
 export const columnRefValidator = z
