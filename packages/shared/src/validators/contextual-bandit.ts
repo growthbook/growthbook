@@ -6,7 +6,7 @@ import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import { featurePrerequisite, savedGroupTargeting } from "./shared";
 import { contextualLeafClauseValidator } from "./contextual-bandit-event";
 
-export const MAX_CONTEXTUAL_BANDIT_LEAVES = 15;
+export const MAX_CONTEXTUAL_BANDIT_LEAVES = 12;
 
 export const variationWeightPairValidator = z.object({
   variationId: z.string(),

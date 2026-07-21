@@ -15,13 +15,9 @@ export type ExperimentMetadata = {
 // FeatureRule extended with optional metadata for experiment-ref rules
 export type FeatureDefinitionRule = FeatureRule & {
   metadata?: ExperimentMetadata;
-  // Pointer into the payload's top-level `contextualBandits` map. Contexts are
-  // stored once per CB there (savedGroups-style) instead of inline per rule, so
-  // a CB linked to F features costs one copy instead of F.
   contextualBanditRef?: string;
 };
 
-// One entry in the payload's top-level `contextualBandits` map, keyed by CB id.
 export type ContextualBanditDefinition = {
   banditVersion?: number;
   attributesRequired?: string[];
