@@ -159,6 +159,9 @@ export type Attributes = Record<string, any>;
 export interface TrackingData {
   experiment: Experiment<any>;
   result: Result<any>;
+  // A lean UserContext carrying only the user's attributes, so deferred
+  // tracking calls stay serializable and match the trackingCallback shape.
+  user?: UserContext;
 }
 
 export interface TrackingDataWithUser {
@@ -170,6 +173,9 @@ export interface TrackingDataWithUser {
 export type TrackingCallback = (
   experiment: Experiment<any>,
   result: Result<any>,
+  // A lean UserContext carrying only the user's attributes. Reuses the
+  // UserContext shape instead of passing a bare attributes object.
+  user?: UserContext,
 ) => Promise<void> | void;
 
 export type TrackingCallbackWithUser = (
