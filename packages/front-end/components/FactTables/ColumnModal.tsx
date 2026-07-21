@@ -1,6 +1,7 @@
 import {
   CreateColumnProps,
   ColumnInterface,
+  JSONColumnFields,
   NumberFormat,
   FactTableInterface,
   UpdateColumnProps,
@@ -45,6 +46,20 @@ export interface Props {
   factTable: FactTableInterface;
   existing?: ColumnInterface;
   close: () => void;
+}
+
+// Form values allow an omitted json field datatype; a persisted column always
+// carries one, defaulting to "" until detection fills it in.
+function toPersistedJSONFields(
+  jsonFields: CreateColumnProps["jsonFields"],
+): JSONColumnFields | undefined {
+  if (!jsonFields) return undefined;
+  return Object.fromEntries(
+    Object.entries(jsonFields).map(([field, value]) => [
+      field,
+      { ...value, datatype: value.datatype ?? "" },
+    ]),
+  );
 }
 
 export default function ColumnModal({ existing, factTable, close }: Props) {
@@ -239,8 +254,8 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
     name: form.watch("name") || form.watch("column"),
     description: form.watch("description") || "",
     numberFormat: form.watch("numberFormat") || "",
-    datatype: form.watch("datatype"),
-    jsonFields: form.watch("jsonFields"),
+    datatype: form.watch("datatype") ?? "",
+    jsonFields: toPersistedJSONFields(form.watch("jsonFields")),
     alwaysInlineFilter: form.watch("alwaysInlineFilter"),
     isAutoSliceColumn: form.watch("isAutoSliceColumn"),
     autoSlices: form.watch("autoSlices"),
@@ -280,7 +295,16 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
             const updatedFactTable = {
               ...factTable,
               columns: factTable.columns.map((c) =>
-                c.column === existing.column ? { ...c, ...data } : c,
+                c.column === existing.column
+                  ? {
+                      ...c,
+                      ...data,
+                      datatype: data.datatype ?? c.datatype,
+                      jsonFields: data.jsonFields
+                        ? toPersistedJSONFields(data.jsonFields)
+                        : c.jsonFields,
+                    }
+                  : c,
               ),
             };
             if (!canInlineFilterColumn(updatedFactTable, existing.column)) {
@@ -329,7 +353,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
       />
       <SelectField
         label="Data Type"
-        value={form.watch("datatype")}
+        value={form.watch("datatype") ?? ""}
         onChange={(f) => form.setValue("datatype", f as FactTableColumnType)}
         initialOption="Unknown"
         required
