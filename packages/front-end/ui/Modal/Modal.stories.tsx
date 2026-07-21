@@ -18,8 +18,13 @@ function SubmitButton() {
 
 export default function ModalStories() {
   const [size, setSize] = useState<Size | null>(null);
+  const [scrolling, setScrolling] = useState(false);
   const [environment, setEnvironment] = useState("production");
   const [disableStickyBucketing, setDisableStickyBucketing] = useState(false);
+  const openModal = (nextSize: Size, nextScrolling: boolean) => {
+    setSize(nextSize);
+    setScrolling(nextScrolling);
+  };
   return (
     <>
       <Modal.Root
@@ -63,6 +68,13 @@ export default function ModalStories() {
                 value={disableStickyBucketing}
                 setValue={setDisableStickyBucketing}
               />
+              {scrolling &&
+                Array.from({ length: 10 }).map((_, i) => (
+                  <Flex key={i} direction="column" gap="1">
+                    <Text weight="semibold">{`Additional field ${i + 1}`}</Text>
+                    <TextField.Root placeholder="Extra content to demonstrate the scrollbar" />
+                  </Flex>
+                ))}
             </Flex>
           </Modal.Body>
           <Modal.Footer>
@@ -76,9 +88,15 @@ export default function ModalStories() {
         </ModalForm>
       </Modal.Root>
 
-      <Flex direction="row" gap="3">
-        <Button onClick={() => setSize("md")}>Medium Modal</Button>
-        <Button onClick={() => setSize("lg")}>Large Modal</Button>
+      <Flex direction="row" gap="3" wrap="wrap">
+        <Button onClick={() => openModal("md", false)}>Medium Modal</Button>
+        <Button onClick={() => openModal("lg", false)}>Large Modal</Button>
+        <Button onClick={() => openModal("md", true)}>
+          Medium Modal (scrolling)
+        </Button>
+        <Button onClick={() => openModal("lg", true)}>
+          Large Modal (scrolling)
+        </Button>
       </Flex>
     </>
   );

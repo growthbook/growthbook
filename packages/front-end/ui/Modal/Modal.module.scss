@@ -1,21 +1,43 @@
-// Themes sets width: fit-content for horizontal scroll measurement. Force 100%
-// so the modal body stays vertical-only; wide children manage their own overflow.
-.bodyScrollArea :global(.rt-ScrollAreaViewport) > * {
-  width: 100%;
-}
-
 .body {
   min-width: 0;
+
+  // Scroll the body vertically only. Wide children manage their own overflow
+  // (tables, code blocks, etc.), so horizontal overflow is clipped here rather
+  // than spawning a modal-level horizontal scrollbar.
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+
+  // Keep a thin scrollbar and always reserve its gutter so the content stays
+  // horizontally centered whether or not the scrollbar is visible. The reserved
+  // gutter (8px, see below) plus this box's reduced right padding (pr="6" = 32px)
+  // adds up to the 40px left padding, so the visual left/right gutters stay equal.
+  scrollbar-gutter: stable;
+
+  // Chromium / Safari: a fixed 8px scrollbar so the gutter width is known and the
+  // centering math above holds. We intentionally do NOT set `scrollbar-width` here
+  // — in Chromium `thin` renders wider (~11px) AND overrides this fixed width,
+  // which would break the centering.
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+  &::-webkit-scrollbar-track {
+    background-color: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background-color: var(--gray-a8);
+    border-radius: var(--radius-full);
+  }
+
+  // Firefox has no ::-webkit-scrollbar; give it a thin native scrollbar. Scoped
+  // to Firefox (@supports -moz-appearance) so it can't override the 8px above.
+  @supports (-moz-appearance: none) {
+    scrollbar-width: thin;
+  }
+
   label:not(.rt-Text) {
     color: var(--text-color-main);
     font-weight: var(--font-weight-bold);
-  }
-
-  // Prevents margin-collapsing artifacts from causing a spurious
-  // scrollbar inside the ScrollArea.
-  &::after {
-    content: "";
-    display: block;
-    height: 0;
   }
 }

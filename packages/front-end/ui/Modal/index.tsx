@@ -1,11 +1,4 @@
-import {
-  Box,
-  Flex,
-  Inset,
-  Dialog,
-  ScrollArea,
-  Separator,
-} from "@radix-ui/themes";
+import { Box, Flex, Inset, Dialog, Separator } from "@radix-ui/themes";
 import { Responsive } from "@radix-ui/themes/dist/esm/props/prop-def.js";
 import {
   createContext,
@@ -245,20 +238,18 @@ function Description({ children }: { children: ReactNode }) {
 function Body({ children }: { children: ReactNode }) {
   const { bodyRef, error } = useModalContext();
   return (
-    <ScrollArea
-      type="auto"
+    <Box
       mt="5"
       mb="3"
       ml="-1"
+      pl="1"
+      pr="6"
       ref={bodyRef}
-      scrollbars="vertical"
-      className={styles.bodyScrollArea}
+      className={styles.body}
     >
-      <Box pr="7" pl="1" className={styles.body}>
-        {error && <ErrorDisplay error={error} mb="5" />}
-        {children}
-      </Box>
-    </ScrollArea>
+      {error && <ErrorDisplay error={error} mb="5" />}
+      {children}
+    </Box>
   );
 }
 
