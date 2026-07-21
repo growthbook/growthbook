@@ -1,38 +1,56 @@
 ---
-description: Add and configure your experiments.
+description: Create, configure, and analyze your experiments.
 slug: /app/experiment-configuration
 ---
 
-# Experiment Settings
+# Experiment Configuration
 
-The Experiments section in GrowthBook is all about analyzing raw experiment results in a data source.
+The Experiments section in GrowthBook is where you create experiments, configure their analysis, and review results.
 
-Before [analyzing results](/app/experiment-results), you need to actually run the experiment. This can be done in several ways:
+Before [analyzing results](/app/experiment-results), you need to run the experiment. GrowthBook supports several ways to do this:
 
-- [Feature Flags](/feature-flag-experiments) (most common)
+- [Feature Flags](/features/feature-flag-experiments) (most common)
 - Running an inline experiment directly with our [SDKs](/lib)
 - [URL Redirects](/app/url-redirects)
 - Our [Visual Editor](/app/visual)
 - Your own custom variation assignment / bucketing system
 
-When you go to add an experiment in GrowthBook, it will first look in your [data source](/warehouses) for any new experiment ids and prompt you to import them. If none are found, you can enter the experiment settings yourself.
+## Creating an Experiment
 
-## Adding an Experiment
+GrowthBook uses a slim creation flow: you start by creating a minimal experiment, then configure everything else afterward on the experiment's **Overview** page.
 
-You can add an experiment analysis to GrowthBook in a few ways.
+To create a new experiment, go to **Experiments → Add → Create New Experiment**. The creation modal only asks for the essentials:
 
-**Starting an Experiment Analysis from a Feature**
+- **Name**
+- **Project** (if you use projects)
+- **Template** (optional, but recommended — see below)
+- **Holdout** (optional)
+- **Hypothesis**
+- **Assignment Attribute** — the attribute hashed together with the tracking key to bucket users into variations
 
-This is the easiest way to start a new analysis if you have a Feature set up.
-Navigate to the Feature of interest and click "View results" in the Experiment Rule of the Feature. Read more about running feature experiments [here](/feature-flag-experiments).
+GrowthBook creates the experiment as a **draft** with two default variations and, when possible, auto-selects your data source. You are then taken to the experiment's Overview tab, where you finish setup (see [Configuring an Experiment](#configuring-an-experiment)).
 
-**Importing an Experiment Analysis from your Data Source**
+### Start From a Template
 
-You can also import an analysis directly from your Data Source using your configured Experiment Assignment Source. We have dedicated docs for [importing existing experiments](/app/importing-experiments).
+Templates are the fastest way to create a consistent experiment. Selecting a **Template** in the creation modal pre-fills settings like the data source, goal/secondary/guardrail metrics, targeting, and traffic, so there is less to configure afterward.
 
-## Experiment Configuration
+You can also require that all new experiments use a template under **Settings → General → Experiment Settings**. See the [Experiment Templates](/running-experiments/experiment-templates) guide for details.
 
-There are several different ways to configure your experiment analysis.
+### Finish Setup With the Pre-Launch Checklist
+
+After creation, the draft experiment's Overview tab includes a pre-launch checklist that guides you through the remaining steps, such as:
+
+- Selecting a data source and experiment assignment table
+- Adding at least one goal metric
+- Adding a linked [Feature Flag](/features/feature-flag-experiments), [Visual Editor](/app/visual) change, or [URL Redirect](/app/url-redirects)
+
+The pre-launch checklist can be configured by Enterprise customers, [read more here](/app/pre-launch-checklist).
+
+Analyzing an experiment you ran elsewhere? See [Importing existing experiments](/app/importing-experiments).
+
+## Configuring an Experiment
+
+Most configuration happens after creation, on the experiment's Overview tab. There are several different ways to configure your experiment analysis.
 
 ### Experiment Metadata
 
@@ -77,7 +95,7 @@ You can add metrics as goal metrics, guardrail metrics, or both. You also can ad
 
 ### Experiment Phases
 
-Experiment Phases can help you filter the dates used in the experiment analysis. Be very careful using phases. If you move the start date of the phase to past the start date of the experiment (and users were not re-randomized across phases), then your analysis could suffer from [carryover bias](/kb/experiments/carryover-bias). It is best to always look at the full history of an experiment if possible.
+Experiment Phases are used primarily to separate stages of an experiment that are to be analyzed separately (e.g. you needed to restart an experiment and change variation weights). They also help you filter the dates used in the experiment analysis. Be very careful using phases. If you move the start date of the phase to past the start date of the experiment (and users were not re-randomized across phases), then your analysis could suffer from [carryover bias](/kb/experiments/carryover-bias). It is best to always look at the full history of an experiment if possible.
 
 ### Making Changes While Running
 
