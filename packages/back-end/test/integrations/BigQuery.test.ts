@@ -134,7 +134,7 @@ describe("BigQuery percentileCapSelectClause (UNPIVOT reshape)", () => {
     );
   });
 
-  it("reshapes to UNPIVOT/GROUP BY/PIVOT once the column count crosses the threshold", () => {
+  it("reshapes to UNNEST/GROUP BY/per-group extraction once the column count crosses the threshold", () => {
     const RESHAPE_THRESHOLD = 20;
     const cols = Array.from({ length: RESHAPE_THRESHOLD }, (_, i) => ({
       valueCol: `m${i}_value`,
@@ -148,14 +148,116 @@ describe("BigQuery percentileCapSelectClause (UNPIVOT reshape)", () => {
         .getSqlDialect()
         .percentileCapSelectClause(cols, "__userMetricAgg"),
     );
-    const unpivotList = cols.map((c) => c.valueCol).join(", ");
-    const pivotList = cols
-      .map((c) => `'${c.valueCol}' AS ${c.outputCol}`)
-      .join(", ");
-    expect(sql).toContain(`UNPIVOT (val FOR col_name IN (${unpivotList}))`);
-    expect(sql).toContain("GROUP BY col_name");
+    // One sketch per group, grouped instead of one sketch per output column.
     expect(sql).toContain(
-      `PIVOT (ANY_VALUE(cap) FOR col_name IN (${pivotList}))`,
+      "APPROX_QUANTILES(pair.val, 10000 IGNORE NULLS) AS q",
+    );
+    expect(sql).toContain("CROSS JOIN UNNEST(");
+    expect(sql).toContain("GROUP BY pair.col_name");
+    // Each output extracts its percentile offset from its group's sketch. m0
+    // is the first distinct (valueCol, ignoreZeros) group → label s0 at 0.99.
+    expect(sql).toContain(
+      "MAX(IF(col_name = 's0', q[OFFSET(9900)], NULL)) AS m0_value_cap",
+    );
+    // m1 opts into ignoreZeros and uses 0.999 → its own group with an IF guard.
+    expect(sql).toContain("IF(m1_value = 0, NULL, CAST(m1_value AS FLOAT64))");
+    expect(sql).toContain(
+      "MAX(IF(col_name = 's1', q[OFFSET(9990)], NULL)) AS m1_value_cap",
+    );
+    // The old ambiguity-prone UNPIVOT/PIVOT form is gone.
+    expect(sql).not.toContain("UNPIVOT");
+    expect(sql).not.toContain("PIVOT");
+  });
+
+  it("shares one sketch across both tails of a both-tails-percentile column (no ambiguous column)", () => {
+    // Regression: a metric with percentile capping on BOTH tails contributes
+    // two caps for the same source column (upper `_cap` + lower `_cap_lower`).
+    // The old reshape emitted that column twice and BigQuery rejected it with
+    // "Column name m0_value is ambiguous". Now the shared (valueCol,
+    // ignoreZeros) group is projected once and indexed at both offsets.
+    const cols = [
+      {
+        valueCol: "m0_value",
+        outputCol: "m0_value_cap",
+        percentile: 0.99,
+        ignoreZeros: false,
+        sourceIndex: 0,
+      },
+      {
+        valueCol: "m0_value",
+        outputCol: "m0_value_cap_lower",
+        percentile: 0.01,
+        ignoreZeros: false,
+        sourceIndex: 0,
+      },
+      // Pad past the reshape threshold so we exercise the UNNEST path.
+      ...Array.from({ length: 10 }, (_, i) => ({
+        valueCol: `m${i + 1}_value`,
+        outputCol: `m${i + 1}_value_cap`,
+        percentile: 0.99,
+        ignoreZeros: false,
+        sourceIndex: 0,
+      })),
+    ];
+    const sql = norm(
+      integration
+        .getSqlDialect()
+        .percentileCapSelectClause(cols, "__userMetricAgg"),
+    );
+    // m0_value appears exactly once as a projected STRUCT value (one sketch).
+    const projectionCount = (
+      sql.match(/CAST\(m0_value AS FLOAT64\) AS val/g) || []
+    ).length;
+    expect(projectionCount).toBe(1);
+    // Both tails read the same group (s0) at their respective offsets.
+    expect(sql).toContain(
+      "MAX(IF(col_name = 's0', q[OFFSET(9900)], NULL)) AS m0_value_cap",
+    );
+    expect(sql).toContain(
+      "MAX(IF(col_name = 's0', q[OFFSET(100)], NULL)) AS m0_value_cap_lower",
+    );
+  });
+
+  it("uses separate sketches when the two tails of a column differ in ignoreZeros", () => {
+    // ignoreZeros nulls zeros inside the sketch, so an upper tail that ignores
+    // zeros and a lower tail that doesn't cannot share one sketch. They must
+    // resolve to distinct (valueCol, ignoreZeros) groups.
+    const cols = [
+      {
+        valueCol: "m0_value",
+        outputCol: "m0_value_cap",
+        percentile: 0.99,
+        ignoreZeros: true,
+        sourceIndex: 0,
+      },
+      {
+        valueCol: "m0_value",
+        outputCol: "m0_value_cap_lower",
+        percentile: 0.01,
+        ignoreZeros: false,
+        sourceIndex: 0,
+      },
+      ...Array.from({ length: 10 }, (_, i) => ({
+        valueCol: `m${i + 1}_value`,
+        outputCol: `m${i + 1}_value_cap`,
+        percentile: 0.99,
+        ignoreZeros: false,
+        sourceIndex: 0,
+      })),
+    ];
+    const sql = norm(
+      integration
+        .getSqlDialect()
+        .percentileCapSelectClause(cols, "__userMetricAgg"),
+    );
+    // Two distinct groups for m0_value: the ignoreZeros one (s0, with IF guard)
+    // and the plain one (s1).
+    expect(sql).toContain("IF(m0_value = 0, NULL, CAST(m0_value AS FLOAT64))");
+    expect(sql).toContain(
+      "MAX(IF(col_name = 's0', q[OFFSET(9900)], NULL)) AS m0_value_cap",
+    );
+    expect(sql).toContain(
+      "MAX(IF(col_name = 's1', q[OFFSET(100)], NULL)) AS m0_value_cap_lower",
     );
   });
 
@@ -173,8 +275,8 @@ describe("BigQuery percentileCapSelectClause (UNPIVOT reshape)", () => {
         .getSqlDialect()
         .percentileCapSelectClause(cols, "__userMetricAgg"),
     );
-    expect(sql).toContain("APPROX_QUANTILES(val, 10000 IGNORE NULLS)");
-    expect(sql).not.toContain("val = 0");
+    expect(sql).toContain("APPROX_QUANTILES(pair.val, 10000 IGNORE NULLS)");
+    expect(sql).not.toContain("= 0, NULL");
   });
 });
 
