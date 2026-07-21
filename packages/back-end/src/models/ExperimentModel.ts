@@ -24,6 +24,7 @@ import { FeatureInterface } from "shared/types/feature";
 import { DiffResult } from "shared/types/events/diff";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { ReqContext } from "back-end/types/request";
+import { invalidateFeatureGraph } from "back-end/src/services/featureGraphCacheStore";
 import {
   determineNextDate,
   toExperimentApiInterface,
@@ -558,6 +559,28 @@ export async function getAllExperimentsForStaleGraph(
   context: ReqContext | ApiReqContext,
   { includeArchived = false }: { includeArchived?: boolean } = {},
 ): Promise<ExperimentInterface[]> {
+  const experiments = await fetchAllExperimentsForStaleGraphUnfiltered(
+    context,
+    { includeArchived },
+  );
+
+  return experiments.filter((exp) =>
+    context.permissions.canReadSingleProjectResource(exp.project),
+  );
+}
+
+/**
+ * The fetch half of {@link getAllExperimentsForStaleGraph}, WITHOUT the
+ * per-user permission filter. Nothing here depends on the requesting user,
+ * which is what makes the result cacheable per org — see
+ * services/featureGraphCache.ts, the only intended caller. Anything else must
+ * apply `context.permissions.canReadSingleProjectResource` before using the
+ * result.
+ */
+export async function fetchAllExperimentsForStaleGraphUnfiltered(
+  context: ReqContext | ApiReqContext,
+  { includeArchived = false }: { includeArchived?: boolean } = {},
+): Promise<ExperimentInterface[]> {
   const query: FilterQuery<ExperimentDocument> = {
     organization: context.org.id,
     type: { $ne: "holdout" },
@@ -611,9 +634,7 @@ export async function getAllExperimentsForStaleGraph(
     }
   }
 
-  return (experiments as unknown as ExperimentInterface[]).filter((exp) =>
-    context.permissions.canReadSingleProjectResource(exp.project),
-  );
+  return experiments as unknown as ExperimentInterface[];
 }
 
 export async function hasArchivedExperiments(
@@ -2138,6 +2159,7 @@ const onExperimentCreate = async ({
   context: ReqContext | ApiReqContext;
   experiment: ExperimentInterface;
 }) => {
+  invalidateFeatureGraph(context.org.id);
   await logExperimentCreated(context, experiment);
 
   if (context.org.isVercelIntegration)
@@ -2158,6 +2180,7 @@ const onExperimentUpdate = async ({
   newExperiment: ExperimentInterface;
   bypassWebhooks?: boolean;
 }) => {
+  invalidateFeatureGraph(context.org.id);
   await logExperimentUpdated({
     context,
     current: newExperiment,
@@ -2228,6 +2251,7 @@ const onExperimentDelete = async (
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
 ) => {
+  invalidateFeatureGraph(context.org.id);
   await logExperimentDeleted(context, experiment);
 
   const featureIds = [...(experiment.linkedFeatures || [])];

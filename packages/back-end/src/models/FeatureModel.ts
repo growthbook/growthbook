@@ -79,6 +79,7 @@ import {
   V1RulesByEnv,
 } from "back-end/src/util/flattenRules";
 import { ReqContext } from "back-end/types/request";
+import { invalidateFeatureGraph } from "back-end/src/services/featureGraphCacheStore";
 import {
   applyEnvironmentInheritance,
   buildInheritedChildrenByAncestor,
@@ -507,6 +508,27 @@ export async function getAllFeaturesWithoutEditorFields(
   context: ReqContext | ApiReqContext,
   { includeArchived = false }: { includeArchived?: boolean } = {},
 ): Promise<FeatureInterface[]> {
+  const features = await fetchAllFeaturesForStaleGraphUnfiltered(context, {
+    includeArchived,
+  });
+
+  return features.filter((feature) =>
+    context.permissions.canReadSingleProjectResource(feature.project),
+  );
+}
+
+/**
+ * The fetch+migrate half of {@link getAllFeaturesWithoutEditorFields}, WITHOUT the
+ * per-user permission filter. Nothing here depends on the requesting user
+ * (migration reads `context.org` only), which is what makes the result
+ * cacheable per org — see services/featureGraphCache.ts, the only intended
+ * caller. Anything else must apply
+ * `context.permissions.canReadSingleProjectResource` before using the result.
+ */
+export async function fetchAllFeaturesForStaleGraphUnfiltered(
+  context: ReqContext | ApiReqContext,
+  { includeArchived = false }: { includeArchived?: boolean } = {},
+): Promise<FeatureInterface[]> {
   const q = featureListQuery(context.org.id, { includeArchived });
 
   const docs = await FeatureModel.find(q, {
@@ -516,15 +538,11 @@ export async function getAllFeaturesWithoutEditorFields(
     draft: 0,
   }).lean<LegacyFeatureInterface[]>();
 
-  const features = docs.map((raw) =>
+  return docs.map((raw) =>
     migrateRawFeatureToV2(
       omit(raw, ["__v", "_id"]) as LegacyFeatureInterface,
       context,
     ),
-  );
-
-  return features.filter((feature) =>
-    context.permissions.canReadSingleProjectResource(feature.project),
   );
 }
 
@@ -976,6 +994,7 @@ async function onFeatureCreate(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
 ) {
+  invalidateFeatureGraph(context.org.id);
   queueSDKPayloadRefresh({
     context,
     payloadKeys: getAffectedSDKPayloadKeys(
@@ -1002,6 +1021,7 @@ async function onFeatureDelete(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
 ) {
+  invalidateFeatureGraph(context.org.id);
   queueSDKPayloadRefresh({
     context,
     payloadKeys: getAffectedSDKPayloadKeys(
@@ -1030,6 +1050,7 @@ export async function onFeatureUpdate(
   updatedFeature: FeatureInterface,
   skipRefreshForProject?: string,
 ) {
+  invalidateFeatureGraph(context.org.id);
   queueSDKPayloadRefresh({
     context,
     payloadKeys: getSDKPayloadKeysByDiff(

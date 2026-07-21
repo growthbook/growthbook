@@ -46,6 +46,7 @@ import { getEnvironments } from "back-end/src/util/organization.util";
 import { logger } from "back-end/src/util/logger";
 import { syncFeatureExperimentLinkages } from "back-end/src/util/featureExperimentSync";
 import { syncFeatureContextualBanditLinkages } from "back-end/src/util/featureContextualBanditSync";
+import { invalidateFeatureGraph } from "back-end/src/services/featureGraphCacheStore";
 import { createWithVersionRetry } from "back-end/src/util/mongo.util";
 import { runValidateFeatureRevisionHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import {
@@ -995,6 +996,8 @@ export async function createRevision({
     return FeatureRevisionModel.create(revision);
   });
 
+  invalidateFeatureGraph(feature.organization);
+
   // Fire and forget - no route that creates the revision expects the log to be there immediately
   context.models.featureRevisionLogs
     .create({
@@ -1206,6 +1209,11 @@ export async function updateRevision(
     },
     { new: true },
   );
+
+  // Draft activity feeds the feature-graph snapshot's draft-date map, and
+  // revision writes never touch the feature doc — so the feature/experiment
+  // write hooks can't cover this path; invalidate here directly.
+  invalidateFeatureGraph(revision.organization);
 
   // Fire and forget - no route that updates the revision expects the log to be there immediately
   context.models.featureRevisionLogs
@@ -2295,6 +2303,8 @@ export async function reopenRevision(
     },
   );
 
+  invalidateFeatureGraph(revision.organization);
+
   // Fire and forget — callers don't depend on the log entry being there
   context.models.featureRevisionLogs
     .create({
@@ -2350,6 +2360,8 @@ export async function discardRevision(
       $unset: { ...SCHEDULED_PUBLISH_UNSET, autoPublishEnabledBy: 1 },
     },
   );
+
+  invalidateFeatureGraph(revision.organization);
 
   // Fire and forget - no route that discards the revision expects the log to be there immediately
   context.models.featureRevisionLogs
@@ -2534,4 +2546,7 @@ export async function markRevisionAsPendingParent(
     { organization, featureId, version },
     { $set: { status: "pending-parent" } },
   );
+
+  // Leaves the active-draft set, which feeds the feature-graph snapshot.
+  invalidateFeatureGraph(organization);
 }
