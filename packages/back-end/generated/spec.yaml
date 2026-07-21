@@ -14866,11 +14866,11 @@ paths:
       summary: Get latest Contextual Bandit results
       description: >-
         Returns the latest contextual-bandit stats engine output (per-context
-        responses, the context-to-leaf map, and per-leaf aggregated stats), the
-        overall (marginal) variation weights across all contexts, the SRM of the
-        most recent run, and the status of the most recent snapshot run for the
-        contextual bandit. Same payload the GrowthBook UI uses to render the
-        contextual bandit results table.
+        responses tagged with their leaf, the per-leaf targeting conditions, and
+        per-leaf aggregated stats), the overall (marginal) variation weights
+        across all contexts, the SRM of the most recent run, and the status of
+        the most recent snapshot run for the contextual bandit. Same payload the
+        GrowthBook UI uses to render the contextual bandit results table.
       tags:
         - ContextualBandits
       parameters:
@@ -14996,6 +14996,27 @@ paths:
                                   anyOf:
                                     - type: string
                                     - type: 'null'
+                                clauses:
+                                  type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      attribute:
+                                        type: string
+                                      levels:
+                                        type: array
+                                        items:
+                                          type: string
+                                      operator:
+                                        type: string
+                                        enum:
+                                          - in
+                                          - not in
+                                    required:
+                                      - attribute
+                                      - levels
+                                      - operator
+                                    additionalProperties: false
                                 variations:
                                   type: array
                                   items:
@@ -15079,6 +15100,7 @@ paths:
                                 - leafId
                                 - updateMessage
                                 - error
+                                - clauses
                                 - variations
                                 - contexts
                               additionalProperties: false

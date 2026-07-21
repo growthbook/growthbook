@@ -18,15 +18,26 @@ export const CONTEXTUAL_BANDIT_EAQ_VARIATION_WEIGHTS_COLUMN =
   "variation_weights";
 
 /**
- * Extra columns a contextual-bandit assignment query must SELECT. Used later to compute
- * SRM in SQL for contextual bandits. `variation_weights` is an array column; validation
- * only checks the column is present, not its type.
+ * Optional columns a contextual-bandit assignment query may SELECT to enable SRM
+ * checks computed in SQL.
+ * If any of them are absent from the assignment query, SRM is skipped.
  */
-export const CONTEXTUAL_BANDIT_EAQ_REQUIRED_COLUMNS = [
+export const CONTEXTUAL_BANDIT_SRM_REQUIRED_COLUMNS = [
   CONTEXTUAL_BANDIT_EAQ_BANDIT_VERSION_COLUMN,
   CONTEXTUAL_BANDIT_EAQ_LEAF_ID_COLUMN,
   CONTEXTUAL_BANDIT_EAQ_VARIATION_WEIGHTS_COLUMN,
 ] as const;
+
+export function queryHasContextualBanditSrmColumns(
+  query: string | undefined,
+): boolean {
+  if (!query) {
+    return false;
+  }
+  return CONTEXTUAL_BANDIT_SRM_REQUIRED_COLUMNS.every((col) =>
+    new RegExp(`\\b${col}\\b`).test(query),
+  );
+}
 
 export function isSafeSqlIdentifier(name: string): boolean {
   return SAFE_SQL_IDENTIFIER.test(name);
