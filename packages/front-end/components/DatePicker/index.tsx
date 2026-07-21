@@ -31,7 +31,7 @@ type Props = {
   label2?: ReactNode;
   helpText?: ReactNode;
   inputWidth?: number;
-  precision?: "datetime" | "date";
+  precision?: "datetime" | "datetime-seconds" | "date";
   disableBefore?: Date | string;
   disableAfter?: Date | string;
   activeDates?: (Date | string)[];
@@ -95,6 +95,103 @@ export function formatCompactDateRange(startDate: Date, endDate: Date): string {
   return `${format(startDate, "MMMM d, yyyy")} - ${format(endDate, "MMMM d, yyyy")}`;
 }
 
+const pad2 = (n: number) => String(n).padStart(2, "0");
+
+/**
+ * A single scrollable column of two-digit values (hours, minutes, or seconds).
+ * Styled to match the calendar's selection (violet inset border) rather than
+ * the browser's unstylable native <input type="time"> dropdown.
+ */
+function TimeColumn({
+  values,
+  selected,
+  onSelect,
+  ariaLabel,
+}: {
+  values: number[];
+  selected: number;
+  onSelect: (v: number) => void;
+  ariaLabel: string;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const selectedRef = useRef<HTMLButtonElement>(null);
+  // Center the selected value when the popover opens.
+  useEffect(() => {
+    const c = containerRef.current;
+    const s = selectedRef.current;
+    if (c && s) {
+      c.scrollTop = s.offsetTop - c.clientHeight / 2 + s.clientHeight / 2;
+    }
+  }, []);
+  return (
+    <div
+      ref={containerRef}
+      className={styles.TimeColumn}
+      role="listbox"
+      aria-label={ariaLabel}
+    >
+      {values.map((v) => (
+        <button
+          key={v}
+          type="button"
+          role="option"
+          aria-selected={v === selected}
+          ref={v === selected ? selectedRef : undefined}
+          className={clsx(styles.TimeCell, {
+            [styles.TimeCellSelected]: v === selected,
+          })}
+          onClick={() => onSelect(v)}
+        >
+          {pad2(v)}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function TimePicker({
+  value,
+  showSeconds,
+  onChange,
+}: {
+  value: Date;
+  showSeconds: boolean;
+  onChange: (d: Date) => void;
+}) {
+  const h = value.getHours();
+  const m = value.getMinutes();
+  const s = value.getSeconds();
+  const apply = (hh: number, mm: number, ss: number) => {
+    const next = new Date(value);
+    next.setHours(hh, mm, ss, 0);
+    onChange(next);
+  };
+  return (
+    <div className={styles.TimePicker}>
+      <TimeColumn
+        ariaLabel="Hours"
+        values={Array.from({ length: 24 }, (_, i) => i)}
+        selected={h}
+        onSelect={(hh) => apply(hh, m, s)}
+      />
+      <TimeColumn
+        ariaLabel="Minutes"
+        values={Array.from({ length: 60 }, (_, i) => i)}
+        selected={m}
+        onSelect={(mm) => apply(h, mm, s)}
+      />
+      {showSeconds && (
+        <TimeColumn
+          ariaLabel="Seconds"
+          values={Array.from({ length: 60 }, (_, i) => i)}
+          selected={s}
+          onSelect={(ss) => apply(h, m, ss)}
+        />
+      )}
+    </div>
+  );
+}
+
 export default function DatePicker({
   id,
   date,
@@ -128,18 +225,21 @@ export default function DatePicker({
         lineHeight: 1.25,
       }
     : {};
-  const dateFormat =
-    precision === "datetime" ? "yyyy-MM-dd'T'HH:mm" : "yyyy-MM-dd";
+  const hasTime = precision === "datetime" || precision === "datetime-seconds";
+  const hasSeconds = precision === "datetime-seconds";
+  const dateFormat = hasSeconds
+    ? "yyyy-MM-dd'T'HH:mm:ss"
+    : hasTime
+      ? "yyyy-MM-dd'T'HH:mm"
+      : "yyyy-MM-dd";
   // Parses a date prop / bound in the same frame as the user's typed input.
   // For `date` precision, `new Date("yyyy-MM-dd")` lands on UTC midnight, so
-  // we shift to local midnight via `getValidDateOffsetByUTC`. For `datetime`,
-  // `new Date("yyyy-MM-ddTHH:mm")` already parses as local time.
+  // we shift to local midnight via `getValidDateOffsetByUTC`. For datetime
+  // precisions, `new Date("yyyy-MM-ddTHH:mm")` already parses as local time.
   const parseDateInput = useCallback(
     (value: Date | string): Date =>
-      precision === "datetime"
-        ? getValidDate(value)
-        : getValidDateOffsetByUTC(value),
-    [precision],
+      hasTime ? getValidDate(value) : getValidDateOffsetByUTC(value),
+    [hasTime],
   );
   const [bufferedDate, setBufferedDate] = useState(
     date ? format(getValidDate(date), dateFormat) : "",
@@ -230,13 +330,7 @@ export default function DatePicker({
   const isRange = !!setDate2 || !!fixedSpanMode;
 
   const rangeFieldValue = useMemo(() => {
-    if (
-      isRange &&
-      precision === "date" &&
-      !rangeFieldFocused &&
-      date &&
-      date2
-    ) {
+    if (isRange && !hasTime && !rangeFieldFocused && date && date2) {
       return formatCompactDateRange(
         parseDateInput(date),
         parseDateInput(date2),
@@ -254,7 +348,7 @@ export default function DatePicker({
     date2,
     isRange,
     parseDateInput,
-    precision,
+    hasTime,
     rangeFieldFocused,
   ]);
 
@@ -397,15 +491,12 @@ export default function DatePicker({
                       "text-muted": isRange ? !date || !date2 : !date,
                     })}
                     type={
-                      isRange
-                        ? "text"
-                        : precision === "datetime"
-                          ? "datetime-local"
-                          : "date"
+                      isRange ? "text" : hasTime ? "datetime-local" : "date"
                     }
+                    step={!isRange && hasSeconds ? "1" : undefined}
                     placeholder={
                       isRange
-                        ? precision === "datetime"
+                        ? hasTime
                           ? `yyyy-MM-dd'T'HH:mm${RANGE_DISPLAY_SEP}yyyy-MM-dd'T'HH:mm`
                           : `yyyy-MM-dd${RANGE_DISPLAY_SEP}yyyy-MM-dd`
                         : undefined
@@ -532,22 +623,47 @@ export default function DatePicker({
                   onMonthChange={(m) => setCalendarMonth(m)}
                 />
               ) : (
-                <DayPicker
-                  mode="single"
-                  selected={getValidDate(date)}
-                  onSelect={(selectedDate: Date) => {
-                    if (!selectedDate) selectedDate = new Date();
-                    setDate(selectedDate);
-                    setBufferedDate(format(selectedDate, dateFormat));
-                  }}
-                  disabled={disabledMatchers}
-                  modifiers={markedDays}
-                  modifiersClassNames={modifiersClassNames}
-                  fixedWeeks
-                  showOutsideDays
-                  month={calendarMonth}
-                  onMonthChange={(m) => setCalendarMonth(m)}
-                />
+                <>
+                  <DayPicker
+                    mode="single"
+                    selected={getValidDate(date)}
+                    onSelect={(selectedDate: Date) => {
+                      if (!selectedDate) selectedDate = new Date();
+                      let nextDate = selectedDate;
+                      // Preserve the existing time-of-day when only the day
+                      // changes (the calendar itself has no time controls).
+                      if (hasTime && date) {
+                        const prev = getValidDate(date);
+                        nextDate = new Date(selectedDate);
+                        nextDate.setHours(
+                          prev.getHours(),
+                          prev.getMinutes(),
+                          prev.getSeconds(),
+                          0,
+                        );
+                      }
+                      setDate(nextDate);
+                      setBufferedDate(format(nextDate, dateFormat));
+                    }}
+                    disabled={disabledMatchers}
+                    modifiers={markedDays}
+                    modifiersClassNames={modifiersClassNames}
+                    fixedWeeks
+                    showOutsideDays
+                    month={calendarMonth}
+                    onMonthChange={(m) => setCalendarMonth(m)}
+                  />
+                  {hasTime && (
+                    <TimePicker
+                      value={getValidDate(date ?? new Date())}
+                      showSeconds={hasSeconds}
+                      onChange={(nextDate) => {
+                        setDate(nextDate);
+                        setBufferedDate(format(nextDate, dateFormat));
+                      }}
+                    />
+                  )}
+                </>
               )}
               <Popover.Arrow className={styles.Arrow} />
             </Popover.Content>

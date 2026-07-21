@@ -26,6 +26,44 @@
   fill: var(--color-background);
 }
 
+.TimePicker {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--gray-a5);
+}
+
+.TimeColumn {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 168px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.TimeCell {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  padding: 5px 10px;
+  text-align: center;
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+  transition: box-shadow 150ms;
+
+  &:hover {
+    box-shadow: 0 0 0 2px inset var(--violet-a8);
+  }
+}
+
+.TimeCellSelected {
+  box-shadow: 0 0 0 2px inset var(--violet-9);
+}
+
 @keyframes slideUpAndFade {
   from {
     opacity: 0;

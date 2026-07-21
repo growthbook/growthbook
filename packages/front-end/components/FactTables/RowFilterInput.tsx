@@ -1,4 +1,5 @@
 import { Flex } from "@radix-ui/themes";
+import { format } from "date-fns";
 import { FactTableInterface, RowFilter } from "shared/types/fact-table";
 import { PiPlus, PiX } from "react-icons/pi";
 import { useState } from "react";
@@ -316,13 +317,17 @@ export function RowFilterInput({
                   <DatePicker
                     date={filter.values?.[0] || undefined}
                     setDate={(d) => {
+                      // Match the app-wide convention: the datetime picker is a
+                      // UTC wall-clock editor (see the "(UTC)" pickers in
+                      // AnalysisForm/EditPhaseModal). Store the digits the user
+                      // typed verbatim (local components, no tz shift) so they
+                      // are compared as UTC by getRowFilterSQL.
                       updateRowFilter({
-                        values: [d ? d.toISOString() : ""],
+                        values: [d ? format(d, "yyyy-MM-dd'T'HH:mm:ss") : ""],
                       });
                     }}
-                    precision="datetime"
+                    precision="datetime-seconds"
                     inputWidth={200}
-                    helpText="UTC"
                   />
                 ) : multiValueInput && useValueOptions ? (
                   <MultiSelectField

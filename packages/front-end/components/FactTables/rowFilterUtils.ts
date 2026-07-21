@@ -39,18 +39,7 @@ export function getAllowedOperators(datatype: string): RowFilter["operator"][] {
     ];
   }
   if (datatype === "date") {
-    return [
-      "=",
-      "!=",
-      "<",
-      "<=",
-      ">",
-      ">=",
-      "in",
-      "not_in",
-      "is_null",
-      "not_null",
-    ];
+    return ["=", "!=", "<", "<=", ">", ">=", "is_null", "not_null"];
   }
   if (datatype === "string") {
     return [
