@@ -544,7 +544,13 @@ function getEventValueExpr(
       "day",
     );
   } else {
-    rawValue = columnRef.column;
+    // Expand virtual (computed) columns into their SQL expression, and resolve
+    // JSON columns. A plain column just returns its own name here.
+    rawValue = getColumnExpression(
+      columnRef.column,
+      factTable,
+      helpers.jsonExtract,
+    );
   }
 
   if (cap) {
