@@ -53,9 +53,14 @@ function displayEntityName(entityType: BulkPublishTargetType): string {
   }
 }
 
+// The caller-facing identifier for messages — never the internal id.
+function displayId(ref: BulkPublishItemRef): string {
+  return ref.displayId ?? ref.entityId;
+}
+
 function staleConflictError(ref: BulkPublishItemRef): ConflictError {
   return new ConflictError(
-    `${displayEntityName(ref.entityType)} "${ref.entityId}" changed after the publish was planned — nothing was published; re-plan and retry`,
+    `${displayEntityName(ref.entityType)} "${displayId(ref)}" changed after the publish was planned — nothing was published; re-plan and retry`,
   );
 }
 
@@ -140,7 +145,7 @@ export async function planBulkPublish(
         itemGate(
           ref,
           "not-found",
-          `${displayEntityName(ref.entityType)} "${ref.entityId}" not found`,
+          `${displayEntityName(ref.entityType)} "${displayId(ref)}" not found`,
         ),
       );
       continue;
@@ -151,7 +156,7 @@ export async function planBulkPublish(
         itemGate(
           ref,
           "not-found",
-          `Revision v${ref.version} of ${displayEntityName(ref.entityType)} "${ref.entityId}" not found`,
+          `Revision v${ref.version} of ${displayEntityName(ref.entityType)} "${displayId(ref)}" not found`,
         ),
       );
       continue;
@@ -161,7 +166,7 @@ export async function planBulkPublish(
         itemGate(
           ref,
           "revision-closed",
-          `Revision v${ref.version} of ${displayEntityName(ref.entityType)} "${ref.entityId}" has status "${revision.status}" and cannot be published`,
+          `Revision v${ref.version} of ${displayEntityName(ref.entityType)} "${displayId(ref)}" has status "${revision.status}" and cannot be published`,
         ),
       );
       continue;
@@ -171,7 +176,7 @@ export async function planBulkPublish(
         itemGate(
           ref,
           "permission-denied",
-          `You do not have permission to publish ${displayEntityName(ref.entityType)} "${ref.entityId}"`,
+          `You do not have permission to publish ${displayEntityName(ref.entityType)} "${displayId(ref)}"`,
         ),
       );
       continue;
@@ -186,7 +191,7 @@ export async function planBulkPublish(
           itemGate(
             ref,
             "permission-denied",
-            `You do not have permission over the post-publish state of ${displayEntityName(ref.entityType)} "${ref.entityId}"`,
+            `You do not have permission over the post-publish state of ${displayEntityName(ref.entityType)} "${displayId(ref)}"`,
           ),
         );
         continue;
@@ -383,7 +388,6 @@ export async function commitBulkPublish(
   // revisions "published", the rest "not-applied") instead of the bare 409.
   const abort = async (claimed: PlannedItemPublish[], e: unknown) => {
     const releaseFailed = await releaseClaims(context, claimed);
-    context.bulkPublishId = null;
     if (releaseFailed.size) {
       throw new BulkPublishCommitError(
         `Publish aborted (${getErrorMessage(e)}) — ${releaseFailed.size} of ${plan.items.length} revision(s) could not be reopened and remain published (see items); no entities were changed`,
@@ -399,227 +403,247 @@ export async function commitBulkPublish(
     throw e;
   };
 
-  // Entity drift check FIRST: claims guard revisions, not entities. Re-read
-  // each target and abort (zero claims, zero entity writes) if anything moved
-  // since plan. Runs before the no-op replays below, whose self-heal writes
-  // can legitimately bump a sibling item's dateUpdated.
-  for (const item of plan.items) {
-    const adapter = getBulkAdapter(item.ref.entityType);
-    const current = await adapter.loadEntity(context, item.ref.entityId);
-    const currentDate =
-      (current as { dateUpdated?: Date } | null)?.dateUpdated ?? null;
-    if (
-      (currentDate?.getTime() ?? null) !==
-      (item.baseline.entityDateUpdated?.getTime() ?? null)
-    ) {
-      await abort([], staleConflictError(item.ref));
-    }
-  }
-
-  // No-op items skip applyPrecomputed, so side effects an earlier partial
-  // apply may have left unrun (e.g. a descendant schema cascade) are replayed
-  // here — BEFORE any claim, so a failure leaves every draft open.
-  for (const item of plan.items) {
-    if (item.hasChanges) continue;
-    await getBulkAdapter(item.ref.entityType).prepareNoOpMerge?.(
-      context,
-      item.entityPreImage,
-      item.revision,
-    );
-  }
-
-  // Claim all revisions before any live write. A lost CAS race is a 409; any
-  // other claim failure is an infra error and propagates as such — after
-  // releasing whatever was already claimed.
-  const claimed: PlannedItemPublish[] = [];
-  for (const item of plan.items) {
-    const adapter = getBulkAdapter(item.ref.entityType);
-    let ok = false;
-    try {
-      ok = await adapter.claim(context, item.revision, item.baseline, {
-        isApprovalBypass: item.isApprovalBypass,
-        comment: plan.flags.comment,
-      });
-    } catch (e) {
-      logger.error(
-        e,
-        `bulk publish: claim failed for ${item.ref.entityType} ${item.ref.entityId}`,
-      );
-      await abort(claimed, e);
-    }
-    if (!ok) {
-      await abort(claimed, staleConflictError(item.ref));
-    }
-    claimed.push(item);
-  }
-
-  // Apply, with per-write side effects buffered: SDK payload refreshes
-  // (deduped to one flush) and *.updated webhook events (deferred per entity;
-  // dropped entirely on compensation).
-  context.sdkPayloadRefreshBuffer = {
-    keys: [],
-    treatEmptyProjectAsGlobal: false,
-  };
-  context.bulkPublishDeferredEvents = [];
-  // Every item joins `applied` BEFORE its apply runs: a multi-step apply
-  // (ramp creates → entity write → holdout) can land real writes before
-  // throwing, so compensation must restore the failing item too.
-  const applied: PlannedItemPublish[] = [];
+  // Everything past here writes or claims; the finally guarantees both the
+  // correlation token AND the guard-suppression flag are cleared on every exit
+  // (success, 409/500 throw, or a raw infra throw in the drift/no-op phase).
   try {
+    // Entity drift check FIRST: claims guard revisions, not entities. Re-read
+    // each target and abort (zero claims, zero entity writes) if anything moved
+    // since plan. Runs before the no-op replays below, whose self-heal writes
+    // can legitimately bump a sibling item's dateUpdated.
     for (const item of plan.items) {
-      if (!item.hasChanges) continue;
       const adapter = getBulkAdapter(item.ref.entityType);
-      applied.push(item);
-      await adapter.applyPrecomputed(
+      const current = await adapter.loadEntity(context, item.ref.entityId);
+      const currentDate =
+        (current as { dateUpdated?: Date } | null)?.dateUpdated ?? null;
+      if (
+        (currentDate?.getTime() ?? null) !==
+        (item.baseline.entityDateUpdated?.getTime() ?? null)
+      ) {
+        await abort([], staleConflictError(item.ref));
+      }
+    }
+
+    // Writes begin here (no-op self-heal reconcile onward): suppress the
+    // plan-gated write-path guards so they don't re-judge the mid-commit mix.
+    context.bulkPublishApplying = true;
+
+    // No-op items skip applyPrecomputed, so side effects an earlier partial
+    // apply may have left unrun (e.g. a descendant schema cascade) are replayed
+    // here — BEFORE any claim, so a failure leaves every draft open.
+    for (const item of plan.items) {
+      if (item.hasChanges) continue;
+      await getBulkAdapter(item.ref.entityType).prepareNoOpMerge?.(
         context,
         item.entityPreImage,
         item.revision,
-        item.desiredState,
       );
     }
-  } catch (e) {
-    // Compensation: drop the buffered side effects (nothing from the aborted
-    // release may reach consumers), restore pre-images in reverse order,
-    // release every claim. Restore writes get fresh buffers — their *.updated
-    // events are dropped too, while their payload refreshes flush once after
-    // the restores, healing any payload built from the partial state.
-    const applyBuffer = context.sdkPayloadRefreshBuffer;
-    // Close the apply-phase buffer so straggler producers still holding its
-    // reference fall through to live refreshes instead of a drained array.
-    if (applyBuffer) applyBuffer.closed = true;
+
+    // Claim all revisions before any live write. A lost CAS race is a 409; any
+    // other claim failure is an infra error and propagates as such — after
+    // releasing whatever was already claimed.
+    const claimed: PlannedItemPublish[] = [];
+    for (const item of plan.items) {
+      const adapter = getBulkAdapter(item.ref.entityType);
+      let ok = false;
+      try {
+        ok = await adapter.claim(context, item.revision, item.baseline, {
+          isApprovalBypass: item.isApprovalBypass,
+          comment: plan.flags.comment,
+        });
+      } catch (e) {
+        logger.error(
+          e,
+          `bulk publish: claim failed for ${item.ref.entityType} ${item.ref.entityId}`,
+        );
+        await abort(claimed, e);
+      }
+      if (!ok) {
+        await abort(claimed, staleConflictError(item.ref));
+      }
+      claimed.push(item);
+    }
+
+    // Apply, with per-write side effects buffered: SDK payload refreshes
+    // (deduped to one flush) and *.updated webhook events (deferred per entity;
+    // dropped entirely on compensation).
     context.sdkPayloadRefreshBuffer = {
       keys: [],
       treatEmptyProjectAsGlobal: false,
     };
     context.bulkPublishDeferredEvents = [];
-    const appliedSet = new Set(applied);
-    const restoreFailed = new Set<PlannedItemPublish>();
-    for (const item of [...applied].reverse()) {
-      const adapter = getBulkAdapter(item.ref.entityType);
-      try {
-        await adapter.restorePreImage(
+    // Every item joins `applied` BEFORE its apply runs: a multi-step apply
+    // (ramp creates → entity write → holdout) can land real writes before
+    // throwing, so compensation must restore the failing item too.
+    const applied: PlannedItemPublish[] = [];
+    try {
+      for (const item of plan.items) {
+        if (!item.hasChanges) continue;
+        const adapter = getBulkAdapter(item.ref.entityType);
+        applied.push(item);
+        await adapter.applyPrecomputed(
           context,
           item.entityPreImage,
           item.revision,
           item.desiredState,
         );
-      } catch (restoreErr) {
-        logger.error(
-          restoreErr,
-          `bulk publish compensation failed to restore ${item.ref.entityType} ${item.ref.entityId}`,
-        );
-        restoreFailed.add(item);
+      }
+    } catch (e) {
+      // Compensation: drop the buffered side effects (nothing from the aborted
+      // release may reach consumers), restore pre-images in reverse order,
+      // release every claim. Restore writes get fresh buffers — their *.updated
+      // events are dropped too, while their payload refreshes flush once after
+      // the restores, healing any payload built from the partial state.
+      const applyBuffer = context.sdkPayloadRefreshBuffer;
+      // Close the apply-phase buffer so straggler producers still holding its
+      // reference fall through to live refreshes instead of a drained array.
+      if (applyBuffer) applyBuffer.closed = true;
+      context.sdkPayloadRefreshBuffer = {
+        keys: [],
+        treatEmptyProjectAsGlobal: false,
+      };
+      context.bulkPublishDeferredEvents = [];
+      const appliedSet = new Set(applied);
+      const restoreFailed = new Set<PlannedItemPublish>();
+      for (const item of [...applied].reverse()) {
+        const adapter = getBulkAdapter(item.ref.entityType);
+        try {
+          await adapter.restorePreImage(
+            context,
+            item.entityPreImage,
+            item.revision,
+            item.desiredState,
+          );
+        } catch (restoreErr) {
+          logger.error(
+            restoreErr,
+            `bulk publish compensation failed to restore ${item.ref.entityType} ${item.ref.entityId}`,
+          );
+          restoreFailed.add(item);
+        }
+      }
+      // A restore-failed item's live entity is stuck at the release state, so
+      // its revision KEEPS its claim — reopening it would make the revision
+      // contradict the live doc. A reopen that FAILS for any other item leaves
+      // its revision stuck published too, so it joins the "published" bucket.
+      const releaseFailed = await releaseClaims(
+        context,
+        plan.items.filter((item) => !restoreFailed.has(item)),
+      );
+      // "published" = revision stays merged (entity stuck published, or entity
+      // restored but the reopen failed); "rolled-back" = entity restored AND
+      // revision reopened; "not-applied" = never touched, reopened cleanly.
+      const stuckPublished = (item: PlannedItemPublish) =>
+        restoreFailed.has(item) || releaseFailed.has(item);
+      const results: BulkPublishItemResult[] = plan.items.map((item) => ({
+        ref: item.ref,
+        revisionId: item.revision.id,
+        status: stuckPublished(item)
+          ? ("published" as const)
+          : appliedSet.has(item)
+            ? ("rolled-back" as const)
+            : ("not-applied" as const),
+      }));
+      // A restore-failed item stays durably published, so its apply-phase
+      // refresh keys must still flush or SDK payloads serve the pre-publish
+      // state indefinitely. Restored items' extra keys are harmless (the
+      // refresh rebuilds from live state and dedupes per connection).
+      if (
+        restoreFailed.size &&
+        applyBuffer &&
+        context.sdkPayloadRefreshBuffer
+      ) {
+        context.sdkPayloadRefreshBuffer.keys.push(...applyBuffer.keys);
+        context.sdkPayloadRefreshBuffer.treatEmptyProjectAsGlobal ||=
+          applyBuffer.treatEmptyProjectAsGlobal;
+      }
+      // Drop the restores' *.updated events; flush their payload refreshes once.
+      context.bulkPublishDeferredEvents = null;
+      flushPayloadRefreshBuffer(context, "bulk-publish-compensation");
+      // A commit failure is the incident-worthy outcome: the release was
+      // attempted and rolled back. Notify per revision (best-effort) — plan
+      // rejections and claim conflicts never reach here and stay silent.
+      const reason = `Release publish failed and was rolled back: ${getErrorMessage(e)}`;
+      for (const item of plan.items) {
+        // Any item whose revision stays merged (restore failed, or reopen
+        // failed) must NOT get a "rolled back" failure event — that would
+        // contradict the still-published revision. Its `status: "published"`
+        // result row is the operator signal instead.
+        if (stuckPublished(item)) continue;
+        try {
+          await getBulkAdapter(item.ref.entityType).emitPublishFailed(
+            context,
+            item.entityPreImage,
+            item.revision,
+            reason,
+          );
+        } catch (emitErr) {
+          logger.error(
+            emitErr,
+            `bulk publish: publishFailed emission failed for ${item.ref.entityType} ${item.ref.entityId}`,
+          );
+        }
+      }
+      const stuckCount = restoreFailed.size + releaseFailed.size;
+      throw new BulkPublishCommitError(
+        stuckCount
+          ? `Publish failed while applying changes (${getErrorMessage(e)}) — ${stuckCount} of ${plan.items.length} entities could not be fully rolled back and remain published (see items)`
+          : `Publish failed while applying changes (${getErrorMessage(e)}) — applied entities were rolled back and all revisions reopened`,
+        results,
+      );
+    }
+
+    // Commit succeeded: guard suppression ends here so post-commit side-effect
+    // writes (ramp activation etc. — genuine writes NOT covered by the plan
+    // gates) run with validation active. The correlation token stays set so the
+    // events below still carry it.
+    context.bulkPublishApplying = false;
+
+    // Success: detach the buffers FIRST so the flushes themselves fire, then
+    // emit everything deferred — only after the commit is known-good.
+    const deferredEvents = context.bulkPublishDeferredEvents ?? [];
+    context.bulkPublishDeferredEvents = null;
+    flushPayloadRefreshBuffer(context, "bulk-publish");
+
+    for (const emit of deferredEvents) {
+      try {
+        await emit();
+      } catch (e) {
+        logger.error(e, "bulk publish: deferred update-event emission failed");
       }
     }
-    // A restore-failed item's live entity is stuck at the release state, so
-    // its revision KEEPS its claim — reopening it would make the revision
-    // contradict the live doc. A reopen that FAILS for any other item leaves
-    // its revision stuck published too, so it joins the "published" bucket.
-    const releaseFailed = await releaseClaims(
-      context,
-      plan.items.filter((item) => !restoreFailed.has(item)),
-    );
-    // "published" = revision stays merged (entity stuck published, or entity
-    // restored but the reopen failed); "rolled-back" = entity restored AND
-    // revision reopened; "not-applied" = never touched, reopened cleanly.
-    const stuckPublished = (item: PlannedItemPublish) =>
-      restoreFailed.has(item) || releaseFailed.has(item);
-    const results: BulkPublishItemResult[] = plan.items.map((item) => ({
-      ref: item.ref,
-      revisionId: item.revision.id,
-      status: stuckPublished(item)
-        ? ("published" as const)
-        : appliedSet.has(item)
-          ? ("rolled-back" as const)
-          : ("not-applied" as const),
-    }));
-    // A restore-failed item stays durably published, so its apply-phase
-    // refresh keys must still flush or SDK payloads serve the pre-publish
-    // state indefinitely. Restored items' extra keys are harmless (the
-    // refresh rebuilds from live state and dedupes per connection).
-    if (restoreFailed.size && applyBuffer && context.sdkPayloadRefreshBuffer) {
-      context.sdkPayloadRefreshBuffer.keys.push(...applyBuffer.keys);
-      context.sdkPayloadRefreshBuffer.treatEmptyProjectAsGlobal ||=
-        applyBuffer.treatEmptyProjectAsGlobal;
-    }
-    // Drop the restores' *.updated events; flush their payload refreshes once.
-    context.bulkPublishDeferredEvents = null;
-    flushPayloadRefreshBuffer(context, "bulk-publish-compensation");
-    // A commit failure is the incident-worthy outcome: the release was
-    // attempted and rolled back. Notify per revision (best-effort) — plan
-    // rejections and claim conflicts never reach here and stay silent.
-    const reason = `Release publish failed and was rolled back: ${getErrorMessage(e)}`;
+
     for (const item of plan.items) {
-      // Any item whose revision stays merged (restore failed, or reopen
-      // failed) must NOT get a "rolled back" failure event — that would
-      // contradict the still-published revision. Its `status: "published"`
-      // result row is the operator signal instead.
-      if (stuckPublished(item)) continue;
+      const adapter = getBulkAdapter(item.ref.entityType);
       try {
-        await getBulkAdapter(item.ref.entityType).emitPublishFailed(
+        await adapter.emitPublished(
           context,
           item.entityPreImage,
           item.revision,
-          reason,
+          item.desiredState,
         );
-      } catch (emitErr) {
+      } catch (e) {
         logger.error(
-          emitErr,
-          `bulk publish: publishFailed emission failed for ${item.ref.entityType} ${item.ref.entityId}`,
+          e,
+          `bulk publish: post-commit event emission failed for ${item.ref.entityType} ${item.ref.entityId}`,
         );
       }
     }
+
+    return {
+      items: plan.items.map((item) => ({
+        ref: item.ref,
+        status: "published" as const,
+        revisionId: item.revision.id,
+      })),
+      warnings: plan.warnings,
+      bulkPublishId,
+    };
+  } finally {
     context.bulkPublishId = null;
-    const stuckCount = restoreFailed.size + releaseFailed.size;
-    throw new BulkPublishCommitError(
-      stuckCount
-        ? `Publish failed while applying changes (${getErrorMessage(e)}) — ${stuckCount} of ${plan.items.length} entities could not be fully rolled back and remain published (see items)`
-        : `Publish failed while applying changes (${getErrorMessage(e)}) — applied entities were rolled back and all revisions reopened`,
-      results,
-    );
+    context.bulkPublishApplying = false;
   }
-
-  // Success: detach the buffers FIRST so the flushes themselves fire, then
-  // emit everything deferred — only after the commit is known-good.
-  const deferredEvents = context.bulkPublishDeferredEvents ?? [];
-  context.bulkPublishDeferredEvents = null;
-  flushPayloadRefreshBuffer(context, "bulk-publish");
-
-  for (const emit of deferredEvents) {
-    try {
-      await emit();
-    } catch (e) {
-      logger.error(e, "bulk publish: deferred update-event emission failed");
-    }
-  }
-
-  for (const item of plan.items) {
-    const adapter = getBulkAdapter(item.ref.entityType);
-    try {
-      await adapter.emitPublished(
-        context,
-        item.entityPreImage,
-        item.revision,
-        item.desiredState,
-      );
-    } catch (e) {
-      logger.error(
-        e,
-        `bulk publish: post-commit event emission failed for ${item.ref.entityType} ${item.ref.entityId}`,
-      );
-    }
-  }
-
-  context.bulkPublishId = null;
-  return {
-    items: plan.items.map((item) => ({
-      ref: item.ref,
-      status: "published" as const,
-      revisionId: item.revision.id,
-    })),
-    warnings: plan.warnings,
-    bulkPublishId,
-  };
 }
 
 /**

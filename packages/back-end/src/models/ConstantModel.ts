@@ -109,12 +109,16 @@ export class ConstantModel extends BaseClass {
   // the publish path (closing the TOCTOU between two concurrently-created drafts).
   // Reads via the permission-filtered getAll(); a cross-project cycle the writer
   // can't see degrades gracefully at resolution, so an unfiltered read isn't worth it.
-  private async assertNoCycle(
+  // The `@const:` keys that a proposed value would form a reference cycle
+  // through, resolved against this context's (possibly overlaid) constant
+  // graph — empty when acyclic. Public so the bulk publisher can raise it as a
+  // plan gate against the combined end-state; `assertNoCycle` throws on it.
+  public async findReferenceCycle(
     key: string,
     value: string | undefined,
     environmentValues: Record<string, string> | undefined,
-  ): Promise<void> {
-    const cyclic = getCyclicConstantRefs(
+  ): Promise<string[]> {
+    return getCyclicConstantRefs(
       key,
       value,
       environmentValues,
@@ -125,6 +129,14 @@ export class ConstantModel extends BaseClass {
       ),
       "constant",
     );
+  }
+
+  private async assertNoCycle(
+    key: string,
+    value: string | undefined,
+    environmentValues: Record<string, string> | undefined,
+  ): Promise<void> {
+    const cyclic = await this.findReferenceCycle(key, value, environmentValues);
     if (cyclic.length) {
       throw new BadRequestError(
         `This value references ${cyclic
@@ -149,13 +161,13 @@ export class ConstantModel extends BaseClass {
     // always ignore warnings, so an armed archive publish that already re-checked
     // its fingerprint at assertPublishable passes here; a direct write without
     // ignoreWarnings still surfaces the warning. Mirrors ConfigModel.beforeUpdate.
-    // Skipped during a bulk-publish commit (bulkPublishId set): the guard ran
-    // as a plan gate against the release end-state, and re-running it here
-    // would judge the mid-commit mix. Mirrors ConfigModel.beforeUpdate.
+    // Skipped while a bulk-publish commit is applying: the guard ran as a plan
+    // gate against the release end-state, and re-running it here would judge
+    // the mid-commit mix. Mirrors ConfigModel.beforeUpdate.
     if (
       updates.archived === true &&
       !existing.archived &&
-      !this.context.bulkPublishId
+      !this.context.bulkPublishApplying
     ) {
       await assertConstantArchiveDependentsGuard(
         this.context,
@@ -163,9 +175,13 @@ export class ConstantModel extends BaseClass {
         { armed: false },
       );
     }
+    // Reference-cycle detection: skipped while a bulk commit is applying (the
+    // cycle gate validated the acyclic END-state at plan; the sequential apply
+    // can transiently form a cycle that neither the start nor end state has).
     if (
-      updates.value !== undefined ||
-      updates.environmentValues !== undefined
+      (updates.value !== undefined ||
+        updates.environmentValues !== undefined) &&
+      !this.context.bulkPublishApplying
     ) {
       await this.assertNoCycle(
         newDoc.key,

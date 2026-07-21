@@ -718,6 +718,41 @@ describe("POST /api/v2/releases/publish-revisions", () => {
     });
     expect(res.status).toBe(403);
   });
+
+  it("reports a cross-item reference cycle as a 422 plan gate, not a commit 500", async () => {
+    setReqContext(makeContext());
+    // Two constants, each acyclic alone; only the COMBINED end-state cycles
+    // (a → b → a). Neither the pre-state nor the final state cycles, so the
+    // check must run against the multi-item overlay at plan time — and the
+    // commit-time assert must stand down so a valid interdependent release
+    // wouldn't spuriously 500 on apply order.
+    await insertRawConstant("cyc-a");
+    await insertRawConstant("cyc-b");
+    const vA = await stageConstantDraft("cyc-a", "{{ @const:cyc-b }}");
+    const vB = await stageConstantDraft("cyc-b", "{{ @const:cyc-a }}");
+
+    const res = await publishRevisions({
+      revisions: [
+        { entityType: "constant", key: "cyc-a", version: vA },
+        { entityType: "constant", key: "cyc-b", version: vB },
+      ],
+    });
+
+    // A clean 422 with a reference-cycle gate — NOT a 500 from a mid-commit throw.
+    expect(res.status).toBe(422);
+    const cycleGate = res.body.gates.find(
+      (g: { type: string }) => g.type === "reference-cycle",
+    );
+    expect(cycleGate).toBeDefined();
+    expect(cycleGate.severity).toBe("blocker");
+    expect(cycleGate.override).toBeNull();
+
+    // Nothing published: both constants still hold their pre-image value.
+    const a = await mongoose.connection
+      .collection("constants")
+      .findOne({ organization: ORG_ID, key: "cyc-a" });
+    expect(a?.value).toBe("before");
+  });
 });
 
 // The feature scan-overlay applied by getAllFeaturesWithoutEditorFields — the

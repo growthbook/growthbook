@@ -213,7 +213,8 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
     // (bulkPublishId set — every guard already ran as a plan gate against the
     // release's combined end-state; re-running against the mid-commit mix
     // would spuriously fail plan-clean releases).
-    const skipGuardAsserts = !!options?.isRevert || !!context.bulkPublishId;
+    const skipGuardAsserts =
+      !!options?.isRevert || !!context.bulkPublishApplying;
     const filteredChanges = filterUpdatableChanges(
       changes,
       entity as Record<string, unknown>,
@@ -270,7 +271,7 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
       // bulk commit, where the plan gate validates the combined end-state and
       // compensation undoes a throw; NEVER on a revert (isRevert), which has
       // no compensation to roll the root write back.
-      if (!context.bulkPublishId) {
+      if (!context.bulkPublishApplying) {
         await assertConfigDescendantsReconcilable(context, proposedRoot);
       }
       // Soft governance warning (removes/retypes fields descendants use) — a
@@ -603,6 +604,36 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
       gates.push(
         ...(await collectConfigSchemaChangeImpactGates(context, proposedRoot)),
       );
+    }
+
+    // Lineage/value reference-cycle gate (against the overlay end-state, so a
+    // cycle formed only by the combined proposals of several release items is
+    // caught): an @config: / parent / extends cycle can't publish — it would
+    // leak raw placeholders into payloads. Unbypassable. Mirrors the
+    // ConfigModel.beforeUpdate assert, which stands down during a bulk commit.
+    if (
+      "value" in filteredChanges ||
+      filteredChanges.parent !== undefined ||
+      "extends" in filteredChanges
+    ) {
+      const cyclic = await context.models.configs.findReferenceCycle({
+        ...entity,
+        ...filteredChanges,
+      } as ConfigInterface);
+      if (cyclic.length) {
+        gates.push({
+          type: "reference-cycle",
+          severity: "blocker",
+          messages: [
+            `This config references ${cyclic.join(
+              ", ",
+            )}, which would create a reference cycle.`,
+          ],
+          override: null,
+          requiresPermission: null,
+          resolution: null,
+        });
+      }
     }
 
     // An archive/unarchive flip scrubs (or restores) this config's contribution

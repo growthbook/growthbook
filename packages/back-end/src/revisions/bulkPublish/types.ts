@@ -21,6 +21,12 @@ export type BulkPublishItemRef = {
   entityId: string;
   /** Version number of the revision to publish for this entity. */
   version: number;
+  /**
+   * The identifier the caller used (config/constant key, or the internal id
+   * when that's what they sent). Used in user-facing gate/error MESSAGES so
+   * they never leak an internal id. Defaults to entityId when unset.
+   */
+  displayId?: string;
 };
 
 /**

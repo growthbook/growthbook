@@ -64,6 +64,19 @@ export const postReleasePublishRevisions = createApiRequestHandler(
     let version = Number(itemField(item, "version") ?? 0);
 
     if (revisionId !== undefined) {
+      // Feature revision ids are `frev_…`; generic (config/constant/saved-
+      // group) revision ids are `rev_…`. Reject a shape/entityType mismatch
+      // up front with a clear 400 — otherwise a `frev_` sent with a generic
+      // entityType (or vice versa) silently misses its model and degrades to a
+      // confusing "not found" gate for an id that does exist.
+      const isFeatureShape = revisionId.startsWith("frev_");
+      if (isFeatureShape !== (item.entityType === "feature")) {
+        throw new BadRequestError(
+          `Revision id "${revisionId}" is ${
+            isFeatureShape ? "a Feature Flag" : "a generic"
+          } revision id, which does not match entityType "${item.entityType}"`,
+        );
+      }
       if (item.entityType === "feature") {
         // Tuple-shaped (legacy) ids decode locally; minted opaque ids resolve
         // via the sparse (organization, id) index.
@@ -108,7 +121,12 @@ export const postReleasePublishRevisions = createApiRequestHandler(
     }
 
     callerIdByInternal.set(`${item.entityType}:${entityId}`, callerId);
-    refs.push({ entityType: item.entityType, entityId, version });
+    refs.push({
+      entityType: item.entityType,
+      entityId,
+      version,
+      displayId: callerId,
+    });
   }
 
   const callerIdFor = (entityType: string, entityId: string) =>

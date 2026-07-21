@@ -274,6 +274,18 @@ export class ReqContextClass {
    */
   public bulkPublishId?: string | null;
 
+  /**
+   * True ONLY while a bulk-publish commit is writing entities (the claim →
+   * apply → compensation window). Write-path guards that already ran as plan
+   * gates against the combined end-state stand down while it's set, since
+   * re-running them against the mid-commit mix would spuriously fail a
+   * plan-clean release. Distinct from `bulkPublishId` (the event-correlation
+   * token, which stays set through post-commit emission): post-commit side
+   * effects (e.g. ramp activation) are genuine writes NOT covered by the plan
+   * gates, so they must run with guards active — hence a separate flag.
+   */
+  public bulkPublishApplying?: boolean;
+
   // Models
   public models!: ModelInstances;
   private initModels() {

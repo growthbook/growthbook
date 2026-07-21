@@ -9,6 +9,9 @@ import {
 } from "back-end/src/services/configValidation";
 import { collectConfigLockGate } from "back-end/src/services/configLock";
 import { collectSavedGroupArchiveDependentsGate } from "back-end/src/services/archiveDependentsGuard";
+import { assertRegisteredAttributes } from "back-end/src/services/attributes";
+import { getErrorMessage } from "back-end/src/util/errors";
+import type { ReqContext } from "back-end/types/request";
 import type { PublishGate } from "back-end/src/revisions/publishGates";
 import { makeGenericBulkAdapter } from "back-end/src/revisions/bulkPublish/genericBulkAdapter";
 import { featureBulkAdapter } from "back-end/src/revisions/bulkPublish/featureBulkAdapter";
@@ -51,18 +54,55 @@ async function configExtraGates(args: {
 }
 
 async function savedGroupExtraGates(args: {
+  callerContext: Context;
   overlayContext: Context;
   entity: Record<string, unknown>;
+  revision: Revision;
   desiredState: Record<string, unknown>;
 }): Promise<PublishGate[]> {
   // Overlay context: the dependents scan honors the feature scan overlay, so
   // a release that archives a Saved Group AND removes its last reference in a
   // sibling item plans clean.
-  return collectSavedGroupArchiveDependentsGate(
+  const gates = await collectSavedGroupArchiveDependentsGate(
     args.overlayContext,
     args.entity as unknown as SavedGroupInterface,
     args.desiredState,
   );
+
+  // Attribute-registration gate: a proposed condition referencing an
+  // unregistered attribute can't publish — SavedGroupModel.customValidation
+  // throws on it at commit (500), so lift it to a plan gate (422). Skipped on
+  // reverts, mirroring the write path's skipAttributeValidation. Only the
+  // changed condition is checked (existingParts), matching customValidation.
+  const savedGroup = args.entity as unknown as SavedGroupInterface;
+  const proposedCondition =
+    (args.desiredState.condition as string | undefined) ?? savedGroup.condition;
+  if (
+    !args.revision.revertedFrom &&
+    savedGroup.type === "condition" &&
+    proposedCondition
+  ) {
+    try {
+      assertRegisteredAttributes(
+        args.callerContext as ReqContext,
+        { condition: proposedCondition },
+        "saved group",
+        savedGroup.condition ? { condition: savedGroup.condition } : undefined,
+        (args.desiredState.projects as string[] | undefined) ??
+          savedGroup.projects,
+      );
+    } catch (e) {
+      gates.push({
+        type: "unregistered-attribute",
+        severity: "blocker",
+        messages: [getErrorMessage(e)],
+        override: null,
+        requiresPermission: null,
+        resolution: null,
+      });
+    }
+  }
+  return gates;
 }
 
 const registry: Record<BulkPublishTargetType, () => BulkPublishableAdapter> = {

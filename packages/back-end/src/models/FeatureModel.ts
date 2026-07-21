@@ -1108,11 +1108,12 @@ export async function updateFeature(
     });
   }
 
-  // A bulk-publish commit (context.bulkPublishId set) already ran validation
-  // hooks as plan gates against the release end-state; re-running them here
-  // would judge the mid-commit mix — and would veto compensation restores.
-  // The plan gates, not this backstop, are the enforcement surface there.
-  if (!context.bulkPublishId) {
+  // While a bulk-publish commit is applying, validation hooks already ran as
+  // plan gates against the release end-state; re-running them here would judge
+  // the mid-commit mix — and would veto compensation restores. Gated on
+  // `bulkPublishApplying` (not the correlation token) so genuine post-commit
+  // writes — ramp activation etc., NOT covered by the plan gates — still run.
+  if (!context.bulkPublishApplying) {
     await runValidateFeatureHooks({
       context,
       feature: projected,

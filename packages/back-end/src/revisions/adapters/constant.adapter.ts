@@ -316,6 +316,36 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
       context.ignoreWarnings || canBypassApprovalForConstant(context, entity);
     const gates: PublishGate[] = [];
 
+    // Reference-cycle gate (against the overlay end-state so a cycle formed
+    // only by the combined proposals of several release items is caught): a
+    // proposed value forming a @const: cycle can't publish — raw placeholders
+    // would leak into payloads. Unbypassable structural conflict. Mirrors the
+    // ConstantModel.beforeUpdate assert, which stands down during a bulk commit
+    // in favor of this gate.
+    if ("value" in filteredChanges || "environmentValues" in filteredChanges) {
+      const cyclic = await context.models.constants.findReferenceCycle(
+        entity.key,
+        (desiredState.value as string | undefined) ?? entity.value,
+        (desiredState.environmentValues as
+          | Record<string, string>
+          | undefined) ?? entity.environmentValues,
+      );
+      if (cyclic.length) {
+        gates.push({
+          type: "reference-cycle",
+          severity: "blocker",
+          messages: [
+            `This value references ${cyclic
+              .map((k) => `@const:${k}`)
+              .join(", ")}, which would create a reference cycle.`,
+          ],
+          override: null,
+          requiresPermission: null,
+          resolution: null,
+        });
+      }
+    }
+
     const experimentConflicts = [
       ...(await evaluateConstantExperimentGuardConflicts(context, entity)),
     ].sort();

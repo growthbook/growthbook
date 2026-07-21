@@ -97,15 +97,23 @@ export class ConfigModel extends BaseClass {
   // Use the UNFILTERED config list (lineage is an org-global graph): a permission
   // -filtered read would hide a config in a project the writer can't see and let
   // a cross-project cycle through it slip past.
-  private async assertNoCycle(doc: ConfigInterface): Promise<void> {
+  // The lineage/`@config:` keys a proposed config would form a reference cycle
+  // through, resolved against this context's (possibly overlaid) config graph —
+  // empty when acyclic. Public so the bulk publisher can raise it as a plan
+  // gate against the combined end-state; `assertNoCycle` throws on it.
+  public async findReferenceCycle(doc: ConfigInterface): Promise<string[]> {
     const effectiveValue = withConfigExtends(doc.value, getConfigBaseKeys(doc));
-    const cyclic = getCyclicConstantRefs(
+    return getCyclicConstantRefs(
       doc.key,
       effectiveValue,
       undefined,
       (await this.getAllForReconcile()).map(configToResolvable),
       "config",
     );
+  }
+
+  private async assertNoCycle(doc: ConfigInterface): Promise<void> {
+    const cyclic = await this.findReferenceCycle(doc);
     if (cyclic.length) {
       throw new BadRequestError(
         `This config references ${cyclic.join(", ")}, which would create a reference cycle.`,
@@ -139,7 +147,7 @@ export class ConfigModel extends BaseClass {
     if (
       updates.archived === true &&
       !existing.archived &&
-      !this.context.bulkPublishId
+      !this.context.bulkPublishApplying
     ) {
       await assertConfigArchiveDependentsGuard(
         this.context,
@@ -158,10 +166,14 @@ export class ConfigModel extends BaseClass {
         { armed: false },
       );
     }
+    // Lineage/value reference-cycle detection: skipped while a bulk commit is
+    // applying (the cycle gate validated the acyclic END-state at plan; the
+    // sequential apply can transiently form a cycle the end-state doesn't have).
     if (
-      updates.parent !== undefined ||
-      updates.extends !== undefined ||
-      updates.value !== undefined
+      (updates.parent !== undefined ||
+        updates.extends !== undefined ||
+        updates.value !== undefined) &&
+      !this.context.bulkPublishApplying
     ) {
       await this.assertNoCycle(newDoc);
     }

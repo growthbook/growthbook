@@ -217,7 +217,15 @@ export function makeGenericBulkAdapter(
     async restorePreImage(context, preImage, revision, desiredState) {
       const model = adapter.getModel(context);
       const current = await model?.getById((preImage as { id: string }).id);
-      if (!current) return;
+      // This apply wrote the entity, so it should exist. If it's gone (a
+      // concurrent hard-delete between apply and compensation), surface it —
+      // reporting the item "rolled-back" would assert a pre-image that no
+      // longer exists. Throwing routes it to restore-failed (needs attention).
+      if (!current) {
+        throw new Error(
+          `bulk publish compensation: ${targetType} "${(preImage as { id: string }).id}" no longer exists — cannot restore its pre-image`,
+        );
+      }
       // Restore only the fields the apply wrote — writing back every
       // updatable field would clobber an unrelated concurrent update landing
       // between the drift check and compensation.
