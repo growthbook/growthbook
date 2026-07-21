@@ -12,6 +12,7 @@ export default function CounterBadgeStories() {
           <CounterBadge color="slate" count={3} />
           <CounterBadge color="amber" count={3} />
           <CounterBadge color="red" count={3} />
+          <CounterBadge color="indigo" count={3} />
         </Flex>
       </Flex>
 

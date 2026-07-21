@@ -44,7 +44,7 @@ type StoryEntry = {
   name: string;
   description?: React.ReactNode;
   Stories: () => React.ReactElement;
-  // Purpose-specific variants rendered inside the same box, under sub-headings.
+  // Variants rendered inside the same box, under sub-headings.
   flavors?: StoryEntry[];
 };
 

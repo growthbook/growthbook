@@ -4,9 +4,8 @@ import clsx from "clsx";
 import styles from "./CounterBadge.module.scss";
 import Badge from ".";
 
-type CounterColor = "red" | "amber" | "slate";
+type CounterColor = "red" | "amber" | "slate" | "indigo";
 
-// Numeric counts above this render as "99+" unless showFullCount is set.
 const MAX_COUNT = 99;
 
 type Props = {
@@ -27,10 +26,8 @@ export default forwardRef<HTMLDivElement, Props>(function CounterBadge(
     <Badge
       ref={ref}
       label={label}
-      // Surface the real count on hover when it's been truncated to "99+".
       title={truncated ? String(count) : undefined}
-      // "slate" is a gray scale, not a Radix accent color, so it renders via
-      // the scss override below; "gray" is the graceful fallback under it.
+      // slate isn't a Radix accent; the scss override paints it, gray is fallback.
       color={color === "slate" ? "gray" : color}
       variant="solid"
       radius="full"

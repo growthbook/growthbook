@@ -1,5 +1,4 @@
-// Force slate regardless of the theme's accent/gray scale. Combined with
-// :global(.rt-Badge) so it outranks Radix's own solid-variant styling.
+// slate isn't a Radix accent; :global(.rt-Badge) raises specificity to paint it.
 .betaBadge:global(.rt-Badge) {
   background-color: var(--slate-12);
   color: var(--slate-1);
