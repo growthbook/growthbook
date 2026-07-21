@@ -86,21 +86,26 @@ export class SafeRolloutModel extends BaseClass {
     const sameDate = (a?: Date | null, b?: Date | null) =>
       (a?.getTime() ?? null) === (b?.getTime() ?? null);
     // The sync stamps start metadata only when transitioning a never-started
-    // rollout to running — the only case where those fields are ours to
-    // reverse. Without a post-apply snapshot (the apply threw right after
-    // the sync), fall back to the stamp being present at all.
+    // rollout to running — the only case where those timing fields are ours to
+    // reverse. Ownership of each REQUIRES the post-apply snapshot (`written`):
+    // without it we can't tell the sync's stamp from a later worker advance, so
+    // we leave the timing fields alone (status still restores below). A stale
+    // startedAt on a status-restored (non-running) rollout is inert; clobbering
+    // a worker's advanced schedule would move live scheduling backward.
     const applyStartedIt =
       !pre.startedAt && writtenStatus === "running" && !!live.startedAt;
     const ownsStartedAt =
       applyStartedIt &&
-      (!written || sameDate(live.startedAt, written.startedAt));
+      !!written &&
+      sameDate(live.startedAt, written.startedAt);
     const ownsNextAttempt =
       applyStartedIt &&
-      (!written ||
-        sameDate(live.nextSnapshotAttempt, written.nextSnapshotAttempt));
+      !!written &&
+      sameDate(live.nextSnapshotAttempt, written.nextSnapshotAttempt);
     const ownsSchedule =
       applyStartedIt &&
-      (!written || isEqual(live.rampUpSchedule, written.rampUpSchedule));
+      !!written &&
+      isEqual(live.rampUpSchedule, written.rampUpSchedule);
     const unset: Record<string, 1> = {};
     if (ownsStartedAt) unset.startedAt = 1;
     if (ownsNextAttempt) unset.nextSnapshotAttempt = 1;

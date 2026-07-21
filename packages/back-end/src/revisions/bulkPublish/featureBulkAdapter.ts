@@ -323,23 +323,35 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       }));
     }
 
-    const updated = await applyRevisionChanges(
-      context,
-      feature,
-      raw,
-      mergeResult,
-    );
-    desired.updatedFeature = updated;
-
-    // Re-snapshot the safe rollouts now that the sync inside
-    // applyRevisionChanges has written them — the per-field ownership
-    // baseline for compensation.
-    if (desired.safeRollouts?.length) {
-      const postImages =
-        await context.models.safeRollout.getByIds(safeRolloutIds);
-      const postById = new Map(postImages.map((doc) => [doc.id, doc]));
-      for (const entry of desired.safeRollouts) {
-        entry.post = postById.get(entry.pre.id);
+    try {
+      desired.updatedFeature = await applyRevisionChanges(
+        context,
+        feature,
+        raw,
+        mergeResult,
+      );
+    } finally {
+      // Re-snapshot the safe rollouts once the sync inside applyRevisionChanges
+      // has written them — the per-field ownership baseline compensation needs.
+      // Captured in `finally` because a later step of applyRevisionChanges (the
+      // feature write) can throw AFTER the sync ran: without this baseline the
+      // restore can't distinguish the sync's stamp from a concurrent worker
+      // advance and would leave the timing fields untouched. Best-effort — a
+      // failure here must not mask the original apply error.
+      if (desired.safeRollouts?.length) {
+        try {
+          const postImages =
+            await context.models.safeRollout.getByIds(safeRolloutIds);
+          const postById = new Map(postImages.map((doc) => [doc.id, doc]));
+          for (const entry of desired.safeRollouts) {
+            entry.post = postById.get(entry.pre.id);
+          }
+        } catch (e) {
+          logger.error(
+            e,
+            `bulk publish: post-apply safe-rollout snapshot failed for feature ${feature.id}`,
+          );
+        }
       }
     }
 
