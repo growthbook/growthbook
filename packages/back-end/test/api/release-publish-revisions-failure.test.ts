@@ -22,6 +22,8 @@ let mockFailConstantReleaseClaim = false;
 let mockFeatureClaimConflict = false;
 let mockFeatureReleaseNoop = false;
 let mockConstantBaselineUnavailable = false;
+let mockFailConstantApply = false;
+let mockFeatureSafeRolloutPoison: unknown = null;
 let mockBeforeFeatureApply: (() => Promise<void>) | null = null;
 jest.mock("back-end/src/revisions/bulkPublish/registry", () => {
   return new Proxy(
@@ -47,7 +49,17 @@ jest.mock("back-end/src/revisions/bulkPublish/registry", () => {
                 if (mockFailFeatureApply) {
                   throw new Error("simulated infra failure");
                 }
-                return adapter.applyPrecomputed(...args);
+                const r = await adapter.applyPrecomputed(...args);
+                // Inject a satellite whose reversal will fail, to exercise the
+                // "leave the feature whole at published" gate in compensation.
+                if (mockFeatureSafeRolloutPoison) {
+                  const ds = args[3] as { safeRollouts?: unknown[] };
+                  ds.safeRollouts = [
+                    ...(ds.safeRollouts ?? []),
+                    mockFeatureSafeRolloutPoison,
+                  ];
+                }
+                return r;
               },
               releaseClaim: async (...args: unknown[]) => {
                 // Simulate a no-op reopen (concurrent publish re-stamped, so
@@ -61,6 +73,9 @@ jest.mock("back-end/src/revisions/bulkPublish/registry", () => {
             return {
               ...adapter,
               applyPrecomputed: async (...args: unknown[]) => {
+                if (mockFailConstantApply) {
+                  throw new Error("simulated constant apply failure");
+                }
                 const result = await adapter.applyPrecomputed(...args);
                 // Simulate the post-apply baseline read failing: the real apply
                 // persisted (maybe normalized), but writtenEntity couldn't be
@@ -129,6 +144,8 @@ describe("POST /api/v2/releases/publish-revisions — commit failure", () => {
     mockFeatureClaimConflict = false;
     mockFeatureReleaseNoop = false;
     mockConstantBaselineUnavailable = false;
+    mockFailConstantApply = false;
+    mockFeatureSafeRolloutPoison = null;
     mockBeforeFeatureApply = null;
   });
 
@@ -919,5 +936,136 @@ describe("POST /api/v2/releases/publish-revisions — commit failure", () => {
       .collection("constants")
       .findOne({ organization: ORG_ID, key: "nobaseline" });
     expect(constant?.value).toBe("after");
+  });
+
+  it("leaves a feature whole at published when a satellite reversal fails", async () => {
+    // The feature applies to v2 and starts a safe rollout; a second item then
+    // fails → compensation. The rollout's reversal can't complete (missing
+    // post-apply baseline), so the feature doc must be left WHOLE at the
+    // published state (version 2, not reverted to 1) — reverting the rules
+    // beside a still-running rollout would be an inconsistent state falsely
+    // reported rolled-back.
+    setReqContext(makeContext());
+    const now = new Date();
+
+    await mongoose.connection.collection("features").insertOne({
+      id: "sat-feat",
+      organization: ORG_ID,
+      owner: "",
+      valueType: "string",
+      defaultValue: "live",
+      version: 1,
+      environmentSettings: {},
+      dateCreated: now,
+      dateUpdated: now,
+    });
+    await mongoose.connection.collection("featurerevisions").insertMany([
+      {
+        organization: ORG_ID,
+        featureId: "sat-feat",
+        version: 1,
+        baseVersion: 0,
+        status: "published",
+        defaultValue: "live",
+        rules: [],
+        dateCreated: now,
+        dateUpdated: now,
+        datePublished: now,
+      },
+      {
+        organization: ORG_ID,
+        featureId: "sat-feat",
+        version: 2,
+        baseVersion: 1,
+        status: "draft",
+        defaultValue: "new-value",
+        rules: [],
+        dateCreated: now,
+        dateUpdated: now,
+      },
+    ]);
+    // A real running safe rollout so its reversal reaches the missing-baseline
+    // throw (status matches the "written" status; startedAt is set).
+    await mongoose.connection.collection("saferollout").insertOne({
+      id: "sr_sat",
+      organization: ORG_ID,
+      featureId: "sat-feat",
+      datasourceId: "ds",
+      exposureQueryId: "eq",
+      guardrailMetricIds: ["m1"],
+      maxDuration: { amount: 1, unit: "weeks" },
+      autoRollback: false,
+      autoSnapshots: true,
+      status: "running",
+      startedAt: now,
+      rampUpSchedule: {
+        enabled: false,
+        step: 0,
+        steps: [],
+        rampUpCompleted: false,
+      },
+      dateCreated: now,
+      dateUpdated: now,
+    });
+
+    await mongoose.connection.collection("constants").insertOne({
+      id: "const_sat",
+      organization: ORG_ID,
+      key: "sat-const",
+      name: "sat-const",
+      owner: "",
+      type: "string",
+      value: "before",
+      dateCreated: now,
+      dateUpdated: now,
+    });
+    const stageRes = await request(app)
+      .put(`/api/v1/constants-revisions/sat-const/new/value`)
+      .send({ value: "after" })
+      .set("Authorization", "Bearer foo");
+    expect(stageRes.status).toBe(200);
+    const constVersion = stageRes.body.revision.version;
+
+    // The rollout was started by the apply (pre.startedAt null, writtenStatus
+    // running) and its post-apply snapshot is missing (post undefined) → its
+    // reversal throws.
+    mockFeatureSafeRolloutPoison = {
+      pre: { id: "sr_sat", status: "rolled-back", startedAt: null },
+      writtenStatus: "running",
+      post: undefined,
+    };
+    mockFailConstantApply = true;
+
+    const res = await request(app)
+      .post("/api/v2/releases/publish-revisions")
+      .send({
+        revisions: [
+          { entityType: "feature", id: "sat-feat", version: 2 },
+          { entityType: "constant", key: "sat-const", version: constVersion },
+        ],
+      })
+      .set("Authorization", "Bearer foo");
+    expect(res.status).toBe(500);
+
+    const byId = Object.fromEntries(
+      (res.body.items as { id: string; status: string }[]).map((item) => [
+        item.id,
+        item.status,
+      ]),
+    );
+    // Satellite reversal failed → feature left whole, reported published.
+    expect(byId["sat-feat"]).toBe("published");
+
+    // The feature doc was NOT reverted — still at the published version 2.
+    const feature = await mongoose.connection
+      .collection("features")
+      .findOne({ organization: ORG_ID, id: "sat-feat" });
+    expect(feature?.version).toBe(2);
+
+    // The rollout was left untouched (reversal refused, not half-applied).
+    const rollout = await mongoose.connection
+      .collection("saferollout")
+      .findOne({ organization: ORG_ID, id: "sr_sat" });
+    expect(rollout?.status).toBe("running");
   });
 });

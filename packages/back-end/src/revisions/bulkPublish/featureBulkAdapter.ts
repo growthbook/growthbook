@@ -404,14 +404,9 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     }
     const { mergeResult } = desired;
 
-    // Reverse the cross-collection writes BEFORE the feature-doc restore so a
-    // failed reversal keeps the doc consistent with the side collections. Each
-    // reversal is attempted independently; ANY failure is surfaced at the end
-    // (via reversalFailures, declared above), so a satellite left at the failed
-    // publish's state (safe rollout advancing, stale experiment link, retained
-    // holdout) makes the item report "published" rather than a clean rollback.
-    // The safe-rollout restore is ownership-checked inside so worker progress is
-    // never clobbered.
+    // Reverse the cross-collection satellites first. Each is attempted
+    // independently and its failure recorded. The safe-rollout restore is
+    // ownership-checked inside so a worker's progress is never clobbered.
     for (const entry of desired.safeRollouts ?? []) {
       try {
         await context.models.safeRollout.restoreAfterFailedBulkPublish(
@@ -427,12 +422,39 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
         );
       }
     }
+    // Reverse the apply-time holdout transition (its guards can legitimately
+    // refuse mid-compensation, e.g. a safe-rollout rule blocks the change).
+    if (mergeResult.holdout !== undefined) {
+      try {
+        await applyHoldoutSideEffects(
+          context,
+          { ...current, holdout: mergeResult.holdout ?? undefined },
+          feature.holdout ?? null,
+        );
+      } catch (e) {
+        reversalFailures.push("holdout");
+        logger.error(
+          e,
+          `bulk publish compensation: failed to reverse holdout change for feature ${feature.id} — linked experiments [${(current.linkedExperiments ?? []).join(", ")}] may carry stale holdout pointers`,
+        );
+      }
+    }
 
-    // Unlink experiments the apply newly linked this feature into — the
-    // restored rules no longer reference them (the helper no-ops when the
-    // link is already gone). Deliberately NOT gated on the holdout reversal
-    // below: the unlink pairs with the unconditional rules restore, and
-    // skipping it would break the hotter rules↔linkedFeatures invariant.
+    // If a satellite couldn't be reversed, leave the feature DOC whole at the
+    // published state instead of reverting rules/version. Reverting the doc
+    // beside a still-published satellite — e.g. a ramp-scheduled rollout the
+    // snapshot worker keeps advancing against a rule that is now gone — is an
+    // inconsistent state falsely reported "published". Same leave-whole rule the
+    // generic adapter uses when it can't fully restore.
+    if (reversalFailures.length) {
+      throw new Error(
+        `bulk publish compensation: could not fully roll back feature ${feature.id} — ${reversalFailures.join(", ")} left at the failed publish's state; feature left at the published state`,
+      );
+    }
+
+    // Every satellite reversed → revert the feature doc, unlinking the
+    // experiments the restored rules no longer reference (paired with the rules
+    // restore: a reverted rule set must not leave a dangling link).
     const addedExperiments = (
       desired.updatedFeature?.linkedExperiments ?? []
     ).filter((id) => !(feature.linkedExperiments ?? []).includes(id));
@@ -448,28 +470,6 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
         logger.error(
           e,
           `bulk publish compensation: failed to unlink feature ${feature.id} from experiment ${experimentId}`,
-        );
-      }
-    }
-
-    // Reverse the apply-time holdout transition. Its guards can legitimately
-    // refuse during compensation — then the doc's holdout key is NOT restored
-    // below, keeping the doc consistent with the un-reversed holdout/experiment
-    // collections (the failure is surfaced with the others at the end).
-    let holdoutReversalOk = true;
-    if (mergeResult.holdout !== undefined) {
-      try {
-        await applyHoldoutSideEffects(
-          context,
-          { ...current, holdout: mergeResult.holdout ?? undefined },
-          feature.holdout ?? null,
-        );
-      } catch (e) {
-        holdoutReversalOk = false;
-        reversalFailures.push("holdout");
-        logger.error(
-          e,
-          `bulk publish compensation: failed to reverse holdout change for feature ${feature.id} — linked experiments [${(current.linkedExperiments ?? []).join(", ")}] may carry stale holdout pointers`,
         );
       }
     }
@@ -500,21 +500,16 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       preImage: feature as unknown as Record<string, unknown>,
       written,
       current: current as unknown as Record<string, unknown>,
-      // The doc's holdout pointer follows the side collections: if their
-      // reversal failed, keep the doc at the failed publish's holdout state so
-      // membership stays consistent end to end.
-      skip: (key) => key === "holdout" && !holdoutReversalOk,
     }) as Partial<FeatureInterface>;
     if (Object.keys(restore).length) {
       await updateFeature(context, current, restore);
     }
 
-    // A failed satellite reversal leaves the feature partly published — throw
-    // so commitBulkPublish marks the item restore-failed and reports it
-    // "published" rather than a clean rollback.
+    // An experiment unlink that failed after the doc revert still surfaces → the
+    // item is reported published, not a clean rollback.
     if (reversalFailures.length) {
       throw new Error(
-        `bulk publish compensation: could not fully roll back feature ${feature.id} — ${reversalFailures.join(", ")} left at the failed publish's state`,
+        `bulk publish compensation: could not fully roll back feature ${feature.id} — ${reversalFailures.join(", ")}`,
       );
     }
   },
