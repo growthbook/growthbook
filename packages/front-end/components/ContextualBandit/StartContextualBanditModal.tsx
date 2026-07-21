@@ -65,7 +65,7 @@ function computeBlockers(
       hardBlock: true,
       display: (
         <>
-          Link at least one feature flag before this contextual bandit can start
+          Link at least one Feature Flag before this contextual bandit can start
         </>
       ),
     });

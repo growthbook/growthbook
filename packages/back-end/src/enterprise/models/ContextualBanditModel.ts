@@ -82,7 +82,7 @@ const BaseClass = MakeModelClass({
           );
           if (linkedFeatures.length === 0) {
             throw new Error(
-              "Link at least one feature flag before starting this contextual bandit",
+              "Link at least one Feature Flag before starting this contextual bandit",
             );
           }
           const { updated } = await executeContextualBanditStart(

@@ -496,7 +496,7 @@ export default function ContextualBanditDetailPage({
                 <Callout status="warning" mt="4">
                   <Flex direction="column" gap="2">
                     <Text as="span">
-                      Your attribute targeting overlaps with the bandit&apos;s
+                      Your attribute targeting overlaps with the Bandit&apos;s
                       contextual attributes. Overlapping targeting can create
                       unreachable variations. Please review your targeting to
                       avoid conflicts.
