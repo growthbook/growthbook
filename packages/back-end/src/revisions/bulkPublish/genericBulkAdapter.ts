@@ -1,4 +1,3 @@
-import { isEqual } from "lodash";
 import {
   Revision,
   RevisionTargetType,
@@ -14,6 +13,7 @@ import type { PublishGate } from "back-end/src/revisions/publishGates";
 import { buildMergeDesiredState } from "back-end/src/revisions/util";
 import { collectRevisionGovernanceGates } from "back-end/src/revisions/governanceGates";
 import { ownedRestoreValues } from "back-end/src/revisions/bulkPublish/ownedRestore";
+import { applyVerifiedRestore } from "back-end/src/revisions/bulkPublish/verifiedRestore";
 import { getRevisionWebhookAdapter } from "back-end/src/events/revisionWebhookAdapters";
 import { ConflictError, MergeConflictError } from "back-end/src/util/errors";
 import type {
@@ -277,37 +277,18 @@ export function makeGenericBulkAdapter(
         written,
         current: current as Record<string, unknown>,
       });
-      if (!Object.keys(restore).length) return;
-      const restoredKeys = await adapter.applyChanges(
-        context,
-        current,
+      await applyVerifiedRestore({
         restore,
-        {
-          // Restoring a pre-image is semantically a revert to a known-good
-          // published state — skip validations that would block a restore.
-          isRevert: true,
-        },
-      );
-      // The restore write re-runs the adapter's normalization against CURRENT
-      // ancestry (configs strip fields an ancestor now owns). If that drops a
-      // field we needed to restore — and it isn't already at the pre-image
-      // value (a no-op the filter legitimately skips) — the rollback is
-      // partial: throw so the item is reported published, not a clean rollback
-      // missing a field the failed publish wrote.
-      const cur = current as Record<string, unknown>;
-      const restoredSet = new Set(restoredKeys);
-      const dropped = Object.keys(restore).filter(
-        (k) => !restoredSet.has(k) && !isEqual(restore[k], cur[k]),
-      );
-      if (dropped.length) {
-        throw new Error(
-          `bulk publish compensation: ${targetType} "${
-            (preImage as { id: string }).id
-          }" restore dropped field(s) ${dropped.join(
-            ", ",
-          )} (normalized against current ancestry) — left partially published`,
-        );
-      }
+        current: current as Record<string, unknown>,
+        label: `${targetType} "${(preImage as { id: string }).id}"`,
+        // Restoring a pre-image is semantically a revert to a known-good
+        // published state — skip validations that would block a restore. The
+        // write returns the keys it actually persisted so a normalization drop
+        // (a config field an ancestor now owns) surfaces as a failure instead
+        // of silently leaving the field un-restored.
+        write: (r) =>
+          adapter.applyChanges(context, current, r, { isRevert: true }),
+      });
     },
 
     async emitPublished(context, entity, revision) {
