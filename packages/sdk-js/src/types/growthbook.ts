@@ -189,6 +189,17 @@ export type FeatureUsageCallbackWithUser = (
   user: UserContext,
 ) => void;
 
+// Callback types for internal plugin subscriptions (e.g. session replay).
+export type FeatureEvalCallback = (
+  key: string,
+  result: FeatureResult<any>,
+) => void;
+
+export type EventEvalCallback = (
+  eventName: string,
+  properties?: Record<string, unknown>,
+) => void;
+
 export type Plugin = (
   gb: GrowthBook | UserScopedGrowthBook | GrowthBookClient,
 ) => void;
@@ -353,6 +364,7 @@ export type UserContext = {
   trackedExperiments?: Set<string>;
   trackedFeatureUsage?: Record<string, string>;
   devLogs?: LogUnion[];
+  featureEvalSubs?: Set<FeatureEvalCallback>;
 };
 
 export type StackContext = {
