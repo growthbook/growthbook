@@ -333,7 +333,9 @@ function assertSchedulable(experiment: ExperimentInterface) {
 // Validate shipping automation against the experiment and the scheduled end
 // this update is setting. Throws on hard config errors; returns soft warnings
 // (feature not enabled, no scheduled end, tiebreaker not a goal metric).
-function validateShippingCriteria(
+// Exported so the create/update experiment body paths run the same checks as
+// the dedicated PUT /schedule endpoint and can't diverge.
+export function validateShippingCriteria(
   context: Context,
   experiment: ExperimentInterface,
   criteria: ExperimentShippingCriteria,
