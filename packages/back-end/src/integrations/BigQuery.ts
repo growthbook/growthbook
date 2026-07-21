@@ -16,7 +16,7 @@ import {
   MaxTimestampIncrementalUnitsQueryParams,
 } from "shared/types/integrations";
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
-import { QueryMetadata } from "shared/types/query";
+import { RunQueryMetadata } from "shared/types/query";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import { formatInformationSchema } from "back-end/src/util/informationSchemas";
@@ -86,8 +86,8 @@ export default class BigQuery extends SqlIntegration {
 
   async runQuery(
     sql: string,
-    setExternalId?: ExternalIdCallback,
-    queryMetadata?: QueryMetadata,
+    setExternalId: ExternalIdCallback | undefined,
+    queryMetadata: RunQueryMetadata,
   ): Promise<QueryResponse> {
     const client = this.getClient();
 
@@ -226,6 +226,8 @@ export default class BigQuery extends SqlIntegration {
       try {
         const { rows: datasetResults } = await this.runQuery(
           format(query, this.getSqlDialect().formatDialect),
+          undefined,
+          { queryType: "informationSchema" },
         );
 
         if (datasetResults.length > 0) {
@@ -273,8 +275,11 @@ export default class BigQuery extends SqlIntegration {
       .map((field) => mapField(field));
   }
 
-  createTablePartitions(columns: string[]): string {
-    return bigQueryCreateTablePartitions(columns);
+  createTablePartitions(
+    columns: string[],
+    opts?: { partitionByDate?: boolean; partitionExpirationDays?: number },
+  ): string {
+    return bigQueryCreateTablePartitions(columns, opts);
   }
 
   getMaxTimestampMetricSourceQuery(

@@ -1,0 +1,32 @@
+.connectorLine {
+  width: 1px;
+  background-color: var(--slate-a7);
+}
+
+.caret {
+  color: var(--slate-a7);
+}
+
+.cell {
+  position: relative;
+}
+
+// Horizontal bus halves forking from a column center into the grid gap.
+// calc(var(--space-4) / 2) tracks the real gap (incl. Theme scaling), so it
+// stays in sync with the grid's gap="4".
+.busSegment {
+  position: absolute;
+  top: 0;
+  height: 1px;
+  background-color: var(--slate-a7);
+}
+
+.busSegmentLeft {
+  right: 50%;
+  left: calc(var(--space-4) / -2);
+}
+
+.busSegmentRight {
+  left: 50%;
+  right: calc(var(--space-4) / -2);
+}

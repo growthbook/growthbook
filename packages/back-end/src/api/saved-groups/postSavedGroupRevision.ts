@@ -5,6 +5,7 @@ import {
   createOrUpdateRevision,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
+import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
 import { toApiSavedGroupRevision } from "./toApiSavedGroupRevision";
 
 export const postSavedGroupRevision = createApiRequestHandler(
@@ -47,6 +48,10 @@ export const postSavedGroupRevision = createApiRequestHandler(
       comment: req.body.comment,
     },
   );
+
+  await dispatchSavedGroupRevisionEvent(req.context, revision, {
+    type: "created",
+  });
 
   return {
     revision: await toApiSavedGroupRevision(revision, req.context),

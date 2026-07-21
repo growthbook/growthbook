@@ -83,18 +83,18 @@ export async function getCreateMetricPropsFromBody(
       scopedSettings.winRisk.value ||
       DEFAULT_WIN_RISK_THRESHOLD,
     maxPercentChange:
-      maxPercentChange ||
-      scopedSettings.metricDefaults.value.maxPercentageChange ||
+      maxPercentChange ??
+      scopedSettings.metricDefaults.value.maxPercentageChange ??
       0,
     minPercentChange:
-      minPercentChange ||
-      scopedSettings.metricDefaults.value.minPercentageChange ||
+      minPercentChange ??
+      scopedSettings.metricDefaults.value.minPercentageChange ??
       0,
     targetMDE:
       targetMDE || scopedSettings.metricDefaults.value.targetMDE || 0.1,
     minSampleSize:
-      minSampleSize ||
-      scopedSettings.metricDefaults.value.minimumSampleSize ||
+      minSampleSize ??
+      scopedSettings.metricDefaults.value.minimumSampleSize ??
       150,
     description: "",
     owner: "",
@@ -164,10 +164,8 @@ export async function getCreateMetricPropsFromBody(
 
   if (regressionAdjustmentSettings?.override) {
     data.regressionAdjustmentOverride = true;
-    if (regressionAdjustmentSettings.enabled) {
-      data.regressionAdjustmentEnabled = true;
-    }
-    if (regressionAdjustmentSettings.days) {
+    data.regressionAdjustmentEnabled = !!regressionAdjustmentSettings.enabled;
+    if (regressionAdjustmentSettings.days != null) {
       data.regressionAdjustmentDays = regressionAdjustmentSettings.days;
     }
   }

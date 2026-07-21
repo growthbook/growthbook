@@ -36,6 +36,27 @@ type ToolErrorPart = Extract<AgentStreamPart, { type: "tool-error" }>;
 const DEFAULT_CONSECUTIVE_TOOL_ERROR_LIMIT = 3;
 
 /**
+ * Sentinel a tool's `execute` returns to signal it parked a mutation for user
+ * confirmation instead of running it. The StreamProcessor treats it specially:
+ * it drops the originating tool-call from the transcript (so the parked call
+ * leaves no trace the model could trip over) and records no tool-result. The
+ * user's decision is replayed next turn as a fresh tool-call/result pair, so
+ * the model only ever sees resolved calls — it stays fully agnostic of the
+ * confirmation gate.
+ */
+export const AWAITING_CONFIRMATION_RESULT = {
+  __gbAwaitingConfirmation: true,
+} as const;
+
+export function isAwaitingConfirmationResult(output: unknown): boolean {
+  return (
+    !!output &&
+    typeof output === "object" &&
+    (output as Record<string, unknown>).__gbAwaitingConfirmation === true
+  );
+}
+
+/**
  * Accumulates AI SDK stream parts into assistant/tool messages and flushes them
  * to the conversation buffer at step boundaries. Holds all mutable accumulator
  * state so it does not leak into the stream loop or callers.
@@ -188,6 +209,18 @@ export class StreamProcessor {
   }
 
   handleToolResult(part: ToolResultPart): void {
+    if (isAwaitingConfirmationResult(part.output)) {
+      // Parked mutation: drop the originating tool-call so the transcript
+      // carries no trace of it, record no tool-result, and let the handler end
+      // the turn (it aborts on seeing the pending action). The decision is
+      // replayed as a fresh call/result pair on the next turn.
+      this.assistantParts = this.assistantParts.filter(
+        (p) => !(p.type === "tool-call" && p.toolCallId === part.toolCallId),
+      );
+      this.onStepPersist?.();
+      return;
+    }
+
     const preliminary = "preliminary" in part && Boolean(part.preliminary);
     const rawInput = "input" in part ? part.input : undefined;
 

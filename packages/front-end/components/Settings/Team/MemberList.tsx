@@ -5,7 +5,10 @@ import { date, datetime } from "shared/dates";
 import { RxIdCard } from "react-icons/rx";
 import router from "next/router";
 import { Flex } from "@radix-ui/themes";
-import { getRoleDisplayName } from "shared/permissions";
+import {
+  getEffectiveRolesForProject,
+  getRoleDisplayName,
+} from "shared/permissions";
 import { roleHasAccessToEnv, useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import ProjectBadges from "@/components/ProjectBadges";
@@ -42,7 +45,7 @@ const MemberList: FC<{
 }) => {
   const [inviting, setInviting] = useState(!!router.query["just-subscribed"]);
   const { apiCall } = useAuth();
-  const { userId, users, organization } = useUser();
+  const { userId, users, organization, teams } = useUser();
   const [roleModal, setRoleModal] = useState<string>("");
   const [projectRoleModal, setProjectRoleModal] = useState<string>("");
   const [passwordResetModal, setPasswordResetModal] =
@@ -172,6 +175,13 @@ const MemberList: FC<{
                 <SortableTH field="dateCreated">Date Joined</SortableTH>
                 <SortableTH field="lastLoginDate">Last Login</SortableTH>
                 <th>{project ? "Project Role" : "Global Role"}</th>
+                <th>
+                  <Tooltip body="The role(s) that actually apply after combining this member's own role with any teams they're on. Hover a value to see each source.">
+                    {project
+                      ? "Effective Project Role"
+                      : "Effective Global Role"}
+                  </Tooltip>
+                </th>
                 {!project && <th>Project Roles</th>}
                 {environments.map((env) => (
                   <th key={env.id}>{env.id}</th>
@@ -186,6 +196,30 @@ const MemberList: FC<{
                   (project &&
                     member.projectRoles?.find((r) => r.project === project)) ||
                   member;
+                const effectiveRoles = getEffectiveRolesForProject(
+                  member,
+                  project || null,
+                  teams || [],
+                );
+                const effectiveByRole: { role: string; sources: string[] }[] =
+                  [];
+                effectiveRoles.forEach((er) => {
+                  const src =
+                    er.sourceType === "user"
+                      ? "Direct"
+                      : `Team: ${er.sourceName}`;
+                  const existing = effectiveByRole.find(
+                    (e) => e.role === er.role,
+                  );
+                  if (existing) existing.sources.push(src);
+                  else effectiveByRole.push({ role: er.role, sources: [src] });
+                });
+                const effectiveLabel = effectiveByRole
+                  .map((e) => getRoleDisplayName(e.role, organization))
+                  .join(", ");
+                const effectiveFromTeam = effectiveRoles.some(
+                  (er) => er.sourceType === "team",
+                );
                 return (
                   <tr key={member.id}>
                     <td>{member.name}</td>
@@ -209,6 +243,28 @@ const MemberList: FC<{
                       {member.lastLoginDate && date(member.lastLoginDate)}
                     </td>
                     <td>{getRoleDisplayName(roleInfo.role, organization)}</td>
+                    <td>
+                      {effectiveFromTeam || effectiveByRole.length > 1 ? (
+                        <Tooltip
+                          body={
+                            <>
+                              {effectiveByRole.map((e) => (
+                                <div key={e.role}>
+                                  {getRoleDisplayName(e.role, organization)} —{" "}
+                                  {e.sources.join(", ")}
+                                </div>
+                              ))}
+                            </>
+                          }
+                        >
+                          <span style={{ textDecoration: "underline dotted" }}>
+                            {effectiveLabel}
+                          </span>
+                        </Tooltip>
+                      ) : (
+                        effectiveLabel
+                      )}
+                    </td>
                     {!project && (
                       <td className="col-2">
                         {member.projectRoles?.map((pr) => {
@@ -252,7 +308,7 @@ const MemberList: FC<{
                     <td>
                       {member.id !== userId && (
                         <>
-                          <MoreMenu>
+                          <MoreMenu useRadix={false}>
                             {canEditRoles && (
                               <button
                                 className="dropdown-item"
@@ -288,6 +344,7 @@ const MemberList: FC<{
                             )}
                             {canDeleteMembers && (
                               <DeleteButton
+                                useRadix={false}
                                 link={true}
                                 text="Remove User"
                                 useIcon={false}

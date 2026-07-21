@@ -27,6 +27,7 @@ import {
 } from "back-end/src/services/factMetricRowFilterValidation";
 import { projectFilterQuery } from "back-end/src/util/mongo.util";
 import { validateAggregationSpecification } from "back-end/src/services/factMetricAggregationValidation";
+import { healPriorSettings } from "back-end/src/util/priors";
 import { MakeModelClass } from "./BaseModel";
 import { getDataSourceById } from "./DataSourceModel";
 import { getFactTableMap } from "./FactTableModel";
@@ -214,6 +215,7 @@ export class FactMetricModel extends BaseClass {
         stddev: DEFAULT_PROPER_PRIOR_STDDEV,
       };
     }
+    healPriorSettings(newDoc.priorSettings);
 
     if (newDoc.numerator) {
       newDoc.numerator = FactMetricModel.migrateColumnRef(newDoc.numerator);
@@ -247,6 +249,11 @@ export class FactMetricModel extends BaseClass {
 
   public static migrateColumnRef(columnRef: LegacyColumnRef): ColumnRef {
     const { filters, inlineFilters, ...newColumnRef } = columnRef;
+
+    // The Mongo driver stores explicit `undefined` as null, which fails validation on later updates
+    if ((newColumnRef.aggregation ?? null) === null) {
+      delete newColumnRef.aggregation;
+    }
 
     // If row filters are already defined, do nothing
     if (newColumnRef.rowFilters !== undefined) {
@@ -518,6 +525,13 @@ export class FactMetricModel extends BaseClass {
     }
   }
 
+  public async projectHasFactMetrics(projectId: string): Promise<boolean> {
+    const factMetrics = await this._find({
+      projects: [projectId],
+    });
+    return factMetrics.length > 0;
+  }
+
   public async deleteAllFactMetricsForAProject(projectId: string) {
     const factMetrics = await this._find({
       projects: [projectId],
@@ -585,6 +599,7 @@ export class FactMetricModel extends BaseClass {
       cappingSettings: {
         ...cappingSettings,
         type: cappingSettings.type || "none",
+        ignoreZeros: cappingSettings.ignoreZeros ?? undefined,
       },
       windowSettings: {
         ...windowSettings,

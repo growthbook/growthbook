@@ -6,7 +6,7 @@ import {
 import { SnapshotMetric } from "shared/types/experiment-snapshot";
 import { SafeRolloutSnapshotInterface } from "shared/types/safe-rollout";
 import {
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
   isBinomialMetric,
 } from "shared/experiments";
 import {
@@ -21,7 +21,7 @@ function dummyPerUnitMeanAndTotal(
   metricId: string,
   users: number,
   rand: () => number,
-  getExperimentMetricById?: (id: string) => ExperimentMetricInterface | null,
+  getExperimentMetricById?: (id: string) => ExperimentMetricDefinition | null,
 ): { mean: number; total: number } {
   const metric = getExperimentMetricById?.(metricId);
   if (metric && !isBinomialMetric(metric)) {
@@ -37,7 +37,7 @@ export function generateDummySnapshotMetrics(
   scenarios: DummyScenario[],
   issueProfile?: DummyIssueProfile,
   isInverseMetric: (metricId: string) => boolean = () => false,
-  getExperimentMetricById?: (id: string) => ExperimentMetricInterface | null,
+  getExperimentMetricById?: (id: string) => ExperimentMetricDefinition | null,
 ): Record<string, { baseline: SnapshotMetric; variation: SnapshotMetric }> {
   const result: Record<
     string,

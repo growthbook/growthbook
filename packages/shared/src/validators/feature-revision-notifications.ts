@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { featureRevisionWebhookPayload } from "./feature-webhook-schemas";
+import { revisionPublishFailedExtension } from "./revision-publish-failed";
 
 export const featureRevisionCreatedPayload =
   featureRevisionWebhookPayload.strict();
@@ -90,6 +91,12 @@ export type FeatureRevisionDiscardedPayload = z.infer<
   typeof featureRevisionDiscardedPayload
 >;
 
+export const featureRevisionReopenedPayload =
+  featureRevisionWebhookPayload.strict();
+export type FeatureRevisionReopenedPayload = z.infer<
+  typeof featureRevisionReopenedPayload
+>;
+
 export const featureRevisionRebasedPayload =
   featureRevisionWebhookPayload.strict();
 export type FeatureRevisionRebasedPayload = z.infer<
@@ -110,4 +117,11 @@ export const featureRevisionRevertedPayload = featureRevisionWebhookPayload
   .strict();
 export type FeatureRevisionRevertedPayload = z.infer<
   typeof featureRevisionRevertedPayload
+>;
+
+export const featureRevisionPublishFailedPayload = featureRevisionWebhookPayload
+  .extend(revisionPublishFailedExtension)
+  .strict();
+export type FeatureRevisionPublishFailedPayload = z.infer<
+  typeof featureRevisionPublishFailedPayload
 >;

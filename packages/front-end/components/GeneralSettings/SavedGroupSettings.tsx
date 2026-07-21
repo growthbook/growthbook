@@ -19,7 +19,7 @@ export default function SavedGroupSettings() {
             <Flex align="start" direction="column" flexGrow="1" pt="6">
               <Box mb="6" width="100%" mt="2">
                 <Text as="label" className="font-weight-semibold" size="3">
-                  ID List Size Limit
+                  ID List size limit
                 </Text>
                 <Box width="200px">
                   <Field
@@ -39,7 +39,7 @@ export default function SavedGroupSettings() {
                     Limiting the number of items in an ID List can prevent SDK
                     payloads from growing too large. Admins and users with the{" "}
                     <i>Saved Groups Bypass Size Limit</i> policy can bypass this
-                    limit manually
+                    limit manually.
                   </small>
                 </p>
               </Box>

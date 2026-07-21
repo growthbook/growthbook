@@ -26,13 +26,14 @@ import cloneDeep from "lodash/cloneDeep";
 import {
   featureHasEnvironment,
   generateVariationId,
-  getMatchingRules,
+  getNewDraftExperimentsToPublish,
   getRulesForEnvironment,
   validateAndFixCondition,
   validateFeatureValue,
   categorizeUnregisteredAttributes,
   extractConditionAttributeKeys,
   getRequireRegisteredAttributesSettings,
+  formatJsonMultilineObjects,
   type RequireRegisteredAttributesSettings,
 } from "shared/util";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
@@ -263,6 +264,16 @@ export function useFeatureSearch({
     syntaxFilterPassthrough,
     updateSearchQueryOnChange: true,
     localStorageKey: localStorageKey,
+    // These back the `has`/`is`/`on`/`off` filters below and load asynchronously;
+    // listing them keeps results from going stale when the data arrives.
+    searchTermFilterDeps: [
+      environmentStatus,
+      draftStates,
+      staleStates,
+      rampStates,
+      dependencyIndex,
+      experimentStates,
+    ],
     searchTermFilters: {
       is: (item) => {
         const is: string[] = [item.valueType];
@@ -388,12 +399,12 @@ export function formatJSON(value: string): string | undefined {
     // Use dirty-json for small files to handle malformed JSON
     try {
       const parsed = dJSON.parse(value);
-      formatted = stringify(parsed);
+      formatted = formatJsonMultilineObjects(parsed);
     } catch (e) {
       // Fallback to native JSON.parse if dirty-json fails
       try {
         const parsed = JSON.parse(value);
-        formatted = stringify(parsed);
+        formatted = formatJsonMultilineObjects(parsed);
       } catch (e2) {
         // Ignore
       }
@@ -402,7 +413,7 @@ export function formatJSON(value: string): string | undefined {
     // For medium+ files, only use native JSON.parse (much faster)
     try {
       const parsed = JSON.parse(value);
-      formatted = stringify(parsed);
+      formatted = formatJsonMultilineObjects(parsed);
     } catch (e) {
       // Invalid JSON - skip formatting to avoid blocking UI
     }
@@ -777,6 +788,20 @@ export function validateFeatureRule(
         (ruleCopy as ExperimentRefRule).variations[i].value = newValue;
       }
     });
+  } else if (rule.type === "contextual-bandit-ref") {
+    rule.variations.forEach((v, i) => {
+      const newValue = validateFeatureValue(
+        feature,
+        v.value,
+        "Variation #" + i,
+      );
+      if (newValue !== v.value) {
+        hasChanges = true;
+        (ruleCopy as unknown as { variations: { value: string }[] }).variations[
+          i
+        ].value = newValue;
+      }
+    });
   } else if (rule.type === "safe-rollout") {
     const newVariationValue = validateFeatureValue(
       feature,
@@ -1092,45 +1117,6 @@ export function getDefaultRuleValue({
     };
   }
   throw new Error("Unknown Rule Type: " + ruleType);
-}
-
-export function getUnreachableRuleIndex(
-  rules: FeatureRule[],
-  experimentsMap: Map<string, ExperimentInterfaceStringDates>,
-) {
-  for (let i = 0; i < rules.length; i++) {
-    const rule = rules[i];
-
-    // Skip over inactive rules
-    if (isRuleInactive(rule, experimentsMap)) continue;
-
-    // Skip rules that are conditional based on a schedule
-    const upcomingScheduleRule = getUpcomingScheduleRule(rule);
-    if (upcomingScheduleRule && upcomingScheduleRule.timestamp) {
-      continue;
-    }
-
-    // Skip rules with targeting conditions
-    if (rule.condition && rule.condition !== "{}") {
-      continue;
-    }
-    if (rule.savedGroups?.length) {
-      continue;
-    }
-    if (rule.prerequisites?.length) {
-      continue;
-    }
-
-    // Only force rules and 100%-coverage rollouts consume all traffic
-    const isFullCoverage =
-      rule.type === "force" || (rule.type === "rollout" && rule.coverage >= 1);
-    if (!isFullCoverage) continue;
-
-    return i + 1;
-  }
-
-  // No unreachable rules
-  return 0;
 }
 
 export function jsonToConds(
@@ -1536,7 +1522,8 @@ export function useAttributeMap(
         datatype: getAttributeDataType(schema.datatype),
         array: !!schema.datatype.match(/\[\]$/),
         enum:
-          schema.datatype === "enum" && schema.enum
+          (schema.datatype === "enum" || schema.datatype.endsWith("[]")) &&
+          schema.enum
             ? schema.enum.split(",").map((x) => x.trim())
             : schema.format === "isoCountryCode"
               ? ALL_COUNTRY_CODES
@@ -1585,7 +1572,7 @@ export function getExperimentDefinitionFromFeature(
     variations,
     phases: [
       {
-        coverage: expRule.coverage || 1,
+        coverage: expRule.coverage ?? 1,
         variationWeights,
         variations: variations.map((v) => ({
           id: v.id,
@@ -1666,7 +1653,8 @@ export function getDefaultOperator(attribute: AttributeData) {
   if (attribute.datatype === "boolean") {
     return "$true";
   } else if (attribute.array) {
-    return "$includes";
+    // Enum-constrained lists use set operators so the restricted MultiSelect shows.
+    return attribute.enum.length ? "$in" : "$includes";
   } else if (attribute.format === "version") {
     return "$veq";
   } else if (attribute.disableEqualityConditions) {
@@ -1719,64 +1707,6 @@ export function genDuplicatedKey({ id }: FeatureInterface) {
     // we failed, let the user name the key
     return "";
   }
-}
-
-export function getNewDraftExperimentsToPublish({
-  environments,
-  feature,
-  revision,
-  experimentsMap,
-}: {
-  feature: FeatureInterface;
-  revision: FeatureRevisionInterface;
-  environments: Environment[];
-  experimentsMap: Map<string, ExperimentInterfaceStringDates>;
-}) {
-  const environmentIds = environments.map((e) => e.id);
-
-  const liveExperimentIds = new Set(
-    getMatchingRules(
-      feature,
-      (rule) => rule.type === "experiment-ref",
-      environmentIds,
-    ).map((result) => (result.rule as ExperimentRefRule).experimentId),
-  );
-
-  function isExp(
-    exp: ExperimentInterfaceStringDates | undefined,
-  ): exp is ExperimentInterfaceStringDates {
-    return !!exp;
-  }
-
-  const draftExperiments = getMatchingRules(
-    feature,
-    (rule) => {
-      if (rule.enabled === false) return false;
-      if (rule.type !== "experiment-ref") return false;
-
-      const exp = experimentsMap.get(rule.experimentId);
-      if (!exp) return false;
-
-      // Skip experiment rules that are already live
-      if (liveExperimentIds.has(rule.experimentId)) return false;
-
-      if (exp.status !== "draft") return false;
-      if (exp.archived) return false;
-
-      // Skip experiments with visual changesets. Those need to be started from the experiment page
-      if (exp.hasVisualChangesets) return false;
-
-      return true;
-    },
-    environmentIds,
-    revision,
-  )
-    .map((result) =>
-      experimentsMap.get((result.rule as ExperimentRefRule).experimentId),
-    )
-    .filter(isExp);
-
-  return [...new Set(draftExperiments)];
 }
 
 // Returns experiments whose draft rules would go live when this revision is published.

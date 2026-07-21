@@ -1,6 +1,7 @@
 import { FactMetricInterface } from "shared/types/fact-table";
 import {
   chunkMetrics,
+  getFactMetricGroup,
   maxColumnsNeededForMetric,
 } from "back-end/src/services/experimentQueries/experimentQueries";
 import { MAX_METRICS_PER_QUERY } from "back-end/src/services/experimentQueries/constants";
@@ -409,6 +410,283 @@ describe("experimentQueries", () => {
         chunks.forEach((chunk) => {
           expect(chunk.length).toBe(1);
         });
+      });
+    });
+
+    describe("efficient quantile grid (array column packing)", () => {
+      // BigQuery emits the unit-quantile n_star confidence-interval grid as a
+      // single ARRAY column instead of N_STAR_VALUES.length*2 scalar columns,
+      // so each quantile metric costs far fewer output columns. chunkMetrics
+      // must honor this so it packs more metrics per query and reduces the
+      // BQ job fan-out per snapshot.
+      it("dramatically increases the quantile chunk size when set", () => {
+        const maxColumnsPerQuery = 1000;
+        const baseColumnsNeeded = 103;
+
+        const quantileColsLegacy = maxColumnsNeededForMetric({
+          metric: factMetricFactory.build({
+            metricType: "quantile",
+            numerator: { factTableId: "ft_1" },
+          }),
+          regressionAdjusted: false,
+          isBandit: false,
+        });
+        const quantileColsEfficient = maxColumnsNeededForMetric({
+          metric: factMetricFactory.build({
+            metricType: "quantile",
+            numerator: { factTableId: "ft_1" },
+          }),
+          regressionAdjusted: false,
+          isBandit: false,
+          efficientQuantileGrid: true,
+        });
+        // Efficient mode must reduce the per-metric column cost by at least 5×.
+        expect(quantileColsEfficient * 5).toBeLessThan(quantileColsLegacy);
+
+        const metrics: FactMetricInterface[] = Array.from({ length: 100 }, () =>
+          factMetricFactory.build({
+            metricType: "quantile",
+            numerator: { factTableId: "ft_1" },
+          }),
+        );
+        const wrap = metrics.map((m) => ({
+          metric: m,
+          regressionAdjusted: false,
+        }));
+
+        const legacyChunks = chunkMetrics({
+          metrics: wrap,
+          maxColumnsPerQuery,
+          isBandit: false,
+        });
+        const efficientChunks = chunkMetrics({
+          metrics: wrap,
+          maxColumnsPerQuery,
+          isBandit: false,
+          efficientQuantileGrid: true,
+        });
+
+        // All 100 metrics still present in both modes.
+        expect(legacyChunks.reduce((s, c) => s + c.length, 0)).toBe(100);
+        expect(efficientChunks.reduce((s, c) => s + c.length, 0)).toBe(100);
+
+        // Concrete expected packing for 100 unit-quantile metrics under a
+        // 1000-column / 103-base budget:
+        //   legacy quantile cost     = 1 + 5 + 2 + N_STAR_VALUES.length * 2 = 48
+        //   efficient quantile cost  = 1 + 5 + 2 + 1                       = 9
+        //   legacy chunks    = ceil(100 / floor(897/48))  = ceil(100/18) = 6
+        //   efficient chunks = ceil(100 / floor(897/9))   = ceil(100/99) = 2
+        expect(legacyChunks.length).toBe(6);
+        expect(efficientChunks.length).toBe(2);
+
+        // No chunk in efficient mode may exceed maxColumnsPerQuery.
+        efficientChunks.forEach((chunk) => {
+          const totalCols =
+            baseColumnsNeeded +
+            chunk.reduce(
+              (sum, m) =>
+                sum +
+                maxColumnsNeededForMetric({
+                  metric: m,
+                  regressionAdjusted: false,
+                  isBandit: false,
+                  efficientQuantileGrid: true,
+                }),
+              0,
+            );
+          expect(totalCols).toBeLessThanOrEqual(maxColumnsPerQuery);
+          expect(chunk.length).toBeLessThanOrEqual(MAX_METRICS_PER_QUERY);
+        });
+      });
+    });
+  });
+
+  describe("getFactMetricGroup", () => {
+    const conversionWindow = (
+      windowValue: number,
+      windowUnit: "minutes" | "hours" | "days" | "weeks",
+      delayValue = 0,
+      delayUnit: "minutes" | "hours" | "days" | "weeks" = "hours",
+    ) => ({
+      type: "conversion" as const,
+      delayValue,
+      delayUnit,
+      windowValue,
+      windowUnit,
+    });
+
+    const meanMetric = (
+      factTableId: string,
+      windowSettings: FactMetricInterface["windowSettings"],
+    ) =>
+      factMetricFactory.build({
+        metricType: "mean",
+        numerator: { factTableId },
+        windowSettings,
+      });
+
+    describe("when skipPartialData is false", () => {
+      it("keys on the fact table only, ignoring the conversion window", () => {
+        const a = meanMetric("ft_1", conversionWindow(3, "days"));
+        const b = meanMetric("ft_1", conversionWindow(7, "days"));
+
+        // Different conversion windows still share a group because the window
+        // does not affect the query when partial data is included.
+        expect(getFactMetricGroup(a, { skipPartialData: false })).toBe("ft_1");
+        expect(getFactMetricGroup(b, { skipPartialData: false })).toBe("ft_1");
+      });
+    });
+
+    describe("when skipPartialData is true", () => {
+      it("appends the conversion window (in hours) to the fact table key", () => {
+        // 3 days = 72 hours
+        const metric = meanMetric("ft_1", conversionWindow(3, "days"));
+        expect(getFactMetricGroup(metric, { skipPartialData: true })).toBe(
+          "ft_1_cw72",
+        );
+      });
+
+      it("groups metrics from the same fact table with the same conversion window", () => {
+        const a = meanMetric("ft_1", conversionWindow(3, "days"));
+        const b = meanMetric("ft_1", conversionWindow(3, "days"));
+
+        expect(getFactMetricGroup(a, { skipPartialData: true })).toBe(
+          getFactMetricGroup(b, { skipPartialData: true }),
+        );
+      });
+
+      it("separates metrics from the same fact table with different conversion windows", () => {
+        const a = meanMetric("ft_1", conversionWindow(3, "days"));
+        const b = meanMetric("ft_1", conversionWindow(7, "days"));
+
+        expect(getFactMetricGroup(a, { skipPartialData: true })).not.toBe(
+          getFactMetricGroup(b, { skipPartialData: true }),
+        );
+      });
+
+      it("groups equivalent conversion windows expressed in different units", () => {
+        const days = meanMetric("ft_1", conversionWindow(1, "days"));
+        const hours = meanMetric("ft_1", conversionWindow(24, "hours"));
+
+        // 1 day == 24 hours, so both contribute the same end-date cutoff.
+        expect(getFactMetricGroup(days, { skipPartialData: true })).toBe(
+          getFactMetricGroup(hours, { skipPartialData: true }),
+        );
+      });
+
+      it("includes the delay window when computing the conversion window key", () => {
+        // 3-day window, no delay = 72h total
+        const noDelay = meanMetric("ft_1", conversionWindow(3, "days"));
+        // 2-day window + 1-day delay = 72h total (should match noDelay)
+        const withDelay = meanMetric(
+          "ft_1",
+          conversionWindow(2, "days", 1, "days"),
+        );
+        // 3-day window + 1-day delay = 96h total (should differ)
+        const longerDelay = meanMetric(
+          "ft_1",
+          conversionWindow(3, "days", 1, "days"),
+        );
+
+        expect(getFactMetricGroup(noDelay, { skipPartialData: true })).toBe(
+          getFactMetricGroup(withDelay, { skipPartialData: true }),
+        );
+        expect(getFactMetricGroup(noDelay, { skipPartialData: true })).not.toBe(
+          getFactMetricGroup(longerDelay, { skipPartialData: true }),
+        );
+      });
+
+      it("treats lookback and no-window metrics as a single zero-window group, distinct from conversion windows", () => {
+        const noWindow = meanMetric("ft_1", {
+          type: "",
+          delayValue: 0,
+          delayUnit: "hours",
+          windowValue: 0,
+          windowUnit: "hours",
+        });
+        const lookback = meanMetric("ft_1", {
+          type: "lookback",
+          delayValue: 0,
+          delayUnit: "hours",
+          windowValue: 3,
+          windowUnit: "days",
+        });
+        const conversion = meanMetric("ft_1", conversionWindow(3, "days"));
+
+        // Neither lookback nor "no window" affects the skipPartialData cutoff,
+        // so they share a group with each other...
+        expect(getFactMetricGroup(noWindow, { skipPartialData: true })).toBe(
+          getFactMetricGroup(lookback, { skipPartialData: true }),
+        );
+        // ...but not with a conversion-window metric.
+        expect(
+          getFactMetricGroup(noWindow, { skipPartialData: true }),
+        ).not.toBe(getFactMetricGroup(conversion, { skipPartialData: true }));
+      });
+
+      it("keeps metrics on different fact tables separate even with the same window", () => {
+        const a = meanMetric("ft_1", conversionWindow(3, "days"));
+        const b = meanMetric("ft_2", conversionWindow(3, "days"));
+
+        expect(getFactMetricGroup(a, { skipPartialData: true })).not.toBe(
+          getFactMetricGroup(b, { skipPartialData: true }),
+        );
+      });
+
+      it("appends the conversion window to cross-table ratio metric groups", () => {
+        const crossTableRatio = (
+          windowSettings: FactMetricInterface["windowSettings"],
+        ) =>
+          factMetricFactory.build({
+            metricType: "ratio",
+            numerator: { factTableId: "ft_1" },
+            denominator: { factTableId: "ft_2" },
+            windowSettings,
+          });
+
+        const a = crossTableRatio(conversionWindow(3, "days"));
+        const b = crossTableRatio(conversionWindow(3, "days"));
+        const c = crossTableRatio(conversionWindow(7, "days"));
+
+        expect(getFactMetricGroup(a, { skipPartialData: true })).toBe(
+          getFactMetricGroup(b, { skipPartialData: true }),
+        );
+        expect(getFactMetricGroup(a, { skipPartialData: true })).not.toBe(
+          getFactMetricGroup(c, { skipPartialData: true }),
+        );
+        // The base cross-table grouping is preserved.
+        expect(getFactMetricGroup(a, { skipPartialData: true })).toContain(
+          "(cross-table ratio metrics)",
+        );
+      });
+
+      it("appends the conversion window to quantile metric groups", () => {
+        const quantileMetric = (
+          windowSettings: FactMetricInterface["windowSettings"],
+        ): FactMetricInterface => ({
+          ...factMetricFactory.build({
+            metricType: "quantile",
+            numerator: { factTableId: "ft_1" },
+            windowSettings,
+          }),
+          quantileSettings: {
+            type: "unit",
+            quantile: 0.5,
+            ignoreZeros: false,
+          },
+        });
+
+        const a = quantileMetric(conversionWindow(3, "days"));
+        const b = quantileMetric(conversionWindow(7, "days"));
+
+        // Quantile metrics keep their dedicated `_qtile` group, now further
+        // split by conversion window under skipPartialData.
+        expect(getFactMetricGroup(a, { skipPartialData: true })).toContain(
+          "ft_1_qtile",
+        );
+        expect(getFactMetricGroup(a, { skipPartialData: true })).not.toBe(
+          getFactMetricGroup(b, { skipPartialData: true }),
+        );
       });
     });
   });

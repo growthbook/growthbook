@@ -13,7 +13,7 @@ import { MdPending } from "react-icons/md";
 import { cloneDeep, isEqual } from "lodash";
 import { Environment } from "shared/types/organization";
 import { getRulesForEnvironment } from "shared/util";
-import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
+import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
 import Link from "@/ui/Link";
 import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -40,6 +40,7 @@ import {
   transformLDProjectsToGBProject,
 } from "@/services/importing/launchdarkly/launchdarkly-importing";
 import track from "@/services/track";
+import Callout from "@/ui/Callout";
 
 type ImportStatus = "invalid" | "skipped" | "pending" | "completed" | "failed";
 
@@ -816,7 +817,7 @@ export default function ImportFromLaunchDarkly() {
 
       <div className="position-relative">
         {data.status === "error" ? (
-          <div className="alert alert-danger">{data.error || "Error"}</div>
+          <Callout status="error">{data.error || "Error"}</Callout>
         ) : data.status === "init" ? null : (
           <div>
             <h2>

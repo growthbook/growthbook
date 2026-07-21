@@ -2,7 +2,12 @@
 
 import { v4 as uuidv4 } from "uuid";
 import mongoose, { FilterQuery } from "mongoose";
-import { AnyBulkWriteOperation, Collection } from "mongodb";
+import {
+  AnyBulkWriteOperation,
+  Collection,
+  Document,
+  UpdateFilter,
+} from "mongodb";
 import omit from "lodash/omit";
 import { z } from "zod";
 import { isEqual, pick } from "lodash";
@@ -124,6 +129,61 @@ const updateSchema = <
     .strict() as unknown as UpdateZodObject<T, PKey, readonly string[]>;
 };
 
+// Drop `undefined` for top-level schema fields that can't be absent (required,
+// or .nullable() without .optional()). Matches ORM "ignore undefined" semantics
+// and keeps bulkWrite aligned with update().
+const dropNonClearableUndefined = (
+  schema: z.ZodObject<z.ZodRawShape>,
+  fields: Record<string, unknown>,
+): void => {
+  for (const [k, v] of Object.entries(fields)) {
+    if (
+      v === undefined &&
+      k in schema.shape &&
+      !z.safeParse(schema.shape[k], undefined).success
+    ) {
+      delete fields[k];
+    }
+  }
+};
+
+// Explicitly-undefined $set fields mean "clear this field" — translate them to
+// $unset, since ignoreUndefined would otherwise silently drop them
+const translateUndefinedSetToUnset = (
+  update: UpdateFilter<Document>,
+): UpdateFilter<Document> => {
+  const { $set, $unset, ...rest } = update;
+  if (!$set) return update;
+  const setFields: Record<string, unknown> = {};
+  const unsetFields: Record<string, unknown> = { ...$unset };
+  for (const [k, v] of Object.entries($set)) {
+    if (v === undefined) unsetFields[k] = "";
+    else setFields[k] = v;
+  }
+  return {
+    ...rest,
+    ...(Object.keys(setFields).length ? { $set: setFields } : {}),
+    ...(Object.keys(unsetFields).length ? { $unset: unsetFields } : {}),
+  } as UpdateFilter<Document>;
+};
+
+const normalizeUpdateOneDocument = (
+  schema: z.ZodObject<z.ZodRawShape>,
+  update: UpdateFilter<Document>,
+): UpdateFilter<Document> => {
+  const { $set, $unset, ...rest } = update;
+  if (!$set || typeof $set !== "object" || Array.isArray($set)) {
+    return translateUndefinedSetToUnset(update);
+  }
+  const setFields = { ...($set as Record<string, unknown>) };
+  dropNonClearableUndefined(schema, setFields);
+  return translateUndefinedSetToUnset({
+    ...rest,
+    ...($unset ? { $unset } : {}),
+    $set: setFields,
+  });
+};
+
 // DeepPartial makes all properties (including nested) optional
 type DeepPartial<T> = T extends object
   ? {
@@ -163,11 +223,18 @@ export interface ModelConfig<
   auditLog?: AuditLogConfig<Entity>;
   globallyUniquePrimaryKeys?: boolean;
   skipDateUpdatedFields?: (keyof z.infer<T>)[];
+  skipAuditLogFields?: (keyof z.infer<T>)[];
   readonlyFields?: (keyof z.infer<T>)[];
   additionalIndexes?: {
     fields: Partial<Record<IndexableFieldPath<z.infer<T>>, 1 | -1>>;
     unique?: boolean;
     sparse?: boolean;
+    // Explicit index name (required for partial indexes so they can be matched
+    // for removal and so dup-key errors can be identified).
+    name?: string;
+    // Build a partial index — only documents matching this filter are indexed.
+    // Enables e.g. a unique constraint scoped to a subset of rows.
+    partialFilterExpression?: Record<string, unknown>;
   }[];
   // NB: Names of indexes to remove
   indexesToRemove?: string[];
@@ -182,6 +249,11 @@ const indexesUpdated: Set<string> = new Set();
 
 // Global map to track pending index operations
 const pendingIndexOperations = new Map<string, Promise<string | void>[]>();
+
+// Per-schema cache of top-level fields that accept undefined but reject null.
+// Legacy writes serialized undefined as BSON null; reads strip those nulls so
+// they look unset, without requiring a data migration.
+const nullIntolerantOptionalFields = new WeakMap<object, ReadonlySet<string>>();
 
 // Helper function to wait for all pending index operations to complete
 export async function waitForIndexes(): Promise<void> {
@@ -213,6 +285,15 @@ type ExtractCrudSchema<
       ? Validator
       : DefaultCrudValidators[Action][Slot]
     : DefaultCrudValidators[Action][Slot];
+
+// Thrown by `_updateOne` when a guarded write matches zero docs (the doc
+// changed between read and write). Caught only by `updateWithCas` to retry.
+class CasConflictError extends Error {
+  constructor() {
+    super("Compare-and-swap conflict");
+    this.name = "CasConflictError";
+  }
+}
 
 // Generic model class has everything but the actual data fetch implementation.
 // See BaseModel below for the class with explicit mongodb implementation.
@@ -253,7 +334,19 @@ export abstract class BaseModel<
 
   protected getPrimaryKeyFilter(doc: z.infer<T>) {
     const keys = this.getPKey();
-    return pick(doc, keys);
+    const filter = pick(doc, keys);
+    for (const key of keys) {
+      // With ignoreUndefined, an undefined key would be dropped from the
+      // filter entirely, matching an arbitrary document in the org
+      if ((filter as Record<string, unknown>)[key as string] === undefined) {
+        throw new Error(
+          `Missing primary key field "${String(key)}" on ${
+            this.config.collectionName
+          } document`,
+        );
+      }
+    }
+    return filter;
   }
 
   // String id for audit log entity (single key: value; composite: JSON)
@@ -543,6 +636,12 @@ export abstract class BaseModel<
   ): Promise<z.infer<T>> {
     return this._createOne(props, writeOptions, true);
   }
+  // Undefined handling: passing `field: undefined` requests that the field
+  // become absent. It's honored (as a $unset) only for fields whose schema
+  // permits absence (.optional()/.nullish()); for fields that can't be
+  // undefined (required, or .nullable() without .optional()) it's treated as
+  // "no change" and ignored. Omitting a key entirely is always "no change". To
+  // set a .nullable() field to null, pass `null`.
   public update(
     existing: z.infer<T>,
     updates: PKeyUpdateProps<T, PKey, PK>,
@@ -591,6 +690,75 @@ export abstract class BaseModel<
       throw new Error("Could not find resource to update");
     }
     return this._updateOne(existing, updates, { writeOptions });
+  }
+  /**
+   * Compare-and-swap update for read-modify-write hotspots (e.g. reconciling a
+   * denormalized status from an embedded array several writers touch at once).
+   * Re-reads, runs `compute`, and writes only if `guardFields` are unchanged,
+   * retrying up to `maxAttempts`. Application-level optimistic concurrency (no
+   * transactions), so it stays DocumentDB/CosmosDB compatible.
+   *
+   * Goes through canRead + `_updateOne` (canUpdate, validation, audit, hooks),
+   * which run only on the winning attempt — but `compute` may run several times,
+   * so keep it side-effect free. Returns the updated doc, or null if the doc is
+   * gone / not readable / `compute` aborts. Throws if attempts are exhausted.
+   */
+  public async updateWithCas(
+    id: string,
+    guardFields: (keyof z.infer<T>)[],
+    compute: (
+      existing: z.infer<T>,
+    ) =>
+      | PKeyUpdateProps<T, PKey, PK>
+      | null
+      | Promise<PKeyUpdateProps<T, PKey, PK> | null>,
+    options: { maxAttempts?: number; writeOptions?: WriteOptions } = {},
+  ): Promise<z.infer<T> | null> {
+    this._assertHasIdField();
+    if (!this.hasPremiumFeature()) {
+      throw new Error(
+        "Your organization does not have access to this feature.",
+      );
+    }
+    const maxAttempts = options.maxAttempts ?? 5;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      // Read raw so guard + compute share one snapshot of the stored doc.
+      const raw = (await this._dangerousGetCollection().findOne(
+        this.applyBaseQuery({ id }),
+      )) as Record<string, unknown> | null;
+      if (!raw) return null;
+
+      const existing = this._stripLegacyNullFields(
+        this.migrate(this._removeMongooseFields(raw)) as z.infer<T>,
+      );
+
+      // Read gate mirrors getById/_findOne; canUpdate is enforced in _updateOne.
+      await this.populateForeignRefs([existing]);
+      if (!this.canRead(existing)) return null;
+
+      const updates = await compute(existing);
+      if (!updates) return null;
+
+      const guard = Object.fromEntries(
+        guardFields.map((f) => {
+          const v = raw[f as string];
+          return [f as string, v === undefined ? { $exists: false } : v];
+        }),
+      );
+
+      try {
+        return await this._updateOne(existing, updates, {
+          writeOptions: options.writeOptions,
+          guard,
+        });
+      } catch (e) {
+        if (e instanceof CasConflictError) continue;
+        throw e;
+      }
+    }
+    throw new Error(
+      `updateWithCas: exhausted ${maxAttempts} attempts for ${this.config.collectionName} ${id}`,
+    );
   }
   public async delete(
     existing: z.infer<T>,
@@ -716,7 +884,7 @@ export abstract class BaseModel<
     if (!rawDocs.length) return [];
 
     const migrated = rawDocs.map((d) =>
-      this.migrate(this._removeMongooseFields(d)),
+      this._stripLegacyNullFields(this.migrate(this._removeMongooseFields(d))),
     );
     const filtered = bypassReadPermissionChecks
       ? migrated
@@ -740,7 +908,9 @@ export abstract class BaseModel<
       : await this._dangerousGetCollection().findOne(fullQuery);
     if (!doc) return null;
 
-    const migrated = this.migrate(this._removeMongooseFields(doc));
+    const migrated = this._stripLegacyNullFields(
+      this.migrate(this._removeMongooseFields(doc)),
+    );
 
     await this.populateForeignRefs([migrated]);
     if (!this.canRead(migrated)) {
@@ -803,7 +973,7 @@ export abstract class BaseModel<
       generatedIds.uid = this._generateUid();
     }
 
-    const doc = {
+    let doc = {
       ...generatedIds,
       ...props,
       organization: this.context.org.id,
@@ -827,7 +997,13 @@ export abstract class BaseModel<
 
     await this.beforeCreate(doc, writeOptions);
 
-    await this._dangerousGetCollection().insertOne(doc);
+    // insertOne mutates `doc` in place to add Mongo's `_id`. Scrub it (and the
+    // mongoose version key) with the same helper reads use, so these internals
+    // don't leak into the return value, audit log details, or hooks.
+    await this._dangerousGetCollection().insertOne(doc, {
+      ignoreUndefined: true,
+    });
+    doc = this._removeMongooseFields(doc) as z.infer<T>;
 
     if (this._auditLogger) {
       await this._auditLogger.logCreate(this.context, doc);
@@ -851,6 +1027,9 @@ export abstract class BaseModel<
       auditEvent?: EventType;
       writeOptions?: WriteOptions;
       forceCanUpdate?: boolean;
+      // CAS guard: write only applies if the doc still matches these field
+      // values, else throws CasConflictError. Set via `updateWithCas`.
+      guard?: Record<string, unknown>;
     },
   ) {
     updates = this.updateValidator.parse(updates);
@@ -863,6 +1042,21 @@ export abstract class BaseModel<
     ) {
       updates.owner = await resolveOwnerToUserId(updates.owner, this.context);
     }
+
+    // An explicit `undefined` requests that a field become absent. This is
+    // honored only where the schema permits absence (.optional()/.nullish()),
+    // where it becomes a $unset below. For a field that can't be undefined
+    // (required, or .nullable() without .optional()) absence is impossible, so
+    // the undefined is treated as "no change" and dropped rather than erroring
+    // — matching how ORMs ignore undefined, and sparing partial-update
+    // call-sites that spread possibly-undefined values. To clear a .nullable()
+    // field to null, pass `null` explicitly. Dropped before the diff so the key
+    // never reaches newDoc or the write, keeping the returned doc equal to a
+    // subsequent read.
+    dropNonClearableUndefined(
+      this.config.schema,
+      updates as Record<string, unknown>,
+    );
 
     // Only consider updates that actually change the value
     const updatedFields = Object.entries(updates)
@@ -925,17 +1119,30 @@ export abstract class BaseModel<
 
     await this.customValidation(newDoc, doc, options?.writeOptions);
 
-    await this._dangerousGetCollection().updateOne(
+    const writeResult = await this._dangerousGetCollection().updateOne(
       {
         ...this.getPrimaryKeyFilter(doc),
         organization: this.context.org.id,
+        ...(options?.guard ?? {}),
       },
-      {
-        $set: allUpdates,
-      },
+      translateUndefinedSetToUnset({ $set: allUpdates }),
+      { ignoreUndefined: true },
     );
 
-    if (this._auditLogger) {
+    // CAS miss: guarded fields changed since the read. Bail before audit/hooks
+    // so the lost race is a true no-op.
+    if (options?.guard && writeResult.matchedCount === 0) {
+      throw new CasConflictError();
+    }
+
+    // Skip audit logging if only operational fields are being updated
+    const shouldSkipAuditLog =
+      this.config.skipAuditLogFields &&
+      updatedFields.every((field) =>
+        this.config.skipAuditLogFields?.includes(field),
+      );
+
+    if (this._auditLogger && !shouldSkipAuditLog) {
       await this._auditLogger.logUpdate(
         this.context,
         doc,
@@ -969,7 +1176,9 @@ export abstract class BaseModel<
   protected async _dangerousBulkWriteCrossOrganization(
     operations: AnyBulkWriteOperation[],
   ) {
-    return dbSafeBulkWrite(this._dangerousGetCollection(), operations);
+    return dbSafeBulkWrite(this._dangerousGetCollection(), operations, {
+      ignoreUndefined: true,
+    });
   }
 
   protected async bulkWrite(operations: AnyBulkWriteOperation[]) {
@@ -987,10 +1196,24 @@ export abstract class BaseModel<
             },
           };
         } else if ("updateOne" in op) {
+          const filter = this.applyBaseQuery(op.updateOne.filter);
+          // With ignoreUndefined, an undefined value would be dropped from
+          // the filter entirely, broadening which documents match
+          if (Object.values(filter).some((v) => v === undefined)) {
+            throw new Error(
+              "bulkWrite updateOne filter must not contain undefined values",
+            );
+          }
           return {
             updateOne: {
               ...op.updateOne,
-              filter: this.applyBaseQuery(op.updateOne.filter),
+              filter,
+              update: Array.isArray(op.updateOne.update)
+                ? op.updateOne.update
+                : normalizeUpdateOneDocument(
+                    this.config.schema,
+                    op.updateOne.update,
+                  ),
             },
           };
         }
@@ -998,6 +1221,7 @@ export abstract class BaseModel<
           "Unsupported bulkWrite operation type in BaseModel#bulkWrite",
         );
       }),
+      { ignoreUndefined: true },
     );
   }
 
@@ -1184,6 +1408,10 @@ export abstract class BaseModel<
           .createIndex(index.fields as { [key: string]: number }, {
             unique: !!index.unique,
             sparse: !!index.sparse,
+            ...(index.name ? { name: index.name } : {}),
+            ...(index.partialFilterExpression
+              ? { partialFilterExpression: index.partialFilterExpression }
+              : {}),
           })
           .catch((err) => {
             logger.error(
@@ -1257,6 +1485,32 @@ export abstract class BaseModel<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private _removeMongooseFields(doc: any) {
     return omit(doc, ["__v", "_id"]) as unknown;
+  }
+
+  private _getNullIntolerantOptionalFields(): ReadonlySet<string> {
+    const cached = nullIntolerantOptionalFields.get(this.config.schema);
+    if (cached) return cached;
+    const fields = new Set<string>();
+    for (const [key, fieldSchema] of Object.entries(this.config.schema.shape)) {
+      if (
+        !z.safeParse(fieldSchema, null).success &&
+        z.safeParse(fieldSchema, undefined).success
+      ) {
+        fields.add(key);
+      }
+    }
+    nullIntolerantOptionalFields.set(this.config.schema, fields);
+    return fields;
+  }
+
+  // Mutates in place: doc is always a fresh copy from _removeMongooseFields
+  private _stripLegacyNullFields(doc: z.infer<T>): z.infer<T> {
+    for (const key of this._getNullIntolerantOptionalFields()) {
+      if ((doc as Record<string, unknown>)[key] === null) {
+        delete (doc as Record<string, unknown>)[key];
+      }
+    }
+    return doc;
   }
 }
 

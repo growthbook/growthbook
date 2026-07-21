@@ -21,12 +21,12 @@ import { getValidDate } from "shared/dates";
 import { isExperimentIncrementalEnabled } from "shared/enterprise";
 import { isNil, omit } from "lodash";
 import {
-  FactTableInterface,
+  FactTableDefinition,
   FactMetricInterface,
   FactTableColumnType,
 } from "shared/types/fact-table";
 import {
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
   getAllMetricIdsFromExperiment,
   getEqualWeights,
   getLatestPhaseVariations,
@@ -185,7 +185,7 @@ export function getFutureScheduledStartDate(
 
 export type ExperimentTableRow = {
   label: string | ReactElement;
-  metric: ExperimentMetricInterface;
+  metric: ExperimentMetricDefinition;
   metricOverrideFields: string[];
   variations: SnapshotMetric[];
   rowClass?: string;
@@ -211,6 +211,11 @@ export function useDomain(
   variations: ExperimentReportVariation[], // must be ordered, baseline first
   rows: ExperimentTableRow[],
   differenceType: DifferenceType,
+  // When the analysis uses one-sided intervals (e.g. safe rollouts), one CI
+  // bound is "fake" (±Infinity). In that case we anchor the open side at 0
+  // rather than inferring a finite extent from it, so the domain is "0 +
+  // padding around the real bound" instead of "[ci, ci]".
+  oneSided = false,
 ): [number, number] {
   const { metricDefaults } = useOrganizationMetricDefaults();
 
@@ -282,7 +287,19 @@ export function useDomain(
       const loFinite = Number.isFinite(ci0);
       const hiFinite = Number.isFinite(ci1);
 
-      if (loFinite && hiFinite) {
+      if (oneSided) {
+        // One bound is fake (±Infinity). Build the extent from the *real*
+        // values only — the finite bound and the point estimate — plus 0 as a
+        // reference. Because we take min/max, 0 only widens the domain when it
+        // is actually the extreme (the real CI sits entirely on one side of
+        // it); a "proper" CI that has drifted across 0 keeps its real bounds
+        // and 0 simply sits interior. The open side is drawn out to the plot
+        // edge by the consuming graph.
+        const realValues = [expected, 0];
+        if (loFinite) realValues.push(ci0);
+        if (hiFinite) realValues.push(ci1);
+        addBounds(Math.min(...realValues), Math.max(...realValues));
+      } else if (loFinite && hiFinite) {
         addBounds(ci0, ci1);
       } else if (!loFinite && hiFinite) {
         // One-sided [-Infinity, X]: infer a symmetric-ish finite left extent.
@@ -316,7 +333,7 @@ export function useDomain(
   return [lowerBound, upperBound];
 }
 
-export function applyMetricOverrides<T extends ExperimentMetricInterface>(
+export function applyMetricOverrides<T extends ExperimentMetricDefinition>(
   metric: T,
   metricOverrides?: MetricOverride[],
 ): {
@@ -402,6 +419,7 @@ export function useExperimentSearch({
   filterResults,
   localStorageKey,
   watchedExperimentIds,
+  controlledSearchValue,
 }: {
   allExperiments: ExperimentInterfaceStringDates[];
   defaultSortField?: keyof ComputedExperimentInterface;
@@ -411,6 +429,10 @@ export function useExperimentSearch({
   ) => ComputedExperimentInterface[];
   localStorageKey: string;
   watchedExperimentIds?: string[];
+  // When provided, drives filtering from a stored search string (e.g. a
+  // dashboard block's saved filter) instead of a user-typed input. Bypasses the
+  // URL `q` param so it doesn't leak into or clobber the page's search state.
+  controlledSearchValue?: string;
 }) {
   const {
     getExperimentMetricById,
@@ -466,7 +488,8 @@ export function useExperimentSearch({
     localStorageKey,
     defaultSortField,
     defaultSortDir,
-    updateSearchQueryOnChange: true,
+    updateSearchQueryOnChange: controlledSearchValue === undefined,
+    controlledSearchValue,
     searchFields: ["name^3", "trackingKey^2", "hypothesis^2", "description"],
     searchTermFilters: {
       is: (item) => {
@@ -598,8 +621,8 @@ export function getRowResults({
   baseline: SnapshotMetric;
   statsEngine: StatsEngine;
   differenceType: DifferenceType;
-  metric: ExperimentMetricInterface;
-  denominator?: ExperimentMetricInterface;
+  metric: ExperimentMetricDefinition;
+  denominator?: ExperimentMetricDefinition;
   metricDefaults: MetricDefaults;
   minSampleSize: number;
   ciUpper: number;
@@ -912,9 +935,37 @@ export function convertExperimentToTemplate(
   return template;
 }
 
+export function datasourceHasWritableEphemeralPipeline(
+  datasource: DataSourceInterfaceWithParams | null | undefined,
+  hasPipelineModeFeature: boolean,
+): boolean {
+  const pipelineSettings = datasource?.settings?.pipelineSettings;
+  return (
+    !!datasource?.properties?.supportsWritingTables &&
+    !!pipelineSettings?.allowWriting &&
+    pipelineSettings?.mode === "ephemeral" &&
+    !!pipelineSettings?.writeDataset &&
+    hasPipelineModeFeature
+  );
+}
+
+export function getHonoredPrecomputedUnitDimensionIds(
+  precomputedUnitDimensionIds: string[] | undefined,
+  datasource: DataSourceInterfaceWithParams | null | undefined,
+  hasPipelineModeFeature: boolean,
+): string[] {
+  if (
+    !datasourceHasWritableEphemeralPipeline(datasource, hasPipelineModeFeature)
+  ) {
+    return [];
+  }
+  return precomputedUnitDimensionIds ?? [];
+}
+
 export function getIsExperimentIncludedInIncrementalRefresh(
   datasource: DataSourceInterfaceWithParams | undefined,
   experimentId: string | undefined,
+  experimentType: ExperimentInterfaceStringDates["type"],
 ): boolean {
   const pipelineSettings = datasource?.settings.pipelineSettings;
   if (!pipelineSettings) return false;
@@ -932,7 +983,11 @@ export function getIsExperimentIncludedInIncrementalRefresh(
     );
   }
 
-  return isExperimentIncrementalEnabled(pipelineSettings, experimentId);
+  return isExperimentIncrementalEnabled(
+    pipelineSettings,
+    experimentId,
+    experimentType,
+  );
 }
 
 // Returns updated pipeline settings that disable incremental refresh for the
@@ -1011,7 +1066,7 @@ export function getAvailableMetricsFilters({
   secondaryMetrics: string[];
   guardrailMetrics: string[];
   metricGroups: MetricGroupInterface[];
-  getExperimentMetricById: (id: string) => ExperimentMetricInterface | null;
+  getExperimentMetricById: (id: string) => ExperimentMetricDefinition | null;
 }): {
   groups: { id: string; name: string }[];
   metrics: { id: string; name: string }[];
@@ -1069,7 +1124,7 @@ export function getAvailableMetricTags({
   secondaryMetrics: string[];
   guardrailMetrics: string[];
   metricGroups: MetricGroupInterface[];
-  getExperimentMetricById: (id: string) => ExperimentMetricInterface | null;
+  getExperimentMetricById: (id: string) => ExperimentMetricDefinition | null;
 }): string[] {
   const expandedGoals = expandMetricGroups(goalMetrics, metricGroups);
   const expandedSecondaries = expandMetricGroups(
@@ -1118,9 +1173,9 @@ export function getAvailableSliceTags({
     }>;
   }> | null;
   metricGroups: MetricGroupInterface[];
-  factTables: FactTableInterface[];
-  getExperimentMetricById: (id: string) => ExperimentMetricInterface | null;
-  getFactTableById: (id: string) => FactTableInterface | null;
+  factTables: FactTableDefinition[];
+  getExperimentMetricById: (id: string) => ExperimentMetricDefinition | null;
+  getFactTableById: (id: string) => FactTableDefinition | null;
 }): AvailableSliceTag[] {
   const sliceTagsMap = new Map<
     string,
@@ -1128,7 +1183,7 @@ export function getAvailableSliceTags({
   >();
 
   // Build factTableMap for parseSliceQueryString
-  const factTableMap: Record<string, FactTableInterface> = {};
+  const factTableMap: Record<string, FactTableDefinition> = {};
   factTables.forEach((table) => {
     factTableMap[table.id] = table;
   });

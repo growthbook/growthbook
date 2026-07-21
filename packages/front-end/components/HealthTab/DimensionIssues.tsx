@@ -21,6 +21,7 @@ import {
   HealthTabConfigParams,
   HealthTabOnboardingModal,
 } from "@/components/Experiment/TabbedPage/HealthTabOnboardingModal";
+import Callout from "@/ui/Callout";
 import { EXPERIMENT_DIMENSION_PREFIX } from "./SRMCard";
 import HealthCard from "./HealthCard";
 import { IssueTags, IssueValue } from "./IssueTags";
@@ -165,6 +166,7 @@ export const DimensionIssues = ({
   return (
     <>
       <Modal
+        useRadixButton={false}
         trackingEventModalType="srm-dimension-issues"
         close={() => setModalOpen(false)}
         open={modalOpen}
@@ -235,12 +237,12 @@ export const DimensionIssues = ({
                             isBandit={isBandit}
                           />
                         ) : (
-                          <div className="alert alert-info">
+                          <Callout status="info">
                             <b>
                               More traffic is required to detect a Sample Ratio
                               Mismatch (SRM).
                             </b>
-                          </div>
+                          </Callout>
                         )}
                       </div>
                     </div>

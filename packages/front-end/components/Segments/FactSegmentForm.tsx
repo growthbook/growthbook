@@ -1,4 +1,5 @@
 import { useForm } from "react-hook-form";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { SegmentInterface } from "shared/types/segment";
 import { GBArrowLeft } from "@/components/Icons";
@@ -178,6 +179,7 @@ export default function FactSegmentForm({
         <Field
           size="legacy"
           label="Description"
+          maxLength={MAX_DESCRIPTION_LENGTH}
           {...form.register("description")}
           textarea
           disabled={isReadOnly}
@@ -216,7 +218,7 @@ export default function FactSegmentForm({
                   />
                 </>
               }
-              placeholder="All projects"
+              placeholder="All Projects"
               value={form.watch("projects")}
               options={projectOptions}
               disabled={isReadOnly}

@@ -65,6 +65,7 @@ const DecisionFrameworkSettings = () => {
 
       {criteriaToDelete && (
         <Modal
+          useRadixButton={false}
           header="Delete Decision Criteria"
           trackingEventModalType="delete-decision-criteria"
           open={true}
@@ -106,8 +107,11 @@ const DecisionFrameworkSettings = () => {
           </Heading>
           <Box>
             <Text wrap="nowrap">
-              <DocLink docSection={"experimentDecisionFramework"}>
-                View Docs
+              <DocLink
+                useRadix={false}
+                docSection={"experimentDecisionFramework"}
+              >
+                View docs
               </DocLink>
             </Text>
           </Box>
@@ -141,7 +145,7 @@ const DecisionFrameworkSettings = () => {
               htmlFor="toggle-decisionFrameworkEnabled"
               className="font-weight-semibold mb-0"
             >
-              Enable experiment decision framework
+              Enable Experiment Decision Framework
             </label>
           </Box>
         </Flex>
@@ -150,7 +154,7 @@ const DecisionFrameworkSettings = () => {
             <>
               <Box mt="3" mb="3">
                 <Heading size="2">
-                  Minimum experiment runtime
+                  Minimum Experiment Runtime
                   <Tooltip content="Estimated duration and shipping recommendations are not made until an experiment has been running for this many days.">
                     <Flex
                       ml="2"

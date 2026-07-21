@@ -1,4 +1,5 @@
 import { FC, useMemo, useState } from "react";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { useForm } from "react-hook-form";
 import { DimensionInterface } from "shared/types/dimension";
 import { FaExternalLinkAlt } from "react-icons/fa";
@@ -71,6 +72,7 @@ const DimensionForm: FC<{
         />
       )}
       <Modal
+        useRadixButton={false}
         trackingEventModalType=""
         close={close}
         open={true}
@@ -100,6 +102,7 @@ const DimensionForm: FC<{
           size="legacy"
           label="Description"
           textarea
+          maxLength={MAX_DESCRIPTION_LENGTH}
           {...form.register("description")}
         />
         <SelectField

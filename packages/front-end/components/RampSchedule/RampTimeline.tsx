@@ -5,6 +5,7 @@ import { format } from "date-fns";
 import { abbreviateAgo } from "shared/dates";
 import {
   isReadyForApproval,
+  isAwaitingStartApproval,
   RampScheduleInterface,
   RampScheduleStatus,
   RampStepAction,
@@ -18,6 +19,10 @@ import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
 import MonitoredIcon from "@/components/Features/RuleModal/MonitoredIcon";
+import {
+  NodeState,
+  resolveNodeStatus,
+} from "@/components/RampSchedule/rampTimelineStatus";
 import styles from "./RampTimeline.module.scss";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -109,23 +114,24 @@ export function formatStepGateInline(
   return requiresApproval ? `${duration}, approval` : duration;
 }
 
-// Two-line ReactNode for a scheduled datetime; shows year only when it differs from current year.
+// Scheduled datetime label. Two-line by default (for node sublabels);
+// pass `inline` for single-line rendering in popovers.
 export function formatScheduledDate(
   d: Date | string,
-  { compact }: { compact?: boolean } = {},
+  { inline }: { inline?: boolean } = {},
 ): ReactNode {
   const parsed = new Date(d);
   const now = new Date();
   const sameYear = parsed.getFullYear() === now.getFullYear();
   const dateLine = format(parsed, sameYear ? "MMM d" : "MMM d, yyyy");
-  if (compact) {
+  const timeLine = format(parsed, "h:mm a");
+  if (inline) {
     return (
-      <div className={styles.scheduledDateLine}>
-        <Text size="small">{dateLine}</Text>
-      </div>
+      <Text size="small">
+        {dateLine}, {timeLine}
+      </Text>
     );
   }
-  const timeLine = format(parsed, "h:mm a");
   return (
     <>
       <div className={styles.scheduledDateLine}>
@@ -334,10 +340,7 @@ function PopoverPatchDisplay({
 
 interface NodePopoverContentProps {
   heading: string;
-  headingColor: string;
-  nodeColor: string;
   nodeState: NodeState;
-  status: RampScheduleStatus;
   // Step's time gate in seconds (null = no time gate). null is also used for
   // start/end synthetic nodes that aren't backed by a step.
   interval: number | null;
@@ -351,14 +354,14 @@ interface NodePopoverContentProps {
   rs: RampScheduleInterface;
   onJump?: (targetStepIndex: number) => Promise<void> | void;
   onComplete?: () => Promise<void> | void;
+  onCompleteAndDisable?: () => Promise<void> | void;
+  isDisableNode?: boolean;
+  ctaLabelOverride?: string;
 }
 
 function NodePopoverContent({
   heading,
-  headingColor,
-  nodeColor,
   nodeState,
-  status,
   interval,
   triggerLabel,
   actions,
@@ -370,6 +373,9 @@ function NodePopoverContent({
   rs,
   onJump,
   onComplete,
+  onCompleteAndDisable,
+  isDisableNode,
+  ctaLabelOverride,
 }: NodePopoverContentProps) {
   const [loading, setLoading] = useState(false);
 
@@ -377,18 +383,23 @@ function NodePopoverContent({
 
   let ctaLabel: string | null = null;
   if (canAct) {
-    if (stepIndex === "start") ctaLabel = "Roll back to start";
-    else if (stepIndex === "end") ctaLabel = "Complete ramp";
+    if (ctaLabelOverride) ctaLabel = ctaLabelOverride;
+    else if (stepIndex === "start") ctaLabel = "Roll back to start";
+    else if (stepIndex === "end")
+      ctaLabel = isDisableNode
+        ? "Complete ramp and disable rule"
+        : "Complete ramp";
     else ctaLabel = `Jump to Step ${(stepIndex as number) + 1}`;
   }
 
-  const hasCtaHandler = stepIndex === "end" ? !!onComplete : !!onJump;
+  const endHandler = isDisableNode ? onCompleteAndDisable : onComplete;
+  const hasCtaHandler = stepIndex === "end" ? !!endHandler : !!onJump;
 
   async function handleCta() {
     setLoading(true);
     try {
       if (stepIndex === "end") {
-        await onComplete?.();
+        await endHandler?.();
       } else if (stepIndex === "start") {
         await onJump?.(-1);
       } else {
@@ -399,28 +410,18 @@ function NodePopoverContent({
     }
   }
 
-  type StatusMeta = { label: string; color: string };
-  const statusMeta: StatusMeta = (() => {
-    if (nodeState === "completed")
-      return { label: "Completed", color: "var(--violet-9)" };
-    if (nodeState === "active") {
-      if (isReadyForApproval(rs)) {
-        return { label: "Awaiting Approval", color: "var(--orange-9)" };
-      }
-      if (status === "paused")
-        return { label: "Paused", color: "var(--amber-11)" };
-      if (monitored) return { label: "Monitoring", color: "var(--blue-9)" };
-      return { label: "Running", color: "var(--green-9)" };
-    }
-    return { label: "Upcoming", color: "var(--gray-12)" };
-  })();
+  const statusVisual = resolveNodeStatus(nodeState, rs, !!monitored);
 
   return (
     <Box className={styles.popoverBox}>
       {/* Header */}
       <Flex align="center" gap="2" mb="2">
-        <NodeDot state={nodeState} color={nodeColor} status={status} />
-        <span style={{ color: headingColor }}>
+        <NodeDot
+          state={nodeState}
+          color={statusVisual.dotColor}
+          pulse={statusVisual.pulse}
+        />
+        <span style={{ color: statusVisual.labelColor }}>
           <Text weight="medium">
             {heading}
             {nodeState === "active" && (
@@ -431,7 +432,7 @@ function NodePopoverContent({
             )}{" "}
             —{" "}
             <span className={styles.popoverStatusLabel}>
-              {statusMeta.label}
+              {statusVisual.label}
             </span>
           </Text>
         </span>
@@ -547,47 +548,22 @@ function hasDualEndNodes(rs: RampScheduleInterface): boolean {
 }
 
 function completedNodeCount(rs: RampScheduleInterface): number {
-  const extra = hasDualEndNodes(rs) ? 1 : 0;
-  if (rs.status === "completed") return rs.steps.length + 2 + extra;
+  const dual = hasDualEndNodes(rs);
+  const extra = dual ? 1 : 0;
+  if (rs.status === "completed") {
+    // When dual end nodes exist and the cutoff date hasn't passed, the
+    // disable node wasn't naturally reached by the scheduler. We can't
+    // distinguish "complete without disable" from "complete and disable"
+    // from the schedule data alone, so we conservatively show the disable
+    // node as not-yet-completed until the cutoff passes.
+    if (dual && rs.cutoffDate && new Date(rs.cutoffDate) > new Date()) {
+      return rs.steps.length + 2;
+    }
+    return rs.steps.length + 2 + extra;
+  }
 
   if (rs.status === "pending" || rs.status === "ready") return 0;
   return rs.currentStepIndex + 1;
-}
-
-type NodeState = "completed" | "active" | "future";
-
-function activeDotColor(status: RampScheduleStatus): string {
-  if (status === "running") return "var(--green-9)";
-  if (status === "pending" || status === "ready" || status === "paused")
-    return "var(--amber-9)";
-  if (status === "rolled-back") return "var(--gray-8)";
-  return "var(--accent-9)";
-}
-
-function activeLabelColor(status: RampScheduleStatus): string {
-  if (status === "running") return "var(--green-11)";
-  if (status === "pending" || status === "ready" || status === "paused")
-    return "var(--amber-11)";
-  if (status === "rolled-back") return "var(--gray-10)";
-  return "var(--accent-11)";
-}
-
-function dotColor(state: NodeState, status: RampScheduleStatus): string {
-  if (state === "completed") return "var(--violet-9)";
-  if (state === "future") return "var(--ramp-future-dot)";
-  return activeDotColor(status);
-}
-
-function nodeLabelColor(state: NodeState, status: RampScheduleStatus): string {
-  if (state === "completed") return "var(--violet-12)";
-  if (state === "future") return "var(--ramp-future-label)";
-  return activeLabelColor(status);
-}
-
-function connectorColor(left: NodeState, status: RampScheduleStatus): string {
-  if (left === "completed") return "var(--violet-9)";
-  if (left === "active") return activeDotColor(status);
-  return "var(--ramp-future-connector)";
 }
 
 // ─── NodeDot ─────────────────────────────────────────────────────────────────
@@ -595,17 +571,17 @@ function connectorColor(left: NodeState, status: RampScheduleStatus): string {
 function NodeDot({
   state,
   color,
-  status,
+  pulse = false,
 }: {
   state: NodeState;
   color: string;
-  status: RampScheduleStatus;
+  pulse?: boolean;
 }) {
   return (
     <Box className={styles.dotContainer}>
       {state === "active" && (
         <Box
-          className={`${styles.dotRing}${status === "running" ? ` ${styles.dotRingPulse}` : ""}`}
+          className={`${styles.dotRing}${pulse ? ` ${styles.dotRingPulse}` : ""}`}
           style={{ border: `2px solid ${color}` }}
         />
       )}
@@ -624,8 +600,7 @@ interface NodeMeta {
   sublabel: ReactNode;
   /** Trigger label rendered underneath the connector that leads INTO this node. */
   connectorLabel?: ReactNode;
-  dotColorOverride?: string;
-  labelColorOverride?: string;
+  monitored?: boolean;
   /** Pre-built popover content — when present, wraps node in a hover popover. */
   popoverContent?: ReactNode;
 }
@@ -633,20 +608,21 @@ interface NodeMeta {
 function Node({
   node,
   state,
-  status,
+  dotColor,
+  labelColor,
+  pulse,
 }: {
   node: NodeMeta;
   state: NodeState;
-  status: RampScheduleStatus;
+  dotColor: string;
+  labelColor: string;
+  pulse: boolean;
 }) {
-  const color = node.dotColorOverride ?? dotColor(state, status);
-  const labelColor = node.labelColorOverride ?? nodeLabelColor(state, status);
-
   const nodeContent = (
     <Flex direction="column" align="center" className={styles.nodeInner}>
       {/* Dot */}
       <Box my="1">
-        <NodeDot state={state} color={color} status={status} />
+        <NodeDot state={state} color={dotColor} pulse={pulse} />
       </Box>
 
       {/* Labels */}
@@ -694,19 +670,17 @@ function Node({
 // ─── Connector ───────────────────────────────────────────────────────────────
 
 function Connector({
-  left,
-  status,
+  color,
   triggerLabel,
 }: {
-  left: NodeState;
-  status: RampScheduleStatus;
+  color: string;
   triggerLabel?: ReactNode;
 }) {
   return (
     <Flex direction="column" className={styles.connector}>
       <Box
         className={styles.connectorLine}
-        style={{ backgroundColor: connectorColor(left, status) }}
+        style={{ backgroundColor: color }}
       />
       {triggerLabel && (
         <Box className={styles.connectorLabel}>{triggerLabel}</Box>
@@ -722,6 +696,7 @@ interface Props {
   pendingDetach?: boolean;
   onJump?: (targetStepIndex: number) => Promise<void> | void;
   onComplete?: () => Promise<void> | void;
+  onCompleteAndDisable?: () => Promise<void> | void;
 }
 
 // ─── Exported helpers (used by parent pages to build header rows) ─────────────
@@ -737,7 +712,7 @@ export function getRampStatusLabel(rs: RampScheduleInterface): string {
     pending: "Schedule Start is Pending",
     running: "Running",
     paused: "Paused",
-    completed: "Complete",
+    completed: "Completed",
     "rolled-back": "Rolled back",
   };
   return labels[rs.status] ?? rs.status;
@@ -782,6 +757,7 @@ export default function RampTimeline({
   pendingDetach,
   onJump,
   onComplete,
+  onCompleteAndDisable,
 }: Props) {
   const { steps, status, startDate, targets } = rs;
   // activatingRevisionVersion is now per-target; find the first target that has one
@@ -789,12 +765,15 @@ export default function RampTimeline({
     (t) => !!t.activatingRevisionVersion,
   )?.activatingRevisionVersion;
   const doneCount = completedNodeCount(rs);
+  const awaitingStartApproval = isAwaitingStartApproval(rs);
 
   function getState(i: number): NodeState {
     if (pendingDetach) return "future";
     if (i < doneCount) return "completed";
     if (status === "pending") return "future";
     if (status === "ready") {
+      // An approval hold parks the playhead at Start until approved.
+      if (awaitingStartApproval) return i === 0 ? "active" : "future";
       if (startDate && i === 0) return "active";
       return "future";
     }
@@ -815,6 +794,9 @@ export default function RampTimeline({
   const showStartDate =
     !!startDate && (status === "pending" || status === "ready");
   const startSublabel = showStartDate ? formatScheduledDate(startDate!) : null;
+  const startInline = showStartDate
+    ? formatScheduledDate(startDate!, { inline: true })
+    : null;
   const nodes: NodeMeta[] = [
     {
       key: "start",
@@ -823,12 +805,9 @@ export default function RampTimeline({
       popoverContent: (
         <NodePopoverContent
           heading="Start"
-          headingColor={nodeLabelColor(getState(0), status)}
-          nodeColor={dotColor(getState(0), status)}
           nodeState={getState(0)}
-          status={status}
           interval={null}
-          triggerLabel={startSublabel}
+          triggerLabel={startInline}
           actions={rs.startActions ?? []}
           stepIndex="start"
           isActive={getState(0) === "active"}
@@ -851,6 +830,7 @@ export default function RampTimeline({
           String(i + 1)
         ),
         sublabel: null,
+        monitored: step.monitored,
         connectorLabel:
           i === 0 ? (
             !startDate ? (
@@ -862,10 +842,7 @@ export default function RampTimeline({
         popoverContent: (
           <NodePopoverContent
             heading={`Step ${i + 1}`}
-            headingColor={nodeLabelColor(state, status)}
-            nodeColor={dotColor(state, status)}
             nodeState={state}
-            status={status}
             interval={step.interval}
             triggerLabel={formatStepGate(step.interval, step.holdConditions)}
             actions={step.actions}
@@ -902,10 +879,7 @@ export default function RampTimeline({
             popoverContent: (
               <NodePopoverContent
                 heading="End"
-                headingColor={nodeLabelColor(getState(rampEndIdx), status)}
-                nodeColor={dotColor(getState(rampEndIdx), status)}
                 nodeState={getState(rampEndIdx)}
-                status={status}
                 interval={null}
                 triggerLabel={null}
                 actions={rs.endActions ?? []}
@@ -920,22 +894,22 @@ export default function RampTimeline({
           {
             key: "end-cutoff",
             label: "disable",
-            sublabel: formatScheduledDate(rs.cutoffDate!, { compact: true }),
+            sublabel: formatScheduledDate(rs.cutoffDate!),
             popoverContent: (
               <NodePopoverContent
                 heading="Disable"
-                headingColor={nodeLabelColor(getState(cutoffIdx), status)}
-                nodeColor={dotColor(getState(cutoffIdx), status)}
                 nodeState={getState(cutoffIdx)}
-                status={status}
                 interval={null}
-                triggerLabel={formatScheduledDate(rs.cutoffDate!)}
+                triggerLabel={formatScheduledDate(rs.cutoffDate!, {
+                  inline: true,
+                })}
                 actions={[]}
                 stepIndex="end"
                 isActive={getState(cutoffIdx) === "active"}
                 rs={rs}
                 onJump={onJump}
-                onComplete={onComplete}
+                onCompleteAndDisable={onCompleteAndDisable}
+                isDisableNode
               />
             ),
           },
@@ -949,25 +923,27 @@ export default function RampTimeline({
         {
           key: "end",
           label: hasDisableDate ? "disable" : "end",
-          sublabel: singleDate
-            ? formatScheduledDate(singleDate, { compact: true })
-            : null,
+          sublabel: singleDate ? formatScheduledDate(singleDate) : null,
           connectorLabel: lastStepConnector,
           popoverContent: (
             <NodePopoverContent
               heading={hasDisableDate ? "Disable" : "End"}
-              headingColor={nodeLabelColor(getState(endNodeIndex), status)}
-              nodeColor={dotColor(getState(endNodeIndex), status)}
               nodeState={getState(endNodeIndex)}
-              status={status}
               interval={null}
-              triggerLabel={singleDate ? formatScheduledDate(singleDate) : null}
+              triggerLabel={
+                singleDate
+                  ? formatScheduledDate(singleDate, { inline: true })
+                  : null
+              }
               actions={rs.endActions ?? []}
               stepIndex="end"
               isActive={getState(endNodeIndex) === "active"}
               rs={rs}
               onJump={onJump}
               onComplete={onComplete}
+              ctaLabelOverride={
+                hasDisableDate ? "Complete schedule and disable" : undefined
+              }
             />
           ),
         },
@@ -982,12 +958,28 @@ export default function RampTimeline({
   const revisionSublabel = (
     <>
       {sublabelLine(<Text size="small">awaiting publish</Text>)}
+      {awaitingStartApproval &&
+        sublabelLine(<Text size="small">starts on approval</Text>)}
       {!!activatingRevisionVersion &&
         sublabelLine(
           <Text size="small">Revision {activatingRevisionVersion}</Text>,
         )}
     </>
   );
+
+  // Live (published) approval hold: the schedule is "ready" with the rule
+  // off until approved. Surface a pre-Start indicator so it reads the same as
+  // the draft-preview hold.
+  const approvalSublabel = sublabelLine(
+    <Text size="small">awaiting approval</Text>,
+  );
+
+  // Resolve each node's visuals once, shared by the node and its connector.
+  const states = nodes.map((_, i) => getState(i));
+  const visuals = nodes.map((node, i) =>
+    resolveNodeStatus(states[i], rs, !!node.monitored),
+  );
+  const pendingVisual = resolveNodeStatus("active", rs, false);
 
   return (
     <Box className={styles.timelineRoot}>
@@ -1002,26 +994,35 @@ export default function RampTimeline({
                   key: "pending-removal",
                   label: "removal",
                   sublabel: revisionSublabel,
-                  dotColorOverride: "var(--red-9)",
-                  labelColorOverride: "var(--red-11)",
                 }}
                 state="active"
-                status={status}
+                dotColor="var(--red-9)"
+                labelColor="var(--red-11)"
+                pulse={false}
               />
               <Box className={styles.connectorSpacer} />
             </>
           ) : (
             /* Normal pre-timeline indicator node for states where the ramp hasn't started yet */
-            status === "pending" && (
+            (status === "pending" ||
+              (awaitingStartApproval && status === "ready")) && (
               <>
                 <Node
                   node={{
                     key: "pre-indicator",
-                    label: "pending",
-                    sublabel: revisionSublabel,
+                    label:
+                      awaitingStartApproval && status === "ready"
+                        ? "approve"
+                        : "pending",
+                    sublabel:
+                      awaitingStartApproval && status === "ready"
+                        ? approvalSublabel
+                        : revisionSublabel,
                   }}
                   state="active"
-                  status={status}
+                  dotColor={pendingVisual.dotColor}
+                  labelColor={pendingVisual.labelColor}
+                  pulse={pendingVisual.pulse}
                 />
                 <Box className={styles.connectorSpacer} />
               </>
@@ -1032,14 +1033,19 @@ export default function RampTimeline({
             <Fragment key={node.key}>
               {i > 0 && (
                 <Connector
-                  left={getState(i - 1)}
-                  status={status}
+                  color={visuals[i - 1].connectorColor}
                   triggerLabel={
-                    getState(i) === "future" ? node.connectorLabel : undefined
+                    states[i] === "future" ? node.connectorLabel : undefined
                   }
                 />
               )}
-              <Node node={node} state={getState(i)} status={status} />
+              <Node
+                node={node}
+                state={states[i]}
+                dotColor={visuals[i].dotColor}
+                labelColor={visuals[i].labelColor}
+                pulse={visuals[i].pulse}
+              />
             </Fragment>
           ))}
         </Flex>

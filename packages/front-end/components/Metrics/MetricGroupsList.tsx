@@ -84,7 +84,9 @@ const MetricGroupsList: FC = () => {
           Create groups of metrics that can be ordered and added to experiments
         </p>
         <Box mt="3">
-          <Button onClick={() => setOpenModal(true)}>Add Metric Group</Button>
+          <Button disabled={!canCreate} onClick={() => setOpenModal(true)}>
+            Add Metric Group
+          </Button>
         </Box>
 
         <Box mt="4">
@@ -168,7 +170,7 @@ const MetricGroupsList: FC = () => {
                     e.stopPropagation();
                   }}
                 >
-                  <MoreMenu>
+                  <MoreMenu useRadix={false}>
                     {canEdit ? (
                       <>
                         {mg.archived ? (
@@ -197,6 +199,7 @@ const MetricGroupsList: FC = () => {
                     ) : null}
                     {canDelete ? (
                       <DeleteButton
+                        useRadix={false}
                         className="dropdown-item text-danger"
                         displayName="project"
                         text="Delete"

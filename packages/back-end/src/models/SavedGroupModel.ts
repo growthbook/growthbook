@@ -1,3 +1,4 @@
+import { isEqual, omit } from "lodash";
 import {
   SavedGroupInterface,
   LegacySavedGroupInterface,
@@ -8,6 +9,11 @@ import { UpdateProps } from "shared/types/base-model";
 import { UpdateFilter } from "mongodb";
 import { savedGroupUpdated } from "back-end/src/services/savedGroups";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
+import {
+  logSavedGroupCreatedEvent,
+  logSavedGroupUpdatedEvent,
+  logSavedGroupDeletedEvent,
+} from "back-end/src/services/savedGroupEvents";
 import { MakeModelClass } from "./BaseModel";
 
 // `skipAttributeValidation` lets revert flows write a previously-published
@@ -28,6 +34,11 @@ const BaseClass = MakeModelClass({
     deleteEvent: "savedGroup.deleted",
   },
   globallyUniquePrimaryKeys: true,
+  // Org-scoped `getAll()` is on the SDK-payload build path. The default indexes
+  // are id-leading (`{id, organization}`, `{id}`), which can't serve a filter on
+  // `organization` alone — without this a payload rebuild full-scans the
+  // collection. Mirrors FeatureModel's org-leading index.
+  additionalIndexes: [{ fields: { organization: 1 } }],
 });
 
 export class SavedGroupModel extends BaseClass<WriteOptions> {
@@ -105,9 +116,14 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
     doc.useEmptyListGroup = true;
   }
 
+  protected async afterCreate(doc: SavedGroupInterface) {
+    await logSavedGroupCreatedEvent(this.context, this.toApiInterface(doc));
+  }
+
   protected async afterUpdate(
-    _existing: SavedGroupInterface,
+    existing: SavedGroupInterface,
     updates: UpdateProps<SavedGroupInterface>,
+    newDoc: SavedGroupInterface,
   ) {
     // If the values, condition, or projects change, we need to invalidate
     // cached feature rules.
@@ -125,6 +141,20 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
         );
       });
     }
+
+    // Don't emit `savedGroup.updated` if nothing meaningful changed (e.g. only
+    // `dateUpdated` was bumped) — mirrors the feature webhook behavior.
+    const previous = this.toApiInterface(existing);
+    const current = this.toApiInterface(newDoc);
+    if (
+      !isEqual(omit(previous, ["dateUpdated"]), omit(current, ["dateUpdated"]))
+    ) {
+      await logSavedGroupUpdatedEvent(this.context, previous, current);
+    }
+  }
+
+  protected async afterDelete(doc: SavedGroupInterface) {
+    await logSavedGroupDeletedEvent(this.context, this.toApiInterface(doc));
   }
 
   public async removeProjectIdFromAllGroups(projectId: string) {

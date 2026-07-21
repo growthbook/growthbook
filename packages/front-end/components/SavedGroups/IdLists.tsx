@@ -32,7 +32,7 @@ import Table, {
 import {
   draftStatusDots,
   draftStatusTooltip,
-} from "@/components/Features/RevisionStatusBadge";
+} from "@/components/Reviews/RevisionStatusBadge";
 import { useSavedGroupDraftStates } from "@/hooks/useSavedGroupDraftStates";
 import SavedGroupSearchFilters from "@/components/Search/SavedGroupSearchFilters";
 import SavedGroupForm from "./SavedGroupForm";
@@ -64,11 +64,15 @@ export default function IdLists({ groups, mutate }: Props) {
     return groups.filter((g) => g.type === "list");
   }, [groups]);
 
-  const filteredIdLists = project
-    ? idLists.filter((list) =>
-        isProjectListValidForProject(list.projects, project),
-      )
-    : idLists;
+  const filteredIdLists = useMemo(
+    () =>
+      project
+        ? idLists.filter((list) =>
+            isProjectListValidForProject(list.projects, project),
+          )
+        : idLists,
+    [idLists, project],
+  );
 
   const { hasLargeSavedGroupFeature, unsupportedConnections, connections } =
     useLargeSavedGroupSupport();
@@ -116,6 +120,9 @@ export default function IdLists({ groups, mutate }: Props) {
     filterResults: !showArchived
       ? (items) => items.filter((g) => !g.archived)
       : undefined,
+    // The `has:draft` filter reads async-loaded draft states; declare the dep so
+    // results recompute when they arrive (even when `filterResults` is stable).
+    searchTermFilterDeps: [draftHook.draftStates],
     searchTermFilters: {
       is: (item) => {
         const is: string[] = [];

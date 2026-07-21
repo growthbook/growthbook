@@ -8,8 +8,10 @@ import LinkButton from "@/ui/LinkButton";
 import { NewMetricModal } from "@/components/FactTables/NewMetricModal";
 import Button from "@/ui/Button";
 import { Tabs, TabsTrigger, TabsList, TabsContent } from "@/ui/Tabs";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import CreateMetricFromTemplate from "@/components/FactTables/CreateMetricFromTemplate";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 const MetricsPage = (): React.ReactElement => {
   const { metrics, factMetrics, factTables, datasources, project } =
@@ -25,6 +27,11 @@ const MetricsPage = (): React.ReactElement => {
   const hasFactTables = factTables.some((f) =>
     isProjectListValidForProject(f.projects, project),
   );
+
+  const permissionsUtil = usePermissionsUtil();
+  const canCreateMetric = permissionsUtil.canCreateMetric({
+    projects: [project],
+  });
 
   const [showNewModal, setShowNewModal] = React.useState(false);
 
@@ -51,9 +58,25 @@ const MetricsPage = (): React.ReactElement => {
             {!hasDatasource ? (
               <LinkButton href="/datasources">Connect Data Source</LinkButton>
             ) : !hasFactTables ? (
-              <LinkButton href="/fact-tables">Create Fact Table</LinkButton>
+              <>
+                <p>
+                  Start by creating a <strong>Fact Table</strong>, which serves
+                  as the foundation for your metrics.
+                </p>
+                <LinkButton href="/fact-tables">Create Fact Table</LinkButton>
+              </>
             ) : (
-              <Button onClick={() => setShowNewModal(true)}>Add Metric</Button>
+              <Tooltip
+                body="You don't have permission to add metrics in this project."
+                shouldDisplay={!canCreateMetric}
+              >
+                <Button
+                  disabled={!canCreateMetric}
+                  onClick={() => setShowNewModal(true)}
+                >
+                  Add Metric
+                </Button>
+              </Tooltip>
             )}
           </Box>
         </Box>

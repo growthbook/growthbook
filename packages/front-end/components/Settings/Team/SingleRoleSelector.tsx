@@ -1,4 +1,4 @@
-import { ReactNode, useMemo } from "react";
+import { ReactNode, useEffect, useMemo } from "react";
 import { Flex } from "@radix-ui/themes";
 import { MemberRoleInfo } from "shared/types/organization";
 import uniqid from "uniqid";
@@ -8,7 +8,9 @@ import {
   getRoleDisplayName,
 } from "shared/permissions";
 import { useUser } from "@/services/UserContext";
+import PremiumCallout from "@/ui/PremiumCallout";
 import { useEnvironments } from "@/services/features";
+import useOrgLimits from "@/hooks/useOrgLimits";
 import MultiSelectField from "@/ui/MultiSelectField";
 import Switch from "@/ui/Switch";
 import SelectField, {
@@ -24,6 +26,7 @@ export default function SingleRoleSelector({
   includeAdminRole = false,
   includeProjectAdminRole = false,
   disabled = false,
+  isNewAssignment = false,
 }: {
   value: MemberRoleInfo;
   setValue: (value: MemberRoleInfo) => void;
@@ -31,6 +34,7 @@ export default function SingleRoleSelector({
   includeAdminRole?: boolean;
   includeProjectAdminRole?: boolean;
   disabled?: boolean;
+  isNewAssignment?: boolean;
 }) {
   const { roles, hasCommercialFeature, organization } = useUser();
   const hasFeature = hasCommercialFeature("advanced-permissions");
@@ -39,6 +43,20 @@ export default function SingleRoleSelector({
 
   const isNoAccessRoleEnabled = hasCommercialFeature("no-access-role");
   const isProjectAdminRoleEnabled = hasCommercialFeature("project-admin-role");
+
+  // Free plans can only assign the admin global role. This only applies to the
+  // global role selector (includeAdminRole); project roles are gated separately.
+  const { orgSupportsRoles } = useOrgLimits();
+  const rolesRestricted = includeAdminRole && !orgSupportsRoles();
+
+  // Only default NEW assignments to admin — existing assignments are
+  // grandfathered and must never be auto-escalated.
+  useEffect(() => {
+    if (isNewAssignment && rolesRestricted && value.role !== "admin") {
+      setValue({ ...value, role: "admin" });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rolesRestricted, isNewAssignment]);
 
   let roleOptions = [...roles];
 
@@ -58,6 +76,10 @@ export default function SingleRoleSelector({
   // if the org has custom-roles feature and has deactivated roles, remove those from the roleOptions
   if (hasCustomRolesFeature && deactivatedRoles.length) {
     roleOptions = roleOptions.filter((r) => !deactivatedRoles.includes(r.id));
+  }
+
+  if (rolesRestricted) {
+    roleOptions = roleOptions.filter((r) => r.id === "admin");
   }
 
   const standardOptions: { label: string; value: string }[] = [];
@@ -145,8 +167,17 @@ export default function SingleRoleSelector({
             </div>
           );
         }}
-        disabled={disabled}
+        disabled={disabled || rolesRestricted}
       />
+      {rolesRestricted && (
+        <PremiumCallout
+          commercialFeature="advanced-permissions"
+          id="role-plan-limit"
+          mb="3"
+        >
+          Your plan only supports the admin role.
+        </PremiumCallout>
+      )}
 
       {roleSupportsEnvLimit(value.role, organization) &&
         envOptions.length > 1 && (

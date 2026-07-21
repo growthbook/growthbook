@@ -1,0 +1,98 @@
+---
+title: Import from Figma or an Image — Design to Variant (Beta)
+description: Turn a Figma frame or a mockup image into a high-fidelity, testable A/B variation. GrowthBook's AI rebuilds the design as a scoped component and injects it into the page.
+sidebar_label: Figma & image import
+slug: /app/visual/design-import
+---
+
+import MaxWidthImage from '@site/src/components/MaxWidthImage';
+import CommercialFeature from '@site/src/components/CommercialFeature';
+
+<CommercialFeature feature="visual-editor" />
+
+:::info Beta
+
+**Design → Variant** is in beta. Generated results can vary, so always review the variation before you save it. It also needs an up-to-date GrowthBook server and a configured vision-capable AI model — if your instance hasn't enabled it yet, the panel will say so and you can fall back to a mockup image (or ask an admin to update the server).
+
+:::
+
+Design → Variant turns a **Figma frame** or a **mockup image** into a self-contained, testable variation. Instead of nudging the existing page element by element, you hand the AI a finished design and it rebuilds it as a **scoped component** (HTML + CSS, occasionally a little JS) and places it on the page as a variation.
+
+This is the fastest way to test a design your team already mocked up — a new hero, a redesigned pricing card, a promo banner — without hand-coding it.
+
+## When to use it
+
+- ✅ A **self-contained section or component**: a hero, a feature card, a callout, a banner, a redesigned form.
+- ✅ You already have the design in **Figma** or as an **image** (a screenshot, an exported mockup, a design from any tool).
+- ⚠️ **Not** for full-page redesigns or whole-navigation overhauls. The AI is tuned to produce one in-page component; if the design is essentially a new page, it will tell you it's too large and decline rather than produce something broken. Break it into sections instead.
+
+## Open the importer
+
+1. Install and connect the [Visual Editor](/app/visual/install-and-connect) and open the side panel on the page you want to test.
+2. In **AI mode**, click **Import from Figma or a mockup**. The **Design → Variant** panel opens.
+
+## 1. Choose a source
+
+The panel has two source tabs:
+
+### Figma link
+
+Paste a link to a **specific frame** — the URL must include a `node-id` (you get one by right-clicking a frame in Figma and choosing **Copy link to selection**). A link to a whole file without a frame selected won't work.
+
+Importing from Figma requires connecting your Figma account once (see [Connecting Figma](#connecting-figma) below). The connection is **read-only** and scoped to the file you link — GrowthBook never edits your Figma files.
+
+### Mockup image
+
+No Figma needed. **Upload** a PNG, JPEG, or WebP (up to 8 MB), or **paste an image URL**. Anything works: a Figma export, a screenshot of a competitor, a Sketch/Photoshop mockup, even a whiteboard photo.
+
+## 2. Place it on the page
+
+- **Place it in** — click **Pick element** and choose a container on the page (or type a CSS selector). This defaults to the whole page if you don't pick one.
+- **Placement** — how the generated component is positioned relative to the target:
+
+  | Mode                 | Result                                                                                                                         |
+  | -------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+  | **Append inside**    | Added as the last child of the target (the default).                                                                           |
+  | **Insert before**    | Added immediately before the target, as its previous sibling.                                                                  |
+  | **Insert after**     | Added immediately after the target, as its next sibling.                                                                       |
+  | **Replace contents** | Replaces everything inside the target. (Can't target `<body>`/`<html>` — that would wipe the page; pick a specific container.) |
+
+## 3. Add instructions (optional) and generate
+
+Use **Extra instructions** to steer the result — e.g. _"use our brand blue for the button"_ or _"keep the existing headline copy."_ Then click **Generate variation**.
+
+The AI builds the component and previews it live on the page. Review it, then **accept** to save it into the variation, or refine your instructions and regenerate. Because the markup and styles are **scoped** to the generated component, they don't leak into or restyle the rest of the host page.
+
+:::tip Review before you save
+
+This is the beta caveat in practice: the AI reproduces the design as faithfully as it can, but fonts, spacing, and imagery can differ from the source. Treat the output as a strong first draft, eyeball it on the real page, and tweak with [Manual mode](/app/visual/manual-mode) or [global CSS](/app/visual/manual-mode) if needed before saving.
+
+:::
+
+## Connecting Figma
+
+The first time you use the Figma source, click **Connect Figma**. This opens Figma's authorization screen in a popup; approve it and you're returned to the side panel.
+
+- The integration requests a **single, read-only scope** (`file_content:read`) — enough to render the frame you link and read its layout/colors. It can't modify your files and can't see files you don't link.
+- The connection is **per-user** — each teammate connects their own Figma account, and tokens are stored encrypted.
+- You can **Disconnect** at any time from the panel.
+
+If you see _"Figma isn't set up on this GrowthBook instance,"_ the Figma integration hasn't been configured on your server yet. Use a **mockup image** instead, or ask an admin to set up the Figma OAuth app. (Self-hosted instances need the Figma OAuth credentials configured; GrowthBook Cloud has this managed.)
+
+## Images and placeholders
+
+The AI reproduces **layout, typography, spacing, and color** from the design. For photographic imagery it can't recreate, it uses a neutral placeholder (a solid color or gradient from the palette) rather than hot-linking external assets. Swap those for real images afterward with the [image tools](/app/visual/images) — upload, AI-generate, or pick from your library.
+
+## Limitations
+
+- **One component per generation.** Design → Variant produces a single scoped component, not a multi-section page.
+- **Too-large designs are declined.** If the frame is a full page or a large multi-section layout, the AI returns a message explaining it's too large instead of producing a partial result. Target a smaller container.
+- **Results vary (beta).** Always preview and adjust before saving.
+- **Needs a vision-capable AI model.** Your org must have a vision-capable model configured in [AI Settings](/integrations/ai) (e.g. Gemini, GPT-4o/5, or Claude). Admins can set the model used for the Visual Editor there.
+
+## Next steps
+
+- **[AI mode](/app/visual/ai-mode)** — describe changes in natural language for element-level edits.
+- **[Manual mode](/app/visual/manual-mode)** — fine-tune the generated component with the structured editor.
+- **[Images](/app/visual/images)** — replace the placeholders with real or AI-generated imagery.
+- **[Preview and QA](/app/visual/preview-and-qa)** — check the variation before publishing.

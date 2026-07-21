@@ -1,7 +1,7 @@
 import { SnapshotMetric } from "shared/types/experiment-snapshot";
 import React, { DetailedHTMLProps, HTMLAttributes } from "react";
 import {
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
   hasEnoughData,
   isStatSig,
 } from "shared/experiments";
@@ -19,7 +19,7 @@ import { useResultPopover } from "./useResultPopover";
 
 interface Props
   extends DetailedHTMLProps<HTMLAttributes<SVGPathElement>, SVGPathElement> {
-  metric: ExperimentMetricInterface;
+  metric: ExperimentMetricDefinition;
   significanceThresholds: SignificanceThresholds;
   baseline: SnapshotMetric;
   stats: SnapshotMetric;
@@ -51,6 +51,7 @@ interface Props
   currentMetricTotal?: number;
   pValueAdjustmentEnabled?: boolean;
   statusLabels?: StatusLabels;
+  oneSided?: boolean;
 }
 
 export default function PercentGraph({
@@ -86,6 +87,7 @@ export default function PercentGraph({
   currentMetricTotal = 0,
   pValueAdjustmentEnabled,
   statusLabels,
+  oneSided = false,
 }: Props) {
   const { metricDefaults: _metricDefaults } = useOrganizationMetricDefaults();
 
@@ -141,7 +143,7 @@ export default function PercentGraph({
   });
 
   return (
-    <Trigger style={{ display: "inline-flex" }}>
+    <Trigger style={{ display: "flex" }}>
       <AlignedGraph
         ci={showGraph ? (stats?.ciAdjusted ?? stats.ci) : [0, 0]}
         id={id}
@@ -160,6 +162,7 @@ export default function PercentGraph({
         className={className}
         isHovered={isHovered}
         percent={percent}
+        oneSided={oneSided}
         onMouseMove={onMouseMove}
         onMouseLeave={onMouseLeave}
         onClick={onClick}

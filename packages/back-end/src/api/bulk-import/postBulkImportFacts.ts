@@ -102,7 +102,7 @@ export const postBulkImportFacts = createApiRequestHandler(
             (await resolveOwnerToUserId(data.owner, req.context)) ?? "";
         }
         await updateFactTable(req.context, existing, data);
-        if (needsColumnRefresh(data)) {
+        if (needsColumnRefresh(existing, data)) {
           await queueFactTableColumnsRefresh(existing);
         }
         factTableMap.set(existing.id, {

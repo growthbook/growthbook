@@ -1,12 +1,12 @@
-import { SDKConnectionInterface } from "shared/types/sdk-connection";
-import { useCallback, useEffect, useState } from "react";
 import {
-  FaAngleDown,
-  FaAngleRight,
-  FaExclamationCircle,
-  FaExclamationTriangle,
-} from "react-icons/fa";
+  SDKConnectionInterface,
+  SDKLanguage,
+} from "shared/types/sdk-connection";
+import { useCallback, useEffect, useState } from "react";
+import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import { PiArrowRight, PiPaperPlaneTiltFill } from "react-icons/pi";
+import { Flex, Box } from "@radix-ui/themes";
+import { getLatestSDKVersion, getSDKCapabilities } from "shared/sdk-versioning";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { getApiBaseUrl } from "@/components/Features/CodeSnippetModal";
 import InstallationCodeSnippet from "@/components/SyntaxHighlighting/Snippets/InstallationCodeSnippet";
@@ -21,11 +21,15 @@ import { useUser } from "@/services/UserContext";
 import CheckSDKConnectionModal from "@/components/GuidedGetStarted/CheckSDKConnectionModal";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { DocLink } from "@/components/DocLink";
-import { languageMapping } from "@/components/Features/SDKConnections/SDKLanguageLogo";
+import SDKLanguageLogo, {
+  languageMapping,
+} from "@/components/Features/SDKConnections/SDKLanguageLogo";
+import SelectField, { GroupedValue } from "@/components/Forms/SelectField";
 import Link from "@/ui/Link";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
+import Callout from "@/ui/Callout";
 
 interface Props {
   connection: string | null;
@@ -48,7 +52,7 @@ const VerifyConnectionPage = ({
   const [inviting, setInviting] = useState(false);
   const [eventTracker, setEventTracker] = useState("");
 
-  const { refreshOrganization, organization } = useUser();
+  const { refreshOrganization, organization, hasCommercialFeature } = useUser();
   const settings = useOrgSettings();
   const attributeSchema = useAttributeSchema();
   const { data, error, mutate } = useSDKConnections();
@@ -88,9 +92,54 @@ const VerifyConnectionPage = ({
     },
     [apiCall, canUpdate, currentConnection, eventTracker],
   );
+  const changeLanguage = useCallback(
+    async (language: SDKLanguage) => {
+      if (!canUpdate || !currentConnection?.id) return;
+
+      // Mirror the language-dependent settings applied when the connection
+      // was first created (see pages/setup/index.tsx)
+      const sdkCapabilities = getSDKCapabilities(language);
+      const canUseVisualEditor = sdkCapabilities.includes("visualEditorJS");
+      const canUseUrlRedirects = sdkCapabilities.includes("redirects");
+      const canUseSecureConnection =
+        hasCommercialFeature("hash-secure-attributes") &&
+        sdkCapabilities.includes("encryption");
+      const languageLabel = languageMapping[language].label;
+
+      try {
+        await apiCall(`/sdk-connections/${currentConnection.id}`, {
+          method: "PUT",
+          body: JSON.stringify({
+            name: `${languageLabel} SDK Connection`,
+            languages: [language],
+            sdkVersion: getLatestSDKVersion(language),
+            encryptPayload: canUseSecureConnection,
+            hashSecureAttributes: canUseSecureConnection,
+            includeExperimentNames: !canUseSecureConnection,
+            includeVisualExperiments: canUseVisualEditor,
+            includeRedirectExperiments: canUseUrlRedirects,
+          }),
+        });
+        track("SDK Language Changed", { language });
+        await mutate();
+      } catch (e) {
+        // Ignore - keep showing the previous instructions
+      }
+    },
+    [apiCall, canUpdate, currentConnection, hasCommercialFeature, mutate],
+  );
+
   const apiHost = currentConnection ? getApiBaseUrl(currentConnection) : "";
   const language = currentConnection?.languages[0] || "javascript";
   const { docs } = languageMapping[language];
+  const languagesByType: Record<string, GroupedValue> = {};
+  Object.entries(languageMapping).forEach(([value, { label, type }]) => {
+    if (!languagesByType[type]) {
+      languagesByType[type] = { label: type, options: [] };
+    }
+    languagesByType[type].options.push({ value, label });
+  });
+  const languageOptions = Object.values(languagesByType);
   const hashSecureAttributes = !!currentConnection?.hashSecureAttributes;
   const secureAttributes =
     attributeSchema?.filter((a) =>
@@ -99,11 +148,11 @@ const VerifyConnectionPage = ({
   const secureAttributeSalt = settings.secureAttributeSalt ?? "";
 
   if (error) {
-    return <div className="alert alert-danger">{error.message}</div>;
+    return <Callout status="error">{error.message}</Callout>;
   }
 
   return (
-    <div className="mt-5" style={{ padding: "0px 57px" }}>
+    <div style={{ padding: "0px 57px" }}>
       {!currentConnection && <LoadingOverlay />}
       {inviting && (
         <InviteModal
@@ -150,9 +199,29 @@ const VerifyConnectionPage = ({
               </div>
             )}
           </div>
-          <DocLink docSection={docs}>
-            View documentation <PiArrowRight />
-          </DocLink>
+          <Flex align="center" gap="4">
+            <Box width="260px">
+              <SelectField
+                value={language}
+                options={languageOptions}
+                onChange={(value) => changeLanguage(value as SDKLanguage)}
+                formatOptionLabel={({ value }) => (
+                  <SDKLanguageLogo
+                    language={value as SDKLanguage}
+                    showLabel
+                    size={25}
+                  />
+                )}
+                containerClassName="mb-0"
+                disabled={!canUpdate}
+                isSearchable
+                sort={false}
+              />
+            </Box>
+            <DocLink useRadix={false} docSection={docs}>
+              View documentation <PiArrowRight />
+            </DocLink>
+          </Flex>
           <div className="mt-4 mb-3">
             <h4
               className="cursor-pointer"
@@ -241,13 +310,13 @@ const VerifyConnectionPage = ({
                       className="appbox mt-4"
                       style={{ background: "rgb(209 236 241 / 25%)" }}
                     >
-                      <div className="alert alert-info mb-0">
+                      <Callout status="info" mb="0">
                         <GBHashLock className="text-blue" /> This connection has{" "}
                         <strong>secure attribute hashing</strong> enabled. You
                         must manually hash all attributes with datatype{" "}
                         <code>secureString</code> or <code>secureString[]</code>{" "}
                         in your SDK implementation code.
-                      </div>
+                      </Callout>
                       <div className="px-3 pb-3">
                         <div className="mt-3">
                           Your organization currently has{" "}
@@ -289,15 +358,15 @@ const VerifyConnectionPage = ({
                           Example, using your organization&apos;s secure
                           attribute salt:
                           {secureAttributeSalt === "" && (
-                            <div className="alert alert-warning mt-2 px-2 py-1">
-                              <FaExclamationTriangle /> Your organization has an
-                              empty salt string. Add a salt string in your{" "}
+                            <Callout status="warning" mt="2" size="sm">
+                              Your organization has an empty salt string. Add a
+                              salt string in your{" "}
                               <Link href="/settings">
                                 organization settings
                               </Link>{" "}
                               to improve the security of hashed targeting
                               conditions.
-                            </div>
+                            </Callout>
                           )}
                           <Code
                             filename="pseudocode"
@@ -311,14 +380,13 @@ myAttribute = sha256(salt + myAttribute);
 myAttributes = myAttributes.map(attribute => sha256(salt + attribute));`}
                           />
                         </div>
-                        <div className="alert text-warning-orange mt-3 mb-0 px-2 py-1">
-                          <FaExclamationCircle /> When using an insecure
-                          environment (such as a browser), do not rely
-                          exclusively on hashing as a means of securing highly
-                          sensitive data. Hashing is an obfuscation technique
-                          that makes it very difficult, but not impossible, to
-                          extract sensitive data.
-                        </div>
+                        <Callout status="warning" mt="3" mb="0">
+                          When using an insecure environment (such as a
+                          browser), do not rely exclusively on hashing as a
+                          means of securing highly sensitive data. Hashing is an
+                          obfuscation technique that makes it very difficult,
+                          but not impossible, to extract sensitive data.
+                        </Callout>
                       </div>
                     </div>
                   )}

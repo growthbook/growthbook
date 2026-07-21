@@ -4,6 +4,7 @@ import { useForm, UseFormReturn } from "react-hook-form";
 import clsx from "clsx";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiArrowLeft, PiCaretRight, PiCheckCircleFill } from "react-icons/pi";
+import { isEventWebhookWildcard } from "shared/validators";
 import Text from "@/ui/Text";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
@@ -260,7 +261,10 @@ const EventWebHookAddEditSettings = ({
               <>
                 Must accept <code>{form.watch("method")}</code> requests.
                 Supports{" "}
-                <DocLink docSection="webhookSecrets">Webhook Secrets</DocLink>.
+                <DocLink useRadix={false} docSection="webhookSecrets">
+                  Webhook Secrets
+                </DocLink>
+                .
               </>
             )
           }
@@ -291,7 +295,7 @@ const EventWebHookAddEditSettings = ({
                 ) : (
                   <Text>
                     JSON format for headers. Supports{" "}
-                    <DocLink docSection="webhookSecrets">
+                    <DocLink useRadix={false} docSection="webhookSecrets">
                       Webhook Secrets
                     </DocLink>
                     .
@@ -529,7 +533,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
             .refine(
               (val) =>
                 (notificationEventNames as string[]).includes(val) ||
-                /^[a-z]+(\.[a-zA-Z]+)*\.\*$/.test(val),
+                isEventWebhookWildcard(val),
             ),
         )
         .min(1),
@@ -577,7 +581,6 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
           </Button>
         ) : undefined
       }
-      useRadixButton={true}
     >
       {step === "confirm" ? (
         <EventWebHookAddConfirm form={form} />

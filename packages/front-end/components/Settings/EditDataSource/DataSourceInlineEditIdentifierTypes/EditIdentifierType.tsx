@@ -1,4 +1,5 @@
 import { FC, useMemo } from "react";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { useForm } from "react-hook-form";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import MultiSelectField from "@/ui/MultiSelectField";
@@ -13,6 +14,8 @@ type EditIdentifierTypeProps = {
   userIdType: string;
   description?: string;
   attributes?: string[];
+  /** Event forwarder provisions hash-attribute identifier types; only description is editable. */
+  isEventForwarderManagedType?: boolean;
   onSave: (
     name: string,
     description: string,
@@ -26,6 +29,7 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
   userIdType,
   description,
   attributes,
+  isEventForwarderManagedType = false,
   onSave,
   onCancel,
 }) => {
@@ -110,7 +114,7 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
           label="Identifier Type"
           {...form.register("idType")}
           pattern="^[a-z_]+$"
-          readOnly={mode === "edit"}
+          readOnly={mode === "edit" || isEventForwarderManagedType}
           required
           error={fieldError}
           helpText="Only lowercase letters and underscores allowed. For example, 'user_id' or 'device_cookie'."
@@ -118,12 +122,13 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
         <Field
           size="legacy"
           label="Description (optional)"
+          maxLength={MAX_DESCRIPTION_LENGTH}
           {...form.register("description")}
           minRows={1}
           maxRows={5}
           textarea
         />
-        {hashAttributes && (
+        {hashAttributes && !isEventForwarderManagedType && (
           <MultiSelectField
             size="legacy"
             label="Hash Attributes"

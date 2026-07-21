@@ -191,6 +191,7 @@ export default function DashboardModal({
 
   return (
     <Modal
+      useRadixButton={false}
       open={true}
       size="md"
       trackingEventModalType={`${mode}-dashboard`}

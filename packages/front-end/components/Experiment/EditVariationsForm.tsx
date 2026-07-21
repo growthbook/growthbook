@@ -4,7 +4,7 @@ import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
 } from "shared/types/experiment";
-import { getEqualWeights } from "shared/experiments";
+import { getEqualWeights, getLatestPhaseVariations } from "shared/experiments";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
@@ -95,6 +95,16 @@ const EditVariationsForm: FC<{
         });
         mutate();
         track("edited-variations");
+
+        const numVariationsAdded =
+          data.variations.length - getLatestPhaseVariations(experiment).length;
+        if (numVariationsAdded > 0) {
+          track("Added Variations", {
+            source: "edit-variations-form",
+            numVariationsAdded,
+            totalVariations: data.variations.length,
+          });
+        }
       })}
       cta="Save"
     >

@@ -6,6 +6,7 @@ import { EventWebHookEditParams } from "@/components/EventWebHooks/utils";
 import { EventWebHookAddEditModal } from "@/components/EventWebHooks/EventWebHookAddEditModal/EventWebHookAddEditModal";
 import { docUrl, DocLink } from "@/components/DocLink";
 import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
 import { EventWebHookListItem } from "./EventWebHookListItem/EventWebHookListItem";
 
 type EventWebHookListProps = {
@@ -49,7 +50,7 @@ export const EventWebHookList: FC<EventWebHookListProps> = ({
         <p>
           Monitor specific events globally accross features and experiments.
           <span className="ml-2">
-            <DocLink docSection={"eventWebhooks"}>
+            <DocLink useRadix={false} docSection={"eventWebhooks"}>
               View Documentation &gt;
             </DocLink>
           </span>
@@ -58,7 +59,9 @@ export const EventWebHookList: FC<EventWebHookListProps> = ({
 
       {/* Feedback messages */}
       {errorMessage && (
-        <div className="alert alert-danger my-3">{errorMessage}</div>
+        <Callout status="error" my="3">
+          {errorMessage}
+        </Callout>
       )}
 
       {/* Empty state*/}

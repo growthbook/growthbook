@@ -45,6 +45,7 @@ export default function EditHoldoutInfoModal({
 
   return (
     <Modal
+      useRadixButton={false}
       open={true}
       close={() => setShowEditInfoModal(false)}
       trackingEventModalType="edit-experiment-info"
@@ -99,7 +100,7 @@ export default function EditHoldoutInfoModal({
             />
           </>
         }
-        placeholder="All projects"
+        placeholder="All Projects"
         autoFocus={focusSelector === "projects"}
         value={form.watch("projects") || []}
         options={useProjectOptions(

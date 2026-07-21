@@ -7,16 +7,28 @@ import {
   FeatureValueType,
 } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
-import { ReactElement, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { PiArrowSquareOut } from "react-icons/pi";
-import { filterEnvironmentsByExperiment, getReviewSetting } from "shared/util";
+import { Box, Flex, Separator } from "@radix-ui/themes";
+import {
+  filterEnvironmentsByExperiment,
+  getReviewSetting,
+  parsePlainJSONObject,
+  stripDefaultsForSparse,
+  expandSparseToFull,
+  ensureConfigBacking,
+  setConfigBacking,
+  valueHasConfigExtends,
+} from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
 import Callout from "@/ui/Callout";
-import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
+import Text from "@/ui/Text";
+import VariationLabel from "@/ui/VariationLabel";
+import SparsePatchToggle from "@/components/Features/SparsePatchToggle";
 import { useAuth } from "@/services/auth";
-import Modal from "@/components/Modal";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import track from "@/services/track";
 import {
@@ -25,6 +37,7 @@ import {
   getDefaultVariationValue,
   validateFeatureRule,
 } from "@/services/features";
+import { useConfigBacking } from "@/hooks/useConfigBacking";
 import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import { useWatching } from "@/services/WatchProvider";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
@@ -32,9 +45,9 @@ import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
 import SelectField from "@/components/Forms/SelectField";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import RuleEnvironmentScopeField from "@/components/Features/RuleModal/EnvironmentScopeField";
-import DraftSelectorForChanges, {
+import DraftSelectorDropdown, {
   DraftMode,
-} from "@/components/Features/DraftSelectorForChanges";
+} from "@/components/Features/DraftSelectorDropdown";
 import {
   filterCustomFieldsForSectionAndProject,
   useCustomFields,
@@ -44,15 +57,14 @@ import { useUser } from "@/services/UserContext";
 import useApi from "@/hooks/useApi";
 import { useHoldouts } from "@/hooks/useHoldouts";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import HelperText from "@/ui/HelperText";
 import FeatureKeyField from "./FeatureKeyField";
 import TagsField from "./TagsField";
 import ValueTypeField from "./ValueTypeField";
 
 export type Props = {
-  close?: () => void;
-  inline?: boolean;
+  close: () => void;
   cta?: string;
-  secondaryCTA?: ReactElement;
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
   source?: string;
@@ -139,9 +151,7 @@ const genFormDefaultValues = ({
 
 export default function FeatureFromExperimentModal({
   close,
-  inline,
-  cta = "Create",
-  secondaryCTA,
+  cta = "Add",
   experiment,
   mutate,
   source,
@@ -215,6 +225,7 @@ export default function FeatureFromExperimentModal({
 
   const valueType = form.watch("valueType") as FeatureValueType;
   const existing = form.watch("existing");
+  const variations = getLatestPhaseVariations(experiment);
 
   const { data: existingFeatureData } = useApi<{
     status: 200;
@@ -223,6 +234,34 @@ export default function FeatureFromExperimentModal({
   }>(`/feature/${existing}`, { shouldRun: () => !!existing });
   const existingFeature = existingFeatureData?.feature;
   const existingRevisionList = existingFeatureData?.revisions ?? [];
+
+  // Sparse patch mode for the experiment-ref rule. Only coherent when linking an
+  // EXISTING JSON feature with a plain-object default — a brand-new feature's
+  // default is derived from the control variation here, so there's no
+  // independent default to patch onto.
+  const sparseEligible =
+    !!existing &&
+    existingFeature?.valueType === "json" &&
+    parsePlainJSONObject(existingFeature.defaultValue ?? "") !== null;
+  const [sparse, setSparse] = useState(false);
+
+  // Config-backed existing JSON flags: every variation value is a sparse patch
+  // serving the default's config, so the variations use the config-backing
+  // editor with sparse forced on, and each value is seeded with the backing
+  // (mirrors useSeedConfigBackedVariations on the feature page, except this
+  // modal keeps `sparse` in local state rather than the form).
+  const { defaultConfigKey, isConfigBacked, configBackingOptionKeys } =
+    useConfigBacking(existing ? existingFeature : undefined);
+  useEffect(() => {
+    if (!isConfigBacked || !defaultConfigKey) return;
+    setSparse(true);
+    (form.getValues("variations") || []).forEach((v, i) => {
+      const normalized = ensureConfigBacking(v.value, defaultConfigKey);
+      if (normalized !== v.value) {
+        form.setValue(`variations.${i}.value`, normalized);
+      }
+    });
+  }, [isConfigBacked, defaultConfigKey, form]);
 
   // Pessimistic default ("all") until the FF loads so publish-now stays gated.
   const gatedEnvSet: Set<string> | "all" | "none" = useMemo(() => {
@@ -306,18 +345,29 @@ export default function FeatureFromExperimentModal({
   }
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType="feature-from-experiment"
       trackingEventModalSource={source}
       open
       size="lg"
-      inline={inline}
-      header={"Add Feature Flag to Experiment"}
+      header="Add Feature Flag to Experiment"
+      headerAction={
+        existing && existingFeature ? (
+          <DraftSelectorDropdown
+            feature={existingFeature}
+            revisionList={existingRevisionList}
+            mode={draftMode}
+            setMode={setDraftMode}
+            selectedDraft={selectedDraft}
+            setSelectedDraft={setSelectedDraft}
+            canAutoPublish={canAutoPublish}
+            gatedEnvSet={gatedEnvSet}
+          />
+        ) : null
+      }
       cta={cta}
       close={close}
       ctaEnabled={ctaEnabled}
-      disabledMessage={disabledMessage}
-      secondaryCTA={secondaryCTA}
       submit={form.handleSubmit(async (values) => {
         const { variations, existing, ...feature } = values;
 
@@ -366,6 +416,9 @@ export default function FeatureFromExperimentModal({
           scheduleRules: [],
           experimentId: experiment.id,
           variations,
+          ...((sparseEligible && sparse) || isConfigBacked
+            ? { sparse: true }
+            : {}),
         };
 
         const newRule = validateFeatureRule(rule, featureToCreate);
@@ -444,6 +497,26 @@ export default function FeatureFromExperimentModal({
             const newFeature = validFeatures.find((f) => f.id === value);
             if (newFeature) {
               updateValuesOnTypeChange(newFeature.valueType);
+              // A config-backed flag serves its config, so seed each variation
+              // as a clean backing ref (empty override patch) rather than a
+              // copy of the type-transformed default. Selecting a non-config
+              // JSON flag strips any backing ref left from a prior selection.
+              if (newFeature.valueType === "json") {
+                const configKey = newFeature.configBackingKey ?? null;
+                (form.getValues("variations") || []).forEach((v, i) => {
+                  if (configKey) {
+                    form.setValue(
+                      `variations.${i}.value`,
+                      setConfigBacking(configKey, "{}"),
+                    );
+                  } else if (valueHasConfigExtends(v.value)) {
+                    form.setValue(
+                      `variations.${i}.value`,
+                      setConfigBacking(null, v.value),
+                    );
+                  }
+                });
+              }
             }
           }
 
@@ -456,6 +529,12 @@ export default function FeatureFromExperimentModal({
       {holdoutWarning && (
         <Callout status="warning" mb="3">
           {holdoutWarning}
+        </Callout>
+      )}
+
+      {disabledMessage && (
+        <Callout status="warning" mb="3">
+          {disabledMessage}
         </Callout>
       )}
 
@@ -506,7 +585,8 @@ export default function FeatureFromExperimentModal({
           <ValueTypeField
             value={valueType}
             onChange={(val) => {
-              updateValuesOnTypeChange(val);
+              // config authoring type isn't offered here yet (allowConfig off).
+              if (val !== "config") updateValuesOnTypeChange(val);
             }}
           />
 
@@ -540,22 +620,8 @@ export default function FeatureFromExperimentModal({
 
       {existing && (
         <>
-          {existingFeature && (
-            <DraftSelectorForChanges
-              feature={existingFeature}
-              revisionList={existingRevisionList}
-              mode={draftMode}
-              setMode={setDraftMode}
-              selectedDraft={selectedDraft}
-              setSelectedDraft={setSelectedDraft}
-              canAutoPublish={canAutoPublish}
-              gatedEnvSet={gatedEnvSet}
-              triggerPrefix="Rule will be"
-            />
-          )}
-
-          <HelperText status="info" icon={null}>
-            <span>
+          <HelperText status="info">
+            <Box>
               A rule will be added to the bottom of the rule list. For more
               control over placement, add Experiment rules directly from the{" "}
               <Link href={`/features/${existing}`} target="_blank">
@@ -563,7 +629,7 @@ export default function FeatureFromExperimentModal({
                 <PiArrowSquareOut className="ml-1" />
               </Link>{" "}
               instead.
-            </span>
+            </Box>
           </HelperText>
 
           <RuleEnvironmentScopeField
@@ -578,23 +644,55 @@ export default function FeatureFromExperimentModal({
         </>
       )}
 
-      <div className="form-group">
-        <label>Variation Values</label>
-        <div className="mb-3 bg-light border p-3">
-          {getLatestPhaseVariations(experiment).map((v, i) => (
+      <Flex direction="column" gap="3" pt="2">
+        <Flex align="center" gap="3">
+          <Text as="label" weight="semibold" mb="0">
+            Variation Values
+          </Text>
+          {sparseEligible && !isConfigBacked && (
+            <SparsePatchToggle
+              checked={sparse}
+              onChange={(checked) => {
+                // Rewrite every variation value so the editor isn't left with a
+                // default-laden patch (on) or a bare patch shown as the full
+                // value (off).
+                const def = existingFeature?.defaultValue ?? "";
+                (form.getValues("variations") || []).forEach((v, i) => {
+                  form.setValue(
+                    `variations.${i}.value`,
+                    checked
+                      ? stripDefaultsForSparse(v.value ?? "", def)
+                      : expandSparseToFull(v.value ?? "", def),
+                  );
+                });
+                setSparse(checked);
+              }}
+            />
+          )}
+        </Flex>
+        {variations.map((v, i) => (
+          <Box key={v.id}>
+            <Box mb="3">
+              <VariationLabel number={i} name={v.name} />
+            </Box>
             <FeatureValueField
-              key={v.id}
-              label={v.name}
               id={v.id}
               value={form.watch(`variations.${i}.value`) || ""}
-              setValue={(v) => form.setValue(`variations.${i}.value`, v)}
-              valueType={form.watch("valueType")}
+              setValue={(val) => form.setValue(`variations.${i}.value`, val)}
+              valueType={valueType}
+              feature={existing ? existingFeature : undefined}
+              sparse={sparse}
               useCodeInput={true}
               showFullscreenButton={true}
+              allowConfigBacking={isConfigBacked}
+              configBackingOptionKeys={configBackingOptionKeys}
+              configBackingShowPatch={isConfigBacked}
+              lockConfigBacking={isConfigBacked}
             />
-          ))}
-        </div>
-      </div>
-    </Modal>
+            {i < variations.length - 1 && <Separator size="4" my="4" />}
+          </Box>
+        ))}
+      </Flex>
+    </ModalStandard>
   );
 }

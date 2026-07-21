@@ -1,4 +1,5 @@
 import { useFormContext } from "react-hook-form";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import {
   FeatureInterface,
   FeaturePrerequisite,
@@ -7,9 +8,14 @@ import {
 } from "shared/types/feature";
 import React, { useMemo } from "react";
 import Collapsible from "react-collapsible";
-import { Flex, Tooltip, Separator } from "@radix-ui/themes";
+import { Flex, Tooltip } from "@radix-ui/themes";
 import { date } from "shared/dates";
-import { isProjectListValidForProject } from "shared/util";
+import {
+  isProjectListValidForProject,
+  parsePlainJSONObject,
+  stripDefaultsForSparse,
+  expandSparseToFull,
+} from "shared/util";
 import { PiCaretRightFill } from "react-icons/pi";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import Field from "@/components/Forms/Field";
@@ -28,13 +34,11 @@ import {
   useAttributeSchema,
 } from "@/services/features";
 import useSDKConnections from "@/hooks/useSDKConnections";
-import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
-import ConditionInput from "@/components/Features/ConditionInput";
-import PrerequisiteInput, {
-  type RuleCyclicResult,
-} from "@/components/Features/PrerequisiteInput";
+import TargetingFieldsGroup from "@/components/Features/TargetingFieldsGroup";
+import { type RuleCyclicResult } from "@/components/Features/PrerequisiteInput";
 import NamespaceSelector from "@/components/Features/NamespaceSelector";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
+import SparsePatchToggle from "@/components/Features/SparsePatchToggle";
 import ScheduleInputs from "@/components/Features/LegacyScheduleInputs";
 import { SortableVariation } from "@/components/Features/SortableFeatureVariationRow";
 import Checkbox from "@/ui/Checkbox";
@@ -364,6 +368,7 @@ export default function ExperimentRefNewFields({
             label="Description"
             textarea
             minRows={1}
+            maxLength={MAX_DESCRIPTION_LENGTH}
             {...form.register("description")}
             placeholder="Short human-readable description of the Experiment"
           />
@@ -460,6 +465,30 @@ export default function ExperimentRefNewFields({
             ) : null}
           </div>
 
+          {feature &&
+            feature.valueType === "json" &&
+            parsePlainJSONObject(getFeatureDefaultValue(feature)) !== null && (
+              <Flex align="center" gap="3" mb="2">
+                <SparsePatchToggle
+                  checked={!!form.watch("sparse")}
+                  onChange={(checked) => {
+                    // Rewrite every variation value so the editor isn't left
+                    // with a default-laden patch (on) or a bare patch shown as
+                    // the full value (off).
+                    const def = feature ? getFeatureDefaultValue(feature) : "";
+                    setVariations?.(
+                      (variations || []).map((variation) => ({
+                        ...variation,
+                        value: checked
+                          ? stripDefaultsForSparse(variation.value, def)
+                          : expandSparseToFull(variation.value, def),
+                      })),
+                    );
+                    form.setValue("sparse", checked);
+                  }}
+                />
+              </Flex>
+            )}
           <FeatureVariationsInput
             label="Traffic Percent & Variations"
             defaultValue={feature ? getFeatureDefaultValue(feature) : undefined}
@@ -477,6 +506,7 @@ export default function ExperimentRefNewFields({
             hideVariations={isTemplate}
             disableVariations={isTemplate}
             startEditingIndexes={startEditingIndexes}
+            sparse={!!form.watch("sparse")}
           />
 
           {!isTemplate && namespaces && namespaces.length > 0 && (
@@ -494,24 +524,17 @@ export default function ExperimentRefNewFields({
 
       {step === 2 ? (
         <>
-          <SavedGroupTargetingField
-            value={savedGroupValue}
-            setValue={setSavedGroupValue}
+          <TargetingFieldsGroup
             project={project || ""}
-          />
-          <Separator size="4" my="5" />
-          <ConditionInput
-            defaultValue={defaultConditionValue}
-            onChange={setConditionValue}
-            key={conditionKey}
-            project={project || ""}
-          />
-          <Separator size="4" my="5" />
-          <PrerequisiteInput
-            value={prerequisiteValue}
-            setValue={setPrerequisiteValue}
-            feature={feature}
             environments={environments ?? []}
+            feature={feature}
+            savedGroups={savedGroupValue}
+            setSavedGroups={setSavedGroupValue}
+            condition={defaultConditionValue}
+            setCondition={setConditionValue}
+            conditionKey={conditionKey}
+            prerequisites={prerequisiteValue}
+            setPrerequisites={setPrerequisiteValue}
             setPrerequisiteTargetingSdkIssues={
               setPrerequisiteTargetingSdkIssues
             }
@@ -649,6 +672,7 @@ export default function ExperimentRefNewFields({
             }
             collapseSecondary={true}
             collapseGuardrail={true}
+            experimentType="standard"
           />
 
           <CustomMetricSlicesSelector

@@ -1,13 +1,14 @@
 import { FC, useEffect, useState } from "react";
 import { FiLogOut } from "react-icons/fi";
 import { useForm } from "react-hook-form";
-import { FaCheck, FaPlus } from "react-icons/fa";
+import { FaPlus } from "react-icons/fa";
 import { useRouter } from "next/router";
 import { OWNER_JOB_TITLES } from "shared/constants";
 import {
   OwnerJobTitle,
   CreateOrganizationPostBody,
 } from "shared/types/organization";
+import { Box, Flex } from "@radix-ui/themes";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
 import { useAuth } from "@/services/auth";
@@ -22,6 +23,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import { useProject } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
 import Checkbox from "@/ui/Checkbox";
+import Callout from "@/ui/Callout";
 import style from "./CreateOrJoinOrganization.module.scss";
 import WelcomeFrame from "./WelcomeFrame";
 
@@ -40,6 +42,7 @@ const CreateOrJoinOrganization: FC<{
       ownerJobTitle: "" as OwnerJobTitle,
       ownerFeatureFlagUsageIntent: false,
       ownerExperimentUsageIntent: false,
+      ownerProductAnalyticsUsageIntent: false,
     },
   });
 
@@ -117,21 +120,32 @@ const CreateOrJoinOrganization: FC<{
   const showJoin = isMultiOrg() && showMultiOrgSelfSelector() && orgs;
 
   const leftside = (
-    <>
-      <h1 className="title h1">Welcome to GrowthBook!</h1>
-      {showCreate || showJoin ? (
-        <p>
-          You aren&apos;t part of an organization yet. <br />
-          {showCreate && showJoin
-            ? `Create or join one here.`
-            : showCreate
-              ? `Create a new one here.`
-              : `Join one here.`}
-        </p>
-      ) : (
-        <p>Ask your admin to invite you to the organization.</p>
-      )}
-    </>
+    <Flex direction="column" justify="between" height="100%" p="6">
+      <Box>
+        <a href="https://www.growthbook.io" target="_blank" rel="noreferrer">
+          <img
+            src="/logo/growth-book-logo-white.svg"
+            style={{ maxWidth: "150px" }}
+            alt="GrowthBook"
+          />
+        </a>
+      </Box>
+      <Box>
+        <h1 className="title h1">Welcome to GrowthBook!</h1>
+        {showCreate || showJoin ? (
+          <p>
+            You aren&apos;t part of an organization yet. <br />
+            {showCreate && showJoin
+              ? `Create or join one here.`
+              : showCreate
+                ? `Create a new one here.`
+                : `Join one here.`}
+          </p>
+        ) : (
+          <p>Ask your admin to invite you to the organization.</p>
+        )}
+      </Box>
+    </Flex>
   );
 
   const titleCopy = (orgs) => {
@@ -196,15 +210,13 @@ const CreateOrJoinOrganization: FC<{
                       </button>
                     </div>
                     {org.currentUserIsPending && (
-                      <div className="alert alert-success mt-2 mb-0">
-                        <div className="mb-2">
-                          <FaCheck /> Your membership is pending.
-                        </div>
+                      <Callout status="success" mt="2" mb="0">
+                        <div className="mb-2">Your membership is pending.</div>
                         <div>
                           Please contact your organization&apos;s admin to
                           approve your membership.
                         </div>
-                      </div>
+                      </Callout>
                     )}
                   </div>
                 ))}
@@ -242,6 +254,11 @@ const CreateOrJoinOrganization: FC<{
                           "experiments",
                         );
                       }
+                      if (value.ownerProductAnalyticsUsageIntent) {
+                        body.demographicData?.ownerUsageIntents?.push(
+                          "productAnalytics",
+                        );
+                      }
                       const resp = await apiCall<{
                         orgId: string;
                         status: number;
@@ -256,7 +273,19 @@ const CreateOrJoinOrganization: FC<{
                       if (resp.projectId) {
                         setProject(resp.projectId);
                       }
+                      if (setOrgId) {
+                        setOrgId(resp.orgId);
+                      }
+                      try {
+                        localStorage.setItem(
+                          "gb-last-picked-org",
+                          `"${resp.orgId}"`,
+                        );
+                      } catch (e) {
+                        console.warn("Cannot set gb-last-picked-org");
+                      }
                       setLoading(false);
+                      router.push("/");
                     } catch (e) {
                       setError(e.message);
                       setLoading(false);
@@ -272,16 +301,10 @@ const CreateOrJoinOrganization: FC<{
                   <Field
                     size="legacy"
                     label={
-                      <>
-                        <div className="font-weight-bold">
-                          Organization Name
-                          <span className="text-danger ml-1">*</span>
-                        </div>
-
-                        <div className={`${style.textMid}`}>
-                          Organization name can be edited anytime.
-                        </div>
-                      </>
+                      <div className="font-weight-bold">
+                        Organization Name
+                        <span className="text-danger ml-1">*</span>
+                      </div>
                     }
                     required
                     autoFocus
@@ -329,13 +352,29 @@ const CreateOrJoinOrganization: FC<{
                   <div>
                     <Checkbox
                       mt="2"
-                      mb="6"
                       size="md"
                       label="Run experiments"
                       value={!!newOrgForm.watch("ownerExperimentUsageIntent")}
                       setValue={(v) => {
                         newOrgForm.setValue(
                           "ownerExperimentUsageIntent",
+                          v === true,
+                        );
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <Checkbox
+                      mt="2"
+                      mb="6"
+                      size="md"
+                      label="Product analytics"
+                      value={
+                        !!newOrgForm.watch("ownerProductAnalyticsUsageIntent")
+                      }
+                      setValue={(v) => {
+                        newOrgForm.setValue(
+                          "ownerProductAnalyticsUsageIntent",
                           v === true,
                         );
                       }}
@@ -348,7 +387,9 @@ const CreateOrJoinOrganization: FC<{
                     Create organization
                   </button>
                   {error && (
-                    <div className="alert alert-danger mt-2">{error}</div>
+                    <Callout status="error" mt="2">
+                      {error}
+                    </Callout>
                   )}
                 </form>
 
@@ -366,10 +407,10 @@ const CreateOrJoinOrganization: FC<{
         ) : (
           <div>
             <h3 className="h2">Invitation Required</h3>
-            <div className="alert alert-danger">
+            <Callout status="error">
               You must be invited by an administrator in order to use
               GrowthBook.
-            </div>
+            </Callout>
           </div>
         )}{" "}
       </div>

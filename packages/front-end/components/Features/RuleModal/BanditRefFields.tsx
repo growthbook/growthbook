@@ -1,9 +1,19 @@
 import { useFormContext } from "react-hook-form";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { FeatureInterface } from "shared/types/feature";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { date } from "shared/dates";
-import { Box } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { getLatestPhaseVariations } from "shared/experiments";
+import {
+  parsePlainJSONObject,
+  stripDefaultsForSparse,
+  expandSparseToFull,
+} from "shared/util";
+import {
+  useConfigBacking,
+  useSeedConfigBackedVariations,
+} from "@/hooks/useConfigBacking";
 import Link from "@/ui/Link";
 import Field from "@/components/Forms/Field";
 import FeatureValueField from "@/components/Features/FeatureValueField";
@@ -19,6 +29,7 @@ import Callout from "@/ui/Callout";
 import RuleEnvironmentScopeField, {
   type EnvScopeProps,
 } from "@/components/Features/RuleModal/EnvironmentScopeField";
+import SparsePatchToggle from "@/components/Features/SparsePatchToggle";
 
 export default function BanditRefFields({
   feature,
@@ -36,6 +47,13 @@ export default function BanditRefFields({
   const { experiments, experimentsMap } = useExperiments();
   const experimentId = form.watch("experimentId");
   const selectedExperiment = experimentsMap.get(experimentId) || null;
+
+  // Config-backed JSON flags: each arm is a sparse patch serving the default's
+  // config, so arms use the config-backing editor. Force sparse on and seed each
+  // arm with the backing (mirrors ExperimentRefFields).
+  const { defaultConfigKey, isConfigBacked, configBackingOptionKeys } =
+    useConfigBacking(feature);
+  useSeedConfigBackedVariations(form, { isConfigBacked, defaultConfigKey });
 
   const experimentOptions = experiments
     .filter(
@@ -70,13 +88,25 @@ export default function BanditRefFields({
             if (exp) {
               const controlValue = getFeatureDefaultValue(feature);
               const variationValue = getDefaultVariationValue(controlValue);
+              // When sparse is on (e.g. org default), seed each variation as a
+              // clean patch rather than the full default the rule is otherwise
+              // populated with.
+              const isSparse =
+                !!form.watch("sparse") &&
+                feature.valueType === "json" &&
+                parsePlainJSONObject(controlValue) !== null;
               form.setValue("experimentId", experimentId);
               form.setValue(
                 "variations",
-                getLatestPhaseVariations(exp).map((v, i) => ({
-                  variationId: v.id,
-                  value: i ? variationValue : controlValue,
-                })),
+                getLatestPhaseVariations(exp).map((v, i) => {
+                  const raw = i ? variationValue : controlValue;
+                  return {
+                    variationId: v.id,
+                    value: isSparse
+                      ? stripDefaultsForSparse(raw, controlValue)
+                      : raw,
+                  };
+                }),
               );
             }
           }}
@@ -104,7 +134,7 @@ export default function BanditRefFields({
           }}
         />
       ) : !existingRule ? (
-        <Callout status="warning" mb="4" contentsAs="div">
+        <Callout status="warning" mb="4">
           {experiments.length > 0
             ? `You don't have any eligible Bandits yet.`
             : `You don't have any existing Bandits yet.`}{" "}
@@ -121,7 +151,7 @@ export default function BanditRefFields({
           </a>
         </Callout>
       ) : (
-        <Callout status="error" mb="4" contentsAs="div">
+        <Callout status="error" mb="4">
           Could not find this Bandit. Has it been deleted?
         </Callout>
       )}
@@ -138,8 +168,40 @@ export default function BanditRefFields({
       )}
 
       {selectedExperiment && (
-        <Box px="5" pt="5" pb="1" mb="4" className="bg-highlight rounded">
-          <label className="mb-3">Variation Values</label>
+        <Box
+          px="5"
+          pt="5"
+          pb="1"
+          mb="4"
+          className={isConfigBacked ? undefined : "bg-highlight rounded"}
+        >
+          <Flex align="center" gap="3" mb="3">
+            <label className="mb-0">Variation Values</label>
+            {feature.valueType === "json" &&
+              !isConfigBacked &&
+              parsePlainJSONObject(feature.defaultValue) !== null && (
+                <SparsePatchToggle
+                  checked={!!form.watch("sparse")}
+                  onChange={(checked) => {
+                    // Rewrite every variation value so the editor isn't left
+                    // with a default-laden patch (on) or a bare patch shown as
+                    // the full value (off).
+                    const def = feature.defaultValue;
+                    (form.getValues("variations") || []).forEach(
+                      (variation, i) => {
+                        form.setValue(
+                          `variations.${i}.value`,
+                          checked
+                            ? stripDefaultsForSparse(variation.value, def)
+                            : expandSparseToFull(variation.value, def),
+                        );
+                      },
+                    );
+                    form.setValue("sparse", checked);
+                  }}
+                />
+              )}
+          </Flex>
           {getLatestPhaseVariations(selectedExperiment).map((v, i) => (
             <FeatureValueField
               key={v.id}
@@ -153,6 +215,11 @@ export default function BanditRefFields({
               useCodeInput={true}
               showFullscreenButton={true}
               codeInputDefaultHeight={80}
+              sparse={!!form.watch("sparse")}
+              allowConfigBacking={isConfigBacked}
+              configBackingOptionKeys={configBackingOptionKeys}
+              configBackingShowPatch={isConfigBacked}
+              lockConfigBacking={isConfigBacked}
             />
           ))}
         </Box>
@@ -163,6 +230,7 @@ export default function BanditRefFields({
         label="Description"
         textarea
         minRows={1}
+        maxLength={MAX_DESCRIPTION_LENGTH}
         {...form.register("description")}
         placeholder="Short human-readable description of the rule"
       />

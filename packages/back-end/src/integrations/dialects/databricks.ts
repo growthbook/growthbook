@@ -1,7 +1,15 @@
 import type { DataType } from "shared/types/integrations";
+import { createLikeStringMatchFn } from "shared/sql";
 import type { SqlDialect } from "shared/types/sql";
 import { defaultPercentileCapSelectClause } from "back-end/src/integrations/sql/clauses/percentile-cap-select-clause";
+import {
+  approxTopKCapacity,
+  eligibleTopValueExpr,
+} from "back-end/src/integrations/sql/clauses/approx-top-values";
 import { baseDialect } from "./base";
+
+const databricksEscapeStringLiteral = (value: string) =>
+  value.replace(/(['\\])/g, "\\$1");
 
 export const databricksDialect: SqlDialect = {
   ...baseDialect,
@@ -18,7 +26,11 @@ export const databricksDialect: SqlDialect = {
     `date_format(${col}, 'y-MM-dd HH:mm:ss.SSS')`,
   castToString: (col: string) => `cast(${col} as string)`,
   castToFloat: (col: string) => `cast(${col} as double)`,
-  escapeStringLiteral: (value: string) => value.replace(/(['\\])/g, "\\$1"),
+  stringMatch: createLikeStringMatchFn({
+    escapeStringLiteral: databricksEscapeStringLiteral,
+    emitEscapeClause: false,
+  }),
+  escapeStringLiteral: databricksEscapeStringLiteral,
   hasCountDistinctHLL: () => true,
   hllAggregate: (col: string) =>
     `HLL_SKETCH_AGG(${databricksDialect.castToString(col)})`,
@@ -28,6 +40,22 @@ export const databricksDialect: SqlDialect = {
     const raw = `${jsonCol}:${path}`;
     return isNumeric ? databricksDialect.castToFloat(raw) : raw;
   },
+  // Spark SQL (Databricks) — `collect_list` skips NULLs by default; we
+  // then sort the resulting array ascending. `min_by` is native.
+  arrayAggSorted: (col: string) => `array_sort(collect_list(${col}))`,
+  argMinByTimestamp: (valueCol: string, tsCol: string) =>
+    `min_by(${valueCol}, ${tsCol})`,
+  arrayMinInRange: (col, lowerBound, upperBound) => {
+    const preds: string[] = [];
+    if (lowerBound) preds.push(`x >= ${lowerBound}`);
+    if (upperBound) preds.push(`x <= ${upperBound}`);
+    const predicate = preds.length ? preds.join(" AND ") : "true";
+    return `array_min(filter(${col}, x -> ${predicate}))`;
+  },
+  addIntervalSeconds: (col: string, sign: "+" | "-", amount: number) =>
+    `timestampadd(SECOND, ${sign === "-" ? "-" : ""}${amount}, ${col})`,
+  dateDiffMs: (startCol: string, endCol: string) =>
+    `(unix_millis(${endCol}) - unix_millis(${startCol}))`,
   getDataType: (dataType: DataType): string => {
     switch (dataType) {
       case "string":
@@ -74,5 +102,42 @@ export const databricksDialect: SqlDialect = {
       keyExpr: "__col.column_name",
       valueExpr: "__col.value",
     };
+  },
+
+  arrayElement: (arrayCol: string, index: number) => `${arrayCol}[${index}]`,
+
+  // approx_top_k(expr, k, maxItemsTracked) returns ARRAY<STRUCT<item, count>>
+  // per column; explode the array of per-column named_structs, then inline each
+  // column's items.
+  approxTopValuesCTEBody: ({
+    pairs,
+    fromTable,
+    whereClause,
+    limit,
+    maxValueLength,
+  }) => {
+    const maxItemsTracked = approxTopKCapacity(limit);
+    const structs = pairs
+      .map(
+        (p) =>
+          `named_struct('column_name', '${p.keyLiteral}', 'items', approx_top_k(${eligibleTopValueExpr(
+            databricksDialect,
+            p.valueSql,
+            maxValueLength,
+          )}, ${limit}, ${maxItemsTracked}))`,
+      )
+      .join(",\n      ");
+    return `
+  SELECT __col.column_name AS column_name, __item.item AS value, __item.cnt AS count
+  FROM (
+    SELECT array(
+      ${structs}
+    ) AS cols
+    FROM ${fromTable}
+    WHERE ${whereClause}
+  ) __agg
+  LATERAL VIEW explode(__agg.cols) __t AS __col
+  LATERAL VIEW inline(__col.items) __item AS item, cnt
+  WHERE __item.item IS NOT NULL`;
   },
 };

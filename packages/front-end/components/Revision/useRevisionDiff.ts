@@ -65,8 +65,13 @@ function computeDiff<T>(
 
     if (isEqual(prePick, postPick)) continue; // No changes in this section
 
+    // A null render is the adapter's signal to suppress the section entirely
+    // (unlike the feature flow, where every changed section is meaningful and a
+    // missing human render falls back to a JSON diff / Changes-tab link). Keep
+    // honoring that suppression here; FormattedChanges' jsonFallback=false path
+    // still covers any null render that reaches it.
     const customRender = postPick ? section.render(prePick, postPick) : null;
-    if (customRender == null) continue; // Render returned null, skip section
+    if ((customRender ?? null) === null) continue; // Render returned null, skip section
 
     const customBadges =
       section.getBadges && postPick

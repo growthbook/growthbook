@@ -14,6 +14,7 @@ const SimulateFeatureModal: FC<{
   archetype: string;
   archetypeMap: Map<string, ArchetypeInterface>;
   attributes: ArchetypeAttributeValues;
+  selectedEnvironment?: string;
   close: () => void;
   onSubmit: ({
     archetype,
@@ -22,7 +23,14 @@ const SimulateFeatureModal: FC<{
     archetype: string;
     attributes: ArchetypeAttributeValues;
   }) => void;
-}> = ({ archetype, archetypeMap, attributes, close, onSubmit }) => {
+}> = ({
+  archetype,
+  archetypeMap,
+  attributes,
+  selectedEnvironment,
+  close,
+  onSubmit,
+}) => {
   const simulateForm = useForm<{
     archetype: string;
     attributes: ArchetypeAttributeValues;
@@ -37,8 +45,18 @@ const SimulateFeatureModal: FC<{
   const canCreate = permissionsUtil.canCreateArchetype({ projects: [project] });
 
   // get all the archetypes for use in the select field options
+  // filter out archetypes that are scoped to envs other than selectedEnvironment
   const archetypeOptions: { value: string; label: string }[] = [];
   for (const [key, value] of archetypeMap) {
+    if (
+      selectedEnvironment &&
+      selectedEnvironment !== "all" &&
+      value.environments &&
+      value.environments.length > 0 &&
+      !value.environments.includes(selectedEnvironment)
+    ) {
+      continue;
+    }
     archetypeOptions.push({
       value: key,
       label: value.name,

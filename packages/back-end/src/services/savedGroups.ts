@@ -9,6 +9,7 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import { ApiReqContext } from "back-end/types/api";
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
+import { BadRequestError } from "back-end/src/util/errors";
 import { queueSDKPayloadRefresh } from "./features";
 import { getContextForAgendaJobByOrgObject } from "./organizations";
 
@@ -120,5 +121,33 @@ export async function loadSavedGroupReferences(
 export function totalSavedGroupReferences(refs: SavedGroupReferences): number {
   return (
     refs.features.length + refs.experiments.length + refs.savedGroups.length
+  );
+}
+
+// Block deleting a still-referenced saved group. A dangling group id silently
+// flips live targeting — `$inGroup` on a missing group never matches, and
+// `$notInGroup` always matches — so this is a reference-integrity guard, not an
+// approval gate: it applies regardless of archived state or REST bypass. Scans
+// org-wide (a reference in an unreadable project still breaks). Matches the copy
+// style of assertConstantArchivable.
+export async function assertSavedGroupDeletable(
+  context: ReqContext | ApiReqContext,
+  savedGroupId: string,
+): Promise<void> {
+  const scanContext = getContextForAgendaJobByOrgObject(context.org);
+  const refs = await loadSavedGroupReferences(scanContext, savedGroupId);
+  if (!refs || totalSavedGroupReferences(refs) === 0) return;
+  const parts: string[] = [];
+  if (refs.features.length) parts.push(`${refs.features.length} feature(s)`);
+  if (refs.experiments.length) {
+    parts.push(`${refs.experiments.length} experiment(s)`);
+  }
+  if (refs.savedGroups.length) {
+    parts.push(`${refs.savedGroups.length} other Saved Group(s)`);
+  }
+  throw new BadRequestError(
+    `Cannot delete Saved Group: it is still referenced by ${parts.join(
+      ", ",
+    )}. Remove these references first.`,
   );
 }

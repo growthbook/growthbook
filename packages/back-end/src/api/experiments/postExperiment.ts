@@ -19,6 +19,7 @@ import {
 } from "back-end/src/services/experiments";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { assertExperimentPrecomputedUnitDimensionIdsAreValid } from "back-end/src/services/dimensions";
 import {
   resolveOwnerToUserId,
   resolveOwnerEmail,
@@ -245,6 +246,15 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
     }
     if (payload.variations) {
       validateVariationIds(payload.variations as Variation[]);
+    }
+
+    if (payload.precomputedUnitDimensionIds !== undefined) {
+      await assertExperimentPrecomputedUnitDimensionIdsAreValid({
+        context: req.context,
+        datasource,
+        exposureQueryId: payload.assignmentQueryId,
+        dimensionIds: payload.precomputedUnitDimensionIds,
+      });
     }
 
     // Validate attributionModel + lookbackOverride consistency

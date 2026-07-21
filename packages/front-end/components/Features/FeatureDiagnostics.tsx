@@ -5,7 +5,8 @@ import { OrganizationSettings } from "shared/types/organization";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import {
   isProjectListValidForProject,
-  isManagedWarehouseAwaitingProvisioning,
+  isManagedWarehouseUnavailable,
+  getActiveFeatureUsageQuery,
 } from "shared/util";
 import { FeatureEvalDiagnosticsQueryResponseRows } from "shared/types/integrations";
 import { QueryStatistics } from "shared/types/query";
@@ -67,9 +68,8 @@ function getDatasourceInitialFormValue(
     validDatasources.find(
       (d) =>
         (d.type === "growthbook_clickhouse" &&
-          !isManagedWarehouseAwaitingProvisioning(d)) ||
-        (d.settings.queries?.featureUsage &&
-          d.settings.queries?.featureUsage.length > 0),
+          !isManagedWarehouseUnavailable(d)) ||
+        getActiveFeatureUsageQuery(d.settings?.queries?.featureUsage),
     )?.id || settings.defaultDataSource;
 
   const initialDatasource =
@@ -125,17 +125,16 @@ export default function FeatureDiagnostics({
   const datasource = datasourceId ? getDatasourceById(datasourceId) : null;
 
   const awaitingProvisioning = datasource
-    ? isManagedWarehouseAwaitingProvisioning(datasource)
+    ? isManagedWarehouseUnavailable(datasource)
     : false;
 
   // Managed warehouse natively supports diagnostics via its feature_usage table.
-  // Regular datasources need a configured featureUsage query.
+  // Event forwarder and regular datasources need a configured feature usage query.
   const datasourceHasFeatureUsageQuery =
     datasource &&
     !awaitingProvisioning &&
     (datasource.type === "growthbook_clickhouse" ||
-      (datasource.settings.queries?.featureUsage &&
-        datasource.settings.queries.featureUsage.length > 0));
+      !!getActiveFeatureUsageQuery(datasource.settings?.queries?.featureUsage));
 
   // Extract all unique keys from results
   const columns = useMemo(() => {

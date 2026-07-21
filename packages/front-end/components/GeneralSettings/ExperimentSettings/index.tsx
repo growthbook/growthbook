@@ -12,6 +12,7 @@ import ExperimentCheckListModal from "@/components/Settings/ExperimentCheckListM
 import RadioGroup from "@/ui/RadioGroup";
 import { GBInfo } from "@/components/Icons";
 import Frame from "@/ui/Frame";
+import HelperText from "@/ui/HelperText";
 import StatsEngineSettings from "./StatsEngineSettings";
 import StickyBucketingSettings from "./StickyBucketingSettings";
 import DecisionFrameworkSettings from "./DecisionFrameworkSettings";
@@ -62,7 +63,7 @@ export default function ExperimentSettings({
                 premiumText="Custom pre-launch checklists are available to Enterprise customers"
               >
                 <Text size="3" className="font-weight-semibold">
-                  Experiment Pre-Launch Checklist
+                  Experiment pre-launch checklist
                 </Text>
               </PremiumTooltip>
               <p className="pt-2">
@@ -76,7 +77,7 @@ export default function ExperimentSettings({
                   setEditChecklistOpen(true);
                 }}
               >
-                Edit Checklist
+                Edit checklist
               </Button>
             </Box>
 
@@ -127,7 +128,7 @@ export default function ExperimentSettings({
                 <Flex direction="column">
                   <Text size="3" className="font-weight-semibold">
                     <label htmlFor="toggle-requireUniqueExperimentTrackingKeys">
-                      Require Unique Experiment Keys
+                      Require unique experiment keys
                     </label>
                   </Text>
                   <Text>
@@ -143,7 +144,7 @@ export default function ExperimentSettings({
               <Flex mb="2">
                 <label>
                   <Text size="3" className="font-weight-semibold">
-                    Minimum experiment length when importing past experiments
+                    Minimum length for imported experiments
                   </Text>
                 </label>
               </Flex>
@@ -163,65 +164,10 @@ export default function ExperimentSettings({
                   })}
                 />
               </Box>
-            </Box>
-
-            {/* Fact table optimization */}
-            <Box mb="6">
-              <Flex align="start" justify="start" gap="3">
-                <Box>
-                  <Checkbox
-                    disabled={!hasCommercialFeature("multi-metric-queries")}
-                    value={
-                      hasCommercialFeature("multi-metric-queries") &&
-                      !form.watch("disableMultiMetricQueries")
-                    }
-                    setValue={(v) =>
-                      form.setValue("disableMultiMetricQueries", !v)
-                    }
-                    id="toggle-factoptimization"
-                    mt="1"
-                  />
-                </Box>
-                <Flex direction="column" justify="start">
-                  <Box>
-                    <label
-                      htmlFor="toggle-factTableQueryOptimization"
-                      className="mb-2"
-                    >
-                      <PremiumTooltip
-                        commercialFeature="multi-metric-queries"
-                        body={
-                          <>
-                            <p>
-                              If multiple metrics from the same Fact Table are
-                              added to an experiment, this will combine them
-                              into a single query, which is much faster and more
-                              efficient.
-                            </p>
-                            <p>
-                              For data sources with usage-based billing like
-                              BigQuery or SnowFlake, this can result in
-                              substantial cost savings.
-                            </p>
-                          </>
-                        }
-                      >
-                        <Text size="3" className="font-weight-semibold">
-                          Fact Table Query Optimization
-                        </Text>{" "}
-                        <GBInfo />
-                      </PremiumTooltip>
-                    </label>
-                  </Box>
-                  <Box>
-                    <Text>
-                      Combine multiple metrics from the same Fact Table into a
-                      single query to reduce fees on usage-based data sources,
-                      like BigQuery or Snowflake.
-                    </Text>
-                  </Box>
-                </Flex>
-              </Flex>
+              <HelperText status="info" size="sm" mt="1">
+                When importing past experiments from a Data Source, GrowthBook
+                skips any that ran for fewer than this many days.
+              </HelperText>
             </Box>
 
             {/* Pre-computed dimension breakdowns */}
@@ -265,7 +211,7 @@ export default function ExperimentSettings({
                         }
                       >
                         <Text size="3" className="font-weight-semibold">
-                          Pre-computed Dimension Breakdowns
+                          Pre-computed dimension breakdowns
                         </Text>{" "}
                         <GBInfo />
                       </PremiumTooltip>
@@ -294,7 +240,7 @@ export default function ExperimentSettings({
                     <AttributionModelTooltip>
                       <Flex gap="2" align="center" mb="4" justify="start">
                         <Text size="3" className="font-weight-semibold">
-                          Default Conversion Window Override
+                          Default conversion window override
                         </Text>{" "}
                         <GBInfo />
                       </Flex>
@@ -303,13 +249,13 @@ export default function ExperimentSettings({
                   <RadioGroup
                     options={[
                       {
-                        label: "Respect Conversion Windows",
+                        label: "Respect conversion windows",
                         value: "firstExposure",
                         description:
                           "For metrics with conversion windows, build a single conversion window off of each user's first exposure.",
                       },
                       {
-                        label: "Ignore Conversion Windows",
+                        label: "Ignore conversion windows",
                         value: "experimentDuration",
                         description:
                           "Count all metric values from user's first exposure to the end of the experiment.",
@@ -330,7 +276,7 @@ export default function ExperimentSettings({
             <Box mb="4" width="100%">
               <Box className="appbox p-3">
                 <Heading size="3" className="font-weight-semibold" mb="4">
-                  Experiment auto-update frequency
+                  Experiment Auto-Update Frequency
                 </Heading>
                 <RadioGroup
                   disabled={hasFileConfig()}
@@ -458,7 +404,7 @@ export default function ExperimentSettings({
                       disabled={hasFileConfig()}
                       helpText={
                         <>
-                          <span className="ml-2">(0.001 is default)</span>
+                          <span className="ml-2">Default is 0.001.</span>
                           <div
                             className="ml-2"
                             style={{
@@ -480,10 +426,7 @@ export default function ExperimentSettings({
                 </Box>
                 <Box>
                   <Text className="font-weight-semibold" size="2">
-                    <label>
-                      Warn when this percent of experiment users are in multiple
-                      variations
-                    </label>
+                    <label>Multiple exposures warning threshold</label>
                   </Text>
                   <Flex>
                     <Field
@@ -492,7 +435,7 @@ export default function ExperimentSettings({
                       step="1"
                       min="0"
                       max="100"
-                      containerClassName="mb-3"
+                      containerClassName="mt-1 mb-1"
                       append="%"
                       style={{
                         width: "62px",
@@ -505,6 +448,10 @@ export default function ExperimentSettings({
                       })}
                     />
                   </Flex>
+                  <HelperText status="info" size="sm">
+                    Warn when at least this percent of experiment users are in
+                    multiple variations.
+                  </HelperText>
                 </Box>
               </Box>
             </Box>

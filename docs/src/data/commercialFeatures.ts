@@ -29,6 +29,10 @@ export default {
     plan: "pro",
     displayName: "Code References",
   },
+  "contextual-bandits": {
+    plan: "enterprise",
+    displayName: "Contextual Bandits",
+  },
   "custom-hooks": {
     plan: "enterprise",
     displayName: "Custom Hooks",
@@ -65,9 +69,17 @@ export default {
     plan: "enterprise",
     displayName: "Environment Inheritance",
   },
+  "events-forwarder": {
+    plan: "pro",
+    displayName: "Events Forwarder",
+  },
   "experiment-impact": {
     plan: "enterprise",
     displayName: "Experiment Impact",
+  },
+  "feature-configs": {
+    plan: "enterprise",
+    displayName: "Feature Configs",
   },
   "hash-secure-attributes": {
     plan: "pro",
@@ -220,6 +232,10 @@ export default {
   "schedule-feature-flag": {
     plan: "pro",
     displayName: "Schedule Feature Flag",
+  },
+  "scheduled-revisions": {
+    plan: "enterprise",
+    displayName: "Scheduled Revisions",
   },
   scim: {
     plan: "enterprise",

@@ -3,9 +3,9 @@ import { PiArrowSquareOut } from "react-icons/pi";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import {
   getMetricLink,
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
   ExperimentSortBy,
-  isPrecomputedDimension,
+  isDimensionPrecomputed,
 } from "shared/experiments";
 import {
   DifferenceType,
@@ -25,7 +25,10 @@ import {
   MetricSnapshotSettings,
 } from "shared/types/report";
 import Modal from "@/components/Modal";
-import { ExperimentTableRow } from "@/services/experiments";
+import {
+  ExperimentTableRow,
+  getHonoredPrecomputedUnitDimensionIds,
+} from "@/services/experiments";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import Link from "@/ui/Link";
 import MetricName from "@/components/Metrics/MetricName";
@@ -33,6 +36,7 @@ import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import { useExperimentTableRows } from "@/hooks/useExperimentTableRows";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import {
@@ -119,7 +123,7 @@ interface MetricDrilldownModalProps {
  */
 interface MetricDrilldownContentProps {
   row: ExperimentTableRow;
-  metric: ExperimentMetricInterface;
+  metric: ExperimentMetricDefinition;
   initialResults: ExperimentReportResultDimension;
   goalMetrics: string[];
   secondaryMetrics: string[];
@@ -198,7 +202,9 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
   isReportContext,
 }) => {
   const { isAuthenticated } = useAuth();
-  const { analysis } = useSnapshot();
+  const { hasCommercialFeature } = useUser();
+  const { getDatasourceById } = useDefinitions();
+  const { analysis, experiment } = useSnapshot();
 
   const liveResults = useMemo(() => {
     if (!dimensionInfo) {
@@ -250,9 +256,19 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
   const [sliceSearchTerm, setSliceSearchTerm] = useState(
     initialSliceSearchTerm || "",
   );
-  const hideTimeSeries =
-    isReportContext ||
-    (!!dimensionInfo && !isPrecomputedDimension(dimensionInfo.id));
+  const hasDimensionTimeSeries =
+    !dimensionInfo ||
+    isDimensionPrecomputed(
+      dimensionInfo.id,
+      getHonoredPrecomputedUnitDimensionIds(
+        experiment?.precomputedUnitDimensionIds,
+        experiment?.datasource
+          ? getDatasourceById(experiment.datasource)
+          : undefined,
+        hasCommercialFeature("pipeline-mode"),
+      ),
+    );
+  const hideTimeSeries = isReportContext || !hasDimensionTimeSeries;
   const [visibleSliceTimeSeriesRowIds, setVisibleSliceTimeSeriesRowIds] =
     useState<string[]>(() => {
       if (
@@ -341,8 +357,8 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
           timeSeriesMessage={
             isReportContext
               ? "Time series data is not available for custom reports."
-              : dimensionInfo && !isPrecomputedDimension(dimensionInfo.id)
-                ? "Time series is not available for unit dimension breakdowns."
+              : !hasDimensionTimeSeries
+                ? "Configure 'Always computed unit-dimensions' in Analysis Settings to generate time series for this dimension."
                 : undefined
           }
           dimensionInfo={dimensionInfo}
@@ -533,6 +549,7 @@ const MetricDrilldownModal = ({
   return (
     <Tabs defaultValue={initialTab}>
       <Modal
+        useRadixButton={false}
         open={true}
         close={close}
         borderlessHeader={true}

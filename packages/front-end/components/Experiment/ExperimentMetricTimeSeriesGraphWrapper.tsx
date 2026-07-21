@@ -10,7 +10,7 @@ import {
 import { daysBetween, getValidDate } from "shared/dates";
 import { addDays, min } from "date-fns";
 import { filterInvalidMetricTimeSeries } from "shared/util";
-import { ExperimentMetricInterface, getAdjustedCI } from "shared/experiments";
+import { ExperimentMetricDefinition, getAdjustedCI } from "shared/experiments";
 import useApi from "@/hooks/useApi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
@@ -104,6 +104,7 @@ function buildZeroEffectPadPoint(
 ): ExperimentTimeSeriesGraphDataPoint {
   return {
     d,
+    isPaddingPoint: true,
     variations: templateCells.map((cell) => {
       if (!cell) return null;
       return {
@@ -121,7 +122,7 @@ interface ExperimentMetricTimeSeriesGraphWrapperProps {
   experimentId: string;
   pValueThreshold: number;
   phase: number;
-  metric: ExperimentMetricInterface;
+  metric: ExperimentMetricDefinition;
   differenceType: DifferenceType;
   variations: GraphVariation[];
   showVariations: boolean[];
@@ -134,6 +135,7 @@ interface ExperimentMetricTimeSeriesGraphWrapperProps {
   preloadedTimeSeries?: MetricTimeSeries;
   dimensionId?: string;
   dimensionValue?: string;
+  oneSided?: boolean;
 }
 
 export default function ExperimentMetricTimeSeriesGraphWrapperWithErrorBoundary(
@@ -170,6 +172,7 @@ function ExperimentMetricTimeSeriesGraphWrapper({
   preloadedTimeSeries,
   dimensionId,
   dimensionValue,
+  oneSided = false,
 }: ExperimentMetricTimeSeriesGraphWrapperProps) {
   const { getFactTableById } = useDefinitions();
 
@@ -360,6 +363,7 @@ function ExperimentMetricTimeSeriesGraphWrapper({
       }
       statsEngine={statsEngine}
       usesPValueAdjustment={pValueAdjustmentEnabled}
+      oneSided={oneSided}
     />
   );
 }

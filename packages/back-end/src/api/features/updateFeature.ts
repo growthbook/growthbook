@@ -1,5 +1,9 @@
-import { validateFeatureValue, getRulesForEnvironment } from "shared/util";
-import { isEqual } from "lodash";
+import {
+  validateFeatureValue,
+  getRulesForEnvironment,
+  stemRuleId,
+} from "shared/util";
+import { isEqual, omit } from "lodash";
 import { updateFeatureValidator } from "shared/validators";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
@@ -14,6 +18,7 @@ import {
   createAndPublishRevision,
 } from "back-end/src/models/FeatureModel";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
+import { BadRequestError } from "back-end/src/util/errors";
 import {
   addIdsToFlatRules,
   addIdsToRules,
@@ -34,6 +39,8 @@ import {
   getEnvironments,
   getEnvironmentIdsFromOrg,
 } from "back-end/src/services/organizations";
+import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
+import { logger } from "back-end/src/util/logger";
 import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
 import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
 import { validateEnvKeys } from "./postFeature";
@@ -42,6 +49,8 @@ import { canBypassReviewChecks } from "./reviewBypass";
 import {
   assertValidHoldout,
   assertValidProjectId,
+  assertValidBaseConfig,
+  assertConfigSchemaCompat,
   extractRevisionMetadata,
   validateEnvRulesScheduleRules,
 } from "./v2Shared";
@@ -143,9 +152,46 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     await assertValidHoldout(req.body.holdout, req.context);
 
     const jsonSchema =
-      feature.valueType === "json" && req.body.jsonSchema != null
-        ? parseApiJsonSchema(req.organization, req.body.jsonSchema)
+      feature.valueType !== "boolean" && req.body.jsonSchema != null
+        ? parseApiJsonSchema(
+            req.organization,
+            req.body.jsonSchema,
+            feature.valueType,
+          )
         : null;
+
+    // The backing config is fixed at creation — reject any attempt to change it
+    // (a no-op resend of the same value is allowed). Matches the UI, which only
+    // sets baseConfig when the feature is created.
+    if (
+      req.body.baseConfig !== undefined &&
+      (req.body.baseConfig ?? null) !== (feature.baseConfig ?? null)
+    ) {
+      throw new BadRequestError(
+        `The backing config cannot be changed after creation (existing: ${
+          feature.baseConfig ? `"${feature.baseConfig}"` : "none"
+        }, provided: ${
+          req.body.baseConfig ? `"${req.body.baseConfig}"` : "none"
+        }).`,
+      );
+    }
+
+    // Config mode: validate the effective baseConfig (live + JSON) and that it
+    // doesn't coexist with an enabled JSON schema.
+    const effectiveBaseConfig =
+      req.body.baseConfig !== undefined
+        ? (req.body.baseConfig ?? null)
+        : (feature.baseConfig ?? null);
+    await assertValidBaseConfig(
+      req.context,
+      effectiveBaseConfig,
+      feature.valueType,
+      effectiveProject,
+    );
+    assertConfigSchemaCompat({
+      jsonSchemaEnabled: (jsonSchema ?? feature.jsonSchema)?.enabled,
+      baseConfig: effectiveBaseConfig,
+    });
 
     let updates: Partial<FeatureInterface> = {
       ...(ownerInput !== undefined ? { owner: owner ?? "" } : {}),
@@ -154,6 +200,9 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       ...(project != null ? { project } : {}),
       ...(tags != null ? { tags } : {}),
       ...(defaultValue != null ? { defaultValue } : {}),
+      ...(req.body.baseConfig !== undefined
+        ? { baseConfig: req.body.baseConfig ?? null }
+        : {}),
       ...(environmentSettings != null ? { environmentSettings } : {}),
       ...(prerequisites != null ? { prerequisites } : {}),
       ...(jsonSchema != null ? { jsonSchema } : {}),
@@ -232,7 +281,6 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     // rule id across envs. Then union with existing rules for envs the caller
     // didn't touch so we don't lose them on partial updates.
     const incomingEnvs = req.body.environments ?? {};
-    const touchedEnvs = new Set(Object.keys(incomingEnvs));
     const inboundRulesByEnv: Record<string, FeatureRule[]> = {};
     for (const [env, envSettings] of Object.entries(incomingEnvs)) {
       if (!envSettings.rules) continue;
@@ -255,22 +303,98 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
             featureProject: effectiveProject,
           })
         : [];
-    // Carry through untouched-env rules from the existing feature.
-    const preservedRules: FeatureRule[] = (feature.rules ?? []).filter((r) => {
-      if (r.allEnvironments) {
-        // An all-env rule can only be left alone if the caller didn't touch
-        // any env — otherwise it would be ambiguous which envs they meant to
-        // affect. This matches legacy v1 semantics (untouched envs preserved).
-        return true;
+    // Envs whose rule lists the caller is replacing. Envs present in the
+    // payload with only `enabled` (no `rules` key) keep their current rules.
+    const rulesTouchedEnvs = new Set(Object.keys(inboundRulesByEnv));
+    const applicableEnvIds = getApplicableEnvIds(
+      getEnvironments(req.context.org),
+      effectiveProject,
+    );
+
+    // Carry through rules for envs the caller didn't touch. A single v2 rule
+    // can span several envs (content-identical rules collapse on migration,
+    // and env inheritance expands rules into child envs at read time), so a
+    // rule whose envs intersect the touched set is split: touched envs are
+    // removed from its scope and untouched envs keep it unchanged.
+    const preservedRules: FeatureRule[] = (feature.rules ?? []).flatMap((r) => {
+      // Footprint mirrors `ruleFootprint`: allEnvironments / undefined =
+      // every applicable env; explicit list = that list (orphan envs kept).
+      const isWildcard = r.allEnvironments || r.environments === undefined;
+      const footprint = isWildcard ? applicableEnvIds : (r.environments ?? []);
+      const remaining = footprint.filter((e) => !rulesTouchedEnvs.has(e));
+      // No-env "pending" rules and untouched rules pass through unchanged.
+      if (remaining.length === footprint.length) return [r];
+      if (remaining.length === 0) return [];
+      // Splitting a wildcard rule pins it to an explicit env list: envs added
+      // to the org later will no longer pick it up automatically. That scope
+      // narrowing is inherent to per-env edits of a shared rule, so log it
+      // for operators debugging unexpected coverage gaps.
+      if (isWildcard) {
+        logger.warn(
+          {
+            organization: req.context.org.id,
+            featureId: feature.id,
+            ruleId: r.id,
+            remainingEnvs: remaining,
+          },
+          "v1 feature update narrowed an all-environments rule to an explicit environment list",
+        );
       }
-      const envs = r.environments ?? [];
-      // Keep if none of the rule's envs were touched.
-      return envs.every((e) => !touchedEnvs.has(e));
+      return [
+        {
+          ...r,
+          allEnvironments: false,
+          environments: remaining,
+        } as FeatureRule,
+      ];
     });
-    const revisedRulesFlat: FeatureRule[] = [
-      ...preservedRules,
-      ...inboundFlatRules,
-    ];
+
+    // Re-merge inbound rules into preserved ones when a client round-trips
+    // the same rule (matching id stem + content) so a shared rule stays a
+    // single entry instead of splitting into per-env copies.
+    const ruleContentEqual = (a: FeatureRule, b: FeatureRule) =>
+      isEqual(
+        omit(a, ["id", "environments", "allEnvironments"]),
+        omit(b, ["id", "environments", "allEnvironments"]),
+      );
+    // Keep merged env lists in org env order (unknown/orphan envs last) so
+    // re-merging a round-tripped rule is order-stable and diff-free.
+    const orgEnvOrder = getEnvironments(req.context.org).map((e) => e.id);
+    const orgEnvOrderSet = new Set(orgEnvOrder);
+    const canonicalizeEnvs = (envs: string[]) => {
+      const envSet = new Set(envs);
+      return [
+        ...orgEnvOrder.filter((e) => envSet.has(e)),
+        ...envs.filter((e) => !orgEnvOrderSet.has(e)),
+      ];
+    };
+    const revisedRulesFlat: FeatureRule[] = [...preservedRules];
+    for (const inbound of inboundFlatRules) {
+      const matchIndex = inbound.allEnvironments
+        ? -1
+        : revisedRulesFlat.findIndex(
+            (r) =>
+              !r.allEnvironments &&
+              !!r.id &&
+              !!inbound.id &&
+              stemRuleId(r.id) === stemRuleId(inbound.id) &&
+              ruleContentEqual(r, inbound),
+          );
+      if (matchIndex >= 0) {
+        const existing = revisedRulesFlat[matchIndex];
+        const envSet = new Set(existing.environments ?? []);
+        const mergedEnvs = [
+          ...(existing.environments ?? []),
+          ...(inbound.environments ?? []).filter((e) => !envSet.has(e)),
+        ];
+        revisedRulesFlat[matchIndex] = {
+          ...existing,
+          environments: canonicalizeEnvs(mergedEnvs),
+        } as FeatureRule;
+      } else {
+        revisedRulesFlat.push(inbound);
+      }
+    }
 
     const changedRuleEnvironments: string[] = [];
     let defaultValueChanged = false;
@@ -281,15 +405,24 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     ) {
       defaultValueChanged = true;
     }
-    if (updates.environmentSettings) {
-      Object.keys(updates.environmentSettings).forEach((env) => {
-        const inboundEnv = getRulesForEnvironment(inboundFlatRules, env);
-        const currentEnv = getRulesForEnvironment(feature.rules ?? [], env);
-        if (!isEqual(inboundEnv, currentEnv)) {
-          changedRuleEnvironments.push(env);
-        }
-      });
-    }
+    // Only envs whose rules the caller replaced can change — untouched envs
+    // are carried through by construction. Compare per-env projections with
+    // scoping fields stripped: removing env B from a shared rule changes the
+    // rule object's `environments` list without changing what env A serves.
+    const ruleContentForEnv = (rules: FeatureRule[], env: string) =>
+      getRulesForEnvironment(rules, env).map((r) =>
+        omit(r, ["id", "environments", "allEnvironments"]),
+      );
+    rulesTouchedEnvs.forEach((env) => {
+      if (
+        !isEqual(
+          ruleContentForEnv(revisedRulesFlat, env),
+          ruleContentForEnv(feature.rules ?? [], env),
+        )
+      ) {
+        changedRuleEnvironments.push(env);
+      }
+    });
 
     // 3. metadata
     const { metadata: metadataChanges, remaining: updatesAfterMetadata } =
@@ -369,6 +502,21 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
 
       Object.assign(feature, updatedFeatureFromRevision);
       updates.version = revision.version;
+
+      // The enabled flips were excluded from the direct-write `updates` above
+      // (frozen to their pre-update values) so they apply exactly once, via
+      // the revision publish. The direct write below runs after the publish,
+      // so re-sync the frozen values from the published feature state.
+      if (updates.environmentSettings) {
+        for (const env of Object.keys(changedEnvEnabled)) {
+          updates.environmentSettings[env] = {
+            ...updates.environmentSettings[env],
+            enabled:
+              feature.environmentSettings?.[env]?.enabled ??
+              changedEnvEnabled[env],
+          };
+        }
+      }
     }
 
     const updatedFeature = await updateFeatureToDb(

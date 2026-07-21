@@ -37,6 +37,9 @@ const incrementalRefresh = z
     // Experiment Settings Hash
     experimentSettingsHash: z.string().nullable(),
 
+    // Snapshot whose run materialized the current tables
+    materializedBySnapshotId: z.string().optional(),
+
     // Metrics
     metricSources: z.array(incrementalRefreshMetricSourceValidator),
 

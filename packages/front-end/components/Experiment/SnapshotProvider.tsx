@@ -13,6 +13,10 @@ import {
   ExperimentSnapshotInterface,
   SnapshotStatusSummary,
 } from "shared/types/experiment-snapshot";
+import {
+  getExperimentSourceSnapshotRef,
+  SourceSnapshotRef,
+} from "shared/enterprise";
 import { getSnapshotAnalysis } from "shared/util";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
@@ -41,6 +45,7 @@ const snapshotContext = React.createContext<{
   phase: number;
   dimension: string;
   precomputedDimensions: string[];
+  precomputedUnitDimensionIds: string[];
   analysisSettings?: ExperimentSnapshotAnalysisSettings | null;
   setPhase: (phase: number) => void;
   setDimension: (dimension: string) => void;
@@ -48,12 +53,14 @@ const snapshotContext = React.createContext<{
     analysisSettings: ExperimentSnapshotAnalysisSettings | null,
   ) => void;
   setSnapshotType: (snapshotType: SnapshotType | undefined) => void;
+  sourceSnapshot?: SourceSnapshotRef;
   loading?: boolean;
   error?: Error;
 }>({
   phase: 0,
   dimension: "",
   precomputedDimensions: [],
+  precomputedUnitDimensionIds: [],
   setPhase: () => {
     // do nothing
   },
@@ -69,18 +76,71 @@ const snapshotContext = React.createContext<{
   mutate: () => Promise.resolve(),
 });
 
+export function getSnapshotSummaryPath({
+  experimentId,
+  phase,
+  dimension,
+  snapshotType,
+}: {
+  experimentId: string;
+  phase: number;
+  dimension: string;
+  snapshotType?: SnapshotType;
+}): string {
+  const query = new URLSearchParams({
+    ...(dimension && { dimension }),
+    ...(snapshotType && { type: snapshotType }),
+  }).toString();
+  return (
+    `/experiment/${experimentId}/snapshot-summary/${phase}` +
+    (query ? `?${query}` : "")
+  );
+}
+
 export function getPrecomputedDimensions(
   snapshot: ExperimentSnapshotInterface | undefined,
   dimensionless: ExperimentSnapshotInterface | undefined,
 ): string[] {
   if (snapshot?.type === "standard" && !snapshot?.dimension) {
-    return snapshot?.settings.dimensions.map((d) => d.id) ?? [];
+    return snapshot.settings.dimensions.map((d) => d.id) ?? [];
   }
 
   // if snapshot is not the latest standard, then show dimensions from
   // the dimensionless snapshot
   if (snapshot?.type !== "standard" && dimensionless?.type === "standard") {
-    return dimensionless?.settings.dimensions.map((d) => d.id) ?? [];
+    return dimensionless.settings.dimensions.map((d) => d.id) ?? [];
+  }
+
+  return [];
+}
+
+export function getPrecomputedUnitDimensionIds(
+  experiment: ExperimentInterfaceStringDates | undefined,
+  snapshot: ExperimentSnapshotInterface | undefined,
+  dimensionless: ExperimentSnapshotInterface | undefined,
+): string[] {
+  const getSnapshotUnitDimensionIds = (
+    snapshot: ExperimentSnapshotInterface,
+  ) => {
+    const experimentUnitDimensionIds = experiment?.precomputedUnitDimensionIds;
+    const snapshotUnitDimensionIds =
+      snapshot.settings.precomputedUnitDimensionIds ?? [];
+
+    return experimentUnitDimensionIds
+      ? snapshotUnitDimensionIds.filter((id) =>
+          experimentUnitDimensionIds.includes(id),
+        )
+      : snapshotUnitDimensionIds;
+  };
+
+  if (snapshot?.type === "standard" && !snapshot?.dimension) {
+    return getSnapshotUnitDimensionIds(snapshot);
+  }
+
+  // if snapshot is not the latest standard, then show dimensions from
+  // the dimensionless snapshot
+  if (snapshot?.type !== "standard" && dimensionless?.type === "standard") {
+    return getSnapshotUnitDimensionIds(dimensionless);
   }
 
   return [];
@@ -185,15 +245,15 @@ export default function SnapshotProvider({
   // `latest` is sourced from a dedicated status endpoint that skips loading
   // and decoding the per-metric analysis chunks. Keyed by the same
   // phase/dimension/type tuple as the main snapshot fetch.
-  const statusQuery = new URLSearchParams({
-    ...(dimension && { dimension }),
-    ...(snapshotType && { type: snapshotType }),
-  }).toString();
   const { data: statusData, mutate: mutateStatus } = useApi<{
     latest: SnapshotStatusSummary | null;
   }>(
-    `/experiment/${experiment.id}/snapshot-summary/${phase}` +
-      (statusQuery ? `?${statusQuery}` : ""),
+    getSnapshotSummaryPath({
+      experimentId: experiment.id,
+      phase,
+      dimension,
+      snapshotType,
+    }),
   );
 
   const mutate = useCallback(
@@ -223,12 +283,21 @@ export default function SnapshotProvider({
   const [analysisSettings, setAnalysisSettings] = useState(
     defaultAnalysisSettings,
   );
+
+  const dimensionlessSnapshot = data?.dimensionless ?? data?.snapshot;
+  const precomputedUnitDimensionIds = getPrecomputedUnitDimensionIds(
+    experiment,
+    data?.snapshot,
+    dimensionlessSnapshot,
+  );
+  const sourceSnapshot = getExperimentSourceSnapshotRef(data?.snapshot);
+
   return (
     <snapshotContext.Provider
       value={{
         experiment,
         snapshot: data?.snapshot,
-        dimensionless: data?.dimensionless ?? data?.snapshot,
+        dimensionless: dimensionlessSnapshot,
         latestSummary: latest,
         analysis: data?.snapshot
           ? ((getSnapshotAnalysis(
@@ -242,8 +311,10 @@ export default function SnapshotProvider({
         analysisSettings,
         precomputedDimensions: getPrecomputedDimensions(
           data?.snapshot,
-          data?.dimensionless,
+          dimensionlessSnapshot,
         ),
+        precomputedUnitDimensionIds,
+        sourceSnapshot,
         setPhase,
         setDimension,
         setAnalysisSettings,
@@ -345,6 +416,11 @@ export function LocalSnapshotProvider({
         analysisSettings,
         setAnalysisSettings,
         precomputedDimensions: getPrecomputedDimensions(
+          localSnapshot,
+          localSnapshot,
+        ),
+        precomputedUnitDimensionIds: getPrecomputedUnitDimensionIds(
+          experiment,
           localSnapshot,
           localSnapshot,
         ),

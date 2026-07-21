@@ -8,10 +8,11 @@ import { postSavedGroupRevisionRebaseValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   BadRequestError,
-  ConflictError,
+  MergeConflictError,
   NotFoundError,
 } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
+import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
 import { isDraftStatus, loadRevisionByVersion } from "./validations";
 import { toApiSavedGroupRevision } from "./toApiSavedGroupRevision";
 
@@ -52,6 +53,7 @@ export const postSavedGroupRevisionRebase = createApiRequestHandler(
     baseSnapshot,
     liveSnapshot,
     existingOps,
+    adapter.getUpdatableFields(),
   );
 
   const conflicts = mergeResult.conflicts || [];
@@ -67,7 +69,7 @@ export const postSavedGroupRevisionRebase = createApiRequestHandler(
       strategy !== "discard" &&
       strategy !== "union"
     ) {
-      throw new ConflictError(
+      throw new MergeConflictError(
         `Please resolve conflict for field: ${conflict.field}`,
         conflicts,
       );
@@ -161,6 +163,10 @@ export const postSavedGroupRevisionRebase = createApiRequestHandler(
     newOps,
     req.context.userId,
   );
+
+  await dispatchSavedGroupRevisionEvent(req.context, updated, {
+    type: "rebased",
+  });
 
   return {
     revision: await toApiSavedGroupRevision(updated, req.context),

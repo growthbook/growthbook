@@ -10,7 +10,7 @@ const FeatureKeyField: FC<{
     size="legacy"
     label="Feature Key"
     {...keyField}
-    pattern="^[a-zA-Z0-9_.:|-]+$"
+    pattern="^[a-zA-Z0-9_.:\|\-]+$"
     placeholder={useOrgSettings().featureKeyExample || "my-feature"}
     required
     title="Only letters, numbers, and the characters '_-.:|' allowed. No spaces."

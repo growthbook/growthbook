@@ -266,10 +266,21 @@ export interface LinkedFeatureInfo {
   feature: FeatureInterface;
   state: LinkedFeatureState;
   values: ExperimentRefVariation[];
+  /**
+   * True when the matching experiment-ref rule stores its variation values as
+   * sparse JSON patches (merged onto the feature default). Editors should render
+   * the values in sparse mode so they aren't mistaken for full objects.
+   */
+  sparse?: boolean;
   valuesFrom: string;
   inconsistentValues: boolean;
   rulesAbove: boolean;
   environmentStates: Record<string, LinkedFeatureEnvState>;
+  /**
+   * True when the live revision has at least one experiment-ref rule for this
+   * experiment.
+   */
+  liveHasMatchingRule?: boolean;
   /** True when the matching draft revision requires approval (regardless of whether it's been approved yet). */
   pendingApproval?: boolean;
   /** Version of the matching draft revision (present when state === "draft"). */
@@ -299,38 +310,54 @@ export type ExperimentHealthSettings = {
   experimentMinLengthDays: number;
 };
 
-export type ExperimentDataForStatusStringDates = Pick<
-  ExperimentInterfaceStringDates,
-  | "type"
-  | "variations"
-  | "status"
-  | "archived"
-  | "results"
-  | "analysisSummary"
-  | "phases"
-  | "dismissedWarnings"
-  | "goalMetrics"
-  | "secondaryMetrics"
-  | "guardrailMetrics"
-  | "datasource"
-  | "decisionFrameworkSettings"
-  | "nextScheduledStatusUpdate"
->;
+export type ExperimentDataForStatusStringDates = Omit<
+  Pick<
+    ExperimentInterfaceStringDates,
+    | "type"
+    | "variations"
+    | "status"
+    | "archived"
+    | "results"
+    | "analysisSummary"
+    | "phases"
+    | "dismissedWarnings"
+    | "goalMetrics"
+    | "secondaryMetrics"
+    | "guardrailMetrics"
+    | "datasource"
+    | "decisionFrameworkSettings"
+    | "nextScheduledStatusUpdate"
+  >,
+  "type"
+> & {
+  // Contextual bandits are a separate model but reuse the experiment status
+  // badge via an adapter, so allow their type here. Kept optional to match
+  // the source `type` field.
+  type?: ExperimentType | "contextual-bandit";
+};
 
-export type ExperimentDataForStatus = Pick<
-  ExperimentInterface,
-  | "type"
-  | "variations"
-  | "status"
-  | "archived"
-  | "results"
-  | "analysisSummary"
-  | "phases"
-  | "dismissedWarnings"
-  | "goalMetrics"
-  | "secondaryMetrics"
-  | "guardrailMetrics"
-  | "datasource"
-  | "decisionFrameworkSettings"
-  | "nextScheduledStatusUpdate"
->;
+export type ExperimentDataForStatus = Omit<
+  Pick<
+    ExperimentInterface,
+    | "type"
+    | "variations"
+    | "status"
+    | "archived"
+    | "results"
+    | "analysisSummary"
+    | "phases"
+    | "dismissedWarnings"
+    | "goalMetrics"
+    | "secondaryMetrics"
+    | "guardrailMetrics"
+    | "datasource"
+    | "decisionFrameworkSettings"
+    | "nextScheduledStatusUpdate"
+  >,
+  "type"
+> & {
+  // Contextual bandits are a separate model but reuse the experiment status
+  // badge via an adapter, so allow their type here. Kept optional to match
+  // the source `type` field.
+  type?: ExperimentType | "contextual-bandit";
+};

@@ -184,7 +184,6 @@ export default function ConfigureReport({
       trackingEventModalType="configure-report"
       close={close}
       header={`Edit Analysis`}
-      useRadixButton={true}
       cta="Save and refresh"
       submit={submit}
       size="lg"
@@ -457,6 +456,7 @@ export default function ConfigureReport({
                   guardrailMetrics,
                 )
               }
+              experimentType={experiment?.type}
             />
 
             <div className="mt-4">

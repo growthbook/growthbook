@@ -13,6 +13,8 @@ import {
   createOrUpdateRevision,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
+import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
+import { assertSavedGroupArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 import { loadRevisionByVersion } from "./validations";
 import { toApiSavedGroupRevision } from "./toApiSavedGroupRevision";
 
@@ -81,7 +83,12 @@ export const postSavedGroupRevisionRevert = createApiRequestHandler(
     );
   }
 
-  const strategy = req.body.strategy ?? "draft";
+  // When the org enables "reverts bypass approval", reverts don't require
+  // approval, so they publish by default (callers can still pass "draft").
+  const revertsBypassApproval =
+    !!req.organization.settings?.revertsBypassApproval;
+  const strategy =
+    req.body.strategy ?? (revertsBypassApproval ? "publish" : "draft");
   const isPublish = strategy === "publish";
 
   const patchOps: JsonPatchOperation[] = Object.entries(fieldsToUpdate).map(
@@ -100,11 +107,16 @@ export const postSavedGroupRevisionRevert = createApiRequestHandler(
   let approvalRequired = false;
   let canBypass = false;
   if (isPublish) {
-    approvalRequired = adapter.isApprovalRequiredForRevision
-      ? adapter.isApprovalRequiredForRevision(req.context, {
-          target: { proposedChanges: patchOps },
-        } as unknown as Revision)
-      : adapter.isApprovalRequired(req.context);
+    // With "reverts bypass approval" enabled, a revert restores an
+    // already-reviewed state and doesn't require approval at all, so it's a
+    // normal merge rather than a recorded bypass.
+    approvalRequired = revertsBypassApproval
+      ? false
+      : adapter.isApprovalRequiredForRevision
+        ? adapter.isApprovalRequiredForRevision(req.context, {
+            target: { proposedChanges: patchOps },
+          } as unknown as Revision)
+        : adapter.isApprovalRequired(req.context);
     canBypass =
       !!req.organization.settings?.restApiBypassesReviews ||
       adapter.canBypassApproval(
@@ -116,6 +128,15 @@ export const postSavedGroupRevisionRevert = createApiRequestHandler(
         "This revert requires approval before changes can be published. " +
           'Use `strategy: "draft"` to create a draft for review, ' +
           "or use a role/token that grants bypassApprovalChecks.",
+      );
+    }
+    // Reverting to a historically-archived state re-archives the group; soft-warn
+    // (bypassably) if it still has live dependents. Only the archive transition.
+    if (fieldsToUpdate.archived === true && !savedGroup.archived) {
+      await assertSavedGroupArchiveDependentsGuard(
+        req.context,
+        { id: savedGroup.id },
+        { armed: false },
       );
     }
   }
@@ -147,23 +168,20 @@ export const postSavedGroupRevisionRevert = createApiRequestHandler(
         revertedFrom: targetRevision.id,
       },
     );
+    await dispatchSavedGroupRevisionEvent(req.context, draft, {
+      type: "created",
+    });
+
     return {
       revision: await toApiSavedGroupRevision(draft, req.context),
     };
   }
 
-  // Apply changes to the live entity first, then record the revert as a single
-  // already-merged revision. A draft-then-merge would be two non-transactional
-  // writes: if the merge failed after applyChanges landed, the draft would be
-  // stranded and could never be published ("no changes detected" against the
-  // now-updated entity). createMerged closes that window.
-  await adapter.applyChanges(
-    req.context,
-    savedGroup as unknown as Record<string, unknown>,
-    fieldsToUpdate,
-    { isRevert: true },
-  );
-
+  // Record the already-merged revert revision FIRST, then apply it to the live
+  // entity. If the apply fails, delete the just-created revision so we never
+  // leave a "reverted" record with no corresponding live change. (The revision
+  // is created in its terminal `merged` state, so there's no concurrent-discard
+  // vector — this is a clean abort rather than a claim-then-CAS.)
   const merged = await req.context.models.revisions.createMerged({
     type: "saved-group",
     id: savedGroup.id,
@@ -172,6 +190,26 @@ export const postSavedGroupRevisionRevert = createApiRequestHandler(
     bypass: approvalRequired && canBypass,
     title,
     revertedFrom: targetRevision.id,
+  });
+
+  try {
+    await adapter.applyChanges(
+      req.context,
+      savedGroup as unknown as Record<string, unknown>,
+      fieldsToUpdate,
+      { isRevert: true },
+    );
+  } catch (e) {
+    try {
+      await req.context.models.revisions.deleteById(merged.id);
+    } catch {
+      // ignore — surface the original applyChanges error
+    }
+    throw e;
+  }
+
+  await dispatchSavedGroupRevisionEvent(req.context, merged, {
+    type: "reverted",
   });
 
   return {

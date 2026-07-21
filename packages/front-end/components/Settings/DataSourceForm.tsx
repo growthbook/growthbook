@@ -5,10 +5,11 @@ import {
   ChangeEventHandler,
   ReactElement,
 } from "react";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import { isSampleDatasource } from "shared/demo-datasource";
 import { dataSourceConnections } from "@/services/eventSchema";
-import Button from "@/components/Button";
+import Button from "@/ui/Button";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/ui/MultiSelectField";
 import { getInitialSettings } from "@/services/datasources";
@@ -22,7 +23,7 @@ import { ensureAndReturn } from "@/types/utils";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { useUser } from "@/services/UserContext";
+import Callout from "@/ui/Callout";
 import EditSchemaOptions from "./EditSchemaOptions";
 
 const typeOptions = dataSourceConnections;
@@ -49,7 +50,7 @@ const DataSourceForm: FC<{
   secondaryCTA,
 }) => {
   const { projects } = useDefinitions();
-  const { organization } = useUser();
+  const { apiCall, orgId } = useAuth();
   const [dirty, setDirty] = useState(false);
   const [datasource, setDatasource] = useState<
     Partial<DataSourceInterfaceWithParams> | undefined
@@ -57,10 +58,18 @@ const DataSourceForm: FC<{
   const [hasError, setHasError] = useState(false);
   const permissionsUtil = usePermissionsUtil();
 
-  const isSampleData =
-    data.projects?.includes(
-      getDemoDatasourceProjectIdForOrganization(organization.id),
-    ) ?? false;
+  // Lock the sample Data Source connection: the constant-ID seeded one, plus
+  // legacy seeds matched the same way the back-end identifies them for
+  // "Delete Sample Data". If a sample connection were repurposed to point at
+  // a real database, "Delete Sample Data" would still remove it, so editing
+  // it is never safe.
+  const isSampleData = isSampleDatasource({
+    datasourceId: data.id,
+    type: data.type,
+    host: data.params && "host" in data.params ? data.params.host : undefined,
+    projects: data.projects,
+    organizationId: orgId ?? undefined,
+  });
 
   const permissionRequired = (project: string) => {
     return existing
@@ -85,7 +94,6 @@ const DataSourceForm: FC<{
     });
   }, [source]);
 
-  const { apiCall } = useAuth();
   useEffect(() => {
     if (data && !dirty) {
       const newValue: Partial<DataSourceInterfaceWithParams> = {
@@ -112,11 +120,14 @@ const DataSourceForm: FC<{
 
       // Update
       if (id) {
+        const putBody = { ...datasource };
+        // Event Forwarder uses dedicated endpoints; omit from generic datasource PUT.
+        delete putBody.eventForwarderConfig;
         const res = await apiCall<{ status: number; message: string }>(
           `/datasource/${data.id}`,
           {
             method: "PUT",
-            body: JSON.stringify(datasource),
+            body: JSON.stringify(putBody),
           },
         );
         if (res.status > 200) {
@@ -177,6 +188,7 @@ const DataSourceForm: FC<{
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       inline={inline}
       open={true}
@@ -194,27 +206,24 @@ const DataSourceForm: FC<{
       }
     >
       {importSampleData && !datasource.type && (
-        <div className="alert alert-info">
-          <div className="row align-items-center">
-            <div className="col">
-              <div>
-                <strong>Not ready to connect to your data source?</strong>
-              </div>{" "}
-              Try out GrowthBook first with a sample dataset.
-            </div>
-            <div className="col-auto">
-              <Button
-                color="info"
-                className="btn-sm"
-                onClick={async () => {
-                  await importSampleData();
-                }}
-              >
-                Use Sample Data
-              </Button>
-            </div>
-          </div>
-        </div>
+        <Callout
+          status="info"
+          action={
+            <Button
+              color="inherit"
+              onClick={async () => {
+                await importSampleData();
+              }}
+            >
+              Use Sample Data
+            </Button>
+          }
+        >
+          <div>
+            <strong>Not ready to connect to your data source?</strong>
+          </div>{" "}
+          Try out GrowthBook first with a sample dataset.
+        </Callout>
       )}
       <SelectField
         size="legacy"
@@ -232,6 +241,7 @@ const DataSourceForm: FC<{
             ...datasource,
             type: option.type,
             params: option.default,
+            eventForwarderConfig: null,
           } as Partial<DataSourceInterfaceWithParams>);
           setDirty(true);
         }}
@@ -247,6 +257,7 @@ const DataSourceForm: FC<{
         })}
         helpText={
           <DocLink
+            useRadix={false}
             docSection={datasource.type as DocSection}
             fallBackSection="datasources"
           >
@@ -269,6 +280,7 @@ const DataSourceForm: FC<{
         <label>Description</label>
         <textarea
           className="form-control"
+          maxLength={MAX_DESCRIPTION_LENGTH}
           name="description"
           onChange={onChange}
           value={datasource.description}
@@ -288,7 +300,7 @@ const DataSourceForm: FC<{
                 />
               </>
             }
-            placeholder="All projects"
+            placeholder="All Projects"
             value={datasource.projects || []}
             options={projectOptions}
             onChange={(v) => onManualChange("projects", v)}

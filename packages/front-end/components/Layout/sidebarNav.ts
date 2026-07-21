@@ -21,12 +21,33 @@ export const navlinks: SidebarLinkProps[] = [
     name: "Features",
     href: "/features",
     Icon: BsFlag,
-    path: /^(features)/,
+    path: /^(features|constants|configs)/,
+    // Clicking the parent navigates to Feature Flags and expands, so the first
+    // sub-link is pre-selected.
+    navigateOnExpand: true,
+    subLinks: [
+      {
+        name: "Feature Flags",
+        href: "/features",
+        path: /^features/,
+      },
+      {
+        name: "Configs",
+        href: "/configs",
+        path: /^configs/,
+        beta: true,
+      },
+      {
+        name: "Constants",
+        href: "/constants",
+        path: /^constants/,
+      },
+    ],
   },
   {
     name: "Experimentation",
     href: "/experiments",
-    path: /^(experiments|experiment\/|bandit|namespaces|power-calculator)/,
+    path: /^(experiments|experiment\/|bandit|contextual-bandit|namespaces|power-calculator)/,
     Icon: GBExperiment,
     navigateOnExpand: true,
     subLinks: [
@@ -38,8 +59,14 @@ export const navlinks: SidebarLinkProps[] = [
       {
         name: "Bandits",
         href: "/bandits",
-        //Icon: GBBandit,
-        path: /^bandit/,
+        path: /^bandits?($|\/)/,
+      },
+      {
+        name: "Contextual Bandits",
+        href: "/contextual-bandits",
+        path: /^contextual-bandits?($|\/)/,
+        beta: true,
+        filter: ({ gb }) => !!gb?.isOn("contextual-bandits"),
       },
       {
         name: "Holdouts",
@@ -71,19 +98,35 @@ export const navlinks: SidebarLinkProps[] = [
   {
     name: "Product Analytics",
     href: "/product-analytics/explore",
-    path: /^(product-analytics|sql-explorer)/,
+    path: /^(product-analytics|sql-explorer|session-replay)/,
     Icon: GBProductAnalytics,
     subLinks: [
       {
         name: "Explore",
         href: "/product-analytics/explore",
-        path: /^product-analytics\/explore(\/|$)/,
-        beta: true,
+        path: /^product-analytics\/explore(\/(?!funnel).*)?$/,
+      },
+      {
+        name: "Funnel Builder",
+        href: "/product-analytics/explore/funnel",
+        path: /^product-analytics\/explore\/funnel/,
+      },
+      {
+        name: "SQL Reports",
+        href: "/sql-explorer",
+        path: /^sql-explorer/,
       },
       {
         name: "Dashboards",
         href: "/product-analytics/dashboards",
         path: /^product-analytics\/dashboards/,
+      },
+      {
+        name: "Session Replay",
+        href: "/session-replay",
+        path: /^session-replay/,
+        beta: true,
+        filter: ({ gb }) => !!gb?.isOn("session-replays"),
       },
     ],
   },
@@ -237,7 +280,7 @@ export const navlinks: SidebarLinkProps[] = [
         href: "/projects",
         path: /^project/,
         filter: ({ permissionsUtils }) =>
-          permissionsUtils.canManageSomeProjects(),
+          permissionsUtils.canViewProjectsPage(),
       },
       {
         name: "Custom Fields",

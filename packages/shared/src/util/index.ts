@@ -25,7 +25,13 @@ import {
 import { HoldoutInterfaceStringDates } from "../validators/holdout";
 import { featureHasEnvironment } from "./features";
 
+export * from "./strings";
+export * from "./units-query-settings";
+export * from "./event-forwarder-destination";
 export * from "./features";
+export * from "./configs";
+export * from "./deep-merge";
+export * from "./config-schema";
 export * from "./managedWarehouse";
 export * from "./saved-groups";
 export * from "./metric-time-series";
@@ -35,6 +41,11 @@ export * from "./types";
 export * from "./errors";
 export * from "./namespaces";
 export * from "./custom-fields";
+export * from "./diffFormats";
+export * from "./format-json";
+export * from "./datasource";
+export * from "./event-forwarder-fact-table";
+export * from "./event-forwarder-warehouse-queries";
 
 export const DEFAULT_ENVIRONMENT_IDS = ["production", "dev", "staging", "test"];
 
@@ -135,7 +146,10 @@ export function isAnalysisAllowed(
   analysisSettings: ExperimentSnapshotAnalysisSettings,
 ): boolean {
   // Analysis dimensions must be subset of snapshot dimensions
-  const snapshotDimIds = snapshotSettings.dimensions.map((d) => d.id);
+  const snapshotDimIds = [
+    ...snapshotSettings.dimensions.map((d) => d.id),
+    ...(snapshotSettings.precomputedUnitDimensionIds ?? []),
+  ];
   if (!analysisSettings.dimensions.every((d) => snapshotDimIds.includes(d))) {
     return false;
   }

@@ -1,10 +1,10 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
 } from "shared/types/experiment-snapshot";
-import { Flex, Text } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import { getSnapshotAnalysis } from "shared/util";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { DimensionInterface } from "shared/types/dimension";
@@ -19,6 +19,8 @@ import { analysisUpdate } from "@/services/snapshots";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { getHonoredPrecomputedUnitDimensionIds } from "@/services/experiments";
+import { useUser } from "@/services/UserContext";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import {
   DropdownMenu,
@@ -28,6 +30,7 @@ import {
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
 import Link from "@/ui/Link";
+import Text from "@/ui/Text";
 
 export interface Props {
   value: string;
@@ -57,6 +60,8 @@ export interface Props {
 export function getDimensionOptions({
   incrementalRefresh,
   precomputedDimensions,
+  precomputedUnitDimensionIds,
+  hasPipelineModeFeature = false,
   datasource,
   dimensions,
   activationMetric,
@@ -65,27 +70,50 @@ export function getDimensionOptions({
 }: {
   incrementalRefresh: IncrementalRefreshInterface | null;
   precomputedDimensions?: string[];
+  precomputedUnitDimensionIds?: string[];
+  hasPipelineModeFeature?: boolean;
   datasource: DataSourceInterfaceWithParams | null;
   dimensions: DimensionInterface[];
   exposureQueryId?: string;
   userIdType?: string;
   activationMetric?: boolean;
 }): GroupedValue[] {
-  // Include user dimensions tied to the datasource
-  const filteredDimensions = dimensions
+  // Include unit dimensions tied to the datasource
+  const filteredUnitDimensions = dimensions
     .filter((d) => d.datasource === datasource?.id)
-    .map((d) => {
-      return {
-        label: d.name,
-        value: d.id,
-      };
-    });
+    .map((d) => ({ label: d.name, value: d.id }));
 
-  const precomputedDimensionOptions =
+  // When displaying, we are grouping Experiment Dimensions and
+  // Precomputed Unit Dimensions under 'precomputed' as they
+  // are both available for free after the main refresh.
+  const honoredPrecomputedUnitDimensionIds =
+    getHonoredPrecomputedUnitDimensionIds(
+      precomputedUnitDimensionIds,
+      datasource,
+      hasPipelineModeFeature,
+    );
+  const experimentPrecomputedUnitDimensionIds = new Set(
+    honoredPrecomputedUnitDimensionIds,
+  );
+
+  // Include user dimensions tied to the datasource. Precomputed unit dims are kept
+  // in a separate bucket so they can be promoted into the "Pre-computed" group.
+  const unitDimensions = filteredUnitDimensions.filter(
+    (d) => !experimentPrecomputedUnitDimensionIds.has(d.value),
+  );
+  const precomputedUnitDimensionOptions = filteredUnitDimensions.filter((d) =>
+    experimentPrecomputedUnitDimensionIds.has(d.value),
+  );
+
+  const precomputedExperimentDimensionOptions =
     precomputedDimensions?.map((d) => ({
       label: d.replace("precomputed:", ""),
       value: d,
     })) ?? [];
+  const precomputedDimensionOptions = [
+    ...precomputedExperimentDimensionOptions,
+    ...precomputedUnitDimensionOptions,
+  ];
 
   const exposureQuery = datasource?.settings
     ? getExposureQuery(datasource.settings, exposureQueryId, userIdType)
@@ -95,7 +123,7 @@ export function getDimensionOptions({
     if (exposureQuery.dimensions.length > 0) {
       exposureQuery.dimensions.forEach((d) => {
         // skip pre-computed dimensions
-        if (precomputedDimensionOptions.some((p) => p.label === d)) {
+        if (precomputedExperimentDimensionOptions.some((p) => p.label === d)) {
           return;
         }
         // skip experiment dimensions that are not in the incremental refresh model
@@ -106,7 +134,7 @@ export function getDimensionOptions({
           return;
         }
 
-        filteredDimensions.push({
+        unitDimensions.push({
           label: d,
           value: "exp:" + d,
         });
@@ -116,7 +144,7 @@ export function getDimensionOptions({
   // Legacy data sources - add experiment dimensions
   else if ((datasource?.settings?.experimentDimensions?.length ?? 0) > 0) {
     datasource?.settings?.experimentDimensions?.forEach((d) => {
-      filteredDimensions.push({
+      unitDimensions.push({
         label: d,
         value: "exp:" + d,
       });
@@ -138,7 +166,7 @@ export function getDimensionOptions({
     });
   }
 
-  const onDemandDimensions = [...builtInDimensions, ...filteredDimensions];
+  const onDemandDimensions = [...builtInDimensions, ...unitDimensions];
 
   return [
     ...(precomputedDimensionOptions.length > 0
@@ -184,7 +212,12 @@ export default function DimensionChooser({
   const [postLoading, setPostLoading] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const { dimensions, getDatasourceById, getDimensionById } = useDefinitions();
-  const { dimensionless: standardSnapshot, experiment } = useSnapshot();
+  const { hasCommercialFeature } = useUser();
+  const {
+    dimensionless: standardSnapshot,
+    experiment,
+    precomputedUnitDimensionIds,
+  } = useSnapshot();
   const datasource = datasourceId ? getDatasourceById(datasourceId) : null;
 
   const { incrementalRefresh } = useIncrementalRefresh(experiment?.id ?? "");
@@ -201,9 +234,30 @@ export default function DimensionChooser({
     apiCall,
   ]);
 
+  const hasPipelineModeFeature = hasCommercialFeature("pipeline-mode");
+  const honoredPrecomputedUnitDimensionIds = useMemo(
+    () =>
+      getHonoredPrecomputedUnitDimensionIds(
+        precomputedUnitDimensionIds,
+        datasource,
+        hasPipelineModeFeature,
+      ),
+    [precomputedUnitDimensionIds, datasource, hasPipelineModeFeature],
+  );
+  const precomputedAnalysisDimensions = useMemo(
+    () =>
+      new Set([
+        ...(precomputedDimensions ?? []),
+        ...honoredPrecomputedUnitDimensionIds,
+      ]),
+    [precomputedDimensions, honoredPrecomputedUnitDimensionIds],
+  );
+
   const dimensionOptions = getDimensionOptions({
     incrementalRefresh,
     precomputedDimensions,
+    precomputedUnitDimensionIds,
+    hasPipelineModeFeature,
     exposureQueryId,
     userIdType,
     datasource,
@@ -229,7 +283,7 @@ export default function DimensionChooser({
       setPostLoading(true);
       try {
         setValue?.(v);
-        if (precomputedDimensions?.includes(v)) {
+        if (precomputedAnalysisDimensions.has(v)) {
           const defaultAnalysis = standardSnapshot
             ? getSnapshotAnalysis(standardSnapshot)
             : null;
@@ -248,9 +302,8 @@ export default function DimensionChooser({
             dimensions: [v],
           };
 
-          // check if the analysis exists in the current snapshot
-          const analysisExistsInMainSnapshot = snapshot
-            ? getSnapshotAnalysis(snapshot, newSettings) !== null
+          const analysisExistsInMainSnapshot = standardSnapshot
+            ? getSnapshotAnalysis(standardSnapshot, newSettings) !== null
             : false;
           const status = await triggerAnalysisUpdate(
             newSettings,
@@ -267,12 +320,12 @@ export default function DimensionChooser({
             track("Experiment Analysis: switch precomputed-dimension", {
               dimension: v,
             });
+            setAnalysisSettings?.(newSettings);
             // Reset the snapshot dimension to empty (precomputed dimensions
             // use the dimensionless snapshot) and set the analysis settings
             setSnapshotDimension?.("");
             // NB: await to ensure new analysis is available before we attempt to get it
             if (!analysisExistsInMainSnapshot) await mutate?.();
-            setAnalysisSettings?.(newSettings);
           } else {
             // if the analysis fails, reset dropdown to the current value
             setValue?.(value);
@@ -293,7 +346,7 @@ export default function DimensionChooser({
     [
       value,
       setValue,
-      precomputedDimensions,
+      precomputedAnalysisDimensions,
       standardSnapshot,
       analysis,
       triggerAnalysisUpdate,
@@ -405,7 +458,9 @@ export default function DimensionChooser({
 
   return (
     <Flex direction="row" gap="2" align="center">
-      <Text weight="medium">Unit Dimension:</Text>
+      <Text weight="semibold" color="text-high">
+        Unit Dimension:
+      </Text>
       <DropdownMenu
         trigger={
           <Link type="button" style={{ color: "var(--color-text-high)" }}>

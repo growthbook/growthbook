@@ -3,7 +3,7 @@ import { useRouter } from "next/router";
 import { useFeature } from "@growthbook/growthbook-react";
 import { Box, Flex } from "@radix-ui/themes";
 import { FaRegCircleCheck, FaRegCircleXmark } from "react-icons/fa6";
-import { FeatureInterface } from "shared/types/feature";
+import { FeatureInterface, FeatureMetaInfo } from "shared/types/feature";
 import { date, datetime } from "shared/dates";
 import { featureHasEnvironment } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
@@ -27,6 +27,7 @@ import WatchButton from "@/components/WatchButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import FeatureStatusBadge from "@/components/Features/FeatureStatusBadge";
+import FeatureValueTypeDisplay from "@/components/Features/FeatureValueTypeDisplay";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
@@ -44,7 +45,7 @@ import { useFeatureStaleStates } from "@/hooks/useFeatureStaleStates";
 import {
   draftStatusDots,
   draftStatusTooltip,
-} from "@/components/Features/RevisionStatusBadge";
+} from "@/components/Reviews/RevisionStatusBadge";
 import { useFeatureContentSearch } from "@/hooks/useFeatureContentSearch";
 import type { ContentSearchParams } from "@/hooks/useFeatureContentSearch";
 import { useFeatureRampStates } from "@/hooks/useFeatureRampStates";
@@ -97,18 +98,6 @@ const FEATURE_TABLE_COLUMN_WIDTH = {
   DATA_TYPE_MIN: 80,
   RECENT_USAGE: 170,
 } as const;
-
-function valueTypeLabel(
-  valueType: "boolean" | "string" | "number" | "json",
-): string {
-  const labels: Record<string, string> = {
-    boolean: "Boolean",
-    string: "String",
-    number: "Number",
-    json: "JSON",
-  };
-  return labels[valueType] ?? valueType;
-}
 
 export default function FeaturesPage() {
   const router = useRouter();
@@ -500,7 +489,17 @@ export default function FeaturesPage() {
                         minWidth: FEATURE_TABLE_COLUMN_WIDTH.DATA_TYPE_MIN,
                       }}
                     >
-                      {valueTypeLabel(feature.valueType)}
+                      <Box style={{ marginRight: -40 }}>
+                        <FeatureValueTypeDisplay
+                          valueType={feature.valueType}
+                          configBackingKey={
+                            (feature as unknown as FeatureMetaInfo)
+                              .configBackingKey
+                          }
+                          link={false}
+                          maxWidth={120}
+                        />
+                      </Box>
                     </TableCell>
                     <TableCell>
                       {draftEntry
@@ -614,19 +613,21 @@ export default function FeaturesPage() {
     if (project) {
       return permissionsUtil.canManageFeatureDrafts({ project });
     }
-    if (projects?.length) {
-      // If "All Projects" is selected, check if user has permissions for at least one project
-
-      return projects.some(
-        (p) =>
-          permissionsUtil.canCreateFeature({ project: p.id }) &&
-          permissionsUtil.canManageFeatureDrafts({ project: p.id }),
-      );
-    }
-    // No projects - fall back to global permission check (e.g. admin in new org)
-    return (
+    // "All Projects" selected. Check the global (no-project) permission first so
+    // a user who can create features at the org level (e.g. an admin) isn't
+    // blocked by a non-creatable project. Otherwise the read-only sample-data
+    // project would disable the button whenever it's the only project.
+    if (
       permissionsUtil.canCreateFeature({ project: "" }) &&
       permissionsUtil.canManageFeatureDrafts({ project: "" })
+    ) {
+      return true;
+    }
+    // Otherwise, allow if they can create in at least one specific project.
+    return (projects ?? []).some(
+      (p) =>
+        permissionsUtil.canCreateFeature({ project: p.id }) &&
+        permissionsUtil.canManageFeatureDrafts({ project: p.id }),
     );
   }, [project, projects, permissionsUtil]);
 
@@ -640,12 +641,16 @@ export default function FeaturesPage() {
   // If "All Projects" is selected and some features are in a project, show the project column
   const showProjectColumn = !project && allFeatures.some((f) => f.project);
 
-  // Ignore the demo datasource
-  const hasFeatures = allFeatures.some(
-    (f) =>
-      f.project !==
-      getDemoDatasourceProjectIdForOrganization(organization.id || ""),
+  const demoProjectId = getDemoDatasourceProjectIdForOrganization(
+    organization.id || "",
   );
+  const isDemoProject = !!project && project === demoProjectId;
+
+  // When viewing the demo project explicitly, show its features. Otherwise
+  // ignore demo-project features when deciding whether to show the empty state.
+  const hasFeatures = isDemoProject
+    ? allFeatures.length > 0
+    : allFeatures.some((f) => f.project !== demoProjectId);
 
   const canUseSetupFlow =
     permissionsUtil.canCreateSDKConnection({
@@ -687,20 +692,26 @@ export default function FeaturesPage() {
       )}
       <Flex align="center" justify="between" gap="3" mt="4" mb="2">
         <Box style={{ flex: 1 }}>
-          <h1>Features</h1>
+          <h1>Feature Flags</h1>
         </Box>
-        {!showSetUpFlow && canViewFeatureModal && canCreateFeatures && (
+        {!showSetUpFlow && (
           <Box>
-            <Button
-              onClick={() => {
-                setModalOpen(true);
-                track("Viewed Feature Modal", {
-                  source: "feature-list",
-                });
-              }}
+            <Tooltip
+              body="You don't have permission to add features in this project."
+              shouldDisplay={!canViewFeatureModal || !canCreateFeatures}
             >
-              Add Feature
-            </Button>
+              <Button
+                disabled={!canViewFeatureModal || !canCreateFeatures}
+                onClick={() => {
+                  setModalOpen(true);
+                  track("Viewed Feature Modal", {
+                    source: "feature-list",
+                  });
+                }}
+              >
+                Add Feature
+              </Button>
+            </Tooltip>
           </Box>
         )}
       </Flex>
@@ -727,9 +738,12 @@ export default function FeaturesPage() {
                   Connect your SDK
                 </LinkButton>
               ) : (
-                canViewFeatureModal &&
-                canCreateFeatures && (
+                <Tooltip
+                  body="You don't have permission to add features in this project."
+                  shouldDisplay={!canViewFeatureModal || !canCreateFeatures}
+                >
                   <Button
+                    disabled={!canViewFeatureModal || !canCreateFeatures}
                     onClick={() => {
                       setModalOpen(true);
                       track("Viewed Feature Modal", {
@@ -739,7 +753,7 @@ export default function FeaturesPage() {
                   >
                     Add Feature
                   </Button>
-                )
+                </Tooltip>
               )
             }
           />
@@ -755,10 +769,12 @@ export default function FeaturesPage() {
 
           <TabsContent value="all-features">
             {renderFeaturesTable()}
-            <Callout status="info" mt="5" mb="3">
-              Test what values these features will return for your users from
-              the <Link href="/archetypes#simulate">Simulate</Link> page.
-            </Callout>
+            {!isDemoProject && (
+              <Callout status="info" mt="5" mb="3">
+                Test what values these features will return for your users from
+                the <Link href="/archetypes#simulate">Simulate</Link> page.
+              </Callout>
+            )}
           </TabsContent>
 
           <TabsContent value="drafts">

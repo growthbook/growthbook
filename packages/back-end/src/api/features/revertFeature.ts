@@ -6,6 +6,7 @@ import {
   MergeResultChanges,
   PermissionError,
   checkIfRevisionNeedsReview,
+  getRevertValueValidationWarnings,
   getRulesForEnvironment,
 } from "shared/util";
 import { isEqual } from "lodash";
@@ -19,12 +20,16 @@ import {
 } from "back-end/src/models/FeatureModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import {
+  dispatchFeatureRevisionEvent,
+  getPublishedRevisionForEvents,
+} from "back-end/src/services/featureRevisionEvents";
+import {
   getApiFeatureObj,
   getSavedGroupMap,
 } from "back-end/src/services/features";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { getEnvironments } from "back-end/src/services/organizations";
-import { NotFoundError } from "back-end/src/util/errors";
+import { NotFoundError, SoftWarningError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getEnabledEnvironments } from "back-end/src/util/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
@@ -197,10 +202,25 @@ export async function revertFeatureCore(
     );
   }
 
+  // Flag restored values the current schema/value-type can no longer read as a
+  // bypassable soft warning (?ignoreWarnings=true) instead of publishing blind.
+  const valueWarnings = getRevertValueValidationWarnings(feature, changes);
+  if (valueWarnings.length && !context.ignoreWarnings) {
+    throw new SoftWarningError(
+      "Reverting to this revision restores values that no longer pass validation:\n" +
+        valueWarnings.join("\n"),
+      valueWarnings,
+    );
+  }
+
   // Bypass via restApiBypassesReviews (API keys/PATs only — JWT-backed REST
-  // calls should behave like dashboard actions) or bypassApprovalChecks.
+  // calls should behave like dashboard actions), bypassApprovalChecks, or the
+  // org-wide "reverts bypass approval" setting (publish perms already enforced
+  // per-change above, so any publisher may revert without approval).
   const canBypass =
-    canUseRestApiBypass || context.permissions.canBypassApprovalChecks(feature);
+    canUseRestApiBypass ||
+    context.permissions.canBypassApprovalChecks(feature) ||
+    !!organization.settings?.revertsBypassApproval;
 
   if (!canBypass) {
     const liveRevision = await getRevision({
@@ -254,13 +274,30 @@ export async function revertFeatureCore(
 
   const groupMap = await getSavedGroupMap(context);
   const experimentMap = await getExperimentMapForFeature(context, feature.id);
-  const latestRevision = await getRevision({
+  // Re-read so events and the response carry the published status; falls back
+  // to the in-memory revision instead of failing the already-committed revert.
+  const latestRevision = await getPublishedRevisionForEvents(
     context,
-    organization: updatedFeature.organization,
-    featureId: updatedFeature.id,
-    feature: updatedFeature,
-    version: updatedFeature.version,
-  });
+    updatedFeature,
+    newRevision,
+  );
+  // Emit the same revision lifecycle events as the app's revert flow so
+  // webhook consumers see API-initiated reverts too.
+  await dispatchFeatureRevisionEvent(
+    context,
+    updatedFeature,
+    latestRevision,
+    "revision.reverted",
+    { revertedToVersion: version },
+  );
+  await dispatchFeatureRevisionEvent(
+    context,
+    updatedFeature,
+    latestRevision,
+    "revision.published",
+    {},
+  );
+
   const safeRolloutMap =
     await context.models.safeRollout.getAllPayloadSafeRollouts();
 

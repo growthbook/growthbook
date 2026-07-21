@@ -1,6 +1,6 @@
-import { applyPatch, deepClone } from "fast-json-patch";
+import { applyPatch } from "fast-json-patch";
 import type { Operation } from "fast-json-patch";
-import { isEqual } from "lodash";
+import { cloneDeep, isEqual } from "lodash";
 import {
   JsonPatchOperation,
   Revision,
@@ -10,6 +10,27 @@ import {
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { getAdapter } from "back-end/src/revisions/index";
+import type { EntityRevisionAdapter } from "back-end/src/revisions/EntityRevisionAdapter";
+
+/**
+ * Apply a set of JSON Patch ops to a snapshot, returning a new object.
+ *
+ * Clones with lodash `cloneDeep` (which preserves Date instances) and lets
+ * applyPatch mutate that throwaway copy in place (mutateDocument = true).
+ * Passing mutateDocument = false would make fast-json-patch internally
+ * JSON-clone the input, converting Date fields (e.g. dateCreated/dateUpdated on
+ * a saved-group snapshot) into ISO strings and breaking downstream serializers
+ * that call `.toISOString()`.
+ */
+export function applyPatchToSnapshot<T extends object>(
+  snapshot: T,
+  proposedChanges: JsonPatchOperation[] | unknown,
+): T {
+  const ops = normalizeProposedChanges(proposedChanges);
+  if (ops.length === 0) return snapshot;
+  return applyPatch(cloneDeep(snapshot), ops as Operation[], false, true)
+    .newDocument as T;
+}
 
 /**
  * Ensure a "live" merged revision exists representing the entity's current state.
@@ -78,20 +99,6 @@ export function isRevisionRequired(
 }
 
 /**
- * Apply a JSON Patch (RFC 6902) operations array to a snapshot object and return
- * the patched document. The original snapshot is never mutated.
- */
-export function applyPatchToSnapshot<T extends object>(
-  snapshot: T,
-  proposedChanges: JsonPatchOperation[] | unknown,
-): T {
-  const ops = normalizeProposedChanges(proposedChanges);
-  if (ops.length === 0) return snapshot;
-  return applyPatch(deepClone(snapshot), ops as Operation[], false, false)
-    .newDocument as T;
-}
-
-/**
  * Compute the desired final state for a merge by layering the revision's
  * proposed changes on top of the LIVE entity (not the baseline snapshot).
  *
@@ -138,9 +145,17 @@ export function buildMergeDesiredState<T extends Record<string, unknown>>(
  * Convert a plain partial-update object into an array of JSON Patch `replace` operations.
  * Undefined/null values are skipped since they represent "no change".
  */
+// Always emits `replace` (not `add`) regardless of whether the path exists on
+// the base: buildPatchOps has no base snapshot to distinguish present from
+// absent, and our applier (`applyTopLevelPatchOps`) treats `add`/`replace`
+// identically for top-level fields. Strictly per RFC 6902 an absent path wants
+// `add`, but that distinction is moot for our top-level-only patches.
 export function buildPatchOps(
   changes: Record<string, unknown>,
 ): JsonPatchOperation[] {
+  // Drops `undefined` (absent) AND `null`, so this stream can't express a
+  // field-clear. A path that must clear a nullable field (e.g. `schema: null` on
+  // config revert) builds its patch ops directly rather than routing through here.
   return Object.entries(changes)
     .filter(([, value]) => value !== undefined && value !== null)
     .map(([key, value]) => ({
@@ -273,4 +288,54 @@ export async function createOrUpdateRevision(
     comment,
     revertedFrom,
   });
+}
+
+/**
+ * Recursively drop null/undefined-valued keys from objects (and recurse into
+ * arrays without dropping elements, so positions are preserved). This equates
+ * "key absent" with "key present but null/undefined" at every depth — the
+ * representation-only difference between a normalized snapshot and a live Mongo
+ * document. A real value → null change is still detected: the value side keeps
+ * the key, the null side drops it, so the two differ.
+ */
+function deepOmitNullish(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(deepOmitNullish);
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value)) {
+      if (v === null || v === undefined) continue;
+      out[k] = deepOmitNullish(v);
+    }
+    return out;
+  }
+  return value;
+}
+
+/**
+ * True when the revision's base snapshot no longer matches the live entity on
+ * any updatable field.
+ *
+ * Both sides pass through the adapter's `buildSnapshot` before comparing. The
+ * stored snapshot was normalized that way at capture time, but the live
+ * entity comes straight from the database and can carry representation-only
+ * differences — explicit nulls on optional fields, leftover fields removed
+ * from the schema — that no API response or merge check ever surfaces.
+ * Comparing the raw document against the normalized snapshot makes every
+ * draft of such an entity read as diverged forever: rebasing cannot clear it,
+ * because the next snapshot is normalized again.
+ *
+ * `buildSnapshot` only strips top-level nullish keys, so nested optional-null
+ * shapes (e.g. a config's `schema`/`renderProjections` objects) would reopen
+ * the same false-positive; `deepOmitNullish` normalizes at every depth.
+ */
+export function isRevisionDiverged(
+  adapter: EntityRevisionAdapter,
+  snapshot: Record<string, unknown>,
+  entity: Record<string, unknown>,
+): boolean {
+  const base = adapter.buildSnapshot(snapshot);
+  const live = adapter.buildSnapshot(entity);
+  return [...adapter.getUpdatableFields()].some(
+    (key) => !isEqual(deepOmitNullish(base[key]), deepOmitNullish(live[key])),
+  );
 }

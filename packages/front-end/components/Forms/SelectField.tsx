@@ -65,6 +65,11 @@ export type SelectFieldProps = Omit<
   onChange: (value: string) => void;
   sort?: boolean;
   createable?: boolean;
+  // When createable with an empty option list, keep the real creatable select
+  // (type to create, commit on Enter/Tab/blur/select) instead of degrading to a
+  // plain text input whose onChange fires on every keystroke. Off by default so
+  // existing free-text callers keep the plain-input fallback.
+  keepCreatableWhenEmpty?: boolean;
   formatCreateLabel?: (value: string) => string;
   formatOptionLabel?: FormatOptionLabelType;
   formatGroupLabel?: (value: GroupedValue) => ReactNode;
@@ -243,6 +248,7 @@ const SelectField: FC<SelectFieldProps> = ({
   style,
   className,
   createable = false,
+  keepCreatableWhenEmpty = false,
   formatCreateLabel,
   formatOptionLabel,
   formatGroupLabel,
@@ -341,7 +347,7 @@ const SelectField: FC<SelectFieldProps> = ({
     return merged;
   }, [useMultilineLabels, containerStyles, size]);
 
-  if (!options.length && createable) {
+  if (!options.length && createable && !keepCreatableWhenEmpty) {
     return (
       <>
         {!legacyLabelFormatting && label !== undefined && (

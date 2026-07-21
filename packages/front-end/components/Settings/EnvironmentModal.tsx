@@ -1,19 +1,22 @@
 import { useForm } from "react-hook-form";
 import { Environment } from "shared/types/organization";
 import React, { useMemo } from "react";
-import { FaExclamationTriangle } from "react-icons/fa";
 import { DEFAULT_ENVIRONMENT_IDS } from "shared/util";
 import { useAuth } from "@/services/auth";
 import { useEnvironments } from "@/services/features";
 import { useUser } from "@/services/UserContext";
+import useOrgLimits from "@/hooks/useOrgLimits";
 import MultiSelectField from "@/ui/MultiSelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import Switch from "@/ui/Switch";
+import PremiumCallout from "@/ui/PremiumCallout";
 import SelectField from "@/components/Forms/SelectField";
+import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { DocLink } from "@/components/DocLink";
+import Callout from "@/ui/Callout";
 
 export default function EnvironmentModal({
   existing,
@@ -59,7 +62,32 @@ export default function EnvironmentModal({
 
   const { refreshOrganization } = useUser();
 
+  const { supportsCustomEnvironments } = useOrgLimits();
+  const customEnvironmentsAllowed = supportsCustomEnvironments();
+
   const { projects } = useDefinitions();
+
+  const newEnvironmentOptions = DEFAULT_ENVIRONMENT_IDS.filter(
+    (id) => !environments.some((e) => e.id === id),
+  ).map((id) => ({
+    label: id,
+    value: id,
+  }));
+
+  // Nothing creatable under the plan — offer the upgrade path instead
+  if (
+    !existing.id &&
+    !customEnvironmentsAllowed &&
+    !newEnvironmentOptions.length
+  ) {
+    return (
+      <UpgradeModal
+        close={close}
+        source="environment limit"
+        commercialFeature={null}
+      />
+    );
+  }
 
   const projectsOptions = projects.map((p) => ({
     label: p.name,
@@ -68,6 +96,7 @@ export default function EnvironmentModal({
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       open={true}
       close={close}
@@ -128,12 +157,9 @@ export default function EnvironmentModal({
         <SelectField
           size="legacy"
           value={form.watch("id") || ""}
-          options={DEFAULT_ENVIRONMENT_IDS.map((id) => ({
-            label: id,
-            value: id,
-          }))}
+          options={newEnvironmentOptions}
           sort={false}
-          createable
+          createable={customEnvironmentsAllowed}
           isClearable
           formatCreateLabel={(value) =>
             `Use custom environment name "${value}"`
@@ -150,18 +176,29 @@ export default function EnvironmentModal({
           title="Must start with a letter. Can only contain letters, numbers, hyphens, and underscores. No spaces or special characters."
           label="Id"
           helpText={
-            <>
-              <div>
-                Only letters, numbers, hyphens, and underscores allowed. No
-                spaces.
-              </div>
-              <div>
-                Valid examples: <code>prod</code>, <code>qa-1</code>,{" "}
-                <code>john_dev</code>
-              </div>
-            </>
+            customEnvironmentsAllowed ? (
+              <>
+                <div>
+                  Only letters, numbers, hyphens, and underscores allowed. No
+                  spaces.
+                </div>
+                <div>
+                  Valid examples: <code>prod</code>, <code>qa-1</code>,{" "}
+                  <code>john_dev</code>
+                </div>
+              </>
+            ) : undefined
           }
         />
+      )}
+      {!existing.id && !customEnvironmentsAllowed && (
+        <PremiumCallout
+          commercialFeature="advanced-permissions"
+          id="environment-plan-limit"
+          mb="3"
+        >
+          Your plan only supports the default environments.
+        </PremiumCallout>
       )}
       <Field
         size="legacy"
@@ -190,7 +227,7 @@ export default function EnvironmentModal({
                 </div>
                 <div>
                   For programmatic control of environment inheritance, use the{" "}
-                  <DocLink docSection="apiPostEnvironment">
+                  <DocLink useRadix={false} docSection="apiPostEnvironment">
                     API endpoint instead
                   </DocLink>
                 </div>
@@ -211,12 +248,12 @@ export default function EnvironmentModal({
           closeMenuOnSelect={true}
         />
         {hasMoreSpecificProjectFilter && sdkConnections.length > 0 && (
-          <div className="alert alert-warning">
-            <FaExclamationTriangle /> You have made the projects filter more
-            restrictive than before. {sdkConnections.length} SDK Connection
+          <Callout status="warning">
+            You have made the projects filter more restrictive than before.{" "}
+            {sdkConnections.length} SDK Connection
             {sdkConnections.length === 1 ? "" : "s"} using this environment may
             be impacted.
-          </div>
+          </Callout>
         )}
       </div>
       <Switch

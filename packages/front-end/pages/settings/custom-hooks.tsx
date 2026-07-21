@@ -1,346 +1,115 @@
 import React, { useState } from "react";
-import { useForm } from "react-hook-form";
-import { CustomHookInterface, CustomHookType } from "shared/validators";
-import { CreateProps } from "shared/types/base-model";
-import { Flex, Kbd, Separator, Text } from "@radix-ui/themes";
-import stringify from "json-stringify-pretty-compact";
-import { FeatureInterface } from "shared/types/feature";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { CustomHookInterface } from "shared/validators";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { BsThreeDotsVertical } from "react-icons/bs";
 import { useAuth } from "@/services/auth";
-import Modal from "@/components/Modal";
-import Field from "@/components/Forms/Field";
-import SelectField from "@/components/Forms/SelectField";
-import useProjectOptions from "@/hooks/useProjectOptions";
-import MultiSelectField from "@/ui/MultiSelectField";
-import CodeTextArea from "@/components/Forms/CodeTextArea";
-import Checkbox from "@/ui/Checkbox";
 import Button from "@/ui/Button";
 import useApi from "@/hooks/useApi";
 import Callout from "@/ui/Callout";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import EmptyState from "@/components/EmptyState";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { isCloud } from "@/services/env";
+import CustomHookModal, {
+  hookTypes,
+} from "@/components/CustomHooks/CustomHookModal";
+import CompareCustomHookEventsModal from "@/components/Features/CompareCustomHookEventsModal";
+import CustomHookCodeModal from "@/components/CustomHooks/CustomHookCodeModal";
+import Table, {
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
+import Badge from "@/ui/Badge";
+import Link from "@/ui/Link";
 
-const dummyFeature: FeatureInterface = {
-  id: "new-feature",
-  organization: "org_abc123",
-  dateCreated: new Date(),
-  dateUpdated: new Date(),
-  description: "My new feature",
-  valueType: "boolean",
-  defaultValue: "false",
-  tags: [],
-  environmentSettings: {
-    production: {
-      enabled: true,
-    },
-  },
-  rules: [],
-  archived: false,
-  owner: "",
-  project: "",
-  version: 1,
-  prerequisites: [],
-  customFields: {},
-};
-const dummyRevision: FeatureRevisionInterface = {
-  organization: "org_abc123",
-  featureId: "new-feature",
-  dateCreated: new Date(),
-  dateUpdated: new Date(),
-  version: 2,
-  baseVersion: 1,
-  comment: "",
-  createdBy: {
-    type: "dashboard",
-    id: "user_123",
-    name: "User",
-    email: "user@example.com",
-  },
-  defaultValue: "false",
-  status: "draft",
-  rules: [],
-  datePublished: null,
-  publishedBy: null,
-};
-
-const hookTypes: Record<
-  CustomHookType,
-  {
-    label: string;
-    availableArguments: Record<
-      string,
-      { description: string; testValue: string }
-    >;
-    example: string;
-  }
-> = {
-  validateFeature: {
-    label: "Validate Feature",
-    availableArguments: {
-      feature: {
-        description: "The feature object being validated",
-        testValue: stringify(dummyFeature),
-      },
-    },
-    example: `\n// Example: require a description\nif (!feature.description) {\n  throw new Error("Feature must have a description");\n}`,
-  },
-  validateFeatureRevision: {
-    label: "Validate Feature Revision",
-    availableArguments: {
-      feature: {
-        description: "The feature object the revision belongs to",
-        testValue: stringify(dummyFeature),
-      },
-      revision: {
-        description: "The feature revision being validated",
-        testValue: stringify(dummyRevision),
-      },
-    },
-    example: `\n// Example: require at least one rule in production\nif (!revision.rules.production || revision.rules.production.length === 0) {\n  throw new Error("At least one production rule is required");\n}`,
-  },
-};
-
-function CustomHooksModal({
-  close,
-  current,
-  onSave,
+// Feature- and config-scoped hooks render identical tables, differing only in
+// their labels and the entity link target.
+function EntityScopedHooksSection({
+  title,
+  description,
+  entityLabel,
+  entityHref,
+  hooks,
+  onViewCode,
+  onHistory,
 }: {
-  close: () => void;
-  current?: CustomHookInterface;
-  onSave?: () => void;
+  title: string;
+  description: string;
+  entityLabel: string;
+  entityHref: (hook: CustomHookInterface) => string;
+  hooks: CustomHookInterface[];
+  onViewCode: (hook: CustomHookInterface) => void;
+  onHistory: (hook: CustomHookInterface) => void;
 }) {
-  const form = useForm<CreateProps<CustomHookInterface>>({
-    defaultValues: {
-      name: current?.name || "",
-      hook: current?.hook || "validateFeature",
-      code: current?.code || "",
-      projects: current?.projects || [],
-      enabled: current?.enabled ?? true,
-      incrementalChangesOnly: current?.incrementalChangesOnly || false,
-    },
-  });
-
-  const { apiCall } = useAuth();
-
-  const projectOptions = useProjectOptions(() => true, current?.projects || []);
-
-  const hookType = form.watch("hook");
-  const hookTypeData = hookTypes[hookType];
-
-  const [testValues, setTestValues] = useState<Record<string, string>>(
-    Object.fromEntries(
-      Object.entries(hookTypeData.availableArguments).map(([k, v]) => [
-        k,
-        v.testValue,
-      ]),
-    ),
-  );
-  const [testResult, setTestResult] = useState<{
-    status: "" | "success" | "error";
-    returnVal?: string;
-    error?: string;
-    log?: string;
-  }>({ status: "" });
-
-  const runTest = async () => {
-    const res = await apiCall<{
-      success: boolean;
-      returnVal?: string;
-      error?: string;
-      log?: string;
-    }>("/custom-hooks/test", {
-      method: "POST",
-      body: JSON.stringify({
-        functionBody: form.getValues("code"),
-        functionArgs: Object.fromEntries(
-          Object.entries(testValues).map(([k, v]) => {
-            try {
-              return [k, JSON.parse(v)];
-            } catch (e) {
-              return [k, v];
-            }
-          }),
-        ),
-      }),
-    });
-    setTestResult({
-      status: res.success ? "success" : "error",
-      returnVal: res.returnVal,
-      error: res.error,
-      log: res.log,
-    });
-  };
-
-  const isMac =
-    typeof navigator !== "undefined" && navigator.userAgent.includes("Mac");
-  const modKey = isMac ? "⌘" : "Ctrl";
-
+  if (!hooks.length) return null;
   return (
-    <Modal
-      header={current?.id ? "Edit Custom Hook" : "Add Custom Hook"}
-      close={close}
-      open={true}
-      size="max"
-      trackingEventModalType="custom-hooks"
-      submit={form.handleSubmit(async (value) => {
-        if (current?.id) {
-          await apiCall(`/custom-hooks/${current.id}`, {
-            method: "PUT",
-            body: JSON.stringify(value),
-          });
-        } else {
-          await apiCall("/custom-hooks", {
-            method: "POST",
-            body: JSON.stringify(value),
-          });
-        }
-
-        if (onSave) onSave();
-      })}
-    >
-      <Flex align="start" gap="5">
-        <div style={{ width: "50%" }} className="border-right pr-4">
-          <Field
-            size="legacy"
-            label="Name"
-            required
-            {...form.register("name")}
-          />
-          <SelectField
-            size="legacy"
-            label="Hook Type"
-            required
-            options={Object.entries(hookTypes).map(([value, { label }]) => ({
-              value,
-              label,
-            }))}
-            value={hookType}
-            onChange={(value) => {
-              form.setValue("hook", value as CustomHookType);
-              setTestValues(
-                Object.fromEntries(
-                  Object.entries(
-                    hookTypes[value as CustomHookType].availableArguments,
-                  ).map(([k, v]) => [k, v.testValue]),
-                ),
-              );
-            }}
-          />
-          <MultiSelectField
-            size="legacy"
-            label={"Projects"}
-            placeholder="All projects"
-            value={form.watch("projects") || []}
-            options={projectOptions}
-            onChange={(v) => form.setValue("projects", v)}
-            customClassName="label-overflow-ellipsis"
-            helpText="Only run this hook for selected projects"
-          />
-          <Checkbox
-            label="Enable this hook"
-            value={form.watch("enabled")}
-            setValue={(value) => form.setValue("enabled", value)}
-            description="Uncheck to disable this hook without deleting it"
-          />
-
-          <Separator size="4" mb="4" my="2" />
-
-          <strong>Available Variables</strong>
-          <ul>
-            {Object.entries(hookTypeData?.availableArguments).map(
-              ([arg, { description }]) => (
-                <li key={arg}>
-                  <code>{arg}</code>: {description}
-                </li>
-              ),
-            )}
-          </ul>
-
-          <CodeTextArea
-            language="javascript"
-            label="Javascript Code"
-            required
-            value={form.watch("code")}
-            setValue={(value) => form.setValue("code", value)}
-            placeholder={hookTypeData?.example || ""}
-            onCtrlEnter={runTest}
-          />
-
-          <Checkbox
-            label="Incremental Changes Only"
-            value={form.watch("incrementalChangesOnly") || false}
-            setValue={(value) => form.setValue("incrementalChangesOnly", value)}
-            description="Ignore this hook if the same error was already present before attempting to save."
-          />
-        </div>
-        <div style={{ width: "50%" }}>
-          <h3>Test Your Hook</h3>
-          {Object.keys(hookTypeData?.availableArguments).map((arg) => (
-            <CodeTextArea
-              language="json"
-              key={arg}
-              label={arg}
-              required
-              value={testValues[arg] || ""}
-              setValue={(value) =>
-                setTestValues((existing) => ({
-                  ...existing,
-                  [arg]: value,
-                }))
-              }
-              onCtrlEnter={runTest}
-              maxLines={8}
-            />
+    <div className="mt-5">
+      <h2>{title}</h2>
+      <p className="text-muted">{description}</p>
+      <Table variant="list" stickyHeader roundedCorners>
+        <TableHeader>
+          <TableRow>
+            <TableColumnHeader>Name</TableColumnHeader>
+            <TableColumnHeader>Type</TableColumnHeader>
+            <TableColumnHeader>{entityLabel}</TableColumnHeader>
+            <TableColumnHeader style={{ width: 50 }} />
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {hooks.map((hook) => (
+            <TableRow key={hook.id}>
+              <TableCell>
+                <Link onClick={() => onViewCode(hook)}>{hook.name}</Link>
+                {!hook.enabled ? (
+                  <Badge color="gray" label="Disabled" ml="2" />
+                ) : null}
+              </TableCell>
+              <TableCell>{hookTypes[hook.hook]?.label ?? hook.hook}</TableCell>
+              <TableCell>
+                <Link href={entityHref(hook)}>{hook.entityId}</Link>
+              </TableCell>
+              <TableCell>
+                <DropdownMenu
+                  variant="soft"
+                  trigger={
+                    <IconButton
+                      variant="ghost"
+                      color="gray"
+                      radius="full"
+                      size="1"
+                      highContrast
+                    >
+                      <BsThreeDotsVertical size={16} />
+                    </IconButton>
+                  }
+                  menuPlacement="end"
+                >
+                  <DropdownMenuItem onClick={() => onHistory(hook)}>
+                    History &amp; revert
+                  </DropdownMenuItem>
+                </DropdownMenu>
+              </TableCell>
+            </TableRow>
           ))}
-          <Button
-            onClick={runTest}
-            disabled={!form.watch("code")}
-            variant="outline"
-          >
-            <Flex align="center" gap="3">
-              <Text>Run Test</Text>
-              <Kbd size="1">{modKey} + Enter</Kbd>
-            </Flex>
-          </Button>
-          {testResult.status === "success" && (
-            <Callout mt="3" status="success">
-              Success!
-            </Callout>
-          )}
-          {testResult.status === "error" && (
-            <Callout mt="3" status="error">
-              Error!
-            </Callout>
-          )}
-          {testResult.returnVal && (
-            <div className="mt-3">
-              <strong>Return Value:</strong>
-              <pre className="p-3 bg-light">{testResult.returnVal}</pre>
-            </div>
-          )}
-          {testResult.error && (
-            <div className="mt-3">
-              <strong>Error:</strong>
-              <pre className="p-3 bg-light">{testResult.error}</pre>
-            </div>
-          )}
-          {testResult.log && (
-            <div className="mt-3">
-              <strong>Log:</strong>
-              <pre className="p-3 bg-light">{testResult.log}</pre>
-            </div>
-          )}
-        </div>
-      </Flex>
-    </Modal>
+        </TableBody>
+      </Table>
+    </div>
   );
 }
 
 export default function CustomHooksPage() {
   const [modalData, setModalData] = useState<null | true | CustomHookInterface>(
+    null,
+  );
+  const [viewCodeHook, setViewCodeHook] = useState<CustomHookInterface | null>(
+    null,
+  );
+  const [historyHook, setHistoryHook] = useState<CustomHookInterface | null>(
     null,
   );
 
@@ -365,19 +134,38 @@ export default function CustomHooksPage() {
     return <LoadingOverlay />;
   }
 
-  const hooks = data.customHooks || [];
+  const allHooks = data.customHooks || [];
+  // Global/project hooks managed here; entity-scoped ones on the resource's Validation tab.
+  const hooks = allHooks.filter((h) => !h.entityType);
+  const featureHooks = allHooks.filter((h) => h.entityType === "feature");
+  const configHooks = allHooks.filter((h) => h.entityType === "config");
+  const experimentHooks = allHooks.filter((h) => h.entityType === "experiment");
 
   return (
     <div className="container-fluid pagecontents">
       {modalData && (
-        <CustomHooksModal
+        <CustomHookModal
           current={modalData === true ? undefined : modalData}
           close={() => setModalData(null)}
           onSave={() => mutate()}
         />
       )}
+      {viewCodeHook && (
+        <CustomHookCodeModal
+          hook={viewCodeHook}
+          close={() => setViewCodeHook(null)}
+        />
+      )}
+      {historyHook && (
+        <CompareCustomHookEventsModal
+          hook={historyHook}
+          canRevert={!historyHook.entityType}
+          onClose={() => setHistoryHook(null)}
+          onRevert={() => mutate()}
+        />
+      )}
 
-      {hooks.length === 0 ? (
+      {allHooks.length === 0 ? (
         <EmptyState
           description="Custom hooks allow you to extend the functionality of GrowthBook by
         writing custom javascript snippets that execute on certain events."
@@ -389,56 +177,213 @@ export default function CustomHooksPage() {
           }
         />
       ) : (
-        <div>
-          <Flex justify="between" align="center" mb="3">
-            <h1 className="mb-0">Custom Hooks</h1>
-            <Button onClick={() => setModalData(true)}>Add Custom Hook</Button>
-          </Flex>
-          <table className="gbtable table appbox">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Type</th>
-                <th>Projects</th>
-                <th>Enabled</th>
-                <th style={{ width: 50 }}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {hooks.map((hook) => (
-                <tr key={hook.id}>
-                  <td data-title="Name">{hook.name}</td>
-                  <td data-title="Type">{hook.hook}</td>
-                  <td data-title="Projects">{hook.projects.join(", ")}</td>
-                  <td data-title="Enabled">{hook.enabled ? "Yes" : "No"}</td>
-                  <td>
-                    <MoreMenu>
-                      <a
-                        href="#"
-                        className="dropdown-item"
-                        onClick={() => setModalData(hook)}
-                      >
-                        Edit
-                      </a>
-                      <DeleteButton
-                        useIcon={false}
-                        text="Delete"
-                        displayName="custom hook"
-                        onClick={async () => {
-                          await apiCall(`/custom-hooks/${hook.id}`, {
-                            method: "DELETE",
-                          });
-                          await mutate();
-                        }}
-                        className="dropdown-item text-danger"
-                      />
-                    </MoreMenu>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <>
+          <div>
+            <Box mb="5">
+              <h1>Custom Hooks</h1>
+              <p>
+                Custom hooks allow you to extend the functionality of GrowthBook
+                by writing custom javascript snippets that execute on certain
+                events.
+              </p>
+            </Box>
+            <Flex justify="between" align="center" mb="1">
+              <h2 className="mb-0">Global/Project Hooks</h2>
+              <Button onClick={() => setModalData(true)}>
+                Add Custom Hook
+              </Button>
+            </Flex>
+
+            <p className="text-muted">
+              These hooks run for all resources in your organization.
+            </p>
+
+            {hooks.length === 0 ? (
+              <Callout status="info">
+                No global or project-scoped hooks yet.
+              </Callout>
+            ) : (
+              <Table variant="list" stickyHeader roundedCorners>
+                <TableHeader>
+                  <TableRow>
+                    <TableColumnHeader>Name</TableColumnHeader>
+                    <TableColumnHeader>Type</TableColumnHeader>
+                    <TableColumnHeader>Projects</TableColumnHeader>
+                    <TableColumnHeader style={{ width: 50 }} />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {hooks.map((hook) => (
+                    <TableRow key={hook.id}>
+                      <TableCell>
+                        <Link onClick={() => setViewCodeHook(hook)}>
+                          {hook.name}
+                        </Link>
+                        {!hook.enabled ? (
+                          <Badge color="gray" label="Disabled" ml="2" />
+                        ) : null}
+                      </TableCell>
+                      <TableCell>
+                        {hookTypes[hook.hook]?.label ?? hook.hook}
+                      </TableCell>
+                      <TableCell>
+                        {hook.projects.length ? (
+                          hook.projects.join(", ")
+                        ) : (
+                          <em>All Projects</em>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <DropdownMenu
+                          variant="soft"
+                          trigger={
+                            <IconButton
+                              variant="ghost"
+                              color="gray"
+                              radius="full"
+                              size="1"
+                              highContrast
+                            >
+                              <BsThreeDotsVertical size={16} />
+                            </IconButton>
+                          }
+                          menuPlacement="end"
+                        >
+                          <DropdownMenuItem onClick={() => setModalData(hook)}>
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => setHistoryHook(hook)}
+                          >
+                            History &amp; revert
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={async () => {
+                              await apiCall(`/custom-hooks/${hook.id}`, {
+                                method: "PUT",
+                                body: JSON.stringify({
+                                  enabled: !hook.enabled,
+                                }),
+                              });
+                              await mutate();
+                            }}
+                          >
+                            {hook.enabled ? "Disable" : "Enable"}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            color="red"
+                            confirmation={{
+                              submit: async () => {
+                                await apiCall(`/custom-hooks/${hook.id}`, {
+                                  method: "DELETE",
+                                });
+                                await mutate();
+                              },
+                              confirmationTitle: "Delete custom hook",
+                              cta: "Delete",
+                              getConfirmationContent: async () =>
+                                "Are you sure? This action cannot be undone.",
+                            }}
+                          >
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+
+          <EntityScopedHooksSection
+            title="Feature-specific Hooks"
+            description="These hooks are scoped to a single feature and managed from that feature's Validation tab."
+            entityLabel="Feature"
+            entityHref={(hook) => `/features/${hook.entityId}#validation`}
+            hooks={featureHooks}
+            onViewCode={setViewCodeHook}
+            onHistory={setHistoryHook}
+          />
+
+          <EntityScopedHooksSection
+            title="Config-specific Hooks"
+            description="These hooks are scoped to a single config and managed from that config's Validation tab."
+            entityLabel="Config"
+            entityHref={(hook) => `/configs/${hook.entityId}#validation`}
+            hooks={configHooks}
+            onViewCode={setViewCodeHook}
+            onHistory={setHistoryHook}
+          />
+
+          {experimentHooks.length > 0 && (
+            <div className="mt-5">
+              <h2>Experiment-specific Hooks</h2>
+              <p className="text-muted">
+                These hooks are scoped to a single experiment. Experiment hooks
+                are now managed as global hooks above; you can remove any
+                leftover scoped hooks here.
+              </p>
+              <Table variant="list" stickyHeader roundedCorners>
+                <TableHeader>
+                  <TableRow>
+                    <TableColumnHeader>Name</TableColumnHeader>
+                    <TableColumnHeader>Type</TableColumnHeader>
+                    <TableColumnHeader>Experiment</TableColumnHeader>
+                    <TableColumnHeader style={{ width: 50 }} />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {experimentHooks.map((hook) => (
+                    <TableRow key={hook.id}>
+                      <TableCell>
+                        {hook.name}
+                        {!hook.enabled ? (
+                          <Badge color="gray" label="Disabled" />
+                        ) : null}
+                      </TableCell>
+                      <TableCell>
+                        {hookTypes[hook.hook]?.label ?? hook.hook}
+                      </TableCell>
+                      <TableCell>
+                        <Link href={`/experiment/${hook.entityId}`}>
+                          {hook.entityId}
+                        </Link>
+                      </TableCell>
+                      <TableCell>
+                        <MoreMenu iconButtonSize="1">
+                          <a
+                            href="#"
+                            className="dropdown-item"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setViewCodeHook(hook);
+                            }}
+                          >
+                            Preview Code
+                          </a>
+                          <DeleteButton
+                            useRadix={false}
+                            useIcon={false}
+                            text="Delete"
+                            displayName="custom hook"
+                            onClick={async () => {
+                              await apiCall(`/custom-hooks/${hook.id}`, {
+                                method: "DELETE",
+                              });
+                              await mutate();
+                            }}
+                            className="dropdown-item text-danger"
+                          />
+                        </MoreMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

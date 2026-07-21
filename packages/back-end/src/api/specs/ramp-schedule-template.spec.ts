@@ -21,6 +21,12 @@ export const rampScheduleTemplateApiSpec = {
       official: z.boolean().optional(),
       monitoringConfig: rampMonitoringConfig.nullish(),
       lockdownConfig: lockdownConfigSchema.optional(),
+      order: z
+        .number()
+        .optional()
+        .describe(
+          "Display order within the org (lower sorts first). Omit to append to the end.",
+        ),
     }),
     updateBody: z.object({
       name: z.string().optional(),
@@ -29,6 +35,10 @@ export const rampScheduleTemplateApiSpec = {
       official: z.boolean().optional(),
       monitoringConfig: rampMonitoringConfig.nullish(),
       lockdownConfig: lockdownConfigSchema.optional(),
+      order: z
+        .number()
+        .optional()
+        .describe("Display order within the org (lower sorts first)."),
     }),
   },
   includeDefaultCrud: true,

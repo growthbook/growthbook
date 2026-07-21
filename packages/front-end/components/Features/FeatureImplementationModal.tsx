@@ -1,11 +1,13 @@
 import { FeatureInterface } from "shared/types/feature";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { SDKLanguage } from "shared/types/sdk-connection";
 import Modal from "@/components/Modal";
 import { DocLink } from "@/components/DocLink";
 import BooleanFeatureCodeSnippet from "@/components/SyntaxHighlighting/Snippets/BooleanFeatureCodeSnippet";
 import MultivariateFeatureCodeSnippet from "@/components/SyntaxHighlighting/Snippets/MultivariateFeatureCodeSnippet";
+import useSDKConnections from "@/hooks/useSDKConnections";
 import {
+  getConnectionLanguageFilter,
   LanguageFilter,
   languageMapping,
 } from "./SDKConnections/SDKLanguageLogo";
@@ -29,6 +31,19 @@ export default function FeatureImplementationModal({
     useState<LanguageFilter>("popular");
   const codeType = feature.valueType === "boolean" ? "boolean" : "multivariate";
 
+  // Default the language to the one used by the first SDK connection in the
+  // account (e.g. the language selected during initial setup)
+  const { data: sdkConnectionData } = useSDKConnections();
+  const [languageInitialized, setLanguageInitialized] = useState(false);
+  useEffect(() => {
+    if (languageInitialized) return;
+    const firstLanguage = sdkConnectionData?.connections[0]?.languages[0];
+    if (!firstLanguage) return;
+    setLanguage(firstLanguage);
+    setLanguageFilter(getConnectionLanguageFilter([firstLanguage]));
+    setLanguageInitialized(true);
+  }, [sdkConnectionData, languageInitialized]);
+
   if (fullSnippet) {
     return <InitialSDKConnectionForm close={close} feature={feature} />;
   }
@@ -37,6 +52,7 @@ export default function FeatureImplementationModal({
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       open={true}
       close={close}
@@ -59,8 +75,10 @@ export default function FeatureImplementationModal({
         </h3>
         <p>
           Read the{" "}
-          <DocLink docSection={data.docs}>{data.label} SDK docs</DocLink> or
-          view a{" "}
+          <DocLink useRadix={false} docSection={data.docs}>
+            {data.label} SDK docs
+          </DocLink>{" "}
+          or view a{" "}
           <a
             href="#"
             onClick={(e) => {

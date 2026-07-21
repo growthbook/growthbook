@@ -13,13 +13,23 @@ Custom Hooks are JavaScript snippets that run on the server during validation. U
 
 ## Using Custom Hooks
 
-To manage Custom Hooks, navigate to **Settings → Custom Hooks** in the GrowthBook UI.
-
 :::note Custom Hooks are only available on self-hosted GrowthBook Enterprise.
 
 :::
 
-Custom Hooks can be global or scoped to specific projects, and you can create multiple hooks of the same type for flexible, granular validation rules.
+You can create multiple hooks of the same type for flexible, granular validation rules. Each hook has a **scope** that controls which resources it runs for:
+
+- **Global** — runs for every feature or experiment (depending on hook type).
+- **Project** — runs only for resources in the selected projects.
+- **Feature** — runs only for a single feature.
+
+Global and project-scoped hooks are managed under **Settings → Custom Hooks**. Feature-scoped hooks are created and managed from a feature's **Validation** tab by anyone who can edit that feature; that tab also lists any global and project hooks that apply to the feature. We currently do not support creating custom hooks that are Experiment-scoped, meaning that `validateExperiment` needs to be either global or project-scoped.
+
+The same mechanism applies to [Configs](/features/configs): the `validateConfig` and `validateConfigRevision` hook types run on config saves and publishes, scoped Global / Project / Config. Config-scoped hooks are created and managed from a config's **Validation** tab (and listed under Settings → Custom Hooks).
+
+A config-scoped hook always covers the whole family: it runs for the scoped config _and_ every config that inherits from it — via `parent` or `extends`, transitively. Family membership is evaluated against the lineage being published, so a config that is re-parented into the family is validated by the family's hooks on that same publish. Descendant pages list inherited family hooks alongside their own.
+
+A hook's scope (`entityType`/`entityId`) can be changed after creation via the REST API — retargeting requires permission on both the old and the new target. Pass `entityType: null, entityId: null` to turn an entity-scoped hook into a global/project one.
 
 ### Limits
 
@@ -32,13 +42,29 @@ The following default limits are in place to prevent abuse and ensure performanc
 - `CUSTOM_HOOK_WALL_TIMEOUT_MS` - Maximum total run time (including async calls) (default: 5000ms)
 - `CUSTOM_HOOK_MAX_FETCH_RESP_SIZE` - Maximum response size from fetch calls in bytes (default: 500KB)
 
+### Execution Frequency
+
+A hook may execute **multiple times for a single save**. GrowthBook runs hooks early in a request (before related records are written) and again immediately before the final database write, and the Incremental Changes option adds additional runs against the previous state. Keep hooks fast and free of side effects — they should validate their inputs and either return, `throw`, or `addWarning()`, nothing else.
+
 ### Debugging
 
-If a Custom Hook throws an error during execution, the error message will be used as the validation error shown in the UI. This allows you to provide clear feedback to users about why their changes were rejected.
+If a Custom Hook throws an error during execution, the error message will be used as the validation error shown in the UI. This allows you to provide clear feedback to users about why their changes were rejected. Hook errors are prefixed with `Custom hook:`, which distinguishes them from schema-conformance errors (prefixed with the offending field, e.g. `value: …`) and from validation-rule failures (which surface the rule's own message).
 
-When creating a Custom Hook, use the built-in test interface to tweak inputs and run the hook. The test output shows all errors, console messages, and the return value (if any).
+When creating a Custom Hook, use the built-in test interface to tweak inputs and run the hook. The test output shows all errors, warnings, console messages, and the return value (if any).
 
 Use `console.log` statements liberally while developing hooks to inspect variables and understand the flow of execution.
+
+### Warnings
+
+Instead of `throw`, a hook can call `addWarning("message")` to raise a **soft warning**. A warning doesn't hard-block: in the UI the user can review it and click **Save anyway**, and REST API clients can re-submit the request with `"ignoreWarnings": true` in the body. A `throw` is stronger — it blocks the save outright, and `ignoreWarnings` will not clear it. Forcing past a `throw` requires org-wide bypass authority (the **bypass-approvals** permission): over the REST API such a caller can re-submit with `"skipHooks": true`. This is separate from `"skipSchemaValidation"` (which forces past schema and validation-rule failures, not hook rejections) — a hook failure is not a schema error.
+
+```js
+if (feature.tags.length === 0) {
+  addWarning("Consider adding at least one tag");
+}
+```
+
+Because execution continues after `addWarning`, you can raise warnings and still `throw` later in the same hook.
 
 ### Incremental Changes
 
@@ -173,5 +199,172 @@ if (
           "This feature is locked and cannot be published."
         );
     }
+}
+```
+
+#### Enforcing approval policies at publish
+
+The hook runs at publish time with `revision.status === "published"` on the proposed revision, so you can gate publishes specifically. `revision.reviews` holds the active reviewer verdicts for the current review cycle — one entry per reviewer in the shape `{ userId, user, status, timestamp }`:
+
+- `userId` — stable reviewer identifier: the user ID for dashboard users, or the API key ID for service accounts.
+- `user` — the full event user: `{ type: "dashboard", id, name, email }` for humans, `{ type: "api_key", apiKey }` for service accounts (where `apiKey` is the key's ID, not its secret).
+- `status` — `"approved"` or `"changes-requested"` for active verdicts. When draft content changes after a verdict is given (and the org's review settings reset reviews on change), the verdict is demoted to `"approved-stale"` / `"changes-requested-stale"` — still attributable, but no longer an active verdict, so policies matching on the active statuses ignore it automatically. A verdict that was retracted no longer appears, and all verdicts clear when a new review cycle starts (review re-requested or recalled).
+- `timestamp` — when the verdict was submitted. Compare against `revision.dateUpdated` to detect approvals that predate later edits.
+
+Disable **Incremental Changes Only** for publish-gating hooks so the policy is enforced on every publish.
+
+Example: Require approval from a specific service account plus at least one human.
+
+```js
+if (revision.status === "published") {
+  const approvals = (revision.reviews || []).filter(
+    (r) => r.status === "approved"
+  );
+  if (!approvals.some((r) => r.user?.type === "api_key" && r.user.apiKey === "key_abc123")) {
+    throw new Error(
+      "Publishing requires approval from the release-bot service account."
+    );
+  }
+  if (!approvals.some((r) => r.user?.type === "dashboard")) {
+    throw new Error(
+      "Publishing requires at least one human approval."
+    );
+  }
+}
+```
+
+Example: Require two approvals, at least one from a designated reviewer group.
+
+```js
+const seniorReviewers = ["user_abc", "user_def", "user_ghi"];
+if (revision.status === "published") {
+  const approvals = (revision.reviews || []).filter(
+    (r) => r.status === "approved"
+  );
+  if (approvals.length < 2) {
+    throw new Error("Publishing requires at least two approvals.");
+  }
+  if (!approvals.some((r) => seniorReviewers.includes(r.userId))) {
+    throw new Error("At least one approval must come from a senior reviewer.");
+  }
+}
+```
+
+### validateConfig
+
+Called whenever a [config](/features/configs) is created or updated. Receives the config (its fields, staged `value`, a `lineage` object, `isHookTarget` / `hookTargetKey`, and — when the config is an [environment/project override](/features/configs#environment-overrides) — a `scopedConfig` object) as input. `config.value` is a parsed JSON object — read its keys directly, no `JSON.parse` needed. Since a config-scoped hook also runs for descendants, `config.isHookTarget` is `true` only for the exact config the hook is pinned to. When present, `config.scopedConfig` is `{ parent, environments, projects }` — the base this config overrides and the scope it applies to — so you can enforce environment-specific rules (e.g. require a field in the `production` override).
+
+Example: Require a config to have a name and a non-empty value.
+
+```js
+if (!config.name || Object.keys(config.value || {}).length === 0) {
+  throw new Error("Configs must have a name and a value.");
+}
+```
+
+### validateConfigRevision
+
+Called on every config publish path (manual publish, direct REST update, auto-publish-on-approval, and scheduled publish), before the change is committed — so throwing blocks the publish and leaves the draft editable. Runs even for bypass-approval publishes, so it works as a hard gate. Receives:
+
+- `config` — the config's published content: `key`, `name`, `project`, staged `value` (a parsed JSON object), `schema`, and lineage (`parent`/`extends`, plus a `lineage` object with `ancestors`, `descendants`, `hasParent`, `hasChildren`, `isRoot`, `isLeaf`). Because a config-scoped hook also runs for descendants, `config.isHookTarget` is `true` only when this is the exact config the hook is pinned to (and `false` for a descendant it inherited); `config.hookTargetKey` names that pinned config (`null` for project/global hooks). Use these to enforce a rule only on the target config, or on the whole family. When the config is an [environment/project override](/features/configs#environment-overrides), `config.scopedConfig` is `{ parent, environments, projects }` (its base and the scope it applies to) — absent otherwise — so you can gate environment-specific rules.
+- `revision` — the revision being published (when publishing a reviewed draft): `version`, `status`, `comment`, `authorId`, `contributors`, and `reviews`. Each review is `{ userId, decision, comment, stale, dateCreated }` where `decision` is `"approve"` / `"request-changes"` / `"comment"` and `userId` is the reviewer's user ID (or the API key ID for a service account). `revision` is absent on direct (non-draft) writes.
+
+Example: Block publishing a value that exceeds a limit. `config.value` is already a parsed object.
+
+```js
+if ((config.value?.maxItems ?? 0) > 100) {
+  throw new Error("maxItems cannot exceed 100.");
+}
+```
+
+Example: Enforce a rule only on the config the hook is pinned to, not on the descendants it also runs for.
+
+```js
+if (config.isHookTarget && !config.value?.owner) {
+  throw new Error("The base config must set an owner.");
+}
+```
+
+Example: Enforce an approval policy — require a service-account approval plus at least one human (mirrors the feature-flag `validateFeatureRevision` gate). Disable **Incremental Changes Only** for this hook so it runs on every publish.
+
+```js
+if (revision) {
+  const approvals = (revision.reviews || []).filter(
+    (r) => r.decision === "approve" && !r.stale
+  );
+  if (!approvals.some((r) => r.userId === "key_abc123")) {
+    throw new Error("Publishing requires approval from the release-bot service account.");
+  }
+  if (!approvals.some((r) => r.userId !== "key_abc123")) {
+    throw new Error("Publishing requires at least one human approval.");
+  }
+}
+```
+
+Example: Require an external check to pass before publish.
+
+```js
+const res = await fetch("https://example.com/validate-config", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ key: config.key, value: config.value }),
+});
+if (!(await res.json()).isValid) {
+  throw new Error("External config validation failed.");
+}
+```
+
+### validateExperiment
+
+Called whenever an experiment is about to be created or updated. Receives the full experiment object, including any Custom Field values under `experiment.customFields`. It runs on create, edit, start, and stop, so a thrown error blocks that action.
+
+:::note Not every field is populated at creation.
+
+An experiment created in the UI starts as a draft, and most of the work — assigning metrics, choosing a hash attribute, configuring variations — happens afterwards, before it is started. The hook still runs on creation, so a rule that requires one of those later fields would block the draft from ever being created. Experiments created through the import flow or the API often do have those fields available up front.
+
+If a rule should only apply once an experiment is ready to start, skip drafts early:
+
+```js
+// Skip draft experiments; validate only when starting or later.
+if (experiment.status === "draft") return;
+
+if (!experiment.hypothesis) {
+  throw new Error("Add a hypothesis before starting this experiment.");
+}
+```
+
+:::
+
+Example: Require at least one experiment surface in a custom field, and require a linked ticket when the "checkout" surface is selected. This validates one multi-select Custom Field against another.
+
+```js
+const surfaces = experiment.customFields?.experimentSurfaces || [];
+if (surfaces.length === 0) {
+  throw new Error("Select at least one experiment surface.");
+}
+if (surfaces.includes("checkout") && !experiment.customFields?.jiraTicket) {
+  throw new Error("Checkout experiments must reference a Jira ticket.");
+}
+```
+
+Example: Check a Custom Field against an external service.
+
+```js
+const response = await fetch("https://example.com/validate-experiment", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ team: experiment.customFields?.team }),
+});
+const result = await response.json();
+if (!result.isValid) {
+  throw new Error(result.message || "Experiment validation failed.");
+}
+```
+
+Example: Warn without blocking when an experiment has no hypothesis.
+
+```js
+if (!experiment.hypothesis && experiment.status !== "draft") {
+  addWarning("Consider adding a hypothesis before starting this experiment.");
 }
 ```

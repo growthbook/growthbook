@@ -29,6 +29,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import {
   setUser as sentrySetUser,
   setTag as sentrySetTag,
@@ -120,6 +121,7 @@ export interface UserContextValue {
   roles: Role[];
   teams?: Team[];
   error?: string;
+  orgSuspended: boolean;
   hasCommercialFeature: (feature: CommercialFeature) => boolean;
   commercialFeatureLowestPlan?: Partial<Record<CommercialFeature, AccountPlan>>;
   permissionsUtil: Permissions;
@@ -179,6 +181,7 @@ export const UserContext = createContext<UserContextValue>({
   },
   canSubscribe: false,
   freeSeats: 3,
+  orgSuspended: false,
 });
 
 export function useUser() {
@@ -385,9 +388,17 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     }
   }, [currentOrg?.organization?.id]);
 
+  const hasVisualEditorPromo = useFeatureIsOn("visual-editor-free-access");
+
   const commercialFeatures = useMemo(() => {
-    return new Set(currentOrg?.commercialFeatures || []);
-  }, [currentOrg?.commercialFeatures]);
+    const features = new Set<CommercialFeature>(
+      currentOrg?.commercialFeatures || [],
+    );
+    // This is a temporary override to give some users access to the visual editor
+    // If we decide to keep this, we should add a getEffectiveCommercialFeatures that expands this functionality
+    if (hasVisualEditorPromo) features.add("visual-editor");
+    return features;
+  }, [currentOrg?.commercialFeatures, hasVisualEditorPromo]);
 
   const permissionsCheck = useCallback(
     (
@@ -430,7 +441,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   ]);
 
   const permissionsUtil = useMemo(() => {
-    return new Permissions(
+    const basePermissions: UserPermissions =
       currentOrg?.currentUserPermissions || {
         global: {
           permissions: {},
@@ -438,8 +449,9 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
           environments: [],
         },
         projects: {},
-      },
-    );
+      };
+
+    return new Permissions(basePermissions);
   }, [currentOrg?.currentUserPermissions]);
 
   const getUserDisplay = useCallback(
@@ -526,12 +538,13 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         effectiveAccountPlan: currentOrg?.effectiveAccountPlan,
         commercialFeatureLowestPlan: currentOrg?.commercialFeatureLowestPlan,
         licenseError: currentOrg?.licenseError || "",
-        commercialFeatures: currentOrg?.commercialFeatures || [],
+        commercialFeatures: [...commercialFeatures],
         agreements: currentOrg?.agreements || [],
         organization: organization || {},
         seatsInUse: currentOrg?.seatsInUse || 0,
         teams,
         error: error?.message || orgLoadingError?.message,
+        orgSuspended: organization?.suspended === true && !data?.superAdmin,
         hasCommercialFeature: (feature) => commercialFeatures.has(feature),
         watching: watching,
         canSubscribe,

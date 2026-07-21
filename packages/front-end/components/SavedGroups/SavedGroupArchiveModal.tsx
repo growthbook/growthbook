@@ -1,16 +1,10 @@
 import { SavedGroupInterface } from "shared/types/saved-group";
-import { useMemo, useState } from "react";
 import { Revision } from "shared/enterprise";
-import Text from "@/ui/Text";
-import Callout from "@/ui/Callout";
-import LoadingSpinner from "@/components/LoadingSpinner";
-import Modal from "@/components/Modal";
-import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useSavedGroupReferences } from "@/hooks/useSavedGroupReferences";
-import DraftSelector, { DraftMode } from "@/components/DraftSelector";
-import SavedGroupRevisionDropdown from "@/components/SavedGroups/SavedGroupRevisionDropdown";
+import ArchiveModal from "@/components/Revision/ArchiveModal";
+import SavedGroupDraftSelectorForChanges from "@/components/SavedGroups/SavedGroupDraftSelectorForChanges";
 import SavedGroupReferencesList from "./SavedGroupReferencesList";
 
 interface SavedGroupArchiveModalProps {
@@ -23,6 +17,7 @@ interface SavedGroupArchiveModalProps {
   selectFlow?: (revision: Revision | null) => void;
 }
 
+// Thin wrapper around the entity-agnostic ArchiveModal.
 export default function SavedGroupArchiveModal({
   savedGroup,
   close,
@@ -32,17 +27,19 @@ export default function SavedGroupArchiveModal({
   onRevisionCreated,
   selectFlow,
 }: SavedGroupArchiveModalProps) {
-  const { apiCall } = useAuth();
   const settings = useOrgSettings();
   const permissionsUtil = usePermissionsUtil();
 
-  const { references, loading } = useSavedGroupReferences(savedGroup.id);
+  const isArchived = !!savedGroup.archived;
+
+  // Only look up references when archiving (unarchiving is never blocked).
+  const { references, loading } = useSavedGroupReferences(
+    isArchived ? null : savedGroup.id,
+  );
   const totalReferences =
     (references?.features.length ?? 0) +
     (references?.experiments.length ?? 0) +
     (references?.savedGroups.length ?? 0);
-
-  const isArchived = savedGroup.archived;
 
   const canBypass =
     savedGroup.projects && savedGroup.projects.length > 0
@@ -54,154 +51,54 @@ export default function SavedGroupArchiveModal({
   const approvalRequired =
     settings.approvalFlows?.savedGroups?.[0]?.required ?? false;
 
-  // Archive/unarchive always requires review when approval flows are enabled
-  const archiveGated = approvalRequired;
-
-  const canAutoPublish = canBypass || !archiveGated;
-
-  const [mode, setMode] = useState<DraftMode>(archiveGated ? "new" : "publish");
-  const [selectedDraftId, setSelectedDraftId] = useState<string | null>(
-    openRevisions[0]?.id ?? null,
-  );
-
-  const isDraftRevision = (r: Revision) =>
-    ["draft", "pending-review", "changes-requested", "approved"].includes(
-      r.status,
-    );
-  const activeDrafts = useMemo(
-    () => openRevisions.filter(isDraftRevision),
-    [openRevisions],
-  );
-  const selectedDraftRevision = useMemo(
-    () =>
-      selectedDraftId
-        ? (allRevisions.find((r) => r.id === selectedDraftId) ?? null)
-        : null,
-    [selectedDraftId, allRevisions],
-  );
-  const existingDraftLabel = selectedDraftRevision
-    ? selectedDraftRevision.title ||
-      `Revision ${
-        allRevisions.filter(
-          (r) =>
-            new Date(r.dateCreated) <=
-            new Date(selectedDraftRevision.dateCreated),
-        ).length
-      }`
-    : null;
-
-  const canSubmit = !loading && totalReferences === 0;
-
   return (
-    <Modal
-      trackingEventModalType=""
-      header={isArchived ? "Unarchive Saved Group" : "Archive Saved Group"}
-      size="lg"
-      close={close}
-      open={true}
-      cta={
-        mode === "publish"
-          ? isArchived
-            ? "Unarchive"
-            : "Archive"
-          : "Save to draft"
+    <ArchiveModal
+      entityNoun="Saved Group"
+      entityId={savedGroup.id}
+      isArchived={isArchived}
+      apiPathBase="/saved-groups"
+      openRevisions={openRevisions}
+      approvalRequired={approvalRequired}
+      canBypassApproval={canBypass}
+      referenceCount={totalReferences}
+      referencesLoading={loading}
+      // The server is the source of truth: archiving a still-referenced Saved
+      // Group returns a soft warning the user acknowledges via the shared
+      // apiCall handler, rather than a client-side hard block.
+      referenceBlockMode="soft"
+      preserveNounCase
+      referencesList={
+        <SavedGroupReferencesList
+          features={references?.features ?? []}
+          experiments={references?.experiments ?? []}
+          savedGroups={references?.savedGroups ?? []}
+        />
       }
-      submitColor={mode === "publish" ? "danger" : "primary"}
-      submit={async () => {
-        const desiredArchived = !isArchived;
-        const params = new URLSearchParams();
-
-        if (mode === "publish") {
-          // Archive/unarchive still flows through the revision system so it
-          // shows up in history. When approval is required but the caller has
-          // bypass permission, record it as a bypass; otherwise auto-merge.
-          if (archiveGated && canBypass) {
-            params.set("bypassApproval", "1");
-          } else {
-            params.set("autoPublish", "1");
-          }
-        } else if (mode === "existing" && selectedDraftId) {
-          params.set("revisionId", selectedDraftId);
-        } else {
-          // mode === "new"
-          params.set("forceCreateRevision", "1");
-        }
-
-        const url = `/saved-groups/${savedGroup.id}${params.toString() ? `?${params.toString()}` : ""}`;
-
-        const res = await apiCall<{
-          status: number;
-          requiresApproval?: boolean;
-          revision?: Revision;
-        }>(url, {
-          method: "PUT",
-          body: JSON.stringify({ archived: desiredArchived }),
-        });
-
-        if (res?.revision) {
-          onRevisionCreated?.(res.revision);
-          if (mode === "new" || mode === "existing") {
-            selectFlow?.(res.revision);
-          }
-        }
-        mutate();
-        close();
-      }}
-      ctaEnabled={canSubmit}
-      useRadixButton={true}
-    >
-      <DraftSelector
-        hasActiveDrafts={activeDrafts.length > 0}
-        mode={mode}
-        setMode={setMode}
-        canAutoPublish={canAutoPublish}
-        approvalRequired={archiveGated}
-        existingDraftLabel={existingDraftLabel}
-        revisionDropdown={
-          <SavedGroupRevisionDropdown
-            savedGroupId={savedGroup.id}
-            allRevisions={allRevisions}
-            selectedRevisionId={selectedDraftId}
-            onSelectRevision={(rev) => setSelectedDraftId(rev?.id ?? null)}
-            draftsOnly
-            requiresApproval={false}
-          />
-        }
-      />
-      {loading ? (
-        <Text color="text-disabled">
-          <LoadingSpinner /> Checking saved group references...
-        </Text>
-      ) : totalReferences > 0 ? (
-        <>
-          <Callout status="error" mb="4">
-            <Text as="p" weight="semibold" mb="2">
-              Cannot {isArchived ? "unarchive" : "archive"} saved group
-            </Text>
-            <Text as="p" mb="0">
-              Before you can {isArchived ? "unarchive" : "archive"} this saved
-              group, you will need to remove any references to it. Check the
-              following item
-              {totalReferences > 1 && "s"} below:
-            </Text>
-          </Callout>
-          <SavedGroupReferencesList
-            features={references?.features ?? []}
-            experiments={references?.experiments ?? []}
-            savedGroups={references?.savedGroups ?? []}
-          />
-        </>
-      ) : isArchived ? (
-        <p>
-          Are you sure you want to continue? This will make the saved group
-          active again.
-        </p>
-      ) : (
-        <p>
-          Are you sure you want to continue? This will make the saved group
-          inactive and it will no longer be usable in features and experiments.
-        </p>
+      renderDraftSelector={({
+        mode,
+        setMode,
+        selectedDraftId,
+        setSelectedDraftId,
+        canAutoPublish,
+        approvalRequired: gated,
+      }) => (
+        <SavedGroupDraftSelectorForChanges
+          savedGroup={savedGroup}
+          openRevisions={openRevisions}
+          allRevisions={allRevisions}
+          mode={mode}
+          setMode={setMode}
+          selectedDraftId={selectedDraftId}
+          setSelectedDraftId={setSelectedDraftId}
+          canAutoPublish={canAutoPublish}
+          approvalRequired={gated}
+        />
       )}
-    </Modal>
+      trackingEventModalType="saved-group-archive-modal"
+      close={close}
+      onRevisionCreated={onRevisionCreated}
+      selectFlow={selectFlow}
+      onSaved={mutate}
+    />
   );
 }

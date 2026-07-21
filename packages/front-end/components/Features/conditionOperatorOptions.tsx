@@ -139,6 +139,17 @@ const OP_NOT_EMPTY: OperatorOption = {
   shortLabel: "is not empty",
   value: "$notEmpty",
 };
+// Set operators for enum-constrained array attributes ($in/$nin worded for arrays)
+const OP_INCLUDES_ANY: OperatorOption = {
+  label: "includes any of",
+  shortLabel: "includes any of",
+  value: "$in",
+};
+const OP_INCLUDES_NONE: OperatorOption = {
+  label: "includes none of",
+  shortLabel: "includes none of",
+  value: "$nin",
+};
 
 // Version operators
 const OP_VEQ: OperatorOption = {
@@ -240,14 +251,31 @@ export function getConditionOperators(
     enumValues?: string[];
     format?: string;
     savedGroupOptions?: unknown[];
+    operator?: string;
   } = {},
 ): OperatorOption[] {
-  const { array, enumValues, format, savedGroupOptions = [] } = opts;
+  const { array, enumValues, format, savedGroupOptions = [], operator } = opts;
   const sg = savedGroupOptions.length > 0 ? SAVED_GROUP_OPERATORS : [];
 
   if (datatype === "boolean")
     return [OP_TRUE, OP_FALSE, OP_EXISTS, OP_NOT_EXISTS];
-  if (array)
+  if (array) {
+    if (enumValues?.length)
+      // Enum-constrained list: set operators drive the restricted MultiSelect.
+      // Single-value ops are only offered to keep an existing condition that
+      // already uses them editable — hidden otherwise to avoid
+      // duplicate-looking options.
+      return [
+        OP_INCLUDES_ANY,
+        OP_INCLUDES_NONE,
+        ...(operator === "$includes" || operator === "$notIncludes"
+          ? [OP_INCLUDES, OP_NOT_INCLUDES]
+          : []),
+        OP_EMPTY,
+        OP_NOT_EMPTY,
+        OP_EXISTS,
+        OP_NOT_EXISTS,
+      ];
     return [
       OP_INCLUDES,
       OP_NOT_INCLUDES,
@@ -256,6 +284,7 @@ export function getConditionOperators(
       OP_EXISTS,
       OP_NOT_EXISTS,
     ];
+  }
   if (enumValues?.length)
     // Saved groups intentionally excluded for enum attributes (matches original behaviour)
     return [OP_EQ, OP_NE, OP_IN, OP_NIN, OP_EXISTS, OP_NOT_EXISTS];

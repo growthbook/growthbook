@@ -42,7 +42,7 @@ const EditProjectsForm: FC<{
       <MultiSelectField
         size="legacy"
         label={label}
-        placeholder="All projects"
+        placeholder="All Projects"
         value={form.watch("projects")}
         options={useProjectOptions(permissionRequired, value)}
         onChange={(v) => form.setValue("projects", v)}

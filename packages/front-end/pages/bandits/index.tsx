@@ -10,6 +10,7 @@ import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
 import Button from "@/ui/Button";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import LinkButton from "@/ui/LinkButton";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 import Callout from "@/ui/Callout";
@@ -149,23 +150,26 @@ const ExperimentsPage = (): React.ReactElement => {
             <h1>Bandits</h1>
           </Flex>
           <Box style={{ flex: 1 }} />
-          {canAdd && (
-            <Box>
-              <PremiumTooltip
-                tipPosition="left"
-                commercialFeature="multi-armed-bandits"
+          <Box>
+            <PremiumTooltip
+              tipPosition="left"
+              commercialFeature="multi-armed-bandits"
+            >
+              <Tooltip
+                body="You don't have permission to add bandits in this project."
+                shouldDisplay={hasMultiArmedBanditFeature && !canAdd}
               >
                 <Button
                   onClick={() => {
                     setOpenNewExperimentModal(true);
                   }}
-                  disabled={!hasMultiArmedBanditFeature}
+                  disabled={!hasMultiArmedBanditFeature || !canAdd}
                 >
                   Add Bandit
                 </Button>
-              </PremiumTooltip>
-            </Box>
-          )}
+              </Tooltip>
+            </PremiumTooltip>
+          </Box>
         </Flex>
         <CustomMarkdown page={"experimentList"} />
         {!hasExperiments ? (
@@ -182,22 +186,25 @@ const ExperimentsPage = (): React.ReactElement => {
               >
                 Setup Instructions
               </LinkButton>
-              {canAdd && (
-                <PremiumTooltip
-                  tipPosition="left"
-                  popperStyle={{ top: 15 }}
-                  commercialFeature="multi-armed-bandits"
+              <PremiumTooltip
+                tipPosition="left"
+                popperStyle={{ top: 15 }}
+                commercialFeature="multi-armed-bandits"
+              >
+                <Tooltip
+                  body="You don't have permission to add bandits in this project."
+                  shouldDisplay={hasMultiArmedBanditFeature && !canAdd}
                 >
                   <Button
                     onClick={() => {
                       setOpenNewExperimentModal(true);
                     }}
-                    disabled={!hasMultiArmedBanditFeature}
+                    disabled={!hasMultiArmedBanditFeature || !canAdd}
                   >
                     Add Bandit
                   </Button>
-                </PremiumTooltip>
-              )}
+                </Tooltip>
+              </PremiumTooltip>
             </Flex>
             <Box mt="5">
               <img

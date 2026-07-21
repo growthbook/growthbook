@@ -1,4 +1,5 @@
 import { ProjectInterface } from "shared/types/project";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { useForm } from "react-hook-form";
 import { postProjectValidator, putProjectValidator } from "shared/validators";
 import { useRestApiCall } from "@/services/restApi";
@@ -65,7 +66,7 @@ export default function ProjectModal({
       <Field
         size="legacy"
         label="Description"
-        maxLength={100}
+        maxLength={MAX_DESCRIPTION_LENGTH}
         minRows={3}
         maxRows={8}
         textarea={true}

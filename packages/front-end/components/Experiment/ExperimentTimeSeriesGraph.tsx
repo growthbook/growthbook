@@ -44,6 +44,9 @@ export interface ExperimentTimeSeriesGraphDataPoint {
   d: Date;
   variations?: Array<DataPointVariation | null>; // undefined === missing date, null === variation not present
   helperText?: string;
+  // Synthetic pre-rollout anchor: keeps the line/area shaped from the experiment
+  // start, but renders no dot and shows no tooltip (it isn't a real measurement).
+  isPaddingPoint?: boolean;
 }
 
 import { GraphVariation } from "./ExperimentDateGraph";
@@ -61,6 +64,10 @@ export interface ExperimentTimeSeriesGraphProps {
   maxGapHours?: number;
   cumulative?: boolean;
   showVariations: boolean[];
+  // When true the CI is one-sided (one bound is ±Infinity). The y-range is
+  // anchored at 0 + padding around the finite bound/point estimates instead of
+  // expanding off the fake bound, and the ribbon fills out to the plot edge.
+  oneSided?: boolean;
 }
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -381,6 +388,7 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
   hasStats = true,
   maxGapHours = 36,
   cumulative = false,
+  oneSided = false,
 }) => {
   const { containerRef, containerBounds, TooltipInPortal } = useTooltipInPortal(
     {
@@ -443,6 +451,40 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
 
   // Get y-axis domain
   const yDomain = useMemo<[number, number]>(() => {
+    if (oneSided) {
+      // One-sided CI: build the range from the *real* values only — finite CI
+      // bounds and point estimates — plus 0 as a reference. The fake
+      // (±Infinity) bound is ignored; the ribbon is filled out to the plot
+      // edge by ciLowerForArea/ciUpperForArea. Because we take min/max, 0 only
+      // widens the range when it is the extreme; a CI that straddles 0 keeps
+      // its real bounds.
+      const vals: number[] = [0];
+      datapoints.forEach((d) => {
+        d?.variations?.forEach((variation, i) => {
+          if (!showVariations[i]) return;
+          const pt = getYVal(variation ?? undefined, yaxis);
+          if (pt !== undefined) vals.push(pt);
+          const lo = variation?.ci?.[0];
+          const hi = variation?.ci?.[1];
+          if (lo !== undefined && Number.isFinite(lo)) vals.push(lo);
+          if (hi !== undefined && Number.isFinite(hi)) vals.push(hi);
+        });
+      });
+      const rawMin = Math.min(...vals);
+      const rawMax = Math.max(...vals);
+      const range = Math.max(rawMax - rawMin, 0.001);
+      const buffer = range * 0.05;
+      const paddedMin = rawMin - buffer;
+      const paddedMax = rawMax + buffer;
+      const minHalfWidthAboutZero = Math.max(
+        0.001,
+        ((paddedMax - paddedMin) / 2) * 0.02,
+      );
+      return [
+        Math.min(paddedMin, -minHalfWidthAboutZero),
+        Math.max(paddedMax, minHalfWidthAboutZero),
+      ];
+    }
     const minValue = Math.min(
       ...datapoints.map((d) =>
         d?.variations
@@ -561,7 +603,7 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
       Math.min(paddedMin, -minHalfWidthAboutZero),
       Math.max(paddedMax, minHalfWidthAboutZero),
     ];
-  }, [datapoints, yaxis, showVariations, sortedDatesWithData]);
+  }, [datapoints, yaxis, showVariations, sortedDatesWithData, oneSided]);
 
   // Get x-axis domain
   const min = Math.min(...datapoints.map((d) => d.d.getTime()));
@@ -631,6 +673,12 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
             yaxis,
           );
           if (!data?.y || data.y.every((v) => v === undefined)) {
+            hideTooltip();
+            return;
+          }
+
+          // Padding points are synthetic anchors, not real measurements
+          if (data.d.isPaddingPoint) {
             hideTooltip();
             return;
           }
@@ -719,6 +767,8 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
               )}
 
               {sortedDatesWithData.map((d) => {
+                // Padding points shape the line but should render no dot
+                if (d.isPaddingPoint) return null;
                 // Render a dot at the current x location for each variation
                 return (
                   <React.Fragment key={`date_${d.d.getTime()}`}>
@@ -784,6 +834,7 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
                     }
 
                     const sortedDataForVariation = sortedDatesWithData
+                      .filter((d) => !d.isPaddingPoint)
                       .map((d) => ({
                         d: d.d,
                         variation: d.variations?.[i],
@@ -855,6 +906,7 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
                     }
 
                     const sortedDataForVariation = sortedDatesWithData
+                      .filter((d) => !d.isPaddingPoint)
                       .map((d) => ({
                         d: d.d,
                         variation: d.variations?.[i],

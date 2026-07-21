@@ -1,6 +1,7 @@
 import type { FactMetricInterface } from "shared/types/fact-table";
 import type {
   ExplorationConfig,
+  ProductAnalyticsResultRow,
   ShowAs,
 } from "../../../validators/product-analytics";
 
@@ -68,7 +69,8 @@ export const DEFAULT_EXPLORE_STATE: ExplorationConfig = {
 export type ProductAnalyticsExplorationBlockType =
   | "metric-exploration"
   | "fact-table-exploration"
-  | "data-source-exploration";
+  | "data-source-exploration"
+  | "funnel-exploration";
 
 export function getInitialConfigByBlockType(
   blockType: ProductAnalyticsExplorationBlockType,
@@ -102,6 +104,17 @@ export function getInitialConfigByBlockType(
           path: "",
           timestampColumn: "",
           columnTypes: {},
+        },
+        datasource: datasourceId,
+      };
+    case "funnel-exploration":
+      return {
+        ...DEFAULT_EXPLORE_STATE,
+        type: "funnel",
+        dataset: {
+          type: "funnel",
+          unit: null,
+          steps: [],
         },
         datasource: datasourceId,
       };
@@ -378,7 +391,12 @@ export function buildExplorationColumns(
     cols.push({ kind: "dimension", key: `__dim_${i}__`, label, dimIndex: i });
   });
 
-  const values = config?.dataset?.values ?? [];
+  // Funnel datasets have no `values` — the funnel table builds its own
+  // column layout (see useExplorationTableData). Bail out here with only
+  // dimension columns so the shared schema doesn't claim a value layout
+  // that doesn't exist on the row.
+  const values =
+    config?.dataset?.type === "funnel" ? [] : (config?.dataset?.values ?? []);
   if (values.length === 0) return cols;
 
   const isRatio = getIsRatioByIndex(config, getFactMetricById);
@@ -442,15 +460,18 @@ export function buildExplorationColumns(
 export function getExplorationCellValue(
   row: {
     dimensions: (string | null)[];
-    values: { numerator: number | null; denominator: number | null }[];
+    // Optional because funnel rows carry `steps` instead of `values`. The
+    // shared schema for funnels is dimension-only (no metric columns), so
+    // values is always undefined for funnel callers and treated as empty.
+    values?: { numerator: number | null; denominator: number | null }[];
   },
   col: ExplorationColumn,
-  renderOpts: { showAs: ShowAs; isRatioByIndex: boolean[] },
+  renderOpts: ExplorationRenderOpts,
 ): string | number | null {
   if (col.kind === "dimension") {
     return row.dimensions[col.dimIndex] ?? null;
   }
-  const v = row.values[col.metricIndex];
+  const v = row.values?.[col.metricIndex];
   if (!v) return null;
   if (col.sub === "numerator") return v.numerator;
   if (col.sub === "denominator") return v.denominator;
@@ -463,5 +484,84 @@ export function getExplorationCellValue(
   return getEffectiveMetricValue(v, {
     showAs: renderOpts.showAs,
     isRatio: renderOpts.isRatioByIndex[col.metricIndex] ?? false,
+  });
+}
+
+export type ExplorationRenderOpts = {
+  showAs: ShowAs;
+  isRatioByIndex: boolean[];
+};
+
+function getRowTotal(
+  row: ProductAnalyticsResultRow,
+  opts: ExplorationRenderOpts,
+): number {
+  return (row.values ?? []).reduce(
+    (sum, v, i) =>
+      sum +
+      getEffectiveMetricValue(v, {
+        showAs: opts.showAs,
+        isRatio: opts.isRatioByIndex[i] ?? false,
+      }),
+    0,
+  );
+}
+
+/** Compute the sum of all metric values grouped by a specific dimension index. */
+export function computeDimensionTotals(
+  rows: ProductAnalyticsResultRow[],
+  dimIndex: number,
+  opts: ExplorationRenderOpts,
+): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const row of rows) {
+    const key = row.dimensions[dimIndex] ?? "";
+    totals[key] = (totals[key] ?? 0) + getRowTotal(row, opts);
+  }
+  return totals;
+}
+
+/** Sum of all metric values grouped by the "group key" (all dimensions after the first). */
+function computeGroupTotals(
+  rows: ProductAnalyticsResultRow[],
+  opts: ExplorationRenderOpts,
+): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const row of rows) {
+    const key = row.dimensions.slice(1).join(" - ");
+    totals[key] = (totals[key] ?? 0) + getRowTotal(row, opts);
+  }
+  return totals;
+}
+
+/**
+ * Sort exploration result rows to match the visual ordering of the chart.
+ * - Timeseries: chronological by first dimension (date), then by group total descending.
+ * - Bar/cumulative: by first-dimension total descending, then by group total descending.
+ */
+export function sortExplorationRows(
+  rows: ProductAnalyticsResultRow[],
+  isTimeseries: boolean,
+  opts: ExplorationRenderOpts,
+): ProductAnalyticsResultRow[] {
+  if (rows.length === 0) return rows;
+
+  const dim0Totals = computeDimensionTotals(rows, 0, opts);
+  const groupTotals = computeGroupTotals(rows, opts);
+
+  return [...rows].sort((a, b) => {
+    const dim0A = a.dimensions[0] ?? "";
+    const dim0B = b.dimensions[0] ?? "";
+
+    if (dim0A !== dim0B) {
+      if (isTimeseries) {
+        return new Date(dim0A).getTime() - new Date(dim0B).getTime();
+      }
+      return (dim0Totals[dim0B] ?? 0) - (dim0Totals[dim0A] ?? 0);
+    }
+
+    const groupA = a.dimensions.slice(1).join(" - ");
+    const groupB = b.dimensions.slice(1).join(" - ");
+    return (groupTotals[groupB] ?? 0) - (groupTotals[groupA] ?? 0);
   });
 }

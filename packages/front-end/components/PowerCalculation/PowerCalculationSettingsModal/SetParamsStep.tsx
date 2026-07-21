@@ -255,6 +255,7 @@ const PopulationDataQueryInput = ({
               }}
             >
               <RunQueriesButton
+                useRadixButton={false}
                 icon="refresh"
                 cta={
                   populationData?.status === "success"
@@ -431,6 +432,7 @@ export const SetParamsStep = ({
   }
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType="power-calculation-set-params"
       allowlistedTrackingEventProps={{
         source: form.getValues("metricValuesData.source"),

@@ -1,4 +1,5 @@
 import { ChangeEventHandler, FC, useState } from "react";
+import { stripLeadingUtf8ByteOrderMark } from "shared/util";
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { isCloud } from "@/services/env";
 import { useAuth } from "@/services/auth";
@@ -6,11 +7,12 @@ import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import SelectField from "@/components/Forms/SelectField";
 import Button from "@/components/Button";
+import Callout from "@/ui/Callout";
 
 const BigQueryForm: FC<{
   params: Partial<BigQueryConnectionParams>;
   existing: boolean;
-  setParams: (params: { [key: string]: string }) => void;
+  setParams: (params: { [key: string]: string | boolean }) => void;
   onParamChange: ChangeEventHandler<HTMLInputElement | HTMLSelectElement>;
 }> = ({ params, setParams, existing, onParamChange }) => {
   const [testConnectionResults, setTestConnectionResults] = useState<{
@@ -102,11 +104,12 @@ const BigQueryForm: FC<{
                       if (typeof str !== "string") {
                         return;
                       }
+                      const raw = stripLeadingUtf8ByteOrderMark(str);
                       const json: {
                         project_id: string;
                         private_key: string;
                         client_email: string;
-                      } = JSON.parse(str);
+                      } = JSON.parse(raw);
 
                       if (
                         json.project_id &&
@@ -118,6 +121,7 @@ const BigQueryForm: FC<{
                           projectId: json.project_id,
                           clientEmail: json.client_email,
                           defaultProject: json.project_id,
+                          serviceAccountJson: raw,
                         });
                       }
                     } catch (e) {
@@ -148,18 +152,22 @@ const BigQueryForm: FC<{
                   </li>
                 </ul>
                 {testConnectionResults?.message ? (
-                  <div
-                    className={`alert alert-${testConnectionResults.status}`}
+                  <Callout
+                    status={
+                      testConnectionResults.status === "danger"
+                        ? "error"
+                        : testConnectionResults.status
+                    }
                   >
                     {testConnectionResults.message}
-                  </div>
+                  </Callout>
                 ) : null}
               </>
             ) : (
-              <div className="alert alert-info">
+              <Callout status="info">
                 Your connection info will appear here when you select a valid
                 JSON key file.
-              </div>
+              </Callout>
             )}
             <Button
               disabled={

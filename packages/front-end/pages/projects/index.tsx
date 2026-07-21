@@ -3,10 +3,13 @@ import { ProjectInterface } from "shared/types/project";
 import Link from "next/link";
 import { ago } from "shared/dates";
 import { Box } from "@radix-ui/themes";
+import { isDemoDatasourceProject } from "shared/demo-datasource";
 import ProjectModal from "@/components/Projects/ProjectModal";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import useOrgLimits from "@/hooks/useOrgLimits";
+import { useUser } from "@/services/UserContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
@@ -14,18 +17,33 @@ import { capitalizeFirstLetter } from "@/services/utils";
 import { useSearch } from "@/services/search";
 import Field from "@/components/Forms/Field";
 import ProjectRowMenu from "@/components/Projects/ProjectRowMenu";
+import UpgradeModal from "@/components/Settings/UpgradeModal";
 
 const ProjectsPage: FC = () => {
   const { projects, mutateDefinitions } = useDefinitions();
 
   const { apiCall } = useAuth();
+  const { organization } = useUser();
 
   const [modalOpen, setModalOpen] = useState<Partial<ProjectInterface> | null>(
     null,
   );
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
 
   const permissionsUtil = usePermissionsUtil();
   const canCreateProjects = permissionsUtil.canCreateProjects();
+
+  const { getMaxProjects } = useOrgLimits();
+  const maxProjects = getMaxProjects();
+  const nonDemoProjectCount = projects.filter(
+    (p) =>
+      !isDemoDatasourceProject({
+        projectId: p.id,
+        organizationId: organization?.id,
+      }),
+  ).length;
+  const atProjectLimit =
+    maxProjects !== null && nonDemoProjectCount >= maxProjects;
 
   const [deleteProjectResources, setDeleteProjectResources] =
     useState<boolean>(true);
@@ -56,6 +74,13 @@ const ProjectsPage: FC = () => {
           onSuccess={() => mutateDefinitions()}
         />
       )}
+      {upgradeModalOpen && (
+        <UpgradeModal
+          close={() => setUpgradeModalOpen(false)}
+          source="project limit"
+          commercialFeature={null}
+        />
+      )}
 
       <Box mt="4" mb="5">
         <div className="row align-items-center mb-1">
@@ -65,12 +90,22 @@ const ProjectsPage: FC = () => {
           <div className="flex-1" />
           <div className="col-auto">
             <Tooltip
-              body="You don't have permission to create projects"
-              shouldDisplay={!canCreateProjects}
+              body={
+                !canCreateProjects
+                  ? "You don't have permission to create projects"
+                  : atProjectLimit
+                    ? `Your plan only supports ${maxProjects} project${
+                        maxProjects === 1 ? "" : "s"
+                      }. Upgrade your plan to create more.`
+                    : undefined
+              }
+              shouldDisplay={!canCreateProjects || atProjectLimit}
             >
               <Button
                 disabled={!canCreateProjects}
-                onClick={() => setModalOpen({})}
+                onClick={() =>
+                  atProjectLimit ? setUpgradeModalOpen(true) : setModalOpen({})
+                }
               >
                 Create Project
               </Button>
@@ -121,6 +156,10 @@ const ProjectsPage: FC = () => {
                     // If the project has the `managedBy` property, we block deletion.
                     permissionsUtil.canDeleteProject(p.id) &&
                     !p.managedBy?.type;
+                  const isDemoProject = isDemoDatasourceProject({
+                    projectId: p.id,
+                    organizationId: organization?.id,
+                  });
                   return (
                     <tr key={p.id}>
                       <td className="text-gray">
@@ -161,15 +200,29 @@ const ProjectsPage: FC = () => {
                           canDelete={canDelete}
                           onEdit={() => setModalOpen(p)}
                           onDelete={async () => {
-                            await apiCall(
-                              `/projects/${p.id}?deleteResources=${deleteProjectResources ? "true" : "false"}`,
-                              {
+                            if (isDemoProject) {
+                              // The Sample Data project has a dedicated
+                              // endpoint that also removes legacy sample
+                              // resources; deleting it like a normal project
+                              // can leave sample data behind in a state
+                              // that's hard to clean up.
+                              await apiCall(`/demo-datasource-project`, {
                                 method: "DELETE",
-                              },
-                            );
+                              });
+                            } else {
+                              await apiCall(
+                                `/projects/${p.id}?deleteResources=${deleteProjectResources ? "true" : "false"}`,
+                                {
+                                  method: "DELETE",
+                                },
+                              );
+                            }
                             mutateDefinitions();
                           }}
-                          deleteProjectResources={deleteProjectResources}
+                          deleteProjectResources={
+                            // Sample data is always deleted with its project
+                            isDemoProject ? null : deleteProjectResources
+                          }
                           setDeleteProjectResources={setDeleteProjectResources}
                         />
                       </td>

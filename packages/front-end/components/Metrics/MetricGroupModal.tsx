@@ -1,4 +1,5 @@
 import React, { FC } from "react";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { useForm } from "react-hook-form";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { useAuth } from "@/services/auth";
@@ -102,6 +103,7 @@ const MetricGroupModal: FC<{
         size="legacy"
         label="Description"
         type="textarea"
+        maxLength={MAX_DESCRIPTION_LENGTH}
         {...form.register("description")}
       />
       {projects?.length > 0 && (
@@ -116,7 +118,7 @@ const MetricGroupModal: FC<{
                 />
               </>
             }
-            placeholder="All projects"
+            placeholder="All Projects"
             value={form.watch("projects") || []}
             options={projectOptions}
             onChange={(v) => form.setValue("projects", v)}

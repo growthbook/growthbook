@@ -11,6 +11,7 @@ import Field from "@/components/Forms/Field";
 import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
 import DatePicker from "@/components/DatePicker";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import Callout from "@/ui/Callout";
 
 export interface Props {
   close: () => void;
@@ -118,7 +119,7 @@ export default function EditPhaseModal({
       ) : null}
 
       {!isHoldout && !isDraft ? (
-        <div className="alert alert-info mt-4">
+        <Callout status="info" mt="4">
           Trying to change targeting rules, traffic allocation, or start a new
           phase? Use the{" "}
           <a
@@ -132,7 +133,7 @@ export default function EditPhaseModal({
             Make Changes
           </a>{" "}
           button instead.
-        </div>
+        </Callout>
       ) : null}
 
       {!isHoldout ? (

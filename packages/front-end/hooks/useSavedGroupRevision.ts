@@ -157,6 +157,7 @@ export function useSavedGroupRevision(
     if (!data || !hasSelectionInUrl) return;
     if (urlVersion === liveVersion) return;
     if (selectedRevision) return;
+    if (liveVersion === null) return;
     updateUrl(null, { replace: true });
   }, [
     data,
@@ -177,10 +178,10 @@ export function useSavedGroupRevision(
   // Called after creating/updating a revision — receives the revision from the backend response.
   // Selects it in the dropdown so the status callout appears.
   const onRevisionCreated = useCallback(
-    (revision: Revision) => {
+    async (revision: Revision) => {
       // Optimistically update the revision in the SWR cache. If it exists, replace it.
       // Otherwise, add it. This ensures the UI reflects the latest changes immediately.
-      mutateRevisions(
+      await mutateRevisions(
         (current) => {
           const existingIndex = (current?.revisions ?? []).findIndex(
             (r) => r.id === revision.id,
@@ -198,10 +199,13 @@ export function useSavedGroupRevision(
           }
         },
         { revalidate: true },
-      );
+      ).catch(() => undefined);
+      // The revision may have published immediately (bypass/auto-publish or
+      // revert), which mutates the live entity — refresh it too.
+      savedGroupMutate();
       updateUrl(revision);
     },
-    [mutateRevisions, updateUrl],
+    [mutateRevisions, savedGroupMutate, updateUrl],
   );
 
   const handlePublish = useCallback(

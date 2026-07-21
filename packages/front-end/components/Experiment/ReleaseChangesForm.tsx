@@ -6,15 +6,12 @@ import {
 } from "shared/types/experiment";
 import { getLatestPhaseVariations } from "shared/experiments";
 import React, { useEffect, useMemo, useState } from "react";
-import { FaExclamationCircle, FaExternalLinkAlt } from "react-icons/fa";
+import { FaExternalLinkAlt } from "react-icons/fa";
 import clsx from "clsx";
 import { BiHide, BiShow } from "react-icons/bi";
 import { FeaturePrerequisite, SavedGroupTargeting } from "shared/types/feature";
-import {
-  BsCheckCircle,
-  BsExclamationCircle,
-  BsLightbulb,
-} from "react-icons/bs";
+import { BsCheckCircle, BsExclamationCircle } from "react-icons/bs";
+import { PiLightbulb } from "react-icons/pi";
 import {
   getNamespaceRanges,
   hasNarrowedRanges,
@@ -24,12 +21,13 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import {
   ChangeType,
   ReleasePlan,
-} from "@/components/Experiment/EditTargetingModal";
+} from "@/components/Experiment/MakeChangesFlow";
 import TargetingInfo from "@/components/Experiment/TabbedPage/TargetingInfo";
 import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { DocLink } from "@/components/DocLink";
 import { formatPercent } from "@/services/metrics";
+import Callout from "@/ui/Callout";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -216,8 +214,7 @@ export default function ReleaseChangesForm({
                 : "Sticky Bucketed users will be excluded from the experiment."
             : "No sticky bucketing."}
           {form.watch("newPhase") && isBandit && (
-            <div className="alert alert-warning text-danger mt-2">
-              <FaExclamationCircle className="mr-2" />
+            <Callout status="warning" mt="2">
               This Bandit will restart. Variation weights will reset (
               {(() => {
                 const variations = getLatestPhaseVariations(experiment);
@@ -233,7 +230,7 @@ export default function ReleaseChangesForm({
                   .join(", ");
               })()}
               ).
-            </div>
+            </Callout>
           )}
         </div>
       </div>
@@ -248,11 +245,10 @@ export default function ReleaseChangesForm({
         />
       )}
       {changeType === "phase" && releasePlan === "new-phase-same-seed" && (
-        <div className="alert alert-warning">
-          <FaExclamationCircle className="mr-1" /> Starting a new phase without
-          re-randomizing can lead to carryover bias. Consider re-randomizing to
-          mitigate.
-        </div>
+        <Callout status="warning">
+          Starting a new phase without re-randomizing can lead to carryover
+          bias. Consider re-randomizing to mitigate.
+        </Callout>
       )}
 
       {changeType !== "phase" && (
@@ -423,13 +419,13 @@ function ImpactTooltips({
                   )}
                 </div>
 
-                <div className="alert mt-2 mb-0 alert-info">
-                  <BsLightbulb /> Re-randomize traffic{" "}
+                <Callout status="info" mt="2" mb="0" icon={<PiLightbulb />}>
+                  Re-randomize traffic{" "}
                   {recommendStickyBucketing && switchToSB
                     ? " or use Sticky Bucketing"
                     : ""}{" "}
                   to help mitigate.
-                </div>
+                </Callout>
               </>
             ) : null}
           </div>
@@ -458,10 +454,10 @@ function ImpactTooltips({
         {!isBandit &&
           variationHopping &&
           releasePlan !== "same-phase-sticky" && (
-            <div className="alert mt-2 mb-0 alert-info">
-              <BsLightbulb /> You may be able to use Sticky Bucketing to prevent
-              variation hopping.
-            </div>
+            <Callout status="info" mt="2" mb="0" icon={<PiLightbulb />}>
+              You may be able to use Sticky Bucketing to prevent variation
+              hopping.
+            </Callout>
           )}
       </div>
 
@@ -469,7 +465,7 @@ function ImpactTooltips({
         ((variationHopping && releasePlan !== "same-phase-sticky") ||
           recommendStickyBucketing) && (
           <div className="text-right mb-2 small">
-            <DocLink docSection="stickyBucketing">
+            <DocLink useRadix={false} docSection="stickyBucketing">
               Learn about Sticky Bucketing <FaExternalLinkAlt />
             </DocLink>
           </div>

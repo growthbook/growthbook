@@ -17,6 +17,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { DocLink } from "@/components/DocLink";
 import Checkbox from "@/ui/Checkbox";
 import SDKCapabilityWarning from "@/components/Features/SDKCapabilityWarning";
+import Callout from "@/ui/Callout";
 
 function validateUrl(urlString: string): {
   isValid: boolean;
@@ -131,6 +132,7 @@ const UrlRedirectModal: FC<{
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType="url-redirect-modal"
       trackingEventModalSource={source}
       autoCloseOnSubmit={false}
@@ -182,9 +184,9 @@ const UrlRedirectModal: FC<{
           })}
         />
         {errors.originUrl && errors.originUrl.message && (
-          <div className="alert alert-warning mt-3">
-            <FaExclamationCircle /> {errors.originUrl.message}
-          </div>
+          <Callout status="warning" mt="3">
+            {errors.originUrl.message}
+          </Callout>
         )}
 
         <hr className="mt-4 mb-3" />
@@ -223,8 +225,10 @@ const UrlRedirectModal: FC<{
                   <>
                     Destination URL has query parameters the original URL does
                     not have. See{" "}
-                    <DocLink docSection="url_redirects">our docs</DocLink> for
-                    more info on how to handle this kind of redirect.
+                    <DocLink useRadix={false} docSection="url_redirects">
+                      our docs
+                    </DocLink>{" "}
+                    for more info on how to handle this kind of redirect.
                   </>
                 );
               }

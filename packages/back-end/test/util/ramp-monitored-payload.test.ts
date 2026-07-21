@@ -1,6 +1,7 @@
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureDefinition } from "shared/types/sdk";
 import { GrowthBook } from "@growthbook/growthbook";
+import { ConstantValueMap } from "shared/sdk-versioning";
 import { getFeatureDefinition } from "back-end/src/util/features";
 import { RampMonitoredRuleInfo } from "back-end/src/models/RampScheduleModel";
 
@@ -42,6 +43,7 @@ function makeRolloutFeature(
 function getDefinition(
   feature: FeatureInterface,
   rampMonitoredRuleMap?: Map<string, RampMonitoredRuleInfo>,
+  constantMap?: ConstantValueMap,
 ): FeatureDefinition | null {
   return getFeatureDefinition({
     feature,
@@ -50,6 +52,7 @@ function getDefinition(
     experimentMap: new Map(),
     safeRolloutMap: new Map(),
     rampMonitoredRuleMap,
+    constantMap,
   });
 }
 
@@ -180,6 +183,78 @@ describe("ramp-monitored SDK payload", () => {
       expect(rule.key).toBe("ramp_rs_abc");
       expect(rule.phase).toBe("0");
       expect(rule.disableStickyBucketing).toBe(true);
+    });
+
+    it("merges a sparse rule value onto the default for monitored variations", () => {
+      const feature = makeRolloutFeature({
+        valueType: "json" as const,
+        defaultValue: JSON.stringify({ a: 1, b: 2 }),
+        rules: [
+          {
+            type: "rollout",
+            id: "rule_1",
+            description: "",
+            enabled: true,
+            value: JSON.stringify({ b: 9 }),
+            sparse: true,
+            coverage: 0.5,
+            hashAttribute: "id",
+            seed: "test-seed",
+            allEnvironments: true,
+          },
+        ],
+      } as Partial<FeatureInterface>);
+      const def = getDefinition(feature, monitoredMap("rule_1"));
+      const rule = def!.rules![0];
+      // Treatment merges the patch onto the default; control is the full default.
+      expect(rule.variations).toEqual([
+        { a: 1, b: 9 },
+        { a: 1, b: 2 },
+      ]);
+    });
+
+    it("serves the resolved base config on the control arm for a config-backed monitored ramp", () => {
+      // Regression: post-lock, a config-backed default is a pure config stored as
+      // a bare `{}` (the base). The monitored-ramp control arm must resolve that
+      // config, not ship the literal `{}`, or the holdback slice would receive an
+      // empty object while treatment + fall-through default serve the config.
+      const feature = makeRolloutFeature({
+        valueType: "json" as const,
+        baseConfig: "base",
+        defaultValue: "{}",
+        rules: [
+          {
+            type: "rollout",
+            id: "rule_1",
+            description: "",
+            enabled: true,
+            value: JSON.stringify({ x: 2 }),
+            sparse: true,
+            coverage: 0.5,
+            hashAttribute: "id",
+            seed: "test-seed",
+            allEnvironments: true,
+          },
+        ],
+      } as Partial<FeatureInterface>);
+
+      const constantMap: ConstantValueMap = new Map([
+        [
+          "config:base",
+          {
+            type: "json" as const,
+            source: "config" as const,
+            value: '{"cfg":1}',
+          },
+        ],
+      ]);
+
+      const def = getDefinition(feature, monitoredMap("rule_1"), constantMap);
+      const rule = def!.rules![0];
+      // Treatment = base + patch; control = the resolved base (NOT a bare `{}`).
+      expect(rule.variations).toEqual([{ cfg: 1, x: 2 }, { cfg: 1 }]);
+      // The fall-through default resolves the same base config.
+      expect(def!.defaultValue).toEqual({ cfg: 1 });
     });
 
     it("coverage=2*step.coverage produces non-adjacent arms via getBucketRanges", () => {

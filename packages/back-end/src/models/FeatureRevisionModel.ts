@@ -1,6 +1,9 @@
 import mongoose from "mongoose";
 import omit from "lodash/omit";
-import { checkIfRevisionNeedsReview } from "shared/util";
+import {
+  checkIfRevisionNeedsReview,
+  isRevisionEditLockedBySchedule,
+} from "shared/util";
 import {
   FeatureInterface,
   FeatureRule,
@@ -19,6 +22,8 @@ import {
   ActiveDraftStatus,
   ACTIVE_DRAFT_STATUSES,
   RevisionMetadata,
+  RevisionReview,
+  reviewerKeyForEventUser,
 } from "shared/validators";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
@@ -40,6 +45,7 @@ import {
 import { getEnvironments } from "back-end/src/util/organization.util";
 import { logger } from "back-end/src/util/logger";
 import { syncFeatureExperimentLinkages } from "back-end/src/util/featureExperimentSync";
+import { syncFeatureContextualBanditLinkages } from "back-end/src/util/featureContextualBanditSync";
 import { createWithVersionRetry } from "back-end/src/util/mongo.util";
 import { runValidateFeatureRevisionHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import {
@@ -74,6 +80,9 @@ const featureRevisionSchema = new mongoose.Schema({
   createdBy: {},
   version: Number,
   baseVersion: Number,
+  // Live feature version captured when this revision was approved; used to
+  // detect approvals that have gone stale due to subsequent publishes.
+  approvedBaseVersion: Number,
   dateCreated: Date,
   dateUpdated: Date,
   datePublished: Date,
@@ -91,8 +100,29 @@ const featureRevisionSchema = new mongoose.Schema({
   rampActions: [{}],
   // Users who have made edits to this draft beyond the original author.
   contributors: [{}],
+  // Active reviewer verdicts for the current review cycle. Maintained by the
+  // review lifecycle mutations; cleared when a new review cycle starts.
+  reviews: [
+    {
+      _id: false,
+      userId: String,
+      user: {},
+      status: String,
+      timestamp: Date,
+    },
+  ],
   status: String,
   requiresReview: Boolean,
+  autoPublishOnApproval: Boolean,
+  autoPublishEnabledBy: String,
+  scheduledPublishAt: Date,
+  scheduledPublishLockEdits: Boolean,
+  scheduledPublishLockOthers: Boolean,
+  scheduledPublishBypassApproval: Boolean,
+  scheduledPublishAttempts: Number,
+  scheduledPublishLastError: String,
+  scheduledPublishNextAttemptAt: Date,
+  scheduledPublishGaveUpAt: Date,
   log: [
     {
       _id: false,
@@ -105,11 +135,31 @@ const featureRevisionSchema = new mongoose.Schema({
   ],
 });
 
+// Named so we can recognize its duplicate-key errors and translate them.
+const PUBLISH_LOCK_OTHERS_INDEX = "uniqueArmedPublishLockOthers";
+
 featureRevisionSchema.index(
   { organization: 1, featureId: 1, version: 1 },
   { unique: true },
 );
 featureRevisionSchema.index({ organization: 1, status: 1 });
+// Sparse: only scheduled revisions carry scheduledPublishAt, so the cross-org
+// due-poller scans a tiny set.
+featureRevisionSchema.index({ scheduledPublishAt: 1 }, { sparse: true });
+// At most one armed "lock other drafts" schedule per feature — the atomic
+// backstop for assertNoConflictingPublishLock against concurrent arming. Partial
+// so canceling/publishing (which unsets the fields) drops the doc automatically.
+featureRevisionSchema.index(
+  { organization: 1, featureId: 1 },
+  {
+    name: PUBLISH_LOCK_OTHERS_INDEX,
+    unique: true,
+    partialFilterExpression: {
+      autoPublishOnApproval: true,
+      scheduledPublishLockOthers: true,
+    },
+  },
+);
 
 type FeatureRevisionDocument = mongoose.Document & FeatureRevisionInterface;
 
@@ -288,23 +338,41 @@ export async function countDocuments(
   return FeatureRevisionModel.countDocuments(filter);
 }
 
-/** Returns the version/status/rules of all non-discarded revisions for a feature.
- * Used by syncFeatureExperimentLinkages callers that don't already have the
- * Mongoose model in scope. */
-export async function getNonDiscardedRevisionSummaries(
+/** Returns only the revisions that syncFeatureExperimentLinkages/
+ * syncFeatureContextualBanditLinkages need — open drafts, plus the single
+ * latest published revision — pre-split so callers don't have to re-derive
+ * the distinction themselves. A feature's older superseded published
+ * revisions are irrelevant to linkage syncing and deliberately excluded. */
+export async function getLinkageSyncRevisionSummaries(
   organization: string,
   featureId: string,
-): Promise<Pick<FeatureRevisionInterface, "version" | "status" | "rules">[]> {
-  const docs = await FeatureRevisionModel.find({
-    organization,
-    featureId,
-    status: { $nin: ["discarded"] },
-  }).select("version status rules");
-  return docs.map((d) => ({
-    version: d.version,
-    status: d.status,
-    rules: d.rules,
-  }));
+): Promise<{
+  openDrafts: Pick<FeatureRevisionInterface, "version" | "rules">[];
+  liveRevision: Pick<FeatureRevisionInterface, "version" | "rules"> | null;
+}> {
+  const [openDraftDocs, liveDoc] = await Promise.all([
+    FeatureRevisionModel.find({
+      organization,
+      featureId,
+      status: { $in: ACTIVE_DRAFT_STATUSES },
+    }).select("version rules"),
+    FeatureRevisionModel.findOne({
+      organization,
+      featureId,
+      status: "published",
+    })
+      .sort({ version: -1 })
+      .select("version rules"),
+  ]);
+  return {
+    openDrafts: openDraftDocs.map((d) => ({
+      version: d.version,
+      rules: d.rules,
+    })),
+    liveRevision: liveDoc
+      ? { version: liveDoc.version, rules: liveDoc.rules }
+      : null,
+  };
 }
 
 export async function getMinimalRevisions(
@@ -317,7 +385,7 @@ export async function getMinimalRevisions(
     featureId,
   })
     .select(
-      "version datePublished dateUpdated createdBy status comment title contributors",
+      "version datePublished dateUpdated createdBy status comment title contributors autoPublishOnApproval scheduledPublishAt scheduledPublishLockEdits scheduledPublishLockOthers scheduledPublishBypassApproval",
     )
     .sort({ version: -1 })
     .limit(200);
@@ -336,6 +404,21 @@ export async function getMinimalRevisions(
             m.contributors as unknown as unknown[],
           ),
         }
+      : {}),
+    ...(m.autoPublishOnApproval
+      ? { autoPublishOnApproval: m.autoPublishOnApproval }
+      : {}),
+    ...(m.scheduledPublishAt
+      ? { scheduledPublishAt: m.scheduledPublishAt }
+      : {}),
+    ...(m.scheduledPublishLockEdits
+      ? { scheduledPublishLockEdits: m.scheduledPublishLockEdits }
+      : {}),
+    ...(m.scheduledPublishLockOthers
+      ? { scheduledPublishLockOthers: m.scheduledPublishLockOthers }
+      : {}),
+    ...(m.scheduledPublishBypassApproval
+      ? { scheduledPublishBypassApproval: m.scheduledPublishBypassApproval }
       : {}),
   }));
 }
@@ -492,12 +575,24 @@ export async function getLatestActiveDraftForFeature(
   organization: string,
   featureId: string,
   feature: RevisionFeatureContext | undefined,
-  { involvedUserId }: { involvedUserId?: string } = {},
+  {
+    involvedUserId,
+    status,
+    author,
+  }: {
+    involvedUserId?: string;
+    status?: string | string[];
+    author?: string;
+  } = {},
 ): Promise<FeatureRevisionInterface | null> {
   const filter: Record<string, unknown> = {
     organization,
     featureId,
-    status: { $in: ACTIVE_DRAFT_STATUSES },
+    status: status
+      ? Array.isArray(status)
+        ? { $in: status }
+        : status
+      : { $in: ACTIVE_DRAFT_STATUSES },
   };
   if (involvedUserId) {
     filter.$or = [
@@ -505,6 +600,9 @@ export async function getLatestActiveDraftForFeature(
       { contributors: involvedUserId },
       { "contributors.id": involvedUserId },
     ];
+  }
+  if (author) {
+    filter["createdBy.id"] = author;
   }
   const doc = await FeatureRevisionModel.findOne(filter, { log: 0 }).sort({
     dateUpdated: -1,
@@ -697,6 +795,7 @@ export async function createInitialRevision(
       customFields: feature.customFields,
       jsonSchema: feature.jsonSchema,
       valueType: feature.valueType,
+      baseConfig: feature.baseConfig ?? null,
     },
   });
 
@@ -798,6 +897,7 @@ export async function createRevision({
     customFields: feature.customFields,
     jsonSchema: feature.jsonSchema,
     valueType: feature.valueType,
+    baseConfig: feature.baseConfig ?? null,
   };
   // Always store a complete snapshot. Partial changes (e.g. { neverStale: true })
   // are merged on top so other metadata fields aren't silently dropped.
@@ -922,14 +1022,26 @@ export async function createRevision({
   return toInterface(doc, context, feature);
 }
 
-export async function updateRevision(
+// Pure computation of what updateRevision() will validate and persist; no writes
+export function computeRevisionUpdate(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,
   changes: RevisionChanges,
-  log: Omit<RevisionLog, "timestamp">,
   resetReview: boolean,
-) {
+): {
+  normalizedChanges: RevisionChanges;
+  status: FeatureRevisionInterface["status"];
+  proposedRevision: FeatureRevisionInterface;
+  // True when the edit knocked a verdict-bearing status (approved /
+  // changes-requested) back to pending-review. Verdicts aren't deleted — they
+  // flip to "-stale" variants (see `staleReviews`) so they stay attributable
+  // without counting as active verdicts.
+  clearReviews: boolean;
+  // The `reviews` array to persist when `clearReviews` is true: prior active
+  // verdicts demoted to "approved-stale" / "changes-requested-stale".
+  staleReviews: FeatureRevisionInterface["reviews"];
+} {
   let status = revision.status;
 
   const MUTABLE_FIELDS = [
@@ -978,14 +1090,86 @@ export async function updateRevision(
         }
       : changes;
 
-  await runValidateFeatureRevisionHooks({
-    context,
-    feature,
-    revision: {
+  const clearReviews =
+    status === "pending-review" && revision.status !== "pending-review";
+  const staleReviews = clearReviews
+    ? (revision.reviews ?? []).map((r) => ({
+        ...r,
+        status:
+          r.status === "approved"
+            ? ("approved-stale" as const)
+            : r.status === "changes-requested"
+              ? ("changes-requested-stale" as const)
+              : r.status,
+      }))
+    : undefined;
+
+  return {
+    normalizedChanges,
+    status,
+    proposedRevision: {
       ...revision,
       ...normalizedChanges,
       status,
+      ...(clearReviews ? { reviews: staleReviews } : {}),
     },
+    clearReviews,
+    staleReviews,
+  };
+}
+
+// Best-effort early hook run before side-effect writes; updateRevision() re-runs hooks authoritatively
+export async function prevalidateRevisionUpdate(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+  changes: RevisionChanges,
+  resetReview: boolean,
+): Promise<void> {
+  const { proposedRevision } = computeRevisionUpdate(
+    context,
+    feature,
+    revision,
+    changes,
+    resetReview,
+  );
+  await runValidateFeatureRevisionHooks({
+    context,
+    feature,
+    revision: proposedRevision,
+    original: revision,
+  });
+}
+
+export async function updateRevision(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+  changes: RevisionChanges,
+  log: Omit<RevisionLog, "timestamp">,
+  resetReview: boolean,
+  // Rebase is the only content-mutating path allowed while "lock edits" is
+  // active (keeps the scheduled draft mergeable); all other edits are frozen.
+  { bypassScheduleLock = false }: { bypassScheduleLock?: boolean } = {},
+) {
+  if (!bypassScheduleLock && isRevisionEditLockedBySchedule(revision)) {
+    throw new Error(
+      "This draft is locked for a scheduled publish. Cancel the schedule before editing.",
+    );
+  }
+
+  const {
+    normalizedChanges,
+    status,
+    proposedRevision,
+    clearReviews,
+    staleReviews,
+  } = computeRevisionUpdate(context, feature, revision, changes, resetReview);
+
+  await runValidateFeatureRevisionHooks({
+    context,
+    feature,
+    revision: proposedRevision,
     original: revision,
   });
 
@@ -1006,6 +1190,17 @@ export async function updateRevision(
         ...normalizedChanges,
         status,
         dateUpdated: new Date(),
+        // A rebase (baseVersion advances) that keeps the approval standing
+        // (review not reset) re-anchors the approval to the new live version.
+        // Without this, staleApproval stays true forever and publishing
+        // deadlocks under requireRebaseBeforePublish — rebasing never clears it.
+        ...(normalizedChanges.baseVersion !== undefined && status === "approved"
+          ? { approvedBaseVersion: normalizedChanges.baseVersion }
+          : {}),
+        // The edit invalidated standing verdicts — demote them to "-stale" so
+        // policy hooks and the REST API don't count approvals made against
+        // older content, while the UI can still attribute them.
+        ...(clearReviews ? { reviews: staleReviews } : {}),
       },
       ...contributorUpdate,
     },
@@ -1027,31 +1222,44 @@ export async function updateRevision(
 
   // Fire-and-forget linkage sync whenever draft rules change.
   if (updatedRevision && "rules" in changes) {
-    FeatureRevisionModel.find({
-      organization: revision.organization,
-      featureId: revision.featureId,
-      status: { $nin: ["discarded"] },
-    })
-      .then((docs) =>
-        syncFeatureExperimentLinkages(
-          context,
-          revision.featureId,
-          docs.map((d) => ({
-            version: d.version,
-            status: d.status,
-            rules: d.rules,
-          })),
-        ),
+    getLinkageSyncRevisionSummaries(revision.organization, revision.featureId)
+      .then(({ openDrafts, liveRevision }) =>
+        Promise.all([
+          syncFeatureExperimentLinkages(
+            context,
+            revision.featureId,
+            openDrafts,
+            liveRevision,
+          ),
+          syncFeatureContextualBanditLinkages(
+            context,
+            revision.featureId,
+            openDrafts,
+            liveRevision,
+          ),
+        ]),
       )
       .catch((e) => {
-        logger.error(
-          e,
-          "syncFeatureExperimentLinkages failed in updateRevision",
-        );
+        logger.error(e, "feature linkage sync failed in updateRevision");
       });
   }
 
   return updatedRevision;
+}
+
+// Pure computation of the changes markRevisionAsPublished() will validate and persist
+export function computeRevisionPublishChanges(
+  revision: FeatureRevisionInterface,
+  user: EventUser,
+  comment?: string,
+): Partial<FeatureRevisionInterface> {
+  return {
+    status: "published",
+    publishedBy: user,
+    datePublished: new Date(),
+    dateUpdated: new Date(),
+    comment: revision.comment ? revision.comment : comment,
+  };
 }
 
 export async function markRevisionAsPublished(
@@ -1061,17 +1269,11 @@ export async function markRevisionAsPublished(
   user: EventUser,
   comment?: string,
 ) {
-  const action = revision.status === "draft" ? "publish" : "re-publish";
+  // "re-publish" only applies to a revision that was already live; publishing
+  // an approved (or otherwise in-flight) draft for the first time is a "publish".
+  const action = revision.status === "published" ? "re-publish" : "publish";
 
-  const revisionComment = revision.comment ? revision.comment : comment;
-
-  const changes: Partial<FeatureRevisionInterface> = {
-    status: "published",
-    publishedBy: user,
-    datePublished: new Date(),
-    dateUpdated: new Date(),
-    comment: revisionComment,
-  };
+  const changes = computeRevisionPublishChanges(revision, user, comment);
 
   await runValidateFeatureRevisionHooks({
     context,
@@ -1090,11 +1292,17 @@ export async function markRevisionAsPublished(
       version: revision.version,
     },
     {
-      $set: changes,
+      // A published revision's schedule and auto-publish arming are spent —
+      // disarm so consumers don't see a published revision still "armed".
+      $set: { ...changes, autoPublishOnApproval: false },
+      $unset: { ...SCHEDULED_PUBLISH_UNSET, autoPublishEnabledBy: 1 },
     },
   );
 
   // Fire and forget - no route that marks the revision as published expects the log to be there immediately
+  // Note: no comment in the payload — publish events are plain lifecycle
+  // markers. Any publish-time comment only feeds the revision description
+  // fallback (computeRevisionPublishChanges), not the log.
   context.models.featureRevisionLogs
     .create({
       featureId: revision.featureId,
@@ -1102,7 +1310,7 @@ export async function markRevisionAsPublished(
       action,
       subject: "",
       user,
-      value: JSON.stringify(comment ? { comment } : {}),
+      value: JSON.stringify({}),
     })
     .catch((e) => {
       logger.error(e, "Error creating revisionlog");
@@ -1116,24 +1324,86 @@ export async function markRevisionAsReviewRequested(
   revision: FeatureRevisionInterface,
   user: EventUser,
   comment?: string,
+  {
+    autoPublishOnApproval,
+    scheduledPublishAt = null,
+    scheduledPublishLockEdits,
+    scheduledPublishLockOthers,
+  }: {
+    autoPublishOnApproval?: boolean;
+    // When set, arm a deferred publish for this date (implies auto-publish).
+    scheduledPublishAt?: Date | null;
+    scheduledPublishLockEdits?: boolean;
+    scheduledPublishLockOthers?: boolean;
+  } = {},
 ) {
   const action = "Review Requested";
 
-  await FeatureRevisionModel.updateOne(
-    {
-      organization: revision.organization,
-      featureId: revision.featureId,
-      version: revision.version,
-    },
-    {
-      $set: {
-        status: "pending-review",
-        datePublished: null,
-        dateUpdated: new Date(),
-        comment: comment,
+  // A target date implies the unified "armed" auto-publish flag.
+  const scheduled = scheduledPublishAt !== null;
+  const armed = !!autoPublishOnApproval || scheduled;
+
+  if (scheduled && scheduledPublishLockOthers) {
+    await assertNoConflictingPublishLock(
+      revision.organization,
+      revision.featureId,
+      revision.version,
+    );
+  }
+
+  // The auto-publish later runs with the arming user's authority, so record
+  // who that was. Actors without a user ID (e.g. API keys) can still arm —
+  // the publish then falls back to `createdBy`.
+  const enabledBy = armed && user && "id" in user ? user.id : null;
+
+  const unset: Record<string, 1> = {};
+  if (enabledBy === null) unset.autoPublishEnabledBy = 1;
+  // Re-requesting review without a (new) schedule clears any stale one. With a
+  // new schedule, keep the schedule but still reset prior poller-failure state.
+  // Either way clear scheduledPublishBypassApproval — request-review never arms
+  // an admin-bypass schedule, so a stale flag from a prior schedule-publish arm
+  // must not carry over.
+  if (!scheduled) Object.assign(unset, SCHEDULED_PUBLISH_UNSET);
+  else
+    Object.assign(unset, SCHEDULED_PUBLISH_FAILURE_UNSET, {
+      scheduledPublishBypassApproval: 1,
+    });
+
+  try {
+    await FeatureRevisionModel.updateOne(
+      {
+        organization: revision.organization,
+        featureId: revision.featureId,
+        version: revision.version,
       },
-    },
-  );
+      {
+        $set: {
+          status: "pending-review",
+          datePublished: null,
+          dateUpdated: new Date(),
+          comment: comment,
+          autoPublishOnApproval: armed,
+          ...(scheduled
+            ? {
+                scheduledPublishAt,
+                scheduledPublishLockEdits: !!scheduledPublishLockEdits,
+                scheduledPublishLockOthers: !!scheduledPublishLockOthers,
+              }
+            : {}),
+          ...(enabledBy !== null ? { autoPublishEnabledBy: enabledBy } : {}),
+          // Requesting review starts a new review cycle — prior verdicts no
+          // longer stand (mirrors the revision-log replay semantics).
+          reviews: [],
+        },
+        ...(Object.keys(unset).length > 0 ? { $unset: unset } : {}),
+      },
+    );
+  } catch (e) {
+    if (isPublishLockIndexConflict(e)) {
+      throw new Error(PUBLISH_LOCK_CONFLICT_MESSAGE);
+    }
+    throw e;
+  }
 
   // Fire and forget - no route that marks the revision as Review Requested expects the log to be there immediately
   context.models.featureRevisionLogs
@@ -1148,29 +1418,268 @@ export async function markRevisionAsReviewRequested(
     .catch((e) => {
       logger.error(e, "Error creating revisionlog");
     });
+
+  // Log the schedule armed with the review request as its own timeline event.
+  if (scheduled) {
+    logScheduledPublishChange(context, revision, {
+      action: "schedule publish",
+      scheduledPublishAt: scheduledPublishAt as Date,
+      lockEdits: !!scheduledPublishLockEdits,
+      lockOthers: !!scheduledPublishLockOthers,
+    });
+  }
 }
 
-export async function submitReviewAndComments(
+export async function setAutoPublishOnApproval(
+  revision: FeatureRevisionInterface,
+  enabled: boolean,
+  // User arming the flag; the auto-publish runs with their authority.
+  // Cleared on disable (and on enable without a user ID, where the publish
+  // falls back to `createdBy`).
+  enabledBy: string | null,
+) {
+  await FeatureRevisionModel.updateOne(
+    {
+      organization: revision.organization,
+      featureId: revision.featureId,
+      version: revision.version,
+    },
+    enabled && enabledBy !== null
+      ? {
+          $set: {
+            autoPublishOnApproval: true,
+            autoPublishEnabledBy: enabledBy,
+          },
+          // "publish when approved" is mutually exclusive with a date — clear any
+          // existing schedule.
+          $unset: { ...SCHEDULED_PUBLISH_UNSET },
+        }
+      : {
+          $set: { autoPublishOnApproval: enabled },
+          // Disarming drops any pending schedule too.
+          $unset: { autoPublishEnabledBy: 1, ...SCHEDULED_PUBLISH_UNSET },
+        },
+  );
+}
+
+// Poller-failure bookkeeping. Cleared on cancel and on every (re)arm so a fresh
+// schedule never inherits a prior schedule's "stuck" state or attempt count.
+const SCHEDULED_PUBLISH_FAILURE_UNSET = {
+  scheduledPublishAttempts: 1,
+  scheduledPublishLastError: 1,
+  scheduledPublishNextAttemptAt: 1,
+  scheduledPublishGaveUpAt: 1,
+} as const;
+
+// Schedule fields cleared together on cancel or when leaving the review cycle.
+const SCHEDULED_PUBLISH_UNSET = {
+  scheduledPublishAt: 1,
+  scheduledPublishLockEdits: 1,
+  scheduledPublishLockOthers: 1,
+  scheduledPublishBypassApproval: 1,
+  ...SCHEDULED_PUBLISH_FAILURE_UNSET,
+} as const;
+
+export type ScheduledPublishInput = {
+  // Target publish date, or null to cancel the schedule (also disarms auto-publish).
+  scheduledPublishAt: Date | null;
+  lockEdits?: boolean;
+  lockOthers?: boolean;
+  // Mark the schedule as an admin bypass-approval override. Callers must only
+  // pass true after confirming canBypassApprovalChecks. Persisted so the UI can
+  // lock the schedule to cancel-and-re-arm; ignored when canceling.
+  bypassApproval?: boolean;
+};
+
+// Log a schedule change so additions/changes/cancellations show in the review
+// timeline. Fire-and-forget, like the other log writers here.
+export function logScheduledPublishChange(
+  context: ReqContext | ApiReqContext,
+  revision: Pick<FeatureRevisionInterface, "featureId" | "version">,
+  {
+    action,
+    scheduledPublishAt,
+    lockEdits,
+    lockOthers,
+  }: {
+    action:
+      | "schedule publish"
+      | "update scheduled publish"
+      | "cancel scheduled publish";
+    scheduledPublishAt?: Date;
+    lockEdits?: boolean;
+    lockOthers?: boolean;
+  },
+) {
+  context.models.featureRevisionLogs
+    .create({
+      featureId: revision.featureId,
+      version: revision.version,
+      action,
+      subject: "",
+      user: context.auditUser,
+      value: JSON.stringify(
+        action === "cancel scheduled publish"
+          ? {}
+          : {
+              scheduledPublishAt,
+              lockEdits: !!lockEdits,
+              lockOthers: !!lockOthers,
+            },
+      ),
+    })
+    .catch((e) => {
+      logger.error(e, "Error creating revisionlog for schedule change");
+    });
+}
+
+// Arm (or cancel) a deferred publish on a revision. Scheduling implies the armed
+// auto-publish flag; canceling disarms it. The publish later runs with
+// `enabledBy`'s authority (falls back to the draft author when null).
+export async function setRevisionScheduledPublish(
   context: ReqContext | ApiReqContext,
   revision: FeatureRevisionInterface,
-  user: EventUser,
-  reviewSubmittedType: ReviewSubmittedType,
-  comment?: string,
+  {
+    scheduledPublishAt,
+    lockEdits,
+    lockOthers,
+    bypassApproval,
+  }: ScheduledPublishInput,
+  enabledBy: string | null,
 ) {
-  const action = reviewSubmittedType;
-  let status = "pending-review";
-  switch (reviewSubmittedType) {
-    case "Approved":
-      status = "approved";
-      break;
-    case "Requested Changes":
-      status = "changes-requested";
-      break;
-    default:
-      // we dont want comments to override approved state
-      status = revision.status;
+  const filter = {
+    organization: revision.organization,
+    featureId: revision.featureId,
+    version: revision.version,
+  };
+
+  if (scheduledPublishAt === null) {
+    await FeatureRevisionModel.updateOne(filter, {
+      $set: { autoPublishOnApproval: false, dateUpdated: new Date() },
+      $unset: { ...SCHEDULED_PUBLISH_UNSET, autoPublishEnabledBy: 1 },
+    });
+    logScheduledPublishChange(context, revision, {
+      action: "cancel scheduled publish",
+    });
+    return;
   }
 
+  if (lockOthers) {
+    await assertNoConflictingPublishLock(
+      revision.organization,
+      revision.featureId,
+      revision.version,
+    );
+  }
+
+  try {
+    // Guard against a TOCTOU race: only arm a revision that's still active.
+    // Without the status predicate, a revision published/discarded between the
+    // caller's read and this write would get schedule/lock fields stamped back
+    // onto it — and a stale lock-others doc would keep occupying the partial
+    // unique index, blocking future schedules for the feature.
+    const { matchedCount } = await FeatureRevisionModel.updateOne(
+      { ...filter, status: { $in: [...ACTIVE_DRAFT_STATUSES] } },
+      {
+        $set: {
+          autoPublishOnApproval: true,
+          scheduledPublishAt,
+          scheduledPublishLockEdits: !!lockEdits,
+          scheduledPublishLockOthers: !!lockOthers,
+          dateUpdated: new Date(),
+          ...(bypassApproval ? { scheduledPublishBypassApproval: true } : {}),
+          ...(enabledBy !== null ? { autoPublishEnabledBy: enabledBy } : {}),
+        },
+        // Clear any prior poller-failure state so a reschedule doesn't keep the
+        // "stuck" UI or prematurely escalate logging on the next fire.
+        $unset: {
+          ...SCHEDULED_PUBLISH_FAILURE_UNSET,
+          ...(bypassApproval ? {} : { scheduledPublishBypassApproval: 1 }),
+          ...(enabledBy === null ? { autoPublishEnabledBy: 1 } : {}),
+        },
+      },
+    );
+    if (!matchedCount) {
+      throw new Error(
+        "This revision can no longer be scheduled — it was published or discarded.",
+      );
+    }
+  } catch (e) {
+    if (isPublishLockIndexConflict(e)) {
+      throw new Error(PUBLISH_LOCK_CONFLICT_MESSAGE);
+    }
+    throw e;
+  }
+
+  logScheduledPublishChange(context, revision, {
+    // Distinguish a first-time arm from an edit to an already-armed schedule.
+    action: revision.scheduledPublishAt
+      ? "update scheduled publish"
+      : "schedule publish",
+    scheduledPublishAt,
+    lockEdits: !!lockEdits,
+    lockOthers: !!lockOthers,
+  });
+}
+
+// Record a failed poller attempt so a stuck schedule is visible (UI + REST)
+// instead of silently retrying; cleared on the next publish or cancel.
+// Intentionally a raw write — no dateUpdated bump, audit, timeline, or webhook —
+// so per-tick retries don't generate notification noise. Keep it that way.
+export async function recordScheduledPublishFailure(
+  revision: Pick<
+    FeatureRevisionInterface,
+    "organization" | "featureId" | "version"
+  >,
+  message: string,
+): Promise<number> {
+  const doc = await FeatureRevisionModel.findOneAndUpdate(
+    {
+      organization: revision.organization,
+      featureId: revision.featureId,
+      version: revision.version,
+    },
+    {
+      $set: { scheduledPublishLastError: message },
+      $inc: { scheduledPublishAttempts: 1 },
+    },
+    { new: true },
+  ).select("scheduledPublishAttempts");
+  return doc?.scheduledPublishAttempts ?? 0;
+}
+
+// Delay the next poller retry of a failing scheduled publish (backoff). The
+// due-but-failing revision is skipped until this time so doomed retries space
+// out instead of firing every tick. Raw write, like the failure recorder.
+export async function setScheduledPublishNextAttempt(
+  revision: Pick<
+    FeatureRevisionInterface,
+    "organization" | "featureId" | "version"
+  >,
+  nextAttemptAt: Date,
+): Promise<void> {
+  await FeatureRevisionModel.updateOne(
+    {
+      organization: revision.organization,
+      featureId: revision.featureId,
+      version: revision.version,
+    },
+    { $set: { scheduledPublishNextAttemptAt: nextAttemptAt } },
+  );
+}
+
+// Give up on a failing scheduled publish: clear the schedule (so the poller
+// stops selecting it), disarm auto-publish, and stamp scheduledPublishGaveUpAt
+// so the UI can flag the abandoned schedule. The draft is left open with
+// scheduledPublishLastError preserved for context. Raw write (no dateUpdated
+// bump) like the failure recorder — the revision.publishFailed webhook is the
+// user-facing signal.
+export async function parkScheduledPublish(
+  revision: Pick<
+    FeatureRevisionInterface,
+    "organization" | "featureId" | "version"
+  >,
+): Promise<void> {
   await FeatureRevisionModel.updateOne(
     {
       organization: revision.organization,
@@ -1179,12 +1688,331 @@ export async function submitReviewAndComments(
     },
     {
       $set: {
-        status,
-        datePublished: null,
-        dateUpdated: new Date(),
+        scheduledPublishGaveUpAt: new Date(),
+        autoPublishOnApproval: false,
+      },
+      $unset: {
+        scheduledPublishAt: 1,
+        scheduledPublishLockEdits: 1,
+        scheduledPublishLockOthers: 1,
+        scheduledPublishBypassApproval: 1,
+        scheduledPublishNextAttemptAt: 1,
       },
     },
   );
+}
+
+// Cross-org poller query for the Agenda job: every armed revision whose date has
+// arrived and is still in an active review cycle. Org-agnostic by design (context
+// is resolved per-org downstream).
+export async function dangerouslyFindRevisionsDueToPublish(
+  now: Date,
+): Promise<{ organization: string; featureId: string; version: number }[]> {
+  const docs = await FeatureRevisionModel.find(
+    {
+      autoPublishOnApproval: true,
+      scheduledPublishAt: { $lte: now },
+      status: { $in: [...ACTIVE_DRAFT_STATUSES] },
+    },
+    { organization: 1, featureId: 1, version: 1 },
+  ).lean();
+  return docs
+    .filter((d) => d.version !== undefined && d.version !== null)
+    .map((d) => ({
+      organization: d.organization,
+      featureId: d.featureId,
+      version: d.version as number,
+    }));
+}
+
+// True if another revision has a committed "lock other drafts" schedule blocking
+// sibling publishes. Only applies once the schedule is committed and no longer
+// awaiting approval — status "approved" (approval flow) or "draft" (no-approval
+// flow); "pending-review"/"changes-requested" don't freeze others.
+export async function hasPublishLockingScheduledSibling(
+  organization: string,
+  featureId: string,
+  excludeVersion: number,
+): Promise<boolean> {
+  const doc = await FeatureRevisionModel.findOne({
+    organization,
+    featureId,
+    version: { $ne: excludeVersion },
+    autoPublishOnApproval: true,
+    scheduledPublishLockOthers: true,
+    status: { $in: ["approved", "draft"] },
+  }).select("_id");
+  return !!doc;
+}
+
+const PUBLISH_LOCK_CONFLICT_MESSAGE =
+  "Another draft of this feature already has a scheduled publish that locks other drafts. Cancel it before scheduling another.";
+
+// Reject arming a second "lock other drafts" schedule on a feature — two would
+// mutually block each other at fire time and hold forever. Fast pre-check for a
+// clear error; the partial unique index is the atomic guard against the race.
+async function assertNoConflictingPublishLock(
+  organization: string,
+  featureId: string,
+  version: number,
+) {
+  const conflict = await FeatureRevisionModel.findOne({
+    organization,
+    featureId,
+    version: { $ne: version },
+    autoPublishOnApproval: true,
+    scheduledPublishLockOthers: true,
+    scheduledPublishAt: { $ne: null },
+    status: { $in: [...ACTIVE_DRAFT_STATUSES] },
+  }).select("version");
+  if (conflict) {
+    throw new Error(
+      `Revision ${conflict.version} already has a scheduled publish that locks other drafts. Cancel it before scheduling another.`,
+    );
+  }
+}
+
+// True for the duplicate-key error from the lock-others partial unique index —
+// i.e. a concurrent arming request won the race for this feature's lock.
+function isPublishLockIndexConflict(e: unknown): boolean {
+  return (
+    !!e &&
+    typeof e === "object" &&
+    (e as { code?: number }).code === 11000 &&
+    String((e as { message?: string }).message ?? "").includes(
+      PUBLISH_LOCK_OTHERS_INDEX,
+    )
+  );
+}
+
+// Cancel pending schedules across a feature's revisions (e.g. on archive).
+// Disarms and clears schedule/locks; safe to call when none are pending.
+// Logs a cancellation against each affected revision so the timeline reflects it.
+// find→updateMany isn't atomic: a schedule armed between the two is still cleared
+// (same filter) but won't get a timeline entry. Accepted — log completeness only.
+export async function cancelScheduledPublishesForFeature(
+  context: ReqContext | ApiReqContext,
+  organization: string,
+  featureId: string,
+) {
+  const affected = await FeatureRevisionModel.find({
+    organization,
+    featureId,
+    autoPublishOnApproval: true,
+    scheduledPublishAt: { $exists: true, $ne: null },
+  }).select("version");
+
+  if (!affected.length) return;
+
+  await FeatureRevisionModel.updateMany(
+    {
+      organization,
+      featureId,
+      autoPublishOnApproval: true,
+      scheduledPublishAt: { $exists: true, $ne: null },
+    },
+    {
+      $set: { autoPublishOnApproval: false, dateUpdated: new Date() },
+      $unset: { ...SCHEDULED_PUBLISH_UNSET, autoPublishEnabledBy: 1 },
+    },
+  );
+
+  for (const doc of affected) {
+    logScheduledPublishChange(
+      context,
+      { featureId, version: doc.version },
+      { action: "cancel scheduled publish" },
+    );
+  }
+}
+
+// Compare-and-swap update: read `guardFields`, derive an update from the
+// current doc, then write only if those fields are unchanged — retrying on a
+// lost race. `build` returning null aborts. Lets concurrent reviewers reconcile
+// shared fields without an aggregation-pipeline update (DocumentDB/Cosmos reject
+// those). Mirrors RevisionModel.casUpdate.
+async function casUpdate(
+  filter: mongoose.FilterQuery<FeatureRevisionInterface>,
+  guardFields: (keyof FeatureRevisionInterface)[],
+  build: (
+    current: Partial<FeatureRevisionInterface>,
+  ) =>
+    | mongoose.UpdateQuery<FeatureRevisionInterface>
+    | null
+    | Promise<mongoose.UpdateQuery<FeatureRevisionInterface> | null>,
+  maxAttempts = 5,
+): Promise<"applied" | "aborted" | "exhausted"> {
+  const projection = Object.fromEntries(guardFields.map((f) => [f, 1]));
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const current = await FeatureRevisionModel.findOne(
+      filter,
+      projection,
+    ).lean<Partial<FeatureRevisionInterface> | null>();
+    if (!current) return "aborted";
+    const update = await build(current);
+    if (!update) return "aborted";
+    // Missing fields guard on absence so legacy self-heal writes stay correct.
+    const guard = Object.fromEntries(
+      guardFields.map((f) => [
+        f,
+        current[f] === undefined ? { $exists: false } : current[f],
+      ]),
+    );
+    const res = await FeatureRevisionModel.updateOne(
+      { ...filter, ...guard },
+      update,
+    );
+    if (res.matchedCount > 0) return "applied";
+  }
+  return "exhausted";
+}
+
+export async function submitReviewAndComments(
+  context: ReqContext | ApiReqContext,
+  revision: FeatureRevisionInterface,
+  user: EventUser,
+  reviewSubmittedType: ReviewSubmittedType,
+  comment?: string,
+  // Current live feature version, captured on approval so we can later detect
+  // when an approval has gone stale (live advanced past the approved point).
+  liveVersion?: number,
+) {
+  const action = reviewSubmittedType;
+
+  const filter = {
+    organization: revision.organization,
+    featureId: revision.featureId,
+    version: revision.version,
+  };
+
+  // Bake this reviewer's verdict into the revision's `reviews` array so
+  // consumers (custom hooks, API) don't have to replay the log. Plain
+  // comments don't carry a verdict; system/anonymous users are skipped.
+  const verdict =
+    reviewSubmittedType === "Approved"
+      ? ("approved" as const)
+      : reviewSubmittedType === "Requested Changes"
+        ? ("changes-requested" as const)
+        : null;
+  const reviewerKey = reviewerKeyForEventUser(user);
+  const newReview: RevisionReview | null =
+    verdict !== null && reviewerKey !== null
+      ? { userId: reviewerKey, user, status: verdict, timestamp: new Date() }
+      : null;
+
+  // `status` aggregates ALL standing verdicts — one reviewer's approval must
+  // not override another reviewer's active changes-requested. Stale verdicts
+  // don't count, and comments never change the status.
+  if (newReview !== null) {
+    // Step 1: bake this reviewer's verdict, scoped to their own entry so
+    // concurrent verdicts converge to one entry per reviewer.
+    // Legacy revision (no baked `reviews`): self-heal from the log, CAS-guarded
+    // on the field still being absent so concurrent first-verdicts don't clobber.
+    let seeded = false;
+    if (revision.reviews === undefined) {
+      const priorReviews = await getActiveReviewsFromLog(context, revision);
+      const outcome = await casUpdate(filter, ["reviews"], (current) =>
+        current.reviews === undefined
+          ? {
+              $set: {
+                reviews: [
+                  ...priorReviews.filter((r) => r.userId !== newReview.userId),
+                  newReview,
+                ],
+                datePublished: null,
+                dateUpdated: new Date(),
+              },
+            }
+          : null,
+      );
+      seeded = outcome === "applied";
+    }
+    if (!seeded) {
+      // $pull then $push (Mongo can't do both on one field at once); each op is
+      // atomic and scoped to this reviewer's userId.
+      await FeatureRevisionModel.updateOne(filter, {
+        $pull: { reviews: { userId: newReview.userId } },
+      });
+      await FeatureRevisionModel.updateOne(filter, {
+        $push: { reviews: newReview },
+        $set: { datePublished: null, dateUpdated: new Date() },
+      });
+    }
+
+    // Step 2: reconcile `status` from the stored reviews (CAS-guarded on both
+    // `reviews` and `status`) so it can't drift from a concurrent verdict.
+    // Bail if a concurrent recall/discard moved us out of the review cycle —
+    // otherwise we'd resurrect "pending-review" over their "draft". Record
+    // approvedBaseVersion for later staleness detection when approved.
+    const outcome = await casUpdate(
+      filter,
+      ["reviews", "status"],
+      (current) => {
+        if (
+          !(
+            ["pending-review", "changes-requested", "approved"] as string[]
+          ).includes(current.status ?? "")
+        ) {
+          return null;
+        }
+        const reviews = current.reviews ?? [];
+        const status = reviews.some((r) => r.status === "changes-requested")
+          ? "changes-requested"
+          : reviews.some((r) => r.status === "approved")
+            ? "approved"
+            : "pending-review";
+        return {
+          $set: {
+            status,
+            ...(status === "approved" && liveVersion !== undefined
+              ? { approvedBaseVersion: liveVersion }
+              : {}),
+          },
+        };
+      },
+    );
+    if (outcome === "exhausted") {
+      logger.warn(
+        `submitReviewAndComments: status reconcile exhausted retries for ${revision.featureId}#${revision.version}`,
+      );
+    }
+  } else if (verdict !== null) {
+    // Verdict from a user without a stable reviewer key (e.g. system events)
+    // can't be baked into `reviews`; fall back to latest-verdict-wins.
+    const status = verdict === "approved" ? "approved" : "changes-requested";
+    await FeatureRevisionModel.updateOne(filter, {
+      $set: {
+        status,
+        datePublished: null,
+        dateUpdated: new Date(),
+        ...(status === "approved" && liveVersion !== undefined
+          ? { approvedBaseVersion: liveVersion }
+          : {}),
+      },
+    });
+  }
+  // Plain comment (verdict === null): don't touch the revision. It's logged as
+  // its own entry below; bumping `dateUpdated` would falsely signal a content
+  // change to the rebase guard (expectedDraftDateUpdated) and "last modified" UI.
+
+  // A changes-requested verdict cancels any pending schedule so it can't fire on
+  // a stale approval. Gate the clear on the schedule still being set so concurrent
+  // changes-requested verdicts don't each log a duplicate cancellation — only the
+  // writer that actually clears it (modifiedCount > 0) logs.
+  if (verdict === "changes-requested") {
+    const res = await FeatureRevisionModel.updateOne(
+      { ...filter, scheduledPublishAt: { $exists: true, $ne: null } },
+      {
+        $set: { autoPublishOnApproval: false, dateUpdated: new Date() },
+        $unset: { ...SCHEDULED_PUBLISH_UNSET, autoPublishEnabledBy: 1 },
+      },
+    );
+    if (res.modifiedCount > 0) {
+      logScheduledPublishChange(context, revision, {
+        action: "cancel scheduled publish",
+      });
+    }
+  }
 
   // Fire and forget - no route that submits the review and comments expects the log to be there immediately
   context.models.featureRevisionLogs
@@ -1198,6 +2026,301 @@ export async function submitReviewAndComments(
     })
     .catch((e) => {
       logger.error(e, "Error creating revisionlog");
+    });
+}
+
+// Retract a review request: pending-review / changes-requested / approved back
+// to draft. Callers gate on canManageFeatureDrafts (any draft manager, not just
+// the requester), matching request-review. Log entries are preserved.
+export async function recallReview(
+  context: ReqContext | ApiReqContext,
+  revision: FeatureRevisionInterface,
+  user: EventUser,
+) {
+  const allowed = ["pending-review", "changes-requested", "approved"] as const;
+  if (!(allowed as readonly string[]).includes(revision.status)) {
+    throw new Error(
+      `Can only recall a review on a pending-review, changes-requested, or approved draft (status is "${revision.status}")`,
+    );
+  }
+
+  await FeatureRevisionModel.updateOne(
+    {
+      organization: revision.organization,
+      featureId: revision.featureId,
+      version: revision.version,
+    },
+    {
+      // Recalling restarts the review lifecycle: clear verdicts and disarm any
+      // auto/deferred publish (re-specified on the next Request Review).
+      $set: {
+        status: "draft",
+        dateUpdated: new Date(),
+        reviews: [],
+        autoPublishOnApproval: false,
+      },
+      $unset: {
+        approvedBaseVersion: 1,
+        autoPublishEnabledBy: 1,
+        ...SCHEDULED_PUBLISH_UNSET,
+      },
+    },
+  );
+
+  context.models.featureRevisionLogs
+    .create({
+      featureId: revision.featureId,
+      version: revision.version,
+      action: "Recall Review",
+      subject: "",
+      user,
+      value: JSON.stringify({}),
+    })
+    .catch((e) => {
+      logger.error(e, "Error creating revisionlog for recallReview");
+    });
+
+  // Recall disarms any pending schedule — record the cancellation in the timeline.
+  if ((revision.scheduledPublishAt ?? null) !== null) {
+    logScheduledPublishChange(context, revision, {
+      action: "cancel scheduled publish",
+    });
+  }
+}
+
+// Replay the review lifecycle from the merged log to find each reviewer's
+// active verdict. `Review Requested` / `Recall Review` / `reopen` start a new
+// cycle (clearing all verdicts); `Undo Review` removes that reviewer's verdict.
+// Returns entries in the baked `reviews` shape so callers can use it as a
+// drop-in fallback for revisions that predate the denormalized field.
+export function activeReviewsFromLog(
+  entries: { action: string; user: EventUser; timestamp: Date }[],
+): RevisionReview[] {
+  const sorted = [...entries].sort(
+    (a, b) => a.timestamp.getTime() - b.timestamp.getTime(),
+  );
+  const byReviewer = new Map<string, RevisionReview>();
+  for (const entry of sorted) {
+    if (
+      entry.action === "Review Requested" ||
+      entry.action === "Recall Review" ||
+      entry.action === "reopen"
+    ) {
+      byReviewer.clear();
+      continue;
+    }
+    const key = reviewerKeyForEventUser(entry.user);
+    if (key === null) continue;
+    if (entry.action === "Approved" || entry.action === "Requested Changes") {
+      byReviewer.set(key, {
+        userId: key,
+        user: entry.user,
+        status: entry.action === "Approved" ? "approved" : "changes-requested",
+        timestamp: entry.timestamp,
+      });
+    } else if (entry.action === "Undo Review") {
+      byReviewer.delete(key);
+    }
+  }
+  return Array.from(byReviewer.values());
+}
+
+// Reconstruct active reviewer verdicts by merging the legacy inline log with
+// the dedicated log collection and replaying the review lifecycle. Used as a
+// fallback for revisions created before the baked `reviews` field existed —
+// prefer `revision.reviews` when defined.
+export async function getActiveReviewsFromLog(
+  context: ReqContext | ApiReqContext,
+  revision: Pick<
+    FeatureRevisionInterface,
+    "organization" | "featureId" | "version"
+  >,
+): Promise<RevisionReview[]> {
+  const docWithLog = await FeatureRevisionModel.findOne(
+    {
+      organization: revision.organization,
+      featureId: revision.featureId,
+      version: revision.version,
+    },
+    { log: 1 },
+  );
+  const modernLogs =
+    await context.models.featureRevisionLogs.getAllByFeatureIdAndVersion({
+      featureId: revision.featureId,
+      version: revision.version,
+    });
+  return activeReviewsFromLog([
+    ...(docWithLog?.log ?? []).map((entry) => ({
+      action: entry.action,
+      user: entry.user,
+      timestamp: new Date(entry.timestamp),
+    })),
+    ...modernLogs.map((entry) => ({
+      action: entry.action,
+      user: entry.user,
+      timestamp: new Date(entry.dateCreated),
+    })),
+  ]);
+}
+
+// Reviewer retracts their own verdict. Rather than blanket-reverting to
+// pending-review, rewind to the state implied by the *remaining* active
+// verdicts: any outstanding Requested Changes → changes-requested, else any
+// outstanding Approved → approved, else pending-review. Review comments
+// remain in the log.
+export async function undoReview(
+  context: ReqContext | ApiReqContext,
+  revision: FeatureRevisionInterface,
+  user: EventUser,
+) {
+  const allowed = ["approved", "changes-requested"] as const;
+  if (!(allowed as readonly string[]).includes(revision.status)) {
+    throw new Error(
+      `Can only undo a review on an approved or changes-requested draft (status is "${revision.status}")`,
+    );
+  }
+
+  const retractingKey = reviewerKeyForEventUser(user);
+  // Keyless callers (e.g. system events) never hold a baked verdict to undo.
+  if (retractingKey === null) {
+    throw new Error("You have no active review verdict to undo");
+  }
+
+  const filter = {
+    organization: revision.organization,
+    featureId: revision.featureId,
+    version: revision.version,
+  };
+
+  // Rewind to the state implied by the *remaining* verdicts, CAS-guarded on
+  // `reviews`+`status` so a verdict another reviewer landed concurrently isn't
+  // clobbered by the wholesale rewrite. Modern revisions store verdicts in
+  // `reviews`; legacy ones only in the log (the helper guards on the field's
+  // continued absence so we self-heal from the log just once).
+  let resolved: "approved" | "changes-requested" | "pending-review" | null =
+    null;
+  const outcome = await casUpdate(
+    filter,
+    ["reviews", "status"],
+    async (current) => {
+      if (!(allowed as readonly string[]).includes(current.status ?? "")) {
+        throw new Error(
+          `Can only undo a review on an approved or changes-requested draft (status is "${current.status}")`,
+        );
+      }
+      const activeReviews =
+        current.reviews ?? (await getActiveReviewsFromLog(context, revision));
+      // Only a reviewer with an active verdict can undo one — otherwise we'd
+      // write a phantom "Undo Review" entry and bump dateUpdated for nothing.
+      if (!activeReviews.some((r) => r.userId === retractingKey)) {
+        throw new Error("You have no active review verdict to undo");
+      }
+      const remaining = activeReviews.filter((r) => r.userId !== retractingKey);
+      resolved = remaining.some((r) => r.status === "changes-requested")
+        ? "changes-requested"
+        : remaining.some((r) => r.status === "approved")
+          ? "approved"
+          : "pending-review";
+      return {
+        // Writing `remaining` wholesale (rather than $pull) also self-heals
+        // legacy revisions whose verdicts only existed in the log.
+        $set: { status: resolved, dateUpdated: new Date(), reviews: remaining },
+        // An approval that still stands keeps its recorded base version.
+        ...(resolved === "approved"
+          ? {}
+          : { $unset: { approvedBaseVersion: 1 } }),
+      };
+    },
+  );
+  if (outcome === "aborted") {
+    throw new Error("Could not find feature revision");
+  }
+  if (outcome === "exhausted" || resolved === null) {
+    throw new Error(
+      "Could not undo review due to a concurrent update. Please retry.",
+    );
+  }
+  const status = resolved;
+
+  context.models.featureRevisionLogs
+    .create({
+      featureId: revision.featureId,
+      version: revision.version,
+      action: "Undo Review",
+      subject: "",
+      user,
+      value: JSON.stringify({}),
+    })
+    .catch((e) => {
+      logger.error(e, "Error creating revisionlog for undoReview");
+    });
+
+  // Return the resolved status so callers can trigger auto-publish when undoing
+  // a "changes-requested" verdict flips the revision to "approved".
+  return status;
+}
+
+// Reopen a discarded revision as a plain draft. Any prior review state is
+// intentionally not restored — the draft must go back through review.
+export async function reopenRevision(
+  context: ReqContext | ApiReqContext,
+  revision: FeatureRevisionInterface,
+  user: EventUser,
+) {
+  if (revision.status !== "discarded") {
+    throw new Error(`Can only reopen discarded revisions`);
+  }
+
+  await FeatureRevisionModel.updateOne(
+    {
+      organization: revision.organization,
+      featureId: revision.featureId,
+      version: revision.version,
+    },
+    {
+      // Reopening starts the review lifecycle over — clear baked verdicts,
+      // the recorded approval point, and the auto-publish opt-in so a stale
+      // approval can't carry over (mirrors recallReview).
+      $set: {
+        status: "draft",
+        dateUpdated: new Date(),
+        reviews: [],
+        autoPublishOnApproval: false,
+      },
+      $unset: {
+        approvedBaseVersion: 1,
+        autoPublishEnabledBy: 1,
+        ...SCHEDULED_PUBLISH_UNSET,
+      },
+    },
+  );
+
+  // Fire and forget — callers don't depend on the log entry being there
+  context.models.featureRevisionLogs
+    .create({
+      featureId: revision.featureId,
+      version: revision.version,
+      action: "reopen",
+      subject: "",
+      user,
+      value: JSON.stringify({}),
+    })
+    .catch((e) => {
+      logger.error(e, "Error creating revisionlog");
+    });
+
+  // Sync linkages — the reopened revision's rules count as "open drafts" again.
+  getLinkageSyncRevisionSummaries(revision.organization, revision.featureId)
+    .then(({ openDrafts, liveRevision }) =>
+      syncFeatureExperimentLinkages(
+        context,
+        revision.featureId,
+        openDrafts,
+        liveRevision,
+      ),
+    )
+    .catch((e) => {
+      logger.error(e, "syncFeatureExperimentLinkages failed in reopenRevision");
     });
 }
 
@@ -1217,7 +2340,14 @@ export async function discardRevision(
       version: revision.version,
     },
     {
-      $set: { status: "discarded", dateUpdated: new Date() },
+      // Discarding a revision also disarms auto-publish so the dead revision
+      // doesn't surface as armed via the API (mirrors recallReview/reopenRevision).
+      $set: {
+        status: "discarded",
+        dateUpdated: new Date(),
+        autoPublishOnApproval: false,
+      },
+      $unset: { ...SCHEDULED_PUBLISH_UNSET, autoPublishEnabledBy: 1 },
     },
   );
 
@@ -1236,27 +2366,25 @@ export async function discardRevision(
     });
 
   // Sync linkages — the discarded revision's rules no longer count as "open drafts".
-  FeatureRevisionModel.find({
-    organization: revision.organization,
-    featureId: revision.featureId,
-    status: { $nin: ["discarded"] },
-  })
-    .then((docs) =>
-      syncFeatureExperimentLinkages(
-        context,
-        revision.featureId,
-        docs.map((d) => ({
-          version: d.version,
-          status: d.status,
-          rules: d.rules,
-        })),
-      ),
+  getLinkageSyncRevisionSummaries(revision.organization, revision.featureId)
+    .then(({ openDrafts, liveRevision }) =>
+      Promise.all([
+        syncFeatureExperimentLinkages(
+          context,
+          revision.featureId,
+          openDrafts,
+          liveRevision,
+        ),
+        syncFeatureContextualBanditLinkages(
+          context,
+          revision.featureId,
+          openDrafts,
+          liveRevision,
+        ),
+      ]),
     )
     .catch((e) => {
-      logger.error(
-        e,
-        "syncFeatureExperimentLinkages failed in discardRevision",
-      );
+      logger.error(e, "feature linkage sync failed in discardRevision");
     });
 }
 

@@ -1,4 +1,5 @@
 import React, { FC, useEffect, useMemo, useState } from "react";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { FormProvider, useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useRouter } from "next/router";
@@ -376,6 +377,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
   return (
     <FormProvider {...form}>
       <PagedModal
+        useRadixButton={false}
         trackingEventModalType={trackingEventModalType}
         trackingEventModalSource={source}
         header={header}
@@ -400,14 +402,12 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
       >
         <Page display="Overview">
           <div className="px-2">
-            {msg && <div className="alert alert-info">{msg}</div>}
+            {msg && <Callout status="info">{msg}</Callout>}
 
             {currentProjectIsDemo && (
-              <div className="alert alert-warning">
-                You are creating a holdout under the demo datasource project.
-                This experiment will be deleted when the demo datasource project
-                is deleted.
-              </div>
+              <Callout status="warning">
+                You are creating a holdout in the Sample Data Project.
+              </Callout>
             )}
 
             {prerequisiteAlert}
@@ -456,7 +456,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
                   }
                   placeholder={
                     canCreateWithoutProject
-                      ? "All projects"
+                      ? "All Projects"
                       : "Select projects..."
                   }
                   value={form.watch("projects") || []}
@@ -474,6 +474,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
                 label="Description"
                 textarea
                 minRows={1}
+                maxLength={MAX_DESCRIPTION_LENGTH}
                 {...form.register("description")}
                 placeholder={"Short human-readable description of the Holdout"}
               />
@@ -706,6 +707,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
               collapseSecondary={true}
               goalMetricsDescription="The primary metrics you are trying to improve within this holdout. "
               filterConversionWindowMetrics={true}
+              experimentType="holdout"
             />
 
             <hr className="mt-4" />

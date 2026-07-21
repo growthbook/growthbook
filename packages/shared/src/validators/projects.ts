@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { statsEngines } from "shared/constants";
+import { statsEngines, MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { managedByValidator } from "./managed-by";
 import { baseSchema } from "./base-model";
 import { paginationQueryFields } from "./shared";
@@ -17,7 +17,7 @@ export const projectSettingsValidator = z.object({
 export const projectValidator = baseSchema
   .extend({
     name: z.string(),
-    description: z.string().optional(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     publicId: z.string().optional(),
     settings: projectSettingsValidator.optional(),
     managedBy: managedByValidator.optional(),
@@ -39,7 +39,7 @@ export const apiProjectValidator = namedSchema(
       name: z.string(),
       dateCreated: z.string().meta({ format: "date-time" }),
       dateUpdated: z.string().meta({ format: "date-time" }),
-      description: z.string().optional(),
+      description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
       publicId: z
         .string()
         .describe(
@@ -63,7 +63,7 @@ export type ApiProject = z.infer<typeof apiProjectValidator>;
 const postProjectBody = z
   .object({
     name: z.string(),
-    description: z.string().optional(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     publicId: z
       .string()
       .describe(
@@ -95,7 +95,11 @@ const postProjectBody = z
 const putProjectBody = z
   .object({
     name: z.string().describe("Project name.").optional(),
-    description: z.string().describe("Project description.").optional(),
+    description: z
+      .string()
+      .max(MAX_DESCRIPTION_LENGTH)
+      .describe("Project description.")
+      .optional(),
     publicId: z
       .string()
       .describe("URL-safe slug (lowercase letters, numbers, dashes).")

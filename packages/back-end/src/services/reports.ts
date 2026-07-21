@@ -23,7 +23,6 @@ import {
   getLatestPhaseVariations,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
-import uniqid from "uniqid";
 import { differenceInMinutes } from "date-fns";
 import { getScopedSettings } from "shared/settings";
 import uniq from "lodash/uniq";
@@ -61,6 +60,7 @@ import { DataSourceInterface } from "shared/types/datasource";
 import { ProjectInterface } from "shared/types/project";
 import { accountFeatures, CommercialFeature } from "shared/enterprise";
 import { buildAnalysisKey } from "shared/snapshot-analysis-chunks";
+import { generateId } from "back-end/src/util/uuid";
 import { getMetricsByIds } from "back-end/src/models/MetricModel";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
@@ -567,7 +567,7 @@ export async function createReportSnapshot({
   // Fill in and sanitize the model
   snapshotData = {
     ...snapshotData,
-    id: uniqid("snp_"),
+    id: generateId("snp_"),
     type: snapshotType,
     report: report.id,
     triggeredBy: "manual",

@@ -7,7 +7,7 @@ import { Line } from "@visx/shape";
 import { ViolinPlot } from "@visx/stats";
 import normal from "@stdlib/stats/base/dists/normal";
 import clsx from "clsx";
-import { ExperimentMetricInterface } from "shared/experiments";
+import { ExperimentMetricDefinition } from "shared/experiments";
 import { getExperimentMetricFormatter } from "@/services/metrics";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useCurrency } from "@/hooks/useCurrency";
@@ -31,11 +31,14 @@ interface Props
   axisOnly?: boolean;
   zeroLineWidth?: number;
   zeroLineOffset?: number;
-  metricForFormatting?: ExperimentMetricInterface | null;
+  metricForFormatting?: ExperimentMetricDefinition | null;
   className?: string;
   rowStatus?: string;
   isHovered?: boolean;
   percent?: boolean;
+  // When true the CI is one-sided: render a pill from the finite bound out to
+  // the open plot edge (never the two-sided violin), regardless of `uplift`.
+  oneSided?: boolean;
   onMouseMove?: (e: React.MouseEvent<SVGPathElement>) => void;
   onMouseLeave?: (e: React.MouseEvent<SVGPathElement>) => void;
   onMouseEnter?: (e: React.MouseEvent<SVGPathElement>) => void;
@@ -75,6 +78,7 @@ const AlignedGraph: FC<Props> = ({
   rowStatus,
   isHovered = false,
   percent = true,
+  oneSided = false,
   onMouseMove,
   onMouseLeave,
   onMouseEnter,
@@ -118,6 +122,13 @@ const AlignedGraph: FC<Props> = ({
   }
 
   if (barType == "violin" && !uplift) {
+    barType = "pill";
+  }
+
+  // One-sided intervals have a fake (±Infinity) bound, so the symmetric violin
+  // drawn from the uplift distribution would misrepresent them. Force a pill,
+  // which renders from the finite bound out to the open plot edge.
+  if (oneSided) {
     barType = "pill";
   }
 
@@ -237,6 +248,7 @@ const AlignedGraph: FC<Props> = ({
               x: currentX + 3,
               fontFamily: "sans-serif",
               textAnchor: "middle",
+              fontWeight: "var(--font-weight-bold)",
             } as const;
           };
           return (

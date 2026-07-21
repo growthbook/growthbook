@@ -7,6 +7,8 @@ import * as Sentry from "@sentry/node";
 import { parseEnvInt } from "shared/util";
 import authenticateApiRequestMiddleware from "back-end/src/middleware/authenticateApiRequestMiddleware";
 import { DashboardModel } from "back-end/src/enterprise/models/DashboardModel";
+import { ContextualBanditModel } from "back-end/src/enterprise/models/ContextualBanditModel";
+import { ContextualBanditQueryModel } from "back-end/src/enterprise/models/ContextualBanditQueryModel";
 import { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
 import { MetricGroupModel } from "back-end/src/models/MetricGroupModel";
 import { TeamModel } from "back-end/src/models/TeamModel";
@@ -21,6 +23,7 @@ import { IS_CLOUD, SENTRY_DSN } from "back-end/src/util/secrets";
 import { featureRoutes } from "./features/features.router";
 import { featureV2Routes } from "./features/features.v2.router";
 import { experimentsRoutes } from "./experiments/experiments.router";
+import { contextualBanditsRoutes } from "./contextual-bandits/contextual-bandits.router";
 import { snapshotsRoutes } from "./snapshots/snapshots.router";
 import { metricsRoutes } from "./metrics/metrics.router";
 import { usageRoutes } from "./usage/usage.router";
@@ -29,6 +32,9 @@ import { projectsRoutes } from "./projects/projects.router";
 import { environmentsRoutes } from "./environments/environments.router";
 import { attributesRoutes } from "./attributes/attributes.router";
 import { savedGroupsRoutes } from "./saved-groups/saved-groups.router";
+import { constantsRoutes } from "./constants/constants.router";
+import { configsRoutes } from "./configs/configs.router";
+import { customHooksRoutes } from "./custom-hooks/custom-hooks.router";
 import { sdkConnectionsRoutes } from "./sdk-connections/sdk-connections.router";
 import { sdkPayloadRoutes } from "./sdk-payload/sdk-payload.router";
 import { dataSourcesRoutes } from "./data-sources/data-sources.router";
@@ -41,9 +47,11 @@ import { factMetricsRoutes } from "./fact-metrics/fact-metrics.router";
 import { bulkImportRoutes } from "./bulk-import/bulk-import.router";
 import { membersRoutes } from "./members/members.router";
 import { openaiRoutes } from "./openai/openai.router";
+import { visualEditorAiRoutes } from "./visual-editor-ai/visualEditorAi.router";
 import { archetypesRoutes } from "./archetypes/archetypes.router";
 import { queriesRoutes } from "./queries/queries.router";
 import { settingsRoutes } from "./settings/settings.router";
+import { metaRoutes } from "./meta/meta.router";
 import { informationSchemaTablesRoutes } from "./information-schema-tables/information-schema-tables.router";
 import { rampSchedulesRoutes } from "./ramp-schedules/ramp-schedules.router";
 import { reportRoutes } from "./reports/reports.router";
@@ -52,6 +60,8 @@ import { getOpenApiRoutesForApiConfig } from "./ApiModel";
 
 const API_MODELS: ModelClass[] = [
   DashboardModel,
+  ContextualBanditModel,
+  ContextualBanditQueryModel,
   CustomFieldModel,
   MetricGroupModel,
   TeamModel,
@@ -148,6 +158,7 @@ export const allRoutes = [
   ...featureV2Routes,
   ...archetypesRoutes,
   ...experimentsRoutes,
+  ...contextualBanditsRoutes,
   ...snapshotsRoutes,
   ...metricsRoutes,
   ...usageRoutes,
@@ -160,6 +171,9 @@ export const allRoutes = [
   ...dataSourcesRoutes,
   ...visualChangesetsRoutes,
   ...savedGroupsRoutes,
+  ...constantsRoutes,
+  ...configsRoutes,
+  ...customHooksRoutes,
   ...organizationsRoutes,
   ...sdkPayloadRoutes,
   ...factTablesRoutes,
@@ -169,11 +183,13 @@ export const allRoutes = [
   ...membersRoutes,
   ...queriesRoutes,
   ...settingsRoutes,
+  ...metaRoutes,
   ...informationSchemaTablesRoutes,
   ...rampSchedulesRoutes,
   ...reportRoutes,
   ...namespacesRoutes,
   ...openaiRoutes,
+  ...visualEditorAiRoutes,
 ];
 
 /** Tag metadata from BaseModel specs, keyed by PascalCase tag name */

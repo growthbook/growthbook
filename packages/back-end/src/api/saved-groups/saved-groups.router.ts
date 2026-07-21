@@ -5,6 +5,7 @@ import { postSavedGroup } from "./postSavedGroup";
 import { updateSavedGroup } from "./updateSavedGroup";
 import { archiveSavedGroup, unarchiveSavedGroup } from "./archiveSavedGroup";
 import { deleteSavedGroup } from "./deleteSavedGroup";
+import { getSavedGroupReferences } from "./getSavedGroupReferences";
 
 // Revision routes
 import { listSavedGroupRevisions } from "./listSavedGroupRevisions";
@@ -35,6 +36,7 @@ export const savedGroupsRoutes: OpenApiRoute[] = [
   updateSavedGroup,
   archiveSavedGroup,
   unarchiveSavedGroup,
+  getSavedGroupReferences,
   deleteSavedGroup,
 
   // Revisions — reading & listing.

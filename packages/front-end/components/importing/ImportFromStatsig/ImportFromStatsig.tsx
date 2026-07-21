@@ -4,6 +4,7 @@ import { FaCheck, FaMinusCircle, FaExchangeAlt } from "react-icons/fa";
 import { MdPending } from "react-icons/md";
 import { FeatureInterface } from "shared/types/feature";
 import { ProjectInterface } from "shared/types/project";
+import { FactTableInterface } from "shared/types/fact-table";
 import {
   buildImportedData,
   runImport,
@@ -16,6 +17,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/components/Button";
 import Checkbox from "@/ui/Checkbox";
 import { useAuth } from "@/services/auth";
+import useApi from "@/hooks/useApi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   useEnvironments,
@@ -32,6 +34,7 @@ import track from "@/services/track";
 import { isCloud } from "@/services/env";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/ui/MultiSelectField";
+import Callout from "@/ui/Callout";
 import { EntityAccordion, EntityAccordionContent } from "./EntityAccordion";
 
 function HasChangesIcon({
@@ -998,14 +1001,19 @@ export default function ImportFromStatsig() {
   const { features, mutate: mutateFeatures } = useFeaturesList({
     useCurrentProject: false,
   });
+  const { mutateDefinitions, savedGroups, tags, projects, factMetrics } =
+    useDefinitions();
+  // The import diff compares fact table sql, which the slimmed definitions
+  // don't include, so fetch the full fact tables
   const {
-    mutateDefinitions,
-    savedGroups,
-    tags,
-    projects,
-    factTables,
-    factMetrics,
-  } = useDefinitions();
+    data: factTablesData,
+    mutate: mutateFactTables,
+    isLoading: factTablesLoading,
+  } = useApi<{ factTables: FactTableInterface[] }>("/fact-tables");
+  const factTables = useMemo(
+    () => factTablesData?.factTables || [],
+    [factTablesData],
+  );
   const { experiments } = useExperiments();
   const environments = useEnvironments();
   const attributeSchema = useAttributeSchema();
@@ -1037,7 +1045,7 @@ export default function ImportFromStatsig() {
   // Function to create or find project
   const getOrCreateProject = async (projectName: string): Promise<string> => {
     if (!projectName.trim()) {
-      return ""; // Empty string means "All projects"
+      return ""; // Empty string means "All Projects"
     }
 
     // Check if project already exists
@@ -1156,7 +1164,7 @@ export default function ImportFromStatsig() {
                   label="GrowthBook Project"
                   value={projectName}
                   onChange={(e) => setProjectName(e.target.value)}
-                  placeholder="All projects"
+                  placeholder="All Projects"
                   helpText="Import into a specific project. Leave blank for no project"
                 />
               </div>
@@ -1175,8 +1183,21 @@ export default function ImportFromStatsig() {
             <Button
               type="button"
               color={step === 1 ? "primary" : "outline-primary"}
+              disabled={factTablesLoading}
               onClick={async () => {
                 if (!token) return;
+
+                // Fact tables feed the import diff; running without them would
+                // treat every existing fact table as new
+                if (!factTablesData) {
+                  setData({
+                    ...data,
+                    status: "error",
+                    error:
+                      "Could not load existing fact tables. Please refresh and try again.",
+                  });
+                  return;
+                }
 
                 track("Statsig import fetch started", {
                   source: "statsig",
@@ -1255,6 +1276,9 @@ export default function ImportFromStatsig() {
                 mutateDefinitions();
                 mutateFeatures();
                 refreshOrganization();
+                // Await so a quick repeat import diffs against the freshly
+                // imported fact tables, not the stale pre-import cache
+                await mutateFactTables();
               }}
             >
               Step 2: Import to GrowthBook
@@ -1309,7 +1333,7 @@ export default function ImportFromStatsig() {
 
       <div className="position-relative">
         {data.status === "error" ? (
-          <div className="alert alert-danger">{data.error || "Error"}</div>
+          <Callout status="error">{data.error || "Error"}</Callout>
         ) : data.status === "init" ? null : (
           <div>
             <div className="mt-3">

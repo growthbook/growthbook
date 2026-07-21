@@ -3,7 +3,11 @@ import cloneDeep from "lodash/cloneDeep";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FeatureInterface, ExperimentRefRule } from "shared/types/feature";
 
-import { isFeatureStale } from "../../src/util";
+import {
+  isFeatureStale,
+  buildExperimentDependencyIndex,
+  getDependentExperiments,
+} from "../../src/util";
 
 type StaleOpts = Parameters<typeof isFeatureStale>[0];
 
@@ -1863,5 +1867,70 @@ describe("isFeatureStale", () => {
         reason: "rules-one-sided",
       });
     });
+  });
+});
+
+describe("getDependentExperiments / buildExperimentDependencyIndex", () => {
+  const phaseWithPrereqs = (
+    prereqIds: string[],
+  ): ExperimentInterfaceStringDates["phases"][number] => ({
+    coverage: 1,
+    dateStarted: "2023-08-05T05:27:00Z",
+    variationWeights: [0.5, 0.5],
+    namespace: { enabled: false, name: "", range: [0, 1] },
+    condition: "{}",
+    name: "Main",
+    reason: "",
+    seed: "seed",
+    prerequisites: prereqIds.map((id) => ({
+      id,
+      condition: `{"value": true}`,
+    })),
+  });
+
+  const expA = genMockExperiment({
+    id: "exp_a",
+    phases: [phaseWithPrereqs(["feat-1", "feat-2"])],
+  });
+  const expB = genMockExperiment({
+    id: "exp_b",
+    phases: [phaseWithPrereqs(["feat-1"]), phaseWithPrereqs(["feat-3"])],
+  });
+  const expC = genMockExperiment({
+    id: "exp_c",
+    phases: [phaseWithPrereqs([])],
+  });
+  const experiments = [expA, expB, expC];
+
+  it("indexes experiments by last-phase prerequisite feature id", () => {
+    const index = buildExperimentDependencyIndex(experiments);
+    expect(index.get("feat-1")).toEqual([expA]);
+    expect(index.get("feat-2")).toEqual([expA]);
+    expect(index.get("feat-3")).toEqual([expB]);
+    expect(index.get("feat-missing")).toBeUndefined();
+  });
+
+  it("returns identical results with and without a prebuilt index", () => {
+    const index = buildExperimentDependencyIndex(experiments);
+    for (const id of ["feat-1", "feat-2", "feat-3", "feat-missing"]) {
+      const feature = { id } as FeatureInterface;
+      expect(getDependentExperiments(feature, experiments, index)).toEqual(
+        getDependentExperiments(feature, experiments),
+      );
+    }
+  });
+
+  it("returns each experiment once even if a phase repeats a prerequisite id", () => {
+    const expDup = genMockExperiment({
+      id: "exp_dup",
+      phases: [phaseWithPrereqs(["feat-1", "feat-1"])],
+    });
+    const all = [...experiments, expDup];
+    const index = buildExperimentDependencyIndex(all);
+    const feature = { id: "feat-1" } as FeatureInterface;
+    const viaIndex = getDependentExperiments(feature, all, index);
+    const viaScan = getDependentExperiments(feature, all);
+    expect(viaIndex).toEqual(viaScan);
+    expect(viaIndex.filter((e) => e.id === "exp_dup")).toHaveLength(1);
   });
 });

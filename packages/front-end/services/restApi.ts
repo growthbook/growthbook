@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { z, ZodTypeAny } from "zod";
 import type { ApiEndpointSpec } from "shared/api-spec";
-import { useAuth } from "@/services/auth";
+import { useAuth, appendIgnoreWarnings } from "@/services/auth";
 
 const SSO_CONNECTION_ID_HEADER = "X-SSO-Connection-ID";
 
@@ -44,7 +44,7 @@ type CallArgs<T extends AnyEndpointSpec> =
  * header, and silent-refresh behavior.
  */
 export function useRestApiCall() {
-  const { fetchRaw, ssoConnectionId } = useAuth();
+  const { fetchRaw, ssoConnectionId, confirmIgnoreWarnings } = useAuth();
 
   return useCallback(
     async <T extends AnyEndpointSpec, ResponseSchema extends ZodTypeAny>(
@@ -89,23 +89,44 @@ export function useRestApiCall() {
         headers[SSO_CONNECTION_ID_HEADER] = ssoConnectionId;
       }
 
-      const response = await fetchRaw(url, {
-        method: spec.method.toUpperCase(),
-        body: body ? JSON.stringify(body) : undefined,
-        headers,
-        // We aren't using cookies, only auth headers
-        credentials: "omit",
-      });
+      const issue = (reqUrl: string) =>
+        fetchRaw(reqUrl, {
+          method: spec.method.toUpperCase(),
+          body: body ? JSON.stringify(body) : undefined,
+          headers,
+          // We aren't using cookies, only auth headers
+          credentials: "omit",
+        });
+
+      let response = await issue(url);
 
       if (!response.ok) {
-        let message = "There was an error";
+        let errData: { message?: string; warnings?: string[] } | null = null;
         try {
-          const errData = await response.json();
-          message = errData?.message || message;
+          errData = await response.json();
         } catch {
-          // non-JSON error body; keep default message
+          // non-JSON error body
         }
-        throw new Error(message);
+
+        if (response.status === 422 && Array.isArray(errData?.warnings)) {
+          const proceed = await confirmIgnoreWarnings(errData.warnings);
+          if (!proceed) {
+            throw new Error(errData?.message || "Action cancelled");
+          }
+          response = await issue(appendIgnoreWarnings(url));
+          if (!response.ok) {
+            let retryMessage = "There was an error";
+            try {
+              const retryData = await response.json();
+              retryMessage = retryData?.message || retryMessage;
+            } catch {
+              // non-JSON error body; keep default message
+            }
+            throw new Error(retryMessage);
+          }
+        } else {
+          throw new Error(errData?.message || "There was an error");
+        }
       }
 
       const responseData = await response.json();
@@ -119,6 +140,6 @@ export function useRestApiCall() {
         return responseData as z.infer<ResponseSchema>;
       }
     },
-    [fetchRaw, ssoConnectionId],
+    [fetchRaw, ssoConnectionId, confirmIgnoreWarnings],
   );
 }

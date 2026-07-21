@@ -4,17 +4,19 @@ import { FeatureInterface } from "shared/types/feature";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   resolveOwnerEmail,
-  resolveOwnerToUserId,
+  resolveOwnerForCreate,
 } from "back-end/src/services/owner";
 import { createFeature, getFeature } from "back-end/src/models/FeatureModel";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
 import { getEnabledEnvironments } from "back-end/src/util/features";
 import {
   addIdsToFlatRules,
+  assertFeatureValuesValid,
   createInterfaceEnvSettingsFromApiEnvSettings,
   getApiFeatureObjV2,
   getSavedGroupMap,
 } from "back-end/src/services/features";
+import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
 import { auditDetailsCreate } from "back-end/src/services/audit";
 import { getEnvironments } from "back-end/src/services/organizations";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
@@ -23,7 +25,16 @@ import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
 import type { ApiFeatureEnvSettings } from "./postFeature";
 import { validateCustomFields, validateRuleAttributes } from "./validations";
 import { validateEnvKeys } from "./postFeature";
-import { assertValidProjectId, mapV2ApiRuleToFeatureRule } from "./v2Shared";
+import {
+  assertConfigSchemaCompat,
+  assertValidProjectId,
+  assertValidRuleConfigKeys,
+  assertValidBaseConfig,
+  assertValidDefaultValueConfig,
+  assertNoRawConfigExtends,
+  composeConfigBacking,
+  mapV2ApiRuleToFeatureRule,
+} from "./v2Shared";
 
 export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
   async (req) => {
@@ -72,7 +83,8 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
     const feature: FeatureInterface = {
       defaultValue: req.body.defaultValue ?? "",
       valueType: req.body.valueType,
-      owner: (await resolveOwnerToUserId(req.body.owner, req.context)) ?? "",
+      baseConfig: req.body.baseConfig ?? undefined,
+      owner: await resolveOwnerForCreate(req.body.owner, req.context),
       description: req.body.description || "",
       project: req.body.project || "",
       dateCreated: new Date(),
@@ -113,9 +125,71 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
       mapV2ApiRuleToFeatureRule(rule),
     );
 
-    const jsonSchema = parseApiJsonSchema(req.context.org, req.body.jsonSchema);
+    // Config backing comes through dedicated fields — reject a raw `@config:`
+    // in the default value, validate the fields, then compose the stored value
+    // (a `defaultValueConfig` descendant becomes the value's own `$extends`; a
+    // bare `baseConfig` leaves the default a pure patch the compiler resolves).
+    assertNoRawConfigExtends(feature.defaultValue, "defaultValue");
+    await assertValidBaseConfig(
+      req.context,
+      feature.baseConfig,
+      feature.valueType,
+      feature.project,
+    );
+    await assertValidDefaultValueConfig(
+      req.context,
+      feature.baseConfig,
+      req.body.defaultValueConfig,
+      feature.project,
+    );
+    if ((req.body.defaultValueConfig ?? null) !== null) {
+      feature.defaultValue = composeConfigBacking(
+        req.body.defaultValueConfig as string,
+        feature.defaultValue,
+        "Default value",
+      );
+    }
+
+    // Request-supplied config keys must exist, be live, and belong to the
+    // feature's config family — same gate as the revision rule endpoints.
+    await assertValidRuleConfigKeys(
+      req.context,
+      (req.body.rules ?? []).flatMap((rule) => [
+        "config" in rule ? (rule as { config?: string | null }).config : null,
+        ...(rule.type === "experiment-ref"
+          ? rule.variations.map((v) => v.config)
+          : []),
+      ]),
+      feature.defaultValue,
+      feature.baseConfig,
+      feature.project,
+    );
+
+    const jsonSchema = parseApiJsonSchema(
+      req.context.org,
+      req.body.jsonSchema,
+      feature.valueType,
+    );
     feature.jsonSchema = jsonSchema;
-    feature.defaultValue = validateFeatureValue(feature, feature.defaultValue);
+    // Always normalize; enforce the schema unless explicitly skipped.
+    feature.defaultValue = validateFeatureValue(
+      req.context.skipSchemaValidation
+        ? { ...feature, jsonSchema: undefined }
+        : feature,
+      feature.defaultValue,
+      "Default value",
+    );
+    // `mapV2ApiRuleToFeatureRule` doesn't validate rule values — enforce here.
+    assertFeatureValuesValid(req.context, feature, { rules: feature.rules });
+    await assertConfigBackedFeatureValuesValid(req.context, feature, {
+      defaultValue: feature.defaultValue,
+      rules: feature.rules,
+    });
+
+    assertConfigSchemaCompat({
+      jsonSchemaEnabled: feature.jsonSchema?.enabled,
+      baseConfig: feature.baseConfig,
+    });
 
     if (
       !req.context.permissions.canPublishFeature(

@@ -15,13 +15,52 @@ function mapMediaPart(p: AIChatImagePart | AIChatFilePart) {
   return { type: "file" as const, data: p.data, mediaType: p.mediaType };
 }
 
-function mapUserContent(content: string | AIChatUserContentPart[]) {
-  if (typeof content === "string") return content;
-  return content.map((p) =>
+/**
+ * Build the auto-injected context prefix for a model-bound user message.
+ *
+ * Each piece of client context is one bracketed line; they're kept off the
+ * static system prompt so it stays prompt-cache friendly and instead ride
+ * along with the (already per-turn-unique) user message. A trailing blank
+ * line separates the prefix from the user's actual text.
+ */
+function buildContextPrefix(
+  currentPage?: string,
+  datasourceHint?: string,
+): string {
+  const lines: string[] = [];
+  if (currentPage && currentPage.trim()) {
+    lines.push(`[Page context: ${currentPage.trim()}]`);
+  }
+  if (datasourceHint && datasourceHint.trim()) {
+    lines.push(
+      `[Active product-analytics datasource: ${datasourceHint.trim()}]`,
+    );
+  }
+  return lines.length ? `${lines.join("\n")}\n\n` : "";
+}
+
+function mapUserContent(
+  content: string | AIChatUserContentPart[],
+  currentPage?: string,
+  datasourceHint?: string,
+) {
+  const prefix = buildContextPrefix(currentPage, datasourceHint);
+
+  if (typeof content === "string") {
+    return prefix ? `${prefix}${content}` : content;
+  }
+
+  const mapped = content.map((p) =>
     p.type === "text"
       ? { type: "text" as const, text: p.text }
       : mapMediaPart(p),
   );
+
+  if (!prefix) return mapped;
+
+  // Prepend a synthetic text part rather than mutating an existing one so
+  // image/file parts stay intact and the prefix is unambiguous to the model.
+  return [{ type: "text" as const, text: prefix.trimEnd() }, ...mapped];
 }
 
 function mapAssistantContent(content: string | AIChatAssistantContentPart[]) {
@@ -64,6 +103,15 @@ function mapToolResult(
 }
 
 /**
+ * Tool results that must never be compacted, because their content is
+ * persistent context the agent needs on every later turn (not a one-off
+ * payload it can re-fetch). `loadSkill` returns the skill's endpoint docs and
+ * workflow — compacting it makes the agent forget how to call the API and
+ * start guessing endpoints, so we always keep it in full.
+ */
+const NEVER_COMPACT_TOOLS = new Set(["loadSkill"]);
+
+/**
  * Converts AIChatMessage[] to ModelMessage[] for the LLM.
  * Older tool-result payloads (before the last assistant turn) are compacted
  * to save tokens, preserving snapshotId for prompt-cache stability.
@@ -84,7 +132,11 @@ export function toModelMessages(messages: AIChatMessage[]): ModelMessage[] {
       case "user":
         return {
           role: "user",
-          content: mapUserContent(msg.content),
+          content: mapUserContent(
+            msg.content,
+            msg.currentPage,
+            msg.datasourceHint,
+          ),
         } as ModelMessage;
       case "assistant":
         return {
@@ -95,7 +147,10 @@ export function toModelMessages(messages: AIChatMessage[]): ModelMessage[] {
         return {
           role: "tool",
           content: msg.content.map((p) =>
-            mapToolResult(p, idx < lastAssistantIdx),
+            mapToolResult(
+              p,
+              idx < lastAssistantIdx && !NEVER_COMPACT_TOOLS.has(p.toolName),
+            ),
           ),
         };
     }

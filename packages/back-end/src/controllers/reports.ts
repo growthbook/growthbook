@@ -3,7 +3,6 @@ import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import { getSnapshotAnalysis } from "shared/util";
 import { pick, omit } from "lodash";
-import uniqid from "uniqid";
 import { experimentAnalysisSettings } from "shared/validators";
 import {
   ExperimentReportAnalysisSettings,
@@ -13,6 +12,7 @@ import {
   ReportInterface,
 } from "shared/types/report";
 import { getAllVariations } from "shared/experiments";
+import { generateId } from "back-end/src/util/uuid";
 import {
   getExperimentById,
   getExperimentsByIds,
@@ -62,7 +62,7 @@ export async function postReportFromSnapshot(
     throw new Error("Invalid snapshot id");
   }
   // Prepare a new report-specific snapshot
-  snapshot.id = uniqid("snp_");
+  snapshot.id = generateId("snp_");
   snapshot.type = "report";
   snapshot.triggeredBy = "manual";
   if (snapshot?.health?.traffic && !snapshot?.health?.traffic?.dimension) {

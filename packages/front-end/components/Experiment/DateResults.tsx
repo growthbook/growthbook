@@ -6,7 +6,7 @@ import {
 import { getValidDate, getValidDateOffsetByUTC } from "shared/dates";
 import {
   expandMetricGroups,
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
   isExpectedDirection,
   isStatSig,
   quantileMetricType,
@@ -38,7 +38,7 @@ const numberFormatter = new Intl.NumberFormat();
 
 // Represents data for one metric graph
 type Metric = {
-  metric: ExperimentMetricInterface;
+  metric: ExperimentMetricDefinition;
   resultGroup: "goal" | "secondary" | "guardrail";
   datapoints: ExperimentDateGraphDataPoint[];
 };

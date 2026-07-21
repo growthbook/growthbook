@@ -223,7 +223,7 @@ export default function DatasourceConfigurator({
                 <Button
                   disabled={!canRunQueries}
                   variant="soft"
-                  color="red"
+                  color="inherit"
                   onClick={() => refreshOrCreateInfoSchema("PUT")}
                 >
                   Retry
@@ -277,10 +277,10 @@ export default function DatasourceConfigurator({
                       ).toLocaleString()}`}
                     </div>
                     {!canRunQueries ? (
-                      <div className="alert alert-warning mt-2">
+                      <Callout status="warning" mt="2">
                         You do not have permission to refresh this information
                         schema.
-                      </div>
+                      </Callout>
                     ) : null}
                   </div>
                 }

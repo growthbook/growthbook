@@ -333,6 +333,67 @@ describe("assertRegisteredAttributes", () => {
     expect(err?.message).not.toMatch(/not part of this project's scope/);
   });
 
+  // The experiment targeting endpoint always re-posts the full payload, so a
+  // traffic-only or targeting-only save still sends every field. Passing the
+  // persisted values as `existingParts` means stale (already-saved) attributes
+  // don't block unrelated edits — only newly changed attributes are validated.
+  describe("change-aware validation via existingParts", () => {
+    it("allows an unchanged stale invalid hashAttribute", () => {
+      const ctx = makeContext();
+      expect(() =>
+        assertRegisteredAttributes(
+          ctx,
+          { hashAttribute: "stale_typo", condition: "{}" },
+          "experiment",
+          { hashAttribute: "stale_typo", condition: "{}" },
+        ),
+      ).not.toThrow();
+    });
+
+    it("still rejects a newly changed invalid hashAttribute", () => {
+      const ctx = makeContext();
+      expect(() =>
+        assertRegisteredAttributes(
+          ctx,
+          { hashAttribute: "new_typo", condition: "{}" },
+          "experiment",
+          { hashAttribute: "userId", condition: "{}" },
+        ),
+      ).toThrow(/new_typo/);
+    });
+
+    it("allows an unchanged stale invalid condition attribute", () => {
+      const ctx = makeContext();
+      const staleCondition = JSON.stringify({ stale_attr: "x" });
+      expect(() =>
+        assertRegisteredAttributes(
+          ctx,
+          { hashAttribute: "userId", condition: staleCondition },
+          "experiment",
+          { hashAttribute: "userId", condition: staleCondition },
+        ),
+      ).not.toThrow();
+    });
+
+    it("still rejects a newly changed invalid condition attribute", () => {
+      const ctx = makeContext();
+      expect(() =>
+        assertRegisteredAttributes(
+          ctx,
+          {
+            hashAttribute: "userId",
+            condition: JSON.stringify({ new_attr: "x" }),
+          },
+          "experiment",
+          {
+            hashAttribute: "userId",
+            condition: JSON.stringify({ country: "US" }),
+          },
+        ),
+      ).toThrow(/new_attr/);
+    });
+  });
+
   it("with isOn=false and a bogus attribute, is a no-op (master switch beats sub-toggles)", () => {
     const ctx = makeContext({
       requireRegisteredAttributes: { isOn: false, requireProjectScoping: true },

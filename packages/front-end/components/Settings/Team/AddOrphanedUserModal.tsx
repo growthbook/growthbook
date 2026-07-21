@@ -44,6 +44,7 @@ const AddOrphanedUserModal: FC<{
   ) {
     return (
       <Modal
+        useRadixButton={false}
         trackingEventModalType=""
         open={true}
         close={close}
@@ -64,6 +65,7 @@ const AddOrphanedUserModal: FC<{
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       close={close}
       header="Add User"
@@ -90,6 +92,7 @@ const AddOrphanedUserModal: FC<{
         value={value}
         setValue={setValue}
         showUpgradeModal={() => setShowUpgradeModal(true)}
+        isNewAssignment
       />
     </Modal>
   );

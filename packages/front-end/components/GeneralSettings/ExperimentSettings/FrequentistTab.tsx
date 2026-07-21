@@ -35,7 +35,7 @@ export default function FrequentistTab({
           disabled={hasFileConfig()}
           helpTextAppend={
             <span className="ml-2">
-              ({DEFAULT_P_VALUE_THRESHOLD} is default)
+              Default is {DEFAULT_P_VALUE_THRESHOLD}.
             </span>
           }
           rules={{ valueAsNumber: true }}
@@ -44,7 +44,7 @@ export default function FrequentistTab({
       <div className="mb-3  form-inline flex-column align-items-start">
         <SelectField
           size="legacy"
-          label={"Multiple comparisons correction to use: "}
+          label={"Multiple comparisons correction to use"}
           className="ml-2"
           value={form.watch("pValueCorrection") ?? ""}
           onChange={(value) =>
@@ -93,7 +93,7 @@ export default function FrequentistTab({
                 <small className="mb-1 text-warning-orange">
                   <FaExclamationTriangle /> Your organization uses Bayesian
                   statistics by default and sequential testing is not
-                  implemented for the Bayesian engine.
+                  implemented for the Bayesian stats engine.
                 </small>
               </div>
             )}
@@ -117,7 +117,7 @@ export default function FrequentistTab({
             helpText={
               <>
                 <span className="ml-2">
-                  ({DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER} is default)
+                  Default is {DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER}.
                 </span>
               </>
             }

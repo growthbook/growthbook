@@ -7,6 +7,7 @@ import {
   rampMonitoringConfig,
   lockdownConfigSchema,
   stepHoldConditions,
+  isAwaitingStartApproval,
 } from "shared/validators";
 import {
   DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
@@ -18,6 +19,8 @@ import { getSRMHealthData, getMultipleExposureHealthData } from "shared/health";
 import {
   advanceScheduleManually,
   approveAndPublishStep,
+  approveScheduleStart,
+  completeRampKeepCutoff,
   completeRollout,
   ensureSafeRolloutForMonitoredRamp,
   getEffectiveRampAutoUpdateState,
@@ -27,6 +30,7 @@ import {
   rollbackSchedule,
   restartSchedule,
   resumeSchedule,
+  runLockedRampScheduleAction,
   setRampMonitoringMode,
   startSchedule,
   syncLinkedSafeRolloutForRampState,
@@ -76,8 +80,31 @@ export const startRampSchedule = createApiRequestHandler({
       `Cannot start a ramp schedule in status "${schedule.status}" — must be "ready"`,
     );
   }
+  // An approval-gated schedule can only be launched via /actions/approve-step,
+  // so the approval is recorded and audited. `start` (start-early) is refused.
+  if (isAwaitingStartApproval(schedule)) {
+    throw new Error(
+      "This schedule requires start approval — use POST /actions/approve-step to start it.",
+    );
+  }
 
-  const current = await startSchedule(req.context, schedule);
+  const current = await runLockedRampScheduleAction(
+    req.context,
+    schedule.id,
+    (fresh, heartbeat) => {
+      if (fresh.status !== "ready") {
+        throw new ConflictError(
+          `Cannot start: schedule changed to "${fresh.status}" while the request was in flight`,
+        );
+      }
+      if (isAwaitingStartApproval(fresh)) {
+        throw new ConflictError(
+          "This schedule now requires start approval — use /actions/approve-step to start it.",
+        );
+      }
+      return startSchedule(req.context, fresh, heartbeat);
+    },
+  );
   return { rampSchedule: rampScheduleToApiInterface(current) };
 });
 
@@ -103,7 +130,18 @@ export const pauseRampSchedule = createApiRequestHandler({
     );
   }
 
-  const updated = await pauseSchedule(req.context, schedule);
+  const updated = await runLockedRampScheduleAction(
+    req.context,
+    schedule.id,
+    (fresh) => {
+      if (fresh.status !== "running") {
+        throw new ConflictError(
+          `Cannot pause: schedule changed to "${fresh.status}" while the request was in flight`,
+        );
+      }
+      return pauseSchedule(req.context, fresh);
+    },
+  );
 
   return { rampSchedule: rampScheduleToApiInterface(updated) };
 });
@@ -130,7 +168,18 @@ export const resumeRampSchedule = createApiRequestHandler({
     );
   }
 
-  const updated = await resumeSchedule(req.context, schedule);
+  const updated = await runLockedRampScheduleAction(
+    req.context,
+    schedule.id,
+    (fresh, heartbeat) => {
+      if (fresh.status !== "paused") {
+        throw new ConflictError(
+          `Cannot resume: schedule changed to "${fresh.status}" while the request was in flight`,
+        );
+      }
+      return resumeSchedule(req.context, fresh, heartbeat);
+    },
+  );
 
   return { rampSchedule: rampScheduleToApiInterface(updated) };
 });
@@ -168,21 +217,32 @@ export const jumpRampSchedule = createApiRequestHandler({
     throw new Error(`Invalid targetStepIndex ${targetStepIndex}`);
   }
 
-  const updated = await jumpSchedule(req.context, schedule, targetStepIndex);
+  const updated = await runLockedRampScheduleAction(
+    req.context,
+    schedule.id,
+    (fresh) => {
+      if (["completed", "rolled-back"].includes(fresh.status)) {
+        throw new ConflictError(
+          `Cannot jump: schedule changed to "${fresh.status}" while the request was in flight`,
+        );
+      }
+      return jumpSchedule(req.context, fresh, targetStepIndex);
+    },
+  );
 
   return { rampSchedule: rampScheduleToApiInterface(updated) };
 });
 
 export const completeRampSchedule = createApiRequestHandler({
   paramsSchema: actionParamsSchema,
-  bodySchema: z.never(),
+  bodySchema: z.object({ disableRule: z.boolean().optional() }).optional(),
   responseSchema: rampScheduleResponse,
   method: "post" as const,
   path: "/ramp-schedules/:id/actions/complete",
   operationId: "completeRampSchedule",
   summary: "Complete a ramp schedule immediately",
   description:
-    "Immediately applies the schedule's end-state rule patches (the equivalent\nof what would happen after the last step advances normally) and marks the\nschedule as `completed`, skipping any remaining steps.\n\nUse this when you are confident the rollout is successful and want to lock\nin the final traffic allocation without waiting. For a full traffic revert\ninstead, use `/actions/rollback`.\n",
+    "Immediately applies the schedule's end-state rule patches (the equivalent\nof what would happen after the last step advances normally) and marks the\nschedule as `completed`, skipping any remaining steps.\n\nPass `disableRule: true` to also disable the linked rule (equivalent to\nthe cutoff-date-driven completion).\n",
   tags: ["ramp-schedules"],
 })(async (req) => {
   const schedule = await req.context.models.rampSchedules.getById(
@@ -194,8 +254,40 @@ export const completeRampSchedule = createApiRequestHandler({
       `Ramp schedule is already in terminal status "${schedule.status}"`,
     );
   }
+  // Completing a held ramp would enable the rule without the required start
+  // approval — refuse it; approve via /actions/approve-step to launch first.
+  if (isAwaitingStartApproval(schedule)) {
+    throw new Error(
+      "This schedule requires start approval — use POST /actions/approve-step before completing.",
+    );
+  }
 
-  const completed = await completeRollout(req.context, schedule);
+  const completed = await runLockedRampScheduleAction(
+    req.context,
+    schedule.id,
+    (fresh) => {
+      if (["completed", "rolled-back"].includes(fresh.status)) {
+        throw new ConflictError(
+          `Cannot complete: schedule changed to "${fresh.status}" while the request was in flight`,
+        );
+      }
+      if (isAwaitingStartApproval(fresh)) {
+        throw new ConflictError(
+          "This schedule now requires start approval — use /actions/approve-step before completing.",
+        );
+      }
+      const isSimple = fresh.steps.length === 0 && !!fresh.cutoffDate;
+      const disableNow = req.body?.disableRule === true || isSimple;
+      const hasFutureCutoff = fresh.cutoffDate && fresh.cutoffDate > new Date();
+
+      if (!disableNow && hasFutureCutoff) {
+        return completeRampKeepCutoff(req.context, fresh);
+      }
+      return completeRollout(req.context, fresh, {
+        disableActiveTargets: disableNow,
+      });
+    },
+  );
 
   return { rampSchedule: rampScheduleToApiInterface(completed) };
 });
@@ -207,9 +299,9 @@ export const approveStepRampSchedule = createApiRequestHandler({
   method: "post" as const,
   path: "/ramp-schedules/:id/actions/approve-step",
   operationId: "approveStepRampSchedule",
-  summary: "Approve the current step",
+  summary: "Approve the pending approval gate",
   description:
-    "Satisfies the `holdConditions.requiresApproval` gate on the current step of\na `running` schedule.\n\nApproval is the **final** gate: it can only be granted once every other hold\non the step has already cleared. This endpoint rejects the request (`400`) if\nthe step is not yet ready for approval — for example while the interval timer\nis still counting down, or (for monitored steps) before fresh analysis\ncovering the step is available or while a guardrail/health signal is failing.\nPoll the `/status` endpoint and only call this once it reports the step is\nawaiting approval.\n\n**Non-monitored steps**: once the interval has elapsed, approving clears the\nlast hold and the schedule advances immediately, chaining through any\nsubsequent instant steps in the same request.\n\n**Monitored steps**: once the interval has elapsed and fresh, healthy analysis\nis available, approving clears the last hold and the agenda advances the step\non its next tick (re-checking the latest analysis once more first).\n\nDifferent from `/actions/advance`: `approve-step` works within the normal\nevaluation flow and refuses to skip ahead of the interval or any other\nunmet gate. Use `/actions/advance` only if you want to bypass all remaining\nholds entirely (including the interval timer).\n\nRequires feature review permissions for the associated feature.\n",
+    "Clears whichever approval gate is currently pending on the schedule:\n\n- **Start gate** — a schedule created with `requiresStartApproval` sits in `ready` at step -1 with its rule disabled (zero traffic). Approving starts the ramp (or, if a future `startDate` is set, arms it to start on that date).\n- **Step gate** — the `holdConditions.requiresApproval` gate on the current step of a `running` schedule.\n\nFor a step gate, approval is the **final** gate: it can only be granted once every other hold has cleared. This endpoint rejects the request (`400`) if the step is not yet ready — while the interval timer is still counting down, or (for monitored steps) before fresh analysis is available or while a guardrail/health signal is failing. Poll `/status` and call this once it reports awaiting approval.\n\n**Non-monitored steps**: once the interval has elapsed, approving clears the last hold and advances immediately, chaining through subsequent instant steps.\n\n**Monitored steps**: approving clears the last hold and the agenda advances on its next tick (re-checking analysis first).\n\nDifferent from `/actions/advance`: `approve-step` works within the normal evaluation flow and refuses to skip ahead of the interval or any other unmet gate. Use `/actions/advance` to bypass all remaining holds.\n\nRequires update + publish (start gate) or review (step gate) permissions for the associated feature.\n",
   tags: ["ramp-schedules"],
 })(async (req) => {
   const schedule = await req.context.models.rampSchedules.getById(
@@ -217,19 +309,48 @@ export const approveStepRampSchedule = createApiRequestHandler({
   );
   if (!schedule) throw new Error("Ramp schedule not found");
 
+  const awaitingStart = isAwaitingStartApproval(schedule);
   const currentStep = schedule.steps[schedule.currentStepIndex];
-  const awaitingApproval =
+  const awaitingStepApproval =
     schedule.status === "running" &&
     currentStep?.holdConditions?.requiresApproval &&
     schedule.stepApproval?.stepIndex !== schedule.currentStepIndex;
 
-  if (!awaitingApproval) {
+  if (!awaitingStart && !awaitingStepApproval) {
     throw new Error(
-      `Cannot approve step: schedule is not awaiting approval (currently "${schedule.status}")`,
+      `Cannot approve: schedule is not awaiting approval (currently "${schedule.status}")`,
     );
   }
 
-  const err = await approveAndPublishStep(req.context, schedule, "api");
+  const err = await runLockedRampScheduleAction(
+    req.context,
+    schedule.id,
+    (fresh) => {
+      // Pin the gate to what the caller saw pre-lock. If it flipped under us
+      // (e.g. a concurrent rollback re-held a running step, or vice versa),
+      // refuse — a "approve step N" call must never become a full re-start.
+      if (isAwaitingStartApproval(fresh) !== awaitingStart) {
+        throw new ConflictError(
+          "The schedule's approval state changed while the request was in flight",
+        );
+      }
+      // Pre-start hold: approving starts the ramp (crosses -1 → 0).
+      if (awaitingStart) {
+        return approveScheduleStart(req.context, fresh);
+      }
+      // Pin to the step the reviewer saw — a queued approval must not land
+      // on a step that was never reviewed.
+      if (fresh.currentStepIndex !== schedule.currentStepIndex) {
+        throw new ConflictError(
+          "Cannot approve step: the schedule advanced while the request was in flight",
+        );
+      }
+      // Idempotency and awaiting-approval validation live in
+      // approveAndPublishStep, AFTER its permission checks — duplicating them
+      // here would return success to callers that were never permission-checked.
+      return approveAndPublishStep(req.context, fresh, "api");
+    },
+  );
   if (err) {
     const detail = "detail" in err ? err.detail : undefined;
     if (err.code === "permission_denied") {
@@ -247,12 +368,18 @@ export const approveStepRampSchedule = createApiRequestHandler({
     (await req.context.models.rampSchedules.getById(schedule.id)) ?? schedule;
 
   await req.audit({
-    event: "rampSchedule.step-approved",
+    event: awaitingStart
+      ? "rampSchedule.start-approved"
+      : "rampSchedule.step-approved",
     entity: { object: "rampSchedule", id: schedule.id },
-    details: JSON.stringify({
-      stepIndex: updated.currentStepIndex,
-      stepApproval: updated.stepApproval,
-    }),
+    details: JSON.stringify(
+      awaitingStart
+        ? { status: updated.status, startApprovedAt: updated.startApprovedAt }
+        : {
+            stepIndex: updated.currentStepIndex,
+            stepApproval: updated.stepApproval,
+          },
+    ),
   });
 
   return { rampSchedule: rampScheduleToApiInterface(updated) };
@@ -288,7 +415,18 @@ export const rollbackRampSchedule = createApiRequestHandler({
 
   const cause = req.body.reason?.trim();
   const reason = cause ? `Manual: ${cause}` : "Manual";
-  const updated = await rollbackSchedule(req.context, schedule, reason);
+  const updated = await runLockedRampScheduleAction(
+    req.context,
+    schedule.id,
+    (fresh) => {
+      if (["completed", "rolled-back"].includes(fresh.status)) {
+        throw new ConflictError(
+          `Cannot rollback: schedule changed to "${fresh.status}" while the request was in flight`,
+        );
+      }
+      return rollbackSchedule(req.context, fresh, reason);
+    },
+  );
 
   return { rampSchedule: rampScheduleToApiInterface(updated) };
 });
@@ -315,7 +453,18 @@ export const restartRampSchedule = createApiRequestHandler({
     );
   }
 
-  const updated = await restartSchedule(req.context, schedule);
+  const updated = await runLockedRampScheduleAction(
+    req.context,
+    schedule.id,
+    (fresh, heartbeat) => {
+      if (!["rolled-back", "completed"].includes(fresh.status)) {
+        throw new ConflictError(
+          `Cannot restart: schedule changed to "${fresh.status}" while the request was in flight`,
+        );
+      }
+      return restartSchedule(req.context, fresh, heartbeat);
+    },
+  );
   return { rampSchedule: rampScheduleToApiInterface(updated) };
 });
 
@@ -381,19 +530,48 @@ export const addTargetRampSchedule = createApiRequestHandler({
     status: "active" as const,
   };
 
-  const isFirstTarget = schedule.targets.length === 0;
-  const entityUpdate = schedule.entityId === "" ? { entityId: featureId } : {};
-  const statusUpdate =
-    isFirstTarget && schedule.status === "pending"
-      ? { status: "ready" as const }
-      : {};
-
-  const updated = await req.context.models.rampSchedules.updateById(
+  // Locked: concurrent add/eject calls would drop a target, and a stale
+  // pending→ready flip could rewind a scheduler-activated schedule.
+  const updated = await runLockedRampScheduleAction(
+    req.context,
     schedule.id,
-    {
-      targets: [...schedule.targets, newTarget],
-      ...entityUpdate,
-      ...statusUpdate,
+    async (fresh) => {
+      // Re-check exclusivity in-lock: a racing add could otherwise put the
+      // rule under two schedules whose advances publish competing coverage.
+      const freshConflicts =
+        await req.context.models.rampSchedules.findByTargetRule(
+          ruleId,
+          environment ?? undefined,
+        );
+      if (freshConflicts.some((c) => c.id !== fresh.id)) {
+        throw new ConflictError(
+          `Another schedule attached rule '${ruleId}'${envSuffix} while the request was in flight.`,
+        );
+      }
+      if (
+        fresh.targets.some((t) =>
+          rampTargetsEquivalent(t, {
+            ruleId,
+            environment: environment ?? null,
+          }),
+        )
+      ) {
+        throw new ConflictError(
+          `Rule '${ruleId}'${envSuffix} is already a target of this schedule.`,
+        );
+      }
+      const isFirstTarget = fresh.targets.length === 0;
+      const entityUpdate = fresh.entityId === "" ? { entityId: featureId } : {};
+      const statusUpdate =
+        isFirstTarget && fresh.status === "pending"
+          ? { status: "ready" as const }
+          : {};
+
+      return req.context.models.rampSchedules.updateById(fresh.id, {
+        targets: [...fresh.targets, newTarget],
+        ...entityUpdate,
+        ...statusUpdate,
+      });
     },
   );
 
@@ -441,46 +619,54 @@ export const ejectTargetRampSchedule = createApiRequestHandler({
 
   const { targetId, ruleId, environment } = req.body;
 
-  const remaining = schedule.targets.filter((t) => {
-    if (targetId) return t.id !== targetId;
-    return !rampTargetsEquivalent(t, {
-      ruleId,
-      environment: environment ?? null,
-    });
-  });
-
-  if (remaining.length === schedule.targets.length) {
-    throw new Error("No matching target found on this schedule");
-  }
-
-  if (remaining.length === 0) {
-    // No rollback is applied when the last target is ejected. This is intentional:
-    // "eject" means "remove the schedule and leave the rule as-is right now" — the
-    // feature rule stays at whatever coverage/state it is currently at, under the
-    // user's full manual control from this point. If the intent were to revert the
-    // rule to its pre-ramp state, the caller should execute a rollback action first
-    // (which applies startActions) and then eject, or use the delete-schedule flow
-    // that already pauses/rolls back before removing.
-    //
-    // Stop the linked SafeRollout before deleting so agenda ticks don't keep
-    // firing against a now-deleted parent schedule.
-    if (schedule.safeRolloutId) {
-      await syncLinkedSafeRolloutForRampState(
-        req.context,
-        { ...schedule, status: "rolled-back" },
-        "stopped",
-      );
-    }
-    await req.context.models.rampSchedules.deleteById(schedule.id);
-    return { deleted: true, rampScheduleId: schedule.id };
-  }
-
-  const updated = await req.context.models.rampSchedules.updateById(
+  // Locked: the targets filter is a read-modify-write, and the last-target
+  // deleteById must not remove the doc out from under an in-flight advance.
+  return runLockedRampScheduleAction(
+    req.context,
     schedule.id,
-    { targets: remaining },
-  );
+    async (fresh) => {
+      const remaining = fresh.targets.filter((t) => {
+        if (targetId) return t.id !== targetId;
+        return !rampTargetsEquivalent(t, {
+          ruleId,
+          environment: environment ?? null,
+        });
+      });
 
-  return { rampSchedule: rampScheduleToApiInterface(updated) };
+      if (remaining.length === fresh.targets.length) {
+        throw new Error("No matching target found on this schedule");
+      }
+
+      if (remaining.length === 0) {
+        // No rollback is applied when the last target is ejected. This is intentional:
+        // "eject" means "remove the schedule and leave the rule as-is right now" — the
+        // feature rule stays at whatever coverage/state it is currently at, under the
+        // user's full manual control from this point. If the intent were to revert the
+        // rule to its pre-ramp state, the caller should execute a rollback action first
+        // (which applies startActions) and then eject, or use the delete-schedule flow
+        // that already pauses/rolls back before removing.
+        //
+        // Stop the linked SafeRollout before deleting so agenda ticks don't keep
+        // firing against a now-deleted parent schedule.
+        if (fresh.safeRolloutId) {
+          await syncLinkedSafeRolloutForRampState(
+            req.context,
+            { ...fresh, status: "rolled-back" },
+            "stopped",
+          );
+        }
+        await req.context.models.rampSchedules.deleteById(fresh.id);
+        return { deleted: true, rampScheduleId: fresh.id };
+      }
+
+      const updated = await req.context.models.rampSchedules.updateById(
+        fresh.id,
+        { targets: remaining },
+      );
+
+      return { rampSchedule: rampScheduleToApiInterface(updated) };
+    },
+  );
 });
 
 export const apiAdvanceRampSchedule = createApiRequestHandler({
@@ -532,6 +718,54 @@ export const apiAdvanceRampSchedule = createApiRequestHandler({
         "force: true requires canBypassApprovalChecks permission on the linked feature",
       );
     }
+  }
+
+  let bypassedApproval = false;
+  let current = await runLockedRampScheduleAction(
+    req.context,
+    schedule.id,
+    async (fresh) => {
+      if (!["running", "paused"].includes(fresh.status)) {
+        throw new ConflictError(
+          `Cannot advance: schedule changed to "${fresh.status}" while the request was in flight`,
+        );
+      }
+      // Pin the playhead: a concurrent advance would make this skip an
+      // extra (unscreened) step.
+      if (fresh.currentStepIndex !== schedule.currentStepIndex) {
+        throw new ConflictError(
+          "Cannot advance: the schedule advanced while the request was in flight",
+        );
+      }
+      // Re-derive the approval gate — holdConditions can change in place
+      // (steps editors allow it on the current step) while we waited.
+      const freshStep = fresh.steps[fresh.currentStepIndex];
+      const freshApprovalPending =
+        freshStep?.holdConditions?.requiresApproval &&
+        fresh.stepApproval?.stepIndex !== fresh.currentStepIndex;
+      if (freshApprovalPending && !force) {
+        throw new ConflictError(
+          "This step requires approval before advancing. Call `/actions/approve-step` first, or pass `force: true` to bypass (requires canBypassApprovalChecks permission).",
+        );
+      }
+      if (freshApprovalPending && force) {
+        const linkedFeature = await getFeature(req.context, fresh.entityId);
+        if (
+          !linkedFeature ||
+          !req.context.permissions.canBypassApprovalChecks(linkedFeature)
+        ) {
+          throw new PermissionError(
+            "force: true requires canBypassApprovalChecks permission on the linked feature",
+          );
+        }
+        bypassedApproval = true;
+      }
+      return advanceScheduleManually(req.context, fresh);
+    },
+  );
+  // Audit after the advance succeeds so the trail never records a bypass that
+  // was rejected by the in-lock validation.
+  if (bypassedApproval) {
     await req.audit({
       event: "rampSchedule.approval-bypassed",
       entity: { object: "rampSchedule", id: schedule.id },
@@ -541,8 +775,6 @@ export const apiAdvanceRampSchedule = createApiRequestHandler({
       }),
     });
   }
-
-  let current = await advanceScheduleManually(req.context, schedule);
   current =
     (await req.context.models.rampSchedules.getById(schedule.id)) ?? current;
 
@@ -571,13 +803,13 @@ const healthSummaryMetricSchema = z.object({
     .number()
     .optional()
     .describe(
-      "Expected relative lift of the treatment vs control (e.g. 0.05 = +5%).",
+      "Expected relative lift of the treatment arm vs the baseline arm (e.g. 0.05 = +5%). See `traffic.variationUnits` for what each arm represents.",
     ),
   absoluteLift: z
     .number()
     .optional()
     .describe(
-      "Absolute difference in conversion rate between treatment and control.",
+      "Absolute difference in conversion rate between the treatment and baseline arms.",
     ),
   ciHarmBound: z
     .number()
@@ -636,7 +868,7 @@ const healthSummarySchema = z.object({
       variationUnits: z
         .array(z.number())
         .describe(
-          "Per-variation user counts. Index 0 = control, index 1 = treatment.",
+          "Per-variation user counts. Index 0 = baseline arm (users continuing to see the existing behavior — either the configured control value on a v1 safe rollout, or users passed through to subsequent rules / feature default on a v2 monitored ramp). Index 1 = treatment arm (users exposed to the new rollout value).",
         ),
       srm: z
         .object({
@@ -999,10 +1231,11 @@ export const setMonitoringModeRampSchedule = createApiRequestHandler({
     req.params.id,
   );
   if (!schedule) throw new Error("Ramp schedule not found");
-  const updated = await setRampMonitoringMode(
+  const updated = await runLockedRampScheduleAction(
     req.context,
-    schedule,
-    req.body.monitoringMode,
+    schedule.id,
+    (fresh) =>
+      setRampMonitoringMode(req.context, fresh, req.body.monitoringMode),
   );
   return rampScheduleToApiInterface(updated);
 });
@@ -1029,10 +1262,15 @@ export const setAutoUpdateRampSchedule = createApiRequestHandler({
     req.params.id,
   );
   if (!schedule) throw new Error("Ramp schedule not found");
-  const updated = await setRampMonitoringMode(
+  const updated = await runLockedRampScheduleAction(
     req.context,
-    schedule,
-    req.body.enabled ? "auto" : "manual",
+    schedule.id,
+    (fresh) =>
+      setRampMonitoringMode(
+        req.context,
+        fresh,
+        req.body.enabled ? "auto" : "manual",
+      ),
   );
   return rampScheduleToApiInterface(updated);
 });
@@ -1055,10 +1293,10 @@ export const updateMonitoringConfigRampSchedule = createApiRequestHandler({
     req.params.id,
   );
   if (!schedule) throw new Error("Ramp schedule not found");
-  const updated = await updateRampMonitoringConfig(
+  const updated = await runLockedRampScheduleAction(
     req.context,
-    schedule,
-    req.body,
+    schedule.id,
+    (fresh) => updateRampMonitoringConfig(req.context, fresh, req.body),
   );
   return rampScheduleToApiInterface(updated);
 });
@@ -1079,10 +1317,10 @@ export const updateLockdownConfigRampSchedule = createApiRequestHandler({
     req.params.id,
   );
   if (!schedule) throw new Error("Ramp schedule not found");
-  const updated = await updateRampLockdownConfig(
+  const updated = await runLockedRampScheduleAction(
     req.context,
-    schedule,
-    req.body,
+    schedule.id,
+    (fresh) => updateRampLockdownConfig(req.context, fresh, req.body),
   );
   return rampScheduleToApiInterface(updated);
 });
@@ -1139,22 +1377,24 @@ export const updateStepsRampSchedule = createApiRequestHandler({
   );
   if (!schedule) throw new Error("Ramp schedule not found");
 
-  // Normalize incoming steps to the internal shape, preserving existing step
-  // actions (coverage patches) since the PUT body intentionally omits them.
-  const incomingSteps: (typeof schedule)["steps"] = req.body.steps.map(
-    (s, idx) => ({
-      interval: s.interval,
-      monitored: s.monitored ?? false,
-      holdConditions: s.holdConditions,
-      approvalNotes: s.approvalNotes ?? undefined,
-      actions: schedule.steps[idx]?.actions ?? [],
-    }),
-  );
-
-  const { schedule: updated } = await updateRampSteps(
+  const { schedule: updated } = await runLockedRampScheduleAction(
     req.context,
-    schedule,
-    incomingSteps,
+    schedule.id,
+    (fresh) => {
+      // The PUT body intentionally omits step actions (coverage patches) —
+      // preserve them from the in-lock doc so a concurrent advance's state
+      // isn't clobbered.
+      const incomingSteps: (typeof fresh)["steps"] = req.body.steps.map(
+        (s, idx) => ({
+          interval: s.interval,
+          monitored: s.monitored ?? false,
+          holdConditions: s.holdConditions,
+          approvalNotes: s.approvalNotes ?? undefined,
+          actions: fresh.steps[idx]?.actions ?? [],
+        }),
+      );
+      return updateRampSteps(req.context, fresh, incomingSteps);
+    },
   );
 
   return { rampSchedule: rampScheduleToApiInterface(updated) };
@@ -1217,9 +1457,12 @@ export const refreshMonitoringRampSchedule = createApiRequestHandler({
     : null;
 
   if (!safeRollout && currentStep?.monitored) {
-    const updated = await ensureSafeRolloutForMonitoredRamp(
+    // Serialize against the tick, which runs the same ensure — otherwise both
+    // create a SafeRollout and one becomes an orphan.
+    const updated = await runLockedRampScheduleAction(
       req.context,
-      schedule,
+      schedule.id,
+      (fresh) => ensureSafeRolloutForMonitoredRamp(req.context, fresh),
     );
     safeRollout = updated.safeRolloutId
       ? await req.context.models.safeRollout.getById(updated.safeRolloutId)

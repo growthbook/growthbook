@@ -5,12 +5,16 @@ import {
   paginationQueryFields,
   skipPaginationQueryField,
   apiPaginationFieldsValidator,
+  publishOverrideBodyFields,
+  bypassApprovalPublishBodyField,
+  ignoreWarningsBodyField,
+  publishBypassedGatesField,
 } from "./shared";
 import {
   apiRevisionRampCreateAction,
   apiFeatureRevisionValidator,
   JSONSchemaDef,
-  revisionStatusSchema,
+  revisionStatusFilterSchema,
   featureRule,
   FEATURE_V1_DEPRECATED,
 } from "./features";
@@ -163,9 +167,16 @@ export const postFeatureRevisionValidator = {
     .object({
       comment: z.string().optional(),
       title: z.string().optional(),
+      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
-  querySchema: z.never(),
+  querySchema: z
+    .object({
+      overrideDraftLimit: booleanQueryField.describe(
+        "If the organization caps concurrent drafts per feature (`maxConcurrentDrafts` setting), requests at or over the cap are rejected with a 409. Pass `true` to create the draft anyway.",
+      ),
+    })
+    .strict(),
   responseSchema: revisionResponse,
 };
 
@@ -199,10 +210,19 @@ export const postFeatureRevisionPublishValidator = {
   bodySchema: z
     .object({
       comment: z.string().optional(),
+      mergeNow: z
+        .boolean()
+        .optional()
+        .describe("Deprecated — pass `ignoreWarnings: true` instead.")
+        .meta({ deprecated: true }),
+      bypassApproval: bypassApprovalPublishBodyField,
+      ...publishOverrideBodyFields,
     })
     .strict(),
   querySchema: z.never(),
-  responseSchema: revisionResponse,
+  responseSchema: revisionResponse.extend({
+    bypassedGates: publishBypassedGatesField,
+  }),
 };
 
 export const postFeatureRevisionRevertValidator = {
@@ -242,7 +262,19 @@ export const getFeatureRevisionMergeStatusValidator = {
   querySchema: z.never(),
   responseSchema: z.object({
     success: z.boolean(),
+    liveVersion: z
+      .number()
+      .describe("The current live version the merge was computed against."),
+    draftDateUpdated: z
+      .string()
+      .meta({ format: "date-time" })
+      .describe("The draft's last-modified timestamp at merge time."),
     conflicts: z.array(mergeConflictSchema),
+    rebaseRequired: z
+      .boolean()
+      .describe(
+        "True when publishing this draft is blocked until it is rebased — either the merge has conflicts, or the draft is behind live (or its approval went stale) while the organization enforces rebase-before-publish. When true with no conflicts, callers with bypass-approval permission can still publish with `ignoreWarnings: true`; others must rebase first.",
+      ),
     result: mergeResultChangesSchema.optional(),
   }),
 };
@@ -253,7 +285,7 @@ export const postFeatureRevisionRebaseValidator = {
   operationId: "postFeatureRevisionRebase",
   summary: "Rebase a draft revision onto the current live version",
   description:
-    "**Deprecated.** Use [POST /v2/features/:id/revisions/:version/rebase](#operation/postFeatureRevisionRebaseV2) instead.\n\nUpdates the draft's base revision to match the currently-live revision, applying the draft's changes on top. Supply `conflictResolutions` to resolve any conflicting fields.\n\n**Conflict key format changed for v1 clients.** Rules now merge as a single flat array, so the per-rule `envName.ruleId` keys used by older clients are no longer recognized. Valid keys: `defaultValue`, `rules`, `prerequisites`, `archived`, `holdout`, and `environmentsEnabled.<env>`. Unrecognized keys are ignored; unresolved conflicts respond with `409`.",
+    "**Deprecated.** Use [POST /v2/features/:id/revisions/:version/rebase](#operation/postFeatureRevisionRebaseV2) instead.\n\nUpdates the draft's base revision to match the currently-live revision, applying the draft's changes on top. Supply `conflictResolutions` to resolve any conflicting fields.\n\n**Conflict key format changed for v1 clients.** The per-rule `envName.ruleId` keys used by older clients are no longer recognized. Valid keys: `defaultValue`, `prerequisites`, `archived`, `holdout`, `environmentsEnabled.<env>`, `metadata.<field>`, `rules.<ruleId>`, `rules.order`, and the blanket `rules` (applies one strategy to all rule-level conflicts). Unrecognized keys are ignored; unresolved conflicts respond with `409`.",
   deprecated: true,
   deprecationDate: FEATURE_V1_DEPRECATED,
   tags: ["feature-revisions"],
@@ -263,6 +295,7 @@ export const postFeatureRevisionRebaseValidator = {
       conflictResolutions: z
         .record(z.string(), z.enum(["overwrite", "discard"]))
         .optional(),
+      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
@@ -283,6 +316,7 @@ export const postFeatureRevisionRequestReviewValidator = {
   bodySchema: z
     .object({
       comment: z.string().optional(),
+      autoPublishOnApproval: z.boolean().optional(),
     })
     .strict(),
   querySchema: z.never(),
@@ -295,7 +329,7 @@ export const postFeatureRevisionSubmitReviewValidator = {
   operationId: "postFeatureRevisionSubmitReview",
   summary: "Submit a review on a draft revision",
   description:
-    "**Deprecated.** Use [POST /v2/features/:id/revisions/:version/submit-review](#operation/postFeatureRevisionSubmitReviewV2) instead.\n\nSubmits an `approve`, `request-changes`, or `comment` review on the draft. Contributors cannot approve their own drafts, but may submit comments or request changes.",
+    "**Deprecated.** Use [POST /v2/features/:id/revisions/:version/submit-review](#operation/postFeatureRevisionSubmitReviewV2) instead.\n\nSubmits an `approve`, `request-changes`, or `comment` review on the draft. Contributors cannot approve their own drafts, but may submit comments or request changes.\n\nWhen `action` is `approve` and the revision has `autoPublishOnApproval` enabled, the revision is automatically published after approval. Pass `skipAutoPublish: true` to approve without triggering auto-publish.",
   deprecated: true,
   deprecationDate: FEATURE_V1_DEPRECATED,
   tags: ["feature-revisions"],
@@ -304,10 +338,13 @@ export const postFeatureRevisionSubmitReviewValidator = {
     .object({
       comment: z.string().optional(),
       action: z.enum(["approve", "request-changes", "comment"]).optional(),
+      skipAutoPublish: z.boolean().optional(),
     })
     .strict(),
   querySchema: z.never(),
-  responseSchema: revisionResponse,
+  responseSchema: revisionResponse.extend({
+    autoPublished: z.boolean().optional(),
+  }),
 };
 
 // ---- Rule validators ----
@@ -341,6 +378,7 @@ const forceRolloutCreateInput = z
     ...commonRuleFields,
     type: z.enum(["force", "rollout"]).optional(),
     value: z.string(),
+    sparse: z.boolean().optional(),
     coverage: z.number().min(0).max(1).optional(),
     hashAttribute: z.string().optional(),
     seed: z.string().optional(),
@@ -358,6 +396,7 @@ const experimentRefCreateInput = z
         .object({ variationId: z.string().optional(), value: z.string() })
         .strict(),
     ),
+    sparse: z.boolean().optional(),
   })
   .strict();
 
@@ -423,6 +462,7 @@ export const postFeatureRevisionRuleAddValidator = {
       rampSchedule: inlineRampScheduleInput.optional(),
       schedule: scheduleShorthand.optional(),
       ...newDraftMetadataFields,
+      ...publishOverrideBodyFields,
     })
     .strict(),
   querySchema: z.never(),
@@ -445,6 +485,7 @@ export const postFeatureRevisionRulesReorderValidator = {
       environment: z.string(),
       ruleIds: z.array(z.string()),
       ...newDraftMetadataFields,
+      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
@@ -466,6 +507,7 @@ const rulePatchSchema = z
       .enum(["force", "rollout", "experiment-ref", "safe-rollout"])
       .optional(),
     value: z.string().optional(),
+    sparse: z.boolean().optional(),
     coverage: z.number().min(0).max(1).optional(),
     hashAttribute: z.string().optional(),
     seed: z.string().optional(),
@@ -497,6 +539,7 @@ export const putFeatureRevisionRuleValidator = {
       rampSchedule: inlineRampScheduleInput.optional(),
       schedule: scheduleShorthand.optional(),
       ...newDraftMetadataFields,
+      ...publishOverrideBodyFields,
     })
     .strict(),
   querySchema: z.never(),
@@ -518,6 +561,7 @@ export const deleteFeatureRevisionRuleValidator = {
     .object({
       environment: z.string(),
       ...newDraftMetadataFields,
+      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
@@ -535,7 +579,10 @@ export const putFeatureRevisionRuleRampScheduleValidator = {
   deprecationDate: FEATURE_V1_DEPRECATED,
   tags: ["feature-revisions"],
   paramsSchema: ruleParams,
-  bodySchema: standaloneRampScheduleInput.extend(newDraftMetadataFields),
+  bodySchema: standaloneRampScheduleInput.extend({
+    ...newDraftMetadataFields,
+    ignoreWarnings: ignoreWarningsBodyField,
+  }),
   querySchema: z.never(),
   responseSchema: revisionResponse,
 };
@@ -555,6 +602,7 @@ export const deleteFeatureRevisionRuleRampScheduleValidator = {
     .object({
       environment: z.string().optional().meta({ deprecated: true }),
       ...newDraftMetadataFields,
+      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
@@ -579,6 +627,7 @@ export const postFeatureRevisionToggleValidator = {
       environment: z.string(),
       enabled: z.boolean(),
       ...newDraftMetadataFields,
+      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
@@ -597,7 +646,11 @@ export const putFeatureRevisionDefaultValueValidator = {
   tags: ["feature-revisions"],
   paramsSchema: revisionParams,
   bodySchema: z
-    .object({ defaultValue: z.string(), ...newDraftMetadataFields })
+    .object({
+      defaultValue: z.string(),
+      ...newDraftMetadataFields,
+      ...publishOverrideBodyFields,
+    })
     .strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
@@ -618,6 +671,7 @@ export const putFeatureRevisionPrerequisitesValidator = {
     .object({
       prerequisites: z.array(featurePrerequisite),
       ...newDraftMetadataFields,
+      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
@@ -646,6 +700,7 @@ export const putFeatureRevisionMetadataValidator = {
       neverStale: z.boolean().optional(),
       customFields: z.record(z.string(), z.unknown()).optional(),
       jsonSchema: JSONSchemaDef.optional(),
+      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
@@ -664,7 +719,11 @@ export const putFeatureRevisionArchiveValidator = {
   tags: ["feature-revisions"],
   paramsSchema: revisionParams,
   bodySchema: z
-    .object({ archived: z.boolean(), ...newDraftMetadataFields })
+    .object({
+      archived: z.boolean(),
+      ...newDraftMetadataFields,
+      ignoreWarnings: ignoreWarningsBodyField,
+    })
     .strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
@@ -688,6 +747,7 @@ export const putFeatureRevisionHoldoutValidator = {
         .strict()
         .nullable(),
       ...newDraftMetadataFields,
+      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
@@ -711,7 +771,7 @@ export const listRevisionsValidator = {
       ...paginationQueryFields,
       ...skipPaginationQueryField,
       featureId: z.string().optional(),
-      status: revisionStatusSchema.optional(),
+      status: revisionStatusFilterSchema,
       author: z.string().optional(),
       mine: booleanQueryField.describe(
         "If true, return only revisions authored by or contributed to by the calling user. Requires a user-scoped API key. Mutually exclusive with `author`.",

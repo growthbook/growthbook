@@ -1,13 +1,16 @@
 import mongoose, { FilterQuery } from "mongoose";
 import { evalCondition } from "@growthbook/growthbook";
 import { ExperimentMetricInterface } from "shared/experiments";
+import omit from "lodash/omit";
 import {
   InsertMetricProps,
   LegacyMetricInterface,
+  MetricDefinitionInterface,
   MetricInterface,
 } from "shared/types/metric";
 import { getConfigMetrics, usingFileConfig } from "back-end/src/init/config";
 import { upgradeMetricDoc } from "back-end/src/util/migrations";
+import { validatePriorSettings } from "back-end/src/util/priors";
 import { ALLOW_CREATE_METRICS } from "back-end/src/util/secrets";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
@@ -191,6 +194,8 @@ export async function insertMetric(
     context.permissions.throwPermissionError();
   }
 
+  validatePriorSettings(metricWithOrganization.priorSettings);
+
   const created = toInterface(await MetricModel.create(metricWithOrganization));
   await audit.logCreate(context, created);
   return created;
@@ -276,6 +281,20 @@ export async function deleteMetricById(
  * @param organization
  * @param user
  */
+export async function projectHasMetrics(
+  context: ReqContext | ApiReqContext,
+  projectId: string,
+): Promise<boolean> {
+  const metric = await getCollection(COLLECTION).findOne(
+    {
+      organization: context.org.id,
+      projects: [projectId],
+    },
+    { projection: { _id: 1 } },
+  );
+  return !!metric;
+}
+
 export async function deleteAllMetricsForAProject({
   projectId,
   context,
@@ -315,7 +334,8 @@ export async function getMetricMap(
 async function findMetrics(
   context: ReqContext | ApiReqContext,
   additionalQuery?: FilterQuery<LegacyMetricInterface>,
-) {
+  excludeFields?: readonly (keyof MetricInterface)[],
+): Promise<MetricInterface[]> {
   const metrics: MetricInterface[] = [];
   const metricIds = new Set<string>();
 
@@ -324,7 +344,9 @@ async function findMetrics(
     getConfigMetrics(context)
       .filter((m) => !additionalQuery || evalCondition(m, additionalQuery))
       .forEach((m) => {
-        metrics.push(m);
+        metrics.push(
+          excludeFields ? (omit(m, excludeFields) as MetricInterface) : m,
+        );
         metricIds.add(m.id);
       });
 
@@ -334,17 +356,20 @@ async function findMetrics(
     }
   }
 
+  // `analysis` is never needed when finding multiple metrics and can get
+  // quite large, so it's always excluded
+  const projection: Record<string, 0> = { analysis: 0 };
+  excludeFields?.forEach((f) => {
+    projection[f] = 0;
+  });
+
   const docs = await getCollection(COLLECTION)
     .find(
       {
         ...additionalQuery,
         organization: context.org.id,
       },
-      {
-        // This is never needed when finding multiple metrics
-        // This field can get quite large, so it's best to exclude it
-        projection: { analysis: 0 },
-      },
+      { projection },
     )
     .toArray();
   docs.forEach((doc) => {
@@ -365,14 +390,35 @@ export async function getMetricsByOrganization(
   options?: {
     datasourceId?: string;
     projectId?: string;
+    includeArchived?: boolean;
   },
 ) {
   const query: FilterQuery<LegacyMetricInterface> = {
     ...(options?.datasourceId && { datasource: options.datasourceId }),
     ...(options?.projectId && projectFilterQuery(options.projectId)),
+    ...(options?.includeArchived === false && {
+      status: { $ne: "archived" },
+    }),
   };
 
   return findMetrics(context, query);
+}
+
+const METRIC_DEFINITION_EXCLUDED_FIELDS = [
+  "sql",
+  "templateVariables",
+  "conditions",
+  "queries",
+  "analysis",
+  "analysisError",
+] as const;
+
+// Slimmed version of getMetricsByOrganization for the definitions endpoint.
+// Heavy fields are excluded at the DB layer to keep the payload small.
+export async function getMetricsForDefinitions(
+  context: ReqContext | ApiReqContext,
+): Promise<MetricDefinitionInterface[]> {
+  return findMetrics(context, undefined, METRIC_DEFINITION_EXCLUDED_FIELDS);
 }
 
 export async function getMetricsByDatasource(
@@ -583,6 +629,8 @@ export async function updateMetric(
       context.permissions.throwPermissionError();
     }
   }
+
+  validatePriorSettings(updates.priorSettings);
 
   // If using config.yml, need to do an `upsert` since it might not exist in mongo yet
   if (metric.managedBy === "config") {
