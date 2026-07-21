@@ -31,7 +31,6 @@ export type SidebarLinkProps = {
   name: string;
   href: string;
   path: RegExp;
-  icon?: string;
   Icon?: IconType;
   divider?: boolean;
   sectionTitle?: string;
@@ -153,11 +152,6 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
           }}
         >
           {props.Icon && <props.Icon className={styles.icon} />}
-          {props.icon && (
-            <span>
-              <img src={`/icons/${props.icon}`} />
-            </span>
-          )}
           {props.name}
           {props.beta && <BetaBadge ml="2" />}
           {props.subLinks && (
@@ -197,15 +191,8 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
                     [styles.betaLink]: l.beta,
                   })}
                 >
-                  {showSubMenuIcons && (
-                    <>
-                      {l.Icon && <l.Icon className={styles.icon} />}
-                      {l.icon && (
-                        <span>
-                          <img src={`/icons/${l.icon}`} />
-                        </span>
-                      )}
-                    </>
+                  {showSubMenuIcons && l.Icon && (
+                    <l.Icon className={styles.icon} />
                   )}
                   {l.name}
                   {l.beta && <BetaBadge ml="1" />}
