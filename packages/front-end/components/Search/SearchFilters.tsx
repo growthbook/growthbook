@@ -22,6 +22,42 @@ import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 
 const USE_SEARCH_BOX = true;
 
+// Serialize a parsed filter back into `field:[!][op]v1,v2` search-string syntax.
+// Exported so other filter UIs (e.g. SidebarExperimentFilters) reuse the same
+// round-trip format instead of re-implementing it.
+export function filterToString(filter: SyntaxFilter): string {
+  return (
+    filter.field +
+    ":" +
+    (filter.negated ? "!" : "") +
+    filter.operator +
+    filter.values
+      // Quote values containing spaces (token separators) or commas (value
+      // separators) so they round-trip through the parser as a single value.
+      .map((v) => (v.includes(" ") || v.includes(",") ? '"' + v + '"' : v))
+      .join(",")
+  );
+}
+
+// Regex matching one serialized filter token (`field:[!][op]values`) in the
+// raw search string. The prefix is regex-escaped (operators like `^` are regex
+// metacharacters), and a negative lookahead keeps a plain `field:` pattern
+// from also swallowing `field:!...` / `field:>...` tokens for the same field.
+function filterTokenRegex(filter: SyntaxFilter): RegExp {
+  const prefix = (
+    filter.field +
+    ":" +
+    (filter.negated ? "!" : "") +
+    filter.operator
+  ).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const guard = filter.operator
+    ? ""
+    : filter.negated
+      ? "(?![><^~=])"
+      : "(?![!><^~=])";
+  return new RegExp(`${prefix}${guard}(?:"[^"]*"|[^\\s])*`, "g");
+}
+
 // Common interfaces
 export interface SearchFiltersItem {
   id: string;
@@ -217,12 +253,18 @@ function doesFilterExistInSearch({
   operator?: string;
   negated?: boolean;
 }): boolean {
+  // Value matching is case-insensitive to mirror how filterSearchTerm actually
+  // filters (it lowercases both sides), so hand-typed `status:Running` still
+  // maps to the "running" option.
+  const hasValue = (filter: SyntaxFilter) =>
+    filter.values.some((v) => v.toLowerCase() === value.toLowerCase());
+
   if (negated !== undefined && operator !== undefined) {
     return syntaxFilters.some(
       (filter) =>
         filter.field === field &&
         filter.operator === operator &&
-        filter.values.includes(value) &&
+        hasValue(filter) &&
         filter.negated === negated,
     );
   }
@@ -231,11 +273,11 @@ function doesFilterExistInSearch({
       (filter) =>
         filter.field === field &&
         filter.operator === operator &&
-        filter.values.includes(value),
+        hasValue(filter),
     );
   } else {
     return syntaxFilters.some(
-      (filter) => filter.field === field && filter.values.includes(value),
+      (filter) => filter.field === field && hasValue(filter),
     );
   }
 }
@@ -249,20 +291,6 @@ export const useSearchFiltersBase = ({
   const [dropdownFilterOpen, setDropdownFilterOpen] = useState("");
   const { projects, project } = useDefinitions();
 
-  const filterToString = useCallback((filter: SyntaxFilter) => {
-    return (
-      filter.field +
-      ":" +
-      (filter.negated ? "!" : "") +
-      filter.operator +
-      filter.values
-        .map((v) => {
-          return v.includes(" ") ? '"' + v + '"' : v;
-        })
-        .join(",")
-    );
-  }, []);
-
   const addFilterToSearch = useCallback(
     (filter: SyntaxFilter) => {
       const term = filterToString(filter);
@@ -273,29 +301,25 @@ export const useSearchFiltersBase = ({
         ).trim(),
       );
     },
-    [filterToString, searchInputProps.value, setSearchValue],
+    [searchInputProps.value, setSearchValue],
   );
 
   const updateFilterToSearch = useCallback(
     (filter: SyntaxFilter) => {
       const term = filterToString(filter);
-      const startsWith =
-        filter.field + ":" + (filter.negated ? "!" : "") + filter.operator;
       const newValue = searchInputProps.value.replace(
-        new RegExp(`${startsWith}(?:"[^"]*"|[^\\s])*`, "g"),
+        filterTokenRegex(filter),
         term,
       );
       setSearchValue(newValue.trim());
     },
-    [filterToString, searchInputProps, setSearchValue],
+    [searchInputProps, setSearchValue],
   );
 
   const removeFilterToSearch = useCallback(
     (filter: SyntaxFilter) => {
-      const startsWith =
-        filter.field + ":" + (filter.negated ? "!" : "") + filter.operator;
       const newValue = searchInputProps.value.replace(
-        new RegExp(`${startsWith}(?:"[^"]*"|[^\\s])*`, "g"),
+        filterTokenRegex(filter),
         "",
       );
       setSearchValue(newValue.trim());
@@ -313,13 +337,17 @@ export const useSearchFiltersBase = ({
       );
 
       if (existingFilter) {
+        // Case-insensitive, matching how filterSearchTerm filters and how the
+        // UI decides an option is checked — otherwise a hand-typed
+        // `status:Running` renders checked but can never be unchecked.
+        const newValue = (filter.values[0] ?? "").toLowerCase();
         const valueExists = existingFilter.values.some(
-          (v) => v === filter.values[0],
+          (v) => v.toLowerCase() === newValue,
         );
 
         if (valueExists) {
           existingFilter.values = existingFilter.values.filter(
-            (v) => v !== filter.values[0],
+            (v) => v.toLowerCase() !== newValue,
           );
 
           if (existingFilter.values.length === 0) {

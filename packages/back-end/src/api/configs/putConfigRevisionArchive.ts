@@ -6,7 +6,7 @@ import {
   createOrUpdateRevision,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
-import { assertConfigArchivable } from "back-end/src/services/constants";
+import { assertConfigArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 import {
   discardIfJustCreated,
@@ -30,10 +30,21 @@ export const putConfigRevisionArchive = createApiRequestHandler(
 
   const { archived } = req.body;
 
-  // Block staging an archive while the config is still referenced or has live
-  // children. Unarchiving is allowed.
+  // Soft-warn (bypassably) when staging an archive while the config still has
+  // live dependents (references or lineage children). Unarchiving is allowed.
   if (archived && !config.archived) {
-    await assertConfigArchivable(req.context, config);
+    await assertConfigArchiveDependentsGuard(
+      req.context,
+      {
+        id: config.id,
+        key: config.key,
+        project: config.project,
+        value: config.value,
+        parent: config.parent,
+        extends: config.extends,
+      },
+      { armed: false },
+    );
   }
 
   await ensureLiveRevisionExists(

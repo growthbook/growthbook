@@ -16,7 +16,6 @@ import { DocLink } from "@/components/DocLink";
 import Code, { Language } from "@/components/SyntaxHighlighting/Code";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { useSearch } from "@/services/search";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
@@ -87,9 +86,7 @@ const DimensionsPage: FC = () => {
   const { getOwnerDisplay } = useUser();
 
   const permissionsUtil = usePermissionsUtil();
-  const { currentProjectIsDemo } = useDemoDataSourceProject();
-  const hasCreateDimensionPermission =
-    permissionsUtil.canCreateDimension() && !currentProjectIsDemo;
+  const hasCreateDimensionPermission = permissionsUtil.canCreateDimension();
   const hasEditDimensionPermission = permissionsUtil.canUpdateDimension();
   const hasDeleteDimensionPermissions = permissionsUtil.canDeleteDimension();
   const orgCanCreateDimensions = hasFileConfig()

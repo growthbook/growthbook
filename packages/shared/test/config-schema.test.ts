@@ -356,6 +356,37 @@ describe("jsonSchemaStringToFields", () => {
     expect(warnings.some((w) => w.code === "unresolved-type")).toBe(true);
     expect(warnings.some((w) => /depth/i.test(w.message))).toBe(true);
   });
+
+  it("imports a root additionalProperties boolean silently (extensibility)", () => {
+    for (const ap of [true, false, {}]) {
+      const { fields, warnings } = jsonSchemaStringToFields(
+        JSON.stringify({
+          type: "object",
+          properties: { a: { type: "string" } },
+          additionalProperties: ap,
+        }),
+      );
+      expect(fields.map((f) => f.key)).toEqual(["a"]);
+      expect(warnings).toEqual([]);
+    }
+  });
+
+  it("warns when a typed root additionalProperties schema is dropped", () => {
+    const { fields, warnings } = jsonSchemaStringToFields(
+      JSON.stringify({
+        type: "object",
+        properties: { a: { type: "string" } },
+        additionalProperties: { type: "number" },
+      }),
+    );
+    expect(fields.map((f) => f.key)).toEqual(["a"]);
+    expect(
+      warnings.some(
+        (w) =>
+          w.code === "unsupported-member" && w.path === "additionalProperties",
+      ),
+    ).toBe(true);
+  });
 });
 
 describe("fieldsCanonicallyEqual", () => {
@@ -580,9 +611,26 @@ describe("tsTypesToFields", () => {
     ).toEqual([]);
   });
 
-  it("flags skipped members as unsupported", () => {
-    const { warnings } = parse(`interface T { [key: string]: unknown }`);
-    expect(warnings.some((w) => w.code === "unsupported-member")).toBe(true);
+  it("skips a permissive index signature silently (maps to extensibility)", () => {
+    for (const valueType of ["unknown", "any"]) {
+      const { fields, warnings } = parse(
+        `interface T { a: string; [key: string]: ${valueType} }`,
+      );
+      expect(fields.map((f) => f.key)).toEqual(["a"]);
+      expect(warnings).toEqual([]);
+    }
+  });
+
+  it("flags a typed index signature (value constraint is lost)", () => {
+    const { fields, warnings } = parse(
+      `interface T { a: string; [key: string]: number }`,
+    );
+    expect(fields.map((f) => f.key)).toEqual(["a"]);
+    expect(
+      warnings.some(
+        (w) => w.code === "unsupported-member" && w.message.includes("number"),
+      ),
+    ).toBe(true);
   });
 
   it("picks the DAG root (the unreferenced object), not the first object", () => {
@@ -876,6 +924,108 @@ describe("validateConfigValue", () => {
     expect(
       validateConfigValue({
         value: { conn: { host: 123 } },
+        fields: nested,
+        additionalProperties: false,
+      }).valid,
+    ).toBe(false);
+  });
+
+  it("does not enforce required nested under conditional/pattern subschemas for a sparse patch", () => {
+    const nested: SchemaField[] = [
+      field({
+        key: "conn",
+        jsonSchema: JSON.stringify({
+          type: "object",
+          properties: { mode: { type: "string" } },
+          if: { properties: { mode: { const: "tls" } } },
+          then: {
+            properties: { cert: { type: "string" } },
+            required: ["cert"],
+          },
+          patternProperties: {
+            "^replica_": {
+              type: "object",
+              properties: { host: { type: "string" } },
+              required: ["host"],
+            },
+          },
+          // Draft-07 spelling (what the Ajv instance enforces): array form =
+          // conditional required, schema form = dependentSchemas.
+          dependencies: {
+            mode: ["region"],
+          },
+        }),
+      }),
+    ];
+    // Sparse: `then`/`dependencies`/`patternProperties` required keys are
+    // inherited elsewhere — must not reject.
+    expect(
+      validateConfigValue({
+        value: { conn: { mode: "tls", replica_a: {} } },
+        fields: nested,
+        additionalProperties: false,
+      }).valid,
+    ).toBe(true);
+    // A present value with a wrong type under those positions is still rejected.
+    expect(
+      validateConfigValue({
+        value: { conn: { mode: "tls", cert: 123 } },
+        fields: nested,
+        additionalProperties: false,
+      }).valid,
+    ).toBe(false);
+    // requireAll enforces the conditional requireds.
+    expect(
+      validateConfigValue({
+        value: { conn: { mode: "tls" } },
+        fields: nested,
+        additionalProperties: false,
+        requireAll: true,
+      }).valid,
+    ).toBe(false);
+  });
+
+  it("preserves required under `not` (prohibition) and `if` (trigger) on sparse patches", () => {
+    const nested: SchemaField[] = [
+      field({
+        key: "conn",
+        jsonSchema: JSON.stringify({
+          type: "object",
+          properties: {
+            mode: { type: "string" },
+            tier: { type: "string" },
+            legacy: { type: "boolean" },
+          },
+          // "legacy must be absent" — stripping this required would turn it
+          // into not:{} and reject every value.
+          not: { required: ["legacy"] },
+          // "when mode is present, tier must be pro" — stripping the trigger's
+          // required would apply the branch to every value.
+          if: { required: ["mode"] },
+          then: { properties: { tier: { const: "pro" } } },
+        }),
+      }),
+    ];
+    // No legacy, no mode: both constructs inert — valid.
+    expect(
+      validateConfigValue({
+        value: { conn: { tier: "free" } },
+        fields: nested,
+        additionalProperties: false,
+      }).valid,
+    ).toBe(true);
+    // The prohibition still enforces.
+    expect(
+      validateConfigValue({
+        value: { conn: { legacy: true } },
+        fields: nested,
+        additionalProperties: false,
+      }).valid,
+    ).toBe(false);
+    // The trigger still gates the branch: mode present + wrong tier rejects.
+    expect(
+      validateConfigValue({
+        value: { conn: { mode: "x", tier: "free" } },
         fields: nested,
         additionalProperties: false,
       }).valid,
@@ -1277,6 +1427,42 @@ describe("protoToFields", () => {
     ).toBe(true);
     expect(warnings.some((w) => /bytes/.test(w.message))).toBe(true);
   });
+
+  it("imports a permissive map (google.protobuf.Value / Struct) silently", () => {
+    for (const valueType of [
+      "google.protobuf.Value",
+      "google.protobuf.Struct",
+    ]) {
+      const { fields, warnings } = protoToFields(`
+        message Cfg { map<string, ${valueType}> extra = 1; }
+      `);
+      expect(fields.map((f) => f.key)).toEqual(["extra"]);
+      expect(JSON.parse(fields[0].jsonSchema as string)).toMatchObject({
+        type: "object",
+      });
+      expect(warnings).toEqual([]);
+    }
+  });
+
+  it("keeps a resolvable typed map value silently, but warns when it's lost", () => {
+    const typed = protoToFields(`
+      message Cfg { map<string, int32> counts = 1; }
+    `);
+    expect(
+      JSON.parse(typed.fields[0].jsonSchema as string).additionalProperties,
+    ).toEqual({ type: "integer" });
+    expect(typed.warnings).toEqual([]);
+
+    const lost = protoToFields(`
+      message Cfg { map<string, SomeMissingType> counts = 1; }
+    `);
+    expect(
+      lost.warnings.some(
+        (w) =>
+          w.code === "unresolved-type" && w.message.includes("SomeMissingType"),
+      ),
+    ).toBe(true);
+  });
 });
 
 describe("fieldsToProto", () => {
@@ -1580,6 +1766,52 @@ type AppConfig struct {
       properties: { inner: { type: "integer" } },
     });
   });
+
+  it("imports a permissive map (interface{} / any) silently", () => {
+    for (const valueType of ["interface{}", "any"]) {
+      const src =
+        `type Cfg struct {
+  Extra map[string]${valueType} ` +
+        '`json:"extra"`' +
+        `
+}`;
+      const { fields, warnings } = golangToFields(src);
+      expect(fields.map((f) => f.key)).toEqual(["extra"]);
+      expect(JSON.parse(fields[0].jsonSchema as string)).toMatchObject({
+        type: "object",
+      });
+      expect(warnings).toEqual([]);
+    }
+  });
+
+  it("keeps a resolvable typed map value silently, but warns when it's lost", () => {
+    const typed =
+      `type Cfg struct {
+  Counts map[string]int ` +
+      '`json:"counts"`' +
+      `
+}`;
+    const typedResult = golangToFields(typed);
+    expect(
+      JSON.parse(typedResult.fields[0].jsonSchema as string)
+        .additionalProperties,
+    ).toEqual({ type: "integer" });
+    expect(typedResult.warnings).toEqual([]);
+
+    const lost =
+      `type Cfg struct {
+  Counts map[string]SomeMissingType ` +
+      '`json:"counts"`' +
+      `
+}`;
+    const lostResult = golangToFields(lost);
+    expect(
+      lostResult.warnings.some(
+        (w) =>
+          w.code === "unresolved-type" && w.message.includes("SomeMissingType"),
+      ),
+    ).toBe(true);
+  });
 });
 
 describe("splitGoFieldStatements", () => {
@@ -1718,6 +1950,38 @@ pub struct AppConfig {
     expect(rs).toContain('#[serde(rename = "base-url")]');
     expect(rs).toContain("pub base_url: String,");
   });
+
+  it("imports a permissive map (serde_json::Value) silently", () => {
+    const src = `pub struct Cfg {
+    pub extra: HashMap<String, serde_json::Value>,
+}`;
+    const { fields, warnings } = rustToFields(src);
+    expect(fields.map((f) => f.key)).toEqual(["extra"]);
+    expect(JSON.parse(fields[0].jsonSchema as string)).toMatchObject({
+      type: "object",
+    });
+    expect(warnings).toEqual([]);
+  });
+
+  it("keeps a resolvable typed map value silently, but warns when it's lost", () => {
+    const typed = rustToFields(`pub struct Cfg {
+    pub counts: HashMap<String, i64>,
+}`);
+    expect(
+      JSON.parse(typed.fields[0].jsonSchema as string).additionalProperties,
+    ).toEqual({ type: "integer" });
+    expect(typed.warnings).toEqual([]);
+
+    const lost = rustToFields(`pub struct Cfg {
+    pub counts: HashMap<String, SomeMissingType>,
+}`);
+    expect(
+      lost.warnings.some(
+        (w) =>
+          w.code === "unresolved-type" && w.message.includes("SomeMissingType"),
+      ),
+    ).toBe(true);
+  });
 });
 
 describe("python converter (Pydantic)", () => {
@@ -1795,6 +2059,31 @@ class AppConfig(BaseModel):
     expect(py).toContain("class Retry(BaseModel):");
     expect(py).toContain("retry: Retry");
     expect(py).toContain("backoff_ms: Optional[int] = None");
+  });
+
+  it("imports a permissive dict (Dict[str, Any] / dict) silently", () => {
+    for (const annotation of ["Dict[str, Any]", "dict[str, Any]", "dict"]) {
+      const { fields, warnings } = pythonToFields(`class Cfg(BaseModel):
+    extra: ${annotation}`);
+      expect(fields.map((f) => f.key)).toEqual(["extra"]);
+      expect(JSON.parse(fields[0].jsonSchema as string)).toMatchObject({
+        type: "object",
+      });
+      expect(warnings).toEqual([]);
+    }
+  });
+
+  it("warns when a typed dict value annotation is dropped", () => {
+    const { fields, warnings } = pythonToFields(`class Cfg(BaseModel):
+    counts: Dict[str, int]`);
+    expect(JSON.parse(fields[0].jsonSchema as string)).toMatchObject({
+      type: "object",
+    });
+    expect(
+      warnings.some(
+        (w) => w.code === "unresolved-type" && w.message.includes('"int"'),
+      ),
+    ).toBe(true);
   });
 });
 

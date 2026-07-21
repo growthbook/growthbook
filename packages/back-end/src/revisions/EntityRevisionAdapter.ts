@@ -2,6 +2,7 @@ import { isEqual } from "lodash";
 import type { Revision } from "shared/enterprise";
 import type { Context } from "back-end/src/models/BaseModel";
 import type { ArmAcknowledgments } from "back-end/src/services/armGuards";
+import type { PublishGate } from "back-end/src/revisions/publishGates";
 
 /**
  * Narrow a proposed-changes object to the fields an adapter may write, dropping
@@ -133,6 +134,26 @@ export interface EntityRevisionAdapter<
     // bypass applies).
     options?: { isRevert?: boolean; deferred?: boolean },
   ): Promise<void>;
+
+  /**
+   * Non-throwing view of this entity's publish guards, for the REST publish
+   * handlers' aggregated 422 (PublishBlockedError): evaluate the same guard
+   * conditions the sequential asserts enforce and return one PublishGate per
+   * live conflict set, so a blocked publish reports every gate — and the flag
+   * that clears it — in one response. Gates the caller's authority or request
+   * disposition already clears implicitly (bypass-approval permission, a live
+   * ignoreWarnings) are omitted, matching the asserts' synchronous override —
+   * but the overridden conflicts must still be logged, matching the asserts'
+   * override logging. On the REST publish path this plus the handler's
+   * evaluatePublishGates IS the guard enforcement; deferred/internal paths keep
+   * their asserts.
+   */
+  collectPublishGates?(
+    context: Context,
+    entity: TSnapshot,
+    revision: Revision,
+    desiredState: Record<string, unknown>,
+  ): Promise<PublishGate[]>;
 
   /**
    * Called on the no-op merge path (publish with no net entity change — a

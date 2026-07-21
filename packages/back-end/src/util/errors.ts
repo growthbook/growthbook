@@ -113,6 +113,15 @@ export class UnauthorizedError extends Error {
   }
 }
 
+// A plan limit was hit and paying (upgrading) is the way past it.
+export class PaymentRequiredError extends Error {
+  status = 402;
+  constructor(message: string) {
+    super(message);
+    this.name = "PaymentRequiredError";
+  }
+}
+
 export class PlanDoesNotAllowError extends Error {
   status = 403;
   constructor(message: string) {
@@ -158,14 +167,15 @@ export class SoftWarningError extends Error {
   }
 }
 
-// A publish failure that cannot become publishable on a later tick — a stale
-// experiment-guard fingerprint (the acknowledged conflict set no longer matches)
-// or a missing arming user. Thrown from a publish path so the scheduled-publish
-// poller gives up on the FIRST occurrence — parks the draft and fires
-// `revision.publishFailed` — instead of retrying to the attempt cap. Failures a
-// later tick could still resolve (merge conflicts, an incomplete pre-launch
-// checklist, a schema/invariant violation the config's schema or value may yet
-// be edited to satisfy) stay ordinary errors and retry to the cap. The
+// A publish failure that should not be retried on a later tick: a stale guard
+// fingerprint (the acknowledged conflict set no longer matches), a missing
+// arming user, or a deterministic validation rejection of the staged state
+// (block-mode schema/invariant violations, the descendant schema-safety gate)
+// — retrying produces the identical failure, so the poller gives up on the
+// FIRST occurrence, parks the draft, and fires `revision.publishFailed`.
+// Failures a later tick plausibly resolves on its own (merge claim races,
+// sibling publish locks, an incomplete pre-launch checklist, transient infra)
+// stay ordinary errors and retry to the attempt cap. The
 // `terminalPublishFailure` flag lets the classifier recognize it even across
 // module/re-throw boundaries where `instanceof` can be unreliable. Still a 400
 // for synchronous (manual) callers.

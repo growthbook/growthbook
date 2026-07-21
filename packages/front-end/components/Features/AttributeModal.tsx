@@ -4,6 +4,7 @@ import {
   SDKAttributeFormat,
   SDKAttributeType,
 } from "shared/types/organization";
+import { getDefaultProjectsForNewResource } from "shared/demo-datasource";
 import { FaExclamationCircle, FaInfoCircle } from "react-icons/fa";
 import React from "react";
 import { Box } from "@radix-ui/themes";
@@ -47,7 +48,7 @@ export default function AttributeModal({ close, attribute }: Props) {
   const permissionsUtil = usePermissionsUtil();
   const { refreshOrganization } = useUser();
 
-  const { apiCall } = useAuth();
+  const { apiCall, orgId } = useAuth();
 
   const schema = useAttributeSchema(true);
   const current = schema.find((s) => s.property === attribute);
@@ -57,7 +58,12 @@ export default function AttributeModal({ close, attribute }: Props) {
       property: attribute || "",
       description: current?.description || "",
       datatype: current?.datatype || "string",
-      projects: attribute ? current?.projects || [] : project ? [project] : [],
+      projects: attribute
+        ? current?.projects || []
+        : getDefaultProjectsForNewResource({
+            project,
+            organizationId: orgId || undefined,
+          }),
       format: ((current?.format as unknown) !== "none"
         ? current?.format || ""
         : "") as SDKAttributeFormat,

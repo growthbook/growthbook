@@ -274,7 +274,19 @@ const CreateOrJoinOrganization: FC<{
                       if (resp.projectId) {
                         setProject(resp.projectId);
                       }
+                      if (setOrgId) {
+                        setOrgId(resp.orgId);
+                      }
+                      try {
+                        localStorage.setItem(
+                          "gb-last-picked-org",
+                          `"${resp.orgId}"`,
+                        );
+                      } catch (e) {
+                        console.warn("Cannot set gb-last-picked-org");
+                      }
                       setLoading(false);
+                      router.push("/");
                     } catch (e) {
                       setError(e.message);
                       setLoading(false);

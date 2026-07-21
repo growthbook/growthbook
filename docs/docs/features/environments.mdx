@@ -13,6 +13,10 @@ import CommercialFeature from '@site/src/components/CommercialFeature';
 GrowthBook comes with one environment by default (**production**), but you can add as many as you need on the
 [Environments page](https://app.growthbook.io/environments) located within the **SDK Configuration** menu.
 
+:::note Plan availability
+Free organizations can use the built-in environments (`production`, `dev`, `staging`, and `test`). Creating custom environments beyond these requires a Pro or Enterprise plan. Organizations created before this limit was introduced are unaffected.
+:::
+
 Feature flags can be enabled and disabled on a per-environment basis. You can also set the default feature state for new environments and scope environments to specific projects.
 
 <MaxWidthImage border>
@@ -37,7 +41,7 @@ Environments and projects are both ways to organize feature flags, but they serv
 
 **Environments** represent _where_ your code runs — such as development, staging, and production. A single feature flag exists across all environments, but can be enabled, disabled, or configured differently in each one. Environments map to SDK connections: each SDK key is tied to one environment, so your production app only receives production rules.
 
-**Projects** represent _what_ you're working on — such as a product area, team, or application. Projects scope which flags, experiments, metrics, and data sources are visible to a given team. Items in GrowthBook can belong to multiple projects, and items with no project assigned are available globally. Projects also let you customize permissions and even statistical settings per team. Manage projects under **Settings → Projects**.
+**Projects** represent _what_ you're working on — such as a product area, team, or application. Projects scope which flags, experiments, metrics, and data sources are visible to a given team. Items in GrowthBook can belong to multiple projects, and items with no project assigned are available globally. Projects also let you customize permissions and even statistical settings per team. Manage projects under **Settings → Projects**. Free organizations include one project; creating additional projects requires a Pro or Enterprise plan (organizations created before this limit was introduced are unaffected).
 
 In practice, you use both together: a feature flag in the "Mobile App" project might be enabled in the dev environment for testing but disabled in production until launch.
 

@@ -15,6 +15,7 @@ import {
   AccountPlan,
   CommercialFeature,
   LicenseInterface,
+  OrgLimits,
   SubscriptionInfo,
 } from "shared/enterprise";
 import { AIModel, EmbeddingModel } from "shared/ai";
@@ -446,6 +447,7 @@ export interface OrganizationInterface {
   disabled?: boolean;
   suspended?: boolean;
   setupEventTracker?: string;
+  limits?: OrgLimits;
 }
 
 export type NamespaceUsage = Record<

@@ -37,12 +37,29 @@ import {
   captureConfigExperimentGuardAcknowledgment,
   configChangeAffectsServedValue,
   configRevisionAffectsServedValue,
+  describeConfigConflictKeys,
+  evaluateConfigExperimentGuardConflicts,
 } from "back-end/src/services/experimentGuard";
-import { captureConfigLockAcknowledgment } from "back-end/src/services/configLockGuard";
-import { captureConfigSchemaBreakAcknowledgment } from "back-end/src/services/schemaBreakGuard";
+import {
+  captureConfigLockAcknowledgment,
+  evaluateConfigLockConflicts,
+} from "back-end/src/services/configLockGuard";
+import {
+  captureConfigSchemaBreakAcknowledgment,
+  configArchiveSchemaBreakViolations,
+  evaluateConfigOwnSchemaBreakConflicts,
+} from "back-end/src/services/schemaBreakGuard";
+import {
+  captureConfigArchiveDependentsAcknowledgment,
+  collectConfigArchiveDependents,
+  archiveDependentsGateMessage,
+} from "back-end/src/services/archiveDependentsGuard";
 import { assertConfigPublishGuards } from "back-end/src/services/publishGuards";
+import type { PublishGate } from "back-end/src/revisions/publishGates";
+import { schemaFailureGateOverride } from "back-end/src/revisions/publishGates";
 import { applyPatchToSnapshot } from "back-end/src/revisions/util";
 import { BadRequestError } from "back-end/src/util/errors";
+import { logger } from "back-end/src/util/logger";
 import { normalizeConfigChangesAgainstAncestors } from "./configSchemaNormalize";
 
 // Mirrors constant.adapter.ts (see it for rationale); only model + permissions differ.
@@ -316,6 +333,14 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
         normalizeProposedChanges(proposedChanges),
       ),
     } as ConfigInterface;
+    // Model an archive transition ONLY when this revision flips `archived` —
+    // symmetric with the deferred fire's `"archived" in filteredChanges`, so the
+    // "schema-break" fingerprint captured here (own + archive breaks, unioned by
+    // captureConfigSchemaBreakAcknowledgment) matches what the fire re-checks.
+    const proposedArchived =
+      !!proposedConfig.archived !== !!entity.archived
+        ? !!proposedConfig.archived
+        : undefined;
     return buildArmAcknowledgments({
       experiment: await captureConfigExperimentGuardAcknowledgment(
         context,
@@ -330,17 +355,265 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
           })
         : undefined,
       "schema-break": valueAffecting
-        ? await captureConfigSchemaBreakAcknowledgment(context, {
-            key: entity.key,
-            project: entity.project,
-            value: proposedConfig.value,
-            schema: proposedConfig.schema,
-            parent: proposedConfig.parent,
-            extends: proposedConfig.extends,
-            extensible: proposedConfig.extensible,
-          })
+        ? await captureConfigSchemaBreakAcknowledgment(
+            context,
+            {
+              key: entity.key,
+              project: entity.project,
+              value: proposedConfig.value,
+              schema: proposedConfig.schema,
+              parent: proposedConfig.parent,
+              extends: proposedConfig.extends,
+              extensible: proposedConfig.extensible,
+            },
+            proposedArchived,
+          )
         : undefined,
+      // Archive-dependents fingerprint — captured only for the archive direction
+      // (an unarchive restores values and never breaks a dependent). Independent
+      // of valueAffecting: a metadata-only revision that flips `archived` still
+      // scrubs the config from every dependent's resolved value.
+      "archive-dependents":
+        proposedArchived === true
+          ? await captureConfigArchiveDependentsAcknowledgment(context, {
+              id: entity.id,
+              key: entity.key,
+              project: entity.project,
+              value: proposedConfig.value,
+              parent: proposedConfig.parent,
+              extends: proposedConfig.extends,
+            })
+          : undefined,
     });
+  },
+
+  // Publish-guard evaluation for the REST publish handler's aggregated 422
+  // (see EntityRevisionAdapter.collectPublishGates). Runs the same evaluators
+  // assertConfigPublishGuards uses; on the REST publish path this plus the
+  // handler's evaluatePublishGates IS the guard enforcement (the handler runs no
+  // sequential asserts). Every active conflict is returned as a gate regardless
+  // of the caller's authority, so the handler can classify it as blocking or
+  // bypassed; a synchronous override (a live ignoreWarnings or bypass-approval
+  // permission) is still logged here, matching the asserts' override logging.
+  async collectPublishGates(
+    context: Context,
+    entity: ConfigInterface,
+    revision: Revision,
+    desiredState: Record<string, unknown>,
+  ): Promise<PublishGate[]> {
+    void revision;
+    const filteredChanges = filterUpdatableChanges(
+      desiredState,
+      entity as Record<string, unknown>,
+      UPDATABLE_FIELDS,
+    );
+    // A metadata-only publish can't rewrite any served value, so none of these
+    // guards apply (matches the asserts' gating).
+    if (!configChangeAffectsServedValue(Object.keys(filteredChanges))) {
+      return [];
+    }
+
+    const override =
+      context.ignoreWarnings || canBypassApprovalForConfig(context, entity);
+    const gates: PublishGate[] = [];
+
+    const experimentConflicts = [
+      ...(await evaluateConfigExperimentGuardConflicts(context, entity)),
+    ].sort();
+    if (experimentConflicts.length) {
+      if (override) {
+        logger.info(
+          {
+            configId: entity.id,
+            userId: context.userId,
+            conflictKeys: experimentConflicts,
+          },
+          "Config experiment guard overridden on a direct publish",
+        );
+      }
+      gates.push({
+        type: "experiment-guard",
+        severity: "warning",
+        messages: [
+          `Publishing this config rewrites the live value served to a running experiment (${describeConfigConflictKeys(
+            experimentConflicts,
+          )}).`,
+        ],
+        override: "ignoreWarnings",
+        requiresPermission: null,
+        resolution: null,
+      });
+    }
+
+    const lockConflicts = [
+      ...(await evaluateConfigLockConflicts(context, {
+        source: "config",
+        key: entity.key,
+        project: entity.project,
+      })),
+    ].sort();
+    if (lockConflicts.length) {
+      if (override) {
+        logger.info(
+          {
+            source: "config",
+            key: entity.key,
+            userId: context.userId,
+            conflictKeys: lockConflicts,
+          },
+          "Config-lock guard overridden on a direct publish",
+        );
+      }
+      gates.push({
+        type: "dependent-config-locked",
+        severity: "warning",
+        messages: [
+          `Publishing this config changes the resolved value of locked config(s): ${lockConflicts.join(
+            ", ",
+          )}.`,
+        ],
+        override: "ignoreWarnings",
+        requiresPermission: null,
+        resolution: null,
+      });
+    }
+
+    // Presence-aware for the clearable fields (schema/parent/extends), matching
+    // assertPublishable: `?? entity` would resurrect a cleared value.
+    const schemaBreaks = await evaluateConfigOwnSchemaBreakConflicts(context, {
+      key: entity.key,
+      project: entity.project,
+      value: (filteredChanges.value as string | undefined) ?? entity.value,
+      schema:
+        "schema" in filteredChanges
+          ? (filteredChanges.schema as ConfigInterface["schema"])
+          : entity.schema,
+      parent:
+        "parent" in filteredChanges
+          ? (filteredChanges.parent as string | undefined)
+          : entity.parent,
+      extends:
+        "extends" in filteredChanges
+          ? (filteredChanges.extends as string[] | undefined)
+          : entity.extends,
+      extensible:
+        (filteredChanges.extensible as boolean | undefined) ??
+        entity.extensible,
+    });
+    if (schemaBreaks.length) {
+      if (override) {
+        logger.info(
+          {
+            configKey: entity.key,
+            userId: context.userId,
+            violations: schemaBreaks,
+          },
+          "Schema-break guard overridden on a direct publish",
+        );
+      }
+      gates.push({
+        type: "schema-validation",
+        severity: "warning",
+        messages: ["Invalid config value:", ...schemaBreaks],
+        ...schemaFailureGateOverride(
+          context.org.settings?.blockPublishOnSchemaError !== false,
+        ),
+        resolution: null,
+      });
+    }
+
+    // An archive/unarchive flip scrubs (or restores) this config's contribution
+    // to every dependent's resolved value, which can break their schemas even
+    // though the config's own value is untouched. Modeled only when this revision
+    // flips `archived` — symmetric with assertConfigArchiveSchemaBreakGuard on
+    // the deferred/assert path. Emitted as its own "schema-break" gate so the
+    // message names the transition, not the config's own resolved value.
+    const proposedArchived =
+      "archived" in filteredChanges ? !!filteredChanges.archived : undefined;
+    if (
+      proposedArchived !== undefined &&
+      !!entity.archived !== proposedArchived
+    ) {
+      const archiveBreaks = await configArchiveSchemaBreakViolations(
+        context,
+        { key: entity.key, project: entity.project },
+        proposedArchived,
+      );
+      if (archiveBreaks.length) {
+        if (override) {
+          logger.info(
+            {
+              configKey: entity.key,
+              userId: context.userId,
+              violations: archiveBreaks,
+            },
+            "Schema-break guard overridden on a direct publish",
+          );
+        }
+        gates.push({
+          type: "schema-validation",
+          severity: "warning",
+          messages: [
+            `${
+              proposedArchived ? "Archiving" : "Unarchiving"
+            } this config breaks a dependent config or feature value:`,
+            ...archiveBreaks,
+          ],
+          ...schemaFailureGateOverride(
+            context.org.settings?.blockPublishOnSchemaError !== false,
+          ),
+          resolution: null,
+        });
+      }
+    }
+
+    // Archiving a config with live dependents (lineage children, or features/
+    // configs referencing it) is a soft, acknowledgeable warning — bypassable by
+    // ignoreWarnings alone (no elevated permission). Emitted only for the archive
+    // direction; the message is elevated when live feature flags consume it.
+    if (proposedArchived === true && !entity.archived) {
+      const dependents = await collectConfigArchiveDependents(context, {
+        id: entity.id,
+        key: entity.key,
+        // Presence-aware proposed value/lineage — a combined archive + value/
+        // lineage change must fingerprint the state being published, matching the
+        // arm/fire path in assertConfigPublishGuards.
+        value:
+          "value" in filteredChanges
+            ? (filteredChanges.value as string | undefined)
+            : entity.value,
+        parent:
+          "parent" in filteredChanges
+            ? (filteredChanges.parent as string | undefined)
+            : entity.parent,
+        extends:
+          "extends" in filteredChanges
+            ? (filteredChanges.extends as string[] | undefined)
+            : entity.extends,
+      });
+      if (dependents.ids.length) {
+        if (override) {
+          logger.info(
+            {
+              configKey: entity.key,
+              userId: context.userId,
+              dependents: dependents.ids,
+            },
+            "Archive-dependents guard overridden on a direct publish",
+          );
+        }
+        gates.push({
+          type: "archive-dependents",
+          severity: "warning",
+          messages: [archiveDependentsGateMessage("config", dependents)],
+          override: "ignoreWarnings",
+          requiresPermission: null,
+          resolution: null,
+        });
+      }
+    }
+
+    return gates;
   },
 
   // Pre-merge gate (see EntityRevisionAdapter.assertPublishable): runs the full
@@ -402,6 +675,12 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
             (filteredChanges.extensible as boolean | undefined) ??
             entity.extensible,
         },
+        // Model an archive/unarchive transition only when this revision flips
+        // `archived` (mirrors the arm-time capture). assertConfigPublishGuards
+        // then runs assertConfigArchiveSchemaBreakGuard against dependents, and —
+        // on a deferred fire — re-checks it against the unioned arm-time
+        // "schema-break" fingerprint captured in captureArmAcknowledgment.
+        "archived" in filteredChanges ? !!filteredChanges.archived : undefined,
       );
     }
 
@@ -436,7 +715,12 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
         ...normalizedChanges,
       } as ConfigInterface;
       await assertConfigDescendantsReconcilable(context, proposedRoot);
-      await assertConfigSchemaChangeSafeForDescendants(context, proposedRoot);
+      // On a deferred merge a tripped descendant warning is terminal (parks the
+      // revision + fires publishFailed) instead of silently skipped — the
+      // request-less context's forced ignoreWarnings isn't user intent.
+      await assertConfigSchemaChangeSafeForDescendants(context, proposedRoot, {
+        deferred: !!options?.deferred,
+      });
     }
 
     const postValue =
@@ -463,6 +747,7 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
       },
       { value: postValue },
       revision,
+      { deferred: !!options?.deferred },
     );
   },
 };

@@ -33,7 +33,16 @@ export default function ConfigArchiveModal({
   const { references, loading, error } = useConfigFamilyReferences(
     isArchived ? null : config.id,
   );
-  const features = references?.features ?? [];
+  // family-references returns every feature referencing ANY config in the
+  // lineage family; narrow to features that consume THIS config's value
+  // (default-backed or via a rule) so a harmless child/override archive doesn't
+  // claim it breaks flags the server considers unaffected. The server remains
+  // authoritative — a residual mismatch surfaces as the soft-warning backstop.
+  const features = (references?.features ?? []).filter(
+    (f) =>
+      f.defaultConfigKey === config.key ||
+      f.ruleConfigKeys.includes(config.key),
+  );
 
   return (
     <ArchiveModal
@@ -49,8 +58,11 @@ export default function ConfigArchiveModal({
       referencesError={(error ?? null) !== null}
       // The server decides archivability for configs (a child/env-override with
       // an empty or unused patch archives outright; a live-serving one returns a
-      // soft warning to confirm), so references are informational, not a block.
+      // soft warning to confirm), so references are acknowledged, not blocked.
       referenceBlockMode="soft"
+      // referenceCount here is live feature-flag consumers — the dangerous case
+      // that warrants the elevated "this will break them" confirmation.
+      elevatedWarning
       referencesList={
         <ul style={{ margin: 0, paddingLeft: 18 }}>
           {features.map((f) => (

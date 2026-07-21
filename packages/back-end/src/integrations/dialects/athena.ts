@@ -26,6 +26,23 @@ export const athenaDialect: SqlDialect = {
   hllAggregate: (col: string) => `APPROX_SET(${col})`,
   hllReaggregate: (col: string) => `MERGE(${col})`,
   hllCardinality: (col: string) => `CARDINALITY(${col})`,
+  // Trino/Athena array helpers — leverages the functional array operators
+  // (`filter` + `array_sort` + `array_min`) and the native `min_by`.
+  arrayAggSorted: (col: string) =>
+    `array_sort(filter(array_agg(${col}), x -> x IS NOT NULL))`,
+  argMinByTimestamp: (valueCol: string, tsCol: string) =>
+    `min_by(${valueCol}, ${tsCol})`,
+  arrayMinInRange: (col, lowerBound, upperBound) => {
+    const preds: string[] = [];
+    if (lowerBound) preds.push(`x >= ${lowerBound}`);
+    if (upperBound) preds.push(`x <= ${upperBound}`);
+    const predicate = preds.length ? preds.join(" AND ") : "true";
+    return `array_min(filter(${col}, x -> ${predicate}))`;
+  },
+  addIntervalSeconds: (col: string, sign: "+" | "-", amount: number) =>
+    `date_add('second', ${sign === "-" ? "-" : ""}${amount}, ${col})`,
+  dateDiffMs: (startCol: string, endCol: string) =>
+    `date_diff('millisecond', ${startCol}, ${endCol})`,
   percentileCapSelectClause: (values, metricTable, where = "") =>
     defaultPercentileCapSelectClause(athenaDialect, values, metricTable, where),
 

@@ -163,6 +163,11 @@ export interface SearchProps<T extends { id: string }> {
   // (e.g. a sort-only inner table inside a search-filtered page) so the inner
   // hook doesn't latch onto the outer hook's filter string.
   disableUrlSearchTerm?: boolean;
+  // When provided, the search term is fully controlled by the caller: internal
+  // state, URL init, and URL sync are all bypassed. Use this to drive filtering
+  // from stored config (e.g. a dashboard block's saved filter string) rather
+  // than from a user-typed input.
+  controlledSearchValue?: string;
   pageSize?: number;
   // Extra values that `searchTermFilters` closes over but that change
   // asynchronously (e.g. lazily-fetched indexes). Including them here lets the
@@ -215,6 +220,7 @@ export function useSearch<T extends { id: string }>({
   syntaxFilterPassthrough,
   updateSearchQueryOnChange,
   disableUrlSearchTerm,
+  controlledSearchValue,
   pageSize,
   searchTermFilterDeps = [],
 }: SearchProps<T>): SearchReturn<T> {
@@ -228,12 +234,16 @@ export function useSearch<T extends { id: string }>({
 
   const router = useRouter();
   const { q } = router.query;
-  const initialSearchTerm = disableUrlSearchTerm
-    ? ""
-    : Array.isArray(q)
-      ? q.join(" ")
-      : q;
-  const [value, setValue] = useState(initialSearchTerm ?? "");
+  const isControlled = controlledSearchValue !== undefined;
+  const initialSearchTerm =
+    disableUrlSearchTerm || isControlled
+      ? ""
+      : Array.isArray(q)
+        ? q.join(" ")
+        : q;
+  const [internalValue, setValue] = useState(initialSearchTerm ?? "");
+  // When controlled, the caller owns the search term; otherwise use internal state.
+  const value = isControlled ? controlledSearchValue : internalValue;
   const [disableRelevanceSort, setDisableRelevanceSort] = useState(false);
 
   const [page, setPage] = useState(1);
@@ -300,7 +310,7 @@ export function useSearch<T extends { id: string }>({
         .map((result) => itemMap.get(result.id + ""))
         .filter((item): item is T => !!item);
     }
-    if (updateSearchQueryOnChange) {
+    if (updateSearchQueryOnChange && !isControlled) {
       const searchParams = new URLSearchParams(window.location.search);
       const currentQ = searchParams.has("q") ? searchParams.get("q") : null;
 
@@ -631,7 +641,12 @@ export function parseQuery(query: string, regex: RegExp) {
   const matches = query.matchAll(regex);
   for (const match of matches) {
     if (match && match.length >= 3) {
-      const field = match[2];
+      // The regex matches field names case-insensitively, but downstream
+      // lookups (searchTermFilters keys, filter UIs) are all lowercase — so
+      // normalize the field here or `Status:running` becomes an invisible
+      // always-false filter. Values keep their case (matching happens
+      // case-insensitively in filterSearchTerm).
+      const field = match[2].toLowerCase();
       const negated = !!match[3];
       const operator = match[4] as SearchTermFilterOperator;
       const rawValue = match[5];

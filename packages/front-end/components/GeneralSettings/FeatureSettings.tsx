@@ -226,7 +226,7 @@ export default function FeatureSettings() {
             <Checkbox
               id="toggle-blockPublishOnSchemaError"
               label="Block publishing on JSON schema errors"
-              description="When publishing a revision, re-check feature and config values against their JSON schema and block the publish if they don't match. Disable to surface a bypassable warning instead. Per-request edits are always validated unless ?skipSchemaValidation=true is passed."
+              description={`When publishing a revision, re-check feature and config values against their JSON schema and block the publish if they don't match. Disable to surface a bypassable warning instead. Per-request edits are always validated unless the request body passes "skipSchemaValidation": true.`}
               value={form.watch("blockPublishOnSchemaError") ?? true}
               setValue={(value) =>
                 form.setValue("blockPublishOnSchemaError", value, {

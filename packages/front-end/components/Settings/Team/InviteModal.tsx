@@ -268,6 +268,7 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
             value={form.watch("roleInfo")}
             setValue={(value) => form.setValue("roleInfo", value)}
             showUpgradeModal={() => setShowUpgradeModal(true)}
+            isNewAssignment
           />
         </>
       )}

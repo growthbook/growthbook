@@ -97,6 +97,7 @@ const AddOrphanedUserModal: FC<{
         value={value}
         setValue={setValue}
         showUpgradeModal={() => setShowUpgradeModal(true)}
+        isNewAssignment
       />
     </Modal>
   );

@@ -7,7 +7,10 @@ import {
   isFactMetric,
   getUserIdTypes,
 } from "shared/experiments";
-import { FactTableDefinitionMap } from "shared/types/fact-table";
+import {
+  FactMetricType,
+  FactTableDefinitionMap,
+} from "shared/types/fact-table";
 import { ExperimentType } from "shared/validators";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
@@ -29,6 +32,7 @@ export interface Props {
   autoFocus?: boolean;
   forceSingleGoalMetric?: boolean;
   noQuantileGoalMetrics?: boolean;
+  goalMetricAllowedFactMetricTypes?: FactMetricType[];
   noLegacyMetrics?: boolean;
   disabled?: boolean;
   goalDisabled?: boolean;
@@ -55,6 +59,7 @@ export default function ExperimentMetricsSelector({
   autoFocus = false,
   forceSingleGoalMetric = false,
   noQuantileGoalMetrics = false,
+  goalMetricAllowedFactMetricTypes,
   noLegacyMetrics = false,
   disabled,
   goalDisabled,
@@ -248,6 +253,7 @@ export default function ExperimentMetricsSelector({
             forceSingleMetric={forceSingleGoalMetric}
             includeGroups={!forceSingleGoalMetric}
             excludeQuantiles={noQuantileGoalMetrics || excludeQuantiles}
+            allowedFactMetricTypes={goalMetricAllowedFactMetricTypes}
             filterConversionWindowMetrics={filterConversionWindowMetrics}
             noLegacyMetrics={noLegacyMetrics}
             disabled={disabled || goalDisabled}

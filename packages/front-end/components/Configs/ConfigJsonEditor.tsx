@@ -34,6 +34,7 @@ import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 // eslint-disable-next-line no-restricted-imports
 import Modal from "@/components/Modal";
@@ -651,16 +652,32 @@ export default function ConfigJsonEditor({
                   <Flex align="center" justify="between" gap="2">
                     <span>{option.label}</span>
                     {dirtyValues.has(option.value) && (
-                      <span
-                        title="Unpublished changes"
+                      <Tooltip
+                        flipTheme={false}
+                        body={
+                          <Text size="small" color="text-high">
+                            Differs from the published version
+                          </Text>
+                        }
                         style={{
-                          width: 8,
-                          height: 8,
-                          borderRadius: "50%",
-                          background: "var(--amber-9)",
+                          position: "relative",
+                          zIndex: 1000,
+                          display: "inline-flex",
+                          alignItems: "center",
                           flexShrink: 0,
+                          padding: 6,
+                          margin: -6,
                         }}
-                      />
+                      >
+                        <span
+                          style={{
+                            width: 8,
+                            height: 8,
+                            borderRadius: "50%",
+                            background: "var(--amber-9)",
+                          }}
+                        />
+                      </Tooltip>
                     )}
                   </Flex>
                 )
@@ -855,7 +872,7 @@ export default function ConfigJsonEditor({
         <HelperText status="error">{parsedProjection.error}</HelperText>
       )}
       {!!parsedProjection?.warnings.length && (
-        <HelperText status="warning">
+        <HelperText status="warning" mt="2">
           {parsedProjection.warnings.map((w) => w.message).join("; ")}
         </HelperText>
       )}
@@ -943,7 +960,7 @@ export default function ConfigJsonEditor({
                 <HelperText status="error">{schemaError}</HelperText>
               )}
               {schemaWarnings.length > 0 && (
-                <HelperText status="warning">
+                <HelperText status="warning" mt="2">
                   {schemaWarnings.map((w) => w.message).join("; ")}
                 </HelperText>
               )}

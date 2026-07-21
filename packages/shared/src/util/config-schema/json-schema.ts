@@ -167,6 +167,25 @@ export function jsonSchemaStringToFields(text: string): SchemaConversionResult {
     unknown
   >;
 
+  // Root `additionalProperties` as a boolean is the family's extensibility
+  // ("Allow extra fields") — nothing to import, nothing lost, no warning. A
+  // TYPED root `additionalProperties` (a schema object) constrains extra
+  // property values, which the per-field model can't represent — warn.
+  const rootAp = root.additionalProperties;
+  if (
+    rootAp &&
+    typeof rootAp === "object" &&
+    !Array.isArray(rootAp) &&
+    Object.keys(rootAp).length > 0
+  ) {
+    warnings.push({
+      code: "unsupported-member",
+      path: "additionalProperties",
+      message:
+        'A typed root "additionalProperties" schema is not supported; the value constraint on extra properties was dropped.',
+    });
+  }
+
   const props = root.properties;
   if (props === undefined) return { fields: [], error: null, warnings };
   if (!props || typeof props !== "object" || Array.isArray(props)) {
