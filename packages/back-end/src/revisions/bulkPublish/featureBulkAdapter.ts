@@ -350,7 +350,9 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       // them — the per-field ownership baseline compensation needs. In `finally`
       // because a later apply step (the feature write) can throw AFTER the sync
       // ran; without this baseline the restore can't tell the sync's stamp from
-      // a concurrent worker advance. Best-effort — must not mask the apply error.
+      // a concurrent worker advance. Best-effort — must not mask the apply
+      // error; a missing baseline is caught in restoreAfterFailedBulkPublish
+      // (it refuses to half-restore), so the item is reported published.
       if (desired.safeRollouts?.length) {
         try {
           const postImages =

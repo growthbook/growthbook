@@ -87,13 +87,22 @@ export class SafeRolloutModel extends BaseClass {
       (a?.getTime() ?? null) === (b?.getTime() ?? null);
     // The sync stamps start metadata only when transitioning a never-started
     // rollout to running — the only case where those timing fields are ours to
-    // reverse. Ownership of each REQUIRES the post-apply snapshot (`written`):
-    // without it we can't tell the sync's stamp from a later worker advance, so
-    // we leave the timing fields alone (status still restores below). A stale
-    // startedAt on a status-restored (non-running) rollout is inert; clobbering
-    // a worker's advanced schedule would move live scheduling backward.
+    // reverse. Ownership of each REQUIRES the post-apply snapshot (`written`).
     const applyStartedIt =
       !pre.startedAt && writtenStatus === "running" && !!live.startedAt;
+    // If the apply stamped start metadata but its post-apply snapshot is
+    // missing (its best-effort capture failed), we can't prove ownership of the
+    // timing fields — restoring status alone would leave a rolled-back rollout
+    // carrying the failed publish's startedAt/schedule. Refuse the partial:
+    // throw so the caller records a reversal failure and the item is reported
+    // still-published (whole rollout left at the published state), never a
+    // clean rollback with stale metadata.
+    if (applyStartedIt && !written) {
+      throw new Error(
+        `safe rollout ${pre.id}: post-apply baseline missing — cannot reverse ` +
+          `start metadata; left at the published state`,
+      );
+    }
     const ownsStartedAt =
       applyStartedIt &&
       !!written &&
