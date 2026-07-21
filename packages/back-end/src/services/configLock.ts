@@ -5,6 +5,7 @@ import { ReqContext } from "back-end/types/request";
 import { BadRequestError } from "back-end/src/util/errors";
 import { ensureLiveRevisionExists } from "back-end/src/revisions/util";
 import type { PublishGate } from "back-end/src/revisions/publishGates";
+import { makeBlockingGate } from "back-end/src/revisions/publishGates";
 
 type Context = ReqContext | ApiReqContext;
 
@@ -29,20 +30,18 @@ export function assertConfigNotLocked(config: ConfigInterface): void {
 export function collectConfigLockGate(config: ConfigInterface): PublishGate[] {
   if (!isConfigLocked(config)) return [];
   return [
-    {
+    makeBlockingGate({
       type: "config-locked",
-      severity: "blocker",
       messages: [
         `Locked at revision v${config.lock?.version}. Unlock it first.`,
       ],
-      override: null,
       requiresPermission: "bypassApprovalChecks",
       resolution: {
         action: "unlock",
         method: "POST",
         path: `/configs/${config.key}/unlock`,
       },
-    },
+    }),
   ];
 }
 

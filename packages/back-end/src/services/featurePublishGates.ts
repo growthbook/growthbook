@@ -38,6 +38,7 @@ import { MergeConflictError } from "back-end/src/util/errors";
 import {
   PublishGate,
   hookResultsToGates,
+  makeBlockingGate,
   schemaFailureGateOverride,
 } from "back-end/src/revisions/publishGates";
 
@@ -224,34 +225,35 @@ export async function collectFeaturePublishGates({
   const version = revision.version;
 
   if (plan.rebaseRequired) {
-    gates.push({
-      type: "stale-base",
-      severity: "blocker",
-      messages: ["This revision was created against an older version."],
-      override: "ignoreWarnings",
-      requiresPermission: "bypassApprovalChecks",
-      resolution: {
-        action: "rebase",
-        method: "POST",
-        path: `/features/${feature.id}/revisions/${version}/rebase`,
-      },
-    });
+    gates.push(
+      makeBlockingGate({
+        type: "stale-base",
+        messages: ["This revision was created against an older version."],
+        override: "ignoreWarnings",
+        requiresPermission: "bypassApprovalChecks",
+        resolution: {
+          action: "rebase",
+          method: "POST",
+          path: `/features/${feature.id}/revisions/${version}/rebase`,
+        },
+      }),
+    );
   }
   if (plan.requiresReview && revision.status !== "approved") {
-    gates.push({
-      type: "approval-required",
-      severity: "blocker",
-      messages: [
-        `Requires approval before publishing (status: "${revision.status}").`,
-      ],
-      override: null,
-      requiresPermission: "bypassApprovalChecks",
-      resolution: {
-        action: "request-review",
-        method: "POST",
-        path: `/features/${feature.id}/revisions/${version}/request-review`,
-      },
-    });
+    gates.push(
+      makeBlockingGate({
+        type: "approval-required",
+        messages: [
+          `Requires approval before publishing (status: "${revision.status}").`,
+        ],
+        requiresPermission: "bypassApprovalChecks",
+        resolution: {
+          action: "request-review",
+          method: "POST",
+          path: `/features/${feature.id}/revisions/${version}/request-review`,
+        },
+      }),
+    );
   }
 
   if (!includeValidationGates) return gates;
