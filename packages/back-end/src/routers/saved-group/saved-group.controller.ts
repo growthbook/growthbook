@@ -320,14 +320,27 @@ export const postSavedGroupAddItems = async (
   );
 
   // When approval isn't required, merge the revision immediately so the
-  // caller's change takes effect instead of leaving a stranded draft.
+  // caller's change takes effect instead of leaving a stranded draft. Claim the
+  // (CAS-guarded) merge before the live write so a concurrent discard can't
+  // orphan a half-applied change; reopen if the write then fails.
   if (!approvalRequired) {
-    await context.models.savedGroups.update(savedGroup, { values: newValues });
     revision = await context.models.revisions.merge(
       revision.id,
       context.userId,
       { bypass: false },
     );
+    try {
+      await context.models.savedGroups.update(savedGroup, {
+        values: newValues,
+      });
+    } catch (e) {
+      try {
+        await context.models.revisions.reopen(revision.id, context.userId);
+      } catch {
+        // ignore — surface the original update error
+      }
+      throw e;
+    }
     await dispatchSavedGroupRevisionEvent(context, revision, {
       type: "published",
     });
@@ -476,14 +489,27 @@ export const postSavedGroupRemoveItems = async (
   );
 
   // When approval isn't required, merge the revision immediately so the
-  // caller's change takes effect instead of leaving a stranded draft.
+  // caller's change takes effect instead of leaving a stranded draft. Claim the
+  // (CAS-guarded) merge before the live write so a concurrent discard can't
+  // orphan a half-applied change; reopen if the write then fails.
   if (!approvalRequired) {
-    await context.models.savedGroups.update(savedGroup, { values: newValues });
     revision = await context.models.revisions.merge(
       revision.id,
       context.userId,
       { bypass: false },
     );
+    try {
+      await context.models.savedGroups.update(savedGroup, {
+        values: newValues,
+      });
+    } catch (e) {
+      try {
+        await context.models.revisions.reopen(revision.id, context.userId);
+      } catch {
+        // ignore — surface the original update error
+      }
+      throw e;
+    }
     await dispatchSavedGroupRevisionEvent(context, revision, {
       type: "published",
     });
@@ -520,6 +546,7 @@ type PutSavedGroupRequest = AuthRequest<
     revisionId?: string;
     forceCreateRevision?: string;
     title?: string;
+    comment?: string;
     revertedFrom?: string;
   }
 >;
@@ -712,6 +739,7 @@ export const putSavedGroup = async (
   const bypassApproval = req.query.bypassApproval === "1";
   const autoPublish = req.query.autoPublish === "1";
   const title = req.query.title;
+  const comment = req.query.comment;
   const revertedFrom = req.query.revertedFrom;
 
   // All edits flow through the revision system: if no draft-intent flag was
@@ -761,6 +789,7 @@ export const putSavedGroup = async (
       // replaceChanges: false (default) — merge with existing proposed changes
       forceCreate,
       title,
+      comment,
       revertedFrom,
       // Only update a specific draft revision when we're staying in draft mode
       revisionId:
@@ -818,8 +847,8 @@ export const putSavedGroup = async (
       // change", which is a normal merge, not a bypass.
       const isBypass = approvalRequired && bypassApproval;
 
-      await context.models.savedGroups.update(savedGroup, fieldsToUpdate);
-
+      // Claim the (CAS-guarded) merge before the live write so a concurrent
+      // discard can't orphan a half-applied change; reopen if the write fails.
       revision = await context.models.revisions.merge(
         revision.id,
         context.userId,
@@ -827,6 +856,17 @@ export const putSavedGroup = async (
           bypass: isBypass,
         },
       );
+
+      try {
+        await context.models.savedGroups.update(savedGroup, fieldsToUpdate);
+      } catch (e) {
+        try {
+          await context.models.revisions.reopen(revision.id, context.userId);
+        } catch {
+          // ignore — surface the original update error
+        }
+        throw e;
+      }
 
       await dispatchSavedGroupRevisionEvent(context, revision, {
         type: revision.revertedFrom ? "reverted" : "published",
@@ -1005,7 +1045,10 @@ export const getSavedGroupDraftStates = async (
   const groupIds = req.query.ids
     ? req.query.ids.split(",").filter(Boolean)
     : undefined;
-  const groups = await context.models.revisions.getActiveDraftStates(groupIds);
+  const groups = await context.models.revisions.getActiveDraftStates(
+    "saved-group",
+    groupIds,
+  );
   return res.status(200).json({ status: 200, groups });
 };
 

@@ -36,9 +36,18 @@ and select per-project overrides. For example, a new user could be a `collaborat
 
 ### How permissions are evaluated
 
-GrowthBook evaluates user permissions based on whether an action is taking place within a specific project. If so, project-level permissions are checked first, followed by the user's global role. If the action is not within a project, only the user's global role is checked.
+GrowthBook first determines whether the action is scoped to a specific project.
 
-For organizations without a Pro or Enterprise account, user permissions are evaluated solely based on their global role.
+**Actions that target a project** (for example, editing a feature flag that belongs to a project) are evaluated using project-specific roles:
+
+- If a project-specific role applies (the user's own, or one from any team they're on), only project-specific roles are used for that project; the global role is ignored. The effective permissions are the union of those project-specific roles (the user gets a permission if any of them grants it).
+- Otherwise, the global role applies - itself the union of the user's global role and the global roles of any teams they're on.
+
+Because the global role is ignored whenever a project-specific role applies, a project-specific role can _reduce_ access below the global role. For example, a user whose global role is `Engineer` but who has a `Read Only` role on a project is read-only on that project.
+
+**Actions that are not scoped to a project** are evaluated against the global role. This includes organization-level settings and resources that always live at the org level, such as `Dimensions`, `Namespaces`, and `Presentations`.
+
+For organizations without a Pro or Enterprise account, permissions are evaluated solely against the global role.
 
 :::note Default role for self-registered users
 
@@ -108,7 +117,12 @@ In the event you want a user to have access to a subset of projects, you can giv
 
 If, however, you only want to hide a certain project from a user, you can assign their project-level role of `No Access` which will make it so the user isn't able to view the project.
 
-If you need to apply these rules to many users as once, you can create a Team with the permissions needed, and then add users to that team. But, keep in mind, the user's permissions will be a combination of their user permissions, and the permissions of any team they are on, so after adding the user to a team, you may want to reduce their user-level permissions to ensure their previous user-level permissions don't override the permissions inherited by the team(s) they are on.
+If you need to apply these rules to many users at once, you can create a Team with the permissions needed, and then add users to that team. Keep in mind how project-level and global roles combine when a user is on one or more teams:
+
+- For a project where the user (or any team they are on) has an **explicit** project-level role, their access to that project is the union of those explicit project-level roles. Global roles are **not** used for that project.
+- For a project where no explicit project-level role applies, the user's global role (merged with their teams' global roles) is used instead.
+
+So to hide a specific project from a user, make sure no explicit project-level role grants them access to it: set their own project-level role for that project to `No Access`, and do the same for any team they are on that would otherwise grant access to it.
 
 ### How does the Project Admin role work?
 

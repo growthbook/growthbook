@@ -189,7 +189,7 @@ export const ExperimentVariationRow = forwardRef<
             )}
             {setVariations && (
               <div className="col-auto">
-                <MoreMenu zIndex={1000000}>
+                <MoreMenu useRadix={false} zIndex={1000000}>
                   <Tooltip
                     body="Experiments must have at least two variations"
                     shouldDisplay={variations.length <= 2}

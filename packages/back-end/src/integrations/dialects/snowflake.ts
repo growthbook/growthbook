@@ -3,6 +3,10 @@ import type { SqlDialect } from "shared/types/sql";
 import { createLikeStringMatchFn } from "shared/sql";
 import { defaultPercentileCapSelectClause } from "back-end/src/integrations/sql/clauses/percentile-cap-select-clause";
 import { indicesTableUnpivot } from "back-end/src/integrations/sql/clauses/indices-table-unpivot";
+import {
+  approxTopKCapacity,
+  eligibleTopValueExpr,
+} from "back-end/src/integrations/sql/clauses/approx-top-values";
 import { baseDialect } from "./base";
 
 const snowflakeEscapeStringLiteral = (value: string) =>
@@ -115,4 +119,49 @@ export const snowflakeDialect: SqlDialect = {
   //     subquery type" because Snowflake's correlated subqueries can't contain
   //     set operations.
   unpivotLabeledPairs: indicesTableUnpivot,
+
+  arrayElement: (arrayCol: string, index: number) =>
+    snowflakeDialect.castToFloat(`${arrayCol}[${index}]`),
+
+  // APPROX_TOP_K(expr, k, counters) returns an ARRAY of [value, count] pairs per
+  // column; pack the per-column results into OBJECTs, then FLATTEN the outer
+  // array and each column's items.
+  //
+  // The first FLATTEN runs over a materialized subquery column (__agg.cols), not
+  // an inline ARRAY_CONSTRUCT, to avoid the correlated-construct failures noted
+  // on unpivotLabeledPairs above.
+  approxTopValuesCTEBody: ({
+    pairs,
+    fromTable,
+    whereClause,
+    limit,
+    maxValueLength,
+  }) => {
+    const counters = approxTopKCapacity(limit);
+    const objects = pairs
+      .map(
+        (p) =>
+          `OBJECT_CONSTRUCT('column_name', '${p.keyLiteral}', 'items', APPROX_TOP_K(${eligibleTopValueExpr(
+            snowflakeDialect,
+            p.valueSql,
+            maxValueLength,
+          )}, ${limit}, ${counters}))`,
+      )
+      .join(",\n      ");
+    return `
+  SELECT
+    __col.value:column_name::string AS column_name,
+    __item.value[0]::string AS value,
+    __item.value[1]::number AS count
+  FROM (
+    SELECT ARRAY_CONSTRUCT(
+      ${objects}
+    ) AS cols
+    FROM ${fromTable}
+    WHERE ${whereClause}
+  ) __agg,
+  LATERAL FLATTEN(input => __agg.cols) __col,
+  LATERAL FLATTEN(input => __col.value:items) __item
+  WHERE __item.value[0] IS NOT NULL`;
+  },
 };

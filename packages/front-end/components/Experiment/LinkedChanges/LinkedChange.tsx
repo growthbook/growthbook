@@ -117,7 +117,6 @@ export default function LinkedChange({
               {onDelete && (
                 <DeleteButton
                   className="btn-sm ml-4"
-                  useRadix={true}
                   text="Remove"
                   stopPropagation={true}
                   onClick={() => onDelete()}
@@ -133,6 +132,7 @@ export default function LinkedChange({
                 experiment?.status === "draft" &&
                 !experiment?.nextScheduledStatusUpdate && (
                   <OpenVisualEditorLink
+                    useRadix={false}
                     visualChangeset={vc}
                     useLink={true}
                     button={

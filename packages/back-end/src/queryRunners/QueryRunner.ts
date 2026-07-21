@@ -3,10 +3,10 @@ import { ExternalIdCallback, QueryResponse } from "shared/types/integrations";
 import {
   Queries,
   QueryInterface,
-  QueryMetadata,
   QueryPointer,
   QueryStatus,
   QueryType,
+  RunQueryMetadata,
 } from "shared/types/query";
 import { parseIntWithDefault, parseOptionalInt } from "shared/util";
 import {
@@ -64,7 +64,7 @@ export type StartQueryParams<Rows, ProcessedRows> = {
   run: (
     query: string,
     setExternalId: ExternalIdCallback,
-    queryMetadata?: QueryMetadata,
+    queryMetadata: RunQueryMetadata,
   ) => Promise<QueryResponse<Rows>>;
   /** @deprecated */
   process?: (rows: Rows) => ProcessedRows;
@@ -146,13 +146,15 @@ export abstract class QueryRunner<
       run: (
         query: string,
         setExternalId: ExternalIdCallback,
-        queryMetadata?: QueryMetadata,
+        queryMetadata: RunQueryMetadata,
       ) => Promise<QueryResponse<RowsType>>;
       process?: (rows: RowsType) => ProcessedRowsType;
       onSuccess?: (rows: RowsType) => void | Promise<void>;
       onFailure: () => void;
     };
   } = {};
+  // Prevent early query completions from refreshing against a partial DAG.
+  private dagPersisted = false;
   private useCache: boolean;
   private pendingTimers: Record<string, NodeJS.Timeout> = {};
   private lockHeartbeatTimer: null | NodeJS.Timeout = null;
@@ -234,6 +236,17 @@ export abstract class QueryRunner<
   }
 
   async onQueryFinish() {
+    // Dependency-free queries can finish while startAnalysis() is still
+    // persisting the query DAG. Wait until the DAG is durable so the debounced
+    // refresh cannot read an empty query list and swallow the real refresh.
+    if (!this.dagPersisted) {
+      logger.debug(
+        "Query finished for " +
+          this.model.id +
+          " runner before DAG was persisted; deferring refresh",
+      );
+      return;
+    }
     if (!this.timer) {
       logger.debug(
         "Query finished for " +
@@ -375,28 +388,13 @@ export abstract class QueryRunner<
       error: error,
     });
     this.model = newModel;
+    this.dagPersisted = true;
 
     if (error || result) {
       this.setStatus("finished", error, result);
     } else {
       this.setStatus("running");
-      // Schedule one more pass through refreshQueryStatuses/startReadyQueries
-      // now that the full `queries` array has been persisted to the model.
-      //
-      // This closes a race: queries with no dependencies are executed
-      // fire-and-forget inside startQueries() (see startQuery's readyToRun
-      // branch). If one of them is very fast (e.g. a DROP TABLE during a
-      // Full Refresh), it can finish — and its onQueryFinish 1-second timer
-      // can fire — while startQueries() is still generating SQL for the
-      // remaining queries and before updateModel() above has written them.
-      // That early timer reloads the model, sees no running/queued queries,
-      // and gives up. Once startQueries() finally returns, nothing re-arms
-      // the timer, so every other query in the DAG stays "queued" forever.
-      //
-      // Calling onQueryFinish() here guarantees at least one refresh happens
-      // after the DAG is visible in the persisted model. If the timer from
-      // the early-finishing query is still pending this is a no-op; if it
-      // already fired and found nothing, this re-arms it with the real DAG.
+      // Pick up any query completions that happened before the DAG write.
       this.onQueryFinish();
     }
 
@@ -514,7 +512,8 @@ export abstract class QueryRunner<
           logger.debug(
             `${query.id}: "Run at end query" waiting for other queries to finish...`,
           );
-          return;
+          // Keep scanning. A later non-runAtEnd query may be ready.
+          continue;
         }
       }
 
@@ -551,16 +550,9 @@ export abstract class QueryRunner<
       )
     ) {
       if (this.status !== "finished") {
-        // Being asked to refresh a non-terminal runner whose persisted model
-        // has no active queries is unexpected. It most likely means a query
-        // finished (and its onQueryFinish timer fired) before startAnalysis()
-        // persisted the full `queries` array. Historically this was only a
-        // debug log, which made the resulting "snapshot stuck running forever"
-        // failure mode invisible. Log at warn so it surfaces; the post-persist
-        // onQueryFinish() in startAnalysis() will re-drive the DAG.
         logger.warn(
           `No running or queued queries for ${this.model.id} but runner status is "${this.status}". ` +
-            `Likely a query finished before the full query DAG was persisted; a follow-up refresh is scheduled.`,
+            `The persisted query DAG is empty or fully terminal; nothing to refresh.`,
         );
       } else {
         logger.debug(
@@ -805,7 +797,7 @@ export abstract class QueryRunner<
       run: (
         query: string,
         setExternalId: ExternalIdCallback,
-        queryMetadata?: QueryMetadata,
+        queryMetadata: RunQueryMetadata,
       ) => Promise<QueryResponse<Rows>>;
       process?: (rows: Rows) => ProcessedRows;
       onFailure: () => void;
@@ -850,7 +842,7 @@ export abstract class QueryRunner<
       });
     };
 
-    run(doc.query, setExternalId, { queryType: doc.queryType })
+    run(doc.query, setExternalId, { queryType: doc.queryType || "unknown" })
       .then(async ({ rows, statistics }) => {
         clearInterval(timer);
         logger.debug("Query succeeded: " + doc.id);

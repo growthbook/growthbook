@@ -1,10 +1,10 @@
 import React from "react";
 import {
   PiCheckBold,
-  PiClockFill,
   PiLockSimpleFill,
   PiPencil,
   PiPlusMinusBold,
+  PiSpinnerGap,
   PiXCircleFill,
 } from "react-icons/pi";
 import type { RevisionStatus, ActiveDraftStatus } from "shared/validators";
@@ -76,7 +76,8 @@ export function revisionStatusIcon(
       // surrounding chip/band provides the container.
       return <PiCheckBold />;
     case "pending-review":
-      return <PiClockFill />;
+      // Spinner glyph (not animated) — distinct from the scheduled-publish clock.
+      return <PiSpinnerGap />;
     case "changes-requested":
       return <PiPlusMinusBold />;
     case "discarded":

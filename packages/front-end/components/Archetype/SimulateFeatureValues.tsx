@@ -363,7 +363,7 @@ export const SimulateFeatureValues: FC<{
           )}
         </div>
       </div>
-      <Callout status="info" mt="5" mb="5" contentsAs="div">
+      <Callout status="info" mt="5" mb="5">
         <Flex
           align="center"
           gap="3"

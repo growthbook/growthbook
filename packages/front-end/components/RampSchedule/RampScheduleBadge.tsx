@@ -1,5 +1,9 @@
 import { ReactNode } from "react";
-import { isReadyForApproval, RampScheduleInterface } from "shared/validators";
+import {
+  isReadyForApproval,
+  isAwaitingStartApproval,
+  RampScheduleInterface,
+} from "shared/validators";
 import { abbreviateAgo, dateNoYear, datetime } from "shared/dates";
 import Badge from "@/ui/Badge";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -50,8 +54,10 @@ export default function RampScheduleBadge({
   // startDate is stale UI noise.
   const preStart = rs.status === "pending" || rs.status === "ready";
 
+  // `key` matters when rows are rendered as an array (tooltipRows /
+  // timingTooltipRows); the label is unique within each list.
   const dateRow = (label: string, d: Date) => (
-    <div>
+    <div key={label}>
       <span className="text-muted">{label}: </span>
       {datetime(d)}
     </div>
@@ -63,13 +69,15 @@ export default function RampScheduleBadge({
       ready: "Schedule scheduled",
       running: "Schedule active",
       paused: "Schedule paused",
-      completed: "Schedule complete",
+      completed: "Schedule completed",
       "rolled-back": "Rolled back",
     };
-    const displayLabel = isReadyForApproval(rs)
-      ? "Schedule needs approval"
-      : (statusLabels[rs.status] ??
-        `Schedule ${getRampStatusLabel(rs).toLowerCase()}`);
+    const displayLabel = isAwaitingStartApproval(rs)
+      ? "Awaiting approval"
+      : isReadyForApproval(rs)
+        ? "Schedule needs approval"
+        : (statusLabels[rs.status] ??
+          `Schedule ${getRampStatusLabel(rs).toLowerCase()}`);
 
     const endAt = rs.cutoffDate ? new Date(rs.cutoffDate) : null;
     const futureEnd = endAt && endAt > now;
@@ -140,14 +148,16 @@ export default function RampScheduleBadge({
     ready: "Ramp scheduled",
     running: "Ramp active",
     paused: "Ramp paused",
-    completed: "Ramp complete",
+    completed: "Ramp completed",
     "rolled-back": "Rolled back",
   };
-  let featureContextLabel = isReadyForApproval(rs)
-    ? "Ramp needs approval"
-    : (featureContextLabels[rs.status] ?? `Ramp ${baseLabel.toLowerCase()}`);
+  let featureContextLabel = isAwaitingStartApproval(rs)
+    ? "Awaiting approval"
+    : isReadyForApproval(rs)
+      ? "Ramp needs approval"
+      : (featureContextLabels[rs.status] ?? `Ramp ${baseLabel.toLowerCase()}`);
   if (allStepsDone && futureEnd) {
-    featureContextLabel = "Ramp complete";
+    featureContextLabel = "Ramp completed";
   }
   const displayLabel = featureRuleContext ? featureContextLabel : baseLabel;
 

@@ -12,7 +12,10 @@ import {
   NotFoundError,
 } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
-import { buildMergeDesiredState } from "back-end/src/revisions/util";
+import {
+  buildMergeDesiredState,
+  isRevisionDiverged,
+} from "back-end/src/revisions/util";
 import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
 import { loadRevisionByVersion } from "./validations";
 import { toApiSavedGroupRevision } from "./toApiSavedGroupRevision";
@@ -84,12 +87,25 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
     adapter.getUpdatableFields(),
   );
 
+  // The live check above covers the source projects. If the revision moves the
+  // group to different projects, also require update permission on the
+  // destination.
+  if (
+    !adapter.canUpdate(req.context, {
+      ...(savedGroup as unknown as Record<string, unknown>),
+      ...desiredState,
+    })
+  ) {
+    req.context.permissions.throwPermissionError();
+  }
+
   // Pre-merge conflict guard so we don't let a revision land on top of out-of
   // -band edits to the same field — caller must rebase first.
   const conflictResult = checkMergeConflicts(
     revision.target.snapshot as Record<string, unknown>,
     savedGroup as unknown as Record<string, unknown>,
     normalizeProposedChanges(revision.target.proposedChanges),
+    adapter.getUpdatableFields(),
   );
   if (!conflictResult.success) {
     throw new MergeConflictError(
@@ -108,10 +124,10 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
   if (req.organization.settings?.requireRebaseBeforePublish) {
     const forceMerge = !!req.body.mergeNow && canBypass;
     if (!forceMerge) {
-      const snapshot = revision.target.snapshot as Record<string, unknown>;
-      const liveEntity = savedGroup as unknown as Record<string, unknown>;
-      const diverged = [...updatableFields].some(
-        (key) => !isEqual(snapshot[key], liveEntity[key]),
+      const diverged = isRevisionDiverged(
+        adapter,
+        revision.target.snapshot as Record<string, unknown>,
+        savedGroup as unknown as Record<string, unknown>,
       );
       if (diverged && !canBypass) {
         throw new ConflictError(
@@ -151,23 +167,35 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
     };
   }
 
-  // Two-step merge — same ordering rationale as the internal /revision/:id/merge
-  // handler. See revision.controller.ts for the failure-mode discussion. A
-  // partial failure here (applyChanges lands, merge throws) leaves the entity
-  // updated and the revision open; a retry hits the no-op branch above and
-  // completes the merge, so the draft can't be permanently stranded.
-  await adapter.applyChanges(
-    req.context,
-    savedGroup as unknown as Record<string, unknown>,
-    desiredState,
-    { isRevert: !!revision.revertedFrom },
-  );
-
+  // Claim the merge BEFORE applying to the live entity. `merge` is CAS-guarded,
+  // so a concurrent discard either already lost (merge throws, nothing applied)
+  // or will lose (its `close` CAS-fails). This closes the window where a discard
+  // landing between applyChanges and merge would orphan a half-applied change on
+  // the live group.
   const merged = await req.context.models.revisions.merge(
     revision.id,
     req.context.userId,
     { bypass: isBypass },
   );
+
+  try {
+    await adapter.applyChanges(
+      req.context,
+      savedGroup as unknown as Record<string, unknown>,
+      desiredState,
+      { isRevert: !!revision.revertedFrom },
+    );
+  } catch (e) {
+    // Couldn't apply after claiming the merge — reopen so the revision isn't
+    // stranded "merged" with the live group unchanged; a retry re-runs the
+    // publish (and the no-op self-heal path above if it was partially applied).
+    try {
+      await req.context.models.revisions.reopen(merged.id, req.context.userId);
+    } catch {
+      // ignore — surface the original applyChanges error
+    }
+    throw e;
+  }
 
   await dispatchSavedGroupRevisionEvent(req.context, merged, {
     type: merged.revertedFrom ? "reverted" : "published",

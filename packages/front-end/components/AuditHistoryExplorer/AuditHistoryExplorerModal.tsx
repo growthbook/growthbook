@@ -21,7 +21,9 @@ import {
   useAuditEntries,
   UseAuditEntriesResult,
 } from "./useAuditEntries";
-import CompareAuditEvents from "./CompareAuditEvents";
+import CompareAuditEvents, {
+  CompareAuditEventsProps,
+} from "./CompareAuditEvents";
 
 // ---- Raw Audit Log Tab ----
 
@@ -260,6 +262,7 @@ export interface AuditHistoryExplorerModalProps<T> {
   config: AuditDiffConfig<T>;
   eventLabels?: Record<string, string>;
   onClose: () => void;
+  revert?: CompareAuditEventsProps<T>["revert"];
 }
 
 const EMPTY_EVENT_LABELS: Record<string, string> = {};
@@ -270,11 +273,13 @@ export default function AuditHistoryExplorerModal<T>({
   config,
   eventLabels = EMPTY_EVENT_LABELS,
   onClose,
+  revert,
 }: AuditHistoryExplorerModalProps<T>) {
   const auditEntries = useAuditEntries<T>(config, entityId);
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType="audit-history-explorer"
       open={true}
       header={`${entityName} Audit History`}
@@ -319,6 +324,7 @@ export default function AuditHistoryExplorerModal<T>({
               config={config}
               auditEntries={auditEntries}
               eventLabels={eventLabels}
+              revert={revert}
             />
           </Flex>
         </TabsContent>

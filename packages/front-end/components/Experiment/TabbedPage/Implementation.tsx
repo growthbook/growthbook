@@ -8,12 +8,15 @@ import { URLRedirectInterface } from "shared/types/url-redirect";
 import { useState } from "react";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
+import { experimentHasLiveLinkedChanges } from "shared/util";
 import { Flex } from "@radix-ui/themes";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import LinkedChanges from "@/components/Experiment/LinkedChanges/LinkedChanges";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
 import EditVariationMetadataModal from "@/components/Experiment/EditVariationMetadataModal";
 import TrafficAndTargeting from "@/components/Experiment/TabbedPage/TrafficAndTargeting";
+import TrafficAllocationFunnel from "@/components/Experiment/TabbedPage/TrafficAllocationFunnel";
 import AnalysisSettings from "@/components/Experiment/TabbedPage/AnalysisSettings";
 import DecisionMakingSettings from "@/components/Experiment/TabbedPage/DecisionMakingSettings";
 import Callout from "@/ui/Callout";
@@ -26,6 +29,7 @@ import Badge from "@/ui/Badge";
 import Text from "@/ui/Text";
 import Checkbox from "@/ui/Checkbox";
 import Heading from "@/ui/Heading";
+import Frame from "@/ui/Frame";
 import HoldoutEnvironments from "./HoldoutEnvironments";
 
 export interface Props {
@@ -37,7 +41,9 @@ export interface Props {
   urlRedirects: URLRedirectInterface[];
   mutate: () => void;
   editTargeting?: (() => void) | null;
-  editTraffic?: (() => void) | null;
+  editTraffic?: ((variationId?: string) => void) | null;
+  addVariation?: (() => void) | null;
+  editNamespace?: (() => void) | null;
   editVariations?: (() => void) | null;
   setFeatureModal: (open: boolean) => void;
   setVisualEditorModal: (open: boolean) => void;
@@ -58,6 +64,8 @@ export default function Implementation({
   mutate,
   editTargeting,
   editTraffic,
+  addVariation,
+  editNamespace,
   editVariations,
   setFeatureModal,
   setVisualEditorModal,
@@ -102,6 +110,15 @@ export default function Implementation({
   );
 
   const isHoldout = experiment.type === "holdout";
+  const simpleExperimentFlow = useFeatureIsOn("simple-experiment-flow");
+
+  const safeToEdit =
+    experiment.status !== "running" ||
+    !experimentHasLiveLinkedChanges(experiment, linkedFeatures);
+
+  // Temporary check while we test the new traffic funnel
+  // TODO: Remove this once we're ready to support holdouts in the new traffic funnel UI.
+  const showTrafficFunnel = !isHoldout && simpleExperimentFlow;
   const canEditHoldoutDefaultState =
     isHoldout &&
     !!holdout &&
@@ -143,17 +160,41 @@ export default function Implementation({
         <Heading as="h2" size="large" color="text-high" mb="2">
           Implementation
         </Heading>
-        <TrafficAndTargeting
-          experiment={experiment}
-          editTraffic={
-            experiment.nextScheduledStatusUpdate ? null : editTraffic
-          }
-          editTargeting={
-            experiment.nextScheduledStatusUpdate ? null : editTargeting
-          }
-          phaseIndex={phases.length - 1}
-        />
-        {!isHoldout ? (
+        {showTrafficFunnel ? (
+          <TrafficAllocationFunnel
+            experiment={experiment}
+            editTraffic={
+              experiment.nextScheduledStatusUpdate ? null : editTraffic
+            }
+            editTargeting={
+              experiment.nextScheduledStatusUpdate ? null : editTargeting
+            }
+            editNamespace={
+              experiment.nextScheduledStatusUpdate ? null : editNamespace
+            }
+            addVariation={
+              experiment.nextScheduledStatusUpdate ? null : addVariation
+            }
+            setEditVariationIndex={setEditMetadataIndex}
+            canEditExperiment={canEditExperiment}
+            safeToEdit={safeToEdit}
+            mutate={mutate}
+            phaseIndex={phases.length - 1}
+          />
+        ) : (
+          <TrafficAndTargeting
+            experiment={experiment}
+            editTraffic={
+              experiment.nextScheduledStatusUpdate ? null : editTraffic
+            }
+            editTargeting={
+              experiment.nextScheduledStatusUpdate ? null : editTargeting
+            }
+            phaseIndex={phases.length - 1}
+          />
+        )}
+        {!isHoldout &&
+        (!showTrafficFunnel || hasLinkedChanges || canAddLinkedChanges) ? (
           <LinkedChanges
             linkedFeatures={linkedFeatures}
             experiment={experiment}
@@ -170,6 +211,7 @@ export default function Implementation({
             onAddVariation={editVariations ?? undefined}
             canEditExperiment={canEditExperiment}
             setEditVariationIndex={setEditMetadataIndex}
+            hideVariations={showTrafficFunnel}
           />
         ) : null}
 
@@ -180,8 +222,10 @@ export default function Implementation({
           />
         ) : null}
         {isHoldout && holdout ? (
-          <div className="box p-4 my-4">
-            <h4>Included Experiments & Features</h4>
+          <Frame>
+            <Heading color="text-high" as="h4" size="small" mb="0">
+              Included Experiments & Features
+            </Heading>
             {/* TODO: Add a state for a stopped holdout with no experiments or features? */}
             {experiment.status === "draft" ? (
               <Text>
@@ -257,7 +301,7 @@ export default function Implementation({
                 weight="regular"
               />
             </Flex>
-          </div>
+          </Frame>
         ) : null}
         {(experiment.status !== "draft" ||
           !!experiment.nextScheduledStatusUpdate) &&

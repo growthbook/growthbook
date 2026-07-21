@@ -15,6 +15,35 @@ import { QueryRunner, QueryMap } from "./QueryRunner";
 
 export const AGGREGATED_FACT_TABLE_PREFIX = "gb_aggregated";
 
+// Slice the restate window into half-open [start, end) chunks ~chunkDays wide
+// so each chunk's INSERT fits the engine's per-stage write budget. Internal
+// seams snap to UTC midnight so an event_date (= DATE(timestamp), UTC) never
+// spans two chunks. Final chunk is open-ended so late events aren't dropped;
+// chunks tile the window with no overlap or gap.
+export function getRestateChunkBounds(
+  windowStart: Date,
+  now: Date,
+  chunkDays: number,
+): Array<{ start: Date; end: Date | null }> {
+  const chunkMs = chunkDays * 24 * 60 * 60 * 1000;
+  const chunks: Array<{ start: Date; end: Date | null }> = [];
+  let cursor = windowStart;
+  while (cursor.getTime() < now.getTime()) {
+    // snapToUtcDayStart(cursor + chunkMs) is always > cursor for chunkDays >= 1.
+    const next = snapToUtcDayStart(new Date(cursor.getTime() + chunkMs));
+    chunks.push({
+      start: cursor,
+      end: next.getTime() >= now.getTime() ? null : next,
+    });
+    cursor = next;
+  }
+  // Degenerate windows (windowStart >= now) still emit one open-ended chunk.
+  if (chunks.length === 0) {
+    chunks.push({ start: windowStart, end: null });
+  }
+  return chunks;
+}
+
 export type AggregatedFactTableRunMode = "incremental" | "restate";
 
 export type AggregatedFactTableQueryParams = {
@@ -289,8 +318,9 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
     }
 
     // Restate re-scans the retained window; incremental slices after the watermark.
+    const now = new Date();
     const restateWindowStart = new Date(
-      Date.now() - lookbackWindowDays * 24 * 60 * 60 * 1000,
+      now.getTime() - lookbackWindowDays * 24 * 60 * 60 * 1000,
     );
     const windowStartDate =
       mode === "restate"
@@ -309,56 +339,83 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
     // In incremental mode the insert is the first committing op against a still
     // valid table, so mark it in flight now (restate already invalidated the
     // table before the drop).
-    const insertQueryString = integration.getInsertAggregatedFactTableDataQuery(
-      {
-        factTable,
-        idType,
-        metrics,
-        tableFullName,
-        windowStartDate,
-        exclusiveStart,
-      },
-    );
-
     if (mode === "incremental") {
       await this.markInFlight(executionId);
     }
 
-    const insertQuery = await this.startQuery({
-      name: "insert_aggregated_fact_table_data",
-      displayTitle: `Update Aggregated Fact Table (${factTable.name} / ${idType})`,
-      query: insertQueryString,
-      dependencies: createQuery ? [createQuery.query] : [],
-      run: (query, setExternalId, queryMetadata) =>
-        integration.runIncrementalWithNoOutputQuery(
-          query,
-          setExternalId,
-          queryMetadata,
-        ),
-      onFailure: () => {
-        // Incremental only: an observed INSERT failure means nothing committed
-        // (atomic on BigQuery/Snowflake/Redshift/Postgres), so clear the marker
-        // to let the next run retry the same window instead of restating.
-        //
-        // Restate has no marker to clear here: the table was already invalidated
-        // up front and is only restored on coverage success, so any restate
-        // failure leaves the registry pointing at no table and the next run
-        // restates (reads fall back via no-materialized-table meanwhile).
-        if (mode !== "incremental") return;
-        this.context.models.aggregatedFactTables
-          .updateByKeyIfCurrentExecution(this.getKey(), executionId, {
-            inFlightExecutionId: null,
-          })
-          .catch((e) =>
-            this.context.logger.warn(
-              e,
-              "Failed to clear aggregated fact table in-flight marker on insert failure",
-            ),
-          );
-      },
-      queryType: "aggregatedFactTableInsertData",
-    });
-    queries.push(insertQuery);
+    // Restate optionally slices into sequential `restateChunkDays`-wide INSERTs
+    // so each query's output stays inside the engine's per-stage write budget on
+    // wide fact tables. Unset (or incremental) runs a single full-window INSERT.
+    const restateChunkDays =
+      factTable.aggregatedFactTableSettings?.restateChunkDays;
+    const chunks =
+      mode === "restate" && restateChunkDays
+        ? getRestateChunkBounds(restateWindowStart, now, restateChunkDays)
+        : [{ start: windowStartDate, end: null }];
+    const chunked = chunks.length > 1;
+
+    let lastInsertQuery: QueryPointer | null = null;
+    for (let i = 0; i < chunks.length; i++) {
+      const chunk = chunks[i];
+      const insertQueryString =
+        integration.getInsertAggregatedFactTableDataQuery({
+          factTable,
+          idType,
+          metrics,
+          tableFullName,
+          windowStartDate: chunk.start,
+          windowEndDate: chunk.end,
+          exclusiveStart,
+        });
+
+      const insertQuery: QueryPointer = await this.startQuery({
+        name: chunked
+          ? `insert_aggregated_fact_table_data_chunk_${i}`
+          : "insert_aggregated_fact_table_data",
+        displayTitle: chunked
+          ? `Restate Aggregated Fact Table chunk ${i + 1}/${chunks.length} (${factTable.name} / ${idType})`
+          : `Update Aggregated Fact Table (${factTable.name} / ${idType})`,
+        query: insertQueryString,
+        // Chunks run strictly sequentially: chunk 0 waits on CREATE, chunk i>0
+        // waits on chunk i-1. This bounds concurrent write load and lets a
+        // chunk failure short-circuit the rest via dependency cascade.
+        dependencies: lastInsertQuery
+          ? [lastInsertQuery.query]
+          : createQuery
+            ? [createQuery.query]
+            : [],
+        run: (query, setExternalId, queryMetadata) =>
+          integration.runIncrementalWithNoOutputQuery(
+            query,
+            setExternalId,
+            queryMetadata,
+          ),
+        onFailure: () => {
+          // Incremental only: an observed INSERT failure means nothing committed
+          // (atomic on BigQuery/Snowflake/Redshift/Postgres), so clear the
+          // marker to let the next run retry the same window instead of
+          // restating.
+          //
+          // Restate failure should not clear any marker; any existing cache
+          // was already invalid and we want to make sure the next run restates
+          // the table.
+          if (mode !== "incremental") return;
+          this.context.models.aggregatedFactTables
+            .updateByKeyIfCurrentExecution(this.getKey(), executionId, {
+              inFlightExecutionId: null,
+            })
+            .catch((e) =>
+              this.context.logger.warn(
+                e,
+                "Failed to clear aggregated fact table in-flight marker on insert failure",
+              ),
+            );
+        },
+        queryType: "aggregatedFactTableInsertData",
+      });
+      queries.push(insertQuery);
+      lastInsertQuery = insertQuery;
+    }
 
     const maxTimestampQuery = await this.startQuery({
       name: MAX_TIMESTAMP_QUERY_NAME,
@@ -367,7 +424,7 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
         tableFullName,
         scanStartDate: coverageScanStartDate,
       }),
-      dependencies: [insertQuery.query],
+      dependencies: lastInsertQuery ? [lastInsertQuery.query] : [],
       run: (query, setExternalId, queryMetadata) =>
         integration.runIncrementalWithNoOutputQuery(
           query,

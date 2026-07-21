@@ -1,5 +1,4 @@
 import React, { ReactElement } from "react";
-import { FaExclamationTriangle } from "react-icons/fa";
 import clsx from "clsx";
 import { date } from "shared/dates";
 import { getLatestPhaseVariations } from "shared/experiments";
@@ -7,6 +6,7 @@ import Link from "@/ui/Link";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
+import Callout from "@/ui/Callout";
 import {
   ExperimentImpactData,
   ExperimentImpactType,
@@ -156,10 +156,9 @@ export default function ExperimentImpactTab({
         </td>
         {e.error ? (
           <td colSpan={3}>
-            <div className="alert alert-danger px-2 py-1 mb-1 ml-1">
-              <FaExclamationTriangle className="mr-1" />
+            <Callout status="error" mb="1" ml="1" size="sm">
               {e.error}
-            </div>
+            </Callout>
           </td>
         ) : (
           <>
@@ -178,10 +177,9 @@ export default function ExperimentImpactTab({
       ) : (
         <>
           {experimentImpactType !== "other" ? (
-            <div
-              className={`mt-2 alert alert-${
-                experimentImpactType === "winner" ? "success" : "info"
-              }`}
+            <Callout
+              status={experimentImpactType === "winner" ? "success" : "info"}
+              mt="2"
             >
               <span style={{ fontSize: "1.2em" }}>
                 {formatImpact(
@@ -195,7 +193,7 @@ export default function ExperimentImpactTab({
                     : "of not shipping the worst variation."
                 } `}
               </span>
-            </div>
+            </Callout>
           ) : null}
 
           <div className="mt-4" style={{ maxHeight: 500, overflowY: "auto" }}>

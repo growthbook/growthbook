@@ -10,6 +10,8 @@ import { useUser } from "@/services/UserContext";
 import Button from "@/ui/Button";
 import Heading from "@/ui/Heading";
 import Badge from "@/ui/Badge";
+import Link from "@/ui/Link";
+import Text from "@/ui/Text";
 import JSONSchemaDescription from "@/components/Features/JSONSchemaDescription";
 import Code from "@/components/SyntaxHighlighting/Code";
 import EditSchemaModal from "@/components/Features/EditSchemaModal";
@@ -48,6 +50,30 @@ export default function JSONValidation({
 
   // Boolean flags can't have a validation schema; json/string/number can.
   if (feature.valueType === "boolean") return null;
+
+  // A config-backed flag (Config mode) uses the config's authoritative schema —
+  // the flag's own schema is disabled. Keyed on `baseConfig`, not the value.
+  const configBackedKey = feature.baseConfig ?? null;
+  if (configBackedKey !== null) {
+    return (
+      <Box>
+        <Flex align="center" gap="1" mb="1">
+          <Heading as="h3" size="medium" mb="0">
+            Schema Validation
+          </Heading>
+          <Badge label="Provided by config" color="violet" variant="soft" />
+        </Flex>
+        <Text as="p" size="small" color="text-low" fontStyle="italic">
+          This flag&apos;s default value is backed by the{" "}
+          <Link href={`/configs/${configBackedKey}`}>
+            <code>{configBackedKey}</code>
+          </Link>{" "}
+          config, which supplies its own schema. The flag-level schema is
+          disabled while a config is attached.
+        </Text>
+      </Box>
+    );
+  }
 
   return (
     <Box>
@@ -106,10 +132,10 @@ export default function JSONValidation({
         </div>
       </Flex>
       {!validationEnabled && (
-        <em className="text-muted">
+        <Text as="p" size="small" color="text-low" fontStyle="italic">
           Prevent typos and mistakes by specifying validation rules using JSON
           Schema or our Simple Validation Builder
-        </em>
+        </Text>
       )}
       {validationEnabled && (
         <Flex pt="2" align="center">

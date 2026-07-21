@@ -47,6 +47,11 @@ interface SortableProps {
   dragging?: boolean;
   className?: string;
   onlySafeToEditVariationMetadata?: boolean;
+  // Auto-focus this variation's Name field on mount.
+  autoFocusName?: boolean;
+  // JSON features only. Renders the value as a sparse patch (merged onto the
+  // feature default) in the value editor.
+  sparse?: boolean;
 }
 
 type VariationProps = SortableProps &
@@ -74,6 +79,8 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
       showDescription,
       dragging,
       className = "",
+      autoFocusName,
+      sparse,
       ...props
     },
     ref,
@@ -149,6 +156,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
                 useCodeInput={true}
                 showFullscreenButton={true}
                 codeInputDefaultHeight={FIVE_LINES_HEIGHT}
+                sparse={sparse}
               />
             ) : (
               <>{variation.value}</>
@@ -158,6 +166,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
         <td key={`${variation.id}__${i}__2`}>
           {setVariations ? (
             <Field
+              autoFocus={autoFocusName}
               placeholder={`${getVariationDefaultName(
                 variation,
                 valueType ?? "string",

@@ -84,6 +84,15 @@
   }
 }
 
+.completedLabel {
+  text-decoration: line-through;
+
+  :global(a),
+  :global(button) {
+    text-decoration: line-through;
+  }
+}
+
 // Auto items aren't user-toggleable; the label cursor and the inner
 // checkbox button both need their pointer reset.
 .readonly {

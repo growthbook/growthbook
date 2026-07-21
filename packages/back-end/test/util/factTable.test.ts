@@ -3,7 +3,10 @@ import {
   DataSourceInterface,
   GrowthbookClickhouseDataSource,
 } from "shared/types/datasource";
-import { deriveUserIdTypesFromColumns } from "back-end/src/util/factTable";
+import {
+  deriveUserIdTypesFromColumns,
+  getMostRecentUpdateOccurrence,
+} from "back-end/src/util/factTable";
 
 function makeColumn(column: string, deleted = false): ColumnInterface {
   return {
@@ -19,8 +22,8 @@ function makeClickhouseDatasource(
     type: "growthbook_clickhouse",
     settings: {
       materializedColumns,
-      // growthbook_clickhouse syncs userIdTypes from materializedColumns
-      // (type === "identifier") on every settings save via getManagedWarehouseSettings
+      // Legacy growthbook_clickhouse warehouses mirror userIdTypes from their
+      // materializedColumns identifiers (type === "identifier").
       userIdTypes: materializedColumns
         .filter((c) => c.type === "identifier")
         .map((c) => ({ userIdType: c.columnName, description: "" })),
@@ -36,6 +39,59 @@ function makeStandardDatasource(
     settings: { userIdTypes },
   } as unknown as DataSourceInterface;
 }
+
+describe("getMostRecentUpdateOccurrence", () => {
+  const updateTime = { time: "02:00", timezone: "UTC" };
+
+  it("returns today's slot once now is past it", () => {
+    expect(
+      getMostRecentUpdateOccurrence(
+        updateTime,
+        new Date("2024-01-10T10:00:00Z"),
+      ),
+    ).toEqual(new Date("2024-01-10T02:00:00Z"));
+  });
+
+  it("is stable across the rest of the day (keeps the poller from re-claiming)", () => {
+    const morning = getMostRecentUpdateOccurrence(
+      updateTime,
+      new Date("2024-01-10T02:30:00Z"),
+    );
+    const night = getMostRecentUpdateOccurrence(
+      updateTime,
+      new Date("2024-01-10T23:59:00Z"),
+    );
+    expect(morning).toEqual(night);
+    expect(morning).toEqual(new Date("2024-01-10T02:00:00Z"));
+  });
+
+  it("rolls back to the previous day when now is before today's slot", () => {
+    expect(
+      getMostRecentUpdateOccurrence(
+        updateTime,
+        new Date("2024-01-10T01:00:00Z"),
+      ),
+    ).toEqual(new Date("2024-01-09T02:00:00Z"));
+  });
+
+  it("advances to the next day's slot once it passes (poller fires then)", () => {
+    expect(
+      getMostRecentUpdateOccurrence(
+        updateTime,
+        new Date("2024-01-11T02:30:00Z"),
+      ),
+    ).toEqual(new Date("2024-01-11T02:00:00Z"));
+  });
+
+  it("resolves the slot in the table's timezone", () => {
+    expect(
+      getMostRecentUpdateOccurrence(
+        { time: "02:00", timezone: "America/New_York" },
+        new Date("2024-01-10T12:00:00Z"),
+      ),
+    ).toEqual(new Date("2024-01-10T07:00:00Z"));
+  });
+});
 
 describe("deriveUserIdTypesFromColumns", () => {
   describe("growthbook_clickhouse datasource", () => {

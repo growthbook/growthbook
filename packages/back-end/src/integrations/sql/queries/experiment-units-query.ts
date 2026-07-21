@@ -9,7 +9,6 @@ import { getDimensionCTE } from "back-end/src/integrations/sql/ctes/dimension-ct
 import { getDimensionInStatement } from "back-end/src/integrations/sql/fact-metrics/dimension-in-statement";
 import { getDimensionValuePerUnit } from "back-end/src/integrations/sql/fact-metrics/dimension-value-per-unit";
 import { getExperimentEndDate } from "back-end/src/integrations/sql/dates/experiment-end-date";
-import { getExposureQuery } from "back-end/src/integrations/sql/queries/exposure-query";
 import { getFirstVariationValuePerUnit } from "back-end/src/integrations/sql/columns/first-variation-value-per-unit";
 import { getIdentitiesCTE } from "back-end/src/integrations/sql/ctes/identities-cte";
 import { getMetricCTE } from "back-end/src/integrations/sql/ctes/metric-cte";
@@ -18,6 +17,19 @@ import { getMetricStart } from "back-end/src/integrations/sql/dates/metric-start
 import { processActivationMetric } from "back-end/src/integrations/sql/processing/process-activation-metric";
 import { processDimensions } from "back-end/src/integrations/sql/processing/process-dimensions";
 import { getSegmentCTE } from "back-end/src/integrations/sql/ctes/segment-cte";
+import {
+  getContextualBanditExposureSelectCols,
+  getContextualBanditUnitsBaseSelectCols,
+  getContextualBanditUnitsCTEs,
+  getContextualBanditUnitsSqlConfig,
+} from "back-end/src/integrations/sql/ctes/contextual-bandit-experiment-units-cte";
+
+type ExperimentUnitsQueryContextualBanditStrings = {
+  contextualExposureSelectCols: string;
+  contextualUnitsBaseSelectCols: string;
+  unitsCteName: string;
+  unitsBaseColumnRefs: string;
+};
 
 export function getExperimentUnitsQuery(
   dialect: SqlDialect,
@@ -25,7 +37,7 @@ export function getExperimentUnitsQuery(
   params: ExperimentUnitsQueryParams,
 ): string {
   const {
-    settings,
+    unitsSettings,
     segment,
     activationMetric: activationMetricDoc,
     factTableMap,
@@ -33,21 +45,17 @@ export function getExperimentUnitsQuery(
 
   const activationMetric = processActivationMetric(
     activationMetricDoc,
-    settings,
+    unitsSettings,
   );
 
   const { experimentDimensions, unitDimensions } = processDimensions(
     dialect,
     params.dimensions,
-    settings,
+    unitsSettings,
     activationMetric,
   );
 
-  const exposureQuery = getExposureQuery(
-    datasource,
-    settings.exposureQueryId || "",
-    undefined,
-  );
+  const exposureQuery = unitsSettings.exposureQuery;
 
   const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
     dialect,
@@ -59,21 +67,63 @@ export function getExperimentUnitsQuery(
         ...unitDimensions.map((d) => [d.dimension.userIdType || "user_id"]),
         segment ? [segment.userIdType || "user_id"] : [],
       ],
-      from: settings.startDate,
-      to: settings.endDate,
+      from: unitsSettings.startDate,
+      to: unitsSettings.endDate,
       forcedBaseIdType: exposureQuery.userIdType,
-      experimentId: settings.experimentId,
+      experimentId: unitsSettings.experimentId,
     },
   );
 
-  const startDate: Date = settings.startDate;
-  const endDate: Date = getExperimentEndDate(settings, 0);
+  const startDate: Date = unitsSettings.startDate;
+  const endDate: Date = getExperimentEndDate(unitsSettings, 0);
 
   const timestampColumn = "e.timestamp";
   const timestampDateTimeColumn = dialect.castUserDateCol(timestampColumn);
   const overrideConversionWindows =
-    settings.attributionModel === "experimentDuration" ||
-    settings.attributionModel === "lookbackOverride";
+    unitsSettings.attributionModel === "experimentDuration" ||
+    unitsSettings.attributionModel === "lookbackOverride";
+
+  const contextualBanditCfg = getContextualBanditUnitsSqlConfig(unitsSettings);
+
+  const {
+    contextualExposureSelectCols,
+    contextualUnitsBaseSelectCols,
+    unitsCteName,
+    unitsBaseColumnRefs,
+  }: ExperimentUnitsQueryContextualBanditStrings = contextualBanditCfg
+    ? {
+        contextualExposureSelectCols: getContextualBanditExposureSelectCols(
+          contextualBanditCfg.aliases,
+        ),
+        contextualUnitsBaseSelectCols: getContextualBanditUnitsBaseSelectCols(
+          dialect,
+          contextualBanditCfg.aliases,
+          timestampColumn,
+        ),
+        unitsCteName: "__experimentUnitsBase",
+        unitsBaseColumnRefs: [
+          `u.${baseIdType}`,
+          "u.variation",
+          "u.first_exposure_timestamp",
+          ...unitDimensions.map((d) => `u.dim_unit_${d.dimension.id}`),
+          ...experimentDimensions.map((d) => `u.dim_exp_${d.id}`),
+          ...(activationMetric ? ["u.first_activation_timestamp"] : []),
+        ].join("\n,"),
+      }
+    : {
+        contextualExposureSelectCols: "",
+        contextualUnitsBaseSelectCols: "",
+        unitsCteName: "__experimentUnits",
+        unitsBaseColumnRefs: "",
+      };
+  const contextualAfterUnitsCtes = contextualBanditCfg
+    ? getContextualBanditUnitsCTEs(dialect, {
+        aliases: contextualBanditCfg.aliases,
+        maxRankedContexts: contextualBanditCfg.maxRankedContexts,
+        unitsBaseCteName: unitsCteName,
+        baseColumnRefs: unitsBaseColumnRefs,
+      })
+    : "";
 
   return `
     ${params.includeIdJoins ? idJoinSQL : ""}
@@ -81,11 +131,11 @@ export function getExperimentUnitsQuery(
       ${compileSqlTemplate(
         exposureQuery.query,
         {
-          startDate: settings.startDate,
-          endDate: settings.endDate,
-          experimentId: settings.experimentId,
-          phase: settings.phase,
-          customFields: settings.customFields,
+          startDate: unitsSettings.startDate,
+          endDate: unitsSettings.endDate,
+          experimentId: unitsSettings.experimentId,
+          phase: unitsSettings.phase,
+          customFields: unitsSettings.customFields,
         },
         dialect,
       )}
@@ -96,6 +146,7 @@ export function getExperimentUnitsQuery(
         e.${baseIdType} as ${baseIdType}
         , ${dialect.castToString("e.variation_id")} as variation
         , ${timestampDateTimeColumn} as timestamp
+        ${contextualExposureSelectCols}
         ${experimentDimensions
           .map((d) => {
             if (d.specifiedSlices?.length) {
@@ -111,14 +162,18 @@ export function getExperimentUnitsQuery(
       FROM
           __rawExperiment e
       WHERE
-          e.experiment_id = '${settings.experimentId}'
+          e.experiment_id = '${unitsSettings.experimentId}'
           AND ${timestampColumn} >= ${dialect.toTimestamp(startDate)}
           ${
             endDate
               ? `AND ${timestampColumn} <= ${dialect.toTimestamp(endDate)}`
               : ""
           }
-          ${settings.queryFilter ? `AND (\n${settings.queryFilter}\n)` : ""}
+          ${
+            unitsSettings.queryFilter
+              ? `AND (\n${unitsSettings.queryFilter}\n)`
+              : ""
+          }
     )
     ${
       activationMetric
@@ -127,18 +182,18 @@ export function getExperimentUnitsQuery(
             baseIdType,
             idJoinMap,
             startDate: getMetricStart(
-              settings.startDate,
+              unitsSettings.startDate,
               getDelayWindowHours(activationMetric.windowSettings),
               0,
             ),
             endDate: getMetricEnd(
               [activationMetric],
-              settings.endDate,
+              unitsSettings.endDate,
               overrideConversionWindows,
             ),
-            experimentId: settings.experimentId,
-            phase: settings.phase,
-            customFields: settings.customFields,
+            experimentId: unitsSettings.experimentId,
+            phase: unitsSettings.phase,
+            customFields: unitsSettings.customFields,
             factTableMap,
           })})
         `
@@ -153,11 +208,11 @@ export function getExperimentUnitsQuery(
             idJoinMap,
             factTableMap,
             {
-              startDate: settings.startDate,
-              endDate: settings.endDate,
-              experimentId: settings.experimentId,
-              phase: settings.phase,
-              customFields: settings.customFields,
+              startDate: unitsSettings.startDate,
+              endDate: unitsSettings.endDate,
+              experimentId: unitsSettings.experimentId,
+              phase: unitsSettings.phase,
+              customFields: unitsSettings.customFields,
             },
           )})`
         : ""
@@ -172,12 +227,13 @@ export function getExperimentUnitsQuery(
           )})`,
       )
       .join("\n")}
-    , __experimentUnits AS (
+    , ${unitsCteName} AS (
       -- One row per user
       SELECT
         e.${baseIdType} AS ${baseIdType}
         , ${
-          !!settings.banditSettings?.useFirstExposure && settings.banditSettings
+          !!unitsSettings.banditSettings?.useFirstExposure &&
+          unitsSettings.banditSettings
             ? getFirstVariationValuePerUnit(dialect)
             : dialect.ifElse(
                 "count(distinct e.variation) > 1",
@@ -206,7 +262,7 @@ export function getExperimentUnitsQuery(
                   "e.timestamp",
                   "a.timestamp",
                   activationMetric,
-                  settings.endDate,
+                  unitsSettings.endDate,
                   overrideConversionWindows,
                 ),
                 "a.timestamp",
@@ -215,6 +271,7 @@ export function getExperimentUnitsQuery(
             `
             : ""
         }
+        ${contextualUnitsBaseSelectCols}
       FROM
         __experimentExposures e
         ${
@@ -239,5 +296,5 @@ export function getExperimentUnitsQuery(
       ${segment ? `WHERE s.date <= e.timestamp` : ""}
       GROUP BY
         e.${baseIdType}
-    )`;
+    )${contextualAfterUnitsCtes}`;
 }

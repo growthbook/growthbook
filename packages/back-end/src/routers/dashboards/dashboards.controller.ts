@@ -5,6 +5,7 @@ import {
   snapshotSatisfiesBlock,
   DashboardInterface,
   DashboardBlockInterface,
+  resolveGlobalControlsBlockEnrollment,
 } from "shared/enterprise";
 import { isDefined, isString, stringToBoolean } from "shared/util";
 import { groupBy } from "lodash";
@@ -101,12 +102,18 @@ export async function createDashboard(
     title,
     blocks,
     projects,
+    globalControls,
     userId,
   } = req.body;
 
   const createdBlocks = blocks.map((blockData) =>
     generateDashboardBlockIds(context.org.id, blockData),
   );
+  const blocksWithGlobalControls =
+    resolveGlobalControlsBlockEnrollment({
+      nextGlobalControls: globalControls,
+      nextBlocks: createdBlocks,
+    }) ?? createdBlocks;
 
   const dashboard = await context.models.dashboards.create({
     isDefault: false,
@@ -119,7 +126,8 @@ export async function createDashboard(
     experimentId: experimentId || undefined,
     title,
     projects,
-    blocks: createdBlocks,
+    globalControls,
+    blocks: blocksWithGlobalControls,
   });
 
   res.status(200).json({
@@ -153,7 +161,19 @@ export async function updateDashboard(
         ? blockData
         : generateDashboardBlockIds(context.org.id, blockData),
     );
-    updates.blocks = createdBlocks;
+    updates.blocks =
+      resolveGlobalControlsBlockEnrollment({
+        existingGlobalControls: dashboard.globalControls,
+        nextGlobalControls: updates.globalControls,
+        nextBlocks: createdBlocks,
+      }) ?? createdBlocks;
+  } else {
+    const enrolledBlocks = resolveGlobalControlsBlockEnrollment({
+      existingGlobalControls: dashboard.globalControls,
+      nextGlobalControls: updates.globalControls,
+      existingBlocks: dashboard.blocks,
+    });
+    if (enrolledBlocks) updates.blocks = enrolledBlocks;
   }
 
   const updatedDashboard = await context.models.dashboards.updateById(
@@ -192,6 +212,12 @@ export async function refreshDashboardData(
 
     const datasource = await getDataSourceById(context, experiment.datasource);
     if (!datasource) throw new Error("Failed to find connected datasource");
+
+    // Fail fast before createExperimentSnapshotModel persists an orphan snapshot
+    // record. The query runner enforces this same permission again downstream.
+    if (!context.permissions.canCreateExperimentSnapshot(datasource)) {
+      context.permissions.throwPermissionError();
+    }
 
     const plannedExperimentMainSnapshot = await planExperimentSnapshot({
       context,
@@ -264,7 +290,7 @@ export async function refreshDashboardData(
 
     await updateDashboardMetricAnalyses(context, newBlocks);
     await updateDashboardSavedQueries(context, newBlocks);
-    await updateDashboardExplorations(context, newBlocks);
+    await updateDashboardExplorations(context, newBlocks, dashboard);
 
     // Bypassing permissions here to allow anyone to refresh the results of a dashboard
     await context.models.dashboards.dangerousUpdateBypassPermission(dashboard, {
@@ -340,23 +366,18 @@ export async function getDashboardSnapshots(
 
   const explorerAnalysisIds = [
     ...new Set(
-      dashboard.blocks
-        .filter(
-          (
-            block,
-          ): block is DashboardBlockInterface & {
-            explorerAnalysisId: string;
-          } =>
-            (block.type === "metric-exploration" ||
-              block.type === "fact-table-exploration" ||
-              block.type === "data-source-exploration") &&
-            "explorerAnalysisId" in block &&
-            typeof (block as { explorerAnalysisId?: string })
-              .explorerAnalysisId === "string" &&
-            (block as { explorerAnalysisId: string }).explorerAnalysisId
-              .length > 0,
-        )
-        .map((block) => block.explorerAnalysisId),
+      dashboard.blocks.flatMap((block) => {
+        if (
+          block.type !== "metric-exploration" &&
+          block.type !== "fact-table-exploration" &&
+          block.type !== "data-source-exploration"
+        ) {
+          return [];
+        }
+        return [block.explorerAnalysisId, block.comparisonExplorerAnalysisId]
+          .filter((id): id is string => typeof id === "string")
+          .filter((id) => id.length > 0);
+      }),
     ),
   ];
   const explorations: ProductAnalyticsExploration[] =

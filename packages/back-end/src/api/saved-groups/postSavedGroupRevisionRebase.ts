@@ -53,6 +53,7 @@ export const postSavedGroupRevisionRebase = createApiRequestHandler(
     baseSnapshot,
     liveSnapshot,
     existingOps,
+    adapter.getUpdatableFields(),
   );
 
   const conflicts = mergeResult.conflicts || [];

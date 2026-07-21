@@ -76,6 +76,9 @@ export const HoldoutSelect = ({
     [holdoutsWithExperiment],
   );
 
+  const exemptingFromHoldout =
+    requiredSelectableHoldouts.length > 0 && selectedHoldoutId === "";
+
   useEffect(() => {
     // check to see if the holdout still exists and if not, set the holdout to the first valid holdout
     if (!holdoutsWithExperiment.some((h) => h.id === selectedHoldoutId)) {
@@ -90,7 +93,7 @@ export const HoldoutSelect = ({
       <PremiumCallout
         id="holdout-select-promo"
         commercialFeature="holdouts"
-        dismissable={true}
+        dismissible={true}
         mt="3"
         mb="3"
       >
@@ -105,7 +108,7 @@ export const HoldoutSelect = ({
   }
 
   if (holdoutsWithExperiment.length === 0) {
-    if (hideEmptyStatePromo) return null;
+    if (hideEmptyStatePromo || holdouts.length > 0) return null;
     return (
       <Callout
         mt="3"
@@ -133,8 +136,13 @@ export const HoldoutSelect = ({
         onChange={(v) => {
           setHoldout(v);
         }}
+        className={exemptingFromHoldout ? "warning" : undefined}
         helpText={
-          holdoutsWithExperiment.length === 0 ? "No holdouts" : undefined
+          exemptingFromHoldout && (
+            <HelperText status="warning" size="sm" mt="2">
+              {`Exempting this ${formType} from a holdout may impact your organization's analysis. Proceed with caution.`}
+            </HelperText>
+          )
         }
         options={[
           ...(holdoutsWithExperiment?.map((h) => {
@@ -174,12 +182,6 @@ export const HoldoutSelect = ({
           );
         }}
       />
-      {requiredSelectableHoldouts.length > 0 && selectedHoldoutId === "" && (
-        <HelperText status="warning" size="sm" mb="3">
-          Exempting this {formType} from a holdout may impact your
-          organization&apos;s analysis. Proceed with caution.
-        </HelperText>
-      )}
     </>
   );
 };

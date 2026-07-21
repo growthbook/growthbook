@@ -25,6 +25,7 @@ export default function SelfHostedTrialConfirmationModal({
   });
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       open={true}
       includeCloseCta={false}

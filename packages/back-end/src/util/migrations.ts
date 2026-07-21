@@ -746,7 +746,7 @@ export function upgradeExperimentDoc(
         experiment.releasedVariationId = experiment.variations[0]?.id || "";
       } else if (experiment.results === "won") {
         experiment.releasedVariationId =
-          experiment.variations[experiment.winner || 1]?.id || "";
+          experiment.variations[experiment.winner ?? 1]?.id || "";
       } else {
         experiment.releasedVariationId = "";
       }

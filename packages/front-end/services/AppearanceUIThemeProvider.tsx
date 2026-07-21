@@ -77,7 +77,7 @@ export const AppearanceUIThemeProvider: FC<PropsWithChildren> = ({
     useState<AppearanceUITheme>(initialSystemTheme);
 
   const initialPreferredTheme =
-    typeof localStorage !== "undefined"
+    typeof window !== "undefined"
       ? ((localStorage.getItem(
           KEY_PREFERRED_THEME,
         ) as PreferredAppearanceUITheme) ?? "system")

@@ -175,14 +175,17 @@ export async function putSavedQuery(
     );
   }
 
+  // Only include fields the caller actually sent — passing `undefined` would
+  // clear `dataVizConfig` (it's optional) and no-op `dateLastRan` (required),
+  // neither of which is intended for a partial update that omits them.
   const updateData = {
     ...req.body,
-    dateLastRan: req.body.dateLastRan
-      ? getValidDate(req.body.dateLastRan)
-      : undefined,
-    dataVizConfig: req.body.dataVizConfig
-      ? ensureDataVizIds(req.body.dataVizConfig)
-      : undefined,
+    ...(req.body.dateLastRan
+      ? { dateLastRan: getValidDate(req.body.dateLastRan) }
+      : {}),
+    ...(req.body.dataVizConfig
+      ? { dataVizConfig: ensureDataVizIds(req.body.dataVizConfig) }
+      : {}),
   };
 
   const savedQuery = await context.models.savedQueries.updateById(

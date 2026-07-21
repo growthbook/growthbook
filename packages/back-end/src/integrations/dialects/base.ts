@@ -149,4 +149,7 @@ export const baseDialect: Omit<SqlDialect, "unpivotLabeledPairs"> = {
   },
 
   stringLength: (column: string) => `LENGTH(${column})`,
+
+  arrayElement: (arrayCol: string, index: number) =>
+    `${arrayCol}[${index + 1}]`,
 };

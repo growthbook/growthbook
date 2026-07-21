@@ -17,6 +17,10 @@ import metricTargetMDEResolver from "./resolvers/metricTargetMDEResolver";
 import postStratificationEnabledResolver from "./resolvers/postStratificationEnabledResolver";
 export * from "./types";
 export { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "../../constants";
+export {
+  DEFAULT_TOP_VALUES_LOOKBACK_VALUE,
+  DEFAULT_TOP_VALUES_LOOKBACK_UNIT,
+} from "../../constants";
 
 export const resolvers: Record<
   keyof Settings,
@@ -119,6 +123,8 @@ export const resolvers: Record<
   experimentMinLengthDays: genDefaultResolver("experimentMinLengthDays"),
   experimentMaxLengthDays: genDefaultResolver("experimentMaxLengthDays"),
   maxMetricSliceLevels: genDefaultResolver("maxMetricSliceLevels"),
+  topValuesLookbackValue: genDefaultResolver("topValuesLookbackValue"),
+  topValuesLookbackUnit: genDefaultResolver("topValuesLookbackUnit"),
   useStickyBucketing: genDefaultResolver("useStickyBucketing"),
   // TODO prior resolvers
 };

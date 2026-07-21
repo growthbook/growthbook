@@ -53,6 +53,7 @@ export function getChecklistItems({
   /** When publishing from a feature draft page, waive the unrelated-edits gate
    *  for that feature — the user is explicitly reviewing the full draft. */
   publishingFeatureId,
+  showAnalysisSetupItems,
 }: {
   experiment: ExperimentInterfaceStringDates;
   linkedFeatures: LinkedFeatureInfo[];
@@ -67,6 +68,7 @@ export function getChecklistItems({
   checkLinkedChanges: boolean;
   setShowScheduleModal?: (value: boolean) => void;
   publishingFeatureId?: string;
+  showAnalysisSetupItems?: boolean;
 }) {
   const isBandit = experiment.type === "multi-armed-bandit";
 
@@ -119,6 +121,65 @@ export function getChecklistItems({
   }
   const items: CheckListItem[] = [];
 
+  if (showAnalysisSetupItems && !isBandit) {
+    const hasDatasource = !!experiment.datasource;
+    const hasAssignmentTable = !!experiment.exposureQueryId;
+
+    items.push({
+      type: "auto",
+      key: "datasource",
+      required: true,
+      status: hasDatasource ? "complete" : "incomplete",
+      display: (
+        <>
+          {setAnalysisModal ? (
+            <Link onClick={() => setAnalysisModal(true)}>Select</Link>
+          ) : (
+            "Select"
+          )}{" "}
+          a Data Source for this experiment
+        </>
+      ),
+    });
+
+    items.push({
+      type: "auto",
+      key: "exposureQuery",
+      required: true,
+      status: hasAssignmentTable ? "complete" : "incomplete",
+      display: (
+        <>
+          {setAnalysisModal ? (
+            <Link onClick={() => setAnalysisModal(true)}>Select</Link>
+          ) : (
+            "Select"
+          )}{" "}
+          an Experiment Assignment Table
+        </>
+      ),
+    });
+
+    if (hasDatasource && hasAssignmentTable) {
+      items.push({
+        type: "auto",
+        key: "goalMetric",
+        required: true,
+        status:
+          (experiment.goalMetrics?.length ?? 0) > 0 ? "complete" : "incomplete",
+        display: (
+          <>
+            {setAnalysisModal ? (
+              <Link onClick={() => setAnalysisModal(true)}>Add</Link>
+            ) : (
+              "Add"
+            )}{" "}
+            at least one goal metric
+          </>
+        ),
+      });
+    }
+  }
+
   if (checkLinkedChanges) {
     const hasLiveLinkedChanges = experimentHasLiveLinkedChanges(
       experiment,
@@ -135,9 +196,9 @@ export function getChecklistItems({
           {openSetupTab &&
           ((isBandit && !hasLiveLinkedChanges) ||
             (!isBandit && hasLinkedChanges)) ? (
-            <a className="a link-purple" role="button" onClick={openSetupTab}>
+            <Link onClick={openSetupTab}>
               Linked Feature or Visual Editor change
-            </a>
+            </Link>
           ) : (
             "Linked Feature, Visual Editor change, or URL Redirect"
           )}
@@ -156,13 +217,7 @@ export function getChecklistItems({
         display: (
           <>
             {setAnalysisModal ? (
-              <a
-                className="a link-purple"
-                role="button"
-                onClick={() => setAnalysisModal(true)}
-              >
-                Choose
-              </a>
+              <Link onClick={() => setAnalysisModal(true)}>Choose</Link>
             ) : (
               "Choose"
             )}{" "}
@@ -205,10 +260,16 @@ export function getChecklistItems({
           });
         });
 
-      // When the draft also has unrelated changes, the FF-page publish flow
-      // already covers approval — skip the redundant approval row.
+      // Publishing this feature's own draft (from its Review & Publish page) is
+      // what approves it, so skip the self-referential approval row. Drafts with
+      // unrelated changes are likewise covered by that publish flow.
       linkedFeatures
-        .filter((f) => f.pendingApproval && !f.hasUnrelatedDraftChanges)
+        .filter(
+          (f) =>
+            f.pendingApproval &&
+            !f.hasUnrelatedDraftChanges &&
+            f.feature.id !== publishingFeatureId,
+        )
         .forEach((f) => {
           items.push({
             status:
@@ -318,9 +379,7 @@ export function getChecklistItems({
           <>
             Add changes in the{" "}
             {openSetupTab ? (
-              <a className="a link-purple" role="button" onClick={openSetupTab}>
-                Visual Editor
-              </a>
+              <Link onClick={openSetupTab}>Visual Editor</Link>
             ) : (
               "Visual Editor"
             )}
@@ -340,16 +399,14 @@ export function getChecklistItems({
     display: (
       <>
         {editTargeting ? (
-          <a
-            className="a link-purple"
-            role="button"
+          <Link
             onClick={() => {
               editTargeting();
               track("Edit targeting", { source: "experiment-start-banner" });
             }}
           >
             Configure
-          </a>
+          </Link>
         ) : (
           "Configure"
         )}{" "}
@@ -372,13 +429,7 @@ export function getChecklistItems({
         {!setShowSdkForm && !verifiedConnections ? (
           <Link href="/sdks">Manage SDK Connections</Link>
         ) : connections.length === 0 && setShowSdkForm ? (
-          <a
-            className="a link-purple"
-            role="button"
-            onClick={() => setShowSdkForm(true)}
-          >
-            Add SDK Connection
-          </a>
+          <Link onClick={() => setShowSdkForm(true)}>Add SDK Connection</Link>
         ) : null}
       </>
     ),
@@ -421,13 +472,9 @@ export function getChecklistItems({
             item.propertyKey === "schedule" ? (
               <>
                 {setShowScheduleModal ? (
-                  <a
-                    className="a link-purple"
-                    role="button"
-                    onClick={() => setShowScheduleModal(true)}
-                  >
+                  <Link onClick={() => setShowScheduleModal(true)}>
                     Add scheduled start date
-                  </a>
+                  </Link>
                 ) : (
                   "Add scheduled start date"
                 )}{" "}

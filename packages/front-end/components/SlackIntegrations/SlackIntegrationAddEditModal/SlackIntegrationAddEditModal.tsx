@@ -110,6 +110,7 @@ export const SlackIntegrationAddEditModal: FC<
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       header={modalTitle}
       cta={buttonText}

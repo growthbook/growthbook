@@ -1,6 +1,9 @@
 import { omit } from "lodash";
 import { updateFactTableValidator } from "shared/validators";
-import { UpdateFactTableProps } from "shared/types/fact-table";
+import {
+  FactTableInterface,
+  UpdateFactTableProps,
+} from "shared/types/fact-table";
 import { queueFactTableColumnsRefresh } from "back-end/src/jobs/refreshFactTableColumns";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
@@ -121,7 +124,7 @@ export const updateFactTable = createApiRequestHandler(
   }
 
   await updateFactTableInDb(req.context, factTable, data);
-  if (needsColumnRefresh(data)) {
+  if (needsColumnRefresh(factTable, data)) {
     await queueFactTableColumnsRefresh(factTable);
   }
 
@@ -156,6 +159,12 @@ export const updateFactTable = createApiRequestHandler(
   };
 });
 
-export function needsColumnRefresh(changes: UpdateFactTableProps): boolean {
-  return !!(changes.sql || changes.eventName);
+export function needsColumnRefresh(
+  existing: Pick<FactTableInterface, "sql" | "eventName">,
+  changes: UpdateFactTableProps,
+): boolean {
+  const sqlChanged = changes.sql !== undefined && changes.sql !== existing.sql;
+  const eventNameChanged =
+    changes.eventName !== undefined && changes.eventName !== existing.eventName;
+  return sqlChanged || eventNameChanged;
 }

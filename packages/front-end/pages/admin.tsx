@@ -154,6 +154,7 @@ function OrganizationRow({
       )}
       {clickhouseModalOpen && (
         <Modal
+          useRadixButton={false}
           open={true}
           header="Create Clickhouse Data Source"
           close={() => setClickhouseModalOpen(false)}
@@ -920,6 +921,7 @@ const EditMember: FC<{
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       submit={handleSubmit}
       open={true}
@@ -1134,6 +1136,7 @@ function EditSSOModal({
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       submit={form.handleSubmit(async (data) => {
         const payload = generateSSOConnection({

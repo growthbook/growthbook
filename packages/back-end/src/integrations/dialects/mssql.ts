@@ -52,6 +52,9 @@ export const mssqlDialect: SqlDialect = {
 
   stringLength: (column: string) => `LEN(${column})`,
 
+  arrayElement: (arrayCol: string, index: number) =>
+    mssqlDialect.castToFloat(`JSON_VALUE(${arrayCol}, '$[${index}]')`),
+
   stringMatch: createLikeStringMatchFn({
     escapeStringLiteral: baseDialect.escapeStringLiteral,
     escapeWildcards: (value: string) => value.replace(/([%_[])/g, "[$1]"),

@@ -7,6 +7,7 @@ import {
   ApiCreateDashboardBlockInterface,
   ApiDashboardBlockInterface,
   blockHasFieldOfType,
+  resolveGlobalControlsBlockEnrollment,
   dashboardBlockHasIds,
   apiCreateDashboardBody,
   ApiDashboardInterface,
@@ -42,6 +43,7 @@ import {
 } from "back-end/src/api/specs/dashboard.spec";
 import { determineNextDate } from "back-end/src/services/experiments";
 import { shouldRecalculateNextUpdate } from "back-end/src/enterprise/services/dashboards";
+import { resolveOwnerEmail } from "back-end/src/services/owner";
 
 export type DashboardDocument = mongoose.Document & DashboardInterface;
 type LegacyDashboardDocument = Omit<
@@ -431,6 +433,7 @@ export class DashboardModel extends BaseClass {
       experimentId,
       title,
       projects,
+      globalControls,
       blocks,
     } = apiCreateDashboardBody.parse(rawBody);
     const createdBlocks = await Promise.all(
@@ -441,6 +444,11 @@ export class DashboardModel extends BaseClass {
         ),
       ),
     );
+    const blocksWithGlobalControls =
+      resolveGlobalControlsBlockEnrollment({
+        nextGlobalControls: globalControls,
+        nextBlocks: createdBlocks,
+      }) ?? createdBlocks;
     return {
       uid: uuidv4().replace(/-/g, ""), // TODO: Move to BaseModel
       isDefault: false,
@@ -453,10 +461,27 @@ export class DashboardModel extends BaseClass {
       experimentId: experimentId || undefined,
       title,
       projects,
-      blocks: normalizeLayouts(createdBlocks),
+      globalControls,
+      blocks: normalizeLayouts(blocksWithGlobalControls),
     };
   }
-  protected async processApiUpdateBody(rawBody: unknown) {
+  public override async handleApiUpdate(
+    req: Parameters<InstanceType<typeof BaseClass>["handleApiUpdate"]>[0],
+  ): Promise<ApiDashboardInterface> {
+    const id = req.params.id;
+    const dashboard = await this.getById(id);
+    if (!dashboard) req.context.throwNotFoundError();
+
+    const toUpdate = await this.processApiUpdateBody(req.body, dashboard);
+    return resolveOwnerEmail(
+      this.toApiInterface(await this.updateById(id, toUpdate)),
+      this.context,
+    );
+  }
+  protected async processApiUpdateBody(
+    rawBody: unknown,
+    existingDashboard?: DashboardInterface,
+  ) {
     const { blocks: blockUpdates, ...otherUpdates } =
       apiUpdateDashboardBody.parse(rawBody);
     const updates: UpdateProps<DashboardInterface> = otherUpdates;
@@ -471,7 +496,20 @@ export class DashboardModel extends BaseClass {
             : generateDashboardBlockIds(this.context.org.id, blockData),
         ),
       );
-      updates.blocks = normalizeLayouts(createdBlocks);
+      updates.blocks = normalizeLayouts(
+        resolveGlobalControlsBlockEnrollment({
+          existingGlobalControls: existingDashboard?.globalControls,
+          nextGlobalControls: updates.globalControls,
+          nextBlocks: createdBlocks,
+        }) ?? createdBlocks,
+      );
+    } else if (existingDashboard) {
+      const enrolledBlocks = resolveGlobalControlsBlockEnrollment({
+        existingGlobalControls: existingDashboard.globalControls,
+        nextGlobalControls: updates.globalControls,
+        existingBlocks: existingDashboard.blocks,
+      });
+      if (enrolledBlocks) updates.blocks = enrolledBlocks;
     }
     return updates;
   }

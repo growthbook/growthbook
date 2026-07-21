@@ -16,6 +16,7 @@ import {
   getAllowedOperators,
   operatorLabelMap,
   getColumnInfo,
+  getAttributeFieldsExposedAsColumns,
 } from "./rowFilterUtils";
 
 export function RowFilterInput({
@@ -28,6 +29,7 @@ export function RowFilterInput({
   factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">;
 }) {
   const [rowDeleted, setRowDeleted] = useState(false);
+  const hiddenAttributeFields = getAttributeFieldsExposedAsColumns(factTable);
 
   return (
     <Flex direction="column" gap="2">
@@ -48,6 +50,11 @@ export function RowFilterInput({
           // Add JSON fields as separate options
           if (col.jsonFields) {
             Object.keys(col.jsonFields).forEach((field) => {
+              if (
+                col.column === "attributes" &&
+                hiddenAttributeFields.has(field)
+              )
+                return;
               columnOptions.push({
                 label: `${col.name || col.column}.${field}`,
                 value: `${col.column}.${field}`,

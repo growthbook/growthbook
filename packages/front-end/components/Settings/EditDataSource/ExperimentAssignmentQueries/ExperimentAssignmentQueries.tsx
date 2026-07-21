@@ -158,6 +158,7 @@ export const ExperimentAssignmentQueries: FC<
         const isManaged = isEventForwarderManagedExposureQuery(query);
         const deleteButton = (
           <DeleteButton
+            useRadix={false}
             onClick={handleActionDeleteClicked(idx)}
             className="dropdown-item text-danger py-2"
             iconClassName="mr-2"
@@ -215,6 +216,7 @@ export const ExperimentAssignmentQueries: FC<
                       </Box>
                       <Box mt="3">
                         <Button
+                          color="inherit"
                           onClick={handleValidate()}
                           loading={validatingQuery}
                         >
@@ -222,6 +224,7 @@ export const ExperimentAssignmentQueries: FC<
                         </Button>
                         {canEdit && !isManaged && (
                           <Button
+                            color="inherit"
                             onClick={handleActionClicked(idx, "edit")}
                             style={{ marginLeft: "1rem" }}
                           >
@@ -240,7 +243,7 @@ export const ExperimentAssignmentQueries: FC<
 
               <Flex align="center">
                 {canEdit && (
-                  <MoreMenu>
+                  <MoreMenu useRadix={false}>
                     <button
                       className="dropdown-item py-2"
                       onClick={handleActionClicked(idx, "edit")}

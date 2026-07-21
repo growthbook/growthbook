@@ -18,6 +18,7 @@ import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Button from "@/ui/Button";
 import DatePicker from "@/components/DatePicker";
 import Link from "@/ui/Link";
+import Callout from "@/ui/Callout";
 
 type EventsPageProps = {
   filterURLParams: string;
@@ -55,9 +56,9 @@ export const EventsPage: FC<EventsPageProps> = ({
   if (!permissionsUtil.canViewAuditLogs()) {
     return (
       <div className="container pagecontents">
-        <div className="alert alert-danger">
+        <Callout status="error">
           You do not have access to view this page.
-        </div>
+        </Callout>
       </div>
     );
   }
@@ -93,14 +94,14 @@ export const EventsPage: FC<EventsPageProps> = ({
         {filters}
       </div>
       {error && (
-        <div className="alert alert-danger mt-2">
+        <Callout status="error" mt="2">
           There was an error loading the events.
-        </div>
+        </Callout>
       )}
       {hasExportError && (
-        <div className="alert alert-danger mt-2">
+        <Callout status="error" mt="2">
           There was an error exporting the events.
-        </div>
+        </Callout>
       )}
 
       <table className="mt-3 table gbtable appbox--align-top table-hover appbox">

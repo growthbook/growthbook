@@ -20,6 +20,7 @@ function base(overrides: Partial<RnPStateInput> = {}): RnPStateInput {
     onlyScheduledSelected: false,
     experimentsStep: false,
     featureLockedByRamp: false,
+    featureLockedBySchedule: false,
     checklistBlocked: false,
     governanceCanPublish: true,
     ...overrides,
@@ -136,6 +137,19 @@ describe("getReviewAndPublishState", () => {
 
       const bypassed = getReviewAndPublishState(
         base({ featureLockedByRamp: true, adminPublish: true }),
+      );
+      expect(bypassed.ctaEnabled).toBe(true);
+    });
+
+    it("locks publish when a sibling draft's scheduled publish locks others", () => {
+      const locked = getReviewAndPublishState(
+        base({ featureLockedBySchedule: true }),
+      );
+      expect(locked.ctaEnabled).toBe(false);
+      expect(locked.ctaLocked).toBe(true);
+
+      const bypassed = getReviewAndPublishState(
+        base({ featureLockedBySchedule: true, adminPublish: true }),
       );
       expect(bypassed.ctaEnabled).toBe(true);
     });
@@ -275,5 +289,46 @@ describe("getReviewAndPublishState", () => {
       );
       expect(s.canRecallReview).toBe(false);
     });
+  });
+});
+
+describe("waitingForReview", () => {
+  it("is set for a pending review with no primary action", () => {
+    const s = getReviewAndPublishState(
+      base({ requireReviews: true, status: "pending-review" }),
+    );
+    expect(s.submitAction).toBe("none");
+    expect(s.waitingForReview).toBe(true);
+  });
+
+  it("is not set once the draft is approved", () => {
+    const s = getReviewAndPublishState(
+      base({ requireReviews: true, status: "approved" }),
+    );
+    expect(s.waitingForReview).toBe(false);
+  });
+
+  it("is not set for changes-requested (the author holds the ball)", () => {
+    const s = getReviewAndPublishState(
+      base({ requireReviews: true, status: "changes-requested" }),
+    );
+    expect(s.waitingForReview).toBe(false);
+  });
+
+  it("is not set when an admin bypass makes the draft publishable", () => {
+    const s = getReviewAndPublishState(
+      base({
+        requireReviews: true,
+        status: "pending-review",
+        adminPublish: true,
+      }),
+    );
+    expect(s.submitAction).toBe("publish");
+    expect(s.waitingForReview).toBe(false);
+  });
+
+  it("is never set on the direct-publish path", () => {
+    const s = getReviewAndPublishState(base({ status: "pending-review" }));
+    expect(s.waitingForReview).toBe(false);
   });
 });

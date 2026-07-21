@@ -8,6 +8,7 @@ import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { addTags, addTagsDiff } from "back-end/src/models/TagModel";
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
+import { syncManagedWarehouseIdentifiersOnAttributeChange } from "back-end/src/services/clickhouse";
 import { syncEventForwarderAfterAttributeSchemaChange } from "back-end/src/services/eventForwarder/attributeSync";
 import { yieldEventLoop } from "back-end/src/util/yield";
 export const postAttribute = async (
@@ -45,6 +46,11 @@ export const postAttribute = async (
       attributeSchema: updatedAttributeSchema,
     },
   });
+
+  await syncManagedWarehouseIdentifiersOnAttributeChange(
+    context,
+    updatedAttributeSchema,
+  );
 
   await syncEventForwarderAfterAttributeSchemaChange(context, {
     attributeSchema: updatedAttributeSchema,
@@ -129,6 +135,11 @@ export const putAttribute = async (
     },
   });
 
+  await syncManagedWarehouseIdentifiersOnAttributeChange(
+    context,
+    attributeSchema,
+  );
+
   await syncEventForwarderAfterAttributeSchemaChange(context, {
     attributeSchema,
   });
@@ -182,6 +193,8 @@ export const deleteAttribute = async (
       attributeSchema: updatedArr,
     },
   });
+
+  await syncManagedWarehouseIdentifiersOnAttributeChange(context, updatedArr);
 
   await syncEventForwarderAfterAttributeSchemaChange(context, {
     attributeSchema: updatedArr,

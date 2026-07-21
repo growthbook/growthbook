@@ -10,6 +10,7 @@ import track from "@/services/track";
 import Button from "@/components/Button";
 import UIButton from "@/ui/Button";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Callout from "@/ui/Callout";
 
 type DemoDataSourcePageProps = {
   error: string | null;
@@ -50,10 +51,10 @@ export const DemoDataSourcePage: FC<DemoDataSourcePageProps> = ({
         {ready && (
           <div className="mt-3">
             {/* Success state when it has been created or deleted */}
-            {success && <div className="alert alert-success">{success}</div>}
+            {success && <Callout status="success">{success}</Callout>}
 
             {/* Error state */}
-            {error && <div className="alert alert-danger">{error}</div>}
+            {error && <Callout status="error">{error}</Callout>}
 
             {/* Create button */}
             {!exists && (

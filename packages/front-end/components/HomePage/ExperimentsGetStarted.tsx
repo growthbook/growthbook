@@ -15,9 +15,11 @@ import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
-import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
-import Button from "@/components/Button";
+import CreateExperimentModal from "@/components/Experiment/CreateExperimentModal";
+import Button from "@/ui/Button";
+import Text from "@/ui/Text";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Callout from "@/ui/Callout";
 
 const ExperimentsGetStarted = (): React.ReactElement => {
   const { metrics, datasources, mutateDefinitions, project, projects } =
@@ -108,10 +110,9 @@ const ExperimentsGetStarted = (): React.ReactElement => {
         )}
 
         {designExperimentOpen && (
-          <NewExperimentForm
+          <CreateExperimentModal
             onClose={() => setDesignExperimentOpen(false)}
             source={"get-started"}
-            isNewExperiment={true}
           />
         )}
 
@@ -134,11 +135,13 @@ const ExperimentsGetStarted = (): React.ReactElement => {
               experiment.
             </p>
             {hasFileConfig() && (
-              <div className="alert alert-info">
+              <Callout status="info">
                 It looks like you have a <code>config.yml</code> file. Use that
                 to define data sources and metrics.{" "}
-                <DocLink docSection="config_yml">View Documentation</DocLink>
-              </div>
+                <DocLink useRadix={false} docSection="config_yml">
+                  View Documentation
+                </DocLink>
+              </Callout>
             )}
             <div className="row mb-3">
               <div className="col">
@@ -264,15 +267,21 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                 </div>
               </div>
             </div>
-            <div className="alert alert-info text-center">
-              <p>
-                Not ready to connect to your data warehouse? Explore a sample
-                experiment first to get a feel for the GrowthBook platform.
-              </p>
-              <Button color="outline-primary" onClick={openSampleExperiment}>
-                View Sample Experiment
-              </Button>
-            </div>
+            <Callout status="info">
+              <Text as="div" align="center">
+                <p>
+                  Not ready to connect to your data warehouse? Explore a sample
+                  experiment first to get a feel for the GrowthBook platform.
+                </p>
+                <Button
+                  color="inherit"
+                  variant="outline"
+                  onClick={openSampleExperiment}
+                >
+                  View Sample Experiment
+                </Button>
+              </Text>
+            </Callout>
           </div>
         ) : (
           <div>

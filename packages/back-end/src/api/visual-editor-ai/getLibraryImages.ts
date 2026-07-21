@@ -26,6 +26,9 @@ const validation = {
   method: "get" as const,
   path: "/visual-editor/library/images",
   operationId: "getVisualEditorLibraryImages",
+  // Internal Visual Editor extension endpoint — not part of the
+  // public OpenAPI spec.
+  excludeFromSpec: true,
 };
 
 export const getLibraryImages = createApiRequestHandler(validation)(async (

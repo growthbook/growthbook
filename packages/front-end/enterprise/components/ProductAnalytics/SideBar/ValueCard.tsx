@@ -11,8 +11,8 @@ import {
 import Collapsible from "react-collapsible";
 import { z } from "zod";
 import { rowFilterValidator } from "shared/validators";
-import { FactTableInterface } from "shared/types/fact-table";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import useFullFactTable from "@/hooks/useFullFactTable";
 import Button from "@/ui/Button";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
@@ -35,7 +35,7 @@ export default function ValueCard({
 }) {
   const { draftExploreState, updateValueInDataset, deleteValueFromDataset } =
     useExplorerContext();
-  const { getFactTableById, getFactMetricById } = useDefinitions();
+  const { getFactMetricById } = useDefinitions();
 
   const name = draftExploreState.dataset.values[index].name;
   const filters = draftExploreState.dataset.values[index].rowFilters;
@@ -45,17 +45,17 @@ export default function ValueCard({
   const [unitDropdownOpen, setUnitDropdownOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
-  let factTable: FactTableInterface | null = null;
-  if (draftExploreState.dataset?.type === "fact_table") {
-    factTable = getFactTableById(draftExploreState.dataset.factTableId ?? "");
-  } else if (draftExploreState.dataset?.type === "metric") {
-    const factTableId = getFactMetricById(
-      draftExploreState.dataset.values[index].metricId ?? "",
-    )?.numerator?.factTableId;
-    if (factTableId) {
-      factTable = getFactTableById(factTableId);
-    }
-  }
+  // Column filters need full columns (jsonFields), which the slimmed
+  // definitions omit, so fetch the full fact table by id
+  const factTableId =
+    draftExploreState.dataset?.type === "fact_table"
+      ? (draftExploreState.dataset.factTableId ?? "")
+      : draftExploreState.dataset?.type === "metric"
+        ? (getFactMetricById(
+            draftExploreState.dataset.values[index].metricId ?? "",
+          )?.numerator?.factTableId ?? "")
+        : "";
+  const { factTable } = useFullFactTable(factTableId);
 
   const displayName = (name ?? "").trim();
 

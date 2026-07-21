@@ -1,9 +1,11 @@
 import { z } from "zod";
+import type { Changeset } from "shared/types/experiment";
 import { findVisualChangesetById } from "back-end/src/models/VisualChangesetModel";
 import {
   getExperimentById,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
+import { validateExperimentChange } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { requireUserAuth } from "./requireUserAuth";
 
@@ -25,6 +27,9 @@ const validation = {
   method: "post" as const,
   path: "/visual-editor/rename-experiment",
   operationId: "postVisualEditorRenameExperiment",
+  // Internal Visual Editor extension endpoint — not part of the
+  // public OpenAPI spec.
+  excludeFromSpec: true,
 };
 
 export const postRenameExperiment = createApiRequestHandler(validation)(async (
@@ -60,10 +65,12 @@ export const postRenameExperiment = createApiRequestHandler(validation)(async (
     return { name: experiment.name };
   }
 
+  const changes: Changeset = { name: trimmed };
+  await validateExperimentChange({ context, experiment, changes });
   await updateExperiment({
     context,
     experiment,
-    changes: { name: trimmed },
+    changes,
   });
 
   return { name: trimmed };

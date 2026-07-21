@@ -47,7 +47,7 @@ export async function revalidateManagedEventForwarderDataSourceQueries(
         featureUsage,
       },
     },
-    true,
+    "all",
   );
 
   await updateDataSource(context, datasource, {

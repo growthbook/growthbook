@@ -17,7 +17,7 @@ import { date, datetime } from "shared/dates";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { ScaleLinear, ScaleTime } from "d3-scale";
 import {
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
   getLatestPhaseVariations,
 } from "shared/experiments";
 import { BanditEvent } from "shared/validators";
@@ -56,7 +56,7 @@ export interface BanditDateGraphDataPoint {
 }
 export interface BanditDateGraphProps {
   experiment: ExperimentInterfaceStringDates;
-  metric: ExperimentMetricInterface | null;
+  metric: ExperimentMetricDefinition | null;
   phase: number;
   label?: string;
   mode: "values" | "probabilities" | "weights";
@@ -95,7 +95,7 @@ const getTooltipContents = (
   data: TooltipData,
   variations: GraphVariation[],
   mode: "values" | "probabilities" | "weights",
-  metric: ExperimentMetricInterface | null,
+  metric: ExperimentMetricDefinition | null,
   getFactTableById: any,
   metricFormatterOptions: any,
   showVariations: boolean[],

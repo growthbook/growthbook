@@ -19,6 +19,7 @@ import {
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import RevisionDropdown from "@/components/Features/RevisionDropdown";
 import Text from "@/ui/Text";
+import Heading from "@/ui/Heading";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import DraftSelectorForChanges, {
   DraftMode,
@@ -144,6 +145,7 @@ export default function RevertModal({
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       open={true}
       header="Revert"
@@ -193,7 +195,9 @@ export default function RevertModal({
         defaultExpanded
       />
 
-      <h3>Review Changes</h3>
+      <Heading as="h4" size="medium" mb="3">
+        Review Changes
+      </Heading>
       <Flex align="center" gap="2" mb="3" wrap="wrap">
         <Text weight="medium">Reverting to:</Text>
         <Box style={{ flex: 1, minWidth: 200, maxWidth: 480 }}>

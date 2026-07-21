@@ -15,6 +15,7 @@ import ReportMetaInfo from "@/components/Report/ReportMetaInfo";
 import LegacyReportPage from "@/components/Report/LegacyReportPage";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ConfigureReport from "@/components/Report/ConfigureReport";
+import Callout from "@/ui/Callout";
 
 export default function ReportPage() {
   const router = useRouter();
@@ -63,7 +64,7 @@ export default function ReportPage() {
     return <LoadingOverlay />;
   }
   if (error) {
-    return <div className="alert alert-danger">{error.message}</div>;
+    return <Callout status="error">{error.message}</Callout>;
   }
   if (!report) {
     return null;

@@ -1,10 +1,8 @@
-import { Box, Flex } from "@radix-ui/themes";
-import { ReactNode } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { PiGitMergeBold, PiWarningOctagonBold } from "react-icons/pi";
 import type { PublishGovernanceResult } from "shared/util";
 import Button from "@/ui/Button";
-import Text from "@/ui/Text";
+import NoticeBanner from "@/components/Reviews/NoticeBanner";
 
 export interface DivergenceNoticeProps {
   governance: PublishGovernanceResult;
@@ -25,63 +23,6 @@ export interface DivergenceNoticeProps {
   // legacy approvals that predate the tracking.
   approvedAt?: string | Date | null;
   revisionsSinceApproval?: number | null;
-}
-
-// GitHub-style banner ("This branch is out-of-date with the base branch"):
-// neutral panel, tinted icon disk, bold title with a muted one-line body,
-// and a right-aligned secondary action that wraps below in narrow columns.
-function NoticeBanner({
-  icon,
-  iconColor,
-  title,
-  body,
-  action,
-}: {
-  icon: ReactNode;
-  iconColor: string;
-  title: string;
-  body: string;
-  action?: ReactNode;
-}) {
-  return (
-    <Flex
-      gap="3"
-      align="start"
-      wrap="wrap"
-      p="3"
-      mb="3"
-      style={{
-        background: "var(--color-panel-solid)",
-        border: "1px solid var(--gray-a6)",
-        borderRadius: "var(--radius-3)",
-      }}
-    >
-      <Flex
-        align="center"
-        justify="center"
-        flexShrink="0"
-        style={{
-          width: 28,
-          height: 28,
-          borderRadius: "50%",
-          background: `var(--${iconColor}-a3)`,
-          color: `var(--${iconColor}-11)`,
-          fontSize: 15,
-        }}
-      >
-        {icon}
-      </Flex>
-      <Box flexGrow="1" style={{ minWidth: 0, flexBasis: 180 }}>
-        <Text as="div" size="medium" weight="semibold">
-          {title}
-        </Text>
-        <Text as="div" size="small" color="text-low">
-          {body}
-        </Text>
-      </Box>
-      {action && <Box ml="auto">{action}</Box>}
-    </Flex>
-  );
 }
 
 // Surfaces governance signals in the publish/review flow. Three distinct

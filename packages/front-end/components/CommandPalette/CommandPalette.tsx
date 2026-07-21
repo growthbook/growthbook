@@ -13,11 +13,11 @@ import {
 } from "react-icons/bs";
 import { PiFolderDuotone, PiFlask, PiUsersThree } from "react-icons/pi";
 import { getMetricLink } from "shared/experiments";
+import { AppFeatures } from "shared/types/app-features";
 import Portal from "@/components/Modal/Portal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { AppFeatures } from "@/types/app-features";
 import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useDashboards } from "@/hooks/useDashboards";

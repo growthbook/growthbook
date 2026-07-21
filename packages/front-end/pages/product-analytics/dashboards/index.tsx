@@ -19,6 +19,7 @@ import Field from "@/components/Forms/Field";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
 import DashboardModal from "@/enterprise/components/Dashboards/DashboardModal";
 import DashboardShareModal from "@/enterprise/components/Dashboards/DashboardShareModal";
 import {
@@ -293,15 +294,15 @@ export default function DashboardsPage() {
             <p>
               Create curated dashboards to visualize key metrics and track
               performance.{" "}
-              <DocLink docSection="productAnalytics" useRadix={true}>
+              <DocLink docSection="productAnalytics">
                 View Docs <FaArrowRight size={10} />
               </DocLink>
             </p>
 
             {error ? (
-              <div className="alert alert-danger">
+              <Callout status="error">
                 There was an error loading the list of dashboards.
-              </div>
+              </Callout>
             ) : (
               <>
                 <Flex

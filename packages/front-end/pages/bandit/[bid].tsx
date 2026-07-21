@@ -29,6 +29,7 @@ import TabbedPage from "@/components/Experiment/TabbedPage";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import Callout from "@/ui/Callout";
 
 const BanditExperimentPage = (): ReactElement => {
   const permissionsUtil = usePermissionsUtil();
@@ -46,6 +47,10 @@ const BanditExperimentPage = (): ReactElement => {
   const [editPhaseId, setEditPhaseId] = useState<number | null>(null);
   const [targetingModalOpen, setTargetingModalOpen] = useState(false);
   const [trafficModalOpen, setTrafficModalOpen] = useState(false);
+  const [trafficFocusVariation, setTrafficFocusVariation] = useState<
+    string | null
+  >(null);
+  const [addVariationOnOpen, setAddVariationOnOpen] = useState(false);
 
   const { data, error, mutate } = useApi<{
     experiment: ExperimentInterfaceStringDates;
@@ -120,7 +125,22 @@ const BanditExperimentPage = (): ReactElement => {
   const editTargeting = canRunExperiment
     ? () => setTargetingModalOpen(true)
     : null;
-  const editTraffic = canRunExperiment ? () => setTrafficModalOpen(true) : null;
+  const editTraffic = canRunExperiment
+    ? (variationId?: string) => {
+        // Callers may pass a DOM event, so only string ids focus a variation.
+        setTrafficFocusVariation(
+          typeof variationId === "string" ? variationId : null,
+        );
+        setTrafficModalOpen(true);
+      }
+    : null;
+  const addVariation = canRunExperiment
+    ? () => {
+        setTrafficFocusVariation(null);
+        setAddVariationOnOpen(true);
+        setTrafficModalOpen(true);
+      }
+    : null;
 
   const safeToEdit =
     experiment.status !== "running" ||
@@ -221,10 +241,10 @@ const BanditExperimentPage = (): ReactElement => {
             (experiment.linkedFeatures?.length ||
               experiment.hasVisualChangesets ||
               experiment.hasURLRedirects) ? (
-              <div className="alert alert-danger">
+              <Callout status="error">
                 Changing the project may prevent your linked Feature Flags,
                 Visual Changes, and URL Redirects from being sent to users.
-              </div>
+              </Callout>
             ) : null
           }
           source="bid"
@@ -268,10 +288,16 @@ const BanditExperimentPage = (): ReactElement => {
       )}
       {trafficModalOpen && (
         <EditTrafficModal
-          close={() => setTrafficModalOpen(false)}
+          close={() => {
+            setTrafficModalOpen(false);
+            setTrafficFocusVariation(null);
+            setAddVariationOnOpen(false);
+          }}
           mutate={mutate}
           experiment={experiment}
           safeToEdit={safeToEdit}
+          focusVariationId={trafficFocusVariation}
+          addVariationOnOpen={addVariationOnOpen}
         />
       )}
 
@@ -303,6 +329,7 @@ const BanditExperimentPage = (): ReactElement => {
           envs={data.envs}
           editTargeting={editTargeting}
           editTraffic={editTraffic}
+          addVariation={addVariation}
           visualChangesetEnvStates={visualChangesetEnvStates}
           urlRedirectEnvStates={urlRedirectEnvStates}
         />

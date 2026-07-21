@@ -257,7 +257,10 @@ const EventWebHookAddEditSettings = ({
               <>
                 Must accept <code>{form.watch("method")}</code> requests.
                 Supports{" "}
-                <DocLink docSection="webhookSecrets">Webhook Secrets</DocLink>.
+                <DocLink useRadix={false} docSection="webhookSecrets">
+                  Webhook Secrets
+                </DocLink>
+                .
               </>
             )
           }
@@ -288,7 +291,7 @@ const EventWebHookAddEditSettings = ({
                 ) : (
                   <Text>
                     JSON format for headers. Supports{" "}
-                    <DocLink docSection="webhookSecrets">
+                    <DocLink useRadix={false} docSection="webhookSecrets">
                       Webhook Secrets
                     </DocLink>
                     .
@@ -571,7 +574,6 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
           </Button>
         ) : undefined
       }
-      useRadixButton={true}
     >
       {step === "confirm" ? (
         <EventWebHookAddConfirm form={form} />

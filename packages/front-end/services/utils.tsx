@@ -5,22 +5,25 @@ import { getEqualWeights } from "shared/experiments";
 import {
   BrowserCookieStickyBucketService,
   Context,
-  GrowthBook,
 } from "@growthbook/growthbook-react";
+import { GrowthBook } from "@growthbook/growthbook";
 import Cookies from "js-cookie";
 import { v4 as uuidv4 } from "uuid";
 import { AccountPlan } from "shared/enterprise";
-import { AppFeatures } from "@/types/app-features";
-import track from "@/services/track";
+import { GB_SDK_ID_DEV, GB_SDK_ID_PROD } from "shared/constants";
+import { AppFeatures } from "shared/types/app-features";
+import track, {
+  getJitsuAnonymousId,
+  getTrackingPageUrl,
+} from "@/services/track";
+import { isTelemetryEnabled } from "./env";
 
 const DEVICE_ID_COOKIE = "gb_device_id";
 const SESSION_ID_COOKIE = "gb_session_id";
 const pageIds: Record<string, string> = {};
 
 export const GB_SDK_ID =
-  process.env.NODE_ENV === "production"
-    ? "sdk-ueFMOgZ2daLa0M"
-    : "sdk-UmQ03OkUDAu7Aox";
+  process.env.NODE_ENV === "production" ? GB_SDK_ID_PROD : GB_SDK_ID_DEV;
 
 export const gbContext: Context = {
   apiHost: "https://cdn.growthbook.io",
@@ -287,6 +290,33 @@ function getOrGenerateSessionId() {
     sameSite: "strict",
   });
   return sessionId;
+}
+
+/** Forward browser GB identity to the API for backend SDK tracking events. */
+export function getGrowthBookTrackingHeaders(
+  pagePath?: string,
+): Record<string, string> {
+  if (typeof window === "undefined" || !isTelemetryEnabled()) {
+    return {};
+  }
+
+  const headers: Record<string, string> = {
+    "X-GB-Session-Id": getOrGenerateSessionId(),
+    "X-GB-Device-Id": getOrGenerateDeviceId(),
+    "X-GB-Page-Id": getOrGeneratePageId(),
+    "X-GB-Page-Url": getTrackingPageUrl(),
+  };
+
+  if (pagePath) {
+    headers["X-GB-Page-Path"] = pagePath;
+  }
+
+  const anonymousId = getJitsuAnonymousId();
+  if (anonymousId) {
+    headers["X-GB-Anonymous-Id"] = anonymousId;
+  }
+
+  return headers;
 }
 
 // Used to describe account plan in text

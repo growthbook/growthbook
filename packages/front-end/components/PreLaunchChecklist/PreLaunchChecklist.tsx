@@ -5,12 +5,17 @@ import {
 import { FeatureInterface } from "shared/types/feature";
 import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { FaCheck } from "react-icons/fa";
-import { PiCaretDown, PiCaretUp } from "react-icons/pi";
+import {
+  PiCaretDown,
+  PiCaretDownFill,
+  PiCaretRightFill,
+  PiCaretUp,
+} from "react-icons/pi";
 import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import clsx from "clsx";
 import { Box, Flex, Theme } from "@radix-ui/themes";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
-import useGlobalMenu from "@/services/useGlobalMenu";
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
@@ -51,6 +56,7 @@ function PreLaunchChecklistUI({
   const { hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const [updatingChecklist, setUpdatingChecklist] = useState(false);
+  const [showCompleted, setShowCompleted] = useState(false);
   const showEditChecklistLink =
     allowEditChecklist &&
     hasCommercialFeature("custom-launch-checklist") &&
@@ -100,61 +106,93 @@ function PreLaunchChecklistUI({
 
   if (experiment.status !== "draft") return null;
 
+  const incompleteItems = checklist.filter(
+    (item) => item.status === "incomplete",
+  );
+  const completeItems = checklist.filter((item) => item.status === "complete");
+
+  const renderItem = (item: CheckListItem, key: string | number) => {
+    const isReadonly = item.type === "auto";
+    const isReadonlyIncomplete = isReadonly && item.status === "incomplete";
+    return (
+      <Box key={key} mb="2">
+        <Checkbox
+          value={item.status === "complete"}
+          setValue={(checked) => {
+            if (item.type === "auto") return;
+            if (item.type === "manual" && updatingChecklist) return;
+            updateTaskStatus(!!checked, item.key);
+          }}
+          disabled={!canEditExperiment}
+          disabledMessage={
+            !canEditExperiment
+              ? "You don't have permission to mark this as completed"
+              : undefined
+          }
+          containerClassName={clsx({
+            [styles.readonly]: isReadonly,
+            [styles.readonlyIncomplete]: isReadonlyIncomplete,
+          })}
+          label={
+            <span
+              className={clsx({
+                [styles.completedLabel]: item.status === "complete",
+              })}
+            >
+              {item.display}
+              {!item.required && (
+                <small className="text-muted ml-1">(optional)</small>
+              )}
+            </span>
+          }
+          description={
+            item.hideDescription || item.status === "complete"
+              ? undefined
+              : item.description !== undefined
+                ? item.description
+                : item.type === "auto"
+                  ? "GrowthBook will mark this as completed automatically when you finish the task."
+                  : "You must manually mark this as complete. GrowthBook is unable to detect this automatically."
+          }
+          error={item.warning}
+          errorLevel="warning"
+        />
+      </Box>
+    );
+  };
+
   const contents = loading ? (
     <LoadingSpinner />
   ) : (
-    <div>
-      {checklist.map((item, i) => {
-        const isReadonly = item.type === "auto";
-        const isReadonlyIncomplete = isReadonly && item.status === "incomplete";
-        return (
-          <div key={i} className="mb-2">
-            <Checkbox
-              value={item.status === "complete"}
-              setValue={(checked) => {
-                if (item.type === "auto") return;
-                if (item.type === "manual" && updatingChecklist) return;
-                updateTaskStatus(!!checked, item.key);
-              }}
-              disabled={!canEditExperiment}
-              disabledMessage={
-                !canEditExperiment
-                  ? "You don't have permission to mark this as completed"
-                  : undefined
-              }
-              containerClassName={clsx({
-                [styles.readonly]: isReadonly,
-                [styles.readonlyIncomplete]: isReadonlyIncomplete,
-              })}
-              label={
-                <span
-                  style={{
-                    textDecoration:
-                      item.status === "complete" ? "line-through" : "none",
-                  }}
-                >
-                  {item.display}
-                  {!item.required && (
-                    <small className="text-muted ml-1">(optional)</small>
-                  )}
-                </span>
-              }
-              description={
-                item.hideDescription || item.status === "complete"
-                  ? undefined
-                  : item.description !== undefined
-                    ? item.description
-                    : item.type === "auto"
-                      ? "GrowthBook will mark this as completed automatically when you finish the task."
-                      : "You must manually mark this as complete. GrowthBook is unable to detect this automatically."
-              }
-              error={item.warning}
-              errorLevel="warning"
-            />
-          </div>
-        );
-      })}
-    </div>
+    <Box>
+      {incompleteItems.map((item, i) => renderItem(item, i))}
+      {completeItems.length > 0 && (
+        <Box mt="4">
+          <Link
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowCompleted((prev) => !prev);
+            }}
+          >
+            <Flex as="span" align="center" gap="1">
+              View completed items
+              {showCompleted ? (
+                <PiCaretDownFill size={13} />
+              ) : (
+                <PiCaretRightFill size={13} />
+              )}
+            </Flex>
+          </Link>
+          {showCompleted && (
+            <Box mt="2">
+              {completeItems.map((item, i) =>
+                renderItem(item, `complete-${i}`),
+              )}
+            </Box>
+          )}
+        </Box>
+      )}
+    </Box>
   );
 
   const header = (
@@ -228,11 +266,11 @@ function PreLaunchChecklistFeatureExpRule({
         }
       />
       {failedRequired ? (
-        <Callout status="error" mb="3">
+        <Callout status="error" my="3">
           Please complete all required items before starting your experiment.
         </Callout>
       ) : (
-        <Callout status="success" mb="3">
+        <Callout status="success" my="3">
           All required items are complete. The experiment is ready to start.
         </Callout>
       )}{" "}
@@ -266,6 +304,8 @@ export function PreLaunchChecklistForDraftFeature({
 
   const isLoading = checklistLoading || expLoading;
 
+  const showAnalysisSetupItems = useFeatureIsOn("simple-experiment-flow");
+
   const checklist = useMemo(
     () =>
       getChecklistItems({
@@ -276,8 +316,16 @@ export function PreLaunchChecklistForDraftFeature({
         checkLinkedChanges: true,
         connections,
         publishingFeatureId: feature.id,
+        showAnalysisSetupItems,
       }),
-    [experiment, experimentData, checklistData, connections, feature.id],
+    [
+      experiment,
+      experimentData,
+      checklistData,
+      connections,
+      feature.id,
+      showAnalysisSetupItems,
+    ],
   );
 
   const failedRequired = checklist.some(
@@ -329,8 +377,6 @@ export function PreLaunchChecklistDrawer() {
       setOpen(false);
     }
   }, [checklistItemsRemaining, setOpen]);
-
-  useGlobalMenu(".prelaunch-checklist-drawer, .modal", () => setOpen(false));
 
   return (
     <>

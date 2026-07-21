@@ -267,6 +267,24 @@ export interface OrganizationSettings {
   /** @deprecated */
   killswitchConfirmation?: boolean;
   requireReviews?: boolean | RequireReview[];
+  // Default extensibility for newly authored configs. When true (default),
+  // base configs allow child configs / feature rules to add extra keys unless
+  // a config explicitly opts out via its own `extensible` flag.
+  configsExtensibleByDefault?: boolean;
+  // Default value of the per-config "experiment guard" for newly created configs.
+  // The guard soft-blocks publishing a config whose value is served to a running
+  // experiment. Seeded onto each config at creation (a concrete per-config flag),
+  // so changing this default doesn't retroactively affect existing configs.
+  // Absent = off.
+  configExperimentGuardDefault?: boolean;
+  // Whether publishing a revision is BLOCKED when its values don't match the
+  // JSON schema (features and configs). Per-write validation always runs (opt
+  // out per request with ?skipSchemaValidation=true); this governs the re-check
+  // at publish, which catches values that became invalid after the fact (e.g. a
+  // schema change, an ancestor-config change, or a value staged with the skip
+  // flag). true (default) blocks the publish; false surfaces a bypassable soft
+  // warning instead. Absent = true.
+  blockPublishOnSchemaError?: boolean;
   // When enabled, a feature draft whose base version is behind the current
   // live version (or whose approval has gone stale) must be rebased
   // ("Rebase with live") before it can be published.
@@ -293,6 +311,11 @@ export interface OrganizationSettings {
   codeRefsPlatformUrl?: string;
   featureKeyExample?: string; // Example Key of feature flag (e.g. "feature-20240201-name")
   featureRegexValidator?: string; // Regex to validate feature flag name (e.g. ^.+-\d{8}-.+$)
+  // When enabled, new JSON feature-flag rules start in "sparse patch" mode (the
+  // rule value is a partial object merged onto the feature's default value).
+  // The rule editor opens already in sparse mode with a clean-slate value.
+  // Only affects new rules on eligible JSON features; off by default.
+  sparseJSONRulesByDefault?: boolean;
   requireProjectForFeatures?: boolean;
   requireProjectForSdkConnections?: boolean;
   // When true, saving a feature rule or experiment rejects hashAttribute,
@@ -316,6 +339,8 @@ export interface OrganizationSettings {
   metricPageMarkdown?: string;
   preferredEnvironment?: string | null; // null (or undefined) means "remember previous environment"
   maxMetricSliceLevels?: number;
+  topValuesLookbackValue?: number;
+  topValuesLookbackUnit?: "days";
   banditScheduleValue?: number;
   banditScheduleUnit?: "hours" | "days";
   banditBurnInValue?: number;

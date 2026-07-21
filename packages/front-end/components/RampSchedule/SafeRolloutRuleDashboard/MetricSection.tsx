@@ -411,6 +411,7 @@ function SafeRolloutMetricDrilldownModal({
 
   return (
     <Modal
+      useRadixButton={false}
       open={true}
       header={<MetricName metric={metric} officialBadgePosition="right" />}
       subHeader={

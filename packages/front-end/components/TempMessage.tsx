@@ -1,25 +1,23 @@
-import { ReactNode, FC, useEffect, useState, CSSProperties } from "react";
-import clsx from "clsx";
+import { FC, useEffect, useState, CSSProperties } from "react";
+import { Box } from "@radix-ui/themes";
+import Callout from "@/ui/Callout";
+import Text from "@/ui/Text";
 
 const SHOW_TIME = 3000;
 
 type TempMessageProps = {
   close: () => void;
-  children: ReactNode;
+  children: string;
   className?: string;
   style?: CSSProperties;
   delay?: number | null;
-  top?: number;
-  showClose?: boolean;
 };
 const TempMessage: FC<TempMessageProps> = ({
   close,
   children,
-  className = "",
-  style = {},
+  className,
+  style,
   delay = SHOW_TIME,
-  top = 55,
-  showClose = false,
 }) => {
   const [closing, setClosing] = useState(false);
 
@@ -33,7 +31,7 @@ const TempMessage: FC<TempMessageProps> = ({
         clearTimeout(timer);
       };
     }
-  }, []);
+  }, [delay]);
 
   // Close after waiting for fade out animation to finish
   useEffect(() => {
@@ -48,33 +46,20 @@ const TempMessage: FC<TempMessageProps> = ({
   }, [closing]);
 
   return (
-    <div
-      className={clsx(
-        "alert alert-success shadow sticky-top text-center",
-        className,
-      )}
+    <Box
+      className={className}
       style={{
-        top,
         transition: "200ms all",
         opacity: closing ? 0 : 1,
         ...style,
       }}
     >
-      {showClose && (
-        <button
-          className="close"
-          style={{ right: -10, top: -5 }}
-          onClick={(e) => {
-            e.preventDefault();
-            if (closing) return;
-            setClosing(true);
-          }}
-        >
-          <span aria-hidden="true">&times;</span>
-        </button>
-      )}
-      {children}
-    </div>
+      <Callout status="success">
+        <Text as="div" align="center">
+          {children}
+        </Text>
+      </Callout>
+    </Box>
   );
 };
 

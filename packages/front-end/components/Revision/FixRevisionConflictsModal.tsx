@@ -9,6 +9,7 @@ import {
   Conflict,
   normalizeProposedChanges,
   patchOpsToPartial,
+  getRevisionUpdatableFields,
 } from "shared/enterprise";
 import { isEqual } from "lodash";
 import { Box, Flex, Grid } from "@radix-ui/themes";
@@ -195,8 +196,18 @@ export default function FixRevisionConflictsModal({
   // the optimistic-lock payload to /rebase, because the server recomputes the
   // same shape and compares via JSON.stringify — the two must match byte-for-byte.
   const rawConflictCheck = useMemo(
-    () => checkMergeConflicts(baseSnapshot, liveSnapshot, proposedChanges),
-    [baseSnapshot, liveSnapshot, proposedChanges],
+    () =>
+      checkMergeConflicts(
+        baseSnapshot,
+        liveSnapshot,
+        proposedChanges,
+        // Scope to mergeable fields so a non-updatable field (e.g. a config's
+        // scopedOverrides, excluded from the snapshot) can't render a phantom
+        // conflict. Must match the server's rebase recompute (same allowlist) so
+        // the optimistic-lock payload below still matches byte-for-byte.
+        getRevisionUpdatableFields(revision.target.type),
+      ),
+    [baseSnapshot, liveSnapshot, proposedChanges, revision.target.type],
   );
 
   const mergeResult = useMemo(() => {
@@ -210,7 +221,8 @@ export default function FixRevisionConflictsModal({
     conflicts.forEach((conflict) => {
       const strategy = strategies[conflict.field];
       if (strategy === "overwrite") {
-        if (conflict.proposedValue != null) {
+        // `undefined` marks a remove-op; `null` is a real proposed value.
+        if (conflict.proposedValue !== undefined) {
           resolvedChanges[conflict.field] = conflict.proposedValue;
         }
       } else if (strategy === "discard") {
@@ -222,7 +234,7 @@ export default function FixRevisionConflictsModal({
 
     // Include non-conflicting proposed changes
     Object.entries(proposedAsPartial).forEach(([field, value]) => {
-      if (value != null && !conflicts.find((c) => c.field === field)) {
+      if (value !== undefined && !conflicts.find((c) => c.field === field)) {
         resolvedChanges[field] = value;
       }
     });
@@ -231,7 +243,7 @@ export default function FixRevisionConflictsModal({
     const newProposedChanges: Record<string, unknown> = {};
     Object.keys(resolvedChanges).forEach((field) => {
       const value = resolvedChanges[field];
-      if (value != null && !isEqual(value, liveSnapshot[field])) {
+      if (value !== undefined && !isEqual(value, liveSnapshot[field])) {
         newProposedChanges[field] = value;
       }
     });
@@ -288,7 +300,6 @@ export default function FixRevisionConflictsModal({
       close={close}
       closeCta="Cancel"
       size="max"
-      useRadixButton={true}
     >
       <Page
         display="Fix Conflicts"
@@ -300,19 +311,13 @@ export default function FixRevisionConflictsModal({
         }}
       >
         <Box mb="4" style={{ maxWidth: 800, margin: "0 auto var(--space-4)" }}>
-          <Callout
-            status="info"
-            contentsAs="div"
-            icon={<PiGitMergeBold size={18} />}
-          >
-            <Text as="p">
-              Conflicting changes have been published since you created this
-              revision. Resolve each conflict below, then click{" "}
-              <Text as="span" weight="medium">
-                Update Draft
-              </Text>{" "}
-              to rebase your draft onto the current live version.
-            </Text>
+          <Callout status="info" icon={<PiGitMergeBold size={18} />}>
+            Conflicting changes have been published since you created this
+            revision. Resolve each conflict below, then click{" "}
+            <Text as="span" weight="medium">
+              Update Draft
+            </Text>{" "}
+            to rebase your draft onto the current live version.
           </Callout>
         </Box>
 
@@ -360,19 +365,13 @@ export default function FixRevisionConflictsModal({
 
       <Page display="Review Changes">
         <Box mb="4" style={{ maxWidth: 800, margin: "0 auto var(--space-4)" }}>
-          <Callout
-            status="info"
-            contentsAs="div"
-            icon={<PiGitMergeBold size={18} />}
-          >
-            <Text as="p">
-              Almost done — your revision has been successfully rebased onto the
-              current live version. Review the changes below, then click{" "}
-              <Text as="span" weight="semibold">
-                Update Draft
-              </Text>{" "}
-              to apply them.
-            </Text>
+          <Callout status="info" icon={<PiGitMergeBold size={18} />}>
+            Almost done — your revision has been successfully rebased onto the
+            current live version. Review the changes below, then click{" "}
+            <Text as="span" weight="semibold">
+              Update Draft
+            </Text>{" "}
+            to apply them.
           </Callout>
         </Box>
         {hasChanges ? (

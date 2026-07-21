@@ -427,7 +427,6 @@ export default function ReportMetaInfo({
             mutate?.();
           })}
           header={`Edit "${report.title}"`}
-          useRadixButton={true}
         >
           <Field label="Report Name" {...generalForm.register("title")} />
 
@@ -446,7 +445,6 @@ export default function ReportMetaInfo({
           close={() => setShareModalOpen(false)}
           closeCta="Close"
           header={`Share "${report.title}"`}
-          useRadixButton={true}
           secondaryCTA={shareLinkButton}
         >
           <div className="mb-3">

@@ -1,0 +1,468 @@
+import { ConfigInterface } from "shared/types/config";
+import {
+  Revision,
+  getConstantRevisionChange,
+  normalizeProposedChanges,
+} from "shared/enterprise";
+import {
+  configRequiresReview,
+  configResetReviewOnChange,
+  constantAutopublishOnApproval,
+  formatAncestorFieldConflictMessage,
+} from "shared/util";
+import {
+  configValidator,
+  configUpdatableFieldsSchema,
+} from "shared/validators";
+import type { Context } from "back-end/src/models/BaseModel";
+import {
+  EntityRevisionAdapter,
+  filterUpdatableChanges,
+} from "back-end/src/revisions/EntityRevisionAdapter";
+import {
+  reconcileConfigDescendants,
+  assertConfigDescendantsReconcilable,
+  assertConfigSchemaChangeSafeForDescendants,
+} from "back-end/src/services/configReconcile";
+import {
+  assertConfigInvariantsValid,
+  assertConfigValueValidForPublish,
+} from "back-end/src/services/configValidation";
+import { assertConfigNotLocked } from "back-end/src/services/configLock";
+import {
+  ArmAcknowledgments,
+  buildArmAcknowledgments,
+} from "back-end/src/services/armGuards";
+import {
+  captureConfigExperimentGuardAcknowledgment,
+  configChangeAffectsServedValue,
+  configRevisionAffectsServedValue,
+} from "back-end/src/services/experimentGuard";
+import { captureConfigLockAcknowledgment } from "back-end/src/services/configLockGuard";
+import { captureConfigSchemaBreakAcknowledgment } from "back-end/src/services/schemaBreakGuard";
+import { assertConfigPublishGuards } from "back-end/src/services/publishGuards";
+import { applyPatchToSnapshot } from "back-end/src/revisions/util";
+import { BadRequestError } from "back-end/src/util/errors";
+import { normalizeConfigChangesAgainstAncestors } from "./configSchemaNormalize";
+
+// Mirrors constant.adapter.ts (see it for rationale); only model + permissions differ.
+// scopedOverrides (the env/project variant selection list) writes IMMEDIATELY,
+// never through a revision, so it stays out of the snapshot — a draft carrying a
+// stale copy must not be a write source. `scopedConfig` (the derived flavor
+// marker) is kept IN the snapshot read-only: it's never in `getUpdatableFields`
+// (configUpdatableFieldsSchema), so `buildMergeDesiredState` can't write it back,
+// but the approval check needs a flavor's environment scope at its (synchronous)
+// decision point to require review only for the environments the flavor targets.
+const SNAPSHOT_EXCLUDED_KEYS: ReadonlySet<string> = new Set([
+  "scopedOverrides",
+]);
+const SNAPSHOT_ALLOWED_KEYS = (
+  Object.keys(configValidator.shape) as Array<keyof ConfigInterface>
+).filter((k) => !SNAPSHOT_EXCLUDED_KEYS.has(k));
+
+const UPDATABLE_FIELDS: ReadonlySet<string> = new Set(
+  Object.keys(configUpdatableFieldsSchema.shape),
+);
+
+function canBypassApprovalForConfig(
+  context: Context,
+  snapshot: ConfigInterface,
+): boolean {
+  return context.permissions.canBypassApprovalChecks({
+    project: snapshot.project || "",
+  });
+}
+
+function canEditConfig(context: Context, snapshot: ConfigInterface): boolean {
+  return context.permissions.canUpdateConfig(snapshot, {});
+}
+
+function configApprovalConfigured(context: Context): boolean {
+  if (!context.hasPremiumFeature("require-approvals")) return false;
+  const requireReviews = context.org.settings?.requireReviews;
+  if (typeof requireReviews === "boolean") return requireReviews;
+  return (
+    Array.isArray(requireReviews) &&
+    requireReviews.some((r) => r.requireReviewOn)
+  );
+}
+
+export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
+  getModel(context: Context) {
+    return context.models.configs as {
+      getById(id: string): Promise<ConfigInterface | null>;
+    };
+  },
+
+  buildSnapshot(entity: ConfigInterface): ConfigInterface {
+    const source = entity as Record<string, unknown>;
+    const snapshot: Record<string, unknown> = {};
+    for (const key of SNAPSHOT_ALLOWED_KEYS) {
+      const value = source[key];
+      if (value === null || value === undefined) continue;
+      snapshot[key] = value;
+    }
+    return snapshot as unknown as ConfigInterface;
+  },
+
+  isRevisionRequired(context: Context): boolean {
+    return configApprovalConfigured(context);
+  },
+
+  getUpdatableFields(): ReadonlySet<string> {
+    return UPDATABLE_FIELDS;
+  },
+
+  canRead(context: Context, snapshot: ConfigInterface): boolean {
+    return context.permissions.canReadSingleProjectResource(snapshot.project);
+  },
+
+  canCreate(context: Context, snapshot: ConfigInterface): boolean {
+    return canEditConfig(context, snapshot);
+  },
+
+  canUpdate(context: Context, snapshot: ConfigInterface): boolean {
+    return canEditConfig(context, snapshot);
+  },
+
+  canDelete(context: Context, snapshot: ConfigInterface): boolean {
+    return canBypassApprovalForConfig(context, snapshot);
+  },
+
+  isApprovalRequired(context: Context): boolean {
+    return configApprovalConfigured(context);
+  },
+
+  isApprovalRequiredForRevision(context: Context, revision: Revision): boolean {
+    if (!context.hasPremiumFeature("require-approvals")) return false;
+    const snapshot = revision.target.snapshot as ConfigInterface;
+    // A flavor's value applies only to its scoped environments, so review is
+    // required per those environments (null = a base config → value change is
+    // all-environments, like a feature defaultValue).
+    const flavorEnvironments = snapshot.scopedConfig
+      ? (snapshot.scopedConfig.environments ?? [])
+      : null;
+    return configRequiresReview(
+      { project: snapshot.project },
+      getConstantRevisionChange(snapshot, revision.target.proposedChanges),
+      flavorEnvironments,
+      context.org.settings,
+    );
+  },
+
+  canBypassApproval(context: Context, snapshot: ConfigInterface): boolean {
+    return canBypassApprovalForConfig(context, snapshot);
+  },
+
+  shouldResetReviewOnChange(context: Context, revision: Revision): boolean {
+    if (!context.hasPremiumFeature("require-approvals")) return false;
+    const snapshot = revision.target.snapshot as ConfigInterface;
+    const { valueChanged, changedEnvironments } = getConstantRevisionChange(
+      snapshot,
+      revision.target.proposedChanges,
+    );
+    const flavorEnvironments = snapshot.scopedConfig
+      ? (snapshot.scopedConfig.environments ?? [])
+      : null;
+    return configResetReviewOnChange(
+      { project: snapshot.project },
+      { valueChanged, changedEnvironments },
+      flavorEnvironments,
+      context.org.settings,
+    );
+  },
+
+  isAutopublishOnApprovalEnabled(
+    context: Context,
+    snapshot: ConfigInterface,
+  ): boolean {
+    if (!context.hasPremiumFeature("require-approvals")) return false;
+    return constantAutopublishOnApproval(
+      { project: snapshot.project },
+      context.org.settings,
+    );
+  },
+
+  async applyChanges(
+    context: Context,
+    entity: ConfigInterface,
+    changes: Record<string, unknown>,
+    options?: { isRevert?: boolean },
+  ): Promise<void> {
+    void options;
+    const filteredChanges = filterUpdatableChanges(
+      changes,
+      entity as Record<string, unknown>,
+      UPDATABLE_FIELDS,
+    );
+
+    if (Object.keys(filteredChanges).length === 0) return;
+
+    // Publish-time "base wins" reconciliation: strip any contract-identical
+    // field this config declares whose key a published ancestor now owns
+    // (ancestors may have changed since the draft was authored); a
+    // contract-DIFFERING re-declaration is rejected instead — its intent can't
+    // be preserved by a strip. A lineage change (parent/extends) shifts which
+    // keys the bases own, so the config's own schema is re-normalized even
+    // when this revision didn't touch `schema`.
+    const { changes: normalizedChanges, conflicting } =
+      await normalizeConfigChangesAgainstAncestors(
+        entity,
+        filteredChanges,
+        (config, schema) =>
+          context.models.configs.normalizeSchemaAgainstAncestors(
+            config,
+            schema,
+          ),
+      );
+    if (conflicting.length) {
+      throw new BadRequestError(
+        formatAncestorFieldConflictMessage(conflicting),
+      );
+    }
+
+    const touchesLineageOrSchema =
+      normalizedChanges.schema !== undefined ||
+      normalizedChanges.parent !== undefined ||
+      "extends" in normalizedChanges;
+
+    // Dry run BEFORE the write: reject a publish that would create an
+    // unresolvable sibling conflict at a descendant, so nothing is persisted
+    // (vs. committing the root and then throwing from the post-write cascade),
+    // then soft-warn when the change removes/retypes fields descendants use.
+    if (touchesLineageOrSchema) {
+      const proposedRoot = {
+        ...entity,
+        ...normalizedChanges,
+      } as ConfigInterface;
+      await assertConfigDescendantsReconcilable(context, proposedRoot);
+      await assertConfigSchemaChangeSafeForDescendants(context, proposedRoot);
+    }
+
+    // Enforce cross-field invariants here — the chokepoint every publish path
+    // (direct, scheduled, autopublish-on-approval) flows through — against the
+    // revision's proposed (draft) state.
+    await assertConfigInvariantsValid(
+      context,
+      {
+        key: entity.key,
+        name: entity.name,
+        value: (normalizedChanges.value as string | undefined) ?? entity.value,
+        // Honor an explicit schema clear (null): validate against no schema, not
+        // the old one — `?? entity.schema` would resurrect the removed invariants.
+        schema:
+          "schema" in normalizedChanges
+            ? (normalizedChanges.schema as ConfigInterface["schema"])
+            : entity.schema,
+        parent:
+          (normalizedChanges.parent as string | undefined) ?? entity.parent,
+        extends:
+          "extends" in normalizedChanges
+            ? (normalizedChanges.extends as string[] | undefined)
+            : entity.extends,
+      },
+      (normalizedChanges.value as string | undefined) ?? entity.value,
+    );
+
+    await context.models.configs.update(
+      entity,
+      normalizedChanges as Parameters<typeof context.models.configs.update>[1],
+    );
+
+    // Cascade the change down to descendants when the schema or lineage changed.
+    if (touchesLineageOrSchema) {
+      await reconcileConfigDescendants(context, entity.key);
+    }
+  },
+
+  // Self-heal path: a retry after applyChanges wrote the root but failed before
+  // (or during) the descendant cascade arrives here with no net change, so
+  // applyChanges — and its cascade — would never run. Replay the reconcile
+  // (idempotent) whenever the revision touched schema or lineage.
+  async beforeNoOpMerge(
+    context: Context,
+    entity: ConfigInterface,
+    revision: Revision,
+  ): Promise<void> {
+    const touchesLineageOrSchema = normalizeProposedChanges(
+      revision.target.proposedChanges,
+    ).some((op) =>
+      ["schema", "parent", "extends"].includes(op.path.split("/")[1]),
+    );
+    if (!touchesLineageOrSchema) return;
+    await reconcileConfigDescendants(context, entity.key);
+  },
+
+  // Arming a scheduled publish on a locked config would just fail at every
+  // poller tick — reject up front (the REST schedule handler does the same).
+  assertSchedulable(context: Context, entity: ConfigInterface): void {
+    assertConfigNotLocked(entity);
+  },
+
+  // Snapshot the deferred-publish guard fingerprints when arming; each guard
+  // throws (bypassably) if its live conflicts aren't acknowledged.
+  async captureArmAcknowledgment(
+    context: Context,
+    entity: ConfigInterface,
+    proposedChanges: unknown,
+  ): Promise<ArmAcknowledgments | undefined> {
+    const valueAffecting = configRevisionAffectsServedValue(proposedChanges);
+    // The config state this schedule would publish, for the schema-break
+    // fingerprint (its own resolved value across envs).
+    const proposedConfig = {
+      ...entity,
+      ...applyPatchToSnapshot(
+        entity as unknown as Record<string, unknown>,
+        normalizeProposedChanges(proposedChanges),
+      ),
+    } as ConfigInterface;
+    return buildArmAcknowledgments({
+      experiment: await captureConfigExperimentGuardAcknowledgment(
+        context,
+        entity,
+        proposedChanges,
+      ),
+      "config-lock": valueAffecting
+        ? await captureConfigLockAcknowledgment(context, {
+            source: "config",
+            key: entity.key,
+            project: entity.project,
+          })
+        : undefined,
+      "schema-break": valueAffecting
+        ? await captureConfigSchemaBreakAcknowledgment(context, {
+            key: entity.key,
+            project: entity.project,
+            value: proposedConfig.value,
+            schema: proposedConfig.schema,
+            parent: proposedConfig.parent,
+            extends: proposedConfig.extends,
+            extensible: proposedConfig.extensible,
+          })
+        : undefined,
+    });
+  },
+
+  // Pre-merge gate (see EntityRevisionAdapter.assertPublishable): runs the full
+  // publish-time validation against the proposed state BEFORE the revision is
+  // marked merged, so a failing publish errors and leaves the draft open instead
+  // of stranding it "merged". Mirrors the REST publish handler's pre-merge checks
+  // (postConfigRevisionPublish). assertConfigValueValidForPublish also enforces
+  // the cross-field invariants.
+  async assertPublishable(
+    context: Context,
+    entity: ConfigInterface,
+    desiredState: Record<string, unknown>,
+    revision: Revision,
+    options?: { isRevert?: boolean; deferred?: boolean },
+  ): Promise<void> {
+    // Pre-merge lock gate for the shared publishRevision action (auto-publish on
+    // approval, scheduled-publish poller). Throwing here — before the merge is
+    // claimed — leaves the draft open instead of stranding it "merged".
+    assertConfigNotLocked(entity);
+
+    const filteredChanges = filterUpdatableChanges(
+      desiredState,
+      entity as Record<string, unknown>,
+      UPDATABLE_FIELDS,
+    );
+    if (Object.keys(filteredChanges).length === 0) return;
+
+    // Experiment guard. `deferred` reflects THIS invocation (poller /
+    // auto-publish-on-approval), not whether the revision has auto-publish armed —
+    // so a manual "publish now" of an armed revision still gets the live override.
+    // Skipped for a metadata-only publish (no served value changes → can't
+    // disrupt an experiment), matching the direct-update path.
+    if (configChangeAffectsServedValue(Object.keys(filteredChanges))) {
+      await assertConfigPublishGuards(
+        context,
+        entity,
+        revision,
+        { armed: !!options?.deferred },
+        {
+          value: (filteredChanges.value as string | undefined) ?? entity.value,
+          // Presence-aware for the clearable fields: `?? entity` can't tell
+          // "unchanged" from "cleared" (schema clears to null, parent/extends to
+          // ""/[]), which would resurrect the pre-clear value and desync this
+          // fire from the arm-time capture (applyPatchToSnapshot) — bricking the
+          // deferred publish with a terminal guard error.
+          schema:
+            "schema" in filteredChanges
+              ? (filteredChanges.schema as ConfigInterface["schema"])
+              : entity.schema,
+          parent:
+            "parent" in filteredChanges
+              ? (filteredChanges.parent as string | undefined)
+              : entity.parent,
+          extends:
+            "extends" in filteredChanges
+              ? (filteredChanges.extends as string[] | undefined)
+              : entity.extends,
+          extensible:
+            (filteredChanges.extensible as boolean | undefined) ??
+            entity.extensible,
+        },
+      );
+    }
+
+    // Normalize BEFORE the descendant dry-run (otherwise it sees an
+    // un-normalized root that still declares an ancestor-owned key and reports
+    // a spurious sibling conflict at a composing descendant), rejecting
+    // contract-differing re-declarations pre-merge like applyChanges does.
+    const { changes: normalizedChanges, conflicting } =
+      await normalizeConfigChangesAgainstAncestors(
+        entity,
+        filteredChanges,
+        (config, schema) =>
+          context.models.configs.normalizeSchemaAgainstAncestors(
+            config,
+            schema,
+          ),
+      );
+    if (conflicting.length) {
+      throw new BadRequestError(
+        formatAncestorFieldConflictMessage(conflicting),
+      );
+    }
+
+    const touchesLineageOrSchema =
+      normalizedChanges.schema !== undefined ||
+      normalizedChanges.parent !== undefined ||
+      "extends" in normalizedChanges;
+
+    if (touchesLineageOrSchema) {
+      const proposedRoot = {
+        ...entity,
+        ...normalizedChanges,
+      } as ConfigInterface;
+      await assertConfigDescendantsReconcilable(context, proposedRoot);
+      await assertConfigSchemaChangeSafeForDescendants(context, proposedRoot);
+    }
+
+    const postValue =
+      (normalizedChanges.value as string | undefined) ?? entity.value;
+    await assertConfigValueValidForPublish(
+      context,
+      {
+        key: entity.key,
+        name: entity.name,
+        value: postValue,
+        // Honor an explicit schema clear (null): a schema-less revert publishes
+        // against no schema rather than the schema it's removing.
+        schema:
+          "schema" in normalizedChanges
+            ? (normalizedChanges.schema as ConfigInterface["schema"])
+            : entity.schema,
+        parent:
+          (normalizedChanges.parent as string | undefined) ?? entity.parent,
+        extends:
+          "extends" in normalizedChanges
+            ? (normalizedChanges.extends as string[] | undefined)
+            : entity.extends,
+        extensible: entity.extensible,
+      },
+      { value: postValue },
+      revision,
+    );
+  },
+};

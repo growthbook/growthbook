@@ -94,3 +94,5 @@ li[data-item-id^="tag/"][data-item-id$="-v2"] > label::after,
 
 @include beta-tag("feature-revisions-v2");
 @include beta-tag("saved-group-revisions");
+@include beta-tag("ContextualBandits");
+@include beta-tag("ContextualBanditQueries");

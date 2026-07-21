@@ -4,10 +4,11 @@ import {
   S3Client,
   PutObjectCommand,
   GetObjectCommand,
+  ListObjectsV2Command,
   CopyObjectCommand,
   DeleteObjectCommand,
   HeadObjectCommand,
-  ListObjectsV2Command,
+  type S3ClientConfig,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { createPresignedPost } from "@aws-sdk/s3-presigned-post";
@@ -17,10 +18,13 @@ import {
   S3_BUCKET,
   S3_REGION,
   S3_DOMAIN,
+  S3_ENDPOINT,
   UPLOAD_METHOD,
   GCS_BUCKET_NAME,
   GCS_DOMAIN,
   AWS_ASSUME_ROLE,
+  S3_SESSION_REPLAY_BUCKET,
+  S3_SESSION_REPLAY_ASSUME_ROLE,
   VISUAL_EDITOR_ASSETS_S3_BUCKET,
   VISUAL_EDITOR_ASSETS_S3_REGION,
   VISUAL_EDITOR_ASSETS_S3_DOMAIN,
@@ -28,6 +32,43 @@ import {
   VISUAL_EDITOR_ASSETS_GCS_DOMAIN,
 } from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";
+
+/**
+ * Builds an S3Client with optional role-assumption and custom-endpoint
+ * support. Used to back the per-purpose client caches below.
+ */
+function buildS3Client({
+  assumeRoleArn,
+  roleSessionName,
+  region,
+}: {
+  assumeRoleArn: string;
+  roleSessionName: string;
+  region?: string;
+}): S3Client {
+  const clientConfig: S3ClientConfig = {
+    region: region ?? S3_REGION,
+  };
+
+  if (assumeRoleArn) {
+    clientConfig.credentials = fromTemporaryCredentials({
+      params: {
+        RoleArn: assumeRoleArn,
+        RoleSessionName: roleSessionName,
+      },
+    });
+  }
+
+  // Custom S3-compatible endpoint (MinIO for local dev, plus R2 / SeaweedFS
+  // / etc. for self-hosted users). Path-style addressing is the safe default
+  // for these providers; AWS S3 itself doesn't need it.
+  if (S3_ENDPOINT) {
+    clientConfig.endpoint = S3_ENDPOINT;
+    clientConfig.forcePathStyle = true;
+  }
+
+  return new S3Client(clientConfig);
+}
 
 // "private" is the existing bucket served via signed URLs.
 // "visual-editor-assets" is the public, CDN-fronted bucket.
@@ -74,21 +115,65 @@ const s3Clients = new Map<string, S3Client>();
 function getS3Client(region: string): S3Client {
   let client = s3Clients.get(region);
   if (!client) {
-    const clientConfig: ConstructorParameters<typeof S3Client>[0] = { region };
-
-    if (AWS_ASSUME_ROLE) {
-      clientConfig.credentials = fromTemporaryCredentials({
-        params: {
-          RoleArn: AWS_ASSUME_ROLE,
-          RoleSessionName: "growthbook-uploads",
-        },
-      });
-    }
-
-    client = new S3Client(clientConfig);
+    client = buildS3Client({
+      assumeRoleArn: AWS_ASSUME_ROLE,
+      roleSessionName: "growthbook-uploads",
+      region,
+    });
     s3Clients.set(region, client);
   }
   return client;
+}
+
+let sessionReplayS3Client: S3Client | null = null;
+
+/**
+ * S3 client scoped to the session-replay bucket. May use a different role
+ * (via `S3_SESSION_REPLAY_ASSUME_ROLE`) than the uploads client so that read
+ * access to replay payloads can be granted independently of write access to
+ * the general uploads bucket.
+ */
+function getSessionReplayS3Client(): S3Client {
+  if (!sessionReplayS3Client) {
+    sessionReplayS3Client = buildS3Client({
+      assumeRoleArn: S3_SESSION_REPLAY_ASSUME_ROLE,
+      roleSessionName: "growthbook-session-replay-reads",
+    });
+  }
+  return sessionReplayS3Client;
+}
+
+// --- Low-level S3 primitives ---
+// Take an explicit client and bucket so they can be reused across the
+// uploads bucket (`S3_BUCKET` + `getS3Client()`) and the session-replay
+// bucket (`S3_SESSION_REPLAY_BUCKET` + `getSessionReplayS3Client()`).
+// Behaviour is identical to what the high-level callers used to do inline.
+
+async function s3GetObjectBuffer(
+  client: S3Client,
+  bucket: string,
+  key: string,
+): Promise<Buffer> {
+  const response = await client.send(
+    new GetObjectCommand({ Bucket: bucket, Key: key }),
+  );
+  if (!response.Body) throw new Error("Empty S3 response body");
+  const chunks: Uint8Array[] = [];
+  for await (const chunk of response.Body as AsyncIterable<Uint8Array>) {
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks);
+}
+
+async function s3ListByPrefix(
+  client: S3Client,
+  bucket: string,
+  prefix: string,
+): Promise<string[]> {
+  const response = await client.send(
+    new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix }),
+  );
+  return (response.Contents ?? []).map((obj) => obj.Key ?? "").filter(Boolean);
 }
 
 export function getUploadsDir() {
@@ -377,6 +462,63 @@ export async function getSignedUploadUrl(
       "Signed upload URLs are only supported for S3 and Google Cloud Storage",
     );
   }
+}
+
+// --- Session-replay helpers ---
+// Reads from the session-replay bucket (S3 only) using the session-replay
+// client. Used by the session-replay controller to (a) list the gzip-JSON
+// chunks for a given session's storage prefix, and (b) hand out signed
+// read URLs so the browser can fetch chunks directly from S3 — same pattern
+// as AuthorizedImage.
+
+/**
+ * Returns `true` when the session-replay bucket is configured (S3 mode and
+ * `S3_SESSION_REPLAY_BUCKET` set). Use this in the controller to short-circuit
+ * with a clean 4xx when the deployment hasn't enabled session-replay reads.
+ */
+export function isSessionReplayStorageConfigured(): boolean {
+  return UPLOAD_METHOD === "s3" && !!S3_SESSION_REPLAY_BUCKET;
+}
+
+/**
+ * Lists every object key under `storagePrefix` in the session-replay bucket.
+ * Returns the raw S3 keys (in S3 ordering, which is lexicographic — callers
+ * that need numeric chunk-index ordering should sort after parsing).
+ */
+export async function listSessionReplayChunks(
+  storagePrefix: string,
+): Promise<string[]> {
+  if (!isSessionReplayStorageConfigured()) {
+    throw new Error(
+      "Session-replay storage is not configured (set S3_SESSION_REPLAY_BUCKET)",
+    );
+  }
+  return s3ListByPrefix(
+    getSessionReplayS3Client(),
+    S3_SESSION_REPLAY_BUCKET,
+    storagePrefix,
+  );
+}
+
+/**
+ * Fetches a single session-replay chunk (gzipped JSON) from the session-replay
+ * bucket. Mirror of `getFileBuffer` but routed through the session-replay
+ * S3 client so the bucket+role for replay storage stay independent of the
+ * general uploads bucket.
+ */
+export async function getSessionReplayObjectBuffer(
+  key: string,
+): Promise<Buffer> {
+  if (!isSessionReplayStorageConfigured()) {
+    throw new Error(
+      "Session-replay storage is not configured (set S3_SESSION_REPLAY_BUCKET)",
+    );
+  }
+  return s3GetObjectBuffer(
+    getSessionReplayS3Client(),
+    S3_SESSION_REPLAY_BUCKET,
+    key,
+  );
 }
 
 // Move a file (copy + delete) within the same destination. Used by the

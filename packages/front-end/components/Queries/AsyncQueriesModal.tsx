@@ -8,6 +8,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Code from "@/components/SyntaxHighlighting/Code";
 import ExpandableSavedQuery from "@/components/SavedQueries/ExpandableSavedQuery";
+import Callout from "@/ui/Callout";
 import ExpandableQuery from "./ExpandableQuery";
 import QueryStatsRow from "./QueryStatsRow";
 
@@ -68,7 +69,7 @@ const AsyncQueriesModal: FC<{
   const contents = (
     <>
       {error && (
-        <div className="alert alert-danger">
+        <Callout status="error">
           <div>
             <strong>Error Processing Query Results</strong>
           </div>
@@ -82,22 +83,22 @@ const AsyncQueriesModal: FC<{
               style={{ maxHeight: 500 }}
             />
           ) : null}
-        </div>
+        </Callout>
       )}{" "}
       {data && data.queries.filter((q) => q === null).length > 0 && (
-        <div className="alert alert-danger">
+        <Callout status="error">
           Could not fetch information about one or more of these queries. Try
           running them again.
-        </div>
+        </Callout>
       )}
       {data &&
         data.queries.filter((q) => q?.status === "queued").length > 0 &&
         datasourceId && (
-          <div className="alert alert-warning">
+          <Callout status="warning">
             One or more of these queries is waiting to run. Click{" "}
             <a href={`/datasources/queries/${datasourceId}`}>here</a> to see the
             status of all your queries
-          </div>
+          </Callout>
         )}
       {hasStats ? (
         <div className="mb-4">
@@ -166,12 +167,10 @@ const AsyncQueriesModal: FC<{
 
   if (inline) {
     if (apiError) {
-      return <div className="alert alert-danger">{apiError.message}</div>;
+      return <Callout status="error">{apiError.message}</Callout>;
     }
     if (savedQueryError) {
-      return (
-        <div className="alert alert-danger">{savedQueryError.message}</div>
-      );
+      return <Callout status="error">{savedQueryError.message}</Callout>;
     }
     if (!data) {
       return <LoadingSpinner />;
@@ -182,6 +181,7 @@ const AsyncQueriesModal: FC<{
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType="async-queries"
       close={close}
       header="Queries"
@@ -193,9 +193,9 @@ const AsyncQueriesModal: FC<{
         (shouldFetchSavedQueries() && !savedQueryData && !savedQueryError)) && (
         <LoadingOverlay />
       )}
-      {apiError && <div className="alert alert-danger">{apiError.message}</div>}
+      {apiError && <Callout status="error">{apiError.message}</Callout>}
       {savedQueryError && (
-        <div className="alert alert-danger">{savedQueryError.message}</div>
+        <Callout status="error">{savedQueryError.message}</Callout>
       )}
       {contents}
     </Modal>

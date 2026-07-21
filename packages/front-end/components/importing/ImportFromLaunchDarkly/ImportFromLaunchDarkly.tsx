@@ -40,6 +40,7 @@ import {
   transformLDProjectsToGBProject,
 } from "@/services/importing/launchdarkly/launchdarkly-importing";
 import track from "@/services/track";
+import Callout from "@/ui/Callout";
 
 type ImportStatus = "invalid" | "skipped" | "pending" | "completed" | "failed";
 
@@ -814,7 +815,7 @@ export default function ImportFromLaunchDarkly() {
 
       <div className="position-relative">
         {data.status === "error" ? (
-          <div className="alert alert-danger">{data.error || "Error"}</div>
+          <Callout status="error">{data.error || "Error"}</Callout>
         ) : data.status === "init" ? null : (
           <div>
             <h2>

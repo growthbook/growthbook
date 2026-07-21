@@ -47,6 +47,7 @@ import { useWatching } from "@/services/WatchProvider";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { convertExperimentToTemplate } from "@/services/experiments";
 import Button from "@/ui/Button";
+import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
 import SelectField from "@/components/Forms/SelectField";
@@ -363,6 +364,8 @@ export default function ExperimentHeader({
     track("Start experiment", {
       source: "experiment-start-banner",
       action: "main CTA",
+      hasDatasource: !!dataSource,
+      hasExperimentAssignmentQuery: !!experiment.exposureQueryId,
     });
     setTab("results");
   }
@@ -511,6 +514,7 @@ export default function ExperimentHeader({
       )}
       {showBanditModal ? (
         <Modal
+          useRadixButton={false}
           open={true}
           close={() => setShowBanditModal(false)}
           trackingEventModalType=""
@@ -736,7 +740,6 @@ export default function ExperimentHeader({
           close={() => setShareModalOpen(false)}
           closeCta="Close"
           header={`Share "${experiment.name}"`}
-          useRadixButton={true}
           secondaryCTA={shareLinkButton}
         >
           <div className="mb-3">
@@ -806,22 +809,14 @@ export default function ExperimentHeader({
         }
       >
         <Flex direction="row" align="start" justify="between" gap="5">
-          <Box>
-            <h1
-              className="mb-0"
-              style={{ display: "inline", verticalAlign: "middle" }}
-            >
+          <Flex align="center" gap="2">
+            <Heading as="h1" size="2x-large" color="text-high" weight="medium">
               {experiment.name}
-            </h1>
-            <Box
-              ml="2"
-              mt="1"
-              display="inline-block"
-              style={{ userSelect: "none" }}
-            >
+            </Heading>
+            <Box style={{ userSelect: "none" }}>
               <ExperimentStatusIndicator experimentData={experiment} />
             </Box>
-          </Box>
+          </Flex>
 
           <Flex direction="row" align="center" gap="2" flexShrink="0">
             {isHoldout && holdout?.nextScheduledStatusUpdate ? (

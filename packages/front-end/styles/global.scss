@@ -647,6 +647,28 @@ pre {
   }
 }
 
+// Wide config tables (the field editor + the usage tables on the config page).
+// Same trade-off as .experiment-results-wrapper: an `overflow-x` ancestor breaks
+// a document-sticky header AND would clip the inline edit-field dropdowns, so we
+// only enable x-scroll once the viewport is too narrow to show the table without
+// squeezing/truncating, and drop the sticky header at that same breakpoint.
+// Above it there is no scroll container (header sticks, dropdowns aren't
+// clipped); below it we trade the sticky header for horizontal scroll. Viewport
+// (not container) query on purpose — a container-query ancestor would establish a
+// containing block that re-clips the `position: fixed` react-select menus.
+// Keep the breakpoint in the two rules in sync.
+.config-table-scroll {
+  @media (max-width: 1400px) {
+    overflow-x: auto;
+  }
+}
+.config-table-sticky-header {
+  position: sticky;
+  @media (max-width: 1400px) {
+    position: static;
+  }
+}
+
 .experiment-results,
 .bandit-summary-results {
   tbody {
@@ -736,12 +758,16 @@ pre {
       &.header-label {
         padding-bottom: 5px;
         font-size: 16px;
+        font-weight: var(--font-weight-bold);
+        color: var(--color-text-high);
       }
 
       &.label {
         color: var(--color-text-mid);
-        font-size: 13px;
+        font-size: 12px;
+        font-weight: var(--font-weight-bold);
         padding-bottom: 5px;
+        line-height: 16px;
       }
     }
   }
@@ -2049,17 +2075,6 @@ main.main {
     }
   }
 
-  &.with-variation-border-bottom {
-    border-bottom: 7px solid var(--slate-11);
-
-    @for $i from 0 through 99 {
-      $color-index: $i % length($colors);
-      $color: nth($colors, $color-index + 1);
-      &.variation#{$i} {
-        border-bottom: 7px solid $color;
-      }
-    }
-  }
   &.with-small-border {
     border-top: 4px solid var(--slate-11);
     @for $i from 0 through 99 {
@@ -2078,18 +2093,6 @@ main.main {
       $color: nth($colors, $color-index + 1);
       &.variation#{$i} {
         background-color: $color;
-      }
-    }
-  }
-
-  &.with-variation-right-shadow {
-    box-shadow: -3px 0 0 var(--slate-11) inset;
-
-    @for $i from 0 through 99 {
-      $color-index: $i % length($colors);
-      $color: nth($colors, $color-index + 1);
-      &.variation#{$i} {
-        box-shadow: -3px 0 0 $color inset;
       }
     }
   }
@@ -2616,11 +2619,16 @@ li.metrics a span img {
   }
   .carousel-control-next-icon,
   .carousel-control-prev-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
     width: 30px;
     height: 30px;
     border-radius: 50px;
-    background-size: 50%;
+    background-image: none;
     background-color: colors.$gray-600;
+    color: #fff;
+    font-size: 18px;
   }
   .carousel-inner {
     overflow: visible;
@@ -3431,15 +3439,6 @@ input:disabled {
   }
 }
 
-.alert-cool-1 {
-  border-radius: 5px;
-  color: #4d7693;
-  background: linear-gradient(to top, #c0d6e6, #d5ebf0);
-  .btn-link {
-    color: #007bff;
-  }
-}
-
 .btn-group-card {
   .btn {
     color: var(--text-color-main);
@@ -3807,4 +3806,121 @@ input:disabled {
   .sidebarLeftClosed {
     left: 0 !important;
   }
+}
+
+.rr-player {
+  float: none !important;
+  box-shadow: none !important;
+}
+
+// ── rrweb-player control bar overrides ───────────────────────────────────────
+// The player uses Svelte-scoped class names (.svelte-XXXXX) with specificity
+// (0,3,0). !important on the base class names wins without hardcoding the hash.
+//
+// Layout goal (single row):
+//   [play/pause] [1x][2x][4x][8x]  |  [time ══progress══ time]  |  [skip inactive] [⛶]
+//
+// Technique: display:contents on .rr-controller__btns "unwraps" all buttons
+// into direct flex children of .rr-controller. flex:1 on .rr-timeline fills
+// the middle; buttons before .switch sort left, .switch and anything after
+// sort right.
+
+// Control bar — single horizontal row
+.rr-controller {
+  flex-direction: row !important;
+  justify-content: flex-start !important;
+  align-items: center !important;
+  padding: 0 8px !important;
+  gap: 2px !important;
+  background: var(--color-panel-solid) !important;
+  border-top: 1px solid var(--slate-a4) !important;
+  border-radius: 0 !important;
+}
+
+// Unwrap button container — its children become direct flex items of .rr-controller
+.rr-controller__btns {
+  display: contents !important;
+}
+
+// Play/pause + speed buttons → left (default order 1)
+.rr-controller__btns button {
+  order: 1 !important;
+}
+
+// Timeline (time labels + progress bar) → grows to fill middle space
+.rr-timeline {
+  order: 5 !important;
+  flex: 1 !important;
+  width: auto !important;
+  min-width: 0 !important;
+  margin-left: 12px !important;
+  gap: 12px !important; // buffer so the handle circle (10px radius) can't overlap the time labels
+}
+
+// Skip-inactive toggle → right of timeline
+.rr-controller__btns .switch {
+  order: 10 !important;
+  margin: 0 4px 0 12px !important;
+}
+
+// Any buttons after .switch (e.g. fullscreen) → rightmost
+.rr-controller__btns .switch ~ button {
+  order: 11 !important;
+}
+
+// Progress track
+.rr-progress {
+  background: var(--slate-a4) !important;
+  border-top-color: var(--color-panel-solid) !important;
+  border-bottom-color: var(--color-panel-solid) !important;
+}
+
+// Played portion
+.rr-progress__step {
+  background: var(--accent-9) !important;
+}
+
+// Scrub handle
+.rr-progress__handler {
+  background: var(--accent-9) !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2) !important;
+}
+
+// Time labels
+.rr-timeline__time {
+  color: var(--gray-11) !important;
+  font-size: 12px !important;
+  width: auto !important;
+  white-space: nowrap !important;
+}
+
+// Active/selected button (current speed, playing)
+.rr-controller__btns button.active {
+  background: var(--accent-9) !important;
+  color: #fff !important;
+}
+
+// Pressed state
+.rr-controller__btns button:active {
+  background: var(--accent-3) !important;
+}
+
+// Remove Bootstrap's default label bottom margin from the toggle
+.switch label {
+  margin-bottom: 0 !important;
+}
+
+// Skip-inactive toggle track (off)
+.switch label::before {
+  background: var(--accent-6) !important;
+}
+
+// Skip-inactive toggle track (on)
+.switch input[type="checkbox"]:checked + label::before {
+  background: var(--accent-9) !important;
+}
+
+// Replay mouse cursor dot
+.replayer-mouse::after {
+  background: var(--accent-9) !important;
 }

@@ -369,6 +369,7 @@ const forceRolloutCreateInput = z
     ...commonRuleFields,
     type: z.enum(["force", "rollout"]).optional(),
     value: z.string(),
+    sparse: z.boolean().optional(),
     coverage: z.number().min(0).max(1).optional(),
     hashAttribute: z.string().optional(),
     seed: z.string().optional(),
@@ -386,6 +387,7 @@ const experimentRefCreateInput = z
         .object({ variationId: z.string().optional(), value: z.string() })
         .strict(),
     ),
+    sparse: z.boolean().optional(),
   })
   .strict();
 
@@ -494,6 +496,7 @@ const rulePatchSchema = z
       .enum(["force", "rollout", "experiment-ref", "safe-rollout"])
       .optional(),
     value: z.string().optional(),
+    sparse: z.boolean().optional(),
     coverage: z.number().min(0).max(1).optional(),
     hashAttribute: z.string().optional(),
     seed: z.string().optional(),

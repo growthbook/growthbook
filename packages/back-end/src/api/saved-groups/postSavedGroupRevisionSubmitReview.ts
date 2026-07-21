@@ -47,7 +47,7 @@ export const postSavedGroupRevisionSubmitReview = createApiRequestHandler(
   // shared helper keeps the logic in lockstep.
   if (decision === "approve") {
     const blocked = isUserBlockedFromApproving({
-      approvalFlows: req.context.org.settings?.approvalFlows,
+      settings: req.context.org.settings,
       entityType: "saved-group",
       revision,
       userId: req.context.userId,

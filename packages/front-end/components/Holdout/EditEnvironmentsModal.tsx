@@ -53,6 +53,7 @@ const EditEnvironmentsModal = ({
 
   return (
     <Modal
+      useRadixButton={false}
       open={true}
       trackingEventModalType=""
       header="Edit Included Environments"

@@ -304,11 +304,25 @@ export function getAISettingsForOrg(
       context.org.settings?.openAIDefaultModel ||
       "gpt-5.4-mini";
 
-  // Per-surface override outranks the cloud-managed default — intentional.
+  // Visual editor AI. An explicit per-surface override always wins.
+  // Otherwise: on Cloud, default to Sonnet — the visual editor's
+  // structured-output + vision workload (mutations schema, figma-to-
+  // variant) needs more capability than the cheap managed default
+  // (Haiku), which fails schema adherence too often here. Self-hosted
+  // keeps falling back to the org's general default model so admins stay
+  // in control of cost/model.
   const visualEditorAIModel: AIModel =
-    context.org.settings?.visualEditorAIModel || defaultAIModel;
+    context.org.settings?.visualEditorAIModel ||
+    (IS_CLOUD ? "claude-sonnet-4-5-20250929" : defaultAIModel);
+  // On Cloud, default the visual editor's image model to Gemini 3 Pro Image:
+  // it honors the requested aspect ratio (so replacements aren't center-
+  // cropped/clipped) and renders at higher resolution, while still supporting
+  // reference images for img2img. Self-hosted keeps the stable nano-banana
+  // default (GEMINI_IMAGE_MODEL, env-overridable) rather than a preview model.
+  // An explicit org setting always wins.
   const visualEditorImageModel: string =
-    context.org.settings?.visualEditorImageModel || GEMINI_IMAGE_MODEL;
+    context.org.settings?.visualEditorImageModel ||
+    (IS_CLOUD ? "gemini-3-pro-image-preview" : GEMINI_IMAGE_MODEL);
 
   return {
     aiEnabled,
@@ -676,7 +690,7 @@ export async function addPendingMemberToOrg({
   await updateOrganization(organization.id, { pendingMembers });
 }
 
-export async function acceptInvite(key: string, userId: string) {
+export async function acceptInvite(key: string, userId: string, email: string) {
   const organization = await findOrganizationByInviteKey(key);
   if (!organization) {
     throw new Error("Invalid key");
@@ -692,6 +706,12 @@ export async function acceptInvite(key: string, userId: string) {
   const invite = organization.invites.filter((invite) => invite.key === key)[0];
   if (!invite) {
     throw new Error("Could not find invitation with that key");
+  }
+
+  // Ensure the invite was issued to the authenticated user's email; otherwise a
+  // leaked invite key would let any logged-in user join with the invited role.
+  if (!email || email.toLowerCase() !== invite.email.toLowerCase()) {
+    throw new Error("This invitation was sent to a different email address");
   }
 
   // Remove invite

@@ -5,6 +5,7 @@ import { useState } from "react";
 import { MdKeyboardArrowDown, MdKeyboardArrowUp } from "react-icons/md";
 import { eventSchemas } from "@/services/eventSchema";
 import Field from "@/components/Forms/Field";
+import Callout from "@/ui/Callout";
 
 export default function DataSourceSchemaChooser({
   format,
@@ -21,9 +22,9 @@ export default function DataSourceSchemaChooser({
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(null);
   return (
     <div>
-      <div className="alert alert-success mb-4">
+      <Callout status="success" mb="4">
         <strong>Connection successful!</strong>
-      </div>
+      </Callout>
       <h4>Database Schema</h4>
       <p>
         GrowthBook has out-of-the-box support for a number of database schemas.

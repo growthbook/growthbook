@@ -21,6 +21,7 @@ import {
   format,
   isMultiStatementSQL,
   SQL_ROW_LIMIT,
+  usesBackslashStringEscapes,
 } from "shared/sql";
 import { TemplateVariables, SqlDialect } from "shared/types/sql";
 import {
@@ -43,6 +44,8 @@ import {
   ExperimentUnitsQueryResponse,
   ExperimentAggregateUnitsQueryResponse,
   ExperimentAggregateUnitsQueryParams,
+  ContextualBanditSrmQueryParams,
+  ContextualBanditSrmQueryResponse,
   ExperimentDimension,
   ExternalIdCallback,
   DimensionSlicesQueryResponse,
@@ -90,11 +93,11 @@ import {
   AggregatedFactTableMaxTimestampQueryParams,
   DropAggregatedFactTableQueryParams,
   PipelineIntegration,
+  ResolvedExposureQuery,
 } from "shared/types/integrations";
 import { MetricInterface, MetricType } from "shared/types/metric";
 import {
   DataSourceProperties,
-  ExposureQuery,
   SchemaFormatConfig,
   DataSourceInterface,
   AutoFactTableSchemas,
@@ -112,8 +115,8 @@ import {
 import { ExplorationConfig } from "shared/validators";
 import {
   AdditionalQueryMetadata,
-  QueryMetadata,
   QueryType,
+  RunQueryMetadata,
 } from "shared/types/query";
 import { MissingDatasourceParamsError } from "back-end/src/util/errors";
 import { ReqContext } from "back-end/types/request";
@@ -143,13 +146,13 @@ import { getDropOldIncrementalUnitsQuery } from "back-end/src/integrations/sql/q
 import { getDropUnitsTableQuery } from "back-end/src/integrations/sql/queries/drop-units-table-query";
 import { encodeMetricIdForColumnName } from "back-end/src/integrations/sql/fact-metrics/encode-metric-id-for-column-name";
 import { getExperimentAggregateUnitsQuery as getExperimentAggregateUnitsQueryFromSql } from "back-end/src/integrations/sql/queries/experiment-aggregate-units-query";
+import { getContextualBanditSrmQuery as getContextualBanditSrmQueryFromSql } from "back-end/src/integrations/sql/queries/contextual-bandit-srm-query";
 import { getExperimentEndDate } from "back-end/src/integrations/sql/dates/experiment-end-date";
 import { getExperimentFactMetricStatisticsCTE } from "back-end/src/integrations/sql/ctes/experiment-fact-metric-statistics-cte";
 import { getExperimentFactMetricsQuery as getExperimentFactMetricsQueryFromSql } from "back-end/src/integrations/sql/queries/experiment-fact-metrics-query";
-import { getExperimentMetricQuery as buildExperimentMetricQuerySql } from "back-end/src/integrations/sql/queries/experiment-metric-query";
+import { getSnapshotMetricQuery as buildSnapshotMetricQuerySql } from "back-end/src/integrations/sql/queries/snapshot-metric-query";
 import { getExperimentResultsQuery } from "back-end/src/integrations/sql/queries/experiment-results-query";
 import { getExperimentUnitsQuery as buildExperimentUnitsQuerySql } from "back-end/src/integrations/sql/queries/experiment-units-query";
-import { getExposureQuery } from "back-end/src/integrations/sql/queries/exposure-query";
 import { getFactMetricCTE } from "back-end/src/integrations/sql/ctes/fact-metric-cte";
 import { getFeatureEvalDiagnosticsQuery as getFeatureEvalDiagnosticsQueryFromSql } from "back-end/src/integrations/sql/queries/feature-eval-diagnostics-query";
 import { getFilterColumnsClause } from "back-end/src/integrations/sql/clauses/filter-columns-clause";
@@ -197,8 +200,8 @@ export default abstract class SqlIntegration
   abstract setParams(encryptedParams: string): void;
   abstract runQuery(
     sql: string,
-    setExternalId?: ExternalIdCallback,
-    metadata?: QueryMetadata,
+    setExternalId: ExternalIdCallback | undefined,
+    metadata: RunQueryMetadata,
   ): Promise<QueryResponse>;
   async cancelQuery(externalId: string): Promise<void> {
     // No-op default; warehouses with remote job control override.
@@ -225,10 +228,15 @@ export default abstract class SqlIntegration
     const originalRunQuery = this.runQuery;
     this.runQuery = async (
       sql: string,
-      setExternalId?: ExternalIdCallback,
-      metadata?: QueryMetadata,
+      setExternalId: ExternalIdCallback | undefined,
+      metadata: RunQueryMetadata,
     ) => {
-      if (isMultiStatementSQL(sql)) {
+      if (
+        isMultiStatementSQL(
+          sql,
+          usesBackslashStringEscapes(this.getSqlDialect()),
+        )
+      ) {
         throw new Error("Multi-statement queries are not supported");
       }
       metadata = {
@@ -280,7 +288,9 @@ export default abstract class SqlIntegration
   }
 
   async testConnection(): Promise<boolean> {
-    await this.runQuery(TEST_QUERY_SQL);
+    await this.runQuery(TEST_QUERY_SQL, undefined, {
+      queryType: "connectionTest",
+    });
     return true;
   }
 
@@ -346,9 +356,7 @@ export default abstract class SqlIntegration
   }
   getPastExperimentQuery(params: PastExperimentParams): string {
     // TODO: for past experiments, UNION all exposure queries together
-    const experimentQueries = (
-      this.datasource.settings.queries?.exposure || []
-    ).map(({ id }) => getExposureQuery(this.datasource, id));
+    const experimentQueries = this.datasource.settings.queries?.exposure || [];
 
     return buildPastExperimentQuerySql(
       this.getSqlDialect(),
@@ -360,7 +368,7 @@ export default abstract class SqlIntegration
   async runPastExperimentQuery(
     query: string,
     setExternalId: ExternalIdCallback,
-    queryMetadata?: QueryMetadata,
+    queryMetadata: RunQueryMetadata,
   ): Promise<PastExperimentQueryResponse> {
     const { rows, statistics } = await this.runQuery(
       query,
@@ -409,7 +417,7 @@ export default abstract class SqlIntegration
   async runMetricAnalysisQuery(
     query: string,
     setExternalId: ExternalIdCallback,
-    queryMetadata?: QueryMetadata,
+    queryMetadata: RunQueryMetadata,
   ): Promise<MetricAnalysisQueryResponse> {
     const { rows, statistics } = await this.runQuery(
       query,
@@ -478,7 +486,7 @@ export default abstract class SqlIntegration
   async runPopulationFactMetricsQuery(
     query: string,
     setExternalId: ExternalIdCallback,
-    queryMetadata?: QueryMetadata,
+    queryMetadata: RunQueryMetadata,
   ): Promise<ExperimentFactMetricsQueryResponse> {
     return this.runExperimentFactMetricsQuery(
       query,
@@ -497,14 +505,13 @@ export default abstract class SqlIntegration
   async runExperimentFactMetricsQuery(
     query: string,
     setExternalId: ExternalIdCallback,
-    queryMetadata?: QueryMetadata,
+    queryMetadata: RunQueryMetadata,
   ): Promise<ExperimentFactMetricsQueryResponse> {
     const { rows, statistics } = await this.runQuery(
       query,
       setExternalId,
       queryMetadata,
     );
-
     return {
       rows: this.processExperimentFactMetricsQueryRows(rows),
       statistics: statistics,
@@ -514,15 +521,15 @@ export default abstract class SqlIntegration
   async runPopulationMetricQuery(
     query: string,
     setExternalId: ExternalIdCallback,
-    queryMetadata?: QueryMetadata,
+    queryMetadata: RunQueryMetadata,
   ): Promise<ExperimentMetricQueryResponse> {
-    return this.runExperimentMetricQuery(query, setExternalId, queryMetadata);
+    return this.runSnapshotMetricQuery(query, setExternalId, queryMetadata);
   }
 
-  async runExperimentMetricQuery(
+  async runSnapshotMetricQuery(
     query: string,
     setExternalId: ExternalIdCallback,
-    queryMetadata?: QueryMetadata,
+    queryMetadata: RunQueryMetadata,
   ): Promise<ExperimentMetricQueryResponse> {
     const { rows, statistics } = await this.runQuery(
       query,
@@ -556,7 +563,6 @@ export default abstract class SqlIntegration
           .forEach(([key, value]) => {
             dimensionData[key] = value;
           });
-
         // Build result object by processing all field types
         const result: ExperimentMetricQueryResponseRows[number] = {
           variation: row.variation ?? "",
@@ -632,7 +638,7 @@ export default abstract class SqlIntegration
   async runExperimentAggregateUnitsQuery(
     query: string,
     setExternalId: ExternalIdCallback,
-    queryMetadata?: QueryMetadata,
+    queryMetadata: RunQueryMetadata,
   ): Promise<ExperimentAggregateUnitsQueryResponse> {
     const { rows, statistics } = await this.runQuery(
       query,
@@ -652,10 +658,29 @@ export default abstract class SqlIntegration
     };
   }
 
+  async runContextualBanditSrmQuery(
+    query: string,
+    setExternalId: ExternalIdCallback,
+    queryMetadata: RunQueryMetadata,
+  ): Promise<ContextualBanditSrmQueryResponse> {
+    const { rows, statistics } = await this.runQuery(
+      query,
+      setExternalId,
+      queryMetadata,
+    );
+    return {
+      rows: rows.map((row) => ({
+        statistic: parseFloat(row.statistic) || 0,
+        degrees_of_freedom: parseInt(row.degrees_of_freedom, 10) || 0,
+      })),
+      statistics,
+    };
+  }
+
   async runExperimentUnitsQuery(
     query: string,
     setExternalId: ExternalIdCallback,
-    queryMetadata?: QueryMetadata,
+    queryMetadata: RunQueryMetadata,
   ): Promise<ExperimentUnitsQueryResponse> {
     return await this.runQuery(query, setExternalId, queryMetadata);
   }
@@ -663,7 +688,7 @@ export default abstract class SqlIntegration
   async runMetricValueQuery(
     query: string,
     setExternalId: ExternalIdCallback,
-    queryMetadata?: QueryMetadata,
+    queryMetadata: RunQueryMetadata,
   ): Promise<MetricValueQueryResponse> {
     const { rows, statistics } = await this.runQuery(
       query,
@@ -742,24 +767,22 @@ export default abstract class SqlIntegration
 
   async runTestQuery(
     sql: string,
-    timestampCols?: string[],
-    queryType?: QueryType,
+    timestampCols: string[] | undefined,
+    queryType: QueryType,
   ): Promise<TestQueryResult> {
     const queryStartTime = Date.now();
-    const results = await this.runQuery(
-      sql,
-      undefined,
-      queryType ? { queryType } : undefined,
-    ).catch((e) => {
-      // If the user forgets to include a timestamp column in their SQL
-      // The error message from the db will be confusing, so make it more clear.
-      for (const col of timestampCols ?? []) {
-        if (e.message.includes(col)) {
-          throw new Error(`The column '${col}' is required. ${e.message}`);
+    const results = await this.runQuery(sql, undefined, { queryType }).catch(
+      (e) => {
+        // If the user forgets to include a timestamp column in their SQL
+        // The error message from the db will be confusing, so make it more clear.
+        for (const col of timestampCols ?? []) {
+          if (e.message.includes(col)) {
+            throw new Error(`The column '${col}' is required. ${e.message}`);
+          }
         }
-      }
-      throw e;
-    });
+        throw e;
+      },
+    );
     const queryEndTime = Date.now();
     const duration = queryEndTime - queryStartTime;
 
@@ -783,7 +806,7 @@ export default abstract class SqlIntegration
   async runDropTableQuery(
     sql: string,
     setExternalId: ExternalIdCallback,
-    queryMetadata?: QueryMetadata,
+    queryMetadata: RunQueryMetadata,
   ): Promise<DropTableQueryResponse> {
     const results = await this.runQuery(sql, setExternalId, queryMetadata);
     return results;
@@ -840,11 +863,10 @@ export default abstract class SqlIntegration
       segment,
     });
 
-    return this.getExperimentMetricQuery({
+    return this.getSnapshotMetricQuery({
       ...params,
       unitsSource: "otherQuery",
       unitsSql: populationSQL,
-      forcedUserIdType: params.populationSettings.userIdType,
     });
   }
 
@@ -862,7 +884,6 @@ export default abstract class SqlIntegration
       ...params,
       unitsSource: "otherQuery",
       unitsSql: populationSQL,
-      forcedUserIdType: params.populationSettings.userIdType,
     });
   }
 
@@ -890,18 +911,18 @@ export default abstract class SqlIntegration
     );
   }
 
+  getContextualBanditSrmQuery(params: ContextualBanditSrmQueryParams): string {
+    return getContextualBanditSrmQueryFromSql(this.getSqlDialect(), params);
+  }
+
   getDimensionSlicesQuery(params: DimensionSlicesQueryParams): string {
-    return getDimensionSlicesQueryFromSql(
-      this.getSqlDialect(),
-      this.datasource,
-      params,
-    );
+    return getDimensionSlicesQueryFromSql(this.getSqlDialect(), params);
   }
 
   async runDimensionSlicesQuery(
     query: string,
     setExternalId: ExternalIdCallback,
-    queryMetadata?: QueryMetadata,
+    queryMetadata: RunQueryMetadata,
   ): Promise<DimensionSlicesQueryResponse> {
     const { rows, statistics } = await this.runQuery(
       query,
@@ -998,8 +1019,8 @@ export default abstract class SqlIntegration
     );
   }
 
-  getExperimentMetricQuery(params: ExperimentMetricQueryParams): string {
-    return buildExperimentMetricQuerySql(
+  getSnapshotMetricQuery(params: ExperimentMetricQueryParams): string {
+    return buildSnapshotMetricQuerySql(
       this.getSqlDialect(),
       this.datasource,
       params,
@@ -1065,11 +1086,11 @@ export default abstract class SqlIntegration
   }
   async getInformationSchema(): Promise<InformationSchema[]> {
     const sql = `
-  SELECT 
+  SELECT
     table_name as table_name,
     table_catalog as table_catalog,
     table_schema as table_schema,
-    count(column_name) as column_count 
+    count(column_name) as column_count
   FROM
     ${this.getInformationSchemaTable()}
     WHERE ${this.getInformationSchemaWhereClause()}
@@ -1077,6 +1098,8 @@ export default abstract class SqlIntegration
 
     const results = await this.runQuery(
       format(sql, this.getSqlDialect().formatDialect),
+      undefined,
+      { queryType: "informationSchema" },
     );
 
     if (!results.rows.length) {
@@ -1091,18 +1114,20 @@ export default abstract class SqlIntegration
     tableName: string,
   ): Promise<{ tableData: null | unknown[] }> {
     const sql = `
-  SELECT 
+  SELECT
     data_type as data_type,
-    column_name as column_name 
+    column_name as column_name
   FROM
     ${this.getInformationSchemaTable(tableSchema, databaseName)}
-  WHERE 
+  WHERE
     table_name = '${tableName}'
     AND table_schema = '${tableSchema}'
     AND table_catalog = '${databaseName}'`;
 
     const results = await this.runQuery(
       format(sql, this.getSqlDialect().formatDialect),
+      undefined,
+      { queryType: "tableColumns" },
     );
 
     return { tableData: results.rows };
@@ -1412,6 +1437,8 @@ export default abstract class SqlIntegration
 
     const { rows: resultRows } = await this.runQuery(
       format(sql, this.getSqlDialect().formatDialect),
+      undefined,
+      { queryType: "trackedEvents" },
     );
 
     const additionalEvents = getAdditionalEvents();
@@ -1431,6 +1458,8 @@ export default abstract class SqlIntegration
       try {
         const { rows: additionalEventResults } = await this.runQuery(
           format(sql, this.getSqlDialect().formatDialect),
+          undefined,
+          { queryType: "trackedEvents" },
         );
 
         additionalEventResults.forEach((result) => {
@@ -1488,14 +1517,15 @@ export default abstract class SqlIntegration
   public async runColumnsTopValuesQuery(
     sql: string,
   ): Promise<ColumnTopValuesResponse> {
-    const { rows, statistics } = await this.runQuery(sql);
+    const { rows, statistics } = await this.runQuery(sql, undefined, {
+      queryType: "columnTopValues",
+    });
 
     return {
       statistics,
       rows: rows.map((r) => ({
         column: r.column_name + "",
         value: r.value + "",
-        count: parseFloat(r.count),
       })),
     };
   }
@@ -1515,22 +1545,21 @@ export default abstract class SqlIntegration
   // getExperimentIncrementalStatisticsQuery
   parseExperimentParams(params: {
     settings: ExperimentSnapshotSettings;
+    exposureQuery: ResolvedExposureQuery;
     activationMetric: ExperimentMetricInterface | null;
     dimensions: Dimension[];
     unitsTableFullName: string;
   }): {
-    exposureQuery: ExposureQuery;
+    exposureQuery: ResolvedExposureQuery;
     activationMetric: ExperimentMetricInterface | null;
     experimentDimensions: ExperimentDimension[];
     unitDimensions: Dimension[];
   } {
-    const { settings, activationMetric: activationMetricDoc } = params;
-
-    const exposureQuery = getExposureQuery(
-      this.datasource,
-      settings.exposureQueryId || "",
-      undefined,
-    );
+    const {
+      settings,
+      exposureQuery,
+      activationMetric: activationMetricDoc,
+    } = params;
 
     const activationMetric = processActivationMetric(
       activationMetricDoc,
@@ -1771,7 +1800,7 @@ export default abstract class SqlIntegration
   async runMaxTimestampQuery(
     sql: string,
     setExternalId: ExternalIdCallback,
-    queryMetadata?: QueryMetadata,
+    queryMetadata: RunQueryMetadata,
   ): Promise<MaxTimestampQueryResponse> {
     const { rows, statistics } = await this.runQuery(
       sql,
@@ -1797,7 +1826,7 @@ export default abstract class SqlIntegration
   async runIncrementalWithNoOutputQuery(
     sql: string,
     setExternalId: ExternalIdCallback,
-    queryMetadata?: QueryMetadata,
+    queryMetadata: RunQueryMetadata,
   ): Promise<IncrementalWithNoOutputQueryResponse> {
     const results = await this.runQuery(sql, setExternalId, queryMetadata);
     return results;
@@ -1879,13 +1908,7 @@ export default abstract class SqlIntegration
   getCreateMetricSourceCovariateTableQuery(
     params: CreateMetricSourceCovariateTableQueryParams,
   ): string {
-    const exposureQuery = getExposureQuery(
-      this.datasource,
-      params.settings.exposureQueryId || "",
-      undefined,
-    );
-
-    const baseIdType = exposureQuery.userIdType;
+    const baseIdType = params.exposureQuery.userIdType;
     const sortedMetrics = params.metrics.sort((a, b) =>
       a.id.localeCompare(b.id),
     );
@@ -1923,7 +1946,6 @@ export default abstract class SqlIntegration
   ): string {
     return getInsertMetricSourceCovariateFromAggregatedFactTableQuery(
       this.getSqlDialect(),
-      this.datasource,
       params,
     );
   }
@@ -1931,13 +1953,7 @@ export default abstract class SqlIntegration
   getCreateMetricSourceTableQuery(
     params: CreateMetricSourceTableQueryParams,
   ): string {
-    const exposureQuery = getExposureQuery(
-      this.datasource,
-      params.settings.exposureQueryId || "",
-      undefined,
-    );
-
-    const baseIdType = exposureQuery.userIdType;
+    const baseIdType = params.exposureQuery.userIdType;
     // Sort by metric id so column order is stable across runs even when the
     // caller hands us metrics in any order.
     const sortedMetrics = [...params.metrics].sort((a, b) =>
@@ -2027,11 +2043,7 @@ export default abstract class SqlIntegration
   getInsertMetricSourceDataQuery(
     params: InsertMetricSourceDataQueryParams,
   ): string {
-    const exposureQuery = getExposureQuery(
-      this.datasource,
-      params.settings.exposureQueryId || "",
-      undefined,
-    );
+    const exposureQuery = params.exposureQuery;
 
     const factTableMap = params.factTableMap;
     // The caller pins which fact table is feeding this cache (numerator vs
@@ -2291,11 +2303,7 @@ export default abstract class SqlIntegration
   getIncrementalRefreshStatisticsQuery(
     params: IncrementalRefreshStatisticsQueryParams,
   ): string {
-    const exposureQuery = getExposureQuery(
-      this.datasource,
-      params.settings.exposureQueryId || "",
-      undefined,
-    );
+    const exposureQuery = params.exposureQuery;
 
     if (params.metricSources.length === 0) {
       throw new Error(
@@ -2807,7 +2815,7 @@ export default abstract class SqlIntegration
   async runIncrementalRefreshStatisticsQuery(
     sql: string,
     setExternalId: ExternalIdCallback,
-    queryMetadata?: QueryMetadata,
+    queryMetadata: RunQueryMetadata,
   ): Promise<ExperimentFactMetricsQueryResponse> {
     const { rows, statistics } = await this.runQuery(
       sql,
@@ -2892,7 +2900,7 @@ export default abstract class SqlIntegration
   async runProductAnalyticsQuery(
     query: string,
     setExternalId: ExternalIdCallback,
-    queryMetadata?: QueryMetadata,
+    queryMetadata: RunQueryMetadata,
   ) {
     return this.runQuery(query, setExternalId, queryMetadata);
   }

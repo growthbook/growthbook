@@ -1,5 +1,5 @@
 import type { SqlLanguage } from "sql-formatter";
-import { DataType } from "./integrations";
+import type { DataType } from "./integrations";
 
 export type StringMatchOperator =
   | "starts_with"
@@ -29,6 +29,19 @@ export type UnpivotLabeledPairsResult = {
   valueExpr: string;
 };
 
+export type ApproxTopValuesParams = {
+  /** One entry per string column: logical name + the value SQL expression (cast to string). */
+  pairs: UnpivotLabeledPair[];
+  /** CTE/table the aggregate scans (e.g. `__factTable`). */
+  fromTable: string;
+  /** Boolean predicate for the WHERE clause, without the `WHERE` keyword (e.g. `timestamp >= '...'`). */
+  whereClause: string;
+  /** Number of top values to return per column (k). */
+  limit: number;
+  /** Drop values longer than this many characters before counting. */
+  maxValueLength?: number;
+};
+
 export type TemplateVariables = {
   eventName?: string;
   valueColumn?: string;
@@ -54,10 +67,6 @@ export type DateTruncGranularity = "hour" | "day" | "week" | "month" | "year";
 
 export interface SqlDialect {
   escapeStringLiteral: (s: string) => string;
-  // Builds a string-match condition (LIKE or a warehouse-native equivalent).
-  // Owns LIKE wildcard escaping and any ESCAPE clause. Build it with
-  // createLikeStringMatchFn from shared/sql, passing this dialect's own
-  // escapeStringLiteral — the two must always agree or patterns break.
   stringMatch: StringMatchFn;
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string;
   evalBoolean: (col: string, value: boolean) => string;
@@ -124,4 +133,11 @@ export interface SqlDialect {
     pairs: UnpivotLabeledPair[],
   ) => UnpivotLabeledPairsResult;
   stringLength: (column: string) => string;
+  /**
+   * Positional access into an array column, returning a numeric expression.
+   * `index` is 0-based logical; each dialect translates to its own array
+   * semantics (1-based vs 0-based, native array vs JSON).
+   */
+  arrayElement: (arrayCol: string, index: number) => string;
+  approxTopValuesCTEBody?: (params: ApproxTopValuesParams) => string;
 }

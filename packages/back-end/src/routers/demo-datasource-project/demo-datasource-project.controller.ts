@@ -24,6 +24,7 @@ import {
   createExperiment,
   getAllExperiments,
 } from "back-end/src/models/ExperimentModel";
+import { SoftWarningError } from "back-end/src/util/errors";
 import {
   createSnapshot,
   getDefaultExperimentAnalysisSettings,
@@ -551,6 +552,7 @@ Treatment shows a larger 'Add to Cart' CTA, but with the same functionality.`,
       experimentId: createdExperiment.id,
     });
   } catch (e) {
+    if (e instanceof SoftWarningError) throw e;
     res.status(500).json({
       status: 500,
       message: `Failed to create demo datasource and project with message: ${e.message}`,

@@ -15,6 +15,7 @@ import {
   getExperimentById,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
+import { validateExperimentChange } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 
 export async function postExperimentLaunchChecklist(
@@ -219,6 +220,7 @@ export async function putManualLaunchChecklist(
     context.permissions.throwPermissionError();
   }
 
+  await validateExperimentChange({ context, experiment, changes });
   await updateExperiment({
     context,
     experiment,

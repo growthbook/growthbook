@@ -8,6 +8,7 @@
 
 import { z } from "zod";
 import { apiSavedGroupRevisionValidator } from "./saved-group-revisions";
+import { revisionPublishFailedExtension } from "./revision-publish-failed";
 
 // Reviewer identity, shared by approve/request-changes/comment events.
 // Mirrors the `reviewer` shape used by feature revision notifications.
@@ -133,4 +134,12 @@ export const savedGroupRevisionRevertedPayload =
     .strict();
 export type SavedGroupRevisionRevertedPayload = z.infer<
   typeof savedGroupRevisionRevertedPayload
+>;
+
+export const savedGroupRevisionPublishFailedPayload =
+  savedGroupRevisionWebhookPayload
+    .extend(revisionPublishFailedExtension)
+    .strict();
+export type SavedGroupRevisionPublishFailedPayload = z.infer<
+  typeof savedGroupRevisionPublishFailedPayload
 >;
