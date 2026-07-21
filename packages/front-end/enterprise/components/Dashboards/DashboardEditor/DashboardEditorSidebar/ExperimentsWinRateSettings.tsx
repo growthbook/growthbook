@@ -4,13 +4,9 @@ import {
   DashboardBlockInterfaceOrData,
   DashboardInterface,
   ExperimentsWinRateBlockInterface,
-  experimentBlockFollowsGlobalFilters,
-  experimentBlockHasActiveGlobalFilters,
-  setExperimentBlockGlobalFilterFollowing,
 } from "shared/enterprise";
 import Switch from "@/ui/Switch";
 import CompletedExperimentsFilterFields from "./CompletedExperimentsFilterFields";
-import DashboardExperimentFilterToggle from "./DashboardExperimentFilterToggle";
 
 interface Props {
   block: DashboardBlockInterfaceOrData<ExperimentsWinRateBlockInterface>;
@@ -27,39 +23,29 @@ export default function ExperimentsWinRateSettings({
   projects,
   dashboardGlobalControls,
 }: Props) {
-  const hasActiveFilters = experimentBlockHasActiveGlobalFilters(
-    block,
-    dashboardGlobalControls,
-  );
-  const following = experimentBlockFollowsGlobalFilters(
-    block,
-    dashboardGlobalControls,
-  );
+  const setFollow = (
+    key: "dateRange" | "projects" | "experimentSearchString",
+    enabled: boolean,
+  ) =>
+    setBlock({
+      ...block,
+      globalControlSettings: {
+        ...(block.globalControlSettings ?? {}),
+        [key]: enabled,
+      },
+    });
 
   return (
     <Flex direction="column" gap="4">
-      {hasActiveFilters ? (
-        <DashboardExperimentFilterToggle
-          value={following}
-          onChange={(enabled) =>
-            setBlock({
-              ...block,
-              globalControlSettings: setExperimentBlockGlobalFilterFollowing(
-                block,
-                dashboardGlobalControls,
-                enabled,
-              ),
-            })
-          }
-        />
-      ) : null}
-
+      {/* The Compare toggle lives on the block title (see EditSingleBlock) so it
+          reads as a block-level mode rather than a per-field control. */}
       <CompletedExperimentsFilterFields
         value={block}
         onChange={(patch) => setBlock({ ...block, ...patch })}
         availableProjects={projects}
         dashboardGlobalControls={dashboardGlobalControls}
-        following={following}
+        globalControlSettings={block.globalControlSettings}
+        onToggleFollow={setFollow}
         comparisonEnabled={!!block.comparison?.enabled}
         previousTimeFrame={block.comparison?.previousTimeFrame}
         onPreviousTimeFrameChange={(previousTimeFrame) =>
@@ -71,18 +57,6 @@ export default function ExperimentsWinRateSettings({
               previousTimeFrame,
             },
           })
-        }
-        dateRangeAccessory={
-          <Switch
-            label="Compare"
-            value={!!block.comparison?.enabled}
-            onChange={(checked) =>
-              setBlock({
-                ...block,
-                comparison: { ...(block.comparison ?? {}), enabled: checked },
-              })
-            }
-          />
         }
       />
 

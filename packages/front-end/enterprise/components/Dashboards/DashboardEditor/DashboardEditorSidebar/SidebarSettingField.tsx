@@ -11,9 +11,9 @@ interface Props {
 }
 
 // A labeled field row in a dashboard block's settings form. The field control
-// (children) owns its own disabled state; when the block follows the dashboard's
-// experiment filters the control is shown populated with the dashboard value and
-// disabled, driven by the single toggle at the top of the form.
+// (children) owns its own disabled state; when the field follows the dashboard's
+// corresponding filter (via the per-field toggle in `accessory`) the control is
+// shown populated with the dashboard value and disabled.
 export default function SidebarSettingField({
   label,
   accessory,

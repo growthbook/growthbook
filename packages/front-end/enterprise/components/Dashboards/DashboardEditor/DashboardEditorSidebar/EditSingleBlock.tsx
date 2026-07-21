@@ -47,6 +47,7 @@ import {
 import Button from "@/ui/Button";
 import Checkbox from "@/ui/Checkbox";
 import Link from "@/ui/Link";
+import Switch from "@/ui/Switch";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import TagsInput from "@/components/Tags/TagsInput";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -837,18 +838,35 @@ export default function EditSingleBlock({
       )}
       {block && (
         <Flex direction="column" py="5" px="4" gap="5" width="100%">
-          <Text weight="medium" size="4">
-            <Avatar
-              radius="small"
-              color="indigo"
-              variant="soft"
-              mr="2"
-              size="sm"
-            >
-              {BLOCK_TYPE_INFO[block.type].icon}
-            </Avatar>
-            {BLOCK_TYPE_INFO[block.type].name}
-          </Text>
+          <Flex justify="between" align="center" gap="3">
+            <Text weight="medium" size="4">
+              <Avatar
+                radius="small"
+                color="indigo"
+                variant="soft"
+                mr="2"
+                size="sm"
+              >
+                {BLOCK_TYPE_INFO[block.type].icon}
+              </Avatar>
+              {BLOCK_TYPE_INFO[block.type].name}
+            </Text>
+            {block.type === "experiments-win-rate" && (
+              <Switch
+                label="Compare"
+                value={!!block.comparison?.enabled}
+                onChange={(checked) =>
+                  setBlock({
+                    ...block,
+                    comparison: {
+                      ...(block.comparison ?? {}),
+                      enabled: checked,
+                    },
+                  })
+                }
+              />
+            )}
+          </Flex>
 
           <Flex gap="5" direction="column" flexGrow="1">
             {block.type === "experiment-metadata" && (
