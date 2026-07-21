@@ -148,9 +148,6 @@ export async function putUserName(
 const MAX_FEEDBACK_LENGTH = 1500;
 // Slack rejects a section block whose text exceeds 3000 characters.
 const SLACK_SECTION_TEXT_LIMIT = 3000;
-// Server-side re-survey throttle, mirroring the client's 90-day cooldown.
-const NPS_RESURVEY_MS = 90 * 24 * 60 * 60 * 1000;
-
 // How the user exited the survey; "submitted" is the only path where the
 // feedback text was explicitly sent. Values outside this list are dropped.
 const NPS_DISPOSITIONS = [
@@ -260,13 +257,6 @@ export async function postNpsResponse(
 
   const { userId } = getContextFromReq(req);
 
-  // Throttle Slack forwarding against the user's *existing* survey date (set by
-  // the auth middleware, before the write below overwrites it), mirroring the
-  // client's 90-day cooldown so a scripted client can't flood the channel.
-  const priorAt = req.currentUser?.npsSurveyAt;
-  const recentlyRecorded =
-    !!priorAt && Date.now() - new Date(priorAt).getTime() < NPS_RESURVEY_MS;
-
   await updateUser(userId, {
     npsSurveyStatus: status,
     npsSurveyAt: new Date(),
@@ -276,14 +266,11 @@ export async function postNpsResponse(
   // var — only GrowthBook Cloud sets it, and the survey itself is isCloud()-
   // gated on the front-end, so self-hosted deployments never generate a
   // response to forward. Feedback text is only forwarded on an explicit
-  // "submitted" exit, matching the client contract. Fire-and-forget — a Slack
-  // failure must never affect the user's request.
-  if (
-    status === "responded" &&
-    score !== undefined &&
-    NPS_SLACK_WEBHOOK &&
-    !recentlyRecorded
-  ) {
+  // "submitted" exit, matching the client contract. The 90-day re-survey window
+  // is a display concern (the client just stops showing the survey), so every
+  // response that arrives is forwarded. Fire-and-forget — a Slack failure must
+  // never affect the user's request.
+  if (status === "responded" && score !== undefined && NPS_SLACK_WEBHOOK) {
     void sendNpsResponseToSlack({
       score,
       feedback: disposition === "submitted" ? (feedback ?? "").trim() : "",
