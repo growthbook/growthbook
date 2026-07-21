@@ -4,6 +4,8 @@ import { Box, Flex } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import Field from "@/components/Forms/Field";
+import track from "@/services/track";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Heading from "@/ui/Heading";
@@ -53,10 +55,15 @@ export default function OAuthAuthorizePage() {
       state: typeof q.state === "string" ? q.state : "",
       scope: typeof q.scope === "string" ? q.scope : "",
       resource: typeof q.resource === "string" ? q.resource : "",
+      // Not part of the OAuth protocol — an optional hint a client can append
+      // to pre-fill the org name for brand-new users with no organization.
+      suggested_org_name:
+        typeof q.suggested_org_name === "string" ? q.suggested_org_name : "",
     };
   }, [router.query]);
 
   const [orgId, setOrgId] = useState("");
+  const [newOrgName, setNewOrgName] = useState("");
   const [actionError, setActionError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [completedRedirectTo, setCompletedRedirectTo] = useState<string | null>(
@@ -73,6 +80,7 @@ export default function OAuthAuthorizePage() {
     data: info,
     error: infoFetchError,
     isLoading: loadingInfo,
+    mutate: mutateInfo,
   } = useApi<AuthorizeInfoResponse>(
     `/oauth/authorize/info?${infoQueryString}`,
     {
@@ -84,12 +92,18 @@ export default function OAuthAuthorizePage() {
     },
   );
 
-  // Pre-select when there is only one org to choose from
+  const hasNoOrgs = !!info && info.organizations?.length === 0;
+
+  // Pre-select when there is only one org to choose from; pre-fill the new-org
+  // name from the client's hint for users with no organization yet.
   useEffect(() => {
     if (info?.organizations?.length === 1) {
       setOrgId(info.organizations[0].id);
     }
-  }, [info]);
+    if (info?.organizations?.length === 0 && query.suggested_org_name) {
+      setNewOrgName((current) => current || query.suggested_org_name);
+    }
+  }, [info, query.suggested_org_name]);
 
   const missingParamsError =
     router.isReady && !hasRequiredParams
@@ -122,13 +136,43 @@ export default function OAuthAuthorizePage() {
   }, [query.redirect_uri, query.state]);
 
   const approve = useCallback(async () => {
-    if (!orgId) {
+    if (!orgId && !hasNoOrgs) {
       setActionError("Please select an organization");
+      return;
+    }
+    if (hasNoOrgs && newOrgName.trim().length < 3) {
+      setActionError("Organization name must be at least 3 characters");
       return;
     }
     setSubmitting(true);
     setActionError("");
     try {
+      let organization = orgId;
+
+      // Brand-new user: create their organization inline, then authorize for
+      // it. If authorization fails after this point, the org still exists
+      // (same as the normal signup flow) — the re-fetched info shows it in
+      // the picker so the user can simply retry.
+      if (hasNoOrgs) {
+        const createRes = await apiCall<{
+          orgId?: string;
+          status: number;
+          message?: string;
+        }>("/organization", {
+          method: "POST",
+          body: JSON.stringify({ company: newOrgName.trim() }),
+        });
+        if (createRes.status >= 400 || !createRes.orgId) {
+          setActionError(
+            createRes.message || "Failed to create the organization",
+          );
+          setSubmitting(false);
+          return;
+        }
+        track("Create Organization", { source: "oauth-authorize" });
+        organization = createRes.orgId;
+      }
+
       const res = await apiCall<{
         status: number;
         redirectTo?: string;
@@ -143,12 +187,13 @@ export default function OAuthAuthorizePage() {
           state: query.state || undefined,
           scope: query.scope || undefined,
           resource: query.resource || undefined,
-          organization: orgId,
+          organization,
         }),
       });
       if (res.status !== 200 || !res.redirectTo) {
         setActionError(res.message || "Authorization failed");
         setSubmitting(false);
+        if (hasNoOrgs) await mutateInfo();
         return;
       }
       // Custom-scheme redirects (cursor://, etc.) often leave this tab open.
@@ -159,8 +204,9 @@ export default function OAuthAuthorizePage() {
     } catch (e) {
       setActionError(e instanceof Error ? e.message : String(e));
       setSubmitting(false);
+      if (hasNoOrgs) await mutateInfo();
     }
-  }, [apiCall, orgId, query]);
+  }, [apiCall, orgId, hasNoOrgs, newOrgName, query, mutateInfo]);
 
   // Unauthenticated users are redirected to login by AuthProvider; keep the
   // overlay up during that transient state instead of flashing the page.
@@ -232,10 +278,22 @@ export default function OAuthAuthorizePage() {
             ))}
           </Select>
         </Box>
-      ) : info && !error ? (
-        <Callout status="warning" mb="4">
-          You are not a member of any organization.
-        </Callout>
+      ) : hasNoOrgs && !error ? (
+        <Box mb="4">
+          <Text as="p" size="medium" color="text-mid" mb="3">
+            To get started, create your organization. It only needs a name — you
+            can fill in the rest later.
+          </Text>
+          <Field
+            label="Organization name"
+            value={newOrgName}
+            onChange={(e) => setNewOrgName(e.target.value)}
+            placeholder="Acme Inc."
+            minLength={3}
+            maxLength={60}
+            required
+          />
+        </Box>
       ) : null}
 
       <Text as="p" size="medium" color="text-mid" mb="4">
@@ -254,10 +312,14 @@ export default function OAuthAuthorizePage() {
         </Button>
         <Button
           onClick={approve}
-          disabled={submitting || !orgId || !!error}
+          disabled={
+            submitting ||
+            !!error ||
+            (hasNoOrgs ? newOrgName.trim().length < 3 : !orgId)
+          }
           loading={submitting}
         >
-          Authorize
+          {hasNoOrgs ? "Create organization & authorize" : "Authorize"}
         </Button>
       </Flex>
     </ConsentPageWrapper>
