@@ -45945,9 +45945,22 @@ components:
     result:
       name: result
       in: query
-      description: ''
+      description: >-
+        Filter by comma-separated results (won, lost, inconclusive, dnf). Only
+        stopped experiments carry a result
       schema:
-        type: string
+        description: >-
+          Filter by comma-separated results (won, lost, inconclusive, dnf). Only
+          stopped experiments carry a result
+        type: array
+        items:
+          type: string
+          enum:
+            - dnf
+            - won
+            - lost
+            - inconclusive
+      explode: false
     tag:
       name: tag
       in: query
@@ -45958,9 +45971,21 @@ components:
     type:
       name: type
       in: query
-      description: ''
+      description: >-
+        Filter by comma-separated experiment types (feature, visualChange,
+        redirect)
       schema:
-        type: string
+        description: >-
+          Filter by comma-separated experiment types (feature, visualChange,
+          redirect)
+        type: array
+        items:
+          type: string
+          enum:
+            - feature
+            - visualChange
+            - redirect
+      explode: false
     metricId:
       name: metricId
       in: query

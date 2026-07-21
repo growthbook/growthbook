@@ -40,11 +40,15 @@ When the user message starts with `[Page context: <path>]`:
   `POST .../snapshot` (results refresh — runs immediately).
 - **List filtering/sorting:** `GET /api/v1/experiments` filters by `q` (the
   app's search syntax plus free text — rejects `!` and operators with a 400),
-  `projectId`, `status`, `tag`, `owner`, `result`, `type`, `metricId`,
-  `bandits`, and `archived` (comma-separated values ORed within a param), and
-  sorts with `sortBy` (`dateCreated` | `dateUpdated` | `name`) + `sortOrder`
-  (default is `dateCreated` ascending — oldest first). Filter and sort
-  API-side instead of pulling pages and filtering by hand.
+  `projectId`, `status` (`draft` | `running` | `stopped`), `tag`, `owner`,
+  `result` (`won` | `lost` | `inconclusive` | `dnf`), `type` (`feature` |
+  `visualChange` | `redirect`), `metricId`, `bandits` (`true` | `false`), and
+  `archived` (`true` | `false`; omit for both). `tag`, `owner`, `result`,
+  `type`, and `metricId` take comma-separated values, ORed within a param;
+  separate params AND together. Sort with `sortBy`
+  (`dateCreated` | `dateUpdated` | `name`) + `sortOrder` (default is
+  `dateCreated` ascending — oldest first). Filter and sort API-side instead
+  of pulling pages and filtering by hand.
 - **Identifiers:** reference experiments by **name** in replies; use `id` for
   API calls and `/experiment/<id>` links.
 - **Results:** cite numbers from `GET .../results`; do not fabricate uplift.
