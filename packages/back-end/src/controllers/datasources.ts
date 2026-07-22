@@ -102,6 +102,10 @@ import {
 } from "back-end/src/models/DimensionSlicesModel";
 import { DimensionSlicesQueryRunner } from "back-end/src/queryRunners/DimensionSlicesQueryRunner";
 import { logger } from "back-end/src/util/logger";
+import {
+  CLICKHOUSE_CLUSTER_CONFIGURATION_ERROR_CODE,
+  ClickHouseClusterConfigurationError,
+} from "back-end/src/integrations/clickhouse/cancelQuery";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import { removeManagedWarehouseLegacyIdentifier } from "back-end/src/services/clickhouse";
 import { dangerousRecreateClickhouseTables } from "back-end/src/services/licenseServerManagedClickhouse";
@@ -1593,9 +1597,16 @@ export async function cancelDataSourceQuery(
     try {
       await integration.cancelQuery(query.externalId, query.externalIdMetadata);
     } catch (e: unknown) {
-      // Log but continue - we'll still mark the query as failed
       const msg = e instanceof Error ? e.message : String(e);
       logger.debug(e, `Failed to cancel query on warehouse: ${msg}`);
+      if (e instanceof ClickHouseClusterConfigurationError) {
+        return res.status(e.status).json({
+          status: e.status,
+          code: CLICKHOUSE_CLUSTER_CONFIGURATION_ERROR_CODE,
+          message: e.message,
+        });
+      }
+      throw e;
     }
   }
 
