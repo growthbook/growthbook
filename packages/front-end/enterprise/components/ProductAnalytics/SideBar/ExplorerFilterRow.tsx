@@ -255,7 +255,7 @@ export function ExplorerFilterRow({
             newValues = newValues.filter((v) => numberRegex.test(v));
           }
 
-          if (isDateColumn) {
+          if (datatype === "date") {
             newValues = newValues.filter((v) => !isNaN(new Date(v).getTime()));
           }
 
