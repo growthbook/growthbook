@@ -749,6 +749,11 @@ export async function postFeatures(
   if (otherProps.project) {
     await context.models.projects.ensureProjectsExist([otherProps.project]);
   }
+  const createTargetingProjects = (otherProps as Partial<FeatureInterface>)
+    .targetingProjects;
+  if (createTargetingProjects?.length) {
+    await context.models.projects.ensureProjectsExist(createTargetingProjects);
+  }
 
   await validateCustomFieldsForSection({
     customFieldValues: customFields,
@@ -5043,6 +5048,11 @@ export async function putFeature(
   // Validate projects - We can remove this validation when FeatureModel is migrated to BaseModel
   if (updates.project && feature.project !== updates.project) {
     await context.models.projects.ensureProjectsExist([updates.project]);
+  }
+  if (updates.targetingProjects?.length) {
+    await context.models.projects.ensureProjectsExist(
+      updates.targetingProjects,
+    );
   }
 
   // Changing the project can affect SDK payload targeting; require publish permission in both old and new project

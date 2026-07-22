@@ -45,6 +45,7 @@ import {
   assertConfigSchemaCompat,
   assertValidHoldout,
   assertValidProjectId,
+  assertValidProjectIds,
   assertValidRuleConfigKeys,
   assertValidBaseConfig,
   assertValidDefaultValueConfig,
@@ -106,6 +107,7 @@ export const updateFeatureV2 = createApiRequestHandler(
   }
 
   await assertValidProjectId(project, req.context);
+  await assertValidProjectIds(targetingProjects, req.context);
 
   const projectChanged = project !== undefined && project !== feature.project;
   const customFieldsChanged = shouldValidateCustomFieldsOnUpdate({

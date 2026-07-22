@@ -26,6 +26,7 @@ import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
 import { validateCustomFields } from "./validations";
 import {
   assertValidProjectId,
+  assertValidProjectIds,
   validateEnvRulesScheduleRules,
   assertValidBaseConfig,
   assertConfigSchemaCompat,
@@ -89,6 +90,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   }
 
   await assertValidProjectId(req.body.project, req.context);
+  await assertValidProjectIds(req.body.targetingProjects, req.context);
 
   await validateCustomFields(
     req.body.customFields,

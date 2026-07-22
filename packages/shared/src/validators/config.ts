@@ -140,11 +140,6 @@ export const configValidator = z
       .optional(),
     description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     project: z.string().optional(),
-    // Secondary-targeting scope (read/discovery + payload scoping) beyond the
-    // governance `project`; `targetingAllProjects` overrides the list. Mirrors
-    // features. Governance/approvals stay with `project`.
-    targetingAllProjects: z.boolean().optional(),
-    targetingProjects: z.array(z.string()).optional(),
     archived: z.boolean().optional(),
     // `.nullish()`, not `.optional()`: `null` is the explicit "clear the schema"
     // signal (a revert to a schema-less revision); undefined = never had one. Only
@@ -184,8 +179,6 @@ export const configUpdatableFieldsSchema = configValidator.pick({
   value: true,
   description: true,
   project: true,
-  targetingAllProjects: true,
-  targetingProjects: true,
   archived: true,
   schema: true,
   extensible: true,
@@ -210,8 +203,6 @@ export const postConfigBodyValidator = z.object({
   scopedOverrides: z.array(scopedOverrideValidator).optional(),
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   project: z.string().optional(),
-  targetingAllProjects: z.boolean().optional(),
-  targetingProjects: z.array(z.string()).optional(),
   schema: simpleSchemaValidator.optional(),
   extensible: z.boolean().optional(),
   // Omit to inherit the org default for new configs.
@@ -227,8 +218,6 @@ export const putConfigBodyValidator = z.object({
   scopedOverrides: z.array(scopedOverrideValidator).optional(),
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   project: z.string().optional(),
-  targetingAllProjects: z.boolean().optional(),
-  targetingProjects: z.array(z.string()).optional(),
   archived: z.boolean().optional(),
   schema: simpleSchemaValidator.optional(),
   extensible: z.boolean().optional(),

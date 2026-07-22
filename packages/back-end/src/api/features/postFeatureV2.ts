@@ -28,6 +28,7 @@ import { validateEnvKeys } from "./postFeature";
 import {
   assertConfigSchemaCompat,
   assertValidProjectId,
+  assertValidProjectIds,
   assertValidRuleConfigKeys,
   assertValidBaseConfig,
   assertValidDefaultValueConfig,
@@ -68,6 +69,7 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
     }
 
     await assertValidProjectId(req.body.project, req.context);
+    await assertValidProjectIds(req.body.targetingProjects, req.context);
 
     await validateCustomFields(
       req.body.customFields,

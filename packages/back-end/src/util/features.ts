@@ -340,6 +340,8 @@ export function getSDKPayloadKeysByDiff(
   originalFeature: FeatureInterface,
   updatedFeature: FeatureInterface,
   allowedEnvs: string[],
+  // Every org project id — only consulted when the feature targets all projects.
+  allProjectIds: string[] = [],
 ): SDKPayloadKey[] {
   const environments = new Set<string>();
 
@@ -438,6 +440,14 @@ export function getSDKPayloadKeysByDiff(
     ...(originalFeature.targetingProjects ?? []),
     ...(updatedFeature.targetingProjects ?? []),
   ]);
+  // targetingAllProjects delivers everywhere, so a change must invalidate every
+  // project's payload cache — not just the enumerated ones.
+  if (
+    originalFeature.targetingAllProjects ||
+    updatedFeature.targetingAllProjects
+  ) {
+    allProjectIds.forEach((id) => projects.add(id));
+  }
 
   return getSDKPayloadKeys(environments, projects);
 }
@@ -446,6 +456,8 @@ export function getAffectedSDKPayloadKeys(
   features: FeatureInterface[],
   allowedEnvs: string[],
   ruleFilter?: (rule: FeatureRule) => boolean | unknown,
+  // Every org project id — only consulted for features that target all projects.
+  allProjectIds: string[] = [],
 ): SDKPayloadKey[] {
   const keys: SDKPayloadKey[] = [];
 
@@ -460,6 +472,9 @@ export function getAffectedSDKPayloadKeys(
       feature.project || "",
       ...(feature.targetingProjects ?? []),
     ]);
+    if (feature.targetingAllProjects) {
+      allProjectIds.forEach((id) => projects.add(id));
+    }
     keys.push(...getSDKPayloadKeys(environments, projects));
   });
 

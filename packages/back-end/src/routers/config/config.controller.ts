@@ -586,8 +586,6 @@ export const postConfig = async (
     scopedOverrides: body.scopedOverrides,
     description: body.description,
     project: body.project,
-    targetingAllProjects: body.targetingAllProjects,
-    targetingProjects: body.targetingProjects,
     schema: normalizedSchema,
     extensible: body.extensible,
     experimentGuard,
@@ -649,8 +647,6 @@ export const putConfig = async (
     schema,
     extensible,
     renderProjections,
-    targetingAllProjects,
-    targetingProjects,
   } = req.body;
   const extendsKeys = req.body.extends;
   const { id } = req.params;
@@ -747,17 +743,6 @@ export const putConfig = async (
   }
   if (hasChanged(archived, comparisonBase.archived)) {
     fieldsToUpdate.archived = archived;
-  }
-  if (
-    hasChanged(
-      targetingAllProjects,
-      comparisonBase.targetingAllProjects ?? false,
-    )
-  ) {
-    fieldsToUpdate.targetingAllProjects = targetingAllProjects;
-  }
-  if (hasChanged(targetingProjects, comparisonBase.targetingProjects ?? [])) {
-    fieldsToUpdate.targetingProjects = targetingProjects;
   }
   // `schema` (config field definitions) is a content change like `value`.
   if (hasChanged(schema, comparisonBase.schema)) {

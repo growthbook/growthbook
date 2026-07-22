@@ -136,7 +136,7 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
   },
 
   canRead(context: Context, snapshot: ConfigInterface): boolean {
-    return context.permissions.canReadTargetingScopedResource(snapshot);
+    return context.permissions.canReadSingleProjectResource(snapshot.project);
   },
 
   canCreate(context: Context, snapshot: ConfigInterface): boolean {

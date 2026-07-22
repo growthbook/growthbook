@@ -11,6 +11,7 @@ import {
   parsePlainJSONObject,
 } from "shared/util";
 import type { ApiReqContext } from "back-end/types/api";
+import type { ReqContext } from "back-end/types/request";
 import { BadRequestError } from "back-end/src/util/errors";
 import type { ApiFeatureEnvSettings } from "./postFeature";
 
@@ -363,6 +364,22 @@ export async function assertValidProjectId(
   const projects = await context.getProjects();
   if (!projects.some((p) => p.id === projectId)) {
     throw new Error(`Project id ${projectId} is not a valid project.`);
+  }
+}
+
+// Validate that every targeting project id exists (mirrors the primary-project
+// check). Uses the cached `getProjects()`, so the loop is cheap.
+export async function assertValidProjectIds(
+  projectIds: string[] | undefined,
+  context: ReqContext | ApiReqContext,
+): Promise<void> {
+  if (!projectIds?.length) return;
+  const valid = new Set((await context.getProjects()).map((p) => p.id));
+  const missing = projectIds.filter((id) => id && !valid.has(id));
+  if (missing.length) {
+    throw new Error(
+      `The following targeting project ids are not valid: ${missing.join(", ")}`,
+    );
   }
 }
 

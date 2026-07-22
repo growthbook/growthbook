@@ -50,6 +50,7 @@ import { canBypassReviewChecks } from "./reviewBypass";
 import {
   assertValidHoldout,
   assertValidProjectId,
+  assertValidProjectIds,
   assertValidBaseConfig,
   assertConfigSchemaCompat,
   extractRevisionMetadata,
@@ -107,6 +108,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     }
 
     await assertValidProjectId(project, req.context);
+    await assertValidProjectIds(targetingProjects, req.context);
 
     // check if the custom fields are valid
     const projectChanged = project !== undefined && project !== feature.project;
