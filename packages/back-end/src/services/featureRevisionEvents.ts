@@ -5,6 +5,7 @@ import {
   ResourceEvents,
 } from "shared/types/events/base-types";
 import { FeatureRevisionUpdatedPayload } from "shared/validators";
+import { resolveTargetingProjectIds } from "shared/util";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
@@ -85,7 +86,8 @@ export async function dispatchFeatureRevisionEvent<
 ): Promise<void> {
   try {
     const apiRevision = toApiRevision(revision, ctx, feature);
-    const projects = feature.project ? [feature.project] : [];
+    const allProjectIds = (await ctx.getProjects()).map((p) => p.id);
+    const projects = resolveTargetingProjectIds(feature, allProjectIds);
     const tags = feature.tags ?? [];
     const environments = deriveRevisionEventEnvironments(
       feature,

@@ -1,6 +1,7 @@
 import {
   getTargetingProjectIds,
   entityTargetsProject,
+  resolveTargetingProjectIds,
   normalizeTargetingProjects,
   normalizeTargetingInUpdates,
   getTargetingReviewMode,
@@ -51,6 +52,41 @@ describe("targeting scope helpers", () => {
           "px",
         ),
       ).toBe(true);
+    });
+  });
+
+  describe("resolveTargetingProjectIds", () => {
+    const allProjectIds = ["p1", "p2", "p3", "p4"];
+
+    it("returns the primary plus targeting projects, deduped", () => {
+      expect(
+        resolveTargetingProjectIds(
+          { project: "p1", targetingProjects: ["p2", "p1"] },
+          allProjectIds,
+        ),
+      ).toEqual(["p1", "p2"]);
+    });
+
+    it("enumerates all org projects when targetingAllProjects is set", () => {
+      expect(
+        resolveTargetingProjectIds(
+          { project: "p1", targetingAllProjects: true },
+          allProjectIds,
+        ),
+      ).toEqual(allProjectIds);
+    });
+
+    it("drops the empty primary for a project-less entity", () => {
+      expect(
+        resolveTargetingProjectIds(
+          { targetingProjects: ["p2"] },
+          allProjectIds,
+        ),
+      ).toEqual(["p2"]);
+    });
+
+    it("returns an empty array for an unscoped entity", () => {
+      expect(resolveTargetingProjectIds({}, allProjectIds)).toEqual([]);
     });
   });
 

@@ -10,6 +10,7 @@ import {
   liveRevisionFromFeature,
   PermissionError,
   stemRuleId,
+  resolveTargetingProjectIds,
 } from "shared/util";
 import {
   SafeRolloutInterface,
@@ -862,6 +863,13 @@ export const createFeatureEvent = async <
     const safeRolloutMap =
       await eventData.context.models.safeRollout.getAllPayloadSafeRollouts();
 
+    // Full org project list, used to resolve targetingAllProjects into concrete
+    // ids so project-scoped webhooks route by delivery scope, not just the
+    // governance project. Cached on the context.
+    const allProjectIds = (await eventData.context.getProjects()).map(
+      (p) => p.id,
+    );
+
     const currentApiFeature = getApiFeatureObj({
       feature: eventData.data.object,
       organization: eventData.context.org,
@@ -878,7 +886,7 @@ export const createFeatureEvent = async <
         data: {
           object: currentApiFeature,
         },
-        projects: [currentApiFeature.project],
+        projects: resolveTargetingProjectIds(currentApiFeature, allProjectIds),
         tags: currentApiFeature.tags,
         environments: deriveLiveFeatureEventEnvironments({
           current: currentApiFeature,
@@ -931,7 +939,10 @@ export const createFeatureEvent = async <
         changes,
       },
       projects: Array.from(
-        new Set([previousApiFeature.project, currentApiFeature.project]),
+        new Set([
+          ...resolveTargetingProjectIds(previousApiFeature, allProjectIds),
+          ...resolveTargetingProjectIds(currentApiFeature, allProjectIds),
+        ]),
       ),
       tags: Array.from(
         new Set([...previousApiFeature.tags, ...currentApiFeature.tags]),

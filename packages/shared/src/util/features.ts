@@ -3265,6 +3265,19 @@ export function entityTargetsProject(
   return (entity.targetingProjects ?? []).includes(projectId);
 }
 
+// Concrete, non-empty project ids an entity is delivered to, resolving the
+// "all projects" case (targetingAllProjects) against the org's full project
+// list. Used where a discrete id set is required — e.g. event routing, whose
+// project filter is intersected against the event's projects.
+export function resolveTargetingProjectIds(
+  entity: TargetingScopedEntity,
+  allProjectIds: string[],
+): string[] {
+  const ids = getTargetingProjectIds(entity);
+  if (ids === null) return allProjectIds;
+  return ids.filter((id) => !!id);
+}
+
 // Write-time normalization: drop blanks, dupes, and the governance project from
 // the targeting list, and clear the list entirely when targeted in all projects.
 export function normalizeTargetingProjects(entity: TargetingScopedEntity): {
