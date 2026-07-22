@@ -186,66 +186,83 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
           "Either provide variationId for all variations or none; mixed inputs are not allowed.",
         );
       }
-      const needsHoldoutCheck = Boolean(feature.holdout?.id);
-      if (anyMissing || needsHoldoutCheck) {
-        const experiment = await getExperimentById(
-          req.context,
-          ruleInput.experimentId,
+      // Always resolve the experiment for experiment-ref rules: needed to fill
+      // missing variationIds, to enforce holdout compatibility on holdout-bound
+      // features, and to block adding a holdout-bound experiment to a feature
+      // that is not itself in a holdout (below).
+      const experiment = await getExperimentById(
+        req.context,
+        ruleInput.experimentId,
+      );
+      if (!experiment) {
+        throw new NotFoundError(
+          `Could not find experiment "${ruleInput.experimentId}"`,
         );
-        if (!experiment) {
-          throw new NotFoundError(
-            `Could not find experiment "${ruleInput.experimentId}"`,
+      }
+
+      if (anyMissing) {
+        const phaseVariations = getLatestPhaseVariations(experiment);
+        if (phaseVariations.length < ruleInput.variations.length) {
+          throw new BadRequestError(
+            `Experiment has ${phaseVariations.length} variation(s) but ${ruleInput.variations.length} were specified`,
+          );
+        }
+        ruleInput.variations = ruleInput.variations.map((v, i) => ({
+          variationId: phaseVariations[i].id,
+          value: v.value,
+        }));
+      }
+
+      // Use the target draft's holdout (revision.holdout carries the draft's
+      // holdout change, or a carry-forward of live), not just the live feature's
+      // — so a holdout added in this same draft satisfies the compatibility
+      // rules and a matching-holdout experiment can be added.
+      const effectiveHoldout = revision.holdout ?? null;
+      if (effectiveHoldout?.id) {
+        if (experiment.status !== "draft") {
+          throw new BadRequestError(
+            `Cannot add experiment rule: this feature uses a holdout, so the experiment must be in "draft" status (currently "${experiment.status}").`,
+          );
+        }
+        const expHasLinkedChanges =
+          (experiment.linkedFeatures?.length ?? 0) > 0 ||
+          experiment.hasURLRedirects ||
+          experiment.hasVisualChangesets;
+        if (expHasLinkedChanges) {
+          throw new BadRequestError(
+            `Cannot add experiment rule: this feature uses a holdout, but the experiment already has linked features, URL redirects, or visual changesets. Unlink them first.`,
+          );
+        }
+        if (
+          experiment.holdoutId &&
+          experiment.holdoutId !== effectiveHoldout.id
+        ) {
+          const featureHoldout = await req.context.models.holdout.getById(
+            effectiveHoldout.id,
+          );
+          const expHoldout = experiment.holdoutId
+            ? await req.context.models.holdout.getById(experiment.holdoutId)
+            : null;
+          throw new BadRequestError(
+            `Cannot add experiment rule: experiment belongs to holdout "${expHoldout?.name || experiment.holdoutId}" but this feature uses holdout "${featureHoldout?.name || effectiveHoldout.id}".`,
           );
         }
 
-        if (anyMissing) {
-          const phaseVariations = getLatestPhaseVariations(experiment);
-          if (phaseVariations.length < ruleInput.variations.length) {
-            throw new BadRequestError(
-              `Experiment has ${phaseVariations.length} variation(s) but ${ruleInput.variations.length} were specified`,
-            );
-          }
-          ruleInput.variations = ruleInput.variations.map((v, i) => ({
-            variationId: phaseVariations[i].id,
-            value: v.value,
-          }));
+        if (!experiment.holdoutId) {
+          // Deferred until after custom-hook prevalidation below
+          holdoutExperimentToLink = experiment;
         }
-
-        if (needsHoldoutCheck && feature.holdout?.id) {
-          if (experiment.status !== "draft") {
-            throw new BadRequestError(
-              `Cannot add experiment rule: this feature uses a holdout, so the experiment must be in "draft" status (currently "${experiment.status}").`,
-            );
-          }
-          const expHasLinkedChanges =
-            (experiment.linkedFeatures?.length ?? 0) > 0 ||
-            experiment.hasURLRedirects ||
-            experiment.hasVisualChangesets;
-          if (expHasLinkedChanges) {
-            throw new BadRequestError(
-              `Cannot add experiment rule: this feature uses a holdout, but the experiment already has linked features, URL redirects, or visual changesets. Unlink them first.`,
-            );
-          }
-          if (
-            experiment.holdoutId &&
-            experiment.holdoutId !== feature.holdout.id
-          ) {
-            const featureHoldout = await req.context.models.holdout.getById(
-              feature.holdout.id,
-            );
-            const expHoldout = experiment.holdoutId
-              ? await req.context.models.holdout.getById(experiment.holdoutId)
-              : null;
-            throw new BadRequestError(
-              `Cannot add experiment rule: experiment belongs to holdout "${expHoldout?.name || experiment.holdoutId}" but this feature uses holdout "${featureHoldout?.name || feature.holdout.id}".`,
-            );
-          }
-
-          if (!experiment.holdoutId) {
-            // Deferred until after custom-hook prevalidation below
-            holdoutExperimentToLink = experiment;
-          }
-        }
+      } else if (experiment.holdoutId) {
+        // Feature is not in a holdout but the experiment is. Holdout gating is
+        // applied per-feature at payload build time (feature.holdout), so the
+        // experiment would run with no holdout carve-out. Require the feature to
+        // join the holdout first.
+        const expHoldout = await req.context.models.holdout.getById(
+          experiment.holdoutId,
+        );
+        throw new BadRequestError(
+          `Cannot add experiment rule: this experiment belongs to holdout "${expHoldout?.name || experiment.holdoutId}", but this feature is not in a holdout. Add the feature to that holdout first, then add the experiment.`,
+        );
       }
     }
 

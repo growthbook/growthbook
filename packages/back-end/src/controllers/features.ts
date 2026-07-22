@@ -2914,11 +2914,31 @@ export async function postFeatureRule(
     rule.safeRolloutId = generateId("sr_");
   }
 
+  // Determine the holdout that will be live when this rule's revision is
+  // published: the target draft's holdout when editing an existing draft,
+  // otherwise the live feature's (a new draft branched from live carries
+  // feature.holdout forward). Checking the draft — not just live — lets a
+  // holdout added in the same draft satisfy the compatibility rules below.
+  // Read-only here so a rejection never leaves a stray draft behind.
+  let effectiveHoldout = feature.holdout ?? null;
+  if (parseInt(version) !== feature.version) {
+    const targetRevision = await getRevision({
+      context,
+      organization: feature.organization,
+      featureId: feature.id,
+      feature,
+      version: parseInt(version),
+    });
+    if (targetRevision) {
+      effectiveHoldout = targetRevision.holdout ?? null;
+    }
+  }
+
   // Add holdout to existing experiment and experiment to holdout linkedExperiments
   // if the experiment is not running and has no linked implementations for
   // experiment-ref rules (writes deferred until after custom-hook prevalidation)
   let holdoutExperimentToLink: ExperimentInterface | null = null;
-  if (rule.type === "experiment-ref" && feature.holdout?.id) {
+  if (rule.type === "experiment-ref" && effectiveHoldout?.id) {
     const experiment = await getExperimentById(context, rule.experimentId);
 
     if (experiment?.status !== "draft") {
@@ -2935,20 +2955,35 @@ export async function postFeatureRule(
         `Cannot add experiment rule: this feature uses a holdout, but the experiment already has linked features, URL redirects, or visual changesets. Unlink them first.`,
       );
     }
-    if (experiment.holdoutId && experiment.holdoutId !== feature.holdout.id) {
+    if (experiment.holdoutId && experiment.holdoutId !== effectiveHoldout.id) {
       const featureHoldout = await context.models.holdout.getById(
-        feature.holdout.id,
+        effectiveHoldout.id,
       );
       const expHoldout = experiment.holdoutId
         ? await context.models.holdout.getById(experiment.holdoutId)
         : null;
       throw new Error(
-        `Cannot add experiment rule: experiment belongs to holdout "${expHoldout?.name || experiment.holdoutId}" but this feature uses holdout "${featureHoldout?.name || feature.holdout.id}".`,
+        `Cannot add experiment rule: experiment belongs to holdout "${expHoldout?.name || experiment.holdoutId}" but this feature uses holdout "${featureHoldout?.name || effectiveHoldout.id}".`,
       );
     }
 
     if (!experiment.holdoutId) {
       holdoutExperimentToLink = experiment;
+    }
+  } else if (rule.type === "experiment-ref" && !effectiveHoldout?.id) {
+    // Block adding a holdout-bound experiment to a feature/draft that is not in
+    // a holdout. Holdout gating is applied per-feature at payload build time
+    // (via feature.holdout), so the experiment would run with no holdout
+    // carve-out and its analysis would be wrong. Require the feature to join the
+    // holdout first — either in this draft or a published revision.
+    const experiment = await getExperimentById(context, rule.experimentId);
+    if (experiment?.holdoutId) {
+      const expHoldout = await context.models.holdout.getById(
+        experiment.holdoutId,
+      );
+      throw new Error(
+        `Cannot add experiment rule: this experiment belongs to holdout "${expHoldout?.name || experiment.holdoutId}", but this feature is not in a holdout. Add the feature to that holdout first, then add the experiment.`,
+      );
     }
   }
 

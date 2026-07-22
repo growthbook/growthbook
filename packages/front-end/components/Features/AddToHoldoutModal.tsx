@@ -14,6 +14,7 @@ import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
 import { HoldoutSelect } from "@/components/Holdout/HoldoutSelect";
+import { useFeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
 
 const AddToHoldoutModal = ({
   feature,
@@ -56,29 +57,86 @@ const AddToHoldoutModal = ({
     defaultDraft,
   );
 
-  // Only check experiments currently in the feature's rules, not the historical
-  // linkedExperiments list (which is kept for revision rendering).
-  const currentExperimentIds = (feature.rules ?? [])
-    .filter((rule) => rule.type === "experiment-ref")
-    .map((rule) => rule.experimentId);
+  const revisionsCtx = useFeatureRevisionsContext();
 
-  // Allow adding to holdout if all current experiments are in draft status
-  // and don't have a holdoutId or have the same holdoutId as the feature.
-  const experimentsAreInDraft = currentExperimentIds.every((experimentId) => {
-    const exp = experimentsMap[experimentId];
-    // Skip deleted experiments - they no longer block holdout assignment
-    if (!exp) return true;
-    return (
-      exp.status === "draft" &&
-      (!exp.holdoutId || exp.holdoutId === feature.holdout?.id)
+  // The rules the publish will actually evaluate depending on the draft
+  // selected in the modal.
+  const effectiveRules = useMemo(() => {
+    if (mode === "existing" && selectedDraft !== null) {
+      const draftRevision = revisionsCtx?.revisions.find(
+        (r) => r.version === selectedDraft,
+      );
+      if (draftRevision) return draftRevision.rules ?? [];
+    }
+    // Fall back to the live rules if no existing draft is selected.
+    return revisionsCtx?.baseFeature.rules ?? feature.rules ?? [];
+  }, [mode, selectedDraft, revisionsCtx, feature.rules]);
+
+  const selectedHoldoutId = form.watch("holdout")?.id ?? null;
+
+  // Categorize what would block the holdout so the warning can name each one.
+  // Deleted experiments (absent from experimentsMap) don't block — they're gone.
+  const holdoutBlockers = useMemo(() => {
+    const nonDraftExperiments: {
+      id: string;
+      name: string;
+      status: string;
+    }[] = [];
+    const banditExperiments: { id: string; name: string }[] = [];
+
+    effectiveRules
+      .filter((rule) => rule.type === "experiment-ref")
+      .forEach((rule) => {
+        const exp = experimentsMap.get(rule.experimentId);
+        if (!exp) return;
+        if (exp.type === "multi-armed-bandit") {
+          banditExperiments.push({ id: exp.id, name: exp.name });
+        }
+        if (exp.status !== "draft") {
+          nonDraftExperiments.push({
+            id: exp.id,
+            name: exp.name,
+            status: exp.status,
+          });
+        }
+      });
+
+    const hasSafeRollout = effectiveRules.some(
+      (rule) => rule.type === "safe-rollout",
     );
-  });
 
-  const eligibleToAddToHoldout = (feature.rules ?? []).every(
-    (rule) => rule.type !== "safe-rollout",
-  );
+    return {
+      nonDraftExperiments,
+      banditExperiments,
+      hasSafeRollout,
+    };
+  }, [effectiveRules, experimentsMap]);
 
-  const showHoldoutSelect = experimentsAreInDraft && eligibleToAddToHoldout;
+  // Experiments already tied to a different holdout than the one selected in
+  // this modal. This doesn't hide the selector — it just blocks submitting
+  // until the user picks the holdout those experiments already belong to.
+  const conflictingHoldoutExperiments = useMemo(() => {
+    const conflicts: { id: string; name: string }[] = [];
+    effectiveRules
+      .filter((rule) => rule.type === "experiment-ref")
+      .forEach((rule) => {
+        const exp = experimentsMap.get(rule.experimentId);
+        if (!exp) return;
+        if (exp.holdoutId && exp.holdoutId !== selectedHoldoutId) {
+          conflicts.push({ id: exp.id, name: exp.name });
+        }
+      });
+    return conflicts;
+  }, [effectiveRules, experimentsMap, selectedHoldoutId]);
+
+  const hasBlockers =
+    holdoutBlockers.nonDraftExperiments.length > 0 ||
+    holdoutBlockers.banditExperiments.length > 0 ||
+    holdoutBlockers.hasSafeRollout;
+
+  const showHoldoutSelect = !hasBlockers;
+  const canSubmit =
+    showHoldoutSelect && conflictingHoldoutExperiments.length === 0;
 
   return (
     <ModalStandard
@@ -87,55 +145,70 @@ const AddToHoldoutModal = ({
       open={true}
       trackingEventModalType="add-feature-to-holdout"
       size="lg"
-      submit={
-        showHoldoutSelect
-          ? form.handleSubmit(async (value) => {
-              const isPublish = mode === "publish";
-              const res = await apiCall<{
-                feature: FeatureInterface;
-                draftVersion?: number;
-              }>(`/feature/${feature.id}`, {
-                method: "PUT",
-                body: JSON.stringify({
-                  ...value,
-                  ...(isPublish
-                    ? { autoPublish: true }
-                    : mode === "existing" && selectedDraft !== null
-                      ? { targetDraftVersion: selectedDraft }
-                      : { forceNewDraft: true }),
-                }),
-              });
+      ctaEnabled={canSubmit}
+      submit={form.handleSubmit(async (value) => {
+        const isPublish = mode === "publish";
+        const res = await apiCall<{
+          feature: FeatureInterface;
+          draftVersion?: number;
+        }>(`/feature/${feature.id}`, {
+          method: "PUT",
+          body: JSON.stringify({
+            ...value,
+            ...(isPublish
+              ? { autoPublish: true }
+              : mode === "existing" && selectedDraft !== null
+                ? { targetDraftVersion: selectedDraft }
+                : { forceNewDraft: true }),
+          }),
+        });
 
-              await mutate();
-              const resolvedVersion =
-                res.draftVersion ??
-                (mode === "existing" ? selectedDraft : null);
-              if (resolvedVersion !== null) setVersion(resolvedVersion);
-            })
-          : undefined
-      }
+        await mutate();
+        const resolvedVersion =
+          res.draftVersion ?? (mode === "existing" ? selectedDraft : null);
+        if (resolvedVersion !== null) setVersion(resolvedVersion);
+      })}
     >
-      {(!experimentsAreInDraft || !eligibleToAddToHoldout) && (
-        <Callout status="error">
-          <Text>
-            Holdouts cannot be added to features with safe rollout rules or
-            experiments that are not in a draft state.
+      <DraftSelectorForChanges
+        feature={feature}
+        revisionList={revisionList}
+        mode={mode}
+        setMode={setMode}
+        selectedDraft={selectedDraft}
+        setSelectedDraft={setSelectedDraft}
+        canAutoPublish={false}
+        gatedEnvSet={gatedEnvSet}
+      />
+
+      {hasBlockers && (
+        <Callout status="error" mt="3">
+          <Text as="div">
+            A holdout can&apos;t be added to{" "}
+            {mode === "existing" ? "this draft" : "this Feature Flag"} until the
+            following are resolved:
           </Text>
+          <ul style={{ marginBottom: 0 }}>
+            {holdoutBlockers.nonDraftExperiments.map((exp) => (
+              <li key={`status-${exp.id}`}>
+                Experiment &ldquo;{exp.name}&rdquo; is {exp.status}. You
+                can&apos;t add a holdout in front of a non-draft experiment.
+              </li>
+            ))}
+            {holdoutBlockers.banditExperiments.map((exp) => (
+              <li key={`bandit-${exp.id}`}>
+                &ldquo;{exp.name}&rdquo; is a Bandit, which can&apos;t run under
+                a holdout.
+              </li>
+            ))}
+            {holdoutBlockers.hasSafeRollout && (
+              <li>Remove the safe rollout rule before adding a holdout.</li>
+            )}
+          </ul>
         </Callout>
       )}
 
       {showHoldoutSelect && (
         <>
-          <DraftSelectorForChanges
-            feature={feature}
-            revisionList={revisionList}
-            mode={mode}
-            setMode={setMode}
-            selectedDraft={selectedDraft}
-            setSelectedDraft={setSelectedDraft}
-            canAutoPublish={false}
-            gatedEnvSet={gatedEnvSet}
-          />
           <HoldoutSelect
             selectedProject={feature.project}
             setHoldout={(holdoutId) => {
@@ -144,9 +217,26 @@ const AddToHoldoutModal = ({
                 value: feature.defaultValue,
               });
             }}
-            selectedHoldoutId={form.watch("holdout")?.id}
+            selectedHoldoutId={selectedHoldoutId ?? undefined}
             formType="feature"
           />
+
+          {conflictingHoldoutExperiments.length > 0 && (
+            <Callout status="error" mt="3">
+              <Text as="div">
+                The selected holdout doesn&apos;t match the holdout these
+                experiments already belong to. Select their holdout to continue:
+              </Text>
+              <ul style={{ marginBottom: 0 }}>
+                {conflictingHoldoutExperiments.map((exp) => (
+                  <li key={`holdout-${exp.id}`}>
+                    Experiment &ldquo;{exp.name}&rdquo; belongs to a different
+                    holdout.
+                  </li>
+                ))}
+              </ul>
+            </Callout>
+          )}
         </>
       )}
     </ModalStandard>

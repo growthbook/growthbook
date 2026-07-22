@@ -1740,54 +1740,133 @@ export async function applyRevisionChanges(
   return await updateFeature(context, feature, changes);
 }
 
+// Refuse to remove/change a feature's holdout while a linked experiment still
+// belongs to it. We deliberately do NOT auto-unlink the experiment: doing so
+// would silently mutate a possibly-running experiment (and can't be right when
+// the experiment is shared with other features). Instead the user detaches the
+// experiment side explicitly first — either remove the experiment rule from the
+// feature, or remove the experiment from the holdout on the experiment.
+export async function assertNoLinkedHoldoutExperiments(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  holdoutId: string,
+) {
+  const linked = await Promise.all(
+    (feature.linkedExperiments ?? []).map((eid) =>
+      getExperimentById(context, eid),
+    ),
+  );
+  const stillInHoldout = linked
+    .filter(
+      (exp): exp is NonNullable<typeof exp> =>
+        !!exp && exp.holdoutId === holdoutId,
+    )
+    .map((exp) => `"${exp.name}"`);
+  if (stillInHoldout.length) {
+    const plural = stillInHoldout.length > 1;
+    throw new Error(
+      `Cannot remove the holdout while experiment${plural ? "s" : ""} ${stillInHoldout.join(
+        ", ",
+      )} ${plural ? "are" : "is"} linked to this feature and in the holdout. ` +
+        `Remove the experiment rule from this feature, or remove the experiment from the holdout, first.`,
+    );
+  }
+}
+
+// Read-only guard for a holdout membership change. Extracted from
+// `applyHoldoutSideEffects` so publish paths can run it BEFORE mutating the
+// feature: `applyRevisionChanges` advances `feature.version` and writes
+// `feature.holdout`, so a guard that throws afterward would strand the feature
+// pointing at a still-draft revision (the "live version is actually a draft"
+// corruption). Runs nothing side-effecting, so callers can invoke it up front.
+//
+// `rules` should be the feature's POST-publish rule set (the revision's merged
+// rules), not the stale live `feature.rules` — otherwise a draft that bundles a
+// new experiment-ref for an already-running experiment slips past the guard.
+export async function assertHoldoutChangeAllowed(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  newHoldout: { id: string; value: string } | null,
+  rules: FeatureRule[],
+  // `isRevert` skips the guard — a rollback restores a previously-valid holdout
+  // state (the caller reverts the transiently-blocking rules moments later), so
+  // this create-time check would wrongly refuse it.
+  { isRevert }: { isRevert?: boolean } = {},
+) {
+  if (isRevert) return;
+
+  const prevHoldoutId = feature.holdout?.id;
+  const newHoldoutId = newHoldout?.id;
+
+  // No change.
+  if (newHoldoutId === prevHoldoutId) return;
+
+  // Leaving the current holdout (removal, or a change to a different one):
+  // refuse while any linked experiment still belongs to it. The user detaches
+  // the experiment side first rather than us silently unlinking it.
+  if (prevHoldoutId) {
+    await assertNoLinkedHoldoutExperiments(context, feature, prevHoldoutId);
+  }
+
+  // Pure removal: nothing further to validate.
+  if (newHoldout === null) return;
+
+  // Adding or changing to a holdout: the feature's post-publish rules must not
+  // carry running experiments, bandits, or safe rollouts.
+  const currentExperimentIds = (rules ?? [])
+    .filter((rule) => rule.type === "experiment-ref")
+    .map((rule) => rule.experimentId);
+  const experimentResults = await Promise.all(
+    currentExperimentIds.map((id) => getExperimentById(context, id)),
+  );
+  // Filter out deleted experiments (null/undefined) before checking status
+  const experiments = experimentResults.filter(
+    (exp): exp is NonNullable<typeof exp> => exp !== null && exp !== undefined,
+  );
+  const hasNonDraftExperiments = experiments.some(
+    (exp) => exp.status !== "draft",
+  );
+  const hasBandits = experiments.some(
+    (exp) => exp.type === "multi-armed-bandit",
+  );
+  const hasSafeRollouts = (rules ?? []).some(
+    (rule) => rule?.type === "safe-rollout",
+  );
+  if (hasNonDraftExperiments || hasBandits || hasSafeRollouts) {
+    throw new Error(
+      "Cannot change holdout when there are running linked experiments, safe rollout rules, or multi-armed bandit rules",
+    );
+  }
+}
+
 // Run HoldoutModel / Experiment side-effects when a feature's holdout
 // membership changes at publish. Called from `publishRevision` when
 // `result.holdout` is defined, so all publish paths (direct, approval,
 // revert, etc.) are covered. `feature` is pre-publish (used for prevHoldout);
 // `newHoldout: null` means "remove from holdout".
+
 export async function applyHoldoutSideEffects(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   newHoldout: { id: string; value: string } | null,
-  // `isRevert` skips the guard below — a rollback restores a previously-valid
-  // holdout state (the caller reverts the transiently-blocking rules moments
-  // later), so this create-time check would wrongly refuse it.
-  { isRevert }: { isRevert?: boolean } = {},
+  // `isRevert` skips the guard — see assertHoldoutChangeAllowed. `skipGuard` is
+  // set by callers that already ran assertHoldoutChangeAllowed BEFORE mutating
+  // the feature, so the guard isn't re-run against the stale live rules here.
+  { isRevert, skipGuard }: { isRevert?: boolean; skipGuard?: boolean } = {},
 ) {
   const prevHoldoutId = feature.holdout?.id;
   const newHoldoutId = newHoldout?.id;
 
   if (newHoldoutId === prevHoldoutId) return;
 
-  // Guard: cannot change holdout when there are running experiments, bandits, or safe rollouts
-  if (newHoldout !== null && !isRevert) {
-    // Only check experiments currently in the feature's rules, not the historical
-    // linkedExperiments list (which is kept for revision rendering).
-    const currentExperimentIds = (feature.rules ?? [])
-      .filter((rule) => rule.type === "experiment-ref")
-      .map((rule) => rule.experimentId);
-    const experimentResults = await Promise.all(
-      currentExperimentIds.map((id) => getExperimentById(context, id)),
+  if (!skipGuard) {
+    await assertHoldoutChangeAllowed(
+      context,
+      feature,
+      newHoldout,
+      feature.rules ?? [],
+      { isRevert },
     );
-    // Filter out deleted experiments (null/undefined) before checking status
-    const experiments = experimentResults.filter(
-      (exp): exp is NonNullable<typeof exp> =>
-        exp !== null && exp !== undefined,
-    );
-    const hasNonDraftExperiments = experiments.some(
-      (exp) => exp.status !== "draft",
-    );
-    const hasBandits = experiments.some(
-      (exp) => exp.type === "multi-armed-bandit",
-    );
-    const hasSafeRollouts = (feature.rules ?? []).some(
-      (rule) => rule?.type === "safe-rollout",
-    );
-    if (hasNonDraftExperiments || hasBandits || hasSafeRollouts) {
-      throw new Error(
-        "Cannot change holdout when there are running linked experiments, safe rollout rules, or multi-armed bandit rules",
-      );
-    }
   }
 
   // Resolve the new holdout BEFORE removing from the old one, so a missing
@@ -1799,7 +1878,10 @@ export async function applyHoldoutSideEffects(
     throw new Error("Holdout not found");
   }
 
-  // Remove feature from the old holdout
+  // Remove feature from the old holdout. The guard (assertHoldoutChangeAllowed)
+  // has already refused this move if any linked experiment still belongs to the
+  // old holdout, so there's nothing to cascade here — the experiment side is
+  // detached explicitly by the user first.
   if (prevHoldoutId) {
     await context.models.holdout.removeFeatureFromHoldout(
       prevHoldoutId,
@@ -2718,6 +2800,20 @@ export async function publishRevision({
     skipValidation: skipPrevalidateValidation,
   });
 
+  // Guard the holdout change BEFORE any mutation. applyRevisionChanges (below)
+  // advances feature.version and writes feature.holdout; if the holdout guard
+  // ran only afterward and threw, the feature would be left pointing at this
+  // still-draft revision. Check the revision's merged rules (post-publish state)
+  // so a bundled experiment-ref for an already-running experiment is caught.
+  if (result.holdout !== undefined) {
+    await assertHoldoutChangeAllowed(
+      context,
+      feature,
+      result.holdout,
+      result.rules ?? feature.rules ?? [],
+    );
+  }
+
   // Create ramp schedules BEFORE writing the feature so that a schedule
   // creation failure gates the publish (atomicity: no published feature without
   // its ramp schedule).
@@ -2749,7 +2845,10 @@ export async function publishRevision({
     );
 
     if (result.holdout !== undefined) {
-      await applyHoldoutSideEffects(context, feature, result.holdout);
+      // Guard already ran above (before any mutation) — skip the re-check.
+      await applyHoldoutSideEffects(context, feature, result.holdout, {
+        skipGuard: true,
+      });
     }
 
     await markRevisionAsPublished(

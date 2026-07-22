@@ -66,6 +66,7 @@ type CommonProps = {
   safeRolloutsMap: Map<string, SafeRolloutInterface>;
   holdout: HoldoutInterface | undefined;
   holdoutIsDeleted: boolean;
+  holdoutIsPendingAdd: boolean;
   openHoldoutModal: () => void;
   revisionList: MinimalFeatureRevisionInterface[];
   rampSchedules?: RampScheduleInterface[];
@@ -108,6 +109,7 @@ export default function RuleList(props: RuleListProps) {
     safeRolloutsMap,
     holdout,
     holdoutIsDeleted,
+    holdoutIsPendingAdd,
     openHoldoutModal,
     revisionList,
     rampSchedules,
@@ -273,7 +275,7 @@ export default function RuleList(props: RuleListProps) {
   // 1-based position (offset by 1 for the holdout row when present).
   const bannersByRule = useMemo<Map<string, ConflictBanner[]>>(() => {
     const flat = feature.rules ?? [];
-    const offset = holdout ? 2 : 1;
+    const offset = holdout || holdoutIsPendingAdd ? 2 : 1;
     const ruleNumber = (id: string) => {
       const idx = flat.findIndex((r) => r.id === id);
       return idx === -1 ? undefined : idx + offset;
@@ -313,11 +315,12 @@ export default function RuleList(props: RuleListProps) {
     props.environments,
     feature.rules,
     holdout,
+    holdoutIsPendingAdd,
   ]);
 
   const inactiveRules = items.filter((r) => isRuleInactive(r, experimentsMap));
 
-  if (!items.length && !holdout && !holdoutIsDeleted) {
+  if (!items.length && !holdout && !holdoutIsDeleted && !holdoutIsPendingAdd) {
     return (
       <div className="px-3 mb-3">
         <em>None</em>
@@ -414,10 +417,11 @@ export default function RuleList(props: RuleListProps) {
             <em>No Active Rules</em>
           </div>
         )}
-        {(holdout || holdoutIsDeleted) && (
+        {(holdout || holdoutIsDeleted || holdoutIsPendingAdd) && (
           <HoldoutRule
             feature={holdoutIsDeleted ? baseFeature : feature}
             isDeleted={holdoutIsDeleted}
+            isPendingAdd={holdoutIsPendingAdd}
             setRuleModal={openHoldoutModal}
             mutate={mutate}
             revisionList={revisionList}

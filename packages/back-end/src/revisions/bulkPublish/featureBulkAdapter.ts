@@ -5,6 +5,7 @@ import type { SafeRolloutInterface } from "shared/validators";
 import { logger } from "back-end/src/util/logger";
 import {
   applyHoldoutSideEffects,
+  assertHoldoutChangeAllowed,
   applyRampCreateActionsForRevision,
   applyRevisionChanges,
   computeRevisionMergeChanges,
@@ -315,6 +316,20 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     const desired = desiredState as unknown as FeatureDesiredState;
     const { mergeResult } = desired;
 
+    // Guard the holdout change BEFORE any mutation (ramp schedules, feature
+    // write) so a rejected change fails fast without relying on compensation to
+    // undo an already-advanced feature.version. Check the merged (post-publish)
+    // rules so a bundled experiment-ref for an already-running experiment is
+    // caught.
+    if (mergeResult.holdout !== undefined) {
+      await assertHoldoutChangeAllowed(
+        context,
+        feature,
+        mergeResult.holdout,
+        mergeResult.rules ?? feature.rules ?? [],
+      );
+    }
+
     // Ramp `create` actions run BEFORE the feature write: a schedule-creation
     // failure gates the publish, and the ids are stashed for compensation.
     desired.createdRampScheduleIds = await applyRampCreateActionsForRevision(
@@ -371,7 +386,10 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     }
 
     if (mergeResult.holdout !== undefined) {
-      await applyHoldoutSideEffects(context, feature, mergeResult.holdout);
+      // Guard already ran above (before any mutation) — skip the re-check.
+      await applyHoldoutSideEffects(context, feature, mergeResult.holdout, {
+        skipGuard: true,
+      });
     }
   },
 

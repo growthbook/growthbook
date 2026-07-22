@@ -33,6 +33,7 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import { deleteHoldoutAndExperiment } from "back-end/src/services/holdouts";
 import {
+  assertNoLinkedHoldoutExperiments,
   getFeature,
   getFeaturesByIds,
   removeHoldoutFromFeature,
@@ -736,6 +737,12 @@ export const deleteHoldoutFeature = async (
   ) {
     context.permissions.throwPermissionError();
   }
+
+  // Same invariant as the revision-based removal path: don't strip the holdout
+  // off a feature while a linked experiment still belongs to it, or the
+  // experiment would be left held-out with no feature gating it. Detach the
+  // experiment (remove its rule, or remove it from the holdout) first.
+  await assertNoLinkedHoldoutExperiments(context, feature, holdout.id);
 
   await removeHoldoutFromFeature(context, feature);
 
