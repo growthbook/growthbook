@@ -7,7 +7,7 @@ import { ReqContextClass } from "back-end/src/services/context";
 import { getAllFeaturesWithoutEditorFields } from "back-end/src/models/FeatureModel";
 import { setupApp } from "./api.setup";
 
-// Coverage for POST /api/v2/releases/publish-revisions — the atomic multi-entity
+// Coverage for POST /api/v1/releases/publish-revisions — the atomic multi-entity
 // publish shortcut:
 //  1. `dryRun: true` reports would-publish results and gates with ZERO writes.
 //  2. A real publish lands a constant + config draft pair atomically: both
@@ -100,14 +100,14 @@ async function stageConfigDraft(
 
 async function publishRevisions(body: Record<string, unknown>) {
   return request(app)
-    .post("/api/v2/releases/publish-revisions")
+    .post("/api/v1/releases/publish-revisions")
     .send(body)
     .set("Authorization", "Bearer foo");
 }
 
 const { app, setReqContext } = setupApp();
 
-describe("POST /api/v2/releases/publish-revisions", () => {
+describe("POST /api/v1/releases/publish-revisions", () => {
   it("dry run reports would-publish outcomes without writing", async () => {
     setReqContext(makeContext());
     await insertRawConstant("qp-dry-const");

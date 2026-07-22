@@ -24029,7 +24029,7 @@ paths:
             'https://api.growthbook.io/api/v1/configs-revisions/{key}/{version}/revert'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /v2/releases/publish-revisions:
+  /v1/releases/publish-revisions:
     post:
       operationId: postReleasePublishRevisions
       summary: Atomically publish revisions across multiple entities
@@ -24181,7 +24181,7 @@ paths:
         - lang: cURL
           source: >-
             curl -X POST
-            'https://api.growthbook.io/api/v2/releases/publish-revisions' \
+            'https://api.growthbook.io/api/v1/releases/publish-revisions' \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/custom-hooks:
     get:

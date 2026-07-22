@@ -5,7 +5,7 @@ import type { OrganizationInterface } from "shared/types/organization";
 import { ReqContextClass } from "back-end/src/services/context";
 import { setupApp } from "./api.setup";
 
-// Scenario QA for POST /api/v2/releases/publish-revisions: a realistic
+// Scenario QA for POST /api/v1/releases/publish-revisions: a realistic
 // multi-entity world built through the REST creation endpoints, then a saga
 // walking a matrix of failure modes — approvals, schema breaks, permission-
 // gated overrides, merge conflicts + rebase, scheduled siblings, closed
@@ -66,7 +66,7 @@ const api = {
 };
 
 const publish = (body: Record<string, unknown>) =>
-  api.post("/api/v2/releases/publish-revisions", body);
+  api.post("/api/v1/releases/publish-revisions", body);
 
 const gateTypes = (body: { gates?: { type: string }[] }) =>
   (body.gates ?? []).map((g) => g.type).sort();
