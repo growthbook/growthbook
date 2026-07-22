@@ -76,8 +76,8 @@ importers:
   .:
     dependencies:
       '@datadog/native-metrics':
-        specifier: ^3.1.1
-        version: 3.1.1
+        specifier: ^3.1.2
+        version: 3.1.2
       '@datadog/pprof':
         specifier: ^5.13.2
         version: 5.13.2
@@ -2653,10 +2653,6 @@ packages:
 
   '@datadog/native-iast-taint-tracking@4.2.0':
     resolution: {integrity: sha512-NpZABJQoNMzF6cU521RT4GQ8/FbfFRoDepOLTcLYKyw0DY2WmSpg3iG+PoQNK4O3jPSXC++K3rg59GiQgA3Mog==}
-
-  '@datadog/native-metrics@3.1.1':
-    resolution: {integrity: sha512-MU1gHrolwryrU4X9g+fylA1KPH3S46oqJPEtVyrO+3Kh29z80fegmtyrU22bNt8LigPUK/EdPCnSbMe88QbnxQ==}
-    engines: {node: '>=16'}
 
   '@datadog/native-metrics@3.1.2':
     resolution: {integrity: sha512-7AEWt0ZLr/ogR/9if1DmFBDTg3y67xM+gdhXUXKs+UQMxK0lnjrOHgN7fkpEmUG1uL+EkX2BDE3ENDlQ23J7OQ==}
@@ -16099,16 +16095,10 @@ snapshots:
       node-gyp-build: 3.9.0
     optional: true
 
-  '@datadog/native-metrics@3.1.1':
-    dependencies:
-      node-addon-api: 6.1.0
-      node-gyp-build: 3.9.0
-
   '@datadog/native-metrics@3.1.2':
     dependencies:
       node-addon-api: 6.1.0
       node-gyp-build: 3.9.0
-    optional: true
 
   '@datadog/openfeature-node-server@2.0.0':
     dependencies:
