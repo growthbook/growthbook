@@ -22,6 +22,8 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: "24"
+          # Root package.json declares pnpm; this job only needs npm for the Mintlify CLI.
+          package-manager-cache: false
 
       - name: Install Mintlify CLI
         run: npm install -g mint
