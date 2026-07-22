@@ -56,12 +56,19 @@ const AddToHoldoutModal = ({
     defaultDraft,
   );
 
-  // Only allow adding to holdout if all experiments are in draft status and don't have a holdoutId or have the same holdoutId as the feature
+  // Only allow adding to holdout if all existing experiments are in draft status
+  // and don't have a holdoutId or have the same holdoutId as the feature.
+  // Skip deleted experiments (not in experimentsMap) since they no longer block holdout changes.
   const experimentsAreInDraft = feature.linkedExperiments?.every(
-    (experimentId) =>
-      experimentsMap[experimentId]?.status === "draft" &&
-      (!experimentsMap[experimentId]?.holdoutId ||
-        experimentsMap[experimentId]?.holdoutId === feature.holdout?.id),
+    (experimentId) => {
+      const exp = experimentsMap[experimentId];
+      // Skip deleted experiments - they no longer block holdout assignment
+      if (!exp) return true;
+      return (
+        exp.status === "draft" &&
+        (!exp.holdoutId || exp.holdoutId === feature.holdout?.id)
+      );
+    },
   );
 
   const eligibleToAddToHoldout = (feature.rules ?? []).every(

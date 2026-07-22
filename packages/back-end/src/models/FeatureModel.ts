@@ -1761,16 +1761,21 @@ export async function applyHoldoutSideEffects(
 
   // Guard: cannot change holdout when there are running experiments, bandits, or safe rollouts
   if (newHoldout !== null && !isRevert) {
-    const experiments = await Promise.all(
+    const experimentResults = await Promise.all(
       (feature.linkedExperiments ?? []).map((id) =>
         getExperimentById(context, id),
       ),
     );
+    // Filter out deleted experiments (null/undefined) before checking status
+    const experiments = experimentResults.filter(
+      (exp): exp is NonNullable<typeof exp> =>
+        exp !== null && exp !== undefined,
+    );
     const hasNonDraftExperiments = experiments.some(
-      (exp) => exp?.status !== "draft",
+      (exp) => exp.status !== "draft",
     );
     const hasBandits = experiments.some(
-      (exp) => exp?.type === "multi-armed-bandit",
+      (exp) => exp.type === "multi-armed-bandit",
     );
     const hasSafeRollouts = (feature.rules ?? []).some(
       (rule) => rule?.type === "safe-rollout",
