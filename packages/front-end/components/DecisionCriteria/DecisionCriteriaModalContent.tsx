@@ -141,7 +141,7 @@ const DecisionCriteriaModalContent: FC<DecisionCriteriaModalContentProps> = ({
             placeholder="(optional)"
             value={form.watch("description")}
             onChange={(e) => form.setValue("description", e.target.value)}
-            minRows={2}
+            minRows={1}
             disabled={!editable}
           />
         </div>

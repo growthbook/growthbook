@@ -611,6 +611,7 @@ const NewDataSourceForm: FC<{
           <label>Description</label>
           <Field
             textarea
+            minRows={1}
             maxLength={MAX_DESCRIPTION_LENGTH}
             name="description"
             onChange={onChange}
