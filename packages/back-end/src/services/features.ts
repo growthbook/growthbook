@@ -144,6 +144,7 @@ import {
 import { triggerWebhookJobs } from "back-end/src/jobs/updateAllJobs";
 import {
   createRevision,
+  featureRevisionId,
   getRevision,
   normalizeRulesInputToV2,
 } from "back-end/src/models/FeatureRevisionModel";
@@ -740,6 +741,18 @@ export function queueSDKPayloadRefresh(data: {
   treatEmptyProjectAsGlobal?: boolean;
   auditContext?: { event: string; model: string; id?: string };
 }) {
+  // Bulk-publish side-effect buffer: while a multi-entity commit is applying,
+  // collect the affected keys instead of refreshing per write — the publisher
+  // flushes one deduped refresh (at most one rebuild per SDK connection) after
+  // the whole commit lands, or none if it compensated. Buffered calls drop the
+  // narrowing options (skipRefreshForProject, explicit sdkConnections) but
+  // carry treatEmptyProjectAsGlobal so global-entity keys keep their reach.
+  const buffer = data.context.sdkPayloadRefreshBuffer;
+  if (buffer && !buffer.closed) {
+    buffer.keys.push(...data.payloadKeys);
+    buffer.treatEmptyProjectAsGlobal ||= !!data.treatEmptyProjectAsGlobal;
+    return;
+  }
   // Capture stack trace at the entry point to include the original caller
   const rawStack = new Error().stack || "";
   const stackTrace = rawStack.replace(/^Error.*?\n/, "");
@@ -761,7 +774,9 @@ export async function getFeaturesDependingOnAsPrerequisite(
   context: ReqContext | ApiReqContext,
   featureId: string,
 ): Promise<string[]> {
-  const scanContext = getContextForAgendaJobByOrgObject(context.org);
+  const scanContext =
+    context.scanContextOverride ??
+    getContextForAgendaJobByOrgObject(context.org);
   // Candidates are live features only — an archived dependent isn't served, so
   // it can't be outaged. The target being deleted is usually archived (delete
   // requires it), so it needn't be in this list: getDependentFeatures matches
@@ -2182,6 +2197,7 @@ export function revisionToApiInterface(
   );
 
   return {
+    id: rev.id ?? featureRevisionId(rev.featureId, rev.version),
     featureId: rev.featureId,
     baseVersion: rev.baseVersion,
     version: rev.version,
@@ -2328,6 +2344,7 @@ export function revisionToApiInterfaceV2(
   const revDefault = decomposeConfigValue(rev.defaultValue);
 
   return {
+    id: rev.id ?? featureRevisionId(rev.featureId, rev.version),
     featureId: rev.featureId,
     baseVersion: rev.baseVersion,
     version: rev.version,
@@ -2525,6 +2542,10 @@ export function getApiFeatureObjV2({
     tags: feature.tags || [],
     valueType: feature.valueType,
     revision: {
+      // Conditional: event snapshots and legacy docs may lack a version.
+      ...(typeof feature.version === "number"
+        ? { id: revision?.id ?? featureRevisionId(feature.id, feature.version) }
+        : {}),
       comment: revision?.comment || "",
       date: revision?.dateCreated.toISOString() || "",
       createdBy: eventUserToApiEventUser(revision?.createdBy),
@@ -2723,6 +2744,7 @@ export function getApiFeatureObj({
           ? "SYSTEM"
           : rev?.publishedBy?.name;
     return {
+      id: rev.id ?? featureRevisionId(rev.featureId, rev.version),
       featureId: rev.featureId,
       baseVersion: rev.baseVersion,
       version: rev.version,
@@ -2770,6 +2792,10 @@ export function getApiFeatureObj({
     tags: feature.tags || [],
     valueType: feature.valueType,
     revision: {
+      // Conditional: event snapshots and legacy docs may lack a version.
+      ...(typeof feature.version === "number"
+        ? { id: revision?.id ?? featureRevisionId(feature.id, feature.version) }
+        : {}),
       comment: revision?.comment || "",
       date: revision?.dateCreated.toISOString() || "",
       createdBy: createdBy || "",

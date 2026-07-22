@@ -167,6 +167,7 @@ const DecisionFrameworkSettings = () => {
                 </Heading>
                 <Box width="150px">
                   <Field
+                    size="legacy"
                     type="number"
                     append="days"
                     step="1"

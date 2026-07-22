@@ -226,6 +226,7 @@ export default function ConfigureReport({
               newUi={false}
             />
             <SelectField
+              size="legacy"
               label="Difference Type"
               value={
                 form.watch("experimentAnalysisSettings.differenceType") ||
@@ -340,6 +341,7 @@ export default function ConfigureReport({
               <div style={{ width: "50%" }}>
                 {useToday ? (
                   <Field
+                    size="legacy"
                     label="End (UTC)"
                     containerClassName="mb-2"
                     readOnly
@@ -557,6 +559,7 @@ export default function ConfigureReport({
           <TabsContent value="analysis">
             {exposureQueries ? (
               <SelectField
+                size="legacy"
                 label={
                   <>
                     Experiment Assignment Table{" "}
@@ -597,6 +600,7 @@ export default function ConfigureReport({
               />
             ) : null}
             <Field
+              size="legacy"
               label="Tracking Key"
               {...form.register(`experimentAnalysisSettings.trackingKey`)}
               helpText="Unique identifier for this Experiment, used to track impressions and analyze results"
@@ -632,6 +636,7 @@ export default function ConfigureReport({
             />
             {datasourceProperties?.experimentSegments && (
               <SelectField
+                size="legacy"
                 label="Segment"
                 value={form.watch("experimentAnalysisSettings.segment") || ""}
                 onChange={(value) =>
@@ -652,6 +657,7 @@ export default function ConfigureReport({
             )}
             {datasourceProperties?.separateExperimentResultQueries && (
               <SelectField
+                size="legacy"
                 label="Metric Conversion Windows"
                 value={
                   form.watch("experimentAnalysisSettings.skipPartialData")
@@ -689,6 +695,7 @@ export default function ConfigureReport({
               className=""
             />
             <SelectField
+              size="legacy"
               label={
                 <PremiumTooltip commercialFeature="regression-adjustment">
                   <GBCuped className="mr-1" />
@@ -725,6 +732,7 @@ export default function ConfigureReport({
               <div className="d-flex" style={{ gap: "1rem" }}>
                 <div className="flex-1">
                   <SelectField
+                    size="legacy"
                     label={
                       <PremiumTooltip commercialFeature="sequential-testing">
                         <GBSequential className="mr-1" />
@@ -763,6 +771,7 @@ export default function ConfigureReport({
                 ) ? (
                   <div style={{ width: 250 }}>
                     <Field
+                      size="legacy"
                       label="Tuning parameter"
                       type="number"
                       min="0"
@@ -799,6 +808,7 @@ export default function ConfigureReport({
               <div className="row mt-4">
                 <div className="col pr-3">
                   <Field
+                    size="legacy"
                     label="Custom SQL Filter"
                     labelClassName="font-weight-bold"
                     {...form.register("experimentAnalysisSettings.queryFilter")}

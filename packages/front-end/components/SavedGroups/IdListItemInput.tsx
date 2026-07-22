@@ -3,7 +3,7 @@ import { SAVED_GROUP_SIZE_LIMIT_BYTES } from "shared/util";
 import { FaCheckCircle, FaExclamationTriangle } from "react-icons/fa";
 import clsx from "clsx";
 import { Container, Text } from "@radix-ui/themes";
-import StringArrayField from "@/components/Forms/StringArrayField";
+import StringArrayField from "@/ui/StringArrayField";
 import RadioGroup from "@/ui/RadioGroup";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Checkbox from "@/ui/Checkbox";
@@ -184,6 +184,7 @@ export const IdListItemInput: FC<{
       )}
       {importMethod === "values" && (
         <StringArrayField
+          size="legacy"
           containerClassName="mb-0"
           label="List Values to Include"
           labelClassName="font-weight-bold"

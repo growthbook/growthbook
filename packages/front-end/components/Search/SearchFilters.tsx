@@ -192,6 +192,7 @@ export const FilterDropdown: FC<{
       {showSearchFilter && (
         <Box px="2" pb="1" style={{ maxWidth: "250px" }}>
           <Field
+            size="legacy"
             ref={inputRef}
             value={filterSearch}
             onChange={(e) => setFilterSearch(e.target.value)}

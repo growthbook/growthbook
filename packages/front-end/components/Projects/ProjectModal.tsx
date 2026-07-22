@@ -47,8 +47,15 @@ export default function ProjectModal({
         await onSuccess();
       })}
     >
-      <Field label="Name" maxLength={30} required {...form.register("name")} />
       <Field
+        size="legacy"
+        label="Name"
+        maxLength={30}
+        required
+        {...form.register("name")}
+      />
+      <Field
+        size="legacy"
         label="Public ID"
         maxLength={64}
         pattern="^[a-z0-9-]+$"
@@ -57,6 +64,7 @@ export default function ProjectModal({
         {...form.register("publicId")}
       />
       <Field
+        size="legacy"
         label="Description"
         maxLength={MAX_DESCRIPTION_LENGTH}
         minRows={3}

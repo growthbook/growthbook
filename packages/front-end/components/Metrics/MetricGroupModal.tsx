@@ -7,7 +7,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import MetricsSelector from "@/components/Experiment/MetricsSelector";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -93,8 +93,14 @@ const MetricGroupModal: FC<{
       cta="Save"
       close={close}
     >
-      <Field label="Name" {...form.register("name")} required={true} />
       <Field
+        size="legacy"
+        label="Name"
+        {...form.register("name")}
+        required={true}
+      />
+      <Field
+        size="legacy"
         label="Description"
         type="textarea"
         maxLength={MAX_DESCRIPTION_LENGTH}
@@ -103,6 +109,7 @@ const MetricGroupModal: FC<{
       {projects?.length > 0 && (
         <div className="form-group">
           <MultiSelectField
+            size="legacy"
             label={
               <>
                 Projects{" "}
@@ -121,6 +128,7 @@ const MetricGroupModal: FC<{
       )}
       <div className="form-group">
         <SelectField
+          size="legacy"
           required={true}
           label="Data Source"
           value={datasource?.id || ""}
