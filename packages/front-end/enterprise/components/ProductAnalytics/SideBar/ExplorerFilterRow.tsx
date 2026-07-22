@@ -303,7 +303,7 @@ export function ExplorerFilterRow({
             // UTC wall-clock convention: store the typed digits verbatim (no
             // tz shift) so they are compared as UTC by getRowFilterSQL.
             onUpdate({
-              values: [d ? format(d, "yyyy-MM-dd'T'HH:mm:ss") : ""],
+              values: d ? [format(d, "yyyy-MM-dd'T'HH:mm:ss")] : [],
             });
           }}
           precision="datetime-seconds"

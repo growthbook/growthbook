@@ -311,7 +311,7 @@ export function RowFilterInput({
                       // typed verbatim (local components, no tz shift) so they
                       // are compared as UTC by getRowFilterSQL.
                       updateRowFilter({
-                        values: [d ? format(d, "yyyy-MM-dd'T'HH:mm:ss") : ""],
+                        values: d ? [format(d, "yyyy-MM-dd'T'HH:mm:ss")] : [],
                       });
                     }}
                     precision="datetime-seconds"

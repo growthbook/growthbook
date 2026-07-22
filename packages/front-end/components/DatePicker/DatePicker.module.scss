@@ -68,6 +68,9 @@
   }
 }
 
+// NOTE: the selection ring below intentionally mirrors the calendar day-cell
+// styling in styles/global-radix-overrides.scss (.rdp-selected / hover). Keep
+// the violet inset-ring values in sync if the calendar accent ever changes.
 .TimeCell {
   appearance: none;
   background: transparent;

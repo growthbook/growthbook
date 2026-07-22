@@ -124,10 +124,13 @@ function TimeColumn({
     }
   }, []);
   return (
+    // Plain group of buttons (not an ARIA listbox — there is no listbox keyboard
+    // model here). The native datetime-local trigger input is the keyboard path,
+    // so the cells are pointer-only (tabIndex=-1) to avoid ~144 extra tab stops.
     <div
       ref={containerRef}
       className={styles.TimeColumn}
-      role="listbox"
+      role="group"
       aria-label={label}
     >
       <div className={styles.TimeColumnHeader}>{label}</div>
@@ -135,8 +138,7 @@ function TimeColumn({
         <button
           key={v}
           type="button"
-          role="option"
-          aria-selected={v === selected}
+          tabIndex={-1}
           ref={v === selected ? selectedRef : undefined}
           className={clsx(styles.TimeCell, {
             [styles.TimeCellSelected]: v === selected,

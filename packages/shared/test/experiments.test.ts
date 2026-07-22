@@ -745,6 +745,23 @@ describe("Experiments", () => {
             }),
           ).toStrictEqual(`(${dateColumn.column} IS NULL)`);
         });
+        it("ignores empty values for date columns (no CAST('' AS TIMESTAMP))", () => {
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: dateColumn.column,
+                operator: ">",
+                values: [""],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+              castToTimestamp,
+            }),
+          ).toBeNull();
+        });
         it("falls back to lexicographic comparison without a timestamp cast", () => {
           expect(
             getRowFilterSQL({

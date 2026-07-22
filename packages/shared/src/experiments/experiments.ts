@@ -357,9 +357,18 @@ export function getRowFilterSQL({
   // strings (lexicographic), when the dialect provides a timestamp cast.
   const castDates = columnType === "date" && !!castToTimestamp;
 
+  // Empty values can't be cast to a timestamp (CAST('' AS TIMESTAMP) fails), so
+  // drop them for date comparisons; if none remain, the filter is a no-op.
+  const filterValues = castDates
+    ? rowFilter.values.filter((v) => v.trim() !== "")
+    : rowFilter.values;
+  if (!filterValues.length) {
+    return null;
+  }
+
   const escapedValues = [
     ...new Set(
-      rowFilter.values.map((v) => {
+      filterValues.map((v) => {
         // Number, don't wrap in quotes
         if (columnType === "number" && v.match(/^-?(\d+|\d*\.\d+)$/)) {
           return v;
