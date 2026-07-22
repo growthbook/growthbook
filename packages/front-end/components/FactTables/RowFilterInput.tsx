@@ -255,7 +255,7 @@ export function RowFilterInput({
                     newValues = newValues.filter((v) => numberRegex.test(v));
                   }
 
-                  if (datatype === "date") {
+                  if (isDateColumn) {
                     // If changing to date, remove any unparseable values
                     newValues = newValues.filter(
                       (v) => !isNaN(new Date(v).getTime()),
