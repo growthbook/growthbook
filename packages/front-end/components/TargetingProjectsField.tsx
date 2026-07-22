@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
-import { PiInfo, PiPlus } from "react-icons/pi";
+import { PiInfo, PiPlusBold } from "react-icons/pi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import RadioGroup from "@/ui/RadioGroup";
 import Link from "@/ui/Link";
+import Text from "@/ui/Text";
 import MultiSelectField from "@/ui/MultiSelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 
@@ -37,23 +38,28 @@ export default function TargetingProjectsField({
     () => allProjects || targetingProjects.length > 0,
   );
 
-  const help = `Deliver this ${entityLabel} to additional projects.`;
+  const help = `Also include this ${entityLabel} in these projects' SDK payloads`;
 
   return (
     <Box {...marginProps}>
       {!enabled ? (
-        <Flex align="center" gap="1">
-          <Link onClick={() => setEnabled(true)}>
-            <PiPlus /> Targeting projects
+        <Box display="inline-block">
+          <Link
+            type="button"
+            className="hover-underline"
+            onClick={() => setEnabled(true)}
+          >
+            <PiPlusBold className="mr-1" />
+            Targeting projects
+            <Tooltip body={<Text as="div">{help}</Text>}>
+              <PiInfo color="var(--color-text-low)" className="ml-1" />
+            </Tooltip>
           </Link>
-          <Tooltip body={help}>
-            <PiInfo />
-          </Tooltip>
-        </Flex>
+        </Box>
       ) : (
         <>
-          <Flex align="center" gap="1" mb="1">
-            <label className="mb-0">Targeting projects</label>
+          <Flex align="center" gap="1" mb="3">
+            <label className="mb-0">Additional Targeting Projects</label>
             <Tooltip body={help}>
               <PiInfo />
             </Tooltip>
@@ -66,7 +72,7 @@ export default function TargetingProjectsField({
             options={[
               {
                 value: "specific",
-                label: "Specific projects",
+                label: "Specific Projects",
                 renderOutsideItem: true,
                 renderOnSelect: (
                   <Box pl="5">
@@ -76,14 +82,14 @@ export default function TargetingProjectsField({
                       options={projects
                         .filter((p) => p.id !== primaryProject)
                         .map((p) => ({ value: p.id, label: p.name }))}
-                      placeholder="Select projects..."
+                      placeholder="No projects selected"
                       sort={false}
                       containerClassName="w-full"
                     />
                   </Box>
                 ),
               },
-              { value: "all", label: "All projects", itemClassName: "mt-2" },
+              { value: "all", label: "All Projects", itemClassName: "mt-2" },
             ]}
           />
         </>

@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
-import { PiInfo, PiPlus } from "react-icons/pi";
+import { PiInfo, PiPlusBold } from "react-icons/pi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import RadioGroup from "@/ui/RadioGroup";
 import Link from "@/ui/Link";
+import Text from "@/ui/Text";
 import MultiSelectField from "@/ui/MultiSelectField";
 import Callout from "@/ui/Callout";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -38,6 +39,15 @@ export default function RuleProjectScopeField({
   const { projects } = useDefinitions();
   const [enabled, setEnabled] = useState<boolean>(() => !allProjects);
 
+  // Scoping a rule only makes sense when the feature can reach more than one
+  // project (allowedProjectIds null = all projects). Otherwise hide the control
+  // entirely — unless a scope is already set (grandfathered), so existing
+  // config is never silently hidden.
+  const hasMultipleProjects =
+    allowedProjectIds == null || allowedProjectIds.length > 1;
+  const hasExistingScope = !allProjects || selectedProjects.length > 0;
+  if (!hasMultipleProjects && !hasExistingScope) return null;
+
   const selectableProjects =
     allowedProjectIds == null
       ? projects
@@ -52,23 +62,23 @@ export default function RuleProjectScopeField({
   return (
     <Box {...marginProps}>
       {!enabled ? (
-        <Flex align="center" gap="1">
+        <Box display="inline-block">
           <Link
-            onClick={() => {
-              setEnabled(true);
-              setAllProjects(false);
-            }}
+            type="button"
+            className="hover-underline"
+            onClick={() => setEnabled(true)}
           >
-            <PiPlus /> Project scope
+            <PiPlusBold className="mr-1" />
+            Project targeting
+            <Tooltip body={<Text as="div">{help}</Text>}>
+              <PiInfo color="var(--color-text-low)" className="ml-1" />
+            </Tooltip>
           </Link>
-          <Tooltip body={help}>
-            <PiInfo />
-          </Tooltip>
-        </Flex>
+        </Box>
       ) : (
         <>
-          <Flex align="center" gap="1" mb="1">
-            <label className="mb-0">Rule projects</label>
+          <Flex align="center" gap="1" mb="3">
+            <label className="mb-0">Rule Projects</label>
             <Tooltip body={help}>
               <PiInfo />
             </Tooltip>
@@ -79,9 +89,10 @@ export default function RuleProjectScopeField({
             setValue={(v) => setAllProjects(v === "all")}
             gap="0"
             options={[
+              { value: "all", label: "All Projects" },
               {
                 value: "specific",
-                label: "Specific projects",
+                label: "Specific Projects",
                 renderOutsideItem: true,
                 renderOnSelect: (
                   <Box pl="5">
@@ -92,7 +103,7 @@ export default function RuleProjectScopeField({
                         value: p.id,
                         label: p.name,
                       }))}
-                      placeholder="Select projects..."
+                      placeholder="No projects selected"
                       sort={false}
                       containerClassName="w-full"
                     />
@@ -105,7 +116,6 @@ export default function RuleProjectScopeField({
                   </Box>
                 ),
               },
-              { value: "all", label: "All projects", itemClassName: "mt-2" },
             ]}
           />
         </>
