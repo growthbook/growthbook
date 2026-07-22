@@ -79,10 +79,11 @@ jobs:
             DD_GIT_COMMIT_SHA=${{ github.sha }}
             DD_GIT_REPOSITORY_URL=https://github.com/growthbook/growthbook.git
             DD_VERSION=${{ github.sha }}
+          # No ECR :latest — the ECR repo is immutable, so we push only the
+          # unique git-<sha> tag. Docker Hub :latest stays for self-host.
           tags: |
             growthbook/growthbook:latest
             growthbook/growthbook:git-${{ steps.metadata.outputs.docker_sha }}
-            ${{ steps.login-ecr.outputs.registry }}/growthbook:latest
             ${{ steps.login-ecr.outputs.registry }}/growthbook:git-${{ steps.metadata.outputs.docker_sha }}
           platforms: linux/amd64,linux/arm64
 
@@ -117,10 +118,10 @@ jobs:
 
       - name: Extract static assets from Docker image and upload to S3
         env:
-          ECR_REGISTRY: ${{ steps.login-ecr-prod.outputs.registry }}
+          IMAGE: ${{ steps.login-ecr-prod.outputs.registry }}/growthbook:git-${{ needs.docker.outputs.docker_sha }}
         run: |
-          docker pull ${ECR_REGISTRY}/growthbook:latest
-          docker create --name temp-container ${ECR_REGISTRY}/growthbook:latest
+          docker pull ${IMAGE}
+          docker create --name temp-container ${IMAGE}
           docker cp temp-container:/usr/local/src/app/packages/front-end/.next/static ./static
           # Back-end-dist and front-end-dist is for the sentry source maps task below.
           docker cp temp-container:/usr/local/src/app/packages/back-end/dist ./back-end-dist
