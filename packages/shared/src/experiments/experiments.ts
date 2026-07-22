@@ -583,7 +583,7 @@ function isLowerAbsoluteCappedMetric(metric: ExperimentMetricDefinition) {
 }
 
 /** Any upper or lower tail capping is active (SQL / experiment analysis). */
-export function hasActiveCappingTails(metric: ExperimentMetricInterface) {
+export function hasActiveCappingTails(metric: ExperimentMetricDefinition) {
   return (
     getCappingTailState(metric.cappingSettings, getLowerCappingSettings(metric))
       .anyCap && isCappableMetricType(metric)
@@ -591,7 +591,7 @@ export function hasActiveCappingTails(metric: ExperimentMetricInterface) {
 }
 
 /** Short label for tooltip / metadata when capping is enabled. */
-export function formatMetricCappingSummary(metric: ExperimentMetricInterface) {
+export function formatMetricCappingSummary(metric: ExperimentMetricDefinition) {
   const cs = metric.cappingSettings;
   const lower = getLowerCappingSettings(metric);
   const parts: string[] = [];
