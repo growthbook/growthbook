@@ -1,7 +1,7 @@
 import { format } from "date-fns";
 import { getValidDate, getValidDateOffsetByUTC } from "shared/dates";
 import DatePicker from "@/components/DatePicker";
-import { isDateOnlyOperator } from "./rowFilterUtils";
+import { FILTER_ROW_INPUT_HEIGHT, isDateOnlyOperator } from "./rowFilterUtils";
 
 /**
  * Single-value date input for the `= < <= > >=` row-filter operators.
@@ -43,7 +43,7 @@ export function DateFilterInput({
       setDate={(d) => onChange(d ? [format(d, dateFormat)] : [])}
       precision={dateOnly ? "date" : "datetime"}
       inputWidth={inputWidth}
-      inputHeight={36}
+      inputHeight={FILTER_ROW_INPUT_HEIGHT}
     />
   );
 }

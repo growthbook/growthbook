@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { format } from "date-fns";
 import { getValidDateOffsetByUTC } from "shared/dates";
 import DatePicker from "@/components/DatePicker";
+import { FILTER_ROW_INPUT_HEIGHT } from "./rowFilterUtils";
 
 /**
  * Date-range value input for the `between` / `not_between` row-filter operators.
@@ -54,7 +55,7 @@ export function DateRangeFilterInput({
       setDate2={(d) => applyBound(1, d)}
       precision="date"
       inputWidth={inputWidth}
-      inputHeight={36}
+      inputHeight={FILTER_ROW_INPUT_HEIGHT}
     />
   );
 }
