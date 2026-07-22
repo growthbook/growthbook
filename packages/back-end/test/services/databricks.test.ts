@@ -25,7 +25,7 @@ describe("buildDatabricksConnectionOptions", () => {
       host: sharedParams.host,
       port: sharedParams.port,
       path: sharedParams.path,
-      clientId: sharedParams.clientId,
+      userAgentEntry: sharedParams.clientId,
       token: "dapi-secret-token",
     });
     expect("authType" in options).toBe(false);
@@ -44,7 +44,7 @@ describe("buildDatabricksConnectionOptions", () => {
       host: sharedParams.host,
       port: sharedParams.port,
       path: sharedParams.path,
-      clientId: sharedParams.clientId,
+      userAgentEntry: sharedParams.clientId,
       token: "dapi-legacy-token",
     });
     expect("authType" in options).toBe(false);
@@ -64,7 +64,7 @@ describe("buildDatabricksConnectionOptions", () => {
       host: sharedParams.host,
       port: sharedParams.port,
       path: sharedParams.path,
-      clientId: sharedParams.clientId,
+      userAgentEntry: sharedParams.clientId,
       authType: "databricks-oauth",
       oauthClientId: "service-principal-app-id",
       oauthClientSecret: "oauth-secret",
@@ -72,12 +72,12 @@ describe("buildDatabricksConnectionOptions", () => {
     expect("token" in options).toBe(false);
   });
 
-  it("shares host/port/path/clientId across both auth methods and defaults them", () => {
+  it("shares host/port/path/userAgentEntry across both auth methods and defaults them", () => {
     const base = {
       host: "host.databricks.com",
       path: "/sql/path",
       catalog: "main",
-      // port omitted → defaults to 443; clientId omitted → defaults to "GrowthBook"
+      // port omitted → defaults to 443; userAgentEntry omitted → defaults to "GrowthBook"
     } as unknown as DatabricksConnectionParams;
 
     const pat = buildDatabricksConnectionOptions({
@@ -96,7 +96,7 @@ describe("buildDatabricksConnectionOptions", () => {
       expect(options.host).toBe("host.databricks.com");
       expect(options.port).toBe(443);
       expect(options.path).toBe("/sql/path");
-      expect(options.clientId).toBe("GrowthBook");
+      expect(options.userAgentEntry).toBe("GrowthBook");
     }
   });
 });
