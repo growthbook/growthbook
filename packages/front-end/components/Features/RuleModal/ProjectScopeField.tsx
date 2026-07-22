@@ -6,45 +6,46 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import RadioGroup from "@/ui/RadioGroup";
 import Link from "@/ui/Link";
 import MultiSelectField from "@/ui/MultiSelectField";
+import Callout from "@/ui/Callout";
 import Tooltip from "@/components/Tooltip/Tooltip";
 
-// Controlled targeting-projects editor shared by features, configs, and
-// constants (create + edit). Collapsed to a "+ Add" link until opted in (or
-// seeded open when a value is already set); then a Specific/All-projects radio
-// where "Specific" reveals a full-width project multiselect.
-export type TargetingProjectsFieldProps = {
-  // Governance project, excluded from the options.
-  primaryProject?: string;
+// Rule-level project scope editor. Sits under the environment scope widget in
+// every rule-type modal, opt-in like the feature-level targeting widget: a rule
+// applies to all of the feature's projects by default, collapsed to a "+ Project
+// scope" link until opted in (or seeded open when already scoped). "Specific
+// projects" reveals a multiselect; an empty selection scopes the rule to no
+// project (never "all") — matching the leak-safe backend encoding.
+export type ProjectScopeProps = {
   allProjects: boolean;
-  setAllProjects: (value: boolean) => void;
-  targetingProjects: string[];
-  setTargetingProjects: (value: string[]) => void;
-  // Noun used in the help tooltip (e.g. "feature", "config", "constant").
-  entityLabel?: string;
+  setAllProjects: (v: boolean) => void;
+  selectedProjects: string[];
+  setSelectedProjects: (v: string[]) => void;
 } & MarginProps;
 
-export default function TargetingProjectsField({
-  primaryProject,
+export default function RuleProjectScopeField({
   allProjects,
   setAllProjects,
-  targetingProjects,
-  setTargetingProjects,
-  entityLabel = "feature",
+  selectedProjects,
+  setSelectedProjects,
   ...marginProps
-}: TargetingProjectsFieldProps) {
+}: ProjectScopeProps) {
   const { projects } = useDefinitions();
-  const [enabled, setEnabled] = useState<boolean>(
-    () => allProjects || targetingProjects.length > 0,
-  );
+  const [enabled, setEnabled] = useState<boolean>(() => !allProjects);
 
-  const help = `Deliver this ${entityLabel} to additional projects.`;
+  const help =
+    "Limit this rule to specific projects. Applies to all of the feature's projects by default.";
 
   return (
     <Box {...marginProps}>
       {!enabled ? (
         <Flex align="center" gap="1">
-          <Link onClick={() => setEnabled(true)}>
-            <PiPlus /> Targeting projects
+          <Link
+            onClick={() => {
+              setEnabled(true);
+              setAllProjects(false);
+            }}
+          >
+            <PiPlus /> Project scope
           </Link>
           <Tooltip body={help}>
             <PiInfo />
@@ -53,7 +54,7 @@ export default function TargetingProjectsField({
       ) : (
         <>
           <Flex align="center" gap="1" mb="1">
-            <label className="mb-0">Targeting projects</label>
+            <label className="mb-0">Rule projects</label>
             <Tooltip body={help}>
               <PiInfo />
             </Tooltip>
@@ -71,15 +72,22 @@ export default function TargetingProjectsField({
                 renderOnSelect: (
                   <Box pl="5">
                     <MultiSelectField
-                      value={targetingProjects}
-                      onChange={setTargetingProjects}
-                      options={projects
-                        .filter((p) => p.id !== primaryProject)
-                        .map((p) => ({ value: p.id, label: p.name }))}
+                      value={selectedProjects}
+                      onChange={setSelectedProjects}
+                      options={projects.map((p) => ({
+                        value: p.id,
+                        label: p.name,
+                      }))}
                       placeholder="Select projects..."
                       sort={false}
                       containerClassName="w-full"
                     />
+                    {selectedProjects.length === 0 && (
+                      <Callout status="warning" size="sm" mt="2">
+                        This rule will not apply in any project until at least
+                        one is selected.
+                      </Callout>
+                    )}
                   </Box>
                 ),
               },
