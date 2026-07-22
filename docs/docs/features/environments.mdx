@@ -45,15 +45,19 @@ Environments and projects are both ways to organize feature flags, but they serv
 
 In practice, you use both together: a feature flag in the "Mobile App" project might be enabled in the dev environment for testing but disabled in production until launch.
 
-|                 | Environments                                 | Projects                                                          |
-| --------------- | -------------------------------------------- | ----------------------------------------------------------------- |
-| **Purpose**     | Control _where_ a flag is active             | Organize _who_ works on what                                      |
-| **Scope**       | One flag, different settings per environment | Flags, metrics, data sources, and experiments per team            |
-| **SDK impact**  | Each SDK connection maps to one environment  | SDK connections can be scoped to a project to reduce payload size |
-| **Permissions** | N/A                                          | Users can have different permission levels per project            |
-| **Example**     | `dev`, `staging`, `production`               | "Mobile App", "Growth", "API"                                     |
+|                 | Environments                                 | Projects                                                                                                                                                  |
+| --------------- | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Purpose**     | Control _where_ a flag is active             | Organize _who_ works on what                                                                                                                              |
+| **Scope**       | One flag, different settings per environment | Flags, metrics, data sources, and experiments per team                                                                                                    |
+| **SDK impact**  | Each SDK connection maps to one environment  | SDK connections can be scoped to a project to reduce payload size; features and rules can also target projects to scope _delivery_ (advanced — see below) |
+| **Permissions** | N/A                                          | Users can have different permission levels per project                                                                                                    |
+| **Example**     | `dev`, `staging`, `production`               | "Mobile App", "Growth", "API"                                                                                                                             |
 
 Learn more about [how to use projects](/using/growthbook-best-practices#projects).
+
+:::note Which axis should I use?
+For most teams, **environments** are the way to control _where_ a flag is active, and projects are mainly for organization and permissions. Projects can _also_ scope delivery — targeting a feature or rule to specific projects — but that's an advanced pattern for cross-project delivery, covered next. Reach for environments first.
+:::
 
 ### Delivering a feature to multiple projects
 
