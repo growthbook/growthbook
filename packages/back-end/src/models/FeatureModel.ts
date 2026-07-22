@@ -1749,6 +1749,14 @@ export async function applyHoldoutSideEffects(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   newHoldout: { id: string; value: string } | null,
+  // Compensation reverting to a previously-published (valid) holdout state: the
+  // guard below is a config-time check against creating an invalid combination,
+  // not a restore-time one. A rollback re-adds the pre-image holdout WHILE the
+  // still-published rules transiently include the blocking state (they revert
+  // moments later), so enforcing it here would refuse a legitimate restore —
+  // and, mid multi-satellite rollback, leave already-reversed satellites beside
+  // a feature left published. Mirrors `isRevert` on the entity adapters.
+  { isRevert }: { isRevert?: boolean } = {},
 ) {
   const prevHoldoutId = feature.holdout?.id;
   const newHoldoutId = newHoldout?.id;
@@ -1756,7 +1764,7 @@ export async function applyHoldoutSideEffects(
   if (newHoldoutId === prevHoldoutId) return;
 
   // Guard: cannot change holdout when there are running experiments, bandits, or safe rollouts
-  if (newHoldout !== null) {
+  if (newHoldout !== null && !isRevert) {
     const experiments = await Promise.all(
       (feature.linkedExperiments ?? []).map((id) =>
         getExperimentById(context, id),

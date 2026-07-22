@@ -422,14 +422,18 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
         );
       }
     }
-    // Reverse the apply-time holdout transition (its guards can legitimately
-    // refuse mid-compensation, e.g. a safe-rollout rule blocks the change).
+    // Reverse the apply-time holdout transition. `isRevert` skips the config-
+    // time guard: this restores a previously-valid holdout state, and enforcing
+    // the guard here would deterministically refuse (the still-published rules
+    // transiently include the blocking state) and split the rollback — leaving
+    // an already-reversed safe rollout beside a feature left published.
     if (mergeResult.holdout !== undefined) {
       try {
         await applyHoldoutSideEffects(
           context,
           { ...current, holdout: mergeResult.holdout ?? undefined },
           feature.holdout ?? null,
+          { isRevert: true },
         );
       } catch (e) {
         reversalFailures.push("holdout");
