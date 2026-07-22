@@ -1939,6 +1939,8 @@ export function getRuleMetaInfo({
       conflicts={banner.conflicts}
       environments={banner.environments}
       allEnvironments={banner.allEnvironments}
+      projects={banner.projects}
+      allProjects={banner.allProjects}
     />
   ));
 

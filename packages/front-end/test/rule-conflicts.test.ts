@@ -2,7 +2,9 @@ import { FeatureRule } from "shared/types/feature";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   buildConflictBanners,
+  getReachabilityCells,
   getRuleReachability,
+  OTHER_PROJECT_BUCKET,
   RuleReachability,
   SavedGroupForConflicts,
 } from "@/services/rule-conflicts";
@@ -16,6 +18,8 @@ type Extra = {
   condition?: string;
   savedGroups?: { ids: string[]; match: "all" | "any" | "none" }[];
   enabled?: boolean;
+  projects?: string[];
+  allProjects?: boolean;
 };
 function force(id: string, extra: Extra = {}): FeatureRule {
   return {
@@ -26,6 +30,8 @@ function force(id: string, extra: Extra = {}): FeatureRule {
     enabled: extra.enabled ?? true,
     condition: extra.condition,
     savedGroups: extra.savedGroups,
+    allProjects: extra.allProjects,
+    projects: extra.projects,
   } as unknown as FeatureRule;
 }
 function rollout(
@@ -1363,6 +1369,8 @@ describe("buildConflictBanners — per-environment grouping", () => {
         },
         environments: [],
         allEnvironments: false,
+        projects: [],
+        allProjects: false,
       },
     ]);
   });
@@ -1390,6 +1398,8 @@ describe("buildConflictBanners — per-environment grouping", () => {
         },
         environments: ["dev", "staging", "production"],
         allEnvironments: true,
+        projects: [],
+        allProjects: false,
       },
     ]);
   });
@@ -1432,6 +1442,8 @@ describe("buildConflictBanners — per-environment grouping", () => {
         },
         environments: ["production"],
         allEnvironments: false,
+        projects: [],
+        allProjects: false,
       },
       {
         isUnreachable: false,
@@ -1441,6 +1453,8 @@ describe("buildConflictBanners — per-environment grouping", () => {
         },
         environments: ["dev", "staging"],
         allEnvironments: false,
+        projects: [],
+        allProjects: false,
       },
     ]);
   });
@@ -1506,5 +1520,186 @@ describe("buildConflictBanners — per-environment grouping", () => {
     );
     expect(banners[0].environments).toEqual(["production"]);
     expect(banners[0].allEnvironments).toBe(false);
+  });
+});
+
+describe("getReachabilityCells — project × environment partitioning", () => {
+  // Summarize a rule's cells as sorted {env, project, unreachable} for stable
+  // assertions.
+  const cellsFor = (map: ReturnType<typeof getReachabilityCells>, id: string) =>
+    (map.get(id) ?? [])
+      .map((c) => ({
+        env: c.env,
+        project: c.project,
+        unreachable: c.reach.unreachable,
+      }))
+      .sort((a, b) =>
+        a.env === b.env
+          ? a.project.localeCompare(b.project)
+          : a.env.localeCompare(b.env),
+      );
+
+  it("projects=some: a project-scoped 100% rule only shadows its own project", () => {
+    // r1 forces everyone but is scoped to clo; r2 is unscoped. r2 is consumed in
+    // the clo cell but reachable in brainzy — the reported false positive.
+    const r1 = force("r1", { projects: ["clo"], allProjects: false });
+    const r2 = force("r2");
+    const cells = getReachabilityCells(
+      [{ env: "production", rules: [r1, r2] }],
+      ["brainzy", "clo"],
+      noExperiments,
+    );
+    expect(cellsFor(cells, "r2")).toEqual([
+      { env: "production", project: "brainzy", unreachable: false },
+      { env: "production", project: "clo", unreachable: true },
+    ]);
+  });
+
+  it("projects=all: an unscoped 100% rule shadows every project", () => {
+    const r1 = force("r1"); // unscoped catch-all
+    const r2 = force("r2");
+    const cells = getReachabilityCells(
+      [{ env: "production", rules: [r1, r2] }],
+      ["brainzy", "clo"],
+      noExperiments,
+    );
+    expect(cellsFor(cells, "r2")).toEqual([
+      { env: "production", project: "brainzy", unreachable: true },
+      { env: "production", project: "clo", unreachable: true },
+    ]);
+  });
+
+  it("projects=none: a rule scoped to no project produces no cells", () => {
+    const r1 = force("r1", { projects: [], allProjects: false });
+    const cells = getReachabilityCells(
+      [{ env: "production", rules: [r1] }],
+      ["brainzy", "clo"],
+      noExperiments,
+    );
+    expect(cells.get("r1")).toBeUndefined();
+  });
+
+  it("env × project: an env-scoped project-scoped rule shadows only its one cell", () => {
+    // r1 forces everyone, scoped to clo, and (via rulesByEnv) only present in
+    // production. r2 is unscoped, present in both envs.
+    const r1 = force("r1", { projects: ["clo"], allProjects: false });
+    const r2 = force("r2");
+    const cells = getReachabilityCells(
+      [
+        { env: "production", rules: [r1, r2] },
+        { env: "dev", rules: [r2] },
+      ],
+      ["brainzy", "clo"],
+      noExperiments,
+    );
+    expect(cellsFor(cells, "r2")).toEqual([
+      { env: "dev", project: "brainzy", unreachable: false },
+      { env: "dev", project: "clo", unreachable: false },
+      { env: "production", project: "brainzy", unreachable: false },
+      { env: "production", project: "clo", unreachable: true },
+    ]);
+  });
+
+  it("all-projects feature: unscoped shadow covers the scoped bucket and the sentinel", () => {
+    const r1 = force("r1"); // unscoped catch-all
+    const r2 = force("r2");
+    const cells = getReachabilityCells(
+      [{ env: "production", rules: [r1, r2] }],
+      ["clo", OTHER_PROJECT_BUCKET],
+      noExperiments,
+    );
+    expect(cellsFor(cells, "r2")).toEqual([
+      { env: "production", project: "clo", unreachable: true },
+      { env: "production", project: OTHER_PROJECT_BUCKET, unreachable: true },
+    ]);
+  });
+
+  it("all-projects feature: a project-scoped shadow leaves the sentinel reachable", () => {
+    const r1 = force("r1", { projects: ["clo"], allProjects: false });
+    const r2 = force("r2");
+    const cells = getReachabilityCells(
+      [{ env: "production", rules: [r1, r2] }],
+      ["clo", OTHER_PROJECT_BUCKET],
+      noExperiments,
+    );
+    expect(cellsFor(cells, "r2")).toEqual([
+      { env: "production", project: "clo", unreachable: true },
+      { env: "production", project: OTHER_PROJECT_BUCKET, unreachable: false },
+    ]);
+  });
+});
+
+describe("buildConflictBanners — project nuance", () => {
+  const num = (id: string) => (id === "r1" ? 1 : undefined);
+  const unreachableIn = (env: string, project: string) => ({
+    env,
+    project,
+    reach: {
+      unreachable: true,
+      hardConflicts: [{ consumingRuleId: "r1", attr: null, label: null }],
+      softConflicts: [],
+    } as RuleReachability,
+  });
+  const cleanIn = (env: string, project: string) => ({
+    env,
+    project,
+    reach: {
+      unreachable: false,
+      hardConflicts: [],
+      softConflicts: [],
+    } as RuleReachability,
+  });
+
+  it("names the projects when unreachable in a strict subset of them", () => {
+    const banners = buildConflictBanners(
+      [unreachableIn("production", "clo"), cleanIn("production", "brainzy")],
+      num,
+      false,
+      { multiProject: true, projectLabel: (id) => id.toUpperCase() },
+    );
+    expect(banners).toHaveLength(1);
+    expect(banners[0].isUnreachable).toBe(true);
+    expect(banners[0].projects).toEqual(["CLO"]);
+    expect(banners[0].allProjects).toBe(false);
+  });
+
+  it("flags allProjects when unreachable across every project", () => {
+    const banners = buildConflictBanners(
+      [
+        unreachableIn("production", "clo"),
+        unreachableIn("production", "brainzy"),
+      ],
+      num,
+      false,
+      { multiProject: true },
+    );
+    expect(banners[0].projects).toEqual([]);
+    expect(banners[0].allProjects).toBe(true);
+  });
+
+  it("omits project info for single-project features", () => {
+    const banners = buildConflictBanners(
+      [unreachableIn("production", "clo")],
+      num,
+      false,
+      { multiProject: false },
+    );
+    expect(banners[0].projects).toEqual([]);
+    expect(banners[0].allProjects).toBe(false);
+  });
+
+  it("excludes the sentinel bucket from named projects", () => {
+    const banners = buildConflictBanners(
+      [
+        unreachableIn("production", "clo"),
+        unreachableIn("production", OTHER_PROJECT_BUCKET),
+        cleanIn("production", "brainzy"),
+      ],
+      num,
+      false,
+      { multiProject: true },
+    );
+    // clo + sentinel are unreachable, brainzy clean → subset, sentinel not named.
+    expect(banners[0].projects).toEqual(["clo"]);
   });
 });

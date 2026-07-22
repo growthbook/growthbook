@@ -28,15 +28,15 @@ import {
   MinimalFeatureRevisionInterface,
 } from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
-import { ruleFootprint } from "shared/util";
+import { getTargetingProjectIds, ruleProjectScope } from "shared/util";
 import { buildRuleRampScheduleMap } from "@/services/rampScheduleHelpers";
 import { useAuth } from "@/services/auth";
 import { getRules, isRuleInactive } from "@/services/features";
 import {
   buildConflictBanners,
   ConflictBanner,
-  getRuleReachability,
-  RuleReachability,
+  getReachabilityCells,
+  OTHER_PROJECT_BUCKET,
   SavedGroupForConflicts,
 } from "@/services/rule-conflicts";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -119,7 +119,7 @@ export default function RuleList(props: RuleListProps) {
 
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
-  const { savedGroups } = useDefinitions();
+  const { savedGroups, getProjectById } = useDefinitions();
   const [activeId, setActiveId] = useState<string | null>(null);
 
   // Saved group definitions for conflict detection. Condition groups carry
@@ -237,40 +237,68 @@ export default function RuleList(props: RuleListProps) {
   //     unreachable in production but only soft-conflicting in dev shows both,
   //     each naming its environments. Rules with no env footprint never apply
   //     anywhere and are surfaced via the "No environments" badge.
-  const reachabilityByRule = useMemo<Map<string, RuleReachability>>(
-    () =>
-      allEnvsView
-        ? new Map()
-        : getRuleReachability(items, experimentsMap, savedGroupConflictMap),
-    [allEnvsView, items, experimentsMap, savedGroupConflictMap],
-  );
-
-  const reachByEnv = useMemo<Map<string, Map<string, RuleReachability>>>(() => {
-    const map = new Map<string, Map<string, RuleReachability>>();
-    if (!allEnvsView) return map;
-    for (const e of props.environments) {
-      map.set(
-        e.id,
-        getRuleReachability(
-          getRules(feature, e.id),
-          experimentsMap,
-          savedGroupConflictMap,
-        ),
-      );
+  // Reachability is computed per (environment × project) cell. The projects
+  // come from the current revision's staged scope (falling back to the live
+  // feature), so a rule scoped to one project stays reachable in the feature's
+  // other projects even when a 100% rule scoped elsewhere sits above it.
+  const projectBuckets = useMemo<string[]>(() => {
+    const meta = draftRevision?.metadata;
+    const deliveryIds = getTargetingProjectIds({
+      project: meta?.project ?? feature.project,
+      targetingProjects: meta?.targetingProjects ?? feature.targetingProjects,
+      targetingAllProjects:
+        meta?.targetingAllProjects ?? feature.targetingAllProjects,
+    });
+    if (deliveryIds === null) {
+      // Feature delivers to all projects — can't enumerate. Partition by the
+      // projects any rule scopes to, plus a sentinel bucket for "the rest".
+      const scoped = new Set<string>();
+      for (const r of feature.rules ?? []) {
+        ruleProjectScope(r)?.forEach((p) => scoped.add(p));
+      }
+      return [...scoped, OTHER_PROJECT_BUCKET];
     }
-    return map;
+    return deliveryIds.length ? deliveryIds : [""];
+  }, [
+    draftRevision,
+    feature.project,
+    feature.targetingProjects,
+    feature.targetingAllProjects,
+    feature.rules,
+  ]);
+
+  // A feature reaching >1 project gets project-nuanced conflict messaging.
+  const multiProject = projectBuckets.length > 1;
+
+  const cellsByRule = useMemo(() => {
+    const rulesByEnv = allEnvsView
+      ? props.environments.map((e) => ({
+          env: e.id,
+          rules: getRules(feature, e.id),
+        }))
+      : [{ env: props.environment, rules: items }];
+    return getReachabilityCells(
+      rulesByEnv,
+      projectBuckets,
+      experimentsMap,
+      savedGroupConflictMap,
+    );
   }, [
     allEnvsView,
-    feature,
-    experimentsMap,
     props.environments,
+    props.environment,
+    feature,
+    items,
+    projectBuckets,
+    experimentsMap,
     savedGroupConflictMap,
   ]);
 
-  // Per-rule conflict banners. Single-env → at most one banner (env unnamed);
-  // all-envs → one banner per status, each naming the environments that share
-  // it. The "rule number" shown in the details maps a consuming rule's id to its
-  // 1-based position (offset by 1 for the holdout row when present).
+  // Per-rule conflict banners. Single-env → env unnamed; all-envs → one banner
+  // per status naming the environments that share it. Multi-project features add
+  // "…for project X" when a status is confined to some of the feature's projects.
+  // The "rule number" maps a consuming rule's id to its 1-based position (offset
+  // by 1 for the holdout row when present).
   const bannersByRule = useMemo<Map<string, ConflictBanner[]>>(() => {
     const flat = feature.rules ?? [];
     const offset = holdout ? 2 : 1;
@@ -278,41 +306,27 @@ export default function RuleList(props: RuleListProps) {
       const idx = flat.findIndex((r) => r.id === id);
       return idx === -1 ? undefined : idx + offset;
     };
+    const projectLabel = (id: string) => getProjectById(id)?.name ?? id;
     const out = new Map<string, ConflictBanner[]>();
-    if (!allEnvsView) {
-      for (const rule of items) {
-        const reach = reachabilityByRule.get(rule.id);
-        if (!reach) continue;
-        out.set(
-          rule.id,
-          buildConflictBanners(
-            [{ env: props.environment, reach }],
-            ruleNumber,
-            false,
-          ),
-        );
-      }
-    } else {
-      const envIds = props.environments.map((e) => e.id);
-      for (const rule of items) {
-        const perEnv = ruleFootprint(rule, envIds)
-          .map((env) => ({ env, reach: reachByEnv.get(env)?.get(rule.id) }))
-          .filter(
-            (x): x is { env: string; reach: RuleReachability } => !!x.reach,
-          );
-        out.set(rule.id, buildConflictBanners(perEnv, ruleNumber, true));
-      }
+    for (const rule of items) {
+      const cells = cellsByRule.get(rule.id) ?? [];
+      out.set(
+        rule.id,
+        buildConflictBanners(cells, ruleNumber, !!allEnvsView, {
+          multiProject,
+          projectLabel,
+        }),
+      );
     }
     return out;
   }, [
-    allEnvsView,
     items,
-    reachabilityByRule,
-    reachByEnv,
-    props.environment,
-    props.environments,
+    cellsByRule,
+    allEnvsView,
+    multiProject,
     feature.rules,
     holdout,
+    getProjectById,
   ]);
 
   const inactiveRules = items.filter((r) => isRuleInactive(r, experimentsMap));
