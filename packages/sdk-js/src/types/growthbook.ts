@@ -173,8 +173,6 @@ export interface TrackingDataWithUser {
 export type TrackingCallback = (
   experiment: Experiment<any>,
   result: Result<any>,
-  // A lean UserContext carrying only the user's attributes. Reuses the
-  // UserContext shape instead of passing a bare attributes object.
   user?: UserContext,
 ) => Promise<void> | void;
 
