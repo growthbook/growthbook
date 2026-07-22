@@ -36,7 +36,7 @@
   "dependencies": {
     "@datadog/native-metrics": "^3.1.1",
     "@datadog/pprof": "^5.13.2",
-    "dd-trace": "^5.83.0",
+    "dd-trace": "^5.100.0",
     "pm2": "^6.0.14"
   },
   "devDependencies": {
@@ -87,7 +87,7 @@
       "@octokit/request-error@5": "^5.1.1",
       "baseline-browser-mapping": "^2.9.19",
       "brace-expansion@1": "^1.1.12",
-      "axios@1": "^1.15.2",
+      "axios@1": "^1.18.0",
       "basic-ftp@5": "^5.3.1",
       "bn.js@4": "^4.12.3",
       "bn.js@5": "^5.2.3",
@@ -98,7 +98,8 @@
       "form-data@2": "^2.5.5",
       "form-data@3": "^3.0.4",
       "form-data@4": "^4.0.6",
-      "brace-expansion@5": "^5.0.6",
+      "body-parser@1": "^1.20.6",
+      "brace-expansion@5": "^5.0.7",
       "fast-xml-parser@5": "^5.7.0",
       "follow-redirects@1": "^1.16.0",
       "js-cookie@3": "^3.0.7",
@@ -113,7 +114,7 @@
       "postcss@8": "^8.5.10",
       "prismjs@1": "^1.30.0",
       "@protobufjs/utf8@1": "^1.1.1",
-      "protobufjs@7": "^7.6.3",
+      "protobufjs@7": "^7.6.5",
       "qs@6": "^6.15.2",
       "socks@2": "^2.8.9",
       "uuid@8": "^11.1.1",
@@ -123,7 +124,7 @@
       "ws@5": "^5.2.5",
       "ws@7": "^7.5.11",
       "@opentelemetry/core@2": "^2.8.0",
-      "js-yaml@4": "^4.2.0",
+      "js-yaml@4": "^4.3.0",
       "yaml@1": "^1.10.3"
     },
     "peerDependencyRules": {
