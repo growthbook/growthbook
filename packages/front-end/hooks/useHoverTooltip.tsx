@@ -198,7 +198,6 @@ function TooltipPortal({
           ref={refs.setFloating}
           className={styles.tooltip}
           style={cursorTooltipStyle}
-          onClick={handleClick}
         >
           {content}
         </div>
