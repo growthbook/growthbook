@@ -378,8 +378,6 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
   async restorePreImage(context, preImage, revision, desiredState) {
     const feature = preImage as unknown as FeatureInterface;
     const desired = desiredState as unknown as FeatureDesiredState;
-    // Satellite reversals that couldn't complete; a non-empty list reports the
-    // item "published" (stuck), not a clean rollback.
     const reversalFailures: string[] = [];
     const current = await getFeature(context, feature.id);
     // Entity gone (concurrent hard-delete): can't restore a pre-image that no
@@ -392,35 +390,53 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     }
     const { mergeResult } = desired;
 
-    // Reverse the cross-collection satellites first; the safe-rollout restore
-    // is ownership-checked inside so a worker's progress is never clobbered.
+    // Leave-whole rule (same as the generic adapter): the moment ANY reversal
+    // fails, stop mutating and leave the feature DOC at the published state —
+    // reverting rules/version beside a still-published satellite would be a
+    // false "rolled-back". Enforced before every mutating phase below, so each
+    // leave-whole outcome stays coherent (kept ramp schedules pair with the
+    // published doc, intact links pair with the published rules).
     //
     // ACCEPTED BOUNDARY: these reversals are not transactional. Deterministic
-    // failures are designed out (safe-rollout throws before its write, the
-    // holdout config-guard is skipped on revert, revert-only writes moved below
-    // the gate), but an INFRA failure after a prior satellite already reversed
-    // can still leave a partial — reported "published" (needs attention). That
-    // residual needs DB transactions; it can't be reordered away.
-    for (const entry of desired.safeRollouts ?? []) {
-      try {
-        await context.models.safeRollout.restoreAfterFailedBulkPublish(
-          entry.pre,
-          entry.writtenStatus,
-          entry.post,
-        );
-      } catch (e) {
-        reversalFailures.push(`safe rollout ${entry.pre.id}`);
-        logger.error(
-          e,
-          `bulk publish compensation: failed to restore safe rollout ${entry.pre.id} for feature ${feature.id}`,
+    // failures are designed out (rollouts preflighted before any mutates, the
+    // holdout resolves its target before mutating and skips its config-guard on
+    // revert, revert-only writes gated), but an INFRA failure after a prior
+    // write can still leave a partial — reported "published" (needs attention).
+    // That residual needs DB transactions; it can't be reordered away.
+    const assertNoReversalFailures = () => {
+      if (reversalFailures.length) {
+        throw new Error(
+          `bulk publish compensation: could not fully roll back feature ${feature.id} — ${reversalFailures.join(", ")}; feature left at the published state`,
         );
       }
+    };
+
+    // Two passes over the safe-rollout reversals: a dry preflight (all checks,
+    // no writes) so a deterministic refusal — a missing ownership baseline —
+    // surfaces before ANY rollout mutates, then the real pass.
+    for (const dryRun of [true, false]) {
+      for (const entry of desired.safeRollouts ?? []) {
+        try {
+          await context.models.safeRollout.restoreAfterFailedBulkPublish(
+            entry.pre,
+            entry.writtenStatus,
+            entry.post,
+            { dryRun },
+          );
+        } catch (e) {
+          reversalFailures.push(`safe rollout ${entry.pre.id}`);
+          logger.error(
+            e,
+            `bulk publish compensation: failed to restore safe rollout ${entry.pre.id} for feature ${feature.id}`,
+          );
+        }
+      }
+      assertNoReversalFailures();
     }
+
     // Reverse the apply-time holdout transition. `isRevert` skips the config-
-    // time guard: this restores a previously-valid holdout state, and enforcing
-    // the guard here would deterministically refuse (the still-published rules
-    // transiently include the blocking state) and split the rollback — leaving
-    // an already-reversed safe rollout beside a feature left published.
+    // time guard: this restores a previously-valid holdout state, and the
+    // still-published rules transiently include state the guard would refuse.
     if (mergeResult.holdout !== undefined) {
       try {
         await applyHoldoutSideEffects(
@@ -436,23 +452,13 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
           `bulk publish compensation: failed to reverse holdout change for feature ${feature.id} — linked experiments [${(current.linkedExperiments ?? []).join(", ")}] may carry stale holdout pointers`,
         );
       }
+      assertNoReversalFailures();
     }
 
-    // A satellite couldn't be reversed → leave the feature DOC whole at the
-    // published state rather than revert rules/version beside a still-published
-    // satellite (a false "rolled-back"). Same leave-whole rule as the generic
-    // adapter.
-    if (reversalFailures.length) {
-      throw new Error(
-        `bulk publish compensation: could not fully roll back feature ${feature.id} — ${reversalFailures.join(", ")} left at the failed publish's state; feature left at the published state`,
-      );
-    }
-
-    // Every satellite reversed → revert the feature doc. Delete the ramp
-    // schedules this apply created (the pre-image had none). ONLY here, not in
-    // the leave-whole branch above: a feature left published keeps its created
-    // ramp so the poller still activates it — deleting it there would freeze
-    // the published rule at zero traffic. A failed delete surfaces below.
+    // Every satellite reversed → the revert is decided. Delete the ramp
+    // schedules this apply created (the pre-image had none). ONLY on a revert:
+    // a feature left published keeps its created ramp so the poller still
+    // activates it — deleting it there would freeze the rule at zero traffic.
     if (desired.createdRampScheduleIds?.length) {
       const failedIds = await rollbackCreatedRampSchedules(
         context,
@@ -461,7 +467,9 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       if (failedIds.length) {
         reversalFailures.push(`ramp schedule(s) ${failedIds.join(", ")}`);
       }
+      assertNoReversalFailures();
     }
+
     // Unlink the experiments the restored rules no longer reference (paired
     // with the rules restore: a reverted rule set must not leave a dangling
     // link).
@@ -483,6 +491,7 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
         );
       }
     }
+    assertNoReversalFailures();
 
     // Restore exactly the fields the apply wrote (plus the version pointer,
     // which every merge advances) back to their pre-image values.
@@ -513,14 +522,6 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     }) as Partial<FeatureInterface>;
     if (Object.keys(restore).length) {
       await updateFeature(context, current, restore);
-    }
-
-    // An experiment unlink that failed after the doc revert still surfaces → the
-    // item is reported published, not a clean rollback.
-    if (reversalFailures.length) {
-      throw new Error(
-        `bulk publish compensation: could not fully roll back feature ${feature.id} — ${reversalFailures.join(", ")}`,
-      );
     }
   },
 

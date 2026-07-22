@@ -78,6 +78,10 @@ export class SafeRolloutModel extends BaseClass {
     pre: SafeRolloutInterface,
     writtenStatus: string,
     written?: SafeRolloutInterface,
+    // dryRun runs every check — including the deterministic missing-baseline
+    // refusal — without writing, so the caller can preflight ALL of a
+    // feature's rollouts before mutating any of them.
+    options?: { dryRun?: boolean },
   ) {
     const live = await this.getById(pre.id);
     if (!live) return;
@@ -101,6 +105,7 @@ export class SafeRolloutModel extends BaseClass {
           `start metadata; rollout left running`,
       );
     }
+    if (options?.dryRun) return;
     const ownsStartedAt =
       applyStartedIt &&
       !!written &&

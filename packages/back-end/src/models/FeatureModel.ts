@@ -1782,6 +1782,15 @@ export async function applyHoldoutSideEffects(
     }
   }
 
+  // Resolve the new holdout BEFORE removing from the old one, so a missing
+  // holdout fails with no membership mutated (no partial transition).
+  const holdoutObj = newHoldoutId
+    ? await context.models.holdout.getById(newHoldoutId)
+    : null;
+  if (newHoldoutId && !holdoutObj) {
+    throw new Error("Holdout not found");
+  }
+
   // Remove feature from the old holdout
   if (prevHoldoutId) {
     await context.models.holdout.removeFeatureFromHoldout(
@@ -1791,12 +1800,7 @@ export async function applyHoldoutSideEffects(
   }
 
   // Link feature (and its experiments) to the new holdout
-  if (newHoldoutId) {
-    const holdoutObj = await context.models.holdout.getById(newHoldoutId);
-    if (!holdoutObj) {
-      throw new Error("Holdout not found");
-    }
-
+  if (newHoldoutId && holdoutObj) {
     await context.models.holdout.updateById(newHoldoutId, {
       linkedFeatures: {
         [feature.id]: { id: feature.id, dateAdded: new Date() },
@@ -1848,13 +1852,23 @@ export async function applyRampCreateActionsForRevision(
     (a) => a.mode === "create",
   );
   if (!createActions.length) return [];
-  return createRampSchedulesForRevision(
-    context,
-    feature,
-    revision,
-    result,
-    createActions,
-  );
+  const createdIds: string[] = [];
+  try {
+    return await createRampSchedulesForRevision(
+      context,
+      feature,
+      revision,
+      result,
+      createActions,
+      createdIds,
+    );
+  } catch (e) {
+    // A mid-loop throw would otherwise orphan the schedules already created —
+    // invisible to compensation (their ids die with the throw). Best-effort
+    // delete them here; the original error still gates the publish.
+    await rollbackCreatedRampSchedules(context, createdIds);
+    throw e;
+  }
 }
 
 /**
@@ -1920,9 +1934,10 @@ async function createRampSchedulesForRevision(
   revision: { version: number },
   result: MergeResultChanges,
   actions: RevisionRampAction[],
+  // Written to as each schedule is created, so a caller keeps the partial set
+  // if a later action throws (the return value would be lost with the throw).
+  createdIds: string[] = [],
 ): Promise<string[]> {
-  const createdIds: string[] = [];
-
   for (const action of actions) {
     if (action.mode !== "create" && action.mode !== "update") continue;
 
