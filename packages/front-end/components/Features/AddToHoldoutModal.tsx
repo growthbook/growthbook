@@ -56,20 +56,23 @@ const AddToHoldoutModal = ({
     defaultDraft,
   );
 
-  // Only allow adding to holdout if all existing experiments are in draft status
+  // Only check experiments currently in the feature's rules, not the historical
+  // linkedExperiments list (which is kept for revision rendering).
+  const currentExperimentIds = (feature.rules ?? [])
+    .filter((rule) => rule.type === "experiment-ref")
+    .map((rule) => rule.experimentId);
+
+  // Allow adding to holdout if all current experiments are in draft status
   // and don't have a holdoutId or have the same holdoutId as the feature.
-  // Skip deleted experiments (not in experimentsMap) since they no longer block holdout changes.
-  const experimentsAreInDraft = feature.linkedExperiments?.every(
-    (experimentId) => {
-      const exp = experimentsMap[experimentId];
-      // Skip deleted experiments - they no longer block holdout assignment
-      if (!exp) return true;
-      return (
-        exp.status === "draft" &&
-        (!exp.holdoutId || exp.holdoutId === feature.holdout?.id)
-      );
-    },
-  );
+  const experimentsAreInDraft = currentExperimentIds.every((experimentId) => {
+    const exp = experimentsMap[experimentId];
+    // Skip deleted experiments - they no longer block holdout assignment
+    if (!exp) return true;
+    return (
+      exp.status === "draft" &&
+      (!exp.holdoutId || exp.holdoutId === feature.holdout?.id)
+    );
+  });
 
   const eligibleToAddToHoldout = (feature.rules ?? []).every(
     (rule) => rule.type !== "safe-rollout",

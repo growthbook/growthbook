@@ -1761,10 +1761,13 @@ export async function applyHoldoutSideEffects(
 
   // Guard: cannot change holdout when there are running experiments, bandits, or safe rollouts
   if (newHoldout !== null && !isRevert) {
+    // Only check experiments currently in the feature's rules, not the historical
+    // linkedExperiments list (which is kept for revision rendering).
+    const currentExperimentIds = (feature.rules ?? [])
+      .filter((rule) => rule.type === "experiment-ref")
+      .map((rule) => rule.experimentId);
     const experimentResults = await Promise.all(
-      (feature.linkedExperiments ?? []).map((id) =>
-        getExperimentById(context, id),
-      ),
+      currentExperimentIds.map((id) => getExperimentById(context, id)),
     );
     // Filter out deleted experiments (null/undefined) before checking status
     const experiments = experimentResults.filter(
