@@ -23,13 +23,12 @@ import {
   PiClockFill,
 } from "react-icons/pi";
 import { ago, datetime } from "shared/dates";
+import { filterEnvironmentsByFeature, getReviewSetting } from "shared/util";
 import {
-  filterEnvironmentsByFeature,
-  getReviewSetting,
   isScheduledPublishPending,
   isScheduledPublishLockActive,
   isRevisionEditLockedBySchedule,
-} from "shared/util";
+} from "shared/enterprise";
 import { BiHide, BiShow } from "react-icons/bi";
 import Collapsible from "react-collapsible";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -57,6 +56,7 @@ import {
   useEnvironments,
   getPrerequisites,
   getRules,
+  useFeatureRulesEnv,
 } from "@/services/features";
 import { useFeatureDefaultValues } from "@/hooks/useFeatureDefaultValues";
 import { useFeatureDependents } from "@/hooks/useFeatureDependents";
@@ -72,7 +72,8 @@ import {
   FeatureUsageSparkline,
   useFeatureUsage,
 } from "@/components/Features/FeatureUsageGraph";
-import EditRevisionCommentModal from "@/components/Features/EditRevisionCommentModal";
+import EditRevisionDescriptionModal from "@/components/Reviews/EditRevisionDescriptionModal";
+import InlineRevisionDescription from "@/components/Reviews/InlineRevisionDescription";
 import RevisionStatusBadge from "@/components/Reviews/RevisionStatusBadge";
 import RevisionLabel, {
   revisionLabelText,
@@ -249,10 +250,6 @@ export default function FeaturesOverview({
   const permissionsUtil = usePermissionsUtil();
 
   const [editCommentModel, setEditCommentModal] = useState(false);
-  const [commentExpanded, setCommentExpanded] = useState(false);
-  useEffect(() => {
-    setCommentExpanded(false);
-  }, [revision?.version]);
   const [showDescriptionModal, setShowDescriptionModal] = useState(false);
   const [killSwitchTarget, setKillSwitchTarget] = useState<{
     envId?: string;
@@ -280,6 +277,10 @@ export default function FeaturesOverview({
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const envs = environments.map((e) => e.id);
+  // Selected rules env tab, lifted here so the Default Value display resolves a
+  // config-backed value for the same environment the rules are filtered to.
+  // null = "All environments".
+  const [rulesEnv, setRulesEnv] = useFeatureRulesEnv();
 
   const { dependents: dependentsData } = useFeatureDependents(feature?.id);
   const dependentFeatures = dependentsData?.features ?? [];
@@ -556,7 +557,7 @@ export default function FeaturesOverview({
         onClick={() => setTab("review")}
         style={{ whiteSpace: "nowrap" as const }}
       >
-        Review and Publish
+        Review &amp; Publish
       </Button>
     </Box>
   ) : null;
@@ -619,83 +620,11 @@ export default function FeaturesOverview({
           </Flex>
         </Flex>
         <CoAuthors rev={revision} mt="3" mb="3" />
-        <Flex align="start" gap="2" style={{ width: "fit-content" }}>
-          <Text weight="semibold" color="text-high">
-            Revision description:
-          </Text>{" "}
-          {revision.comment ? (
-            <Flex align="start" gap="1">
-              <Box>
-                <Box
-                  style={
-                    !commentExpanded
-                      ? {
-                          display: "-webkit-box",
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: "vertical",
-                          overflow: "hidden",
-                        }
-                      : undefined
-                  }
-                >
-                  <Markdown className="speech-bubble">
-                    {revision.comment}
-                  </Markdown>
-                </Box>
-                {revision.comment.length > 80 && (
-                  <Box mt={commentExpanded ? "1" : "0"}>
-                    <Link
-                      onClick={() => setCommentExpanded((v) => !v)}
-                      style={{ whiteSpace: "nowrap" }}
-                    >
-                      {commentExpanded ? "show less" : "show more"}
-                    </Link>
-                  </Box>
-                )}
-              </Box>
-              {canEditDrafts && (
-                <IconButton
-                  variant="ghost"
-                  color="violet"
-                  size="2"
-                  radius="full"
-                  onClick={() => setEditCommentModal(true)}
-                  style={{
-                    flexShrink: 0,
-                    marginTop: -2,
-                    marginBottom: -2,
-                    marginLeft: 4,
-                    marginRight: 0,
-                  }}
-                >
-                  <PiPencilSimpleFill />
-                </IconButton>
-              )}
-            </Flex>
-          ) : (
-            <>
-              <em style={{ color: "var(--color-text-mid)" }}>none</em>
-              {canEditDrafts && (
-                <IconButton
-                  variant="ghost"
-                  color="violet"
-                  size="2"
-                  radius="full"
-                  onClick={() => setEditCommentModal(true)}
-                  style={{
-                    flexShrink: 0,
-                    marginTop: -2,
-                    marginBottom: -2,
-                    marginLeft: 4,
-                    marginRight: 0,
-                  }}
-                >
-                  <PiPencilSimpleFill />
-                </IconButton>
-              )}
-            </>
-          )}
-        </Flex>
+        <InlineRevisionDescription
+          comment={revision.comment}
+          canEdit={canEditDrafts}
+          onEdit={() => setEditCommentModal(true)}
+        />
       </Flex>
     );
   };
@@ -1006,7 +935,7 @@ export default function FeaturesOverview({
 
               <Flex align="center" justify="end" gap="4" flexGrow="1">
                 {/* Lifecycle actions (revert, discard, publish) live in the
-                    Review and Publish tab — the card only offers "New Draft"
+                    Review & Publish tab — the card only offers "New Draft"
                     and navigation into the review surface. */}
                 {canEditDrafts && !isDraft && (
                   <Box position="relative">
@@ -1615,6 +1544,14 @@ export default function FeaturesOverview({
                     <ForceSummary
                       value={getFeatureDefaultValue(feature)}
                       feature={feature}
+                      isDefault={true}
+                      // Match FeatureRules' tab: ignore a stored env that isn't
+                      // one of this feature's environments (falls back to base).
+                      environment={
+                        rulesEnv !== null && envs.includes(rulesEnv)
+                          ? rulesEnv
+                          : undefined
+                      }
                     />
                   </Box>
                 </Flex>
@@ -1655,6 +1592,9 @@ export default function FeaturesOverview({
                       revisionList={revisionList || []}
                       rampSchedules={rampSchedules}
                       draftRevision={revision}
+                      rulesEnv={rulesEnv}
+                      setRulesEnv={setRulesEnv}
+                      baseRevision={baseRevision}
                     />
                   </>
                 ) : (
@@ -1747,7 +1687,6 @@ export default function FeaturesOverview({
             ctaEnabled={!atDraftCap || draftCapAcknowledged}
             disabledMessage="Acknowledge the draft cap warning to continue"
             loading={creatingDraft}
-            useRadixButton={true}
             submit={async () => {
               setCreatingDraft(true);
               try {
@@ -1934,11 +1873,20 @@ export default function FeaturesOverview({
           </Modal>
         )}
         {editCommentModel && revision && (
-          <EditRevisionCommentModal
+          <EditRevisionDescriptionModal
             close={() => setEditCommentModal(false)}
-            feature={feature}
-            mutate={mutate}
-            revision={revision}
+            initialValue={revision.comment || ""}
+            trackingEventModalType=""
+            onSubmit={async (comment) => {
+              await apiCall(
+                `/feature/${feature.id}/${revision.version}/comment`,
+                {
+                  method: "PUT",
+                  body: JSON.stringify({ comment }),
+                },
+              );
+              mutate();
+            }}
           />
         )}
         {prerequisiteModal !== null && (

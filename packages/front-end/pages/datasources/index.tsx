@@ -271,7 +271,7 @@ const DataSourcesPage: FC = () => {
               <Callout status="info" mt="5">
                 Don&apos;t have a data warehouse yet? We recommend using
                 BigQuery with Google Analytics.{" "}
-                <DocLink docSection="ga4BigQuery">
+                <DocLink useRadix={false} docSection="ga4BigQuery">
                   Learn more <FaExternalLinkAlt />
                 </DocLink>
               </Callout>

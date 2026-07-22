@@ -1,7 +1,7 @@
 import { FC, useEffect, useState } from "react";
 import { FiLogOut } from "react-icons/fi";
 import { useForm } from "react-hook-form";
-import { FaCheck, FaPlus } from "react-icons/fa";
+import { FaPlus } from "react-icons/fa";
 import { useRouter } from "next/router";
 import { OWNER_JOB_TITLES } from "shared/constants";
 import {
@@ -23,6 +23,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import { useProject } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
 import Checkbox from "@/ui/Checkbox";
+import Callout from "@/ui/Callout";
 import style from "./CreateOrJoinOrganization.module.scss";
 import WelcomeFrame from "./WelcomeFrame";
 
@@ -209,15 +210,13 @@ const CreateOrJoinOrganization: FC<{
                       </button>
                     </div>
                     {org.currentUserIsPending && (
-                      <div className="alert alert-success mt-2 mb-0">
-                        <div className="mb-2">
-                          <FaCheck /> Your membership is pending.
-                        </div>
+                      <Callout status="success" mt="2" mb="0">
+                        <div className="mb-2">Your membership is pending.</div>
                         <div>
                           Please contact your organization&apos;s admin to
                           approve your membership.
                         </div>
-                      </div>
+                      </Callout>
                     )}
                   </div>
                 ))}
@@ -274,7 +273,19 @@ const CreateOrJoinOrganization: FC<{
                       if (resp.projectId) {
                         setProject(resp.projectId);
                       }
+                      if (setOrgId) {
+                        setOrgId(resp.orgId);
+                      }
+                      try {
+                        localStorage.setItem(
+                          "gb-last-picked-org",
+                          `"${resp.orgId}"`,
+                        );
+                      } catch (e) {
+                        console.warn("Cannot set gb-last-picked-org");
+                      }
                       setLoading(false);
+                      router.push("/");
                     } catch (e) {
                       setError(e.message);
                       setLoading(false);
@@ -374,7 +385,9 @@ const CreateOrJoinOrganization: FC<{
                     Create organization
                   </button>
                   {error && (
-                    <div className="alert alert-danger mt-2">{error}</div>
+                    <Callout status="error" mt="2">
+                      {error}
+                    </Callout>
                   )}
                 </form>
 
@@ -392,10 +405,10 @@ const CreateOrJoinOrganization: FC<{
         ) : (
           <div>
             <h3 className="h2">Invitation Required</h3>
-            <div className="alert alert-danger">
+            <Callout status="error">
               You must be invited by an administrator in order to use
               GrowthBook.
-            </div>
+            </Callout>
           </div>
         )}{" "}
       </div>

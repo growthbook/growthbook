@@ -3,7 +3,6 @@
  * (see managed-clickhouse/* routes there).
  */
 import type { AIPromptType } from "shared/ai";
-import type { MaterializedColumn } from "shared/types/datasource";
 import type { DailyUsage } from "shared/types/organization";
 import { dailyUsageForOrgResponseValidator } from "shared/validators";
 import type { RequestInit, Response } from "node-fetch";
@@ -40,6 +39,7 @@ function errorDetailForLog(text: string, status: number): string {
 async function postManagedClickhouse(
   path: string,
   body: unknown,
+  { allowStatuses = [] }: { allowStatuses?: number[] } = {},
 ): Promise<Response> {
   if (!CLOUD_SECRET) {
     throw new Error(
@@ -90,7 +90,7 @@ async function postManagedClickhouse(
     clearTimeout(timeoutId);
   }
 
-  if (!res.ok) {
+  if (!res.ok && !allowStatuses.includes(res.status)) {
     const rawBody = await res.text();
     const contentType = res.headers.get("content-type") ?? "";
     const detail = errorDetailForLog(rawBody, res.status);
@@ -138,10 +138,21 @@ async function postManagedClickhouseJson<T>(
   }
 }
 
+/**
+ * Kick off an async table rebuild on the license server. The server acks (202)
+ * and rebuilds in the background under a datasource lock, so this returns as soon
+ * as the rebuild is accepted — not when it finishes. A 423 means a rebuild is
+ * already running for this org, so the caller should wait rather than re-request.
+ */
 export async function dangerousRecreateClickhouseTables(
   orgId: string,
-): Promise<void> {
-  await postManagedClickhouse("recreate-tables", { orgId });
+): Promise<"started" | "already-running"> {
+  const res = await postManagedClickhouse(
+    "recreate-tables",
+    { orgId },
+    { allowStatuses: [423] },
+  );
+  return res.status === 423 ? "already-running" : "started";
 }
 
 export async function deleteClickhouseUser(orgId: string): Promise<void> {
@@ -162,31 +173,6 @@ export async function migrateOverageEventsForOrgId(
   orgId: string,
 ): Promise<void> {
   await postManagedClickhouse("migrate-overage", { orgId });
-}
-
-export async function updateMaterializedColumnsInClickhouse({
-  orgId,
-  columnsToAdd,
-  columnsToDelete,
-  columnsToRename,
-  finalColumns,
-  originalColumns,
-}: {
-  orgId: string;
-  columnsToAdd: MaterializedColumn[];
-  columnsToDelete: string[];
-  columnsToRename: { from: string; to: string }[];
-  finalColumns: MaterializedColumn[];
-  originalColumns: MaterializedColumn[];
-}): Promise<void> {
-  await postManagedClickhouse("update-materialized-columns", {
-    orgId,
-    columnsToAdd,
-    columnsToDelete,
-    columnsToRename,
-    finalColumns,
-    originalColumns,
-  });
 }
 
 export async function logCloudAIUsage({

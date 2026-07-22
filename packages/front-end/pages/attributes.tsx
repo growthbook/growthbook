@@ -447,7 +447,6 @@ const FeatureAttributesPage = (): React.ReactElement => {
             trackingEventModalType="show-attribute-references"
             close={() => setShowReferencesModal(null)}
             open={true}
-            useRadixButton={true}
             closeCta="Close"
           >
             <Text as="p" mb="3">

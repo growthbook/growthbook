@@ -984,15 +984,34 @@ function ConditionAndGroupInput({
                 { label: "is NULL", value: "$notExists" },
               ]
             : attribute.array
-              ? [
-                  { label: "includes", value: "$includes" },
-                  { label: "does not include", value: "$notIncludes" },
-                  { label: "is empty", value: "$empty" },
-                  { label: "is not empty", value: "$notEmpty" },
-                  { label: "is not NULL", value: "$exists" },
-                  { label: "is NULL", value: "$notExists" },
-                ]
-              : attribute.enum?.length || 0 > 0
+              ? attribute.enum.length
+                ? [
+                    // Enum-constrained list: set operators drive the restricted
+                    // MultiSelect. Single-value ops are only offered to keep an
+                    // existing condition that already uses them editable — hidden
+                    // otherwise to avoid duplicate-looking options.
+                    { label: "includes any of", value: "$in" },
+                    { label: "includes none of", value: "$nin" },
+                    ...(["$includes", "$notIncludes"].includes(operator)
+                      ? [
+                          { label: "includes", value: "$includes" },
+                          { label: "does not include", value: "$notIncludes" },
+                        ]
+                      : []),
+                    { label: "is empty", value: "$empty" },
+                    { label: "is not empty", value: "$notEmpty" },
+                    { label: "is not NULL", value: "$exists" },
+                    { label: "is NULL", value: "$notExists" },
+                  ]
+                : [
+                    { label: "includes", value: "$includes" },
+                    { label: "does not include", value: "$notIncludes" },
+                    { label: "is empty", value: "$empty" },
+                    { label: "is not empty", value: "$notEmpty" },
+                    { label: "is not NULL", value: "$exists" },
+                    { label: "is NULL", value: "$notExists" },
+                  ]
+              : attribute.enum.length
                 ? [
                     { label: "is equal to", value: "$eq" },
                     { label: "is not equal to", value: "$ne" },
@@ -1116,6 +1135,9 @@ function ConditionAndGroupInput({
         } else if (attribute.enum === ALL_COUNTRY_CODES) {
           displayType = "isoCountryCode";
         } else if (attribute.enum.length) {
+          // Load-bearing: this must be checked before the array-field branch so
+          // enum-constrained lists get the restricted picker. Relies on
+          // useAttributeMap populating `enum` for `[]` datatypes.
           displayType = "enum";
         } else if (listOperators.includes(operator)) {
           displayType = "array-field";

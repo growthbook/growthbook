@@ -82,8 +82,14 @@ export async function dispatchSavedGroupRevisionEvent(
           ...apiRevision,
           // Field-specific handlers pass the exact change; the generic
           // /revision controller omits it, so derive from the proposed changes.
+          // The cross-entity `change` union includes kinds saved groups never
+          // emit (constant "value", config "schema"); ignore those and re-derive.
           change:
-            action.change ?? deriveChange(revision.target.proposedChanges),
+            action.change &&
+            action.change !== "value" &&
+            action.change !== "schema"
+              ? action.change
+              : deriveChange(revision.target.proposedChanges),
         });
         break;
       case "reviewRequested":
@@ -127,6 +133,14 @@ export async function dispatchSavedGroupRevisionEvent(
       case "published":
         await emit("revision.published", apiRevision);
         break;
+      case "publishFailed":
+        await emit("revision.publishFailed", {
+          ...apiRevision,
+          failureReason: action.reason,
+          terminal: action.terminal,
+          attempts: action.attempts,
+        });
+        break;
       case "discarded":
         await emit("revision.discarded", apiRevision);
         break;
@@ -144,7 +158,7 @@ export async function dispatchSavedGroupRevisionEvent(
           : null;
         await emit("revision.reverted", {
           ...apiRevision,
-          ...(source?.version != null
+          ...(source && source.version !== undefined
             ? { revertedToVersion: source.version }
             : {}),
         });

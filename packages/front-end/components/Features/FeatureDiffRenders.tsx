@@ -20,6 +20,7 @@ import type {
 } from "shared/validators";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
+import ContextualBanditLink from "@/components/ContextualBandit/ContextualBanditLink";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
@@ -141,6 +142,8 @@ function getRuleTypeLabel(type: FeatureRule["type"]): string {
       return "Experiment";
     case "experiment-ref":
       return "Experiment ref";
+    case "contextual-bandit-ref":
+      return "Contextual Bandit ref";
     case "safe-rollout":
       return "Safe rollout";
   }
@@ -455,6 +458,10 @@ function RuleHeading({ rule, index }: { rule: FeatureRule; index: number }) {
     detail = `key: ${rule.trackingKey}`;
   } else if (rule.type === "experiment-ref") {
     detail = <ExperimentLink experimentId={rule.experimentId} />;
+  } else if (rule.type === "contextual-bandit-ref") {
+    detail = (
+      <ContextualBanditLink contextualBanditId={rule.contextualBanditId} />
+    );
   }
   return (
     <div className="mb-2">
@@ -897,6 +904,30 @@ function NewRuleDetails({
         post={formatValue(rule.variationValue)}
       />,
     );
+  }
+
+  if (rule.type === "contextual-bandit-ref") {
+    rows.push(
+      <ChangeField
+        key="contextualBanditId"
+        label="Contextual Bandit"
+        changed
+        oldNode={<em>unset</em>}
+        newNode={
+          <ContextualBanditLink contextualBanditId={rule.contextualBanditId} />
+        }
+      />,
+    );
+    rule.variations.forEach((v, i) => {
+      rows.push(
+        <ValueChangedField
+          key={`cb-var-${i}`}
+          label={`Variation ${i} value`}
+          pre={null}
+          post={formatValue(v.value)}
+        />,
+      );
+    });
   }
 
   if (rule.type === "experiment-ref") {

@@ -113,7 +113,6 @@ export default function RefreshResultsButton<T extends RefreshResultsModel>({
         experiment={experiment}
         dimension={dimension}
         setError={(error) => setRefreshError(error ?? "")}
-        useRadixButton={true}
         radixVariant="outline"
         customValidation={customValidation}
         onSuccess={onSuccess}
@@ -224,7 +223,6 @@ function RefreshRunQueriesButton<T extends RefreshResultsModel>({
           runStarted: latest.runStarted ?? null,
         }}
         icon="refresh"
-        useRadixButton={true}
         radixVariant="outline"
         onSubmit={handleSubmit}
         disabled={disabled}

@@ -3,7 +3,7 @@ import { FaShippingFast } from "react-icons/fa";
 import clsx from "clsx";
 import { date, datetime } from "shared/dates";
 import {
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
   getLatestPhaseVariations,
   getMetricResultStatus,
   isSuspiciousUplift,
@@ -36,7 +36,7 @@ import Checkbox from "@/ui/Checkbox";
 
 interface Props {
   experimentsWithSnapshot: ExperimentWithSnapshot[];
-  metrics: ExperimentMetricInterface[];
+  metrics: ExperimentMetricDefinition[];
   bandits?: boolean;
   numPerPage?: number;
   differenceType?: DifferenceType;

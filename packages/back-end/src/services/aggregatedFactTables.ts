@@ -13,9 +13,11 @@ import {
 } from "shared/validators";
 import { QueryStatus } from "shared/types/query";
 import { ReqContext } from "back-end/types/request";
+import { ApiReqContext } from "back-end/types/api";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { logger } from "back-end/src/util/logger";
+import { getMostRecentUpdateOccurrence } from "back-end/src/util/factTable";
 import {
   AggregatedFactTableQueryRunner,
   AggregatedFactTableRunMode,
@@ -149,6 +151,60 @@ export function getAggregatedFactTableMetrics({
     metric,
     ...getAutoSliceMetrics({ metric, factTable }),
   ]);
+}
+
+/**
+ * Claims the current slot for each enabled id type on a new fact table so the
+ * first aggregation waits for the next updateTime instead of restating right
+ * after creation.
+ *
+ * No-op unless aggregation is already enabled.
+ */
+export async function deferAggregatedFactTableToNextSlot(
+  context: ReqContext | ApiReqContext,
+  factTable: Pick<
+    FactTableInterface,
+    "id" | "datasource" | "aggregatedFactTableSettings"
+  >,
+) {
+  const settings = factTable.aggregatedFactTableSettings;
+  if (!settings?.idTypes?.length) return;
+  if (!context.hasPremiumFeature("pipeline-mode")) return;
+
+  let fireTime: Date;
+  try {
+    fireTime = getMostRecentUpdateOccurrence(settings.updateTime);
+  } catch (e) {
+    logger.error(
+      e,
+      `Invalid aggregatedFactTableSettings.updateTime for fact table ${factTable.id}; skipping schedule seed`,
+    );
+    return;
+  }
+
+  for (const idType of settings.idTypes) {
+    try {
+      const claimed =
+        await context.models.aggregatedFactTables.claimScheduledSlot(
+          {
+            datasourceId: factTable.datasource,
+            factTableId: factTable.id,
+            idType,
+          },
+          fireTime,
+        );
+      if (!claimed) {
+        logger.debug(
+          `Aggregated fact table slot for ${factTable.id}/${idType} was already claimed for ${fireTime.toISOString()}; deferral had no effect`,
+        );
+      }
+    } catch (e) {
+      logger.error(
+        e,
+        `Failed to seed aggregated fact table slot for ${factTable.id}/${idType}`,
+      );
+    }
+  }
 }
 
 export function getAggregatedFactTableMaterializationStatus(

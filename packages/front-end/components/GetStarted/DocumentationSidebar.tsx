@@ -31,8 +31,8 @@ const DocumentationSidebar = ({
       <SidebarHeading>WHAT&apos;S NEW</SidebarHeading>
       <Flex direction="column" gapY="3">
         <AIVisualEditorCallout />
-        <LinkItem href="https://www.growthbook.io/blog/growthbook-version-4-4">
-          GrowthBook 4.4
+        <LinkItem href="https://docs.growthbook.io/integrations/ai-agents/agent-skills/">
+          Agent Skills
         </LinkItem>
       </Flex>
       <Separator size="4" my="5" />
@@ -93,7 +93,7 @@ function AIVisualEditorCallout(): React.ReactElement | null {
       underline="none"
       style={{ display: "block" }}
     >
-      <Callout status="info" icon={null} contentsAs="div">
+      <Callout status="info" icon={null}>
         <Flex justify="start" mb="2">
           <Badge
             label="Early access"
@@ -169,8 +169,8 @@ function getLinksFor(
             <LinkItem href="https://docs.growthbook.io/integrations/vercel">
               Vercel Integration Docs
             </LinkItem>
-            <LinkItem href="https://github.com/growthbook/growthbook/releases/tag/v4.4.0">
-              4.4 Release Notes
+            <LinkItem href="https://github.com/growthbook/growthbook/releases/tag/v5.0.0">
+              5.0 Release Notes
             </LinkItem>
             <LinkItem href="https://docs.growthbook.io/">Docs</LinkItem>
             <LinkItem href="https://www.growthbook.io/pricing">
@@ -183,8 +183,8 @@ function getLinksFor(
       return (
         <>
           <LinkItem href="https://docs.growthbook.io/">Docs</LinkItem>
-          <LinkItem href="https://github.com/growthbook/growthbook/releases/tag/v4.4.0">
-            4.4 Release Notes
+          <LinkItem href="https://github.com/growthbook/growthbook/releases/tag/v5.0.0">
+            5.0 Release Notes
           </LinkItem>
           <LinkItem href="https://www.growthbook.io/pricing">
             Premium Features

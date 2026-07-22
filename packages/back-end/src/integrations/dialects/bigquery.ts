@@ -5,6 +5,7 @@ import {
   defaultPercentileCapSelectClause,
   PercentileCapSelectClauseValue,
 } from "back-end/src/integrations/sql/clauses/percentile-cap-select-clause";
+import { eligibleTopValueExpr } from "back-end/src/integrations/sql/clauses/approx-top-values";
 import { baseDialect } from "./base";
 
 const APPROX_QUANTILES_MULTIPLIER = 10000;
@@ -174,6 +175,26 @@ export const bigQueryDialect: SqlDialect = {
     const raw = `JSON_VALUE(${jsonCol}, '$.${path}')`;
     return isNumeric ? `CAST(${raw} AS FLOAT64)` : raw;
   },
+  // BigQuery uses `IGNORE NULLS` in aggregates rather than `FILTER (WHERE …)`.
+  arrayAggSorted: (col: string) =>
+    `ARRAY_AGG(${col} IGNORE NULLS ORDER BY ${col})`,
+  // BQ supports `ANY_VALUE(x HAVING MIN y)` natively — picks an `x` value from
+  // the row that has the minimum `y`. `IGNORE NULLS` is NOT valid in this form
+  // (syntax error) and is unnecessary: aggregate functions ignore NULL inputs,
+  // so rows with a NULL timestamp are already excluded from the MIN.
+  argMinByTimestamp: (valueCol: string, tsCol: string) =>
+    `ANY_VALUE(${valueCol} HAVING MIN ${tsCol})`,
+  arrayMinInRange: (col, lowerBound, upperBound) => {
+    const conditions: string[] = [];
+    if (lowerBound) conditions.push(`t >= ${lowerBound}`);
+    if (upperBound) conditions.push(`t <= ${upperBound}`);
+    const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+    return `(SELECT MIN(t) FROM UNNEST(${col}) AS t ${where})`;
+  },
+  addIntervalSeconds: (col: string, sign: "+" | "-", amount: number) =>
+    `DATETIME_${sign === "+" ? "ADD" : "SUB"}(${col}, INTERVAL ${amount} SECOND)`,
+  dateDiffMs: (startCol: string, endCol: string) =>
+    `CAST(DATETIME_DIFF(${endCol}, ${startCol}, MILLISECOND) AS FLOAT64)`,
   getDataType: (dataType: DataType): string => {
     switch (dataType) {
       case "string":
@@ -213,5 +234,42 @@ export const bigQueryDialect: SqlDialect = {
       keyExpr: "col.column_name",
       valueExpr: "col.value",
     };
+  },
+  arrayElement: (arrayCol: string, index: number) =>
+    `${arrayCol}[SAFE_OFFSET(${index})]`,
+
+  // APPROX_TOP_COUNT(expr, k) returns ARRAY<STRUCT<value, count>> per column;
+  // pack the per-column structs into one array and double-UNNEST back to long
+  // form. It counts NULLs, so disqualified values map to NULL and the NULL
+  // bucket is dropped via `item.value IS NOT NULL`.
+  approxTopValuesCTEBody: ({
+    pairs,
+    fromTable,
+    whereClause,
+    limit,
+    maxValueLength,
+  }) => {
+    const structs = pairs
+      .map(
+        (p) =>
+          `STRUCT('${p.keyLiteral}' AS column_name, APPROX_TOP_COUNT(${eligibleTopValueExpr(
+            bigQueryDialect,
+            p.valueSql,
+            maxValueLength,
+          )}, ${limit}) AS items)`,
+      )
+      .join(",\n      ");
+    return `
+  SELECT __col.column_name AS column_name, __item.value AS value, __item.count AS count
+  FROM (
+    SELECT [
+      ${structs}
+    ] AS cols
+    FROM ${fromTable}
+    WHERE ${whereClause}
+  ) __agg
+  CROSS JOIN UNNEST(__agg.cols) AS __col
+  CROSS JOIN UNNEST(__col.items) AS __item
+  WHERE __item.value IS NOT NULL`;
   },
 };

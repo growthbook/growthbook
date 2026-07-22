@@ -36,7 +36,7 @@ const RefreshSnapshotButton: FC<{
   experiment,
   phase,
   dimension,
-  useRadixButton = false,
+  useRadixButton = true,
   radixVariant = "outline",
   setError,
   customValidation,

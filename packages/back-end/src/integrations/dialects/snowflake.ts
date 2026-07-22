@@ -3,6 +3,10 @@ import type { SqlDialect } from "shared/types/sql";
 import { createLikeStringMatchFn } from "shared/sql";
 import { defaultPercentileCapSelectClause } from "back-end/src/integrations/sql/clauses/percentile-cap-select-clause";
 import { indicesTableUnpivot } from "back-end/src/integrations/sql/clauses/indices-table-unpivot";
+import {
+  approxTopKCapacity,
+  eligibleTopValueExpr,
+} from "back-end/src/integrations/sql/clauses/approx-top-values";
 import { baseDialect } from "./base";
 
 const snowflakeEscapeStringLiteral = (value: string) =>
@@ -72,6 +76,28 @@ export const snowflakeDialect: SqlDialect = {
     `PARSE_JSON(${jsonCol}):${path}::${isNumeric ? "float" : "string"}`,
   evalBoolean: (col: string, value: boolean) =>
     `${col} = ${value ? "true" : "false"}`,
+  // Snowflake aggregate-with-sort uses `WITHIN GROUP`. NULLs are skipped
+  // by ARRAY_AGG by default, so no extra IGNORE NULLS needed.
+  arrayAggSorted: (col: string) =>
+    `ARRAY_AGG(${col}) WITHIN GROUP (ORDER BY ${col})`,
+  // MIN_BY has shipped on Snowflake since 2023 — picks `valueCol` from the
+  // row with the minimum `tsCol` (NULL timestamps are skipped).
+  argMinByTimestamp: (valueCol: string, tsCol: string) =>
+    `MIN_BY(${valueCol}, ${tsCol})`,
+  arrayMinInRange: (col, lowerBound, upperBound) => {
+    const tExpr = `x::TIMESTAMP`;
+    const conditions: string[] = [];
+    if (lowerBound) conditions.push(`${tExpr} >= ${lowerBound}`);
+    if (upperBound) conditions.push(`${tExpr} <= ${upperBound}`);
+    const arrExpr = conditions.length
+      ? `FILTER(${col}, x -> ${conditions.join(" AND ")})`
+      : col;
+    return `GET(${arrExpr}, 0)::TIMESTAMP`;
+  },
+  addIntervalSeconds: (col: string, sign: "+" | "-", amount: number) =>
+    `DATEADD(second, ${sign === "-" ? "-" : ""}${amount}, ${col})`,
+  dateDiffMs: (startCol: string, endCol: string) =>
+    `DATEDIFF(millisecond, ${startCol}, ${endCol})`,
   getDataType: (dataType: DataType): string => {
     switch (dataType) {
       case "string":
@@ -115,4 +141,49 @@ export const snowflakeDialect: SqlDialect = {
   //     subquery type" because Snowflake's correlated subqueries can't contain
   //     set operations.
   unpivotLabeledPairs: indicesTableUnpivot,
+
+  arrayElement: (arrayCol: string, index: number) =>
+    snowflakeDialect.castToFloat(`${arrayCol}[${index}]`),
+
+  // APPROX_TOP_K(expr, k, counters) returns an ARRAY of [value, count] pairs per
+  // column; pack the per-column results into OBJECTs, then FLATTEN the outer
+  // array and each column's items.
+  //
+  // The first FLATTEN runs over a materialized subquery column (__agg.cols), not
+  // an inline ARRAY_CONSTRUCT, to avoid the correlated-construct failures noted
+  // on unpivotLabeledPairs above.
+  approxTopValuesCTEBody: ({
+    pairs,
+    fromTable,
+    whereClause,
+    limit,
+    maxValueLength,
+  }) => {
+    const counters = approxTopKCapacity(limit);
+    const objects = pairs
+      .map(
+        (p) =>
+          `OBJECT_CONSTRUCT('column_name', '${p.keyLiteral}', 'items', APPROX_TOP_K(${eligibleTopValueExpr(
+            snowflakeDialect,
+            p.valueSql,
+            maxValueLength,
+          )}, ${limit}, ${counters}))`,
+      )
+      .join(",\n      ");
+    return `
+  SELECT
+    __col.value:column_name::string AS column_name,
+    __item.value[0]::string AS value,
+    __item.value[1]::number AS count
+  FROM (
+    SELECT ARRAY_CONSTRUCT(
+      ${objects}
+    ) AS cols
+    FROM ${fromTable}
+    WHERE ${whereClause}
+  ) __agg,
+  LATERAL FLATTEN(input => __agg.cols) __col,
+  LATERAL FLATTEN(input => __col.value:items) __item
+  WHERE __item.value[0] IS NOT NULL`;
+  },
 };

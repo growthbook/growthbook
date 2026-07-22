@@ -9,6 +9,7 @@ import SelectField from "@/components/Forms/SelectField";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
 import Checkbox from "@/ui/Checkbox";
+import HelperText from "@/ui/HelperText";
 import { useUser } from "@/services/UserContext";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 
@@ -23,7 +24,7 @@ export default function MetricsSettings() {
   const maxMetricSliceLevels = form.watch("maxMetricSliceLevels");
   const maxMetricSliceLevelsWarningMsg =
     maxMetricSliceLevels && maxMetricSliceLevels > 20
-      ? "Using too many slice levels may increase query costs substantially. All auto slice levels are analyzed every time an experiment refreshes."
+      ? "Using too many slice levels may increase query costs substantially. All Auto Slice levels are analyzed every time an experiment refreshes."
       : "";
   const currencyOptions = Object.entries(supportedCurrencies).map(
     ([value, label]) => ({ value, label }),
@@ -33,14 +34,14 @@ export default function MetricsSettings() {
       <Flex gap="4">
         <Box width="220px" flexShrink="0">
           <Heading size="4" as="h4">
-            Metric Settings
+            Metrics Settings
           </Heading>
         </Box>
 
         <Flex align="start" direction="column" flexGrow="1" pt="6">
           <Box mb="6" width="100%">
             <Text as="label" className="font-weight-semibold" size="3">
-              Amount of historical data to use on metric analysis page
+              Metric analysis lookback window
             </Text>
             <Box width="200px">
               <Field
@@ -53,6 +54,9 @@ export default function MetricsSettings() {
                 })}
               />
             </Box>
+            <HelperText status="info" size="sm" mt="1">
+              Amount of historical data to use on the metric analysis page.
+            </HelperText>
             {metricAnalysisDaysWarningMsg && (
               <Callout status="warning" mt="2">
                 {metricAnalysisDaysWarningMsg}
@@ -75,7 +79,7 @@ export default function MetricsSettings() {
             <div>
               <div className="form-inline">
                 <Field
-                  label="Minimum Metric Total"
+                  label="Minimum metric total"
                   type="number"
                   min={0}
                   className="ml-2"
@@ -90,7 +94,7 @@ export default function MetricsSettings() {
               <p>
                 <small className="text-muted mb-3">
                   The total metric value required in an experiment variation
-                  before showing results
+                  before showing results.
                 </small>
               </p>
             </div>
@@ -100,7 +104,7 @@ export default function MetricsSettings() {
             <div>
               <div className="form-inline">
                 <Field
-                  label="Maximum Percentage Change"
+                  label="Maximum percentage change"
                   type="number"
                   min={0}
                   append="%"
@@ -116,7 +120,7 @@ export default function MetricsSettings() {
               <p>
                 <small className="text-muted mb-3">
                   An experiment that changes the metric by more than this
-                  percent will be flagged as suspicious
+                  percent will be flagged as suspicious.
                 </small>
               </p>
             </div>
@@ -126,7 +130,7 @@ export default function MetricsSettings() {
             <div>
               <div className="form-inline">
                 <Field
-                  label="Minimum Percentage Change"
+                  label="Minimum percentage change"
                   type="number"
                   min={0}
                   append="%"
@@ -142,7 +146,7 @@ export default function MetricsSettings() {
               <p>
                 <small className="text-muted mb-3">
                   An experiment that changes the metric by less than this
-                  percent percent will be considered a draw
+                  percent will be considered a draw.
                 </small>
               </p>
             </div>
@@ -152,7 +156,7 @@ export default function MetricsSettings() {
             <div>
               <div className="form-inline">
                 <Field
-                  label="Target Minimum Detectable Effect"
+                  label="Target minimum detectable effect"
                   type="number"
                   min={0}
                   append="%"
@@ -165,29 +169,29 @@ export default function MetricsSettings() {
                   })}
                 />
               </div>
-              <p>
+              <Box maxWidth="740px">
                 <small className="text-muted mb-3">
                   The percentage change that you want to be able to reliably
                   detect before ending your experiment. This is used to estimate
-                  the &quot;Days Left&quot; for running experiments.
-                  <br />
-                  Lower values require more data to reach a decision point for
-                  an experiment.
+                  the &quot;Days Left&quot; for running experiments. Lower
+                  values require more data to reach a decision point for an
+                  experiment.
                 </small>
-              </p>
+              </Box>
             </div>
             {/* endregion Target MDE */}
           </Box>
           {/* endregion Metrics Behavior Defaults */}
           <>
             <SelectField
-              label="Display Currency"
+              label="Display currency"
               value={form.watch("displayCurrency") || "USD"}
               options={currencyOptions}
               onChange={(v: string) => form.setValue("displayCurrency", v)}
               required
-              placeholder="Select currency..."
-              helpText="This should match what is stored in the data source and controls what currency symbol is displayed."
+              markRequired
+              placeholder="Select a currency..."
+              helpText="This should match what is stored in the Data Source and controls what currency symbol is displayed."
             />
           </>
 
@@ -235,7 +239,7 @@ export default function MetricsSettings() {
               Metric Slices
             </Heading>
             <Text as="label" className="font-weight-semibold" size="3">
-              Max auto slice levels
+              Max Auto Slice levels
               <PaidFeatureBadge
                 commercialFeature="metric-slices"
                 premiumText="This is an Enterprise feature"
@@ -245,7 +249,7 @@ export default function MetricsSettings() {
             </Text>
             <Box mb="3">
               {hasCommercialFeature("metric-slices")
-                ? `Maximum number of slice levels that can be configured for metric analysis. Default is ${DEFAULT_MAX_METRIC_SLICE_LEVELS}.`
+                ? `Maximum number of Auto Slice levels that can be configured for metric analysis. Default is ${DEFAULT_MAX_METRIC_SLICE_LEVELS}.`
                 : "This feature requires an Enterprise license."}
             </Box>
             <Box width="200px">

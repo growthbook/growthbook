@@ -16,7 +16,10 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
-import { isDemoDatasourceProject } from "shared/demo-datasource";
+import {
+  getDefaultProjectsForNewResource,
+  isDemoDatasourceProject,
+} from "shared/demo-datasource";
 import { isProjectListValidForProject } from "shared/util";
 import { isBinomialMetric } from "shared/experiments";
 import Link from "@/ui/Link";
@@ -226,6 +229,7 @@ const MetricForm: FC<MetricFormProps> = ({
   const settings = useOrgSettings();
   const { hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
+  const { apiCall, orgId } = useAuth();
 
   const [step, setStep] = useState(initialStep);
   const [showAdvanced, setShowAdvanced] = useState(advanced);
@@ -335,9 +339,10 @@ const MetricForm: FC<MetricFormProps> = ({
       projects:
         source === "datasource-detail" || edit || duplicate
           ? current.projects || []
-          : project
-            ? [project]
-            : [],
+          : getDefaultProjectsForNewResource({
+              project,
+              organizationId: orgId || undefined,
+            }),
       winRisk: (current.winRisk || DEFAULT_WIN_RISK_THRESHOLD) * 100,
       loseRisk: (current.loseRisk || DEFAULT_LOSE_RISK_THRESHOLD) * 100,
       maxPercentChange: getMaxPercentageChangeForMetric(current) * 100,
@@ -364,8 +369,6 @@ const MetricForm: FC<MetricFormProps> = ({
       managedBy: current.managedBy || MANAGED_BY_EMPTY,
     },
   });
-
-  const { apiCall, orgId } = useAuth();
 
   const type = form.watch("type");
 
@@ -636,6 +639,7 @@ const MetricForm: FC<MetricFormProps> = ({
         />
       )}
       <PagedModal
+        useRadixButton={false}
         trackingEventModalType={trackingEventModalType}
         inline={inline}
         header={edit ? "Edit Metric" : "New Metric"}
@@ -732,7 +736,7 @@ const MetricForm: FC<MetricFormProps> = ({
                     />
                   </>
                 }
-                placeholder="All projects"
+                placeholder="All Projects"
                 value={value.projects || []}
                 options={projectOptions}
                 onChange={(v) => form.setValue("projects", v)}

@@ -9,7 +9,8 @@ import { isProjectListValidForProject } from "shared/util";
 import { useEffect, useState } from "react";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import Collapsible from "react-collapsible";
-import { PiCaretRightFill } from "react-icons/pi";
+import { PiArrowSquareOut, PiCaretRightFill } from "react-icons/pi";
+import { DEFAULT_TOP_VALUES_LOOKBACK_VALUE } from "shared/settings";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -30,17 +31,20 @@ import Checkbox from "@/ui/Checkbox";
 import { getAutoSliceUpdateFrequencyHours } from "@/services/env";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
+import Link from "@/ui/Link";
 
 export interface Props {
   existing?: FactTableInterface;
   close: () => void;
   duplicate?: boolean;
+  onCreate?: (factTable: FactTableInterface) => void;
 }
 
 export default function FactTableModal({
   existing,
   close,
   duplicate = false,
+  onCreate,
 }: Props) {
   const { datasources, project, getDatasourceById, mutateDefinitions } =
     useDefinitions();
@@ -55,6 +59,9 @@ export default function FactTableModal({
   const { hasCommercialFeature, permissionsUtil } = useUser();
 
   const { apiCall } = useAuth();
+
+  const topValuesLookbackValue =
+    settings.topValuesLookbackValue ?? DEFAULT_TOP_VALUES_LOOKBACK_VALUE;
 
   const validDatasources = datasources
     .filter((d) => isProjectListValidForProject(d.projects, project))
@@ -131,6 +138,7 @@ export default function FactTableModal({
         />
       )}
       <Modal
+        useRadixButton={false}
         trackingEventModalType=""
         open={true}
         close={close}
@@ -227,7 +235,11 @@ export default function FactTableModal({
             track("Create Fact Table");
 
             await mutateDefinitions();
-            router.push(`/fact-tables/${factTable.id}`);
+            if (onCreate) {
+              onCreate(factTable);
+            } else {
+              router.push(`/fact-tables/${factTable.id}`);
+            }
           }
         })}
       >
@@ -322,7 +334,23 @@ export default function FactTableModal({
           <div className="mt-4">
             <Checkbox
               label="Auto-update slice levels"
-              description={`Automatically update Auto Slice levels based on top column values (14 day lookback). Updates run every ${autoUpdateFrequencyText}. Locked slice levels will always be preserved.`}
+              description={
+                <>
+                  Automatically update Auto Slice levels based on top column
+                  values (
+                  <Link
+                    href="/settings#metrics/top-values-lookback"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {topValuesLookbackValue} day
+                    {topValuesLookbackValue === 1 ? "" : "s"} lookback{" "}
+                    <PiArrowSquareOut />
+                  </Link>
+                  ). Updates run every {autoUpdateFrequencyText}. Locked slice
+                  levels will always be preserved.
+                </>
+              }
               value={form.watch("autoSliceUpdatesEnabled") ?? false}
               setValue={(value) => {
                 form.setValue("autoSliceUpdatesEnabled", value);

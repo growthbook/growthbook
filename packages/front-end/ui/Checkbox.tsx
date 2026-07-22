@@ -5,6 +5,7 @@ import { forwardRef, ReactElement } from "react";
 import { Responsive } from "@radix-ui/themes/dist/esm/props/prop-def.js";
 import HelperText, { getRadixColor } from "@/ui/HelperText";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import RadixTooltip from "@/ui/Tooltip";
 
 export type Size = "sm" | "md" | "lg";
 
@@ -27,6 +28,7 @@ export type Props = {
   disabledMessage?: string;
   value: boolean | "indeterminate";
   size?: Size;
+  checkboxTooltip?: string;
   error?: string;
   errorLevel?: "error" | "warning";
   description?: string | ReactElement;
@@ -45,6 +47,7 @@ export default forwardRef<HTMLLabelElement, Props>(function Checkbox(
     disabledMessage,
     value,
     size = "md",
+    checkboxTooltip,
     setValue,
     description,
     error,
@@ -57,6 +60,18 @@ export default forwardRef<HTMLLabelElement, Props>(function Checkbox(
   ref,
 ) {
   const checkboxColor = error ? getRadixColor(errorLevel) : "violet";
+
+  const checkboxEl = (
+    <RadixCheckbox
+      checked={value}
+      onCheckedChange={(v) => setValue(!!v)}
+      disabled={disabled}
+      color={checkboxColor}
+      size={getRadixSize(size)}
+      id={id}
+      required={required}
+    />
+  );
 
   const labelEl = (
     <Text
@@ -75,15 +90,13 @@ export default forwardRef<HTMLLabelElement, Props>(function Checkbox(
       {...containerProps}
     >
       <Flex gap="2">
-        <RadixCheckbox
-          checked={value}
-          onCheckedChange={(v) => setValue(!!v)}
-          disabled={disabled}
-          color={checkboxColor}
-          size={getRadixSize(size)}
-          id={id}
-          required={required}
-        />
+        {checkboxTooltip && !disabled ? (
+          <RadixTooltip content={checkboxTooltip} side="top" maxWidth="240px">
+            {checkboxEl}
+          </RadixTooltip>
+        ) : (
+          checkboxEl
+        )}
         <Flex direction="column" gap="1">
           <Text weight={weight}>{label}</Text>
           {description && (

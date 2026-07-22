@@ -4,6 +4,7 @@ import { TestQueryRow } from "shared/types/integrations";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
+import Callout from "@/ui/Callout";
 
 export interface Props {
   close: () => void;
@@ -66,6 +67,7 @@ export default function SaveQueryModal({
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType="save-query"
       open
       header="Save Query"
@@ -77,7 +79,11 @@ export default function SaveQueryModal({
       loading={loading}
     >
       <div className="p-4">
-        {error && <div className="alert alert-danger mb-3">{error}</div>}
+        {error && (
+          <Callout status="error" mb="3">
+            {error}
+          </Callout>
+        )}
 
         <Field
           label="Query Name"

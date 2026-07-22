@@ -32,6 +32,11 @@ export const AI_PROVIDER_MODEL_MAP = {
     "o1",
   ],
   anthropic: [
+    // Intentional rolling alias — Anthropic hasn't published a dated snapshot
+    // for Sonnet 4.6 yet, so this tracks the latest build. Pin to a dated id
+    // (claude-sonnet-4-6-YYYYMMDD) here once one exists if you need stable
+    // behaviour. The other Claude entries are dated for exactly that reason.
+    "claude-sonnet-4-6",
     "claude-haiku-4-5-20251001",
     "claude-sonnet-4-5-20250929",
     "claude-opus-4-1-20250805",

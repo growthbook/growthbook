@@ -26,7 +26,7 @@ const MoreMenu: FC<{
   autoCloseOnClick = true,
   className = "",
   zIndex = 1020,
-  useRadix,
+  useRadix = true,
   iconButtonSize = "3",
   size = 18,
 }) => {

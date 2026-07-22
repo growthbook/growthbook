@@ -9,6 +9,7 @@ import {
 } from "shared/types/organization";
 import { ExperimentInterface } from "shared/types/experiment";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
+import { ConstantInterface } from "shared/types/constant";
 import {
   buildFeatureRulesFromApiEnvSettings,
   generateRuleId,
@@ -17,6 +18,7 @@ import {
   getFeatureDefinitionsResponse,
   hashStrings,
   sha256,
+  generateFeaturesPayload,
 } from "back-end/src/services/features";
 import { getCurrentEnabledState } from "back-end/src/util/scheduleRules";
 import {
@@ -28,6 +30,21 @@ import {
   getSDKPayloadKeysByDiff,
   roundVariationWeight,
 } from "back-end/src/util/features";
+
+// Minimal constant fixture for payload-resolution tests.
+function makeConstant(
+  partial: Pick<ConstantInterface, "key" | "type"> & Partial<ConstantInterface>,
+): ConstantInterface {
+  return {
+    id: `const_${partial.key}`,
+    organization: "123",
+    name: partial.key,
+    owner: "",
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+    ...partial,
+  };
+}
 
 const groupMap: GroupMap = new Map();
 const experimentMap = new Map();
@@ -1139,6 +1156,905 @@ describe("SDK Payloads", () => {
       defaultValue: [1, 2, 3],
       rules: [{ force: { b: 99 } }],
     });
+  });
+
+  it("resolves a JSON constant used as a sparse rule value and merges it onto the default", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "json";
+    feature.defaultValue = JSON.stringify({ a: 0, c: 3 });
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "force",
+        id: "sparse-const",
+        description: "",
+        enabled: true,
+        // A whole-value JSON constant used as the (sparse) rule value.
+        value: JSON.stringify({ $extends: ["@const:cfg"] }),
+        sparse: true,
+      },
+    ];
+
+    const constantMap = new Map([
+      [
+        "constant:cfg",
+        { type: "json" as const, value: JSON.stringify({ a: 1, b: 2 }) },
+      ],
+    ]);
+
+    const def = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      constantMap,
+    });
+
+    // The constant resolves first, then merges onto the default; the constant's
+    // fields (the rule value) win over the default.
+    expect(def?.rules).toEqual([{ force: { a: 1, c: 3, b: 2 } }]);
+  });
+
+  it("applies sparse rule fields last so they win over a constant-provided default", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "json";
+    // Default value is itself a whole-value JSON constant.
+    feature.defaultValue = JSON.stringify({ $extends: ["@const:base"] });
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "force",
+        id: "sparse-over-const",
+        description: "",
+        enabled: true,
+        value: JSON.stringify({ b: 99 }),
+        sparse: true,
+      },
+    ];
+
+    const constantMap = new Map([
+      [
+        "constant:base",
+        { type: "json" as const, value: JSON.stringify({ a: 1, b: 2 }) },
+      ],
+    ]);
+
+    const def = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      constantMap,
+    });
+
+    // The default's constant resolves to { a: 1, b: 2 } and forms the merge
+    // base; the sparse field `b` is applied last and wins (b: 99, not 2).
+    expect(def?.rules).toEqual([{ force: { a: 1, b: 99 } }]);
+  });
+
+  it("applies an environment-scoped config flavor (scopedOverrides) per environment", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "json";
+    feature.baseConfig = "base";
+    feature.defaultValue = JSON.stringify({ $extends: ["@config:base"] });
+
+    // Base config { beanType: jelly } with a `dev`-scoped flavor that patches
+    // beanType → fava. The flavor is a child config (its own value carries the
+    // parent `@config:base` ref, which the resolver excludes to avoid a loop).
+    const constantMap = new Map([
+      [
+        "config:base",
+        {
+          type: "json" as const,
+          value: JSON.stringify({ beanType: "jelly" }),
+          scopedOverrides: [{ config: "base_dev", environments: ["dev"] }],
+        },
+      ],
+      [
+        "config:base_dev",
+        {
+          type: "json" as const,
+          value: JSON.stringify({
+            $extends: ["@config:base"],
+            beanType: "fava",
+          }),
+        },
+      ],
+    ]);
+
+    // dev: the flavor patch is deep-merged onto the base → beanType: fava.
+    const devDef = getFeatureDefinition({
+      feature,
+      environment: "dev",
+      groupMap,
+      experimentMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      constantMap,
+    });
+    expect(devDef?.defaultValue).toEqual({ beanType: "fava" });
+
+    // production: no matching flavor → the base value.
+    const prodDef = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      constantMap,
+    });
+    expect(prodDef?.defaultValue).toEqual({ beanType: "jelly" });
+  });
+
+  it("applies the env flavor ON TOP of a composition mixin (flavor wins)", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "json";
+    feature.baseConfig = "base";
+    feature.defaultValue = JSON.stringify({ $extends: ["@config:base"] });
+
+    // `base` composes a `mixin` (which supplies beanType: jelly) and has no own
+    // beanType. A `dev` flavor patches beanType → fava. The mixin is a base layer
+    // (applied before `base`), and the flavor applies after `base` — so at every
+    // env the mixin resolves first and the flavor lands on top for dev.
+    const constantMap = new Map([
+      [
+        "config:mixin",
+        { type: "json" as const, value: JSON.stringify({ beanType: "jelly" }) },
+      ],
+      [
+        "config:base",
+        {
+          type: "json" as const,
+          value: JSON.stringify({ $extends: ["@config:mixin"] }),
+          scopedOverrides: [{ config: "base_dev", environments: ["dev"] }],
+        },
+      ],
+      [
+        "config:base_dev",
+        {
+          type: "json" as const,
+          value: JSON.stringify({
+            $extends: ["@config:base"],
+            beanType: "fava",
+          }),
+        },
+      ],
+    ]);
+
+    const devDef = getFeatureDefinition({
+      feature,
+      environment: "dev",
+      groupMap,
+      experimentMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      constantMap,
+    });
+    // dev: the flavor's beanType wins over the mixin's.
+    expect(devDef?.defaultValue).toEqual({ beanType: "fava" });
+
+    const prodDef = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      constantMap,
+    });
+    // production: no flavor → the mixin's value.
+    expect(prodDef?.defaultValue).toEqual({ beanType: "jelly" });
+  });
+
+  it("spreads constants in both the default and a sparse patch, patch winning", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "json";
+    // Default mixes explicit keys with a spread constant.
+    feature.defaultValue = JSON.stringify({
+      versions: [1, 2],
+      ref: 0.1,
+      $extends: ["@const:config-snippet"],
+    });
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "force",
+        id: "sparse-spread",
+        description: "",
+        enabled: true,
+        // Sparse patch also mixes an explicit key with a spread constant.
+        value: JSON.stringify({ ref: 3, $extends: ["@const:my-json"] }),
+        sparse: true,
+      },
+    ];
+
+    const constantMap = new Map([
+      ["constant:config-snippet", { type: "json" as const, value: '{"x":1}' }],
+      ["constant:my-json", { type: "json" as const, value: '{"y":2}' }],
+    ]);
+
+    const def = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      constantMap,
+    });
+
+    // Base = { versions, ref: 0.1, x: 1 }; patch = { ref: 3, y: 2 } applied last.
+    expect(def?.rules).toEqual([
+      { force: { versions: [1, 2], ref: 3, x: 1, y: 2 } },
+    ]);
+  });
+
+  it("deep-merges a sparse rule onto a config-backed feature default", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "json";
+    feature.baseConfig = "base";
+    // Config-backed default that also layers `extra` on top of the config.
+    feature.defaultValue = JSON.stringify({
+      $extends: ["@config:base"],
+      extra: { x: 1 },
+    });
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "force",
+        id: "sparse-force",
+        description: "",
+        enabled: true,
+        // Patches one leaf of `extra`; a shallow merge would drop `extra.x`.
+        value: JSON.stringify({ extra: { y: 2 } }),
+        sparse: true,
+      },
+    ];
+
+    const constantMap = new Map([
+      [
+        "config:base",
+        {
+          type: "json" as const,
+          source: "config" as const,
+          value: '{"cfg":1}',
+        },
+      ],
+    ]);
+
+    const def = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      constantMap,
+    });
+
+    // Deep: config field `cfg` and the default's `extra.x` both survive.
+    expect(def?.rules).toEqual([{ force: { cfg: 1, extra: { x: 1, y: 2 } } }]);
+  });
+
+  it("resolves a config-backed sparse rule against the config it re-points to", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "json";
+    feature.baseConfig = "base";
+    feature.defaultValue = JSON.stringify({
+      $extends: ["@config:base"],
+      cfg: 999,
+    });
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "force",
+        id: "sparse-repoint",
+        description: "",
+        enabled: true,
+        // Re-points to a DESCENDANT config; its fields must be delivered
+        // (matches the config-backing editor preview), not dropped.
+        value: JSON.stringify({ $extends: ["@config:child"], p: 1 }),
+        sparse: true,
+      },
+    ];
+
+    const constantMap = new Map([
+      [
+        "config:base",
+        {
+          type: "json" as const,
+          source: "config" as const,
+          value: '{"cfg":1}',
+        },
+      ],
+      [
+        "config:child",
+        {
+          type: "json" as const,
+          source: "config" as const,
+          value: '{"cfg":2,"childOnly":"c"}',
+        },
+      ],
+    ]);
+
+    const def = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      constantMap,
+    });
+
+    // Serves the re-pointed child config's values + the rule's own field.
+    expect(def?.rules).toEqual([{ force: { cfg: 2, childOnly: "c", p: 1 } }]);
+  });
+
+  it("injects baseConfig under a pure-patch default and rules (no $extends stored)", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "json";
+    // First-class config-backing: `baseConfig` is authoritative and the stored
+    // default/rule values are pure override patches with no `@config:` directive.
+    feature.baseConfig = "base";
+    feature.defaultValue = JSON.stringify({ extra: { x: 1 } });
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "force",
+        id: "sparse-force",
+        description: "",
+        enabled: true,
+        value: JSON.stringify({ extra: { y: 2 } }),
+        sparse: true,
+      },
+    ];
+
+    const constantMap = new Map([
+      [
+        "config:base",
+        {
+          type: "json" as const,
+          source: "config" as const,
+          value: '{"cfg":1}',
+        },
+      ],
+    ]);
+
+    const def = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      constantMap,
+    });
+
+    // The default gets the base config flattened beneath its patch...
+    expect(def?.defaultValue).toEqual({ cfg: 1, extra: { x: 1 } });
+    // ...and the sparse rule deep-merges onto that same resolved base.
+    expect(def?.rules).toEqual([{ force: { cfg: 1, extra: { x: 1, y: 2 } } }]);
+  });
+
+  it("strips a stray @config: on a NON-config flag (no baseConfig)", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "json";
+    // No baseConfig => not config-designed. A stray inline @config: (e.g. from a
+    // permissive v1 write) must NOT resolve the config.
+    feature.defaultValue = JSON.stringify({
+      $extends: ["@config:base"],
+      foo: 1,
+    });
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "force",
+        id: "f",
+        description: "",
+        enabled: true,
+        value: JSON.stringify({ $extends: ["@config:base"], bar: 2 }),
+      },
+    ];
+
+    const constantMap = new Map([
+      [
+        "config:base",
+        {
+          type: "json" as const,
+          source: "config" as const,
+          value: '{"cfg":1}',
+        },
+      ],
+    ]);
+
+    const def = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      constantMap,
+    });
+
+    // `cfg` never appears — the config ref is stripped, only own keys remain.
+    expect(def?.defaultValue).toEqual({ foo: 1 });
+    expect(def?.rules).toEqual([{ force: { bar: 2 } }]);
+  });
+
+  it("ships non-object rule values on a config-backed feature as-is", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "json";
+    feature.baseConfig = "base";
+    feature.defaultValue = JSON.stringify({ $extends: ["@config:base"] });
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "force",
+        id: "array-force",
+        description: "",
+        enabled: true,
+        value: JSON.stringify([1, 2, 3]),
+      },
+      {
+        type: "force",
+        id: "string-force",
+        description: "",
+        enabled: true,
+        value: JSON.stringify("plain"),
+      },
+      {
+        type: "force",
+        id: "object-force",
+        description: "",
+        enabled: true,
+        value: JSON.stringify({ x: 2 }),
+      },
+    ];
+
+    const constantMap = new Map([
+      [
+        "config:base",
+        {
+          type: "json" as const,
+          source: "config" as const,
+          value: '{"cfg":1}',
+        },
+      ],
+    ]);
+
+    const def = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      constantMap,
+    });
+
+    // Arrays/scalars replace outright — no config base underneath; plain
+    // objects still get the default config flattened beneath them.
+    expect(def?.rules).toEqual([
+      { force: [1, 2, 3] },
+      { force: "plain" },
+      { force: { cfg: 1, x: 2 } },
+    ]);
+  });
+
+  it("routes safe-rollout values through config flattening", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "json";
+    feature.baseConfig = "base";
+    feature.defaultValue = JSON.stringify({ $extends: ["@config:base"] });
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "safe-rollout",
+        id: "sr-released",
+        description: "",
+        enabled: true,
+        controlValue: JSON.stringify({ x: 1 }),
+        variationValue: JSON.stringify({ x: 2 }),
+        safeRolloutId: "sr_1",
+        status: "released",
+        hashAttribute: "id",
+        seed: "seed",
+        trackingKey: "sr-key",
+      },
+      {
+        type: "safe-rollout",
+        id: "sr-rolled-back",
+        description: "",
+        enabled: true,
+        controlValue: JSON.stringify({ x: 1 }),
+        variationValue: JSON.stringify({ x: 2 }),
+        safeRolloutId: "sr_2",
+        status: "rolled-back",
+        hashAttribute: "id",
+        seed: "seed",
+        trackingKey: "sr-key-2",
+      },
+    ];
+
+    const constantMap = new Map([
+      [
+        "config:base",
+        {
+          type: "json" as const,
+          source: "config" as const,
+          value: '{"cfg":1}',
+        },
+      ],
+    ]);
+
+    const def = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      constantMap,
+    });
+
+    // Released forces the variation, rolled-back forces the control — both
+    // flattened onto the backing config like every other rule value.
+    expect(def?.rules).toEqual([
+      { force: { cfg: 1, x: 2 } },
+      { force: { cfg: 1, x: 1 } },
+    ]);
+  });
+
+  it("resolves a backtick-escaped ref in a sparse rule exactly once (full payload)", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "json";
+    feature.defaultValue = JSON.stringify({ msg: "" });
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "force",
+        id: "sparse-escaped",
+        description: "",
+        enabled: true,
+        sparse: true,
+        value: JSON.stringify({ msg: "`{{ @const:x }}`" }),
+      },
+    ];
+
+    const payload = generateFeaturesPayload({
+      features: [feature],
+      environment: "production",
+      groupMap: new Map(),
+      experimentMap: new Map(),
+      capabilities: ["looseUnmarshalling"],
+      constants: [makeConstant({ key: "x", type: "string", value: "real" })],
+    });
+
+    // The escape renders as a literal placeholder; a second resolution pass
+    // would wrongly substitute the constant's value.
+    expect(payload.feature.rules?.[0]).toEqual({
+      force: { msg: "{{ @const:x }}" },
+    });
+  });
+
+  // A JSON feature with a single non-sparse force rule whose value is `ruleValue`.
+  const jsonForceFeature = (ruleValue: string): FeatureInterface => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "json";
+    feature.defaultValue = "{}";
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "force",
+        id: "f1",
+        description: "",
+        enabled: true,
+        value: ruleValue,
+      },
+    ];
+    return feature;
+  };
+
+  it("resolves a JSON constant in a non-sparse force value (full payload)", () => {
+    const payload = generateFeaturesPayload({
+      features: [
+        jsonForceFeature(JSON.stringify({ $extends: ["@const:cfg"] })),
+      ],
+      environment: "production",
+      groupMap: new Map(),
+      experimentMap: new Map(),
+      capabilities: ["looseUnmarshalling"],
+      constants: [
+        makeConstant({
+          key: "cfg",
+          type: "json",
+          value: JSON.stringify({ a: 1, b: 2 }),
+        }),
+      ],
+    });
+    expect(payload.feature.rules?.[0]).toEqual({ force: { a: 1, b: 2 } });
+  });
+
+  it("spreads a constant among other keys in a non-sparse force value", () => {
+    const payload = generateFeaturesPayload({
+      features: [
+        jsonForceFeature(
+          JSON.stringify({ $extends: ["@const:cfg"], extra: 1 }),
+        ),
+      ],
+      environment: "production",
+      groupMap: new Map(),
+      experimentMap: new Map(),
+      capabilities: ["looseUnmarshalling"],
+      constants: [
+        makeConstant({
+          key: "cfg",
+          type: "json",
+          value: JSON.stringify({ a: 1 }),
+        }),
+      ],
+    });
+    expect(payload.feature.rules?.[0]).toEqual({ force: { a: 1, extra: 1 } });
+  });
+
+  it("resolves a constant in the feature default value", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "json";
+    feature.defaultValue = JSON.stringify({ $extends: ["@const:cfg"] });
+    const payload = generateFeaturesPayload({
+      features: [feature],
+      environment: "production",
+      groupMap: new Map(),
+      experimentMap: new Map(),
+      capabilities: ["looseUnmarshalling"],
+      constants: [
+        makeConstant({
+          key: "cfg",
+          type: "json",
+          value: JSON.stringify({ a: 1 }),
+        }),
+      ],
+    });
+    expect(payload.feature.defaultValue).toEqual({ a: 1 });
+  });
+
+  it("interpolates a string constant into a string feature value (payload)", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "string";
+    feature.defaultValue = "hi {{ @const:name }}";
+    const payload = generateFeaturesPayload({
+      features: [feature],
+      environment: "production",
+      groupMap: new Map(),
+      experimentMap: new Map(),
+      capabilities: ["looseUnmarshalling"],
+      constants: [
+        makeConstant({ key: "name", type: "string", value: "world" }),
+      ],
+    });
+    expect(payload.feature.defaultValue).toEqual("hi world");
+  });
+
+  it("scrubs an archived constant from the payload rather than resolving it", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "json";
+    // A spread reference among other keys + a string interpolation elsewhere.
+    feature.defaultValue = JSON.stringify({
+      $extends: ["@const:cfg"],
+      keep: 1,
+    });
+    const payload = generateFeaturesPayload({
+      features: [feature],
+      environment: "production",
+      groupMap: new Map(),
+      experimentMap: new Map(),
+      capabilities: ["looseUnmarshalling"],
+      constants: [
+        makeConstant({
+          key: "cfg",
+          type: "json",
+          value: JSON.stringify({ a: 1 }),
+          archived: true,
+        }),
+      ],
+    });
+    // The archived spread ref is dropped; sibling keys remain — no stale value
+    // and no leaked `@const:` placeholder.
+    expect(payload.feature.defaultValue).toEqual({ keep: 1 });
+  });
+
+  it("resolves constants per environment", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "json";
+    feature.defaultValue = JSON.stringify({ $extends: ["@const:host"] });
+    const constants = [
+      makeConstant({
+        key: "host",
+        type: "json",
+        value: JSON.stringify({ url: "default" }),
+        environmentValues: { production: JSON.stringify({ url: "prod" }) },
+      }),
+    ];
+    const common = {
+      groupMap: new Map(),
+      experimentMap: new Map(),
+      capabilities: ["looseUnmarshalling"] as const,
+      constants,
+    };
+    const prod = generateFeaturesPayload({
+      features: [cloneDeep(feature)],
+      environment: "production",
+      ...common,
+    });
+    const dev = generateFeaturesPayload({
+      features: [cloneDeep(feature)],
+      environment: "dev",
+      ...common,
+    });
+    expect(prod.feature.defaultValue).toEqual({ url: "prod" });
+    expect(dev.feature.defaultValue).toEqual({ url: "default" });
+  });
+
+  it("drops a cyclic $extends reference in the payload", () => {
+    const payload = generateFeaturesPayload({
+      features: [
+        jsonForceFeature(JSON.stringify({ $extends: ["@const:loop"] })),
+      ],
+      environment: "production",
+      groupMap: new Map(),
+      experimentMap: new Map(),
+      capabilities: ["looseUnmarshalling"],
+      constants: [
+        makeConstant({
+          key: "loop",
+          type: "json",
+          value: JSON.stringify({ $extends: ["@const:loop"] }),
+        }),
+      ],
+    });
+    // Self-referential $extends is dropped (no infinite recursion, no leftover).
+    expect(payload.feature.rules?.[0]).toEqual({ force: {} });
+  });
+
+  it("resolves constants in experiment-ref variation values", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "json";
+    feature.defaultValue = "{}";
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "experiment-ref",
+        experimentId: "exp_c",
+        id: "er1",
+        description: "",
+        enabled: true,
+        variations: [
+          {
+            variationId: "v0",
+            value: JSON.stringify({ $extends: ["@const:cfg"] }),
+          },
+          {
+            variationId: "v1",
+            value: JSON.stringify({ $extends: ["@const:more"] }),
+          },
+        ],
+      },
+    ];
+    const exp: ExperimentInterface = {
+      archived: false,
+      autoAssign: false,
+      implementation: "code",
+      autoSnapshots: false,
+      datasource: "",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      exposureQueryId: "",
+      hashAttribute: "user_id",
+      hashVersion: 2,
+      id: "exp_c",
+      metrics: [],
+      name: "Exp",
+      organization: "123",
+      owner: "",
+      phases: [
+        {
+          condition: "{}",
+          coverage: 1,
+          dateStarted: new Date(),
+          name: "Phase",
+          namespace: { enabled: false, name: "", range: [0, 1] },
+          reason: "",
+          variationWeights: [0.5, 0.5],
+          seed: "seed",
+        },
+      ],
+      previewURL: "",
+      releasedVariationId: "",
+      status: "running",
+      tags: [],
+      targetURLRegex: "",
+      trackingKey: "exp-c-key",
+      variations: [
+        { id: "v0", key: "0", name: "Control", screenshots: [] },
+        { id: "v1", key: "1", name: "Variation", screenshots: [] },
+      ],
+      linkedFeatures: ["feature"],
+      excludeFromPayload: false,
+    };
+    const payload = generateFeaturesPayload({
+      features: [feature],
+      environment: "production",
+      groupMap: new Map(),
+      experimentMap: new Map([["exp_c", exp]]),
+      capabilities: ["looseUnmarshalling"],
+      constants: [
+        makeConstant({
+          key: "cfg",
+          type: "json",
+          value: JSON.stringify({ a: 1 }),
+        }),
+        makeConstant({
+          key: "more",
+          type: "json",
+          value: JSON.stringify({ b: 2 }),
+        }),
+      ],
+    });
+    expect(payload.feature.rules?.[0].variations).toEqual([{ a: 1 }, { b: 2 }]);
+  });
+
+  it("resolves a string constant interpolated in a sparse patch leaf", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "json";
+    feature.defaultValue = JSON.stringify({ greeting: "" });
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "force",
+        id: "f1",
+        description: "",
+        enabled: true,
+        sparse: true,
+        value: JSON.stringify({ greeting: "hi {{ @const:name }}" }),
+      },
+    ];
+    const def = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      constantMap: new Map([
+        ["constant:name", { type: "string", value: "world" }],
+      ]),
+    });
+    expect(def?.rules).toEqual([{ force: { greeting: "hi world" } }]);
+  });
+
+  it("spreads a constant with a nested value in a sparse patch", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "json";
+    feature.defaultValue = JSON.stringify({ a: 0 });
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "force",
+        id: "f1",
+        description: "",
+        enabled: true,
+        sparse: true,
+        value: JSON.stringify({ $extends: ["@const:cfg"], x: 1 }),
+      },
+    ];
+    const def = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      constantMap: new Map([
+        [
+          "constant:cfg",
+          { type: "json", value: JSON.stringify({ nested: [1, 2] }) },
+        ],
+      ]),
+    });
+    expect(def?.rules).toEqual([{ force: { a: 0, nested: [1, 2], x: 1 } }]);
   });
 
   it("Uses linked experiments to build feature definitions", () => {

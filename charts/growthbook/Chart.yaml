@@ -10,10 +10,10 @@ type: application
 
 # This should generally match the appVersion
 # We can increment the patch version if changes to the chart itself are needed
-version: "4.4.0"
+version: "5.0.0"
 
 # This should match the version in the root package.json
-appVersion: "4.4.0"
+appVersion: "5.0.0"
 
 dependencies:
   - name: mongodb
@@ -31,7 +31,7 @@ dependencies:
 annotations:
   artifacthub.io/images: |
     - name: growthbook
-      image: growthbook/growthbook:4.4.0
+      image: growthbook/growthbook:5.0.0
       platforms:
         - linux/amd64
         - linux/arm64

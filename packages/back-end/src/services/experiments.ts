@@ -21,7 +21,7 @@ import {
 import { getScopedSettings, ScopedSettings } from "shared/settings";
 import {
   autoMerge,
-  draftHasChangesOutsideExperiment,
+  draftHasChangesOutsideTargetRef,
   DRAFT_REVISION_STATUSES,
   fillRevisionFromFeature,
   generateVariationId,
@@ -126,7 +126,11 @@ import {
   MetricSnapshotSettings,
 } from "shared/types/report";
 import { StatsEngine } from "shared/types/stats";
-import { ExperimentRefRule, FeatureRule } from "shared/types/feature";
+import {
+  ContextualBanditRefRule,
+  ExperimentRefRule,
+  FeatureRule,
+} from "shared/types/feature";
 import { ProjectInterface } from "shared/types/project";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { ExperimentQueryMetadata } from "shared/types/query";
@@ -2774,6 +2778,7 @@ export async function toExperimentApiInterface(
             const ranges = getNamespaceRanges(p.namespace);
             return {
               namespaceId: p.namespace.name,
+              enabled: p.namespace.enabled,
               range: ranges[0] ?? [0, 0],
               ranges,
             };
@@ -3908,6 +3913,27 @@ function toPhaseNamespaceValue(
 }
 
 /**
+ * Maps the GET-response `trafficSplit` shape ([{ variationId, weight }]) back
+ * to the internal `variationWeights` array, ordered to match `variationIds`.
+ * Each weight is resolved by `variationId` so a reordered/filtered trafficSplit
+ * is still assigned correctly, falling back to positional order when an id has
+ * no match (e.g. create, where variation ids are freshly generated). Returns
+ * undefined when no trafficSplit is provided so callers can fall through to
+ * their own default (e.g. an even split).
+ */
+function phaseWeightsFromTrafficSplit(
+  trafficSplit: { variationId: string; weight: number }[] | undefined,
+  variationIds: string[],
+): number[] | undefined {
+  if (!trafficSplit) return undefined;
+  return variationIds.map(
+    (id, i) =>
+      (trafficSplit.find((e) => e.variationId === id) ?? trafficSplit[i])
+        ?.weight ?? 0,
+  );
+}
+
+/**
  * Converts an API lookbackOverride payload to the internal representation.
  * Validates that "date" values are strings (not raw numbers) and that
  * "window" values are non-negative numbers with a valid unit.
@@ -3966,7 +3992,10 @@ export function postExperimentApiPayloadToInterface(
     variationIds.map((id) => ({ id, status: "active" as const }));
 
   const phases: ExperimentPhase[] = payload.phases?.map((p) => {
-    const conditionRes = validateCondition(p.condition);
+    // Accept the GET-response field names as aliases so a GET -> POST
+    // round-trip is lossless. The POST-only fields take precedence when set.
+    const condition = p.condition || p.targetingCondition || "{}";
+    const conditionRes = validateCondition(condition);
     if (!conditionRes.success) {
       throw new Error(`Invalid targeting condition: ${conditionRes.error}`);
     }
@@ -3983,9 +4012,9 @@ export function postExperimentApiPayloadToInterface(
       ...p,
       dateStarted: new Date(p.dateStarted),
       dateEnded: p.dateEnded ? new Date(p.dateEnded) : undefined,
-      reason: p.reason || "",
+      reason: p.reason || p.reasonForStopping || "",
       coverage: p.coverage != null ? p.coverage : 1,
-      condition: p.condition || "{}",
+      condition,
       prerequisites: p.prerequisites || [],
       savedGroups: (p.savedGroupTargeting || []).map((s) => ({
         match: s.matchType,
@@ -3997,6 +4026,7 @@ export function postExperimentApiPayloadToInterface(
       ),
       variationWeights:
         p.variationWeights ||
+        phaseWeightsFromTrafficSplit(p.trafficSplit, variationIds) ||
         payload.variations.map(() => 1 / payload.variations.length),
       variations: toPhaseVariations(variationIds),
     };
@@ -4219,7 +4249,10 @@ function resolveExperimentUpdateVariationsAndPhases(
 
   if (hasPhasePayload) {
     resolvedPhases = phases.map((p, phaseIndex) => {
-      const conditionRes = validateCondition(p.condition);
+      // Accept the GET-response field names as aliases so a GET -> POST
+      // round-trip is lossless. The POST-only fields take precedence when set.
+      const condition = p.condition || p.targetingCondition || "{}";
+      const conditionRes = validateCondition(condition);
       if (!conditionRes.success) {
         throw new Error(`Invalid targeting condition: ${conditionRes.error}`);
       }
@@ -4242,14 +4275,18 @@ function resolveExperimentUpdateVariationsAndPhases(
 
       const variationWeights =
         p.variationWeights ||
+        phaseWeightsFromTrafficSplit(
+          p.trafficSplit,
+          phaseVariations.map((v) => v.id),
+        ) ||
         phaseVariations.map((_) => 1 / phaseVariations.length);
       return {
         ...p,
         dateStarted: new Date(p.dateStarted),
         dateEnded: p.dateEnded ? new Date(p.dateEnded) : undefined,
-        reason: p.reason || "",
+        reason: p.reason || p.reasonForStopping || "",
         coverage: p.coverage != null ? p.coverage : 1,
-        condition: p.condition || "{}",
+        condition,
         prerequisites: p.prerequisites || [],
         savedGroups: (p.savedGroupTargeting || []).map((s) => ({
           match: s.matchType,
@@ -4605,14 +4642,26 @@ export function visualChangesetsHaveChanges({
   return false;
 }
 
-export async function getLinkedFeatureInfo(
-  context: ReqContext,
-  experiment: ExperimentInterface,
-) {
-  const linkedFeatures = experiment.linkedFeatures || [];
-  if (!linkedFeatures.length) return [];
+/**
+ * Generic linked-feature enrichment shared by Experiments and Contextual
+ * Bandits. `matchRule` selects the ref rules that point at the parent entity
+ * (experiment-ref / contextual-bandit-ref). Returns the same `LinkedFeatureInfo`
+ * shape for both, so the detail-page UI can be reused.
+ */
+export async function getRefLinkedFeatureInfo({
+  context,
+  linkedFeatureIds,
+  refIsDraft,
+  matchRule,
+}: {
+  context: ReqContext | ApiReqContext;
+  linkedFeatureIds: string[];
+  refIsDraft: boolean;
+  matchRule: (rule: FeatureRule) => boolean;
+}): Promise<LinkedFeatureInfo[]> {
+  if (!linkedFeatureIds.length) return [];
 
-  const features = await getFeaturesByIds(context, linkedFeatures);
+  const features = await getFeaturesByIds(context, linkedFeatureIds);
 
   const featuresByFeatureId = Object.fromEntries(
     features.map((f) => [f.id, f]),
@@ -4620,32 +4669,21 @@ export async function getLinkedFeatureInfo(
   const revisionsByFeatureId = await getFeatureRevisionsByFeatureIds(
     context,
     context.org.id,
-    linkedFeatures,
+    linkedFeatureIds,
     featuresByFeatureId,
   );
 
   const environments = getEnvironmentIdsFromOrg(context.org);
 
-  const filter = (rule: FeatureRule) =>
-    rule.type === "experiment-ref" && rule.experimentId === experiment.id;
-
-  // Slice the experiment-ref rules matching this experiment from a rules
-  // array (works for both feature.rules and revision.rules). Used to detect
-  // whether a draft is actually changing this experiment's rule vs. just
-  // inheriting it unchanged from live.
-  const refRulesForExperiment = (rules: unknown): FeatureRule[] =>
-    naiveFlattenV1Rules(rules).filter(
-      (r) =>
-        r.type === "experiment-ref" &&
-        (r as ExperimentRefRule).experimentId === experiment.id,
-    );
+  const refRulesForEntity = (rules: unknown): FeatureRule[] =>
+    naiveFlattenV1Rules(rules).filter(matchRule);
 
   const linkedFeatureInfo = await Promise.all(
     features.map(async (feature) => {
       const revisions = revisionsByFeatureId[feature.id] || [];
 
-      const liveMatches = getMatchingRules(feature, filter, environments);
-      const liveRefRules = refRulesForExperiment(feature.rules);
+      const liveMatches = getMatchingRules(feature, matchRule, environments);
+      const liveRefRules = refRulesForEntity(feature.rules);
 
       // Walk draft revisions newest-first and pick:
       //   1. (preferred) a draft whose experiment-ref rule slice DIFFERS from
@@ -4665,9 +4703,9 @@ export async function getLinkedFeatureInfo(
       let draftDiffersFromLive = false;
 
       for (const r of activeDrafts) {
-        const m = getMatchingRules(feature, filter, environments, r);
+        const m = getMatchingRules(feature, matchRule, environments, r);
         if (m.length === 0) continue;
-        const draftRefRules = refRulesForExperiment(r.rules);
+        const draftRefRules = refRulesForEntity(r.rules);
         if (liveRefRules.length > 0 && !isEqual(draftRefRules, liveRefRules)) {
           matchedDraftRevision = r;
           draftMatches = m;
@@ -4688,16 +4726,14 @@ export async function getLinkedFeatureInfo(
             (r) => r.status === "published" && r.version !== feature.version,
           )
           .sort((a, b) => b.version - a.version)
-          .map((r) => getMatchingRules(feature, filter, environments, r))
+          .map((r) => getMatchingRules(feature, matchRule, environments, r))
           .filter((matches) => matches.length > 0)[0] || [];
 
       let state: LinkedFeatureState = "discarded";
       let matches: MatchingRule[] = [];
       if (feature.archived) {
         state = "archived";
-      } else if (draftDiffersFromLive && experiment.status === "draft") {
-        // A draft is changing this experiment's rule and the experiment is
-        // still in draft — surface the pending change even if the rule is already live.
+      } else if (draftDiffersFromLive && refIsDraft) {
         // Render uses draft values so the user sees what publishing will produce.
         state = "draft";
         matches = draftMatches;
@@ -4732,8 +4768,6 @@ export async function getLinkedFeatureInfo(
         }
       }
 
-      // Mirrors publishPendingFeatureDraftsForExperiment's pre-flight: same
-      // autoMerge used on the FF detail page, plus an "unrelated edits" check.
       let hasMergeConflict: boolean | undefined;
       let hasUnrelatedDraftChanges: boolean | undefined;
       if (state === "draft" && matchedDraftRevision) {
@@ -4754,10 +4788,10 @@ export async function getLinkedFeatureInfo(
           if (!mergeResult.success) {
             hasMergeConflict = true;
           } else if (
-            draftHasChangesOutsideExperiment(
+            draftHasChangesOutsideTargetRef(
               matchedDraftRevision,
               filledLive,
-              experiment.id,
+              matchRule,
             )
           ) {
             hasUnrelatedDraftChanges = true;
@@ -4765,15 +4799,19 @@ export async function getLinkedFeatureInfo(
         } catch (e) {
           logger.warn(
             { featureId: feature.id, err: e },
-            "[getLinkedFeatureInfo] draft cleanliness check failed",
+            "[getRefLinkedFeatureInfo] draft cleanliness check failed",
           );
         }
       }
 
+      const refRuleValues = (rule: FeatureRule | undefined) =>
+        (rule as ExperimentRefRule | ContextualBanditRefRule | undefined)
+          ?.variations || [];
+
       const uniqueValues: Set<string> = new Set(
         matches.map((m) =>
           JSON.stringify(
-            [...(m.rule as ExperimentRefRule).variations].sort((a, b) =>
+            [...refRuleValues(m.rule)].sort((a, b) =>
               b.variationId.localeCompare(a.variationId),
             ),
           ),
@@ -4799,7 +4837,7 @@ export async function getLinkedFeatureInfo(
         feature,
         state,
         environmentStates,
-        values: (matches[0]?.rule as ExperimentRefRule)?.variations || [],
+        values: refRuleValues(matches[0]?.rule),
         sparse: !!(matches[0]?.rule as ExperimentRefRule)?.sparse,
         valuesFrom: matches[0]?.environmentId || "",
         rulesAbove: matches.some((m) => m.i > 0),
@@ -4822,6 +4860,19 @@ export async function getLinkedFeatureInfo(
   );
 
   return linkedFeatureInfo;
+}
+
+export async function getLinkedFeatureInfo(
+  context: ReqContext,
+  experiment: ExperimentInterface,
+) {
+  return getRefLinkedFeatureInfo({
+    context,
+    linkedFeatureIds: experiment.linkedFeatures || [],
+    refIsDraft: experiment.status === "draft",
+    matchRule: (rule) =>
+      rule.type === "experiment-ref" && rule.experimentId === experiment.id,
+  });
 }
 
 export async function getLinkedChangeEnvironmentStates(

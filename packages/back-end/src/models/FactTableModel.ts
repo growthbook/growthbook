@@ -5,6 +5,7 @@ import {
   CreateFactFilterProps,
   CreateFactTableProps,
   FactFilterInterface,
+  FactTableDefinition,
   FactTableInterface,
   UpdateFactFilterProps,
   UpdateColumnProps,
@@ -17,6 +18,7 @@ import { ApiReqContext } from "back-end/types/api";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { projectFilterQuery } from "back-end/src/util/mongo.util";
 import { createModelAuditLogger } from "back-end/src/services/audit";
+import { deferAggregatedFactTableToNextSlot } from "back-end/src/services/aggregatedFactTables";
 
 const audit = createModelAuditLogger({
   entity: "factTable",
@@ -88,6 +90,7 @@ const factTableSchema = new mongoose.Schema({
         },
       },
       lookbackWindow: Number,
+      restateChunkDays: Number,
     },
     default: undefined,
   },
@@ -176,6 +179,22 @@ export async function getAllFactTablesForOrganization(
   };
 
   const docs = await FactTableModel.find(query).sort({ id: 1 });
+  return docs
+    .map((doc) => toInterface(doc))
+    .filter((f) => context.permissions.canReadMultiProjectResource(f.projects));
+}
+
+// Slimmed version of getAllFactTablesForOrganization for the definitions
+// endpoint. The sql field and per-column jsonFields maps are excluded at the DB
+// layer to keep the payload small; consumers fetch the full fact table by id
+// when they need them.
+export async function getAllFactTablesForDefinitions(
+  context: ReqContext | ApiReqContext,
+): Promise<FactTableDefinition[]> {
+  const docs = await FactTableModel.find(
+    { organization: context.org.id },
+    { sql: 0, "columns.jsonFields": 0 },
+  ).sort({ id: 1 });
   return docs
     .map((doc) => toInterface(doc))
     .filter((f) => context.permissions.canReadMultiProjectResource(f.projects));
@@ -295,9 +314,13 @@ export async function createFactTable(
     context.permissions.throwPermissionError();
   }
 
-  const doc = await FactTableModel.create(
-    createPropsToInterface(context, data),
-  );
+  const factTableProps = createPropsToInterface(context, data);
+
+  // We claim this slot first to avoid a potential race condition when the FactTable is created at
+  // the same time the background job is scheduling the aggregated table update
+  await deferAggregatedFactTableToNextSlot(context, factTableProps);
+
+  const doc = await FactTableModel.create(factTableProps);
 
   const factTable = toInterface(doc);
 
@@ -704,6 +727,16 @@ export async function deleteFactTable(
   });
 
   await audit.logDelete(context, factTable);
+}
+
+export async function projectHasFactTables(
+  context: ReqContext | ApiReqContext,
+  projectId: string,
+): Promise<boolean> {
+  return !!(await FactTableModel.exists({
+    organization: context.org.id,
+    projects: [projectId],
+  }));
 }
 
 export async function deleteAllFactTablesForAProject({

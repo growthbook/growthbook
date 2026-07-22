@@ -10,6 +10,10 @@ import {
   findElementsTool,
   getInnerHTMLTool,
 } from "./clientSideTools";
+import {
+  findElementsServerTool,
+  type PageStructureNode,
+} from "./findElementsServer";
 import type { ClientJob } from "./clientJob";
 
 // Per-turn cap on image generations. Each image is a paid provider
@@ -24,6 +28,10 @@ export interface VisualEditorToolsetOptions {
   // through the client. When omitted, only server-side tools are
   // included — the handler runs as a single HTTP request.
   job?: ClientJob<unknown>;
+  // Page-structure snapshot for the server-side `findElements` tool. When
+  // present, the model can locate uncatalogued containers (sections, layout
+  // wrappers) without a client round-trip — so it works on Cloud.
+  pageStructure?: PageStructureNode[];
   // Set to true to suppress tools entirely.
   disabled?: boolean;
 }
@@ -31,23 +39,37 @@ export interface VisualEditorToolsetOptions {
 export function buildVisualEditorTools({
   context,
   job,
+  pageStructure,
   disabled = false,
 }: VisualEditorToolsetOptions): ToolSet | undefined {
   if (disabled) return undefined;
   const turnCounter = { count: 0, max: IMAGE_GEN_PER_TURN_MAX };
+  const hasStructure = !!pageStructure && pageStructure.length > 0;
   const serverTools = {
     generateImage: generateImageTool({ context, turnCounter }),
     searchImageLibrary: searchImageLibraryTool(context),
     getDesignTokens: getDesignTokensTool(context),
     searchPastExperiments: searchPastExperimentsTool(context),
     getExperimentVariations: getExperimentVariationsTool(context),
+    // Server-side container lookup over the in-request snapshot — works on
+    // Cloud (no client round-trip). Only added when the extension sent a
+    // snapshot.
+    ...(hasStructure
+      ? {
+          findElements: findElementsServerTool(
+            pageStructure as PageStructureNode[],
+          ),
+        }
+      : {}),
   };
   if (!job) return serverTools;
   return {
     ...serverTools,
     getComputedStyles: getComputedStylesTool(job),
-    findElements: findElementsTool(job),
     getInnerHTML: getInnerHTMLTool(job),
+    // Prefer the server-side snapshot findElements (above) when available;
+    // fall back to the client-bounced one only when there's no snapshot.
+    ...(hasStructure ? {} : { findElements: findElementsTool(job) }),
   };
 }
 

@@ -58,6 +58,7 @@ const DecisionCriteriaSelectorModal: FC<DecisionCriteriaSelectorModalProps> = ({
 
   return (
     <Modal
+      useRadixButton={false}
       open={true}
       submit={
         canEdit

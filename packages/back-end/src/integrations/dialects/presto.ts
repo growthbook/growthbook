@@ -1,5 +1,9 @@
 import type { SqlDialect } from "shared/types/sql";
 import { defaultPercentileCapSelectClause } from "back-end/src/integrations/sql/clauses/percentile-cap-select-clause";
+import {
+  approxTopKCapacity,
+  eligibleTopValueExpr,
+} from "back-end/src/integrations/sql/clauses/approx-top-values";
 import { baseDialect } from "./base";
 
 export const prestoDialect: SqlDialect = {
@@ -26,6 +30,23 @@ export const prestoDialect: SqlDialect = {
   hllAggregate: (col: string) => `APPROX_SET(${col})`,
   hllReaggregate: (col: string) => `MERGE(CAST(${col} AS HyperLogLog))`,
   hllCardinality: (col: string) => `CARDINALITY(${col})`,
+  // Same Presto/Trino engine as Athena — array helpers use the functional
+  // operators and the native `min_by` aggregate.
+  arrayAggSorted: (col: string) =>
+    `array_sort(filter(array_agg(${col}), x -> x IS NOT NULL))`,
+  argMinByTimestamp: (valueCol: string, tsCol: string) =>
+    `min_by(${valueCol}, ${tsCol})`,
+  arrayMinInRange: (col, lowerBound, upperBound) => {
+    const preds: string[] = [];
+    if (lowerBound) preds.push(`x >= ${lowerBound}`);
+    if (upperBound) preds.push(`x <= ${upperBound}`);
+    const predicate = preds.length ? preds.join(" AND ") : "true";
+    return `array_min(filter(${col}, x -> ${predicate}))`;
+  },
+  addIntervalSeconds: (col: string, sign: "+" | "-", amount: number) =>
+    `date_add('second', ${sign === "-" ? "-" : ""}${amount}, ${col})`,
+  dateDiffMs: (startCol: string, endCol: string) =>
+    `date_diff('millisecond', ${startCol}, ${endCol})`,
   percentileCapSelectClause: (values, metricTable, where = "") =>
     defaultPercentileCapSelectClause(prestoDialect, values, metricTable, where),
 
@@ -43,5 +64,41 @@ export const prestoDialect: SqlDialect = {
       keyExpr: "__col.column_name",
       valueExpr: "__col.value",
     };
+  },
+
+  approxTopValuesCTEBody: ({
+    pairs,
+    fromTable,
+    whereClause,
+    limit,
+    maxValueLength,
+  }) => {
+    const capacity = approxTopKCapacity(limit);
+    const names = pairs.map((p) => `'${p.keyLiteral}'`).join(", ");
+    const maps = pairs
+      .map(
+        (p) =>
+          `approx_most_frequent(${limit}, ${eligibleTopValueExpr(
+            prestoDialect,
+            p.valueSql,
+            maxValueLength,
+          )}, ${capacity})`,
+      )
+      .join(",\n        ");
+
+    return `
+    SELECT __col.column_name AS column_name, __item.value AS value, __item.count AS count
+    FROM (
+      SELECT
+        ARRAY[${names}] AS col_names,
+        ARRAY[
+          ${maps}
+        ] AS col_maps
+      FROM ${fromTable}
+      WHERE ${whereClause}
+    ) __agg
+    CROSS JOIN UNNEST(__agg.col_names, __agg.col_maps) AS __col (column_name, items)
+    CROSS JOIN UNNEST(__col.items) AS __item (value, count)
+    WHERE __item.value IS NOT NULL`;
   },
 };
