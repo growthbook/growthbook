@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { DEFAULT_DECISION_FRAMEWORK_ENABLED } from "shared/constants";
+import { getValidDate, resolveScheduleStopAfter } from "shared/dates";
 import { PiArrowSquareOut, PiInfo } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -237,6 +238,23 @@ export default function EditScheduleModal({
   // "On date" requires an actual date. Block save (rather than silently
   // discarding the shipping config on submit) if the picker was left empty.
   const endDateMissing = endMode === "on-date" && !stopAt;
+  // The back-end rejects past stops (they'd never be staged for the
+  // scheduler); block save up front, including a prefilled end date that has
+  // since passed — changing the plan requires committing to a new end.
+  const stopInThePast =
+    endMode === "on-date" && !!stopAt && new Date(stopAt) <= now;
+  // stopAfter resolves off the phase start for running experiments, so it can
+  // already be in the past. Drafts resolve at start time, so skip them.
+  const lastPhaseStart =
+    experiment.phases[experiment.phases.length - 1]?.dateStarted;
+  const stopAfterInThePast =
+    endMode === "after" &&
+    experiment.status === "running" &&
+    !!lastPhaseStart &&
+    resolveScheduleStopAfter(getValidDate(lastPhaseStart), {
+      value: endAfterValue,
+      unit: endAfterUnit,
+    }) <= now;
 
   const modeHelpText = () => {
     switch (mode) {
@@ -306,7 +324,12 @@ export default function EditScheduleModal({
         subheader="Schedule when this experiment starts and ends, and choose what happens automatically at the end date."
         cta={hasSchedule ? "Update" : "Done"}
         ctaColor="violet"
-        ctaEnabled={!stopBeforeStart && !endDateMissing}
+        ctaEnabled={
+          !stopBeforeStart &&
+          !endDateMissing &&
+          !stopInThePast &&
+          !stopAfterInThePast
+        }
         size="lg"
         secondaryAction={
           isApproved && experiment.status === "draft" ? (
@@ -519,6 +542,19 @@ export default function EditScheduleModal({
           )}
           {endDateMissing && (
             <Helpertext status="warning">Select an end date</Helpertext>
+          )}
+          {stopInThePast && (
+            <Helpertext status="warning">
+              The end date has passed — choose a future end date, or stop the
+              experiment manually
+            </Helpertext>
+          )}
+          {stopAfterInThePast && (
+            <Helpertext status="warning">
+              This duration from the phase start has already elapsed — choose a
+              longer duration or a future end date, or stop the experiment
+              manually
+            </Helpertext>
           )}
 
           {hasEndDate && (
