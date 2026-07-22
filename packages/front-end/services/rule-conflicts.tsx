@@ -1455,6 +1455,14 @@ export function buildConflictBanners(
       ),
   );
 
+  // "Unreachable" (the orange, serves-nobody status) is reserved for a rule that
+  // is unreachable in EVERY cell it occupies. If it's reachable in any cell —
+  // another project or environment — the unreachable cells are a partial "will
+  // not reach … for project X" conflict (amber), not a total kill. This keeps
+  // the pill from overselling when a rule still serves some scope.
+  const fullyUnreachable =
+    perScope.length > 0 && perScope.every((c) => c.reach.unreachable);
+
   const banners: ConflictBanner[] = [];
   for (const level of order) {
     const cells = cellsByLevel.get(level);
@@ -1467,7 +1475,7 @@ export function buildConflictBanners(
     ];
     const realProjects = projects.filter((p) => p !== OTHER_PROJECT_BUCKET);
     banners.push({
-      isUnreachable: level === "unreachable",
+      isUnreachable: level === "unreachable" && fullyUnreachable,
       conflicts: mergeConflicts(
         cells.map((c) => c.reach),
         ruleNumber,

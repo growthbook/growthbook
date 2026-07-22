@@ -1404,6 +1404,9 @@ describe("buildConflictBanners — per-environment grouping", () => {
     ]);
   });
 
+  // A rule unreachable in production but only soft-conflicting elsewhere is not
+  // *globally* unreachable, so its production banner is a partial (amber)
+  // conflict, not the orange serves-nobody status.
   it("splits into separate banners when environments disagree", () => {
     // Unreachable in production, soft conflict in dev + staging.
     const banners = buildConflictBanners(
@@ -1435,7 +1438,7 @@ describe("buildConflictBanners — per-environment grouping", () => {
     );
     expect(banners).toEqual([
       {
-        isUnreachable: true,
+        isUnreachable: false,
         conflicts: {
           hard: [{ ruleNumber: 1, attr: "id", label: "1, 2" }],
           soft: [],
@@ -1485,8 +1488,11 @@ describe("buildConflictBanners — per-environment grouping", () => {
       num,
       true,
     );
+    // Ordering is by status level (unreachable-level cells first), shown by the
+    // environment order; isUnreachable is false throughout because the rule is
+    // reachable somewhere (only a subset of cells is unreachable).
     expect(banners.map((b) => [b.isUnreachable, b.environments])).toEqual([
-      [true, ["production"]],
+      [false, ["production"]],
       [false, ["staging"]],
       [false, ["dev"]],
     ]);
@@ -1658,12 +1664,13 @@ describe("buildConflictBanners — project nuance", () => {
       { multiProject: true, projectLabel: (id) => id.toUpperCase() },
     );
     expect(banners).toHaveLength(1);
-    expect(banners[0].isUnreachable).toBe(true);
+    // Reachable in brainzy → not globally unreachable → amber, not orange.
+    expect(banners[0].isUnreachable).toBe(false);
     expect(banners[0].projects).toEqual(["CLO"]);
     expect(banners[0].allProjects).toBe(false);
   });
 
-  it("flags allProjects when unreachable across every project", () => {
+  it("flags allProjects (and stays fully unreachable) across every project", () => {
     const banners = buildConflictBanners(
       [
         unreachableIn("production", "clo"),
@@ -1673,6 +1680,7 @@ describe("buildConflictBanners — project nuance", () => {
       false,
       { multiProject: true },
     );
+    expect(banners[0].isUnreachable).toBe(true);
     expect(banners[0].projects).toEqual([]);
     expect(banners[0].allProjects).toBe(true);
   });
