@@ -12,7 +12,6 @@ import SelectField, {
 } from "@/components/Forms/SelectField";
 import StringArrayField from "@/components/Forms/StringArrayField";
 import Button from "@/ui/Button";
-import Switch from "@/ui/Switch";
 import {
   NUMBER_PATTERN,
   numberRegex,
@@ -20,7 +19,6 @@ import {
   operatorLabelMap,
   getColumnInfo,
   getAttributeFieldsExposedAsColumns,
-  valuesLookLikeDates,
 } from "./rowFilterUtils";
 
 export function RowFilterInput({
@@ -129,27 +127,18 @@ export function RowFilterInput({
         }
 
         const { datatype, topValues } = getColumnInfo(factTable, filter.column);
-        // A string column whose sampled values look like ISO dates can be
-        // opted into date (UTC timestamp) comparison via a toggle. Respect an
-        // already-saved choice even if the current sample no longer detects as
-        // dates, so the UI stays consistent with the generated SQL.
-        const treatAsDate = !!filter.treatAsDate && datatype === "string";
-        const canTreatAsDate =
-          datatype === "string" &&
-          (treatAsDate || valuesLookLikeDates(topValues));
-        const effectiveDatatype = treatAsDate ? "date" : datatype;
 
         let inputType: "text" | "number" = "text";
         let isDateColumn = false;
 
         if (operatorInputRequired) {
-          const allowedOperators = getAllowedOperators(effectiveDatatype);
+          const allowedOperators = getAllowedOperators(datatype);
 
-          if (effectiveDatatype === "number") {
+          if (datatype === "number") {
             inputType = "number";
           }
 
-          if (effectiveDatatype === "date") {
+          if (datatype === "date") {
             isDateColumn = true;
           }
 
@@ -277,7 +266,6 @@ export function RowFilterInput({
                     operator: newOperator,
                     column: v,
                     values: newValues,
-                    treatAsDate: false,
                   });
                 }
               }}
@@ -396,32 +384,6 @@ export function RowFilterInput({
                 )}
               </>
             )}
-            {canTreatAsDate &&
-              operatorInputRequired &&
-              firstSelectCompleted && (
-                <Switch
-                  label="Treat as date"
-                  value={treatAsDate}
-                  onChange={(checked) => {
-                    // Switching between string and date changes which operators
-                    // are valid; reset the operator/values if needed.
-                    const allowed = getAllowedOperators(
-                      checked ? "date" : "string",
-                    );
-                    let newOperator = filter.operator;
-                    let newValues = filter.values || [];
-                    if (!allowed.includes(newOperator)) {
-                      newOperator = allowed[0];
-                      newValues = [];
-                    }
-                    updateRowFilter({
-                      treatAsDate: checked,
-                      operator: newOperator,
-                      values: newValues,
-                    });
-                  }}
-                />
-              )}
             <Button
               variant="ghost"
               color="red"

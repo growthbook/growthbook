@@ -353,16 +353,9 @@ export function getRowFilterSQL({
   if (!rowFilter.values?.length) {
     return null;
   }
-  // Date columns — and string columns the user has opted to treat as dates —
-  // compare as UTC timestamps (temporal) rather than as quoted strings
-  // (lexicographic), when the dialect provides a timestamp cast. `treatAsDate`
-  // only applies to string columns; guard against casting numbers/booleans.
-  const isDate =
-    columnType === "date" ||
-    (rowFilter.treatAsDate === true &&
-      columnType !== "number" &&
-      columnType !== "boolean");
-  const castDates = isDate && !!castToTimestamp;
+  // Date columns compare as UTC timestamps (temporal) rather than as quoted
+  // strings (lexicographic), when the dialect provides a timestamp cast.
+  const castDates = columnType === "date" && !!castToTimestamp;
 
   const escapedValues = [
     ...new Set(

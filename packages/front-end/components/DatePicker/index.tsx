@@ -623,7 +623,7 @@ export default function DatePicker({
                   onMonthChange={(m) => setCalendarMonth(m)}
                 />
               ) : (
-                <>
+                <Flex align="start" gap="3">
                   <DayPicker
                     mode="single"
                     selected={getValidDate(date)}
@@ -663,7 +663,7 @@ export default function DatePicker({
                       }}
                     />
                   )}
-                </>
+                </Flex>
               )}
               <Popover.Arrow className={styles.Arrow} />
             </Popover.Content>

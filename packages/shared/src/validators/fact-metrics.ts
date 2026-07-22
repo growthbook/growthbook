@@ -38,12 +38,6 @@ const apiRowFilterValidator = z.object({
     .string()
     .describe("Required for all operators except sql_expr and saved_filter.")
     .optional(),
-  treatAsDate: z
-    .boolean()
-    .describe(
-      "When true, a string column holding ISO date values is compared as a UTC timestamp rather than lexicographically.",
-    )
-    .optional(),
 });
 
 const apiNumeratorRef = z.object({

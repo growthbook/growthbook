@@ -4,22 +4,6 @@ export const NUMBER_PATTERN = "^-?(\\d+|\\d*\\.\\d+)$";
 
 export const numberRegex = new RegExp(NUMBER_PATTERN);
 
-// Matches ISO-8601-style dates/datetimes ("2024-01-01", "2024-01-01T09:00",
-// "2024-01-01 09:00:00"). Mirrors the backend column-type inference regex in
-// back-end/src/util/sql.ts so the "treat as date" toggle is offered on exactly
-// the string columns whose sampled values look like dates.
-export const isoDateRegex = /^\d{4}-\d{2}-\d{2}($|[ T])/;
-
-/**
- * True when a string column's sampled values all look like ISO dates (and there
- * is at least one non-empty sample). Used to decide whether to offer treating a
- * string column as a date for comparison.
- */
-export function valuesLookLikeDates(values: string[]): boolean {
-  const nonEmpty = values.filter((v) => v);
-  return nonEmpty.length > 0 && nonEmpty.every((v) => isoDateRegex.test(v));
-}
-
 export function getAllowedOperators(datatype: string): RowFilter["operator"][] {
   if (datatype === "boolean") {
     return ["is_true", "is_false", "is_null", "not_null"];

@@ -761,27 +761,7 @@ describe("Experiments", () => {
             }),
           ).toStrictEqual(`(${dateColumn.column} > '2024-01-01')`);
         });
-        it("casts string columns to timestamp when treatAsDate is set", () => {
-          expect(
-            getRowFilterSQL({
-              factTable,
-              rowFilter: {
-                column: column.column,
-                operator: ">",
-                values: ["2024-01-01T17:00:00.000Z"],
-                treatAsDate: true,
-              },
-              escapeStringLiteral,
-              jsonExtract,
-              evalBoolean,
-              stringMatch,
-              castToTimestamp,
-            }),
-          ).toStrictEqual(
-            `(CAST(${column.column} AS TIMESTAMP) > CAST('2024-01-01 17:00:00' AS TIMESTAMP))`,
-          );
-        });
-        it("does not cast a string column when treatAsDate is unset", () => {
+        it("does not cast string columns even when a timestamp cast is available", () => {
           expect(
             getRowFilterSQL({
               factTable,

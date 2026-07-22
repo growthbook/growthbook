@@ -28,20 +28,32 @@
 
 .TimePicker {
   display: flex;
-  gap: 8px;
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid var(--gray-a5);
+  gap: 6px;
+  padding-left: 12px;
+  border-left: 1px solid var(--gray-a5);
 }
 
 .TimeColumn {
   display: flex;
-  flex: 1;
   flex-direction: column;
   gap: 2px;
-  max-height: 168px;
+  max-height: 252px;
   overflow-y: auto;
+  // Keep cells (and their selected border) clear of the scrollbar
+  padding-right: 8px;
   scrollbar-width: thin;
+  scrollbar-color: var(--gray-a6) transparent;
+
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background-color: var(--gray-a6);
+    border-radius: 3px;
+  }
 }
 
 .TimeCell {
