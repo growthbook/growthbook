@@ -172,6 +172,7 @@ export function CreateSDKWebhookModal({
   const SelectWebhookSecretField = ({ label }: { label: string }) => {
     return (
       <SelectField
+        size="legacy"
         label={label}
         required
         value={form.watch("webhookSecretKey")}
@@ -252,9 +253,15 @@ export function CreateSDKWebhookModal({
           onSave();
         })}
       >
-        <Field label="Display Name" required {...form.register("name")} />
+        <Field
+          size="legacy"
+          label="Display Name"
+          required
+          {...form.register("name")}
+        />
 
         <SelectField
+          size="legacy"
           label="Webhook Type"
           required
           value={webhookType || ""}
@@ -276,18 +283,21 @@ export function CreateSDKWebhookModal({
         {webhookType === "cloudflare" ? (
           <>
             <Field
+              size="legacy"
               label="Cloudflare Account ID"
               key="cf_account_id"
               required
               {...form.register("accountId")}
             />
             <Field
+              size="legacy"
               label="KV Namespace ID"
               key="cf_namespace_id"
               required
               {...form.register("namespaceId")}
             />
             <Field
+              size="legacy"
               label="Key"
               required
               {...form.register("key")}
@@ -301,12 +311,14 @@ export function CreateSDKWebhookModal({
         ) : webhookType === "fastly" ? (
           <>
             <Field
+              size="legacy"
               label="Store ID"
               required
               {...form.register("storeId")}
               key="fastly_store_id"
             />
             <Field
+              size="legacy"
               label="Key"
               required
               {...form.register("key")}
@@ -320,18 +332,21 @@ export function CreateSDKWebhookModal({
         ) : webhookType === "vercel" ? (
           <>
             <Field
+              size="legacy"
               label="Vercel Edge Config ID"
               required
               {...form.register("edgeConfigId")}
               key="vercel_edge_config_id"
             />
             <Field
+              size="legacy"
               label="Item Key"
               required
               {...form.register("key")}
               key="vercel_payload_key"
             />
             <Field
+              size="legacy"
               label="Team ID (optional)"
               {...form.register("teamId")}
               key="vercel_team_id"
@@ -344,6 +359,7 @@ export function CreateSDKWebhookModal({
         ) : webhookType === "http" ? (
           <>
             <Field
+              size="legacy"
               label="Endpoint URL"
               placeholder="https://example.com"
               {...form.register("endpoint")}
@@ -383,6 +399,7 @@ export function CreateSDKWebhookModal({
             )}
 
             <SelectField
+              size="legacy"
               label="Method"
               required
               placeholder="POST"
@@ -428,6 +445,7 @@ export function CreateSDKWebhookModal({
             {form.watch("httpMethod") !== "GET" && (
               <>
                 <SelectField
+                  size="legacy"
                   label="Payload Format"
                   value={form.watch("payloadFormat")}
                   onChange={(v: WebhookPayloadFormat) =>
@@ -477,6 +495,7 @@ export function CreateSDKWebhookModal({
                 {(form.watch("payloadFormat") === "edgeConfig" ||
                   form.watch("payloadFormat") === "edgeConfigUnescaped") && (
                   <Field
+                    size="legacy"
                     label="Edge Config Key"
                     placeholder="gb_payload"
                     {...form.register("key")}
@@ -608,8 +627,14 @@ const EditSDKWebhooksModal: FC<{
       cta={current.id ? "Update" : "Create"}
       size="lg"
     >
-      <Field label="Display Name" required {...form.register("name")} />
       <Field
+        size="legacy"
+        label="Display Name"
+        required
+        {...form.register("name")}
+      />
+      <Field
+        size="legacy"
         label="Endpoint URL"
         placeholder="https://example.com"
         {...form.register("endpoint")}
@@ -643,6 +668,7 @@ const EditSDKWebhooksModal: FC<{
       )}
 
       <SelectField
+        size="legacy"
         label="Method"
         required
         placeholder="POST"
@@ -659,6 +685,7 @@ const EditSDKWebhooksModal: FC<{
       {form.watch("httpMethod") !== "GET" && (
         <>
           <SelectField
+            size="legacy"
             label="Payload Format"
             value={form.watch("payloadFormat")}
             onChange={(v: WebhookPayloadFormat) =>
@@ -710,6 +737,7 @@ const EditSDKWebhooksModal: FC<{
           {(form.watch("payloadFormat") === "edgeConfig" ||
             form.watch("payloadFormat") === "edgeConfigUnescaped") && (
             <Field
+              size="legacy"
               label="Edge Config Key"
               placeholder="gb_payload"
               {...form.register("payloadKey")}

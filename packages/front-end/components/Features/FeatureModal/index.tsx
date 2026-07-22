@@ -392,6 +392,7 @@ export default function FeatureModal({
 
         {projectOptions.length > 0 && (
           <SelectField
+            size="legacy"
             label={
               <>
                 Project{" "}

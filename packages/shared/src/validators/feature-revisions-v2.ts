@@ -464,11 +464,6 @@ export const postFeatureRevisionPublishV2Validator = {
   bodySchema: z
     .object({
       comment: z.string().optional(),
-      mergeNow: z
-        .boolean()
-        .optional()
-        .describe("Deprecated — pass `ignoreWarnings: true` instead.")
-        .meta({ deprecated: true }),
       bypassApproval: bypassApprovalPublishBodyField,
       ...publishOverrideBodyFields,
     })

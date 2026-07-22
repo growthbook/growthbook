@@ -93,18 +93,20 @@ const DimensionForm: FC<{
           mutateDefinitions();
         })}
       >
-        <Field label="Name" required {...form.register("name")} />
+        <Field size="legacy" label="Name" required {...form.register("name")} />
         <SelectOwner
           value={form.watch("owner")}
           onChange={(v) => form.setValue("owner", v)}
         />
         <Field
+          size="legacy"
           label="Description"
           textarea
           maxLength={MAX_DESCRIPTION_LENGTH}
           {...form.register("description")}
         />
         <SelectField
+          size="legacy"
           label="Data Source"
           required
           value={form.watch("datasource")}
@@ -118,6 +120,7 @@ const DimensionForm: FC<{
         />
         {dsProps?.userIds && (
           <SelectField
+            size="legacy"
             label="Identifier Type"
             required
             value={userIdType}
@@ -149,6 +152,7 @@ const DimensionForm: FC<{
           </div>
         ) : (
           <Field
+            size="legacy"
             label="Event Condition"
             required
             {...form.register("sql")}

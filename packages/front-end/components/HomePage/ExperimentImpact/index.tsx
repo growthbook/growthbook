@@ -13,7 +13,7 @@ import { useCurrency } from "@/hooks/useCurrency";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { formatNumber, getExperimentMetricFormatter } from "@/services/metrics";
 import MetricSelector from "@/components/Experiment/MetricSelector";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import Switch from "@/ui/Switch";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -470,6 +470,7 @@ export default function ExperimentImpact({
         <div className="col-auto" style={{ maxWidth: 250 }}>
           <label className="mb-1">Projects</label>
           <MultiSelectField
+            size="legacy"
             placeholder="All Projects"
             value={project ? [project] : selectedProjects}
             disabled={!!project}

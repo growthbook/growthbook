@@ -143,6 +143,7 @@ export default function BanditDecisionMetricSettings({
           <Grid align="end" flow="column" gap="5" columns="auto">
             <Grid align="center" flow="column" gap="2" columns="auto" mt="2">
               <Field
+                size="legacy"
                 {...form.register("banditConversionWindowValue", {
                   valueAsNumber: true,
                 })}
@@ -159,6 +160,7 @@ export default function BanditDecisionMetricSettings({
                 })}
               />
               <SelectField
+                size="legacy"
                 value={conversionWindowUnit || "hours"}
                 onChange={(value) => {
                   form.setValue(

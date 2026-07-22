@@ -224,6 +224,7 @@ export default function ExecReport() {
                 Filter by date range
               </Text>
               <SelectField
+                size="legacy"
                 options={dateRanges}
                 sort={false}
                 onChange={(e) => {

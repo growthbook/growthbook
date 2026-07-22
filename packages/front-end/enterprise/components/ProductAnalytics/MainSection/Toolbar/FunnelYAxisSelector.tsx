@@ -44,7 +44,7 @@ export default function FunnelYAxisSelector() {
 
   return (
     <Select
-      size="2"
+      size="small"
       value={activeValue}
       placeholder="Select y-axis"
       setValue={(v) => setScale(v as FunnelYAxisScale)}

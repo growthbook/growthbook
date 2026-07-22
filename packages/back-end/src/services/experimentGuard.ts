@@ -306,7 +306,9 @@ export async function evaluateConfigExperimentGuardConflicts(
   // one the acting user can't read — or it silently finds no conflict and the
   // publish rewrites that experiment's live arm. (The UI usage table keeps the
   // request context; only this guard path needs global coverage.)
-  const scanContext = getContextForAgendaJobByOrgObject(context.org);
+  const scanContext =
+    context.scanContextOverride ??
+    getContextForAgendaJobByOrgObject(context.org);
   const allConfigs = await scanContext.models.configs.getAllForReconcile();
   const byKey = new Map(allConfigs.map((c) => [c.key, c]));
 
@@ -407,7 +409,9 @@ export async function assertScopedOverridesExperimentGuard(
   prevOverrides: ScopedOverrideEntry[],
   nextOverrides: ScopedOverrideEntry[],
 ): Promise<void> {
-  const scanContext = getContextForAgendaJobByOrgObject(context.org);
+  const scanContext =
+    context.scanContextOverride ??
+    getContextForAgendaJobByOrgObject(context.org);
   const all = await scanContext.models.configs.getAllForReconcile();
   const byKey = new Map(all.map((c) => [c.key, c]));
   // An entry can affect served values only if its flavor exists, is live, and
@@ -491,7 +495,9 @@ export async function evaluateConstantExperimentGuardConflicts(
 ): Promise<Set<string>> {
   // Org-wide (unfiltered) scan, mirroring the config guard: a running experiment
   // in any project must be seen or the warning silently misses it.
-  const scanContext = getContextForAgendaJobByOrgObject(context.org);
+  const scanContext =
+    context.scanContextOverride ??
+    getContextForAgendaJobByOrgObject(context.org);
 
   const conflicts = new Set<string>();
 

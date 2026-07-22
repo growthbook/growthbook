@@ -353,6 +353,7 @@ export default function AISettings({
                       Default AI model
                     </Text>
                     <SelectField
+                      size="legacy"
                       id="defaultAIModel"
                       helpText="Default is 4o-mini."
                       value={form.watch("defaultAIModel")}
@@ -374,6 +375,7 @@ export default function AISettings({
                       Embedding model
                     </Text>
                     <SelectField
+                      size="legacy"
                       id="embeddingModel"
                       helpText="Choose the embedding model to use for semantic search. Supports OpenAI, Mistral, and Google. Default is text-embedding-ada-002."
                       value={
@@ -633,6 +635,7 @@ export default function AISettings({
                                 Model
                               </Text>
                               <SelectField
+                                size="legacy"
                                 id={`${prompt.promptType}-model`}
                                 value={
                                   promptForm.watch(
@@ -673,6 +676,7 @@ export default function AISettings({
                               </Text>
                             )}
                             <Field
+                              size="legacy"
                               textarea={true}
                               id={`prompt-${prompt.promptType}`}
                               placeholder=""

@@ -78,6 +78,7 @@ import {
   isPlausibleFeatureRule,
   V1RulesByEnv,
 } from "back-end/src/util/flattenRules";
+import { overlayDocsById } from "back-end/src/util/scanOverlay.util";
 import { ReqContext } from "back-end/types/request";
 import {
   applyEnvironmentInheritance,
@@ -96,6 +97,7 @@ import {
 import { getEnvironments } from "back-end/src/util/organization.util";
 import { ApiReqContext } from "back-end/types/api";
 import { deriveLiveFeatureEventEnvironments } from "back-end/src/events/eventEnvironments";
+import { emitOrDeferBulkPublishEvent } from "back-end/src/events/bulkPublishCorrelation";
 import { determineNextSafeRolloutSnapshotAttempt } from "back-end/src/enterprise/saferollouts/safeRolloutUtils";
 import {
   createVercelExperimentationItemFromFeature,
@@ -524,7 +526,16 @@ export async function getAllFeaturesWithoutEditorFields(
     ),
   );
 
-  return features.filter((feature) =>
+  // Bulk-publish overlay: substitute the batch's proposed feature states so
+  // cross-entity validators evaluate the hypothetical end-state, not live
+  // docs. Applied before the permission filter and re-filtered on archived so
+  // proposed docs obey the same visibility rules as loaded ones.
+  let merged = overlayDocsById(features, context.featureScanOverlay);
+  if (merged !== features && !includeArchived) {
+    merged = merged.filter((feature) => !feature.archived);
+  }
+
+  return merged.filter((feature) =>
     context.permissions.canReadTargetingScopedResource(feature),
   );
 }
@@ -1070,8 +1081,11 @@ export async function onFeatureUpdate(
       omit(updatedFeature, ["dateUpdated"]),
     )
   ) {
-    // Event-based webhooks
-    await logFeatureUpdatedEvent(context, feature, updatedFeature);
+    // Event-based webhooks. During a bulk-publish commit the emission defers
+    // to the post-commit flush (dropped entirely if the commit compensates).
+    await emitOrDeferBulkPublishEvent(context, () =>
+      logFeatureUpdatedEvent(context, feature, updatedFeature),
+    );
   }
 
   if (context.org.isVercelIntegration)
@@ -1112,11 +1126,18 @@ export async function updateFeature(
     });
   }
 
-  await runValidateFeatureHooks({
-    context,
-    feature: projected,
-    original: feature,
-  });
+  // While a bulk-publish commit is applying, validation hooks already ran as
+  // plan gates against the release end-state; re-running them here would judge
+  // the mid-commit mix — and would veto compensation restores. Gated on
+  // `bulkPublishApplying` (not the correlation token) so genuine post-commit
+  // writes — ramp activation etc., NOT covered by the plan gates — still run.
+  if (!context.bulkPublishApplying) {
+    await runValidateFeatureHooks({
+      context,
+      feature: projected,
+      original: feature,
+    });
+  }
 
   // Hygiene: when persisting a new top-level v2 `rules` array, also force-scrub
   // any legacy `environmentSettings.{env}.rules` from the doc. The JIT read
@@ -1541,53 +1562,66 @@ export async function setJsonSchema(
   });
 }
 
+/**
+ * The status the publish-time sync will write per safe rollout: the revision
+ * rule's status, plus "stopped" for live safe-rollout rules the revision
+ * removes; empty when the revision carries no rules. Exported so the bulk
+ * publisher's compensation snapshots predict exactly what
+ * updateSafeRolloutStatuses writes.
+ */
+export function computeSafeRolloutStatusMap(
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+): Record<string, "running" | "rolled-back" | "released" | "stopped"> {
+  if (!revision.rules || revision.rules.length === 0) return {};
+  const map: Record<
+    string,
+    "running" | "rolled-back" | "released" | "stopped"
+  > = Object.fromEntries(
+    revision.rules
+      .filter((rule): rule is SafeRolloutRule => rule?.type === "safe-rollout")
+      .map((rule) => [rule.safeRolloutId, rule.status]),
+  );
+  // Stop safe rollouts whose rule was removed in this revision.
+  for (const rule of feature.rules ?? []) {
+    if (rule?.type === "safe-rollout" && !map[rule.safeRolloutId]) {
+      map[rule.safeRolloutId] = "stopped";
+    }
+  }
+  return map;
+}
+
 const updateSafeRolloutStatuses = async (
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,
 ) => {
-  if (!revision.rules || revision.rules.length === 0) return;
+  const statusMap = computeSafeRolloutStatusMap(feature, revision);
+  const ids = Object.keys(statusMap);
+  if (!ids.length) return;
 
-  const safeRolloutStatusesMap: Record<
-    string,
-    { status: "running" | "rolled-back" | "released" | "stopped" }
-  > = Object.fromEntries(
-    revision.rules
-      .filter((rule): rule is SafeRolloutRule => rule?.type === "safe-rollout")
-      .map((rule) => [rule.safeRolloutId, { status: rule.status }]),
-  );
-  // Stop safe rollouts whose rule was removed in this revision.
-  (feature.rules ?? []).forEach((rule) => {
-    if (
-      rule?.type === "safe-rollout" &&
-      !safeRolloutStatusesMap[rule.safeRolloutId]
-    ) {
-      safeRolloutStatusesMap[rule.safeRolloutId] = { status: "stopped" };
-    }
-  });
+  const safeRollouts = await context.models.safeRollout.getByIds(ids);
 
-  const safeRollouts = await context.models.safeRollout.getByIds(
-    Object.keys(safeRolloutStatusesMap),
-  );
-
-  safeRollouts.forEach((safeRollout) => {
-    // sync the status of the safe rollout to the status of the revision
-    const safeRolloutUpdates: UpdateProps<SafeRolloutInterface> = {
-      status: safeRolloutStatusesMap[safeRollout.id].status,
-    };
-    if (!safeRollout.startedAt && safeRolloutUpdates.status === "running") {
-      safeRolloutUpdates["startedAt"] = new Date();
-      const { nextSnapshot, nextRampUp } =
-        determineNextSafeRolloutSnapshotAttempt(safeRollout, context.org);
-      safeRolloutUpdates["nextSnapshotAttempt"] = nextSnapshot;
-      safeRolloutUpdates["rampUpSchedule"] = {
-        ...safeRollout.rampUpSchedule,
-        nextUpdate: nextRampUp,
+  await Promise.all(
+    safeRollouts.map(async (safeRollout) => {
+      // sync the status of the safe rollout to the status of the revision
+      const safeRolloutUpdates: UpdateProps<SafeRolloutInterface> = {
+        status: statusMap[safeRollout.id],
       };
-    }
+      if (!safeRollout.startedAt && safeRolloutUpdates.status === "running") {
+        safeRolloutUpdates["startedAt"] = new Date();
+        const { nextSnapshot, nextRampUp } =
+          determineNextSafeRolloutSnapshotAttempt(safeRollout, context.org);
+        safeRolloutUpdates["nextSnapshotAttempt"] = nextSnapshot;
+        safeRolloutUpdates["rampUpSchedule"] = {
+          ...safeRollout.rampUpSchedule,
+          nextUpdate: nextRampUp,
+        };
+      }
 
-    context.models.safeRollout.update(safeRollout, safeRolloutUpdates);
-  });
+      await context.models.safeRollout.update(safeRollout, safeRolloutUpdates);
+    }),
+  );
 };
 
 // Pure computation of the feature-doc changes a revision merge will produce; no writes
@@ -1737,6 +1771,10 @@ export async function applyHoldoutSideEffects(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   newHoldout: { id: string; value: string } | null,
+  // `isRevert` skips the guard below — a rollback restores a previously-valid
+  // holdout state (the caller reverts the transiently-blocking rules moments
+  // later), so this create-time check would wrongly refuse it.
+  { isRevert }: { isRevert?: boolean } = {},
 ) {
   const prevHoldoutId = feature.holdout?.id;
   const newHoldoutId = newHoldout?.id;
@@ -1744,7 +1782,7 @@ export async function applyHoldoutSideEffects(
   if (newHoldoutId === prevHoldoutId) return;
 
   // Guard: cannot change holdout when there are running experiments, bandits, or safe rollouts
-  if (newHoldout !== null) {
+  if (newHoldout !== null && !isRevert) {
     const experiments = await Promise.all(
       (feature.linkedExperiments ?? []).map((id) =>
         getExperimentById(context, id),
@@ -1766,6 +1804,15 @@ export async function applyHoldoutSideEffects(
     }
   }
 
+  // Resolve the new holdout BEFORE removing from the old one, so a missing
+  // holdout fails with no membership mutated (no partial transition).
+  const holdoutObj = newHoldoutId
+    ? await context.models.holdout.getById(newHoldoutId)
+    : null;
+  if (newHoldoutId && !holdoutObj) {
+    throw new Error("Holdout not found");
+  }
+
   // Remove feature from the old holdout
   if (prevHoldoutId) {
     await context.models.holdout.removeFeatureFromHoldout(
@@ -1775,12 +1822,7 @@ export async function applyHoldoutSideEffects(
   }
 
   // Link feature (and its experiments) to the new holdout
-  if (newHoldoutId) {
-    const holdoutObj = await context.models.holdout.getById(newHoldoutId);
-    if (!holdoutObj) {
-      throw new Error("Holdout not found");
-    }
-
+  if (newHoldoutId && holdoutObj) {
     await context.models.holdout.updateById(newHoldoutId, {
       linkedFeatures: {
         [feature.id]: { id: feature.id, dateAdded: new Date() },
@@ -1819,20 +1861,105 @@ export async function applyHoldoutSideEffects(
   }
 }
 
-// Apply deferred ramp create/update actions stored on a revision.
-// - `create` actions are called BEFORE feature write so schedule creation
-//   failures abort publish.
-// - `update` actions are called AFTER publish succeeds (best-effort).
-// Returns only newly created schedule IDs (for rollback on failure).
+// Phase-shaped ramp-action surface for the bulk publisher: creates run BEFORE
+// the feature write (a failure gates the publish; ids returned for rollback),
+// updates/detaches/cleanup run after a known-good publish as best-effort.
+export async function applyRampCreateActionsForRevision(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+  result: MergeResultChanges,
+): Promise<string[]> {
+  const createActions = (revision.rampActions ?? []).filter(
+    (a) => a.mode === "create",
+  );
+  if (!createActions.length) return [];
+  const createdIds: string[] = [];
+  try {
+    return await createRampSchedulesForRevision(
+      context,
+      feature,
+      revision,
+      result,
+      createActions,
+      createdIds,
+    );
+  } catch (e) {
+    // A mid-loop throw would otherwise orphan the schedules already created —
+    // invisible to compensation (their ids die with the throw). Best-effort
+    // delete them here; the original error still gates the publish.
+    await rollbackCreatedRampSchedules(context, createdIds);
+    throw e;
+  }
+}
+
+/**
+ * Delete ramp schedules a failed publish created. Returns the ids it could NOT
+ * delete so the caller can surface them as a reversal failure — a swallowed
+ * delete would leave an armed `pending` schedule behind while the item reports
+ * a clean rollback (it activates if that revision is ever re-published).
+ */
+export async function rollbackCreatedRampSchedules(
+  context: ReqContext | ApiReqContext,
+  scheduleIds: string[],
+): Promise<string[]> {
+  const failed: string[] = [];
+  for (const id of scheduleIds) {
+    try {
+      await context.models.rampSchedules.deleteById(id);
+    } catch (deleteErr) {
+      failed.push(id);
+      logger.error(
+        deleteErr,
+        `Failed to delete orphaned ramp schedule ${id} during publish rollback`,
+      );
+    }
+  }
+  return failed;
+}
+
+export async function finalizeRampActionsAfterPublish(
+  context: ReqContext | ApiReqContext,
+  featureBefore: FeatureInterface,
+  featureAfter: FeatureInterface,
+  revision: FeatureRevisionInterface,
+  result: MergeResultChanges,
+): Promise<void> {
+  const updateActions = (revision.rampActions ?? []).filter(
+    (a) => a.mode === "update",
+  );
+  if (updateActions.length) {
+    try {
+      await createRampSchedulesForRevision(
+        context,
+        featureAfter,
+        revision,
+        result,
+        updateActions,
+      );
+    } catch (err) {
+      logger.error(
+        err,
+        "Failed to apply deferred ramp update actions after publish",
+      );
+    }
+  }
+  if (revision.rampActions?.length) {
+    await applyDetachRampActions(context, revision.rampActions);
+  }
+  await cleanupOrphanedRampSchedules(context, featureBefore, featureAfter);
+}
+
 async function createRampSchedulesForRevision(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   revision: { version: number },
   result: MergeResultChanges,
   actions: RevisionRampAction[],
+  // Written to as each schedule is created, so a caller keeps the partial set
+  // if a later action throws (the return value would be lost with the throw).
+  createdIds: string[] = [],
 ): Promise<string[]> {
-  const createdIds: string[] = [];
-
   for (const action of actions) {
     if (action.mode !== "create" && action.mode !== "update") continue;
 

@@ -7,9 +7,11 @@ import {
 } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
 import { BadRequestError } from "back-end/src/util/errors";
+import { overlayDocsById } from "back-end/src/util/scanOverlay.util";
 import { resolvableValueChanged } from "back-end/src/services/constants";
 import { assertConstantArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
+import { emitOrDeferBulkPublishEvent } from "back-end/src/events/bulkPublishCorrelation";
 import {
   logConstantCreatedEvent,
   logConstantUpdatedEvent,
@@ -51,12 +53,15 @@ export class ConstantModel extends BaseClass {
 
   public getAll(): Promise<ConstantInterface[]> {
     if (this.allSnapshot === null) {
-      const load = super.getAll().catch((err) => {
-        // Clear only our own failed load — a write may have invalidated it and
-        // a newer healthy load may already be memoized.
-        if (this.allSnapshot === load) this.allSnapshot = null;
-        throw err;
-      });
+      const load = super
+        .getAll()
+        .then((docs) => this.applyScanOverlay(docs))
+        .catch((err) => {
+          // Clear only our own failed load — a write may have invalidated it and
+          // a newer healthy load may already be memoized.
+          if (this.allSnapshot === load) this.allSnapshot = null;
+          throw err;
+        });
       this.allSnapshot = load;
     }
     return this.allSnapshot.then((docs) => docs.slice());
@@ -64,6 +69,20 @@ export class ConstantModel extends BaseClass {
 
   private invalidateAllSnapshot(): void {
     this.allSnapshot = null;
+  }
+
+  // Scan-overlay: substitute hypothetical entity states into snapshot reads.
+  // Mirrors ConfigModel.setScanOverlay — only ever set on a dedicated
+  // plan-scoped scan context, never on a context that performs writes.
+  private scanOverlay: Map<string, ConstantInterface> | null = null;
+
+  public setScanOverlay(docs: ConstantInterface[]): void {
+    this.scanOverlay = new Map(docs.map((d) => [d.id, d]));
+    this.invalidateAllSnapshot();
+  }
+
+  private applyScanOverlay(docs: ConstantInterface[]): ConstantInterface[] {
+    return overlayDocsById(docs, this.scanOverlay);
   }
 
   protected canRead(doc: ConstantInterface): boolean {
@@ -90,12 +109,16 @@ export class ConstantModel extends BaseClass {
   // the publish path (closing the TOCTOU between two concurrently-created drafts).
   // Reads via the permission-filtered getAll(); a cross-project cycle the writer
   // can't see degrades gracefully at resolution, so an unfiltered read isn't worth it.
-  private async assertNoCycle(
+  // The `@const:` keys that a proposed value would form a reference cycle
+  // through, resolved against this context's (possibly overlaid) constant
+  // graph — empty when acyclic. Public so the bulk publisher can raise it as a
+  // plan gate against the combined end-state; `assertNoCycle` throws on it.
+  public async findReferenceCycle(
     key: string,
     value: string | undefined,
     environmentValues: Record<string, string> | undefined,
-  ): Promise<void> {
-    const cyclic = getCyclicConstantRefs(
+  ): Promise<string[]> {
+    return getCyclicConstantRefs(
       key,
       value,
       environmentValues,
@@ -106,6 +129,14 @@ export class ConstantModel extends BaseClass {
       ),
       "constant",
     );
+  }
+
+  private async assertNoCycle(
+    key: string,
+    value: string | undefined,
+    environmentValues: Record<string, string> | undefined,
+  ): Promise<void> {
+    const cyclic = await this.findReferenceCycle(key, value, environmentValues);
     if (cyclic.length) {
       throw new BadRequestError(
         `This value references ${cyclic
@@ -130,16 +161,27 @@ export class ConstantModel extends BaseClass {
     // always ignore warnings, so an armed archive publish that already re-checked
     // its fingerprint at assertPublishable passes here; a direct write without
     // ignoreWarnings still surfaces the warning. Mirrors ConfigModel.beforeUpdate.
-    if (updates.archived === true && !existing.archived) {
+    // Skipped while a bulk-publish commit is applying: the guard ran as a plan
+    // gate against the release end-state, and re-running it here would judge
+    // the mid-commit mix. Mirrors ConfigModel.beforeUpdate.
+    if (
+      updates.archived === true &&
+      !existing.archived &&
+      !this.context.bulkPublishApplying
+    ) {
       await assertConstantArchiveDependentsGuard(
         this.context,
         { id: existing.id, key: existing.key, project: existing.project },
         { armed: false },
       );
     }
+    // Reference-cycle detection: skipped while a bulk commit is applying (the
+    // cycle gate validated the acyclic END-state at plan; the sequential apply
+    // can transiently form a cycle that neither the start nor end state has).
     if (
-      updates.value !== undefined ||
-      updates.environmentValues !== undefined
+      (updates.value !== undefined ||
+        updates.environmentValues !== undefined) &&
+      !this.context.bulkPublishApplying
     ) {
       await this.assertNoCycle(
         newDoc.key,
@@ -180,13 +222,16 @@ export class ConstantModel extends BaseClass {
       });
     }
 
-    // Skip the webhook event when only `dateUpdated` changed.
+    // Skip the webhook event when only `dateUpdated` changed. During a
+    // bulk-publish commit the emission defers to the post-commit flush.
     const previous = this.toApiInterface(existing);
     const current = this.toApiInterface(newDoc);
     if (
       !isEqual(omit(previous, ["dateUpdated"]), omit(current, ["dateUpdated"]))
     ) {
-      await logConstantUpdatedEvent(this.context, previous, current);
+      await emitOrDeferBulkPublishEvent(this.context, () =>
+        logConstantUpdatedEvent(this.context, previous, current),
+      );
     }
   }
 

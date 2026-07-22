@@ -202,6 +202,11 @@ export const apiFeatureRevisionV2Validator = namedSchema(
   "FeatureRevisionV2",
   z
     .object({
+      id: z
+        .string()
+        .describe(
+          "Stable revision id. Newer revisions carry opaque ids; older ones a derived `frev_<version>_<featureId>` form. Both work wherever revision ids are accepted.",
+        ),
       featureId: z.string().describe("The feature this revision belongs to"),
       baseVersion: z.coerce.number().int(),
       version: z.coerce.number().int(),
@@ -335,6 +340,10 @@ export const apiFeatureRevisionSummaryValidator = namedSchema(
   "FeatureRevisionSummary",
   z
     .object({
+      id: z
+        .string()
+        .describe("Stable id of the feature's live revision.")
+        .optional(),
       version: z.coerce.number().int(),
       comment: z.string(),
       date: z.string().meta({ format: "date-time" }),

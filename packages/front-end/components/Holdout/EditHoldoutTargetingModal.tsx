@@ -163,6 +163,7 @@ function TargetingForm({
             style={{ width: 110 }}
           >
             <Field
+              size="legacy"
               style={{ width: 105 }}
               value={
                 isNaN(form.watch("coverage") ?? 0)

@@ -317,6 +317,7 @@ const IdeaPage = (): ReactElement => {
                       </div>
                       {projects.length > 0 && (
                         <SelectField
+                          size="legacy"
                           label="Project"
                           value={form.watch("project")}
                           onChange={(v) => form.setValue("project", v)}
