@@ -573,6 +573,70 @@ describe("persistContextualBanditEvent", () => {
   });
 });
 
+describe("persistContextualBanditEvent — P3 stale-epoch guard", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    getPayloadKeysForContextualBanditMock.mockReturnValue([
+      { project: "", environment: "production" },
+    ]);
+  });
+
+  function makeGuardContext(cb: ContextualBanditInterface) {
+    const patchLeafWeightsMock = jest.fn().mockResolvedValue(cb);
+    const createCbeMock = jest.fn().mockImplementation((doc) =>
+      Promise.resolve({
+        id: "cbe_x",
+        organization: "org_1",
+        ...doc,
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+      }),
+    );
+    const warnMock = jest.fn();
+    const context = {
+      org: { id: "org_1" },
+      logger: { warn: warnMock },
+      models: {
+        contextualBandits: {
+          getById: jest.fn().mockResolvedValue(cb),
+          patchLeafWeights: patchLeafWeightsMock,
+          update: jest.fn(),
+        },
+        contextualBanditEvents: { create: createCbeMock },
+      },
+    } as unknown as ReqContext;
+    return { context, patchLeafWeightsMock, createCbeMock, warnMock };
+  }
+
+  it("discards this run's weights when banditVersion changed mid-run", async () => {
+    const cb = makeCb({ stage: "exploit", banditVersion: 5 });
+    const cbs = makeCbs({ banditVersion: 3 });
+    const { context, patchLeafWeightsMock, createCbeMock, warnMock } =
+      makeGuardContext(cb);
+
+    await persistContextualBanditEvent(context, cbs, makeResult());
+
+    // Weights discarded: empty leaf-weight patch, CBE flagged not-updated,
+    // and a warning logged.
+    expect(patchLeafWeightsMock.mock.calls[0][1]).toEqual([]);
+    expect(createCbeMock).toHaveBeenCalledWith(
+      expect.objectContaining({ weightsWereUpdated: false }),
+    );
+    expect(warnMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("persists weights when the run's banditVersion still matches the live CB", async () => {
+    const cb = makeCb({ stage: "exploit", banditVersion: 5 });
+    const cbs = makeCbs({ banditVersion: 5 });
+    const { context, patchLeafWeightsMock, warnMock } = makeGuardContext(cb);
+
+    await persistContextualBanditEvent(context, cbs, makeResult());
+
+    expect(patchLeafWeightsMock.mock.calls[0][1].length).toBeGreaterThan(0);
+    expect(warnMock).not.toHaveBeenCalled();
+  });
+});
+
 describe("getContextualBanditResultsForUi", () => {
   it("returns latest CBE payload and CBS status summary", async () => {
     const cb = makeCb();

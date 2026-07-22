@@ -313,6 +313,9 @@ export async function runContextualBanditSnapshot(
     frozenSettings: snapshotSettings,
     triggeredBy: opts.triggeredBy === "manual" ? "manual" : "schedule",
     weightsWereUpdated: false,
+    // Stamp the weight epoch at run-start so persist can detect a mid-run
+    // arm-set change (P3 concurrency guard).
+    banditVersion: updatedCb.banditVersion,
   });
 
   const integration = getSourceIntegrationObject(context, ds, true);
@@ -440,14 +443,33 @@ export async function persistContextualBanditEvent(
 
   const currentLeafWeights = cb.currentLeafWeights ?? [];
   const inExploreStage = cb.stage === "explore";
-  const weightsWereUpdated = inExploreStage
+
+  // Concurrency guard: if the CB's weight epoch changed while this run was in
+  // flight (e.g. an add/remove-variation edit bumped `banditVersion`), the run's
+  // per-leaf weights were computed against the old variation set. Their
+  // positional order no longer aligns with the current `cb.variations`, so
+  // `leafWeightsFromContextualBanditResult`'s index→id zip would misattribute
+  // weights. Discard the weights (keep the CBE for its stats/telemetry) rather
+  // than corrupt the live payload; the next scheduled run recomputes cleanly.
+  const staleWeightEpoch =
+    cbs.banditVersion !== undefined && cbs.banditVersion !== cb.banditVersion;
+  if (staleWeightEpoch) {
+    context.logger.warn(
+      `Contextual bandit ${cb.id} snapshot ${cbs.id} ran against banditVersion ` +
+        `${cbs.banditVersion} but the CB is now at ${cb.banditVersion}; ` +
+        `discarding this run's weights (arm set changed mid-run).`,
+    );
+  }
+
+  const discardWeights = inExploreStage || staleWeightEpoch;
+  const weightsWereUpdated = discardWeights
     ? false
     : contextualBanditWeightsWereUpdated(
         result,
         currentLeafWeights,
         cb.variations,
       );
-  const leafWeights = inExploreStage
+  const leafWeights = discardWeights
     ? []
     : leafWeightsFromContextualBanditResult(result, cb.variations);
 
