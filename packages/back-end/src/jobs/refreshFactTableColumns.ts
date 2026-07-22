@@ -23,7 +23,10 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { determineColumnTypes } from "back-end/src/util/sql";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
-import { deriveUserIdTypesFromColumns } from "back-end/src/util/factTable";
+import {
+  deriveUserIdTypesFromColumns,
+  normalizePersistedColumn,
+} from "back-end/src/util/factTable";
 import { logger } from "back-end/src/util/logger";
 
 const JOB_NAME = "refreshFactTableColumns";
@@ -365,9 +368,7 @@ export async function runRefreshColumnsQuery(
       col.numberFormat = "";
     }
 
-    if (col.datatype === "boolean" && col.isAutoSliceColumn) {
-      col.autoSlices = ["true", "false"];
-    }
+    Object.assign(col, normalizePersistedColumn(col));
   }
 
   const columnsNeedingTopValues = selectColumnsForTopValues({

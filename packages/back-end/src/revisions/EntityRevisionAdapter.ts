@@ -105,13 +105,19 @@ export interface EntityRevisionAdapter<
    * `options.isRevert` is set when the revision being merged carries a
    * `revertedFrom` link, so adapters can skip validations that would otherwise
    * block restoring a previously-published state.
+   *
+   * Returns the keys this call actually persisted on the entity — the changes
+   * that survived the updatable filter AND any adapter normalization (e.g. a
+   * config field stripped as owned by an ancestor). Bulk compensation restores
+   * ONLY these keys, so a field the write dropped is never rolled back over a
+   * concurrent writer's value. Single-entity callers ignore the return.
    */
   applyChanges(
     context: Context,
     entity: TSnapshot,
     changes: Record<string, unknown>,
     options?: { isRevert?: boolean },
-  ): Promise<void>;
+  ): Promise<string[]>;
 
   /**
    * Validate that `desiredState` (the changes a merge would apply) can be

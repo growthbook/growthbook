@@ -247,11 +247,11 @@ function Body({ children }: { children: ReactNode }) {
   return (
     <ScrollArea
       type="auto"
-      scrollbars="vertical"
       mt="5"
       mb="3"
       ml="-1"
       ref={bodyRef}
+      scrollbars="vertical"
       className={styles.bodyScrollArea}
     >
       <Box pr="7" pl="1" className={styles.body}>

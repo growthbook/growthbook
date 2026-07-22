@@ -1,13 +1,11 @@
-.bodyScrollArea [data-radix-scroll-area-viewport] > div {
-  // Radix uses an inline table wrapper to measure content width. Constrain it
-  // to the viewport so wide children can manage their own horizontal overflow.
-  display: block !important;
+// Themes sets width: fit-content for horizontal scroll measurement. Force 100%
+// so the modal body stays vertical-only; wide children manage their own overflow.
+.bodyScrollArea :global(.rt-ScrollAreaViewport) > * {
   width: 100%;
 }
 
 .body {
   min-width: 0;
-
   label:not(.rt-Text) {
     color: var(--text-color-main);
     font-weight: var(--font-weight-bold);

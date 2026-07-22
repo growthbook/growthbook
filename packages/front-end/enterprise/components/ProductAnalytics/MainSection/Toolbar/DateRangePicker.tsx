@@ -120,7 +120,7 @@ function DateRangePresetSelect({
 
   const lookbackUnitSelect = (
     <Select
-      size="2"
+      size="small"
       style={fullWidth ? { width: "100%" } : undefined}
       value={activeDateRange.lookbackUnit || "day"}
       disabled={disabled}
@@ -141,7 +141,7 @@ function DateRangePresetSelect({
 
   const presetSelect = (
     <Select
-      size="2"
+      size="small"
       style={fullWidth ? { width: "100%" } : undefined}
       value={value.predefined}
       placeholder="Select range"

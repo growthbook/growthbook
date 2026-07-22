@@ -522,6 +522,7 @@ const MetricEffectCard = ({
             </Box>
             <Box flexBasis="200px" flexGrow="0" flexShrink="1">
               <SelectField
+                size="legacy"
                 label="Difference Type"
                 value={differenceType}
                 onChange={(value) => setDifferenceType(value as DifferenceType)}

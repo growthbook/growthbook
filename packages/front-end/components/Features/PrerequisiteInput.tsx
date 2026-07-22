@@ -48,9 +48,11 @@ import {
   PrerequisiteStateResult,
 } from "@/hooks/usePrerequisiteStates";
 import { condToJson, jsonToConds } from "@/services/features";
-import SelectField from "@/components/Forms/SelectField";
+import SelectField, {
+  FormatOptionLabelType,
+} from "@/components/Forms/SelectField";
 import Field from "@/components/Forms/Field";
-import StringArrayField from "@/components/Forms/StringArrayField";
+import StringArrayField from "@/ui/StringArrayField";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import Link from "@/ui/Link";
 import RadioGroup from "@/ui/RadioGroup";
@@ -64,6 +66,10 @@ import {
   operatorSupportsCaseInsensitive,
   withOperatorCaseInsensitivity,
 } from "./ConditionInput";
+import {
+  formatOperatorLabel,
+  getPrereqOperators,
+} from "./conditionOperatorOptions";
 
 export interface RuleCyclicResult {
   wouldBeCyclic: boolean;
@@ -432,6 +438,7 @@ export default function PrerequisiteInput({
   const addPrerequisiteLink = (
     <PremiumTooltip commercialFeature="prerequisite-targeting">
       <Link
+        mt="2"
         onClick={() => {
           if (!hasPrerequisitesCommercialFeature || locked) return;
           setValue([{ id: "", condition: "{}" }]);
@@ -591,135 +598,18 @@ export default function PrerequisiteInput({
                           <Flex gap="3" align="start">
                             <Box flexGrow="1">
                               <SelectField
+                                size="legacy"
                                 disabled={locked}
-                                useMultilineLabels={true}
-                                containerStyles={{
-                                  control: (base) => ({
-                                    ...base,
-                                    minHeight: 38,
-                                    maxHeight: 38,
-                                  }),
-                                }}
                                 value={getDisplayOperator(
                                   conds?.[0]?.[0]?.operator || "",
                                 )}
-                                options={
-                                  parentFeatureMeta?.valueType === "boolean"
-                                    ? [
-                                        { label: "is true", value: "$true" },
-                                        { label: "is false", value: "$false" },
-                                        { label: "is live", value: "$exists" },
-                                        {
-                                          label: "is not live",
-                                          value: "$notExists",
-                                        },
-                                      ]
-                                    : parentFeatureMeta?.valueType === "string"
-                                      ? [
-                                          {
-                                            label: "is live",
-                                            value: "$exists",
-                                          },
-                                          {
-                                            label: "is not live",
-                                            value: "$notExists",
-                                          },
-                                          {
-                                            label: "is equal to",
-                                            value: "$eq",
-                                          },
-                                          {
-                                            label: "is not equal to",
-                                            value: "$ne",
-                                          },
-                                          {
-                                            label: "matches regex",
-                                            value: "$regex",
-                                          },
-                                          {
-                                            label: "does not match regex",
-                                            value: "$notRegex",
-                                          },
-                                          {
-                                            label: "is greater than",
-                                            value: "$gt",
-                                          },
-                                          {
-                                            label:
-                                              "is greater than or equal to",
-                                            value: "$gte",
-                                          },
-                                          {
-                                            label: "is less than",
-                                            value: "$lt",
-                                          },
-                                          {
-                                            label: "is less than or equal to",
-                                            value: "$lte",
-                                          },
-                                          { label: "is any of", value: "$in" },
-                                          {
-                                            label: "is none of",
-                                            value: "$nin",
-                                          },
-                                        ]
-                                      : parentFeatureMeta?.valueType ===
-                                          "number"
-                                        ? [
-                                            {
-                                              label: "is live",
-                                              value: "$exists",
-                                            },
-                                            {
-                                              label: "is not live",
-                                              value: "$notExists",
-                                            },
-                                            {
-                                              label: "is equal to",
-                                              value: "$eq",
-                                            },
-                                            {
-                                              label: "is not equal to",
-                                              value: "$ne",
-                                            },
-                                            {
-                                              label: "is greater than",
-                                              value: "$gt",
-                                            },
-                                            {
-                                              label:
-                                                "is greater than or equal to",
-                                              value: "$gte",
-                                            },
-                                            {
-                                              label: "is less than",
-                                              value: "$lt",
-                                            },
-                                            {
-                                              label: "is less than or equal to",
-                                              value: "$lte",
-                                            },
-                                            {
-                                              label: "is any of",
-                                              value: "$in",
-                                            },
-                                            {
-                                              label: "is none of",
-                                              value: "$nin",
-                                            },
-                                          ]
-                                        : [
-                                            {
-                                              label: "is live",
-                                              value: "$exists",
-                                            },
-                                            {
-                                              label: "is not live",
-                                              value: "$notExists",
-                                            },
-                                          ]
-                                }
+                                options={getPrereqOperators(
+                                  parentFeatureMeta?.valueType,
+                                )}
                                 sort={false}
+                                formatOptionLabel={
+                                  formatOperatorLabel as FormatOptionLabelType
+                                }
                                 onChange={(op) => {
                                   if (!conds?.[0]?.[0]) return;
                                   const newConds = [...conds[0]];
@@ -805,6 +695,7 @@ export default function PrerequisiteInput({
                               conds?.[0]?.[0]?.operator,
                             ) ? (
                               <StringArrayField
+                                size="legacy"
                                 disabled={locked}
                                 containerClassName="w-100"
                                 value={
@@ -833,6 +724,7 @@ export default function PrerequisiteInput({
                               />
                             ) : parentFeatureMeta?.valueType === "number" ? (
                               <Field
+                                size="legacy"
                                 disabled={locked}
                                 type="number"
                                 step="any"
@@ -848,11 +740,11 @@ export default function PrerequisiteInput({
                                     condToJson([newConds], parentValueMap),
                                   );
                                 }}
-                                style={{ minHeight: 38 }}
                                 required
                               />
                             ) : (
                               <Field
+                                size="legacy"
                                 disabled={locked}
                                 value={conds[0][0].value}
                                 onChange={(e) => {
@@ -866,7 +758,6 @@ export default function PrerequisiteInput({
                                     condToJson([newConds], parentValueMap),
                                   );
                                 }}
-                                style={{ minHeight: 38 }}
                                 required
                               />
                             )

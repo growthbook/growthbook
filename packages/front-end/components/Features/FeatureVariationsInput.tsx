@@ -233,6 +233,7 @@ export default function FeatureVariationsInput({
                     className={`position-relative ${styles.percentInputWrap}`}
                   >
                     <Field
+                      size="legacy"
                       style={{ width: 95 }}
                       value={
                         isNaN(coverage ?? 0)
@@ -258,6 +259,7 @@ export default function FeatureVariationsInput({
             </div>
           ) : null}
           <Field
+            size="legacy"
             label="Number of Variations"
             type="number"
             value={numberOfVariations}
@@ -312,6 +314,7 @@ export default function FeatureVariationsInput({
                     className={`position-relative ${styles.percentInputWrap}`}
                   >
                     <Field
+                      size="legacy"
                       style={{ width: 95 }}
                       value={
                         isNaN(coverage ?? 0)

@@ -54,7 +54,9 @@ export async function evaluateConfigLockConflicts(
   context: Context,
   resolvable: GuardedResolvable,
 ): Promise<Set<string>> {
-  const scanContext = getContextForAgendaJobByOrgObject(context.org);
+  const scanContext =
+    context.scanContextOverride ??
+    getContextForAgendaJobByOrgObject(context.org);
   const [resolvables, allConfigs] = await Promise.all([
     getResolvableValues(scanContext),
     scanContext.models.configs.getAllForReconcile(),

@@ -1,6 +1,7 @@
 import { omit } from "lodash";
 import { updateFactTableValidator } from "shared/validators";
 import {
+  ColumnInterface,
   FactTableInterface,
   UpdateFactTableProps,
 } from "shared/types/fact-table";
@@ -8,7 +9,7 @@ import { queueFactTableColumnsRefresh } from "back-end/src/jobs/refreshFactTable
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   updateFactTable as updateFactTableInDb,
-  updateColumn,
+  upsertColumns,
   toFactTableApiInterface,
   getFactTable,
 } from "back-end/src/models/FactTableModel";
@@ -18,12 +19,10 @@ import {
   resolveOwnerToUserId,
   resolveOwnerEmail,
 } from "back-end/src/services/owner";
-import { validateAggregatedFactTableSettings } from "back-end/src/util/factTable";
-
-// Type override to handle auto-generated OpenAPI types vs internal types
-type UpdateFactTableRequest = Omit<UpdateFactTableProps, "columns"> & {
-  columns?: Array<NonNullable<UpdateFactTableProps["columns"]>[0]>;
-};
+import {
+  columnsHaveAutoSlices,
+  validateAggregatedFactTableSettings,
+} from "back-end/src/util/factTable";
 
 export const updateFactTable = createApiRequestHandler(
   updateFactTableValidator,
@@ -82,56 +81,35 @@ export const updateFactTable = createApiRequestHandler(
     );
   }
 
-  const data: UpdateFactTableProps = { ...req.body } as UpdateFactTableRequest;
+  if (
+    columnsHaveAutoSlices(req.body.columns) &&
+    !req.context.hasPremiumFeature("metric-slices")
+  ) {
+    throw new Error("Metric slices require an enterprise license");
+  }
+
+  const data: UpdateFactTableProps = { ...req.body };
   const resolvedOwner = await resolveOwnerToUserId(req.body.owner, req.context);
   if (req.body.owner !== undefined) data.owner = resolvedOwner ?? "";
 
-  // Handle column property updates only (no creation/deletion of columns)
+  let columnsUpserted = false;
   if (data.columns) {
-    // Check if any column has auto slice properties
-    const hasAutoSliceProperties = data.columns.some(
-      (col) => col.isAutoSliceColumn || col.autoSlices,
-    );
-
-    if (hasAutoSliceProperties) {
-      // Check enterprise feature access
-      if (!req.context.hasPremiumFeature("metric-slices")) {
-        throw new Error("Metric slices require an enterprise license");
-      }
-    }
-
-    // Only allow updating properties of existing columns
-    for (const columnUpdate of data.columns) {
-      const existingColumn = factTable.columns.find(
-        (c) => c.column === columnUpdate.column,
-      );
-      if (!existingColumn) {
-        throw new Error(
-          `Column ${columnUpdate.column} not found - cannot create new columns via API`,
-        );
-      }
-
-      await updateColumn({
-        context: req.context,
-        factTable,
-        column: columnUpdate.column,
-        // Strip server/UI-managed fields: the API cannot change a column's
-        // origin (isVirtual) or a virtual column's expression (sql).
-        changes: omit(columnUpdate, [
-          "dateCreated",
-          "dateUpdated",
-          "isVirtual",
-          "sql",
-        ]),
-      });
-    }
-
-    // Remove columns from the main update since we handled them individually
+    await upsertColumns({
+      context: req.context,
+      factTable,
+      // Strip server/UI-managed fields: the API cannot change a column's
+      // origin (isVirtual) or a virtual column's expression (sql).
+      columns: data.columns.map((col) => omit(col, ["isVirtual", "sql"])),
+    });
+    columnsUpserted = true;
     delete data.columns;
   }
 
   await updateFactTableInDb(req.context, factTable, data);
-  if (needsColumnRefresh(factTable, data)) {
+  if (
+    needsColumnRefresh(factTable, data) ||
+    (columnsUpserted && columnsNeedDetection(factTable.columns))
+  ) {
     await queueFactTableColumnsRefresh(factTable);
   }
 
@@ -142,21 +120,7 @@ export const updateFactTable = createApiRequestHandler(
   const updatedFactTable = {
     ...factTable,
     ...req.body,
-    columns: req.body.columns
-      ? (
-          req.body.columns as NonNullable<UpdateFactTableRequest["columns"]>
-        ).map((col) => ({
-          ...omit(col, ["isVirtual", "sql"]),
-          name: col.name ?? col.column,
-          description: col.description ?? "",
-          numberFormat: col.numberFormat ?? "",
-          dateCreated:
-            factTable.columns.find((c) => c.column === col.column)
-              ?.dateCreated || new Date(),
-          dateUpdated: new Date(),
-          deleted: false,
-        }))
-      : factTable.columns,
+    columns: factTable.columns,
   };
   return {
     factTable: await resolveOwnerEmail(
@@ -174,4 +138,8 @@ export function needsColumnRefresh(
   const eventNameChanged =
     changes.eventName !== undefined && changes.eventName !== existing.eventName;
   return sqlChanged || eventNameChanged;
+}
+
+export function columnsNeedDetection(columns?: ColumnInterface[]): boolean {
+  return (columns ?? []).some((c) => c.datatype === "");
 }

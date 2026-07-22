@@ -12,7 +12,10 @@ import {
   resolveOwnerToUserId,
   resolveOwnerEmail,
 } from "back-end/src/services/owner";
-import { validateAggregatedFactTableSettings } from "back-end/src/util/factTable";
+import {
+  columnsHaveAutoSlices,
+  validateAggregatedFactTableSettings,
+} from "back-end/src/util/factTable";
 
 export const postFactTable = createApiRequestHandler(postFactTableValidator)(
   async (req) => {
@@ -27,6 +30,13 @@ export const postFactTable = createApiRequestHandler(postFactTableValidator)(
       ...req.body,
       owner,
     };
+
+    if (
+      columnsHaveAutoSlices(req.body.columns) &&
+      !req.context.hasPremiumFeature("metric-slices")
+    ) {
+      throw new Error("Metric slices require an enterprise license");
+    }
 
     const datasource = await getDataSourceById(
       req.context,
