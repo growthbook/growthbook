@@ -1,4 +1,4 @@
-import type { ContextualBanditResponseSnapshot } from "../../types/stats";
+import type { ContextualBanditResponseSnapshot } from "shared/types/stats";
 
 /** Total users observed for a single context (sum of per-variation sample sizes). */
 export function contextTotalSampleSize(
