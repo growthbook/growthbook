@@ -56,7 +56,15 @@ function onClose() {
     // Cleanup GrowthBook client
     destroyGrowthBookClient();
 
-    await statsServerPool.drain();
+    // Bounded: a stats call from a background job (not covered by
+    // server.close()'s in-flight-request wait above) can hold a resource for
+    // up to GB_STATS_ENGINE_TIMEOUT_MS - far longer than the platform's
+    // SIGTERM->SIGKILL grace period. Give it a short grace period, then clear
+    // whatever's left rather than block Agenda/exit indefinitely.
+    await Promise.race([
+      statsServerPool.drain(),
+      new Promise((resolve) => setTimeout(resolve, 5_000)),
+    ]);
     await statsServerPool.clear();
 
     // Gracefully close Agenda

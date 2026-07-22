@@ -118,6 +118,8 @@ class PythonStatsServer<Input, Output> {
           `Python stats server (pid: ${this.pid}) did not become ready within ${STATS_ENGINE_STARTUP_TIMEOUT_MS}ms`,
         ),
       );
+      // Never joined the pool, so nothing else will kill it - do it here.
+      this.destroy();
     }, STATS_ENGINE_STARTUP_TIMEOUT_MS);
 
     if (this.python.stdout) {

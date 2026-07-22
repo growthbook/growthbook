@@ -245,7 +245,8 @@ app.get("/healthcheck", (req, res) => {
   // already booting.
   if (
     !process.env.EXTERNAL_PYTHON_SERVER_URL &&
-    statsServerPool.available < statsServerPool.min
+    // available + borrowed = ready workers, whether idle or busy.
+    statsServerPool.available + statsServerPool.borrowed < statsServerPool.min
   ) {
     return res.status(503).json({ status: 503, healthy: false });
   }
