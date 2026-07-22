@@ -32,6 +32,7 @@ import {
   getExperimentConfig,
   getExperimentsScript,
 } from "./controllers/config";
+import { statsServerPool } from "./services/python";
 import { getAuthConnection, processJWT, usingOpenId } from "./services/auth";
 import { wrapController } from "./routers/wrapController";
 import apiRouter from "./api/api.router";
@@ -235,7 +236,20 @@ app.use(cookieParser());
 
 // Health check route  (does not require JWT or cors)
 app.get("/healthcheck", (req, res) => {
-  // TODO: more robust health check?
+  // Any instance that serves stats requests from its own local pool (i.e.
+  // isn't proxying to EXTERNAL_PYTHON_SERVER_URL — same condition python.ts
+  // uses to decide whether the local pool is in play) shouldn't accept
+  // traffic until the pool has finished spawning its minimum Python processes
+  // (numpy/pandas/scipy imports are slow) — otherwise a burst of requests can
+  // force several more to cold-start concurrently right as the container is
+  // already booting.
+  if (
+    !process.env.EXTERNAL_PYTHON_SERVER_URL &&
+    statsServerPool.available < statsServerPool.min
+  ) {
+    return res.status(503).json({ status: 503, healthy: false });
+  }
+
   res.status(200).json({
     status: 200,
     healthy: true,

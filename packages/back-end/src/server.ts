@@ -9,6 +9,7 @@ import {
   initializeGrowthBookClient,
   destroyGrowthBookClient,
 } from "./services/growthbook";
+import { statsServerPool } from "./services/python";
 
 // Initialize GrowthBook singleton before starting server
 initializeGrowthBookClient().catch((error) => {
@@ -54,6 +55,9 @@ function onClose() {
 
     // Cleanup GrowthBook client
     destroyGrowthBookClient();
+
+    await statsServerPool.drain();
+    await statsServerPool.clear();
 
     // Gracefully close Agenda
     const agenda = getAgendaInstance();

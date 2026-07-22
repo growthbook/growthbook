@@ -45,6 +45,14 @@ const STATS_ENGINE_TIMEOUT_MS = parseEnvInt(
   { min: 1, name: "GB_STATS_ENGINE_TIMEOUT_MS" },
 );
 
+// Cold start (numpy/pandas/scipy import) usually finishes in a couple seconds;
+// this is a generous ceiling for a slow/contended boot before giving up.
+const STATS_ENGINE_STARTUP_TIMEOUT_MS = parseEnvInt(
+  process.env.GB_STATS_ENGINE_STARTUP_TIMEOUT_MS,
+  60_000,
+  { min: 1, name: "GB_STATS_ENGINE_STARTUP_TIMEOUT_MS" },
+);
+
 // stats_server.py writes via json.dumps(allow_nan=True), so output is strict
 // JSON unless it contains NaN/Infinity literals — fall back to JSON5 for those.
 function parsePythonOutput<T>(line: string): T {
@@ -53,6 +61,14 @@ function parsePythonOutput<T>(line: string): T {
   } catch {
     return JSON5.parse(line);
   }
+}
+
+function isReadySignal(parsed: unknown): parsed is { ready: true } {
+  return (
+    typeof parsed === "object" &&
+    parsed !== null &&
+    (parsed as { ready?: unknown }).ready === true
+  );
 }
 
 let cloudWatchClient: CloudWatchClient | null = null;
@@ -66,6 +82,11 @@ class PythonStatsServer<Input, Output> {
   private python: ChildProcess;
   private rl?: readline.Interface;
   private pid = -1;
+  private ready = false;
+  private resolveReady!: () => void;
+  private rejectReady!: (reason: Error) => void;
+  private readyPromise: Promise<void>;
+  private startupTimer: NodeJS.Timeout;
   private promises: Map<
     string,
     {
@@ -87,6 +108,18 @@ class PythonStatsServer<Input, Output> {
     logger.debug(`Python stats server (pid: ${this.pid}) started`);
     this.promises = new Map();
 
+    this.readyPromise = new Promise<void>((resolve, reject) => {
+      this.resolveReady = resolve;
+      this.rejectReady = reject;
+    });
+    this.startupTimer = setTimeout(() => {
+      this.rejectReady(
+        new Error(
+          `Python stats server (pid: ${this.pid}) did not become ready within ${STATS_ENGINE_STARTUP_TIMEOUT_MS}ms`,
+        ),
+      );
+    }, STATS_ENGINE_STARTUP_TIMEOUT_MS);
+
     if (this.python.stdout) {
       this.rl = readline
         .createInterface({ input: this.python.stdout, crlfDelay: Infinity })
@@ -96,8 +129,13 @@ class PythonStatsServer<Input, Output> {
           try {
             const parsed:
               | PythonServerResponse<Output>
-              | { id: string; error: string; stack_trace?: string } =
-              parsePythonOutput(output);
+              | { id: string; error: string; stack_trace?: string }
+              | { ready: true } = parsePythonOutput(output);
+
+            if (isReadySignal(parsed)) {
+              this.markReady();
+              return;
+            }
 
             if (!parsed.id) {
               logger.error(
@@ -158,11 +196,31 @@ class PythonStatsServer<Input, Output> {
       logger.debug(
         `Python stats server (pid: ${this.pid}) exited with code ${code} ${signal}. Destroying server.`,
       );
+      this.rejectReady(
+        new Error(
+          `Python stats server (pid: ${this.pid}) exited before becoming ready (code ${code}, signal ${signal})`,
+        ),
+      );
       this.destroy();
     });
   }
 
+  private markReady() {
+    if (this.ready) return;
+    this.ready = true;
+    clearTimeout(this.startupTimer);
+    this.resolveReady();
+    logger.debug(`Python stats server (pid: ${this.pid}) ready`);
+  }
+
+  // Resolves once the process has finished its (slow) numpy/pandas/scipy
+  // import and is actually reading stdin, rather than the instant it's spawned.
+  waitUntilReady(): Promise<void> {
+    return this.readyPromise;
+  }
+
   destroy() {
+    clearTimeout(this.startupTimer);
     this.rl?.removeAllListeners("line");
     this.rl?.close();
     if (this.isRunning()) {
@@ -177,6 +235,10 @@ class PythonStatsServer<Input, Output> {
 
   isRunning() {
     return this.python.exitCode === null;
+  }
+
+  isReady() {
+    return this.ready && this.isRunning();
   }
 
   async call(data: Input) {
@@ -246,13 +308,15 @@ class PythonStatsServer<Input, Output> {
 export const statsServerPool = createPool(
   {
     create: async () => {
-      return new PythonStatsServer<
+      const server = new PythonStatsServer<
         ExperimentDataForStatsEngine[],
         MultipleExperimentMetricAnalysis[]
       >(path.join(__dirname, "..", "..", "scripts", "stats_server.py"));
+      await server.waitUntilReady();
+      return server;
     },
     destroy: async (server) => server.destroy(),
-    validate: async (server) => server.isRunning(),
+    validate: async (server) => server.isReady(),
   },
   {
     min: MIN_POOL_SIZE,

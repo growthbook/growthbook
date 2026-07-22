@@ -5,6 +5,12 @@ import sys
 import traceback
 from gbstats.gbstats import process_multiple_experiment_results
 
+# Signal readiness now that the slow numpy/pandas/scipy import chain above is
+# done, so the Node side doesn't treat this process as usable the instant
+# it's spawned (well before it can actually read stdin).
+sys.stdout.write(json.dumps({"ready": True}) + "\n")
+sys.stdout.flush()
+
 for line in sys.stdin:
     start = time.time()
 
