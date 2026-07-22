@@ -198,8 +198,8 @@ importers:
         specifier: ^1.0.1
         version: 1.0.1
       '@databricks/sql':
-        specifier: ^1.8.1
-        version: 1.8.1(encoding@0.1.13)
+        specifier: ^2.0.0
+        version: 2.0.0(encoding@0.1.13)
       '@dqbd/tiktoken':
         specifier: ^1.0.21
         version: 1.0.21
@@ -1413,6 +1413,115 @@ packages:
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
+  '@antoniomuso/lz4-napi-android-arm-eabi@2.9.1':
+    resolution: {integrity: sha512-KcRvkSOymDvxFDT9AGFBc7g+J/Xv4qExMMHhtxjZ45qE2sEIVCXoSFmyLDiVVKztkVzoV24VXPPRLOa4WQOi2Q==}
+    engines: {node: '>= 10'}
+    cpu: [arm]
+    os: [android]
+
+  '@antoniomuso/lz4-napi-android-arm64@2.9.1':
+    resolution: {integrity: sha512-BNiddtI+5Z83w1jIufTFhTPrtxMVKb0UPezTq47XIE/7vkB6y5mHSWSlcHqEIFFIg2/PVdqyqec1CXv0bkpCPA==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [android]
+
+  '@antoniomuso/lz4-napi-darwin-arm64@2.9.1':
+    resolution: {integrity: sha512-nhLu+8g8Q6Yqd0rxRn4JkCMJBUs6mByiyT3Mhha2EgorsA2txx18JKm9qLhnXpDgFGWc94tLEVHqzDk0tLD9yA==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@antoniomuso/lz4-napi-darwin-x64@2.9.1':
+    resolution: {integrity: sha512-DqkN1D/IrqOaUBppCP7BrF9j5Usb6RqFyz16kf3SHPDxLG7pmemgwXmGWpcNrKQfp4Shx1VkbFWA61gMyE1+uw==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [darwin]
+
+  '@antoniomuso/lz4-napi-freebsd-x64@2.9.1':
+    resolution: {integrity: sha512-ORtZ27l+j0yDgPMgt9q/j10LCchtKS44gFohEWl8fokgr5rzDAYAtMyQZzHV8sqE2LUWHAU3Gk6Wh9s1GRl9ow==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [freebsd]
+
+  '@antoniomuso/lz4-napi-linux-arm-gnueabihf@2.9.1':
+    resolution: {integrity: sha512-GBZgQ/rY0AzjZA4jOKFXmLQKVPGXglVZ3U7SLcCu2nmuHTO73vsqiPeAHnYu7/org1km7yw3ii6XFlBRzyNKIA==}
+    engines: {node: '>= 10'}
+    cpu: [arm]
+    os: [linux]
+
+  '@antoniomuso/lz4-napi-linux-arm64-gnu@2.9.1':
+    resolution: {integrity: sha512-9lvGts14KHNT4pc9lKYUPI1PRdBkfbyT4HCjyDk8fJJzEG9ryvLvyhTeFr/IVpJOFmkSodZw1nxJMQDT5+zvlQ==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [linux]
+    libc: [glibc]
+
+  '@antoniomuso/lz4-napi-linux-arm64-musl@2.9.1':
+    resolution: {integrity: sha512-SsidKyLRHGB/rrgic+N7ZxFjjl+Cbav2sbuSj4AJsc37oVhyjzbiI5EEL9Rl+zL4ajL0d3utG3UbIUooThhykQ==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [linux]
+    libc: [musl]
+
+  '@antoniomuso/lz4-napi-linux-ppc64-gnu@2.9.1':
+    resolution: {integrity: sha512-1Joz9RmBLiLIfI5Gk/wmJI/WwQy74prKDhLcCPFoa/FcTOJavJAopAzs1MQdnM7nGklEPOpKZWmKHZz1yQ4LMQ==}
+    engines: {node: '>= 10'}
+    cpu: [ppc64]
+    os: [linux]
+    libc: [glibc]
+
+  '@antoniomuso/lz4-napi-linux-riscv64-gnu@2.9.1':
+    resolution: {integrity: sha512-3z6jSvhEpnSMlubcHwSn6W8Xziq5LYSuIcSpSo7wTEOopnr6GNnKcH2uTPFsRiqC/aC2TLpm17ktXbYTrYL7jg==}
+    engines: {node: '>= 10'}
+    cpu: [riscv64]
+    os: [linux]
+    libc: [glibc]
+
+  '@antoniomuso/lz4-napi-linux-s390x-gnu@2.9.1':
+    resolution: {integrity: sha512-wtQg/ikF1JutKdWfUdGXvR0LG+eG49mS01luwJXG6sg40DX737T3BAsbjM9Fccvif5jQwC+KmzP8+tvxy2eMtQ==}
+    engines: {node: '>= 10'}
+    cpu: [s390x]
+    os: [linux]
+    libc: [glibc]
+
+  '@antoniomuso/lz4-napi-linux-x64-gnu@2.9.1':
+    resolution: {integrity: sha512-Vw7vb3i1Q6QU2sI5GdgZdi4cVwN2xZ44Gw/WawIxCno1gX39VIF/j8T1pYwS7Dc67NeoA37LsYIPb3h49CiRRA==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [linux]
+    libc: [glibc]
+
+  '@antoniomuso/lz4-napi-linux-x64-musl@2.9.1':
+    resolution: {integrity: sha512-oZVrvOPjnI7c07v1lx6HMLFi8xlW9WS0pHmkaisldybNUWmNI6vR44KoqBctGCFplvF5YVMK2xPs3W04UGzF8w==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [linux]
+    libc: [musl]
+
+  '@antoniomuso/lz4-napi-openharmony-arm64@2.9.1':
+    resolution: {integrity: sha512-mkDQv6C0JbMbCDn070Dv67SWfkDy8uD6DkqUT373LHjdaEXj/0eK2gAVykKyPdnC1RBhONgUCaV4HQOp63oH8Q==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [openharmony]
+
+  '@antoniomuso/lz4-napi-win32-arm64-msvc@2.9.1':
+    resolution: {integrity: sha512-EBsN9YzV3xpSPr6h/t6ntBetpdtO0nZw9o4sZ1vNOfLJ8FMdHxHiY7FonzhEyTnc4N3x3yMqPudD6zLVy/oNXg==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [win32]
+
+  '@antoniomuso/lz4-napi-win32-ia32-msvc@2.9.1':
+    resolution: {integrity: sha512-Fqe2JmcfjvVrC+BHjHPzoiIzNgjHpQvDO7duMbJh5fW9VvF7pKkjRAPDwhtFhkU/fBLVQywq5WbsFqtJ3pYG/w==}
+    engines: {node: '>= 10'}
+    cpu: [ia32]
+    os: [win32]
+
+  '@antoniomuso/lz4-napi-win32-x64-msvc@2.9.1':
+    resolution: {integrity: sha512-N6bAJ4pcYfbiuysHNyEl6uVnYxl0CBboPeA6Iz1GQWJb6mp8J/z4+E8bTvasMuRhIhEW5F6X+oJIwmOwSzHoIQ==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [win32]
+
   '@aws-crypto/crc32@5.2.0':
     resolution: {integrity: sha512-nLbCWqQNgUiwwtFsen1AdzAtvuLRsQS8rYgMuxCrdKf9kOssamGLuPwyTY9wyYblNr9+1XM8v6zoDTPPSIeANg==}
     engines: {node: '>=16.0.0'}
@@ -2474,9 +2583,61 @@ packages:
   '@dabh/diagnostics@2.0.2':
     resolution: {integrity: sha512-+A1YivoVDNNVCdfozHSR8v/jyuuLTMXwjWuxPFlFlUapXoGc+Gj9mDlTDDfrwl7rXCl2tNZ0kE8sIBO6YOn96Q==}
 
-  '@databricks/sql@1.8.1':
-    resolution: {integrity: sha512-6H8ianbDIMJqTpYiWfBbVC2qv6RIbm0WBfyzutl/QoFu+rb6n1sWxmLtEZcFdq9l2KLv7MNDY7bpT5rZlSHNMg==}
-    engines: {node: '>=14.0.0'}
+  '@databricks/databricks-sql-kernel-darwin-arm64@0.2.0':
+    resolution: {integrity: sha512-dSZJD1uileOqRDfs5KsW6m43PAl3GqzQMcETbRT1Zjw2FRLQDtLKTA3+VWmlUUHhIz583WeTps91Sjee79cXbA==}
+    engines: {node: '>=18.0.0'}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@databricks/databricks-sql-kernel-darwin-x64@0.2.0':
+    resolution: {integrity: sha512-JEe7TqLrXrAoN3SWsi7NgjAo6V+7jEvBwLswwhl0qUp1MoPrZT+y5Kf49vuHPlh61vFgi2F6NlCNfdB/8wpihg==}
+    engines: {node: '>=18.0.0'}
+    cpu: [x64]
+    os: [darwin]
+
+  '@databricks/databricks-sql-kernel-linux-arm64-gnu@0.2.0':
+    resolution: {integrity: sha512-meJ2JF5w4qEiaiI9TNwg2iMgasadqeKSDAw3r3hWTEdzKwUY7saMTFNcjumwR8R3cQMCFJfp3YBOwKS5/hvN9A==}
+    engines: {node: '>=18.0.0'}
+    cpu: [arm64]
+    os: [linux]
+    libc: [glibc]
+
+  '@databricks/databricks-sql-kernel-linux-arm64-musl@0.2.0':
+    resolution: {integrity: sha512-YTCPs11w6purXCQwJBCh99oHBwTEW4q46OWxO9Rnddo1wJd8EPBa3Misw08URoUVuVuEfYGy5YtSvuPfkkj8Vw==}
+    engines: {node: '>=18.0.0'}
+    cpu: [arm64]
+    os: [linux]
+    libc: [musl]
+
+  '@databricks/databricks-sql-kernel-linux-x64-gnu@0.2.0':
+    resolution: {integrity: sha512-wIEJX2mtoCc/KGOzzbxXwOR5aUB5dBSUG1Ypp+JLI28XsZB2eCLcP4jyAQ+Uklxn+SU1hICuok+30t/7wSvKUg==}
+    engines: {node: '>=18.0.0'}
+    cpu: [x64]
+    os: [linux]
+    libc: [glibc]
+
+  '@databricks/databricks-sql-kernel-linux-x64-musl@0.2.0':
+    resolution: {integrity: sha512-0wtWdOxYh7BfeklDpI0tpTk/ljdjJmCQsNFPLy2C7EnK60J3sroYzTaFqgn8Qqc7T03VHZl/6GG1pXC3zPuU1g==}
+    engines: {node: '>=18.0.0'}
+    cpu: [x64]
+    os: [linux]
+    libc: [musl]
+
+  '@databricks/databricks-sql-kernel-win32-arm64-msvc@0.2.0':
+    resolution: {integrity: sha512-gS4y1hIIDitr1d9bW6yWEkn4wMW7abinDwFFVUJtYsWkFS+rMq/8CwAYioqNprXQP+XEQS7fLiLYq/BYsQB3Aw==}
+    engines: {node: '>=18.0.0'}
+    cpu: [arm64]
+    os: [win32]
+
+  '@databricks/databricks-sql-kernel-win32-x64-msvc@0.2.0':
+    resolution: {integrity: sha512-zl6KtfB02eVsBNZEQ/kf/dhmesUqbVGwhSFb5oKlmtyj/1kah9R1FRKBVKTLt3v5n9LnjBnomV2s+DRxRSh4rA==}
+    engines: {node: '>=18.0.0'}
+    cpu: [x64]
+    os: [win32]
+
+  '@databricks/sql@2.0.0':
+    resolution: {integrity: sha512-XqWxf11nQjQ8QBUfYT0AhkcQpMADmNqk8UYqiusf0g82sNQPGX7HD6qRC578EONxjT7nD8/+c8Cyo7n1v8rLaQ==}
+    engines: {node: '>=20.0.0'}
 
   '@datadog/flagging-core@1.2.1':
     resolution: {integrity: sha512-qeDkki9fFlqyoZBrn7tneT6pZ04EKKvf3xxisYw1a74zbJihvQui/ARUsjXCurRpzpFqGGTJw/oz+HnXaKhcdw==}
@@ -7879,9 +8040,6 @@ packages:
     resolution: {integrity: sha512-32tcuxdb4HW3zbk8NBcVQb8/7xuJB5sv+q4BuQ6++E/K6JvHvWoCHcGzB5Au95vVikNH4ztE0XNC/Bws950cfA==}
     engines: {node: '>= 0.1.90'}
 
-  cuint@0.2.2:
-    resolution: {integrity: sha512-d4ZVpCW31eWwCMe1YT3ur7mUDnTXbgwyzaL320DrcRT45rfjYxkt5QWLrmOJ+/UEAI2+fQgKe/fCjR8l4TpRgw==}
-
   culvert@0.1.2:
     resolution: {integrity: sha512-yi1x3EAWKjQTreYWeSd98431AV+IEE0qoDyOoaHJ7KJ21gv6HtBXHVLX74opVSGqcR8/AbjJBHAHpcOy2bj5Gg==}
 
@@ -10513,9 +10671,9 @@ packages:
     resolution: {integrity: sha512-h5bgJWpxJNswbU7qCrV0tIKQCaS3blPDrqKWx+QxzuzL1zGUzij9XCWLrSLsJPu5t+eWA/ycetzYAO5IOMcWAQ==}
     hasBin: true
 
-  lz4@0.6.5:
-    resolution: {integrity: sha512-KSZcJU49QZOlJSItaeIU3p8WoAvkTmD9fJqeahQXNu1iQ/kR0/mQLdbrK8JY9MY8f6AhJoMrihp1nu1xDbscSQ==}
-    engines: {node: '>= 0.10'}
+  lz4-napi@2.9.1:
+    resolution: {integrity: sha512-VjY1TAUQa3bo8j4vCcpQ0RBXh4mbC1OFHWH9rpOvx8qLYwaZTEzwxW/648ufD2cmz5/pFfPLDkX6N8+TqI9BYQ==}
+    engines: {node: '>= 18'}
 
   magic-string@0.30.21:
     resolution: {integrity: sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ==}
@@ -10941,9 +11099,6 @@ packages:
   named-placeholders@1.1.3:
     resolution: {integrity: sha512-eLoBxg6wE/rZkJPhU/xRX1WTpkFEwDJEN96oxFrTsqBdbT5ec295Q+CoHrL9IT0DipqKhmGcaZmwOt8OON5x1w==}
     engines: {node: '>=12.0.0'}
-
-  nan@2.25.0:
-    resolution: {integrity: sha512-0M90Ag7Xn5KMLLZ7zliPWP3rT90P6PN+IzVFS0VqmnPktBk3700xUVv8Ikm9EUaUE5SDWdp/BIxdENzVznpm1g==}
 
   nanoid@3.3.12:
     resolution: {integrity: sha512-ZB9RH/39qpq5Vu6Y+NmUaFhQR6pp+M2Xt76XBnEwDaGcVAqhlvxrl3B2bKS5D3NH3QR76v3aSrKaF/Kiy7lEtQ==}
@@ -12946,8 +13101,8 @@ packages:
   thread-stream@3.1.0:
     resolution: {integrity: sha512-OqyPZ9u96VohAyMfJykzmivOrY2wfMSf3C5TtFJVgN+Hm6aj+voFhlK+kZEIv2FBh1X6Xp3DlnCOfEQ3B2J86A==}
 
-  thrift@0.16.0:
-    resolution: {integrity: sha512-W8DpGyTPlIaK3f+e1XOCLxefaUWXtrOXAaVIDbfYhmVyriYeAKgsBVFNJUV1F9SQ2SPt2sG44AZQxSGwGj/3VA==}
+  thrift@0.23.0:
+    resolution: {integrity: sha512-j7F1ls8JogClU88Ta/pwD/OzYuiFeD6Z5GoWw7ip+jcDhcNYFKgfXYEsyLXYpiNfJO94fbLnITGxyfZ19YzA6Q==}
     engines: {node: '>= 10.18.0'}
 
   throat@6.0.2:
@@ -13390,6 +13545,10 @@ packages:
     resolution: {integrity: sha512-vIYxrBCC/N/K+Js3qSN88go7kIfNPssr/hHCesKCQNAjmgvYS2oqr69kIufEG+O4+PfezOH4EbIeHCfFov8ZgQ==}
     hasBin: true
 
+  uuid@13.0.2:
+    resolution: {integrity: sha512-vzi9uRZ926x4XV73S/4qQaTwPXM2JBj6/6lI/byHH1jOpCzb0zDbfytgA9LcN/hzb2l7WQSQnxITOVx5un/wGw==}
+    hasBin: true
+
   uuid@14.0.0:
     resolution: {integrity: sha512-Qo+uWgilfSmAhXCMav1uYFynlQO7fMFiMVZsQqZRMIXp0O7rR7qjkj+cPvBHLgBqi960QCoo/PH2/6ZtVqKvrg==}
     hasBin: true
@@ -13715,9 +13874,6 @@ packages:
     resolution: {integrity: sha512-LKYU1iAXJXUgAXn9URjiu+MWhyUXHsvfp7mcuYm9dSUKK0/CjtrUwFAxD82/mCWbtLsGjFIad0wIsod4zrTAEQ==}
     engines: {node: '>=0.4'}
 
-  xxhashjs@0.2.2:
-    resolution: {integrity: sha512-AkTuIuVTET12tpsVIQo+ZU6f/qDmKuRUcjaqR+OIvm+aCBsZ95i7UVY5WJ9TMsSaZ0DA2WxoZ4acu0sPH+OKAw==}
-
   y18n@5.0.8:
     resolution: {integrity: sha512-0pfFzegeDWJHJIAmTLRP2DwHjdF5s7jo9tuztdQxAhINCdvS+3nGINqPd00AphqJR/0LhANUS6/+7SCb98YOfA==}
     engines: {node: '>=10'}
@@ -13863,6 +14019,57 @@ snapshots:
       '@ai-sdk/provider': 3.0.4
       '@ai-sdk/provider-utils': 4.0.8(zod@4.1.12)
       zod: 4.1.12
+
+  '@antoniomuso/lz4-napi-android-arm-eabi@2.9.1':
+    optional: true
+
+  '@antoniomuso/lz4-napi-android-arm64@2.9.1':
+    optional: true
+
+  '@antoniomuso/lz4-napi-darwin-arm64@2.9.1':
+    optional: true
+
+  '@antoniomuso/lz4-napi-darwin-x64@2.9.1':
+    optional: true
+
+  '@antoniomuso/lz4-napi-freebsd-x64@2.9.1':
+    optional: true
+
+  '@antoniomuso/lz4-napi-linux-arm-gnueabihf@2.9.1':
+    optional: true
+
+  '@antoniomuso/lz4-napi-linux-arm64-gnu@2.9.1':
+    optional: true
+
+  '@antoniomuso/lz4-napi-linux-arm64-musl@2.9.1':
+    optional: true
+
+  '@antoniomuso/lz4-napi-linux-ppc64-gnu@2.9.1':
+    optional: true
+
+  '@antoniomuso/lz4-napi-linux-riscv64-gnu@2.9.1':
+    optional: true
+
+  '@antoniomuso/lz4-napi-linux-s390x-gnu@2.9.1':
+    optional: true
+
+  '@antoniomuso/lz4-napi-linux-x64-gnu@2.9.1':
+    optional: true
+
+  '@antoniomuso/lz4-napi-linux-x64-musl@2.9.1':
+    optional: true
+
+  '@antoniomuso/lz4-napi-openharmony-arm64@2.9.1':
+    optional: true
+
+  '@antoniomuso/lz4-napi-win32-arm64-msvc@2.9.1':
+    optional: true
+
+  '@antoniomuso/lz4-napi-win32-ia32-msvc@2.9.1':
+    optional: true
+
+  '@antoniomuso/lz4-napi-win32-x64-msvc@2.9.1':
+    optional: true
 
   '@aws-crypto/crc32@5.2.0':
     dependencies:
@@ -15823,19 +16030,53 @@ snapshots:
       enabled: 2.0.0
       kuler: 2.0.0
 
-  '@databricks/sql@1.8.1(encoding@0.1.13)':
+  '@databricks/databricks-sql-kernel-darwin-arm64@0.2.0':
+    optional: true
+
+  '@databricks/databricks-sql-kernel-darwin-x64@0.2.0':
+    optional: true
+
+  '@databricks/databricks-sql-kernel-linux-arm64-gnu@0.2.0':
+    optional: true
+
+  '@databricks/databricks-sql-kernel-linux-arm64-musl@0.2.0':
+    optional: true
+
+  '@databricks/databricks-sql-kernel-linux-x64-gnu@0.2.0':
+    optional: true
+
+  '@databricks/databricks-sql-kernel-linux-x64-musl@0.2.0':
+    optional: true
+
+  '@databricks/databricks-sql-kernel-win32-arm64-msvc@0.2.0':
+    optional: true
+
+  '@databricks/databricks-sql-kernel-win32-x64-msvc@0.2.0':
+    optional: true
+
+  '@databricks/sql@2.0.0(encoding@0.1.13)':
     dependencies:
       apache-arrow: 13.0.0
       commander: 9.5.0
-      lz4: 0.6.5
+      flatbuffers: 23.5.26
       node-fetch: 2.7.0(encoding@0.1.13)
       node-int64: 0.4.0
       open: 8.4.2
-      openid-client: 5.6.5
+      openid-client: 5.4.3
       proxy-agent: 6.5.0
-      thrift: 0.16.0
+      thrift: 0.23.0
       uuid: 11.1.1
       winston: 3.11.0
+    optionalDependencies:
+      '@databricks/databricks-sql-kernel-darwin-arm64': 0.2.0
+      '@databricks/databricks-sql-kernel-darwin-x64': 0.2.0
+      '@databricks/databricks-sql-kernel-linux-arm64-gnu': 0.2.0
+      '@databricks/databricks-sql-kernel-linux-arm64-musl': 0.2.0
+      '@databricks/databricks-sql-kernel-linux-x64-gnu': 0.2.0
+      '@databricks/databricks-sql-kernel-linux-x64-musl': 0.2.0
+      '@databricks/databricks-sql-kernel-win32-arm64-msvc': 0.2.0
+      '@databricks/databricks-sql-kernel-win32-x64-msvc': 0.2.0
+      lz4-napi: 2.9.1
     transitivePeerDependencies:
       - bufferutil
       - encoding
@@ -22291,8 +22532,6 @@ snapshots:
       stream-transform: 2.1.3
     optional: true
 
-  cuint@0.2.2: {}
-
   culvert@0.1.2: {}
 
   custom-event@1.0.1: {}
@@ -25793,12 +26032,26 @@ snapshots:
 
   lz-string@1.5.0: {}
 
-  lz4@0.6.5:
-    dependencies:
-      buffer: 5.7.1
-      cuint: 0.2.2
-      nan: 2.25.0
-      xxhashjs: 0.2.2
+  lz4-napi@2.9.1:
+    optionalDependencies:
+      '@antoniomuso/lz4-napi-android-arm-eabi': 2.9.1
+      '@antoniomuso/lz4-napi-android-arm64': 2.9.1
+      '@antoniomuso/lz4-napi-darwin-arm64': 2.9.1
+      '@antoniomuso/lz4-napi-darwin-x64': 2.9.1
+      '@antoniomuso/lz4-napi-freebsd-x64': 2.9.1
+      '@antoniomuso/lz4-napi-linux-arm-gnueabihf': 2.9.1
+      '@antoniomuso/lz4-napi-linux-arm64-gnu': 2.9.1
+      '@antoniomuso/lz4-napi-linux-arm64-musl': 2.9.1
+      '@antoniomuso/lz4-napi-linux-ppc64-gnu': 2.9.1
+      '@antoniomuso/lz4-napi-linux-riscv64-gnu': 2.9.1
+      '@antoniomuso/lz4-napi-linux-s390x-gnu': 2.9.1
+      '@antoniomuso/lz4-napi-linux-x64-gnu': 2.9.1
+      '@antoniomuso/lz4-napi-linux-x64-musl': 2.9.1
+      '@antoniomuso/lz4-napi-openharmony-arm64': 2.9.1
+      '@antoniomuso/lz4-napi-win32-arm64-msvc': 2.9.1
+      '@antoniomuso/lz4-napi-win32-ia32-msvc': 2.9.1
+      '@antoniomuso/lz4-napi-win32-x64-msvc': 2.9.1
+    optional: true
 
   magic-string@0.30.21:
     dependencies:
@@ -26428,8 +26681,6 @@ snapshots:
   named-placeholders@1.1.3:
     dependencies:
       lru-cache: 7.18.3
-
-  nan@2.25.0: {}
 
   nanoid@3.3.12: {}
 
@@ -28869,12 +29120,13 @@ snapshots:
     dependencies:
       real-require: 0.2.0
 
-  thrift@0.16.0:
+  thrift@0.23.0:
     dependencies:
       browser-or-node: 1.3.0
       isomorphic-ws: 4.0.1(ws@5.2.5)
       node-int64: 0.4.0
       q: 1.5.1
+      uuid: 13.0.2
       ws: 5.2.5
     transitivePeerDependencies:
       - bufferutil
@@ -29333,6 +29585,8 @@ snapshots:
 
   uuid@11.1.1: {}
 
+  uuid@13.0.2: {}
+
   uuid@14.0.0: {}
 
   v8-compile-cache-lib@3.0.1:
@@ -29687,10 +29941,6 @@ snapshots:
   xmlchars@2.2.0: {}
 
   xtend@4.0.2: {}
-
-  xxhashjs@0.2.2:
-    dependencies:
-      cuint: 0.2.2
 
   y18n@5.0.8: {}
 

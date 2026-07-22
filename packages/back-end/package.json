@@ -43,7 +43,7 @@
     "@aws-sdk/s3-presigned-post": "^3.1031.0",
     "@aws-sdk/s3-request-presigner": "^3.1031.0",
     "@clickhouse/client": "^1.0.1",
-    "@databricks/sql": "^1.8.1",
+    "@databricks/sql": "^2.0.0",
     "@dqbd/tiktoken": "^1.0.21",
     "@google-cloud/bigquery": "^8.1.1",
     "@google-cloud/storage": "^5.20.5",
