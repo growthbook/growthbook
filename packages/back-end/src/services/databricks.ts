@@ -17,6 +17,10 @@ export function buildDatabricksConnectionOptions(
   };
 
   if (conn.authType === "oauth-m2m") {
+    if (!conn.oauthClientId || !conn.oauthClientSecret) {
+      throw new Error("Databricks OAuth requires both a client ID and secret.");
+    }
+
     return {
       ...shared,
       authType: "databricks-oauth",
@@ -25,9 +29,15 @@ export function buildDatabricksConnectionOptions(
     };
   }
 
+  if (!conn.token) {
+    throw new Error(
+      "Databricks personal access token authentication requires a token.",
+    );
+  }
+
   return {
     ...shared,
-    token: conn.token ?? "",
+    token: conn.token,
   };
 }
 
