@@ -106,12 +106,12 @@ function TimeColumn({
   values,
   selected,
   onSelect,
-  ariaLabel,
+  label,
 }: {
   values: number[];
   selected: number;
   onSelect: (v: number) => void;
-  ariaLabel: string;
+  label: string;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const selectedRef = useRef<HTMLButtonElement>(null);
@@ -128,8 +128,9 @@ function TimeColumn({
       ref={containerRef}
       className={styles.TimeColumn}
       role="listbox"
-      aria-label={ariaLabel}
+      aria-label={label}
     >
+      <div className={styles.TimeColumnHeader}>{label}</div>
       {values.map((v) => (
         <button
           key={v}
@@ -169,20 +170,20 @@ function TimePicker({
   return (
     <div className={styles.TimePicker}>
       <TimeColumn
-        ariaLabel="Hours"
+        label="HH"
         values={Array.from({ length: 24 }, (_, i) => i)}
         selected={h}
         onSelect={(hh) => apply(hh, m, s)}
       />
       <TimeColumn
-        ariaLabel="Minutes"
+        label="MM"
         values={Array.from({ length: 60 }, (_, i) => i)}
         selected={m}
         onSelect={(mm) => apply(h, mm, s)}
       />
       {showSeconds && (
         <TimeColumn
-          ariaLabel="Seconds"
+          label="SS"
           values={Array.from({ length: 60 }, (_, i) => i)}
           selected={s}
           onSelect={(ss) => apply(h, m, ss)}
@@ -632,7 +633,9 @@ export default function DatePicker({
                       let nextDate = selectedDate;
                       // Preserve the existing time-of-day when only the day
                       // changes (the calendar itself has no time controls).
-                      if (hasTime && date) {
+                      // Only for the opt-in datetime-seconds precision, so
+                      // existing datetime pickers keep their prior behavior.
+                      if (hasSeconds && date) {
                         const prev = getValidDate(date);
                         nextDate = new Date(selectedDate);
                         nextDate.setHours(
@@ -653,7 +656,9 @@ export default function DatePicker({
                     month={calendarMonth}
                     onMonthChange={(m) => setCalendarMonth(m)}
                   />
-                  {hasTime && (
+                  {/* Custom time picker only for the opt-in datetime-seconds
+                      precision; other precisions keep the native time field. */}
+                  {hasSeconds && (
                     <TimePicker
                       value={getValidDate(date ?? new Date())}
                       showSeconds={hasSeconds}

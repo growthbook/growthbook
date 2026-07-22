@@ -2,7 +2,9 @@ import { Box, Flex } from "@radix-ui/themes";
 import { FactTableInterface, RowFilter } from "shared/types/fact-table";
 import { PiCaretDown, PiCaretUp, PiX } from "react-icons/pi";
 import Collapsible from "react-collapsible";
+import { format } from "date-fns";
 import Text from "@/ui/Text";
+import DatePicker from "@/components/DatePicker";
 import Field from "@/components/Forms/Field";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import SelectField, {
@@ -39,7 +41,6 @@ export function factTableToColumnSource(
   const columns: SingleValue[] = [];
   const hiddenAttributeFields = getAttributeFieldsExposedAsColumns(factTable);
   factTable.columns.forEach((col) => {
-    if (col.datatype === "date") return;
     if (factTable.userIdTypes?.includes(col.column)) return;
     if (col.deleted) return;
 
@@ -70,9 +71,10 @@ export function columnTypesToColumnSource(
     "string" | "number" | "date" | "boolean" | "other"
   >,
 ): FilterColumnSource {
-  const columns = Object.entries(columnTypes)
-    .filter(([, datatype]) => datatype !== "date")
-    .map(([col]) => ({ label: col, value: col }));
+  const columns = Object.entries(columnTypes).map(([col]) => ({
+    label: col,
+    value: col,
+  }));
 
   return {
     columns,
@@ -162,6 +164,7 @@ export function ExplorerFilterRow({
   }
 
   let inputType: "text" | "number" = "text";
+  let isDateColumn = false;
   let displayOperator = filter.operator;
 
   if (operatorInputRequired) {
@@ -171,6 +174,10 @@ export function ExplorerFilterRow({
 
     if (datatype === "number") {
       inputType = "number";
+    }
+
+    if (datatype === "date") {
+      isDateColumn = true;
     }
 
     if (topValues) {
@@ -248,6 +255,10 @@ export function ExplorerFilterRow({
             newValues = newValues.filter((v) => numberRegex.test(v));
           }
 
+          if (datatype === "date") {
+            newValues = newValues.filter((v) => !isNaN(new Date(v).getTime()));
+          }
+
           onUpdate({
             operator: newOperator,
             column: v,
@@ -285,7 +296,19 @@ export function ExplorerFilterRow({
 
   const valueInput = valueInputRequired && firstSelectCompleted && (
     <>
-      {multiValueInput && useValueOptions ? (
+      {isDateColumn && !multiValueInput ? (
+        <DatePicker
+          date={filter.values?.[0] || undefined}
+          setDate={(d) => {
+            // UTC wall-clock convention: store the typed digits verbatim (no
+            // tz shift) so they are compared as UTC by getRowFilterSQL.
+            onUpdate({
+              values: [d ? format(d, "yyyy-MM-dd'T'HH:mm:ss") : ""],
+            });
+          }}
+          precision="datetime-seconds"
+        />
+      ) : multiValueInput && useValueOptions ? (
         <MultiSelectField
           value={filter.values || []}
           onChange={(v) => onUpdate({ values: v })}
