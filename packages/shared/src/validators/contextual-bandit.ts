@@ -253,7 +253,9 @@ export const CONTEXTUAL_BANDIT_API_UPDATE_FIELDS = [
   "tags",
   "trackingKey",
   "hashAttribute",
-  "variations",
+  // NOTE: `variations` and `variationWeights` are intentionally NOT here.
+  // Arm-set changes go through POST /contextual-bandits/:id/variations so the
+  // server owns weight reconciliation + banditVersion bump + payload refresh.
   "datasource",
   "contextualBanditQueryId",
   "contextualAttributes",
@@ -273,7 +275,6 @@ export const CONTEXTUAL_BANDIT_API_UPDATE_FIELDS = [
   "savedGroups",
   "prerequisites",
   "seed",
-  "variationWeights",
 ] as const satisfies readonly (keyof ApiUpdateContextualBanditBody)[];
 
 export const apiContextualBanditStartValidator = {
@@ -285,6 +286,21 @@ export const apiContextualBanditStartValidator = {
 export const apiContextualBanditStopValidator = {
   paramsSchema: z.strictObject({ id: z.string() }),
   bodySchema: z.strictObject({}).optional(),
+  querySchema: z.never(),
+};
+
+/**
+ * Add/remove Contextual Bandit variations. The client sends the full desired
+ * variation list; the server reconciles weights (uniform in draft/explore,
+ * redistribute in exploit — see contextual-bandit-variation-changes.ts), bumps
+ * `banditVersion`, and refreshes the SDK payload. Weights are NOT accepted from
+ * the client — the server owns them.
+ */
+export const apiContextualBanditUpdateVariationsValidator = {
+  paramsSchema: z.strictObject({ id: z.string() }),
+  bodySchema: z.strictObject({
+    variations: z.array(variation),
+  }),
   querySchema: z.never(),
 };
 

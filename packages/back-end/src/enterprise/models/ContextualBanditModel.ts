@@ -19,13 +19,17 @@ import {
   refreshContextualBanditEndpoint,
   startContextualBanditEndpoint,
   stopContextualBanditEndpoint,
+  updateVariationsContextualBanditEndpoint,
 } from "back-end/src/api/specs/contextual-bandit.spec";
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
 import {
   executeContextualBanditStart,
   executeContextualBanditStop,
 } from "back-end/src/services/contextualBanditChanges";
-import { runContextualBanditSnapshot } from "back-end/src/enterprise/services/contextualBandits";
+import {
+  executeContextualBanditVariationChange,
+  runContextualBanditSnapshot,
+} from "back-end/src/enterprise/services/contextualBandits";
 import { MakeModelClass } from "back-end/src/models/BaseModel";
 import { getCollection } from "back-end/src/util/mongo.util";
 
@@ -123,6 +127,28 @@ const BaseClass = MakeModelClass({
           return runContextualBanditSnapshot(req.context, cb, {
             triggeredBy: "manual",
           });
+        },
+      }),
+      defineCustomApiHandler({
+        ...updateVariationsContextualBanditEndpoint,
+        reqHandler: async (
+          req,
+        ): Promise<z.infer<typeof apiContextualBanditLifecycleReturn>> => {
+          const cb = await req.context.models.contextualBandits.getById(
+            req.params.id,
+          );
+          if (!cb) {
+            return req.context.throwNotFoundError();
+          }
+          if (!req.context.permissions.canUpdateContextualBandit(cb, cb)) {
+            req.context.permissions.throwPermissionError();
+          }
+          const { updated } = await executeContextualBanditVariationChange(
+            req.context,
+            cb,
+            req.body.variations,
+          );
+          return { contextualBandit: toApiContextualBandit(updated) };
         },
       }),
     ],
