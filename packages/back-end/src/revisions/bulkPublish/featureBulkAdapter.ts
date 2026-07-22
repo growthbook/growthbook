@@ -407,6 +407,13 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     // Reverse the cross-collection satellites first. Each is attempted
     // independently and its failure recorded. The safe-rollout restore is
     // ownership-checked inside so a worker's progress is never clobbered.
+    //
+    // ACCEPTED BOUNDARY: these reversals are not transactional. Deterministic
+    // failures are designed out (safe-rollout throws before its write, the
+    // holdout config-guard is skipped on revert), but an infra failure after a
+    // prior satellite already reversed can still leave a partial — reported
+    // "published" (needs attention). Closing that fully needs DB transactions,
+    // not reordering; don't chase it with more per-satellite special-casing.
     for (const entry of desired.safeRollouts ?? []) {
       try {
         await context.models.safeRollout.restoreAfterFailedBulkPublish(
