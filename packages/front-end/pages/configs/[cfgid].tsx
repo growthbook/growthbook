@@ -58,6 +58,7 @@ import Markdown from "@/components/Markdown/Markdown";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Badge from "@/ui/Badge";
+import CounterBadge from "@/ui/Badge/CounterBadge";
 import Link from "@/ui/Link";
 import Metadata from "@/ui/Metadata";
 import Callout from "@/ui/Callout";
@@ -1354,24 +1355,15 @@ export default function ConfigDetailPage(): React.ReactElement {
                 <TabsTrigger value="configs">
                   <Flex as="span" align="center" gap="2">
                     Configs
-                    <Badge
-                      size="xs"
-                      color="gray"
-                      radius="full"
-                      label={`${nonFlavorCount}`}
-                      style={{ justifyContent: "center", textAlign: "center" }}
-                    />
+                    <CounterBadge color="slate" count={nonFlavorCount} />
                   </Flex>
                 </TabsTrigger>
                 <TabsTrigger value="features">
                   <Flex as="span" align="center" gap="2">
                     Features
-                    <Badge
-                      size="xs"
-                      color="gray"
-                      radius="full"
-                      label={`${familyReferences?.features.length ?? 0}`}
-                      style={{ justifyContent: "center", textAlign: "center" }}
+                    <CounterBadge
+                      color="slate"
+                      count={familyReferences?.features.length ?? 0}
                     />
                   </Flex>
                 </TabsTrigger>
@@ -1671,13 +1663,10 @@ export default function ConfigDetailPage(): React.ReactElement {
                     Review &amp; Publish
                     {openRevisions.length > 0 && (
                       <Tooltip body={draftStatusTooltip(draftStatusCounts)}>
-                        <Badge
-                          label={String(openRevisions.length)}
-                          color="red"
-                          variant="solid"
-                          radius="full"
+                        <CounterBadge
+                          color="slate"
+                          count={openRevisions.length}
                           ml="2"
-                          style={{ minWidth: 18, height: 18 }}
                         />
                       </Tooltip>
                     )}

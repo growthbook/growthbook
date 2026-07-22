@@ -1078,19 +1078,11 @@ export default function ExperimentHeader({
                       disabled={!usersWatching.length}
                     >
                       <Flex as="div" align="center">
-                        <IconButton
-                          style={{
-                            marginRight: "5px",
-                            backgroundColor:
-                              usersWatching.length > 0
-                                ? "var(--violet-9)"
-                                : "var(--slate-9)",
-                          }}
-                          radius="full"
-                          size="1"
-                        >
-                          {usersWatching.length || 0}
-                        </IconButton>
+                        <CounterBadge
+                          color="slate"
+                          count={usersWatching.length || 0}
+                          mr="1"
+                        />
                         {usersWatching.length > 0
                           ? "View watchers"
                           : "No watchers"}

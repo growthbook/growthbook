@@ -15,6 +15,7 @@ import {
 import { AppFeatures } from "shared/types/app-features";
 import Avatar from "@/ui/Avatar";
 import Badge from "@/ui/Badge";
+import CounterBadge from "@/ui/Badge/CounterBadge";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
@@ -868,13 +869,10 @@ export default function SessionReplayPage() {
                   <>
                     Evaluations
                     {evaluations.length > 0 && (
-                      <Badge
-                        label={String(evaluations.length)}
-                        size="xs"
-                        variant="soft"
-                        color="violet"
-                        radius="full"
-                        style={{ marginLeft: 6 }}
+                      <CounterBadge
+                        color="slate"
+                        count={evaluations.length}
+                        ml="2"
                       />
                     )}
                   </>

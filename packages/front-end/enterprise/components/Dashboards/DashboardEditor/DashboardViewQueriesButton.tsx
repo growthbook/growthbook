@@ -3,7 +3,7 @@ import { Flex, IconButton } from "@radix-ui/themes";
 import { PiFileSqlLight, PiWarningFill } from "react-icons/pi";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Badge from "@/ui/Badge";
+import CounterBadge from "@/ui/Badge/CounterBadge";
 import Button, { Props as ButtonProps } from "@/ui/Button";
 import Text, { TextProps } from "@/ui/Text";
 import { DashboardSnapshotContext } from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
@@ -79,12 +79,7 @@ export default function DashboardViewQueriesButton({
               {refreshStatus === "failed" ? (
                 <PiWarningFill />
               ) : !hideQueryCount ? (
-                <Badge
-                  ml="1"
-                  label={count.toString()}
-                  variant="soft"
-                  radius="full"
-                />
+                <CounterBadge ml="1" color="slate" count={count} />
               ) : null}
             </Flex>
           </Button>

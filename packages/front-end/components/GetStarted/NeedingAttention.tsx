@@ -32,7 +32,7 @@ import { useExperimentSearch } from "@/services/experiments";
 import useApi from "@/hooks/useApi";
 import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
 import { useUser } from "@/services/UserContext";
-import Badge from "@/ui/Badge";
+import CounterBadge from "@/ui/Badge/CounterBadge";
 import {
   ExperimentDot,
   ExperimentStatusDetailsWithDot,
@@ -379,12 +379,10 @@ const NeedingAttention = (): React.ReactElement | null => {
           <Text size="4" weight="medium">
             Experiments requiring attention
           </Text>
-          <Badge
-            color="blue"
-            variant="soft"
-            radius="full"
+          <CounterBadge
+            color="slate"
+            count={experimentsNeedingAttention.length}
             ml="2"
-            label={experimentsNeedingAttention.length.toString()}
           />
         </Flex>
         {experimentsNeedingAttention.length > 0 ? (
@@ -502,12 +500,10 @@ const NeedingAttention = (): React.ReactElement | null => {
           <Text size="4" weight="medium">
             Feature flags requiring attention
           </Text>
-          <Badge
-            color="blue"
-            variant="soft"
-            radius="full"
+          <CounterBadge
+            color="slate"
+            count={featureFlagsNeedingAttention.length}
             ml="2"
-            label={featureFlagsNeedingAttention.length.toString()}
           />
         </Flex>
         {featureFlagsNeedingAttention.length > 0 ? (

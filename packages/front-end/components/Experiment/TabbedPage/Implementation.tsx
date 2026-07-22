@@ -24,7 +24,7 @@ import LinkedExperimentsTable from "@/components/Holdout/LinkedExperimentsTable"
 import LinkedFeaturesTable from "@/components/Holdout/LinkedFeaturesTable";
 import EditEnvironmentsModal from "@/components/Holdout/EditEnvironmentsModal";
 import Link from "@/ui/Link";
-import Badge from "@/ui/Badge";
+import CounterBadge from "@/ui/Badge/CounterBadge";
 import Text from "@/ui/Text";
 import Checkbox from "@/ui/Checkbox";
 import Heading from "@/ui/Heading";
@@ -251,11 +251,9 @@ export default function Implementation({
                     <TabsTrigger value="experiments">
                       Experiments
                       {!!holdoutExperiments?.length && (
-                        <Badge
-                          label={holdoutExperiments.length.toString()}
-                          color="gray"
-                          variant="soft"
-                          radius="full"
+                        <CounterBadge
+                          color="slate"
+                          count={holdoutExperiments.length}
                           ml="2"
                         />
                       )}
@@ -263,11 +261,9 @@ export default function Implementation({
                     <TabsTrigger value="features">
                       Features
                       {!!holdoutFeatures?.length && (
-                        <Badge
-                          label={holdoutFeatures.length.toString()}
-                          color="gray"
-                          variant="soft"
-                          radius="full"
+                        <CounterBadge
+                          color="slate"
+                          count={holdoutFeatures.length}
                           ml="2"
                         />
                       )}

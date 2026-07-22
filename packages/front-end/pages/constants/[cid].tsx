@@ -26,6 +26,7 @@ import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Badge from "@/ui/Badge";
+import CounterBadge from "@/ui/Badge/CounterBadge";
 import Button from "@/ui/Button";
 import Metadata from "@/ui/Metadata";
 import Callout from "@/ui/Callout";
@@ -450,13 +451,10 @@ export default function ConstantDetailPage(): React.ReactElement {
                 Review &amp; Publish
                 {activeDraftCount > 0 && (
                   <Tooltip body={draftStatusTooltip(draftStatusCounts)}>
-                    <Badge
-                      label={String(activeDraftCount)}
-                      color="red"
-                      variant="solid"
-                      radius="full"
+                    <CounterBadge
+                      color="slate"
+                      count={activeDraftCount}
                       ml="2"
-                      style={{ minWidth: 18, height: 18 }}
                     />
                   </Tooltip>
                 )}

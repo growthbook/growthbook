@@ -27,6 +27,7 @@ import Metadata from "@/ui/Metadata";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Badge from "@/ui/Badge";
+import CounterBadge from "@/ui/Badge/CounterBadge";
 import { draftStatusTooltip } from "@/components/Reviews/RevisionStatusBadge";
 import EditRevisionDescriptionModal from "@/components/Reviews/EditRevisionDescriptionModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -1010,13 +1011,10 @@ export default function EditSavedGroupPage() {
                 Review &amp; Publish
                 {activeDraftCount > 0 && (
                   <Tooltip body={draftStatusTooltip(draftStatusCounts)}>
-                    <Badge
-                      label={String(activeDraftCount)}
-                      color="red"
-                      variant="solid"
-                      radius="full"
+                    <CounterBadge
+                      color="slate"
+                      count={activeDraftCount}
                       ml="2"
-                      style={{ minWidth: 18, height: 18 }}
                     />
                   </Tooltip>
                 )}

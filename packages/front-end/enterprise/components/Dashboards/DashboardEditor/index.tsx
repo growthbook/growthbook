@@ -68,7 +68,7 @@ import Owner from "@/components/Avatar/Owner";
 import DashboardModal from "@/enterprise/components/Dashboards/DashboardModal";
 import DashboardShareModal from "@/enterprise/components/Dashboards/DashboardShareModal";
 import { DashboardChartsProvider } from "@/enterprise/components/Dashboards/DashboardChartsContext";
-import Badge from "@/ui/Badge";
+import CounterBadge from "@/ui/Badge/CounterBadge";
 import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
 import { DashboardSnapshotContext } from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
 import DashboardUpdateDisplay from "./DashboardUpdateDisplay";
@@ -738,12 +738,10 @@ function DashboardEditor({
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={handleViewQueries}>
                         View queries
-                        <Badge
-                          variant="soft"
-                          radius="full"
-                          label={String(count)}
+                        <CounterBadge
+                          count={count}
                           ml="2"
-                          color={error ? "red" : undefined}
+                          color={error ? "red" : "slate"}
                         />
                       </DropdownMenuItem>
                     </>

@@ -33,7 +33,7 @@ import OfficialResourceModal from "@/components/OfficialResourceModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import EditFactTableSQLModal from "@/components/FactTables/EditFactTableSQLModal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
-import Badge from "@/ui/Badge";
+import CounterBadge from "@/ui/Badge/CounterBadge";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Metadata from "@/ui/Metadata";
@@ -544,22 +544,11 @@ export default function FactTablePage() {
       <Tabs defaultValue="metrics">
         <TabsList>
           <TabsTrigger value="metrics">
-            Metrics{" "}
-            <Badge
-              label={numMetrics + ""}
-              color="violet"
-              ml="1"
-              radius="full"
-            />
+            Metrics <CounterBadge color="slate" count={numMetrics} ml="1" />
           </TabsTrigger>
           <TabsTrigger value="filters">
             Saved Filters{" "}
-            <Badge
-              label={numFilters + ""}
-              color="violet"
-              ml="1"
-              radius="full"
-            />
+            <CounterBadge color="slate" count={numFilters} ml="1" />
           </TabsTrigger>
         </TabsList>
 
