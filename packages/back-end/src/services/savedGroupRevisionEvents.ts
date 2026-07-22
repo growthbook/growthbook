@@ -9,6 +9,7 @@ import { ApiReqContext } from "back-end/types/api";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
 import { toApiSavedGroupRevision } from "back-end/src/api/saved-groups/toApiSavedGroupRevision";
 import type { RevisionLifecycleAction } from "back-end/src/events/revisionWebhookAdapters";
+import { bulkPublishFields } from "back-end/src/events/bulkPublishCorrelation";
 import { logger } from "back-end/src/util/logger";
 
 type SavedGroupRevisionEvent = Extract<
@@ -131,11 +132,15 @@ export async function dispatchSavedGroupRevisionEvent(
         await emit("revision.rebased", apiRevision);
         break;
       case "published":
-        await emit("revision.published", apiRevision);
+        await emit("revision.published", {
+          ...apiRevision,
+          ...bulkPublishFields(context),
+        });
         break;
       case "publishFailed":
         await emit("revision.publishFailed", {
           ...apiRevision,
+          ...bulkPublishFields(context),
           failureReason: action.reason,
           terminal: action.terminal,
           attempts: action.attempts,
@@ -158,6 +163,7 @@ export async function dispatchSavedGroupRevisionEvent(
           : null;
         await emit("revision.reverted", {
           ...apiRevision,
+          ...bulkPublishFields(context),
           ...(source && source.version !== undefined
             ? { revertedToVersion: source.version }
             : {}),

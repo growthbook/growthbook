@@ -5,10 +5,8 @@ import {
 } from "shared/validators";
 import { SavedGroupInterface } from "shared/types/saved-group";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
-import {
-  collectSavedGroupArchiveDependents,
-  archiveDependentsGateMessage,
-} from "back-end/src/services/archiveDependentsGuard";
+import { collectSavedGroupArchiveDependentsGate } from "back-end/src/services/archiveDependentsGuard";
+import { collectArchiveApprovalGate } from "back-end/src/revisions/governanceGates";
 import { ApiReqContext, ApiRequestLocals } from "back-end/types/api";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
@@ -79,40 +77,19 @@ async function setArchivedState(
 
   // Aggregate publish gates into one structured 422 (same contract as the
   // revision-publish endpoints).
-  const gates: PublishGate[] = [];
-  if (approvalRequired) {
-    gates.push({
-      type: "approval-required",
-      severity: "blocker",
-      messages: [
-        `This organization requires approval to ${
-          archived ? "archive" : "unarchive"
-        } this Saved Group.`,
-      ],
-      override: null,
-      requiresPermission: "bypassApprovalChecks",
-      resolution: {
-        action: "create-draft",
-        method: "POST",
-        path: `/saved-groups/${savedGroup.id}/revisions`,
-      },
-    });
-  }
-  // Only the archive transition is guarded for dependents; unarchiving never
-  // breaks a dependent.
-  if (archived) {
-    const dependents = await collectSavedGroupArchiveDependents(context, id);
-    if (dependents.ids.length) {
-      gates.push({
-        type: "archive-dependents",
-        severity: "warning",
-        messages: [archiveDependentsGateMessage("Saved Group", dependents)],
-        override: "ignoreWarnings",
-        requiresPermission: null,
-        resolution: null,
-      });
-    }
-  }
+  const gates: PublishGate[] = [
+    ...collectArchiveApprovalGate({
+      approvalRequired,
+      archived,
+      noun: "Saved Group",
+      createDraftPath: `/saved-groups/${savedGroup.id}/revisions`,
+    }),
+    // Only the archive transition is guarded for dependents; unarchiving never
+    // breaks a dependent.
+    ...(await collectSavedGroupArchiveDependentsGate(context, savedGroup, {
+      archived,
+    })),
+  ];
 
   const { blocking, bypassed } = evaluatePublishGates(gates, {
     ignoreWarnings: context.ignoreWarnings,

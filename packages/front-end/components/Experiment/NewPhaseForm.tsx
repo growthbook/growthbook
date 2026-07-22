@@ -140,6 +140,7 @@ const NewPhaseForm: FC<{
       )}
       <div className="row">
         <Field
+          size="legacy"
           label="Name"
           containerClassName="col-lg"
           required
@@ -148,6 +149,7 @@ const NewPhaseForm: FC<{
       </div>
       {!firstPhase && (
         <Field
+          size="legacy"
           label="Reason for Starting New Phase"
           textarea
           {...form.register("reason")}

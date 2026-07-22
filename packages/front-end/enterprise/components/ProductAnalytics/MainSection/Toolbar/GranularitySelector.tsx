@@ -43,7 +43,7 @@ export function ControlledGranularitySelector({
 
   return (
     <Select
-      size="2"
+      size="small"
       value={selectedGranularity}
       placeholder="Granularity"
       disabled={disabled}

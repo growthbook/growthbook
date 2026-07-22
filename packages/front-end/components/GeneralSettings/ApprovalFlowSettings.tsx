@@ -10,7 +10,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { OrganizationSettingsWithMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import Frame from "@/ui/Frame";
 import Checkbox from "@/ui/Checkbox";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import Link from "@/ui/Link";
 
 export default function ApprovalFlowSettings() {
@@ -116,6 +116,7 @@ export default function ApprovalFlowSettings() {
                         <Flex direction="column" gap="3" mb="3">
                           {showProjectScope[i] ? (
                             <MultiSelectField
+                              size="legacy"
                               id={`projects-${i}`}
                               label="Projects"
                               labelClassName="font-weight-semibold"
@@ -146,6 +147,7 @@ export default function ApprovalFlowSettings() {
                           )}
                           {showEnvScope[i] ? (
                             <MultiSelectField
+                              size="legacy"
                               id={`environments-${i}`}
                               label="Specific environments"
                               labelClassName="font-weight-semibold"

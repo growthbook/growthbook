@@ -7,7 +7,7 @@ slug: databricks
 
 import MaxWidthImage from "@site/src/components/MaxWidthImage";
 
-To connect to Databricks, you need to provide GrowthBook with the connection details and access token to the SQL Warehouse you use within Databricks.
+To connect to Databricks, you need to provide GrowthBook with the connection details for your SQL Warehouse along with credentials that let GrowthBook authenticate and run queries against it.
 
 ## 1. Find the connection details for your SQL Warehouse
 
@@ -17,14 +17,32 @@ In your Databricks instance, navigate to the SQL Warehouses, select your SQL War
   ![Finding SQL Warehouse Connection Details in Databricks](/images/guides/databricks-connection.png)
 </MaxWidthImage>
 
-## 2. Create an access token for GrowthBook
+From this page you will use the **Server Hostname**, **Port**, and **HTTP Path** values when adding the data source to GrowthBook.
+
+## 2. Choose an authentication method
+
+GrowthBook supports two ways to authenticate against Databricks:
+
+- **OAuth (machine-to-machine / service principal)** — the recommended method. GrowthBook uses a Databricks service principal's Client ID and OAuth secret to obtain short-lived access tokens automatically at query time.
+- **Personal Access Token (PAT)** — the legacy method. Databricks now recommends OAuth over personal access tokens because OAuth provides stronger security.
+
+Whichever method you choose, make sure the service principal or user has permission to execute SQL queries against your SQL Warehouse.
+
+### Option A: OAuth (machine-to-machine)
+
+OAuth M2M authenticates using a Databricks service principal. GrowthBook exchanges the service principal's Client ID and OAuth secret for short-lived tokens (via the `client_credentials` grant) and refreshes them automatically, so you never store a long-lived token.
+
+1. Create a Databricks service principal (or reuse an existing one). See the Databricks docs on [managing service principals](https://docs.databricks.com/en/admin/users-groups/service-principals.html).
+2. Generate an OAuth secret for that service principal. Databricks shows the **Client ID** (the service principal's application ID) and lets you generate a **Secret**. Copy both now — the secret is only shown once. See [OAuth machine-to-machine (M2M) authentication](https://docs.databricks.com/aws/en/dev-tools/auth/oauth-m2m).
+3. Grant the service principal permission to use your SQL Warehouse and access the data you want to query.
+4. In GrowthBook, you will enter the **Client ID** and **OAuth Secret** in step 3 below.
+
+### Option B: Personal Access Token
 
 There are two kinds of access tokens that will work to connect GrowthBook to Databricks:
 
 - A personal access token for a user account
 - A personal access token for a service principal
-
-Whichever path you choose, ensure the service principal or the user has permission to execute SQL queries against your SQL Warehouse.
 
 Follow these instructions to create a service principal and create an access token for the service principal: https://docs.databricks.com/en/dev-tools/service-principals.html
 
@@ -32,7 +50,7 @@ Alternatively, you can create a personal access token for a Databricks workspace
 
 ## 3. Add credentials to GrowthBook
 
-Now that you have the connection details and an access token, you can enter the Connection Details and Access Token to GrowthBook when when creating a Data Source!
+Now that you have the connection details and credentials, you can add the data source in GrowthBook.
 
 Click "Add a Datasource" from the Data Sources page under Metrics and Data and either select your event tracker or click "custom data source". Then you can select Databricks as your data warehouse and enter the above credentials.
 

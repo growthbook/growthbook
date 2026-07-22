@@ -2,6 +2,7 @@ import { FC, ChangeEventHandler } from "react";
 import { AthenaConnectionParams } from "shared/types/integrations/athena";
 import { isCloud } from "@/services/env";
 import Field from "@/components/Forms/Field";
+import SelectField from "@/components/Forms/SelectField";
 
 const AthenaForm: FC<{
   params: Partial<AthenaConnectionParams>;
@@ -13,29 +14,17 @@ const AthenaForm: FC<{
     <div className="row">
       {!isCloud() && (
         <div className="col-md-12">
-          <Field
+          <SelectField
+            size="legacy"
             label="Authentication Method"
             options={[
-              {
-                value: "accessKey",
-                display: "AWS access key",
-              },
-              {
-                value: "auto",
-                display: "Auto-discovery",
-              },
-              {
-                value: "assumeRole",
-                display: "Assume IAM Role",
-              },
+              { value: "accessKey", label: "AWS access key" },
+              { value: "auto", label: "Auto-discovery" },
+              { value: "assumeRole", label: "Assume IAM Role" },
             ]}
             helpText="'Auto-discovery' will look for credentials in environment variables and instance metadata. 'Assume IAM Role' uses the current role to assume another role and execute Athena with temporary credentials."
             value={params.authType || "accessKey"}
-            onChange={(e) => {
-              setParams({
-                authType: e.target.value,
-              });
-            }}
+            onChange={(value) => setParams({ authType: value })}
           />
         </div>
       )}
@@ -176,6 +165,7 @@ const AthenaForm: FC<{
       </div>
       <div className="form-group col-md-12">
         <Field
+          size="legacy"
           name="resultReuseMaxAgeInMinutes"
           type="number"
           label="Reuse query results within past X minutes (optional)"

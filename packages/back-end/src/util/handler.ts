@@ -12,7 +12,12 @@ import {
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ApiErrorResponse, ApiRequestLocals } from "back-end/types/api";
 import { PublishBlockedError } from "back-end/src/revisions/publishGates";
-import { ApiError, MergeConflictError, SoftWarningError } from "./errors";
+import {
+  ApiError,
+  BulkPublishCommitError,
+  MergeConflictError,
+  SoftWarningError,
+} from "./errors";
 import { IS_MULTI_ORG } from "./secrets";
 
 export type { ApiEndpointSpec, ExampleRequest, HttpVerb, RequestSchemas };
@@ -192,6 +197,11 @@ export async function runApiHandler(
     if (e instanceof PublishBlockedError) {
       body.gates = e.gates;
       body.warnings = e.warnings;
+    }
+    // Bulk-publish commit failures carry per-item outcomes so callers can see
+    // which entities compensated cleanly.
+    if (e instanceof BulkPublishCommitError) {
+      (body as Record<string, unknown>).items = e.items;
     }
     // Surface soft warnings so clients can re-submit with ignoreWarnings
     if (e instanceof SoftWarningError) {

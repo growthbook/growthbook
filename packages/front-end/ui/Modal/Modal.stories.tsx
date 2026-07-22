@@ -83,7 +83,11 @@ export default function ModalStories() {
           <Modal.Header>
             <Modal.Title>GrowthBook Modal</Modal.Title>
             <Box width="140px">
-              <Select value={environment} setValue={setEnvironment} size="1">
+              <Select
+                value={environment}
+                setValue={setEnvironment}
+                size="x-small"
+              >
                 <SelectItem value="production">Production</SelectItem>
                 <SelectItem value="staging">Staging</SelectItem>
                 <SelectItem value="development">Development</SelectItem>

@@ -40,7 +40,7 @@ RUN \
   && poetry build \
   && poetry export -f requirements.txt --output requirements.txt \
   && pip install --no-cache-dir -r requirements.txt \
-  && pip install --no-cache-dir dist/*.whl ddtrace==4.3.2
+  && pip install --no-cache-dir dist/*.whl ddtrace==4.8.2
 # No compiler in this stage (dev variant has only binutils) — fine while every
 # gbstats dep is a manylinux wheel; add one if a dep ever ships sdist-only.
 

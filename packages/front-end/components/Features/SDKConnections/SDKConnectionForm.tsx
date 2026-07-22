@@ -40,7 +40,7 @@ import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import ControlledTabs from "@/components/Tabs/ControlledTabs";
 import Tab from "@/components/Tabs/Tab";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import { DocLink } from "@/components/DocLink";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useProjectOptions from "@/hooks/useProjectOptions";
@@ -458,7 +458,7 @@ export default function SDKConnectionForm({
       open={true}
       cta={cta}
     >
-      <Field label="Name" {...form.register("name")} required />
+      <Field size="legacy" label="Name" {...form.register("name")} required />
 
       <div className="mb-4">
         <div className="form-group">
@@ -492,6 +492,7 @@ export default function SDKConnectionForm({
               <div className="d-flex">
                 <div>
                   <SelectField
+                    size="legacy"
                     style={{ width: 180 }}
                     className="mr-4"
                     placeholder="0.0.0"
@@ -567,6 +568,7 @@ export default function SDKConnectionForm({
 
       <div className="mb-4">
         <SelectField
+          size="legacy"
           label="Environment"
           required
           placeholder="Choose one..."
@@ -618,6 +620,7 @@ export default function SDKConnectionForm({
           />
         </label>
         <MultiSelectField
+          size="legacy"
           placeholder={
             environmentHasProjects ? "All Environment Projects" : "All Projects"
           }
@@ -1245,6 +1248,7 @@ export default function SDKConnectionForm({
             {form.watch("includeCustomFieldsInMetadata") && (
               <Box mt="2">
                 <MultiSelectField
+                  size="legacy"
                   placeholder="No fields included"
                   containerClassName="w-100 mb-0"
                   value={form.watch("allowedCustomFieldsInMetadata") || []}
@@ -1386,6 +1390,7 @@ export default function SDKConnectionForm({
             </Box>
             {form.watch("proxyEnabled") && (
               <Field
+                size="legacy"
                 id="sdk-connection-proxyHost"
                 containerClassName="mb-0"
                 label={

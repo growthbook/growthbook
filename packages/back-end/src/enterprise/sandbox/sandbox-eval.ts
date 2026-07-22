@@ -190,7 +190,9 @@ async function computeConfigResolvedShapes(
   withOriginal: boolean,
 ): Promise<{ staged: ResolvedShapes; original: ResolvedShapes | null }> {
   const project = config.project ?? byKey.get(config.key)?.project ?? "";
-  const scanContext = getContextForAgendaJobByOrgObject(context.org);
+  const scanContext =
+    context.scanContextOverride ??
+    getContextForAgendaJobByOrgObject(context.org);
   const constants = await scanContext.models.constants.getAll();
   const constantResolvables = constants.map(
     (c): ResolvableValue => ({ ...c, source: "constant" }),

@@ -228,6 +228,7 @@ export default function CodeSnippetModal({
             {connections?.length > 1 && allowChangingConnection && (
               <div className="col-auto">
                 <SelectField
+                  size="legacy"
                   label="SDK Connection"
                   labelClassName="font-weight-bold small text-dark"
                   options={connections.map((connection) => ({
