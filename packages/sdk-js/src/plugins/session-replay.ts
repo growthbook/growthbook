@@ -762,19 +762,42 @@ export function sessionReplayPlugin({
 
     gb._registerSessionReplay(startRecording, stopRecording);
 
-    if (autoRecord) startRecording();
+    const onPayloadChange = () => {
+      if (!gbRef) return;
+      const flag = gbRef.getDecryptedPayload()?.sessionReplay?.enabled;
+      if (flag === false) {
+        stopRecording();
+      } else if (autoRecord && !isRecording && gbRef.ready) {
+        // Initial start (deferred until payload loaded) or re-enable after
+        // a server-side disable. sessionReplayEnabled() inside startRecording
+        // applies the plugin-level `enabled` fallback when the payload omits
+        // sessionReplay entirely.
+        startRecording();
+      }
+    };
+
+    // Auto-wrapper dispatches "growthbookdata" after every setPayload/_render.
+    // For programmatic usage (gb.init) this event is not dispatched, so we
+    // set a renderer as a fallback to cover both integration styles. If the
+    // auto-wrapper later calls setRenderer it will overwrite ours, but by
+    // then the growthbookdata listener handles payload changes.
+    document.addEventListener("growthbookdata", onPayloadChange);
+    gb.setRenderer(() => onPayloadChange());
+
+    if (autoRecord) {
+      // Wait for the payload to load so the server enable/disable flag is
+      // available. If the SDK is already initialized (features/experiments
+      // passed in the constructor, or initSync), start immediately.
+      if (gb.ready) {
+        startRecording();
+      }
+      // Otherwise onPayloadChange will call startRecording after init().
+    }
 
     const onPageHide = () => void flushBuffer();
     const onVisibilityHide = () => {
       if (document.visibilityState === "hidden") void flushBuffer();
     };
-
-    const onGrowthBookData = () => {
-      if (gbRef?.getDecryptedPayload()?.sessionReplay?.enabled === false) {
-        stopRecording();
-      }
-    };
-    document.addEventListener("growthbookdata", onGrowthBookData);
 
     window.addEventListener("pagehide", onPageHide);
     document.addEventListener("visibilitychange", onVisibilityHide);
@@ -784,7 +807,7 @@ export function sessionReplayPlugin({
       offExperiment();
       offEvent();
       stopRecording();
-      document.removeEventListener("growthbookdata", onGrowthBookData);
+      document.removeEventListener("growthbookdata", onPayloadChange);
       window.removeEventListener("pagehide", onPageHide);
       document.removeEventListener("visibilitychange", onVisibilityHide);
     });
