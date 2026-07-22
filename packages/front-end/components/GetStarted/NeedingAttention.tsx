@@ -380,7 +380,7 @@ const NeedingAttention = (): React.ReactElement | null => {
             Experiments requiring attention
           </Text>
           <CounterBadge
-            color="slate"
+            color="neutral"
             count={experimentsNeedingAttention.length}
             ml="2"
           />
@@ -501,7 +501,7 @@ const NeedingAttention = (): React.ReactElement | null => {
             Feature flags requiring attention
           </Text>
           <CounterBadge
-            color="slate"
+            color="neutral"
             count={featureFlagsNeedingAttention.length}
             ml="2"
           />

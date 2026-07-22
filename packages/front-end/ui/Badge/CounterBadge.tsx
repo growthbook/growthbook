@@ -4,7 +4,7 @@ import clsx from "clsx";
 import styles from "./CounterBadge.module.scss";
 import Badge from ".";
 
-type CounterColor = "red" | "amber" | "slate" | "indigo";
+type CounterColor = "red" | "amber" | "neutral" | "indigo";
 
 const MAX_COUNT = 99;
 
@@ -15,7 +15,7 @@ type Props = {
 } & MarginProps;
 
 export default forwardRef<HTMLDivElement, Props>(function CounterBadge(
-  { count, color = "slate", showFullCount = false, ...props }: Props,
+  { count, color = "neutral", showFullCount = false, ...props }: Props,
   ref,
 ) {
   const truncated =
@@ -27,13 +27,13 @@ export default forwardRef<HTMLDivElement, Props>(function CounterBadge(
       ref={ref}
       label={label}
       title={truncated ? String(count) : undefined}
-      // slate isn't a Radix accent; the scss override paints it, gray is fallback.
-      color={color === "slate" ? "gray" : color}
+      // neutral isn't a Radix accent; the scss override paints it, gray is fallback.
+      color={color === "neutral" ? "gray" : color}
       variant="solid"
       radius="full"
       size="xs"
       className={clsx(styles.counterBadge, {
-        [styles.slate]: color === "slate",
+        [styles.neutral]: color === "neutral",
       })}
       {...props}
     />

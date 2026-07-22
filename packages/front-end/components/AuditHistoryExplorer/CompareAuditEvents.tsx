@@ -422,7 +422,7 @@ export default function CompareAuditEvents<T>({
               <Text weight="semibold">{getEntryLabel(entry)}</Text>
             </Flex>
             {entry.count > 1 && (
-              <CounterBadge color="slate" count={entry.count} />
+              <CounterBadge color="neutral" count={entry.count} />
             )}
           </Flex>
           <Text size="small" color="text-low">

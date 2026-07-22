@@ -338,7 +338,7 @@ export default function FeatureRules({
                 <Flex align="center" gap="2">
                   All Environments
                   <CounterBadge
-                    color="slate"
+                    color="neutral"
                     count={
                       (feature.rules?.length ?? 0) +
                       (includeHoldoutRuleAllEnvs ? 1 : 0)
@@ -363,7 +363,7 @@ export default function FeatureRules({
                   >
                     <Flex align="center" gap="2">
                       {e.id}
-                      <CounterBadge color="slate" count={count} />
+                      <CounterBadge color="neutral" count={count} />
                     </Flex>
                   </TabsTrigger>
                 );
@@ -450,7 +450,7 @@ export default function FeatureRules({
                 >
                   <Flex align="center" justify="between" gap="3" width="100%">
                     <span>{label}</span>
-                    <CounterBadge color="slate" count={count} />
+                    <CounterBadge color="neutral" count={count} />
                   </Flex>
                 </DropdownMenuItem>
               ))}

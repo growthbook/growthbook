@@ -1079,7 +1079,7 @@ export default function ExperimentHeader({
                     >
                       <Flex as="div" align="center">
                         <CounterBadge
-                          color="slate"
+                          color="neutral"
                           count={usersWatching.length || 0}
                           mr="1"
                         />

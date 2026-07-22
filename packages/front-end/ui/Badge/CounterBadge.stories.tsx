@@ -2,7 +2,7 @@ import { Flex, Text } from "@radix-ui/themes";
 import CounterBadge from "./CounterBadge";
 
 const USAGE = [
-  { color: "slate", context: "Watchers", caption: "Neutral count" },
+  { color: "neutral", context: "Watchers", caption: "Neutral count" },
   {
     color: "indigo",
     context: "Filters applied",
@@ -39,7 +39,7 @@ export default function CounterBadgeStories() {
         <Flex gap="2" align="center">
           <CounterBadge count={1} />
           <CounterBadge count={12} />
-          <CounterBadge count={128} />
+          <CounterBadge count={128} showFullCount />
         </Flex>
       </Flex>
     </Flex>

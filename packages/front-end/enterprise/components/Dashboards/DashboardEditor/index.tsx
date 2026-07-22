@@ -741,7 +741,7 @@ function DashboardEditor({
                         <CounterBadge
                           count={count}
                           ml="2"
-                          color={error ? "red" : "slate"}
+                          color={error ? "red" : "neutral"}
                         />
                       </DropdownMenuItem>
                     </>

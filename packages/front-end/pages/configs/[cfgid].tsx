@@ -1355,14 +1355,14 @@ export default function ConfigDetailPage(): React.ReactElement {
                 <TabsTrigger value="configs">
                   <Flex as="span" align="center" gap="2">
                     Configs
-                    <CounterBadge color="slate" count={nonFlavorCount} />
+                    <CounterBadge color="neutral" count={nonFlavorCount} />
                   </Flex>
                 </TabsTrigger>
                 <TabsTrigger value="features">
                   <Flex as="span" align="center" gap="2">
                     Features
                     <CounterBadge
-                      color="slate"
+                      color="neutral"
                       count={familyReferences?.features.length ?? 0}
                     />
                   </Flex>
@@ -1664,7 +1664,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                     {openRevisions.length > 0 && (
                       <Tooltip body={draftStatusTooltip(draftStatusCounts)}>
                         <CounterBadge
-                          color="slate"
+                          color="red"
                           count={openRevisions.length}
                           ml="2"
                         />

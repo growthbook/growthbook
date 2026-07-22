@@ -79,7 +79,7 @@ export default function DashboardViewQueriesButton({
               {refreshStatus === "failed" ? (
                 <PiWarningFill />
               ) : !hideQueryCount ? (
-                <CounterBadge ml="1" color="slate" count={count} />
+                <CounterBadge ml="1" color="neutral" count={count} />
               ) : null}
             </Flex>
           </Button>

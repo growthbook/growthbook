@@ -69,7 +69,7 @@ const AttributeReferencesList: FC<AttributeReferencesListProps> = ({
                 <Heading as="h3" size="small" mb="0">
                   Features
                 </Heading>
-                <CounterBadge color="slate" count={features.length} />
+                <CounterBadge color="neutral" count={features.length} />
               </Flex>
             }
             open={true}
@@ -139,7 +139,7 @@ const AttributeReferencesList: FC<AttributeReferencesListProps> = ({
                 <Heading as="h3" size="small" mb="0">
                   Experiments
                 </Heading>
-                <CounterBadge color="slate" count={experiments.length} />
+                <CounterBadge color="neutral" count={experiments.length} />
               </Flex>
             }
             open={true}
@@ -216,7 +216,7 @@ const AttributeReferencesList: FC<AttributeReferencesListProps> = ({
                 <Heading as="h3" size="small" mb="0">
                   Condition Groups
                 </Heading>
-                <CounterBadge color="slate" count={conditionGroups.length} />
+                <CounterBadge color="neutral" count={conditionGroups.length} />
               </Flex>
             }
             open={true}

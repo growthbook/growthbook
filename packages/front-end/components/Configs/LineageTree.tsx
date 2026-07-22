@@ -121,7 +121,7 @@ export default function LineageTree({
     <Tooltip
       content={`${count} field${count === 1 ? "" : "s"} defined in this config`}
     >
-      <CounterBadge color="slate" count={count} />
+      <CounterBadge color="neutral" count={count} />
     </Tooltip>
   );
 
@@ -369,7 +369,7 @@ export default function LineageTree({
               flavors.length === 1 ? "" : "s"
             }`}
           >
-            <CounterBadge color="slate" count={flavors.length} />
+            <CounterBadge color="neutral" count={flavors.length} />
           </Tooltip>
         </Flex>
         {isOpen && (

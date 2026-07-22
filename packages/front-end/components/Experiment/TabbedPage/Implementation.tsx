@@ -252,7 +252,7 @@ export default function Implementation({
                       Experiments
                       {!!holdoutExperiments?.length && (
                         <CounterBadge
-                          color="slate"
+                          color="neutral"
                           count={holdoutExperiments.length}
                           ml="2"
                         />
@@ -262,7 +262,7 @@ export default function Implementation({
                       Features
                       {!!holdoutFeatures?.length && (
                         <CounterBadge
-                          color="slate"
+                          color="neutral"
                           count={holdoutFeatures.length}
                           ml="2"
                         />

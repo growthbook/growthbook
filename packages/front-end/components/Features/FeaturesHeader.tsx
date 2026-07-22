@@ -556,7 +556,7 @@ export default function FeaturesHeader({
                     {activeDraftCount > 0 && (
                       <Tooltip body={draftStatusTooltip(draftStatusCounts)}>
                         <CounterBadge
-                          color="slate"
+                          color="red"
                           count={activeDraftCount}
                           ml="2"
                         />

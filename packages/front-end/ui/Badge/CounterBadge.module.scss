@@ -5,8 +5,8 @@
   text-align: center;
 }
 
-// slate-a3 isn't a Radix accent, so paint it directly.
-.slate:global(.rt-Badge) {
+// "neutral" isn't a Radix accent, so paint it directly with the slate scale.
+.neutral:global(.rt-Badge) {
   background-color: var(--slate-a3);
   color: var(--slate-12);
 }

@@ -544,11 +544,11 @@ export default function FactTablePage() {
       <Tabs defaultValue="metrics">
         <TabsList>
           <TabsTrigger value="metrics">
-            Metrics <CounterBadge color="slate" count={numMetrics} ml="1" />
+            Metrics <CounterBadge color="neutral" count={numMetrics} ml="1" />
           </TabsTrigger>
           <TabsTrigger value="filters">
             Saved Filters{" "}
-            <CounterBadge color="slate" count={numFilters} ml="1" />
+            <CounterBadge color="neutral" count={numFilters} ml="1" />
           </TabsTrigger>
         </TabsList>
 

@@ -451,11 +451,7 @@ export default function ConstantDetailPage(): React.ReactElement {
                 Review &amp; Publish
                 {activeDraftCount > 0 && (
                   <Tooltip body={draftStatusTooltip(draftStatusCounts)}>
-                    <CounterBadge
-                      color="slate"
-                      count={activeDraftCount}
-                      ml="2"
-                    />
+                    <CounterBadge color="red" count={activeDraftCount} ml="2" />
                   </Tooltip>
                 )}
               </TabsTrigger>

@@ -1214,7 +1214,7 @@ export default function CompareRevisionsModal({
                         <Link>
                           Filters
                           {count > 0 && (
-                            <CounterBadge color="slate" count={count} ml="1" />
+                            <CounterBadge color="indigo" count={count} ml="1" />
                           )}
                         </Link>
                       }

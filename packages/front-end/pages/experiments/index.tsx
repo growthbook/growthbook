@@ -278,7 +278,7 @@ const ExperimentsPage = (): React.ReactElement => {
                               {tabValue.slice(1)}
                               {tabValue !== "archived" && (
                                 <CounterBadge
-                                  color="slate"
+                                  color="neutral"
                                   count={tabCounts[tabValue] || 0}
                                   showFullCount
                                   ml="2"

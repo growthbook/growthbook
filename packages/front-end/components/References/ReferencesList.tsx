@@ -50,7 +50,7 @@ const ReferencesListSection: FC<ReferenceSection> = ({
             <Heading as="h3" size="small" mb="0">
               {title}
             </Heading>
-            <CounterBadge color="slate" count={items.length} />
+            <CounterBadge color="neutral" count={items.length} />
           </Flex>
         }
         open={true}

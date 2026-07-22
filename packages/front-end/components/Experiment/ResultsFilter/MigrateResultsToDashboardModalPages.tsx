@@ -386,7 +386,7 @@ export function SelectDashboardAndBlockPage({
               <Text>
                 Filters{" "}
                 <CounterBadge
-                  color="slate"
+                  color="neutral"
                   count={sliceTagsCount + metricsCount + metricTagCount}
                 />
               </Text>

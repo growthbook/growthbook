@@ -33,7 +33,7 @@ const DashboardReferencesList: FC<DashboardReferencesListProps> = ({
               <Heading as="h3" size="small" mb="0">
                 Dashboards
               </Heading>
-              <CounterBadge color="slate" count={dashboards.length} />
+              <CounterBadge color="neutral" count={dashboards.length} />
             </Flex>
           }
           open={true}

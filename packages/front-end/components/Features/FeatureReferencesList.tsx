@@ -32,7 +32,7 @@ const FeatureReferencesList: FC<FeatureReferencesListProps> = ({
                 <Heading size="2" mb="0">
                   Dependent Features
                 </Heading>
-                <CounterBadge color="slate" count={features.length} />
+                <CounterBadge color="neutral" count={features.length} />
               </Flex>
             }
             open={true}
@@ -79,7 +79,7 @@ const FeatureReferencesList: FC<FeatureReferencesListProps> = ({
                 <Heading size="2" mb="0">
                   Dependent Experiments
                 </Heading>
-                <CounterBadge color="slate" count={experiments.length} />
+                <CounterBadge color="neutral" count={experiments.length} />
               </Flex>
             }
             open={true}

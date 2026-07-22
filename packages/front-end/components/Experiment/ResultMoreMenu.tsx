@@ -402,7 +402,7 @@ export default function ResultMoreMenu({
               <CounterBadge
                 count={queryStrings.length}
                 ml="2"
-                color={error ? "red" : "slate"}
+                color={error ? "red" : "neutral"}
               />
             </DropdownMenuItem>
           ) : null}

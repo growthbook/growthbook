@@ -33,7 +33,7 @@ const EnvironmentConnectionsList: FC<EnvironmentConnectionsListProps> = ({
               <Heading as="h3" size="small" mb="0">
                 SDK Connections
               </Heading>
-              <CounterBadge color="slate" count={connections.length} />
+              <CounterBadge color="neutral" count={connections.length} />
             </Flex>
           }
           open={true}

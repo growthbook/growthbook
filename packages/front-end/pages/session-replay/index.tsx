@@ -870,7 +870,7 @@ export default function SessionReplayPage() {
                     Evaluations
                     {evaluations.length > 0 && (
                       <CounterBadge
-                        color="slate"
+                        color="neutral"
                         count={evaluations.length}
                         ml="2"
                       />
