@@ -19,7 +19,7 @@ import {
 } from "back-end/src/services/experiments";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import { startExperiment } from "back-end/src/services/experimentChanges/changeExperimentStatus";
-import { validateShippingCriteria } from "back-end/src/services/experimentScheduling";
+import { validateScheduledStopPlan } from "back-end/src/services/experimentScheduling";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import {
   resolveOwnerEmail,
@@ -329,10 +329,10 @@ export const updateExperiment = createApiRequestHandler(
 
   normalizeStatusUpdateScheduleChanges(experiment, changes);
 
-  // Run the same shipping validation as PUT /schedule so this body path can't
-  // set an invalid config (e.g. a force-ship fallbackVariationId that doesn't
-  // match a variation). Validate against the post-update schedule + variations.
-  if (changes.shippingCriteria) {
+  // Run the same scheduled-stop-plan validation as PUT /schedule so this body
+  // path can't set an invalid config (e.g. a force-ship fallbackVariationId that
+  // doesn't match a variation). Validate against the post-update schedule + variations.
+  if (changes.scheduledStopPlan) {
     const effectiveSchedule =
       "statusUpdateSchedule" in changes
         ? changes.statusUpdateSchedule
@@ -340,10 +340,10 @@ export const updateExperiment = createApiRequestHandler(
     const hasScheduledEnd = !!(
       effectiveSchedule?.stopAt || effectiveSchedule?.stopAfter
     );
-    validateShippingCriteria(
+    validateScheduledStopPlan(
       req.context,
       { ...experiment, ...changes },
-      changes.shippingCriteria,
+      changes.scheduledStopPlan,
       hasScheduledEnd,
     );
   }

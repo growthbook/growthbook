@@ -1799,7 +1799,7 @@ export async function postExperiment(
     "variations",
     "status",
     "statusUpdateSchedule",
-    "shippingCriteria",
+    "scheduledStopPlan",
     "results",
     "analysis",
     "winner",
@@ -1854,7 +1854,7 @@ export async function postExperiment(
       key === "lookbackOverride" ||
       key === "variations" ||
       key === "statusUpdateSchedule" ||
-      key === "shippingCriteria" ||
+      key === "scheduledStopPlan" ||
       key === "customFields" ||
       key === "customMetricSlices" ||
       key === "precomputedUnitDimensionIds"

@@ -14,8 +14,8 @@ import {
   ExperimentStatus,
   SCHEDULE_STOP_AFTER_UNITS,
   SCHEDULED_STATUS_UPDATE_TYPES,
-  SHIPPING_MODES,
-  SHIPPING_FALLBACKS,
+  SCHEDULED_STOP_MODES,
+  SCHEDULED_STOP_FALLBACKS,
 } from "shared/validators";
 import {
   Changeset,
@@ -209,11 +209,11 @@ const experimentSchema = new mongoose.Schema({
     date: Date,
     failedAttempts: Number,
   },
-  shippingCriteria: {
+  scheduledStopPlan: {
     _id: false,
-    mode: { type: String, enum: [...SHIPPING_MODES] },
+    mode: { type: String, enum: [...SCHEDULED_STOP_MODES] },
     tiebreakerMetricId: String,
-    fallback: { type: String, enum: [...SHIPPING_FALLBACKS] },
+    fallback: { type: String, enum: [...SCHEDULED_STOP_FALLBACKS] },
     fallbackVariationId: String,
   },
   results: String,

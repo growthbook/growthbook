@@ -23,8 +23,8 @@ import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator
 import DecisionCriteriaSelectorModal from "@/components/DecisionCriteria/DecisionCriteriaSelectorModal";
 import DecisionCriteriaModal from "@/components/DecisionCriteria/DecisionCriteriaModal";
 
-type ShippingMode = "notify" | "auto-ship" | "force-ship" | "stop";
-type ShippingFallback = "notify" | "force-ship";
+type ScheduledStopMode = "notify" | "auto-ship" | "force-ship" | "stop";
+type ScheduledStopFallback = "notify" | "force-ship";
 type EndMode = "manual" | "on-date" | "after";
 
 // Shared width for the "Start"/"End" label column.
@@ -38,7 +38,7 @@ const DEFAULT_END_AFTER_DAYS = 30;
 // a hard cutoff by default. Used for both the form default and the save default
 // (irrelevant fields are normalized to this on save), so switching into
 // auto-ship later starts from the intended default rather than a stale value.
-const DEFAULT_SHIPPING_FALLBACK: ShippingFallback = "force-ship";
+const DEFAULT_SCHEDULED_STOP_FALLBACK: ScheduledStopFallback = "force-ship";
 
 export default function EditScheduleModal({
   experiment,
@@ -81,14 +81,16 @@ export default function EditScheduleModal({
     defaultValues: {
       startAt: experiment.statusUpdateSchedule?.startAt ?? "",
       stopAt: experiment.statusUpdateSchedule?.stopAt ?? "",
-      mode: (experiment.shippingCriteria?.mode ?? "notify") as ShippingMode,
-      tiebreakerMetricId: experiment.shippingCriteria?.tiebreakerMetricId ?? "",
-      fallback: (experiment.shippingCriteria?.fallback ??
-        DEFAULT_SHIPPING_FALLBACK) as ShippingFallback,
+      mode: (experiment.scheduledStopPlan?.mode ??
+        "notify") as ScheduledStopMode,
+      tiebreakerMetricId:
+        experiment.scheduledStopPlan?.tiebreakerMetricId ?? "",
+      fallback: (experiment.scheduledStopPlan?.fallback ??
+        DEFAULT_SCHEDULED_STOP_FALLBACK) as ScheduledStopFallback,
       // Default the fallback target to control (the first variation) so the
       // picker is never blank.
       fallbackVariationId:
-        experiment.shippingCriteria?.fallbackVariationId ??
+        experiment.scheduledStopPlan?.fallbackVariationId ??
         experiment.variations[0]?.id ??
         "",
     },
@@ -343,7 +345,7 @@ export default function EditScheduleModal({
           // relevant to the chosen mode so a stale value can't resurface when
           // the user later switches modes.
           const hasEndDate = !!(stopAt || stopAfter);
-          const shippingCriteria = hasEndDate
+          const scheduledStopPlan = hasEndDate
             ? {
                 mode: data.mode,
                 // Tiebreaker feeds the EDF verdict for every non-notify mode, but
@@ -359,7 +361,7 @@ export default function EditScheduleModal({
                 fallback:
                   data.mode === "auto-ship"
                     ? data.fallback
-                    : DEFAULT_SHIPPING_FALLBACK,
+                    : DEFAULT_SCHEDULED_STOP_FALLBACK,
                 // A fallback variation is only needed when force-shipping.
                 fallbackVariationId:
                   data.mode === "force-ship" ||
@@ -367,12 +369,15 @@ export default function EditScheduleModal({
                     ? data.fallbackVariationId
                     : undefined,
               }
-            : { mode: "notify" as const, fallback: DEFAULT_SHIPPING_FALLBACK };
+            : {
+                mode: "notify" as const,
+                fallback: DEFAULT_SCHEDULED_STOP_FALLBACK,
+              };
           await apiCall(`/experiment/${experiment.id}`, {
             method: "POST",
             body: JSON.stringify({
               statusUpdateSchedule: schedule,
-              shippingCriteria,
+              scheduledStopPlan,
             }),
           });
           mutate();
@@ -568,7 +573,9 @@ export default function EditScheduleModal({
                       </Flex>
                     );
                   }}
-                  onChange={(v) => form.setValue("mode", v as ShippingMode)}
+                  onChange={(v) =>
+                    form.setValue("mode", v as ScheduledStopMode)
+                  }
                   helpText={modeHelpText()}
                 />
               </Box>
@@ -629,7 +636,7 @@ export default function EditScheduleModal({
                         },
                       ]}
                       onChange={(v) =>
-                        form.setValue("fallback", v as ShippingFallback)
+                        form.setValue("fallback", v as ScheduledStopFallback)
                       }
                     />
                   </Box>

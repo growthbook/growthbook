@@ -351,13 +351,13 @@ export type ExperimentAnalysisSummary = z.infer<
 // Also imported by the Mongoose experiment schema so the two can't drift.
 export const SCHEDULE_STOP_AFTER_UNITS = ["hours", "days"] as const;
 export const SCHEDULED_STATUS_UPDATE_TYPES = ["start", "stop"] as const;
-export const SHIPPING_MODES = [
+export const SCHEDULED_STOP_MODES = [
   "notify",
   "auto-ship",
   "force-ship",
   "stop",
 ] as const;
-export const SHIPPING_FALLBACKS = ["notify", "force-ship"] as const;
+export const SCHEDULED_STOP_FALLBACKS = ["notify", "force-ship"] as const;
 
 // A relative end offset, resolved to a concrete `stopAt` at the experiment's
 // actual start.
@@ -382,7 +382,7 @@ export const statusUpdateScheduleValidator = z
   });
 
 // Enforced in the schema so every write path rejects an incomplete config,
-// not just the dedicated shipping-criteria service.
+// not just the dedicated scheduled-stop-plan service.
 const forceShipCriteriaHasVariation = (c: {
   mode: string;
   fallback: string;
@@ -398,17 +398,15 @@ const forceShipVariationRefine = {
   path: ["fallbackVariationId"] as string[],
 };
 
-export const experimentShippingCriteriaValidator = z
+export const scheduledStopPlanValidator = z
   .object({
-    mode: z.enum(SHIPPING_MODES),
+    mode: z.enum(SCHEDULED_STOP_MODES),
     tiebreakerMetricId: z.string().optional(),
-    fallback: z.enum(SHIPPING_FALLBACKS),
+    fallback: z.enum(SCHEDULED_STOP_FALLBACKS),
     fallbackVariationId: z.string().optional(),
   })
   .refine(forceShipCriteriaHasVariation, forceShipVariationRefine);
-export type ExperimentShippingCriteria = z.infer<
-  typeof experimentShippingCriteriaValidator
->;
+export type ScheduledStopPlan = z.infer<typeof scheduledStopPlanValidator>;
 
 export const nextScheduledStatusUpdateValidator = z.object({
   type: z.enum(SCHEDULED_STATUS_UPDATE_TYPES),
@@ -499,7 +497,7 @@ export const experimentInterface = z
     nextScheduledStatusUpdate: nextScheduledStatusUpdateValidator
       .optional()
       .nullable(),
-    shippingCriteria: experimentShippingCriteriaValidator.optional().nullable(),
+    scheduledStopPlan: scheduledStopPlanValidator.optional().nullable(),
     precomputedUnitDimensionIds: z
       .array(z.string())
       .max(MAX_PRECOMPUTED_UNIT_DIMENSIONS, maxPrecomputedUnitDimensionsError)
@@ -839,13 +837,13 @@ const apiStatusUpdateSchedule = z
       "an absolute `stopAt` or a deferred relative `stopAfter`, but not both.",
   );
 
-export const apiExperimentShippingCriteriaValidator = namedSchema(
-  "ExperimentShippingCriteria",
+export const apiScheduledStopPlanValidator = namedSchema(
+  "ScheduledStopPlan",
   z
     .object({
-      mode: z.enum(SHIPPING_MODES),
+      mode: z.enum(SCHEDULED_STOP_MODES),
       tiebreakerMetricId: z.string().optional(),
-      fallback: z.enum(SHIPPING_FALLBACKS),
+      fallback: z.enum(SCHEDULED_STOP_FALLBACKS),
       fallbackVariationId: z.string().optional(),
     })
     .refine(forceShipCriteriaHasVariation, forceShipVariationRefine)
@@ -912,9 +910,7 @@ const apiExperimentShape = z.object({
     .optional(),
   templateId: z.string().optional(),
   statusUpdateSchedule: apiStatusUpdateSchedule.nullable().optional(),
-  shippingCriteria: apiExperimentShippingCriteriaValidator
-    .nullable()
-    .optional(),
+  scheduledStopPlan: apiScheduledStopPlanValidator.nullable().optional(),
   nextScheduledStatusUpdate: z
     .object({
       type: z.enum(["start", "stop"]),
@@ -1289,7 +1285,7 @@ const postExperimentBody = z
       .max(MAX_PRECOMPUTED_UNIT_DIMENSIONS, maxPrecomputedUnitDimensionsError)
       .optional(),
     statusUpdateSchedule: apiStatusUpdateSchedule.optional(),
-    shippingCriteria: apiExperimentShippingCriteriaValidator.optional(),
+    scheduledStopPlan: apiScheduledStopPlanValidator.optional(),
   })
   .strict();
 
@@ -1498,7 +1494,7 @@ const updateExperimentBody = z
       )
       .nullable()
       .optional(),
-    shippingCriteria: apiExperimentShippingCriteriaValidator
+    scheduledStopPlan: apiScheduledStopPlanValidator
       .describe(
         "End-of-experiment automation. Set to `null` to reset to notify-only.",
       )
@@ -1896,7 +1892,7 @@ const putExperimentScheduleBody = z
         "Deferred relative end, resolved to a concrete stop at the " +
           "experiment's actual start (or now, if already running).",
       ),
-    shippingCriteria: apiExperimentShippingCriteriaValidator
+    scheduledStopPlan: apiScheduledStopPlanValidator
       .optional()
       .describe("End-of-experiment automation. Omit to reset to notify-only."),
   })
@@ -1928,7 +1924,7 @@ export const putExperimentScheduleValidator = {
     body: {
       startAt: "2026-08-01T00:00:00Z",
       stopAfter: { value: 14, unit: "days" as const },
-      shippingCriteria: {
+      scheduledStopPlan: {
         mode: "auto-ship" as const,
         tiebreakerMetricId: "met_revenue",
         fallback: "force-ship" as const,

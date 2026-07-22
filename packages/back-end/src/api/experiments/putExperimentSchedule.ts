@@ -20,7 +20,7 @@ export const putExperimentSchedule = createApiRequestHandler(
     req.context.permissions.throwPermissionError();
   }
 
-  // Full-replace: the body is the complete desired schedule + shipping state, so
+  // Full-replace: the body is the complete desired schedule + stop-plan state, so
   // omitted fields are passed through as cleared.
   const { experiment: updated, warnings } = await setExperimentSchedule({
     context: req.context,
@@ -28,7 +28,7 @@ export const putExperimentSchedule = createApiRequestHandler(
     startAt: req.body.startAt ?? null,
     stopAt: req.body.stopAt ?? null,
     stopAfter: req.body.stopAfter ?? null,
-    shippingCriteria: req.body.shippingCriteria ?? null,
+    scheduledStopPlan: req.body.scheduledStopPlan ?? null,
   });
 
   await req.audit({

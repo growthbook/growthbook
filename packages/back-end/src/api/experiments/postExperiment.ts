@@ -19,7 +19,7 @@ import {
   validateVariationIds,
 } from "back-end/src/services/experiments";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
-import { validateShippingCriteria } from "back-end/src/services/experimentScheduling";
+import { validateScheduledStopPlan } from "back-end/src/services/experimentScheduling";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { assertExperimentPrecomputedUnitDimensionIdsAreValid } from "back-end/src/services/dimensions";
 import {
@@ -319,18 +319,18 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       datasource,
     );
 
-    // Same shipping validation as PUT /schedule so create can't persist an
-    // invalid config. Note variation ids are generated here, so a force-ship
-    // fallbackVariationId can't match yet — that's rejected by design.
-    if (newExperiment.shippingCriteria) {
+    // Same scheduled-stop-plan validation as PUT /schedule so create can't
+    // persist an invalid config. Note variation ids are generated here, so a
+    // force-ship fallbackVariationId can't match yet — that's rejected by design.
+    if (newExperiment.scheduledStopPlan) {
       const hasScheduledEnd = !!(
         newExperiment.statusUpdateSchedule?.stopAt ||
         newExperiment.statusUpdateSchedule?.stopAfter
       );
-      validateShippingCriteria(
+      validateScheduledStopPlan(
         req.context,
         newExperiment as ExperimentInterface,
-        newExperiment.shippingCriteria,
+        newExperiment.scheduledStopPlan,
         hasScheduledEnd,
       );
     }

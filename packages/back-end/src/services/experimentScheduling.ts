@@ -1,9 +1,6 @@
 import { ExperimentInterface } from "shared/types/experiment";
 import { DEFAULT_DECISION_FRAMEWORK_ENABLED } from "shared/constants";
-import {
-  ExperimentShippingCriteria,
-  ScheduleStopAfter,
-} from "shared/validators";
+import { ScheduledStopPlan, ScheduleStopAfter } from "shared/validators";
 import { getValidDate, resolveScheduledStop } from "shared/dates";
 import {
   buildTiebreakerLiftMap,
@@ -192,9 +189,9 @@ export async function applyScheduledExperimentStop({
   context: Context;
   experiment: ExperimentInterface;
 }): Promise<ScheduledStopOutcome> {
-  const shipping = experiment.shippingCriteria;
-  const mode = shipping?.mode ?? "notify";
-  const tiebreakerMetricId = shipping?.tiebreakerMetricId;
+  const plan = experiment.scheduledStopPlan;
+  const mode = plan?.mode ?? "notify";
+  const tiebreakerMetricId = plan?.tiebreakerMetricId;
 
   // Rendered as Markdown in the "Results Summary" banners (StoppedExperimentBanner,
   // legacy StatusBanner, CompletedExperimentList), unlike the phase-level `reason`.
@@ -231,8 +228,8 @@ export async function applyScheduledExperimentStop({
     }
 
     const fallbackTarget =
-      shipping?.fallback === "force-ship"
-        ? resolveForceShipTarget(experiment, shipping.fallbackVariationId)
+      plan?.fallback === "force-ship"
+        ? resolveForceShipTarget(experiment, plan.fallbackVariationId)
         : null;
     if (fallbackTarget) {
       await stopExperiment({
@@ -268,7 +265,7 @@ export async function applyScheduledExperimentStop({
 
   const forceShipTarget =
     mode === "force-ship"
-      ? resolveForceShipTarget(experiment, shipping?.fallbackVariationId)
+      ? resolveForceShipTarget(experiment, plan?.fallbackVariationId)
       : null;
   if (forceShipTarget) {
     const verdict = await computeScheduledVerdict(
@@ -343,19 +340,19 @@ function assertSchedulable(experiment: ExperimentInterface) {
   }
 }
 
-// Validate shipping automation against the experiment and the scheduled end
+// Validate the scheduled-stop plan against the experiment and the scheduled end
 // this update is setting. Throws on hard config errors; returns soft warnings
 // (feature not enabled, no scheduled end, tiebreaker not a goal metric).
 // Exported so the create/update experiment body paths run the same checks as
 // the dedicated PUT /schedule endpoint and can't diverge.
-export function validateShippingCriteria(
+export function validateScheduledStopPlan(
   context: Context,
   experiment: ExperimentInterface,
-  criteria: ExperimentShippingCriteria,
+  plan: ScheduledStopPlan,
   hasScheduledEnd: boolean,
 ): string[] {
   const warnings: string[] = [];
-  const mode = criteria.mode;
+  const mode = plan.mode;
   const hasEDF = canAutoShip(context);
 
   // Auto-ship needs the decision framework to pick a winner; without it, the
@@ -387,16 +384,14 @@ export function validateShippingCriteria(
   // the top-level "force-ship" mode or as an auto-ship fallback.
   const requiresVariation =
     mode === "force-ship" ||
-    (mode === "auto-ship" && criteria.fallback === "force-ship");
+    (mode === "auto-ship" && plan.fallback === "force-ship");
   if (requiresVariation) {
-    if (!criteria.fallbackVariationId) {
+    if (!plan.fallbackVariationId) {
       throw new BadRequestError(
         "fallbackVariationId is required when force-shipping a variation.",
       );
     }
-    if (
-      !experiment.variations.some((v) => v.id === criteria.fallbackVariationId)
-    ) {
+    if (!experiment.variations.some((v) => v.id === plan.fallbackVariationId)) {
       throw new BadRequestError(
         "fallbackVariationId must match an experiment variation.",
       );
@@ -405,8 +400,8 @@ export function validateShippingCriteria(
   // The tiebreaker feeds the EDF verdict for auto-ship, force-ship, and stop.
   if (
     mode !== "notify" &&
-    criteria.tiebreakerMetricId &&
-    !(experiment.goalMetrics ?? []).includes(criteria.tiebreakerMetricId)
+    plan.tiebreakerMetricId &&
+    !(experiment.goalMetrics ?? []).includes(plan.tiebreakerMetricId)
   ) {
     warnings.push(
       "tiebreakerMetricId is not one of the experiment's goal metrics; it will be ignored.",
@@ -415,7 +410,7 @@ export function validateShippingCriteria(
   return warnings;
 }
 
-// Full-replace of an experiment's schedule (start + end) and shipping automation
+// Full-replace of an experiment's schedule (start + end) and scheduled-stop plan
 // in a single write. The arguments represent the COMPLETE desired state: any
 // value left undefined/null is cleared. A relative `stopAfter` is resolved now
 // for a running experiment and deferred for a draft (resolved at start by
@@ -426,14 +421,14 @@ export async function setExperimentSchedule({
   startAt,
   stopAt,
   stopAfter,
-  shippingCriteria,
+  scheduledStopPlan,
 }: {
   context: Context;
   experiment: ExperimentInterface;
   startAt?: string | Date | null;
   stopAt?: string | Date | null;
   stopAfter?: ScheduleStopAfter | null;
-  shippingCriteria?: ExperimentShippingCriteria | null;
+  scheduledStopPlan?: ScheduledStopPlan | null;
 }): Promise<{ experiment: ExperimentInterface; warnings: string[] }> {
   assertSchedulable(experiment);
   const warnings: string[] = [];
@@ -442,7 +437,7 @@ export async function setExperimentSchedule({
   const startAtDate = startAt ? getValidDate(startAt) : null;
 
   // A start can only be (re)scheduled into the future. Skip the check when the
-  // start is unchanged so end/shipping edits on an already-scheduled experiment
+  // start is unchanged so end/plan edits on an already-scheduled experiment
   // don't trip on a start that's now in the past.
   if (startAtDate) {
     const existingStartAt = experiment.statusUpdateSchedule?.startAt;
@@ -476,15 +471,15 @@ export async function setExperimentSchedule({
     );
   }
 
-  // Validate shipping against the end we're setting in THIS request, not the
+  // Validate the plan against the end we're setting in THIS request, not the
   // stale stored one.
   const hasScheduledEnd = !!(resolvedStopAt || deferredStopAfter);
-  if (shippingCriteria) {
+  if (scheduledStopPlan) {
     warnings.push(
-      ...validateShippingCriteria(
+      ...validateScheduledStopPlan(
         context,
         experiment,
-        shippingCriteria,
+        scheduledStopPlan,
         hasScheduledEnd,
       ),
     );
@@ -503,7 +498,7 @@ export async function setExperimentSchedule({
     // previously-staged action is reset so it must be re-staged from the new
     // schedule.
     nextScheduledStatusUpdate: stagedStop,
-    shippingCriteria: shippingCriteria ?? null,
+    scheduledStopPlan: scheduledStopPlan ?? null,
   };
 
   const updated = await updateExperiment({ context, experiment, changes });

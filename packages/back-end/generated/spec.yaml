@@ -393,11 +393,6 @@ tags:
   - name: ExperimentResults_model
     x-displayName: Experiment Results
     description: <SchemaDefinition schemaRef="#/components/schemas/ExperimentResults" />
-  - name: ExperimentShippingCriteria_model
-    x-displayName: Experiment Shipping Criteria
-    description: >-
-      <SchemaDefinition
-      schemaRef="#/components/schemas/ExperimentShippingCriteria" />
   - name: ExperimentSnapshot_model
     x-displayName: Experiment Snapshot
     description: <SchemaDefinition schemaRef="#/components/schemas/ExperimentSnapshot" />
@@ -572,6 +567,9 @@ tags:
   - name: ScheduleRule_model
     x-displayName: Schedule Rule
     description: <SchemaDefinition schemaRef="#/components/schemas/ScheduleRule" />
+  - name: ScheduledStopPlan_model
+    x-displayName: Scheduled Stop Plan
+    description: <SchemaDefinition schemaRef="#/components/schemas/ScheduledStopPlan" />
   - name: SdkConnection_model
     x-displayName: Sdk Connection
     description: <SchemaDefinition schemaRef="#/components/schemas/SdkConnection" />
@@ -11917,8 +11915,8 @@ paths:
                         - unit
                       additionalProperties: false
                   additionalProperties: false
-                shippingCriteria:
-                  $ref: '#/components/schemas/ExperimentShippingCriteria'
+                scheduledStopPlan:
+                  $ref: '#/components/schemas/ScheduledStopPlan'
               required:
                 - trackingKey
                 - name
@@ -12583,9 +12581,9 @@ paths:
                           additionalProperties: false
                       additionalProperties: false
                     - type: 'null'
-                shippingCriteria:
+                scheduledStopPlan:
                   anyOf:
-                    - $ref: '#/components/schemas/ExperimentShippingCriteria'
+                    - $ref: '#/components/schemas/ScheduledStopPlan'
                     - type: 'null'
                 precomputedUnitDimensionIds:
                   maxItems: 3
@@ -13011,8 +13009,8 @@ paths:
                     - value
                     - unit
                   additionalProperties: false
-                shippingCriteria:
-                  $ref: '#/components/schemas/ExperimentShippingCriteria'
+                scheduledStopPlan:
+                  $ref: '#/components/schemas/ScheduledStopPlan'
               additionalProperties: false
       responses:
         '200':
@@ -13058,7 +13056,7 @@ paths:
             'https://api.growthbook.io/api/v1/experiments/exp_abc123/schedule' \
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
-              -d '{"startAt":"2026-08-01T00:00:00Z","stopAfter":{"value":14,"unit":"days"},"shippingCriteria":{"mode":"auto-ship","tiebreakerMetricId":"met_revenue","fallback":"force-ship","fallbackVariationId":"var_treatment"}}'
+              -d '{"startAt":"2026-08-01T00:00:00Z","stopAfter":{"value":14,"unit":"days"},"scheduledStopPlan":{"mode":"auto-ship","tiebreakerMetricId":"met_revenue","fallback":"force-ship","fallbackVariationId":"var_treatment"}}'
   /v1/experiments/{id}/modify-temporary-rollout:
     post:
       operationId: postExperimentModifyTemporaryRollout
@@ -39841,9 +39839,9 @@ components:
                   additionalProperties: false
               additionalProperties: false
             - type: 'null'
-        shippingCriteria:
+        scheduledStopPlan:
           anyOf:
-            - $ref: '#/components/schemas/ExperimentShippingCriteria'
+            - $ref: '#/components/schemas/ScheduledStopPlan'
             - type: 'null'
         nextScheduledStatusUpdate:
           anyOf:
@@ -40120,7 +40118,7 @@ components:
         - metricId
         - overrides
       additionalProperties: false
-    ExperimentShippingCriteria:
+    ScheduledStopPlan:
       description: >-
         What happens at the scheduled end date. `notify` keeps the experiment
         running and just notifies (soft). `auto-ship` (requires the Decision
@@ -40617,9 +40615,9 @@ components:
                       additionalProperties: false
                   additionalProperties: false
                 - type: 'null'
-            shippingCriteria:
+            scheduledStopPlan:
               anyOf:
-                - $ref: '#/components/schemas/ExperimentShippingCriteria'
+                - $ref: '#/components/schemas/ScheduledStopPlan'
                 - type: 'null'
             nextScheduledStatusUpdate:
               anyOf:
@@ -50778,7 +50776,6 @@ x-tagGroups:
       - ExperimentMetric_model
       - ExperimentMetricOverrideEntry_model
       - ExperimentResults_model
-      - ExperimentShippingCriteria_model
       - ExperimentSnapshot_model
       - ExperimentTemplate_model
       - ExperimentWithEnhancedStatus_model
@@ -50829,6 +50826,7 @@ x-tagGroups:
       - SavedGroupRevisionActivityLogEntry_model
       - SavedGroupRevisionReview_model
       - ScheduleRule_model
+      - ScheduledStopPlan_model
       - SdkConnection_model
       - Segment_model
       - Settings_model

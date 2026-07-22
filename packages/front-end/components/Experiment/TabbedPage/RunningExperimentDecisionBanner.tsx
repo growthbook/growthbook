@@ -66,7 +66,7 @@ export default function RunningExperimentDecisionBanner({
 
   // An ambiguous multi-winner ship is resolved at the scheduled end by the
   // tiebreaker metric. Surface that here so it's visible before the end date.
-  const tiebreakerMetricId = experiment.shippingCriteria?.tiebreakerMetricId;
+  const tiebreakerMetricId = experiment.scheduledStopPlan?.tiebreakerMetricId;
   const isShipTie =
     runningExperimentStatus.status === "ship-now" &&
     runningExperimentStatus.variations.length > 1 &&

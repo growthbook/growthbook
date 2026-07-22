@@ -112,33 +112,33 @@ export default function DecisionMakingSettings({
     return null;
   }
 
-  // Summarize the end-of-experiment shipping automation (shippingCriteria).
-  const shipping = experiment.shippingCriteria;
+  // Summarize the end-of-experiment scheduled-stop plan.
+  const plan = experiment.scheduledStopPlan;
   const shippingVariationName = (id?: string) =>
     experiment.variations.find((v) => v.id === id)?.name ?? "a variation";
   let endSummary: string;
   const endDetails: string[] = [];
   const tiebreakerName = () => {
-    if (!shipping?.tiebreakerMetricId) return null;
+    if (!plan?.tiebreakerMetricId) return null;
     const metric =
-      ssrPolyfills?.getExperimentMetricById?.(shipping.tiebreakerMetricId) ||
-      getExperimentMetricById(shipping.tiebreakerMetricId);
-    return metric?.name ?? shipping.tiebreakerMetricId;
+      ssrPolyfills?.getExperimentMetricById?.(plan.tiebreakerMetricId) ||
+      getExperimentMetricById(plan.tiebreakerMetricId);
+    return metric?.name ?? plan.tiebreakerMetricId;
   };
-  if (shipping?.mode === "auto-ship") {
+  if (plan?.mode === "auto-ship") {
     endSummary = "Ship the winning variation";
     const tb = tiebreakerName();
     if (tb) endDetails.push(`Tiebreaker: ${tb}`);
     endDetails.push(
-      shipping.fallback === "force-ship"
-        ? `No clear winner: ship ${shippingVariationName(shipping.fallbackVariationId)}`
+      plan.fallback === "force-ship"
+        ? `No clear winner: ship ${shippingVariationName(plan.fallbackVariationId)}`
         : "No clear winner: keep running",
     );
-  } else if (shipping?.mode === "force-ship") {
-    endSummary = `Ship ${shippingVariationName(shipping.fallbackVariationId)}`;
+  } else if (plan?.mode === "force-ship") {
+    endSummary = `Ship ${shippingVariationName(plan.fallbackVariationId)}`;
     const tb = tiebreakerName();
     if (tb) endDetails.push(`Verdict tiebreaker: ${tb}`);
-  } else if (shipping?.mode === "stop") {
+  } else if (plan?.mode === "stop") {
     endSummary = "Stop the experiment (no rollout)";
     const tb = tiebreakerName();
     if (tb) endDetails.push(`Verdict tiebreaker: ${tb}`);

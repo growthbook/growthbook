@@ -208,7 +208,7 @@ const EXPERIMENT_SECTION_KEYS: Record<
   status: "metadata",
   statusUpdateSchedule: "metadata",
   nextScheduledStatusUpdate: "metadata",
-  shippingCriteria: "metadata",
+  scheduledStopPlan: "metadata",
   winner: "metadata",
   owner: "metadata",
   type: "metadata",

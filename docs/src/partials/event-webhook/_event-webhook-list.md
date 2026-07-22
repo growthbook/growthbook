@@ -1815,7 +1815,7 @@ Triggered when an experiment is created
                     unit: "hours" | "days";
                 } | undefined;
             } | null) | undefined;
-            shippingCriteria?: ({
+            scheduledStopPlan?: ({
                 mode: "notify" | "auto-ship" | "force-ship" | "stop";
                 tiebreakerMetricId?: string | undefined;
                 fallback: "notify" | "force-ship";
@@ -2084,7 +2084,7 @@ Triggered when an experiment is updated
                     unit: "hours" | "days";
                 } | undefined;
             } | null) | undefined;
-            shippingCriteria?: ({
+            scheduledStopPlan?: ({
                 mode: "notify" | "auto-ship" | "force-ship" | "stop";
                 tiebreakerMetricId?: string | undefined;
                 fallback: "notify" | "force-ship";
@@ -2313,7 +2313,7 @@ Triggered when an experiment is updated
                     unit: "hours" | "days";
                 } | undefined;
             } | null) | undefined;
-            shippingCriteria?: ({
+            scheduledStopPlan?: ({
                 mode: "notify" | "auto-ship" | "force-ship" | "stop";
                 tiebreakerMetricId?: string | undefined;
                 fallback: "notify" | "force-ship";
@@ -2587,7 +2587,7 @@ Triggered when an experiment is deleted
                     unit: "hours" | "days";
                 } | undefined;
             } | null) | undefined;
-            shippingCriteria?: ({
+            scheduledStopPlan?: ({
                 mode: "notify" | "auto-ship" | "force-ship" | "stop";
                 tiebreakerMetricId?: string | undefined;
                 fallback: "notify" | "force-ship";

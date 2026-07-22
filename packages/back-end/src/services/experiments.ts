@@ -2916,7 +2916,7 @@ export async function toExperimentApiInterface(
       };
       return Object.keys(out).length > 0 ? out : null;
     })(),
-    shippingCriteria: experiment.shippingCriteria ?? null,
+    scheduledStopPlan: experiment.scheduledStopPlan ?? null,
     nextScheduledStatusUpdate: experiment.nextScheduledStatusUpdate
       ? {
           type: experiment.nextScheduledStatusUpdate.type,
@@ -4193,8 +4193,8 @@ export function postExperimentApiPayloadToInterface(
       ? { defaultDashboardId: payload.defaultDashboardId }
       : {}),
     statusUpdateSchedule: apiScheduleToInterface(payload.statusUpdateSchedule),
-    ...(payload.shippingCriteria
-      ? { shippingCriteria: payload.shippingCriteria }
+    ...(payload.scheduledStopPlan
+      ? { scheduledStopPlan: payload.scheduledStopPlan }
       : {}),
   };
 
@@ -4532,7 +4532,7 @@ export function updateExperimentApiPayloadToInterface(
     postStratificationEnabled,
     defaultDashboardId,
     statusUpdateSchedule,
-    shippingCriteria,
+    scheduledStopPlan,
   } = payload;
 
   let changes: ExperimentInterface = {
@@ -4621,7 +4621,7 @@ export function updateExperimentApiPayloadToInterface(
       : {}),
     ...(defaultDashboardId !== undefined ? { defaultDashboardId } : {}),
     ...(statusUpdateSchedule !== undefined ? { statusUpdateSchedule } : {}),
-    ...(shippingCriteria !== undefined ? { shippingCriteria } : {}),
+    ...(scheduledStopPlan !== undefined ? { scheduledStopPlan } : {}),
     dateUpdated: new Date(),
   } as ExperimentInterface;
 
