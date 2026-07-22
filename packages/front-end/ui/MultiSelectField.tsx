@@ -310,7 +310,10 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
   ...otherProps
 }) => {
   const [map, sorted] = useSelectOptions(options, initialOption, sort);
-  const selected = value.map((v) => map.get(v)).filter(isDefined);
+  // Creatable values may not exist in `options`; keep them as chips rather than dropping them.
+  const selected = value
+    .map((v) => map.get(v) ?? (creatable ? { label: v, value: v } : undefined))
+    .filter(isDefined);
 
   const { ref: _ref, error, label, ...fieldPropsRest } = otherProps;
   const fieldProps = fieldPropsRest as Omit<
