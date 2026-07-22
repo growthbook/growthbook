@@ -19,13 +19,13 @@ import {
 // through `flattenV1ToV2Rules`, which merges by content for a byte-stable
 // cycle.
 
-// Strip v2-only scope fields; id is preserved verbatim.
+// Strip the v2-only environment-scope fields (env scope is implicit in v1's
+// per-environment rule buckets); id is preserved verbatim. Project scope
+// (allProjects/projects) is kept so it survives a v1 GET → PUT round-trip.
 export function toLegacyRule(rule: FeatureRule): V1FeatureRule {
   return omit(rule, [
     "allEnvironments",
     "environments",
-    "allProjects",
-    "projects",
   ]) as unknown as V1FeatureRule;
 }
 

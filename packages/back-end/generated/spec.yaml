@@ -46828,6 +46828,19 @@ components:
                   - id
                   - condition
                 additionalProperties: false
+            allProjects:
+              description: >-
+                When true (the default) the rule applies to every project the
+                feature is delivered to. When false the rule is limited to
+                `projects`.
+              type: boolean
+            projects:
+              description: >-
+                Project IDs this rule is scoped to when `allProjects` is false.
+                An empty array scopes the rule to no project.
+              type: array
+              items:
+                type: string
           required:
             - description
             - id
@@ -46946,6 +46959,19 @@ components:
                   - id
                   - condition
                 additionalProperties: false
+            allProjects:
+              description: >-
+                When true (the default) the rule applies to every project the
+                feature is delivered to. When false the rule is limited to
+                `projects`.
+              type: boolean
+            projects:
+              description: >-
+                Project IDs this rule is scoped to when `allProjects` is false.
+                An empty array scopes the rule to no project.
+              type: array
+              items:
+                type: string
           required:
             - description
             - id
@@ -47066,6 +47092,19 @@ components:
                   - id
                   - condition
                 additionalProperties: false
+            allProjects:
+              description: >-
+                When true (the default) the rule applies to every project the
+                feature is delivered to. When false the rule is limited to
+                `projects`.
+              type: boolean
+            projects:
+              description: >-
+                Project IDs this rule is scoped to when `allProjects` is false.
+                An empty array scopes the rule to no project.
+              type: array
+              items:
+                type: string
           required:
             - description
             - id
@@ -47208,6 +47247,19 @@ components:
                   - id
                   - condition
                 additionalProperties: false
+            allProjects:
+              description: >-
+                When true (the default) the rule applies to every project the
+                feature is delivered to. When false the rule is limited to
+                `projects`.
+              type: boolean
+            projects:
+              description: >-
+                Project IDs this rule is scoped to when `allProjects` is false.
+                An empty array scopes the rule to no project.
+              type: array
+              items:
+                type: string
           required:
             - description
             - id
@@ -47323,6 +47375,19 @@ components:
                   - id
                   - condition
                 additionalProperties: false
+            allProjects:
+              description: >-
+                When true (the default) the rule applies to every project the
+                feature is delivered to. When false the rule is limited to
+                `projects`.
+              type: boolean
+            projects:
+              description: >-
+                Project IDs this rule is scoped to when `allProjects` is false.
+                An empty array scopes the rule to no project.
+              type: array
+              items:
+                type: string
           required:
             - description
             - id
@@ -47432,6 +47497,19 @@ components:
                   - id
                   - condition
                 additionalProperties: false
+            allProjects:
+              description: >-
+                When true (the default) the rule applies to every project the
+                feature is delivered to. When false the rule is limited to
+                `projects`.
+              type: boolean
+            projects:
+              description: >-
+                Project IDs this rule is scoped to when `allProjects` is false.
+                An empty array scopes the rule to no project.
+              type: array
+              items:
+                type: string
           required:
             - description
             - id
@@ -48771,20 +48849,6 @@ components:
               type: array
               items:
                 type: string
-            allProjects:
-              description: >-
-                When true (the default) the rule applies to every project the
-                feature is delivered to. When false only the projects listed in
-                `projects` receive the rule.
-              type: boolean
-            projects:
-              description: >-
-                The project IDs this rule is scoped to. Populated when
-                `allProjects` is false. An empty array scopes the rule to no
-                project.
-              type: array
-              items:
-                type: string
             pendingRamp:
               description: >-
                 Present on draft revisions only. "create" means a ramp schedule
@@ -48868,6 +48932,19 @@ components:
               - id
               - condition
             additionalProperties: false
+        allProjects:
+          description: >-
+            When true (the default) the rule applies to every project the
+            feature is delivered to. When false the rule is limited to
+            `projects`.
+          type: boolean
+        projects:
+          description: >-
+            Project IDs this rule is scoped to when `allProjects` is false. An
+            empty array scopes the rule to no project.
+          type: array
+          items:
+            type: string
       required:
         - description
         - id

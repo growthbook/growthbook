@@ -866,6 +866,18 @@ export const apiFeatureBaseRuleValidator = namedSchema(
           }),
         )
         .optional(),
+      allProjects: z
+        .boolean()
+        .describe(
+          "When true (the default) the rule applies to every project the feature is delivered to. When false the rule is limited to `projects`.",
+        )
+        .optional(),
+      projects: z
+        .array(z.string())
+        .describe(
+          "Project IDs this rule is scoped to when `allProjects` is false. An empty array scopes the rule to no project.",
+        )
+        .optional(),
     })
     .describe(
       "Common fields shared by all feature rule types. Specific rule types extend\nthis base with their own required properties (value, coverage, etc.).\n",

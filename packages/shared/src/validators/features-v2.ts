@@ -42,18 +42,9 @@ const apiRuleScopeExtension = z
       .describe(
         "The environment IDs this rule is active in. Populated when `allEnvironments` is false.",
       ),
-    allProjects: z
-      .boolean()
-      .optional()
-      .describe(
-        "When true (the default) the rule applies to every project the feature is delivered to. When false only the projects listed in `projects` receive the rule.",
-      ),
-    projects: z
-      .array(z.string())
-      .optional()
-      .describe(
-        "The project IDs this rule is scoped to. Populated when `allProjects` is false. An empty array scopes the rule to no project.",
-      ),
+    // Project scope (allProjects/projects) lives on the shared base rule
+    // validator so it appears on both v1 and v2 rules; only the flat-array env
+    // scope is v2-specific and lives here.
     pendingRamp: z
       .enum(["create", "detach"])
       .optional()
