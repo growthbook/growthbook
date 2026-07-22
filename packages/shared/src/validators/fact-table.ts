@@ -390,9 +390,7 @@ export function validateCappingSettingsMetricTypeCompatibility(
   const lowerType = normalizeCappingTypeForTails(lower?.type);
 
   if (upperType === "absolute" || lowerType === "absolute") {
-    throw new Error(
-      "Ratio metrics support only percentile capping, not absolute capping.",
-    );
+    throw new Error("Ratio metrics support only percentile capping.");
   }
 }
 

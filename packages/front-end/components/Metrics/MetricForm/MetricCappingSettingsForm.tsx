@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Box, Card } from "@radix-ui/themes";
 import { CappingType } from "shared/types/fact-table";
 import SelectField from "@/components/Forms/SelectField";
 import Field from "@/components/Forms/Field";
@@ -330,7 +331,7 @@ function FactCappingTailEditor({
     : "Upper-tail winsorization: limit extreme high aggregated user values. Independent of the lower tail.";
 
   return (
-    <div className="mb-3">
+    <Box mb="3">
       <SelectField
         label={isLower ? "Cap lower tail" : "Cap upper tail"}
         value={mode}
@@ -342,7 +343,7 @@ function FactCappingTailEditor({
         helpText={selectHelpText}
       />
       {mode ? (
-        <div className="appbox p-3 bg-light">
+        <Card>
           <Field
             label={label}
             type="number"
@@ -377,9 +378,9 @@ function FactCappingTailEditor({
               id={`cappingIgnoreZeros${idSuffix}`}
             />
           ) : null}
-        </div>
+        </Card>
       ) : null}
-    </div>
+    </Box>
   );
 }
 

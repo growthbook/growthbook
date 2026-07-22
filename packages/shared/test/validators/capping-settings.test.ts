@@ -33,7 +33,7 @@ describe("validateCappingSettingsMetricTypeCompatibility", () => {
         absoluteUpper,
         null,
       ),
-    ).toThrow(/Ratio metrics only support percentile capping/);
+    ).toThrow(/Ratio metrics support only percentile capping/);
   });
 
   it("rejects an absolute lower cap on a ratio metric", () => {
@@ -44,7 +44,7 @@ describe("validateCappingSettingsMetricTypeCompatibility", () => {
         percentileUpper,
         absoluteLower,
       ),
-    ).toThrow(/Ratio metrics only support percentile capping/);
+    ).toThrow(/Ratio metrics support only percentile capping/);
   });
 
   it("rejects absolute caps on both tails of a ratio metric", () => {
@@ -54,7 +54,7 @@ describe("validateCappingSettingsMetricTypeCompatibility", () => {
         absoluteUpper,
         absoluteLower,
       ),
-    ).toThrow(/Ratio metrics only support percentile capping/);
+    ).toThrow(/Ratio metrics support only percentile capping/);
   });
 
   it("allows absolute capping for non-ratio metric types", () => {

@@ -946,8 +946,8 @@ export default function FactMetricPage() {
                             <span className="text-gray">Upper: </span>
                           ) : null}
                           <span className="font-weight-bold">{cap.value}</span>{" "}
-                          {`(${100 * (cap.value ?? 0)} pctile${
-                            cap.ignoreZeros ? ", ignoring zeros" : ""
+                          {`(${100 * (cap.value ?? 0)}%${
+                            cap.ignoreZeros ? ", ignore zeros" : ""
                           })`}
                         </li>
                       ) : null}
@@ -959,10 +959,8 @@ export default function FactMetricPage() {
                           <span className="font-weight-bold">
                             {lowerCap?.value}
                           </span>{" "}
-                          {`(${100 * (lowerCap?.value ?? 0)} pctile${
-                            lowerPercentileIgnoresZeros
-                              ? ", ignoring zeros"
-                              : ""
+                          {`(${100 * (lowerCap?.value ?? 0)}%${
+                            lowerPercentileIgnoresZeros ? ", ignore zeros" : ""
                           })`}
                         </li>
                       ) : null}
