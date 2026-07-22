@@ -1726,7 +1726,7 @@ describe("normalizeStatusUpdateScheduleChanges", () => {
     expect(changes.nextScheduledStatusUpdate?.type).toBe("stop");
   });
 
-  it("running throws when a relative stopAfter resolves to the past", () => {
+  it("running does not stage a stop when a relative stopAfter resolves to the past", () => {
     const start = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
     const experiment = makeExperiment({
       status: "running",
@@ -1736,9 +1736,9 @@ describe("normalizeStatusUpdateScheduleChanges", () => {
       statusUpdateSchedule: { stopAfter: { value: 30, unit: "days" } },
     };
 
-    expect(() =>
-      normalizeStatusUpdateScheduleChanges(experiment, changes),
-    ).toThrow("which has already passed");
+    normalizeStatusUpdateScheduleChanges(experiment, changes);
+
+    expect(changes.nextScheduledStatusUpdate).toBeNull();
   });
 });
 
@@ -1867,6 +1867,30 @@ describe("fillEmptyVariationKeys", () => {
 });
 
 describe("validateStatusUpdateSchedule", () => {
+  const makeExisting = (opts: {
+    schedule?: { startAt?: string; stopAt?: string };
+    status?: ExperimentInterface["status"];
+    phaseStart?: Date;
+  }): Pick<
+    ExperimentInterface,
+    "statusUpdateSchedule" | "status" | "phases"
+  > => ({
+    statusUpdateSchedule: opts.schedule
+      ? {
+          ...(opts.schedule.startAt
+            ? { startAt: new Date(opts.schedule.startAt) }
+            : {}),
+          ...(opts.schedule.stopAt
+            ? { stopAt: new Date(opts.schedule.stopAt) }
+            : {}),
+        }
+      : undefined,
+    status: opts.status ?? "draft",
+    phases: (opts.phaseStart
+      ? [{ dateStarted: opts.phaseStart }]
+      : []) as ExperimentInterface["phases"],
+  });
+
   it("throws when experiment type is bandit and a schedule is provided", () => {
     expect(() =>
       validateStatusUpdateSchedule("multi-armed-bandit", {
@@ -1916,7 +1940,7 @@ describe("validateStatusUpdateSchedule", () => {
       validateStatusUpdateSchedule(
         "standard",
         { startAt: "2000-01-01T00:00:00Z" },
-        "2000-01-01T00:00:00Z",
+        makeExisting({ schedule: { startAt: "2000-01-01T00:00:00Z" } }),
       ),
     ).not.toThrow();
   });
@@ -1934,8 +1958,7 @@ describe("validateStatusUpdateSchedule", () => {
       validateStatusUpdateSchedule(
         "standard",
         { stopAt: "2000-02-01T00:00:00Z" },
-        null,
-        "2000-01-01T00:00:00Z",
+        makeExisting({ schedule: { stopAt: "2000-01-01T00:00:00Z" } }),
       ),
     ).toThrow("statusUpdateSchedule.stopAt must be in the future");
   });
@@ -1947,8 +1970,7 @@ describe("validateStatusUpdateSchedule", () => {
       validateStatusUpdateSchedule(
         "standard",
         { stopAt: "2000-01-01T00:00:00Z" },
-        null,
-        "2000-01-01T00:00:00Z",
+        makeExisting({ schedule: { stopAt: "2000-01-01T00:00:00Z" } }),
       ),
     ).not.toThrow();
   });
@@ -1958,6 +1980,40 @@ describe("validateStatusUpdateSchedule", () => {
       validateStatusUpdateSchedule("standard", {
         stopAt: "2099-01-01T00:00:00Z",
       }),
+    ).not.toThrow();
+  });
+
+  it("throws when a running stopAfter resolves to the past", () => {
+    const start = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
+    expect(() =>
+      validateStatusUpdateSchedule(
+        "standard",
+        { stopAfter: { value: 30, unit: "days" } },
+        makeExisting({ status: "running", phaseStart: start }),
+      ),
+    ).toThrow("which has already passed");
+  });
+
+  it("does not throw when a running stopAfter resolves to the future", () => {
+    expect(() =>
+      validateStatusUpdateSchedule(
+        "standard",
+        { stopAfter: { value: 30, unit: "days" } },
+        makeExisting({ status: "running", phaseStart: new Date() }),
+      ),
+    ).not.toThrow();
+  });
+
+  it("does not check stopAfter for a non-running experiment", () => {
+    // A draft's relative end is resolved off the real start time later; it must
+    // not be evaluated against the (absent) phase start here.
+    const start = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
+    expect(() =>
+      validateStatusUpdateSchedule(
+        "standard",
+        { stopAfter: { value: 30, unit: "days" } },
+        makeExisting({ status: "draft", phaseStart: start }),
+      ),
     ).not.toThrow();
   });
 });

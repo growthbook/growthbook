@@ -1768,8 +1768,7 @@ export async function postExperiment(
     validateStatusUpdateSchedule(
       effectiveType,
       data.statusUpdateSchedule,
-      experiment.statusUpdateSchedule?.startAt ?? null,
-      experiment.statusUpdateSchedule?.stopAt ?? null,
+      experiment,
     );
   }
 
