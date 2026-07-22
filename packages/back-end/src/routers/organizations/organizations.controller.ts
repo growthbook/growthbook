@@ -185,7 +185,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
   // user's permission fingerprint (the response is permission-filtered) and,
   // under config.yml, the parsed file's hash (file-managed resources bypass the
   // Mongo writes that bump the version). Gated behind a feature flag.
-  if (req.gb?.isOn("definitions-etag-304")) {
+  if (req.gb?.getFeatureValue("definitions-etag-304", false) === true) {
     const { version, projectVersions } =
       await getDefinitionsVersionState(orgId);
     const etag = buildDefinitionsEtag({
