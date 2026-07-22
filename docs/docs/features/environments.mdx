@@ -55,6 +55,12 @@ In practice, you use both together: a feature flag in the "Mobile App" project m
 
 Learn more about [how to use projects](/using/growthbook-best-practices#projects).
 
+### Delivering a feature to multiple projects
+
+A feature's **project** is its primary owner — it determines who can edit the feature and which approval settings apply. To deliver the same feature to other projects without duplicating it, open the feature and use **Targeting projects** to add projects (or target all projects). The feature is then included in the SDK payload for any connection scoped to its primary project _or_ one of its targeting projects, and appears when you filter the features list by those projects. Editing and ownership stay with the primary project.
+
+Individual **rules** can be scoped further: beneath a rule's environment scope, **Project targeting** limits that rule to specific projects within the feature's delivery set — for example, running a rule only in the projects where it's relevant. A rule left unscoped applies to every project the feature reaches. A rule scoped to a project the feature doesn't deliver to won't take effect, and the rule editor flags it.
+
 ## Environment Inheritance
 
 <CommercialFeature feature="environment-inheritance" />
