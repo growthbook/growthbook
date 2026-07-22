@@ -297,6 +297,20 @@ export async function deleteMetricById(
  * @param organization
  * @param user
  */
+export async function projectHasMetrics(
+  context: ReqContext | ApiReqContext,
+  projectId: string,
+): Promise<boolean> {
+  const metric = await getCollection(COLLECTION).findOne(
+    {
+      organization: context.org.id,
+      projects: [projectId],
+    },
+    { projection: { _id: 1 } },
+  );
+  return !!metric;
+}
+
 export async function deleteAllMetricsForAProject({
   projectId,
   context,

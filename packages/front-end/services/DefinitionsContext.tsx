@@ -21,6 +21,7 @@ import {
 import { ExperimentMetricDefinition, isFactMetricId } from "shared/experiments";
 import { SavedGroupWithoutValues } from "shared/types/saved-group";
 import { ConstantWithoutValue } from "shared/types/constant";
+import { ConfigWithoutValue } from "shared/types/config";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { CustomField } from "shared/types/custom-fields";
 import { DecisionCriteriaInterface } from "shared/types/experiment";
@@ -42,6 +43,8 @@ type Definitions = {
   _savedGroupsIncludingArchived: SavedGroupWithoutValues[];
   constants: ConstantWithoutValue[];
   _constantsIncludingArchived: ConstantWithoutValue[];
+  configs: ConfigWithoutValue[];
+  _configsIncludingArchived: ConfigWithoutValue[];
   metricGroups: MetricGroupInterface[];
   customFields: CustomField[];
   tags: TagInterface[];
@@ -68,6 +71,8 @@ type DefinitionContextValue = Definitions & {
   getSavedGroupById: (id: string) => null | SavedGroupWithoutValues;
   getConstantById: (id: string) => null | ConstantWithoutValue;
   getConstantByKey: (key: string) => null | ConstantWithoutValue;
+  getConfigById: (id: string) => null | ConfigWithoutValue;
+  getConfigByKey: (key: string) => null | ConfigWithoutValue;
   getTagById: (id: string) => null | TagInterface;
   getFactTableById: (id: string) => null | FactTableDefinition;
   getFactMetricById: (id: string) => null | FactMetricInterface;
@@ -98,6 +103,8 @@ const defaultValue: DefinitionContextValue = {
   _savedGroupsIncludingArchived: [],
   constants: [],
   _constantsIncludingArchived: [],
+  configs: [],
+  _configsIncludingArchived: [],
   metricGroups: [],
   customFields: [],
   projects: [],
@@ -115,6 +122,8 @@ const defaultValue: DefinitionContextValue = {
   getSavedGroupById: () => null,
   getConstantById: () => null,
   getConstantByKey: () => null,
+  getConfigById: () => null,
+  getConfigByKey: () => null,
   getTagById: () => null,
   getFactTableById: () => null,
   getFactMetricById: () => null,
@@ -297,6 +306,20 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
     return data.constants;
   }, [data?.constants]);
 
+  const activeConfigs = useMemo(() => {
+    if (!data || !data.configs) {
+      return [];
+    }
+    return data.configs.filter((c) => !c.archived);
+  }, [data?.configs]);
+
+  const allConfigs = useMemo(() => {
+    if (!data || !data.configs) {
+      return [];
+    }
+    return data.configs;
+  }, [data?.configs]);
+
   const allTags = useMemo(() => {
     if (!data || !data.tags) {
       return [];
@@ -323,6 +346,12 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
     allConstants.forEach((c) => m.set(c.key, c));
     return (key: string) => m.get(key) || null;
   }, [allConstants]);
+  const getConfigById = useGetById(allConfigs);
+  const getConfigByKey = useMemo(() => {
+    const m = new Map<string, ConfigWithoutValue>();
+    allConfigs.forEach((c) => m.set(c.key, c));
+    return (key: string) => m.get(key) || null;
+  }, [allConfigs]);
   const getTagById = useGetById(allTags);
   const getFactTableById = useGetById(data?.factTables);
   const getFactMetricById = useGetById(data?.factMetrics);
@@ -362,6 +391,8 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       _savedGroupsIncludingArchived: allSavedGroups,
       constants: activeConstants,
       _constantsIncludingArchived: allConstants,
+      configs: activeConfigs,
+      _configsIncludingArchived: allConfigs,
       metricGroups: metricGroups,
       customFields: data.customFields,
       projects: data.projects,
@@ -381,6 +412,8 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       getSavedGroupById,
       getConstantById,
       getConstantByKey,
+      getConfigById,
+      getConfigByKey,
       getTagById,
       getFactTableById,
       getFactMetricById,

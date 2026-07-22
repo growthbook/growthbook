@@ -370,7 +370,8 @@ export async function getDashboardSnapshots(
         if (
           block.type !== "metric-exploration" &&
           block.type !== "fact-table-exploration" &&
-          block.type !== "data-source-exploration"
+          block.type !== "data-source-exploration" &&
+          block.type !== "funnel-exploration"
         ) {
           return [];
         }

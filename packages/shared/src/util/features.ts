@@ -199,6 +199,7 @@ export function mergeRevision(
     if (m.customFields !== undefined)
       newFeature.customFields = m.customFields as Record<string, unknown>;
     if (m.jsonSchema !== undefined) newFeature.jsonSchema = m.jsonSchema;
+    if (m.baseConfig !== undefined) newFeature.baseConfig = m.baseConfig;
     // Use draft valueType for preview so rule/defaultValue validation is accurate
     if (m.valueType !== undefined) newFeature.valueType = m.valueType;
   }
@@ -1089,11 +1090,16 @@ const revisionFieldFillers: Partial<{
     ),
     ...(current ?? {}),
   }),
-  // Backfill valueType for old revisions that predate this field.
-  metadata: (feature, current) =>
-    current?.valueType != null
-      ? current
-      : { ...current, valueType: feature.valueType },
+  // Backfill valueType + baseConfig for old revisions that predate these fields,
+  // so a legacy draft doesn't false-diff against the live baseline.
+  metadata: (feature, current) => {
+    let next = current;
+    if (next?.valueType === undefined)
+      next = { ...next, valueType: feature.valueType };
+    if (next?.baseConfig === undefined)
+      next = { ...next, baseConfig: feature.baseConfig ?? null };
+    return next;
+  },
   // Backfill envelope fields for legacy revisions that predate them. Without
   // this, revisionHasGlobalChange compares e.g. "false" !== undefined for
   // defaultValue and returns "all", bypassing env-scoped review checks even
@@ -1155,6 +1161,7 @@ export function liveRevisionFromFeature(
       tags: feature.tags ?? [],
       jsonSchema: feature.jsonSchema,
       valueType: feature.valueType,
+      baseConfig: feature.baseConfig ?? null,
       ...(liveRevision.metadata ?? {}),
     },
   };
@@ -1184,6 +1191,22 @@ export function buildEffectiveDraft(
     ...("holdout" in draftRevision && {
       holdout: draftRevision.holdout,
     }),
+  };
+}
+
+// Reconciles a raw (live, base) revision pair against the live feature document
+// so every autoMerge caller compares against the same feature-model-anchored
+// baseline. Passing raw revision snapshots straight into autoMerge lets drift
+// between a snapshot and feature.environmentSettings/rules (e.g. from the legacy
+// v1/v2 write bridge) hide or invent changes, and leaves callers out of unison.
+export function reconcileMergeBaselines(
+  feature: FeatureInterface,
+  live: RevisionFields,
+  base: RevisionFields,
+): { live: RevisionFields; base: RevisionFields } {
+  return {
+    live: liveRevisionFromFeature(live, feature),
+    base: fillRevisionFromFeature(base, feature),
   };
 }
 
@@ -1482,6 +1505,9 @@ export function normalizeMetadataValue(
   if (k === "tags") return (v as string[] | null | undefined) ?? [];
   if (k === "description" || k === "owner" || k === "project")
     return (v as string | null | undefined) ?? "";
+  // Normalize unset/undefined to null so a non-config snapshot doesn't diff
+  // against an explicit null.
+  if (k === "baseConfig") return (v as string | null | undefined) ?? null;
   return v;
 }
 
@@ -1765,11 +1791,17 @@ export function autoMerge(
       result.rules = revRules;
     }
 
-    // environmentsEnabled
+    // environmentsEnabled — anchor to the live feature model, not the base
+    // snapshot. `base` and `live` share a version here, so they should match;
+    // when they drift (e.g. a legacy v1 REST write that updated the feature doc
+    // but not the revision), a stale base value that equals the draft would
+    // otherwise swallow a real toggle and report "no changes to publish".
+    // `live` is feature-model-sourced (liveRevisionFromFeature), matching
+    // draftDiffersFromLive so the dashboard and REST publish gates stay in unison.
     if (revision.environmentsEnabled) {
       for (const env of Object.keys(revision.environmentsEnabled)) {
         const revVal = revision.environmentsEnabled[env];
-        if (revVal !== base.environmentsEnabled?.[env]) {
+        if (revVal !== live.environmentsEnabled?.[env]) {
           result.environmentsEnabled = result.environmentsEnabled || {};
           result.environmentsEnabled[env] = revVal;
         }
@@ -2729,6 +2761,79 @@ export function constantResetReviewOnChange(
   );
 }
 
+// Configs borrow the same `requireReviews` model as features/constants, with one
+// wrinkle: an env/project override "flavor" applies only to its scoped
+// environments, so a flavor's value change should require review only when one of
+// those environments is in the matched rule's scope — not unconditionally the way
+// a base config's value change (which applies to every environment, like a
+// feature's defaultValue) does. `flavorEnvironments` is the flavor's environment
+// scope (`scopedConfig.environments`) or null for a base config; an empty array is
+// a catch-all flavor and is treated as all-environments. These re-express a
+// flavor's value change as an environment change and defer to the constant
+// helpers (the single source of truth for the rule matching).
+function toEnvScopedChange(
+  change: {
+    valueChanged: boolean;
+    changedEnvironments: string[];
+    metadataOnly: boolean;
+  },
+  flavorEnvironments: string[] | null,
+): {
+  valueChanged: boolean;
+  changedEnvironments: string[];
+  metadataOnly: boolean;
+} {
+  if (
+    flavorEnvironments !== null &&
+    change.valueChanged &&
+    flavorEnvironments.length > 0
+  ) {
+    return {
+      valueChanged: false,
+      changedEnvironments: flavorEnvironments,
+      metadataOnly: change.metadataOnly,
+    };
+  }
+  return change;
+}
+
+export function configRequiresReview(
+  config: { project?: string },
+  change: {
+    valueChanged: boolean;
+    changedEnvironments: string[];
+    metadataOnly: boolean;
+  },
+  flavorEnvironments: string[] | null,
+  settings?: OrganizationSettings,
+): boolean {
+  return constantRequiresReview(
+    config,
+    toEnvScopedChange(change, flavorEnvironments),
+    settings,
+  );
+}
+
+export function configResetReviewOnChange(
+  config: { project?: string },
+  change: { valueChanged: boolean; changedEnvironments: string[] },
+  flavorEnvironments: string[] | null,
+  settings?: OrganizationSettings,
+): boolean {
+  const scoped = toEnvScopedChange(
+    { ...change, metadataOnly: false },
+    flavorEnvironments,
+  );
+  return constantResetReviewOnChange(
+    config,
+    {
+      valueChanged: scoped.valueChanged,
+      changedEnvironments: scoped.changedEnvironments,
+    },
+    settings,
+  );
+}
+
 // Whether auto-publish-on-approval may be armed for a constant, per the matched
 // review rule. Constants share the feature `requireReviews` model, so this is a
 // thin wrapper over `getFeatureAutopublishOnApproval` (single source of truth).
@@ -3168,11 +3273,49 @@ export function getDisallowedProjects(
   );
 }
 
-export function simpleToJSONSchema(simple: SimpleSchema): string {
-  const getValue = (
-    value: string,
-    field: SchemaField,
-  ): string | number | boolean => {
+// Codify a single SimpleSchema field into its JSON Schema subschema (type +
+// description + default + enum + min/max constraints + nullability). This is the
+// per-field half of `simpleToJSONSchema`, exported so editors can faithfully
+// seed a raw JSON Schema from simple-mode preferences. `nullable` is baked into
+// the subschema here (widening the type to include `"null"`); `required` is a
+// composition concern the parent object handles.
+export function simpleSchemaFieldToJSONSchema(
+  field: SchemaField,
+): Record<string, unknown> {
+  // A raw per-field schema (config-only) supersedes the simple type. Emit it
+  // directly so object/array/nullable/advanced fields compile faithfully (the
+  // simple-type path below can't represent them). Layer on the simple-mode
+  // description/default only when the raw schema omits them.
+  if (field.jsonSchema !== undefined) {
+    try {
+      const raw = JSON.parse(field.jsonSchema);
+      if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+        const merged = { ...(raw as Record<string, unknown>) };
+        if (field.description && merged.description === undefined) {
+          merged.description = field.description;
+        }
+        if (field.default && merged.default === undefined) {
+          merged.default = field.default;
+        }
+        // A bare nullable preset (e.g. {"type":["object","null"]}) is reduced by
+        // normalizeField to a raw schema + the `nullable` flag, so re-apply the
+        // flag here — otherwise the compiled schema drops `null` and rejects a
+        // legitimate null value (and every export re-emits it non-nullable).
+        if (
+          field.nullable &&
+          typeof merged.type === "string" &&
+          merged.type !== "null"
+        ) {
+          merged.type = [merged.type, "null"];
+        }
+        return merged;
+      }
+    } catch {
+      // Malformed raw schema — fall back to the simple-type compilation.
+    }
+  }
+
+  const getValue = (value: string): string | number | boolean => {
     const type = field.type;
     // Validation
     if (field.type !== "boolean") {
@@ -3180,23 +3323,23 @@ export function simpleToJSONSchema(simple: SimpleSchema): string {
         throw new Error(`Value '${value}' not in enum for field ${field.key}`);
       }
       if (field.type === "string" && !field.enum.length) {
-        if (value.length < field.min) {
+        if (field.min !== undefined && value.length < field.min) {
           throw new Error(
             `Value '${value}' is shorter than min length for field ${field.key}`,
           );
         }
-        if (value.length > field.max) {
+        if (field.max !== undefined && value.length > field.max) {
           throw new Error(
             `Value '${value}' is longer than max length for field ${field.key}`,
           );
         }
       } else if (!field.enum.length) {
-        if (parseFloat(value) < field.min) {
+        if (field.min !== undefined && parseFloat(value) < field.min) {
           throw new Error(
             `Value '${value}' is less than min value for field ${field.key}`,
           );
         }
-        if (parseFloat(value) > field.max) {
+        if (field.max !== undefined && parseFloat(value) > field.max) {
           throw new Error(
             `Value '${value}' is greater than max value for field ${field.key}`,
           );
@@ -3216,41 +3359,62 @@ export function simpleToJSONSchema(simple: SimpleSchema): string {
     else return value !== "false";
   };
 
-  const fields = simple.fields.map((f) => {
-    const schema: Record<string, unknown> = {
-      type: ["float", "integer"].includes(f.type) ? "number" : f.type,
-    };
+  const baseType = ["float", "integer"].includes(field.type)
+    ? "number"
+    : field.type;
+  const schema: Record<string, unknown> = {
+    // A nullable field widens the type to a `T | null` union.
+    type: field.nullable ? [baseType, "null"] : baseType,
+  };
 
-    if (f.description) schema.description = f.description;
+  if (field.description) schema.description = field.description;
 
-    if (f.default) schema.default = getValue(f.default, f);
+  if (field.default) schema.default = getValue(field.default);
 
-    if (f.type !== "boolean" && f.enum.length) {
-      schema.enum = f.enum.map((v) => getValue(v, f));
-    }
-    if (!schema.enum) {
-      if (f.type === "string") {
-        schema.minLength = f.min;
-        schema.maxLength = f.max;
-        if (f.max < f.min || f.min < 0) {
-          throw new Error(`Invalid min or max for field ${f.key}`);
-        }
-      } else if (f.type === "float" || f.type === "integer") {
-        schema.minimum = f.min;
-        schema.maximum = f.max;
+  if (field.type !== "boolean" && field.enum.length) {
+    // A nullable enum must also admit null — the type union allows it, so the
+    // enum has to list it too or null would fail validation.
+    schema.enum = [
+      ...field.enum.map((v) => getValue(v)),
+      ...(field.nullable ? [null] : []),
+    ];
+  }
+  // Integer markers apply with or without an enum — dropping them on an enum
+  // field would re-import `{type:"number", enum:[1,2]}` as a float.
+  if (field.type === "integer") {
+    schema.multipleOf = 1;
+    schema.format = "number";
+  }
+  if (!schema.enum) {
+    // Bounds are optional — emit only when set.
+    const { min, max } = field;
+    if (field.type === "string") {
+      if (min !== undefined) schema.minLength = min;
+      if (max !== undefined) schema.maxLength = max;
+      if (
+        (min !== undefined && min < 0) ||
+        (min !== undefined && max !== undefined && max < min)
+      ) {
+        throw new Error(`Invalid min or max for field ${field.key}`);
+      }
+    } else if (field.type === "float" || field.type === "integer") {
+      if (min !== undefined) schema.minimum = min;
+      if (max !== undefined) schema.maximum = max;
 
-        if (f.type === "integer") {
-          schema.multipleOf = 1;
-          schema.format = "number";
-        }
-
-        if (f.max < f.min) {
-          throw new Error(`Invalid min or max for field ${f.key}`);
-        }
+      if (min !== undefined && max !== undefined && max < min) {
+        throw new Error(`Invalid min or max for field ${field.key}`);
       }
     }
-    return { key: f.key, required: f.required, schema };
-  });
+  }
+  return schema;
+}
+
+export function simpleToJSONSchema(simple: SimpleSchema): string {
+  const fields = simple.fields.map((f) => ({
+    key: f.key,
+    required: f.required,
+    schema: simpleSchemaFieldToJSONSchema(f),
+  }));
   if (fields.length === 0) {
     throw new Error("Schema must have at least 1 field");
   }
@@ -3270,7 +3434,7 @@ export function simpleToJSONSchema(simple: SimpleSchema): string {
           },
           {} as Record<string, unknown>,
         ),
-        additionalProperties: false,
+        additionalProperties: simple.additionalProperties ?? false,
       });
     case "object[]":
       if (fields.some((f) => !f.key)) {
@@ -3288,7 +3452,7 @@ export function simpleToJSONSchema(simple: SimpleSchema): string {
             },
             {} as Record<string, unknown>,
           ),
-          additionalProperties: false,
+          additionalProperties: simple.additionalProperties ?? false,
         },
       });
     case "primitive[]":

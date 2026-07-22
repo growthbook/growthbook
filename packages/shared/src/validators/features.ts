@@ -8,13 +8,14 @@ import {
   paginationQueryFields,
   skipPaginationQueryField,
   apiPaginationFieldsValidator,
+  publishOverrideBodyFields,
 } from "./shared";
 import { safeRolloutStatusArray } from "./safe-rollout";
 import {
   ownerEmailField,
   ownerField,
   ownerInputField,
-  optionalOwnerInputField,
+  requiredUnlessPatOwnerInputField,
 } from "./owner-field";
 import {
   featureRulePatch,
@@ -34,13 +35,37 @@ export const simpleSchemaFieldValidator = z.object({
   default: z.string().max(256),
   description: z.string().max(MAX_DESCRIPTION_LENGTH),
   enum: z.array(z.string().max(256)).max(256),
-  min: z.number(),
-  max: z.number(),
+  // Optional bounds — absent means no validation. Compiled only when present.
+  min: z.number().optional(),
+  max: z.number().optional(),
+  // Config-only, additive: `nullable` widens to `T | null`; `jsonSchema` is a
+  // raw per-field schema that supersedes the simple type.
+  nullable: z.boolean().optional(),
+  jsonSchema: z.string().optional(),
+});
+
+// Config-only: a named cross-field invariant — a relational rule JSON Schema
+// can't express (field-to-field comparisons, implications). `rule` is a mongo
+// condition (mongrule) boolean expression over the config's fields — field-to-field
+// comparisons use the `$ref` extension — stored as a JSON string (kept a string
+// rather than a nested object so it doesn't fight react-hook-form's typing in the
+// feature schema editor, which shares this validator); `message` is shown to editors.
+export const configInvariantValidator = z.object({
+  name: z.string().max(128),
+  rule: z.string(),
+  message: z.string().max(MAX_DESCRIPTION_LENGTH),
 });
 
 export const simpleSchemaValidator = z.object({
   type: z.enum(["object", "object[]", "primitive", "primitive[]"]),
   fields: z.array(simpleSchemaFieldValidator),
+  // Config-only: when true, the generated object schema permits keys beyond the
+  // declared fields (`additionalProperties: true`), letting child configs/rules
+  // extend the base. Absent = strict (`false`).
+  additionalProperties: z.boolean().optional(),
+  // Config-only: cross-field invariants evaluated at the save gate alongside the
+  // per-field JSON Schema check (see configInvariantValidator).
+  invariants: z.array(configInvariantValidator).optional(),
 });
 
 export const featureValueType = [
@@ -433,6 +458,9 @@ const revisionMetadataSchema = z.object({
   customFields: z.record(z.string(), z.any()).optional(),
   jsonSchema: JSONSchemaDef.optional(),
   valueType: z.enum(featureValueType).optional(),
+  // Config mode. Tracked alongside jsonSchema/valueType so a change is
+  // snapshotted, diffed, gated, and applied on publish like any schema change.
+  baseConfig: z.string().nullable().optional(),
 });
 
 export type RevisionMetadata = z.infer<typeof revisionMetadataSchema>;
@@ -591,6 +619,13 @@ export function reviewerKeyForEventUser(
 
 const featureRevisionInterface = minimalFeatureRevisionInterface
   .extend({
+    // Stable identity, dual-shaped: new docs store a minted "frev_<uniqid>";
+    // legacy docs get the computed tuple "frev_<version>_<featureId>" filled
+    // in-memory on read (and persisted opportunistically on publish writes).
+    // Tuple ids resolve by decoding onto the (organization, featureId,
+    // version) unique index; minted ids by the partial (organization, id)
+    // unique index.
+    id: z.string().optional(),
     featureId: z.string(),
     organization: z.string(),
     baseVersion: z.number(),
@@ -648,6 +683,14 @@ const featureRevisionInterface = minimalFeatureRevisionInterface
     // successful publish or when the schedule is canceled.
     scheduledPublishAttempts: z.number().optional(),
     scheduledPublishLastError: z.string().optional(),
+    // Backoff gate: the poller skips a due-but-failing revision until this time,
+    // so doomed retries space out exponentially instead of firing every tick.
+    scheduledPublishNextAttemptAt: z.union([z.null(), z.date()]).optional(),
+    // Set when the poller gives up on a failing scheduled publish (terminal
+    // failure, or transient failures exhausted the attempt cap). The schedule is
+    // cleared and the draft left open; this timestamp marks it abandoned so the
+    // UI can flag it. Cleared when the schedule is re-armed or canceled.
+    scheduledPublishGaveUpAt: z.union([z.null(), z.date()]).optional(),
     // Active reviewer verdicts for the current review cycle (one entry per
     // reviewer). Kept in sync by the review lifecycle mutations:
     // submit review upserts, undo review removes, request/recall review
@@ -691,6 +734,13 @@ export const featureInterface = z
     dateUpdated: z.date(),
     valueType: z.enum(featureValueType),
     defaultValue: z.string(),
+    // The config a JSON flag is backed by (a "config" authoring type). First-class
+    // and authoritative: its presence is what makes the flag config-backed. The
+    // payload compiler injects this config as the base layer under the default and
+    // every rule/variation value, so those values are stored as pure override
+    // patches (they may still carry their own optional `$extends` for layering,
+    // like rules). Stopgap ahead of a first-class `gb.config()` SDK primitive.
+    baseConfig: z.string().nullable().optional(),
     version: z.number(),
     tags: z.array(z.string()).optional(),
     environmentSettings: z.record(z.string(), featureEnvironment),
@@ -1126,6 +1176,7 @@ export const apiRevisionMetadata = z
       })
       .optional(),
     customFields: z.record(z.string(), z.any()).optional(),
+    baseConfig: z.string().nullable().optional(),
   })
   .describe(
     "Metadata fields captured in this revision (only present when metadata gating is enabled)",
@@ -1154,6 +1205,11 @@ export const apiFeatureRevisionValidator = namedSchema(
   "FeatureRevisionV1",
   z
     .object({
+      id: z
+        .string()
+        .describe(
+          "Stable revision id. Newer revisions carry opaque ids; older ones a derived `frev_<version>_<featureId>` form. Both work wherever revision ids are accepted.",
+        ),
       featureId: z.string().describe("The feature this revision belongs to"),
       baseVersion: z.coerce.number().int(),
       version: z.coerce.number().int(),
@@ -1221,6 +1277,20 @@ export const apiFeatureValidator = namedSchema(
       project: z.string(),
       valueType: z.enum(["boolean", "string", "number", "json"]),
       defaultValue: z.string(),
+      baseConfig: z
+        .string()
+        .nullable()
+        .describe(
+          'Key of the config backing this flag ("Config mode"), or null. The config supplies the base JSON and schema. The internal `@config:` directive is scrubbed from values; `@const:` references are preserved. (v2 additionally exposes per-rule config fields.)',
+        )
+        .optional(),
+      defaultValueConfig: z
+        .string()
+        .nullable()
+        .describe(
+          "Config within `baseConfig`'s family that the default value resolves to (a descendant), or null when the default uses `baseConfig` directly.",
+        )
+        .optional(),
       tags: z.array(z.string()),
       environments: z.record(z.string(), apiFeatureEnvironmentValidator),
       prerequisites: z
@@ -1228,6 +1298,10 @@ export const apiFeatureValidator = namedSchema(
         .describe("Feature IDs. Each feature must evaluate to `true`")
         .optional(),
       revision: z.object({
+        id: z
+          .string()
+          .describe("Stable id of the feature's live revision.")
+          .optional(),
         version: z.coerce.number().int(),
         comment: z.string(),
         date: z.string().meta({ format: "date-time" }),
@@ -1439,7 +1513,7 @@ const postFeatureBody = z
       .max(MAX_DESCRIPTION_LENGTH)
       .describe("Description of the feature")
       .optional(),
-    owner: optionalOwnerInputField,
+    owner: requiredUnlessPatOwnerInputField,
     project: z.string().describe("An associated project ID").optional(),
     valueType: z
       .enum(["boolean", "string", "number", "json"])
@@ -1447,8 +1521,15 @@ const postFeatureBody = z
     defaultValue: z
       .string()
       .describe(
-        "Default value when feature is enabled. Type must match `valueType`.",
+        "Default value when feature is enabled. Type must match `valueType`. In Config mode (`baseConfig` set) this is the JSON override patch merged on top of the config.",
       ),
+    baseConfig: z
+      .string()
+      .nullable()
+      .describe(
+        'Key of the config backing this flag ("Config mode"). Requires `valueType: "json"` and a live config; `defaultValue` and rule values become override patches on top. null or omitted for a plain flag.',
+      )
+      .optional(),
     tags: z.array(z.string()).describe("List of associated tags").optional(),
     environments: z
       .record(z.string(), postFeatureEnvironment)
@@ -1467,6 +1548,7 @@ const postFeatureBody = z
       )
       .optional(),
     customFields: z.record(z.string(), z.string()).optional(),
+    ...publishOverrideBodyFields,
   })
   .strict();
 
@@ -1482,6 +1564,13 @@ const updateFeatureBody = z
     project: z.string().describe("An associated project ID").optional(),
     owner: ownerInputField.optional(),
     defaultValue: z.string().optional(),
+    baseConfig: z
+      .string()
+      .nullable()
+      .describe(
+        'The config backing this flag ("Config mode"), fixed at creation. Cannot be changed by an update — resend the current value or omit it; a different value (or null to detach) is rejected.',
+      )
+      .optional(),
     tags: z
       .array(z.string())
       .describe(
@@ -1514,6 +1603,7 @@ const updateFeatureBody = z
         "Holdout to assign this feature to. Pass `null` to remove the feature from its current holdout. Omit the field entirely to leave the holdout unchanged.\n",
       )
       .optional(),
+    ...publishOverrideBodyFields,
   })
   .strict();
 
@@ -1692,6 +1782,7 @@ export const revertFeatureValidator = {
     .object({
       revision: z.number(),
       comment: z.string().optional(),
+      ...publishOverrideBodyFields,
     })
     .strict(),
   querySchema: z.never(),
@@ -1699,7 +1790,7 @@ export const revertFeatureValidator = {
   responseSchema: featureResponseSchema,
   summary: "Revert a feature to a specific revision",
   description:
-    '**Deprecated.** Use [POST /v2/features/:id/revert](#operation/revertFeatureV2) instead.\n\nCreates a new revision whose rules and values match a previously-published revision, then immediately publishes it. This leaves a clear audit trail of the revert action in the revision history.\n\nReturns 403 if the API key lacks permission, or if approval rules are enabled for an affected environment and neither the "REST API always bypasses approval requirements" nor the "Allow reverts without approval" org setting is enabled.\n\nReturns 422 with a list of `warnings` if the restored values no longer validate against the feature\'s current value type or JSON schema. Re-submit with `?ignoreWarnings=true` to revert anyway.\n',
+    '**Deprecated.** Use [POST /v2/features/:id/revert](#operation/revertFeatureV2) instead.\n\nCreates a new revision whose rules and values match a previously-published revision, then immediately publishes it. This leaves a clear audit trail of the revert action in the revision history.\n\nReturns 403 if the API key lacks permission, or if approval rules are enabled for an affected environment and neither the "REST API always bypasses approval requirements" nor the "Allow reverts without approval" org setting is enabled.\n\nReturns 422 with a list of `warnings` if the restored values no longer validate against the feature\'s current value type or JSON schema. Re-submit with `"ignoreWarnings": true` in the request body to revert anyway.\n',
   deprecated: true,
   deprecationDate: FEATURE_V1_DEPRECATED,
   operationId: "revertFeature",

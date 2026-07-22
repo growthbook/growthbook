@@ -10,6 +10,10 @@ import {
   stripDefaultsForSparse,
   expandSparseToFull,
 } from "shared/util";
+import {
+  useConfigBacking,
+  useSeedConfigBackedVariations,
+} from "@/hooks/useConfigBacking";
 import Link from "@/ui/Link";
 import Field from "@/components/Forms/Field";
 import FeatureValueField from "@/components/Features/FeatureValueField";
@@ -44,6 +48,13 @@ export default function BanditRefFields({
   const experimentId = form.watch("experimentId");
   const selectedExperiment = experimentsMap.get(experimentId) || null;
 
+  // Config-backed JSON flags: each arm is a sparse patch serving the default's
+  // config, so arms use the config-backing editor. Force sparse on and seed each
+  // arm with the backing (mirrors ExperimentRefFields).
+  const { defaultConfigKey, isConfigBacked, configBackingOptionKeys } =
+    useConfigBacking(feature);
+  useSeedConfigBackedVariations(form, { isConfigBacked, defaultConfigKey });
+
   const experimentOptions = experiments
     .filter(
       (e) =>
@@ -63,6 +74,7 @@ export default function BanditRefFields({
     <>
       {experimentOptions.length > 0 ? (
         <SelectField
+          size="legacy"
           label="Bandit"
           initialOption="Choose One..."
           options={experimentOptions}
@@ -156,10 +168,17 @@ export default function BanditRefFields({
       )}
 
       {selectedExperiment && (
-        <Box px="5" pt="5" pb="1" mb="4" className="bg-highlight rounded">
+        <Box
+          px="5"
+          pt="5"
+          pb="1"
+          mb="4"
+          className={isConfigBacked ? undefined : "bg-highlight rounded"}
+        >
           <Flex align="center" gap="3" mb="3">
             <label className="mb-0">Variation Values</label>
             {feature.valueType === "json" &&
+              !isConfigBacked &&
               parsePlainJSONObject(feature.defaultValue) !== null && (
                 <SparsePatchToggle
                   checked={!!form.watch("sparse")}
@@ -197,12 +216,17 @@ export default function BanditRefFields({
               showFullscreenButton={true}
               codeInputDefaultHeight={80}
               sparse={!!form.watch("sparse")}
+              allowConfigBacking={isConfigBacked}
+              configBackingOptionKeys={configBackingOptionKeys}
+              configBackingShowPatch={isConfigBacked}
+              lockConfigBacking={isConfigBacked}
             />
           ))}
         </Box>
       )}
 
       <Field
+        size="legacy"
         label="Description"
         textarea
         minRows={1}

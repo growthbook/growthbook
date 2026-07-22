@@ -95,6 +95,7 @@ export default function MetricTabContent() {
           <ValueCard key={idx} index={idx}>
             <Flex direction="column">
               <SelectField
+                size="legacy"
                 className={styles.metricSelect}
                 value={v.metricId}
                 disabled={
@@ -120,7 +121,10 @@ export default function MetricTabContent() {
                     name: newMetric?.name
                       ? generateUniqueValueName(
                           newMetric.name,
-                          draftExploreState.dataset.values,
+                          // Tab content only renders for "metric" datasets.
+                          draftExploreState.dataset.type === "metric"
+                            ? draftExploreState.dataset.values
+                            : [],
                         )
                       : v.name,
                   } as MetricValue;

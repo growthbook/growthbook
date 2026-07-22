@@ -94,6 +94,7 @@ export default function ContextualBanditDecisionMetricSettings({
     return factMetrics.some(
       (m) =>
         m.datasource === datasourceId &&
+        (m.metricType === "mean" || m.metricType === "proportion") &&
         isProjectListValidForProject(m.projects, project),
     );
   }, [factMetrics, datasourceId, project]);
@@ -226,8 +227,8 @@ export default function ContextualBanditDecisionMetricSettings({
           <Flex direction="column" align="start" gap="2">
             <Text>
               {factTableForMetric
-                ? "Add a fact metric to use as the decision metric, then continue."
-                : "This data source has no fact metrics. Contextual bandits can only use a fact metric as the decision metric, so create one for this data source before continuing."}
+                ? "Add a mean or proportion fact metric to use as the decision metric, then continue."
+                : "This data source has no fact metrics. Contextual bandits can only use a mean or proportion fact metric as the decision metric, so create one for this data source before continuing."}
             </Text>
             {factTableForMetric
               ? canCreateFactMetric && (
@@ -278,6 +279,7 @@ export default function ContextualBanditDecisionMetricSettings({
         project={project}
         forceSingleGoalMetric={true}
         noQuantileGoalMetrics={true}
+        goalMetricAllowedFactMetricTypes={["mean", "proportion"]}
         noLegacyMetrics={true}
         requireDatasource={true}
         experimentType={undefined}

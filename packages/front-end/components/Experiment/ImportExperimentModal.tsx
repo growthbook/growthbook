@@ -128,6 +128,7 @@ const ImportExperimentModal: FC<{
             {error}
           </Callout>
           <SelectField
+            size="legacy"
             label="Choose a Data Source"
             value={datasourceId}
             onChange={(value) => setDatasourceId(value)}
