@@ -745,14 +745,33 @@ describe("Experiments", () => {
             }),
           ).toStrictEqual(`(${dateColumn.column} IS NULL)`);
         });
-        it("ignores empty values for date columns (no CAST('' AS TIMESTAMP))", () => {
+        it("ignores empty/unparseable values for date columns", () => {
+          for (const values of [[""], ["foo"], ["2024-13-45"]]) {
+            expect(
+              getRowFilterSQL({
+                factTable,
+                rowFilter: {
+                  column: dateColumn.column,
+                  operator: ">",
+                  values,
+                },
+                escapeStringLiteral,
+                jsonExtract,
+                evalBoolean,
+                stringMatch,
+                castToTimestamp,
+              }),
+            ).toBeNull();
+          }
+        });
+        it("drops invalid values but keeps valid dates for date in/not_in", () => {
           expect(
             getRowFilterSQL({
               factTable,
               rowFilter: {
                 column: dateColumn.column,
-                operator: ">",
-                values: [""],
+                operator: "in",
+                values: ["2024-01-01", "foo", "2024-02-01"],
               },
               escapeStringLiteral,
               jsonExtract,
@@ -760,7 +779,9 @@ describe("Experiments", () => {
               stringMatch,
               castToTimestamp,
             }),
-          ).toBeNull();
+          ).toStrictEqual(
+            `(CAST(${dateColumn.column} AS TIMESTAMP) IN (\n  CAST('2024-01-01' AS TIMESTAMP),\n  CAST('2024-02-01' AS TIMESTAMP)\n))`,
+          );
         });
         it("falls back to lexicographic comparison without a timestamp cast", () => {
           expect(

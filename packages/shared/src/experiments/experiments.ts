@@ -266,6 +266,24 @@ export function normalizeRowFilterDateValue(value: string): string {
     .trim();
 }
 
+/**
+ * Whether a `date`-column row-filter value is safe to cast to a timestamp.
+ * Row filters can come from saved metrics or API callers (not just the date
+ * picker), so we validate before emitting `CAST(<value> AS TIMESTAMP)` — an
+ * unparseable literal like `foo` would fail the warehouse query. Accepts
+ * `YYYY-MM-DD` optionally followed by a time (space or `T` separator, optional
+ * seconds / fractional seconds / trailing `Z`) that is also a real calendar date.
+ */
+export function isValidRowFilterDateValue(value: string): boolean {
+  const trimmed = value.trim();
+  if (
+    !/^\d{4}-\d{2}-\d{2}([ T]\d{2}:\d{2}(:\d{2})?(\.\d+)?Z?)?$/.test(trimmed)
+  ) {
+    return false;
+  }
+  return !isNaN(new Date(trimmed.replace(" ", "T")).getTime());
+}
+
 export function getRowFilterSQL({
   rowFilter,
   factTable,
@@ -357,10 +375,12 @@ export function getRowFilterSQL({
   // strings (lexicographic), when the dialect provides a timestamp cast.
   const castDates = columnType === "date" && !!castToTimestamp;
 
-  // Empty values can't be cast to a timestamp (CAST('' AS TIMESTAMP) fails), so
-  // drop them for date comparisons; if none remain, the filter is a no-op.
+  // Unparseable values can't be cast to a timestamp (e.g. CAST('foo' AS
+  // TIMESTAMP) fails), so drop invalid values for date comparisons; if none
+  // remain, the filter is a no-op. This guards saved/API filters too, not just
+  // the date picker.
   const filterValues = castDates
-    ? rowFilter.values.filter((v) => v.trim() !== "")
+    ? rowFilter.values.filter((v) => isValidRowFilterDateValue(v))
     : rowFilter.values;
   if (!filterValues.length) {
     return null;
