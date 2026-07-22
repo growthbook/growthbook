@@ -1,20 +1,18 @@
-import { useEffect, useRef } from "react";
 import { format } from "date-fns";
 import { getValidDateOffsetByUTC } from "shared/dates";
 import DatePicker from "@/components/DatePicker";
+import { useMergedUpdates } from "@/hooks/useMergedUpdates";
 import { FILTER_ROW_INPUT_HEIGHT } from "./rowFilterUtils";
 
 /**
  * Date-range value input for the `between` / `not_between` row-filter operators.
  *
  * The underlying DayPicker range calendar reports a completed range by calling
- * `setDate(from)` and `setDate2(to)` back-to-back in the same tick. If both
- * callbacks read the filter's `values` straight from the render closure, the
- * second update overwrites the first and the new start date is silently lost —
- * which is what made changing an existing range feel broken. We funnel both
- * bounds through a ref that is updated synchronously so consecutive updates
- * compose, mirroring `useMergedDateRangeUpdates` used by the Metric Explorer
- * range picker.
+ * `setDate(from)` and `setDate2(to)` back-to-back in the same tick. Read
+ * straight from the render closure, the second update would overwrite the first
+ * and the new start date would be silently lost — which is what made changing
+ * an existing range feel broken. `useMergedUpdates` composes the two same-tick
+ * updates so both bounds stick.
  *
  * Bounds are stored as `yyyy-MM-dd` and read back via getValidDateOffsetByUTC
  * (the app-wide UTC wall-clock convention); getRowFilterSQL then compares them
@@ -29,16 +27,14 @@ export function DateRangeFilterInput({
   onChange: (values: string[]) => void;
   inputWidth?: number;
 }) {
-  const latestValuesRef = useRef<string[]>(values ?? []);
-  useEffect(() => {
-    latestValuesRef.current = values ?? [];
-  }, [values]);
+  const applyUpdate = useMergedUpdates<string[]>(values ?? [], onChange);
 
   const applyBound = (index: 0 | 1, d: Date | undefined) => {
-    const next = [...latestValuesRef.current];
-    next[index] = d ? format(d, "yyyy-MM-dd") : "";
-    latestValuesRef.current = next;
-    onChange(next);
+    applyUpdate((current) => {
+      const next = [...current];
+      next[index] = d ? format(d, "yyyy-MM-dd") : "";
+      return next;
+    });
   };
 
   // Read from the `yyyy-MM-dd` prefix so a value that still carries a time
