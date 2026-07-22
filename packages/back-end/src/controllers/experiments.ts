@@ -67,6 +67,7 @@ import {
   validateStatusUpdateSchedule,
 } from "back-end/src/services/experiments";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
+import { validateScheduledStopPlan } from "back-end/src/services/experimentScheduling";
 import {
   approveScheduledExperimentStart,
   startExperiment,
@@ -1870,6 +1871,22 @@ export async function postExperiment(
   });
 
   normalizeStatusUpdateScheduleChanges(experiment, changes);
+
+  if (changes.scheduledStopPlan) {
+    const effectiveSchedule =
+      "statusUpdateSchedule" in changes
+        ? changes.statusUpdateSchedule
+        : experiment.statusUpdateSchedule;
+    const hasScheduledEnd = !!(
+      effectiveSchedule?.stopAt || effectiveSchedule?.stopAfter
+    );
+    validateScheduledStopPlan(
+      context,
+      { ...experiment, ...changes },
+      changes.scheduledStopPlan,
+      hasScheduledEnd,
+    );
+  }
 
   // Coerce lookbackOverride date value when type is "date"
   if (changes.lookbackOverride?.type === "date") {
