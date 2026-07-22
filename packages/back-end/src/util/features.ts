@@ -10,6 +10,7 @@ import {
   isMultiRangeNamespaceFormat,
   namespacesToMap,
   recursiveWalk,
+  ruleAppliesToAnyProject,
   ruleFootprint,
   stemRuleId,
   getNamespaceRanges,
@@ -588,6 +589,7 @@ export function getFeatureDefinition({
   namespaces,
   metadataOptions,
   projectsMap,
+  payloadProjects,
   cbMap,
   rampMonitoredRuleMap,
   constantMap,
@@ -617,6 +619,10 @@ export function getFeatureDefinition({
   >;
   metadataOptions?: MetadataOptions;
   projectsMap?: Map<string, ProjectInterface>;
+  // The projects this payload serves (a connection's project scope). When set
+  // and non-empty, rules whose project scope excludes all of them are dropped.
+  // Empty/undefined = unscoped (all projects) → no rule-level project filter.
+  payloadProjects?: string[];
   cbMap?: Map<string, ContextualBanditInterface>;
   rampMonitoredRuleMap?: Map<string, RampMonitoredRuleInfo>;
   // Per-environment constant values. When provided, EVERY emitted value is
@@ -752,6 +758,13 @@ export function getFeatureDefinition({
     rules = v2Rules.filter((r) =>
       ruleFootprint(r, applicableEnvs).includes(environment),
     );
+  }
+
+  // Rule-level project scoping: drop rules whose project scope excludes every
+  // project this payload serves. Unscoped connection (empty payloadProjects) or
+  // preview paths (undefined) keep all rules.
+  if (payloadProjects && payloadProjects.length > 0) {
+    rules = rules.filter((r) => ruleAppliesToAnyProject(r, payloadProjects));
   }
 
   const namespacesMap =

@@ -390,6 +390,39 @@ export function getRulesForEnvironment(
   );
 }
 
+// Rule project-scope predicate. Mirrors `ruleAppliesToEnv`, keyed on
+// `allProjects`/`projects` instead of `allEnvironments`/`environments`.
+//   allProjects:true               → true
+//   projects:[list]                → list.includes(project)
+//   projects:[]                    → false (scoped to nothing — leak-safe;
+//                                    project-deletion cleanup lands here)
+//   neither (legacy/default)       → true (permissive fallback = all projects)
+//   nullish/non-object             → false (defensive, as ruleAppliesToEnv)
+export function ruleAppliesToProject(
+  rule: FeatureRule,
+  project: string,
+): boolean {
+  if (rule == null || typeof rule !== "object") return false;
+  if (rule.allProjects) return true;
+  if (rule.projects !== undefined) {
+    return Array.isArray(rule.projects)
+      ? rule.projects.includes(project)
+      : false;
+  }
+  return true;
+}
+
+// True when the rule applies to at least one of `projects` (a connection's
+// served project scope). An empty `projects` (unscoped connection = all
+// projects) means every rule applies. Used to scope rules into the SDK payload.
+export function ruleAppliesToAnyProject(
+  rule: FeatureRule,
+  projects: string[],
+): boolean {
+  if (!projects.length) return true;
+  return projects.some((p) => ruleAppliesToProject(rule, p));
+}
+
 // Footprint of a rule, intersected with `applicableEnvs`. Must match
 // `ruleAppliesToEnv`.
 //   allEnvironments:true           → every applicable env

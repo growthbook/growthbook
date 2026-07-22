@@ -98,6 +98,15 @@ export const baseRule = z
     allEnvironments: z.boolean(),
     // Env list when `allEnvironments` is false.
     environments: z.array(z.string()).optional(),
+    // Wildcard project scope. When true (or when both fields are absent, the
+    // legacy/default state), the rule applies to every project the feature is
+    // delivered to. When false, the rule is limited to `projects`. An explicit
+    // boolean (mirroring `allEnvironments`) is required so project-deletion
+    // cleanup can empty `projects` to "nothing" without it flipping to "all".
+    allProjects: z.boolean().optional(),
+    // Project list when `allProjects` is false. `[]` means the rule applies to
+    // no project (leak-safe), NOT all projects.
+    projects: z.array(z.string()).optional(),
     enabled: z.boolean().optional(),
     scheduleRules: z.array(scheduleRule).optional(),
     savedGroups: z.array(savedGroupTargeting).optional(),

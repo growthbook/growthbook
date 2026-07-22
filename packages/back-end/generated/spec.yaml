@@ -6825,6 +6825,20 @@ paths:
                             type: array
                             items:
                               type: string
+                          allProjects:
+                            description: >-
+                              When true (the default) the rule applies to every
+                              project the feature is delivered to. Set false and
+                              supply `projects` to scope the rule.
+                            type: boolean
+                          projects:
+                            description: >-
+                              Specific project IDs this rule applies to. Used
+                              when allProjects is false. An empty array scopes
+                              the rule to no project.
+                            type: array
+                            items:
+                              type: string
                         required:
                           - type
                           - value
@@ -6930,6 +6944,20 @@ paths:
                             description: >-
                               Specific environment IDs this rule applies to.
                               Required when allEnvironments is false.
+                            type: array
+                            items:
+                              type: string
+                          allProjects:
+                            description: >-
+                              When true (the default) the rule applies to every
+                              project the feature is delivered to. Set false and
+                              supply `projects` to scope the rule.
+                            type: boolean
+                          projects:
+                            description: >-
+                              Specific project IDs this rule applies to. Used
+                              when allProjects is false. An empty array scopes
+                              the rule to no project.
                             type: array
                             items:
                               type: string
@@ -7047,6 +7075,20 @@ paths:
                             type: array
                             items:
                               type: string
+                          allProjects:
+                            description: >-
+                              When true (the default) the rule applies to every
+                              project the feature is delivered to. Set false and
+                              supply `projects` to scope the rule.
+                            type: boolean
+                          projects:
+                            description: >-
+                              Specific project IDs this rule applies to. Used
+                              when allProjects is false. An empty array scopes
+                              the rule to no project.
+                            type: array
+                            items:
+                              type: string
                         required:
                           - type
                           - variations
@@ -7151,6 +7193,20 @@ paths:
                             description: >-
                               Specific environment IDs this rule applies to.
                               Required when allEnvironments is false.
+                            type: array
+                            items:
+                              type: string
+                          allProjects:
+                            description: >-
+                              When true (the default) the rule applies to every
+                              project the feature is delivered to. Set false and
+                              supply `projects` to scope the rule.
+                            type: boolean
+                          projects:
+                            description: >-
+                              Specific project IDs this rule applies to. Used
+                              when allProjects is false. An empty array scopes
+                              the rule to no project.
                             type: array
                             items:
                               type: string
@@ -7469,6 +7525,20 @@ paths:
                             type: array
                             items:
                               type: string
+                          allProjects:
+                            description: >-
+                              When true (the default) the rule applies to every
+                              project the feature is delivered to. Set false and
+                              supply `projects` to scope the rule.
+                            type: boolean
+                          projects:
+                            description: >-
+                              Specific project IDs this rule applies to. Used
+                              when allProjects is false. An empty array scopes
+                              the rule to no project.
+                            type: array
+                            items:
+                              type: string
                         required:
                           - type
                           - value
@@ -7574,6 +7644,20 @@ paths:
                             description: >-
                               Specific environment IDs this rule applies to.
                               Required when allEnvironments is false.
+                            type: array
+                            items:
+                              type: string
+                          allProjects:
+                            description: >-
+                              When true (the default) the rule applies to every
+                              project the feature is delivered to. Set false and
+                              supply `projects` to scope the rule.
+                            type: boolean
+                          projects:
+                            description: >-
+                              Specific project IDs this rule applies to. Used
+                              when allProjects is false. An empty array scopes
+                              the rule to no project.
                             type: array
                             items:
                               type: string
@@ -7691,6 +7775,20 @@ paths:
                             type: array
                             items:
                               type: string
+                          allProjects:
+                            description: >-
+                              When true (the default) the rule applies to every
+                              project the feature is delivered to. Set false and
+                              supply `projects` to scope the rule.
+                            type: boolean
+                          projects:
+                            description: >-
+                              Specific project IDs this rule applies to. Used
+                              when allProjects is false. An empty array scopes
+                              the rule to no project.
+                            type: array
+                            items:
+                              type: string
                         required:
                           - type
                           - variations
@@ -7795,6 +7893,20 @@ paths:
                             description: >-
                               Specific environment IDs this rule applies to.
                               Required when allEnvironments is false.
+                            type: array
+                            items:
+                              type: string
+                          allProjects:
+                            description: >-
+                              When true (the default) the rule applies to every
+                              project the feature is delivered to. Set false and
+                              supply `projects` to scope the rule.
+                            type: boolean
+                          projects:
+                            description: >-
+                              Specific project IDs this rule applies to. Used
+                              when allProjects is false. An empty array scopes
+                              the rule to no project.
                             type: array
                             items:
                               type: string
@@ -48659,6 +48771,20 @@ components:
               type: array
               items:
                 type: string
+            allProjects:
+              description: >-
+                When true (the default) the rule applies to every project the
+                feature is delivered to. When false only the projects listed in
+                `projects` receive the rule.
+              type: boolean
+            projects:
+              description: >-
+                The project IDs this rule is scoped to. Populated when
+                `allProjects` is false. An empty array scopes the rule to no
+                project.
+              type: array
+              items:
+                type: string
             pendingRamp:
               description: >-
                 Present on draft revisions only. "create" means a ramp schedule
@@ -62344,6 +62470,12 @@ components:
                     type: array
                     items:
                       type: string
+                  allProjects:
+                    type: boolean
+                  projects:
+                    type: array
+                    items:
+                      type: string
                   enabled:
                     type: boolean
                   scheduleRules:
@@ -62425,6 +62557,12 @@ components:
                   allEnvironments:
                     type: boolean
                   environments:
+                    type: array
+                    items:
+                      type: string
+                  allProjects:
+                    type: boolean
+                  projects:
                     type: array
                     items:
                       type: string
@@ -62523,6 +62661,12 @@ components:
                   allEnvironments:
                     type: boolean
                   environments:
+                    type: array
+                    items:
+                      type: string
+                  allProjects:
+                    type: boolean
+                  projects:
                     type: array
                     items:
                       type: string
@@ -62765,6 +62909,12 @@ components:
                     type: array
                     items:
                       type: string
+                  allProjects:
+                    type: boolean
+                  projects:
+                    type: array
+                    items:
+                      type: string
                   enabled:
                     type: boolean
                   scheduleRules:
@@ -62863,6 +63013,12 @@ components:
                     type: array
                     items:
                       type: string
+                  allProjects:
+                    type: boolean
+                  projects:
+                    type: array
+                    items:
+                      type: string
                   enabled:
                     type: boolean
                   scheduleRules:
@@ -62956,6 +63112,12 @@ components:
                   allEnvironments:
                     type: boolean
                   environments:
+                    type: array
+                    items:
+                      type: string
+                  allProjects:
+                    type: boolean
+                  projects:
                     type: array
                     items:
                       type: string

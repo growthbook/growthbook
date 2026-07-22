@@ -280,6 +280,8 @@ export function rampTargetsEquivalent(
 const UNIFICATION_SCOPE_FIELDS = new Set([
   "allEnvironments",
   "environments",
+  "allProjects",
+  "projects",
   "id",
 ]);
 

@@ -3067,6 +3067,11 @@ export async function postFeatureRule(
           allEnvironments: true,
         } as FeatureRule)
       : stampRuleForEnvs(rule, selectedEnvironments);
+  // Mirror the env-scope invariant for project scope: an all-projects rule
+  // carries no explicit list, so cleanup can't later empty it into "all".
+  if (stampedRule.allProjects === true) {
+    delete (stampedRule as { projects?: string[] }).projects;
+  }
   const ruleAdditionChanges = {
     rules: [...existingRules, stampedRule],
   };
@@ -4456,17 +4461,20 @@ export async function putFeatureRule(
     // "clear" removes any pending ramp action for this rule without adding a new one
   }
 
-  // Drop stale `environments` when merge produces `allEnvironments: true`.
+  // Drop stale `environments`/`projects` when merge produces an all-* scope.
   const { rules: nextRules } = updateRuleById(existingRules, ruleId, (e) => {
-    const merged = {
+    let merged = {
       ...e,
       ...(rule as Partial<FeatureRule>),
     } as FeatureRule;
     if (merged.allEnvironments === true) {
-      return {
+      merged = {
         ...omit(merged, ["environments"]),
         allEnvironments: true,
       } as FeatureRule;
+    }
+    if (merged.allProjects === true) {
+      merged = omit(merged, ["projects"]) as FeatureRule;
     }
     return merged;
   });

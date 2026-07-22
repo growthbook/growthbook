@@ -221,6 +221,26 @@ export function resolveScopeFromInput(
   return { allEnvironments: true, environments: undefined };
 }
 
+// Project-scope resolution, mirroring resolveScopeFromInput. Defaults to
+// allProjects:true (all projects) when unspecified. `allProjects:false` keeps
+// an explicit `projects` list (possibly empty = scoped to nothing), so the
+// leak-safe encoding is preserved across REST round-trips.
+export function resolveProjectScopeFromInput(
+  allProjects: boolean | undefined,
+  projects: string[] | undefined,
+): { allProjects: boolean; projects: string[] | undefined } {
+  if (allProjects === true) {
+    return { allProjects: true, projects: undefined };
+  }
+  if (allProjects === false) {
+    return { allProjects: false, projects: projects ?? [] };
+  }
+  if (Array.isArray(projects)) {
+    return { allProjects: false, projects };
+  }
+  return { allProjects: true, projects: undefined };
+}
+
 // Convert a v2 API rule input to the internal `FeatureRule` shape. New rules
 // leave `id` blank; `addIdsToFlatRules` fills it in downstream.
 //
@@ -233,9 +253,12 @@ export function mapV2ApiRuleToFeatureRule(
   r: ApiRuleV2Input,
   existingFeature?: FeatureInterface,
 ): FeatureRule {
-  const { allEnvironments, environments, ...ruleInput } = r;
+  const { allEnvironments, environments, allProjects, projects, ...ruleInput } =
+    r;
   const { allEnvironments: resolvedAllEnvs, environments: resolvedEnvs } =
     resolveScopeFromInput(allEnvironments, environments);
+  const { allProjects: resolvedAllProjects, projects: resolvedProjects } =
+    resolveProjectScopeFromInput(allProjects, projects);
   const baseRule = {
     id: ruleInput.id ?? "",
     description: ruleInput.description ?? "",
@@ -247,6 +270,8 @@ export function mapV2ApiRuleToFeatureRule(
     })),
     allEnvironments: resolvedAllEnvs,
     environments: resolvedEnvs,
+    allProjects: resolvedAllProjects,
+    projects: resolvedProjects,
   };
 
   if (ruleInput.type === "experiment-ref") {

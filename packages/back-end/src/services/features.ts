@@ -172,6 +172,7 @@ export function generateFeaturesPayload({
   cbMap,
   includeDraftExperimentRefs,
   rampMonitoredRuleMap,
+  payloadProjects,
 }: {
   features: FeatureInterface[];
   experimentMap: Map<string, ExperimentInterface>;
@@ -201,6 +202,7 @@ export function generateFeaturesPayload({
   cbMap?: Map<string, ContextualBanditInterface>;
   includeDraftExperimentRefs?: boolean;
   rampMonitoredRuleMap?: Map<string, RampMonitoredRuleInfo>;
+  payloadProjects?: string[];
 }): Record<string, FeatureDefinition> {
   const defs: Record<string, FeatureDefinition> = {};
   const newFeatures = reduceFeaturesWithPrerequisites(
@@ -244,6 +246,7 @@ export function generateFeaturesPayload({
         includeTagsInMetadata,
       },
       projectsMap,
+      payloadProjects,
       cbMap,
       constantMap: constantMap ?? undefined,
       onConstantCycle: (key) => {
@@ -1384,6 +1387,7 @@ export async function buildSDKPayloadForConnection(
     allowedCustomFieldsInMetadata,
     includeTagsInMetadata,
     projectsMap,
+    payloadProjects: projectList,
     cbMap,
     rampMonitoredRuleMap: data.rampMonitoredRuleMap,
   });
@@ -2194,6 +2198,8 @@ export function normalizeRuleForApiV2(rule: FeatureRule): ApiFeatureRuleV2 {
     ...base,
     allEnvironments: rule.allEnvironments ?? true,
     ...(rule.environments !== undefined && { environments: rule.environments }),
+    allProjects: rule.allProjects ?? true,
+    ...(rule.projects !== undefined && { projects: rule.projects }),
   };
 
   // Split config-backing out of the raw value into a discrete `config` field so

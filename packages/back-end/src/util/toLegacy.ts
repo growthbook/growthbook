@@ -24,6 +24,8 @@ export function toLegacyRule(rule: FeatureRule): V1FeatureRule {
   return omit(rule, [
     "allEnvironments",
     "environments",
+    "allProjects",
+    "projects",
   ]) as unknown as V1FeatureRule;
 }
 

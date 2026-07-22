@@ -37,6 +37,8 @@ import {
   categorizeUnregisteredAttributes,
   getRequireRegisteredAttributesSettings,
   ruleAppliesToEnv,
+  ruleAppliesToProject,
+  ruleAppliesToAnyProject,
   ruleFootprint,
   getRulesForEnvironment,
   getRevertValueValidationWarnings,
@@ -3150,6 +3152,71 @@ describe("ruleAppliesToEnv", () => {
     expect(ruleAppliesToEnv(rule, "production")).toBe(false);
     expect(ruleAppliesToEnv(rule, "dev")).toBe(false);
     expect(ruleAppliesToEnv(rule, "staging")).toBe(false);
+  });
+});
+
+describe("ruleAppliesToProject / ruleAppliesToAnyProject", () => {
+  const baseRule = {
+    type: "force" as const,
+    id: "r1",
+    description: "",
+    enabled: true,
+    allEnvironments: true,
+    value: "x",
+  };
+
+  it("allProjects:true applies to any project regardless of projects[]", () => {
+    const rule = {
+      ...baseRule,
+      allProjects: true,
+      projects: ["p1"],
+    } as FeatureRule;
+    expect(ruleAppliesToProject(rule, "p1")).toBe(true);
+    expect(ruleAppliesToProject(rule, "p2")).toBe(true);
+  });
+
+  it("uses projects[] membership when allProjects is false", () => {
+    const rule = {
+      ...baseRule,
+      allProjects: false,
+      projects: ["p1", "p2"],
+    } as FeatureRule;
+    expect(ruleAppliesToProject(rule, "p1")).toBe(true);
+    expect(ruleAppliesToProject(rule, "p3")).toBe(false);
+  });
+
+  it("permissive fallback when neither field is declared (legacy/default = all)", () => {
+    const rule = { ...baseRule } as FeatureRule;
+    expect(ruleAppliesToProject(rule, "p1")).toBe(true);
+  });
+
+  it("LEAK-SAFE: projects:[] applies to no project (never 'all')", () => {
+    const rule = {
+      ...baseRule,
+      allProjects: false,
+      projects: [],
+    } as FeatureRule;
+    expect(ruleAppliesToProject(rule, "p1")).toBe(false);
+    expect(ruleAppliesToProject(rule, "p2")).toBe(false);
+  });
+
+  it("ruleAppliesToAnyProject: empty served list (unscoped connection) = all rules apply", () => {
+    const scoped = {
+      ...baseRule,
+      allProjects: false,
+      projects: ["p1"],
+    } as FeatureRule;
+    expect(ruleAppliesToAnyProject(scoped, [])).toBe(true);
+  });
+
+  it("ruleAppliesToAnyProject: intersects the rule scope with the served projects", () => {
+    const scoped = {
+      ...baseRule,
+      allProjects: false,
+      projects: ["p1"],
+    } as FeatureRule;
+    expect(ruleAppliesToAnyProject(scoped, ["p2", "p3"])).toBe(false);
+    expect(ruleAppliesToAnyProject(scoped, ["p1", "p3"])).toBe(true);
   });
 });
 

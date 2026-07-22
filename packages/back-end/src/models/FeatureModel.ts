@@ -1564,6 +1564,33 @@ export async function removeProjectFromFeatures(
       logger.error(e, "Error refreshing SDK Payload on feature update");
     });
   });
+
+  // Also drop the deleted project from any RULE-level project scope. A rule
+  // scoped to [deletedProject] becomes scoped to [] (no project) — never "all
+  // projects", because the rule keeps allProjects:false. Rewrites are per-doc
+  // because `rules` is a nested array of Mixed subdocuments.
+  const ruleScopeQuery = {
+    organization: context.org.id,
+    "rules.projects": project,
+  };
+  const ruleScopedDocs = await FeatureModel.find(ruleScopeQuery);
+  for (const doc of ruleScopedDocs || []) {
+    const feature = toInterface(doc, context);
+    const updatedRules = (feature.rules ?? []).map((rule) =>
+      rule && Array.isArray(rule.projects) && rule.projects.includes(project)
+        ? { ...rule, projects: rule.projects.filter((p) => p !== project) }
+        : rule,
+    );
+    await FeatureModel.updateOne(
+      { organization: context.org.id, id: feature.id },
+      { $set: { rules: updatedRules } },
+    );
+
+    const updatedFeature = { ...feature, rules: updatedRules };
+    onFeatureUpdate(context, feature, updatedFeature, project).catch((e) => {
+      logger.error(e, "Error refreshing SDK Payload on feature update");
+    });
+  }
 }
 
 export async function setDefaultValue(
