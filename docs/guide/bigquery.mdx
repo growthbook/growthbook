@@ -1,0 +1,113 @@
+---
+title: GrowthBook and BigQuery
+og:description: This document outlines the steps needed to add your BigQuery database to GrowthBook.
+sidebarTitle: BigQuery
+slug: /guide/bigquery
+---
+
+import { MaxWidthImage } from "/snippets/MaxWidthImage.jsx";
+import { CommercialFeature } from "/snippets/CommercialFeature.jsx";
+
+This document outlines the steps needed to add your BigQuery database to GrowthBook.
+
+## 1. Create a service account for GrowthBook
+
+Within your [Google Cloud console account](https://console.cloud.google.com/iam-admin/serviceaccounts), create a service account for GrowthBook to use
+
+<MaxWidthImage border maxWidth={1000}>
+  <Frame>![Create service account button in BigQuery](/static/images/guides/bigquery-1-addserviceaccount-for-gb-highlited.png)</Frame>
+</MaxWidthImage>
+
+<MaxWidthImage border maxWidth={500}>
+  <Frame>![Create a new service account in BigQuery](/static/images/guides/bigquery-2-addserviceaccount-for-gb3.png)</Frame>
+</MaxWidthImage>
+
+Create a service account name and account ID. On the next page you need to add 3 specific roles:
+
+<MaxWidthImage border maxWidth={500}>
+  <Frame>![Grant roles for service account in BigQuery](/static/images/guides/bigquery-3-addserviceaccount-for-gb4-roles.png)</Frame>
+</MaxWidthImage>
+
+On the Grant page, add the following three permissions roles for read-only access:
+
+- BigQuery Data Viewer
+- BigQuery Metadata Viewer
+- BigQuery Job User
+
+<MaxWidthImage border maxWidth={500}>
+  <Frame>![Additional roles granted for service account](/static/images/guides/bigquery-4-addserviceaccount-for-gb5-roles.png)</Frame>
+</MaxWidthImage>
+
+On the final page when creating a service account, you can skip the optional fields.
+
+You should see the new service account listed, without a `Key ID`. We need to add an access key to this account so the
+credentials can be added to GrowthBook. Click on actions, and select `Manage Keys`.
+
+<MaxWidthImage border maxWidth={1000}>
+  <Frame>![New account listed](/static/images/guides/bigquery-5-getjson-key.png)</Frame>
+</MaxWidthImage>
+
+There are two ways to provide credentials to GrowthBook:
+
+- Auto-discovery from environment variables or GCP metadata (only available when self-hosting)
+- Upload a JSON key file for the service account
+
+We're going to show how to do the JSON key file method. On the keys page, add a new key, and select JSON.
+
+<MaxWidthImage border maxWidth={1000}>
+  <Frame>![Create new key from dashboard](/static/images/guides/bigquery-6-getjson-key2.png)</Frame>
+</MaxWidthImage>
+
+<MaxWidthImage maxWidth={500}>
+  <Frame>![Create private key for GrowthBook popup](/static/images/guides/bigquery-6-getjson-key3.png)</Frame>
+</MaxWidthImage>
+
+This will cause the JSON key to be downloaded to your computer.
+
+## 2. Connect GrowthBook to BigQuery
+
+From the Metrics and Data → Data Source page, click on add new data source and select the event tracker you're using. If your event tracker is not listed, or you're using something custom, click on the "Custom" button at the bottom.
+
+Selecting an event tracker here will pre-populate the experiment exposure query which is need to determine which user saw which experiment
+variation. Depending on your needs, you may still need to adjust these queries to match your specific schema.
+
+<MaxWidthImage maxWidth={500}>
+  <Frame>![Add BigQuery to GrowthBook](/static/images/guides/bigquery-7-add-datasource1.png)</Frame>
+</MaxWidthImage>
+
+Select BigQuery as the data source type.
+
+<MaxWidthImage maxWidth={500}>
+  <Frame>![Selecting BigQuery as the data source type.](/static/images/guides/bigquery-7-add-datasource2.png)</Frame>
+</MaxWidthImage>
+
+Add the names you'd like to use, and select the JSON key file that was downloaded earlier.
+
+Growthbook will use the `Project Id` and `Dataset` you enter as the default ones when creating queries.
+You can get the value for these fields from the [Google Cloud explorer](https://console.cloud.google.com/bigquery).
+You will see the top level project id, and when expanded, find the dataset which has your experiment exposure
+table (which will be `experiment_viewed` if you use Segment or Rudderstack).
+
+<MaxWidthImage maxWidth={500} border>
+  <Frame>![Get default project id and default dataset](/static/images/guides/bigquery-8-getdefault-names.png)</Frame>
+</MaxWidthImage>
+
+When you click save, GrowthBook will test the connection to make sure the credentials are correct. If the connection is successful, you should see a success message on the next page.
+
+## Enabling Data Pipeline Mode
+
+<CommercialFeature feature="pipeline-mode" />
+
+Pipeline mode can reduce query costs if you grant the GrowthBook service account write permissions in your data warehouse.
+
+[More details can be found here.](/app/data-pipeline)
+
+## Monitoring GrowthBook query cost
+
+Whenever we query your BigQuery database we add `{ integration: "growthbook" }` as a label to the query job to make it easy for you to monitor cost or filter GrowthBook query jobs by label for other use cases.
+
+Read more about how to [group by label value for a specific key here.](https://cloud.google.com/billing/docs/how-to/bq-examples#group_by_label_value_for_a_specific_key)
+
+## Troubleshooting
+
+For help debugging missing experiment data in your BigQuery instance, please see our [Google BigQuery (BQ) Troubleshooting Guide](/kb/google-analytics/google-big-query-bq-troubleshooting#initial-sync-delay-for-new-ga4-properties) and our our [Google Analytics (GA4) Troubleshooting Guide](/kb/google-analytics/google-analytics-ga4-troubleshooting)

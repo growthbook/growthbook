@@ -1,0 +1,28 @@
+<CodeGroup>
+
+```java Java
+Experiment<Float> donutPriceExperiment = Experiment
+    .<Float>builder()
+    .conditionJson("{\"employee\": true}")
+    .build();
+ExperimentResult<Float> donutPriceExperimentResult = growthBook.run(donutPriceExperiment);
+
+Float donutPrice = donutPriceExperimentResult.getValue();
+```
+
+
+
+```kotlin Kotlin
+val donutPriceExperiment = Experiment
+    .builder<Float>()
+    .conditionJson("""
+        {
+          "employee": true
+        }
+    """.trimIndent())
+    .build()
+val donutPriceExperimentResult = growthBook.run(donutPriceExperiment)
+
+val donutPrice = donutPriceExperimentResult.value
+```
+</CodeGroup>

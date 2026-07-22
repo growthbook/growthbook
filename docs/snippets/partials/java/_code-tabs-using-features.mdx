@@ -1,0 +1,30 @@
+<CodeGroup>
+
+```java Java
+if (growthBook.isOn("dark_mode")) {
+    // value is truthy
+}
+
+if (growthBook.isOff("dark_mode")) {
+    // value is falsy
+}
+
+Float featureValue = growthBook.getFeatureValue("donut_price", 5.0f);
+FeatureResult<Float> featureResult = growthBook.<Float>evalFeature("donut_price");
+```
+
+
+
+```kotlin Kotlin
+if (growthBook.isOn("dark_mode")) {
+    // value is truthy
+}
+
+if (growthBook.isOff("dark_mode")) {
+    // value is falsy
+}
+
+val featureValue = growthBook.getFeatureValue("donut_price", 5.0f)
+val featureResult = growthBook.evalFeature<Float>("donut_price")
+```
+</CodeGroup>

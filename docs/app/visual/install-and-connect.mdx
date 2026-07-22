@@ -1,0 +1,81 @@
+---
+title: Install and Connect the GrowthBook Visual Editor
+og:description: Install the GrowthBook DevTools Chrome extension and connect it to your GrowthBook account with a single click. No copying API tokens by hand.
+sidebarTitle: Install and connect
+slug: /app/visual/install-and-connect
+---
+
+import { MaxWidthImage } from "/snippets/MaxWidthImage.jsx";
+import { CommercialFeature } from "/snippets/CommercialFeature.jsx";
+
+<CommercialFeature feature="visual-editor" />
+
+The GrowthBook Visual Editor is a standalone Chrome extension. Setup is two clicks and about thirty seconds — install the extension, then click **Connect with GrowthBook**.
+
+## 1. Install the extension
+
+The Visual Editor browser extension. Install it from your browser's extension store:
+
+{/* - **Chrome, Edge, Brave, Arc, and most Chromium browsers** — [GrowthBook Visual Editor on the Chrome Web Store](https://chromewebstore.google.com/detail/growthbook-visual-editor/nbomejknbpkcpjdagefhichaajpoempk) */}
+- **Chrome, Edge, Brave, Arc, and most Chromium browsers** — GrowthBook Visual Editor on the Chrome Web Store. 
+- If you're not already part of the beta, [sign up here](https://www.growthbook.io/events/early-access-ai-visual-editor) to get the extension.
+
+Firefox support coming soon.
+
+## 2. Open the side panel
+
+<MaxWidthImage maxWidth={300}>
+  <Frame>![The GrowthBook Visual Editor Getting Started](/static/images/visual-editor/ve-connect-step1.png)</Frame>
+</MaxWidthImage>
+Open the extension menu from the top right, and choose the GrowthBook Visual Editor Extension.
+
+The first time you open the side panel, you'll see a **Connect with GrowthBook** button.
+
+## 3. Click "Connect with GrowthBook"
+
+<MaxWidthImage maxWidth={300}>
+  <Frame>![The GrowthBook Visual Editor Getting Started](/static/images/visual-editor/ve-connect-step2.png)</Frame>
+</MaxWidthImage>
+
+Click the `connect` button. A new tab opens to GrowthBook. If you're already signed in, the page silently generates a Visual Editor
+access key tied to your account and hands it back to the extension via a secure browser-side message. The tab closes itself,
+the side panel updates to show you're connected, and you're done.
+
+If you're not already signed in, you'll see the GrowthBook login page first. If you are only part of one organization,
+the key generation will happen automatically. If you are part of multiple organizations, you'll see a dropdown to choose
+which one to connect to. After you choose, the key is generated and passed to the extension.
+
+That's it. No copying tokens, no pasting strings, no remembering where the personal-access-token page lives.
+
+<MaxWidthImage maxWidth={300}>
+  <Frame>![The GrowthBook Visual Editor Getting Started](/static/images/visual-editor/ve-connect-step3.png)</Frame>
+</MaxWidthImage>
+
+### Where the key is stored
+
+The access key is stored in the extension's local storage on your machine. It's not synced across browsers, and it's only sent in the `Authorization` header of requests to the GrowthBook API host the extension is configured for.
+
+### Self-hosted GrowthBook
+
+The one-click flow works on GrowthBook Cloud and any self-hosted instance the extension has previously synced with. If you're on a fresh extension install pointing at a self-hosted instance, you may need to:
+
+1. Open the gear menu → **API host** and set your host (e.g., `https://api.growthbook.io` or `https://localhost:3100`).
+2. Paste in your personal access token from your GrowthBook. You can generate a PAT from https://app.growthbook.io/account/personal-access-tokens or the equivalent page on your self-hosted instance.
+3. Click **Connect with GrowthBook**.
+
+## 4. The gear menu
+
+Once connected, there's a gear icon in the side panel header. Open it for:
+
+- **Status** — shows whether the extension is connected and whether the editor is targeting the active tab's domain.
+- **Language** — change the side panel's language. Independent of your GrowthBook web UI language.
+- **Dark mode** — toggles the side panel's UI theme. Independent of your GrowthBook web UI theme.
+- **Change Connection** — change which GrowthBook host you're talking to (e.g., switch from production to staging, or set a self-hosted host) or change the personal access token.
+- **Disconnect** — clear the stored key and return to the disconnected state. Use this when handing off the browser to someone else.
+
+## Next steps
+
+- **[Running on your site](/app/visual/running-on-your-site)** — install the SDK so your variations actually render in production.
+- **[AI mode](/app/visual/ai-mode)** — write your first AI-generated variation.
+- **[Manual mode](/app/visual/manual-mode)** — full reference for the point-and-click editor.
+- **[Visual Editor overview](/app/visual)** — back to the main page.

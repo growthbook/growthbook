@@ -1,0 +1,116 @@
+---
+title: Preview and QA Visual Editor Experiments
+og:description: Preview draft A/B test variations with a querystring link, use the debug panel to diagnose issues, and avoid editing live experiments by mistake.
+sidebarTitle: Preview and QA
+slug: /app/visual/preview-and-qa
+---
+
+import { MaxWidthImage } from "/snippets/MaxWidthImage.jsx";
+import { CommercialFeature } from "/snippets/CommercialFeature.jsx";
+
+<CommercialFeature feature="visual-editor" />
+
+QA is where good A/B tests are made — or where bad ones get caught before they're launched on real users. The [Visual Editor](/app/visual) gives you several tools to verify a variation works on a real browser, on the real page, with the real SDK, before publishing.
+
+## Preview links
+
+While an experiment is in draft, you can preview any variation by adding a querystring to your URL:
+
+```
+https://www.example.com/pricing?my-experiment-id=1
+```
+
+Where:
+
+- `my-experiment-id` is the experiment ID (visible on the right side of the experiment page in GrowthBook under **Settings**).
+- The value is the variation index — `0` for control, `1` for the first variation, `2` for the second, and so on.
+
+The SDK on your site sees the querystring, bypasses its usual targeting/bucketing logic, and forces the user into the named variation. This makes preview links shareable: send the link to a teammate or stakeholder and they'll see the variation on their own browser.
+
+### Enable "Include Drafts" on the SDK Connection
+
+Preview links only work if the SDK has the experiment definition. Draft experiments are _not_ included in the SDK payload by default — you have to opt in:
+
+1. In the GrowthBook UI, go to **SDK Configuration → SDK Connections**.
+2. Open the connection your site uses.
+3. Click **Edit** and enable the **Include Drafts** toggle.
+
+<Warning>
+**Include Drafts exposes all drafts**
+
+Turning on Include Drafts means _every_ draft experiment is in your SDK payload, not just the one you're previewing. This is fine for staging environments but generally not what you want in production. We recommend either using a separate SDK Connection for QA traffic, or only enabling Include Drafts temporarily.
+
+</Warning>
+
+### Once the experiment starts
+
+After the experiment is moved out of draft into the running state, the preview-link querystring still works the same way and `?my-experiment-id=1` still forces variation 1. The difference is that real users (without the querystring) now get bucketed normally.
+
+This is helpful for ongoing QA — if a stakeholder reports "the variation looks wrong," you can send them the preview link to confirm whether the variation is in fact wrong (vs. the user just got bucketed differently than expected).
+
+### Why preview links sometimes don't work
+
+The most common causes:
+
+- **Include Visual Experiments is off** on the SDK Connection. Preview links can't deliver a variation the SDK doesn't have. See [the landing page](/app/visual#allow-visual-experiments-on-the-sdk-connection).
+- **Include Drafts is off** and the experiment is still a draft. The SDK doesn't have the experiment yet.
+- **Wrong SDK Connection / client key**. Your site is loading a different SDK Connection than the one the experiment is associated with.
+- **The URL doesn't match the URL targeting rule.** Even with the querystring, the SDK won't run the experiment on URLs that don't match. Double-check the targeting pattern.
+- **Caching at the CDN or browser level.** A previous request without the querystring may have been cached. Hard-reload (Cmd-Shift-R / Ctrl-Shift-F5) to bypass.
+
+## The debug panel
+
+The Visual Editor includes a Debug Panel showing what the SDK actually evaluated on the active page. Use it to diagnose why a variation isn't showing.
+
+The panel surfaces:
+
+- **SDK initialization** — did the SDK load? Which client key is it using?
+- **URL targeting** — what URL did the SDK see, and which experiments matched?
+- **Bucketing** — which variation did the SDK assign for each running experiment?
+- **Visual changes** — which DOM mutations did the SDK apply, on which elements?
+
+If you're filing a support ticket about a variation not rendering, including a screenshot of the Debug Panel saves several rounds of back-and-forth.
+
+## The live-experiment editing warning
+
+When you open the Visual Editor against an experiment that's **already running**, the side panel shows an amber warning banner at the top.
+
+Here's why that matters:
+
+- A running experiment is actively bucketing users.
+- Visual variations are served from the SDK Connection payload, which the SDK refreshes periodically.
+- When you save a change to a running experiment's variation, the new variation is immediately visible to every bucketed user, the next time their SDK refreshes — typically within minutes.
+
+This is sometimes useful (you spotted a typo in a live variation and want to fix it without restarting). It's more often a foot-gun (you wanted to draft v2 of the variation but accidentally edited v1, and now users are seeing your half-finished work).
+
+If you want to iterate on changes without affecting live users, create a **new variation** or a **new draft experiment** instead.
+
+The amber banner can be dismissed for the current session but reappears the next time you open the side panel against a running experiment.
+
+## The wrong-domain banner
+
+The side panel targets a specific URL (the one you set when creating the experiment). If you switch the active tab to a different domain, the panel shows a banner reminding you that changes won't apply on this page.
+
+You have two options:
+
+- **Create a new experiment** scoped to the new domain.
+- **Update the existing experiment's target URL** to match (if you genuinely wanted to switch domains).
+
+Visual changes are not applied while the banner is showing, even if you make edits — this prevents the editor from accidentally modifying an unrelated page just because it was in your active tab.
+
+## QA checklist before going live
+
+Before moving a Visual Editor experiment out of draft:
+
+- [ ] **Test the preview link** for each variation on the real production-like page.
+- [ ] **Test in multiple browsers** — at minimum Chrome and Safari. Variations sometimes render differently in Safari due to vendor-prefix or layout differences.
+- [ ] **Test on mobile** — open the preview link on a real phone or use Chrome DevTools' device emulation.
+- [ ] **Check the Debug Panel** for unexpected matches or mismatches.
+- [ ] **Verify the SDK Connection** has both Include Visual Experiments and (during testing) Include Drafts turned on.
+- [ ] **Confirm the success metric** is being tracked on the affected page (check the GrowthBook events stream or your own analytics).
+- [ ] **Run a quick QA pass with the team** — share the preview link in Slack or your channel of choice.
+
+## Next steps
+
+- **[Troubleshooting](/app/visual/troubleshooting)** — when the preview doesn't behave as expected.
+- **[Visual Editor overview](/app/visual)** — back to the main page.

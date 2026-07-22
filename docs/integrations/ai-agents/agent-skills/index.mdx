@@ -1,0 +1,137 @@
+---
+title: GrowthBook Agent Skills
+og:description: "Run the full feature-flag and experiment lifecycle from your AI coding agent. Install the GrowthBook Agent Skills for Claude Code, Cursor, and other agents. No MCP server required."
+keywords: [agent skills, AI, Claude Code, Cursor]
+sidebarTitle: Agent Skills
+---
+
+[Agent Skills](https://docs.claude.com/en/docs/agents-and-tools/agent-skills/overview) are folders of instructions, scripts, and resources that an AI agent loads on demand to carry out a specialized task. Anthropic introduced the format, and it works in any agent that follows the [Agent Skills standard](https://agentskills.io), including Claude Code, Cursor, and Codex.
+
+GrowthBook publishes a library of them that runs the entire feature flag and experiment lifecycle from your AI coding agent (create a flag, roll it out, run an experiment, read the results, and clean up afterward) without leaving your editor and **without running an MCP server**.
+
+Each skill is a playbook your agent follows: it knows the GrowthBook REST API, the right order of operations, and the guardrails (draft → review → publish, safe rollouts, two-step deletes) that keep changes safe.
+
+<Info>
+**Open source**
+
+The skills live at [github.com/growthbook/skills](https://github.com/growthbook/skills) and call the [GrowthBook REST API](/app/api) directly through a small bundled helper.
+</Info>
+
+Watch GrowthBook's Head of Experimentation, Luke Sonnet, run an experiment end-to-end using skills.
+
+
+<Frame>
+<iframe width="560" height="315" style={{aspectRatio: "16/9", width: "100%", height: "auto", marginBottom: "1rem"}} src="https://www.youtube.com/embed/FJG9Q5YsnVs" title="YouTube video player" frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerPolicy="strict-origin-when-cross-origin" allowFullScreen></iframe>
+</Frame>
+
+## Prerequisites
+
+- **A GrowthBook account:** [GrowthBook Cloud](https://app.growthbook.io) or a self-hosted instance.
+- **A Personal Access Token (PAT):** create one at [**Account** &rarr; **Personal Access Tokens**](https://app.growthbook.io/account/personal-access-tokens). The token is tied to your GrowthBook user, so flags and experiments the skills create are attributed to you automatically.
+- **Node.js 18+:** check with `node -v`. Many agents already run on it.
+
+## Installation
+
+### 1. Install the plugin
+
+<Tabs>
+  <Tab title="Claude Code">
+
+Add the marketplace, then install the plugin:
+
+```text
+/plugin marketplace add growthbook/skills
+/plugin install growthbook@growthbook-skills
+```
+
+  </Tab>
+  <Tab title="Cursor, Codex, and others">
+
+Install with the [Agent Skills](https://agentskills.io) CLI:
+
+```bash
+npx skills add growthbook/skills
+```
+
+Restart your agent if the skills don't appear right away.
+
+  </Tab>
+</Tabs>
+
+### 2. Configure your credentials
+
+Run the setup skill and follow the prompts:
+
+```text
+/growthbook:gb-setup
+```
+
+It asks for your PAT or API key (and, for self-hosted, your API URL), validates them against the live API, and writes `~/.config/growthbook/.env` with `chmod 600`. Every other skill reads that file automatically.
+
+<Tip>
+**Prefer environment variables?**
+
+The skills read environment variables first and only fall back to the file. Export them instead if you like. Handy for CI:
+
+```bash
+export GB_API_KEY=<your-key>             # required: PAT or Secret Key
+export GB_API_URL=https://api.your-host  # self-hosted only
+```
+
+</Tip>
+
+### 3. Verify
+
+```text
+/growthbook:flag-search
+```
+
+This should list your existing feature flags. If something's off with the credentials, the error points you back to `/growthbook:gb-setup`.
+
+## How skills work
+
+Skills fire two ways:
+
+- **Automatically**, when your agent detects matching intent: "create a feature flag for the pricing page" runs `flag-create`; "what should we test next?" runs `experiment-brainstorm`.
+- **Explicitly**, by typing the slash command, e.g. `/growthbook:flag-search` or `/growthbook:experiment-launch`.
+
+Because each skill names its trigger phrases and routes to sibling skills, they compose cleanly when chained:
+
+- **Flag-first:** `flag-create` → `flag-toggle` → `flag-targeting` → `flag-ramp` / `flag-monitoring` → `flag-cleanup`
+- **Experiment-first:** `experiment-design` → `experiment-launch` → `experiment-analyze` → `experiment-stop` → `flag-cleanup`
+- **Experiment on an existing flag:** `flag-experiment` → `experiment-launch` → `experiment-stop` → `flag-cleanup`
+
+## What's included
+
+The skills fall into three groups. The two reference pages list each one with an example prompt you can run.
+
+- **Setup** — `gb-setup` configures and validates your API credentials.
+- **[Feature flag skills](/integrations/ai-agents/agent-skills/feature-flags)** — create, target, roll out, ramp, monitor, review, publish, search, and clean up flags across their full lifecycle.
+- **[Experiment skills](/integrations/ai-agents/agent-skills/experiments)** — brainstorm, design, launch, analyze, and stop A/B tests.
+
+## Example prompts
+
+- "Create a boolean flag `new-checkout-flow` that defaults to `false`, then roll it out to 10% of US users."
+- "What feature flags are stale and safe to clean up?"
+- "Design an A/B test for the new pricing page and launch it on the `pricing-v2` flag."
+- "What are the results of our checkout experiment? Should we ship the winner?"
+- "Stop the `homepage-hero` experiment and roll the winning variation out to everyone."
+
+## Safety and governance
+
+The skills follow GrowthBook's built-in safeguards:
+
+- **Draft → review → publish.** Every flag change is staged on a draft revision. Skills route through `flag-review` and `flag-publish` so approvals and merge conflicts are handled the same way they are in the app. See [Publishing & approval flows](/features/publishing-and-approval-flows).
+- **Two-step deletes.** `flag-cleanup` archives a flag, pauses for you to verify nothing broke, and only then deletes. It won't collapse those steps.
+- **Read-only by default where it matters.** `flag-search`, `flag-graph`, `experiment-brainstorm`, `experiment-design`, and `experiment-analyze` never write.
+- **Secrets stay local.** `gb-setup` writes your key to a `0600` file and recommends a scoped PAT you can revoke independently.
+
+## Next steps
+
+- [Feature flag skills](/integrations/ai-agents/agent-skills/feature-flags): the full flag catalog
+- [Experiment skills](/integrations/ai-agents/agent-skills/experiments): design, launch, analyze, and stop tests
+- [Agent Skills vs. the MCP Server](/integrations/ai-agents)
+- [GrowthBook REST API](/app/api), which the skills call under the hood
+- [Skills source on GitHub](https://github.com/growthbook/skills)
+
+[Join our community Slack for additional help, tips, and announcements](https://join.slack.com/t/growthbookusers/shared_invite/zt-2xw8fu279-Y~hwnfCEf7WrEI9qScHURQ)

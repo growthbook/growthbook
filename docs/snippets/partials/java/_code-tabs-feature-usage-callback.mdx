@@ -1,0 +1,49 @@
+<CodeGroup>
+
+```java Java
+String featuresJson = featuresRepository.getFeaturesJson();
+String userAttributesJson = user.toJson();
+
+FeatureUsageCallback featureUsageCallback = new FeatureUsageCallback() {
+    @Override
+    public <ValueType> void onFeatureUsage(String featureKey, FeatureResult<ValueType> result) {
+        // TODO: Something with the feature result
+    }
+};
+
+GBContext context = GBContext
+    .builder()
+    .featuresJson(featuresJson)
+    .featureUsageCallback(featureUsageCallback)
+    .attributesJson(userAttributesJson)
+    .build();
+
+GrowthBook growthBook = new GrowthBook(context);
+```
+
+
+```kotlin Kotlin
+val featuresJson = featuresRepository.getFeaturesJson()
+val userAttributes = """
+    {
+        "id": "user-abc123",
+        "country": "canada"
+    }
+""".trimIndent()
+
+val featureUsageCallback = object : FeatureUsageCallback {
+    override fun <ValueType : Any?> onFeatureUsage(featureKey: String?, result: FeatureResult<ValueType>?) {
+        TODO("Something with the feature result")
+    }
+}
+
+val context = GBContext
+    .builder()
+    .featuresJson(featuresJson)
+    .featureUsageCallback(featureUsageCallback)
+    .attributesJson(userAttributes)
+    .build()
+
+val growthBook = GrowthBook(context)
+```
+</CodeGroup>
