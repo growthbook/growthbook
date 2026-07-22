@@ -12,7 +12,7 @@ import {
 import { isScopedConfig } from "shared/util";
 import { LineageNode } from "@/components/Configs/fieldSchema";
 import Tooltip from "@/ui/Tooltip";
-import Badge from "@/ui/Badge";
+import CounterBadge from "@/ui/Badge/CounterBadge";
 import styles from "./LineageTree.module.scss";
 
 // Label for a flavor row: its environment(s), else project(s), else its name.
@@ -117,23 +117,11 @@ export default function LineageTree({
     childrenOf(parentKey).filter((c) => !isScopedConfig(c));
 
   // Field-count pill, matching the counter badges on the Configs/Features tabs.
-  // Center the digit (the badge's min-width otherwise left-aligns it) and keep it
-  // from shrinking when a deeply-nested row gets tight in the narrow sidebar.
   const countBadge = (count: number) => (
     <Tooltip
       content={`${count} field${count === 1 ? "" : "s"} defined in this config`}
     >
-      <Badge
-        size="xs"
-        color="gray"
-        radius="full"
-        label={`${count}`}
-        style={{
-          flexShrink: 0,
-          justifyContent: "center",
-          textAlign: "center",
-        }}
-      />
+      <CounterBadge color="neutral" count={count} />
     </Tooltip>
   );
 
@@ -381,17 +369,7 @@ export default function LineageTree({
               flavors.length === 1 ? "" : "s"
             }`}
           >
-            <Badge
-              size="xs"
-              color="gray"
-              radius="full"
-              label={`${flavors.length}`}
-              style={{
-                flexShrink: 0,
-                justifyContent: "center",
-                textAlign: "center",
-              }}
-            />
+            <CounterBadge color="neutral" count={flavors.length} />
           </Tooltip>
         </Flex>
         {isOpen && (

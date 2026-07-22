@@ -12,7 +12,7 @@ import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import Text from "@/ui/Text";
 import FeatureValueTypeDisplay from "@/components/Features/FeatureValueTypeDisplay";
 import Heading from "@/ui/Heading";
-import Badge from "@/ui/Badge";
+import CounterBadge from "@/ui/Badge/CounterBadge";
 import { useUser } from "@/services/UserContext";
 import useApi from "@/hooks/useApi";
 // eslint-disable-next-line no-restricted-imports -- legacy Modal still backs the watchers modal; migrate to @/ui/Modal in a follow-up
@@ -555,13 +555,10 @@ export default function FeaturesHeader({
                     Review &amp; Publish
                     {activeDraftCount > 0 && (
                       <Tooltip body={draftStatusTooltip(draftStatusCounts)}>
-                        <Badge
-                          label={String(activeDraftCount)}
+                        <CounterBadge
                           color="red"
-                          variant="solid"
-                          radius="full"
+                          count={activeDraftCount}
                           ml="2"
-                          style={{ minWidth: 18, height: 18 }}
                         />
                       </Tooltip>
                     )}

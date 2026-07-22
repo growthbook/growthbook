@@ -25,7 +25,7 @@ import { format } from "date-fns-tz";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAuth } from "@/services/auth";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
-import Avatar from "@/ui/Avatar";
+import CounterBadge from "@/ui/Badge/CounterBadge";
 import Modal from "@/components/Modal";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -1078,19 +1078,11 @@ export default function ExperimentHeader({
                       disabled={!usersWatching.length}
                     >
                       <Flex as="div" align="center">
-                        <IconButton
-                          style={{
-                            marginRight: "5px",
-                            backgroundColor:
-                              usersWatching.length > 0
-                                ? "var(--violet-9)"
-                                : "var(--slate-9)",
-                          }}
-                          radius="full"
-                          size="1"
-                        >
-                          {usersWatching.length || 0}
-                        </IconButton>
+                        <CounterBadge
+                          color="neutral"
+                          count={usersWatching.length || 0}
+                          mr="1"
+                        />
                         {usersWatching.length > 0
                           ? "View watchers"
                           : "No watchers"}
@@ -1290,9 +1282,11 @@ export default function ExperimentHeader({
                         >
                           Health
                           {healthNotificationCount > 0 ? (
-                            <Avatar size="sm" ml="2" color="red">
-                              {healthNotificationCount}
-                            </Avatar>
+                            <CounterBadge
+                              color="red"
+                              count={healthNotificationCount}
+                              ml="2"
+                            />
                           ) : null}
                         </TabsTrigger>
                       )}

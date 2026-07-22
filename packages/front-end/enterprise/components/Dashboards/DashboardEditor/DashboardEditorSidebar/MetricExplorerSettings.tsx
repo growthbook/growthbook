@@ -14,7 +14,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import PopulationChooser from "@/components/MetricAnalysis/PopulationChooser";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Button from "@/ui/Button";
-import Badge from "@/ui/Badge";
+import CounterBadge from "@/ui/Badge/CounterBadge";
 import Tooltip from "@/components/Tooltip/Tooltip";
 
 interface Props {
@@ -342,18 +342,14 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
                       size={20}
                     />
                     Filters
-                    <Badge
-                      label={
-                        (
-                          (block.analysisSettings.additionalNumeratorFilters
-                            ?.length || 0) +
-                          (block.analysisSettings.additionalDenominatorFilters
-                            ?.length || 0)
-                        ).toString() || "0"
+                    <CounterBadge
+                      color="indigo"
+                      count={
+                        (block.analysisSettings.additionalNumeratorFilters
+                          ?.length || 0) +
+                        (block.analysisSettings.additionalDenominatorFilters
+                          ?.length || 0)
                       }
-                      color="violet"
-                      radius="full"
-                      variant="soft"
                     />
                   </Flex>
                   <Flex align="center" gap="1">

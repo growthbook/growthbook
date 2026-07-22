@@ -25,7 +25,7 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { isHoldoutEnabledAnyEnv } from "@/hooks/useHoldouts";
 import Switch from "@/ui/Switch";
 import Button from "@/ui/Button";
-import Badge from "@/ui/Badge";
+import CounterBadge from "@/ui/Badge/CounterBadge";
 import Text from "@/ui/Text";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import {
@@ -337,16 +337,12 @@ export default function FeatureRules({
               >
                 <Flex align="center" gap="2">
                   All Environments
-                  <Badge
-                    label={String(
+                  <CounterBadge
+                    color="neutral"
+                    count={
                       (feature.rules?.length ?? 0) +
-                        (includeHoldoutRuleAllEnvs ? 1 : 0),
-                    )}
-                    radius="full"
-                    variant="soft"
-                    color="gray"
-                    size="sm"
-                    style={{ marginRight: -4 }}
+                      (includeHoldoutRuleAllEnvs ? 1 : 0)
+                    }
                   />
                 </Flex>
               </TabsTrigger>
@@ -367,14 +363,7 @@ export default function FeatureRules({
                   >
                     <Flex align="center" gap="2">
                       {e.id}
-                      <Badge
-                        label={String(count)}
-                        radius="full"
-                        variant="soft"
-                        color="gray"
-                        size="sm"
-                        style={{ marginRight: -4 }}
-                      />
+                      <CounterBadge color="neutral" count={count} />
                     </Flex>
                   </TabsTrigger>
                 );
@@ -461,13 +450,7 @@ export default function FeatureRules({
                 >
                   <Flex align="center" justify="between" gap="3" width="100%">
                     <span>{label}</span>
-                    <Badge
-                      label={String(count)}
-                      radius="full"
-                      variant="soft"
-                      color="gray"
-                      size="sm"
-                    />
+                    <CounterBadge color="neutral" count={count} />
                   </Flex>
                 </DropdownMenuItem>
               ))}

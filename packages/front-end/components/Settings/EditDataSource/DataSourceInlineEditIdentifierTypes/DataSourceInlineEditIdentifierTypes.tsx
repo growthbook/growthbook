@@ -11,7 +11,7 @@ import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/Edit
 import { EditIdentifierType } from "@/components/Settings/EditDataSource/DataSourceInlineEditIdentifierTypes/EditIdentifierType";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Badge from "@/ui/Badge";
+import CounterBadge from "@/ui/Badge/CounterBadge";
 import Button from "@/ui/Button";
 import Metadata from "@/ui/Metadata";
 import Text from "@/ui/Text";
@@ -134,7 +134,7 @@ export const DataSourceInlineEditIdentifierTypes: FC<
           <Heading as="h3" size="medium" mb="0">
             Identifier Types
           </Heading>
-          <Badge label={userIdTypes.length + ""} color="gray" radius="medium" />
+          <CounterBadge color="neutral" count={userIdTypes.length} />
         </Flex>
         <Box>
           <Button variant="solid" onClick={handleAdd} disabled={!canEdit}>

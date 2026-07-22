@@ -1,0 +1,5 @@
+// slate isn't a Radix accent; :global(.rt-Badge) raises specificity to paint it.
+.betaBadge:global(.rt-Badge) {
+  background-color: var(--slate-12);
+  color: var(--slate-1);
+}

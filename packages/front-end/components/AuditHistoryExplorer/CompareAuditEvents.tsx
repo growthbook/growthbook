@@ -33,6 +33,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import Callout from "@/ui/Callout";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import Badge from "@/ui/Badge";
+import CounterBadge from "@/ui/Badge/CounterBadge";
 import {
   ExpandableDiff,
   useDiffFormat,
@@ -421,12 +422,7 @@ export default function CompareAuditEvents<T>({
               <Text weight="semibold">{getEntryLabel(entry)}</Text>
             </Flex>
             {entry.count > 1 && (
-              <Badge
-                label={String(entry.count)}
-                color="violet"
-                variant="soft"
-                title={`${entry.count} changes merged`}
-              />
+              <CounterBadge color="neutral" count={entry.count} />
             )}
           </Flex>
           <Text size="small" color="text-low">
@@ -617,12 +613,9 @@ export default function CompareAuditEvents<T>({
                       <Link>
                         Filters
                         {activeFilterCount > 0 && (
-                          <Badge
+                          <CounterBadge
                             color="indigo"
-                            variant="solid"
-                            radius="full"
-                            label={String(activeFilterCount)}
-                            style={{ minWidth: 18, height: 18, marginTop: 1 }}
+                            count={activeFilterCount}
                             ml="1"
                           />
                         )}

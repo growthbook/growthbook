@@ -4,7 +4,7 @@ import { PiCaretRightFill } from "react-icons/pi";
 import Collapsible from "react-collapsible";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
-import Badge from "@/ui/Badge";
+import CounterBadge from "@/ui/Badge/CounterBadge";
 import ProjectBadges from "@/components/ProjectBadges";
 import Pagination from "@/ui/Pagination";
 
@@ -69,7 +69,7 @@ const AttributeReferencesList: FC<AttributeReferencesListProps> = ({
                 <Heading as="h3" size="small" mb="0">
                   Features
                 </Heading>
-                <Badge radius="full" label={features.length.toString()} />
+                <CounterBadge color="neutral" count={features.length} />
               </Flex>
             }
             open={true}
@@ -139,7 +139,7 @@ const AttributeReferencesList: FC<AttributeReferencesListProps> = ({
                 <Heading as="h3" size="small" mb="0">
                   Experiments
                 </Heading>
-                <Badge radius="full" label={experiments.length.toString()} />
+                <CounterBadge color="neutral" count={experiments.length} />
               </Flex>
             }
             open={true}
@@ -216,10 +216,7 @@ const AttributeReferencesList: FC<AttributeReferencesListProps> = ({
                 <Heading as="h3" size="small" mb="0">
                   Condition Groups
                 </Heading>
-                <Badge
-                  radius="full"
-                  label={conditionGroups.length.toString()}
-                />
+                <CounterBadge color="neutral" count={conditionGroups.length} />
               </Flex>
             }
             open={true}

@@ -27,7 +27,7 @@ import { autoUpdateDisabledMessage } from "@/enterprise/components/Dashboards/Da
 import Link from "@/ui/Link";
 import { BLOCK_TYPE_INFO } from "@/enterprise/components/Dashboards/DashboardEditor";
 import Avatar from "@/ui/Avatar";
-import Badge from "@/ui/Badge";
+import CounterBadge from "@/ui/Badge/CounterBadge";
 
 type FormValues = {
   dashboardId: string;
@@ -385,9 +385,9 @@ export function SelectDashboardAndBlockPage({
             <Box my="1">
               <Text>
                 Filters{" "}
-                <Badge
-                  radius="full"
-                  label={String(sliceTagsCount + metricsCount + metricTagCount)}
+                <CounterBadge
+                  color="neutral"
+                  count={sliceTagsCount + metricsCount + metricTagCount}
                 />
               </Text>
               <Box ml="2" mb="1">

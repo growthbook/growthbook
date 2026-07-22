@@ -12,7 +12,7 @@ import {
 } from "@/ui/DropdownMenu";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
-import Badge from "@/ui/Badge";
+import CounterBadge from "@/ui/Badge/CounterBadge";
 import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
 import { useAuth } from "@/services/auth";
 import { DashboardSnapshotContext } from "./DashboardSnapshotProvider";
@@ -174,12 +174,10 @@ export default function DashboardsTabMoreMenu({
           {queryStrings.length > 0 || savedQueryIds.length > 0 ? (
             <DropdownMenuItem onClick={handleViewQueries}>
               View queries
-              <Badge
-                variant="soft"
-                radius="full"
-                label={String(count)}
+              <CounterBadge
+                count={count}
                 ml="2"
-                color={error ? "red" : undefined}
+                color={error ? "red" : "neutral"}
               />
             </DropdownMenuItem>
           ) : null}

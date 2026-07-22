@@ -1,12 +1,14 @@
 import React, { useMemo } from "react";
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex, Separator } from "@radix-ui/themes";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import Frame from "@/ui/Frame";
 
 import AnalysisResultSummaryStories from "@/ui/AnalysisResultSummary.stories";
 import AvatarStories from "@/ui/Avatar.stories";
-import BadgeStories from "@/ui/Badge.stories";
+import BadgeStories from "@/ui/Badge/Badge.stories";
+import BetaBadgeStories from "@/ui/Badge/BetaBadge.stories";
+import CounterBadgeStories from "@/ui/Badge/CounterBadge.stories";
 import BreadcrumbsStories from "@/ui/Breadcrumbs.stories";
 import ButtonStories from "@/ui/Button.stories";
 import CalloutStories from "@/ui/Callout.stories";
@@ -41,7 +43,9 @@ import ModalStories from "@/ui/Modal/Modal.stories";
 type StoryEntry = {
   name: string;
   description?: React.ReactNode;
-  Stories: () => React.ReactNode;
+  Stories: () => React.ReactElement;
+  // Variants rendered inside the same box, under sub-headings.
+  flavors?: StoryEntry[];
 };
 
 const TOP_NAV_HEIGHT = 56;
@@ -53,57 +57,67 @@ const SIDEBAR_MAX_HEIGHT = `calc(100vh - ${
 }px)`;
 
 export default function DesignSystemPage() {
-  const components = [
-    {
-      name: "AnalysisResultSummary",
-      description: (
-        <>
-          This displays the results of an analysis in a compact way. It is
-          usually rendered inside of a Tooltip or Popover when hovering over
-          Experiment results.
-        </>
-      ),
-      Stories: AnalysisResultSummaryStories,
-    },
-    { name: "Avatar", Stories: AvatarStories },
-    { name: "Badge", Stories: BadgeStories },
-    { name: "Breadcrumbs", Stories: BreadcrumbsStories },
-    { name: "Button", Stories: ButtonStories },
-    { name: "Callout", Stories: CalloutStories },
-    { name: "Checkbox", Stories: CheckboxStories },
-    { name: "DataList", Stories: DataListStories },
-    { name: "DatePicker", Stories: DatePickerStories },
-    { name: "DropdownMenu", Stories: DropdownMenuStories },
-    {
-      name: "ExperimentResultIndicator",
-      Stories: ExperimentResultIndicatorStories,
-    },
-    {
-      name: "ExperimentStatusIndicator",
-      Stories: ExperimentStatusIndicatorStories,
-    },
-    { name: "VariationLabel", Stories: VariationLabelStories },
-    { name: "VariationNumber", Stories: VariationNumberStories },
-    { name: "VariationStatsTable", Stories: VariationStatsTableStories },
-    { name: "Text", Stories: TextStories },
-    { name: "Heading", Stories: HeadingStories },
-    { name: "HelperText", Stories: HelperTextStories },
-    { name: "Link", Stories: LinkStories },
-    { name: "Metadata", Stories: MetadataStories },
-    { name: "Pagination", Stories: PaginationStories },
-    { name: "Popover", Stories: PopoverStories },
-    { name: "PremiumCallout", Stories: PremiumCalloutStories },
-    { name: "ProgressBar", Stories: ProgressBarStories },
-    { name: "RadioCards", Stories: RadioCardsStories },
-    { name: "RadioGroup", Stories: RadioGroupStories },
-    { name: "Select", Stories: SelectStories },
-    { name: "Slider", Stories: SliderStories },
-    { name: "Stepper", Stories: StepperStories },
-    { name: "Switch", Stories: SwitchStories },
-    { name: "Table", Stories: TableStories },
-    { name: "Tabs", Stories: TabsStories },
-    { name: "Modal", Stories: ModalStories },
-  ] satisfies StoryEntry[];
+  const components: StoryEntry[] = useMemo(
+    () => [
+      {
+        name: "AnalysisResultSummary",
+        description: (
+          <>
+            This displays the results of an analysis in a compact way. It is
+            usually rendered inside of a Tooltip or Popover when hovering over
+            Experiment results.
+          </>
+        ),
+        Stories: AnalysisResultSummaryStories,
+      },
+      { name: "Avatar", Stories: AvatarStories },
+      {
+        name: "Badge",
+        Stories: BadgeStories,
+        flavors: [
+          { name: "BetaBadge", Stories: BetaBadgeStories },
+          { name: "CounterBadge", Stories: CounterBadgeStories },
+        ],
+      },
+      { name: "Breadcrumbs", Stories: BreadcrumbsStories },
+      { name: "Button", Stories: ButtonStories },
+      { name: "Callout", Stories: CalloutStories },
+      { name: "Checkbox", Stories: CheckboxStories },
+      { name: "DataList", Stories: DataListStories },
+      { name: "DatePicker", Stories: DatePickerStories },
+      { name: "DropdownMenu", Stories: DropdownMenuStories },
+      {
+        name: "ExperimentResultIndicator",
+        Stories: ExperimentResultIndicatorStories,
+      },
+      {
+        name: "ExperimentStatusIndicator",
+        Stories: ExperimentStatusIndicatorStories,
+      },
+      { name: "VariationLabel", Stories: VariationLabelStories },
+      { name: "VariationNumber", Stories: VariationNumberStories },
+      { name: "VariationStatsTable", Stories: VariationStatsTableStories },
+      { name: "Text", Stories: TextStories },
+      { name: "Heading", Stories: HeadingStories },
+      { name: "HelperText", Stories: HelperTextStories },
+      { name: "Link", Stories: LinkStories },
+      { name: "Metadata", Stories: MetadataStories },
+      { name: "Pagination", Stories: PaginationStories },
+      { name: "Popover", Stories: PopoverStories },
+      { name: "PremiumCallout", Stories: PremiumCalloutStories },
+      { name: "ProgressBar", Stories: ProgressBarStories },
+      { name: "RadioCards", Stories: RadioCardsStories },
+      { name: "RadioGroup", Stories: RadioGroupStories },
+      { name: "Select", Stories: SelectStories },
+      { name: "Slider", Stories: SliderStories },
+      { name: "Stepper", Stories: StepperStories },
+      { name: "Switch", Stories: SwitchStories },
+      { name: "Table", Stories: TableStories },
+      { name: "Tabs", Stories: TabsStories },
+      { name: "Modal", Stories: ModalStories },
+    ],
+    [],
+  );
 
   const entries = useMemo(
     () =>
@@ -157,12 +171,24 @@ export default function DesignSystemPage() {
           <h1 className="mb-4">GrowthBook Design System</h1>
           <div className="pagecontents">
             <Flex gap="4" direction="column">
-              {entries.map(({ name, description, Stories, id }) => (
+              {entries.map(({ name, description, Stories, flavors, id }) => (
                 <Frame key={id} id={id} style={{ scrollMarginTop: 90 }}>
                   <Flex direction="column" gap="3">
                     <h3 className="mb-1">{name}</h3>
                     <Text>{description}</Text>
                     <Stories />
+                    {flavors?.map((flavor) => (
+                      <Box key={flavor.name}>
+                        <Separator size="4" my="4" />
+                        <Flex direction="column" gap="3">
+                          <h4 className="mb-1">{flavor.name}</h4>
+                          {flavor.description && (
+                            <Text>{flavor.description}</Text>
+                          )}
+                          <flavor.Stories />
+                        </Flex>
+                      </Box>
+                    ))}
                   </Flex>
                 </Frame>
               ))}

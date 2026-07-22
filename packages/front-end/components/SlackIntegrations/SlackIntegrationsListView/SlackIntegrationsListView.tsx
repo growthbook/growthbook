@@ -20,6 +20,7 @@ import { useEnvironments } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
+import BetaBadge from "@/ui/Badge/BetaBadge";
 
 type SlackIntegrationsListViewProps = {
   onEditModalOpen: (id: string, data: SlackIntegrationEditParams) => void;
@@ -82,7 +83,7 @@ export const SlackIntegrationsListView: FC<SlackIntegrationsListViewProps> = ({
       {/* Heading w/ beta messaging */}
       <div className="mb-4">
         <div className="d-flex justify-space-between align-items-center">
-          <span className="badge badge-purple text-uppercase mr-2">Beta</span>
+          <BetaBadge mr="2" />
           <h1>Slack Integrations</h1>
         </div>
         <p>Get alerts in Slack when your GrowthBook data is updated.</p>

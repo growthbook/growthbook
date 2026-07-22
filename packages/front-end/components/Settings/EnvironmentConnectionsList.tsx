@@ -5,7 +5,7 @@ import Collapsible from "react-collapsible";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
-import Badge from "@/ui/Badge";
+import CounterBadge from "@/ui/Badge/CounterBadge";
 
 interface EnvironmentConnectionsListProps {
   connections: SDKConnectionInterface[];
@@ -33,7 +33,7 @@ const EnvironmentConnectionsList: FC<EnvironmentConnectionsListProps> = ({
               <Heading as="h3" size="small" mb="0">
                 SDK Connections
               </Heading>
-              <Badge radius="full" label={connections.length.toString()} />
+              <CounterBadge color="neutral" count={connections.length} />
             </Flex>
           }
           open={true}

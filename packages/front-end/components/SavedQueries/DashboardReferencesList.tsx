@@ -5,7 +5,7 @@ import Collapsible from "react-collapsible";
 import { DashboardInterface } from "shared/enterprise";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
-import Badge from "@/ui/Badge";
+import CounterBadge from "@/ui/Badge/CounterBadge";
 
 interface DashboardReferencesListProps {
   dashboards: DashboardInterface[];
@@ -33,7 +33,7 @@ const DashboardReferencesList: FC<DashboardReferencesListProps> = ({
               <Heading as="h3" size="small" mb="0">
                 Dashboards
               </Heading>
-              <Badge radius="full" label={dashboards.length.toString()} />
+              <CounterBadge color="neutral" count={dashboards.length} />
             </Flex>
           }
           open={true}

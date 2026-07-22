@@ -53,7 +53,7 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { getAutoCompletions } from "@/services/sqlAutoComplete";
 import Field from "@/components/Forms/Field";
 import OptInModal from "@/components/License/OptInModal";
-import Badge from "@/ui/Badge";
+import BetaBadge from "@/ui/Badge/BetaBadge";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import { SqlExplorerDataVisualization } from "@/components/DataViz/SqlExplorerDataVisualization";
 import Modal from "@/components/Modal";
@@ -1086,17 +1086,7 @@ export default function SqlExplorerModal({
                                       onClick={handleAIClick}
                                     >
                                       <BsStars /> Text to SQL{" "}
-                                      <Badge
-                                        label="BETA"
-                                        color="amber"
-                                        variant="solid"
-                                        style={{
-                                          margin: "0 4px",
-                                          paddingTop: "1px",
-                                          backgroundColor: "var(--slate-12)",
-                                          color: "var(--gray-1)",
-                                        }}
-                                      />
+                                      <BetaBadge mx="1" />
                                       <FiChevronRight
                                         style={{
                                           transform: openAIBox

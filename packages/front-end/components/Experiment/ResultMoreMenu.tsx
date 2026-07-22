@@ -23,7 +23,7 @@ import {
   getPipelineSettingsAfterReenablingExperiment,
 } from "@/services/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Badge from "@/ui/Badge";
+import CounterBadge from "@/ui/Badge/CounterBadge";
 import { useUser } from "@/services/UserContext";
 import { useIncrementalPipelineUnsupportedReason } from "@/hooks/useIncrementalPipelineUnsupportedReason";
 import { useSnapshot } from "./SnapshotProvider";
@@ -399,12 +399,10 @@ export default function ResultMoreMenu({
           {queryStrings.length > 0 ? (
             <DropdownMenuItem onClick={handleViewQueries}>
               View queries
-              <Badge
-                variant="soft"
-                radius="full"
-                label={String(queryStrings.length)}
+              <CounterBadge
+                count={queryStrings.length}
                 ml="2"
-                color={error ? "red" : undefined}
+                color={error ? "red" : "neutral"}
               />
             </DropdownMenuItem>
           ) : null}

@@ -16,7 +16,7 @@ import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { SingleValue } from "@/components/Forms/SelectField";
 import { Popover } from "@/ui/Popover";
 import Button from "@/ui/Button";
-import Badge from "@/ui/Badge";
+import CounterBadge from "@/ui/Badge/CounterBadge";
 import Link from "@/ui/Link";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import HelperText from "@/ui/HelperText";
@@ -422,13 +422,7 @@ export default function ResultsFilter({
             <Flex align="center" gap="1">
               <span>Filters</span>
               {activeFilterCount > 0 && (
-                <Badge
-                  color="indigo"
-                  variant="solid"
-                  radius="full"
-                  label={String(activeFilterCount)}
-                  style={{ minWidth: 18, height: 18, marginTop: 1 }}
-                />
+                <CounterBadge color="indigo" count={activeFilterCount} />
               )}
             </Flex>
           </Button>
@@ -441,13 +435,7 @@ export default function ResultsFilter({
                   <Flex align="center" gap="1">
                     Filters
                     {activeFilterCount > 0 && (
-                      <Badge
-                        color="indigo"
-                        variant="solid"
-                        radius="full"
-                        label={String(activeFilterCount)}
-                        style={{ minWidth: 18, height: 18 }}
-                      />
+                      <CounterBadge color="indigo" count={activeFilterCount} />
                     )}
                   </Flex>
                 </Heading>

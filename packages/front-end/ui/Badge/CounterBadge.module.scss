@@ -1,0 +1,12 @@
+// :global(.rt-Badge) raises specificity above Radix's own badge styling.
+.counterBadge:global(.rt-Badge) {
+  height: 16px;
+  justify-content: center;
+  text-align: center;
+}
+
+// "neutral" isn't a Radix accent, so paint it directly with the slate scale.
+.neutral:global(.rt-Badge) {
+  background-color: var(--slate-a3);
+  color: var(--slate-12);
+}

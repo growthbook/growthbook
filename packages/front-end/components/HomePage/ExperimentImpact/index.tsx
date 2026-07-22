@@ -18,7 +18,7 @@ import Switch from "@/ui/Switch";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
-import Avatar from "@/ui/Avatar";
+import CounterBadge from "@/ui/Badge/CounterBadge";
 import DSTooltip from "@/ui/Tooltip";
 import DatePicker from "@/components/DatePicker";
 import { GBInfo } from "@/components/Icons";
@@ -591,21 +591,27 @@ export default function ExperimentImpact({
               <TabsTrigger value="summary">Summary</TabsTrigger>
               <TabsTrigger value="winner">
                 Won
-                <Avatar color="gray" variant="soft" ml="2" size="sm">
-                  {summaryObj.winners.experiments.length}
-                </Avatar>
+                <CounterBadge
+                  color="neutral"
+                  count={summaryObj.winners.experiments.length}
+                  ml="2"
+                />
               </TabsTrigger>
               <TabsTrigger value="loser">
                 Lost
-                <Avatar color="gray" variant="soft" ml="2" size="sm">
-                  {summaryObj.losers.experiments.length}
-                </Avatar>
+                <CounterBadge
+                  color="neutral"
+                  count={summaryObj.losers.experiments.length}
+                  ml="2"
+                />
               </TabsTrigger>
               <TabsTrigger value="other">
                 Other
-                <Avatar color="gray" variant="soft" ml="2" size="sm">
-                  {summaryObj.others.experiments.length}
-                </Avatar>
+                <CounterBadge
+                  color="neutral"
+                  count={summaryObj.others.experiments.length}
+                  ml="2"
+                />
               </TabsTrigger>
             </TabsList>
 

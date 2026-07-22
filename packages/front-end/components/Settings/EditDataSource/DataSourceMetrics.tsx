@@ -19,7 +19,7 @@ import {
   MetricModalState,
 } from "@/components/FactTables/NewMetricModal";
 import { useCombinedMetrics } from "@/components/Metrics/MetricsList";
-import Badge from "@/ui/Badge";
+import CounterBadge from "@/ui/Badge/CounterBadge";
 import Button from "@/ui/Button";
 import LinkButton from "@/ui/LinkButton";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -95,11 +95,7 @@ export default function DataSourceMetrics({
             <Heading as="h4" size="4" mb="0">
               Metrics
             </Heading>
-            <Badge
-              label={metrics && metrics.length > 0 ? metrics.length + "" : "0"}
-              color="gray"
-              radius="medium"
-            />
+            <CounterBadge color="neutral" count={metrics.length} />
           </Flex>
         </Box>
         {canEdit &&

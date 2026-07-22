@@ -38,7 +38,7 @@ import Modal from "@/components/Modal";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
 import { Select, SelectItem } from "@/ui/Select";
-import Badge from "@/ui/Badge";
+import CounterBadge from "@/ui/Badge/CounterBadge";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import RevisionLabel, {
   revisionLabelText,
@@ -1340,14 +1340,7 @@ export default function CompareRevisionsModal<
                         <Link>
                           Filters
                           {count > 0 && (
-                            <Badge
-                              color="indigo"
-                              variant="solid"
-                              radius="full"
-                              label={String(count)}
-                              style={{ minWidth: 18, height: 18, marginTop: 1 }}
-                              ml="1"
-                            />
+                            <CounterBadge color="indigo" count={count} ml="1" />
                           )}
                         </Link>
                       }
