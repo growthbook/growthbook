@@ -2891,7 +2891,7 @@ export async function createAndPublishRevision({
   // triggering approval and creating dangling per-env settings.
   const orgEnvironments = getEnvironmentIdsFromOrg(org);
   const orgEnvObjects = getEnvironments(org);
-  const applicableEnvIds = getApplicableEnvIds(orgEnvObjects, feature.project);
+  const applicableEnvIds = getApplicableEnvIds(orgEnvObjects, feature);
   const applicableEnvSet = new Set(applicableEnvIds);
   const allEnvironments = orgEnvironments.filter((e) =>
     applicableEnvSet.has(e),

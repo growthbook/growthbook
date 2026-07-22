@@ -70,7 +70,7 @@ export function toLegacyFeature(
   feature: FeatureInterface,
   orgEnvs: Environment[],
 ): V1FeatureInterface {
-  const applicableEnvs = getApplicableEnvIds(orgEnvs, feature.project);
+  const applicableEnvs = getApplicableEnvIds(orgEnvs, feature);
   const existing = feature.environmentSettings || {};
 
   const rulesByEnv = bucketRulesByEnv(

@@ -2078,7 +2078,7 @@ export function toApiRevision(
   return revisionToApiInterface(
     rev,
     getEnvironments(ctx.org),
-    feature?.project,
+    feature ?? undefined,
   );
 }
 
@@ -2088,9 +2088,13 @@ export function toApiRevision(
 export function revisionToApiInterface(
   rev: FeatureRevisionInterface,
   orgEnvs: Environment[],
-  featureProject?: string,
+  feature?: {
+    project?: string;
+    targetingProjects?: string[];
+    targetingAllProjects?: boolean;
+  },
 ): z.infer<typeof apiFeatureRevisionValidator> {
-  const applicableEnvs = getApplicableEnvIds(orgEnvs, featureProject);
+  const applicableEnvs = getApplicableEnvIds(orgEnvs, feature);
   const rules = bucketRulesByEnv(
     Array.isArray(rev.rules) ? rev.rules : undefined,
     applicableEnvs,
@@ -2548,7 +2552,7 @@ export function getApiFeatureObj({
   // `applicableEnvs` scopes `allEnvironments: true` rules; seeding with
   // `environments` keeps every org env present in the response.
   const orgEnvs = getEnvironments(organization);
-  const applicableEnvs = getApplicableEnvIds(orgEnvs, feature.project);
+  const applicableEnvs = getApplicableEnvIds(orgEnvs, feature);
   const featureRulesByEnv = bucketRulesByEnv(
     feature.rules,
     applicableEnvs,

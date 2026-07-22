@@ -92,13 +92,30 @@ export function ensureUniqueRuleIds(
 
 export function getApplicableEnvIds(
   orgEnvs: Environment[],
-  featureProject?: string,
+  // A single project id (legacy callers) OR a feature's targeting scope. With a
+  // scope, applicability is the union of the primary + targeting projects (every
+  // environment when the feature targets all projects).
+  feature?:
+    | string
+    | {
+        project?: string;
+        targetingProjects?: string[];
+        targetingAllProjects?: boolean;
+      },
 ): string[] {
+  const scope =
+    typeof feature === "string" || feature == null
+      ? { project: feature ?? undefined }
+      : feature;
+  if (scope.targetingAllProjects) return orgEnvs.map((env) => env.id);
+  const projects = [scope.project, ...(scope.targetingProjects ?? [])].filter(
+    (p): p is string => !!p,
+  );
   return orgEnvs
     .filter((env) => {
-      if (!featureProject) return true;
+      if (!projects.length) return true;
       if (!env.projects?.length) return true;
-      return env.projects.includes(featureProject);
+      return projects.some((p) => env.projects?.includes(p));
     })
     .map((env) => env.id);
 }

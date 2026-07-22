@@ -34,6 +34,8 @@ export function normalizeRevisionMetadata(
     owner: m.owner ?? "",
     project: m.project ?? "",
     tags: m.tags ?? [],
+    targetingProjects: m.targetingProjects ?? [],
+    targetingAllProjects: m.targetingAllProjects ?? false,
   };
 }
 
@@ -83,6 +85,8 @@ export const featureToFeatureRevisionDiffInput = (
       owner: feature.owner,
       project: feature.project,
       tags: feature.tags,
+      targetingProjects: feature.targetingProjects,
+      targetingAllProjects: feature.targetingAllProjects,
       neverStale: feature.neverStale,
       customFields: feature.customFields,
       jsonSchema: feature.jsonSchema,

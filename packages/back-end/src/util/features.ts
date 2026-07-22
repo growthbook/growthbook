@@ -726,7 +726,7 @@ export function getFeatureDefinition({
   // fall back to the literal env-list filter.
   const v2Rules = revision?.rules ?? feature.rules;
   const applicableEnvs = organization?.settings?.environments
-    ? getApplicableEnvIds(organization.settings.environments, feature.project)
+    ? getApplicableEnvIds(organization.settings.environments, feature)
     : null;
   let rules: FeatureRule[];
   if (!Array.isArray(v2Rules)) {

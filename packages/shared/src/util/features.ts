@@ -3346,7 +3346,14 @@ export function featureHasEnvironment(
   feature: FeatureInterface,
   environment: Environment,
 ): boolean {
-  const featureProjects = feature.project ? [feature.project] : [];
+  // Targeting a feature into additional projects widens its allowed
+  // environments to the union of every project it's delivered to (all
+  // environments when delivered to all projects).
+  if (feature.targetingAllProjects) return true;
+  const featureProjects = [
+    feature.project,
+    ...(feature.targetingProjects ?? []),
+  ].filter((p): p is string => !!p);
   if (featureProjects.length === 0) return true;
   const filteredProjects = filterProjectsByEnvironment(
     featureProjects,

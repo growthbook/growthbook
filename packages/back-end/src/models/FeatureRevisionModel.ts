@@ -210,7 +210,10 @@ const FeatureRevisionModel = mongoose.model<FeatureRevisionInterface>(
 // to apply env applicability filtering and rule-env inheritance expansion.
 export type RevisionFeatureContext = Pick<
   FeatureInterface,
-  "project" | "environmentSettings"
+  | "project"
+  | "environmentSettings"
+  | "targetingProjects"
+  | "targetingAllProjects"
 >;
 
 /**
@@ -258,7 +261,9 @@ export function buildFeatureRevisionInterface(
   }
 
   const orgEnvs = getEnvironments(context.org);
-  const applicableEnvs = getApplicableEnvIds(orgEnvs, feature?.project);
+  // Union of the feature's primary + targeting projects, so a rule authored in
+  // an environment reachable only via a targeting project isn't scrubbed here.
+  const applicableEnvs = getApplicableEnvIds(orgEnvs, feature);
   const applicableSet = new Set(applicableEnvs);
   // Mirrors `migrateRawFeatureToV2`'s v2 inheritance gating: a child env with
   // an explicit `environmentSettings` entry is treated as customized and does
