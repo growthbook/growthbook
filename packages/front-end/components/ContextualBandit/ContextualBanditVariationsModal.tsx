@@ -1,8 +1,8 @@
 import { FormProvider, useForm } from "react-hook-form";
 import { ApiContextualBanditInterface } from "shared/validators";
-import { getEqualWeights } from "shared/experiments";
 import { useAuth } from "@/services/auth";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import Callout from "@/ui/Callout";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
 
 type EditableVariation = {
@@ -14,15 +14,18 @@ type EditableVariation = {
 
 type FormValues = {
   variations: EditableVariation[];
+  // Local-only bookkeeping so FeatureVariationsInput's add/remove behaves; NOT
+  // sent to the server — weight reconciliation is owned by the backend.
   variationWeights: number[];
 };
 
 /**
- * CB-native variation-metadata editor built on the shared `FeatureVariationsInput`
- * (mirrors the experiment bandit `EditVariationsForm`). Splits/weights are hidden
- * since the bandit algorithm manages them; only names/keys/descriptions and
- * adding/removing variations are editable here. Coverage lives in the Traffic &
- * Targeting modal.
+ * CB-native variation editor built on the shared `FeatureVariationsInput`.
+ * Splits/weights are hidden and never sent — the backend owns weight
+ * reconciliation (POST /contextual-bandits/:id/variations). While the bandit is
+ * exploiting it holds learned per-leaf weights and add/remove isn't supported
+ * yet (pending the redistribution formula), so exploit edits are restricted to
+ * variation metadata only.
  */
 export default function ContextualBanditVariationsModal({
   cb,
@@ -34,6 +37,12 @@ export default function ContextualBanditVariationsModal({
   close: () => void;
 }) {
   const { apiCall } = useAuth();
+
+  // Add/remove is only offered while the arm split is still uniform (draft or
+  // explore). In exploit/paused the bandit has learned per-leaf weights and
+  // redistribution on arm changes isn't available yet, so we allow metadata
+  // edits only.
+  const metadataOnly = cb.stage === "exploit" || cb.stage === "paused";
 
   const initialVariationCount = cb.variations.length;
   const form = useForm<FormValues>({
@@ -70,26 +79,20 @@ export default function ContextualBanditVariationsModal({
             screenshots: [],
           }));
 
-          const countChanged = variations.length !== initialVariationCount;
-          const body: {
-            variations: typeof variations;
-            variationWeights?: { variationId: string; weight: number }[];
-          } = { variations };
-          if (countChanged) {
-            const equalWeights = getEqualWeights(variations.length || 2, 4);
-            body.variationWeights = variations.map((v, i) => ({
-              variationId: v.id,
-              weight: equalWeights[i] ?? 1 / (variations.length || 2),
-            }));
-          }
-
-          await apiCall(`/api/v1/contextual-bandits/${cb.id}`, {
-            method: "PUT",
-            body: JSON.stringify(body),
+          // Send only the variation list; the server reconciles weights and
+          // bumps banditVersion.
+          await apiCall(`/api/v1/contextual-bandits/${cb.id}/variations`, {
+            method: "POST",
+            body: JSON.stringify({ variations }),
           });
           mutate();
         })}
       >
+        <Callout status="info" size="sm" mb="4">
+          {metadataOnly
+            ? "This bandit is exploiting, so you can edit variation names and keys here. Adding or removing variations isn't available while it's exploiting."
+            : "Traffic is split evenly across variations while the bandit explores. Adding or removing a variation re-balances that even split."}
+        </Callout>
         <FeatureVariationsInput
           label={null}
           valueAsId
@@ -97,6 +100,7 @@ export default function ContextualBanditVariationsModal({
           hideCoverage
           showDescriptions
           showPreview={false}
+          onlySafeToEditVariationMetadata={metadataOnly}
           setWeight={(i, weight) => {
             form.setValue(`variationWeights.${i}`, weight);
           }}

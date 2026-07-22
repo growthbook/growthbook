@@ -199,6 +199,24 @@ describe("executeContextualBanditVariationChange", () => {
     expect(patchLeafWeightsMock).not.toHaveBeenCalled();
   });
 
+  it("allows metadata-only edits in exploit without reconciling weights or bumping version", async () => {
+    const cb = makeCb({ stage: "exploit" });
+    const { context, updateMock, patchLeafWeightsMock } = makeContext(cb);
+
+    // Rename v1; the id set is unchanged, so no weight reconciliation should run.
+    await executeContextualBanditVariationChange(context, cb, [
+      v("v0", "0"),
+      { id: "v1", name: "Renamed", key: "1", screenshots: [] } as Variation,
+    ]);
+
+    expect(updateMock).toHaveBeenCalledTimes(1);
+    const [, changes] = updateMock.mock.calls[0];
+    expect(changes.variations[1].name).toBe("Renamed");
+    // metadata-only: weights + banditVersion untouched
+    expect(changes).not.toHaveProperty("variationWeights");
+    expect(patchLeafWeightsMock).not.toHaveBeenCalled();
+  });
+
   it("rejects editing variations on a stopped bandit", async () => {
     const cb = makeCb({ status: "stopped" });
     const { context } = makeContext(cb);

@@ -90,6 +90,9 @@ const ContextualBanditPage = (): ReactElement => {
   const updateEndpoint = `/api/v1/contextual-bandits/${cb.id}`;
   const canEdit =
     permissionsUtil.canViewContextualBanditModal(cb.project) && !cb.archived;
+  // Variation edits are additionally blocked once the bandit is stopped: its
+  // arm set + weights are frozen, and there's no live payload to reconcile.
+  const canEditVariations = canEdit && cb.status !== "stopped";
   const canRun =
     !cb.archived &&
     permissionsUtil.canRunContextualBandit({ project: cb.project }, envs);
@@ -113,7 +116,7 @@ const ContextualBanditPage = (): ReactElement => {
             canEdit ? () => setAnalysisMetricsModalOpen(true) : undefined
           }
           editVariations={
-            canEdit ? () => setVariationsModalOpen(true) : undefined
+            canEditVariations ? () => setVariationsModalOpen(true) : undefined
           }
           editTrafficTargeting={
             canEdit ? () => setTrafficTargetingModalOpen(true) : undefined

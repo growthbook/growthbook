@@ -81,18 +81,20 @@ export async function unlinkFeatureFromContextualBandit(
 }
 
 /**
- * P2 — add/remove variations on a Contextual Bandit and reconcile its weights.
- *
- * The client sends the full desired variation list; this function owns weights:
+ * P2 — edit a Contextual Bandit's variations (add/remove/rename) and reconcile
+ * its weights. The client sends the full desired variation list; this function
+ * owns weights:
  *   1. guards (not stopped; at least two arms; no removed arm still in use);
- *   2. derives the reconcile mode from the CB's stage (draft/explore → uniform,
- *      exploit/paused → redistribute — the latter throws until the P6 formula
- *      lands, so exploit edits are cleanly refused for now);
- *   3. reconciles the aggregate `variationWeights` and every leaf's weights;
- *   4. persists the new `variations` + aggregate weights, then bumps
- *      `banditVersion` via `patchLeafWeights` (which, with an empty leaf-weight
- *      array in uniform mode, bumps the version without writing leaf weights);
- *   5. refreshes the SDK payload for linked features.
+ *   2. only when the arm SET changes (add/remove), reconciles weights — the mode
+ *      comes from the CB's stage (draft/explore → uniform; exploit/paused →
+ *      redistribute, which throws until the P6 formula lands, so exploit
+ *      add/remove is cleanly refused for now). A metadata-only edit (names/keys)
+ *      or a reorder leaves the id-keyed weights valid, so weights and
+ *      `banditVersion` are left untouched — this is what lets exploit-stage
+ *      metadata edits through;
+ *   3. persists the new `variations` (+ reconciled weights on an arm-set change,
+ *      bumping `banditVersion` via `patchLeafWeights`);
+ *   4. refreshes the SDK payload for linked features.
  */
 export async function executeContextualBanditVariationChange(
   context: ReqContext | ApiReqContext,
@@ -139,42 +141,59 @@ export async function executeContextualBanditVariationChange(
     }
   }
 
-  const mode: WeightReconcileMode =
-    !cb.stage || cb.stage === "explore" ? "uniform" : "redistribute";
-  const newVariationIds = newVariations.map((v) => v.id);
+  const armSetChanged = diff.addedIds.length > 0 || diff.removedIds.length > 0;
 
-  // Reconcile the aggregate (MAB-fallback) weights. In redistribute mode this
-  // throws (P6), aborting before any write.
-  const newVariationWeights = reconcileVariationWeights(
-    cb.variationWeights ?? [],
-    newVariationIds,
-    mode,
-  );
+  let updated: ContextualBanditInterface;
 
-  // Reconcile every leaf's weights. Uniform mode has no per-leaf weights (they
-  // only exist in exploit), so we clear them and let the SDK fall back to the
-  // uniform aggregate.
-  const newLeafWeights: LeafWeight[] =
-    mode === "uniform"
-      ? []
-      : (cb.currentLeafWeights ?? []).map((lw) => ({
-          ...lw,
-          weights: reconcileVariationWeights(lw.weights, newVariationIds, mode),
-        }));
+  if (armSetChanged) {
+    const mode: WeightReconcileMode =
+      !cb.stage || cb.stage === "explore" ? "uniform" : "redistribute";
+    const newVariationIds = newVariations.map((v) => v.id);
 
-  // Persist variations + aggregate weights (auto-audits as contextualBandit.update).
-  await context.models.contextualBandits.update(cb, {
-    variations: newVariations,
-    variationWeights: newVariationWeights,
-  });
+    // Reconcile the aggregate (MAB-fallback) weights. In redistribute mode this
+    // throws (P6), aborting before any write.
+    const newVariationWeights = reconcileVariationWeights(
+      cb.variationWeights ?? [],
+      newVariationIds,
+      mode,
+    );
 
-  // Bump banditVersion (and write leaf weights in exploit). patchLeafWeights
-  // always $inc's banditVersion; in uniform mode we pass an empty array, so the
-  // version advances without overwriting leaf weights.
-  const updated = await context.models.contextualBandits.patchLeafWeights(
-    cb.id,
-    newLeafWeights,
-  );
+    // Reconcile every leaf's weights. Uniform mode has no per-leaf weights (they
+    // only exist in exploit), so we clear them and let the SDK fall back to the
+    // uniform aggregate.
+    const newLeafWeights: LeafWeight[] =
+      mode === "uniform"
+        ? []
+        : (cb.currentLeafWeights ?? []).map((lw) => ({
+            ...lw,
+            weights: reconcileVariationWeights(
+              lw.weights,
+              newVariationIds,
+              mode,
+            ),
+          }));
+
+    // Persist variations + aggregate weights (auto-audits as contextualBandit.update).
+    await context.models.contextualBandits.update(cb, {
+      variations: newVariations,
+      variationWeights: newVariationWeights,
+    });
+
+    // Bump banditVersion (and write leaf weights in exploit). patchLeafWeights
+    // always $inc's banditVersion; in uniform mode we pass an empty array, so the
+    // version advances without overwriting leaf weights.
+    updated = await context.models.contextualBandits.patchLeafWeights(
+      cb.id,
+      newLeafWeights,
+    );
+  } else {
+    // Metadata-only or reorder: weights are keyed by variationId and stay valid,
+    // so we leave them (and banditVersion) untouched and just persist the new
+    // variation metadata/order.
+    updated = await context.models.contextualBandits.update(cb, {
+      variations: newVariations,
+    });
+  }
 
   const payloadKeys = getPayloadKeysForContextualBandit(context, updated);
   if (payloadKeys.length > 0) {
