@@ -1,0 +1,153 @@
+import { ConfigInterface } from "shared/types/config";
+import { ConstantInterface } from "shared/types/constant";
+import { SavedGroupInterface } from "shared/types/saved-group";
+import type { Revision } from "shared/enterprise";
+import type { Context } from "back-end/src/models/BaseModel";
+import { getAdapter } from "back-end/src/revisions";
+import {
+  collectConfigPublishHookGates,
+  collectConfigPublishValueGates,
+} from "back-end/src/services/configValidation";
+import { collectConfigLockGate } from "back-end/src/services/configLock";
+import { collectSavedGroupArchiveDependentsGate } from "back-end/src/services/archiveDependentsGuard";
+import { assertRegisteredAttributes } from "back-end/src/services/attributes";
+import type { ReqContext } from "back-end/types/request";
+import type { PublishGate } from "back-end/src/revisions/publishGates";
+import {
+  gateOr5xx,
+  makeBlockingGate,
+} from "back-end/src/revisions/publishGates";
+import { makeGenericBulkAdapter } from "back-end/src/revisions/bulkPublish/genericBulkAdapter";
+import { featureBulkAdapter } from "back-end/src/revisions/bulkPublish/featureBulkAdapter";
+import type { BulkPublishableAdapter } from "back-end/src/revisions/bulkPublish/BulkPublishableAdapter";
+import type { BulkPublishTargetType } from "back-end/src/revisions/bulkPublish/types";
+
+// Gates the single-entity REST handlers assemble inline (rather than via the
+// adapters' collectPublishGates), contributed here so bulk plans enforce the
+// same conditions.
+
+async function configExtraGates(args: {
+  overlayContext: Context;
+  entity: Record<string, unknown>;
+  revision: Revision;
+  desiredState: Record<string, unknown>;
+}): Promise<PublishGate[]> {
+  const config = args.entity as unknown as ConfigInterface;
+  const gates: PublishGate[] = [...collectConfigLockGate(config)];
+  // Custom validation hooks — evaluated against the overlay so hooks judge
+  // the multi-entity end-state.
+  gates.push(
+    ...(await collectConfigPublishHookGates({
+      context: args.overlayContext,
+      config,
+      desiredState: args.desiredState,
+      revision: args.revision,
+    })),
+  );
+  // The publish-time safety net the single-entity handler runs after its
+  // gates: post-publish value conformance against the effective schema
+  // (catches pre-existing violations the introduced-violation diff suppresses).
+  gates.push(
+    ...(await collectConfigPublishValueGates({
+      context: args.overlayContext,
+      config,
+      desiredState: args.desiredState,
+    })),
+  );
+  return gates;
+}
+
+async function savedGroupExtraGates(args: {
+  callerContext: Context;
+  overlayContext: Context;
+  entity: Record<string, unknown>;
+  revision: Revision;
+  desiredState: Record<string, unknown>;
+}): Promise<PublishGate[]> {
+  // Overlay context: the dependents scan honors the feature scan overlay, so
+  // a release that archives a Saved Group AND removes its last reference in a
+  // sibling item plans clean.
+  const gates = await collectSavedGroupArchiveDependentsGate(
+    args.overlayContext,
+    args.entity as unknown as SavedGroupInterface,
+    args.desiredState,
+  );
+
+  // Attribute-registration gate: a proposed condition referencing an
+  // unregistered attribute can't publish — SavedGroupModel.customValidation
+  // throws on it at commit (500), so lift it to a plan gate (422). Skipped on
+  // reverts, mirroring the write path's skipAttributeValidation. Only the
+  // changed condition is checked (existingParts), matching customValidation.
+  const savedGroup = args.entity as unknown as SavedGroupInterface;
+  const proposedCondition =
+    (args.desiredState.condition as string | undefined) ?? savedGroup.condition;
+  if (
+    !args.revision.revertedFrom &&
+    savedGroup.type === "condition" &&
+    proposedCondition
+  ) {
+    try {
+      assertRegisteredAttributes(
+        args.callerContext as ReqContext,
+        { condition: proposedCondition },
+        "saved group",
+        savedGroup.condition ? { condition: savedGroup.condition } : undefined,
+        (args.desiredState.projects as string[] | undefined) ??
+          savedGroup.projects,
+      );
+    } catch (e) {
+      gates.push(
+        gateOr5xx(e, (message) =>
+          makeBlockingGate({
+            type: "unregistered-attribute",
+            messages: [message],
+          }),
+        ),
+      );
+    }
+  }
+  return gates;
+}
+
+const registry: Record<BulkPublishTargetType, () => BulkPublishableAdapter> = {
+  "saved-group": () =>
+    makeGenericBulkAdapter("saved-group", getAdapter("saved-group"), {
+      extraGates: savedGroupExtraGates,
+      setScanOverlay: (ctx, proposed) =>
+        ctx.models.savedGroups.setScanOverlay(
+          proposed as SavedGroupInterface[],
+        ),
+    }),
+  constant: () =>
+    makeGenericBulkAdapter("constant", getAdapter("constant"), {
+      setScanOverlay: (ctx, proposed) =>
+        ctx.models.constants.setScanOverlay(proposed as ConstantInterface[]),
+    }),
+  config: () =>
+    makeGenericBulkAdapter("config", getAdapter("config"), {
+      extraGates: configExtraGates,
+      setScanOverlay: (ctx, proposed) =>
+        ctx.models.configs.setScanOverlay(proposed as ConfigInterface[]),
+    }),
+  feature: () => featureBulkAdapter,
+};
+
+// Every bulk-publishable target type — the orchestrator iterates this to
+// install each type's slice of the end-state overlay without a per-type switch.
+export const bulkPublishTargetTypes = Object.keys(
+  registry,
+) as BulkPublishTargetType[];
+
+// Adapters are stateless (per-item state rides in the plan), so each type
+// resolves to one shared instance.
+const instances = new Map<BulkPublishTargetType, BulkPublishableAdapter>();
+
+export function getBulkAdapter(
+  type: BulkPublishTargetType,
+): BulkPublishableAdapter {
+  const cached = instances.get(type);
+  if (cached) return cached;
+  const adapter = registry[type]();
+  instances.set(type, adapter);
+  return adapter;
+}

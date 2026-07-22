@@ -22,10 +22,8 @@ import {
   isRevisionDiverged,
 } from "back-end/src/revisions/util";
 import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
-import {
-  archiveDependentsGateMessage,
-  collectSavedGroupArchiveDependents,
-} from "back-end/src/services/archiveDependentsGuard";
+import { collectSavedGroupArchiveDependentsGate } from "back-end/src/services/archiveDependentsGuard";
+import { collectRevisionGovernanceGates } from "back-end/src/revisions/governanceGates";
 import { loadRevisionByVersion } from "./validations";
 import { toApiSavedGroupRevision } from "./toApiSavedGroupRevision";
 
@@ -82,7 +80,6 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
   // or not the caller can bypass it) so a successful publish can report the ones
   // that were bypassed. The sequential checks below stay in place as the
   // enforcement backstop.
-  const version = req.params.version;
 
   // Build the desired final state by layering proposed changes on top of LIVE,
   // not the snapshot — this preserves any out-of-band writes to fields the
@@ -95,66 +92,23 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
     adapter.getUpdatableFields(),
   );
 
-  const gates: PublishGate[] = [];
-  if (approvalRequired && revision.status !== "approved") {
-    gates.push({
-      type: "approval-required",
-      severity: "blocker",
-      messages: [
-        `Requires approval before publishing (status: "${revision.status}").`,
-      ],
-      override: null,
-      requiresPermission: "bypassApprovalChecks",
-      resolution: {
-        action: "request-review",
-        method: "POST",
-        path: `/saved-groups-revisions/${savedGroup.id}/${version}/request-review`,
-      },
-    });
-  }
-  if (
-    req.organization.settings?.requireRebaseBeforePublish &&
-    isRevisionDiverged(
+  const gates: PublishGate[] = [
+    ...collectRevisionGovernanceGates({
+      context: req.context,
       adapter,
-      revision.target.snapshot as Record<string, unknown>,
-      savedGroup as unknown as Record<string, unknown>,
-    )
-  ) {
-    gates.push({
-      type: "stale-base",
-      severity: "blocker",
-      messages: ["This revision was created against an older version."],
-      override: "ignoreWarnings",
-      requiresPermission: "bypassApprovalChecks",
-      resolution: {
-        action: "rebase",
-        method: "POST",
-        path: `/saved-groups-revisions/${savedGroup.id}/${version}/rebase`,
-      },
-    });
-  }
-  // Archiving a saved group that live features/experiments/other groups still
-  // reference is a soft, acknowledgeable warning (bypassable by ignoreWarnings
-  // alone). Only the archive transition is guarded.
-  if (desiredState.archived === true && !savedGroup.archived) {
-    const dependents = await collectSavedGroupArchiveDependents(
+      targetType: "saved-group",
+      entity: savedGroup as unknown as Record<string, unknown>,
+      revision,
+    }),
+    ...(await collectSavedGroupArchiveDependentsGate(
       req.context,
-      savedGroup.id,
-    );
-    if (dependents.ids.length) {
-      gates.push({
-        type: "archive-dependents",
-        severity: "warning",
-        messages: [archiveDependentsGateMessage("Saved Group", dependents)],
-        override: "ignoreWarnings",
-        requiresPermission: null,
-        resolution: null,
-      });
-    }
-  }
+      savedGroup,
+      desiredState,
+    )),
+  ];
 
   const { blocking, bypassed } = evaluatePublishGates(gates, {
-    ignoreWarnings: !!req.body.mergeNow || req.context.ignoreWarnings,
+    ignoreWarnings: req.context.ignoreWarnings,
     skipSchemaValidation: req.context.skipSchemaValidation,
     skipHooks: req.context.skipHooks,
     bypassApprovalPermission: adapter.canBypassApproval(
@@ -209,13 +163,11 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
 
   // Governance friction (parity with features): when the org enforces same-base
   // merges, a revision created against a snapshot that no longer matches the
-  // live saved group must be rebased first. `ignoreWarnings` (or the deprecated
-  // `mergeNow` alias) force-merges the stale revision — but only for
-  // bypass-approval callers, and asking without the permission fails loudly
-  // rather than silently re-blocking.
+  // live saved group must be rebased first. `ignoreWarnings` force-merges the
+  // stale revision — but only for bypass-approval callers, and asking without
+  // the permission fails loudly rather than silently re-blocking.
   if (req.organization.settings?.requireRebaseBeforePublish) {
-    const forceMergeRequested =
-      !!req.body.mergeNow || req.context.ignoreWarnings;
+    const forceMergeRequested = req.context.ignoreWarnings;
     const forceMerge = forceMergeRequested && canBypass;
     if (!forceMerge) {
       const diverged = isRevisionDiverged(

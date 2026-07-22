@@ -51,6 +51,9 @@ export async function resolvableValueChanged(
   changedKey?: string,
 ) {
   const context = getContextForAgendaJobByOrgObject(baseContext.org);
+  // Carry the bulk publisher's refresh buffer across the context boundary so a
+  // buffered commit's constant/config side effects don't escape it.
+  context.sdkPayloadRefreshBuffer = baseContext.sdkPayloadRefreshBuffer;
 
   if (changedKey) {
     const features = await getFeaturesAffectedByResolvable(
@@ -865,7 +868,9 @@ export async function assertConstantArchivable(
   // we archive its target (the resolver would silently scrub the now-archived
   // ref). Mirrors the unfiltered lineage check in getDependentConfigs. Only a
   // count is surfaced below, so this doesn't leak unreadable resource names.
-  const scanContext = getContextForAgendaJobByOrgObject(context.org);
+  const scanContext =
+    context.scanContextOverride ??
+    getContextForAgendaJobByOrgObject(context.org);
   const refs = await loadConstantReferences(scanContext, constantId);
   if (!refs || totalConstantReferences(refs) === 0) return;
   const parts: string[] = [];
