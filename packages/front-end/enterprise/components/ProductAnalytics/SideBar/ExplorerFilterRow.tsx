@@ -2,10 +2,8 @@ import { Box, Flex } from "@radix-ui/themes";
 import { FactTableInterface, RowFilter } from "shared/types/fact-table";
 import { PiCaretDown, PiCaretUp, PiX } from "react-icons/pi";
 import Collapsible from "react-collapsible";
-import { format } from "date-fns";
 import { isValidRowFilterDateValue } from "shared/experiments";
 import Text from "@/ui/Text";
-import DatePicker from "@/components/DatePicker";
 import Field from "@/components/Forms/Field";
 import MultiSelectField from "@/ui/MultiSelectField";
 import SelectField, {
@@ -22,8 +20,11 @@ import {
   numberRegex,
   getColumnInfo,
   getAttributeFieldsExposedAsColumns,
+  isDateOnlyOperator,
+  reshapeDateValueForOperator,
 } from "@/components/FactTables/rowFilterUtils";
 import { DateRangeFilterInput } from "@/components/FactTables/DateRangeFilterInput";
+import { DateFilterInput } from "@/components/FactTables/DateFilterInput";
 
 const NUMBER_PARTIAL_PATTERN = /^-?\.?$|^-?\d*\.?\d*$/;
 
@@ -296,6 +297,16 @@ export function ExplorerFilterRow({
         ) {
           newValues = newValues.filter((val) => val !== "");
         }
+        // Keep the stored date format in sync with the new operator (e.g.
+        // `>` → `=` drops the time; `=` → `>` yields a parseable datetime).
+        if (
+          isDateColumn &&
+          isDateOnlyOperator(v) !== isDateOnlyOperator(filter.operator)
+        ) {
+          newValues = newValues.map((val) =>
+            reshapeDateValueForOperator(val, isDateOnlyOperator(v)),
+          );
+        }
         onUpdate({ operator: v, values: newValues });
       }}
       options={operatorOptions}
@@ -313,16 +324,10 @@ export function ExplorerFilterRow({
           onChange={(values) => onUpdate({ values })}
         />
       ) : isDateColumn && !multiValueInput ? (
-        <DatePicker
-          date={filter.values?.[0] || undefined}
-          setDate={(d) => {
-            // See the range branch above for the UTC wall-clock convention.
-            onUpdate({
-              values: d ? [format(d, "yyyy-MM-dd'T'HH:mm:ss")] : [],
-            });
-          }}
-          precision="datetime"
-          inputHeight={36}
+        <DateFilterInput
+          value={filter.values?.[0]}
+          operator={filter.operator}
+          onChange={(values) => onUpdate({ values })}
         />
       ) : multiValueInput && useValueOptions ? (
         <MultiSelectField

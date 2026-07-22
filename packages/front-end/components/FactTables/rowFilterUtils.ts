@@ -4,6 +4,36 @@ export const NUMBER_PATTERN = "^-?(\\d+|\\d*\\.\\d+)$";
 
 export const numberRegex = new RegExp(NUMBER_PATTERN);
 
+/**
+ * Date operators that compare against a whole calendar day rather than a
+ * precise instant. Equality on a date means "on this day", and range bounds are
+ * day-level, so these use a date-only picker (no time-of-day). The ordering
+ * operators (`< <= > >=`) are cutoffs where a specific time can matter, so they
+ * keep the datetime picker.
+ */
+export function isDateOnlyOperator(operator: string): boolean {
+  return (
+    operator === "=" || operator === "between" || operator === "not_between"
+  );
+}
+
+/**
+ * Reshape a stored date value between date-only (`yyyy-MM-dd`) and datetime
+ * (`yyyy-MM-dd'T'HH:mm:ss`) form when the operator changes which one applies.
+ * Purely string-based (no `Date` parsing) so there is no timezone shift: to
+ * date-only we keep the `yyyy-MM-dd` prefix; to datetime we append midnight when
+ * the value has no time component.
+ */
+export function reshapeDateValueForOperator(
+  value: string,
+  dateOnly: boolean,
+): string {
+  if (!value) return value;
+  const datePart = value.slice(0, 10);
+  if (dateOnly) return datePart;
+  return value.length > 10 ? value : `${datePart}T00:00:00`;
+}
+
 export function getAllowedOperators(datatype: string): RowFilter["operator"][] {
   if (datatype === "boolean") {
     return ["is_true", "is_false", "is_null", "not_null"];

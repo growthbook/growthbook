@@ -40,11 +40,17 @@ export function DateRangeFilterInput({
     onChange(next);
   };
 
+  // Read from the `yyyy-MM-dd` prefix so a value that still carries a time
+  // component (e.g. switched over from a `>` filter before it was reshaped)
+  // lands on the right calendar day instead of being shifted by the tz offset.
+  const parseBound = (v: string | undefined) =>
+    v ? getValidDateOffsetByUTC(v.slice(0, 10)) : undefined;
+
   return (
     <DatePicker
-      date={values?.[0] ? getValidDateOffsetByUTC(values[0]) : undefined}
+      date={parseBound(values?.[0])}
       setDate={(d) => applyBound(0, d)}
-      date2={values?.[1] ? getValidDateOffsetByUTC(values[1]) : undefined}
+      date2={parseBound(values?.[1])}
       setDate2={(d) => applyBound(1, d)}
       precision="date"
       inputWidth={inputWidth}
