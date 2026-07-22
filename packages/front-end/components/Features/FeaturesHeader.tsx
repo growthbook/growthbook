@@ -490,7 +490,7 @@ export default function FeaturesHeader({
             {(feature.targetingAllProjects ||
               (feature.targetingProjects?.length ?? 0) > 0) && (
               <Metadata
-                label="Targeting"
+                label="Targeting Projects"
                 value={
                   feature.targetingAllProjects
                     ? "All projects"
