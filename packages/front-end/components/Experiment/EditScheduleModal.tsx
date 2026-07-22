@@ -112,9 +112,7 @@ export default function EditScheduleModal({
   const mode = form.watch("mode");
   const fallback = form.watch("fallback");
 
-  const scheduleIsInThePast =
-    experiment.statusUpdateSchedule?.startAt &&
-    new Date(experiment.statusUpdateSchedule.startAt) < now;
+  const scheduleIsInThePast = startAt && new Date(startAt) < now;
   const stopBeforeStart =
     startAt && stopAt && new Date(stopAt) <= new Date(startAt);
 

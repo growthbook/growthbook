@@ -243,7 +243,7 @@ export default function SetupTabOverview({
                     {scheduledEndSummary ??
                       (experimentHasSchedule
                         ? "Edit Schedule"
-                        : "Schedule End")}
+                        : "Add Schedule End")}
                   </Text>
                 </Flex>
               </Link>
