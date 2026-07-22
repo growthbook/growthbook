@@ -313,6 +313,7 @@ export const updateExperiment = createApiRequestHandler(
       effectiveType,
       req.body.statusUpdateSchedule,
       experiment.statusUpdateSchedule?.startAt ?? null,
+      experiment.statusUpdateSchedule?.stopAt ?? null,
     );
   }
 

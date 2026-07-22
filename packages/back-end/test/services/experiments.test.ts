@@ -1725,6 +1725,21 @@ describe("normalizeStatusUpdateScheduleChanges", () => {
     expect(sched.stopAfter).toBeUndefined();
     expect(changes.nextScheduledStatusUpdate?.type).toBe("stop");
   });
+
+  it("running throws when a relative stopAfter resolves to the past", () => {
+    const start = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
+    const experiment = makeExperiment({
+      status: "running",
+      phases: [{ dateStarted: start }],
+    } as Partial<ExperimentInterface>);
+    const changes: Partial<ExperimentInterface> = {
+      statusUpdateSchedule: { stopAfter: { value: 30, unit: "days" } },
+    };
+
+    expect(() =>
+      normalizeStatusUpdateScheduleChanges(experiment, changes),
+    ).toThrow("which has already passed");
+  });
 });
 
 describe("fillEmptyVariationKeys", () => {
@@ -1903,6 +1918,46 @@ describe("validateStatusUpdateSchedule", () => {
         { startAt: "2000-01-01T00:00:00Z" },
         "2000-01-01T00:00:00Z",
       ),
+    ).not.toThrow();
+  });
+
+  it("throws when a new stopAt is in the past", () => {
+    expect(() =>
+      validateStatusUpdateSchedule("standard", {
+        stopAt: "2000-01-01T00:00:00Z",
+      }),
+    ).toThrow("statusUpdateSchedule.stopAt must be in the future");
+  });
+
+  it("throws when stopAt is changed to a different past date", () => {
+    expect(() =>
+      validateStatusUpdateSchedule(
+        "standard",
+        { stopAt: "2000-02-01T00:00:00Z" },
+        null,
+        "2000-01-01T00:00:00Z",
+      ),
+    ).toThrow("statusUpdateSchedule.stopAt must be in the future");
+  });
+
+  it("does not re-check a past stopAt that is unchanged from the stored value", () => {
+    // e.g. a notify-mode end already fired and kept the experiment running; an
+    // unrelated edit re-submits the stored (now-past) stopAt.
+    expect(() =>
+      validateStatusUpdateSchedule(
+        "standard",
+        { stopAt: "2000-01-01T00:00:00Z" },
+        null,
+        "2000-01-01T00:00:00Z",
+      ),
+    ).not.toThrow();
+  });
+
+  it("does not throw for a future stopAt", () => {
+    expect(() =>
+      validateStatusUpdateSchedule("standard", {
+        stopAt: "2099-01-01T00:00:00Z",
+      }),
     ).not.toThrow();
   });
 });

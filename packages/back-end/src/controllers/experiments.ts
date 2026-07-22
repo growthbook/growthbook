@@ -1769,6 +1769,7 @@ export async function postExperiment(
       effectiveType,
       data.statusUpdateSchedule,
       experiment.statusUpdateSchedule?.startAt ?? null,
+      experiment.statusUpdateSchedule?.stopAt ?? null,
     );
   }
 

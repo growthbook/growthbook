@@ -463,9 +463,14 @@ export async function setExperimentSchedule({
   if (resolvedStopAt && startAtDate && resolvedStopAt <= startAtDate) {
     throw new BadRequestError("stopAt must be after startAt.");
   }
+  // A past stop is never staged for the scheduler. Unchanged past stopAts are
+  // rejected too: once an end has passed and been acted on, changing the plan
+  // requires committing to a new end.
   if (resolvedStopAt && resolvedStopAt <= new Date()) {
-    warnings.push(
-      "The resolved stop time is in the past; the experiment will stop on the next scheduler run.",
+    throw new BadRequestError(
+      stopAfter
+        ? `stopAfter of ${stopAfter.value} ${stopAfter.unit} resolves to ${resolvedStopAt.toISOString()}, which has already passed. Choose a longer duration or a future stopAt, or stop the experiment manually.`
+        : "stopAt must be in the future. Choose a future end date, or stop the experiment manually.",
     );
   }
 

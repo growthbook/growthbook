@@ -4377,6 +4377,7 @@ export function validateStatusUpdateSchedule(
   experimentType: ExperimentType,
   statusUpdateSchedule: ExperimentInterfaceStringDates["statusUpdateSchedule"],
   existingStartAt?: Date | string | null,
+  existingStopAt?: Date | string | null,
 ): void {
   if (experimentType === "multi-armed-bandit" && statusUpdateSchedule) {
     throw new Error("Bandit experiments do not support scheduled starts.");
@@ -4396,6 +4397,19 @@ export function validateStatusUpdateSchedule(
     getValidDate(statusUpdateSchedule.startAt) <= new Date()
   ) {
     throw new Error("statusUpdateSchedule.startAt must be in the future");
+  }
+  // A past stop is never staged for the scheduler. Unchanged past stopAts are
+  // allowed so unrelated edits on an already-ended schedule don't trip.
+  const stopAtChanged =
+    !existingStopAt ||
+    getValidDate(statusUpdateSchedule.stopAt ?? 0).getTime() !==
+      getValidDate(existingStopAt).getTime();
+  if (
+    statusUpdateSchedule.stopAt &&
+    stopAtChanged &&
+    getValidDate(statusUpdateSchedule.stopAt) <= new Date()
+  ) {
+    throw new Error("statusUpdateSchedule.stopAt must be in the future");
   }
   if (
     statusUpdateSchedule.stopAt &&
@@ -4443,6 +4457,15 @@ export function normalizeStatusUpdateScheduleChanges(
         base: dateStarted ? getValidDate(dateStarted) : new Date(),
         active: running,
       });
+
+      // stopAfter resolves off the phase start, so it can land in the past —
+      // which is never staged for the scheduler. Absolute past stopAts are
+      // caught earlier by validateStatusUpdateSchedule.
+      if (running && incoming?.stopAfter && stopAt && stopAt <= new Date()) {
+        throw new Error(
+          `statusUpdateSchedule.stopAfter of ${incoming.stopAfter.value} ${incoming.stopAfter.unit} resolves to ${stopAt.toISOString()}, which has already passed. Choose a longer duration or a future stopAt, or stop the experiment manually.`,
+        );
+      }
 
       changes.statusUpdateSchedule =
         startAt || stopAt || stopAfter
