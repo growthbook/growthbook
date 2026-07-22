@@ -71,13 +71,20 @@
 // NOTE: the selection ring below intentionally mirrors the calendar day-cell
 // styling in styles/global-radix-overrides.scss (.rdp-selected / hover). Keep
 // the violet inset-ring values in sync if the calendar accent ever changes.
+// Matches the calendar day-button sizing (--rdp-day_button-width/height in
+// styles/global-radix-overrides.scss) so both cell grids feel uniform.
 .TimeCell {
   appearance: none;
   background: transparent;
   border: 0;
   border-radius: 8px;
-  padding: 5px 10px;
-  text-align: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
   cursor: pointer;
   font-variant-numeric: tabular-nums;
   transition: box-shadow 150ms;
