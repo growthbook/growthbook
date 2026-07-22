@@ -436,6 +436,44 @@ describe("useHoverTooltip - cursor mode", () => {
 
     expect(result.current.isVisible).toBe(false);
   });
+
+  it.each(["mousemove", "pointermove"])(
+    "should close when %s is dispatched on window",
+    (eventName) => {
+      const { result } = renderHook(
+        () => useHoverTooltip({ positioning: "cursor", delayMs: 100 }),
+        { wrapper },
+      );
+
+      act(() => {
+        result.current.triggerProps.onMouseEnter({
+          clientX: 150,
+          clientY: 250,
+          currentTarget: {
+            getBoundingClientRect: () => ({
+              left: 0,
+              top: 0,
+              width: 200,
+              height: 200,
+            }),
+          },
+          stopPropagation: () => {},
+        } as unknown as React.MouseEvent);
+      });
+
+      act(() => {
+        vi.advanceTimersByTime(100);
+      });
+
+      expect(result.current.isVisible).toBe(true);
+
+      act(() => {
+        window.dispatchEvent(new Event(eventName));
+      });
+
+      expect(result.current.isVisible).toBe(false);
+    },
+  );
 });
 
 describe("useHoverTooltip - single tooltip at a time", () => {
@@ -589,6 +627,37 @@ describe("HoverTooltip component", () => {
     });
 
     expect(screen.getByText("Tooltip content")).toBeInTheDocument();
+  });
+
+  it("should render cursor tooltip without pointer events", async () => {
+    render(
+      <HoverTooltipProvider>
+        <HoverTooltip
+          content={<span>Cursor tooltip content</span>}
+          delayMs={100}
+          positioning="cursor"
+        >
+          <button>Trigger</button>
+        </HoverTooltip>
+      </HoverTooltipProvider>,
+    );
+
+    const trigger = screen.getByRole("button", { name: "Trigger" });
+
+    fireEvent.mouseEnter(trigger, { clientX: 150, clientY: 250 });
+
+    await act(async () => {
+      vi.advanceTimersByTime(100);
+    });
+
+    const tooltipContent = screen.getByText("Cursor tooltip content");
+    const tooltip = tooltipContent.parentElement;
+
+    if (tooltip === null) {
+      throw new Error("Expected cursor tooltip to render in a portal");
+    }
+
+    expect(tooltip).toHaveStyle({ pointerEvents: "none" });
   });
 });
 
