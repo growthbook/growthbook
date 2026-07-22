@@ -37,8 +37,8 @@ import {
   categorizeUnregisteredAttributes,
   getRequireRegisteredAttributesSettings,
   ruleAppliesToEnv,
-  ruleAppliesToProject,
-  ruleAppliesToAnyProject,
+  ruleProjectScope,
+  ruleServedToConnection,
   ruleFootprint,
   getRulesForEnvironment,
   getRevertValueValidationWarnings,
@@ -3155,7 +3155,7 @@ describe("ruleAppliesToEnv", () => {
   });
 });
 
-describe("ruleAppliesToProject / ruleAppliesToAnyProject", () => {
+describe("ruleProjectScope / ruleServedToConnection", () => {
   const baseRule = {
     type: "force" as const,
     id: "r1",
@@ -3164,59 +3164,56 @@ describe("ruleAppliesToProject / ruleAppliesToAnyProject", () => {
     allEnvironments: true,
     value: "x",
   };
+  const scoped = (projects: string[]) =>
+    ({ ...baseRule, allProjects: false, projects }) as FeatureRule;
 
-  it("allProjects:true applies to any project regardless of projects[]", () => {
-    const rule = {
-      ...baseRule,
-      allProjects: true,
-      projects: ["p1"],
-    } as FeatureRule;
-    expect(ruleAppliesToProject(rule, "p1")).toBe(true);
-    expect(ruleAppliesToProject(rule, "p2")).toBe(true);
+  describe("ruleProjectScope", () => {
+    it("null (all) for allProjects, and for the legacy/default absent state", () => {
+      expect(
+        ruleProjectScope({ ...baseRule, allProjects: true } as FeatureRule),
+      ).toBeNull();
+      expect(ruleProjectScope(baseRule as FeatureRule)).toBeNull();
+    });
+    it("returns the explicit list, and [] (no project) for a scoped-empty rule", () => {
+      expect(ruleProjectScope(scoped(["p1", "p2"]))).toEqual(["p1", "p2"]);
+      expect(ruleProjectScope(scoped([]))).toEqual([]);
+    });
   });
 
-  it("uses projects[] membership when allProjects is false", () => {
-    const rule = {
-      ...baseRule,
-      allProjects: false,
-      projects: ["p1", "p2"],
-    } as FeatureRule;
-    expect(ruleAppliesToProject(rule, "p1")).toBe(true);
-    expect(ruleAppliesToProject(rule, "p3")).toBe(false);
-  });
-
-  it("permissive fallback when neither field is declared (legacy/default = all)", () => {
-    const rule = { ...baseRule } as FeatureRule;
-    expect(ruleAppliesToProject(rule, "p1")).toBe(true);
-  });
-
-  it("LEAK-SAFE: projects:[] applies to no project (never 'all')", () => {
-    const rule = {
-      ...baseRule,
-      allProjects: false,
-      projects: [],
-    } as FeatureRule;
-    expect(ruleAppliesToProject(rule, "p1")).toBe(false);
-    expect(ruleAppliesToProject(rule, "p2")).toBe(false);
-  });
-
-  it("ruleAppliesToAnyProject: empty served list (unscoped connection) = all rules apply", () => {
-    const scoped = {
-      ...baseRule,
-      allProjects: false,
-      projects: ["p1"],
-    } as FeatureRule;
-    expect(ruleAppliesToAnyProject(scoped, [])).toBe(true);
-  });
-
-  it("ruleAppliesToAnyProject: intersects the rule scope with the served projects", () => {
-    const scoped = {
-      ...baseRule,
-      allProjects: false,
-      projects: ["p1"],
-    } as FeatureRule;
-    expect(ruleAppliesToAnyProject(scoped, ["p2", "p3"])).toBe(false);
-    expect(ruleAppliesToAnyProject(scoped, ["p1", "p3"])).toBe(true);
+  describe("ruleServedToConnection", () => {
+    it("unscoped rule + feature delivering everywhere + all-projects connection", () => {
+      expect(ruleServedToConnection(baseRule as FeatureRule, null, [])).toBe(
+        true,
+      );
+    });
+    it("serves only where rule scope, delivery set, and served set overlap", () => {
+      // feature delivers p1,p2; connection serves p1
+      expect(ruleServedToConnection(scoped(["p1"]), ["p1", "p2"], ["p1"])).toBe(
+        true,
+      );
+      expect(ruleServedToConnection(scoped(["p2"]), ["p1", "p2"], ["p1"])).toBe(
+        false,
+      );
+    });
+    it("SCRUBS a rule scoped outside the feature's delivery set (the orphan case)", () => {
+      // rule still references p1, but the feature no longer delivers to p1
+      expect(ruleServedToConnection(scoped(["p1"]), ["p2"], [])).toBe(false);
+      expect(ruleServedToConnection(scoped(["p1"]), ["p2"], ["p1", "p2"])).toBe(
+        false,
+      );
+    });
+    it("LEAK-SAFE: a scoped-empty rule is served nowhere", () => {
+      expect(ruleServedToConnection(scoped([]), ["p1", "p2"], [])).toBe(false);
+      expect(ruleServedToConnection(scoped([]), null, [])).toBe(false);
+    });
+    it("unscoped rule follows the feature delivery set into the served set", () => {
+      expect(ruleServedToConnection(baseRule as FeatureRule, ["p1"], [])).toBe(
+        true,
+      );
+      expect(
+        ruleServedToConnection(baseRule as FeatureRule, ["p1"], ["p2"]),
+      ).toBe(false);
+    });
   });
 });
 

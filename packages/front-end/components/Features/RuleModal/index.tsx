@@ -13,6 +13,7 @@ import {
   generateVariationId,
   isProjectListValidForProject,
   getReviewSetting,
+  getTargetingProjectIds,
   stemRuleId,
   parsePlainJSONObject,
   stripDefaultsForSparse,
@@ -1856,6 +1857,8 @@ export default function RuleModal({
     setAllProjects: setScopeAllProjects,
     selectedProjects,
     setSelectedProjects,
+    // Limit scoping to the feature's delivery set (null = all projects).
+    allowedProjectIds: getTargetingProjectIds(feature),
   };
 
   // Resolved env list used by child components that care about which envs the

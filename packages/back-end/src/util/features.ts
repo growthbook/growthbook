@@ -10,7 +10,7 @@ import {
   isMultiRangeNamespaceFormat,
   namespacesToMap,
   recursiveWalk,
-  ruleAppliesToAnyProject,
+  ruleServedToConnection,
   ruleFootprint,
   stemRuleId,
   getNamespaceRanges,
@@ -26,6 +26,7 @@ import {
   stripConfigExtends,
   deepMergePatch,
   resolveTargetingProjectIds,
+  getTargetingProjectIds,
 } from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
@@ -760,11 +761,16 @@ export function getFeatureDefinition({
     );
   }
 
-  // Rule-level project scoping: drop rules whose project scope excludes every
-  // project this payload serves. Unscoped connection (empty payloadProjects) or
-  // preview paths (undefined) keep all rules.
-  if (payloadProjects && payloadProjects.length > 0) {
-    rules = rules.filter((r) => ruleAppliesToAnyProject(r, payloadProjects));
+  // Rule-level project scoping: a rule is served only where its own scope, the
+  // feature's delivery set (primary + targeting), and the connection's served
+  // projects overlap — so a rule scoped outside the feature's delivery set is
+  // scrubbed here, not just relative to the served set. Preview paths (undefined
+  // payloadProjects) keep all rules; an all-projects connection is `[]`.
+  if (payloadProjects !== undefined) {
+    const deliveryProjects = getTargetingProjectIds(feature);
+    rules = rules.filter((r) =>
+      ruleServedToConnection(r, deliveryProjects, payloadProjects),
+    );
   }
 
   const namespacesMap =

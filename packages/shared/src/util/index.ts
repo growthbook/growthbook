@@ -390,37 +390,47 @@ export function getRulesForEnvironment(
   );
 }
 
-// Rule project-scope predicate. Mirrors `ruleAppliesToEnv`, keyed on
-// `allProjects`/`projects` instead of `allEnvironments`/`environments`.
-//   allProjects:true               → true
-//   projects:[list]                → list.includes(project)
-//   projects:[]                    → false (scoped to nothing — leak-safe;
-//                                    project-deletion cleanup lands here)
-//   neither (legacy/default)       → true (permissive fallback = all projects)
-//   nullish/non-object             → false (defensive, as ruleAppliesToEnv)
-export function ruleAppliesToProject(
-  rule: FeatureRule,
-  project: string,
-): boolean {
-  if (rule == null || typeof rule !== "object") return false;
-  if (rule.allProjects) return true;
-  if (rule.projects !== undefined) {
-    return Array.isArray(rule.projects)
-      ? rule.projects.includes(project)
-      : false;
-  }
-  return true;
+// A rule's own project scope: the explicit list, or null when it applies to all
+// projects (allProjects, or the legacy/default absent state). An empty array
+// means "no project" (leak-safe — project-deletion cleanup lands here), NOT all.
+//   allProjects:true          → null (all)
+//   projects:[list]           → list
+//   projects:[]               → [] (no project)
+//   neither (legacy/default)  → null (all)
+//   nullish/non-object        → [] (defensive: nowhere)
+export function ruleProjectScope(rule: FeatureRule): string[] | null {
+  if (rule == null || typeof rule !== "object") return [];
+  if (rule.allProjects) return null;
+  if (rule.projects == null) return null;
+  return Array.isArray(rule.projects) ? rule.projects : [];
 }
 
-// True when the rule applies to at least one of `projects` (a connection's
-// served project scope). An empty `projects` (unscoped connection = all
-// projects) means every rule applies. Used to scope rules into the SDK payload.
-export function ruleAppliesToAnyProject(
+// Whether a rule is served into an SDK payload, given the feature's delivery set
+// (primary + targeting projects; null = all projects) and the connection's
+// served projects ([] = all). The rule takes effect only where all three scopes
+// overlap — its own scope, the feature's delivery set, and the served set — so a
+// rule scoped outside the feature's delivery set is scrubbed here at payload
+// generation even though the authoring UI may still show a stale selection. A
+// `null` in any position is treated as the universe of projects.
+export function ruleServedToConnection(
   rule: FeatureRule,
-  projects: string[],
+  deliveryProjects: string[] | null,
+  servedProjects: string[],
 ): boolean {
-  if (!projects.length) return true;
-  return projects.some((p) => ruleAppliesToProject(rule, p));
+  const scopes: (string[] | null)[] = [
+    ruleProjectScope(rule),
+    deliveryProjects,
+    servedProjects.length ? servedProjects : null,
+  ];
+  const concrete = scopes.filter((s): s is string[] => s !== null);
+  // Every scope is "all" → the rule is served everywhere.
+  if (!concrete.length) return true;
+  return (
+    concrete.reduce((acc, s) => {
+      const set = new Set(s);
+      return acc.filter((x) => set.has(x));
+    }).length > 0
+  );
 }
 
 // Footprint of a rule, intersected with `applicableEnvs`. Must match

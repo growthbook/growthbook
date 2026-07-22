@@ -20,6 +20,11 @@ export type ProjectScopeProps = {
   setAllProjects: (v: boolean) => void;
   selectedProjects: string[];
   setSelectedProjects: (v: string[]) => void;
+  // The feature's delivery set (primary + targeting projects). `null` means the
+  // feature delivers to all projects, so every project is selectable. Scoping is
+  // limited to this set, but already-selected ids outside it are kept so a stale
+  // selection isn't silently orphaned — the payload scrubs it at generation.
+  allowedProjectIds?: string[] | null;
 } & MarginProps;
 
 export default function RuleProjectScopeField({
@@ -27,10 +32,19 @@ export default function RuleProjectScopeField({
   setAllProjects,
   selectedProjects,
   setSelectedProjects,
+  allowedProjectIds,
   ...marginProps
 }: ProjectScopeProps) {
   const { projects } = useDefinitions();
   const [enabled, setEnabled] = useState<boolean>(() => !allProjects);
+
+  const selectableProjects =
+    allowedProjectIds == null
+      ? projects
+      : projects.filter(
+          (p) =>
+            allowedProjectIds.includes(p.id) || selectedProjects.includes(p.id),
+        );
 
   const help =
     "Limit this rule to specific projects. Applies to all of the feature's projects by default.";
@@ -74,7 +88,7 @@ export default function RuleProjectScopeField({
                     <MultiSelectField
                       value={selectedProjects}
                       onChange={setSelectedProjects}
-                      options={projects.map((p) => ({
+                      options={selectableProjects.map((p) => ({
                         value: p.id,
                         label: p.name,
                       }))}
