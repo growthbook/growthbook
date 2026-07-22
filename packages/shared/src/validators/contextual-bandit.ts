@@ -6,6 +6,8 @@ import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import { featurePrerequisite, savedGroupTargeting } from "./shared";
 import { contextualLeafClauseValidator } from "./contextual-bandit-event";
 
+export const MAX_CONTEXTUAL_BANDIT_LEAVES = 12;
+
 export const variationWeightPairValidator = z.object({
   variationId: z.string(),
   weight: z.number(),
@@ -189,7 +191,12 @@ export const apiCreateContextualBanditBody = z.strictObject({
 
   contextualAttributes: z.array(z.string()),
   minUsersPerLeaf: z.number().int().positive().optional(),
-  maxLeaves: z.number().int().positive().optional(),
+  maxLeaves: z
+    .number()
+    .int()
+    .positive()
+    .max(MAX_CONTEXTUAL_BANDIT_LEAVES)
+    .optional(),
 
   scheduleValue: z.number().optional(),
   scheduleUnit: z.enum(["days", "hours"]).optional(),
@@ -203,7 +210,7 @@ export type ApiCreateContextualBanditBody = z.infer<
   typeof apiCreateContextualBanditBody
 >;
 
-export const apiUpdateContextualBanditBody = z.object({
+export const apiUpdateContextualBanditBody = z.strictObject({
   name: z.string().optional(),
   description: z.string().optional(),
   project: z.string().optional(),
@@ -221,7 +228,12 @@ export const apiUpdateContextualBanditBody = z.object({
   contextualAttributes: z.array(z.string()).optional(),
   decisionMetric: z.string().optional(),
   minUsersPerLeaf: z.number().int().positive().optional(),
-  maxLeaves: z.number().int().positive().optional(),
+  maxLeaves: z
+    .number()
+    .int()
+    .positive()
+    .max(MAX_CONTEXTUAL_BANDIT_LEAVES)
+    .optional(),
   scheduleValue: z.number().optional(),
   scheduleUnit: z.enum(["days", "hours"]).optional(),
   burnInValue: z.number().optional(),

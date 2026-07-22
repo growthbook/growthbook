@@ -28,6 +28,7 @@ import {
 } from "back-end/src/services/contextualBanditChanges";
 import {
   executeContextualBanditVariationChange,
+  getContextualBanditLinkedFeatureInfo,
   runContextualBanditSnapshot,
 } from "back-end/src/enterprise/services/contextualBandits";
 import { MakeModelClass } from "back-end/src/models/BaseModel";
@@ -76,6 +77,15 @@ const BaseClass = MakeModelClass({
             req.context.org.settings?.environments?.map((e) => e.id) ?? [];
           if (!req.context.permissions.canRunContextualBandit(cb, envs)) {
             req.context.permissions.throwPermissionError();
+          }
+          const linkedFeatures = await getContextualBanditLinkedFeatureInfo(
+            req.context,
+            cb,
+          );
+          if (linkedFeatures.length === 0) {
+            throw new Error(
+              "Link at least one Feature Flag before starting this contextual bandit",
+            );
           }
           const { updated } = await executeContextualBanditStart(
             req.context,
@@ -374,6 +384,9 @@ export class ContextualBanditModel extends BaseClass {
   public async patchLeafWeights(
     cbId: string,
     leafWeights: LeafWeight[],
+    options?: {
+      bumpVersion?: boolean;
+    },
   ): Promise<ContextualBanditInterface> {
     const existingCB = await this.getById(cbId);
     if (!existingCB) {
@@ -396,7 +409,7 @@ export class ContextualBanditModel extends BaseClass {
       },
       {
         $set: set,
-        $inc: { banditVersion: 1 },
+        ...(options?.bumpVersion ? { $inc: { banditVersion: 1 } } : {}),
       },
     );
     if (res.matchedCount === 0) {

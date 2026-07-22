@@ -221,6 +221,9 @@ export class GrowthBook<
     if (data.savedGroups) {
       this._options.savedGroups = data.savedGroups;
     }
+    if (data.contextualBandits) {
+      this._options.contextualBandits = data.contextualBandits;
+    }
     if (data.experiments) {
       this._options.experiments = data.experiments;
       this._updateAllAutoExperiments();
@@ -253,6 +256,12 @@ export class GrowthBook<
     this._decryptedPayload = payload;
     if (payload.features) {
       this._options.features = payload.features;
+    }
+    if (payload.savedGroups) {
+      this._options.savedGroups = payload.savedGroups;
+    }
+    if (payload.contextualBandits) {
+      this._options.contextualBandits = payload.contextualBandits;
     }
     if (payload.experiments) {
       this._options.experiments = payload.experiments;
@@ -664,6 +673,7 @@ export class GrowthBook<
       enabled: this._options.enabled,
       qaMode: this._options.qaMode,
       savedGroups: this._options.savedGroups,
+      contextualBandits: this._options.contextualBandits,
       groups: this._options.groups,
       overrides: this._options.overrides,
       onExperimentEval: this._onExperimentEval,
@@ -940,6 +950,7 @@ export class GrowthBook<
           (this._options.trackingCallback as TrackingCallback)(
             call.experiment,
             call.result,
+            call.user,
           ),
         );
       }

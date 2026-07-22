@@ -1,5 +1,5 @@
 {
-  "specVersion": "0.7.1",
+  "specVersion": "0.8.0",
   "evalCondition": [
     [
       "$not - pass",
@@ -5173,6 +5173,541 @@
         },
         "ruleId": ""
       }
+    ],
+    [
+      "CB rule with empty contexts (explore) buckets on marginal weights with fallback leaf -1",
+      {
+        "attributes": {
+          "id": "1",
+          "plan": "pro"
+        },
+        "features": {
+          "promo": {
+            "defaultValue": "default",
+            "rules": [
+              {
+                "key": "promo_bandit",
+                "seed": "promo_bandit",
+                "hashAttribute": "id",
+                "hashVersion": 2,
+                "coverage": 1,
+                "contextualVariations": ["control", "treatment"],
+                "weights": [1, 0],
+                "meta": [
+                  {
+                    "key": "0"
+                  },
+                  {
+                    "key": "1"
+                  }
+                ],
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "contexts": []
+          }
+        }
+      },
+      "promo",
+      {
+        "value": "control",
+        "on": true,
+        "off": false,
+        "source": "experiment",
+        "ruleId": "",
+        "experiment": {
+          "contextualBandit": {
+            "leafId": -1,
+            "variationWeights": [1, 0],
+            "banditVersion": 7
+          },
+          "variations": ["control", "treatment"],
+          "key": "promo_bandit",
+          "coverage": 1,
+          "weights": [1, 0],
+          "hashAttribute": "id",
+          "meta": [
+            {
+              "key": "0"
+            },
+            {
+              "key": "1"
+            }
+          ],
+          "seed": "promo_bandit",
+          "hashVersion": 2
+        },
+        "experimentResult": {
+          "key": "0",
+          "featureId": "promo",
+          "inExperiment": true,
+          "hashUsed": true,
+          "variationId": 0,
+          "value": "control",
+          "hashAttribute": "id",
+          "hashValue": "1",
+          "stickyBucketUsed": false,
+          "bucket": 0.3094,
+          "leafId": -1,
+          "variationWeights": [1, 0],
+          "banditVersion": 7
+        }
+      }
+    ],
+    [
+      "CB rule with no contexts key falls back to marginal weights (fallback leaf -1)",
+      {
+        "attributes": {
+          "id": "1"
+        },
+        "features": {
+          "promo": {
+            "defaultValue": "default",
+            "rules": [
+              {
+                "key": "promo_bandit",
+                "seed": "promo_bandit",
+                "hashAttribute": "id",
+                "hashVersion": 2,
+                "coverage": 1,
+                "contextualVariations": ["control", "treatment"],
+                "weights": [1, 0],
+                "meta": [
+                  {
+                    "key": "0"
+                  },
+                  {
+                    "key": "1"
+                  }
+                ],
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7
+          }
+        }
+      },
+      "promo",
+      {
+        "value": "control",
+        "on": true,
+        "off": false,
+        "source": "experiment",
+        "ruleId": "",
+        "experiment": {
+          "contextualBandit": {
+            "leafId": -1,
+            "variationWeights": [1, 0],
+            "banditVersion": 7
+          },
+          "variations": ["control", "treatment"],
+          "key": "promo_bandit",
+          "coverage": 1,
+          "weights": [1, 0],
+          "hashAttribute": "id",
+          "meta": [
+            {
+              "key": "0"
+            },
+            {
+              "key": "1"
+            }
+          ],
+          "seed": "promo_bandit",
+          "hashVersion": 2
+        },
+        "experimentResult": {
+          "key": "0",
+          "featureId": "promo",
+          "inExperiment": true,
+          "hashUsed": true,
+          "variationId": 0,
+          "value": "control",
+          "hashAttribute": "id",
+          "hashValue": "1",
+          "stickyBucketUsed": false,
+          "bucket": 0.3094,
+          "leafId": -1,
+          "variationWeights": [1, 0],
+          "banditVersion": 7
+        }
+      }
+    ],
+    [
+      "CB rule with empty contexts uses marginal weights (fallback leaf -1)",
+      {
+        "attributes": {
+          "id": "1"
+        },
+        "features": {
+          "promo": {
+            "defaultValue": "default",
+            "rules": [
+              {
+                "key": "promo_bandit",
+                "seed": "promo_bandit",
+                "hashAttribute": "id",
+                "hashVersion": 2,
+                "coverage": 1,
+                "contextualVariations": ["control", "treatment"],
+                "weights": [0, 1],
+                "meta": [
+                  {
+                    "key": "0"
+                  },
+                  {
+                    "key": "1"
+                  }
+                ],
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "contexts": []
+          }
+        }
+      },
+      "promo",
+      {
+        "value": "treatment",
+        "on": true,
+        "off": false,
+        "source": "experiment",
+        "ruleId": "",
+        "experiment": {
+          "contextualBandit": {
+            "leafId": -1,
+            "variationWeights": [0, 1],
+            "banditVersion": 7
+          },
+          "variations": ["control", "treatment"],
+          "key": "promo_bandit",
+          "coverage": 1,
+          "weights": [0, 1],
+          "hashAttribute": "id",
+          "meta": [
+            {
+              "key": "0"
+            },
+            {
+              "key": "1"
+            }
+          ],
+          "seed": "promo_bandit",
+          "hashVersion": 2
+        },
+        "experimentResult": {
+          "key": "1",
+          "featureId": "promo",
+          "inExperiment": true,
+          "hashUsed": true,
+          "variationId": 1,
+          "value": "treatment",
+          "hashAttribute": "id",
+          "hashValue": "1",
+          "stickyBucketUsed": false,
+          "bucket": 0.3094,
+          "leafId": -1,
+          "variationWeights": [0, 1],
+          "banditVersion": 7
+        }
+      }
+    ],
+    [
+      "multi-armed-bandit type is treated as a standard experiment",
+      {
+        "attributes": {
+          "id": "1"
+        },
+        "features": {
+          "promo": {
+            "defaultValue": "default",
+            "rules": [
+              {
+                "key": "promo_bandit",
+                "seed": "promo_bandit",
+                "hashVersion": 2,
+                "coverage": 1,
+                "variations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
+                "meta": [
+                  {
+                    "key": "0"
+                  },
+                  {
+                    "key": "1"
+                  }
+                ],
+                "type": "multi-armed-bandit"
+              }
+            ]
+          }
+        }
+      },
+      "promo",
+      {
+        "value": "control",
+        "on": true,
+        "off": false,
+        "source": "experiment",
+        "ruleId": "",
+        "experiment": {
+          "variations": ["control", "treatment"],
+          "key": "promo_bandit",
+          "coverage": 1,
+          "weights": [0.5, 0.5],
+          "meta": [
+            {
+              "key": "0"
+            },
+            {
+              "key": "1"
+            }
+          ],
+          "seed": "promo_bandit",
+          "hashVersion": 2
+        },
+        "experimentResult": {
+          "key": "0",
+          "featureId": "promo",
+          "inExperiment": true,
+          "hashUsed": true,
+          "variationId": 0,
+          "value": "control",
+          "hashAttribute": "id",
+          "hashValue": "1",
+          "stickyBucketUsed": false,
+          "bucket": 0.3094
+        }
+      }
+    ],
+    [
+      "standard type is treated as a standard experiment",
+      {
+        "attributes": {
+          "id": "1"
+        },
+        "features": {
+          "promo": {
+            "defaultValue": "default",
+            "rules": [
+              {
+                "key": "promo_bandit",
+                "seed": "promo_bandit",
+                "hashVersion": 2,
+                "coverage": 1,
+                "variations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
+                "meta": [
+                  {
+                    "key": "0"
+                  },
+                  {
+                    "key": "1"
+                  }
+                ],
+                "type": "standard"
+              }
+            ]
+          }
+        }
+      },
+      "promo",
+      {
+        "value": "control",
+        "on": true,
+        "off": false,
+        "source": "experiment",
+        "ruleId": "",
+        "experiment": {
+          "variations": ["control", "treatment"],
+          "key": "promo_bandit",
+          "coverage": 1,
+          "weights": [0.5, 0.5],
+          "meta": [
+            {
+              "key": "0"
+            },
+            {
+              "key": "1"
+            }
+          ],
+          "seed": "promo_bandit",
+          "hashVersion": 2
+        },
+        "experimentResult": {
+          "key": "0",
+          "featureId": "promo",
+          "inExperiment": true,
+          "hashUsed": true,
+          "variationId": 0,
+          "value": "control",
+          "hashAttribute": "id",
+          "hashValue": "1",
+          "stickyBucketUsed": false,
+          "bucket": 0.3094
+        }
+      }
+    ],
+    [
+      "unknown bandit fields on a non-CB rule are ignored",
+      {
+        "attributes": {
+          "id": "1"
+        },
+        "features": {
+          "promo": {
+            "defaultValue": "default",
+            "rules": [
+              {
+                "key": "promo_bandit",
+                "seed": "promo_bandit",
+                "hashVersion": 2,
+                "coverage": 1,
+                "variations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
+                "meta": [
+                  {
+                    "key": "0"
+                  },
+                  {
+                    "key": "1"
+                  }
+                ],
+                "banditVersion": 9
+              }
+            ]
+          }
+        }
+      },
+      "promo",
+      {
+        "value": "control",
+        "on": true,
+        "off": false,
+        "source": "experiment",
+        "ruleId": "",
+        "experiment": {
+          "variations": ["control", "treatment"],
+          "key": "promo_bandit",
+          "coverage": 1,
+          "weights": [0.5, 0.5],
+          "meta": [
+            {
+              "key": "0"
+            },
+            {
+              "key": "1"
+            }
+          ],
+          "seed": "promo_bandit",
+          "hashVersion": 2
+        },
+        "experimentResult": {
+          "key": "0",
+          "featureId": "promo",
+          "inExperiment": true,
+          "hashUsed": true,
+          "variationId": 0,
+          "value": "control",
+          "hashAttribute": "id",
+          "hashValue": "1",
+          "stickyBucketUsed": false,
+          "bucket": 0.3094
+        }
+      }
+    ],
+    [
+      "CB rule with empty contexts is overridden by forced variation like a normal experiment",
+      {
+        "attributes": {
+          "id": "1",
+          "plan": "pro"
+        },
+        "forcedVariations": {
+          "promo_bandit": 1
+        },
+        "features": {
+          "promo": {
+            "defaultValue": "default",
+            "rules": [
+              {
+                "key": "promo_bandit",
+                "seed": "promo_bandit",
+                "hashAttribute": "id",
+                "hashVersion": 2,
+                "coverage": 1,
+                "contextualVariations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
+                "meta": [
+                  {
+                    "key": "0"
+                  },
+                  {
+                    "key": "1"
+                  }
+                ],
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "contexts": []
+          }
+        }
+      },
+      "promo",
+      {
+        "value": "treatment",
+        "on": true,
+        "off": false,
+        "source": "experiment",
+        "ruleId": "",
+        "experiment": {
+          "variations": ["control", "treatment"],
+          "key": "promo_bandit",
+          "coverage": 1,
+          "weights": [0.5, 0.5],
+          "hashAttribute": "id",
+          "meta": [
+            {
+              "key": "0"
+            },
+            {
+              "key": "1"
+            }
+          ],
+          "seed": "promo_bandit",
+          "hashVersion": 2
+        },
+        "experimentResult": {
+          "key": "1",
+          "featureId": "promo",
+          "inExperiment": true,
+          "hashUsed": false,
+          "variationId": 1,
+          "value": "treatment",
+          "hashAttribute": "id",
+          "hashValue": "1",
+          "stickyBucketUsed": false
+        }
+      }
     ]
   ],
   "run": [
@@ -7261,6 +7796,3030 @@
           "urlWithParams": "http://www.example.com/home-new-new"
         }
       ]
+    ]
+  ],
+  "contextualBandit": [
+    [
+      "single catch-all leaf routes and sets CB result fields",
+      {
+        "attributes": {
+          "id": "1",
+          "plan": "anything"
+        },
+        "features": {
+          "promo": {
+            "defaultValue": "default",
+            "rules": [
+              {
+                "key": "promo_bandit",
+                "seed": "promo_bandit",
+                "hashAttribute": "id",
+                "hashVersion": 2,
+                "coverage": 1,
+                "contextualVariations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
+                "meta": [
+                  {
+                    "key": "0"
+                  },
+                  {
+                    "key": "1"
+                  }
+                ],
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {},
+                "weights": [1, 0]
+              }
+            ]
+          }
+        }
+      },
+      "promo",
+      {
+        "value": "control",
+        "on": true,
+        "off": false,
+        "source": "experiment",
+        "ruleId": "",
+        "experiment": {
+          "contextualBandit": {
+            "leafId": 1,
+            "variationWeights": [1, 0],
+            "banditVersion": 7
+          },
+          "variations": ["control", "treatment"],
+          "key": "promo_bandit",
+          "coverage": 1,
+          "weights": [1, 0],
+          "hashAttribute": "id",
+          "meta": [
+            {
+              "key": "0"
+            },
+            {
+              "key": "1"
+            }
+          ],
+          "seed": "promo_bandit",
+          "hashVersion": 2
+        },
+        "experimentResult": {
+          "key": "0",
+          "featureId": "promo",
+          "inExperiment": true,
+          "hashUsed": true,
+          "variationId": 0,
+          "value": "control",
+          "hashAttribute": "id",
+          "hashValue": "1",
+          "stickyBucketUsed": false,
+          "bucket": 0.3094,
+          "leafId": 1,
+          "variationWeights": [1, 0],
+          "banditVersion": 7
+        }
+      }
+    ],
+    [
+      "matches the first (specific) leaf",
+      {
+        "attributes": {
+          "id": "1",
+          "plan": "enterprise"
+        },
+        "features": {
+          "promo": {
+            "defaultValue": "default",
+            "rules": [
+              {
+                "key": "promo_bandit",
+                "seed": "promo_bandit",
+                "hashAttribute": "id",
+                "hashVersion": 2,
+                "coverage": 1,
+                "contextualVariations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
+                "meta": [
+                  {
+                    "key": "0"
+                  },
+                  {
+                    "key": "1"
+                  }
+                ],
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {
+                  "plan": "enterprise"
+                },
+                "weights": [1, 0]
+              },
+              {
+                "leafId": 2,
+                "condition": {},
+                "weights": [0, 1]
+              }
+            ]
+          }
+        }
+      },
+      "promo",
+      {
+        "value": "control",
+        "on": true,
+        "off": false,
+        "source": "experiment",
+        "ruleId": "",
+        "experiment": {
+          "contextualBandit": {
+            "leafId": 1,
+            "variationWeights": [1, 0],
+            "banditVersion": 7
+          },
+          "variations": ["control", "treatment"],
+          "key": "promo_bandit",
+          "coverage": 1,
+          "weights": [1, 0],
+          "hashAttribute": "id",
+          "meta": [
+            {
+              "key": "0"
+            },
+            {
+              "key": "1"
+            }
+          ],
+          "seed": "promo_bandit",
+          "hashVersion": 2
+        },
+        "experimentResult": {
+          "key": "0",
+          "featureId": "promo",
+          "inExperiment": true,
+          "hashUsed": true,
+          "variationId": 0,
+          "value": "control",
+          "hashAttribute": "id",
+          "hashValue": "1",
+          "stickyBucketUsed": false,
+          "bucket": 0.3094,
+          "leafId": 1,
+          "variationWeights": [1, 0],
+          "banditVersion": 7
+        }
+      }
+    ],
+    [
+      "falls through to the catch-all leaf",
+      {
+        "attributes": {
+          "id": "1",
+          "plan": "free"
+        },
+        "features": {
+          "promo": {
+            "defaultValue": "default",
+            "rules": [
+              {
+                "key": "promo_bandit",
+                "seed": "promo_bandit",
+                "hashAttribute": "id",
+                "hashVersion": 2,
+                "coverage": 1,
+                "contextualVariations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
+                "meta": [
+                  {
+                    "key": "0"
+                  },
+                  {
+                    "key": "1"
+                  }
+                ],
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {
+                  "plan": "enterprise"
+                },
+                "weights": [1, 0]
+              },
+              {
+                "leafId": 2,
+                "condition": {},
+                "weights": [0, 1]
+              }
+            ]
+          }
+        }
+      },
+      "promo",
+      {
+        "value": "treatment",
+        "on": true,
+        "off": false,
+        "source": "experiment",
+        "ruleId": "",
+        "experiment": {
+          "contextualBandit": {
+            "leafId": 2,
+            "variationWeights": [0, 1],
+            "banditVersion": 7
+          },
+          "variations": ["control", "treatment"],
+          "key": "promo_bandit",
+          "coverage": 1,
+          "weights": [0, 1],
+          "hashAttribute": "id",
+          "meta": [
+            {
+              "key": "0"
+            },
+            {
+              "key": "1"
+            }
+          ],
+          "seed": "promo_bandit",
+          "hashVersion": 2
+        },
+        "experimentResult": {
+          "key": "1",
+          "featureId": "promo",
+          "inExperiment": true,
+          "hashUsed": true,
+          "variationId": 1,
+          "value": "treatment",
+          "hashAttribute": "id",
+          "hashValue": "1",
+          "stickyBucketUsed": false,
+          "bucket": 0.3094,
+          "leafId": 2,
+          "variationWeights": [0, 1],
+          "banditVersion": 7
+        }
+      }
+    ],
+    [
+      "leaf condition operators - $in matches",
+      {
+        "attributes": {
+          "id": "1",
+          "plan": "free",
+          "cartValue": 100
+        },
+        "features": {
+          "promo": {
+            "defaultValue": "default",
+            "rules": [
+              {
+                "key": "promo_bandit",
+                "seed": "promo_bandit",
+                "hashAttribute": "id",
+                "hashVersion": 2,
+                "coverage": 1,
+                "contextualVariations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
+                "meta": [
+                  {
+                    "key": "0"
+                  },
+                  {
+                    "key": "1"
+                  }
+                ],
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {
+                  "plan": {
+                    "$in": ["free", "basic"]
+                  }
+                },
+                "weights": [1, 0]
+              },
+              {
+                "leafId": 2,
+                "condition": {
+                  "cartValue": {
+                    "$gte": 500
+                  }
+                },
+                "weights": [0, 1]
+              },
+              {
+                "leafId": 3,
+                "condition": {},
+                "weights": [0.5, 0.5]
+              }
+            ]
+          }
+        }
+      },
+      "promo",
+      {
+        "value": "control",
+        "on": true,
+        "off": false,
+        "source": "experiment",
+        "ruleId": "",
+        "experiment": {
+          "contextualBandit": {
+            "leafId": 1,
+            "variationWeights": [1, 0],
+            "banditVersion": 7
+          },
+          "variations": ["control", "treatment"],
+          "key": "promo_bandit",
+          "coverage": 1,
+          "weights": [1, 0],
+          "hashAttribute": "id",
+          "meta": [
+            {
+              "key": "0"
+            },
+            {
+              "key": "1"
+            }
+          ],
+          "seed": "promo_bandit",
+          "hashVersion": 2
+        },
+        "experimentResult": {
+          "key": "0",
+          "featureId": "promo",
+          "inExperiment": true,
+          "hashUsed": true,
+          "variationId": 0,
+          "value": "control",
+          "hashAttribute": "id",
+          "hashValue": "1",
+          "stickyBucketUsed": false,
+          "bucket": 0.3094,
+          "leafId": 1,
+          "variationWeights": [1, 0],
+          "banditVersion": 7
+        }
+      }
+    ],
+    [
+      "leaf condition operators - $gte matches second leaf",
+      {
+        "attributes": {
+          "id": "1",
+          "plan": "pro",
+          "cartValue": 600
+        },
+        "features": {
+          "promo": {
+            "defaultValue": "default",
+            "rules": [
+              {
+                "key": "promo_bandit",
+                "seed": "promo_bandit",
+                "hashAttribute": "id",
+                "hashVersion": 2,
+                "coverage": 1,
+                "contextualVariations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
+                "meta": [
+                  {
+                    "key": "0"
+                  },
+                  {
+                    "key": "1"
+                  }
+                ],
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {
+                  "plan": {
+                    "$in": ["free", "basic"]
+                  }
+                },
+                "weights": [1, 0]
+              },
+              {
+                "leafId": 2,
+                "condition": {
+                  "cartValue": {
+                    "$gte": 500
+                  }
+                },
+                "weights": [0, 1]
+              },
+              {
+                "leafId": 3,
+                "condition": {},
+                "weights": [0.5, 0.5]
+              }
+            ]
+          }
+        }
+      },
+      "promo",
+      {
+        "value": "treatment",
+        "on": true,
+        "off": false,
+        "source": "experiment",
+        "ruleId": "",
+        "experiment": {
+          "contextualBandit": {
+            "leafId": 2,
+            "variationWeights": [0, 1],
+            "banditVersion": 7
+          },
+          "variations": ["control", "treatment"],
+          "key": "promo_bandit",
+          "coverage": 1,
+          "weights": [0, 1],
+          "hashAttribute": "id",
+          "meta": [
+            {
+              "key": "0"
+            },
+            {
+              "key": "1"
+            }
+          ],
+          "seed": "promo_bandit",
+          "hashVersion": 2
+        },
+        "experimentResult": {
+          "key": "1",
+          "featureId": "promo",
+          "inExperiment": true,
+          "hashUsed": true,
+          "variationId": 1,
+          "value": "treatment",
+          "hashAttribute": "id",
+          "hashValue": "1",
+          "stickyBucketUsed": false,
+          "bucket": 0.3094,
+          "leafId": 2,
+          "variationWeights": [0, 1],
+          "banditVersion": 7
+        }
+      }
+    ],
+    [
+      "first-match-wins when multiple leaf conditions match",
+      {
+        "attributes": {
+          "id": "1",
+          "plan": "pro",
+          "country": "US"
+        },
+        "features": {
+          "promo": {
+            "defaultValue": "default",
+            "rules": [
+              {
+                "key": "promo_bandit",
+                "seed": "promo_bandit",
+                "hashAttribute": "id",
+                "hashVersion": 2,
+                "coverage": 1,
+                "contextualVariations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
+                "meta": [
+                  {
+                    "key": "0"
+                  },
+                  {
+                    "key": "1"
+                  }
+                ],
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {
+                  "plan": "pro"
+                },
+                "weights": [1, 0]
+              },
+              {
+                "leafId": 2,
+                "condition": {
+                  "country": "US"
+                },
+                "weights": [0, 1]
+              },
+              {
+                "leafId": 3,
+                "condition": {},
+                "weights": [0.5, 0.5]
+              }
+            ]
+          }
+        }
+      },
+      "promo",
+      {
+        "value": "control",
+        "on": true,
+        "off": false,
+        "source": "experiment",
+        "ruleId": "",
+        "experiment": {
+          "contextualBandit": {
+            "leafId": 1,
+            "variationWeights": [1, 0],
+            "banditVersion": 7
+          },
+          "variations": ["control", "treatment"],
+          "key": "promo_bandit",
+          "coverage": 1,
+          "weights": [1, 0],
+          "hashAttribute": "id",
+          "meta": [
+            {
+              "key": "0"
+            },
+            {
+              "key": "1"
+            }
+          ],
+          "seed": "promo_bandit",
+          "hashVersion": 2
+        },
+        "experimentResult": {
+          "key": "0",
+          "featureId": "promo",
+          "inExperiment": true,
+          "hashUsed": true,
+          "variationId": 0,
+          "value": "control",
+          "hashAttribute": "id",
+          "hashValue": "1",
+          "stickyBucketUsed": false,
+          "bucket": 0.3094,
+          "leafId": 1,
+          "variationWeights": [1, 0],
+          "banditVersion": 7
+        }
+      }
+    ],
+    [
+      "missing attribute used by a leaf condition falls into the catch-all leaf",
+      {
+        "attributes": {
+          "id": "1"
+        },
+        "features": {
+          "promo": {
+            "defaultValue": "default",
+            "rules": [
+              {
+                "key": "promo_bandit",
+                "seed": "promo_bandit",
+                "hashAttribute": "id",
+                "hashVersion": 2,
+                "coverage": 1,
+                "contextualVariations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
+                "meta": [
+                  {
+                    "key": "0"
+                  },
+                  {
+                    "key": "1"
+                  }
+                ],
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {
+                  "plan": "enterprise"
+                },
+                "weights": [1, 0]
+              },
+              {
+                "leafId": 2,
+                "condition": {},
+                "weights": [0, 1]
+              }
+            ]
+          }
+        }
+      },
+      "promo",
+      {
+        "value": "treatment",
+        "on": true,
+        "off": false,
+        "source": "experiment",
+        "ruleId": "",
+        "experiment": {
+          "contextualBandit": {
+            "leafId": 2,
+            "variationWeights": [0, 1],
+            "banditVersion": 7
+          },
+          "variations": ["control", "treatment"],
+          "key": "promo_bandit",
+          "coverage": 1,
+          "weights": [0, 1],
+          "hashAttribute": "id",
+          "meta": [
+            {
+              "key": "0"
+            },
+            {
+              "key": "1"
+            }
+          ],
+          "seed": "promo_bandit",
+          "hashVersion": 2
+        },
+        "experimentResult": {
+          "key": "1",
+          "featureId": "promo",
+          "inExperiment": true,
+          "hashUsed": true,
+          "variationId": 1,
+          "value": "treatment",
+          "hashAttribute": "id",
+          "hashValue": "1",
+          "stickyBucketUsed": false,
+          "bucket": 0.3094,
+          "leafId": 2,
+          "variationWeights": [0, 1],
+          "banditVersion": 7
+        }
+      }
+    ],
+    [
+      "CB rule outer condition fails, a following force rule applies",
+      {
+        "attributes": {
+          "id": "1"
+        },
+        "features": {
+          "promo": {
+            "defaultValue": "default",
+            "rules": [
+              {
+                "key": "promo_bandit",
+                "seed": "promo_bandit",
+                "hashAttribute": "id",
+                "hashVersion": 2,
+                "coverage": 1,
+                "condition": {
+                  "country": "US"
+                },
+                "contextualVariations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
+                "meta": [
+                  {
+                    "key": "0"
+                  },
+                  {
+                    "key": "1"
+                  }
+                ],
+                "contextualBanditRef": "cb_promo_bandit"
+              },
+              {
+                "force": "forced"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {
+                  "plan": "enterprise"
+                },
+                "weights": [1, 0]
+              },
+              {
+                "leafId": 2,
+                "condition": {},
+                "weights": [0, 1]
+              }
+            ]
+          }
+        }
+      },
+      "promo",
+      {
+        "value": "forced",
+        "on": true,
+        "off": false,
+        "source": "force",
+        "ruleId": ""
+      }
+    ],
+    [
+      "outer condition fails - CB rule skipped",
+      {
+        "attributes": {
+          "id": "1",
+          "plan": "enterprise"
+        },
+        "features": {
+          "promo": {
+            "defaultValue": "default",
+            "rules": [
+              {
+                "key": "promo_bandit",
+                "seed": "promo_bandit",
+                "hashAttribute": "id",
+                "hashVersion": 2,
+                "coverage": 1,
+                "contextualVariations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
+                "meta": [
+                  {
+                    "key": "0"
+                  },
+                  {
+                    "key": "1"
+                  }
+                ],
+                "condition": {
+                  "country": "US"
+                },
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {
+                  "plan": "enterprise"
+                },
+                "weights": [1, 0]
+              },
+              {
+                "leafId": 2,
+                "condition": {},
+                "weights": [0, 1]
+              }
+            ]
+          }
+        }
+      },
+      "promo",
+      {
+        "value": "default",
+        "on": true,
+        "off": false,
+        "source": "defaultValue",
+        "ruleId": ""
+      }
+    ],
+    [
+      "coverage excludes user even though a leaf matched",
+      {
+        "attributes": {
+          "id": "1",
+          "plan": "enterprise"
+        },
+        "features": {
+          "promo": {
+            "defaultValue": "default",
+            "rules": [
+              {
+                "key": "promo_bandit",
+                "seed": "promo_bandit",
+                "hashAttribute": "id",
+                "hashVersion": 2,
+                "coverage": 0.01,
+                "contextualVariations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
+                "meta": [
+                  {
+                    "key": "0"
+                  },
+                  {
+                    "key": "1"
+                  }
+                ],
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {
+                  "plan": "enterprise"
+                },
+                "weights": [1, 0]
+              },
+              {
+                "leafId": 2,
+                "condition": {},
+                "weights": [0, 1]
+              }
+            ]
+          }
+        }
+      },
+      "promo",
+      {
+        "value": "default",
+        "on": true,
+        "off": false,
+        "source": "defaultValue",
+        "ruleId": ""
+      }
+    ],
+    [
+      "three-arm CB leaf routes with positional weights",
+      {
+        "attributes": {
+          "id": "1",
+          "plan": "enterprise"
+        },
+        "features": {
+          "promo": {
+            "defaultValue": "default",
+            "rules": [
+              {
+                "key": "promo_bandit",
+                "seed": "promo_bandit",
+                "hashAttribute": "id",
+                "hashVersion": 2,
+                "coverage": 1,
+                "contextualVariations": ["c0", "c1", "c2"],
+                "weights": [0.34, 0.33, 0.33],
+                "meta": [
+                  {
+                    "key": "0"
+                  },
+                  {
+                    "key": "1"
+                  },
+                  {
+                    "key": "2"
+                  }
+                ],
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {
+                  "plan": "enterprise"
+                },
+                "weights": [0, 0, 1]
+              },
+              {
+                "leafId": 2,
+                "condition": {},
+                "weights": [0.34, 0.33, 0.33]
+              }
+            ]
+          }
+        }
+      },
+      "promo",
+      {
+        "value": "c2",
+        "on": true,
+        "off": false,
+        "source": "experiment",
+        "ruleId": "",
+        "experiment": {
+          "contextualBandit": {
+            "leafId": 1,
+            "variationWeights": [0, 0, 1],
+            "banditVersion": 7
+          },
+          "variations": ["c0", "c1", "c2"],
+          "key": "promo_bandit",
+          "coverage": 1,
+          "weights": [0, 0, 1],
+          "hashAttribute": "id",
+          "meta": [
+            {
+              "key": "0"
+            },
+            {
+              "key": "1"
+            },
+            {
+              "key": "2"
+            }
+          ],
+          "seed": "promo_bandit",
+          "hashVersion": 2
+        },
+        "experimentResult": {
+          "key": "2",
+          "featureId": "promo",
+          "inExperiment": true,
+          "hashUsed": true,
+          "variationId": 2,
+          "value": "c2",
+          "hashAttribute": "id",
+          "hashValue": "1",
+          "stickyBucketUsed": false,
+          "bucket": 0.3094,
+          "leafId": 1,
+          "variationWeights": [0, 0, 1],
+          "banditVersion": 7
+        }
+      }
+    ],
+    [
+      "CB rule as a later rule in the list",
+      {
+        "attributes": {
+          "id": "1",
+          "plan": "enterprise",
+          "country": "US"
+        },
+        "features": {
+          "promo": {
+            "defaultValue": "default",
+            "rules": [
+              {
+                "key": "first",
+                "seed": "first",
+                "hashVersion": 2,
+                "coverage": 1,
+                "variations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
+                "meta": [
+                  {
+                    "key": "0"
+                  },
+                  {
+                    "key": "1"
+                  }
+                ],
+                "condition": {
+                  "country": "CA"
+                }
+              },
+              {
+                "key": "promo_bandit",
+                "seed": "promo_bandit",
+                "hashAttribute": "id",
+                "hashVersion": 2,
+                "coverage": 1,
+                "contextualVariations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
+                "meta": [
+                  {
+                    "key": "0"
+                  },
+                  {
+                    "key": "1"
+                  }
+                ],
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {
+                  "plan": "enterprise"
+                },
+                "weights": [1, 0]
+              },
+              {
+                "leafId": 2,
+                "condition": {},
+                "weights": [0, 1]
+              }
+            ]
+          }
+        }
+      },
+      "promo",
+      {
+        "value": "control",
+        "on": true,
+        "off": false,
+        "source": "experiment",
+        "ruleId": "",
+        "experiment": {
+          "contextualBandit": {
+            "leafId": 1,
+            "variationWeights": [1, 0],
+            "banditVersion": 7
+          },
+          "variations": ["control", "treatment"],
+          "key": "promo_bandit",
+          "coverage": 1,
+          "weights": [1, 0],
+          "hashAttribute": "id",
+          "meta": [
+            {
+              "key": "0"
+            },
+            {
+              "key": "1"
+            }
+          ],
+          "seed": "promo_bandit",
+          "hashVersion": 2
+        },
+        "experimentResult": {
+          "key": "0",
+          "featureId": "promo",
+          "inExperiment": true,
+          "hashUsed": true,
+          "variationId": 0,
+          "value": "control",
+          "hashAttribute": "id",
+          "hashValue": "1",
+          "stickyBucketUsed": false,
+          "bucket": 0.3094,
+          "leafId": 1,
+          "variationWeights": [1, 0],
+          "banditVersion": 7
+        }
+      }
+    ],
+    [
+      "leaf with even weights distributes users - id 1",
+      {
+        "attributes": {
+          "id": "1"
+        },
+        "features": {
+          "promo": {
+            "defaultValue": "default",
+            "rules": [
+              {
+                "key": "promo_bandit",
+                "seed": "promo_bandit",
+                "hashAttribute": "id",
+                "hashVersion": 2,
+                "coverage": 1,
+                "contextualVariations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
+                "meta": [
+                  {
+                    "key": "0"
+                  },
+                  {
+                    "key": "1"
+                  }
+                ],
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {},
+                "weights": [0.5, 0.5]
+              }
+            ]
+          }
+        }
+      },
+      "promo",
+      {
+        "value": "control",
+        "on": true,
+        "off": false,
+        "source": "experiment",
+        "ruleId": "",
+        "experiment": {
+          "contextualBandit": {
+            "leafId": 1,
+            "variationWeights": [0.5, 0.5],
+            "banditVersion": 7
+          },
+          "variations": ["control", "treatment"],
+          "key": "promo_bandit",
+          "coverage": 1,
+          "weights": [0.5, 0.5],
+          "hashAttribute": "id",
+          "meta": [
+            {
+              "key": "0"
+            },
+            {
+              "key": "1"
+            }
+          ],
+          "seed": "promo_bandit",
+          "hashVersion": 2
+        },
+        "experimentResult": {
+          "key": "0",
+          "featureId": "promo",
+          "inExperiment": true,
+          "hashUsed": true,
+          "variationId": 0,
+          "value": "control",
+          "hashAttribute": "id",
+          "hashValue": "1",
+          "stickyBucketUsed": false,
+          "bucket": 0.3094,
+          "leafId": 1,
+          "variationWeights": [0.5, 0.5],
+          "banditVersion": 7
+        }
+      }
+    ],
+    [
+      "leaf with even weights distributes users - id 2",
+      {
+        "attributes": {
+          "id": "2"
+        },
+        "features": {
+          "promo": {
+            "defaultValue": "default",
+            "rules": [
+              {
+                "key": "promo_bandit",
+                "seed": "promo_bandit",
+                "hashAttribute": "id",
+                "hashVersion": 2,
+                "coverage": 1,
+                "contextualVariations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
+                "meta": [
+                  {
+                    "key": "0"
+                  },
+                  {
+                    "key": "1"
+                  }
+                ],
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {},
+                "weights": [0.5, 0.5]
+              }
+            ]
+          }
+        }
+      },
+      "promo",
+      {
+        "value": "treatment",
+        "on": true,
+        "off": false,
+        "source": "experiment",
+        "ruleId": "",
+        "experiment": {
+          "contextualBandit": {
+            "leafId": 1,
+            "variationWeights": [0.5, 0.5],
+            "banditVersion": 7
+          },
+          "variations": ["control", "treatment"],
+          "key": "promo_bandit",
+          "coverage": 1,
+          "weights": [0.5, 0.5],
+          "hashAttribute": "id",
+          "meta": [
+            {
+              "key": "0"
+            },
+            {
+              "key": "1"
+            }
+          ],
+          "seed": "promo_bandit",
+          "hashVersion": 2
+        },
+        "experimentResult": {
+          "key": "1",
+          "featureId": "promo",
+          "inExperiment": true,
+          "hashUsed": true,
+          "variationId": 1,
+          "value": "treatment",
+          "hashAttribute": "id",
+          "hashValue": "2",
+          "stickyBucketUsed": false,
+          "bucket": 0.7366,
+          "leafId": 1,
+          "variationWeights": [0.5, 0.5],
+          "banditVersion": 7
+        }
+      }
+    ],
+    [
+      "leaf with even weights distributes users - id 3",
+      {
+        "attributes": {
+          "id": "3"
+        },
+        "features": {
+          "promo": {
+            "defaultValue": "default",
+            "rules": [
+              {
+                "key": "promo_bandit",
+                "seed": "promo_bandit",
+                "hashAttribute": "id",
+                "hashVersion": 2,
+                "coverage": 1,
+                "contextualVariations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
+                "meta": [
+                  {
+                    "key": "0"
+                  },
+                  {
+                    "key": "1"
+                  }
+                ],
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {},
+                "weights": [0.5, 0.5]
+              }
+            ]
+          }
+        }
+      },
+      "promo",
+      {
+        "value": "control",
+        "on": true,
+        "off": false,
+        "source": "experiment",
+        "ruleId": "",
+        "experiment": {
+          "contextualBandit": {
+            "leafId": 1,
+            "variationWeights": [0.5, 0.5],
+            "banditVersion": 7
+          },
+          "variations": ["control", "treatment"],
+          "key": "promo_bandit",
+          "coverage": 1,
+          "weights": [0.5, 0.5],
+          "hashAttribute": "id",
+          "meta": [
+            {
+              "key": "0"
+            },
+            {
+              "key": "1"
+            }
+          ],
+          "seed": "promo_bandit",
+          "hashVersion": 2
+        },
+        "experimentResult": {
+          "key": "0",
+          "featureId": "promo",
+          "inExperiment": true,
+          "hashUsed": true,
+          "variationId": 0,
+          "value": "control",
+          "hashAttribute": "id",
+          "hashValue": "3",
+          "stickyBucketUsed": false,
+          "bucket": 0.3854,
+          "leafId": 1,
+          "variationWeights": [0.5, 0.5],
+          "banditVersion": 7
+        }
+      }
+    ],
+    [
+      "leaf with uneven weights distributes users - id 1",
+      {
+        "attributes": {
+          "id": "1"
+        },
+        "features": {
+          "promo": {
+            "defaultValue": "default",
+            "rules": [
+              {
+                "key": "promo_bandit",
+                "seed": "promo_bandit",
+                "hashAttribute": "id",
+                "hashVersion": 2,
+                "coverage": 1,
+                "contextualVariations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
+                "meta": [
+                  {
+                    "key": "0"
+                  },
+                  {
+                    "key": "1"
+                  }
+                ],
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {},
+                "weights": [0.1, 0.9]
+              }
+            ]
+          }
+        }
+      },
+      "promo",
+      {
+        "value": "treatment",
+        "on": true,
+        "off": false,
+        "source": "experiment",
+        "ruleId": "",
+        "experiment": {
+          "contextualBandit": {
+            "leafId": 1,
+            "variationWeights": [0.1, 0.9],
+            "banditVersion": 7
+          },
+          "variations": ["control", "treatment"],
+          "key": "promo_bandit",
+          "coverage": 1,
+          "weights": [0.1, 0.9],
+          "hashAttribute": "id",
+          "meta": [
+            {
+              "key": "0"
+            },
+            {
+              "key": "1"
+            }
+          ],
+          "seed": "promo_bandit",
+          "hashVersion": 2
+        },
+        "experimentResult": {
+          "key": "1",
+          "featureId": "promo",
+          "inExperiment": true,
+          "hashUsed": true,
+          "variationId": 1,
+          "value": "treatment",
+          "hashAttribute": "id",
+          "hashValue": "1",
+          "stickyBucketUsed": false,
+          "bucket": 0.3094,
+          "leafId": 1,
+          "variationWeights": [0.1, 0.9],
+          "banditVersion": 7
+        }
+      }
+    ],
+    [
+      "leaf with uneven weights distributes users - id 4",
+      {
+        "attributes": {
+          "id": "4"
+        },
+        "features": {
+          "promo": {
+            "defaultValue": "default",
+            "rules": [
+              {
+                "key": "promo_bandit",
+                "seed": "promo_bandit",
+                "hashAttribute": "id",
+                "hashVersion": 2,
+                "coverage": 1,
+                "contextualVariations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
+                "meta": [
+                  {
+                    "key": "0"
+                  },
+                  {
+                    "key": "1"
+                  }
+                ],
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {},
+                "weights": [0.1, 0.9]
+              }
+            ]
+          }
+        }
+      },
+      "promo",
+      {
+        "value": "treatment",
+        "on": true,
+        "off": false,
+        "source": "experiment",
+        "ruleId": "",
+        "experiment": {
+          "contextualBandit": {
+            "leafId": 1,
+            "variationWeights": [0.1, 0.9],
+            "banditVersion": 7
+          },
+          "variations": ["control", "treatment"],
+          "key": "promo_bandit",
+          "coverage": 1,
+          "weights": [0.1, 0.9],
+          "hashAttribute": "id",
+          "meta": [
+            {
+              "key": "0"
+            },
+            {
+              "key": "1"
+            }
+          ],
+          "seed": "promo_bandit",
+          "hashVersion": 2
+        },
+        "experimentResult": {
+          "key": "1",
+          "featureId": "promo",
+          "inExperiment": true,
+          "hashUsed": true,
+          "variationId": 1,
+          "value": "treatment",
+          "hashAttribute": "id",
+          "hashValue": "4",
+          "stickyBucketUsed": false,
+          "bucket": 0.1604,
+          "leafId": 1,
+          "variationWeights": [0.1, 0.9],
+          "banditVersion": 7
+        }
+      }
+    ],
+    [
+      "CB empty hashAttribute - not in experiment",
+      {
+        "attributes": {
+          "id": "",
+          "plan": "enterprise"
+        },
+        "features": {
+          "promo": {
+            "defaultValue": "default",
+            "rules": [
+              {
+                "key": "promo_bandit",
+                "seed": "promo_bandit",
+                "hashAttribute": "id",
+                "hashVersion": 2,
+                "coverage": 1,
+                "contextualVariations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
+                "meta": [
+                  {
+                    "key": "0"
+                  },
+                  {
+                    "key": "1"
+                  }
+                ],
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {
+                  "plan": "enterprise"
+                },
+                "weights": [1, 0]
+              },
+              {
+                "leafId": 2,
+                "condition": {},
+                "weights": [0, 1]
+              }
+            ]
+          }
+        }
+      },
+      "promo",
+      {
+        "value": "default",
+        "on": true,
+        "off": false,
+        "source": "defaultValue",
+        "ruleId": ""
+      }
+    ],
+    [
+      "CB null hashAttribute - not in experiment",
+      {
+        "attributes": {
+          "id": null,
+          "plan": "enterprise"
+        },
+        "features": {
+          "promo": {
+            "defaultValue": "default",
+            "rules": [
+              {
+                "key": "promo_bandit",
+                "seed": "promo_bandit",
+                "hashAttribute": "id",
+                "hashVersion": 2,
+                "coverage": 1,
+                "contextualVariations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
+                "meta": [
+                  {
+                    "key": "0"
+                  },
+                  {
+                    "key": "1"
+                  }
+                ],
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {
+                  "plan": "enterprise"
+                },
+                "weights": [1, 0]
+              },
+              {
+                "leafId": 2,
+                "condition": {},
+                "weights": [0, 1]
+              }
+            ]
+          }
+        }
+      },
+      "promo",
+      {
+        "value": "default",
+        "on": true,
+        "off": false,
+        "source": "defaultValue",
+        "ruleId": ""
+      }
+    ],
+    [
+      "CB missing hashAttribute - not in experiment",
+      {
+        "attributes": {
+          "plan": "enterprise"
+        },
+        "features": {
+          "promo": {
+            "defaultValue": "default",
+            "rules": [
+              {
+                "key": "promo_bandit",
+                "seed": "promo_bandit",
+                "hashAttribute": "id",
+                "hashVersion": 2,
+                "coverage": 1,
+                "contextualVariations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
+                "meta": [
+                  {
+                    "key": "0"
+                  },
+                  {
+                    "key": "1"
+                  }
+                ],
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {
+                  "plan": "enterprise"
+                },
+                "weights": [1, 0]
+              },
+              {
+                "leafId": 2,
+                "condition": {},
+                "weights": [0, 1]
+              }
+            ]
+          }
+        }
+      },
+      "promo",
+      {
+        "value": "default",
+        "on": true,
+        "off": false,
+        "source": "defaultValue",
+        "ruleId": ""
+      }
+    ],
+    [
+      "CB buckets on a custom hashAttribute",
+      {
+        "attributes": {
+          "anonId": "123",
+          "plan": "enterprise"
+        },
+        "features": {
+          "promo": {
+            "defaultValue": "default",
+            "rules": [
+              {
+                "key": "promo_bandit",
+                "seed": "promo_bandit",
+                "hashAttribute": "anonId",
+                "hashVersion": 2,
+                "coverage": 1,
+                "contextualVariations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
+                "meta": [
+                  {
+                    "key": "0"
+                  },
+                  {
+                    "key": "1"
+                  }
+                ],
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {
+                  "plan": "enterprise"
+                },
+                "weights": [1, 0]
+              },
+              {
+                "leafId": 2,
+                "condition": {},
+                "weights": [0, 1]
+              }
+            ]
+          }
+        }
+      },
+      "promo",
+      {
+        "value": "control",
+        "on": true,
+        "off": false,
+        "source": "experiment",
+        "ruleId": "",
+        "experiment": {
+          "contextualBandit": {
+            "leafId": 1,
+            "variationWeights": [1, 0],
+            "banditVersion": 7
+          },
+          "variations": ["control", "treatment"],
+          "key": "promo_bandit",
+          "coverage": 1,
+          "weights": [1, 0],
+          "hashAttribute": "anonId",
+          "meta": [
+            {
+              "key": "0"
+            },
+            {
+              "key": "1"
+            }
+          ],
+          "seed": "promo_bandit",
+          "hashVersion": 2
+        },
+        "experimentResult": {
+          "key": "0",
+          "featureId": "promo",
+          "inExperiment": true,
+          "hashUsed": true,
+          "variationId": 0,
+          "value": "control",
+          "hashAttribute": "anonId",
+          "hashValue": "123",
+          "stickyBucketUsed": false,
+          "bucket": 0.2512,
+          "leafId": 1,
+          "variationWeights": [1, 0],
+          "banditVersion": 7
+        }
+      }
+    ],
+    [
+      "forcedVariations from context overrides CB routing",
+      {
+        "attributes": {
+          "id": "1",
+          "plan": "enterprise"
+        },
+        "forcedVariations": {
+          "promo_bandit": 1
+        },
+        "features": {
+          "promo": {
+            "defaultValue": "default",
+            "rules": [
+              {
+                "key": "promo_bandit",
+                "seed": "promo_bandit",
+                "hashAttribute": "id",
+                "hashVersion": 2,
+                "coverage": 1,
+                "contextualVariations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
+                "meta": [
+                  {
+                    "key": "0"
+                  },
+                  {
+                    "key": "1"
+                  }
+                ],
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {
+                  "plan": "enterprise"
+                },
+                "weights": [1, 0]
+              },
+              {
+                "leafId": 2,
+                "condition": {},
+                "weights": [0, 1]
+              }
+            ]
+          }
+        }
+      },
+      "promo",
+      {
+        "value": "treatment",
+        "on": true,
+        "off": false,
+        "source": "experiment",
+        "ruleId": "",
+        "experiment": {
+          "variations": ["control", "treatment"],
+          "key": "promo_bandit",
+          "coverage": 1,
+          "weights": [1, 0],
+          "hashAttribute": "id",
+          "meta": [
+            {
+              "key": "0"
+            },
+            {
+              "key": "1"
+            }
+          ],
+          "seed": "promo_bandit",
+          "hashVersion": 2
+        },
+        "experimentResult": {
+          "key": "1",
+          "featureId": "promo",
+          "inExperiment": true,
+          "hashUsed": false,
+          "variationId": 1,
+          "value": "treatment",
+          "hashAttribute": "id",
+          "hashValue": "1",
+          "stickyBucketUsed": false
+        }
+      }
+    ],
+    [
+      "querystring force overrides CB routing",
+      {
+        "attributes": {
+          "id": "1",
+          "plan": "enterprise"
+        },
+        "url": "https://example.com/?promo_bandit=1",
+        "features": {
+          "promo": {
+            "defaultValue": "default",
+            "rules": [
+              {
+                "key": "promo_bandit",
+                "seed": "promo_bandit",
+                "hashAttribute": "id",
+                "hashVersion": 2,
+                "coverage": 1,
+                "contextualVariations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
+                "meta": [
+                  {
+                    "key": "0"
+                  },
+                  {
+                    "key": "1"
+                  }
+                ],
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {
+                  "plan": "enterprise"
+                },
+                "weights": [1, 0]
+              },
+              {
+                "leafId": 2,
+                "condition": {},
+                "weights": [0, 1]
+              }
+            ]
+          }
+        }
+      },
+      "promo",
+      {
+        "value": "treatment",
+        "on": true,
+        "off": false,
+        "source": "experiment",
+        "ruleId": "",
+        "experiment": {
+          "variations": ["control", "treatment"],
+          "key": "promo_bandit",
+          "coverage": 1,
+          "weights": [1, 0],
+          "hashAttribute": "id",
+          "meta": [
+            {
+              "key": "0"
+            },
+            {
+              "key": "1"
+            }
+          ],
+          "seed": "promo_bandit",
+          "hashVersion": 2
+        },
+        "experimentResult": {
+          "key": "1",
+          "featureId": "promo",
+          "inExperiment": true,
+          "hashUsed": false,
+          "variationId": 1,
+          "value": "treatment",
+          "hashAttribute": "id",
+          "hashValue": "1",
+          "stickyBucketUsed": false
+        }
+      }
+    ],
+    [
+      "CB skipped in QA mode",
+      {
+        "attributes": {
+          "id": "1",
+          "plan": "enterprise"
+        },
+        "qaMode": true,
+        "features": {
+          "promo": {
+            "defaultValue": "default",
+            "rules": [
+              {
+                "key": "promo_bandit",
+                "seed": "promo_bandit",
+                "hashAttribute": "id",
+                "hashVersion": 2,
+                "coverage": 1,
+                "contextualVariations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
+                "meta": [
+                  {
+                    "key": "0"
+                  },
+                  {
+                    "key": "1"
+                  }
+                ],
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {
+                  "plan": "enterprise"
+                },
+                "weights": [1, 0]
+              },
+              {
+                "leafId": 2,
+                "condition": {},
+                "weights": [0, 1]
+              }
+            ]
+          }
+        }
+      },
+      "promo",
+      {
+        "value": "default",
+        "on": true,
+        "off": false,
+        "source": "defaultValue",
+        "ruleId": ""
+      }
+    ],
+    [
+      "CB in QA mode if forced in context",
+      {
+        "attributes": {
+          "id": "1",
+          "plan": "enterprise"
+        },
+        "qaMode": true,
+        "forcedVariations": {
+          "promo_bandit": 0
+        },
+        "features": {
+          "promo": {
+            "defaultValue": "default",
+            "rules": [
+              {
+                "key": "promo_bandit",
+                "seed": "promo_bandit",
+                "hashAttribute": "id",
+                "hashVersion": 2,
+                "coverage": 1,
+                "contextualVariations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
+                "meta": [
+                  {
+                    "key": "0"
+                  },
+                  {
+                    "key": "1"
+                  }
+                ],
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {
+                  "plan": "enterprise"
+                },
+                "weights": [1, 0]
+              },
+              {
+                "leafId": 2,
+                "condition": {},
+                "weights": [0, 1]
+              }
+            ]
+          }
+        }
+      },
+      "promo",
+      {
+        "value": "control",
+        "on": true,
+        "off": false,
+        "source": "experiment",
+        "ruleId": "",
+        "experiment": {
+          "variations": ["control", "treatment"],
+          "key": "promo_bandit",
+          "coverage": 1,
+          "weights": [1, 0],
+          "hashAttribute": "id",
+          "meta": [
+            {
+              "key": "0"
+            },
+            {
+              "key": "1"
+            }
+          ],
+          "seed": "promo_bandit",
+          "hashVersion": 2
+        },
+        "experimentResult": {
+          "key": "0",
+          "featureId": "promo",
+          "inExperiment": true,
+          "hashUsed": false,
+          "variationId": 0,
+          "value": "control",
+          "hashAttribute": "id",
+          "hashValue": "1",
+          "stickyBucketUsed": false
+        }
+      }
+    ],
+    [
+      "CB rule when globally disabled",
+      {
+        "enabled": false,
+        "attributes": {
+          "id": "1",
+          "plan": "enterprise"
+        },
+        "features": {
+          "promo": {
+            "defaultValue": "default",
+            "rules": [
+              {
+                "key": "promo_bandit",
+                "seed": "promo_bandit",
+                "hashAttribute": "id",
+                "hashVersion": 2,
+                "coverage": 1,
+                "contextualVariations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
+                "meta": [
+                  {
+                    "key": "0"
+                  },
+                  {
+                    "key": "1"
+                  }
+                ],
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {
+                  "plan": "enterprise"
+                },
+                "weights": [1, 0]
+              },
+              {
+                "leafId": 2,
+                "condition": {},
+                "weights": [0, 1]
+              }
+            ]
+          }
+        }
+      },
+      "promo",
+      {
+        "value": "default",
+        "on": true,
+        "off": false,
+        "source": "defaultValue",
+        "ruleId": ""
+      }
+    ],
+    [
+      "JSON variation values with CB routing",
+      {
+        "attributes": {
+          "id": "1",
+          "plan": "enterprise"
+        },
+        "features": {
+          "promo": {
+            "defaultValue": {
+              "color": "none"
+            },
+            "rules": [
+              {
+                "key": "promo_bandit",
+                "seed": "promo_bandit",
+                "hashAttribute": "id",
+                "hashVersion": 2,
+                "coverage": 1,
+                "contextualVariations": [
+                  {
+                    "color": "blue"
+                  },
+                  {
+                    "color": "green"
+                  }
+                ],
+                "weights": [0.5, 0.5],
+                "meta": [
+                  {
+                    "key": "0"
+                  },
+                  {
+                    "key": "1"
+                  }
+                ],
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {
+                  "plan": "enterprise"
+                },
+                "weights": [1, 0]
+              },
+              {
+                "leafId": 2,
+                "condition": {},
+                "weights": [0, 1]
+              }
+            ]
+          }
+        }
+      },
+      "promo",
+      {
+        "value": {
+          "color": "blue"
+        },
+        "on": true,
+        "off": false,
+        "source": "experiment",
+        "ruleId": "",
+        "experiment": {
+          "contextualBandit": {
+            "leafId": 1,
+            "variationWeights": [1, 0],
+            "banditVersion": 7
+          },
+          "variations": [
+            {
+              "color": "blue"
+            },
+            {
+              "color": "green"
+            }
+          ],
+          "key": "promo_bandit",
+          "coverage": 1,
+          "weights": [1, 0],
+          "hashAttribute": "id",
+          "meta": [
+            {
+              "key": "0"
+            },
+            {
+              "key": "1"
+            }
+          ],
+          "seed": "promo_bandit",
+          "hashVersion": 2
+        },
+        "experimentResult": {
+          "key": "0",
+          "featureId": "promo",
+          "inExperiment": true,
+          "hashUsed": true,
+          "variationId": 0,
+          "value": {
+            "color": "blue"
+          },
+          "hashAttribute": "id",
+          "hashValue": "1",
+          "stickyBucketUsed": false,
+          "bucket": 0.3094,
+          "leafId": 1,
+          "variationWeights": [1, 0],
+          "banditVersion": 7
+        }
+      }
+    ],
+    [
+      "single-variation CB rule is invalid - not in experiment",
+      {
+        "attributes": {
+          "id": "1",
+          "plan": "enterprise"
+        },
+        "features": {
+          "promo": {
+            "defaultValue": "default",
+            "rules": [
+              {
+                "key": "promo_bandit",
+                "seed": "promo_bandit",
+                "hashAttribute": "id",
+                "hashVersion": 2,
+                "coverage": 1,
+                "contextualVariations": ["control"],
+                "weights": [1],
+                "meta": [
+                  {
+                    "key": "0"
+                  }
+                ],
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {},
+                "weights": [1]
+              }
+            ]
+          }
+        }
+      },
+      "promo",
+      {
+        "value": "default",
+        "on": true,
+        "off": false,
+        "source": "defaultValue",
+        "ruleId": ""
+      }
+    ],
+    [
+      "outer condition passes - CB routes",
+      {
+        "attributes": {
+          "id": "1",
+          "plan": "enterprise",
+          "country": "US"
+        },
+        "features": {
+          "promo": {
+            "defaultValue": "default",
+            "rules": [
+              {
+                "key": "promo_bandit",
+                "seed": "promo_bandit",
+                "hashAttribute": "id",
+                "hashVersion": 2,
+                "coverage": 1,
+                "contextualVariations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
+                "meta": [
+                  {
+                    "key": "0"
+                  },
+                  {
+                    "key": "1"
+                  }
+                ],
+                "condition": {
+                  "country": "US"
+                },
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {
+                  "plan": "enterprise"
+                },
+                "weights": [1, 0]
+              },
+              {
+                "leafId": 2,
+                "condition": {},
+                "weights": [0, 1]
+              }
+            ]
+          }
+        }
+      },
+      "promo",
+      {
+        "value": "control",
+        "on": true,
+        "off": false,
+        "source": "experiment",
+        "ruleId": "",
+        "experiment": {
+          "contextualBandit": {
+            "leafId": 1,
+            "variationWeights": [1, 0],
+            "banditVersion": 7
+          },
+          "variations": ["control", "treatment"],
+          "key": "promo_bandit",
+          "coverage": 1,
+          "weights": [1, 0],
+          "hashAttribute": "id",
+          "meta": [
+            {
+              "key": "0"
+            },
+            {
+              "key": "1"
+            }
+          ],
+          "seed": "promo_bandit",
+          "hashVersion": 2,
+          "condition": {
+            "country": "US"
+          }
+        },
+        "experimentResult": {
+          "key": "0",
+          "featureId": "promo",
+          "inExperiment": true,
+          "hashUsed": true,
+          "variationId": 0,
+          "value": "control",
+          "hashAttribute": "id",
+          "hashValue": "1",
+          "stickyBucketUsed": false,
+          "bucket": 0.3094,
+          "leafId": 1,
+          "variationWeights": [1, 0],
+          "banditVersion": 7
+        }
+      }
+    ],
+    [
+      "coverage distribution within a leaf - id 1",
+      {
+        "attributes": {
+          "id": "1",
+          "plan": "enterprise"
+        },
+        "features": {
+          "promo": {
+            "defaultValue": "default",
+            "rules": [
+              {
+                "key": "promo_bandit",
+                "seed": "promo_bandit",
+                "hashAttribute": "id",
+                "hashVersion": 2,
+                "coverage": 0.5,
+                "contextualVariations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
+                "meta": [
+                  {
+                    "key": "0"
+                  },
+                  {
+                    "key": "1"
+                  }
+                ],
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {
+                  "plan": "enterprise"
+                },
+                "weights": [1, 0]
+              },
+              {
+                "leafId": 2,
+                "condition": {},
+                "weights": [0, 1]
+              }
+            ]
+          }
+        }
+      },
+      "promo",
+      {
+        "value": "control",
+        "on": true,
+        "off": false,
+        "source": "experiment",
+        "ruleId": "",
+        "experiment": {
+          "contextualBandit": {
+            "leafId": 1,
+            "variationWeights": [1, 0],
+            "banditVersion": 7
+          },
+          "variations": ["control", "treatment"],
+          "key": "promo_bandit",
+          "coverage": 0.5,
+          "weights": [1, 0],
+          "hashAttribute": "id",
+          "meta": [
+            {
+              "key": "0"
+            },
+            {
+              "key": "1"
+            }
+          ],
+          "seed": "promo_bandit",
+          "hashVersion": 2
+        },
+        "experimentResult": {
+          "key": "0",
+          "featureId": "promo",
+          "inExperiment": true,
+          "hashUsed": true,
+          "variationId": 0,
+          "value": "control",
+          "hashAttribute": "id",
+          "hashValue": "1",
+          "stickyBucketUsed": false,
+          "bucket": 0.3094,
+          "leafId": 1,
+          "variationWeights": [1, 0],
+          "banditVersion": 7
+        }
+      }
+    ],
+    [
+      "coverage distribution within a leaf - id 8",
+      {
+        "attributes": {
+          "id": "8",
+          "plan": "enterprise"
+        },
+        "features": {
+          "promo": {
+            "defaultValue": "default",
+            "rules": [
+              {
+                "key": "promo_bandit",
+                "seed": "promo_bandit",
+                "hashAttribute": "id",
+                "hashVersion": 2,
+                "coverage": 0.5,
+                "contextualVariations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
+                "meta": [
+                  {
+                    "key": "0"
+                  },
+                  {
+                    "key": "1"
+                  }
+                ],
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {
+                  "plan": "enterprise"
+                },
+                "weights": [1, 0]
+              },
+              {
+                "leafId": 2,
+                "condition": {},
+                "weights": [0, 1]
+              }
+            ]
+          }
+        }
+      },
+      "promo",
+      {
+        "value": "default",
+        "on": true,
+        "off": false,
+        "source": "defaultValue",
+        "ruleId": ""
+      }
+    ],
+    [
+      "dangling contextualBanditRef uses marginal weights with no CB metadata",
+      {
+        "attributes": {
+          "id": "1",
+          "plan": "enterprise"
+        },
+        "features": {
+          "promo": {
+            "defaultValue": "default",
+            "rules": [
+              {
+                "key": "promo_bandit",
+                "seed": "promo_bandit",
+                "hashAttribute": "id",
+                "hashVersion": 2,
+                "coverage": 1,
+                "contextualVariations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
+                "meta": [
+                  {
+                    "key": "0"
+                  },
+                  {
+                    "key": "1"
+                  }
+                ],
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        }
+      },
+      "promo",
+      {
+        "value": "control",
+        "on": true,
+        "off": false,
+        "source": "experiment",
+        "ruleId": "",
+        "experiment": {
+          "variations": ["control", "treatment"],
+          "key": "promo_bandit",
+          "coverage": 1,
+          "weights": [0.5, 0.5],
+          "hashAttribute": "id",
+          "meta": [
+            {
+              "key": "0"
+            },
+            {
+              "key": "1"
+            }
+          ],
+          "seed": "promo_bandit",
+          "hashVersion": 2
+        },
+        "experimentResult": {
+          "key": "0",
+          "featureId": "promo",
+          "inExperiment": true,
+          "hashUsed": true,
+          "variationId": 0,
+          "value": "control",
+          "hashAttribute": "id",
+          "hashValue": "1",
+          "stickyBucketUsed": false,
+          "bucket": 0.3094
+        }
+      }
+    ],
+    [
+      "empty contexts array uses marginal weights with fallback leaf -1",
+      {
+        "attributes": {
+          "id": "1",
+          "plan": "enterprise"
+        },
+        "features": {
+          "promo": {
+            "defaultValue": "default",
+            "rules": [
+              {
+                "key": "promo_bandit",
+                "seed": "promo_bandit",
+                "hashAttribute": "id",
+                "hashVersion": 2,
+                "coverage": 1,
+                "contextualVariations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
+                "meta": [
+                  {
+                    "key": "0"
+                  },
+                  {
+                    "key": "1"
+                  }
+                ],
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "contexts": []
+          }
+        }
+      },
+      "promo",
+      {
+        "value": "control",
+        "on": true,
+        "off": false,
+        "source": "experiment",
+        "ruleId": "",
+        "experiment": {
+          "contextualBandit": {
+            "leafId": -1,
+            "variationWeights": [0.5, 0.5],
+            "banditVersion": 7
+          },
+          "variations": ["control", "treatment"],
+          "key": "promo_bandit",
+          "coverage": 1,
+          "weights": [0.5, 0.5],
+          "hashAttribute": "id",
+          "meta": [
+            {
+              "key": "0"
+            },
+            {
+              "key": "1"
+            }
+          ],
+          "seed": "promo_bandit",
+          "hashVersion": 2
+        },
+        "experimentResult": {
+          "key": "0",
+          "featureId": "promo",
+          "inExperiment": true,
+          "hashUsed": true,
+          "variationId": 0,
+          "value": "control",
+          "hashAttribute": "id",
+          "hashValue": "1",
+          "stickyBucketUsed": false,
+          "bucket": 0.3094,
+          "leafId": -1,
+          "variationWeights": [0.5, 0.5],
+          "banditVersion": 7
+        }
+      }
+    ],
+    [
+      "banditVersion omitted from definition is absent from result",
+      {
+        "attributes": {
+          "id": "1",
+          "plan": "enterprise"
+        },
+        "features": {
+          "promo": {
+            "defaultValue": "default",
+            "rules": [
+              {
+                "key": "promo_bandit",
+                "seed": "promo_bandit",
+                "hashAttribute": "id",
+                "hashVersion": 2,
+                "coverage": 1,
+                "contextualVariations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
+                "meta": [
+                  {
+                    "key": "0"
+                  },
+                  {
+                    "key": "1"
+                  }
+                ],
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {},
+                "weights": [1, 0]
+              }
+            ]
+          }
+        }
+      },
+      "promo",
+      {
+        "value": "control",
+        "on": true,
+        "off": false,
+        "source": "experiment",
+        "ruleId": "",
+        "experiment": {
+          "contextualBandit": {
+            "leafId": 1,
+            "variationWeights": [1, 0]
+          },
+          "variations": ["control", "treatment"],
+          "key": "promo_bandit",
+          "coverage": 1,
+          "weights": [1, 0],
+          "hashAttribute": "id",
+          "meta": [
+            {
+              "key": "0"
+            },
+            {
+              "key": "1"
+            }
+          ],
+          "seed": "promo_bandit",
+          "hashVersion": 2
+        },
+        "experimentResult": {
+          "key": "0",
+          "featureId": "promo",
+          "inExperiment": true,
+          "hashUsed": true,
+          "variationId": 0,
+          "value": "control",
+          "hashAttribute": "id",
+          "hashValue": "1",
+          "stickyBucketUsed": false,
+          "bucket": 0.3094,
+          "leafId": 1,
+          "variationWeights": [1, 0]
+        }
+      }
+    ],
+    [
+      "required attribute present but no leaf matches - fallback leaf -1",
+      {
+        "attributes": {
+          "id": "1",
+          "plan": "free"
+        },
+        "features": {
+          "promo": {
+            "defaultValue": "default",
+            "rules": [
+              {
+                "key": "promo_bandit",
+                "seed": "promo_bandit",
+                "hashAttribute": "id",
+                "hashVersion": 2,
+                "coverage": 1,
+                "contextualVariations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
+                "meta": [
+                  {
+                    "key": "0"
+                  },
+                  {
+                    "key": "1"
+                  }
+                ],
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {
+                  "plan": "enterprise"
+                },
+                "weights": [1, 0]
+              }
+            ]
+          }
+        }
+      },
+      "promo",
+      {
+        "value": "control",
+        "on": true,
+        "off": false,
+        "source": "experiment",
+        "ruleId": "",
+        "experiment": {
+          "contextualBandit": {
+            "leafId": -1,
+            "variationWeights": [0.5, 0.5],
+            "banditVersion": 7
+          },
+          "variations": ["control", "treatment"],
+          "key": "promo_bandit",
+          "coverage": 1,
+          "weights": [0.5, 0.5],
+          "hashAttribute": "id",
+          "meta": [
+            {
+              "key": "0"
+            },
+            {
+              "key": "1"
+            }
+          ],
+          "seed": "promo_bandit",
+          "hashVersion": 2
+        },
+        "experimentResult": {
+          "key": "0",
+          "featureId": "promo",
+          "inExperiment": true,
+          "hashUsed": true,
+          "variationId": 0,
+          "value": "control",
+          "hashAttribute": "id",
+          "hashValue": "1",
+          "stickyBucketUsed": false,
+          "bucket": 0.3094,
+          "leafId": -1,
+          "variationWeights": [0.5, 0.5],
+          "banditVersion": 7
+        }
+      }
     ]
   ]
 }
