@@ -276,12 +276,27 @@ export function normalizeRowFilterDateValue(value: string): string {
  */
 export function isValidRowFilterDateValue(value: string): boolean {
   const trimmed = value.trim();
-  if (
-    !/^\d{4}-\d{2}-\d{2}([ T]\d{2}:\d{2}(:\d{2})?(\.\d+)?Z?)?$/.test(trimmed)
-  ) {
+  const match = trimmed.match(
+    /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?Z?)?$/,
+  );
+  if (!match) {
     return false;
   }
-  return !isNaN(new Date(trimmed.replace(" ", "T")).getTime());
+  const [, year, month, day, hour = "0", minute = "0", second = "0"] = match;
+  // `new Date(...)` silently normalizes out-of-range components (e.g. Feb 30
+  // becomes Mar 1-2) instead of rejecting them, so confirm the parsed value
+  // round-trips to the same components before trusting it.
+  const date = new Date(
+    Date.UTC(+year, +month - 1, +day, +hour, +minute, +second),
+  );
+  return (
+    date.getUTCFullYear() === +year &&
+    date.getUTCMonth() === +month - 1 &&
+    date.getUTCDate() === +day &&
+    date.getUTCHours() === +hour &&
+    date.getUTCMinutes() === +minute &&
+    date.getUTCSeconds() === +second
+  );
 }
 
 export function getRowFilterSQL({
