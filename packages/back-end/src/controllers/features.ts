@@ -27,6 +27,7 @@ import {
   mergeRevision,
   liveRevisionFromFeature,
   fillRevisionFromFeature,
+  reconcileMergeBaselines,
   getReviewSetting,
   namespacesToMap,
   pruneOrphanedRampActions,
@@ -3541,7 +3542,18 @@ export async function postFeatureExperimentRefRule(
       revision: updatedRevision,
     });
     const orgEnvIds = environments;
-    const mergeResult = autoMerge(live, base, updatedRevision, orgEnvIds, {});
+    const { live: mergeLive, base: mergeBase } = reconcileMergeBaselines(
+      feature,
+      live,
+      base,
+    );
+    const mergeResult = autoMerge(
+      mergeLive,
+      mergeBase,
+      updatedRevision,
+      orgEnvIds,
+      {},
+    );
     if (!mergeResult.success) {
       throw new Error(
         `Unable to auto-publish: please resolve conflicts on draft #${updatedRevision.version} before publishing.`,
@@ -3755,7 +3767,18 @@ export async function postFeatureContextualBanditRefRule(
       revision: updatedRevision,
     });
     const orgEnvIds = environments;
-    const mergeResult = autoMerge(live, base, updatedRevision, orgEnvIds, {});
+    const { live: mergeLive, base: mergeBase } = reconcileMergeBaselines(
+      feature,
+      live,
+      base,
+    );
+    const mergeResult = autoMerge(
+      mergeLive,
+      mergeBase,
+      updatedRevision,
+      orgEnvIds,
+      {},
+    );
     if (!mergeResult.success) {
       throw new Error(
         `Unable to auto-publish: please resolve conflicts on draft #${updatedRevision.version} before publishing.`,

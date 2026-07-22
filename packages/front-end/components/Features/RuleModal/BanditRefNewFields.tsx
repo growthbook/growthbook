@@ -143,6 +143,7 @@ export default function BanditRefNewFields({
       {step === 0 ? (
         <>
           <Field
+            size="legacy"
             required={true}
             minLength={2}
             label="Bandit Name"
@@ -150,6 +151,7 @@ export default function BanditRefNewFields({
           />
 
           <Field
+            size="legacy"
             label="Tracking Key"
             {...form.register(`trackingKey`)}
             placeholder={feature?.id || ""}
@@ -157,6 +159,7 @@ export default function BanditRefNewFields({
           />
 
           <Field
+            size="legacy"
             label="Description"
             textarea
             minRows={1}
@@ -180,6 +183,7 @@ export default function BanditRefNewFields({
               variation to assign
             </Text>
             <SelectField
+              size="legacy"
               withRadixThemedPortal
               containerClassName="flex-1"
               options={attributeSchema
@@ -283,6 +287,7 @@ export default function BanditRefNewFields({
         <>
           <div className="rounded px-3 pt-3 pb-1 bg-highlight mb-4">
             <SelectField
+              size="legacy"
               label="Data Source"
               labelClassName="font-weight-bold"
               value={form.watch("datasource") ?? ""}
@@ -318,6 +323,7 @@ export default function BanditRefNewFields({
 
             {datasource?.properties?.exposureQueries && exposureQueries ? (
               <SelectField
+                size="legacy"
                 label={
                   <>
                     Experiment Assignment Table{" "}
@@ -438,6 +444,7 @@ export default function BanditRefNewFields({
               />
 
               <SelectField
+                size="legacy"
                 className="mb-4"
                 label={
                   <PremiumTooltip commercialFeature="regression-adjustment">

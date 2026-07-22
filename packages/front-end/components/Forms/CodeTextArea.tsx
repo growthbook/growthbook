@@ -346,6 +346,7 @@ export default function CodeTextArea({
 
   return (
     <Field
+      size="legacy"
       {...fieldProps}
       containerClassName={clsx(fullHeight ? "h-100" : "", containerClassName)}
       render={(id) => {

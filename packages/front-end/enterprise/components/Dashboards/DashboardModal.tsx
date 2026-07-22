@@ -13,7 +13,7 @@ import Checkbox from "@/ui/Checkbox";
 import { getExperimentRefreshFrequency } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import SelectField from "@/components/Forms/SelectField";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectOwner from "@/components/Owner/SelectOwner";
 import {
@@ -140,6 +140,7 @@ export default function DashboardModal({
     helpText?: string;
   }) => (
     <SelectField
+      size="legacy"
       label="View access"
       disabled={disabled}
       helpText={helpText}
@@ -167,6 +168,7 @@ export default function DashboardModal({
     helpText?: string;
   }) => (
     <SelectField
+      size="legacy"
       label="Edit access"
       disabled={disabled || form.watch("shareLevel") === "private"}
       helpText={helpText}
@@ -210,6 +212,7 @@ export default function DashboardModal({
     >
       <Flex direction="column" gap="3">
         <Field
+          size="legacy"
           label="Name"
           placeholder="Dashboard name"
           {...form.register("title")}
@@ -224,6 +227,7 @@ export default function DashboardModal({
         {isGeneralDashboard ? (
           <>
             <MultiSelectField
+              size="legacy"
               label="Projects"
               placeholder="All projects"
               options={projectsOptions}

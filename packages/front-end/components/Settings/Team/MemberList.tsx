@@ -151,6 +151,7 @@ const MemberList: FC<{
           </div>
           <div className="ml-3">
             <Field
+              size="legacy"
               placeholder="Search..."
               type="search"
               {...searchInputProps}

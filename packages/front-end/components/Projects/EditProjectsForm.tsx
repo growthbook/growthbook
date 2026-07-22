@@ -1,7 +1,7 @@
 import { FC, ReactElement } from "react";
 import { useForm } from "react-hook-form";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import useProjectOptions from "@/hooks/useProjectOptions";
 
 const EditProjectsForm: FC<{
@@ -40,6 +40,7 @@ const EditProjectsForm: FC<{
       cta="Save"
     >
       <MultiSelectField
+        size="legacy"
         label={label}
         placeholder="All Projects"
         value={form.watch("projects")}

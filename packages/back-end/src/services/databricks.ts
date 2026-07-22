@@ -13,7 +13,7 @@ export function buildDatabricksConnectionOptions(
     host: conn.host,
     port: conn.port || 443,
     path: conn.path,
-    clientId: conn.clientId || "GrowthBook",
+    userAgentEntry: conn.clientId || "GrowthBook",
   };
 
   if (conn.authType === "oauth-m2m") {

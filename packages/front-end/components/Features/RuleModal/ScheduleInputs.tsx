@@ -132,12 +132,13 @@ export default function ScheduleInputs({
           </Text>
         </Box>
         <SelectField
+          size="legacy"
           value={state.startDate ? "specific-time" : "immediately"}
           options={START_OPTIONS}
           onChange={handleStartChange}
           disabled={startDisabled}
           containerClassName="mb-0"
-          containerStyle={{ minHeight: 38, width: 150 }}
+          containerStyle={{ width: 150 }}
           useMultilineLabels
           formatOptionLabel={formatOptionLabel}
         />
@@ -161,12 +162,13 @@ export default function ScheduleInputs({
           </Text>
         </Box>
         <SelectField
+          size="legacy"
           value={endTriggerValue}
           options={END_OPTIONS}
           onChange={handleEndChange}
           disabled={disabled}
           containerClassName="mb-0"
-          containerStyle={{ minHeight: 38, width: 150 }}
+          containerStyle={{ width: 150 }}
           useMultilineLabels
           formatOptionLabel={formatOptionLabel}
         />

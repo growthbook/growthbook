@@ -158,6 +158,7 @@ export default function SafeRolloutFields({
     return (
       <>
         <SelectField
+          size="legacy"
           withRadixThemedPortal
           disabled={disableFields}
           label="Sample based on attribute"
@@ -219,6 +220,7 @@ export default function SafeRolloutFields({
         <div className="bg-highlight rounded p-3 mb-4">
           <div className="mb-3 pb-1">
             <SelectField
+              size="legacy"
               label="Data source"
               className="portal-overflow-ellipsis"
               options={datasources.map((d) => {
@@ -250,6 +252,7 @@ export default function SafeRolloutFields({
           </div>
           <div className="pb-1">
             <SelectField
+              size="legacy"
               label="Experiment assignment table"
               className="portal-overflow-ellipsis"
               options={exposureQueries.map((q) => ({
