@@ -1,16 +1,20 @@
 import { FC, ChangeEventHandler, useState } from "react";
 import { DatabricksConnectionParams } from "shared/types/integrations/databricks";
-import Field from "@/components/Forms/Field";
+import TextField from "@/ui/TextField";
+import { Select, SelectItem } from "@/ui/Select";
 import HostWarning from "./HostWarning";
 
 const DatabricksForm: FC<{
   params: Partial<DatabricksConnectionParams>;
   existing: boolean;
-  onParamChange: ChangeEventHandler<HTMLInputElement | HTMLSelectElement>;
+  onParamChange: ChangeEventHandler<HTMLInputElement>;
   setParams: (params: { [key: string]: string | boolean }) => void;
 }> = ({ params, existing, onParamChange, setParams }) => {
   const [originalAuthType] = useState(params.authType);
   const authType = params.authType ?? "oauth-m2m";
+  const secretRequired = !existing || authType !== originalAuthType;
+  const keepExistingPlaceholder =
+    existing && authType === originalAuthType ? "(Keep existing)" : "";
 
   return (
     <div className="row">
@@ -25,10 +29,8 @@ const DatabricksForm: FC<{
         />
       </div>
       <div className="form-group col-md-12">
-        <label>Server Hostname</label>
-        <input
-          type="text"
-          className="form-control"
+        <TextField
+          label="Server Hostname"
           name="host"
           required
           value={params.host || ""}
@@ -36,10 +38,9 @@ const DatabricksForm: FC<{
         />
       </div>
       <div className="form-group col-md-12">
-        <label>Port</label>
-        <input
+        <TextField
+          label="Port"
           type="number"
-          className="form-control"
           name="port"
           required
           value={params.port || 443}
@@ -47,10 +48,8 @@ const DatabricksForm: FC<{
         />
       </div>
       <div className="form-group col-md-12">
-        <label>HTTP Path</label>
-        <input
-          type="text"
-          className="form-control"
+        <TextField
+          label="HTTP Path"
           name="path"
           required
           value={params.path || ""}
@@ -58,26 +57,21 @@ const DatabricksForm: FC<{
         />
       </div>
       <div className="form-group col-md-12">
-        <label>Authentication Method</label>
-        <select
-          className="form-control"
-          autoComplete="off"
-          name="authType"
+        <Select
+          label="Authentication Method"
           value={authType}
-          onChange={onParamChange}
+          setValue={(value) => setParams({ authType: value })}
         >
-          <option value="oauth-m2m">OAuth (machine-to-machine)</option>
-          <option value="pat">Personal Access Token</option>
-        </select>
+          <SelectItem value="oauth-m2m">OAuth (machine-to-machine)</SelectItem>
+          <SelectItem value="pat">Personal Access Token</SelectItem>
+        </Select>
       </div>
 
       {authType === "oauth-m2m" ? (
         <>
           <div className="form-group col-md-12">
-            <label>Client ID</label>
-            <input
-              type="text"
-              className="form-control"
+            <TextField
+              label="Client ID"
               name="oauthClientId"
               required
               value={params.oauthClientId || ""}
@@ -85,48 +79,39 @@ const DatabricksForm: FC<{
             />
           </div>
           <div className="form-group col-md-12">
-            <label>OAuth Secret</label>
-            <input
-              type="text"
-              className="form-control password-presentation"
+            <TextField
+              label="OAuth Secret"
+              type="password"
               autoComplete="off"
               name="oauthClientSecret"
-              required={!existing || authType !== originalAuthType}
+              required={secretRequired}
               value={params.oauthClientSecret || ""}
               onChange={onParamChange}
-              placeholder={
-                existing && authType === originalAuthType
-                  ? "(Keep existing)"
-                  : ""
-              }
+              placeholder={keepExistingPlaceholder}
             />
           </div>
         </>
       ) : (
         <div className="form-group col-md-12">
-          <label>Token</label>
-          <input
-            type="text"
-            className="form-control password-presentation"
+          <TextField
+            label="Token"
+            type="password"
             autoComplete="off"
             name="token"
-            required={!existing || authType !== originalAuthType}
+            required={secretRequired}
             value={params.token || ""}
             onChange={onParamChange}
-            placeholder={
-              existing && authType === originalAuthType ? "(Keep existing)" : ""
-            }
+            placeholder={keepExistingPlaceholder}
           />
         </div>
       )}
       <div className="form-group col-md-12">
-        <Field
-          size="legacy"
+        <TextField
           label="Default Catalog (Recommended)"
           helpText="This will help GrowthBook generate the initial SQL queries used to define things like Metrics and Experiment Assignments."
+          name="catalog"
           value={params.catalog || ""}
           onChange={onParamChange}
-          name="catalog"
         />
       </div>
     </div>
