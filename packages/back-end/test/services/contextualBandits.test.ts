@@ -699,9 +699,7 @@ describe("contextualBanditWeightsWereUpdated", () => {
 describe("persistContextualBanditEvent — P3 stale-epoch guard", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    getPayloadKeysForContextualBanditMock.mockReturnValue([
-      { project: "", environment: "production" },
-    ]);
+    refreshLinkedFeaturePayloadsMock.mockResolvedValue(undefined);
   });
 
   function makeGuardContext(cb: ContextualBanditInterface) {

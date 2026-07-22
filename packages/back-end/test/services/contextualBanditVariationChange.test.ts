@@ -1,8 +1,7 @@
 import { ContextualBanditInterface, Variation } from "shared/validators";
 import { ApiReqContext } from "back-end/types/api";
 import { executeContextualBanditVariationChange } from "back-end/src/enterprise/services/contextualBandits";
-import { queueSDKPayloadRefresh } from "back-end/src/services/features";
-import { getPayloadKeysForContextualBandit } from "back-end/src/services/contextualBanditChanges";
+import { refreshLinkedFeaturePayloads } from "back-end/src/services/contextualBanditChanges";
 import { getRefLinkedFeatureInfo } from "back-end/src/services/experiments";
 
 jest.mock("back-end/src/services/features", () => ({
@@ -10,9 +9,7 @@ jest.mock("back-end/src/services/features", () => ({
 }));
 
 jest.mock("back-end/src/services/contextualBanditChanges", () => ({
-  getPayloadKeysForContextualBandit: jest
-    .fn()
-    .mockReturnValue([{ project: "", environment: "production" }]),
+  refreshLinkedFeaturePayloads: jest.fn().mockResolvedValue(undefined),
 }));
 
 jest.mock("back-end/src/services/experiments", () => ({
@@ -34,11 +31,9 @@ jest.mock(
   }),
 );
 
-const queueSDKPayloadRefreshMock =
-  queueSDKPayloadRefresh as jest.MockedFunction<typeof queueSDKPayloadRefresh>;
-const getPayloadKeysForContextualBanditMock =
-  getPayloadKeysForContextualBandit as jest.MockedFunction<
-    typeof getPayloadKeysForContextualBandit
+const refreshLinkedFeaturePayloadsMock =
+  refreshLinkedFeaturePayloads as jest.MockedFunction<
+    typeof refreshLinkedFeaturePayloads
   >;
 const getRefLinkedFeatureInfoMock = getRefLinkedFeatureInfo as jest.Mock;
 
@@ -110,9 +105,7 @@ const sum = (pairs: { weight: number }[]) =>
 describe("executeContextualBanditVariationChange", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    getPayloadKeysForContextualBanditMock.mockReturnValue([
-      { project: "", environment: "production" },
-    ]);
+    refreshLinkedFeaturePayloadsMock.mockResolvedValue(undefined);
     getRefLinkedFeatureInfoMock.mockResolvedValue([]);
   });
 
@@ -144,14 +137,10 @@ describe("executeContextualBanditVariationChange", () => {
     expect(updated.banditVersion).toBe(cb.banditVersion + 1);
 
     // SDK payload refreshed for linked features
-    expect(queueSDKPayloadRefreshMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        auditContext: expect.objectContaining({
-          event: "contextualBandit.update",
-          model: "contextualBandit",
-          id: cb.id,
-        }),
-      }),
+    expect(refreshLinkedFeaturePayloadsMock).toHaveBeenCalledWith(
+      context,
+      expect.objectContaining({ id: cb.id }),
+      "contextualBandit.refresh",
     );
   });
 
@@ -258,17 +247,15 @@ describe("executeContextualBanditVariationChange", () => {
     expect(updateMock).not.toHaveBeenCalled();
   });
 
-  it("skips the SDK payload refresh when there are no payload keys", async () => {
-    getPayloadKeysForContextualBanditMock.mockReturnValue([]);
+  it("refreshes the SDK payload even on a metadata-only edit (keys/names change the payload)", async () => {
     const cb = makeCb();
     const { context } = makeContext(cb);
 
     await executeContextualBanditVariationChange(context, cb, [
       v("v0", "0"),
-      v("v1", "1"),
-      v("", "2"),
+      { id: "v1", name: "Renamed", key: "1", screenshots: [] } as Variation,
     ]);
 
-    expect(queueSDKPayloadRefreshMock).not.toHaveBeenCalled();
+    expect(refreshLinkedFeaturePayloadsMock).toHaveBeenCalledTimes(1);
   });
 });

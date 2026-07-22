@@ -189,18 +189,13 @@ export async function executeContextualBanditVariationChange(
     });
   }
 
-  const payloadKeys = getPayloadKeysForContextualBandit(context, updated);
-  if (payloadKeys.length > 0) {
-    queueSDKPayloadRefresh({
-      context,
-      payloadKeys,
-      auditContext: {
-        event: "contextualBandit.update",
-        model: "contextualBandit",
-        id: cb.id,
-      },
-    });
-  }
+  // Regenerate the SDK payload for linked features (new variation set / weights /
+  // banditVersion). Uses the same helper as start/stop/refresh (post-v2-merge).
+  await refreshLinkedFeaturePayloads(
+    context,
+    updated,
+    "contextualBandit.refresh",
+  );
 
   return { updated };
 }

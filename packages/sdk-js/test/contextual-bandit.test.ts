@@ -61,6 +61,48 @@ describe("contextual bandit feature rules", () => {
     gb.destroy();
   });
 
+  it("routes into a 3-arm (post-add) leaf and assigns the newly added arm", () => {
+    // After adding a third variation, the rule + leaf weights are length 3.
+    // A leaf whose weights favor the new arm must actually assign it.
+    const gb = new GrowthBook({
+      attributes: { id: "u1", plan: "enterprise" },
+      features: {
+        promo: {
+          defaultValue: "default",
+          rules: [
+            cbRule({
+              contextualVariations: ["control", "treatment", "added"],
+              weights: [1, 0, 0],
+              meta: [{ key: "0" }, { key: "1" }, { key: "2" }],
+            }),
+          ],
+        },
+      },
+      contextualBandits: {
+        cb_promo: {
+          banditVersion: 8,
+          contexts: [
+            {
+              leafId: 1,
+              condition: { plan: "enterprise" },
+              weights: [0, 0, 1],
+            },
+            { leafId: 2, condition: {}, weights: [1, 0, 0] },
+          ],
+        },
+      },
+    });
+
+    const res = gb.evalFeature("promo");
+    expect(res.value).toEqual("added");
+    expect(res.experimentResult?.variationId).toEqual(2);
+    expect(res.experimentResult?.leafId).toEqual(1);
+    expect(res.experimentResult?.variationWeights).toEqual([0, 0, 1]);
+    expect(res.experimentResult?.banditVersion).toEqual(8);
+
+    gb.destroy();
+  });
+
   it("skips a CB rule whose variations were stripped (old-SDK payload), no even-split fallback", () => {
     // An SDK without the contextualBandits capability drops the CB-gated keys
     // (`contextualVariations` and `contextualBanditRef`) and never sees

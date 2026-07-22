@@ -230,6 +230,183 @@ describe("filterUsedContextualBandits", () => {
   });
 });
 
+describe("add/remove variation payload behavior (P5)", () => {
+  const V0 = { id: "v0", name: "Control", key: "0", screenshots: [] };
+  const V1 = { id: "v1", name: "Treatment", key: "1", screenshots: [] };
+  const V2 = { id: "v2", name: "Added", key: "2", screenshots: [] };
+
+  const cbMapOf = (cb: ContextualBanditInterface) =>
+    new Map([[cb.id, cb]]) as Map<string, ContextualBanditInterface>;
+
+  const refFeatures: Record<string, FeatureDefinition> = {
+    f: { defaultValue: "x", rules: [{ contextualBanditRef: "cb_1" }] },
+  };
+
+  // A contextual-bandit-ref feature rule mapping a value to each given arm.
+  function featureWithValues(
+    pairs: { variationId: string; value: string }[],
+  ): FeatureInterface {
+    return makeFeature({
+      environmentSettings: {
+        production: {
+          enabled: true,
+          rules: [
+            {
+              type: "contextual-bandit-ref",
+              id: "rule_1",
+              description: "",
+              enabled: true,
+              contextualBanditId: "cb_1",
+              variations: pairs,
+            },
+          ],
+        },
+      },
+    } as unknown as Partial<FeatureInterface>);
+  }
+
+  function ruleFor(cb: ContextualBanditInterface, feature: FeatureInterface) {
+    const def = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap,
+      safeRolloutMap,
+      cbMap: cbMapOf(cb),
+    });
+    return def?.rules?.[0];
+  }
+
+  it("add in explore: aggregate weights include the new arm at 1/n; contexts stay empty", () => {
+    const cb = makeCb({
+      stage: "explore",
+      variations: [V0, V1, V2],
+      variationWeights: [
+        { variationId: "v0", weight: 1 / 3 },
+        { variationId: "v1", weight: 1 / 3 },
+        { variationId: "v2", weight: 1 / 3 },
+      ],
+      currentLeafWeights: [],
+      banditVersion: 8,
+    } as unknown as Partial<ContextualBanditInterface>);
+
+    const rule = ruleFor(
+      cb,
+      featureWithValues([
+        { variationId: "v0", value: "control" },
+        { variationId: "v1", value: "treatment" },
+        { variationId: "v2", value: "added" },
+      ]),
+    );
+
+    // New arm is present in the rule's variation list + aggregate weights.
+    expect(rule?.contextualVariations).toEqual([
+      "control",
+      "treatment",
+      "added",
+    ]);
+    expect(rule?.weights?.length).toEqual(3);
+    (rule?.weights ?? []).forEach((w) => expect(w).toBeCloseTo(1 / 3, 3));
+
+    // Explore ⇒ no per-leaf weights; SDK will fall back to the aggregate above.
+    const map = filterUsedContextualBandits(cbMapOf(cb), refFeatures);
+    expect(map?.cb_1?.banditVersion).toEqual(8);
+    expect(map?.cb_1?.contexts).toEqual([]);
+  });
+
+  it("add: an arm with no linked-feature value emits null (linked feature must be updated)", () => {
+    const cb = makeCb({
+      stage: "explore",
+      variations: [V0, V1, V2],
+      variationWeights: [
+        { variationId: "v0", weight: 1 / 3 },
+        { variationId: "v1", weight: 1 / 3 },
+        { variationId: "v2", weight: 1 / 3 },
+      ],
+      currentLeafWeights: [],
+    } as unknown as Partial<ContextualBanditInterface>);
+
+    // Feature rule only maps the original two arms.
+    const rule = ruleFor(
+      cb,
+      featureWithValues([
+        { variationId: "v0", value: "control" },
+        { variationId: "v1", value: "treatment" },
+      ]),
+    );
+
+    // The added arm has no value yet ⇒ null placeholder; weights still length 3.
+    expect(rule?.contextualVariations).toEqual(["control", "treatment", null]);
+    expect(rule?.weights?.length).toEqual(3);
+  });
+
+  it("remove: the dropped arm appears nowhere in the payload", () => {
+    // Post-remove state: v1 gone, weights re-equalized over the survivors.
+    const cb = makeCb({
+      variations: [V0, V2],
+      variationWeights: [
+        { variationId: "v0", weight: 0.5 },
+        { variationId: "v2", weight: 0.5 },
+      ],
+      currentLeafWeights: [
+        {
+          leafId: 0,
+          condition: { country: "US" },
+          weights: [
+            { variationId: "v0", weight: 0.3 },
+            { variationId: "v2", weight: 0.7 },
+          ],
+        },
+      ],
+    } as unknown as Partial<ContextualBanditInterface>);
+
+    const rule = ruleFor(
+      cb,
+      featureWithValues([
+        { variationId: "v0", value: "control" },
+        { variationId: "v2", value: "added" },
+      ]),
+    );
+
+    expect(rule?.contextualVariations).toEqual(["control", "added"]);
+    expect(rule?.weights).toEqual([0.5, 0.5]);
+    // No trace of the removed arm's value anywhere on the rule.
+    expect(JSON.stringify(rule)).not.toContain("treatment");
+
+    const map = filterUsedContextualBandits(cbMapOf(cb), refFeatures);
+    expect(map?.cb_1?.contexts).toEqual([
+      { leafId: 0, condition: { country: "US" }, weights: [0.3, 0.7] },
+    ]);
+  });
+
+  it("positional: an arm with no stored leaf weight resolves to 0 in that leaf", () => {
+    // Guards the positional zip: a variation present on the CB but absent from a
+    // leaf's paired weights (e.g. a newly added arm before the next retrain
+    // populates that leaf) maps to 0 rather than shifting the array.
+    const cb = makeCb({
+      variations: [V0, V1, V2],
+      variationWeights: [
+        { variationId: "v0", weight: 1 / 3 },
+        { variationId: "v1", weight: 1 / 3 },
+        { variationId: "v2", weight: 1 / 3 },
+      ],
+      currentLeafWeights: [
+        {
+          leafId: 0,
+          condition: { country: "US" },
+          weights: [
+            { variationId: "v0", weight: 0.3 },
+            { variationId: "v1", weight: 0.7 },
+          ],
+        },
+      ],
+    } as unknown as Partial<ContextualBanditInterface>);
+
+    const map = filterUsedContextualBandits(cbMapOf(cb), refFeatures);
+    expect(map?.cb_1?.contexts?.[0]?.weights).toEqual([0.3, 0.7, 0]);
+  });
+});
+
 describe("measureContextualBanditPayload", () => {
   const smallEntry = {
     banditVersion: 1,
