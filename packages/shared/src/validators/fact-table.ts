@@ -179,6 +179,8 @@ export const rowFilterOperators = [
   "<=",
   ">",
   ">=",
+  "between",
+  "not_between",
   "in",
   "not_in",
   "contains",

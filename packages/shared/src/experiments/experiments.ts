@@ -401,24 +401,22 @@ export function getRowFilterSQL({
     return null;
   }
 
-  const escapedValues = [
-    ...new Set(
-      filterValues.map((v) => {
-        // Number, don't wrap in quotes
-        if (columnType === "number" && v.match(/^-?(\d+|\d*\.\d+)$/)) {
-          return v;
-        }
+  const escapeValue = (v: string): string => {
+    // Number, don't wrap in quotes
+    if (columnType === "number" && v.match(/^-?(\d+|\d*\.\d+)$/)) {
+      return v;
+    }
 
-        if (castDates && castToTimestamp) {
-          return castToTimestamp(
-            "'" + escapeStringLiteral(normalizeRowFilterDateValue(v)) + "'",
-          );
-        }
+    if (castDates && castToTimestamp) {
+      return castToTimestamp(
+        "'" + escapeStringLiteral(normalizeRowFilterDateValue(v)) + "'",
+      );
+    }
 
-        return "'" + escapeStringLiteral(v) + "'";
-      }),
-    ),
-  ];
+    return "'" + escapeStringLiteral(v) + "'";
+  };
+
+  const escapedValues = [...new Set(filterValues.map(escapeValue))];
 
   const firstEscapedValue = escapedValues[0];
 
@@ -444,6 +442,19 @@ export function getRowFilterSQL({
     case ">":
     case ">=":
       return `(${comparisonColumn} ${operator} ${firstEscapedValue})`;
+    case "between":
+    case "not_between": {
+      // between needs both a lower and an upper bound. `filterValues` keeps the
+      // user's order (and, for dates, has already dropped unparseable bounds),
+      // so bail out to a no-op if we don't have two usable values.
+      if (filterValues.length < 2) {
+        return null;
+      }
+      const lowerBound = escapeValue(filterValues[0]);
+      const upperBound = escapeValue(filterValues[1]);
+      const negation = operator === "not_between" ? "NOT " : "";
+      return `(${comparisonColumn} ${negation}BETWEEN ${lowerBound} AND ${upperBound})`;
+    }
     case "in":
       return `(${comparisonColumn} IN (\n  ${escapedValues.join(",\n  ")}\n))`;
     case "not_in":

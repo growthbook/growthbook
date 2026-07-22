@@ -783,6 +783,85 @@ describe("Experiments", () => {
             `(CAST(${dateColumn.column} AS TIMESTAMP) IN (\n  CAST('2024-01-01' AS TIMESTAMP),\n  CAST('2024-02-01' AS TIMESTAMP)\n))`,
           );
         });
+        it("casts both bounds to timestamp for date between", () => {
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: dateColumn.column,
+                operator: "between",
+                values: ["2024-01-01", "2024-02-01T17:00:00.000Z"],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+              castToTimestamp,
+            }),
+          ).toStrictEqual(
+            `(CAST(${dateColumn.column} AS TIMESTAMP) BETWEEN CAST('2024-01-01' AS TIMESTAMP) AND CAST('2024-02-01 17:00:00' AS TIMESTAMP))`,
+          );
+        });
+        it("emits NOT BETWEEN for date not_between", () => {
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: dateColumn.column,
+                operator: "not_between",
+                values: ["2024-01-01", "2024-02-01"],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+              castToTimestamp,
+            }),
+          ).toStrictEqual(
+            `(CAST(${dateColumn.column} AS TIMESTAMP) NOT BETWEEN CAST('2024-01-01' AS TIMESTAMP) AND CAST('2024-02-01' AS TIMESTAMP))`,
+          );
+        });
+        it("returns null for between with fewer than two valid bounds", () => {
+          for (const values of [
+            undefined,
+            [],
+            ["2024-01-01"],
+            ["2024-01-01", "foo"],
+            ["foo", "2024-02-01"],
+          ]) {
+            expect(
+              getRowFilterSQL({
+                factTable,
+                rowFilter: {
+                  column: dateColumn.column,
+                  operator: "between",
+                  values,
+                },
+                escapeStringLiteral,
+                jsonExtract,
+                evalBoolean,
+                stringMatch,
+                castToTimestamp,
+              }),
+            ).toBeNull();
+          }
+        });
+        it("handles between for numeric columns without a cast", () => {
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: numericColumn.column,
+                operator: "between",
+                values: ["1", "10"],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+            }),
+          ).toStrictEqual(`(${numericColumn.column} BETWEEN 1 AND 10)`);
+        });
         it("falls back to lexicographic comparison without a timestamp cast", () => {
           expect(
             getRowFilterSQL({

@@ -27,15 +27,6 @@ export default function DatePickerStories() {
       />
 
       <DatePicker
-        label="Datetime with seconds"
-        helpText="precision: datetime-seconds"
-        date={date1}
-        setDate={setDate1}
-        precision="datetime-seconds"
-        inputWidth={200}
-      />
-
-      <DatePicker
         date={date1}
         date2={date2}
         setDate={setDate1}

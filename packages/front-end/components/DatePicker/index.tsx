@@ -31,7 +31,13 @@ type Props = {
   label2?: ReactNode;
   helpText?: ReactNode;
   inputWidth?: number;
-  precision?: "datetime" | "datetime-seconds" | "date";
+  /**
+   * Force a specific field height (px) so the picker can line up with adjacent
+   * inputs. Applies the same fixed-height treatment as `compact`. When omitted,
+   * the height follows `compact` (32) or the default (38).
+   */
+  inputHeight?: number;
+  precision?: "datetime" | "date";
   disableBefore?: Date | string;
   disableAfter?: Date | string;
   activeDates?: (Date | string)[];
@@ -95,106 +101,6 @@ export function formatCompactDateRange(startDate: Date, endDate: Date): string {
   return `${format(startDate, "MMMM d, yyyy")} - ${format(endDate, "MMMM d, yyyy")}`;
 }
 
-const pad2 = (n: number) => String(n).padStart(2, "0");
-
-/**
- * A single scrollable column of two-digit values (hours, minutes, or seconds).
- * Styled to match the calendar's selection (violet inset border) rather than
- * the browser's unstylable native <input type="time"> dropdown.
- */
-function TimeColumn({
-  values,
-  selected,
-  onSelect,
-  label,
-}: {
-  values: number[];
-  selected: number;
-  onSelect: (v: number) => void;
-  label: string;
-}) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const selectedRef = useRef<HTMLButtonElement>(null);
-  // Center the selected value when the popover opens.
-  useEffect(() => {
-    const c = containerRef.current;
-    const s = selectedRef.current;
-    if (c && s) {
-      c.scrollTop = s.offsetTop - c.clientHeight / 2 + s.clientHeight / 2;
-    }
-  }, []);
-  return (
-    // Plain group of buttons (not an ARIA listbox — there is no listbox keyboard
-    // model here). The native datetime-local trigger input is the keyboard path,
-    // so the cells are pointer-only (tabIndex=-1) to avoid ~144 extra tab stops.
-    <div
-      ref={containerRef}
-      className={styles.TimeColumn}
-      role="group"
-      aria-label={label}
-    >
-      <div className={styles.TimeColumnHeader}>{label}</div>
-      {values.map((v) => (
-        <button
-          key={v}
-          type="button"
-          tabIndex={-1}
-          ref={v === selected ? selectedRef : undefined}
-          className={clsx(styles.TimeCell, {
-            [styles.TimeCellSelected]: v === selected,
-          })}
-          onClick={() => onSelect(v)}
-        >
-          {pad2(v)}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function TimePicker({
-  value,
-  showSeconds,
-  onChange,
-}: {
-  value: Date;
-  showSeconds: boolean;
-  onChange: (d: Date) => void;
-}) {
-  const h = value.getHours();
-  const m = value.getMinutes();
-  const s = value.getSeconds();
-  const apply = (hh: number, mm: number, ss: number) => {
-    const next = new Date(value);
-    next.setHours(hh, mm, ss, 0);
-    onChange(next);
-  };
-  return (
-    <div className={styles.TimePicker}>
-      <TimeColumn
-        label="HH"
-        values={Array.from({ length: 24 }, (_, i) => i)}
-        selected={h}
-        onSelect={(hh) => apply(hh, m, s)}
-      />
-      <TimeColumn
-        label="MM"
-        values={Array.from({ length: 60 }, (_, i) => i)}
-        selected={m}
-        onSelect={(mm) => apply(h, mm, s)}
-      />
-      {showSeconds && (
-        <TimeColumn
-          label="SS"
-          values={Array.from({ length: 60 }, (_, i) => i)}
-          selected={s}
-          onSelect={(ss) => apply(h, m, ss)}
-        />
-      )}
-    </div>
-  );
-}
-
 export default function DatePicker({
   id,
   date,
@@ -205,6 +111,7 @@ export default function DatePicker({
   label2,
   helpText,
   inputWidth,
+  inputHeight,
   precision = "datetime",
   disableBefore,
   disableAfter,
@@ -218,23 +125,26 @@ export default function DatePicker({
   disabled,
   fixedSpanMode,
 }: Props) {
-  const inputHeight = compact ? 32 : 38;
-  const compactFieldStyle: React.CSSProperties = compact
-    ? {
-        height: 32,
-        minHeight: 32,
-        boxSizing: "border-box",
-        padding: "0 8px",
-        lineHeight: 1.25,
-      }
-    : {};
-  const hasTime = precision === "datetime" || precision === "datetime-seconds";
-  const hasSeconds = precision === "datetime-seconds";
-  const dateFormat = hasSeconds
-    ? "yyyy-MM-dd'T'HH:mm:ss"
-    : hasTime
-      ? "yyyy-MM-dd'T'HH:mm"
-      : "yyyy-MM-dd";
+  // An explicit `inputHeight` wins; otherwise fall back to compact (32) or the
+  // default (38). `fixedHeight` is set whenever the field should be pinned to an
+  // exact height (compact or an explicit override) rather than only floored.
+  const fixedHeight = inputHeight ?? (compact ? 32 : undefined);
+  const resolvedInputHeight = inputHeight ?? (compact ? 32 : 38);
+  const fixedFieldStyle: React.CSSProperties =
+    fixedHeight !== undefined
+      ? {
+          height: fixedHeight,
+          minHeight: fixedHeight,
+          boxSizing: "border-box",
+          padding: "0 8px",
+          lineHeight: 1.25,
+        }
+      : {};
+  const hasTime = precision === "datetime";
+  // The datetime field always exposes a seconds slot (step=1). Users can type
+  // an hh:mm:ss time when they need one, but nothing forces it — the seconds
+  // default to 00 and picking a day from the calendar resets to 00:00:00.
+  const dateFormat = hasTime ? "yyyy-MM-dd'T'HH:mm:ss" : "yyyy-MM-dd";
   // Parses a date prop / bound in the same frame as the user's typed input.
   // For `date` precision, `new Date("yyyy-MM-dd")` lands on UTC midnight, so
   // we shift to local midnight via `getValidDateOffsetByUTC`. For datetime
@@ -447,8 +357,8 @@ export default function DatePicker({
                   inputWidth ||
                   (wrapRangeInputs && isRange ? undefined : "100%"),
                 minWidth: isRange ? 220 : undefined,
-                height: compact ? inputHeight : undefined,
-                minHeight: inputHeight,
+                height: fixedHeight,
+                minHeight: resolvedInputHeight,
                 flex: wrapRangeInputs && isRange ? "1 1 220px" : undefined,
               }}
             >
@@ -473,8 +383,8 @@ export default function DatePicker({
                   style={{
                     flex: 1,
                     minWidth: 0,
-                    height: compact ? inputHeight : undefined,
-                    minHeight: inputHeight,
+                    height: fixedHeight,
+                    minHeight: resolvedInputHeight,
                     overflow: "clip",
                   }}
                 >
@@ -486,9 +396,9 @@ export default function DatePicker({
                       border: 0,
                       marginRight: -20,
                       width: "calc(100% + 30px)",
-                      minHeight: inputHeight,
+                      minHeight: resolvedInputHeight,
                       cursor: "pointer",
-                      ...compactFieldStyle,
+                      ...fixedFieldStyle,
                     }}
                     className={clsx("date-picker-field", {
                       "text-muted": isRange ? !date || !date2 : !date,
@@ -496,11 +406,11 @@ export default function DatePicker({
                     type={
                       isRange ? "text" : hasTime ? "datetime-local" : "date"
                     }
-                    step={!isRange && hasSeconds ? "1" : undefined}
+                    step={!isRange && hasTime ? "1" : undefined}
                     placeholder={
                       isRange
                         ? hasTime
-                          ? `yyyy-MM-dd'T'HH:mm${RANGE_DISPLAY_SEP}yyyy-MM-dd'T'HH:mm`
+                          ? `yyyy-MM-dd'T'HH:mm:ss${RANGE_DISPLAY_SEP}yyyy-MM-dd'T'HH:mm:ss`
                           : `yyyy-MM-dd${RANGE_DISPLAY_SEP}yyyy-MM-dd`
                         : undefined
                     }
@@ -596,10 +506,18 @@ export default function DatePicker({
               ) : isRange ? (
                 <DayPicker
                   mode="range"
-                  selected={{
-                    from: getValidDate(date),
-                    to: getValidDate(date2),
-                  }}
+                  selected={
+                    // While a range is mid-selection only `date` is set; fall
+                    // back to an open-ended range rather than getValidDate's
+                    // "today" default so the calendar doesn't highlight
+                    // start→today. Nothing selected when there is no start yet.
+                    date
+                      ? {
+                          from: getValidDate(date),
+                          to: date2 ? getValidDate(date2) : undefined,
+                        }
+                      : undefined
+                  }
                   onSelect={(daterange: DateRange | undefined) => {
                     if (!daterange) return;
                     const from = daterange.from;
@@ -626,51 +544,25 @@ export default function DatePicker({
                   onMonthChange={(m) => setCalendarMonth(m)}
                 />
               ) : (
-                <Flex align="start" gap="3">
-                  <DayPicker
-                    mode="single"
-                    selected={getValidDate(date)}
-                    onSelect={(selectedDate: Date) => {
-                      if (!selectedDate) selectedDate = new Date();
-                      let nextDate = selectedDate;
-                      // Preserve the existing time-of-day when only the day
-                      // changes (the calendar itself has no time controls).
-                      // Only for the opt-in datetime-seconds precision, so
-                      // existing datetime pickers keep their prior behavior.
-                      if (hasSeconds && date) {
-                        const prev = getValidDate(date);
-                        nextDate = new Date(selectedDate);
-                        nextDate.setHours(
-                          prev.getHours(),
-                          prev.getMinutes(),
-                          prev.getSeconds(),
-                          0,
-                        );
-                      }
-                      setDate(nextDate);
-                      setBufferedDate(format(nextDate, dateFormat));
-                    }}
-                    disabled={disabledMatchers}
-                    modifiers={markedDays}
-                    modifiersClassNames={modifiersClassNames}
-                    fixedWeeks
-                    showOutsideDays
-                    month={calendarMonth}
-                    onMonthChange={(m) => setCalendarMonth(m)}
-                  />
-                  {/* Custom time picker only for the opt-in datetime-seconds
-                      precision; other precisions keep the native time field. */}
-                  {hasSeconds && (
-                    <TimePicker
-                      value={getValidDate(date ?? new Date())}
-                      showSeconds={hasSeconds}
-                      onChange={(nextDate) => {
-                        setDate(nextDate);
-                        setBufferedDate(format(nextDate, dateFormat));
-                      }}
-                    />
-                  )}
-                </Flex>
+                <DayPicker
+                  mode="single"
+                  selected={getValidDate(date)}
+                  onSelect={(selectedDate: Date) => {
+                    if (!selectedDate) selectedDate = new Date();
+                    // Picking a day resets the time to 00:00:00 (the calendar
+                    // has no time controls). Users can still type a specific
+                    // hh:mm:ss into the field afterwards.
+                    setDate(selectedDate);
+                    setBufferedDate(format(selectedDate, dateFormat));
+                  }}
+                  disabled={disabledMatchers}
+                  modifiers={markedDays}
+                  modifiersClassNames={modifiersClassNames}
+                  fixedWeeks
+                  showOutsideDays
+                  month={calendarMonth}
+                  onMonthChange={(m) => setCalendarMonth(m)}
+                />
               )}
               <Popover.Arrow className={styles.Arrow} />
             </Popover.Content>

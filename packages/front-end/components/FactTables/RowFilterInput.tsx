@@ -20,6 +20,7 @@ import {
   getColumnInfo,
   getAttributeFieldsExposedAsColumns,
 } from "./rowFilterUtils";
+import { DateRangeFilterInput } from "./DateRangeFilterInput";
 
 export function RowFilterInput({
   value,
@@ -182,6 +183,10 @@ export function RowFilterInput({
 
         const multiValueInput = ["in", "not_in"].includes(filter.operator);
 
+        const dateRangeInput = ["between", "not_between"].includes(
+          filter.operator,
+        );
+
         const useValueOptions =
           (valueOptions.length > 0 || !allowCreatingNewOptions) &&
           ["in", "not_in", "=", "!=", "saved_filter"].includes(filter.operator);
@@ -303,21 +308,25 @@ export function RowFilterInput({
             )}
             {valueInputRequired && firstSelectCompleted && (
               <>
-                {isDateColumn && !multiValueInput ? (
+                {isDateColumn && dateRangeInput ? (
+                  <DateRangeFilterInput
+                    values={filter.values}
+                    onChange={(values) => updateRowFilter({ values })}
+                    inputWidth={260}
+                  />
+                ) : isDateColumn && !multiValueInput ? (
                   <DatePicker
                     date={filter.values?.[0] || undefined}
                     setDate={(d) => {
-                      // Match the app-wide convention: the datetime picker is a
-                      // UTC wall-clock editor (see the "(UTC)" pickers in
-                      // AnalysisForm/EditPhaseModal). Store the digits the user
-                      // typed verbatim (local components, no tz shift) so they
-                      // are compared as UTC by getRowFilterSQL.
+                      // See the range branch above for the UTC wall-clock
+                      // storage convention.
                       updateRowFilter({
                         values: d ? [format(d, "yyyy-MM-dd'T'HH:mm:ss")] : [],
                       });
                     }}
-                    precision="datetime-seconds"
+                    precision="datetime"
                     inputWidth={200}
+                    inputHeight={36}
                   />
                 ) : multiValueInput && useValueOptions ? (
                   <MultiSelectField

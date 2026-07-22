@@ -23,7 +23,17 @@ export function getAllowedOperators(datatype: string): RowFilter["operator"][] {
     ];
   }
   if (datatype === "date") {
-    return ["=", "!=", "<", "<=", ">", ">=", "is_null", "not_null"];
+    return [
+      "=",
+      "<",
+      "<=",
+      ">",
+      ">=",
+      "between",
+      "not_between",
+      "is_null",
+      "not_null",
+    ];
   }
   if (datatype === "string") {
     return [
@@ -53,6 +63,8 @@ export const operatorLabelMap: Record<RowFilter["operator"], string> = {
   "<=": "<=",
   ">": ">",
   ">=": ">=",
+  between: "between",
+  not_between: "not between",
   in: "in",
   not_in: "not in",
   is_true: "is true",

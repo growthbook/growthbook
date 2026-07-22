@@ -25630,6 +25630,8 @@ paths:
                               - <
                               - '>='
                               - <=
+                              - between
+                              - not_between
                               - in
                               - not_in
                               - is_null
@@ -25645,7 +25647,9 @@ paths:
                           values:
                             description: >-
                               Not required for is_null, not_null, is_true,
-                              is_false operators.
+                              is_false operators. The between and not_between
+                              operators require exactly two values (a lower and
+                              upper bound).
                             type: array
                             items:
                               type: string
@@ -25742,6 +25746,8 @@ paths:
                               - <
                               - '>='
                               - <=
+                              - between
+                              - not_between
                               - in
                               - not_in
                               - is_null
@@ -25757,7 +25763,9 @@ paths:
                           values:
                             description: >-
                               Not required for is_null, not_null, is_true,
-                              is_false operators.
+                              is_false operators. The between and not_between
+                              operators require exactly two values (a lower and
+                              upper bound).
                             type: array
                             items:
                               type: string
@@ -26161,6 +26169,8 @@ paths:
                               - <
                               - '>='
                               - <=
+                              - between
+                              - not_between
                               - in
                               - not_in
                               - is_null
@@ -26176,7 +26186,9 @@ paths:
                           values:
                             description: >-
                               Not required for is_null, not_null, is_true,
-                              is_false operators.
+                              is_false operators. The between and not_between
+                              operators require exactly two values (a lower and
+                              upper bound).
                             type: array
                             items:
                               type: string
@@ -26273,6 +26285,8 @@ paths:
                               - <
                               - '>='
                               - <=
+                              - between
+                              - not_between
                               - in
                               - not_in
                               - is_null
@@ -26288,7 +26302,9 @@ paths:
                           values:
                             description: >-
                               Not required for is_null, not_null, is_true,
-                              is_false operators.
+                              is_false operators. The between and not_between
+                              operators require exactly two values (a lower and
+                              upper bound).
                             type: array
                             items:
                               type: string
@@ -26919,6 +26935,8 @@ paths:
                                         - <
                                         - '>='
                                         - <=
+                                        - between
+                                        - not_between
                                         - in
                                         - not_in
                                         - is_null
@@ -27035,6 +27053,8 @@ paths:
                                         - <
                                         - '>='
                                         - <=
+                                        - between
+                                        - not_between
                                         - in
                                         - not_in
                                         - is_null
@@ -33297,6 +33317,8 @@ paths:
                                                             - <=
                                                             - '>'
                                                             - '>='
+                                                            - between
+                                                            - not_between
                                                             - in
                                                             - not_in
                                                             - contains
@@ -33409,6 +33431,8 @@ paths:
                                                       - <=
                                                       - '>'
                                                       - '>='
+                                                      - between
+                                                      - not_between
                                                       - in
                                                       - not_in
                                                       - contains
@@ -33651,6 +33675,8 @@ paths:
                                                             - <=
                                                             - '>'
                                                             - '>='
+                                                            - between
+                                                            - not_between
                                                             - in
                                                             - not_in
                                                             - contains
@@ -33767,6 +33793,8 @@ paths:
                                                       - <=
                                                       - '>'
                                                       - '>='
+                                                      - between
+                                                      - not_between
                                                       - in
                                                       - not_in
                                                       - contains
@@ -34014,6 +34042,8 @@ paths:
                                                             - <=
                                                             - '>'
                                                             - '>='
+                                                            - between
+                                                            - not_between
                                                             - in
                                                             - not_in
                                                             - contains
@@ -34144,6 +34174,8 @@ paths:
                                                       - <=
                                                       - '>'
                                                       - '>='
+                                                      - between
+                                                      - not_between
                                                       - in
                                                       - not_in
                                                       - contains
@@ -35711,6 +35743,8 @@ paths:
                                                             - <=
                                                             - '>'
                                                             - '>='
+                                                            - between
+                                                            - not_between
                                                             - in
                                                             - not_in
                                                             - contains
@@ -35823,6 +35857,8 @@ paths:
                                                       - <=
                                                       - '>'
                                                       - '>='
+                                                      - between
+                                                      - not_between
                                                       - in
                                                       - not_in
                                                       - contains
@@ -36074,6 +36110,8 @@ paths:
                                                             - <=
                                                             - '>'
                                                             - '>='
+                                                            - between
+                                                            - not_between
                                                             - in
                                                             - not_in
                                                             - contains
@@ -36190,6 +36228,8 @@ paths:
                                                       - <=
                                                       - '>'
                                                       - '>='
+                                                      - between
+                                                      - not_between
                                                       - in
                                                       - not_in
                                                       - contains
@@ -36446,6 +36486,8 @@ paths:
                                                             - <=
                                                             - '>'
                                                             - '>='
+                                                            - between
+                                                            - not_between
                                                             - in
                                                             - not_in
                                                             - contains
@@ -36576,6 +36618,8 @@ paths:
                                                       - <=
                                                       - '>'
                                                       - '>='
+                                                      - between
+                                                      - not_between
                                                       - in
                                                       - not_in
                                                       - contains
@@ -36835,6 +36879,8 @@ paths:
                                                             - <=
                                                             - '>'
                                                             - '>='
+                                                            - between
+                                                            - not_between
                                                             - in
                                                             - not_in
                                                             - contains
@@ -36953,6 +36999,8 @@ paths:
                                                       - <=
                                                       - '>'
                                                       - '>='
+                                                      - between
+                                                      - not_between
                                                       - in
                                                       - not_in
                                                       - contains
@@ -38564,6 +38612,8 @@ paths:
                                                         - <=
                                                         - '>'
                                                         - '>='
+                                                        - between
+                                                        - not_between
                                                         - in
                                                         - not_in
                                                         - contains
@@ -38676,6 +38726,8 @@ paths:
                                                   - <=
                                                   - '>'
                                                   - '>='
+                                                  - between
+                                                  - not_between
                                                   - in
                                                   - not_in
                                                   - contains
@@ -38918,6 +38970,8 @@ paths:
                                                         - <=
                                                         - '>'
                                                         - '>='
+                                                        - between
+                                                        - not_between
                                                         - in
                                                         - not_in
                                                         - contains
@@ -39034,6 +39088,8 @@ paths:
                                                   - <=
                                                   - '>'
                                                   - '>='
+                                                  - between
+                                                  - not_between
                                                   - in
                                                   - not_in
                                                   - contains
@@ -39281,6 +39337,8 @@ paths:
                                                         - <=
                                                         - '>'
                                                         - '>='
+                                                        - between
+                                                        - not_between
                                                         - in
                                                         - not_in
                                                         - contains
@@ -39411,6 +39469,8 @@ paths:
                                                   - <=
                                                   - '>'
                                                   - '>='
+                                                  - between
+                                                  - not_between
                                                   - in
                                                   - not_in
                                                   - contains
@@ -41894,6 +41954,8 @@ paths:
                                           - <=
                                           - '>'
                                           - '>='
+                                          - between
+                                          - not_between
                                           - in
                                           - not_in
                                           - contains
@@ -42006,6 +42068,8 @@ paths:
                                     - <=
                                     - '>'
                                     - '>='
+                                    - between
+                                    - not_between
                                     - in
                                     - not_in
                                     - contains
@@ -42247,6 +42311,8 @@ paths:
                                                         - <=
                                                         - '>'
                                                         - '>='
+                                                        - between
+                                                        - not_between
                                                         - in
                                                         - not_in
                                                         - contains
@@ -42359,6 +42425,8 @@ paths:
                                                   - <=
                                                   - '>'
                                                   - '>='
+                                                  - between
+                                                  - not_between
                                                   - in
                                                   - not_in
                                                   - contains
@@ -42553,6 +42621,8 @@ paths:
                                           - <=
                                           - '>'
                                           - '>='
+                                          - between
+                                          - not_between
                                           - in
                                           - not_in
                                           - contains
@@ -42669,6 +42739,8 @@ paths:
                                     - <=
                                     - '>'
                                     - '>='
+                                    - between
+                                    - not_between
                                     - in
                                     - not_in
                                     - contains
@@ -42915,6 +42987,8 @@ paths:
                                                         - <=
                                                         - '>'
                                                         - '>='
+                                                        - between
+                                                        - not_between
                                                         - in
                                                         - not_in
                                                         - contains
@@ -43031,6 +43105,8 @@ paths:
                                                   - <=
                                                   - '>'
                                                   - '>='
+                                                  - between
+                                                  - not_between
                                                   - in
                                                   - not_in
                                                   - contains
@@ -43230,6 +43306,8 @@ paths:
                                           - <=
                                           - '>'
                                           - '>='
+                                          - between
+                                          - not_between
                                           - in
                                           - not_in
                                           - contains
@@ -43360,6 +43438,8 @@ paths:
                                     - <=
                                     - '>'
                                     - '>='
+                                    - between
+                                    - not_between
                                     - in
                                     - not_in
                                     - contains
@@ -43609,6 +43689,8 @@ paths:
                                                         - <=
                                                         - '>'
                                                         - '>='
+                                                        - between
+                                                        - not_between
                                                         - in
                                                         - not_in
                                                         - contains
@@ -43739,6 +43821,8 @@ paths:
                                                   - <=
                                                   - '>'
                                                   - '>='
+                                                  - between
+                                                  - not_between
                                                   - in
                                                   - not_in
                                                   - contains
@@ -43941,6 +44025,8 @@ paths:
                                           - <=
                                           - '>'
                                           - '>='
+                                          - between
+                                          - not_between
                                           - in
                                           - not_in
                                           - contains
@@ -44059,6 +44145,8 @@ paths:
                                     - <=
                                     - '>'
                                     - '>='
+                                    - between
+                                    - not_between
                                     - in
                                     - not_in
                                     - contains
@@ -44315,6 +44403,8 @@ paths:
                                                         - <=
                                                         - '>'
                                                         - '>='
+                                                        - between
+                                                        - not_between
                                                         - in
                                                         - not_in
                                                         - contains
@@ -44433,6 +44523,8 @@ paths:
                                                   - <=
                                                   - '>'
                                                   - '>='
+                                                  - between
+                                                  - not_between
                                                   - in
                                                   - not_in
                                                   - contains
@@ -54531,6 +54623,8 @@ components:
                       - <
                       - '>='
                       - <=
+                      - between
+                      - not_between
                       - in
                       - not_in
                       - is_null
@@ -54546,7 +54640,8 @@ components:
                   values:
                     description: >-
                       Not required for is_null, not_null, is_true, is_false
-                      operators.
+                      operators. The between and not_between operators require
+                      exactly two values (a lower and upper bound).
                     type: array
                     items:
                       type: string
@@ -54619,6 +54714,8 @@ components:
                       - <
                       - '>='
                       - <=
+                      - between
+                      - not_between
                       - in
                       - not_in
                       - is_null
@@ -54634,7 +54731,8 @@ components:
                   values:
                     description: >-
                       Not required for is_null, not_null, is_true, is_false
-                      operators.
+                      operators. The between and not_between operators require
+                      exactly two values (a lower and upper bound).
                     type: array
                     items:
                       type: string
@@ -58061,6 +58159,8 @@ components:
                                                 - <=
                                                 - '>'
                                                 - '>='
+                                                - between
+                                                - not_between
                                                 - in
                                                 - not_in
                                                 - contains
@@ -58173,6 +58273,8 @@ components:
                                           - <=
                                           - '>'
                                           - '>='
+                                          - between
+                                          - not_between
                                           - in
                                           - not_in
                                           - contains
@@ -58424,6 +58526,8 @@ components:
                                                 - <=
                                                 - '>'
                                                 - '>='
+                                                - between
+                                                - not_between
                                                 - in
                                                 - not_in
                                                 - contains
@@ -58540,6 +58644,8 @@ components:
                                           - <=
                                           - '>'
                                           - '>='
+                                          - between
+                                          - not_between
                                           - in
                                           - not_in
                                           - contains
@@ -58796,6 +58902,8 @@ components:
                                                 - <=
                                                 - '>'
                                                 - '>='
+                                                - between
+                                                - not_between
                                                 - in
                                                 - not_in
                                                 - contains
@@ -58926,6 +59034,8 @@ components:
                                           - <=
                                           - '>'
                                           - '>='
+                                          - between
+                                          - not_between
                                           - in
                                           - not_in
                                           - contains
@@ -59185,6 +59295,8 @@ components:
                                                 - <=
                                                 - '>'
                                                 - '>='
+                                                - between
+                                                - not_between
                                                 - in
                                                 - not_in
                                                 - contains
@@ -59303,6 +59415,8 @@ components:
                                           - <=
                                           - '>'
                                           - '>='
+                                          - between
+                                          - not_between
                                           - in
                                           - not_in
                                           - contains
@@ -61121,6 +61235,8 @@ components:
                                           - <=
                                           - '>'
                                           - '>='
+                                          - between
+                                          - not_between
                                           - in
                                           - not_in
                                           - contains
@@ -61233,6 +61349,8 @@ components:
                                     - <=
                                     - '>'
                                     - '>='
+                                    - between
+                                    - not_between
                                     - in
                                     - not_in
                                     - contains
@@ -61377,6 +61495,8 @@ components:
                                           - <=
                                           - '>'
                                           - '>='
+                                          - between
+                                          - not_between
                                           - in
                                           - not_in
                                           - contains
@@ -61493,6 +61613,8 @@ components:
                                     - <=
                                     - '>'
                                     - '>='
+                                    - between
+                                    - not_between
                                     - in
                                     - not_in
                                     - contains
@@ -61642,6 +61764,8 @@ components:
                                           - <=
                                           - '>'
                                           - '>='
+                                          - between
+                                          - not_between
                                           - in
                                           - not_in
                                           - contains
@@ -61772,6 +61896,8 @@ components:
                                     - <=
                                     - '>'
                                     - '>='
+                                    - between
+                                    - not_between
                                     - in
                                     - not_in
                                     - contains
@@ -61924,6 +62050,8 @@ components:
                                           - <=
                                           - '>'
                                           - '>='
+                                          - between
+                                          - not_between
                                           - in
                                           - not_in
                                           - contains
@@ -62042,6 +62170,8 @@ components:
                                     - <=
                                     - '>'
                                     - '>='
+                                    - between
+                                    - not_between
                                     - in
                                     - not_in
                                     - contains

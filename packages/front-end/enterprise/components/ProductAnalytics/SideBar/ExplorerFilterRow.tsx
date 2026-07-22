@@ -22,6 +22,7 @@ import {
   getColumnInfo,
   getAttributeFieldsExposedAsColumns,
 } from "@/components/FactTables/rowFilterUtils";
+import { DateRangeFilterInput } from "@/components/FactTables/DateRangeFilterInput";
 
 const NUMBER_PARTIAL_PATTERN = /^-?\.?$|^-?\d*\.?\d*$/;
 
@@ -212,6 +213,8 @@ export function ExplorerFilterRow({
 
   const multiValueInput = ["in", "not_in"].includes(filter.operator);
 
+  const dateRangeInput = ["between", "not_between"].includes(filter.operator);
+
   const useValueOptions =
     (valueOptions.length > 0 || !allowCreatingNewOptions) &&
     ["in", "not_in", "=", "!=", "saved_filter"].includes(filter.operator);
@@ -298,17 +301,22 @@ export function ExplorerFilterRow({
 
   const valueInput = valueInputRequired && firstSelectCompleted && (
     <>
-      {isDateColumn && !multiValueInput ? (
+      {isDateColumn && dateRangeInput ? (
+        <DateRangeFilterInput
+          values={filter.values}
+          onChange={(values) => onUpdate({ values })}
+        />
+      ) : isDateColumn && !multiValueInput ? (
         <DatePicker
           date={filter.values?.[0] || undefined}
           setDate={(d) => {
-            // UTC wall-clock convention: store the typed digits verbatim (no
-            // tz shift) so they are compared as UTC by getRowFilterSQL.
+            // See the range branch above for the UTC wall-clock convention.
             onUpdate({
               values: d ? [format(d, "yyyy-MM-dd'T'HH:mm:ss")] : [],
             });
           }}
-          precision="datetime-seconds"
+          precision="datetime"
+          inputHeight={36}
         />
       ) : multiValueInput && useValueOptions ? (
         <MultiSelectField
