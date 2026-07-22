@@ -2858,6 +2858,51 @@ describe("SDK Payloads", () => {
     expect(defWithMeta?.rules?.[0]?.metadata?.customFields).not.toHaveProperty(
       "region",
     );
+
+    // Feature-level metadata advertises the governance project by default
+    expect(defWithMeta?.metadata).toEqual({
+      projects: ["feature-project"],
+      tags: ["feature-tag"],
+      customFields: { owner: "alice" },
+    });
+
+    // Targeting projects fold into metadata.projects (as public ids), so the
+    // payload lists every project the feature is delivered to
+    const featureWithTargeting = cloneDeep(feature);
+    featureWithTargeting.targetingProjects = ["proj_exp"];
+    const defWithTargeting = getFeatureDefinition({
+      feature: featureWithTargeting,
+      environment: "production",
+      groupMap,
+      experimentMap: expMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      includeRuleIds: true,
+      metadataOptions: { includeProjectIdInMetadata: true },
+      projectsMap,
+    });
+    expect(defWithTargeting?.metadata?.projects).toEqual([
+      "feature-project",
+      "exp-project",
+    ]);
+
+    // targetingAllProjects enumerates every project in the map
+    const featureAllProjects = cloneDeep(feature);
+    featureAllProjects.targetingAllProjects = true;
+    const defAllProjects = getFeatureDefinition({
+      feature: featureAllProjects,
+      environment: "production",
+      groupMap,
+      experimentMap: expMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      includeRuleIds: true,
+      metadataOptions: { includeProjectIdInMetadata: true },
+      projectsMap,
+    });
+    expect([...(defAllProjects?.metadata?.projects ?? [])].sort()).toEqual(
+      ["exp-project", "feature-project"].sort(),
+    );
   });
 
   it("Gets Feature Definitions", () => {

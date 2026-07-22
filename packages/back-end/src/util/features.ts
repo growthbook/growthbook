@@ -24,6 +24,7 @@ import {
   ensureConfigBacking,
   stripConfigExtends,
   deepMergePatch,
+  resolveTargetingProjectIds,
 } from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
@@ -117,6 +118,8 @@ export function buildPayloadMetadata<
 >(
   entity: {
     project?: string;
+    targetingProjects?: string[];
+    targetingAllProjects?: boolean;
     customFields?: Record<string, unknown>;
     tags?: string[];
   },
@@ -125,10 +128,20 @@ export function buildPayloadMetadata<
 ): T | undefined {
   const metadata: T = {} as T;
 
-  if (opts.includeProjectIdInMetadata && entity.project && projectsMap) {
-    const project = projectsMap.get(entity.project);
-    if (project) {
-      metadata.projects = [project.publicId || project.id];
+  if (opts.includeProjectIdInMetadata && projectsMap) {
+    // Emit every project the entity is delivered to — governance project plus
+    // targeting projects, or all projects when targeted everywhere — as public
+    // ids. Entities without targeting (e.g. experiments) resolve to just their
+    // single project, preserving the prior single-id shape.
+    const publicIds = resolveTargetingProjectIds(
+      entity,
+      Array.from(projectsMap.keys()),
+    )
+      .map((id) => projectsMap.get(id))
+      .filter((p): p is ProjectInterface => !!p)
+      .map((p) => p.publicId || p.id);
+    if (publicIds.length) {
+      metadata.projects = publicIds;
     }
   }
 
@@ -1329,6 +1342,8 @@ export function getFeatureDefinition({
     const featureMetadata = buildPayloadMetadata<FeatureMetadata>(
       {
         project: feature.project,
+        targetingProjects: feature.targetingProjects,
+        targetingAllProjects: feature.targetingAllProjects,
         customFields: feature.customFields,
         tags: feature.tags,
       },
