@@ -5,16 +5,18 @@ on:
     paths:
       - "packages/**"
       - "pnpm-lock.yaml"
+      - "package.json"
       - "eslint.config.mjs"
+      - "eslint-rules/**"
       - "eslint-suppressions.json"
-      - ".prettierignore"
   pull_request:
     paths:
       - "packages/**"
       - "pnpm-lock.yaml"
+      - "package.json"
       - "eslint.config.mjs"
+      - "eslint-rules/**"
       - "eslint-suppressions.json"
-      - ".prettierignore"
 
 jobs:
   # Linting, type-checking, and tests
@@ -94,6 +96,9 @@ jobs:
           pnpm --filter stats lint:ci
         env:
           CI: true
+
+      - name: Check formatting
+        run: pnpm pretty:check
 
       - name: Check OpenAPI spec
         run: |

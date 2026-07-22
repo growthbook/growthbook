@@ -23,13 +23,14 @@ if [ -n "$eslintconfigchanged" ]
     pnpm eslint --suppress-all --pass-on-unpruned-suppressions .
 fi
 
-echo "#### Linting typescript, scss, and markdown files"
+echo "#### Formatting and linting staged files"
 pnpm lint-staged
 
-# Add eslint-suppressions.json if it was modified during linting
+# Format and add eslint-suppressions.json if it was modified during linting
 if [ -n "$(git status --porcelain eslint-suppressions.json)" ]
   then
-    echo "#### Adding updated eslint-suppressions.json"
+    echo "#### Formatting and adding updated eslint-suppressions.json"
+    pnpm prettier --write eslint-suppressions.json
     git add eslint-suppressions.json
 fi
 

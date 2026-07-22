@@ -4,7 +4,6 @@ import { defineConfig, globalIgnores } from "eslint/config";
 import { fixupConfigRules, fixupPluginRules } from "@eslint/compat";
 import react from "eslint-plugin-react";
 import typescriptEslint from "@typescript-eslint/eslint-plugin";
-import prettier from "eslint-plugin-prettier";
 import nextEslintPluginNext from "@next/eslint-plugin-next";
 import noAsyncForeach from "eslint-plugin-no-async-foreach";
 import globals from "globals";
@@ -49,7 +48,6 @@ export default defineConfig([
         "plugin:react/recommended",
         "plugin:@typescript-eslint/eslint-recommended",
         "plugin:@typescript-eslint/recommended",
-        "plugin:prettier/recommended",
         "plugin:react-hooks/recommended",
       ),
     ),
@@ -57,7 +55,6 @@ export default defineConfig([
     plugins: {
       react: fixupPluginRules(react),
       "@typescript-eslint": fixupPluginRules(typescriptEslint),
-      prettier: fixupPluginRules(prettier),
       "no-async-foreach": noAsyncForeach,
     },
 
@@ -559,6 +556,60 @@ export default defineConfig([
             "Use ownerField or ownerInputField from 'shared/validators' instead of a bare z.string() for owner properties to ensure consistent API documentation.",
         },
       ],
+    },
+  },
+  {
+    files: ["./packages/front-end/**/*.{ts,tsx}"],
+
+    languageOptions: {
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir: __dirname,
+      },
+    },
+
+    settings: {
+      "import/resolver": {
+        node: true,
+        typescript: {
+          alwaysTryTypes: true,
+          project: ["packages/front-end/tsconfig.json"],
+        },
+      },
+    },
+
+    rules: {
+      "@typescript-eslint/switch-exhaustiveness-check": "error",
+      "import/default": "off",
+      "import/namespace": "off",
+      "import/no-unresolved": "off",
+    },
+  },
+  {
+    files: ["./packages/back-end/src/**/*.{ts,tsx}"],
+
+    languageOptions: {
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir: __dirname,
+      },
+    },
+
+    settings: {
+      "import/resolver": {
+        node: true,
+        typescript: {
+          alwaysTryTypes: true,
+          project: ["packages/back-end/tsconfig.json"],
+        },
+      },
+    },
+
+    rules: {
+      "@typescript-eslint/switch-exhaustiveness-check": "error",
+      "import/default": "off",
+      "import/namespace": "off",
+      "import/no-unresolved": "off",
     },
   },
   {
