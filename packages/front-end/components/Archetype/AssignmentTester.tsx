@@ -7,7 +7,7 @@ import { FiAlertTriangle } from "react-icons/fi";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useEnvironments } from "@/services/features";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import Code from "@/components/SyntaxHighlighting/Code";
 import Tooltip from "@/components/Tooltip/Tooltip";

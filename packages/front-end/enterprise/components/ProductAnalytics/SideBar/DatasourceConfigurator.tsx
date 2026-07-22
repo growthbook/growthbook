@@ -298,6 +298,7 @@ export default function DatasourceConfigurator({
             )}
           </Flex>
           <SelectField
+            size="legacy"
             value={databaseDataset?.table || ""}
             onChange={(value) => {
               const selectedTable = tableOptions.find(

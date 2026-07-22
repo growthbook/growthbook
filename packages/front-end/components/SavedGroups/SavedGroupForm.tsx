@@ -32,8 +32,8 @@ import SelectField from "@/components/Forms/SelectField";
 import ConditionInput from "@/components/Features/ConditionInput";
 import { IdListItemInput } from "@/components/SavedGroups/IdListItemInput";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import MultiSelectField from "@/ui/MultiSelectField";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Link from "@/ui/Link";
 import SelectOwner from "@/components/Owner/SelectOwner";
@@ -533,6 +533,7 @@ const SavedGroupForm: FC<{
       {!editConditionOnly && (
         <>
           <Field
+            size="legacy"
             label={`${type === "list" ? "List" : "Group"} Name`}
             labelClassName="font-weight-bold"
             required
@@ -541,6 +542,7 @@ const SavedGroupForm: FC<{
           />
           {showDescription ? (
             <Field
+              size="legacy"
               label="Description"
               labelClassName="font-weight-bold"
               required={false}
@@ -566,6 +568,7 @@ const SavedGroupForm: FC<{
             </Link>
           )}
           <MultiSelectField
+            size="legacy"
             label="Projects"
             labelClassName="font-weight-bold"
             placeholder={
@@ -600,6 +603,7 @@ const SavedGroupForm: FC<{
         ) : (
           <>
             <SelectField
+              size="legacy"
               label="Attribute Key"
               labelClassName="font-weight-bold"
               required
