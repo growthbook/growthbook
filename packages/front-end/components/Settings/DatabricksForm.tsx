@@ -11,7 +11,7 @@ const DatabricksForm: FC<{
   setParams: (params: { [key: string]: string | boolean }) => void;
 }> = ({ params, existing, onParamChange, setParams }) => {
   const [originalAuthType] = useState(params.authType);
-  const authType = params.authType ?? "oauth-m2m";
+  const authType = params.authType ?? "pat";
   const secretRequired = !existing || authType !== originalAuthType;
   const keepExistingPlaceholder =
     existing && authType === originalAuthType ? "(Keep existing)" : "";
