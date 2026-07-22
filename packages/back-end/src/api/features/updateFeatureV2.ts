@@ -2,7 +2,7 @@ import {
   validateFeatureValue,
   getConfigBackingPatch,
   getConfigBackingKey,
-  normalizeVisibilityInUpdates,
+  normalizeTargetingInUpdates,
 } from "shared/util";
 import { isEqual } from "lodash";
 import { updateFeatureV2Validator } from "shared/validators";
@@ -67,8 +67,8 @@ export const updateFeatureV2 = createApiRequestHandler(
     archived,
     description,
     project,
-    visibilityAllProjects,
-    visibilityProjects,
+    targetingAllProjects,
+    targetingProjects,
     tags,
     customFields,
   } = req.body;
@@ -293,8 +293,8 @@ export const updateFeatureV2 = createApiRequestHandler(
     ...(archived != null ? { archived } : {}),
     ...(description != null ? { description } : {}),
     ...(project != null ? { project } : {}),
-    ...(visibilityAllProjects != null ? { visibilityAllProjects } : {}),
-    ...(visibilityProjects != null ? { visibilityProjects } : {}),
+    ...(targetingAllProjects != null ? { targetingAllProjects } : {}),
+    ...(targetingProjects != null ? { targetingProjects } : {}),
     ...(tags != null ? { tags } : {}),
     ...(storedDefault !== undefined ? { defaultValue: storedDefault } : {}),
     ...(req.body.baseConfig !== undefined
@@ -304,7 +304,7 @@ export const updateFeatureV2 = createApiRequestHandler(
     ...(jsonSchema != null ? { jsonSchema } : {}),
     ...(customFields != null ? { customFields } : {}),
   };
-  normalizeVisibilityInUpdates(updates, feature);
+  normalizeTargetingInUpdates(updates, feature);
 
   if (
     updates.defaultValue != null ||

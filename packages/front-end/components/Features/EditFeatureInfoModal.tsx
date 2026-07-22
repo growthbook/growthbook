@@ -4,16 +4,12 @@ import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { getReviewSetting } from "shared/util";
 import { Box } from "@radix-ui/themes";
-import { PiPlus } from "react-icons/pi";
 import Field from "@/components/Forms/Field";
 import TagsInput from "@/components/Tags/TagsInput";
 import SelectOwner from "@/components/Owner/SelectOwner";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import SelectField from "@/components/Forms/SelectField";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
-import RadioGroup from "@/ui/RadioGroup";
-import Link from "@/ui/Link";
-import { useDefinitions } from "@/services/DefinitionsContext";
+import TargetingProjectsField from "@/components/TargetingProjectsField";
 import Callout from "@/ui/Callout";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -45,7 +41,6 @@ const EditFeatureInfoModal: FC<{
 }) => {
   const { apiCall } = useAuth();
   const settings = useOrgSettings();
-  const { projects } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
   const [showProjectWarningMsg, setShowProjectWarningMsg] = useState(false);
   const { requireProjectForFeatures } = settings;
@@ -79,20 +74,11 @@ const EditFeatureInfoModal: FC<{
       tags: feature.tags || [],
       owner: feature.owner,
       project: feature.project || "",
-      visibilityAllProjects: feature.visibilityAllProjects || false,
-      visibilityProjects: feature.visibilityProjects || [],
+      targetingAllProjects: feature.targetingAllProjects || false,
+      targetingProjects: feature.targetingProjects || [],
       description: feature.description || "",
     },
   });
-
-  // UI-only reveal: collapsed to a "+ Add" link until the user opts in, or
-  // seeded open when the feature already has any secondary visibility.
-  const [secondaryVisibilityEnabled, setSecondaryVisibilityEnabled] =
-    useState<boolean>(
-      () =>
-        !!feature.visibilityAllProjects ||
-        (feature.visibilityProjects?.length ?? 0) > 0,
-    );
 
   const permissionRequired = (project) =>
     permissionsUtil.canUpdateFeature(feature, { project });
@@ -192,57 +178,18 @@ const EditFeatureInfoModal: FC<{
             </>
           )}
         </Box>
-        <Box mb="4">
-          {!secondaryVisibilityEnabled ? (
-            <Link onClick={() => setSecondaryVisibilityEnabled(true)}>
-              <PiPlus /> Add visibility projects
-            </Link>
-          ) : (
-            <>
-              <label>Visibility projects</label>
-              <RadioGroup
-                width="100%"
-                value={form.watch("visibilityAllProjects") ? "all" : "specific"}
-                setValue={(v) =>
-                  form.setValue("visibilityAllProjects", v === "all", {
-                    shouldDirty: true,
-                  })
-                }
-                gap="0"
-                options={[
-                  {
-                    value: "specific",
-                    label: "Specific projects",
-                    renderOutsideItem: true,
-                    renderOnSelect: (
-                      <Box pl="5">
-                        <MultiSelectField
-                          value={form.watch("visibilityProjects")}
-                          onChange={(v) =>
-                            form.setValue("visibilityProjects", v, {
-                              shouldDirty: true,
-                            })
-                          }
-                          options={projects
-                            .filter((p) => p.id !== form.watch("project"))
-                            .map((p) => ({ value: p.id, label: p.name }))}
-                          placeholder="Select projects..."
-                          sort={false}
-                          containerClassName="w-full"
-                        />
-                      </Box>
-                    ),
-                  },
-                  {
-                    value: "all",
-                    label: "All projects",
-                    itemClassName: "mt-2",
-                  },
-                ]}
-              />
-            </>
-          )}
-        </Box>
+        <TargetingProjectsField
+          mb="4"
+          primaryProject={form.watch("project")}
+          allProjects={form.watch("targetingAllProjects")}
+          setAllProjects={(v) =>
+            form.setValue("targetingAllProjects", v, { shouldDirty: true })
+          }
+          targetingProjects={form.watch("targetingProjects")}
+          setTargetingProjects={(v) =>
+            form.setValue("targetingProjects", v, { shouldDirty: true })
+          }
+        />
         <Box mb="4">
           <label>Tags</label>
           <TagsInput

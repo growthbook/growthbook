@@ -14,6 +14,7 @@ import { PiPlus } from "react-icons/pi";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
+import TargetingProjectsField from "@/components/TargetingProjectsField";
 import SelectOwner from "@/components/Owner/SelectOwner";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import Callout from "@/ui/Callout";
@@ -49,6 +50,8 @@ type FormValues = {
   owner: string;
   description: string;
   project: string;
+  targetingAllProjects: boolean;
+  targetingProjects: string[];
   extensible: boolean;
 };
 
@@ -103,6 +106,8 @@ export default function ConfigModal({
       owner: existing?.owner ?? "",
       description: existing?.description ?? "",
       project: existing?.project ?? project ?? "",
+      targetingAllProjects: existing?.targetingAllProjects ?? false,
+      targetingProjects: existing?.targetingProjects ?? [],
       extensible: existing?.extensible ?? orgExtensibleDefault,
     },
   });
@@ -157,6 +162,8 @@ export default function ConfigModal({
                 owner: values.owner,
                 description: values.description || undefined,
                 project: values.project,
+                targetingAllProjects: values.targetingAllProjects,
+                targetingProjects: values.targetingProjects,
                 ...(isBaseConfig ? { extensible: values.extensible } : {}),
               }),
             },
@@ -182,6 +189,8 @@ export default function ConfigModal({
               })(),
               description: values.description || undefined,
               project: values.project || undefined,
+              targetingAllProjects: values.targetingAllProjects,
+              targetingProjects: values.targetingProjects,
               ...(values.parent ? {} : { extensible: values.extensible }),
             }),
           });
@@ -302,6 +311,16 @@ export default function ConfigModal({
           onChange={(v) => form.setValue("project", v)}
         />
       )}
+
+      <TargetingProjectsField
+        mb="3"
+        entityLabel="config"
+        primaryProject={form.watch("project")}
+        allProjects={form.watch("targetingAllProjects")}
+        setAllProjects={(v) => form.setValue("targetingAllProjects", v)}
+        targetingProjects={form.watch("targetingProjects")}
+        setTargetingProjects={(v) => form.setValue("targetingProjects", v)}
+      />
 
       {editing && (
         <SelectOwner

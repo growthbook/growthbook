@@ -353,10 +353,10 @@ export function getSDKPayloadKeysByDiff(
     "archived",
     "defaultValue",
     "project",
-    // A visibility change alters which connections include the feature across
+    // A targeting change alters which connections include the feature across
     // every environment, so treat it like a project change for invalidation.
-    "visibilityAllProjects",
-    "visibilityProjects",
+    "targetingAllProjects",
+    "targetingProjects",
     "valueType",
     "nextScheduledUpdate",
     "holdout",
@@ -435,8 +435,8 @@ export function getSDKPayloadKeysByDiff(
     "",
     originalFeature.project || "",
     updatedFeature.project || "",
-    ...(originalFeature.visibilityProjects ?? []),
-    ...(updatedFeature.visibilityProjects ?? []),
+    ...(originalFeature.targetingProjects ?? []),
+    ...(updatedFeature.targetingProjects ?? []),
   ]);
 
   return getSDKPayloadKeys(environments, projects);
@@ -458,7 +458,7 @@ export function getAffectedSDKPayloadKeys(
     const projects = new Set([
       "",
       feature.project || "",
-      ...(feature.visibilityProjects ?? []),
+      ...(feature.targetingProjects ?? []),
     ]);
     keys.push(...getSDKPayloadKeys(environments, projects));
   });

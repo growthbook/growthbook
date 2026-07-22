@@ -193,17 +193,17 @@ export async function revertFeatureRevision(
       hasMetaChange = true;
     }
     if (
-      m.visibilityAllProjects !== undefined &&
-      m.visibilityAllProjects !== (feature.visibilityAllProjects ?? false)
+      m.targetingAllProjects !== undefined &&
+      m.targetingAllProjects !== (feature.targetingAllProjects ?? false)
     ) {
-      metadataChanges.visibilityAllProjects = m.visibilityAllProjects;
+      metadataChanges.targetingAllProjects = m.targetingAllProjects;
       hasMetaChange = true;
     }
     if (
-      m.visibilityProjects !== undefined &&
-      !isEqual(m.visibilityProjects, feature.visibilityProjects ?? [])
+      m.targetingProjects !== undefined &&
+      !isEqual(m.targetingProjects, feature.targetingProjects ?? [])
     ) {
-      metadataChanges.visibilityProjects = m.visibilityProjects;
+      metadataChanges.targetingProjects = m.targetingProjects;
       hasMetaChange = true;
     }
     if (m.tags !== undefined && !isEqual(m.tags, feature.tags ?? [])) {

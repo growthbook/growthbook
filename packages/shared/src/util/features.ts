@@ -27,7 +27,7 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import {
   OrganizationSettings,
   RequireReview,
-  VisibilityReviewRule,
+  TargetingReviewRule,
   Environment,
   SDKAttributeSchema,
 } from "shared/types/organization";
@@ -195,10 +195,10 @@ export function mergeRevision(
     if (m.description !== undefined) newFeature.description = m.description;
     if (m.owner !== undefined) newFeature.owner = m.owner;
     if (m.project !== undefined) newFeature.project = m.project;
-    if (m.visibilityAllProjects !== undefined)
-      newFeature.visibilityAllProjects = m.visibilityAllProjects;
-    if (m.visibilityProjects !== undefined)
-      newFeature.visibilityProjects = m.visibilityProjects;
+    if (m.targetingAllProjects !== undefined)
+      newFeature.targetingAllProjects = m.targetingAllProjects;
+    if (m.targetingProjects !== undefined)
+      newFeature.targetingProjects = m.targetingProjects;
     if (m.tags !== undefined) newFeature.tags = m.tags;
     if (m.neverStale !== undefined) newFeature.neverStale = m.neverStale;
     if (m.customFields !== undefined)
@@ -1507,9 +1507,9 @@ export function normalizeMetadataValue(
   k: keyof RevisionMetadata,
   v: RevisionMetadata[keyof RevisionMetadata],
 ): unknown {
-  if (k === "tags" || k === "visibilityProjects")
+  if (k === "tags" || k === "targetingProjects")
     return (v as string[] | null | undefined) ?? [];
-  if (k === "visibilityAllProjects") return !!v;
+  if (k === "targetingAllProjects") return !!v;
   if (k === "description" || k === "owner" || k === "project")
     return (v as string | null | undefined) ?? "";
   // Normalize unset/undefined to null so a non-config snapshot doesn't diff
@@ -2612,11 +2612,11 @@ export type ResetReviewOnChange = {
   defaultValueChanged: boolean;
   settings?: OrganizationSettings;
 };
-// Resolve strict/loose review governance for a single visibility project.
+// Resolve strict/loose review governance for a single targeting project.
 // Most-specific-wins: a rule naming the project beats an all-projects rule.
 // No matching rule (or no rules configured) defaults to strict.
-export function getVisibilityReviewMode(
-  rules: VisibilityReviewRule[] | undefined,
+export function getTargetingReviewMode(
+  rules: TargetingReviewRule[] | undefined,
   projectId: string,
 ): "strict" | "loose" {
   if (!rules?.length) return "strict";
@@ -2626,16 +2626,16 @@ export function getVisibilityReviewMode(
   return all ? all.mode : "strict";
 }
 
-// Projects whose `requireReviews` rules govern a change to a visibility-scoped
-// entity: the primary (always) plus any visibility project in strict mode. Pass
-// the union of current + staged visibility projects so de-scoping is governed too.
+// Projects whose `requireReviews` rules govern a change to a targeting-scoped
+// entity: the primary (always) plus any targeting project in strict mode. Pass
+// the union of current + staged targeting projects so de-scoping is governed too.
 export function getGoverningReviewProjects(
   primary: string | undefined,
-  visibilityProjects: string[],
-  visibilityReviewMode: VisibilityReviewRule[] | undefined,
+  targetingProjects: string[],
+  targetingReviewMode: TargetingReviewRule[] | undefined,
 ): string[] {
-  const strict = visibilityProjects.filter(
-    (p) => getVisibilityReviewMode(visibilityReviewMode, p) === "strict",
+  const strict = targetingProjects.filter(
+    (p) => getTargetingReviewMode(targetingReviewMode, p) === "strict",
   );
   return Array.from(new Set([primary ?? "", ...strict]));
 }
@@ -2695,11 +2695,11 @@ export function featureRequiresReview(
   ) {
     return !!requiresReviewSettings;
   }
-  // OR the primary's review requirement with each strict visibility project's.
+  // OR the primary's review requirement with each strict targeting project's.
   return getGoverningReviewProjects(
     feature.project,
-    feature.visibilityProjects ?? [],
-    settings?.visibilityReviewMode,
+    feature.targetingProjects ?? [],
+    settings?.targetingReviewMode,
   ).some((project) => {
     const reviewSetting = getReviewSetting(requiresReviewSettings, { project });
     if (!reviewSetting?.requireReviewOn) return false;
@@ -3130,18 +3130,18 @@ export function checkIfRevisionNeedsReview({
   if (!Array.isArray(requireReviews)) return !!requireReviews;
 
   // Governing review settings = the primary project (always) plus any secondary
-  // visibility project in strict mode, across the union of current and staged
-  // visibility (so both adding and removing a project is governed). Each project's
+  // targeting project in strict mode, across the union of current and staged
+  // targeting (so both adding and removing a project is governed). Each project's
   // matched requireReviews rule is evaluated independently and OR'd together.
-  const stagedVisibility =
-    revision.metadata?.visibilityProjects ?? feature.visibilityProjects ?? [];
-  const visibilityUnion = Array.from(
-    new Set([...(feature.visibilityProjects ?? []), ...stagedVisibility]),
+  const stagedTargeting =
+    revision.metadata?.targetingProjects ?? feature.targetingProjects ?? [];
+  const targetingUnion = Array.from(
+    new Set([...(feature.targetingProjects ?? []), ...stagedTargeting]),
   );
   const reviewSettings = getGoverningReviewProjects(
     feature.project,
-    visibilityUnion,
-    settings?.visibilityReviewMode,
+    targetingUnion,
+    settings?.targetingReviewMode,
   )
     .map((project) => getReviewSetting(requireReviews, { project }))
     .filter((rs): rs is RequireReview => !!rs?.requireReviewOn);
@@ -3237,73 +3237,71 @@ export function checkIfRevisionNeedsReview({
 }
 
 // Any entity that pairs a single governance `project` with a secondary
-// visibility scope (features, constants, configs).
-export type VisibilityScopedEntity = {
+// targeting scope (features, constants, configs).
+export type TargetingScopedEntity = {
   project?: string;
-  visibilityAllProjects?: boolean;
-  visibilityProjects?: string[];
+  targetingAllProjects?: boolean;
+  targetingProjects?: string[];
 };
 
-// The set of project ids an entity is visible in — the governance project plus
-// its secondary visibility projects, deduped. Returns null when visible in ALL
-// projects (visibilityAllProjects), matching the empty-array "all" convention.
-export function getVisibilityProjectIds(
-  entity: VisibilityScopedEntity,
+// The set of project ids an entity targets — the governance project plus
+// its secondary targeting projects, deduped. Returns null when targeted in ALL
+// projects (targetingAllProjects), matching the empty-array "all" convention.
+export function getTargetingProjectIds(
+  entity: TargetingScopedEntity,
 ): string[] | null {
-  if (entity.visibilityAllProjects) return null;
+  if (entity.targetingAllProjects) return null;
   return Array.from(
-    new Set([entity.project ?? "", ...(entity.visibilityProjects ?? [])]),
+    new Set([entity.project ?? "", ...(entity.targetingProjects ?? [])]),
   );
 }
 
-export function entityVisibleInProject(
-  entity: VisibilityScopedEntity,
+export function entityTargetsProject(
+  entity: TargetingScopedEntity,
   projectId: string,
 ): boolean {
-  if (entity.visibilityAllProjects) return true;
+  if (entity.targetingAllProjects) return true;
   if ((entity.project ?? "") === projectId) return true;
-  return (entity.visibilityProjects ?? []).includes(projectId);
+  return (entity.targetingProjects ?? []).includes(projectId);
 }
 
 // Write-time normalization: drop blanks, dupes, and the governance project from
-// the visibility list, and clear the list entirely when visible in all projects.
-export function normalizeVisibilityProjects(entity: VisibilityScopedEntity): {
-  visibilityAllProjects: boolean;
-  visibilityProjects: string[];
+// the targeting list, and clear the list entirely when targeted in all projects.
+export function normalizeTargetingProjects(entity: TargetingScopedEntity): {
+  targetingAllProjects: boolean;
+  targetingProjects: string[];
 } {
-  if (entity.visibilityAllProjects) {
-    return { visibilityAllProjects: true, visibilityProjects: [] };
+  if (entity.targetingAllProjects) {
+    return { targetingAllProjects: true, targetingProjects: [] };
   }
   const primary = entity.project ?? "";
-  const visibilityProjects = Array.from(
-    new Set(
-      (entity.visibilityProjects ?? []).filter((p) => p && p !== primary),
-    ),
+  const targetingProjects = Array.from(
+    new Set((entity.targetingProjects ?? []).filter((p) => p && p !== primary)),
   );
-  return { visibilityAllProjects: false, visibilityProjects };
+  return { targetingAllProjects: false, targetingProjects };
 }
 
-// Normalize any visibility fields present in a partial feature update, in place.
+// Normalize any targeting fields present in a partial feature update, in place.
 // Resolves against the update's project when it's changing, else the current
-// entity's, so the primary is correctly stripped from the visibility list.
-export function normalizeVisibilityInUpdates(
-  updates: VisibilityScopedEntity,
-  current: VisibilityScopedEntity,
+// entity's, so the primary is correctly stripped from the targeting list.
+export function normalizeTargetingInUpdates(
+  updates: TargetingScopedEntity,
+  current: TargetingScopedEntity,
 ): void {
-  const hasAll = "visibilityAllProjects" in updates;
-  const hasList = "visibilityProjects" in updates;
+  const hasAll = "targetingAllProjects" in updates;
+  const hasList = "targetingProjects" in updates;
   if (!hasAll && !hasList) return;
-  const norm = normalizeVisibilityProjects({
+  const norm = normalizeTargetingProjects({
     project: "project" in updates ? updates.project : current.project,
-    visibilityAllProjects: hasAll
-      ? updates.visibilityAllProjects
-      : current.visibilityAllProjects,
-    visibilityProjects: hasList
-      ? updates.visibilityProjects
-      : current.visibilityProjects,
+    targetingAllProjects: hasAll
+      ? updates.targetingAllProjects
+      : current.targetingAllProjects,
+    targetingProjects: hasList
+      ? updates.targetingProjects
+      : current.targetingProjects,
   });
-  if (hasAll) updates.visibilityAllProjects = norm.visibilityAllProjects;
-  if (hasList) updates.visibilityProjects = norm.visibilityProjects;
+  if (hasAll) updates.targetingAllProjects = norm.targetingAllProjects;
+  if (hasList) updates.targetingProjects = norm.targetingProjects;
 }
 
 export function filterProjectsByEnvironment(

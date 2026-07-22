@@ -1646,14 +1646,14 @@ export default function ConfigDetailPage(): React.ReactElement {
             <Flex align="center" gap="4" mb="4" wrap="wrap">
               <Metadata label="Key" value={config.key} />
               <Metadata label="Project" value={projectName || "All projects"} />
-              {(displayedConfig.visibilityAllProjects ||
-                (displayedConfig.visibilityProjects?.length ?? 0) > 0) && (
+              {(displayedConfig.targetingAllProjects ||
+                (displayedConfig.targetingProjects?.length ?? 0) > 0) && (
                 <Metadata
-                  label="Visibility"
+                  label="Targeting"
                   value={
-                    displayedConfig.visibilityAllProjects
+                    displayedConfig.targetingAllProjects
                       ? "All projects"
-                      : (displayedConfig.visibilityProjects ?? [])
+                      : (displayedConfig.targetingProjects ?? [])
                           .map(
                             (id) =>
                               projects.find((p) => p.id === id)?.name || id,

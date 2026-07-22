@@ -487,14 +487,14 @@ export default function FeaturesHeader({
               />
             )}
 
-            {(feature.visibilityAllProjects ||
-              (feature.visibilityProjects?.length ?? 0) > 0) && (
+            {(feature.targetingAllProjects ||
+              (feature.targetingProjects?.length ?? 0) > 0) && (
               <Metadata
-                label="Visibility"
+                label="Targeting"
                 value={
-                  feature.visibilityAllProjects
+                  feature.targetingAllProjects
                     ? "All projects"
-                    : (feature.visibilityProjects ?? [])
+                    : (feature.targetingProjects ?? [])
                         .map((id) => getProjectById(id)?.name || id)
                         .join(", ")
                 }

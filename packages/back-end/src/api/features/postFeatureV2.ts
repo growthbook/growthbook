@@ -1,4 +1,4 @@
-import { validateFeatureValue, normalizeVisibilityProjects } from "shared/util";
+import { validateFeatureValue, normalizeTargetingProjects } from "shared/util";
 import { postFeatureV2Validator } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -87,10 +87,10 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
       owner: await resolveOwnerForCreate(req.body.owner, req.context),
       description: req.body.description || "",
       project: req.body.project || "",
-      ...normalizeVisibilityProjects({
+      ...normalizeTargetingProjects({
         project: req.body.project || "",
-        visibilityAllProjects: req.body.visibilityAllProjects,
-        visibilityProjects: req.body.visibilityProjects,
+        targetingAllProjects: req.body.targetingAllProjects,
+        targetingProjects: req.body.targetingProjects,
       }),
       dateCreated: new Date(),
       dateUpdated: new Date(),

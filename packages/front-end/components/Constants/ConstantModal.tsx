@@ -10,6 +10,7 @@ import { PiPlus } from "react-icons/pi";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
+import TargetingProjectsField from "@/components/TargetingProjectsField";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import SelectOwner from "@/components/Owner/SelectOwner";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
@@ -40,6 +41,8 @@ type FormValues = {
   owner: string;
   description: string;
   project: string;
+  targetingAllProjects: boolean;
+  targetingProjects: string[];
   value: string;
 };
 
@@ -82,6 +85,8 @@ export default function ConstantModal({
       owner: existing?.owner ?? "",
       description: existing?.description ?? "",
       project: existing?.project ?? project ?? "",
+      targetingAllProjects: existing?.targetingAllProjects ?? false,
+      targetingProjects: existing?.targetingProjects ?? [],
       value: "",
     },
   });
@@ -134,6 +139,8 @@ export default function ConstantModal({
                 description:
                   values.description || (existing.description ? "" : undefined),
                 project: values.project,
+                targetingAllProjects: values.targetingAllProjects,
+                targetingProjects: values.targetingProjects,
               }),
             },
           );
@@ -163,6 +170,8 @@ export default function ConstantModal({
                   : { value: values.value }),
                 description: values.description || undefined,
                 project: values.project || undefined,
+                targetingAllProjects: values.targetingAllProjects,
+                targetingProjects: values.targetingProjects,
               }),
             },
           );
@@ -260,6 +269,16 @@ export default function ConstantModal({
           onChange={(v) => form.setValue("project", v)}
         />
       )}
+
+      <TargetingProjectsField
+        mb="3"
+        entityLabel="constant"
+        primaryProject={form.watch("project")}
+        allProjects={form.watch("targetingAllProjects")}
+        setAllProjects={(v) => form.setValue("targetingAllProjects", v)}
+        targetingProjects={form.watch("targetingProjects")}
+        setTargetingProjects={(v) => form.setValue("targetingProjects", v)}
+      />
 
       {!editing && (
         <FeatureValueField

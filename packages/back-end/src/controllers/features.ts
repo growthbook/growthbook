@@ -29,8 +29,8 @@ import {
   fillRevisionFromFeature,
   reconcileMergeBaselines,
   getReviewSetting,
-  normalizeVisibilityProjects,
-  normalizeVisibilityInUpdates,
+  normalizeTargetingProjects,
+  normalizeTargetingInUpdates,
   namespacesToMap,
   pruneOrphanedRampActions,
   assertSchemaMatchesValueType,
@@ -785,7 +785,7 @@ export async function postFeatures(
     holdout: holdout?.id ? holdout : undefined,
     jsonSchema: initialJsonSchema,
   };
-  Object.assign(feature, normalizeVisibilityProjects(feature));
+  Object.assign(feature, normalizeTargetingProjects(feature));
 
   const allEnvironments = getEnvironments(org);
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
@@ -2415,17 +2415,17 @@ export async function postFeatureRevert(
       hasMetadataChanges = true;
     }
     if (
-      m.visibilityAllProjects !== undefined &&
-      m.visibilityAllProjects !== (feature.visibilityAllProjects ?? false)
+      m.targetingAllProjects !== undefined &&
+      m.targetingAllProjects !== (feature.targetingAllProjects ?? false)
     ) {
-      metadataChanges.visibilityAllProjects = m.visibilityAllProjects;
+      metadataChanges.targetingAllProjects = m.targetingAllProjects;
       hasMetadataChanges = true;
     }
     if (
-      m.visibilityProjects !== undefined &&
-      !isEqual(m.visibilityProjects, feature.visibilityProjects ?? [])
+      m.targetingProjects !== undefined &&
+      !isEqual(m.targetingProjects, feature.targetingProjects ?? [])
     ) {
-      metadataChanges.visibilityProjects = m.visibilityProjects;
+      metadataChanges.targetingProjects = m.targetingProjects;
       hasMetadataChanges = true;
     }
     if (m.tags !== undefined && !isEqual(m.tags, feature.tags ?? [])) {
@@ -5045,7 +5045,7 @@ export async function putFeature(
     await context.models.projects.ensureProjectsExist([updates.project]);
   }
 
-  // Changing the project can affect SDK payload visibility; require publish permission in both old and new project
+  // Changing the project can affect SDK payload targeting; require publish permission in both old and new project
   if ("project" in updates) {
     if (
       !context.permissions.canPublishFeature(
@@ -5065,8 +5065,8 @@ export async function putFeature(
     "tags",
     "description",
     "project",
-    "visibilityAllProjects",
-    "visibilityProjects",
+    "targetingAllProjects",
+    "targetingProjects",
     "owner",
     "customFields",
     "holdout",
@@ -5101,8 +5101,8 @@ export async function putFeature(
     "tags",
     "description",
     "project",
-    "visibilityAllProjects",
-    "visibilityProjects",
+    "targetingAllProjects",
+    "targetingProjects",
     "owner",
     "customFields",
   ];
@@ -5111,7 +5111,7 @@ export async function putFeature(
       metadataKeys.includes(k as keyof FeatureInterface),
     ),
   ) as Partial<FeatureInterface>;
-  normalizeVisibilityInUpdates(metadataUpdates, feature);
+  normalizeTargetingInUpdates(metadataUpdates, feature);
   const holdoutUpdate = "holdout" in updates ? updates.holdout : undefined;
 
   if (Object.keys(metadataUpdates).length > 0 || holdoutUpdate !== undefined) {
@@ -5130,11 +5130,11 @@ export async function putFeature(
         ...(metadataUpdates.project !== undefined && {
           project: metadataUpdates.project,
         }),
-        ...(metadataUpdates.visibilityAllProjects !== undefined && {
-          visibilityAllProjects: metadataUpdates.visibilityAllProjects,
+        ...(metadataUpdates.targetingAllProjects !== undefined && {
+          targetingAllProjects: metadataUpdates.targetingAllProjects,
         }),
-        ...(metadataUpdates.visibilityProjects !== undefined && {
-          visibilityProjects: metadataUpdates.visibilityProjects,
+        ...(metadataUpdates.targetingProjects !== undefined && {
+          targetingProjects: metadataUpdates.targetingProjects,
         }),
         ...(metadataUpdates.tags !== undefined && {
           tags: metadataUpdates.tags,
@@ -5159,8 +5159,8 @@ export async function putFeature(
         tags: "tags",
         owner: "owner",
         project: "project",
-        visibilityAllProjects: "visibility",
-        visibilityProjects: "visibility projects",
+        targetingAllProjects: "targeting",
+        targetingProjects: "targeting projects",
         customFields: "custom fields",
         holdout: "holdout",
       };

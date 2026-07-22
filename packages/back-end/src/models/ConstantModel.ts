@@ -67,7 +67,7 @@ export class ConstantModel extends BaseClass {
   }
 
   protected canRead(doc: ConstantInterface): boolean {
-    return this.context.permissions.canReadVisibilityScopedResource(doc);
+    return this.context.permissions.canReadTargetingScopedResource(doc);
   }
 
   protected canCreate(doc: ConstantInterface): boolean {

@@ -2,7 +2,7 @@ import {
   validateFeatureValue,
   getRulesForEnvironment,
   stemRuleId,
-  normalizeVisibilityInUpdates,
+  normalizeTargetingInUpdates,
 } from "shared/util";
 import { isEqual, omit } from "lodash";
 import { updateFeatureValidator } from "shared/validators";
@@ -68,8 +68,8 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       archived,
       description,
       project,
-      visibilityAllProjects,
-      visibilityProjects,
+      targetingAllProjects,
+      targetingProjects,
       tags,
       customFields,
     } = req.body;
@@ -201,8 +201,8 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       ...(archived != null ? { archived } : {}),
       ...(description != null ? { description } : {}),
       ...(project != null ? { project } : {}),
-      ...(visibilityAllProjects != null ? { visibilityAllProjects } : {}),
-      ...(visibilityProjects != null ? { visibilityProjects } : {}),
+      ...(targetingAllProjects != null ? { targetingAllProjects } : {}),
+      ...(targetingProjects != null ? { targetingProjects } : {}),
       ...(tags != null ? { tags } : {}),
       ...(defaultValue != null ? { defaultValue } : {}),
       ...(req.body.baseConfig !== undefined
@@ -213,7 +213,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       ...(jsonSchema != null ? { jsonSchema } : {}),
       ...(customFields != null ? { customFields } : {}),
     };
-    normalizeVisibilityInUpdates(updates, feature);
+    normalizeTargetingInUpdates(updates, feature);
 
     if (
       updates.environmentSettings ||

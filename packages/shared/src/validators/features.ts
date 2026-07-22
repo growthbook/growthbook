@@ -453,9 +453,9 @@ const revisionMetadataSchema = z.object({
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   owner: ownerField.optional(),
   project: z.string().optional(),
-  // Staged form of the feature's secondary-visibility scope (see featureInterface).
-  visibilityAllProjects: z.boolean().optional(),
-  visibilityProjects: z.array(z.string()).optional(),
+  // Staged form of the feature's secondary-targeting scope (see featureInterface).
+  targetingAllProjects: z.boolean().optional(),
+  targetingProjects: z.array(z.string()).optional(),
   tags: z.array(z.string()).optional(),
   neverStale: z.boolean().optional(),
   customFields: z.record(z.string(), z.any()).optional(),
@@ -727,10 +727,10 @@ export const featureInterface = z
     owner: ownerField,
     project: z.string().optional(),
     // Secondary projects for read/discovery + SDK payload scoping beyond the
-    // governance `project`; `visibilityAllProjects` overrides the list (visible
+    // governance `project`; `targetingAllProjects` overrides the list (targeted
     // everywhere). Governance/approvals stay with `project`.
-    visibilityAllProjects: z.boolean().optional(),
-    visibilityProjects: z.array(z.string()).optional(),
+    targetingAllProjects: z.boolean().optional(),
+    targetingProjects: z.array(z.string()).optional(),
     dateCreated: z.date(),
     dateUpdated: z.date(),
     valueType: z.enum(featureValueType),
@@ -1271,8 +1271,8 @@ export const apiFeatureValidator = namedSchema(
       owner: ownerField,
       ownerEmail: ownerEmailField,
       project: z.string(),
-      visibilityAllProjects: z.boolean().optional(),
-      visibilityProjects: z.array(z.string()).optional(),
+      targetingAllProjects: z.boolean().optional(),
+      targetingProjects: z.array(z.string()).optional(),
       valueType: z.enum(["boolean", "string", "number", "json"]),
       defaultValue: z.string(),
       baseConfig: z
@@ -1509,16 +1509,16 @@ const postFeatureBody = z
       .optional(),
     owner: requiredUnlessPatOwnerInputField,
     project: z.string().describe("An associated project ID").optional(),
-    visibilityAllProjects: z
+    targetingAllProjects: z
       .boolean()
       .describe(
         "Make this feature discoverable in — and served to — every project, beyond its primary `project`. Governance/approvals stay with `project`.",
       )
       .optional(),
-    visibilityProjects: z
+    targetingProjects: z
       .array(z.string())
       .describe(
-        "Secondary project IDs this feature is visible in and served to, beyond its primary `project`. Governance/approvals stay with `project`.",
+        "Secondary project IDs this feature is targeted in and served to, beyond its primary `project`. Governance/approvals stay with `project`.",
       )
       .optional(),
     valueType: z
@@ -1568,16 +1568,16 @@ const updateFeatureBody = z
       .optional(),
     archived: z.boolean().optional(),
     project: z.string().describe("An associated project ID").optional(),
-    visibilityAllProjects: z
+    targetingAllProjects: z
       .boolean()
       .describe(
         "Make this feature discoverable in — and served to — every project, beyond its primary `project`. Governance/approvals stay with `project`.",
       )
       .optional(),
-    visibilityProjects: z
+    targetingProjects: z
       .array(z.string())
       .describe(
-        "Secondary project IDs this feature is visible in and served to, beyond its primary `project`. Governance/approvals stay with `project`.",
+        "Secondary project IDs this feature is targeted in and served to, beyond its primary `project`. Governance/approvals stay with `project`.",
       )
       .optional(),
     owner: ownerInputField.optional(),

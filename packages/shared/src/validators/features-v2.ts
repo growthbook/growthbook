@@ -355,8 +355,8 @@ export const apiFeatureV2Validator = namedSchema(
       description: z.string().max(MAX_DESCRIPTION_LENGTH),
       owner: ownerInputField,
       project: z.string(),
-      visibilityAllProjects: z.boolean().optional(),
-      visibilityProjects: z.array(z.string()).optional(),
+      targetingAllProjects: z.boolean().optional(),
+      targetingProjects: z.array(z.string()).optional(),
       valueType: z.enum(["boolean", "string", "number", "json"]),
       defaultValue: z.string(),
       baseConfig: apiBaseConfigField,
@@ -585,16 +585,16 @@ export const postFeatureBodyV2 = z
       .optional(),
     owner: requiredUnlessPatOwnerInputField,
     project: z.string().describe("An associated project ID").optional(),
-    visibilityAllProjects: z
+    targetingAllProjects: z
       .boolean()
       .describe(
         "Make this feature discoverable in — and served to — every project, beyond its primary `project`. Governance/approvals stay with `project`.",
       )
       .optional(),
-    visibilityProjects: z
+    targetingProjects: z
       .array(z.string())
       .describe(
-        "Secondary project IDs this feature is visible in and served to, beyond its primary `project`. Governance/approvals stay with `project`.",
+        "Secondary project IDs this feature is targeted in and served to, beyond its primary `project`. Governance/approvals stay with `project`.",
       )
       .optional(),
     valueType: z
@@ -645,16 +645,16 @@ export const updateFeatureBodyV2 = z
       .optional(),
     archived: z.boolean().optional(),
     project: z.string().describe("An associated project ID").optional(),
-    visibilityAllProjects: z
+    targetingAllProjects: z
       .boolean()
       .describe(
         "Make this feature discoverable in — and served to — every project, beyond its primary `project`. Governance/approvals stay with `project`.",
       )
       .optional(),
-    visibilityProjects: z
+    targetingProjects: z
       .array(z.string())
       .describe(
-        "Secondary project IDs this feature is visible in and served to, beyond its primary `project`. Governance/approvals stay with `project`.",
+        "Secondary project IDs this feature is targeted in and served to, beyond its primary `project`. Governance/approvals stay with `project`.",
       )
       .optional(),
     owner: ownerInputField.optional(),

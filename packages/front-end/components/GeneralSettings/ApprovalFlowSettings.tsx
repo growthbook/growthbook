@@ -70,21 +70,21 @@ export default function ApprovalFlowSettings() {
     });
   }, [requireReviewsWatched]);
 
-  // Org-wide visibility review governance. The UI edits the all-projects default
+  // Org-wide targeting review governance. The UI edits the all-projects default
   // rule; any project-specific override rules (API-only for now) are preserved.
-  const visibilityReviewRules = form.watch("visibilityReviewMode") || [];
-  const orgWideVisibilityRule = visibilityReviewRules.find(
+  const targetingReviewRules = form.watch("targetingReviewMode") || [];
+  const orgWideTargetingRule = targetingReviewRules.find(
     (r) => (r.projects?.length ?? 0) === 0,
   );
-  const visibilityStrict = orgWideVisibilityRule
-    ? orgWideVisibilityRule.mode === "strict"
+  const targetingStrict = orgWideTargetingRule
+    ? orgWideTargetingRule.mode === "strict"
     : true;
-  const setVisibilityMode = (strict: boolean) => {
+  const setTargetingMode = (strict: boolean) => {
     const mode: "strict" | "loose" = strict ? "strict" : "loose";
-    const perProject = visibilityReviewRules.filter(
+    const perProject = targetingReviewRules.filter(
       (r) => (r.projects?.length ?? 0) > 0,
     );
-    form.setValue("visibilityReviewMode", [
+    form.setValue("targetingReviewMode", [
       ...perProject,
       { projects: [], mode },
     ]);
@@ -319,11 +319,11 @@ export default function ApprovalFlowSettings() {
                 ))}
                 <Box mt="4">
                   <Checkbox
-                    id="toggle-visibility-review-mode"
-                    label="Require review from secondary (visibility) projects"
-                    description="When a feature or config is visible in secondary projects, also apply those projects' approval requirements before publishing (strict). Disable to let only the primary project govern approvals (loose)."
-                    value={visibilityStrict}
-                    setValue={setVisibilityMode}
+                    id="toggle-targeting-review-mode"
+                    label="Require review from secondary (targeting) projects"
+                    description="When a feature or config is targeted in secondary projects, also apply those projects' approval requirements before publishing (strict). Disable to let only the primary project govern approvals (loose)."
+                    value={targetingStrict}
+                    setValue={setTargetingMode}
                   />
                 </Box>
               </>

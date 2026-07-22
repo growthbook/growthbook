@@ -75,10 +75,10 @@ export type RequireReview = {
   autopublishOnApproval?: boolean;
 };
 
-// Governs whether an entity's secondary visibility projects impose their own
+// Governs whether an entity's secondary targeting projects impose their own
 // review requirements (strict) or only the primary project governs approvals
 // (loose). Project-scoped, most-specific-wins; no matching rule = strict.
-export type VisibilityReviewRule = {
+export type TargetingReviewRule = {
   projects: string[];
   mode: "strict" | "loose";
 };
@@ -276,9 +276,9 @@ export interface OrganizationSettings {
   /** @deprecated */
   killswitchConfirmation?: boolean;
   requireReviews?: boolean | RequireReview[];
-  // Whether secondary visibility projects impose their own review requirements.
+  // Whether secondary targeting projects impose their own review requirements.
   // Array of project-scoped rules, most-specific-wins; absent/no-match = strict.
-  visibilityReviewMode?: VisibilityReviewRule[];
+  targetingReviewMode?: TargetingReviewRule[];
   // Default extensibility for newly authored configs. When true (default),
   // base configs allow child configs / feature rules to add extra keys unless
   // a config explicitly opts out via its own `extensible` flag.

@@ -182,6 +182,8 @@ export const postConstant = async (
     environmentValues: body.environmentValues,
     description: body.description,
     project: body.project,
+    targetingAllProjects: body.targetingAllProjects,
+    targetingProjects: body.targetingProjects,
   });
 
   // Backfill an initial "live" revision so the history view has a baseline.
@@ -229,6 +231,8 @@ export const putConstant = async (
     description,
     project,
     archived,
+    targetingAllProjects,
+    targetingProjects,
   } = req.body;
   const { id } = req.params;
 
@@ -314,6 +318,17 @@ export const putConstant = async (
   }
   if (hasChanged(archived, comparisonBase.archived)) {
     fieldsToUpdate.archived = archived;
+  }
+  if (
+    hasChanged(
+      targetingAllProjects,
+      comparisonBase.targetingAllProjects ?? false,
+    )
+  ) {
+    fieldsToUpdate.targetingAllProjects = targetingAllProjects;
+  }
+  if (hasChanged(targetingProjects, comparisonBase.targetingProjects ?? [])) {
+    fieldsToUpdate.targetingProjects = targetingProjects;
   }
 
   // Soft-warn (bypassably) on the archive transition when the constant is still

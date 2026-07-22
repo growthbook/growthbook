@@ -67,7 +67,7 @@ export class ConfigModel extends BaseClass {
   private reconcileSnapshot: Promise<ConfigInterface[]> | null = null;
 
   protected canRead(doc: ConfigInterface): boolean {
-    return this.context.permissions.canReadVisibilityScopedResource(doc);
+    return this.context.permissions.canReadTargetingScopedResource(doc);
   }
 
   protected canCreate(doc: ConfigInterface): boolean {
@@ -238,7 +238,7 @@ export class ConfigModel extends BaseClass {
       const unreadable = baseKeys.filter(
         (k) =>
           !prior.has(k) &&
-          !this.context.permissions.canReadVisibilityScopedResource(
+          !this.context.permissions.canReadTargetingScopedResource(
             byKey.get(k) ?? {},
           ),
       );

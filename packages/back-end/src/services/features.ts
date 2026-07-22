@@ -33,7 +33,7 @@ import {
   getConfigBackingKey,
   getConfigBackingPatch,
   stripConfigExtends,
-  entityVisibleInProject,
+  entityTargetsProject,
 } from "shared/util";
 import {
   getConnectionSDKCapabilities,
@@ -1279,7 +1279,7 @@ export async function buildSDKPayloadForConnection(
   const filteredFeatures =
     projectList.length > 0
       ? data.features.filter((f) =>
-          projectList.some((p) => entityVisibleInProject(f, p)),
+          projectList.some((p) => entityTargetsProject(f, p)),
         )
       : data.features;
   const filteredExperimentMap =
@@ -2423,8 +2423,8 @@ export function getApiFeatureObjV2({
     prerequisites: (feature?.prerequisites || []).map((p) => p.id),
     owner: feature.owner || "",
     project: feature.project || "",
-    visibilityAllProjects: feature.visibilityAllProjects ?? false,
-    visibilityProjects: feature.visibilityProjects ?? [],
+    targetingAllProjects: feature.targetingAllProjects ?? false,
+    targetingProjects: feature.targetingProjects ?? [],
     tags: feature.tags || [],
     valueType: feature.valueType,
     revision: {
@@ -2670,8 +2670,8 @@ export function getApiFeatureObj({
     prerequisites: (feature?.prerequisites || []).map((p) => p.id),
     owner: feature.owner || "",
     project: feature.project || "",
-    visibilityAllProjects: feature.visibilityAllProjects ?? false,
-    visibilityProjects: feature.visibilityProjects ?? [],
+    targetingAllProjects: feature.targetingAllProjects ?? false,
+    targetingProjects: feature.targetingProjects ?? [],
     tags: feature.tags || [],
     valueType: feature.valueType,
     revision: {

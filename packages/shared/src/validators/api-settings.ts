@@ -74,7 +74,7 @@ export const apiSettingsValidator = namedSchema(
           autopublishOnApproval: z.boolean().optional(),
         }),
       ),
-      visibilityReviewMode: z
+      targetingReviewMode: z
         .array(
           z.object({
             projects: z.array(z.string()),

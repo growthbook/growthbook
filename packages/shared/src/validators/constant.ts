@@ -366,11 +366,11 @@ export const constantValidator = z
     description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     // Single project (or unset = global), mirroring features.
     project: z.string().optional(),
-    // Secondary-visibility scope (read/discovery + payload scoping) beyond the
-    // governance `project`; `visibilityAllProjects` overrides the list. Mirrors
+    // Secondary-targeting scope (read/discovery + payload scoping) beyond the
+    // governance `project`; `targetingAllProjects` overrides the list. Mirrors
     // features. Governance/approvals stay with `project`.
-    visibilityAllProjects: z.boolean().optional(),
-    visibilityProjects: z.array(z.string()).optional(),
+    targetingAllProjects: z.boolean().optional(),
+    targetingProjects: z.array(z.string()).optional(),
     archived: z.boolean().optional(),
     dateCreated: z.date(),
     dateUpdated: z.date(),
@@ -385,8 +385,8 @@ export const constantUpdatableFieldsSchema = constantValidator.pick({
   environmentValues: true,
   description: true,
   project: true,
-  visibilityAllProjects: true,
-  visibilityProjects: true,
+  targetingAllProjects: true,
+  targetingProjects: true,
   archived: true,
 });
 
@@ -407,6 +407,8 @@ export const postConstantBodyValidator = z.object({
   environmentValues: z.record(z.string(), z.string()).optional(),
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   project: z.string().optional(),
+  targetingAllProjects: z.boolean().optional(),
+  targetingProjects: z.array(z.string()).optional(),
 });
 
 export const putConstantBodyValidator = z.object({
@@ -416,6 +418,8 @@ export const putConstantBodyValidator = z.object({
   environmentValues: z.record(z.string(), z.string()).optional(),
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   project: z.string().optional(),
+  targetingAllProjects: z.boolean().optional(),
+  targetingProjects: z.array(z.string()).optional(),
   archived: z.boolean().optional(),
 });
 

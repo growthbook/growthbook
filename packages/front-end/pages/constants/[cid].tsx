@@ -419,14 +419,14 @@ export default function ConstantDetailPage(): React.ReactElement {
             <Metadata label="Key" value={constant.key} />
             <Metadata label="Type" value={TYPE_LABEL[constant.type]} />
             <Metadata label="Project" value={projectName || "All Projects"} />
-            {(displayedConstant.visibilityAllProjects ||
-              (displayedConstant.visibilityProjects?.length ?? 0) > 0) && (
+            {(displayedConstant.targetingAllProjects ||
+              (displayedConstant.targetingProjects?.length ?? 0) > 0) && (
               <Metadata
-                label="Visibility"
+                label="Targeting"
                 value={
-                  displayedConstant.visibilityAllProjects
+                  displayedConstant.targetingAllProjects
                     ? "All projects"
-                    : (displayedConstant.visibilityProjects ?? [])
+                    : (displayedConstant.targetingProjects ?? [])
                         .map(
                           (id) => projects.find((p) => p.id === id)?.name || id,
                         )

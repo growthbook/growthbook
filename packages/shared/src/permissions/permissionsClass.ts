@@ -36,8 +36,8 @@ import { EventForwarderConfigInterface } from "../validators/event-forwarder-con
 import { HoldoutInterface } from "../validators/holdout";
 import {
   PermissionError,
-  getVisibilityProjectIds,
-  VisibilityScopedEntity,
+  getTargetingProjectIds,
+  TargetingScopedEntity,
 } from "../util/";
 import { READ_ONLY_PERMISSIONS } from "./permissions.constants";
 
@@ -957,12 +957,12 @@ export class Permissions {
   };
 
   public canReviewFeatureDrafts = (
-    feature: Pick<FeatureInterface, "project" | "visibilityProjects">,
+    feature: Pick<FeatureInterface, "project" | "targetingProjects">,
   ): boolean => {
     // Naive union: eligible if you can review the primary OR any project the
-    // feature is visible in. Stricter, mode-aware eligibility is a follow-up.
+    // feature targets. Stricter, mode-aware eligibility is a follow-up.
     const projects = Array.from(
-      new Set([feature.project ?? "", ...(feature.visibilityProjects ?? [])]),
+      new Set([feature.project ?? "", ...(feature.targetingProjects ?? [])]),
     );
     return projects.some((project) =>
       this.checkProjectFilterPermission(
@@ -1633,18 +1633,18 @@ export class Permissions {
     return projects.some((p) => this.hasPermission("readData", p));
   };
 
-  // Visibility-scoped read for entities (features/constants/configs) that pair a
-  // single governance `project` with a secondary visibility scope. Readable if
-  // the user can read the governance project OR any visibility project (or it's
-  // visible in all projects). Governance/write still keys on `project` alone —
+  // Targeting-scoped read for entities (features/constants/configs) that pair a
+  // single governance `project` with a secondary targeting scope. Readable if
+  // the user can read the governance project OR any targeting project (or it's
+  // targeted in all projects). Governance/write still keys on `project` alone —
   // this widens READ/discovery only.
-  public canReadVisibilityScopedResource = (
-    entity: VisibilityScopedEntity,
+  public canReadTargetingScopedResource = (
+    entity: TargetingScopedEntity,
   ): boolean => {
-    // getVisibilityProjectIds returns null for "all projects", which maps to the
+    // getTargetingProjectIds returns null for "all projects", which maps to the
     // empty-array "all" convention canReadMultiProjectResource already handles.
     return this.canReadMultiProjectResource(
-      getVisibilityProjectIds(entity) ?? [],
+      getTargetingProjectIds(entity) ?? [],
     );
   };
 

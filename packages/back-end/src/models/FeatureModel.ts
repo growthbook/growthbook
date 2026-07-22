@@ -142,8 +142,8 @@ const featureSchema = new mongoose.Schema({
   nextScheduledUpdate: Date,
   owner: String,
   project: String,
-  visibilityAllProjects: Boolean,
-  visibilityProjects: [String],
+  targetingAllProjects: Boolean,
+  targetingProjects: [String],
   dateCreated: Date,
   dateUpdated: Date,
   version: Number,
@@ -180,7 +180,7 @@ const featureSchema = new mongoose.Schema({
 
 featureSchema.index({ id: 1, organization: 1 }, { unique: true });
 featureSchema.index({ organization: 1, project: 1 });
-featureSchema.index({ organization: 1, visibilityProjects: 1 });
+featureSchema.index({ organization: 1, targetingProjects: 1 });
 
 type FeatureDocument = mongoose.Document & LegacyFeatureInterface;
 
@@ -473,7 +473,7 @@ export async function getAllFeatures(
 ): Promise<FeatureInterface[]> {
   const q: FilterQuery<FeatureDocument> = { organization: context.org.id };
   if (projects && projects.length) {
-    Object.assign(q, visibilityScopedProjectClause(projects));
+    Object.assign(q, targetingScopedProjectClause(projects));
   }
 
   if (!includeArchived) {
@@ -485,7 +485,7 @@ export async function getAllFeatures(
   );
 
   return features.filter((feature) =>
-    context.permissions.canReadVisibilityScopedResource(feature),
+    context.permissions.canReadTargetingScopedResource(feature),
   );
 }
 
@@ -525,21 +525,21 @@ export async function getAllFeaturesWithoutEditorFields(
   );
 
   return features.filter((feature) =>
-    context.permissions.canReadVisibilityScopedResource(feature),
+    context.permissions.canReadTargetingScopedResource(feature),
   );
 }
 
-// Mongo pre-filter mirroring canReadVisibilityScopedResource: match by governance
-// `project`, secondary `visibilityProjects`, or the all-projects flag, so
-// visibility-only features survive before the in-memory permission check.
-function visibilityScopedProjectClause(
+// Mongo pre-filter mirroring canReadTargetingScopedResource: match by governance
+// `project`, secondary `targetingProjects`, or the all-projects flag, so
+// targeting-only features survive before the in-memory permission check.
+function targetingScopedProjectClause(
   projects: string[],
 ): FilterQuery<FeatureDocument> {
   return {
     $or: [
       { project: { $in: projects } },
-      { visibilityProjects: { $in: projects } },
-      { visibilityAllProjects: true },
+      { targetingProjects: { $in: projects } },
+      { targetingAllProjects: true },
     ],
   };
 }
@@ -551,9 +551,9 @@ function featureListQuery(
   const { project, projectIds, includeArchived = false } = opts;
   const scopeClause =
     project != null
-      ? visibilityScopedProjectClause([project])
+      ? targetingScopedProjectClause([project])
       : projectIds != null
-        ? visibilityScopedProjectClause(projectIds)
+        ? targetingScopedProjectClause(projectIds)
         : {};
   return {
     organization: orgId,
@@ -591,7 +591,7 @@ export async function getFeaturesPage(
   return docs
     .map((m) => toInterface(m, context))
     .filter((feature) =>
-      context.permissions.canReadVisibilityScopedResource(feature),
+      context.permissions.canReadTargetingScopedResource(feature),
     );
 }
 
@@ -635,7 +635,7 @@ export async function getFeature(
   });
   if (!feature) return null;
 
-  return context.permissions.canReadVisibilityScopedResource(feature)
+  return context.permissions.canReadTargetingScopedResource(feature)
     ? toInterface(feature, context)
     : null;
 }
@@ -676,7 +676,7 @@ export async function getFeaturesByIds(
   ).map((m) => toInterface(m, context));
 
   return features.filter((feature) =>
-    context.permissions.canReadVisibilityScopedResource(feature),
+    context.permissions.canReadTargetingScopedResource(feature),
   );
 }
 
@@ -1663,10 +1663,10 @@ export function computeRevisionMergeChanges(
     if (m.description !== undefined) changes.description = m.description;
     if (m.owner !== undefined) changes.owner = m.owner;
     if (m.project !== undefined) changes.project = m.project;
-    if (m.visibilityAllProjects !== undefined)
-      changes.visibilityAllProjects = m.visibilityAllProjects;
-    if (m.visibilityProjects !== undefined)
-      changes.visibilityProjects = m.visibilityProjects;
+    if (m.targetingAllProjects !== undefined)
+      changes.targetingAllProjects = m.targetingAllProjects;
+    if (m.targetingProjects !== undefined)
+      changes.targetingProjects = m.targetingProjects;
     if (m.tags !== undefined) changes.tags = m.tags;
     if (m.neverStale !== undefined) changes.neverStale = m.neverStale;
     if (m.customFields !== undefined)
@@ -2870,7 +2870,7 @@ export async function getFeatureMetaInfoById(
 
   const query: Record<string, unknown> = { organization: context.org.id };
   if (project) {
-    Object.assign(query, visibilityScopedProjectClause([project]));
+    Object.assign(query, targetingScopedProjectClause([project]));
   }
   if (ids?.length) {
     query.id = { $in: ids };
@@ -2879,8 +2879,8 @@ export async function getFeatureMetaInfoById(
   const projection: Record<string, number> = {
     id: 1,
     project: 1,
-    visibilityAllProjects: 1,
-    visibilityProjects: 1,
+    targetingAllProjects: 1,
+    targetingProjects: 1,
     archived: 1,
     description: 1,
     dateCreated: 1,
@@ -2907,7 +2907,7 @@ export async function getFeatureMetaInfoById(
   const features = await FeatureModel.find(query, projection);
 
   return features
-    .filter((f) => context.permissions.canReadVisibilityScopedResource(f))
+    .filter((f) => context.permissions.canReadTargetingScopedResource(f))
     .map((f) => {
       const doc = f as unknown as Record<string, unknown>;
       const rules = doc.rules as
@@ -2966,8 +2966,8 @@ export async function getFeatureMetaInfoByIds(
     {
       id: 1,
       project: 1,
-      visibilityAllProjects: 1,
-      visibilityProjects: 1,
+      targetingAllProjects: 1,
+      targetingProjects: 1,
       archived: 1,
       description: 1,
       dateCreated: 1,
@@ -2984,7 +2984,7 @@ export async function getFeatureMetaInfoByIds(
   );
 
   return features
-    .filter((f) => context.permissions.canReadVisibilityScopedResource(f))
+    .filter((f) => context.permissions.canReadTargetingScopedResource(f))
     .map((f) => ({
       id: f.id,
       project: f.project,

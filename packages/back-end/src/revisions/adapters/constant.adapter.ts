@@ -124,7 +124,7 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
   },
 
   canRead(context: Context, snapshot: ConstantInterface): boolean {
-    return context.permissions.canReadVisibilityScopedResource(snapshot);
+    return context.permissions.canReadTargetingScopedResource(snapshot);
   },
 
   canCreate(context: Context, snapshot: ConstantInterface): boolean {

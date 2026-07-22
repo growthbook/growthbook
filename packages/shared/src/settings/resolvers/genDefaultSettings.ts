@@ -98,7 +98,7 @@ export default function genDefaultSettings(): Settings {
     secureAttributeSalt: DEFAULT_SECURE_ATTRIBUTE_SALT,
     killswitchConfirmation: DEFAULT_KILLSWITCH_CONFIRMATION,
     requireReviews: DEFAULT_REQUIRE_REVIEW,
-    visibilityReviewMode: [],
+    targetingReviewMode: [],
     featureKeyExample: DEFAULT_FEATURE_KEY_EXAMPLE,
     featureRegexValidator: DEFAULT_FEATURE_REGEX_VALIDATOR,
     banditScheduleValue: DEFAULT_BANDIT_SCHEDULE_VALUE,

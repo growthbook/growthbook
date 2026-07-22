@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { validateFeatureValue, normalizeVisibilityProjects } from "shared/util";
+import { validateFeatureValue, normalizeTargetingProjects } from "shared/util";
 import { postFeatureValidator } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -109,10 +109,10 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
     owner: await resolveOwnerForCreate(req.body.owner, req.context),
     description: req.body.description || "",
     project: req.body.project || "",
-    ...normalizeVisibilityProjects({
+    ...normalizeTargetingProjects({
       project: req.body.project || "",
-      visibilityAllProjects: req.body.visibilityAllProjects,
-      visibilityProjects: req.body.visibilityProjects,
+      targetingAllProjects: req.body.targetingAllProjects,
+      targetingProjects: req.body.targetingProjects,
     }),
     dateCreated: new Date(),
     dateUpdated: new Date(),
