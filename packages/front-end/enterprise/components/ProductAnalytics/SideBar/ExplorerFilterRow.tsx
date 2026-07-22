@@ -3,6 +3,7 @@ import { FactTableInterface, RowFilter } from "shared/types/fact-table";
 import { PiCaretDown, PiCaretUp, PiX } from "react-icons/pi";
 import Collapsible from "react-collapsible";
 import { format } from "date-fns";
+import { isValidRowFilterDateValue } from "shared/experiments";
 import Text from "@/ui/Text";
 import DatePicker from "@/components/DatePicker";
 import Field from "@/components/Forms/Field";
@@ -260,7 +261,12 @@ export function ExplorerFilterRow({
           }
 
           if (datatype === "date") {
-            newValues = newValues.filter((v) => !isNaN(new Date(v).getTime()));
+            // Use the same strict validator getRowFilterSQL uses (not the
+            // browser's permissive `new Date()`), so a value like
+            // "2024-01-01 24:00:00" isn't kept here only to be dropped by SQL
+            // generation — which would leave a filter that looks active in the
+            // UI while the query silently omits it.
+            newValues = newValues.filter((v) => isValidRowFilterDateValue(v));
           }
 
           onUpdate({

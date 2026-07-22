@@ -1,5 +1,6 @@
 import { Flex } from "@radix-ui/themes";
 import { format } from "date-fns";
+import { isValidRowFilterDateValue } from "shared/experiments";
 import { FactTableInterface, RowFilter } from "shared/types/fact-table";
 import { PiPlus, PiX } from "react-icons/pi";
 import { useState } from "react";
@@ -262,9 +263,13 @@ export function RowFilterInput({
                   }
 
                   if (datatype === "date") {
-                    // If changing to date, remove any unparseable values
-                    newValues = newValues.filter(
-                      (v) => !isNaN(new Date(v).getTime()),
+                    // Drop values with the same strict validator getRowFilterSQL
+                    // uses, not the browser's permissive `new Date()`. Otherwise
+                    // a value like "2024-01-01 24:00:00" survives here but is
+                    // dropped by SQL generation, leaving a filter that looks
+                    // active in the UI while the query silently omits it.
+                    newValues = newValues.filter((v) =>
+                      isValidRowFilterDateValue(v),
                     );
                   }
 
