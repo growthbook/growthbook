@@ -73,11 +73,13 @@ export default function ValueDisplay({
   fullClassName = "",
   showFullscreenButton: _showFullscreenButton = false,
   showCopyButton = true,
+  copyButtonClassName,
   isFullscreen = false,
   sparse = false,
   defaultValue,
   fullscreenHeader = "Feature Value",
   linkify,
+  fontSize,
 }: {
   value: string;
   type: FeatureValueType;
@@ -87,6 +89,9 @@ export default function ValueDisplay({
   fullClassName?: string;
   showFullscreenButton?: boolean;
   showCopyButton?: boolean;
+  // Optional class on the copy button — lets a caller fade/reveal it (e.g. on
+  // row hover) without affecting other ValueDisplay usages.
+  copyButtonClassName?: string;
   isFullscreen?: boolean;
   // Header for the fullscreen modal (e.g. "Constant Value" when reused outside features).
   fullscreenHeader?: string;
@@ -99,6 +104,8 @@ export default function ValueDisplay({
   // as links to the referenced constant). Rarely needed — pass to customize or,
   // with a no-op getHref, effectively disable linking.
   linkify?: LinkifyConfig;
+  // Override the rendered code font size (passed through to InlineCode).
+  fontSize?: string;
 }) {
   // Link `@const:` references to their constant by default on every surface that
   // renders a value, unless the caller supplies its own linkify config.
@@ -122,8 +129,10 @@ export default function ValueDisplay({
       // Sparse rules display the expanded (merged) value, not the raw patch.
       // Force one-key-per-line (maxLength: 0) so the overridden keys map to
       // stable line numbers we can bold.
+      // Always break to one key/element per line (never compact short objects
+      // onto a single line) for consistent, scannable JSON.
       if (sparseMerge) return stringify(sparseMerge.merged, { maxLength: 0 });
-      return stringify(JSON.parse(value));
+      return stringify(JSON.parse(value), { maxLength: 0 });
     } catch (e) {
       return value;
     }
@@ -210,6 +219,7 @@ export default function ValueDisplay({
             code={formatted}
             boldLines={sparseMerge ? boldLines : undefined}
             linkify={resolvedLinkify}
+            fontSize={fontSize}
           />
         </Box>
         {!isFullscreen && (
@@ -231,6 +241,7 @@ export default function ValueDisplay({
                   type="button"
                   radius="full"
                   variant="ghost"
+                  className={copyButtonClassName}
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -289,7 +300,6 @@ export default function ValueDisplay({
             )
           }
           closeCta="Close"
-          useRadixButton={true}
         >
           <ValueDisplay
             value={value}
@@ -300,6 +310,7 @@ export default function ValueDisplay({
             sparse={sparse}
             defaultValue={defaultValue}
             linkify={resolvedLinkify}
+            fontSize={fontSize}
           />
         </Modal>
       )}

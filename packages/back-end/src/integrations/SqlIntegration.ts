@@ -44,6 +44,8 @@ import {
   ExperimentUnitsQueryResponse,
   ExperimentAggregateUnitsQueryResponse,
   ExperimentAggregateUnitsQueryParams,
+  ContextualBanditSrmQueryParams,
+  ContextualBanditSrmQueryResponse,
   ExperimentDimension,
   ExternalIdCallback,
   DimensionSlicesQueryResponse,
@@ -91,11 +93,11 @@ import {
   AggregatedFactTableMaxTimestampQueryParams,
   DropAggregatedFactTableQueryParams,
   PipelineIntegration,
+  ResolvedExposureQuery,
 } from "shared/types/integrations";
 import { MetricInterface, MetricType } from "shared/types/metric";
 import {
   DataSourceProperties,
-  ExposureQuery,
   SchemaFormatConfig,
   DataSourceInterface,
   AutoFactTableSchemas,
@@ -144,13 +146,13 @@ import { getDropOldIncrementalUnitsQuery } from "back-end/src/integrations/sql/q
 import { getDropUnitsTableQuery } from "back-end/src/integrations/sql/queries/drop-units-table-query";
 import { encodeMetricIdForColumnName } from "back-end/src/integrations/sql/fact-metrics/encode-metric-id-for-column-name";
 import { getExperimentAggregateUnitsQuery as getExperimentAggregateUnitsQueryFromSql } from "back-end/src/integrations/sql/queries/experiment-aggregate-units-query";
+import { getContextualBanditSrmQuery as getContextualBanditSrmQueryFromSql } from "back-end/src/integrations/sql/queries/contextual-bandit-srm-query";
 import { getExperimentEndDate } from "back-end/src/integrations/sql/dates/experiment-end-date";
 import { getExperimentFactMetricStatisticsCTE } from "back-end/src/integrations/sql/ctes/experiment-fact-metric-statistics-cte";
 import { getExperimentFactMetricsQuery as getExperimentFactMetricsQueryFromSql } from "back-end/src/integrations/sql/queries/experiment-fact-metrics-query";
-import { getExperimentMetricQuery as buildExperimentMetricQuerySql } from "back-end/src/integrations/sql/queries/experiment-metric-query";
+import { getSnapshotMetricQuery as buildSnapshotMetricQuerySql } from "back-end/src/integrations/sql/queries/snapshot-metric-query";
 import { getExperimentResultsQuery } from "back-end/src/integrations/sql/queries/experiment-results-query";
 import { getExperimentUnitsQuery as buildExperimentUnitsQuerySql } from "back-end/src/integrations/sql/queries/experiment-units-query";
-import { getExposureQuery } from "back-end/src/integrations/sql/queries/exposure-query";
 import { getFactMetricCTE } from "back-end/src/integrations/sql/ctes/fact-metric-cte";
 import { getFeatureEvalDiagnosticsQuery as getFeatureEvalDiagnosticsQueryFromSql } from "back-end/src/integrations/sql/queries/feature-eval-diagnostics-query";
 import { getFilterColumnsClause } from "back-end/src/integrations/sql/clauses/filter-columns-clause";
@@ -354,9 +356,7 @@ export default abstract class SqlIntegration
   }
   getPastExperimentQuery(params: PastExperimentParams): string {
     // TODO: for past experiments, UNION all exposure queries together
-    const experimentQueries = (
-      this.datasource.settings.queries?.exposure || []
-    ).map(({ id }) => getExposureQuery(this.datasource, id));
+    const experimentQueries = this.datasource.settings.queries?.exposure || [];
 
     return buildPastExperimentQuerySql(
       this.getSqlDialect(),
@@ -512,7 +512,6 @@ export default abstract class SqlIntegration
       setExternalId,
       queryMetadata,
     );
-
     return {
       rows: this.processExperimentFactMetricsQueryRows(rows),
       statistics: statistics,
@@ -524,10 +523,10 @@ export default abstract class SqlIntegration
     setExternalId: ExternalIdCallback,
     queryMetadata: RunQueryMetadata,
   ): Promise<ExperimentMetricQueryResponse> {
-    return this.runExperimentMetricQuery(query, setExternalId, queryMetadata);
+    return this.runSnapshotMetricQuery(query, setExternalId, queryMetadata);
   }
 
-  async runExperimentMetricQuery(
+  async runSnapshotMetricQuery(
     query: string,
     setExternalId: ExternalIdCallback,
     queryMetadata: RunQueryMetadata,
@@ -564,7 +563,6 @@ export default abstract class SqlIntegration
           .forEach(([key, value]) => {
             dimensionData[key] = value;
           });
-
         // Build result object by processing all field types
         const result: ExperimentMetricQueryResponseRows[number] = {
           variation: row.variation ?? "",
@@ -657,6 +655,25 @@ export default abstract class SqlIntegration
         };
       }),
       statistics: statistics,
+    };
+  }
+
+  async runContextualBanditSrmQuery(
+    query: string,
+    setExternalId: ExternalIdCallback,
+    queryMetadata: RunQueryMetadata,
+  ): Promise<ContextualBanditSrmQueryResponse> {
+    const { rows, statistics } = await this.runQuery(
+      query,
+      setExternalId,
+      queryMetadata,
+    );
+    return {
+      rows: rows.map((row) => ({
+        statistic: parseFloat(row.statistic) || 0,
+        degrees_of_freedom: parseInt(row.degrees_of_freedom, 10) || 0,
+      })),
+      statistics,
     };
   }
 
@@ -846,11 +863,10 @@ export default abstract class SqlIntegration
       segment,
     });
 
-    return this.getExperimentMetricQuery({
+    return this.getSnapshotMetricQuery({
       ...params,
       unitsSource: "otherQuery",
       unitsSql: populationSQL,
-      forcedUserIdType: params.populationSettings.userIdType,
     });
   }
 
@@ -868,7 +884,6 @@ export default abstract class SqlIntegration
       ...params,
       unitsSource: "otherQuery",
       unitsSql: populationSQL,
-      forcedUserIdType: params.populationSettings.userIdType,
     });
   }
 
@@ -896,12 +911,12 @@ export default abstract class SqlIntegration
     );
   }
 
+  getContextualBanditSrmQuery(params: ContextualBanditSrmQueryParams): string {
+    return getContextualBanditSrmQueryFromSql(this.getSqlDialect(), params);
+  }
+
   getDimensionSlicesQuery(params: DimensionSlicesQueryParams): string {
-    return getDimensionSlicesQueryFromSql(
-      this.getSqlDialect(),
-      this.datasource,
-      params,
-    );
+    return getDimensionSlicesQueryFromSql(this.getSqlDialect(), params);
   }
 
   async runDimensionSlicesQuery(
@@ -1004,8 +1019,8 @@ export default abstract class SqlIntegration
     );
   }
 
-  getExperimentMetricQuery(params: ExperimentMetricQueryParams): string {
-    return buildExperimentMetricQuerySql(
+  getSnapshotMetricQuery(params: ExperimentMetricQueryParams): string {
+    return buildSnapshotMetricQuerySql(
       this.getSqlDialect(),
       this.datasource,
       params,
@@ -1511,7 +1526,6 @@ export default abstract class SqlIntegration
       rows: rows.map((r) => ({
         column: r.column_name + "",
         value: r.value + "",
-        count: parseFloat(r.count),
       })),
     };
   }
@@ -1531,22 +1545,21 @@ export default abstract class SqlIntegration
   // getExperimentIncrementalStatisticsQuery
   parseExperimentParams(params: {
     settings: ExperimentSnapshotSettings;
+    exposureQuery: ResolvedExposureQuery;
     activationMetric: ExperimentMetricInterface | null;
     dimensions: Dimension[];
     unitsTableFullName: string;
   }): {
-    exposureQuery: ExposureQuery;
+    exposureQuery: ResolvedExposureQuery;
     activationMetric: ExperimentMetricInterface | null;
     experimentDimensions: ExperimentDimension[];
     unitDimensions: Dimension[];
   } {
-    const { settings, activationMetric: activationMetricDoc } = params;
-
-    const exposureQuery = getExposureQuery(
-      this.datasource,
-      settings.exposureQueryId || "",
-      undefined,
-    );
+    const {
+      settings,
+      exposureQuery,
+      activationMetric: activationMetricDoc,
+    } = params;
 
     const activationMetric = processActivationMetric(
       activationMetricDoc,
@@ -1895,13 +1908,7 @@ export default abstract class SqlIntegration
   getCreateMetricSourceCovariateTableQuery(
     params: CreateMetricSourceCovariateTableQueryParams,
   ): string {
-    const exposureQuery = getExposureQuery(
-      this.datasource,
-      params.settings.exposureQueryId || "",
-      undefined,
-    );
-
-    const baseIdType = exposureQuery.userIdType;
+    const baseIdType = params.exposureQuery.userIdType;
     const sortedMetrics = params.metrics.sort((a, b) =>
       a.id.localeCompare(b.id),
     );
@@ -1939,7 +1946,6 @@ export default abstract class SqlIntegration
   ): string {
     return getInsertMetricSourceCovariateFromAggregatedFactTableQuery(
       this.getSqlDialect(),
-      this.datasource,
       params,
     );
   }
@@ -1947,13 +1953,7 @@ export default abstract class SqlIntegration
   getCreateMetricSourceTableQuery(
     params: CreateMetricSourceTableQueryParams,
   ): string {
-    const exposureQuery = getExposureQuery(
-      this.datasource,
-      params.settings.exposureQueryId || "",
-      undefined,
-    );
-
-    const baseIdType = exposureQuery.userIdType;
+    const baseIdType = params.exposureQuery.userIdType;
     // Sort by metric id so column order is stable across runs even when the
     // caller hands us metrics in any order.
     const sortedMetrics = [...params.metrics].sort((a, b) =>
@@ -2043,11 +2043,7 @@ export default abstract class SqlIntegration
   getInsertMetricSourceDataQuery(
     params: InsertMetricSourceDataQueryParams,
   ): string {
-    const exposureQuery = getExposureQuery(
-      this.datasource,
-      params.settings.exposureQueryId || "",
-      undefined,
-    );
+    const exposureQuery = params.exposureQuery;
 
     const factTableMap = params.factTableMap;
     // The caller pins which fact table is feeding this cache (numerator vs
@@ -2307,11 +2303,7 @@ export default abstract class SqlIntegration
   getIncrementalRefreshStatisticsQuery(
     params: IncrementalRefreshStatisticsQueryParams,
   ): string {
-    const exposureQuery = getExposureQuery(
-      this.datasource,
-      params.settings.exposureQueryId || "",
-      undefined,
-    );
+    const exposureQuery = params.exposureQuery;
 
     if (params.metricSources.length === 0) {
       throw new Error(

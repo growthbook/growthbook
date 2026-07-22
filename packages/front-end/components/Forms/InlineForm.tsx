@@ -2,6 +2,7 @@ import clsx from "clsx";
 import { ReactElement, useState } from "react";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import Callout from "@/ui/Callout";
 
 export default function InlineForm({
   editing,
@@ -100,7 +101,11 @@ export default function InlineForm({
             cancel
           </button>
         </div>
-        {error && <div className="alert alert-danger mt-1">{error}</div>}
+        {error && (
+          <Callout status="error" mt="1">
+            {error}
+          </Callout>
+        )}
       </div>
     </form>
   );

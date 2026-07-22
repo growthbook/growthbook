@@ -7,6 +7,7 @@ import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import SelectField from "@/components/Forms/SelectField";
 import Button from "@/components/Button";
+import Callout from "@/ui/Callout";
 
 const BigQueryForm: FC<{
   params: Partial<BigQueryConnectionParams>;
@@ -160,18 +161,22 @@ const BigQueryForm: FC<{
                   </li>
                 </ul>
                 {testConnectionResults?.message ? (
-                  <div
-                    className={`alert alert-${testConnectionResults.status}`}
+                  <Callout
+                    status={
+                      testConnectionResults.status === "danger"
+                        ? "error"
+                        : testConnectionResults.status
+                    }
                   >
                     {testConnectionResults.message}
-                  </div>
+                  </Callout>
                 ) : null}
               </>
             ) : (
-              <div className="alert alert-info">
+              <Callout status="info">
                 Your connection info will appear here when you select a valid
                 JSON key file.
-              </div>
+              </Callout>
             )}
             <Button
               disabled={

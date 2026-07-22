@@ -10,6 +10,7 @@ import {
   savedGroupTargeting,
   paginationQueryFields,
   apiPaginationFieldsValidator,
+  ignoreWarningsBodyField,
 } from "./shared";
 import { windowTypeValidator } from "./fact-table";
 import {
@@ -174,6 +175,7 @@ export const experimentNotification = [
   "srm",
   "no-data",
   "significance",
+  "underpowered",
 ] as const;
 export type ExperimentNotification = (typeof experimentNotification)[number];
 
@@ -353,7 +355,7 @@ export const statusUpdateScheduleValidator = z.object({
   startAt: z.date(),
 });
 
-const nextScheduledStatusUpdateValidator = z.object({
+export const nextScheduledStatusUpdateValidator = z.object({
   type: z.enum(["start", "stop"]),
   date: z.date(),
   // Number of times the scheduled job has failed to apply this update.
@@ -980,6 +982,12 @@ const apiMetricOverrideEntryInput = z
 // Variation for input payloads
 const apiVariationInput = z.object({
   id: z.string().optional(),
+  variationId: z
+    .string()
+    .describe(
+      "Alias for `id`. Mirrors the GET response. `id` takes precedence.",
+    )
+    .optional(),
   key: z.string(),
   name: z.string(),
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
@@ -1020,8 +1028,20 @@ const apiPhaseInput = z.object({
       }),
     )
     .optional(),
-  reason: z.string().optional(),
-  condition: z.string().optional(),
+  reason: z
+    .string()
+    .describe("Deprecated: use `reasonForStopping`. Takes precedence if set.")
+    .meta({ deprecated: true })
+    .optional(),
+  condition: z
+    .string()
+    .describe("Deprecated: use `targetingCondition`. Takes precedence if set.")
+    .meta({ deprecated: true })
+    .optional(),
+  targetingCondition: z
+    .string()
+    .describe("Targeting condition as a JSON string. Mirrors the GET response.")
+    .optional(),
   savedGroupTargeting: z
     .array(
       z.object({
@@ -1030,7 +1050,15 @@ const apiPhaseInput = z.object({
       }),
     )
     .optional(),
-  variationWeights: z.array(z.number()).optional(),
+  variationWeights: z
+    .array(z.number())
+    .describe("Deprecated: use `trafficSplit`. Takes precedence if set.")
+    .meta({ deprecated: true })
+    .optional(),
+  trafficSplit: z
+    .array(z.object({ variationId: z.string(), weight: z.number() }))
+    .describe("Per-variation weights. Mirrors the GET response.")
+    .optional(),
 });
 
 // PostExperimentPayload.yaml
@@ -1158,6 +1186,7 @@ const postExperimentBody = z
       .max(MAX_PRECOMPUTED_UNIT_DIMENSIONS, maxPrecomputedUnitDimensionsError)
       .optional(),
     statusUpdateSchedule: apiStatusUpdateSchedule.optional(),
+    ignoreWarnings: ignoreWarningsBodyField,
   })
   .strict();
 
@@ -1280,8 +1309,26 @@ const updateExperimentBody = z
               }),
             )
             .optional(),
-          reason: z.string().optional(),
-          condition: z.string().optional(),
+          reason: z
+            .string()
+            .describe(
+              "Deprecated: use `reasonForStopping`. Takes precedence if set.",
+            )
+            .meta({ deprecated: true })
+            .optional(),
+          condition: z
+            .string()
+            .describe(
+              "Deprecated: use `targetingCondition`. Takes precedence if set.",
+            )
+            .meta({ deprecated: true })
+            .optional(),
+          targetingCondition: z
+            .string()
+            .describe(
+              "Targeting condition as a JSON string. Mirrors the GET response.",
+            )
+            .optional(),
           savedGroupTargeting: z
             .array(
               z.object({
@@ -1290,7 +1337,17 @@ const updateExperimentBody = z
               }),
             )
             .optional(),
-          variationWeights: z.array(z.number()).optional(),
+          variationWeights: z
+            .array(z.number())
+            .describe(
+              "Deprecated: use `trafficSplit`. Takes precedence if set.",
+            )
+            .meta({ deprecated: true })
+            .optional(),
+          trafficSplit: z
+            .array(z.object({ variationId: z.string(), weight: z.number() }))
+            .describe("Per-variation weights. Mirrors the GET response.")
+            .optional(),
         }),
       )
       .optional(),
@@ -1345,6 +1402,7 @@ const updateExperimentBody = z
       )
       .max(MAX_PRECOMPUTED_UNIT_DIMENSIONS, maxPrecomputedUnitDimensionsError)
       .optional(),
+    ignoreWarnings: ignoreWarningsBodyField,
   })
   .strict();
 
@@ -1356,6 +1414,7 @@ const postExperimentStartBody = z
         "If true, skips validating the experiment satisifies all pre-launch checklist items",
       )
       .optional(),
+    ignoreWarnings: ignoreWarningsBodyField,
   })
   .strict()
   .optional();
@@ -1412,6 +1471,7 @@ const postExperimentStopBody = z
         "Optional ISO datetime for ending the latest phase. Defaults to the current date and time.",
       )
       .optional(),
+    ignoreWarnings: ignoreWarningsBodyField,
   })
   .strict();
 
@@ -1428,6 +1488,7 @@ const postExperimentModifyTemporaryRolloutBody = z
         "Variation ID (e.g. var_abc123) to release to 100% of traffic eligible for this experiment. Required if enableTemporaryRollout is true.",
       )
       .optional(),
+    ignoreWarnings: ignoreWarningsBodyField,
   })
   .strict();
 

@@ -10,6 +10,7 @@ import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useSwitchOrg from "@/services/useSwitchOrg";
+import Callout from "@/ui/Callout";
 import { Props as PresentationProps } from "./Presentation";
 const DynamicPresentation = dynamic<PresentationProps>(
   () => import("@/components/Share/Presentation"),
@@ -57,9 +58,9 @@ const Preview: FC<{
 
   if (error) {
     return (
-      <div className="alert alert-danger">
+      <Callout status="error">
         Couldn&apos;t find the presentation. Are you sure it still exists?
-      </div>
+      </Callout>
     );
   }
   if (!pdata) {

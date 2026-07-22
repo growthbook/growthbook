@@ -25,7 +25,7 @@ export default function ComparisonTrendLabel({
         ) : (
           <PiArrowDown style={iconScale} color="var(--red-9)" />
         ))}
-      <Text size="small" color="text-mid">
+      <Text size="inherit" color="text-mid" whiteSpace="nowrap">
         {flat
           ? "No change vs comparison"
           : `${pctChange >= 0 ? "+" : "−"}${pctDisplay}% vs comparison`}

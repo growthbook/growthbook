@@ -28,10 +28,10 @@ export default function DatasourceSettings() {
 
           <Box mb="6" width="100%">
             <Text as="label" className="font-weight-semibold" size="3">
-              Default Data Source (Optional)
+              Default Data Source
             </Text>
             <Box mb="3">
-              The default data source is the default data source selected when
+              The default Data Source is the default Data Source selected when
               creating metrics and experiments.
             </Box>
             <Box width="400px">
@@ -43,17 +43,17 @@ export default function DatasourceSettings() {
                 }))}
                 onChange={(v: string) => form.setValue("defaultDataSource", v)}
                 isClearable={true}
-                placeholder="Select a data source..."
+                placeholder="Select a Data Source..."
               />
             </Box>
           </Box>
 
           <Box mb="6" width="100%">
             <Text as="label" className="font-weight-semibold" size="3">
-              Test Query Lookback Length
+              Test query lookback window
             </Text>
             <Box mb="3">
-              {`The number of days to look back when running test queries that have a date filters. Also used when validating fact table SQL. Default is ${DEFAULT_TEST_QUERY_DAYS} days.`}
+              {`The number of days to look back when running test queries that have date filters. Also used when validating fact table SQL. Default is ${DEFAULT_TEST_QUERY_DAYS} days.`}
             </Box>
             <Box width="200px">
               <Field
@@ -75,7 +75,7 @@ export default function DatasourceSettings() {
           >
             <Text as="label" className="font-weight-semibold" size="3">
               Top values lookback window
-              <Tooltip content="GrowthBook queries the fact table with this lookback window to power auto-slices values and suggestions when you filter metrics. A longer window finds more values but costs more to scan.">
+              <Tooltip content="GrowthBook queries the fact table with this lookback window to power Auto Slice values and suggestions when you filter metrics. A longer window finds more values but costs more to scan.">
                 <Flex
                   ml="2"
                   display="inline-flex"

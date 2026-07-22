@@ -46,6 +46,7 @@ import {
   resolveSparseJSONValue,
   stripDefaultsForSparse,
   expandSparseToFull,
+  draftHasChangesOutsideTargetRef,
 } from "../../src/util";
 import type { RampScheduleInterface } from "../../src/validators/ramp-schedule";
 
@@ -1271,6 +1272,40 @@ describe("simpleToJSONSchema", () => {
       type: "object",
       properties: expectedProperties,
       required: ["a_string", "a_float"],
+      additionalProperties: false,
+    });
+  });
+  it("honors a field's raw jsonSchema, superseding the simple type", () => {
+    const schema: SimpleSchema = {
+      type: "object",
+      fields: [
+        {
+          key: "kv",
+          type: "string",
+          description: "",
+          required: true,
+          enum: [],
+          default: "",
+          jsonSchema: JSON.stringify({ type: "object" }),
+        },
+        {
+          key: "ship",
+          type: "string",
+          description: "how it ships",
+          required: true,
+          enum: [],
+          default: "",
+          jsonSchema: JSON.stringify({ type: ["string", "null"] }),
+        },
+      ],
+    };
+    expect(JSON.parse(simpleToJSONSchema(schema))).toEqual({
+      type: "object",
+      properties: {
+        kv: { type: "object" },
+        ship: { type: ["string", "null"], description: "how it ships" },
+      },
+      required: ["kv", "ship"],
       additionalProperties: false,
     });
   });
@@ -4243,5 +4278,96 @@ describe("sparse JSON rule helpers", () => {
         JSON.parse(full),
       );
     });
+  });
+});
+
+describe("draftHasChangesOutsideTargetRef", () => {
+  const makeRev = (overrides: Partial<RevisionFields>): RevisionFields => ({
+    defaultValue: "control",
+    rules: {},
+    version: 1,
+    environmentsEnabled: { production: true },
+    prerequisites: [],
+    archived: false,
+    metadata: {},
+    holdout: null,
+    rampActions: [],
+    ...overrides,
+  });
+
+  const targetRule = {
+    id: "tr_1",
+    type: "contextual-bandit-ref",
+    contextualBanditId: "cb_1",
+    description: "",
+    enabled: true,
+  } as unknown as FeatureRule;
+
+  const isTarget = (rule: FeatureRule): boolean =>
+    rule.type === "contextual-bandit-ref" &&
+    (rule as unknown as { contextualBanditId?: string }).contextualBanditId ===
+      "cb_1";
+
+  it("returns false when the draft only adds the target ref rule", () => {
+    const live = makeRev({ rules: { production: [] } });
+    const draft = makeRev({ rules: { production: [targetRule] } });
+    expect(draftHasChangesOutsideTargetRef(draft, live, isTarget)).toBe(false);
+  });
+
+  it("returns false when live and draft are identical", () => {
+    const live = makeRev({ rules: { production: [targetRule] } });
+    const draft = makeRev({ rules: { production: [targetRule] } });
+    expect(draftHasChangesOutsideTargetRef(draft, live, isTarget)).toBe(false);
+  });
+
+  it("returns true when defaultValue changes alongside the target ref", () => {
+    const live = makeRev({
+      defaultValue: "control",
+      rules: { production: [] },
+    });
+    const draft = makeRev({
+      defaultValue: "treatment",
+      rules: { production: [targetRule] },
+    });
+    expect(draftHasChangesOutsideTargetRef(draft, live, isTarget)).toBe(true);
+  });
+
+  it("returns true when a non-target rule is added", () => {
+    const otherRule = {
+      id: "fr_1",
+      type: "force",
+      description: "",
+      enabled: true,
+      value: "treatment",
+    } as unknown as FeatureRule;
+    const live = makeRev({ rules: { production: [] } });
+    const draft = makeRev({
+      rules: { production: [targetRule, otherRule] },
+    });
+    expect(draftHasChangesOutsideTargetRef(draft, live, isTarget)).toBe(true);
+  });
+
+  it("ignores a different ref id (only the matched target is stripped)", () => {
+    const otherCbRule = {
+      id: "tr_2",
+      type: "contextual-bandit-ref",
+      contextualBanditId: "cb_2",
+      description: "",
+      enabled: true,
+    } as unknown as FeatureRule;
+    const live = makeRev({ rules: { production: [otherCbRule] } });
+    const draft = makeRev({
+      rules: { production: [otherCbRule, targetRule] },
+    });
+    expect(draftHasChangesOutsideTargetRef(draft, live, isTarget)).toBe(false);
+  });
+
+  it("returns true when prerequisites change", () => {
+    const live = makeRev({ rules: { production: [targetRule] } });
+    const draft = makeRev({
+      rules: { production: [targetRule] },
+      prerequisites: [{ id: "feat_x", condition: '{"value": true}' }],
+    });
+    expect(draftHasChangesOutsideTargetRef(draft, live, isTarget)).toBe(true);
   });
 });

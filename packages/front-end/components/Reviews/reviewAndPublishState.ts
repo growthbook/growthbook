@@ -8,7 +8,7 @@ import type { RevisionStatus } from "shared/validators";
 // revision system (RevisionModel + EntityRevisionAdapter) currently serving
 // saved groups. This module belongs to the older feature-revision pipeline.
 // Once feature revisions converge onto the generic system, this state machine
-// can be unified with RevisionDetail's approval logic — until then the two
+// can be unified with the generic revision approval logic — until then the two
 // coexist as separate UI flows sharing the same entity-agnostic concepts.
 
 export type RnPMode = "fix-conflicts" | "main";
@@ -77,6 +77,11 @@ export interface RnPState {
   canRecallReview: boolean;
   // Reviewer retracts their own verdict → back to pending-review.
   canUndoReview: boolean;
+  // The draft sits in pending review with no primary action for this viewer.
+  // Consumers must render an explicit waiting status in the CTA's place —
+  // with no reviewer verdicts yet, the page otherwise shows nothing but a
+  // status badge and reads as stuck.
+  waitingForReview: boolean;
 }
 
 function publishLabel(
@@ -167,6 +172,7 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
       hasSubmit: true,
       canRecallReview,
       canUndoReview,
+      waitingForReview: false,
     };
   }
 
@@ -198,6 +204,11 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
   // request-review actions have step CTAs. Reviewers use the ReviewCommentPopover.
   const hasSubmit = !isPendingReview || approved;
 
+  // Only "pending-review" waits on someone else; "changes-requested" hands
+  // the ball back to the author, who has edit actions elsewhere on the page.
+  // (hasNextStep requires approved, so !approved already excludes it.)
+  const waitingForReview = status === "pending-review" && !approved;
+
   const ctaEnabled =
     !(experimentsStep && checklistBlocked && !adminPublish) &&
     (!publishLocked || adminPublish) &&
@@ -215,5 +226,6 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
     hasSubmit,
     canRecallReview,
     canUndoReview,
+    waitingForReview,
   };
 }

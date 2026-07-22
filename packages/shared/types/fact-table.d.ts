@@ -88,6 +88,27 @@ export interface FactTableInterface {
   > | null;
 }
 
+// A column with the heavy `jsonFields` map excluded. Fetch the full fact table
+// by id (useFullFactTable) when JSON sub-fields are needed (e.g. the
+// metric/filter editors). Direct `.jsonFields` access on this type is a compile
+// error, but the guard is only structural: because `jsonFields` is optional on
+// ColumnInterface, a slim column still assigns to a `ColumnInterface` /
+// `Pick<FactTableInterface, "columns">` param, so passing a definitions fact
+// table into a helper that reads `jsonFields` internally (e.g.
+// getColumnExpression) is NOT caught by the compiler — always source such
+// helpers from the full fact table.
+export type FactTableColumnDefinition = Omit<ColumnInterface, "jsonFields">;
+
+// Slimmed fact table returned by the definitions endpoint. The `sql` field is
+// excluded and each column omits `jsonFields`; fetch the full fact table by id
+// when either is needed.
+export type FactTableDefinition = Omit<
+  FactTableInterface,
+  "sql" | "columns"
+> & {
+  columns: FactTableColumnDefinition[];
+};
+
 export type AggregatedFactTableSettings = z.infer<
   typeof aggregatedFactTableSettingsValidator
 >;
@@ -159,6 +180,10 @@ export type CreateFactMetricProps = CreateProps<FactMetricInterface>;
 export type UpdateFactMetricProps = UpdateProps<FactMetricInterface>;
 
 export type FactTableMap = Map<string, FactTableInterface>;
+
+// Accepts both full fact tables and slimmed definitions. Use for utils that
+// don't read `sql` or per-column `jsonFields`.
+export type FactTableDefinitionMap = Map<string, FactTableDefinition>;
 
 export type FactFilterTestResults = {
   sql: string;

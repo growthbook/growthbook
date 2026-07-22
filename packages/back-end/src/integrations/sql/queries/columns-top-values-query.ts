@@ -46,7 +46,7 @@ __factTable AS (
 __topValues AS (
   ${getTopValuesCTEBody(dialect, { columns, start, limit, maxValueLength })}
 )
-SELECT * FROM __topValues
+SELECT column_name, value FROM __topValues
 ORDER BY column_name, count DESC
   `,
     dialect.formatDialect,
@@ -68,6 +68,18 @@ function getTopValuesCTEBody(
     keyLiteral: c.column.replace(/'/g, "''"),
     valueSql: dialect.castToString(c.column),
   }));
+
+  // When the dialect has a native approximate top-k aggregate use it
+  // for better performance.
+  if (dialect.approxTopValuesCTEBody) {
+    return dialect.approxTopValuesCTEBody({
+      pairs,
+      fromTable: "__factTable",
+      whereClause: `timestamp >= ${dialect.toTimestamp(start)}`,
+      limit,
+      maxValueLength,
+    });
+  }
 
   const u = dialect.unpivotLabeledPairs(pairs);
 

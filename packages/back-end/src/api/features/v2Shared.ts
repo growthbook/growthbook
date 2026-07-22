@@ -1,10 +1,198 @@
 import type { z } from "zod";
 import type { FeatureInterface, FeatureRule } from "shared/types/feature";
 import type { postFeatureRuleV2 } from "shared/validators";
-import { validateScheduleRules } from "shared/util";
+import {
+  validateScheduleRules,
+  setConfigBacking,
+  getConfigBackingKey,
+  getConfigSubtree,
+  isScopedConfig,
+  valueHasConfigExtends,
+  parsePlainJSONObject,
+} from "shared/util";
 import type { ApiReqContext } from "back-end/types/api";
 import { BadRequestError } from "back-end/src/util/errors";
 import type { ApiFeatureEnvSettings } from "./postFeature";
+
+// A flag can't carry its own JSON schema while it's a config-backed ("Config
+// mode") flag — the config's schema is authoritative, so the two would conflict.
+// Config-backing is determined solely by `baseConfig` (the authoritative field),
+// never by sniffing the value's `$extends`. Pass the *effective* post-update
+// `baseConfig` (new value falling back to the existing one).
+export function assertConfigSchemaCompat({
+  jsonSchemaEnabled,
+  baseConfig,
+}: {
+  jsonSchemaEnabled: boolean | undefined;
+  baseConfig?: string | null;
+}): void {
+  if (jsonSchemaEnabled && (baseConfig ?? null) !== null) {
+    throw new BadRequestError(
+      "A flag cannot define its own JSON schema while it is backed by a config (`baseConfig`). " +
+        "The config's schema is authoritative — remove `baseConfig` or the flag's jsonSchema.",
+    );
+  }
+}
+
+// Matches the key charset the payload resolver accepts (`@config:<key>` refs).
+const CONFIG_KEY_RE = /^[a-z0-9][a-z0-9_-]*$/;
+
+async function requireLiveConfig(
+  context: ApiReqContext,
+  key: string,
+  featureProject: string | undefined,
+): Promise<void> {
+  if (!CONFIG_KEY_RE.test(key)) {
+    throw new BadRequestError(
+      `Invalid config key "${key}". Keys must be lowercase alphanumeric with hyphens/underscores.`,
+    );
+  }
+  const config = await context.models.configs.getByKey(key);
+  if (!config) {
+    throw new BadRequestError(`Config "${key}" does not exist.`);
+  }
+  if (config.archived) {
+    throw new BadRequestError(
+      `Config "${key}" is archived and cannot back a feature value.`,
+    );
+  }
+  // Resolution scrubs a ref whose config is scoped to a different project than
+  // the resolving feature, so a cross-project attach would serve a bare patch
+  // while its values are validated against a schema that never applies. Global
+  // configs (no project) are usable everywhere. Matches the UI's config picker.
+  if (config.project && config.project !== (featureProject || "")) {
+    throw new BadRequestError(
+      `Config "${key}" is scoped to a different project than this feature and cannot back its values. Use a global config or one in the feature's project.`,
+    );
+  }
+  // Flavors are selected implicitly per environment via the base's
+  // scopedOverrides — referencing one directly would serve its patch in EVERY
+  // environment and dodge its env-scoped review.
+  if (isScopedConfig(config)) {
+    throw new BadRequestError(
+      `Config "${key}" is an environment/project override of "${config.scopedConfig?.parent}" and can't back a feature value directly — reference its base config instead.`,
+    );
+  }
+}
+
+// Config backing is set only through dedicated fields (`baseConfig`,
+// `defaultValueConfig`, rule/variation `config`) — never a raw `@config:`
+// `$extends` inside a value string. `@const:` refs are untouched.
+export function assertNoRawConfigExtends(
+  value: string | undefined,
+  label: string,
+): void {
+  if (valueHasConfigExtends(value)) {
+    throw new BadRequestError(
+      `${label} must not embed a config via a raw "$extends" "@config:" directive. Use the config field instead (baseConfig / defaultValueConfig / a rule's config).`,
+    );
+  }
+}
+
+// Compose a stored config-backed value from a config key + an override patch,
+// rejecting a patch that isn't a JSON object. A config backing is a deep-merge
+// of the patch onto the config's object, so a scalar/array patch has nothing to
+// merge onto — setConfigBacking would silently drop the backing ref and store
+// the bare value unbacked. Reject the contradictory input instead. An empty
+// patch ("" / whitespace) is fine: it means "pure backing, no override".
+export function composeConfigBacking(
+  configKey: string | null | undefined,
+  value: string | undefined,
+  label: string,
+): string {
+  if (
+    (configKey ?? null) !== null &&
+    (value ?? "").trim() !== "" &&
+    !parsePlainJSONObject(value ?? "")
+  ) {
+    throw new BadRequestError(
+      `${label} must be a JSON object when backed by a config — a scalar or array value can't extend a config.`,
+    );
+  }
+  return setConfigBacking(configKey ?? null, value);
+}
+
+// `baseConfig` puts a flag in Config mode: JSON-typed and backed by a live config.
+export async function assertValidBaseConfig(
+  context: ApiReqContext,
+  baseConfig: string | null | undefined,
+  valueType: string | undefined,
+  featureProject: string | undefined,
+): Promise<void> {
+  if ((baseConfig ?? null) === null) return;
+  if (valueType !== "json") {
+    throw new BadRequestError('`baseConfig` requires `valueType: "json"`.');
+  }
+  await requireLiveConfig(context, baseConfig as string, featureProject);
+}
+
+// The default's optional extension must be a live config within `baseConfig`'s
+// family (the base itself or a descendant).
+export async function assertValidDefaultValueConfig(
+  context: ApiReqContext,
+  baseConfig: string | null | undefined,
+  defaultValueConfig: string | null | undefined,
+  featureProject: string | undefined,
+): Promise<void> {
+  if ((defaultValueConfig ?? null) === null) return;
+  if ((baseConfig ?? null) === null) {
+    throw new BadRequestError(
+      "`defaultValueConfig` requires `baseConfig` to be set.",
+    );
+  }
+  await requireLiveConfig(
+    context,
+    defaultValueConfig as string,
+    featureProject,
+  );
+  const allConfigs = await context.models.configs.getAll();
+  const family = new Set(getConfigSubtree(baseConfig as string, allConfigs));
+  if (!family.has(defaultValueConfig as string)) {
+    throw new BadRequestError(
+      `Config "${defaultValueConfig}" is not the feature's baseConfig "${baseConfig}" or one of its descendants.`,
+    );
+  }
+}
+
+// Request-supplied config keys on rules/variations must resolve to a live
+// config within the feature's family: the default value's backing config or a
+// descendant of it (mirrors the UI's getConfigSubtree constraint). `null`
+// (detach) and `undefined` (no change) entries are skipped.
+export async function assertValidRuleConfigKeys(
+  context: ApiReqContext,
+  configKeys: (string | null | undefined)[],
+  effectiveDefaultValue: string | undefined,
+  baseConfig: string | null | undefined,
+  featureProject: string | undefined,
+): Promise<void> {
+  const keys = [
+    ...new Set(configKeys.filter((k): k is string => typeof k === "string")),
+  ];
+  if (!keys.length) return;
+
+  for (const key of keys) {
+    await requireLiveConfig(context, key, featureProject);
+  }
+
+  const defaultConfigKey =
+    (baseConfig ?? null) !== null
+      ? (baseConfig ?? null)
+      : getConfigBackingKey(effectiveDefaultValue);
+  if (defaultConfigKey === null) {
+    throw new BadRequestError(
+      "Rule values can only reference a config when the feature's default value is config-backed.",
+    );
+  }
+  const allConfigs = await context.models.configs.getAll();
+  const family = new Set(getConfigSubtree(defaultConfigKey, allConfigs));
+  for (const key of keys) {
+    if (!family.has(key)) {
+      throw new BadRequestError(
+        `Config "${key}" is not the feature's default config "${defaultConfigKey}" or one of its descendants.`,
+      );
+    }
+  }
+}
 
 export type ApiRuleV2Input = z.infer<typeof postFeatureRuleV2>;
 
@@ -65,18 +253,34 @@ export function mapV2ApiRuleToFeatureRule(
       ...baseRule,
       type: "experiment-ref" as const,
       experimentId: ruleInput.experimentId,
-      variations: ruleInput.variations.map((v) => ({
-        variationId: v.variationId,
-        value: v.value,
-      })),
+      variations: ruleInput.variations.map((v) => {
+        assertNoRawConfigExtends(v.value, "Variation value");
+        // When `config` is supplied, `value` is an override patch; recompose it
+        // into the internal `$extends`-first value. null detaches any config.
+        return {
+          variationId: v.variationId,
+          value:
+            v.config !== undefined
+              ? composeConfigBacking(v.config, v.value, "Variation value")
+              : v.value,
+        };
+      }),
       ...(ruleInput.sparse !== undefined && { sparse: ruleInput.sparse }),
     };
   }
   if (ruleInput.type === "rollout") {
+    assertNoRawConfigExtends(ruleInput.value, "Rule value");
     return {
       ...baseRule,
       type: "rollout" as const,
-      value: ruleInput.value,
+      value:
+        ruleInput.config !== undefined
+          ? composeConfigBacking(
+              ruleInput.config,
+              ruleInput.value,
+              "Rule value",
+            )
+          : ruleInput.value,
       ...(ruleInput.sparse !== undefined && { sparse: ruleInput.sparse }),
       coverage: ruleInput.coverage ?? 1,
       hashAttribute: ruleInput.hashAttribute ?? "",
@@ -109,10 +313,14 @@ export function mapV2ApiRuleToFeatureRule(
       status: ruleInput.status ?? existingSafeRollout.status,
     };
   }
+  assertNoRawConfigExtends(ruleInput.value, "Rule value");
   return {
     ...baseRule,
     type: "force" as const,
-    value: ruleInput.value,
+    value:
+      ruleInput.config !== undefined
+        ? composeConfigBacking(ruleInput.config, ruleInput.value, "Rule value")
+        : ruleInput.value,
     ...(ruleInput.sparse !== undefined && { sparse: ruleInput.sparse }),
   };
 }
@@ -125,6 +333,7 @@ const METADATA_FIELDS = [
   "tags",
   "customFields",
   "jsonSchema",
+  "baseConfig",
 ] as const;
 
 // Pure split of metadata-like fields from feature updates. Returns the

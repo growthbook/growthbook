@@ -24,6 +24,7 @@ import { GBInfo } from "@/components/Icons";
 import Checkbox from "@/ui/Checkbox";
 import Button from "@/components/Button";
 import track from "@/services/track";
+import Callout from "@/ui/Callout";
 import WelcomeFrame from "./WelcomeFrame";
 
 export type InitialPlanOptions = "" | "starter" | "pro";
@@ -267,9 +268,9 @@ const SelectInitialPlan: FC = () => {
         </div>
       )}
       {error && (
-        <div className="alert alert-danger mt-3" role="alert">
+        <Callout status="error" role="alert" mt="3">
           {error}
-        </div>
+        </Callout>
       )}
       <Flex align="center" justify="center" mt="3">
         <Text size="medium" color="text-low">

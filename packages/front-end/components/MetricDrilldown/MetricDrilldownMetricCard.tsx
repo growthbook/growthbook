@@ -3,11 +3,11 @@ import { Box, Flex, Heading } from "@radix-ui/themes";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import {
   FactMetricInterface,
-  FactTableInterface,
+  FactTableDefinition,
   RowFilter,
 } from "shared/types/fact-table";
 import {
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
   getAggregateFilters,
   isBinomialMetric,
   isFactMetric,
@@ -22,7 +22,7 @@ import { getPercentileLabel } from "@/services/metrics";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 
 interface MetricDrilldownMetricCardProps {
-  metric: ExperimentMetricInterface;
+  metric: ExperimentMetricDefinition;
   type: "numerator" | "denominator";
 }
 
@@ -44,7 +44,7 @@ function RowFilterDisplay({
   factTable,
 }: {
   rowFilters: RowFilter[];
-  factTable?: FactTableInterface | null;
+  factTable?: FactTableDefinition | null;
 }) {
   if (!rowFilters.length) return null;
 
@@ -91,7 +91,7 @@ interface DataItem {
 
 function buildNumeratorData(
   factMetric: FactMetricInterface,
-  factTable: FactTableInterface | null,
+  factTable: FactTableDefinition | null,
 ): DataItem[] {
   const userFilters = getAggregateFilters({
     columnRef: factMetric.numerator,
@@ -164,7 +164,7 @@ function buildNumeratorData(
 
 function buildDenominatorData(
   factMetric: FactMetricInterface,
-  denominatorFactTable: FactTableInterface | null,
+  denominatorFactTable: FactTableDefinition | null,
 ): DataItem[] {
   if (
     factMetric.metricType !== "ratio" ||

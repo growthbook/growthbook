@@ -1,0 +1,72 @@
+---
+title: Contextual Bandits
+slug: /contextual-bandits/overview
+unlisted: true
+---
+
+import CommercialFeature from '@site/src/components/CommercialFeature';
+import Pill from '@site/src/components/Pill';
+
+<CommercialFeature feature="contextual-bandits" />
+
+# Contextual Bandits <Pill>beta</Pill>
+
+### What are Contextual Bandits?
+
+A Contextual Bandit is a [bandit](/bandits/overview) that personalizes which variation a user sees based on their **context** — attributes like country, device, or past behavior. Like a standard multi-armed bandit, traffic weights change while the experiment runs to favor better-performing variations. The difference is that a contextual bandit learns a _separate_ set of weights for each context, instead of a single global set of weights for all users.
+
+In other words, a multi-armed bandit asks "which variation is best?" A contextual bandit asks "which variation is best **for this kind of user**?" Where a global winner would be applied to everyone, a contextual bandit can send users in one country to one variation and users in another country to a different one — whatever performs best on the **Decision Metric** within each context.
+
+### When should I run a Contextual Bandit?
+
+You should run a contextual bandit when:
+
+- You expect the **best variation to differ across user segments** (e.g. by region, device, or plan), rather than there being one global winner.
+- You have a single, clear **Decision Metric** to optimize toward.
+- You can express the segmenting attributes as **columns in your assignment query** so the bandit can split on them.
+- You care more about shipping the best experience to each segment than about producing unbiased, per-metric learnings.
+
+### How is it different from a multi-armed bandit?
+
+| Characteristic  | **Multi-Armed Bandit**                      | **Contextual Bandit**                                  |
+| --------------- | ------------------------------------------- | ------------------------------------------------------ |
+| Goal            | Find the single best variation for everyone | Find the best variation for each user context          |
+| Traffic weights | One global set of weights                   | A separate set of weights per context                  |
+| Inputs          | Decision Metric only                        | Decision Metric **plus** targeting/context attributes  |
+| Best when       | One variation is best for all users         | The best variation varies across segments              |
+| Setup           | Standard assignment query                   | Assignment query that also selects the context columns |
+
+If you don't expect the winner to vary across segments, a standard [multi-armed bandit](/bandits/overview) is simpler and usually the better choice.
+
+### What you need to run one
+
+A contextual bandit splits traffic on **context attributes**, so it needs an assignment query that selects those columns in addition to the user identifier and timestamp. In GrowthBook these are defined on a **Contextual Bandit Query**, which holds the assignment SQL plus the list of `targetingAttributeColumns` the bandit is allowed to split on. Each context column you want to use must appear in the query's `SELECT`, and at least one targeting attribute is required — a bandit with no context to split on is just a multi-armed bandit.
+
+To get started you will need:
+
+- A connected **Data Source** with a warehouse the bandit can query.
+- An assignment query that selects your user id, timestamp, and one or more **context columns**.
+- A single **Decision Metric** to optimize toward.
+- Two or more **variations** to test.
+
+### GrowthBook's Contextual Bandit implementation
+
+Like multi-armed bandits, contextual bandits use **Thompson sampling**, a Bayesian algorithm that balances _exploration_ (trying variations to learn how they perform) and _exploitation_ (sending more traffic to the variations that look best). The key addition is that GrowthBook fits a decision tree over your context attributes, partitioning users into **leaves** — groups that share similar context — and then runs Thompson sampling _within each leaf_. This is how the bandit can converge to different winners for different kinds of users.
+
+As with standard bandits, GrowthBook ensures every variation keeps at least a small share of traffic within each context, so the bandit can keep adapting if user behavior changes over time.
+
+The statistical details are covered in the [Contextual Bandit technical reference](/statistics/contextual-bandit-technical).
+
+## FAQ
+
+1. **When is a contextual bandit worth it over a multi-armed bandit?**<br />
+   Only when you have a real reason to believe the best variation differs across user segments. If one variation is best for everyone, a contextual bandit adds complexity (splitting your data across contexts, which needs more traffic per context) without a payoff. A plain multi-armed bandit is the better default.
+
+2. **Can I run a Contextual Bandit using the frequentist engine?**<br />
+   No. Like multi-armed bandits, contextual bandits are available only under the Bayesian engine, where Thompson sampling is used.
+
+3. **What happens if a context has very little traffic?**<br />
+   GrowthBook controls how finely it splits using settings like `minUsersPerLeaf` and `maxLeaves`. Sparse contexts are grouped together rather than split out, so the bandit doesn't try to learn separate weights for a segment it has too little data on.
+
+4. **Do contextual bandits suffer from the same biases as multi-armed bandits?**<br />
+   Yes — because traffic weights change adaptively, the same [adaptive-experimentation biases](https://arxiv.org/abs/1905.11397) apply, and splitting by context can make them more pronounced in low-traffic segments. If unbiased per-metric effect estimates are your goal, a standard experiment is still the better tool.

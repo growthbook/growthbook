@@ -315,6 +315,8 @@ export default function UpgradeModal({
       "Define retention metrics that measure return activity",
     "metric-populations": "Analyze metrics for different sub-populations",
     "multi-armed-bandits": "Run adaptive experiments with Bandits",
+    "contextual-bandits":
+      "Run context-aware adaptive experiments with Contextual Bandits",
     "historical-power":
       "Power calculator that uses historical data for accurate predictions",
     "decision-framework":
@@ -675,6 +677,7 @@ export default function UpgradeModal({
   if (accountPlan === "enterprise") {
     return (
       <Modal
+        useRadixButton={false}
         trackingEventModalType="upgrade-modal"
         allowlistedTrackingEventProps={trackContext}
         open={true}
@@ -766,6 +769,7 @@ export default function UpgradeModal({
         </StripeProvider>
       ) : orgIsManagedByVercel ? (
         <Modal
+          useRadixButton={false}
           trackingEventModalType="upgrade-modal"
           allowlistedTrackingEventProps={trackContext}
           open={true}
@@ -809,6 +813,7 @@ export default function UpgradeModal({
         </Modal>
       ) : (
         <Modal
+          useRadixButton={false}
           trackingEventModalType="upgrade-modal"
           allowlistedTrackingEventProps={trackContext}
           open={true}
@@ -842,7 +847,7 @@ export default function UpgradeModal({
             {showEnterpriseTreatment ? enterpriseTreatment() : proTreatment()}
           </div>
 
-          {error && <div className="alert alert-danger">{error}</div>}
+          {error && <Callout status="error">{error}</Callout>}
         </Modal>
       )}
     </>

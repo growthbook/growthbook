@@ -28,6 +28,7 @@ import {
   SafeRolloutInterface,
   SafeRolloutRule,
   RampScheduleInterface,
+  RampScheduleTemplateInterface,
   RampStepAction,
 } from "shared/validators";
 import {
@@ -54,6 +55,7 @@ import { useExperiments } from "@/hooks/useExperiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import useSDKConnections from "@/hooks/useSDKConnections";
+import useApi from "@/hooks/useApi";
 import { allConnectionsSupportBucketingV2 } from "@/components/Experiment/HashVersionSelector";
 import Modal from "@/components/Modal";
 import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewExperimentForm";
@@ -128,6 +130,27 @@ function buildRampStartActionsFromRule(
       patch,
     },
   ];
+}
+
+// A future-dated or approval-gated ramp publishes its rule disabled (zero
+// traffic) until the schedule activates or is approved. Only applies pre-start:
+// once the schedule is running the ramp owns the rule's enabled state, so a
+// later edit must not re-disable a live rollout (requiresStartApproval stays set
+// after start — e.g. a running 0-step approval schedule).
+function shouldPublishRuleDisabled(
+  ramp: Record<string, unknown> | undefined,
+  existingScheduleStatus?: string,
+): boolean {
+  if (!ramp) return false;
+  const preStart =
+    existingScheduleStatus === undefined ||
+    existingScheduleStatus === "pending" ||
+    existingScheduleStatus === "ready";
+  if (!preStart) return false;
+  return (
+    ("startDate" in ramp && !!ramp.startDate) ||
+    ("requiresStartApproval" in ramp && !!ramp.requiresStartApproval)
+  );
 }
 export interface Props {
   close: () => void;
@@ -228,6 +251,12 @@ export default function RuleModal({
         ),
       )
     : undefined;
+
+  // Prefetch templates on modal open so they're resolved before the ramp step
+  // mounts RampScheduleSection.
+  const { data: rampTemplatesData } = useApi<{
+    rampScheduleTemplates: RampScheduleTemplateInterface[];
+  }>("/ramp-schedule-templates");
 
   // Check if there's a pending detach action for this rule in the draft.
   // When true, the ramp section should open as "off" so users don't think
@@ -1353,6 +1382,9 @@ export default function RuleModal({
                     rampState.monitoring,
                     rampState.steps,
                   ),
+                  requiresStartApproval: rampState.requiresStartApproval
+                    ? true
+                    : null,
                   ...(rampState.lockFeature
                     ? { lockdownConfig: { mode: "locked" as const } }
                     : { lockdownConfig: { mode: "none" as const } }),
@@ -1418,6 +1450,9 @@ export default function RuleModal({
                     rampState.monitoring,
                     rampState.steps,
                   ),
+                  requiresStartApproval: rampState.requiresStartApproval
+                    ? true
+                    : null,
                   ...(rampState.lockFeature
                     ? { lockdownConfig: { mode: "locked" as const } }
                     : { lockdownConfig: { mode: "none" as const } }),
@@ -1480,12 +1515,11 @@ export default function RuleModal({
           // advances, but the rule must have them set immediately for the period
           // between publish and ramp-start (or if the ramp never starts).
 
-          // Future-dated schedule → publish the rule as disabled so it
-          // remains hidden until the schedule activates.
           if (
-            rampScheduleInline &&
-            "startDate" in rampScheduleInline &&
-            rampScheduleInline.startDate
+            shouldPublishRuleDisabled(
+              rampScheduleInline,
+              ruleRampSchedule?.status,
+            )
           ) {
             values = { ...values, enabled: false };
           }
@@ -1561,6 +1595,9 @@ export default function RuleModal({
                 rampState.monitoring,
                 rampState.steps,
               ),
+              requiresStartApproval: rampState.requiresStartApproval
+                ? true
+                : null,
               ...(rampState.lockFeature
                 ? { lockdownConfig: { mode: "locked" as const } }
                 : { lockdownConfig: { mode: "none" as const } }),
@@ -1568,14 +1605,7 @@ export default function RuleModal({
           }
         }
 
-        // Schedule with a start date → create rule disabled; the backend
-        // enables it via onActivatingRevisionPublished when the draft is
-        // published (immediately if the date has passed, or via poller if future).
-        if (
-          rampScheduleInline &&
-          "startDate" in rampScheduleInline &&
-          rampScheduleInline.startDate
-        ) {
+        if (shouldPublishRuleDisabled(rampScheduleInline)) {
           values = { ...values, enabled: false };
         }
 
@@ -1635,7 +1665,6 @@ export default function RuleModal({
         }
         ctaEnabled={!!overviewRuleType}
         header="New Rule"
-        useRadixButton={true}
         submit={submitOverview}
         autoCloseOnSubmit={false}
       >
@@ -1711,6 +1740,7 @@ export default function RuleModal({
               </Box>
               {hasCommercialFeature("safe-rollout") ? (
                 <Button
+                  color="inherit"
                   variant="soft"
                   size="xs"
                   onClick={() => {
@@ -1736,7 +1766,7 @@ export default function RuleModal({
                   commercialFeature="safe-rollout"
                   usePortal={true}
                 >
-                  <Button variant="soft" size="xs" disabled>
+                  <Button color="inherit" variant="soft" size="xs" disabled>
                     Show me
                   </Button>
                 </PremiumTooltip>
@@ -1850,7 +1880,6 @@ export default function RuleModal({
           mode === "create" ? () => setNewRuleOverviewPage(true) : undefined
         }
         submit={submit}
-        useRadixButton={true}
         bodyPrefix={
           <DraftSelectorForChanges
             feature={feature}
@@ -1899,6 +1928,7 @@ export default function RuleModal({
               state={rampSectionState}
               setState={setRampSectionState}
               pendingDetach={hasPendingDetach}
+              preloadedTemplates={rampTemplatesData?.rampScheduleTemplates}
               embedded
               readOnly={!!ruleRampSchedule && !rampIsEditable}
               hideNameField={true}

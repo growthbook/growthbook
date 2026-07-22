@@ -37,6 +37,7 @@ export default defineConfig([
     "docs/build",
     "packages/sdk-js/scripts",
     "**/*.tsbuildinfo",
+    "packages/shared/types/*.js",
   ]),
   nextRecommendedConfig,
   {
@@ -182,6 +183,16 @@ export default defineConfig([
 
     rules: {
       "import/no-named-as-default": "off",
+    },
+  },
+  {
+    // Standalone CommonJS runtime script (no build step): require() is correct
+    // and console is the intended logging channel.
+    files: ["./preview/idle-monitor.js"],
+
+    rules: {
+      "@typescript-eslint/no-require-imports": "off",
+      "no-console": "off",
     },
   },
   {
@@ -450,6 +461,28 @@ export default defineConfig([
               group: ["shared/src", "shared/src/*", "shared/src/**"],
               message:
                 "Within shared, use relative paths or import from shared without /src/",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["./packages/stats-ts/**/*"],
+
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["*back-end*", "*front-end*"],
+              message: "stats-ts cannot import from back-end or front-end.",
+            },
+            {
+              group: ["shared/src", "shared/src/*", "shared/src/**"],
+              message:
+                "Import from the package (e.g., 'shared/experiments') instead of 'shared/src/...'",
             },
           ],
         },

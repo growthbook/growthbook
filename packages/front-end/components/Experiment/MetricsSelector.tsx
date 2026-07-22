@@ -1,13 +1,14 @@
 import { FC, ReactNode, useCallback, useMemo, useState } from "react";
 import { isProjectListValidForProject } from "shared/util";
 import {
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
   isFactMetric,
   isMetricGroupId,
   isMetricJoinable,
   quantileMetricType,
 } from "shared/experiments";
 import { Flex } from "@radix-ui/themes";
+import { FactMetricType } from "shared/types/fact-table";
 import { PiInfo } from "react-icons/pi";
 import Text from "@/ui/Text";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -93,6 +94,7 @@ const MetricsSelector: FC<{
   includeFacts?: boolean;
   includeGroups?: boolean;
   excludeQuantiles?: boolean;
+  allowedFactMetricTypes?: FactMetricType[];
   forceSingleMetric?: boolean;
   noManual?: boolean;
   noLegacyMetrics?: boolean;
@@ -107,6 +109,7 @@ const MetricsSelector: FC<{
     disabled: boolean;
     reason?: string;
   };
+  requireDatasource?: boolean;
 }> = ({
   datasource,
   project,
@@ -117,6 +120,7 @@ const MetricsSelector: FC<{
   includeFacts,
   includeGroups = true,
   excludeQuantiles,
+  allowedFactMetricTypes,
   forceSingleMetric = false,
   noManual = false,
   noLegacyMetrics = false,
@@ -125,6 +129,7 @@ const MetricsSelector: FC<{
   helpText,
   groupOptions = true,
   getMetricDisabledInfo,
+  requireDatasource = false,
 }) => {
   const [createMetricGroup, setCreateMetricGroup] = useState(false);
   const {
@@ -187,6 +192,12 @@ const MetricsSelector: FC<{
               if (quantileMetricType(m) && excludeQuantiles) {
                 return false;
               }
+              if (
+                allowedFactMetricTypes &&
+                !allowedFactMetricTypes.includes(m.metricType)
+              ) {
+                return false;
+              }
               if (filterConversionWindowMetrics) {
                 return m?.windowSettings?.type !== "conversion";
               }
@@ -246,7 +257,9 @@ const MetricsSelector: FC<{
     ];
 
     return options
-      .filter((m) => (datasource ? m.datasource === datasource : true))
+      .filter((m) =>
+        datasource ? m.datasource === datasource : !requireDatasource,
+      )
       .filter((m) =>
         datasourceSettings && userIdType && m.userIdTypes.length
           ? isMetricJoinable(m.userIdTypes, userIdType, datasourceSettings)
@@ -267,8 +280,10 @@ const MetricsSelector: FC<{
     includeFacts,
     includeGroups,
     excludeQuantiles,
+    allowedFactMetricTypes,
     filterConversionWindowMetrics,
     getMetricDisabledInfo,
+    requireDatasource,
   ]);
 
   // O(1) lookup map for filteredOptions by id
@@ -317,7 +332,7 @@ const MetricsSelector: FC<{
   const groupMetricsJoinableMap = useMemo(() => {
     const map = new Map<
       string,
-      { metric: ExperimentMetricInterface | null; joinable: boolean }[]
+      { metric: ExperimentMetricDefinition | null; joinable: boolean }[]
     >();
     for (const opt of filteredOptions) {
       if (!opt.isGroup || !opt.metrics) continue;
@@ -465,6 +480,8 @@ const MetricsSelector: FC<{
     [],
   );
 
+  const selectorDisabled = disabled || (requireDatasource && !datasource);
+
   const selector = !forceSingleMetric ? (
     <MultiSelectField
       value={selected}
@@ -474,7 +491,7 @@ const MetricsSelector: FC<{
       autoFocus={autoFocus}
       isOptionDisabled={isOptionDisabled}
       formatOptionLabel={multiFormatOptionLabel}
-      disabled={disabled}
+      disabled={selectorDisabled}
       helpText={
         <>
           {helpText}
@@ -577,7 +594,7 @@ const MetricsSelector: FC<{
       autoFocus={autoFocus}
       isOptionDisabled={isOptionDisabled}
       formatOptionLabel={singleFormatOptionLabel}
-      disabled={disabled}
+      disabled={selectorDisabled}
       helpText={helpText}
     />
   );

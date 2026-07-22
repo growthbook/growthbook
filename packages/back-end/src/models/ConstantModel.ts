@@ -7,7 +7,9 @@ import {
 } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
 import { BadRequestError } from "back-end/src/util/errors";
-import { constantUpdated } from "back-end/src/services/constants";
+import { resolvableValueChanged } from "back-end/src/services/constants";
+import { assertConstantArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
+import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import {
   logConstantCreatedEvent,
   logConstantUpdatedEvent,
@@ -39,6 +41,31 @@ const BaseClass = MakeModelClass({
 });
 
 export class ConstantModel extends BaseClass {
+  // Request-scoped memoized load: reference/cycle scans (getResolvableValues)
+  // read the whole collection several times per write. Loads once and hands the
+  // same promise to every caller until a write invalidates it; a rejected load
+  // isn't cached, so a later call retries. Mirrors ConfigModel.reconcileSnapshot.
+  // Each caller gets its own shallow copy (safe to sort/filter in place); the
+  // doc objects themselves are shared — treat them as read-only.
+  private allSnapshot: Promise<ConstantInterface[]> | null = null;
+
+  public getAll(): Promise<ConstantInterface[]> {
+    if (this.allSnapshot === null) {
+      const load = super.getAll().catch((err) => {
+        // Clear only our own failed load — a write may have invalidated it and
+        // a newer healthy load may already be memoized.
+        if (this.allSnapshot === load) this.allSnapshot = null;
+        throw err;
+      });
+      this.allSnapshot = load;
+    }
+    return this.allSnapshot.then((docs) => docs.slice());
+  }
+
+  private invalidateAllSnapshot(): void {
+    this.allSnapshot = null;
+  }
+
   protected canRead(doc: ConstantInterface): boolean {
     return this.context.permissions.canReadSingleProjectResource(doc.project);
   }
@@ -59,19 +86,10 @@ export class ConstantModel extends BaseClass {
     return this.context.permissions.canDeleteConstant(doc);
   }
 
-  // Reject a value that would close a reference cycle. Enforced at the model
-  // layer so EVERY write is covered — including the publish path
-  // (adapter.applyChanges → update), which closes the TOCTOU where two
-  // concurrently-created drafts (each cycle-free vs. live at creation time)
-  // could otherwise store a cycle. Resolution degrades gracefully on a cycle,
-  // but the memo relies on acyclicity, so we keep stored data acyclic.
-  //
-  // The graph is read via the permission-filtered `getAll()`. A cycle crossing a
-  // project boundary the writer can't fully read could slip through, but that's
-  // harmless by design: cross-project reference edges are scrubbed at resolution
-  // (so they can't form a resolvable cycle), and the one narrow resolvable case
-  // degrades gracefully via the memo (leftover placeholders — no DoS, no wrong
-  // value). Not worth an unfiltered read.
+  // Reject cyclic values at the model layer so every write is covered, including
+  // the publish path (closing the TOCTOU between two concurrently-created drafts).
+  // Reads via the permission-filtered getAll(); a cross-project cycle the writer
+  // can't see degrades gracefully at resolution, so an unfiltered read isn't worth it.
   private async assertNoCycle(
     key: string,
     value: string | undefined,
@@ -81,7 +99,12 @@ export class ConstantModel extends BaseClass {
       key,
       value,
       environmentValues,
-      await this.getAll(),
+      // Constants reference only constants (`@const:`), so a constant cycle is
+      // confined to the constant namespace — scope to it.
+      (await getResolvableValues(this.context)).filter(
+        (c) => c.source === "constant",
+      ),
+      "constant",
     );
     if (cyclic.length) {
       throw new BadRequestError(
@@ -97,10 +120,23 @@ export class ConstantModel extends BaseClass {
   }
 
   protected async beforeUpdate(
-    _existing: ConstantInterface,
+    existing: ConstantInterface,
     updates: UpdateProps<ConstantInterface>,
     newDoc: ConstantInterface,
   ) {
+    // Model-level backstop (handlers also check, for earlier/friendlier errors):
+    // archiving a still-referenced constant on ANY write path is a uniform SOFT
+    // warning, bypassable by ignoreWarnings — background jobs (the deferred fire)
+    // always ignore warnings, so an armed archive publish that already re-checked
+    // its fingerprint at assertPublishable passes here; a direct write without
+    // ignoreWarnings still surfaces the warning. Mirrors ConfigModel.beforeUpdate.
+    if (updates.archived === true && !existing.archived) {
+      await assertConstantArchiveDependentsGuard(
+        this.context,
+        { id: existing.id, key: existing.key, project: existing.project },
+        { armed: false },
+      );
+    }
     if (
       updates.value !== undefined ||
       updates.environmentValues !== undefined
@@ -114,24 +150,29 @@ export class ConstantModel extends BaseClass {
   }
 
   protected async afterCreate(doc: ConstantInterface) {
+    this.invalidateAllSnapshot();
     await logConstantCreatedEvent(this.context, this.toApiInterface(doc));
   }
 
-  // Refresh SDK payloads (and fire SDK webhooks) when a published change alters
-  // the resolved value. Runs on the live update — for the approval flow that's
-  // at merge time (the adapter calls `update`), for direct edits it's immediate.
+  // Refresh SDK payloads when a change alters the resolved value.
   protected async afterUpdate(
     existing: ConstantInterface,
     updates: UpdateProps<ConstantInterface>,
     newDoc: ConstantInterface,
   ) {
+    this.invalidateAllSnapshot();
     if (
       updates.value !== undefined ||
       updates.environmentValues !== undefined ||
       updates.project !== undefined ||
       updates.archived !== undefined
     ) {
-      constantUpdated(this.context).catch((e) => {
+      resolvableValueChanged(
+        this.context,
+        "updated",
+        "constant",
+        newDoc.key,
+      ).catch((e) => {
         this.context.logger.error(
           e,
           "Error refreshing SDK Payload on constant update",
@@ -139,8 +180,7 @@ export class ConstantModel extends BaseClass {
       });
     }
 
-    // Skip the webhook event when nothing meaningful changed (e.g. only
-    // `dateUpdated` was bumped) — mirrors the saved-group/feature behavior.
+    // Skip the webhook event when only `dateUpdated` changed.
     const previous = this.toApiInterface(existing);
     const current = this.toApiInterface(newDoc);
     if (
@@ -150,15 +190,17 @@ export class ConstantModel extends BaseClass {
     }
   }
 
-  // A deleted constant leaves its `@const:` references unresolved, which changes
-  // the generated payload, so refresh on delete too.
+  // A delete leaves references unresolved, changing the payload.
   protected async afterDelete(doc: ConstantInterface) {
-    constantUpdated(this.context, "deleted").catch((e) => {
-      this.context.logger.error(
-        e,
-        "Error refreshing SDK Payload on constant delete",
-      );
-    });
+    this.invalidateAllSnapshot();
+    resolvableValueChanged(this.context, "deleted", "constant", doc.key).catch(
+      (e) => {
+        this.context.logger.error(
+          e,
+          "Error refreshing SDK Payload on constant delete",
+        );
+      },
+    );
     await logConstantDeletedEvent(this.context, this.toApiInterface(doc));
   }
 
@@ -166,8 +208,7 @@ export class ConstantModel extends BaseClass {
     return this._findOne({ key });
   }
 
-  // Value-omitted projection for the definitions context (see
-  // ConstantWithoutValue). Full values are fetched per-constant on demand.
+  // Value-omitted projection for the definitions context.
   public async getAllWithoutValues(): Promise<ConstantWithoutValue[]> {
     const constants = await this._find(
       {},
@@ -176,8 +217,7 @@ export class ConstantModel extends BaseClass {
     return constants as ConstantWithoutValue[];
   }
 
-  // External REST API shape. Owner email is resolved separately by the handler
-  // (via resolveOwnerEmail) since it requires an async user lookup.
+  // Owner email is resolved separately by the handler (async user lookup).
   public toApiInterface(constant: ConstantInterface): ApiConstant {
     return {
       id: constant.id,
@@ -196,11 +236,8 @@ export class ConstantModel extends BaseClass {
     };
   }
 
-  // When a project is deleted, unset it on any constant scoped to it (becomes
-  // global), mirroring how features clear a deleted project. Update each through
-  // the model (bypassing only the per-constant update permission, since this is
-  // a system cascade) so afterUpdate still fires — audit log, webhooks, SDK
-  // payload refresh, and dateUpdated. A raw updateMany would skip all of those.
+  // On project delete, unset it on scoped constants (becomes global). Goes through
+  // the model (bypassing only the update permission) so afterUpdate hooks fire.
   public async removeProjectIdFromAll(projectId: string) {
     const affected = await this._find({ project: projectId });
     for (const constant of affected) {

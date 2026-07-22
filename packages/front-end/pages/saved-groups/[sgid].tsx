@@ -5,14 +5,21 @@ import {
   Revision,
   applyTopLevelPatchOps,
   isSavedGroupRevisionMetadataOnly,
+  getLiveRevision,
+  getRevisionNumber,
 } from "shared/enterprise";
-import { FaPlusCircle } from "react-icons/fa";
-import { PiArrowsDownUp, PiPencilSimpleFill } from "react-icons/pi";
+import { REVIEW_REQUESTED_STATUSES } from "shared/validators";
+import {
+  PiArrowsDownUp,
+  PiPencilSimpleFill,
+  PiPlusCircleBold,
+} from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { isIdListSupportedAttribute } from "shared/util";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import Link from "@/ui/Link";
 import Field from "@/components/Forms/Field";
+import Markdown from "@/components/Markdown/Markdown";
 import PageHead from "@/components/Layout/PageHead";
 import Pagination from "@/components/Pagination";
 import Frame from "@/ui/Frame";
@@ -20,16 +27,14 @@ import Metadata from "@/ui/Metadata";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Badge from "@/ui/Badge";
+import { draftStatusTooltip } from "@/components/Reviews/RevisionStatusBadge";
+import EditRevisionDescriptionModal from "@/components/Reviews/EditRevisionDescriptionModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import SavedGroupForm from "@/components/SavedGroups/SavedGroupForm";
 import SavedGroupArchiveModal from "@/components/SavedGroups/SavedGroupArchiveModal";
 import SavedGroupDeleteModal from "@/components/SavedGroups/SavedGroupDeleteModal";
-import {
-  SavedGroupConflictModal,
-  useSavedGroupMergeResult,
-} from "@/components/SavedGroups/useSavedGroupConflictModal";
 import Modal from "@/components/Modal";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { IdListItemInput } from "@/components/SavedGroups/IdListItemInput";
@@ -62,13 +67,22 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
-import RevisionDetail from "@/components/Revision/RevisionDetail";
+import ReviewAndPublishTab from "@/components/Revision/ReviewAndPublishTab";
+import SavedGroupRevertModal from "@/components/Revision/SavedGroupRevertModal";
+import RevisionSummaryCard from "@/components/Revision/RevisionSummaryCard";
+import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+} from "@/ui/Table";
 import SavedGroupRevisionDropdown from "@/components/SavedGroups/SavedGroupRevisionDropdown";
 import CompareSavedGroupRevisionsModal from "@/components/SavedGroups/CompareSavedGroupRevisionsModal";
 import { useSavedGroupRevision } from "@/hooks/useSavedGroupRevision";
 import { useSavedGroupReferences } from "@/hooks/useSavedGroupReferences";
 import { REVISION_SAVED_GROUP_DIFF_CONFIG } from "@/components/Revision/RevisionDiffConfig";
-import RevisionSummaryCard from "@/components/Revision/RevisionSummaryCard";
 import { useUser } from "@/services/UserContext";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -77,6 +91,9 @@ import SavedGroupDraftSelectorForChanges, {
 } from "@/components/SavedGroups/SavedGroupDraftSelectorForChanges";
 
 const NUM_PER_PAGE = 10;
+
+const savedGroupTabs = ["overview", "review"] as const;
+type SavedGroupTab = (typeof savedGroupTabs)[number];
 
 export default function EditSavedGroupPage() {
   const router = useRouter();
@@ -92,10 +109,9 @@ export default function EditSavedGroupPage() {
   const [showReferencesModal, setShowReferencesModal] =
     useState<boolean>(false);
   const [showAuditModal, setShowAuditModal] = useState<boolean>(false);
-  const [showChangesModal, setShowChangesModal] = useState<boolean>(false);
+  const [tab, setTab] = useState<SavedGroupTab>("overview");
   const [compareRevisionsModalOpen, setCompareRevisionsModalOpen] =
     useState<boolean>(false);
-  const [conflictModal, setConflictModal] = useState<boolean>(false);
   const [confirmNewDraft, setConfirmNewDraft] = useState<boolean>(false);
   const [newDraftTitle, setNewDraftTitle] = useState("");
   const [newDraftTitleStash, setNewDraftTitleStash] = useState("");
@@ -117,16 +133,7 @@ export default function EditSavedGroupPage() {
   const [revisionToRevert, setRevisionToRevert] = useState<Revision | null>(
     null,
   );
-  // Whether the user has opted to flip `archived` as part of a revert when
-  // the live entity's archive state has drifted from the target revision's.
-  // Defaults are set in the effect below: true for "will un-archive" (the
-  // common recovery path), false for "will re-archive" (so re-archiving stays
-  // an opt-in action).
-  const [revertIncludeArchive, setRevertIncludeArchive] =
-    useState<boolean>(false);
-  // When the org allows reverts to bypass approval, the revert dialog defaults
-  // to publishing immediately; the user can still opt to create a draft instead.
-  const [revertPublishNow, setRevertPublishNow] = useState<boolean>(false);
+  const [editDescriptionModal, setEditDescriptionModal] = useState(false);
 
   const settings = useOrgSettings();
   const { savedGroupSizeLimit, attributeSchema } = settings;
@@ -141,7 +148,6 @@ export default function EditSavedGroupPage() {
     referencingExperiments.length +
     referencingSavedGroups.length;
 
-  const values = useMemo(() => savedGroup?.values ?? [], [savedGroup]);
   const [currentPage, setCurrentPage] = useState(1);
   const [filter, setFilter] = useState("");
 
@@ -178,6 +184,26 @@ export default function EditSavedGroupPage() {
     userOpenFlow: userOpenRevision,
   } = revisionState;
 
+  // ── Page-level tabs: Overview | Review & Publish, driven by the URL hash.
+  // The hash may carry a sub-tab after a comma (`#review,changes`); only the
+  // first segment selects the page tab — the review tab reads the rest.
+  useEffect(() => {
+    const hash = (new URL(router.asPath, "http://x").hash
+      .replace(/^#/, "")
+      .split(",")[0] || undefined) as SavedGroupTab | undefined;
+    if (hash && savedGroupTabs.includes(hash)) {
+      setTab(hash);
+    }
+  }, [router.asPath]);
+  const setTabAndScroll = (newTab: SavedGroupTab) => {
+    setTab(newTab);
+    router.replace(
+      { pathname: router.pathname, query: router.query, hash: newTab },
+      undefined,
+      { shallow: true },
+    );
+  };
+
   // Revision state variables for UI logic
   const isLive = !selectedRevision;
   const isDraft =
@@ -191,11 +217,30 @@ export default function EditSavedGroupPage() {
   const isMerged = selectedRevision && selectedRevision.status === "merged";
   const hasRevisions = allRevisions.length > 0;
 
+  // Count of active drafts awaiting/in review (pending-review, approved,
+  // changes-requested) — drives the count bubble on the "Review & Publish"
+  // tab, matching the feature header.
+  const draftStatusCounts: Partial<Record<string, number>> = {};
+  allRevisions.forEach((r) => {
+    if ((REVIEW_REQUESTED_STATUSES as readonly string[]).includes(r.status)) {
+      draftStatusCounts[r.status] = (draftStatusCounts[r.status] ?? 0) + 1;
+    }
+  });
+  const activeDraftCount = Object.values(draftStatusCounts).reduce<number>(
+    (sum, n) => sum + (n ?? 0),
+    0,
+  );
+
   // Per-revision approval gate: even when the org globally requires approval
   // for saved groups, a metadata-only revision can be published without
   // review when the `requireMetadataReview` setting is disabled. Mirrors the
   // server-side rule in the saved-group adapter so UI affordances (CTA copy,
   // publish button) match what the merge endpoint will actually allow.
+  //
+  // Reverts are NOT special-cased here (matching features): a revert saved as
+  // a draft is gated by its content like any other change, so editing it still
+  // requires review. Only the immediate "Publish Now" revert bypasses approval
+  // (handled server-side in PUT /saved-groups via the revert-bypass shortcut).
   const selectedRevisionRequiresApproval =
     !!selectedRevision &&
     approvalRequired &&
@@ -203,43 +248,6 @@ export default function EditSavedGroupPage() {
       !isSavedGroupRevisionMetadataOnly(
         selectedRevision.target.proposedChanges,
       ));
-
-  // Check for conflicts if there's a draft
-  const mergeResult = useSavedGroupMergeResult(
-    savedGroup,
-    selectedRevision,
-    allRevisions,
-    isDraft,
-  );
-
-  // Close the changes modal when the selected revision is deselected (e.g. after publish/discard)
-  useEffect(() => {
-    if (!selectedRevision) {
-      setShowChangesModal(false);
-    }
-  }, [selectedRevision]);
-
-  // When the user opens a revert modal, default `revertIncludeArchive` based
-  // on the direction of the archive drift: pre-checked for "will un-archive"
-  // (the common recovery flow), unchecked for "will re-archive" so the more
-  // disruptive direction stays opt-in.
-  useEffect(() => {
-    if (!confirmRevert || !revisionToRevert || !savedGroup) return;
-    setRevertPublishNow(revertsBypassApproval);
-    const targetState = applyTopLevelPatchOps(
-      revisionToRevert.target.snapshot as SavedGroupInterface,
-      revisionToRevert.target.proposedChanges,
-    ) as SavedGroupInterface;
-    const targetArchived = !!targetState.archived;
-    const liveArchived = !!savedGroup.archived;
-    if (targetArchived === liveArchived) {
-      setRevertIncludeArchive(false);
-      return;
-    }
-    // Drift exists: default to `true` only when the revert would un-archive
-    // (i.e. live is archived but the target was not).
-    setRevertIncludeArchive(liveArchived && !targetArchived);
-  }, [confirmRevert, revisionToRevert, savedGroup, revertsBypassApproval]);
 
   // When a revision is selected, show its proposed state in the overview
   const displayedSavedGroup = useMemo(() => {
@@ -257,7 +265,7 @@ export default function EditSavedGroupPage() {
 
   const filteredValues = displayedValues.filter((v) => v.match(filter));
   const sortedValues = sortNewestFirst
-    ? filteredValues.reverse()
+    ? [...filteredValues].reverse()
     : filteredValues;
 
   const start = (currentPage - 1) * NUM_PER_PAGE;
@@ -265,6 +273,9 @@ export default function EditSavedGroupPage() {
   const valuesPage = sortedValues.slice(start, end);
   const { user } = useUser();
   const permissionsUtil = usePermissionsUtil();
+  const canUpdate = savedGroup
+    ? permissionsUtil.canUpdateSavedGroup(savedGroup, savedGroup)
+    : false;
 
   const canAdminPublish =
     !!approvalRequired &&
@@ -297,50 +308,25 @@ export default function EditSavedGroupPage() {
   const listAboveSizeLimit = useMemo(
     () =>
       savedGroupSizeLimit
-        ? [...new Set(itemsToAdd.concat(values))].length > savedGroupSizeLimit
+        ? [...new Set(itemsToAdd.concat(displayedValues))].length >
+          savedGroupSizeLimit
         : false,
-    [savedGroupSizeLimit, itemsToAdd, values],
+    [savedGroupSizeLimit, itemsToAdd, displayedValues],
   );
-  const displayRevision = useMemo(() => {
-    if (selectedRevision) return selectedRevision;
-    // For live, find the latest merged revision
-    return [...allRevisions]
-      .filter((r) => r.status === "merged")
-      .sort(
-        (a, b) =>
-          new Date(b.dateUpdated).getTime() - new Date(a.dateUpdated).getTime(),
-      )[0];
-  }, [selectedRevision, allRevisions]);
+  const displayRevision = useMemo(
+    // For live (no explicit selection), use the latest merged revision.
+    () => selectedRevision ?? getLiveRevision(allRevisions),
+    [selectedRevision, allRevisions],
+  );
 
-  const revisionNumber = useMemo(() => {
-    const getRevisionNumber = (revision: Revision | undefined) => {
-      // If version is stored, use it
-      if (revision?.version) return revision.version;
-
-      // Fall back to calculating based on position (for old revisions without version)
-      const sortedAllRevisions = [...allRevisions].sort(
-        (a, b) =>
-          new Date(a.dateCreated).getTime() - new Date(b.dateCreated).getTime(),
-      );
-      if (revision) {
-        return sortedAllRevisions.findIndex((f) => f.id === revision.id) + 1;
-      }
-      return sortedAllRevisions.length;
-    };
-
-    if (selectedRevision) {
-      return getRevisionNumber(selectedRevision);
-    }
-    if (userOpenRevision) {
-      return getRevisionNumber(userOpenRevision);
-    }
-    // For live revision, use the latest merged revision
-    return getRevisionNumber(displayRevision);
-  }, [selectedRevision, userOpenRevision, displayRevision, allRevisions]);
-
-  if (!data || !savedGroup) {
-    return <LoadingOverlay />;
-  }
+  const revisionNumber = useMemo(
+    () =>
+      getRevisionNumber(
+        allRevisions,
+        selectedRevision ?? userOpenRevision ?? displayRevision,
+      ),
+    [selectedRevision, userOpenRevision, displayRevision, allRevisions],
+  );
 
   if (error) {
     return (
@@ -348,6 +334,10 @@ export default function EditSavedGroupPage() {
         An error occurred: {error.message}
       </Callout>
     );
+  }
+
+  if (!data || !savedGroup) {
+    return <LoadingOverlay />;
   }
 
   return (
@@ -434,6 +424,7 @@ export default function EditSavedGroupPage() {
       )}
       {deleteItemsModal && (
         <Modal
+          useRadixButton={false}
           trackingEventModalType="delete-saved-group-items"
           close={() => setDeleteItemsModal(false)}
           open={deleteItemsModal}
@@ -500,6 +491,7 @@ export default function EditSavedGroupPage() {
       )}
       {addItems && (
         <Modal
+          useRadixButton={false}
           trackingEventModalType={`edit-saved-group-${importOperation}-items`}
           close={() => {
             setAddItems(false);
@@ -679,7 +671,6 @@ export default function EditSavedGroupPage() {
           trackingEventModalType="show-saved-group-references"
           close={() => setShowReferencesModal(false)}
           open={showReferencesModal}
-          useRadixButton={true}
           closeCta="Close"
         >
           <Text as="p" mb="3">
@@ -693,193 +684,32 @@ export default function EditSavedGroupPage() {
           />
         </Modal>
       )}
-      {showChangesModal &&
-        selectedRevision &&
-        (() => {
-          return (
-            <Modal
-              header={selectedRevision.title || `Revision ${revisionNumber}`}
-              trackingEventModalType="saved-group-revision-changes"
-              close={() => setShowChangesModal(false)}
-              open={showChangesModal}
-              dismissible
-              size="max"
-              hideCta={true}
-              closeCta="Close"
-              useRadixButton={true}
-            >
-              <RevisionDetail<SavedGroupInterface>
-                diffConfig={REVISION_SAVED_GROUP_DIFF_CONFIG}
-                revision={selectedRevision}
-                currentState={savedGroup}
-                mutate={async () => {
-                  await Promise.all([mutateRevisions(), mutate()]);
-                }}
-                setCurrentRevision={(f) => selectFlow(f)}
-                onPublish={async (revisionId) => {
-                  await handlePublish(revisionId);
-                }}
-                onReopen={async (revisionId) => {
-                  await handleReopen(revisionId);
-                }}
-                allRevisions={allRevisions}
-                // Defer to the per-revision gate so metadata-only revisions
-                // skip the review dance when `requireMetadataReview` is off
-                // (matching the server-side rule in the saved-group adapter).
-                requiresApproval={selectedRevisionRequiresApproval}
-                closeModal={() => setShowChangesModal(false)}
-                canUpdateEntity={(s) =>
-                  permissionsUtil.canUpdateSavedGroup(s, {})
-                }
-              />
-            </Modal>
-          );
-        })()}
-      {confirmRevert &&
-        revisionToRevert &&
-        (() => {
-          // Compute the target state and archive-drift direction so we can
-          // both render the opt-in checkbox and use the same target inside
-          // the submit handler.
-          const targetState = applyTopLevelPatchOps(
-            revisionToRevert.target.snapshot as SavedGroupInterface,
-            revisionToRevert.target.proposedChanges,
-          ) as SavedGroupInterface;
-          const targetArchived = !!targetState.archived;
-          const liveArchived = !!savedGroup.archived;
-          const archiveDrifts = targetArchived !== liveArchived;
-          const willUnarchive =
-            archiveDrifts && liveArchived && !targetArchived;
-          return (
-            <Modal
-              header="Revert Merged Revision"
-              trackingEventModalType="revert-revision"
-              close={() => {
-                setConfirmRevert(false);
-                setRevisionToRevert(null);
-              }}
-              open={confirmRevert}
-              cta={
-                revertPublishNow ? "Revert & Publish" : "Create Revert Draft"
-              }
-              submitColor="primary"
-              submit={async () => {
-                // Calculate changes needed to go from current live state to target state
-                const revertChanges: Record<string, unknown> = {};
-
-                // Compare each field in the target state with the current live state
-                const fieldsToCheck = [
-                  "groupName",
-                  "owner",
-                  "values",
-                  "condition",
-                  "description",
-                  "projects",
-                ] as const;
-
-                fieldsToCheck.forEach((key) => {
-                  const targetValue = targetState[key];
-                  const currentValue = savedGroup[key];
-                  if (
-                    JSON.stringify(targetValue) !== JSON.stringify(currentValue)
-                  ) {
-                    revertChanges[key] = targetValue;
-                  }
-                });
-
-                // Only include `archived` when the user explicitly opted in;
-                // by default a revert leaves the live archive state alone,
-                // matching the "live + ops" merge semantics.
-                if (archiveDrifts && revertIncludeArchive) {
-                  revertChanges.archived = targetArchived;
-                }
-
-                // Build the revert title using the source revision's title
-                const sourceTitle =
-                  revisionToRevert.title ||
-                  (() => {
-                    const sortedRevisions = [...allRevisions].sort(
-                      (a, b) =>
-                        new Date(a.dateCreated).getTime() -
-                        new Date(b.dateCreated).getTime(),
-                    );
-                    const num =
-                      sortedRevisions.findIndex(
-                        (r) => r.id === revisionToRevert.id,
-                      ) + 1;
-                    return `Revision ${num}`;
-                  })();
-                const title = `Revert to "${sourceTitle}"`;
-
-                // Create a new revision with the revert changes, title, and link back to original
-                const res = await apiCall<{
-                  status: number;
-                  requiresApproval?: boolean;
-                  revision?: Revision;
-                }>(
-                  `/saved-groups/${savedGroup.id}?forceCreateRevision=1${
-                    revertPublishNow ? "&autoPublish=1" : ""
-                  }&title=${encodeURIComponent(title)}&revertedFrom=${revisionToRevert.id}`,
-                  {
-                    method: "PUT",
-                    body: JSON.stringify(revertChanges),
-                  },
-                );
-
-                if (res?.revision) {
-                  onRevisionCreated(res.revision);
-                }
-
-                setConfirmRevert(false);
-                setRevisionToRevert(null);
-              }}
-            >
-              <Text>
-                This will create a new revision that restores the saved group to
-                exactly how it was at the time of the selected revision
-                (including all changes that were part of that revision).
-              </Text>
-              {archiveDrifts && (
-                <Callout status="warning" mt="3">
-                  <Checkbox
-                    label={
-                      willUnarchive
-                        ? "Also un-archive (currently archived)"
-                        : "Also archive (currently active)"
-                    }
-                    value={revertIncludeArchive}
-                    setValue={setRevertIncludeArchive}
-                  />
-                </Callout>
-              )}
-              {revertsBypassApproval && (
-                <Box mt="3">
-                  <Checkbox
-                    label="Publish immediately"
-                    description="Reverts restore an already-reviewed state, so they can be published without approval. Uncheck to create a draft for review instead."
-                    value={revertPublishNow}
-                    setValue={setRevertPublishNow}
-                  />
-                </Box>
-              )}
-              <Text mt="3" weight="medium">
-                {revertPublishNow
-                  ? "This will be published immediately."
-                  : "The new revision will need to be published to go live."}
-              </Text>
-            </Modal>
-          );
-        })()}
+      {confirmRevert && revisionToRevert && (
+        <SavedGroupRevertModal
+          savedGroup={savedGroup}
+          revision={revisionToRevert}
+          allRevisions={allRevisions}
+          diffConfig={REVISION_SAVED_GROUP_DIFF_CONFIG}
+          revertsBypassApproval={revertsBypassApproval}
+          approvalRequired={approvalRequired}
+          canBypassApproval={!!canAdminPublish}
+          close={() => {
+            setConfirmRevert(false);
+            setRevisionToRevert(null);
+          }}
+          onRevisionCreated={(rev) => {
+            onRevisionCreated(rev);
+            setConfirmRevert(false);
+            setRevisionToRevert(null);
+          }}
+        />
+      )}
       {compareRevisionsModalOpen && (
         <CompareSavedGroupRevisionsModal
           savedGroup={savedGroup}
           allRevisions={allRevisions}
           currentRevisionId={selectedRevisionId}
           onClose={() => setCompareRevisionsModalOpen(false)}
-          mutate={() => {
-            mutateRevisions();
-            mutate();
-          }}
           initialPreviewDraft={
             isDraft && selectedRevisionId ? selectedRevisionId : undefined
           }
@@ -887,12 +717,15 @@ export default function EditSavedGroupPage() {
           requiresApproval={approvalRequired}
         />
       )}
-      {conflictModal && selectedRevision && savedGroup && (
-        <SavedGroupConflictModal
-          savedGroup={savedGroup}
-          selectedRevision={selectedRevision}
-          close={() => setConflictModal(false)}
-          mutate={async () => {
+      {editDescriptionModal && displayRevision && (
+        <EditRevisionDescriptionModal
+          initialValue={displayRevision.comment || ""}
+          close={() => setEditDescriptionModal(false)}
+          onSubmit={async (description) => {
+            await apiCall(`/revision/${displayRevision.id}/description`, {
+              method: "PATCH",
+              body: JSON.stringify({ description }),
+            });
             await Promise.all([mutateRevisions(), mutate()]);
           }}
         />
@@ -911,7 +744,6 @@ export default function EditSavedGroupPage() {
           header="Create New Draft"
           cta="Create Draft"
           loading={creatingDraft}
-          useRadixButton={true}
           submit={async () => {
             setCreatingDraft(true);
             try {
@@ -1167,369 +999,433 @@ export default function EditSavedGroupPage() {
             </DropdownMenu>
           </Flex>
         </Flex>
-        <Flex align="center" gap="4" mb="4" wrap="wrap" justify="between">
-          <Flex gap="4" align="center" wrap="wrap">
-            {savedGroup.type === "list" && (
-              <Box>
-                <Text weight="medium">Attribute Key: </Text>
-                {savedGroup.attributeKey}
-              </Box>
-            )}
-            {(projects.length > 0 ||
-              (displayedSavedGroup?.projects?.length ?? 0) > 0) && (
-              <Metadata
-                label="Projects"
-                value={
-                  (displayedSavedGroup?.projects?.length || 0) > 0 ? (
-                    <Text weight="regular" color="text-mid">
-                      {displayedSavedGroup?.projects
-                        ?.map(
-                          (p) =>
-                            projects.find((proj) => proj.id === p)?.name || p,
-                        )
-                        .join(", ") || "All projects"}
-                    </Text>
-                  ) : (
-                    <Text weight="regular" color="text-mid">
-                      All projects
-                    </Text>
-                  )
-                }
-              />
-            )}
-            <Box>
-              <Text weight="medium">Owner: </Text>
-              <Owner
-                ownerId={displayedSavedGroup?.owner ?? savedGroup.owner}
-                gap="1"
-              />
-            </Box>
-          </Flex>
-          <Flex direction="column" align="end" gap="2">
-            <SavedGroupReferences
-              totalReferences={totalReferences}
-              onShowReferences={() => setShowReferencesModal(true)}
-            />
-          </Flex>
-        </Flex>
-        {displayedSavedGroup?.description && (
-          <Text as="p" mb="3">
-            {displayedSavedGroup.description}
-          </Text>
-        )}
-        {savedGroup.type === "list" && !isIdListSupportedAttribute(attr) && (
-          <Callout status="error" mt="3">
-            The attribute for this saved group has an unsupported datatype. It
-            cannot be edited and it may produce unexpected behavior when used in
-            SDKs. Try using a{" "}
-            <Link href="/saved-groups#conditionGroups">Condition Group</Link>{" "}
-            instead
-          </Callout>
-        )}
-        <RevisionSummaryCard
-          allRevisions={allRevisions}
-          selectedRevision={selectedRevision}
-          entityNoun="saved group"
-          hasRevisions={hasRevisions}
-          metadataReviewRequired={metadataReviewRequired}
-          requiresApproval={selectedRevisionRequiresApproval}
-          mergeResult={mergeResult}
-          currentUserId={user?.id}
-          fallbackOwnerId={savedGroup.owner}
-          fallbackDateCreated={savedGroup.dateCreated}
-          onSelectRevision={selectFlow}
-          onTitleCommit={async (revisionId, title) => {
-            await apiCall(`/revision/${revisionId}/title`, {
-              method: "PATCH",
-              body: JSON.stringify({ title }),
-            });
-            await mutateRevisions();
-          }}
-          onCompare={() => setCompareRevisionsModalOpen(true)}
-          onReopen={(revisionId) => handleReopen(revisionId)}
-          onRevert={(revision) => {
-            setRevisionToRevert(revision);
-            setConfirmRevert(true);
-          }}
-          onDiscard={(revisionId) => handleDiscard(revisionId)}
-          onNewDraft={() => setConfirmNewDraft(true)}
-          onFixConflicts={() => setConflictModal(true)}
-          onReviewPublish={() => setShowChangesModal(true)}
-        />
-        {savedGroup.type === "list" && (
-          <LargeSavedGroupPerformanceWarning
-            hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
-            unsupportedConnections={unsupportedConnections}
-            connections={connections}
-            openUpgradeModal={() => setUpgradeModal(true)}
+        <Box mb="4">
+          <Tabs
+            value={tab}
+            onValueChange={(v) => setTabAndScroll(v as SavedGroupTab)}
+          >
+            <TabsList size="3">
+              <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="review">
+                Review &amp; Publish
+                {activeDraftCount > 0 && (
+                  <Tooltip body={draftStatusTooltip(draftStatusCounts)}>
+                    <Badge
+                      label={String(activeDraftCount)}
+                      color="red"
+                      variant="solid"
+                      radius="full"
+                      ml="2"
+                      style={{ minWidth: 18, height: 18 }}
+                    />
+                  </Tooltip>
+                )}
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </Box>
+        {tab === "review" && (
+          <ReviewAndPublishTab<SavedGroupInterface>
+            // When viewing "live" (no explicit selection) fall back to the
+            // live revision — the latest merged one — so the tab renders its
+            // read-only Live view (Live badge + Roll back) instead of the
+            // "select a revision" empty state, matching the feature flow.
+            revision={selectedRevision ?? displayRevision ?? null}
+            allRevisions={allRevisions}
+            currentState={savedGroup}
+            diffConfig={REVISION_SAVED_GROUP_DIFF_CONFIG}
+            entityName={savedGroup.groupName}
+            entityNoun="saved group"
+            // Defer to the per-revision gate so metadata-only revisions skip
+            // the review dance when `requireMetadataReview` is off (matching
+            // the server-side rule in the saved-group adapter).
+            requiresApproval={selectedRevisionRequiresApproval}
+            canEditEntity={permissionsUtil.canUpdateSavedGroup(savedGroup, {})}
+            canBypassApproval={!!canAdminPublish}
+            selectRevision={selectFlow}
+            onPublish={handlePublish}
+            onDiscard={handleDiscard}
+            onReopen={handleReopen}
+            onRevert={(rev) => {
+              setRevisionToRevert(rev);
+              setConfirmRevert(true);
+            }}
+            onCompareRevisions={
+              allRevisions.length >= 2
+                ? () => setCompareRevisionsModalOpen(true)
+                : undefined
+            }
+            mutate={async () => {
+              await Promise.all([mutateRevisions(), mutate()]);
+            }}
           />
         )}
-        {savedGroup.type === "condition" ? (
+        {tab === "overview" && (
           <>
-            <Heading size="medium" as="h2" mb="3">
-              Condition
-            </Heading>
-
-            <Frame mb="4" px="6" py="5">
-              <Flex justify="between" align="center">
-                <Text as="div" weight="semibold" mb="4">
-                  Include all users who match:
-                </Text>
-                <Tooltip
-                  body={
-                    isMerged
-                      ? "You cannot edit a merged revision."
-                      : isDiscarded
-                        ? "You cannot edit a discarded revision."
-                        : ""
-                  }
-                >
-                  <Button
-                    variant="ghost"
-                    disabled={!!(isMerged || isDiscarded)}
-                    onClick={() => {
-                      if (!selectedRevision && userOpenRevision) {
-                        selectFlow(userOpenRevision);
-                      }
-                      setEditConditionModal(
-                        selectedRevision
-                          ? applyTopLevelPatchOps(
-                              (selectedRevision.target
-                                .snapshot as SavedGroupInterface) || savedGroup,
-                              selectedRevision.target.proposedChanges,
+            <Flex align="center" gap="4" mb="4" wrap="wrap" justify="between">
+              <Flex gap="4" align="center" wrap="wrap">
+                {savedGroup.type === "list" && (
+                  <Box>
+                    <Text weight="medium">Attribute Key: </Text>
+                    {savedGroup.attributeKey}
+                  </Box>
+                )}
+                {(projects.length > 0 ||
+                  (displayedSavedGroup?.projects?.length ?? 0) > 0) && (
+                  <Metadata
+                    label="Projects"
+                    value={
+                      (displayedSavedGroup?.projects?.length || 0) > 0 ? (
+                        <Text weight="regular" color="text-mid">
+                          {displayedSavedGroup?.projects
+                            ?.map(
+                              (p) =>
+                                projects.find((proj) => proj.id === p)?.name ||
+                                p,
                             )
-                          : savedGroup,
-                      );
-                    }}
-                  >
-                    Edit
-                  </Button>
-                </Tooltip>
-              </Flex>
-              <Flex direction="row" gap="2">
-                <Text weight="medium">IF</Text>
+                            .join(", ") || "All Projects"}
+                        </Text>
+                      ) : (
+                        <Text weight="regular" color="text-mid">
+                          All Projects
+                        </Text>
+                      )
+                    }
+                  />
+                )}
                 <Box>
-                  <ConditionDisplay
-                    condition={displayedSavedGroup?.condition || ""}
-                    savedGroups={[]}
+                  <Text weight="medium">Owner: </Text>
+                  <Owner
+                    ownerId={displayedSavedGroup?.owner ?? savedGroup.owner}
+                    gap="1"
                   />
                 </Box>
               </Flex>
-            </Frame>
-          </>
-        ) : (
-          <>
-            <Flex align="center" justify="between" mb="3" gap="4">
-              <Box className="relative" width="40%">
-                <Field
-                  placeholder="Search..."
-                  type="search"
-                  value={filter}
-                  onChange={(e) => {
-                    setFilter(e.target.value);
-                  }}
+              <Flex direction="column" align="end" gap="2">
+                <SavedGroupReferences
+                  totalReferences={totalReferences}
+                  onShowReferences={() => setShowReferencesModal(true)}
                 />
-              </Box>
-              <Flex gap="4" align="center">
-                {selected.size > 0 && (
-                  <Button
-                    variant="ghost"
-                    color="red"
-                    onClick={() => {
-                      setDeleteItemsDraftMode(
-                        !approvalRequired
-                          ? "publish"
-                          : userOpenRevision
-                            ? "existing"
-                            : "new",
-                      );
-                      setDeleteItemsDraftSelectedId(
-                        userOpenRevision?.id ?? null,
-                      );
-                      setDeleteItemsModal(true);
-                    }}
-                  >
-                    Delete Selected ({selected.size})
-                  </Button>
-                )}
-                <Tooltip
-                  body={
-                    isMerged
-                      ? "You cannot edit a merged revision."
-                      : isDiscarded
-                        ? "You cannot edit a discarded revision."
-                        : ""
-                  }
-                >
-                  <Button
-                    variant="ghost"
-                    color="red"
-                    disabled={!!(isMerged || isDiscarded)}
-                    onClick={() => {
-                      // When viewing live, switch to/create draft first
-                      if (!selectedRevision && userOpenRevision) {
-                        selectFlow(userOpenRevision);
-                      }
-                      setImportOperation("replace");
-                      setAddItemsDraftMode(
-                        !approvalRequired
-                          ? "publish"
-                          : userOpenRevision
-                            ? "existing"
-                            : "new",
-                      );
-                      setAddItemsDraftSelectedId(userOpenRevision?.id ?? null);
-                      setAddItems(true);
-                    }}
-                  >
-                    Overwrite list
-                  </Button>
-                </Tooltip>
-                <Tooltip
-                  body={
-                    isMerged
-                      ? "You cannot edit a merged revision."
-                      : isDiscarded
-                        ? "You cannot edit a discarded revision."
-                        : ""
-                  }
-                >
-                  <Button
-                    variant="outline"
-                    disabled={!!(isMerged || isDiscarded)}
-                    onClick={() => {
-                      // When viewing live, switch to/create draft first
-                      if (!selectedRevision && userOpenRevision) {
-                        selectFlow(userOpenRevision);
-                      }
-                      setImportOperation("append");
-                      setAddItemsDraftMode(
-                        !approvalRequired
-                          ? "publish"
-                          : userOpenRevision
-                            ? "existing"
-                            : "new",
-                      );
-                      setAddItemsDraftSelectedId(userOpenRevision?.id ?? null);
-                      setAddItems(true);
-                    }}
-                  >
-                    <span className="mr-1 lh-full">
-                      <FaPlusCircle />
-                    </span>
-                    <span className="lh-full">Add items</span>
-                  </Button>
-                </Tooltip>
               </Flex>
             </Flex>
+            {displayedSavedGroup?.description && (
+              <Box mb="3">
+                <Markdown>{displayedSavedGroup.description}</Markdown>
+              </Box>
+            )}
+            {savedGroup.type === "list" &&
+              !isIdListSupportedAttribute(attr) && (
+                <Callout status="error" mt="3">
+                  The attribute for this saved group has an unsupported
+                  datatype. It cannot be edited and it may produce unexpected
+                  behavior when used in SDKs. Try using a{" "}
+                  <Link href="/saved-groups#conditionGroups">
+                    Condition Group
+                  </Link>{" "}
+                  instead
+                </Callout>
+              )}
+            <RevisionSummaryCard
+              allRevisions={allRevisions}
+              selectedRevision={selectedRevision}
+              entityNoun="saved group"
+              hasRevisions={hasRevisions}
+              canEditTitle={canUpdate}
+              canEditDescription={canUpdate}
+              fallbackOwnerId={savedGroup.owner}
+              fallbackDateCreated={savedGroup.dateCreated}
+              onSelectRevision={selectFlow}
+              onTitleCommit={async (revisionId, title) => {
+                await apiCall(`/revision/${revisionId}/title`, {
+                  method: "PATCH",
+                  body: JSON.stringify({ title }),
+                });
+                await mutateRevisions();
+              }}
+              onNewDraft={() => setConfirmNewDraft(true)}
+              onReviewPublish={() => setTabAndScroll("review")}
+              onEditDescription={() => setEditDescriptionModal(true)}
+            />
+            {savedGroup.type === "list" && (
+              <LargeSavedGroupPerformanceWarning
+                hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
+                unsupportedConnections={unsupportedConnections}
+                connections={connections}
+                openUpgradeModal={() => setUpgradeModal(true)}
+              />
+            )}
+            {savedGroup.type === "condition" ? (
+              <>
+                <Heading size="medium" as="h2" mb="3">
+                  Condition
+                </Heading>
 
-            <table className="table gbtable table-hover appbox table-valign-top">
-              <thead>
-                <tr>
-                  <th style={{ width: "48px" }}>
-                    <Checkbox
-                      value={
-                        filteredValues.length > 0 &&
-                        filteredValues.every((v) => selected.has(v))
+                <Frame mb="4" px="6" py="5">
+                  <Flex justify="between" align="center">
+                    <Text as="div" weight="semibold" mb="4">
+                      Include all users who match:
+                    </Text>
+                    <Tooltip
+                      body={
+                        isMerged
+                          ? "You cannot edit a merged revision."
+                          : isDiscarded
+                            ? "You cannot edit a discarded revision."
+                            : ""
                       }
-                      setValue={(checked) => {
-                        if (checked) {
-                          setSelected(new Set(filteredValues));
-                        } else {
-                          setSelected(new Set());
-                        }
-                      }}
-                      size="sm"
-                    />
-                  </th>
-                  <th>
-                    <Flex justify="between" align="center">
-                      <span>{savedGroup.attributeKey}</span>
-                      <div
-                        className="cursor-pointer text-color-primary"
+                    >
+                      <Button
+                        variant="ghost"
+                        disabled={!!(isMerged || isDiscarded)}
                         onClick={() => {
-                          setSortNewestFirst(!sortNewestFirst);
-                          setCurrentPage(1);
+                          if (!selectedRevision && userOpenRevision) {
+                            selectFlow(userOpenRevision);
+                          }
+                          setEditConditionModal(
+                            selectedRevision
+                              ? applyTopLevelPatchOps(
+                                  (selectedRevision.target
+                                    .snapshot as SavedGroupInterface) ||
+                                    savedGroup,
+                                  selectedRevision.target.proposedChanges,
+                                )
+                              : savedGroup,
+                          );
                         }}
                       >
-                        <PiArrowsDownUp className="mr-1 lh-full align-middle" />
-                        <span className="lh-full align-middle">
-                          Showing{" "}
-                          {sortNewestFirst ? "newest first" : "oldest first"}
-                        </span>
-                      </div>
-                    </Flex>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {valuesPage.map((value) => {
-                  return (
-                    <tr
-                      key={value}
-                      onClick={() => {
-                        if (selected.has(value)) {
-                          const newSelected = new Set(selected);
-                          newSelected.delete(value);
-                          setSelected(newSelected);
-                        } else {
-                          setSelected(new Set(selected).add(value));
-                        }
+                        Edit
+                      </Button>
+                    </Tooltip>
+                  </Flex>
+                  <Flex direction="row" gap="2">
+                    <Text weight="medium">IF</Text>
+                    <Box>
+                      <ConditionDisplay
+                        condition={displayedSavedGroup?.condition || ""}
+                        savedGroups={[]}
+                      />
+                    </Box>
+                  </Flex>
+                </Frame>
+              </>
+            ) : (
+              <>
+                <Flex align="center" justify="between" mb="3" gap="4">
+                  <Box className="relative" width="40%">
+                    <Field
+                      placeholder="Search..."
+                      type="search"
+                      value={filter}
+                      onChange={(e) => {
+                        setFilter(e.target.value);
                       }}
+                    />
+                  </Box>
+                  <Flex gap="4" align="center">
+                    {selected.size > 0 && (
+                      <Button
+                        variant="ghost"
+                        color="red"
+                        onClick={() => {
+                          setDeleteItemsDraftMode(
+                            !approvalRequired
+                              ? "publish"
+                              : userOpenRevision
+                                ? "existing"
+                                : "new",
+                          );
+                          setDeleteItemsDraftSelectedId(
+                            userOpenRevision?.id ?? null,
+                          );
+                          setDeleteItemsModal(true);
+                        }}
+                      >
+                        Delete Selected ({selected.size})
+                      </Button>
+                    )}
+                    <Tooltip
+                      body={
+                        isMerged
+                          ? "You cannot edit a merged revision."
+                          : isDiscarded
+                            ? "You cannot edit a discarded revision."
+                            : ""
+                      }
                     >
-                      <td onClick={(e) => e.stopPropagation()}>
+                      <Button
+                        variant="ghost"
+                        color="red"
+                        disabled={!!(isMerged || isDiscarded)}
+                        onClick={() => {
+                          // When viewing live, switch to/create draft first
+                          if (!selectedRevision && userOpenRevision) {
+                            selectFlow(userOpenRevision);
+                          }
+                          setImportOperation("replace");
+                          setAddItemsDraftMode(
+                            !approvalRequired
+                              ? "publish"
+                              : userOpenRevision
+                                ? "existing"
+                                : "new",
+                          );
+                          setAddItemsDraftSelectedId(
+                            userOpenRevision?.id ?? null,
+                          );
+                          setAddItems(true);
+                        }}
+                      >
+                        Overwrite list
+                      </Button>
+                    </Tooltip>
+                    <Tooltip
+                      body={
+                        isMerged
+                          ? "You cannot edit a merged revision."
+                          : isDiscarded
+                            ? "You cannot edit a discarded revision."
+                            : ""
+                      }
+                    >
+                      <Button
+                        variant="outline"
+                        disabled={!!(isMerged || isDiscarded)}
+                        icon={<PiPlusCircleBold />}
+                        onClick={() => {
+                          // When viewing live, switch to/create draft first
+                          if (!selectedRevision && userOpenRevision) {
+                            selectFlow(userOpenRevision);
+                          }
+                          setImportOperation("append");
+                          setAddItemsDraftMode(
+                            !approvalRequired
+                              ? "publish"
+                              : userOpenRevision
+                                ? "existing"
+                                : "new",
+                          );
+                          setAddItemsDraftSelectedId(
+                            userOpenRevision?.id ?? null,
+                          );
+                          setAddItems(true);
+                        }}
+                      >
+                        Add items
+                      </Button>
+                    </Tooltip>
+                  </Flex>
+                </Flex>
+
+                <Table variant="list" stickyHeader={false}>
+                  <TableHeader>
+                    <TableRow>
+                      <TableColumnHeader style={{ width: "48px" }}>
                         <Checkbox
-                          value={selected.has(value)}
+                          value={
+                            filteredValues.length > 0 &&
+                            filteredValues.every((v) => selected.has(v))
+                          }
                           setValue={(checked) => {
                             if (checked) {
-                              setSelected(new Set(selected).add(value));
+                              setSelected(new Set(filteredValues));
                             } else {
-                              const newSelected = new Set(selected);
-                              newSelected.delete(value);
-                              setSelected(newSelected);
+                              setSelected(new Set());
                             }
                           }}
                           size="sm"
                         />
-                      </td>
-                      <td>{value}</td>
-                    </tr>
-                  );
-                })}
-                {!displayedValues.length && (
-                  <tr>
-                    <td colSpan={2}>
-                      This group doesn&apos;t have any items yet
-                    </td>
-                  </tr>
+                      </TableColumnHeader>
+                      <TableColumnHeader>
+                        <Flex justify="between" align="center">
+                          <span>{savedGroup.attributeKey}</span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            icon={<PiArrowsDownUp />}
+                            onClick={() => {
+                              setSortNewestFirst(!sortNewestFirst);
+                              setCurrentPage(1);
+                            }}
+                          >
+                            Showing{" "}
+                            {sortNewestFirst ? "newest first" : "oldest first"}
+                          </Button>
+                        </Flex>
+                      </TableColumnHeader>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {valuesPage.map((value) => {
+                      return (
+                        <TableRow
+                          key={value}
+                          onClick={() => {
+                            if (selected.has(value)) {
+                              const newSelected = new Set(selected);
+                              newSelected.delete(value);
+                              setSelected(newSelected);
+                            } else {
+                              setSelected(new Set(selected).add(value));
+                            }
+                          }}
+                        >
+                          <TableCell onClick={(e) => e.stopPropagation()}>
+                            <Checkbox
+                              value={selected.has(value)}
+                              setValue={(checked) => {
+                                if (checked) {
+                                  setSelected(new Set(selected).add(value));
+                                } else {
+                                  const newSelected = new Set(selected);
+                                  newSelected.delete(value);
+                                  setSelected(newSelected);
+                                }
+                              }}
+                              size="sm"
+                            />
+                          </TableCell>
+                          <TableCell>{value}</TableCell>
+                        </TableRow>
+                      );
+                    })}
+                    {!displayedValues.length && (
+                      <TableRow>
+                        <TableCell colSpan={2}>
+                          This group doesn&apos;t have any items yet
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    {displayedValues.length && !filteredValues.length ? (
+                      <TableRow>
+                        <TableCell colSpan={2}>No matching items</TableCell>
+                      </TableRow>
+                    ) : (
+                      <></>
+                    )}
+                  </TableBody>
+                </Table>
+                {Math.ceil(filteredValues.length / NUM_PER_PAGE) > 1 && (
+                  <Pagination
+                    numItemsTotal={displayedValues.length}
+                    currentPage={currentPage}
+                    perPage={NUM_PER_PAGE}
+                    onPageChange={(d) => {
+                      setCurrentPage(d);
+                    }}
+                  />
                 )}
-                {displayedValues.length && !filteredValues.length ? (
-                  <tr>
-                    <td colSpan={2}>No matching items</td>
-                  </tr>
-                ) : (
-                  <></>
-                )}
-              </tbody>
-            </table>
-            {Math.ceil(filteredValues.length / NUM_PER_PAGE) > 1 && (
-              <Pagination
-                numItemsTotal={displayedValues.length}
-                currentPage={currentPage}
-                perPage={NUM_PER_PAGE}
-                onPageChange={(d) => {
-                  setCurrentPage(d);
-                }}
-              />
+                {!displayedValues.length &&
+                  !displayedSavedGroup?.useEmptyListGroup && (
+                    <Callout status="info">
+                      This saved group has legacy behavior when empty and will
+                      be completely ignored when used for targeting.{" "}
+                      <DocLink useRadix={false} docSection="idLists">
+                        Learn More
+                      </DocLink>
+                    </Callout>
+                  )}
+              </>
             )}
-            {!displayedValues.length &&
-              !displayedSavedGroup?.useEmptyListGroup && (
-                <Callout status="info">
-                  This saved group has legacy behavior when empty and will be
-                  completely ignored when used for targeting.{" "}
-                  <DocLink docSection="idLists">Learn More</DocLink>
-                </Callout>
-              )}
           </>
         )}
       </div>

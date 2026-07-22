@@ -19,7 +19,7 @@ import styles from "./Callout.module.scss";
 export type Props = {
   commercialFeature: CommercialFeature;
   id: string;
-  dismissable?: boolean;
+  dismissible?: boolean;
   renderWhenDismissed?: (undismiss: () => void) => React.ReactElement;
   children: React.ReactNode;
   docSection?: DocSection;
@@ -28,7 +28,7 @@ export type Props = {
 export default function PremiumCallout({
   commercialFeature,
   id,
-  dismissable = false,
+  dismissible = false,
   children,
   docSection,
   renderWhenDismissed,
@@ -45,7 +45,7 @@ export default function PremiumCallout({
   const [upgradeModal, setUpgradeModal] = useState(false);
 
   if (hasFeature && !docSection) return null;
-  if (dismissable && dismissed)
+  if (dismissible && dismissed)
     return renderWhenDismissed
       ? renderWhenDismissed(() => setDismissed(false))
       : null;
@@ -70,7 +70,7 @@ export default function PremiumCallout({
 
   const link =
     hasFeature && docSection ? (
-      <DocLink docSection={docSection} useRadix={true}>
+      <DocLink docSection={docSection}>
         View docs <PiArrowSquareOut size={15} />
       </DocLink>
     ) : pro ? (
@@ -80,6 +80,7 @@ export default function PremiumCallout({
           e.preventDefault();
           setUpgradeModal(true);
         }}
+        style={{ whiteSpace: "nowrap" }}
       >
         Upgrade Now
       </Link>
@@ -88,7 +89,6 @@ export default function PremiumCallout({
         href="https://www.growthbook.io/demo"
         target="_blank"
         rel="noreferrer"
-        style={{ whiteSpace: "nowrap" }}
       >
         Talk to Sales <PiArrowSquareOut size={15} />
       </Link>
@@ -120,10 +120,11 @@ export default function PremiumCallout({
         <Text as="div" size="2">
           <Flex align="start" gap="1" pr="3">
             <div>{children}</div>
-            <div style={{ flex: 1 }}>{link}</div>
+            {/* nowrap keeps the CTA label + external-link icon on one line */}
+            <div style={{ flex: 1, whiteSpace: "nowrap" }}>{link}</div>
           </Flex>
         </Text>
-        {dismissable ? (
+        {dismissible ? (
           <IconButton
             variant="ghost"
             color="gray"

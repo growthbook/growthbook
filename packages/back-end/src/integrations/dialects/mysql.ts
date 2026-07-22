@@ -10,6 +10,10 @@ export const mysqlDialect: SqlDialect = {
   formatDialect: "mysql",
   dateDiff: (startCol: string, endCol: string) =>
     `DATEDIFF(${endCol}, ${startCol})`,
+  dateDiffMs: (startCol: string, endCol: string) =>
+    `(TIMESTAMPDIFF(MICROSECOND, ${startCol}, ${endCol}) / 1000)`,
+  addIntervalSeconds: (col: string, sign: "+" | "-", amount: number) =>
+    `DATE_${sign === "+" ? "ADD" : "SUB"}(${col}, INTERVAL ${amount} SECOND)`,
   addTime: (
     col: string,
     unit: "hour" | "minute",
@@ -34,6 +38,20 @@ export const mysqlDialect: SqlDialect = {
     `DATE_FORMAT(${col}, "%Y-%m-%d %H:%i:%S")`,
   castToString: (col: string) => `cast(${col} as char)`,
   castToFloat: (col: string) => `CAST(${col} AS DOUBLE)`,
+  castToTimestamp: (col: string) => `CAST(${col} AS DATETIME)`,
+  // MySQL's JSON_ARRAYAGG does not support ORDER BY or filtering out NULLs,
+  // so it cannot satisfy the arrayAggSorted contract. Do not override the
+  // base implementation until MySQL can produce the required array safely.
+  // arrayAggSorted: (col: string) => `JSON_ARRAYAGG(${col})`,
+  argMinByTimestamp: (valueCol: string, tsCol: string) =>
+    `CAST(FROM_BASE64(SUBSTRING_INDEX(GROUP_CONCAT(IF(${tsCol} IS NULL, NULL, TO_BASE64(CAST(${valueCol} AS BINARY))) ORDER BY ${tsCol}), ',', 1)) AS CHAR)`,
+  arrayMinInRange: (col, lowerBound, upperBound) => {
+    const conditions: string[] = [];
+    if (lowerBound) conditions.push(`t.value >= ${lowerBound}`);
+    if (upperBound) conditions.push(`t.value <= ${upperBound}`);
+    const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+    return `(SELECT MIN(t.value) FROM JSON_TABLE(${col}, '$[*]' COLUMNS (value DATETIME(6) PATH '$')) AS t ${where})`;
+  },
   percentileCapSelectClause: (
     values: {
       valueCol: string;
@@ -99,4 +117,7 @@ export const mysqlDialect: SqlDialect = {
   }),
 
   escapeStringLiteral: mysqlEscapeStringLiteral,
+
+  arrayElement: (arrayCol: string, index: number) =>
+    mysqlDialect.castToFloat(`JSON_EXTRACT(${arrayCol}, '$[${index}]')`),
 };

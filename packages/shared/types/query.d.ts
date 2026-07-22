@@ -117,6 +117,9 @@ export type QueryType =
   | "columnTopValues"
   // Auto fact table tracked-event discovery scan
   | "trackedEvents"
+  // Session replay metadata queries
+  | "sessionReplayList"
+  | "sessionReplayDetail"
 
   // ---
   // Legacy, should be deprecated

@@ -249,7 +249,7 @@ export default function CustomMetricSlicesSelector({
             style={{ color: "var(--color-text-mid)" }}
           >
             Define custom slices to analyze across all experiment metrics.{" "}
-            <DocLink docSection="customSlices">
+            <DocLink useRadix={false} docSection="customSlices">
               Learn More <PiArrowSquareOut />
             </DocLink>
           </Text>

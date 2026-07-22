@@ -127,8 +127,8 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
                 <FaPlus className="mr-1" /> Add
               </Button>
             )}
-            {featureUsageQuery && !isManagedQuery && (
-              <MoreMenu>
+            {featureUsageQuery && (
+              <MoreMenu useRadix={false}>
                 <button
                   className="dropdown-item py-2"
                   onClick={() => setUiMode("edit")}
@@ -136,19 +136,24 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
                   Edit Query
                 </button>
 
-                <hr className="dropdown-divider" />
-                <DeleteButton
-                  onClick={handleActionDeleteClicked()}
-                  className="dropdown-item text-danger py-2"
-                  iconClassName="mr-2"
-                  style={{ borderRadius: 0 }}
-                  useIcon={false}
-                  displayName={"Feature Usage Query"}
-                  deleteMessage={`Are you sure you want to delete this feature usage query?`}
-                  title="Delete"
-                  text="Delete"
-                  outline={false}
-                />
+                {!isManagedQuery && (
+                  <>
+                    <hr className="dropdown-divider" />
+                    <DeleteButton
+                      useRadix={false}
+                      onClick={handleActionDeleteClicked()}
+                      className="dropdown-item text-danger py-2"
+                      iconClassName="mr-2"
+                      style={{ borderRadius: 0 }}
+                      useIcon={false}
+                      displayName={"Feature Usage Query"}
+                      deleteMessage={`Are you sure you want to delete this feature usage query?`}
+                      title="Delete"
+                      text="Delete"
+                      outline={false}
+                    />
+                  </>
+                )}
               </MoreMenu>
             )}
           </Flex>
@@ -175,7 +180,11 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
                 {featureUsageQuery.error}
               </Box>
               <Box mt="3">
-                <Button onClick={handleValidate()} loading={validatingQuery}>
+                <Button
+                  color="inherit"
+                  onClick={handleValidate()}
+                  loading={validatingQuery}
+                >
                   Check it again.
                 </Button>
               </Box>

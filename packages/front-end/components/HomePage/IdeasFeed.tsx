@@ -7,6 +7,7 @@ import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Markdown from "@/components/Markdown/Markdown";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import Callout from "@/ui/Callout";
 
 const IdeasFeed: FC<{
   num?: number;
@@ -21,7 +22,7 @@ const IdeasFeed: FC<{
   const { users } = useUser();
 
   if (error) {
-    return <div className="alert alert-danger">{error.message}</div>;
+    return <Callout status="error">{error.message}</Callout>;
   }
   if (!data) {
     return <LoadingOverlay />;

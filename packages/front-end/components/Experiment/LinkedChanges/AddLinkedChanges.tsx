@@ -12,7 +12,6 @@ import { useUser } from "@/services/UserContext";
 import Text from "@/ui/Text";
 import Avatar from "@/ui/Avatar";
 import Button from "@/ui/Button";
-import Heading from "@/ui/Heading";
 import { ICON_PROPERTIES, LinkedChange } from "./constants";
 
 export const LINKED_CHANGES: Record<
@@ -183,34 +182,19 @@ export default function AddLinkedChanges({
   const possibleSections = Object.keys(sections);
 
   return (
-    <>
-      {numLinkedChanges > 0 ? (
-        <>
-          <Heading color="text-high" as="h4" size="small">
-            Add Implementation
-          </Heading>
-        </>
-      ) : (
-        <>
-          <Heading color="text-high" as="h4" size="small">
-            Select an Implementation
-          </Heading>
-        </>
-      )}
-      <Box className="appbox mb-0" p="4" mt="2" mb="0">
-        {possibleSections.map((s, i) => {
-          return (
-            <Box key={s}>
-              <AddLinkedChangeRow
-                type={s as LinkedChange}
-                setModal={sections[s].setModal}
-                experiment={experiment}
-              />
-              {i < possibleSections.length - 1 && <Separator size="4" my="3" />}
-            </Box>
-          );
-        })}
-      </Box>
-    </>
+    <Box className="appbox mb-0" p="4" mt="2" mb="0">
+      {possibleSections.map((s, i) => {
+        return (
+          <Box key={s}>
+            <AddLinkedChangeRow
+              type={s as LinkedChange}
+              setModal={sections[s].setModal}
+              experiment={experiment}
+            />
+            {i < possibleSections.length - 1 && <Separator size="4" my="3" />}
+          </Box>
+        );
+      })}
+    </Box>
   );
 }

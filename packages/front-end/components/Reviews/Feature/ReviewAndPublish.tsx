@@ -21,11 +21,13 @@ import {
   checkIfRevisionNeedsReview,
   evaluatePublishGovernance,
   getLiveChangesSinceBase,
+  MergeStrategy,
+} from "shared/util";
+import {
   isScheduledPublishPending,
   isScheduledPublishLockActive,
   findPublishLockingScheduledRevision,
-  MergeStrategy,
-} from "shared/util";
+} from "shared/enterprise";
 import {
   EventUserLoggedIn,
   EventUserApiKey,
@@ -36,10 +38,8 @@ import {
   PiLockSimple,
   PiLock,
   PiClockFill,
-  PiGitDiff,
   PiGitMergeBold,
   PiCaretDownBold,
-  PiHourglassHighFill,
 } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
@@ -62,9 +62,7 @@ import Revisionlog, {
   REVIEW_ACTIVITY_ACTIONS,
 } from "@/components/Reviews/Feature/RevisionLog";
 import useApi from "@/hooks/useApi";
-import RevisionLabel, {
-  revisionLabelText,
-} from "@/components/Reviews/RevisionLabel";
+import RevisionLabel from "@/components/Reviews/RevisionLabel";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import {
   useFeatureRevisionDiff,
@@ -79,13 +77,8 @@ import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import DatePicker from "@/components/DatePicker";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import Tooltip from "@/ui/Tooltip";
 import Heading from "@/ui/Heading";
-import Avatar from "@/ui/Avatar";
-import Badge from "@/ui/Badge";
-import Link from "@/ui/Link";
-import RevisionStatusBadge, {
-  revisionStatusBadgeVariant,
+import {
   revisionStatusColor,
   revisionStatusIcon,
   revisionStatusLabel,
@@ -110,7 +103,6 @@ import {
   scrollToLatestRevisionLogEntry,
 } from "@/components/Reviews/diffCommentRefs";
 import useURLHash from "@/hooks/useURLHash";
-import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 
 // Sub-views of the review surface: "overview" is the conversation-first view
 // (notes, human-readable changes, review activity), "changes" is the diff-first
@@ -129,6 +121,13 @@ import {
 } from "@/ui/DropdownMenu";
 import RevertModal from "@/components/Reviews/Feature/RevertModal";
 import { getReviewAndPublishState } from "@/components/Reviews/reviewAndPublishState";
+import {
+  PersonRow,
+  ReviewerVerdictIcon,
+} from "@/components/Reviews/ReviewPeople";
+import ReviewHeader, {
+  ReviewHeaderOtherDraft,
+} from "@/components/Reviews/ReviewHeader";
 
 export interface Props {
   // The base (live) feature.
@@ -153,108 +152,7 @@ export interface Props {
   rampSchedules?: RampScheduleInterface[];
 }
 
-// Compact contributor / reviewer row: small avatar on the left, name on the
-// first line, email wrapping naturally on the second. Used in the narrow
-// actions column where avatar-name-email inline rows overflow awkwardly.
-function PersonRow({
-  id,
-  name,
-  email,
-  trailing,
-}: {
-  id: string;
-  name: string;
-  email: string;
-  trailing?: React.ReactNode;
-}) {
-  const displayName = name || email || "Unknown";
-  return (
-    <Flex align="start" gap="2">
-      <Box flexShrink="0" mt="1">
-        <EventUser
-          user={{ type: "dashboard", id, name, email }}
-          display="avatar"
-          size="sm"
-        />
-      </Box>
-      <Box flexGrow="1" style={{ minWidth: 0, lineHeight: 1.3 }}>
-        <Text size="small" color="text-high" as="div" overflowWrap="anywhere">
-          {displayName}
-        </Text>
-        {name && email && (
-          <Text size="small" color="text-low" as="div" overflowWrap="anywhere">
-            {email}
-          </Text>
-        )}
-      </Box>
-      {trailing && (
-        <Flex flexShrink="0" align="center" style={{ alignSelf: "stretch" }}>
-          {trailing}
-        </Flex>
-      )}
-    </Flex>
-  );
-}
-
-// Compact verdict indicator for the Reviewers widget: the revision-status
-// icon in a soft colored circle (same visual language as the timeline's
-// inline events), with a tooltip spelling out the state.
-function ReviewerVerdictIcon({
-  status,
-  name,
-  timestamp,
-  stale,
-}: {
-  status: "approved" | "changes-requested";
-  name: string;
-  timestamp?: string;
-  // The draft's content changed after this verdict (see the reviewers memo).
-  stale?: boolean;
-}) {
-  const color = revisionStatusColor(status);
-  const who = name || "This reviewer";
-  const verdict =
-    status === "approved"
-      ? `${who} approved these changes`
-      : `${who} requested changes`;
-  const when = timestamp
-    ? ` on ${format(new Date(timestamp), "MMM d, yyyy")}`
-    : "";
-  const staleNote = stale ? " — the draft has changed since" : "";
-  const content = `${verdict}${when}${staleNote}`;
-  return (
-    <Tooltip content={content}>
-      <Box style={{ position: "relative", display: "inline-flex" }}>
-        {/* Stale verdicts mute to the soft variant with an hourglass pip —
-            still attributable, but visibly not vouching for the current
-            draft content. */}
-        <Avatar size="sm" color={color} variant={stale ? "soft" : "solid"}>
-          <>{revisionStatusIcon(status)}</>
-        </Avatar>
-        {stale && (
-          <Flex
-            align="center"
-            justify="center"
-            style={{
-              position: "absolute",
-              right: -5,
-              bottom: -4,
-              color: "var(--gray-10)",
-              fontSize: 13,
-              // Halo separates the glyph from the chip without boxing it in.
-              filter:
-                "drop-shadow(0 0 1.5px var(--color-panel-solid)) drop-shadow(0 0 1.5px var(--color-panel-solid))",
-            }}
-          >
-            <PiHourglassHighFill />
-          </Flex>
-        )}
-      </Box>
-    </Tooltip>
-  );
-}
-
-// The feature-page "Review and Publish" tab. Consolidates the former DraftModal
+// The feature-page "Review & Publish" tab. Consolidates the former DraftModal
 // (direct publish), RequestReviewModal (review lifecycle), and
 // FeatureFixConflictsModal (rebase / conflict resolution) into a single page
 // surface. Conflict resolution and review submission run as focused modals
@@ -313,50 +211,16 @@ export default function ReviewAndPublish({
         r.version !== revision?.version,
     )
     .sort((a, b) => b.version - a.version);
-  const otherDraftsNav =
-    otherAttentionDrafts.length === 1 ? (
-      <Flex align="center" gap="2">
-        <Text color="text-mid" whiteSpace="nowrap">
-          1 other draft needs attention:
-        </Text>
-        <Link
-          weight="medium"
-          onClick={() => setVersion(otherAttentionDrafts[0].version)}
-        >
-          {revisionLabelText(
-            otherAttentionDrafts[0].version,
-            otherAttentionDrafts[0].title,
-            false,
-          )}
-        </Link>
-        <RevisionStatusBadge
-          revision={otherAttentionDrafts[0]}
-          liveVersion={feature.version}
-        />
-      </Flex>
-    ) : otherAttentionDrafts.length > 1 ? (
-      <DropdownMenu
-        trigger={
-          <Link weight="medium">
-            {otherAttentionDrafts.length} other drafts need attention{" "}
-            <PiCaretDownBold size={11} />
-          </Link>
-        }
-        menuPlacement="end"
-      >
-        {otherAttentionDrafts.map((r) => (
-          <DropdownMenuItem
-            key={r.version}
-            onClick={() => setVersion(r.version)}
-          >
-            <Flex align="center" justify="between" gap="4" width="100%">
-              <RevisionLabel version={r.version} title={r.title} />
-              <RevisionStatusBadge revision={r} liveVersion={feature.version} />
-            </Flex>
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenu>
-    ) : null;
+  // Other active drafts, mapped into the shared ReviewHeader's quick-nav shape.
+  const headerOtherDrafts: ReviewHeaderOtherDraft[] = otherAttentionDrafts.map(
+    (r) => ({
+      key: String(r.version),
+      version: r.version,
+      title: r.title,
+      badge: { version: r.version, status: r.status },
+      onNavigate: () => setVersion(r.version),
+    }),
+  );
 
   // ── Reviewers (per-user latest verdict) ──
   // Pull the revision log (SWR-deduped against <Revisionlog>'s own fetch) and
@@ -684,15 +548,24 @@ export default function ReviewAndPublish({
 
   // ── Sub-tabs ──
   // "Overview" (human-readable changes + review activity) vs "Changes" (JSON
-  // diffs + full timeline). Reflected in the URL hash as `#review` /
-  // `#review,changes` so the view is deep-linkable; a bare `#review` reads as
-  // Overview.
+  // diffs + full timeline). Reflected in the URL hash as `#review,overview` /
+  // `#review,changes` so the view is deep-linkable. With no explicit sub-tab in
+  // the URL, a revision in review defaults to Changes so reviewers land on the
+  // diff; otherwise Conversation. (Mirrors the generic Review & Publish tab.)
   const [urlHash, setUrlHash] = useURLHash();
+  const subTabHash = urlHash?.split(",")[1];
   const subTab: ReviewSubTab =
-    urlHash?.split(",")[1] === "changes" ? "changes" : "overview";
+    subTabHash === "changes"
+      ? "changes"
+      : subTabHash === "overview"
+        ? "overview"
+        : revision?.status === "pending-review" ||
+            revision?.status === "changes-requested"
+          ? "changes"
+          : "overview";
   const setSubTab = useCallback(
     (t: ReviewSubTab) => {
-      setUrlHash(t === "changes" ? "review,changes" : "review");
+      setUrlHash(t === "changes" ? "review,changes" : "review,overview");
     },
     [setUrlHash],
   );
@@ -888,12 +761,15 @@ export default function ReviewAndPublish({
     const lockEdits = !!revision.scheduledPublishLockEdits;
     const lockOthers = !!revision.scheduledPublishLockOthers;
     const hasLocks = lockEdits || lockOthers;
+    // Entity-agnostic, explicit wording shared with ScheduledPublishControl so
+    // both surfaces read identically: lockEdits freezes this draft's edits,
+    // lockOthers freezes publishing of the feature's other drafts.
     const lockTargets =
       lockOthers && lockEdits
-        ? "feature and draft"
+        ? "this draft and other drafts of this feature"
         : lockOthers
-          ? "feature"
-          : "draft";
+          ? "other drafts of this feature"
+          : "this draft";
     return (
       <NoticeBanner
         icon={<PiClockFill />}
@@ -1161,7 +1037,7 @@ export default function ReviewAndPublish({
         Select a revision from the dropdown above to review.
         {onClose && (
           <Box mt="2">
-            <Button variant="soft" onClick={() => onClose()}>
+            <Button color="inherit" variant="soft" onClick={() => onClose()}>
               Back to Overview
             </Button>
           </Box>
@@ -1169,42 +1045,6 @@ export default function ReviewAndPublish({
       </Callout>,
     );
   }
-
-  // ── Sub-tab bar: Overview | Changes, full-width underline (rendered above
-  // the two-column layout in both the draft and read-only flows). The
-  // cross-revision audit tool rides along on the right so reviewers can
-  // pivot from "this draft vs live" to "any revision vs any revision".
-  // Same embed pattern as the rules tab bar: the wrapping Flex carries the
-  // underline so it runs beneath the right-aligned action too. ──
-  const subTabBar = (
-    <Box mb="4">
-      <Tabs value={subTab} onValueChange={(v) => setSubTab(v as ReviewSubTab)}>
-        <Flex
-          align="center"
-          justify="between"
-          style={{ boxShadow: "inset 0 -1px 0 0 var(--slate-a3)" }}
-        >
-          <TabsList style={{ boxShadow: "none" }}>
-            <TabsTrigger value="overview">Conversation</TabsTrigger>
-            <TabsTrigger value="changes">Changes</TabsTrigger>
-          </TabsList>
-          {onCompareRevisions && (
-            <Box pl="2" flexShrink="0">
-              <Button
-                variant="ghost"
-                size="sm"
-                icon={<PiGitDiff />}
-                onClick={onCompareRevisions}
-                style={{ whiteSpace: "nowrap" }}
-              >
-                Compare revisions
-              </Button>
-            </Box>
-          )}
-        </Flex>
-      </Tabs>
-    </Box>
-  );
 
   // ── Shared left column (both the draft flow and the read-only review).
   // Overview: notes + height-capped human-readable changes + the review
@@ -1382,7 +1222,6 @@ export default function ReviewAndPublish({
     // the terminal state (merged/published, live, or discarded) instead of a
     // pending merge.
     const status = isLive ? "live" : revision.status;
-    const statusColor = revisionStatusColor(status);
     // The actions-widget header reflects the review lifecycle, not deployment
     // state — "Live"/"Locked" aren't lifecycle stages, so terminal revisions
     // all read as "Published" here. Discarded stays (it can be reopened for
@@ -1400,12 +1239,6 @@ export default function ReviewAndPublish({
       revision.comment?.trim() ||
       `Revision ${revision.version}`;
     const baseV = readonlyBaseRevision?.version;
-    const publishedDate = revision.datePublished
-      ? format(new Date(revision.datePublished), "MMM d, yyyy")
-      : null;
-    const discardedDate = revision.dateUpdated
-      ? format(new Date(revision.dateUpdated), "MMM d, yyyy")
-      : null;
 
     // Errors surface inside the confirm modal via ModalForm's error handling.
     const doReopen = async () => {
@@ -1416,59 +1249,21 @@ export default function ReviewAndPublish({
     };
 
     const readonlyHeader = (
-      <Box mb="4">
-        <Flex align="start" justify="between" gap="4">
-          <Box>
-            <Heading as="h3" size="medium" mb="2">
-              {headerTitle}{" "}
-              <span
-                style={{
-                  display: "inline-block",
-                  verticalAlign: "middle",
-                  // correct `middle` to the visual center of the glyphs
-                  transform: "translateY(-2px)",
-                  marginLeft: 4,
-                }}
-              >
-                <Badge
-                  variant={revisionStatusBadgeVariant(status)}
-                  radius="full"
-                  color={statusColor}
-                  label={revisionStatusLabel(status)}
-                />
-              </span>
-            </Heading>
-            <Text as="span" color="text-low">
-              {isDiscarded ? (
-                <>
-                  Revision <strong>{revision.version}</strong>
-                  {baseV != null ? <> (based on revision {baseV})</> : null} was
-                  discarded{discardedDate ? ` on ${discardedDate}` : ""}
-                </>
-              ) : (
-                <>
-                  Revision <strong>{revision.version}</strong>
-                  {baseV != null ? (
-                    <>
-                      {" "}
-                      was merged into revision <strong>{baseV}</strong> and
-                      published
-                    </>
-                  ) : (
-                    <> was published</>
-                  )}
-                  {publishedDate ? ` on ${publishedDate}` : ""}
-                </>
-              )}
-            </Text>
-          </Box>
-          {otherDraftsNav && (
-            <Box flexShrink="0" pt="1">
-              {otherDraftsNav}
-            </Box>
-          )}
-        </Flex>
-      </Box>
+      <ReviewHeader
+        title={headerTitle}
+        badgeStatus={status}
+        version={revision.version}
+        liveVersion={feature.version}
+        lifecycle={isDiscarded ? "discarded" : "merged"}
+        baseVersion={baseV}
+        mergedIntoVersion={baseV}
+        publishedDate={revision.datePublished ?? undefined}
+        discardedDate={isDiscarded ? revision.dateUpdated : undefined}
+        otherDrafts={headerOtherDrafts}
+        subTab={subTab}
+        setSubTab={setSubTab}
+        onCompareRevisions={onCompareRevisions}
+      />
     );
 
     const readonlyActionsColumn = (
@@ -1656,7 +1451,6 @@ export default function ReviewAndPublish({
           </ModalStandard>
         )}
         {readonlyHeader}
-        {subTabBar}
         <Flex gap="5" align="start">
           <Box style={{ flex: 1, minWidth: 0 }}>
             {renderLeftColumn(readonlyDiffs, {
@@ -2148,7 +1942,6 @@ export default function ReviewAndPublish({
         }}
         closeCta="Cancel"
         size="max"
-        useRadixButton={true}
       >
         <Page
           display="Fix Conflicts"
@@ -2163,20 +1956,14 @@ export default function ReviewAndPublish({
             mb="4"
             style={{ maxWidth: 800, margin: "0 auto var(--space-4)" }}
           >
-            <Callout
-              status="info"
-              contentsAs="div"
-              icon={<PiGitMergeBold size={18} />}
-            >
-              <Text as="p">
-                Your draft is based on an older version, and the live version
-                has since been published with conflicting changes. Resolve each
-                conflict below, then click{" "}
-                <Text as="span" weight="medium">
-                  Update Draft
-                </Text>{" "}
-                to rebase your draft onto the current live version.
-              </Text>
+            <Callout status="info" icon={<PiGitMergeBold size={18} />}>
+              Your draft is based on an older version, and the live version has
+              since been published with conflicting changes. Resolve each
+              conflict below, then click{" "}
+              <Text as="span" weight="medium">
+                Update Draft
+              </Text>{" "}
+              to rebase your draft onto the current live version.
             </Callout>
           </Box>
           {mergeResult.conflicts.map((conflict) => (
@@ -2326,53 +2113,24 @@ export default function ReviewAndPublish({
     revision.title?.trim() ||
     revision.comment?.trim() ||
     `Revision ${revision.version}`;
-  const staleBase = revision.baseVersion !== feature.version;
 
   const mergeHeader = (
-    <Box mb="4">
-      <Flex align="start" justify="between" gap="4">
-        <Box>
-          <Heading as="h3" size="medium" mb="2">
-            {headerTitle}{" "}
-            <span
-              style={{
-                display: "inline-block",
-                verticalAlign: "middle",
-                // correct `middle` to the visual center of the glyphs
-                transform: "translateY(-2px)",
-                marginLeft: 4,
-              }}
-            >
-              <Badge
-                variant="soft"
-                radius="full"
-                color={revisionStatusColor(revision.status)}
-                label={revisionStatusLabel(revision.status)}
-              />
-            </span>
-          </Heading>
-          <Text as="span" color="text-low">
-            {reviewRequested && requesterName ? (
-              <>
-                <strong>{requesterName}</strong> requested review to merge{" "}
-              </>
-            ) : (
-              <>Merging </>
-            )}
-            revision <strong>{revision.version}</strong> into the live version
-            (revision <strong>{feature.version}</strong>)
-            {staleBase ? (
-              <> · based on revision {revision.baseVersion}</>
-            ) : null}
-          </Text>
-        </Box>
-        {otherDraftsNav && (
-          <Box flexShrink="0" pt="1">
-            {otherDraftsNav}
-          </Box>
-        )}
-      </Flex>
-    </Box>
+    <ReviewHeader
+      title={headerTitle}
+      badgeStatus={revision.status}
+      version={revision.version}
+      liveVersion={feature.version}
+      baseVersion={revision.baseVersion}
+      reviewRequesterName={
+        reviewRequested && requesterName ? requesterName : undefined
+      }
+      lifecycle="active"
+      otherDrafts={headerOtherDrafts}
+      subTab={subTab}
+      setSubTab={setSubTab}
+      onCompareRevisions={onCompareRevisions}
+      hideSubTabs={experimentsStep}
+    />
   );
 
   // ── Left column: all of the changes, then history ──
@@ -2555,48 +2313,67 @@ export default function ReviewAndPublish({
           </Box>
         )}
 
-        {requireReviews && reviewers.length > 0 && (
-          <Box mb="3">
-            <Text
-              size="medium"
-              weight="medium"
-              color="text-high"
-              as="div"
-              mb="2"
-            >
-              Reviewers
-            </Text>
-            <Flex direction="column" gap="2">
-              {reviewers.map(({ id, status, timestamp, stale, ...r }) => {
-                const u = users.get(id);
-                const name = u?.name || r.name || "";
-                const email = u?.email || r.email || "";
-                return (
-                  <PersonRow
-                    key={id}
-                    id={id}
-                    name={name}
-                    email={email}
-                    trailing={
-                      <ReviewerVerdictIcon
-                        status={status}
-                        name={name || email}
-                        timestamp={timestamp}
-                        stale={stale}
-                      />
-                    }
-                  />
-                );
-              })}
-            </Flex>
-          </Box>
-        )}
+        {requireReviews &&
+          (reviewers.length > 0 || revision.status === "pending-review") && (
+            <Box mb="3">
+              <Text
+                size="medium"
+                weight="medium"
+                color="text-high"
+                as="div"
+                mb="2"
+              >
+                Reviewers
+              </Text>
+              {reviewers.length === 0 &&
+                revision.status === "pending-review" && (
+                  <Text size="small" color="text-mid" as="div">
+                    No reviews yet.
+                  </Text>
+                )}
+              <Flex direction="column" gap="2">
+                {reviewers.map(({ id, status, timestamp, stale, ...r }) => {
+                  const u = users.get(id);
+                  const name = u?.name || r.name || "";
+                  const email = u?.email || r.email || "";
+                  return (
+                    <PersonRow
+                      key={id}
+                      id={id}
+                      name={name}
+                      email={email}
+                      trailing={
+                        <ReviewerVerdictIcon
+                          status={status}
+                          name={name || email}
+                          timestamp={timestamp}
+                          stale={stale}
+                        />
+                      }
+                    />
+                  );
+                })}
+              </Flex>
+            </Box>
+          )}
 
         {!experimentsStep &&
           (approved || !requireReviews) &&
           renderExperimentSelection()}
 
         <Box mt="6">
+          {/* The poller gave up on this draft's scheduled publish (cleared on
+              cancel/re-arm). Shown to every viewer — matches the generic
+              ScheduledPublishControl notice. */}
+          {isActiveDraft && revision?.scheduledPublishGaveUpAt && (
+            <HelperText status="error" size="sm" mb="3">
+              Could not publish
+              {revision.scheduledPublishLastError
+                ? `: ${revision.scheduledPublishLastError}`
+                : "."}
+            </HelperText>
+          )}
+
           {/* Read-only arming summary for reviewers / non-managers. The dated
               schedule card renders with the arming control below the rebase
               notice when a publish/step section exists; here it's only a
@@ -2669,6 +2446,25 @@ export default function ReviewAndPublish({
                 align="center"
               />
             </Flex>
+          )}
+
+          {/* Non-reviewers see an explicit status while the draft waits on a
+              review — without it the tab shows only the status badge and the
+              draft reads as stuck. */}
+          {/* Suppressed when the admin-bypass publish section renders below —
+              "waiting for a reviewer" next to a working Publish button reads
+              as a contradiction. */}
+          {state.waitingForReview && !canReview && !showPublishSection && (
+            <Callout status="info" size="sm">
+              Waiting for a reviewer.{" "}
+              {createdBy?.id === user?.id
+                ? "Authors can't approve their own drafts. "
+                : ""}
+              Anyone with review permission on this feature can approve it.
+              {state.canRecallReview
+                ? " You can also return the draft to editing, which withdraws the review request."
+                : ""}
+            </Callout>
           )}
 
           {(() => {
@@ -3047,10 +2843,10 @@ export default function ReviewAndPublish({
     <>
       {conflictModal}
       {discardConfirmModal}
-      {mergeHeader}
       {/* The experiments checklist step temporarily replaces the left column;
-          hide the sub-tabs so the step reads as a focused flow. */}
-      {!experimentsStep && subTabBar}
+          ReviewHeader hides the sub-tabs (hideSubTabs) so the step reads as a
+          focused flow. */}
+      {mergeHeader}
       <Flex gap="5" align="start">
         <Box style={{ flex: 1, minWidth: 0 }}>{changesColumn}</Box>
         <Box style={{ width: 360, minWidth: 360, flexShrink: 0 }}>

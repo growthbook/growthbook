@@ -12,8 +12,15 @@ frontend:
   replicaCount: 1
   podAnnotations: {}
   podLabels: {}
-  podSecurityContext: {}
-  securityContext: {}
+  # fsGroup makes the writable volumes (uploads PVC, emptyDirs) group-owned by
+  # 1000 so the non-root (uid 1000) runtime can write them. Without it, a freshly
+  # provisioned PVC is root-owned and uploads fail at runtime.
+  podSecurityContext:
+    fsGroup: 1000
+  securityContext:
+    readOnlyRootFilesystem: true
+    runAsNonRoot: true
+    runAsUser: 1000
   resources: {}
   autoscaling:
     enabled: false
@@ -23,8 +30,23 @@ frontend:
     # targetMemoryUtilizationPercentage: 80
   service:
     port: 3000
-  command: [node_modules/.bin/pm2-runtime, start, ecosystem.config.js, --only, front-end]
+  # The hardened image is distroless (no shell), so launch pm2-runtime via node
+  # directly — its node_modules/.bin shim is #!/bin/sh and won't exec. --only
+  # runs just this pod's app.
+  command: [/usr/local/bin/node, node_modules/pm2/bin/pm2-runtime, start, ecosystem.config.js, --only, front-end]
   args: []
+  # readOnlyRootFilesystem requires writable mounts for the paths the front-end
+  # writes at runtime: /tmp and Next.js's on-disk cache.
+  volumes:
+    - name: tmp
+      emptyDir: {}
+    - name: next-cache
+      emptyDir: {}
+  volumeMounts:
+    - name: tmp
+      mountPath: /tmp
+    - name: next-cache
+      mountPath: /usr/local/src/app/packages/front-end/.next/cache
   env:
     - name: API_HOST
       # full URL of your backend, e.g. https://gb-api.example.com
@@ -34,8 +56,15 @@ backend:
   replicaCount: 1
   podAnnotations: {}
   podLabels: {}
-  podSecurityContext: {}
-  securityContext: {}
+  # fsGroup makes the writable volumes (uploads PVC, emptyDirs) group-owned by
+  # 1000 so the non-root (uid 1000) runtime can write them. Without it, a freshly
+  # provisioned PVC is root-owned and uploads fail at runtime.
+  podSecurityContext:
+    fsGroup: 1000
+  securityContext:
+    readOnlyRootFilesystem: true
+    runAsNonRoot: true
+    runAsUser: 1000
   resources: {}
   autoscaling:
     enabled: false
@@ -49,9 +78,20 @@ backend:
   # can be disabled when using UPLOAD_METHOD "s3" or "google-cloud"
   volumeClaim:
     enabled: true
+  # readOnlyRootFilesystem requires a writable /tmp. The uploads dir is mounted
+  # separately via volumeClaim above (when UPLOAD_METHOD is local).
+  volumes:
+    - name: tmp
+      emptyDir: {}
+  volumeMounts:
+    - name: tmp
+      mountPath: /tmp
   # For use when providing an existing MongoDB instance
   # mongodbUri:
-  command: [node_modules/.bin/pm2-runtime, start, ecosystem.config.js, --only, back-end]
+  # The hardened image is distroless (no shell), so launch pm2-runtime via node
+  # directly — its node_modules/.bin shim is #!/bin/sh and won't exec. --only
+  # runs just this pod's app.
+  command: [/usr/local/bin/node, node_modules/pm2/bin/pm2-runtime, start, ecosystem.config.js, --only, back-end]
   # To enable tracing set TRACING_PROVIDER env var to "datadog" or "opentelemetry"
   args: []
   # Reference: https://docs.growthbook.io/self-host/env

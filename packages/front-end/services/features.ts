@@ -788,6 +788,20 @@ export function validateFeatureRule(
         (ruleCopy as ExperimentRefRule).variations[i].value = newValue;
       }
     });
+  } else if (rule.type === "contextual-bandit-ref") {
+    rule.variations.forEach((v, i) => {
+      const newValue = validateFeatureValue(
+        feature,
+        v.value,
+        "Variation #" + i,
+      );
+      if (newValue !== v.value) {
+        hasChanges = true;
+        (ruleCopy as unknown as { variations: { value: string }[] }).variations[
+          i
+        ].value = newValue;
+      }
+    });
   } else if (rule.type === "safe-rollout") {
     const newVariationValue = validateFeatureValue(
       feature,
@@ -1508,7 +1522,8 @@ export function useAttributeMap(
         datatype: getAttributeDataType(schema.datatype),
         array: !!schema.datatype.match(/\[\]$/),
         enum:
-          schema.datatype === "enum" && schema.enum
+          (schema.datatype === "enum" || schema.datatype.endsWith("[]")) &&
+          schema.enum
             ? schema.enum.split(",").map((x) => x.trim())
             : schema.format === "isoCountryCode"
               ? ALL_COUNTRY_CODES
@@ -1557,7 +1572,7 @@ export function getExperimentDefinitionFromFeature(
     variations,
     phases: [
       {
-        coverage: expRule.coverage || 1,
+        coverage: expRule.coverage ?? 1,
         variationWeights,
         variations: variations.map((v) => ({
           id: v.id,
@@ -1638,7 +1653,8 @@ export function getDefaultOperator(attribute: AttributeData) {
   if (attribute.datatype === "boolean") {
     return "$true";
   } else if (attribute.array) {
-    return "$includes";
+    // Enum-constrained lists use set operators so the restricted MultiSelect shows.
+    return attribute.enum.length ? "$in" : "$includes";
   } else if (attribute.format === "version") {
     return "$veq";
   } else if (attribute.disableEqualityConditions) {

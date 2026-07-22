@@ -2,7 +2,11 @@ import Handlebars from "handlebars";
 import escapeRegExp from "lodash/escapeRegExp";
 import trimEnd from "lodash/trimEnd";
 import { parseEnvInt, stringToBoolean } from "shared/util";
-import { DEFAULT_METRIC_WINDOW_HOURS } from "shared/constants";
+import {
+  GB_SDK_ID_DEV,
+  GB_SDK_ID_PROD,
+  DEFAULT_METRIC_WINDOW_HOURS,
+} from "shared/constants";
 import { z } from "zod";
 
 export const ENVIRONMENT = process.env.NODE_ENV;
@@ -12,6 +16,26 @@ export const LOG_LEVEL = process.env.LOG_LEVEL;
 
 export const IS_CLOUD = stringToBoolean(process.env.IS_CLOUD);
 export const IS_MULTI_ORG = stringToBoolean(process.env.IS_MULTI_ORG);
+
+export const DISABLE_TELEMETRY = process.env.DISABLE_TELEMETRY;
+export const INGESTOR_HOST = process.env.INGESTOR_HOST || "";
+
+export function isGrowthBookTelemetryEnabled(): boolean {
+  if (DISABLE_TELEMETRY === "debug") return false;
+  if (DISABLE_TELEMETRY === "enable-with-debug") return true;
+  if (DISABLE_TELEMETRY) return false;
+  return true;
+}
+
+export function isGrowthBookTelemetryDebug(): boolean {
+  return (
+    DISABLE_TELEMETRY === "debug" || DISABLE_TELEMETRY === "enable-with-debug"
+  );
+}
+
+export function getIngestorHost(): string {
+  return INGESTOR_HOST || "https://us1.gb-ingest.com";
+}
 
 // Default to true
 export const ALLOW_SELF_ORG_CREATION = stringToBoolean(
@@ -60,7 +84,8 @@ if (MONGODB_URI.match(/:27017(\/)?$/)) {
 }
 export { MONGODB_URI };
 
-export const APP_ORIGIN = process.env.APP_ORIGIN || "http://localhost:3000";
+const RAW_APP_ORIGIN = process.env.APP_ORIGIN || "http://localhost:3000";
+export const APP_ORIGIN = RAW_APP_ORIGIN.replace(/\/+$/, "");
 export const IS_LOCALHOST = APP_ORIGIN.startsWith("http://localhost:");
 
 const corsOriginRegex = process.env.CORS_ORIGIN_REGEX;
@@ -84,6 +109,9 @@ export const S3_BUCKET = process.env.S3_BUCKET || "";
 export const S3_REGION = process.env.S3_REGION || "us-east-1";
 export const S3_DOMAIN =
   process.env.S3_DOMAIN || `https://${S3_BUCKET}.s3.amazonaws.com/`;
+// Optional override for S3-compatible endpoints (MinIO, R2, etc.).
+// Leave empty to use AWS S3.
+export const S3_ENDPOINT = process.env.S3_ENDPOINT || "";
 
 // Separate public, CDN-fronted bucket for visual-editor assets. Falls
 // back to the private S3_BUCKET when not configured.
@@ -124,6 +152,17 @@ if ((prod || !IS_LOCALHOST) && !IS_CLOUD && JWT_SECRET === "dev") {
 }
 
 export const AWS_ASSUME_ROLE = process.env.AWS_ASSUME_ROLE || "";
+
+// Optional override for the session-replay S3 bucket — replay payload chunks
+// are stored in their own bucket so that the back-end's read role can be
+// scoped separately from the general uploads bucket (`S3_BUCKET`). Leave
+// empty to disable signed-URL session-replay reads.
+export const S3_SESSION_REPLAY_BUCKET =
+  process.env.S3_SESSION_REPLAY_BUCKET || "";
+// Optional override for the role used to read the session-replay bucket. Falls
+// back to AWS_ASSUME_ROLE when unset, so single-role setups need no extra env.
+export const S3_SESSION_REPLAY_ASSUME_ROLE =
+  process.env.S3_SESSION_REPLAY_ASSUME_ROLE || AWS_ASSUME_ROLE;
 
 export const EMAIL_ENABLED = stringToBoolean(process.env.EMAIL_ENABLED);
 export const EMAIL_HOST = process.env.EMAIL_HOST;
@@ -375,6 +414,8 @@ export const CLOUD_SECRET = process.env.CLOUD_SECRET ?? "";
 export const DISABLE_API_ROOT_PATH = stringToBoolean(
   process.env.DISABLE_API_ROOT_PATH,
 );
+
+export const GB_SDK_ID = prod ? GB_SDK_ID_PROD : GB_SDK_ID_DEV;
 
 export type SecretsReplacer = <T extends string | Record<string, string>>(
   s: T,

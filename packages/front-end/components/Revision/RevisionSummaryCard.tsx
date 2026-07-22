@@ -1,77 +1,45 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Revision, MergeResult } from "shared/enterprise";
+import React, {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
+import {
+  Revision,
+  isScheduledPublishPending,
+  isScheduledPublishLockActive,
+} from "shared/enterprise";
 import { datetime, ago } from "shared/dates";
 import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
 import {
   PiPencil,
   PiProhibit,
   PiLockSimple,
+  PiClockFill,
   PiPencilSimpleFill,
-  PiGitDiff,
-  PiCaretRightFill,
+  PiArrowRightBold,
 } from "react-icons/pi";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
+import Link from "@/ui/Link";
 import Frame from "@/ui/Frame";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Callout from "@/ui/Callout";
+import CoAuthorsList from "@/components/Reviews/CoAuthorsList";
+import InlineRevisionDescription from "@/components/Reviews/InlineRevisionDescription";
+import RevisionLabel, {
+  revisionLabelText,
+} from "@/components/Reviews/RevisionLabel";
 import Field from "@/components/Forms/Field";
 import Metadata from "@/ui/Metadata";
 import EventUser from "@/components/Avatar/EventUser";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import { getStatusBadge } from "@/components/Revision/revisionUtils";
-import { useScrollPosition } from "@/hooks/useScrollPosition";
 import { useUser } from "@/services/UserContext";
 
 const DRAFT_STATUSES = ["draft", "pending-review", "changes-requested"];
-
-function CoAuthorsFromIds({
-  authorId,
-  contributorIds,
-}: {
-  authorId: string;
-  contributorIds: string[];
-}) {
-  const [open, setOpen] = useState(false);
-  const filtered = contributorIds.filter((id) => id !== authorId);
-  if (filtered.length === 0) return null;
-  const label = `Co-author${filtered.length > 1 ? "s" : ""} (${filtered.length})`;
-  return (
-    <Box mt="3" mb="3">
-      <div
-        className="link-purple"
-        style={{
-          cursor: "pointer",
-          userSelect: "none",
-          display: "inline-block",
-        }}
-        onClick={() => setOpen((o) => !o)}
-      >
-        <PiCaretRightFill
-          style={{
-            display: "inline",
-            marginRight: 4,
-            transition: "transform 0.15s ease",
-            transform: open ? "rotate(90deg)" : "none",
-          }}
-        />
-        {label}
-      </div>
-      {open && (
-        <Flex direction="column" gap="2" mt="2" ml="3">
-          {filtered.map((id) => (
-            <EventUser
-              key={id}
-              user={{ type: "dashboard", id, name: "", email: "" }}
-              display="avatar-name-email"
-              size="sm"
-              wrap={true}
-            />
-          ))}
-        </Flex>
-      )}
-    </Box>
-  );
-}
 
 export interface RevisionSummaryCardProps {
   allRevisions: Revision[];
@@ -80,24 +48,23 @@ export interface RevisionSummaryCardProps {
   // Singular entity noun for banner copy, e.g. "saved group" / "constant".
   entityNoun: string;
   hasRevisions: boolean;
-  metadataReviewRequired: boolean;
-  // Whether the selected revision still requires approval (drives the CTA copy).
-  requiresApproval: boolean;
-  mergeResult: MergeResult | null;
-  currentUserId?: string;
+  // Whether the viewer may edit a draft revision's title/description. Gated by
+  // the entity's update permission (NOT by draft authorship); `isDraft` still
+  // applies so only drafts are editable.
+  canEditTitle: boolean;
+  canEditDescription: boolean;
   // Used for the "Created by" / "Created" fields before any real revision exists.
   fallbackOwnerId: string;
   fallbackDateCreated: Date;
   onSelectRevision: (revision: Revision | null) => void;
   onTitleCommit: (revisionId: string, title: string) => Promise<void>;
   // Each action is optional; the corresponding control is hidden when omitted.
-  onCompare?: () => void;
-  onReopen?: (revisionId: string) => void | Promise<void>;
-  onRevert?: (revision: Revision) => void;
-  onDiscard?: (revisionId: string) => void | Promise<void>;
   onNewDraft?: () => void;
-  onFixConflicts?: () => void;
   onReviewPublish?: () => void;
+  onEditDescription?: () => void;
+  // Render the banner inline (scrolls with the page) instead of pinning it to
+  // the top on scroll. The sticky banner doesn't suit denser pages like Configs.
+  disablePinning?: boolean;
 }
 
 // Shared revision header used by every revisioned entity's detail page: the
@@ -109,30 +76,60 @@ export default function RevisionSummaryCard({
   selectedRevision,
   entityNoun,
   hasRevisions,
-  metadataReviewRequired,
-  requiresApproval,
-  mergeResult,
-  currentUserId,
+  canEditTitle: canEditTitleProp,
+  canEditDescription: canEditDescriptionProp,
   fallbackOwnerId,
   fallbackDateCreated,
   onSelectRevision,
   onTitleCommit,
-  onCompare,
-  onReopen,
-  onRevert,
-  onDiscard,
   onNewDraft,
-  onFixConflicts,
   onReviewPublish,
+  onEditDescription,
+  disablePinning = false,
 }: RevisionSummaryCardProps) {
   const { getOwnerDisplay } = useUser();
-  const bannerRef = useRef<HTMLDivElement>(null);
   const [bannerPinned, setBannerPinned] = useState(false);
-  const { scrollY } = useScrollPosition();
-  useEffect(() => {
-    if (!bannerRef.current) return;
-    setBannerPinned(bannerRef.current.getBoundingClientRect().top <= 110);
-  }, [scrollY]);
+  // Pinned once a sentinel above the banner scrolls past the 110px sticky offset
+  // (more reliable than getBoundingClientRect). Ref callback so the observer
+  // re-attaches if the sentinel mounts later (e.g. a draft created on a bare page).
+  const bannerSentinelObserver = useRef<IntersectionObserver | null>(null);
+  const bannerSentinelRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      if (bannerSentinelObserver.current) {
+        bannerSentinelObserver.current.disconnect();
+        bannerSentinelObserver.current = null;
+      }
+      if (!el || disablePinning) {
+        setBannerPinned(false);
+        return;
+      }
+      const observer = new IntersectionObserver(
+        ([entry]) => setBannerPinned(!entry.isIntersecting),
+        { rootMargin: "-110px 0px 0px 0px", threshold: 0 },
+      );
+      observer.observe(el);
+      bannerSentinelObserver.current = observer;
+    },
+    [disablePinning],
+  );
+
+  // The "Review & Publish" CTA portals between the card slot and the banner
+  // slot so it stays reachable when pinned (mirrors the feature flow).
+  const ctaSlotRef = useRef<HTMLDivElement>(null);
+  const bannerCtaSlotRef = useRef<HTMLDivElement>(null);
+  const [draftCtaPortalHost] = useState<HTMLDivElement | null>(() => {
+    if (typeof document === "undefined") return null;
+    const div = document.createElement("div");
+    div.style.display = "contents";
+    return div;
+  });
+  // No deps: ctaSlotRef starts null and populates after the full render.
+  // appendChild is idempotent when the host is already in the target slot.
+  useLayoutEffect(() => {
+    if (!draftCtaPortalHost) return;
+    const target = bannerPinned ? bannerCtaSlotRef.current : ctaSlotRef.current;
+    if (target) target.appendChild(draftCtaPortalHost);
+  });
 
   const isLive = !selectedRevision;
   const status = selectedRevision?.status;
@@ -168,9 +165,11 @@ export default function RevisionSummaryCard({
 
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState(selectedRevision?.title || "");
+  const [actionError, setActionError] = useState<string | null>(null);
   useEffect(() => {
     setEditingTitle(false);
     setTitleDraft(selectedRevision?.title || "");
+    setActionError(null);
   }, [selectedRevision?.id, selectedRevision?.title]);
 
   const commitTitleEdit = async () => {
@@ -178,12 +177,16 @@ export default function RevisionSummaryCard({
     setEditingTitle(false);
     const next = titleDraft.trim();
     if (next !== (selectedRevision.title ?? "")) {
-      await onTitleCommit(selectedRevision.id, next);
+      try {
+        setActionError(null);
+        await onTitleCommit(selectedRevision.id, next);
+      } catch (e) {
+        setActionError(e.message);
+      }
     }
   };
 
-  const canEditTitle =
-    isDraft && !!currentUserId && selectedRevision?.authorId === currentUserId;
+  const canEditTitle = isDraft && canEditTitleProp;
 
   const activeDrafts = useMemo(
     () =>
@@ -197,19 +200,61 @@ export default function RevisionSummaryCard({
     [allRevisions],
   );
 
+  const isPendingReview =
+    status === "pending-review" || status === "changes-requested";
+  const scheduledPublishPending =
+    !!selectedRevision && isScheduledPublishPending(selectedRevision);
+
   const bannerProps = isDraft
-    ? {
-        icon: <PiPencil size={18} />,
-        color: "var(--amber-11)",
-        bgColor: "var(--amber-a3)",
-        message: (
-          <>
-            Viewing a <strong>draft</strong> — changes will not go live until
-            published
-          </>
-        ),
-      }
-    : metadataReviewRequired && isDiscarded
+    ? scheduledPublishPending && selectedRevision
+      ? (() => {
+          // Mirrors a ramp lockdown, naming the target date. Locks engage only
+          // once approved; while in review we say "once approved" and omit the
+          // lock clauses (editing stays open).
+          const lockActive = isScheduledPublishLockActive(selectedRevision);
+          const awaitingApproval = isPendingReview;
+          const lockEditsActive =
+            lockActive && !!selectedRevision.scheduledPublishLockEdits;
+          const lockOthersActive =
+            lockActive && !!selectedRevision.scheduledPublishLockOthers;
+          const lockClauses = [
+            lockEditsActive ? "edits are locked" : null,
+            lockOthersActive ? "publishing other drafts is locked" : null,
+          ].filter((c): c is string => c !== null);
+          return {
+            icon: lockClauses.length ? (
+              <PiLockSimple size={18} />
+            ) : (
+              <PiClockFill size={18} />
+            ),
+            color: "var(--amber-11)",
+            bgColor: "var(--amber-a3)",
+            message: (
+              <>
+                This <strong>draft</strong> is scheduled to publish on{" "}
+                <strong>
+                  {datetime(selectedRevision.scheduledPublishAt as Date)}
+                </strong>
+                {awaitingApproval ? " once approved" : ""}
+                {lockClauses.length ? ` — ${lockClauses.join(" and ")}` : ""}
+              </>
+            ),
+          };
+        })()
+      : {
+          icon: <PiPencil size={18} />,
+          color: "var(--amber-11)",
+          bgColor: "var(--amber-a3)",
+          message: (
+            <>
+              Viewing a <strong>draft</strong> —{" "}
+              {isPendingReview
+                ? "changes will not go live until approved and published"
+                : "changes will not go live until published"}
+            </>
+          ),
+        }
+    : isDiscarded
       ? {
           icon: <PiProhibit size={18} />,
           color: "var(--gray-11)",
@@ -221,7 +266,7 @@ export default function RevisionSummaryCard({
             </>
           ),
         }
-      : metadataReviewRequired && isMerged
+      : isMerged
         ? {
             icon: <PiLockSimple size={18} />,
             color: "var(--gray-11)",
@@ -229,17 +274,9 @@ export default function RevisionSummaryCard({
             message: (
               <>
                 Viewing a previously <strong>published</strong> revision.{" "}
-                <span
-                  style={{
-                    cursor: "pointer",
-                    color: "var(--accent-11)",
-                    fontWeight: 600,
-                    textUnderlineOffset: 2,
-                  }}
-                  onClick={() => onSelectRevision(null)}
-                >
-                  Switch to live
-                </span>
+                <Link onClick={() => onSelectRevision(null)}>
+                  <strong>Switch to live</strong>
+                </Link>
               </>
             ),
           }
@@ -259,17 +296,9 @@ export default function RevisionSummaryCard({
                   {activeDrafts.length === 1 && (
                     <>
                       {". "}
-                      <span
-                        style={{
-                          cursor: "pointer",
-                          color: "var(--accent-11)",
-                          fontWeight: 600,
-                          textUnderlineOffset: 2,
-                        }}
-                        onClick={() => onSelectRevision(activeDrafts[0])}
-                      >
-                        Switch to draft
-                      </span>
+                      <Link onClick={() => onSelectRevision(activeDrafts[0])}>
+                        <strong>Switch to draft</strong>
+                      </Link>
                     </>
                   )}
                 </>
@@ -277,61 +306,88 @@ export default function RevisionSummaryCard({
             }
           : null;
 
-  const reviewPublishLabel = requiresApproval
-    ? displayRevision?.status === "draft"
-      ? "Request Approval to Publish"
-      : displayRevision?.status === "pending-review"
-        ? "View Approval Request"
-        : "View Changes"
-    : "Review & Publish";
+  // Rendered via the portal host above; pure navigation into the review surface.
+  const reviewPublishCta =
+    hasRevisions && isDraft && onReviewPublish ? (
+      <Box>
+        <Button
+          icon={<PiArrowRightBold />}
+          iconPosition="right"
+          onClick={onReviewPublish}
+          style={{ whiteSpace: "nowrap" }}
+        >
+          Review &amp; Publish
+        </Button>
+      </Box>
+    ) : null;
 
   return (
     <>
       {bannerProps && (
-        <div
-          ref={bannerRef}
-          style={{
-            position: "sticky",
-            top: 110,
-            zIndex: 920,
-            marginBottom: 12,
-            display: "flex",
-            justifyContent: "center",
-            pointerEvents: "none",
-          }}
-        >
+        <>
+          <div ref={bannerSentinelRef} aria-hidden style={{ height: 0 }} />
           <div
             style={{
-              width: "100%",
-              backgroundColor: "var(--color-background)",
-              borderRadius: "var(--radius-3)",
-              overflow: "hidden",
-              maxWidth: bannerPinned ? "580px" : "2000px",
-              boxShadow: bannerPinned ? "var(--shadow-3)" : undefined,
-              transition: "all 200ms ease",
-              pointerEvents: "auto",
+              position: disablePinning ? "static" : "sticky",
+              top: 110,
+              zIndex: 920,
+              marginBottom: 12,
+              display: "flex",
+              justifyContent: "center",
+              pointerEvents: "none",
             }}
           >
-            <Flex
-              align="center"
-              justify="center"
-              gap="2"
-              px="4"
-              py="3"
+            <div
               style={{
-                color: bannerProps.color,
-                backgroundColor: bannerProps.bgColor,
+                width: "100%",
+                backgroundColor: "var(--color-background)",
+                borderRadius: "var(--radius-3)",
+                overflow: "hidden",
+                maxWidth: bannerPinned ? 1280 : 1500,
+                boxShadow: bannerPinned ? "var(--shadow-3)" : undefined,
+                transition: "all 200ms ease",
+                pointerEvents: "auto",
               }}
             >
-              <span style={{ display: "flex", flexGrow: 0, flexShrink: 0 }}>
-                {bannerProps.icon}
-              </span>
-              <span style={{ fontSize: "var(--font-size-2)" }}>
-                {bannerProps.message}
-              </span>
-            </Flex>
+              <Box
+                px="4"
+                py="3"
+                style={{
+                  color: bannerProps.color,
+                  backgroundColor: bannerProps.bgColor,
+                  display: "grid",
+                  gridTemplateColumns: "1fr auto 1fr",
+                  alignItems: "center",
+                  gap: "12px",
+                }}
+              >
+                <span />
+                <Flex
+                  align="center"
+                  justify="center"
+                  gap="2"
+                  style={{ gridColumn: 2 }}
+                >
+                  <span style={{ display: "flex", flexGrow: 0, flexShrink: 0 }}>
+                    {bannerProps.icon}
+                  </span>
+                  <span style={{ fontSize: "var(--font-size-2)" }}>
+                    {bannerProps.message}
+                  </span>
+                </Flex>
+                <Flex
+                  align="center"
+                  gap="2"
+                  justify="end"
+                  style={{ flexShrink: 0, gridColumn: 3 }}
+                >
+                  {/* Slot: reviewPublishCta portal mounts here when pinned */}
+                  <div ref={bannerCtaSlotRef} />
+                </Flex>
+              </Box>
+            </div>
           </div>
-        </div>
+        </>
       )}
       <Frame mt="2" mb="4" px="6" py="4">
         <Flex align="start" justify="between" mb="2" wrap="wrap" gap="2">
@@ -387,11 +443,16 @@ export default function RevisionSummaryCard({
                     <Text weight="semibold" size="large">
                       <OverflowText
                         maxWidth={250}
-                        title={
-                          displayRevision?.title || `Revision ${revisionNumber}`
-                        }
+                        title={revisionLabelText(
+                          revisionNumber,
+                          displayRevision?.title,
+                        )}
                       >
-                        {displayRevision?.title || `Revision ${revisionNumber}`}
+                        <RevisionLabel
+                          version={revisionNumber}
+                          title={displayRevision?.title}
+                          numbered={false}
+                        />
                       </OverflowText>
                     </Text>
                   )}
@@ -416,82 +477,27 @@ export default function RevisionSummaryCard({
                 </Flex>
               )}
             </Flex>
-            {hasRevisions && allRevisions.length >= 2 && onCompare && (
-              <>
-                <Separator orientation="vertical" style={{ marginTop: 2 }} />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  icon={<PiGitDiff />}
-                  onClick={onCompare}
-                  style={{ position: "relative", top: -5 }}
-                >
-                  Compare revisions
-                </Button>
-              </>
-            )}
           </Flex>
           <Flex align="center" justify="end" gap="4" flexGrow="1">
-            {hasRevisions && isDiscarded && displayRevision && onReopen && (
-              <Button onClick={() => onReopen(displayRevision.id)} size="sm">
-                Reopen
-              </Button>
-            )}
-            {hasRevisions && isMerged && displayRevision && onRevert && (
-              <Button onClick={() => onRevert(displayRevision)} size="sm">
-                Revert to Previous
-              </Button>
-            )}
-            {hasRevisions &&
-              isDraft &&
-              displayRevision &&
-              displayRevision.authorId === currentUserId &&
-              onDiscard && (
-                <Button
-                  onClick={() => onDiscard(displayRevision.id)}
-                  color="red"
-                  variant="ghost"
-                  size="sm"
-                >
-                  Discard
-                </Button>
-              )}
             {isLive && onNewDraft && (
-              <Button onClick={onNewDraft} size="sm" variant="soft">
+              <Button
+                onClick={onNewDraft}
+                setError={setActionError}
+                size="sm"
+                variant="soft"
+              >
                 New Draft
               </Button>
             )}
-            {hasRevisions && isDraft && (
-              <>
-                {mergeResult && !mergeResult.success && onFixConflicts && (
-                  <Tooltip body="There have been conflicting changes published since this draft was created. Resolve them before publishing.">
-                    <Button
-                      variant="ghost"
-                      color="red"
-                      onClick={onFixConflicts}
-                      size="sm"
-                    >
-                      Fix conflicts
-                    </Button>
-                  </Tooltip>
-                )}
-                {onReviewPublish && (
-                  <Tooltip
-                    body={
-                      mergeResult && !mergeResult.success
-                        ? "This revision has conflicts — resolve them before publishing"
-                        : ""
-                    }
-                  >
-                    <Button onClick={onReviewPublish} size="sm">
-                      {reviewPublishLabel}
-                    </Button>
-                  </Tooltip>
-                )}
-              </>
-            )}
+            {/* Slot: reviewPublishCta portal mounts here when not pinned */}
+            {isDraft && <div ref={ctaSlotRef} />}
           </Flex>
         </Flex>
+        {actionError && (
+          <Callout status="error" mt="2">
+            {actionError}
+          </Callout>
+        )}
         <Separator size="4" my="3" />
         <Flex direction="column">
           <Flex
@@ -549,16 +555,26 @@ export default function RevisionSummaryCard({
               )}
             </Flex>
           </Flex>
-          {hasRevisions && displayRevision && (
-            <CoAuthorsFromIds
-              authorId={displayRevision.authorId}
-              contributorIds={(displayRevision.contributors ?? []).filter(
+          {hasRevisions &&
+            displayRevision &&
+            (() => {
+              const coAuthorIds = (displayRevision.contributors ?? []).filter(
                 (id) => id !== displayRevision.authorId,
-              )}
+              );
+              if (coAuthorIds.length === 0) return null;
+              return <CoAuthorsList coAuthorIds={coAuthorIds} mt="3" mb="3" />;
+            })()}
+          {hasRevisions && displayRevision && (
+            <InlineRevisionDescription
+              comment={displayRevision.comment}
+              canEdit={!!isDraft && canEditDescriptionProp}
+              onEdit={onEditDescription}
             />
           )}
         </Flex>
       </Frame>
+      {/* Portal: renders reviewPublishCta into whichever slot is active */}
+      {draftCtaPortalHost && createPortal(reviewPublishCta, draftCtaPortalHost)}
     </>
   );
 }

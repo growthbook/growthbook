@@ -1,5 +1,29 @@
+import { isEqual } from "lodash";
 import type { Revision } from "shared/enterprise";
 import type { Context } from "back-end/src/models/BaseModel";
+import type { ArmAcknowledgments } from "back-end/src/services/armGuards";
+import type { PublishGate } from "back-end/src/revisions/publishGates";
+
+/**
+ * Narrow a proposed-changes object to the fields an adapter may write, dropping
+ * undefined or unchanged values. Shared by adapters' `applyChanges`. Lives in
+ * this leaf module (not revisions/util) to avoid an adapter→util→index cycle.
+ */
+export function filterUpdatableChanges(
+  changes: Record<string, unknown>,
+  entity: Record<string, unknown>,
+  updatableFields: ReadonlySet<string>,
+): Record<string, unknown> {
+  const filtered: Record<string, unknown> = {};
+  for (const key of Object.keys(changes)) {
+    if (!updatableFields.has(key)) continue;
+    const newVal = changes[key];
+    if (newVal !== undefined && !isEqual(newVal, entity[key])) {
+      filtered[key] = newVal;
+    }
+  }
+  return filtered;
+}
 
 /**
  * Adapter interface that each entity type must implement to participate in the
@@ -88,4 +112,103 @@ export interface EntityRevisionAdapter<
     changes: Record<string, unknown>,
     options?: { isRevert?: boolean },
   ): Promise<void>;
+
+  /**
+   * Validate that `desiredState` (the changes a merge would apply) can be
+   * published, BEFORE the merge is claimed. Throwing here leaves the revision in
+   * its current open status — nothing is marked merged — so a publish that fails
+   * validation (e.g. a config value that violates a cross-field rule) errors
+   * cleanly and keeps the draft editable, instead of stranding it "merged" and
+   * relying on a post-merge reopen. Runs on every internal publish path,
+   * including admin/bypass-approval publishes (bypass skips approval, not
+   * validation). Optional: adapters without publish-time invariants can omit it.
+   */
+  assertPublishable?(
+    context: Context,
+    entity: TSnapshot,
+    desiredState: Record<string, unknown>,
+    revision: Revision,
+    // `deferred` = this is a background/armed merge (scheduled publish or
+    // auto-publish-on-approval), whose overrides are the arm-time snapshot on the
+    // revision — NOT a synchronous manual publish (where a live ignoreWarnings/
+    // bypass applies).
+    options?: { isRevert?: boolean; deferred?: boolean },
+  ): Promise<void>;
+
+  /**
+   * Non-throwing view of this entity's publish guards, for the REST publish
+   * handlers' aggregated 422 (PublishBlockedError): evaluate the same guard
+   * conditions the sequential asserts enforce and return one PublishGate per
+   * live conflict set, so a blocked publish reports every gate — and the flag
+   * that clears it — in one response. Gates the caller's authority or request
+   * disposition already clears implicitly (bypass-approval permission, a live
+   * ignoreWarnings) are omitted, matching the asserts' synchronous override —
+   * but the overridden conflicts must still be logged, matching the asserts'
+   * override logging. On the REST publish path this plus the handler's
+   * evaluatePublishGates IS the guard enforcement; deferred/internal paths keep
+   * their asserts.
+   */
+  collectPublishGates?(
+    context: Context,
+    entity: TSnapshot,
+    revision: Revision,
+    desiredState: Record<string, unknown>,
+  ): Promise<PublishGate[]>;
+
+  /**
+   * Called on the no-op merge path (publish with no net entity change — a
+   * genuine no-op or a retry after a partial apply). `applyChanges` is skipped
+   * there, so side effects it would have run (e.g. cascading a schema change to
+   * descendants that never ran because the first attempt failed mid-way) must
+   * be replayed here. Invoked BEFORE the merge is claimed so a failure leaves
+   * the draft open and retryable. Must be idempotent.
+   */
+  beforeNoOpMerge?(
+    context: Context,
+    entity: TSnapshot,
+    revision: Revision,
+  ): Promise<void>;
+
+  // ---------- Scheduled publish (optional overrides; sensible defaults) ----------
+
+  /**
+   * Whether the caller may ARM a date-based scheduled publish. When absent,
+   * defaults to the `scheduled-revisions` premium feature plus publish
+   * authority (`canPublishRevision`) — so every revisioned entity supports
+   * scheduling out of the box. Override only to narrow it.
+   */
+  canSchedulePublish?(context: Context, snapshot: TSnapshot): boolean;
+
+  /**
+   * Publish authority over the entity — gates publishing, canceling a pending
+   * schedule, and taking one over. Defaults to `canUpdate` when absent.
+   * Override when publish authority differs from edit (e.g. an
+   * environment-scoped publish permission).
+   */
+  canPublishRevision?(context: Context, snapshot: TSnapshot): boolean;
+
+  /**
+   * Throws when the LIVE entity can't accept a future publish (e.g. a locked
+   * config) — checked when ARMING a schedule so it's rejected up front instead
+   * of failing at every poller tick. Canceling is never gated.
+   */
+  assertSchedulable?(context: Context, entity: TSnapshot): Promise<void> | void;
+
+  /**
+   * Capture arm-time acknowledgments when a deferred publish is armed (scheduled
+   * or auto-publish-on-approval). Returns a per-guard map of keys to snapshot on
+   * the revision and re-check at merge time; throws (e.g. SoftWarningError) when
+   * the armer must acknowledge a condition first. The config/constant adapters use
+   * this for the experiment / config-lock / schema-break guards; adapters without
+   * an arm-time precondition omit it.
+   *
+   * `proposedChanges` are the revision's staged ops, so an adapter can skip the
+   * precondition for a change that can't trigger it (e.g. a metadata-only config
+   * revision that rewrites no served value).
+   */
+  captureArmAcknowledgment?(
+    context: Context,
+    entity: TSnapshot,
+    proposedChanges: unknown,
+  ): Promise<ArmAcknowledgments | undefined>;
 }

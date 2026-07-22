@@ -22,6 +22,10 @@ import {
   constantBlockSelfApproval,
   constantAutopublishOnApproval,
 } from "../util/features";
+// Specific files (not the barrel) to avoid a runtime import cycle.
+import { configUpdatableFieldsSchema } from "../validators/config";
+import { constantUpdatableFieldsSchema } from "../validators/constant";
+import { savedGroupUpdatableFieldsSchema } from "../validators/saved-group";
 
 /**
  * Resolve the approval-flow configuration for a given entity type.
@@ -97,6 +101,19 @@ export const CONSTANT_METADATA_FIELDS: ReadonlySet<string> = new Set([
   "archived",
 ]);
 
+// Config-only fields whose change affects the value the SDK resolves (so they
+// must require full review when approval is enabled, like `value`). Constants
+// never carry these, so they're inert for constant revisions.
+const CONFIG_CONTENT_FIELDS: ReadonlySet<string> = new Set([
+  "schema",
+  "parent",
+  "extends",
+  "extensible",
+  // NOTE: `scopedOverrides` is NOT here — the env/project variant selection writes
+  // immediately (setConfigScopedOverrides), never through a revision, so it's
+  // never part of a revision's proposed changes.
+]);
+
 /**
  * Returns true when every proposed change in the revision touches a constant
  * metadata field (per `CONSTANT_METADATA_FIELDS`). An empty proposed-changes
@@ -133,7 +150,19 @@ export const getConstantRevisionChange = (
     ops,
   ) as Pick<ConstantInterface, "value" | "environmentValues">;
 
-  const valueChanged = (snapshot.value ?? "") !== (patched.value ?? "");
+  // Config-only content fields that change what the SDK resolves, so they need
+  // full review when approval is enabled rather than metadata-only treatment:
+  // `schema` (field definitions) plus the lineage/extensibility fields, which
+  // shift the effective resolved value. Constants never carry these ops, so
+  // this is a no-op for them.
+  const contentChanged = ops.some((op) =>
+    CONFIG_CONTENT_FIELDS.has(op.path.split("/")[1]),
+  );
+  // Deep-equal, not `!==`: a constant's value is a string, but a config reuses
+  // this helper with an OBJECT value, where reference-inequality would flag a
+  // restated-but-unchanged value as a change (spuriously forcing review).
+  const valueChanged =
+    !isEqual(snapshot.value ?? "", patched.value ?? "") || contentChanged;
 
   const oldEnvs = snapshot.environmentValues ?? {};
   const newEnvs = patched.environmentValues ?? {};
@@ -158,7 +187,7 @@ const isSelfApprovalBlockedForEntity = (
   entityType: RevisionTargetType,
   revision: Pick<Revision, "target">,
 ): boolean => {
-  if (entityType === "constant") {
+  if (entityType === "constant" || entityType === "config") {
     const snapshot = revision.target.snapshot as { project?: string };
     return constantBlockSelfApproval({ project: snapshot.project }, settings);
   }
@@ -200,7 +229,7 @@ export const isAutopublishOnApprovalEnabled = (
   // for entities that read from `approvalFlows`.
   project?: string,
 ): boolean => {
-  if (entityType === "constant") {
+  if (entityType === "constant" || entityType === "config") {
     return constantAutopublishOnApproval({ project }, settings);
   }
   return !!getApprovalFlowSettings(settings?.approvalFlows, entityType)
@@ -221,6 +250,8 @@ export const getRevisionKey = (
       return "saved-groups";
     case "constant":
       return "constants";
+    case "config":
+      return "configs";
     // case "feature": return "features";  ← add future entity types here
     default:
       return null;
@@ -238,7 +269,6 @@ export const canUserReviewEntity = ({
   entityType,
   revision,
   entity,
-  approvalFlowSettings: _approvalFlowSettings,
   userId,
   teams,
   userPermissions,
@@ -264,7 +294,11 @@ export const canUserReviewEntity = ({
 
   // Extension point: add a new `case` here when introducing a new RevisionTargetType
   // that requires custom reviewer logic beyond the default `canEditEntity` check.
-  if (entityType === "saved-group" || entityType === "constant") {
+  if (
+    entityType === "saved-group" ||
+    entityType === "constant" ||
+    entityType === "config"
+  ) {
     // Anyone who can edit can review (except the author, checked above)
     return !!canEditEntity;
   }
@@ -386,10 +420,38 @@ export function patchOpsToPartial<T extends Record<string, unknown>>(
  * If the proposed value equals the base value, it's not considered a change
  * and won't trigger a conflict even if live has changed.
  */
+// The top-level fields a revision merge may write for each entity type — the
+// keys of the entity's `*UpdatableFieldsSchema`. Pass to `checkMergeConflicts`
+// so only mergeable fields participate in conflict detection, on the client
+// (conflict UI computes it in the browser) as well as the server. Mirrors each
+// back-end adapter's getUpdatableFields(); both read the same pick schema, so
+// they can't drift. Exhaustive over RevisionTargetType (no default) so a new
+// entity type fails type-check until it's handled here.
+export function getRevisionUpdatableFields(
+  entityType: RevisionTargetType,
+): ReadonlySet<string> {
+  switch (entityType) {
+    case "config":
+      return new Set(Object.keys(configUpdatableFieldsSchema.shape));
+    case "constant":
+      return new Set(Object.keys(constantUpdatableFieldsSchema.shape));
+    case "saved-group":
+      return new Set(Object.keys(savedGroupUpdatableFieldsSchema.shape));
+  }
+}
+
 export function checkMergeConflicts(
   baseState: Record<string, unknown>,
   liveState: Record<string, unknown>,
   proposedChanges: JsonPatchOperation[] | unknown,
+  // The fields the entity's merge can actually write. Only these participate in
+  // conflict detection — mirroring `buildMergeDesiredState`, which drops ops for
+  // non-updatable fields before merging. If a draft's proposedChanges carry an op
+  // for a field that isn't revision-updatable (e.g. one excluded from the
+  // snapshot, like a config's `scopedOverrides`, which writes directly to the
+  // entity rather than through a revision), without this filter that op reads as
+  // a phantom conflict the merge would never apply. Omit to consider every field.
+  updatableFields?: ReadonlySet<string>,
 ): MergeResult {
   // Normalise: old DB documents may have a plain object instead of an array
   const ops = normalizeProposedChanges(proposedChanges);
@@ -400,8 +462,8 @@ export function checkMergeConflicts(
 
   // Helper to check if values are different
   const hasChanged = (val1: unknown, val2: unknown): boolean => {
-    if (val1 == null) return false;
-    if (val2 == null) return true;
+    if ((val1 ?? null) === null) return false;
+    if ((val2 ?? null) === null) return true;
     return !isEqual(val1, val2);
   };
 
@@ -418,6 +480,9 @@ export function checkMergeConflicts(
   for (const op of ops) {
     const field = fieldFromPath(op.path);
     if (!field) continue;
+    // A non-updatable field can't be merged, so it can't truly conflict —
+    // ignore its ops (see `updatableFields` above).
+    if (updatableFields && !updatableFields.has(field)) continue;
     if (op.op === "replace" || op.op === "add") {
       proposedByField.set(field, op.value);
     } else if (op.op === "remove") {
@@ -455,4 +520,61 @@ export function checkMergeConflicts(
     fieldsChanged,
     mergedChanges: conflicts.length === 0 ? mergedChanges : undefined,
   };
+}
+
+// ── Revision display helpers ─────────────────────────────────────────────────
+// Shared by the revision dropdown, the revert modal, and the entity pages so the
+// "which revision is live" rule and the display version-number fallback can't
+// drift between surfaces.
+
+const byDateCreatedAsc = <T extends Pick<Revision, "dateCreated">>(
+  a: T,
+  b: T,
+): number =>
+  new Date(a.dateCreated).getTime() - new Date(b.dateCreated).getTime();
+
+/**
+ * The "live" revision is the most-recently-published (merged) one. Returns
+ * `undefined` when nothing has been published yet.
+ */
+export function getLiveRevision<
+  T extends Pick<Revision, "status" | "dateUpdated">,
+>(revisions: T[]): T | undefined {
+  return [...revisions]
+    .filter((r) => r.status === "merged")
+    .sort(
+      (a, b) =>
+        new Date(b.dateUpdated).getTime() - new Date(a.dateUpdated).getTime(),
+    )[0];
+}
+
+/**
+ * Display version number for a single revision: the stored `version` when
+ * present, otherwise its 1-based position by creation date (for legacy
+ * revisions saved before `version` existed). When `revision` is undefined
+ * (e.g. "live" with no published revision yet) returns the total count.
+ */
+export function getRevisionNumber<
+  T extends Pick<Revision, "id" | "version" | "dateCreated">,
+>(revisions: T[], revision: T | undefined): number {
+  if ((revision?.version ?? null) !== null) return revision!.version as number;
+  const sorted = [...revisions].sort(byDateCreatedAsc);
+  if (revision) return sorted.findIndex((r) => r.id === revision.id) + 1;
+  return sorted.length;
+}
+
+/**
+ * Map of revision id → display version number (see `getRevisionNumber`).
+ * Builds the creation-date sort once for the whole set.
+ */
+export function getRevisionNumberById<
+  T extends Pick<Revision, "id" | "version" | "dateCreated">,
+>(revisions: T[]): Map<string, number> {
+  const sorted = [...revisions].sort(byDateCreatedAsc);
+  return new Map<string, number>(
+    revisions.map((r) => [
+      r.id,
+      r.version ?? sorted.findIndex((s) => s.id === r.id) + 1,
+    ]),
+  );
 }
