@@ -438,6 +438,7 @@ export default function PrerequisiteInput({
   const addPrerequisiteLink = (
     <PremiumTooltip commercialFeature="prerequisite-targeting">
       <Link
+        mt="2"
         onClick={() => {
           if (!hasPrerequisitesCommercialFeature || locked) return;
           setValue([{ id: "", condition: "{}" }]);
