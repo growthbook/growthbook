@@ -30,7 +30,7 @@ const DatabricksForm: FC<{
       </div>
       <div className="form-group col-md-12">
         <TextField
-          label="Server Hostname"
+          label="Server hostname"
           name="host"
           required
           value={params.host || ""}
@@ -49,7 +49,7 @@ const DatabricksForm: FC<{
       </div>
       <div className="form-group col-md-12">
         <TextField
-          label="HTTP Path"
+          label="HTTP path"
           name="path"
           required
           value={params.path || ""}
@@ -58,12 +58,12 @@ const DatabricksForm: FC<{
       </div>
       <div className="form-group col-md-12">
         <Select
-          label="Authentication Method"
+          label="Authentication method"
           value={authType}
           setValue={(value) => setParams({ authType: value })}
         >
           <SelectItem value="oauth-m2m">OAuth (machine-to-machine)</SelectItem>
-          <SelectItem value="pat">Personal Access Token</SelectItem>
+          <SelectItem value="pat">Personal access token</SelectItem>
         </Select>
       </div>
 
@@ -80,7 +80,7 @@ const DatabricksForm: FC<{
           </div>
           <div className="form-group col-md-12">
             <TextField
-              label="OAuth Secret"
+              label="OAuth secret"
               type="password"
               autoComplete="off"
               name="oauthClientSecret"
@@ -107,7 +107,7 @@ const DatabricksForm: FC<{
       )}
       <div className="form-group col-md-12">
         <TextField
-          label="Default Catalog (Recommended)"
+          label="Default catalog (recommended)"
           helpText="This will help GrowthBook generate the initial SQL queries used to define things like Metrics and Experiment Assignments."
           name="catalog"
           value={params.catalog || ""}
