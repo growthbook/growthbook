@@ -555,6 +555,11 @@ export async function commitBulkPublish(
       for (const item of plan.items) {
         // An item whose revision stays merged must NOT get a "rolled back"
         // event — its `status: "published"` result row is the signal instead.
+        // KNOWN LIMITATION: stuck items therefore emit no event at all (running
+        // the success chain mid-compensation would fire normal-success signals
+        // on a needs-attention state). A dedicated stuck/needs-attention event
+        // is deliberately deferred: it's new public webhook semantics, designed
+        // alongside the uniform publish-failure webhook work.
         if (stuckPublished(item)) continue;
         try {
           await getBulkAdapter(item.ref.entityType).emitPublishFailed(
