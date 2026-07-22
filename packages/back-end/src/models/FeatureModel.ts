@@ -1749,13 +1749,9 @@ export async function applyHoldoutSideEffects(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   newHoldout: { id: string; value: string } | null,
-  // Compensation reverting to a previously-published (valid) holdout state: the
-  // guard below is a config-time check against creating an invalid combination,
-  // not a restore-time one. A rollback re-adds the pre-image holdout WHILE the
-  // still-published rules transiently include the blocking state (they revert
-  // moments later), so enforcing it here would refuse a legitimate restore —
-  // and, mid multi-satellite rollback, leave already-reversed satellites beside
-  // a feature left published. Mirrors `isRevert` on the entity adapters.
+  // `isRevert` skips the guard below — a rollback restores a previously-valid
+  // holdout state (the caller reverts the transiently-blocking rules moments
+  // later), so this create-time check would wrongly refuse it.
   { isRevert }: { isRevert?: boolean } = {},
 ) {
   const prevHoldoutId = feature.holdout?.id;

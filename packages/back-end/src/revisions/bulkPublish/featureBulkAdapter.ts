@@ -378,9 +378,8 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
   async restorePreImage(context, preImage, revision, desiredState) {
     const feature = preImage as unknown as FeatureInterface;
     const desired = desiredState as unknown as FeatureDesiredState;
-    // Every satellite reversal that couldn't complete; a non-empty list at the
-    // end reports the item "published" (stuck), not a clean rollback. Declared
-    // before the ramp cleanup below so that feeds it too.
+    // Satellite reversals that couldn't complete; a non-empty list reports the
+    // item "published" (stuck), not a clean rollback.
     const reversalFailures: string[] = [];
     // Delete ramp schedules this apply created; a failed delete surfaces (not a
     // silent log) so a leftover armed schedule can't hide behind a rollback.
@@ -404,9 +403,8 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     }
     const { mergeResult } = desired;
 
-    // Reverse the cross-collection satellites first. Each is attempted
-    // independently and its failure recorded. The safe-rollout restore is
-    // ownership-checked inside so a worker's progress is never clobbered.
+    // Reverse the cross-collection satellites first; the safe-rollout restore
+    // is ownership-checked inside so a worker's progress is never clobbered.
     //
     // ACCEPTED BOUNDARY: these reversals are not transactional. Deterministic
     // failures are designed out (safe-rollout throws before its write, the
@@ -451,12 +449,10 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       }
     }
 
-    // If a satellite couldn't be reversed, leave the feature DOC whole at the
-    // published state instead of reverting rules/version. Reverting the doc
-    // beside a still-published satellite — e.g. a ramp-scheduled rollout the
-    // snapshot worker keeps advancing against a rule that is now gone — is an
-    // inconsistent state falsely reported "published". Same leave-whole rule the
-    // generic adapter uses when it can't fully restore.
+    // A satellite couldn't be reversed → leave the feature DOC whole at the
+    // published state rather than revert rules/version beside a still-published
+    // satellite (a false "rolled-back"). Same leave-whole rule as the generic
+    // adapter.
     if (reversalFailures.length) {
       throw new Error(
         `bulk publish compensation: could not fully roll back feature ${feature.id} — ${reversalFailures.join(", ")} left at the failed publish's state; feature left at the published state`,
