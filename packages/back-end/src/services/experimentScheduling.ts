@@ -358,8 +358,8 @@ export function validateScheduledStopPlan(
   // Auto-ship needs the decision framework to pick a winner; without it, the
   // end date degrades to the soft "keep running + notify" behavior.
   if (mode === "auto-ship" && !hasEDF) {
-    warnings.push(
-      "Auto-ship requires the Decision Framework (Pro+ and enabled in org settings); until it's enabled, the experiment will keep running and just notify at the end date.",
+    throw new BadRequestError(
+      "Auto-ship requires the Decision Framework (Pro+ and enabled in org settings)",
     );
   }
   // force-ship/stop work without the decision framework, but the analytical
@@ -374,10 +374,10 @@ export function validateScheduledStopPlan(
     );
   }
   // Every mode except the soft default only acts at a scheduled end — never on
-  // a manual stop — so warn if there's no scheduled end for it to attach to.
+  // a manual stop — so throw if there's no scheduled end for it to attach to.
   if (mode !== "notify" && !hasScheduledEnd) {
-    warnings.push(
-      "This only runs at a scheduled end; set a stopAt or stopAfter (a manual stop won't trigger it).",
+    throw new BadRequestError(
+      `You must set a scheduled end date (stopAt or stopAfter) to use ${mode}.`,
     );
   }
   // A specific variation must be set + valid when force-shipping — either as
@@ -403,9 +403,7 @@ export function validateScheduledStopPlan(
     plan.tiebreakerMetricId &&
     !(experiment.goalMetrics ?? []).includes(plan.tiebreakerMetricId)
   ) {
-    warnings.push(
-      "tiebreakerMetricId is not one of the experiment's goal metrics; it will be ignored.",
-    );
+    throw new BadRequestError("tiebreakerMetricId must be a goal metric.");
   }
   return warnings;
 }
