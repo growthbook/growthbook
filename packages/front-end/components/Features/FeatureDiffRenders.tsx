@@ -1507,11 +1507,14 @@ function renderTargetingNode(
   if (allProjects) return "All projects";
   if (!projects?.length) return <em>none</em>;
   return (
-    <div className="d-flex flex-wrap" style={{ gap: 4 }}>
-      {projects.map((p) => (
-        <ProjectName key={p} id={p} />
+    <>
+      {projects.map((p, i) => (
+        <span key={p}>
+          {i > 0 ? ", " : ""}
+          <ProjectName id={p} />
+        </span>
       ))}
-    </div>
+    </>
   );
 }
 

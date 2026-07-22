@@ -39,6 +39,26 @@ export function normalizeRevisionMetadata(
   };
 }
 
+// Bookkeeping fields the snapshot records but that aren't user-editable revision
+// settings and aren't rendered by the human diff — including them in the raw
+// JSON diff only produces phantom churn when an older snapshot predates them.
+const NON_SETTING_METADATA_FIELDS = new Set(["valueType", "baseConfig"]);
+
+// Canonical JSON for the raw "Feature Settings" diff: keys sorted (so a differing
+// snapshot key order doesn't read as churn) and bookkeeping fields dropped, so
+// the raw view reflects the same real changes as the formatted view.
+function metadataDiffJson(m: RevisionMetadata | undefined): string {
+  if (!m) return "";
+  const canonical: Record<string, unknown> = {};
+  Object.keys(m)
+    .filter((k) => !NON_SETTING_METADATA_FIELDS.has(k))
+    .sort()
+    .forEach((k) => {
+      canonical[k] = (m as Record<string, unknown>)[k];
+    });
+  return JSON.stringify(canonical, null, 2);
+}
+
 // Backfill envelope fields from `fallback` (typically the parent feature's
 // current state) when the revision doesn't store them. Pre-snapshot legacy
 // revisions only persisted defaultValue/rules; comparing one against a freshly
@@ -269,8 +289,8 @@ export function useFeatureRevisionDiff({
         diffs.push({
           key: "metadata",
           title: "Feature Settings",
-          a: JSON.stringify(current.metadata, null, 2),
-          b: JSON.stringify(draft.metadata, null, 2),
+          a: metadataDiffJson(current.metadata),
+          b: metadataDiffJson(draft.metadata),
           customRender: metadataRender,
           badges:
             metaBadges.length > 0
