@@ -1,5 +1,4 @@
 import { Revision } from "shared/enterprise";
-import { isConfigLocked } from "shared/util";
 import {
   archiveConfigValidator,
   unarchiveConfigValidator,
@@ -21,7 +20,11 @@ import {
   buildPatchOps,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
-import { assertConfigNotLocked } from "back-end/src/services/configLock";
+import {
+  assertConfigNotLocked,
+  collectConfigLockGate,
+} from "back-end/src/services/configLock";
+import { collectArchiveApprovalGate } from "back-end/src/revisions/governanceGates";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 
 async function buildResponse(
@@ -77,43 +80,19 @@ async function setArchivedState(
   // revision-publish endpoints): each names the flag that clears it and, where
   // one exists, a callable resolution route. The lock/approval backstops below
   // stay as the enforcement net; the collected guard gates are enforced here.
-  const gates: PublishGate[] = [];
-  // Hard revision pin — no inline bypass, only an explicit unlock.
-  if (isConfigLocked(config)) {
-    gates.push({
-      type: "config-locked",
-      severity: "blocker",
-      messages: [`Locked at revision v${config.lock?.version}.`],
-      override: null,
-      requiresPermission: "bypassApprovalChecks",
-      resolution: {
-        action: "unlock",
-        method: "POST",
-        path: `/configs/${config.key}/unlock`,
-      },
-    });
-  }
-  // Metadata-only, but still gated so it can't bypass a required metadata review.
-  // There's no draft to approve here, so the resolution is to route the change
-  // through a draft revision.
-  if (approvalRequired) {
-    gates.push({
-      type: "approval-required",
-      severity: "blocker",
-      messages: [
-        `This organization requires approval to ${
-          archived ? "archive" : "unarchive"
-        } this config.`,
-      ],
-      override: null,
-      requiresPermission: "bypassApprovalChecks",
-      resolution: {
-        action: "create-draft",
-        method: "POST",
-        path: `/configs-revisions/${config.key}`,
-      },
-    });
-  }
+  const gates: PublishGate[] = [
+    // Hard revision pin — no inline bypass, only an explicit unlock.
+    ...collectConfigLockGate(config),
+    // Metadata-only, but still gated so it can't bypass a required metadata
+    // review. There's no draft to approve here, so the resolution routes the
+    // change through a draft revision.
+    ...collectArchiveApprovalGate({
+      approvalRequired,
+      archived,
+      noun: "config",
+      createDraftPath: `/configs-revisions/${config.key}`,
+    }),
+  ];
   // Soft guards (experiment / locked-dependent / schema-break / archive-dependents)
   // for the archived flip. Resolution scrubs archived refs, so the transition
   // rewrites consumers' values even though the config's own value is unchanged.

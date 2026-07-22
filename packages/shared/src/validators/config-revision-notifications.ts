@@ -6,7 +6,10 @@
 
 import { z } from "zod";
 import { apiConfigRevisionValidator } from "./config-revisions";
-import { revisionPublishFailedExtension } from "./revision-publish-failed";
+import {
+  bulkPublishIdField,
+  revisionPublishFailedExtension,
+} from "./revision-publish-failed";
 
 const reviewer = z
   .object({
@@ -51,7 +54,9 @@ export type ConfigRevisionRebasedPayload = z.infer<
   typeof configRevisionRebasedPayload
 >;
 
-export const configRevisionPublishedPayload = configRevisionWebhookPayload;
+export const configRevisionPublishedPayload = configRevisionWebhookPayload
+  .extend({ bulkPublishId: bulkPublishIdField })
+  .strict();
 export type ConfigRevisionPublishedPayload = z.infer<
   typeof configRevisionPublishedPayload
 >;
@@ -101,7 +106,10 @@ export type ConfigRevisionCommentedPayload = z.infer<
 >;
 
 export const configRevisionRevertedPayload = configRevisionWebhookPayload
-  .extend({ revertedToVersion: z.number().int().optional() })
+  .extend({
+    revertedToVersion: z.number().int().optional(),
+    bulkPublishId: bulkPublishIdField,
+  })
   .strict();
 export type ConfigRevisionRevertedPayload = z.infer<
   typeof configRevisionRevertedPayload

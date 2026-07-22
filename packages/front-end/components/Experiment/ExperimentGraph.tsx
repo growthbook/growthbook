@@ -283,6 +283,7 @@ export default function ExperimentGraph({
         </div>
         <div className="col-auto">
           <SelectField
+            size="legacy"
             containerClassName="d-inline-block ml-2 mb-0"
             options={showSelectOptions}
             value={showBy}

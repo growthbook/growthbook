@@ -3,7 +3,7 @@ import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { Environment } from "shared/types/organization";
 import RadioGroup from "@/ui/RadioGroup";
 import Callout from "@/ui/Callout";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import Text from "@/ui/Text";
 
 // Rule-level environment scope editor. Sits under the Description field in
@@ -88,6 +88,7 @@ export default function RuleEnvironmentScopeField({
       {!allEnvironments && (
         <Box pl="5">
           <MultiSelectField
+            size="legacy"
             value={selectedEnvironments}
             onChange={(vals) => setSelectedEnvironments(vals)}
             options={options}

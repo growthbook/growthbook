@@ -1,6 +1,6 @@
 import { useForm } from "react-hook-form";
 import uniq from "lodash/uniq";
-import Field from "@/components/Forms/Field";
+import SelectField from "@/components/Forms/SelectField";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 export interface Props {
@@ -43,12 +43,14 @@ export default function FixVariationIds({
     >
       <h3>Variation Ids</h3>
       {names.map((name, i) => (
-        <Field
+        <SelectField
+          size="legacy"
           key={i}
           label={name}
-          options={actual}
+          options={actual.map((v) => ({ label: v, value: v }))}
           placeholder={expected[i]}
-          {...form.register(`ids.${i}`)}
+          value={form.watch(`ids.${i}`)}
+          onChange={(value) => form.setValue(`ids.${i}`, value)}
         />
       ))}
     </ModalStandard>
