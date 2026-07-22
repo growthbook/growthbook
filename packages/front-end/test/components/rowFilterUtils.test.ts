@@ -79,9 +79,9 @@ describe("isDateOnlyOperator", () => {
 
 describe("reshapeDateValueForOperator", () => {
   it("strips the time when switching to a date-only operator", () => {
-    // e.g. `>` (2026-07-15T09:30:00) -> `=` : the equality filter must not
-    // carry a time into SQL.
-    expect(reshapeDateValueForOperator("2026-07-15T09:30:00", true)).toBe(
+    // e.g. `>` (2026-07-15T09:30) -> `=` : the equality filter must not carry a
+    // time into SQL.
+    expect(reshapeDateValueForOperator("2026-07-15T09:30", true)).toBe(
       "2026-07-15",
     );
   });
@@ -90,14 +90,14 @@ describe("reshapeDateValueForOperator", () => {
     // e.g. `=` (2026-07-15) -> `>` : give the datetime picker a parseable,
     // day-correct value.
     expect(reshapeDateValueForOperator("2026-07-15", false)).toBe(
-      "2026-07-15T00:00:00",
+      "2026-07-15T00:00",
     );
   });
 
   it("leaves an already-correct value unchanged", () => {
     expect(reshapeDateValueForOperator("2026-07-15", true)).toBe("2026-07-15");
-    expect(reshapeDateValueForOperator("2026-07-15T09:30:00", false)).toBe(
-      "2026-07-15T09:30:00",
+    expect(reshapeDateValueForOperator("2026-07-15T09:30", false)).toBe(
+      "2026-07-15T09:30",
     );
   });
 

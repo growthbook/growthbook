@@ -19,7 +19,7 @@ export function isDateOnlyOperator(operator: string): boolean {
 
 /**
  * Reshape a stored date value between date-only (`yyyy-MM-dd`) and datetime
- * (`yyyy-MM-dd'T'HH:mm:ss`) form when the operator changes which one applies.
+ * (`yyyy-MM-dd'T'HH:mm`) form when the operator changes which one applies.
  * Purely string-based (no `Date` parsing) so there is no timezone shift: to
  * date-only we keep the `yyyy-MM-dd` prefix; to datetime we append midnight when
  * the value has no time component.
@@ -31,7 +31,7 @@ export function reshapeDateValueForOperator(
   if (!value) return value;
   const datePart = value.slice(0, 10);
   if (dateOnly) return datePart;
-  return value.length > 10 ? value : `${datePart}T00:00:00`;
+  return value.length > 10 ? value : `${datePart}T00:00`;
 }
 
 export function getAllowedOperators(datatype: string): RowFilter["operator"][] {

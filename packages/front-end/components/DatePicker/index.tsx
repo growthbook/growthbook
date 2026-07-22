@@ -141,10 +141,9 @@ export default function DatePicker({
         }
       : {};
   const hasTime = precision === "datetime";
-  // The datetime field always exposes a seconds slot (step=1). Users can type
-  // an hh:mm:ss time when they need one, but nothing forces it — the seconds
-  // default to 00 and picking a day from the calendar resets to 00:00:00.
-  const dateFormat = hasTime ? "yyyy-MM-dd'T'HH:mm:ss" : "yyyy-MM-dd";
+  // Minute-level datetime (native hh:mm) or a plain date. Picking a day from the
+  // calendar resets the time to 00:00.
+  const dateFormat = hasTime ? "yyyy-MM-dd'T'HH:mm" : "yyyy-MM-dd";
   // Parses a date prop / bound in the same frame as the user's typed input.
   // For `date` precision, `new Date("yyyy-MM-dd")` lands on UTC midnight, so
   // we shift to local midnight via `getValidDateOffsetByUTC`. For datetime
@@ -406,11 +405,10 @@ export default function DatePicker({
                     type={
                       isRange ? "text" : hasTime ? "datetime-local" : "date"
                     }
-                    step={!isRange && hasTime ? "1" : undefined}
                     placeholder={
                       isRange
                         ? hasTime
-                          ? `yyyy-MM-dd'T'HH:mm:ss${RANGE_DISPLAY_SEP}yyyy-MM-dd'T'HH:mm:ss`
+                          ? `yyyy-MM-dd'T'HH:mm${RANGE_DISPLAY_SEP}yyyy-MM-dd'T'HH:mm`
                           : `yyyy-MM-dd${RANGE_DISPLAY_SEP}yyyy-MM-dd`
                         : undefined
                     }
