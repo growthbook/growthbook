@@ -11,7 +11,7 @@ import { AddEditIdentityJoinModal } from "@/components/Settings/EditDataSource/D
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import Code from "@/components/SyntaxHighlighting/Code";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Badge from "@/ui/Badge";
+import CounterBadge from "@/ui/Badge/CounterBadge";
 import Button from "@/ui/Button";
 
 type DataSourceInlineEditIdentityJoinsProps =
@@ -109,11 +109,7 @@ export const DataSourceInlineEditIdentityJoins: FC<
               <Heading as="h3" size="4" mb="0">
                 Join Tables
               </Heading>
-              <Badge
-                label={identityJoins.length + ""}
-                color="gray"
-                radius="medium"
-              />
+              <CounterBadge color="neutral" count={identityJoins.length} />
             </Flex>
             {canEdit && (
               <Box>

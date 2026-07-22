@@ -35,6 +35,8 @@ import { isCloud } from "@/services/env";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Callout from "@/ui/Callout";
+import CounterBadge from "@/ui/Badge/CounterBadge";
+import BetaBadge from "@/ui/Badge/BetaBadge";
 import { EntityAccordion, EntityAccordionContent } from "./EntityAccordion";
 
 function HasChangesIcon({
@@ -189,36 +191,40 @@ function ImportHeader({
               size="sm"
               containerClassName="mr-2"
             />
-            {beta ? (
-              <span className="ml-1 badge badge-warning badge-pill">Beta</span>
-            ) : null}
+            {beta ? <BetaBadge ml="1" /> : null}
           </div>
         </div>
         <div className="col-auto mr-4">
           <strong>{items.length}</strong> total
         </div>
         <div className="col-auto">
-          <span className="badge badge-info badge-pill">
-            {countsByStatus["pending"] || 0}
-          </span>{" "}
+          <CounterBadge
+            color="neutral"
+            count={countsByStatus["pending"] || 0}
+          />{" "}
           pending
         </div>
         <div className="col-auto">
-          <span className="badge badge-secondary badge-pill">
-            {countsByStatus["skipped"] || 0}
-          </span>{" "}
+          <CounterBadge
+            color="neutral"
+            count={countsByStatus["skipped"] || 0}
+          />{" "}
           skipped
         </div>
         <div className="col-auto">
-          <span className="badge badge-success badge-pill">
-            {countsByStatus["completed"] || 0}
-          </span>{" "}
+          <CounterBadge
+            color="neutral"
+            count={countsByStatus["completed"] || 0}
+          />{" "}
           imported
         </div>
         <div className="col-auto">
-          <span className="badge badge-danger badge-pill">
-            {(countsByStatus["failed"] || 0) + (countsByStatus["invalid"] || 0)}
-          </span>{" "}
+          <CounterBadge
+            color="red"
+            count={
+              (countsByStatus["failed"] || 0) + (countsByStatus["invalid"] || 0)
+            }
+          />{" "}
           failed
         </div>
       </div>
@@ -1315,9 +1321,7 @@ export default function ImportFromStatsig() {
                         marginBottom: "0.5rem",
                       }}
                     >
-                      <span className="badge badge-info badge-pill mr-2">
-                        {count}
-                      </span>
+                      <CounterBadge color="neutral" count={count} mr="2" />
                       <span>{categoryLabels[category] || category}</span>
                     </div>
                   ));
@@ -1371,9 +1375,11 @@ export default function ImportFromStatsig() {
                           return (
                             <div className="d-flex align-items-center justify-content-between w-100">
                               <span>{option.label}</span>
-                              <span className="badge badge-info badge-pill ml-2">
-                                {count}
-                              </span>
+                              <CounterBadge
+                                color="neutral"
+                                count={count}
+                                ml="2"
+                              />
                             </div>
                           );
                         }}
@@ -1401,9 +1407,11 @@ export default function ImportFromStatsig() {
                           label="New items"
                           size="sm"
                         />
-                        <span className="badge badge-info badge-pill ml-2">
-                          {getNewItemsCount()}
-                        </span>
+                        <CounterBadge
+                          color="neutral"
+                          count={getNewItemsCount()}
+                          ml="2"
+                        />
                       </div>
                       <div className="d-flex align-items-center">
                         <Checkbox
@@ -1417,9 +1425,11 @@ export default function ImportFromStatsig() {
                           label="Updated items"
                           size="sm"
                         />
-                        <span className="badge badge-info badge-pill ml-2">
-                          {getUpdatedItemsCount()}
-                        </span>
+                        <CounterBadge
+                          color="neutral"
+                          count={getUpdatedItemsCount()}
+                          ml="2"
+                        />
                       </div>
                       {filterUpdatedItems ? (
                         <div className="d-flex align-items-center mt-1 ml-3">
@@ -1429,9 +1439,11 @@ export default function ImportFromStatsig() {
                             label="with changes"
                             size="sm"
                           />
-                          <span className="badge badge-info badge-pill ml-2">
-                            {getUpdatedItemsWithChangesCount()}
-                          </span>
+                          <CounterBadge
+                            color="neutral"
+                            count={getUpdatedItemsWithChangesCount()}
+                            ml="2"
+                          />
                         </div>
                       ) : null}
                     </div>

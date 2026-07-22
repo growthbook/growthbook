@@ -10,7 +10,8 @@ import AddEditContextualBanditQueryModal from "@/components/ContextualBandit/Add
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Button from "@/ui/Button";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Badge from "@/ui/Badge";
+import CounterBadge from "@/ui/Badge/CounterBadge";
+import BetaBadge from "@/ui/Badge/BetaBadge";
 import Callout from "@/ui/Callout";
 import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
 import { useAuth } from "@/services/auth";
@@ -100,11 +101,10 @@ export const ContextualBanditAssignmentQueries: FC<
             <Heading as="h3" size="medium" mb="0">
               Contextual Bandit Assignment Queries
             </Heading>
-            <Badge label="BETA" color="gray" variant="solid" />
-            <Badge
-              label={contextualBanditQueries.length + ""}
-              color="gray"
-              radius="medium"
+            <BetaBadge />
+            <CounterBadge
+              color="neutral"
+              count={contextualBanditQueries.length}
             />
           </Flex>
         </Box>

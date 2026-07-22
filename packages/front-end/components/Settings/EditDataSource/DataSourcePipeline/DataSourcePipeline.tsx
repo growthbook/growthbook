@@ -3,7 +3,7 @@ import { DataSourceType } from "shared/types/datasource";
 import { Box, Card, Flex, Heading, Text } from "@radix-ui/themes";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Badge from "@/ui/Badge";
+import BetaBadge from "@/ui/Badge/BetaBadge";
 import Link from "@/ui/Link";
 import { EditDataSourcePipeline } from "./EditDataSourcePipeline";
 
@@ -75,7 +75,7 @@ export default function DataSourcePipeline({
           <Heading as="h3" size="4" mb="0">
             Data Pipeline Settings
           </Heading>
-          <Badge label="BETA" color="gray" variant="solid" />
+          <BetaBadge />
         </Flex>
         {canEdit && (
           <Link

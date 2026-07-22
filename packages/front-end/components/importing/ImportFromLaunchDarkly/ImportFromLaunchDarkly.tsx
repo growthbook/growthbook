@@ -41,6 +41,7 @@ import {
 } from "@/services/importing/launchdarkly/launchdarkly-importing";
 import track from "@/services/track";
 import Callout from "@/ui/Callout";
+import CounterBadge from "@/ui/Badge/CounterBadge";
 
 type ImportStatus = "invalid" | "skipped" | "pending" | "completed" | "failed";
 
@@ -639,27 +640,33 @@ function ImportHeader({
           <strong>{items.length}</strong> total
         </div>
         <div className="col-auto">
-          <span className="badge badge-info badge-pill">
-            {countsByStatus["pending"] || 0}
-          </span>{" "}
+          <CounterBadge
+            color="neutral"
+            count={countsByStatus["pending"] || 0}
+          />{" "}
           pending
         </div>
         <div className="col-auto">
-          <span className="badge badge-secondary badge-pill">
-            {countsByStatus["skipped"] || 0}
-          </span>{" "}
+          <CounterBadge
+            color="neutral"
+            count={countsByStatus["skipped"] || 0}
+          />{" "}
           skipped
         </div>
         <div className="col-auto">
-          <span className="badge badge-success badge-pill">
-            {countsByStatus["completed"] || 0}
-          </span>{" "}
+          <CounterBadge
+            color="neutral"
+            count={countsByStatus["completed"] || 0}
+          />{" "}
           imported
         </div>
         <div className="col-auto">
-          <span className="badge badge-danger badge-pill">
-            {(countsByStatus["failed"] || 0) + (countsByStatus["invalid"] || 0)}
-          </span>{" "}
+          <CounterBadge
+            color="red"
+            count={
+              (countsByStatus["failed"] || 0) + (countsByStatus["invalid"] || 0)
+            }
+          />{" "}
           failed
         </div>
       </div>

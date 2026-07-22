@@ -16,7 +16,7 @@ import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Button from "@/ui/Button";
 import { UpdateDimensionMetadataModal } from "@/components/Settings/EditDataSource/DimensionMetadata/UpdateDimensionMetadata";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Badge from "@/ui/Badge";
+import CounterBadge from "@/ui/Badge/CounterBadge";
 import Callout from "@/ui/Callout";
 import { CustomDimensionMetadata } from "@/components/Settings/EditDataSource/DimensionMetadata/DimensionSlicesRunner";
 
@@ -124,10 +124,9 @@ export const ExperimentAssignmentQueries: FC<
             <Heading as="h3" size="4" mb="0">
               Experiment Assignment Queries
             </Heading>
-            <Badge
-              label={experimentExposureQueries.length + ""}
-              color="gray"
-              radius="medium"
+            <CounterBadge
+              color="neutral"
+              count={experimentExposureQueries.length}
             />
           </Flex>
         </Box>
