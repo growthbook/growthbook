@@ -5,7 +5,7 @@ import type { OrganizationInterface } from "shared/types/organization";
 import { ReqContextClass } from "back-end/src/services/context";
 import { setupApp } from "./api.setup";
 
-// Commit-phase failure coverage for POST /api/v2/releases/publish-revisions:
+// Commit-phase failure coverage for POST /api/v1/releases/publish-revisions:
 // inject a fault into the FEATURE apply (after the constant already applied)
 // and assert the full compensation contract — pre-images restored, revisions
 // reopened, zero success-side signals, revision.publishFailed emitted per
@@ -142,7 +142,7 @@ function makeContext(): ReqContextClass {
 
 const { app, setReqContext } = setupApp();
 
-describe("POST /api/v2/releases/publish-revisions — commit failure", () => {
+describe("POST /api/v1/releases/publish-revisions — commit failure", () => {
   afterEach(() => {
     mockFailFeatureApply = false;
     mockFailConstantRestore = false;
@@ -219,7 +219,7 @@ describe("POST /api/v2/releases/publish-revisions — commit failure", () => {
     // Constant first: it fully applies before the feature apply throws, so
     // compensation must restore an already-committed entity write.
     const res = await request(app)
-      .post("/api/v2/releases/publish-revisions")
+      .post("/api/v1/releases/publish-revisions")
       .send({
         revisions: [
           { entityType: "constant", key: "fail-const", version: constVersion },
@@ -353,7 +353,7 @@ describe("POST /api/v2/releases/publish-revisions — commit failure", () => {
     mockFailFeatureApply = true;
     mockFailConstantRestore = true;
     const res = await request(app)
-      .post("/api/v2/releases/publish-revisions")
+      .post("/api/v1/releases/publish-revisions")
       .send({
         revisions: [
           { entityType: "constant", key: "stuck-const", version: constVersion },
@@ -480,7 +480,7 @@ describe("POST /api/v2/releases/publish-revisions — commit failure", () => {
     mockFailFeatureApply = true;
     mockFailConstantReleaseClaim = true;
     const res = await request(app)
-      .post("/api/v2/releases/publish-revisions")
+      .post("/api/v1/releases/publish-revisions")
       .send({
         revisions: [
           { entityType: "constant", key: "reopen-fail", version: constVersion },
@@ -586,7 +586,7 @@ describe("POST /api/v2/releases/publish-revisions — commit failure", () => {
     mockFeatureClaimConflict = true;
     mockFailConstantReleaseClaim = true;
     const res = await request(app)
-      .post("/api/v2/releases/publish-revisions")
+      .post("/api/v1/releases/publish-revisions")
       .send({
         revisions: [
           { entityType: "constant", key: "abort-stuck", version: constVersion },
@@ -693,7 +693,7 @@ describe("POST /api/v2/releases/publish-revisions — commit failure", () => {
     mockFailFeatureApply = true;
     mockFeatureReleaseNoop = true;
     const res = await request(app)
-      .post("/api/v2/releases/publish-revisions")
+      .post("/api/v1/releases/publish-revisions")
       .send({
         revisions: [
           { entityType: "constant", key: "noop-reopen", version: constVersion },
@@ -809,7 +809,7 @@ describe("POST /api/v2/releases/publish-revisions — commit failure", () => {
     };
 
     const res = await request(app)
-      .post("/api/v2/releases/publish-revisions")
+      .post("/api/v1/releases/publish-revisions")
       .send({
         revisions: [
           { entityType: "constant", key: "restamp", version: constVersion },
@@ -918,7 +918,7 @@ describe("POST /api/v2/releases/publish-revisions — commit failure", () => {
     mockConstantBaselineUnavailable = true;
     mockFailFeatureApply = true;
     const res = await request(app)
-      .post("/api/v2/releases/publish-revisions")
+      .post("/api/v1/releases/publish-revisions")
       .send({
         revisions: [
           { entityType: "constant", key: "nobaseline", version: constVersion },
@@ -1055,7 +1055,7 @@ describe("POST /api/v2/releases/publish-revisions — commit failure", () => {
     mockFailConstantApply = true;
 
     const res = await request(app)
-      .post("/api/v2/releases/publish-revisions")
+      .post("/api/v1/releases/publish-revisions")
       .send({
         revisions: [
           { entityType: "feature", id: "sat-feat", version: 2 },

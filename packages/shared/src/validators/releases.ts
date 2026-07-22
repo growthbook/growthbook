@@ -184,5 +184,5 @@ export const postReleasePublishRevisionsValidator = {
       ),
     warnings: z.array(z.string()),
   }),
-  version: "v2" as const,
+  version: "v1" as const,
 };
