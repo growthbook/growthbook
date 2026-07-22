@@ -609,8 +609,8 @@ const NewDataSourceForm: FC<{
         </div>
         <div className="form-group">
           <label>Description</label>
-          <textarea
-            className="form-control"
+          <Field
+            textarea
             maxLength={MAX_DESCRIPTION_LENGTH}
             name="description"
             onChange={onChange}

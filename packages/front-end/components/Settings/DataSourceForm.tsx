@@ -11,6 +11,7 @@ import { isSampleDatasource } from "shared/demo-datasource";
 import { dataSourceConnections } from "@/services/eventSchema";
 import Button from "@/ui/Button";
 import SelectField from "@/components/Forms/SelectField";
+import Field from "@/components/Forms/Field";
 import MultiSelectField from "@/ui/MultiSelectField";
 import { getInitialSettings } from "@/services/datasources";
 import { DocLink, DocSection } from "@/components/DocLink";
@@ -278,8 +279,8 @@ const DataSourceForm: FC<{
       </div>
       <div className="form-group">
         <label>Description</label>
-        <textarea
-          className="form-control"
+        <Field
+          textarea
           maxLength={MAX_DESCRIPTION_LENGTH}
           name="description"
           onChange={onChange}

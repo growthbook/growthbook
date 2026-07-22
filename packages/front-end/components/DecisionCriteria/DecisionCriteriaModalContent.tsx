@@ -10,6 +10,7 @@ import {
   PiTrash,
 } from "react-icons/pi";
 import { Select, SelectItem } from "@/ui/Select";
+import Field from "@/components/Forms/Field";
 import { useDecisionCriteriaForm } from "@/hooks/useDecisionCriteriaForm";
 
 // Match options
@@ -135,12 +136,12 @@ const DecisionCriteriaModalContent: FC<DecisionCriteriaModalContentProps> = ({
           Description
         </Text>
         <div className="form-group">
-          <textarea
-            className="form-control"
+          <Field
+            textarea
             placeholder="(optional)"
             value={form.watch("description")}
             onChange={(e) => form.setValue("description", e.target.value)}
-            rows={2}
+            minRows={2}
             disabled={!editable}
           />
         </div>
