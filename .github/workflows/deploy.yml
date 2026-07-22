@@ -86,8 +86,10 @@ jobs:
             ${{ steps.login-ecr.outputs.registry }}/growthbook:git-${{ steps.metadata.outputs.docker_sha }}
           platforms: linux/amd64,linux/arm64
 
-  # Deploy GrowthBook Cloud
-  prod:
+  # Extract front-end static assets to S3 and publish Sentry releases. This runs
+  # before the services go live (deploy needs it) so the new app's content-hashed
+  # assets are already served when the new revision starts handling requests.
+  assets:
     runs-on: ubuntu-latest
     needs: [docker]
     if: ${{ github.repository == 'growthbook/growthbook' }}
@@ -154,51 +156,49 @@ jobs:
           SENTRY_ORG: growthbook
           SENTRY_PROJECT: app
 
-      # Pin each service to the git-<sha> image we just built, rather than
-      # re-pulling the mutable :latest tag. Each step registers a new task
-      # definition revision (based on the current one, so env/secrets defined
-      # in Terraform carry over) and rolls the service to it.
-      - name: Render API task definition
-        id: taskdef-api
-        uses: aws-actions/amazon-ecs-render-task-definition@v1
+  # Roll each service to the git-<sha> image we just built. The three services
+  # deploy in parallel (matrix) rather than sequentially. Each step registers a
+  # new task-definition revision (based on the current one, so env/secrets
+  # defined in Terraform carry over) and rolls the service to it.
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [docker, assets]
+    if: ${{ github.repository == 'growthbook/growthbook' }}
+    strategy:
+      # Don't cancel a healthy service's rollout because another service failed.
+      fail-fast: false
+      matrix:
+        include:
+          - { service: prod-api, container: api }
+          - { service: prod-api-jobs, container: api-jobs }
+          - { service: prod-api-python, container: api-python }
+    steps:
+      - name: Configure AWS credentials for GrowthBook Cloud
+        uses: aws-actions/configure-aws-credentials@v5
         with:
-          task-definition-family: prod-api
-          container-name: api
-          image: ${{ steps.login-ecr-prod.outputs.registry }}/growthbook:git-${{ needs.docker.outputs.docker_sha }}
-      - name: Deploy ECS for GrowthBook Cloud API
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
-        with:
-          task-definition: ${{ steps.taskdef-api.outputs.task-definition }}
-          service: prod-api
-          cluster: prod-api
-          wait-for-service-stability: true
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
 
-      - name: Render Jobs task definition
-        id: taskdef-jobs
-        uses: aws-actions/amazon-ecs-render-task-definition@v1
-        with:
-          task-definition-family: prod-api-jobs
-          container-name: api-jobs
-          image: ${{ steps.login-ecr-prod.outputs.registry }}/growthbook:git-${{ needs.docker.outputs.docker_sha }}
-      - name: Deploy ECS for GrowthBook Cloud Jobs
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
-        with:
-          task-definition: ${{ steps.taskdef-jobs.outputs.task-definition }}
-          service: prod-api-jobs
-          cluster: prod-api-jobs
-          wait-for-service-stability: true
+      - name: Login to Amazon ECR
+        id: login-ecr-prod
+        uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Render Python task definition
-        id: taskdef-python
+      - name: Render task definition
+        id: taskdef
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
-          task-definition-family: prod-api-python
-          container-name: api-python
+          task-definition-family: ${{ matrix.service }}
+          container-name: ${{ matrix.container }}
           image: ${{ steps.login-ecr-prod.outputs.registry }}/growthbook:git-${{ needs.docker.outputs.docker_sha }}
-      - name: Deploy ECS for GrowthBook Cloud Python
+
+      - name: Deploy to ECS
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
         with:
-          task-definition: ${{ steps.taskdef-python.outputs.task-definition }}
-          service: prod-api-python
-          cluster: prod-api-python
+          task-definition: ${{ steps.taskdef.outputs.task-definition }}
+          service: ${{ matrix.service }}
+          cluster: ${{ matrix.service }}
           wait-for-service-stability: true
+          # Backstop so a slow (but succeeding) rollout doesn't false-fail the
+          # step before ECS finishes. Root fix is the health-check grace period.
+          wait-for-minutes: 30
