@@ -3444,10 +3444,16 @@ textarea.form-control--md {
   font-size: var(--font-size-2);
 }
 input.form-control--legacy,
-select.form-control--legacy,
-textarea.form-control--legacy {
+select.form-control--legacy {
   padding-top: 4px;
   padding-bottom: 4px;
+  font-size: var(--font-size-2);
+}
+// Textareas grow from padding rather than a fixed height, so they need more
+// vertical padding than the fixed-height inputs/selects to feel like legacy.
+textarea.form-control--legacy {
+  padding-top: 6px;
+  padding-bottom: 6px;
   font-size: var(--font-size-2);
 }
 input.form-control--lg,
