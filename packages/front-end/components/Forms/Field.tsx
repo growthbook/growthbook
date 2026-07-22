@@ -7,6 +7,14 @@ import HelperText from "@/ui/HelperText";
 
 export type FieldSize = "sm" | "md" | "legacy" | "lg";
 
+// Vertical padding per size for the autosizing textarea (legacy = roomier default).
+const textareaVerticalPadding: Record<FieldSize, number> = {
+  sm: 2,
+  md: 2,
+  legacy: 6,
+  lg: 6,
+};
+
 export type BaseFieldProps = {
   label?: ReactNode;
   markRequired?: boolean;
@@ -94,6 +102,11 @@ const Field = forwardRef(
           className={cn}
           minRows={minRows || 2}
           maxRows={maxRows || 6}
+          style={{
+            paddingTop: textareaVerticalPadding[size],
+            paddingBottom: textareaVerticalPadding[size],
+            ...(otherProps as unknown as TextareaAutosizeProps).style,
+          }}
         />
       );
     } else {
