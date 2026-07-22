@@ -9,8 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import SqlQuerySection from "@/enterprise/components/ProductAnalytics/MainSection/SqlQuerySection";
 import { ProductAnalyticsExplorerVisualization } from "@/enterprise/components/Dashboards/DashboardEditor/DashboardBlock/ProductAnalyticsExplorerBlock";
-
-type ViewMode = "chart" | "sql";
+import { useSqlEditorContext } from "@/enterprise/components/ProductAnalytics/SqlEditorContext";
 
 function hasPreviewedSql(
   block: DashboardBlockInterfaceOrData<SqlExplorationBlockInterface>,
@@ -36,24 +35,25 @@ export default function SqlExplorationBlockEditor({
   headerTarget: HTMLDivElement;
 }) {
   const configIsReady = hasPreviewedSql(block);
+  const { viewMode, setViewMode } = useSqlEditorContext();
   const [chartReady, setChartReady] = useState(configIsReady);
-  const [viewMode, setViewMode] = useState<ViewMode>(
-    configIsReady ? "chart" : "sql",
-  );
 
   useEffect(() => {
     if (!configIsReady) {
       setChartReady(false);
       setViewMode("sql");
     }
-  }, [configIsReady]);
+  }, [configIsReady, setViewMode]);
 
-  const handleChartReadyChange = useCallback((ready: boolean) => {
-    setChartReady(ready);
-    if (!ready) {
-      setViewMode("sql");
-    }
-  }, []);
+  const handleChartReadyChange = useCallback(
+    (ready: boolean) => {
+      setChartReady(ready);
+      if (!ready) {
+        setViewMode("sql");
+      }
+    },
+    [setViewMode],
+  );
 
   const chartTrigger = (
     <TabsTrigger value="chart" disabled={!chartReady}>
@@ -64,7 +64,7 @@ export default function SqlExplorationBlockEditor({
   return createPortal(
     <Tabs
       value={viewMode}
-      onValueChange={(value) => setViewMode(value as ViewMode)}
+      onValueChange={(value) => setViewMode(value === "sql" ? "sql" : "chart")}
       style={{
         display: "flex",
         flex: 1,
@@ -117,6 +117,7 @@ export default function SqlExplorationBlockEditor({
           fullHeight
           showHeader={false}
           onChartReadyChange={handleChartReadyChange}
+          onRunSuccess={() => setViewMode("chart")}
         />
       </TabsContent>
     </Tabs>,

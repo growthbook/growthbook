@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { FaExclamationTriangle } from "react-icons/fa";
@@ -11,7 +12,9 @@ import {
   type SqlDataset,
 } from "shared/validators";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
-import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
+import DisplayTestQueryResults, {
+  type AdditionalQueryResultsTab,
+} from "@/components/Settings/DisplayTestQueryResults";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import { useAuth } from "@/services/auth";
@@ -41,10 +44,28 @@ export default function SqlQuerySection({
   fullHeight = false,
   showHeader = true,
   onChartReadyChange,
+  onRunStart,
+  onRunSuccess,
+  onRunError,
+  resultsTarget,
+  activeResultsTab,
+  onResultsTabChange,
+  additionalResultsTab,
+  onOpenChange,
+  onQueryFocus,
 }: {
   fullHeight?: boolean;
   showHeader?: boolean;
   onChartReadyChange?: (ready: boolean) => void;
+  onRunStart?: () => void;
+  onRunSuccess?: () => void;
+  onRunError?: () => void;
+  resultsTarget?: HTMLDivElement | null;
+  activeResultsTab?: string;
+  onResultsTabChange?: (value: string) => void;
+  additionalResultsTab?: AdditionalQueryResultsTab;
+  onOpenChange?: (open: boolean) => void;
+  onQueryFocus?: () => void;
 }) {
   const { apiCall } = useAuth();
   const { getDatasourceById } = useDefinitions();
@@ -61,7 +82,6 @@ export default function SqlQuerySection({
     setLocalSql,
     setCursorData,
     setIsAutocompleteEnabled,
-    setSchemaCollapsed,
   } = useSqlEditorContext();
 
   const [open, setOpen] = useState(true);
@@ -95,9 +115,10 @@ export default function SqlQuerySection({
       return;
     }
     collapseAfterSuccessfulRunRef.current = false;
-    setSchemaCollapsed(true);
-    editorPanelRef.current?.resize(30);
-  }, [error, previewResult, setSchemaCollapsed]);
+    if (!resultsTarget) {
+      editorPanelRef.current?.resize(30);
+    }
+  }, [error, previewResult, resultsTarget]);
 
   const chartReady =
     dataset !== null &&
@@ -110,6 +131,10 @@ export default function SqlQuerySection({
   useEffect(() => {
     onChartReadyChange?.(chartReady);
   }, [chartReady, onChartReadyChange]);
+
+  useEffect(() => {
+    onOpenChange?.(open);
+  }, [onOpenChange, open]);
 
   if (!dataset) return null;
 
@@ -147,6 +172,7 @@ export default function SqlQuerySection({
 
   const previewQuery = async (sql: string): Promise<boolean> => {
     if (!sql.trim() || !draftExploreState.datasource) return false;
+    onRunStart?.();
     setLoading(true);
     setError(null);
     collapseAfterSuccessfulRunRef.current = false;
@@ -163,6 +189,7 @@ export default function SqlQuerySection({
 
       if (response.error) {
         setError(response.error);
+        onRunError?.();
         return false;
       }
 
@@ -188,10 +215,12 @@ export default function SqlQuerySection({
         setError(
           "Your SQL query must return at least one date or timestamp column.",
         );
+        onRunError?.();
         return false;
       }
 
       collapseAfterSuccessfulRunRef.current = true;
+      onRunSuccess?.();
       return true;
     } catch (e) {
       const err = e instanceof Error ? e : new Error(String(e));
@@ -201,6 +230,7 @@ export default function SqlQuerySection({
         results: [],
         sql,
       });
+      onRunError?.();
       return false;
     } finally {
       setLoading(false);
@@ -221,6 +251,38 @@ export default function SqlQuerySection({
   const canRunPreview = !!localSql.trim() && !!draftExploreState.datasource;
   const canFormat = datasource ? canFormatSql(datasource.type) : false;
   const showContent = open || !showHeader;
+  const previewContent =
+    previewResult || additionalResultsTab ? (
+      <DisplayTestQueryResults
+        duration={previewResult?.duration ?? 0}
+        results={previewResult?.results ?? []}
+        sql={previewResult?.sql ?? localSql}
+        error={error ?? previewResult?.error ?? ""}
+        allowDownload
+        activeTab={activeResultsTab}
+        onTabChange={onResultsTabChange}
+        additionalTab={additionalResultsTab}
+        showResultsTabWhenEmpty
+        showNoRowsWarning={previewResult !== null}
+        emptyResultsContent={
+          !previewResult ? (
+            <Flex
+              align="center"
+              justify="center"
+              height="100%"
+              style={{ color: "var(--color-text-mid)" }}
+            >
+              <Text>Run a SQL query to see results.</Text>
+            </Flex>
+          ) : undefined
+        }
+        rowsLabel={
+          previewResult?.results?.length === PREVIEW_ROW_LIMIT
+            ? `Showing the first ${PREVIEW_ROW_LIMIT} rows`
+            : undefined
+        }
+      />
+    ) : null;
   const queryHelp = (
     <Tooltip
       body={
@@ -255,6 +317,7 @@ export default function SqlQuerySection({
     >
       {({ prompt, trigger }) => (
         <Box
+          onPointerDown={onQueryFocus}
           style={{
             border: showHeader ? "1px solid var(--gray-a3)" : undefined,
             borderRadius: showHeader ? "var(--radius-4)" : undefined,
@@ -277,19 +340,67 @@ export default function SqlQuerySection({
                 borderBottom: open ? "1px solid var(--gray-a3)" : undefined,
               }}
             >
-              <Button variant="ghost" onClick={() => setOpen(!open)}>
-                <Flex align="center" gap="2">
-                  {open ? <PiCaretDown /> : <PiCaretRight />}
-                  <Text weight="medium">Query</Text>
-                </Flex>
-              </Button>
-              <Flex align="center" justify="between" gap="3" mr="1">
+              <Flex align="center" gap="2">
+                <Button variant="ghost" onClick={() => setOpen(!open)}>
+                  <Flex align="center" gap="2">
+                    {open ? <PiCaretDown /> : <PiCaretRight />}
+                    <Text weight="medium">Query</Text>
+                  </Flex>
+                </Button>
+                {trigger}
+              </Flex>
+              <Flex align="center" gap="2" mr="1">
                 {sqlChanged ? (
                   <Text size="small" color="text-low">
                     Unsaved query changes
                   </Text>
                 ) : null}
+                {formatError ? (
+                  <Tooltip body={formatError}>
+                    <FaExclamationTriangle className="text-danger" />
+                  </Tooltip>
+                ) : null}
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  onClick={handleFormatClick}
+                  disabled={!localSql || !canFormat}
+                >
+                  Format
+                </Button>
+                <Button
+                  size="xs"
+                  disabled={!canRunPreview}
+                  loading={loading}
+                  onClick={() => previewQuery(localSql)}
+                  icon={<PiPlay />}
+                >
+                  Run
+                </Button>
                 {queryHelp}
+                <DropdownMenu
+                  trigger={
+                    <IconButton
+                      variant="ghost"
+                      color="gray"
+                      radius="full"
+                      size="2"
+                      aria-label="SQL editor options"
+                    >
+                      <BsThreeDotsVertical size={16} />
+                    </IconButton>
+                  }
+                >
+                  <DropdownMenuItem
+                    onClick={() =>
+                      setIsAutocompleteEnabled(!isAutocompleteEnabled)
+                    }
+                  >
+                    {isAutocompleteEnabled
+                      ? "Disable Autocomplete"
+                      : "Enable Autocomplete"}
+                  </DropdownMenuItem>
+                </DropdownMenu>
               </Flex>
             </Flex>
           ) : null}
@@ -315,10 +426,12 @@ export default function SqlQuerySection({
                     <Panel
                       ref={editorPanelRef}
                       order={1}
-                      defaultSize={previewResult ? 60 : 100}
+                      defaultSize={previewResult && !resultsTarget ? 60 : 100}
                       minSize={30}
                     >
                       <AreaWithHeader
+                        hideHeader={showHeader}
+                        borderless={showHeader}
                         header={
                           <Flex align="center" justify="between" gap="3">
                             <Flex align="center" gap="2">
@@ -397,7 +510,7 @@ export default function SqlQuerySection({
                         />
                       </AreaWithHeader>
                     </Panel>
-                    {previewResult && (
+                    {previewResult && !resultsTarget && (
                       <>
                         <PanelResizeHandle />
                         <Panel
@@ -406,19 +519,7 @@ export default function SqlQuerySection({
                           defaultSize={40}
                           minSize={15}
                         >
-                          <DisplayTestQueryResults
-                            duration={previewResult.duration ?? 0}
-                            results={previewResult.results ?? []}
-                            sql={previewResult.sql ?? localSql}
-                            error={error ?? previewResult.error ?? ""}
-                            allowDownload
-                            rowsLabel={
-                              previewResult.results?.length ===
-                              PREVIEW_ROW_LIMIT
-                                ? `Showing the first ${PREVIEW_ROW_LIMIT} rows`
-                                : undefined
-                            }
-                          />
+                          {previewContent}
                         </Panel>
                       </>
                     )}
@@ -432,5 +533,12 @@ export default function SqlQuerySection({
     </AiSqlGenerator>
   );
 
-  return content;
+  return (
+    <>
+      {content}
+      {resultsTarget && previewContent
+        ? createPortal(previewContent, resultsTarget)
+        : null}
+    </>
+  );
 }

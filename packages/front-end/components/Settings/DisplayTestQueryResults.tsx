@@ -19,6 +19,13 @@ import {
 
 export type { HeaderStructure };
 
+export type AdditionalQueryResultsTab = {
+  value: string;
+  label: ReactNode;
+  content: ReactNode;
+  disabled?: boolean;
+};
+
 export type Props = {
   results: Record<string, unknown>[];
   duration: number;
@@ -57,6 +64,12 @@ export type Props = {
   ) => ReactNode | undefined;
   paddingTop?: number;
   showNoRowsWarning?: boolean;
+  activeTab?: string;
+  onTabChange?: (value: string) => void;
+  additionalTab?: AdditionalQueryResultsTab;
+  resultsDisabled?: boolean;
+  showResultsTabWhenEmpty?: boolean;
+  emptyResultsContent?: ReactNode;
 };
 
 export default function DisplayTestQueryResults({
@@ -79,13 +92,28 @@ export default function DisplayTestQueryResults({
   renderCell,
   paddingTop = 0,
   showNoRowsWarning = true,
+  activeTab,
+  onTabChange,
+  additionalTab,
+  resultsDisabled = false,
+  showResultsTabWhenEmpty = false,
+  emptyResultsContent,
 }: Props) {
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const cols = orderedColumnKeys ?? Object.keys(results?.[0] || {});
   const labels = columnLabels ?? cols;
   const useTwoRowHeader = headerStructure != null && orderedColumnKeys != null;
 
-  const forceShowSql = error || !results.length;
+  const forceShowSql = error || (!results.length && !showResultsTabWhenEmpty);
+  const tabsProps =
+    activeTab !== undefined
+      ? {
+          value: activeTab,
+          onValueChange: onTabChange,
+        }
+      : {
+          defaultValue: forceShowSql ? "sql" : "results",
+        };
 
   const [page, setPage] = useState(1);
   const pageSize = 100;
@@ -167,7 +195,7 @@ export default function DisplayTestQueryResults({
   return (
     <Tabs
       key={forceShowSql ? "sql" : "results"}
-      defaultValue={forceShowSql ? "sql" : "results"}
+      {...tabsProps}
       style={{
         overflow: "hidden",
         height: "100%",
@@ -181,10 +209,20 @@ export default function DisplayTestQueryResults({
         }}
         header={
           <TabsList>
-            {!forceShowSql && (
-              <TabsTrigger value="results">Results</TabsTrigger>
+            {(!forceShowSql || showResultsTabWhenEmpty) && (
+              <TabsTrigger value="results" disabled={resultsDisabled}>
+                Results
+              </TabsTrigger>
             )}
             <TabsTrigger value="sql">{renderedSQLLabel}</TabsTrigger>
+            {additionalTab ? (
+              <TabsTrigger
+                value={additionalTab.value}
+                disabled={additionalTab.disabled}
+              >
+                {additionalTab.label}
+              </TabsTrigger>
+            ) : null}
             <div className="flex-grow-1">
               {close ? (
                 <button
@@ -204,7 +242,7 @@ export default function DisplayTestQueryResults({
           </TabsList>
         }
       >
-        {!forceShowSql && (
+        {(!forceShowSql || showResultsTabWhenEmpty) && (
           <TabsContent
             value="results"
             style={{
@@ -215,7 +253,11 @@ export default function DisplayTestQueryResults({
               paddingRight: "12px",
             }}
           >
-            <div className="mt-2 rounded p-2 bg-light">
+            {emptyResultsContent ? (
+              emptyResultsContent
+            ) : (
+              <>
+                <div className="mt-2 rounded p-2 bg-light">
               {downloadError ? (
                 <div className="mb-2">
                   <Callout status="error">{downloadError}</Callout>
@@ -295,12 +337,12 @@ export default function DisplayTestQueryResults({
                   </>
                 ) : null}
               </Flex>
-            </div>
-            <div
-              style={{ width: "100%", overflow: "auto", flexGrow: 1 }}
-              className="mb-3"
-              ref={tableBodyScrollRef}
-            >
+                </div>
+                <div
+                  style={{ width: "100%", overflow: "auto", flexGrow: 1 }}
+                  className="mb-3"
+                  ref={tableBodyScrollRef}
+                >
               <table className="table table-bordered appbox gbtable table-hover mb-0">
                 <thead
                   style={{
@@ -362,7 +404,9 @@ export default function DisplayTestQueryResults({
                     ))}
                 </tbody>
               </table>
-            </div>
+                </div>
+              </>
+            )}
           </TabsContent>
         )}
 
@@ -405,6 +449,19 @@ export default function DisplayTestQueryResults({
             />
           </div>
         </TabsContent>
+        {additionalTab ? (
+          <TabsContent
+            value={additionalTab.value}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              height: "100%",
+              minHeight: 0,
+            }}
+          >
+            {additionalTab.content}
+          </TabsContent>
+        ) : null}
       </AreaWithHeader>
     </Tabs>
   );

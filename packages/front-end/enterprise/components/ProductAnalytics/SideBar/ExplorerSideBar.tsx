@@ -34,6 +34,7 @@ import {
 import SaveToDashboardModal from "@/enterprise/components/ProductAnalytics/SaveToDashboardModal";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import track from "@/services/track";
+import { useOptionalSqlEditorContext } from "@/enterprise/components/ProductAnalytics/SqlEditorContext";
 import MetricTabContent from "./MetricTabContent";
 import FactTableTabContent from "./FactTableTabContent";
 import DatasourceTabContent from "./DatasourceTabContent";
@@ -103,6 +104,14 @@ export default function ExplorerSideBar({
 
   const dataset = draftExploreState.dataset;
   const activeType: DatasetType = dataset?.type ?? "metric";
+  const sqlEditorContext = useOptionalSqlEditorContext();
+  const isSqlQueryActive = sqlEditorContext?.isQueryActive ?? false;
+  const showSqlSchemaBrowser =
+    activeType === "sql" &&
+    (sqlEditorContext?.viewMode !== "chart" || isSqlQueryActive);
+  const showChartControls =
+    activeType !== "sql" ||
+    (sqlEditorContext?.viewMode === "chart" && !isSqlQueryActive);
   const factTableDataset =
     activeType === "fact_table" && dataset?.type === "fact_table"
       ? dataset
@@ -135,6 +144,11 @@ export default function ExplorerSideBar({
       direction="column"
       gap="4"
       p={renderingInDashboardSidebar ? "0" : "2"}
+      height={
+        showSqlSchemaBrowser && !renderingInDashboardSidebar
+          ? "100%"
+          : undefined
+      }
     >
       {showSaveToDashboardModal && (
         <SaveToDashboardModal
@@ -250,15 +264,17 @@ export default function ExplorerSideBar({
           </Flex>
         )}
       </Flex>
-      {renderingInDashboardSidebar && isSqlSetupState ? (
+      {renderingInDashboardSidebar &&
+      showSqlSchemaBrowser &&
+      isSqlSetupState ? (
         <Callout status="info">
           Run the SQL query to configure the chart.
         </Callout>
       ) : null}
-      {renderingInDashboardSidebar && activeType === "sql" && (
-        <SchemaBrowserSection />
+      {showSqlSchemaBrowser && (
+        <SchemaBrowserSection fullHeight={!renderingInDashboardSidebar} />
       )}
-      {renderingInDashboardSidebar && (
+      {renderingInDashboardSidebar && showChartControls && (
         <Flex
           direction="column"
           gap="4"
@@ -422,22 +438,20 @@ export default function ExplorerSideBar({
           <DatasourceConfigurator dataset={dataset} />
         </Flex>
       )}
-      {!renderingInDashboardSidebar && activeType === "sql" && (
-        <SchemaBrowserSection />
-      )}
       <Box p="0">
         {activeType === "metric" && <MetricTabContent />}
         {activeType === "fact_table" && <FactTableTabContent />}
         {activeType === "data_source" && <DatasourceTabContent />}
-        {activeType === "sql" && <SqlTabContent />}
+        {activeType === "sql" && showChartControls && <SqlTabContent />}
         {activeType === "funnel" && <FunnelTabContent />}
       </Box>
 
-      {activeType !== "funnel" &&
+      {showChartControls &&
+        activeType !== "funnel" &&
         showAsAppliesTo(draftExploreState, getFactMetricById) && (
           <ShowAsSection />
         )}
-      {hasInputs && <GroupBySection />}
+      {showChartControls && hasInputs && <GroupBySection />}
     </Flex>
   );
 }

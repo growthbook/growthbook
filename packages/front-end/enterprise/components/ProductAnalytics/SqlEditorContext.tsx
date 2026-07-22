@@ -10,6 +10,8 @@ import { AceCompletion } from "@/components/Forms/CodeTextArea";
 import { CursorData } from "@/components/Segments/SegmentForm";
 import useSqlAutocomplete from "@/components/SchemaBrowser/useSqlAutocomplete";
 
+export type SqlEditorViewMode = "chart" | "results" | "sql";
+
 interface SqlEditorContextValue {
   localSql: string;
   setLocalSql: (sql: string) => void;
@@ -18,8 +20,10 @@ interface SqlEditorContextValue {
   isAutocompleteEnabled: boolean;
   setCursorData: (cursorData: CursorData | null) => void;
   setIsAutocompleteEnabled: (enabled: boolean) => void;
-  schemaCollapsed: boolean;
-  setSchemaCollapsed: (collapsed: boolean) => void;
+  viewMode: SqlEditorViewMode;
+  setViewMode: (viewMode: SqlEditorViewMode) => void;
+  isQueryActive: boolean;
+  setIsQueryActive: (active: boolean) => void;
 }
 
 const SqlEditorContext = createContext<SqlEditorContextValue | null>(null);
@@ -28,17 +32,17 @@ export function SqlEditorProvider({
   children,
   datasourceId,
   sql,
-  initialSchemaCollapsed = false,
+  initialViewMode,
 }: {
   children: ReactNode;
   datasourceId: string;
   sql: string;
-  initialSchemaCollapsed?: boolean;
+  initialViewMode: SqlEditorViewMode;
 }) {
   const [localSql, setLocalSql] = useState(sql);
-  const [schemaCollapsed, setSchemaCollapsed] = useState(
-    initialSchemaCollapsed,
-  );
+  const [viewMode, setViewMode] =
+    useState<SqlEditorViewMode>(initialViewMode);
+  const [isQueryActive, setIsQueryActive] = useState(false);
   const {
     autoCompletions,
     cursorData,
@@ -64,17 +68,20 @@ export function SqlEditorProvider({
       isAutocompleteEnabled,
       setCursorData,
       setIsAutocompleteEnabled,
-      schemaCollapsed,
-      setSchemaCollapsed,
+      viewMode,
+      setViewMode,
+      isQueryActive,
+      setIsQueryActive,
     }),
     [
       autoCompletions,
       cursorData,
       isAutocompleteEnabled,
+      isQueryActive,
       localSql,
-      schemaCollapsed,
       setCursorData,
       setIsAutocompleteEnabled,
+      viewMode,
     ],
   );
 
@@ -93,4 +100,8 @@ export function useSqlEditorContext(): SqlEditorContextValue {
     );
   }
   return context;
+}
+
+export function useOptionalSqlEditorContext(): SqlEditorContextValue | null {
+  return useContext(SqlEditorContext);
 }
