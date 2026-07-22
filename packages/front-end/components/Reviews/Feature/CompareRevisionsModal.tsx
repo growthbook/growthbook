@@ -1631,7 +1631,7 @@ export default function CompareRevisionsModal({
               {previewDisplayLoading ? (
                 <LoadingOverlay />
               ) : previewDisplayFailed.length > 0 ? (
-                <Callout status="error" contentsAs="div" mt="4">
+                <Callout status="error" mt="4">
                   <Flex gap="4" align="start">
                     <span>
                       Could not load revision
@@ -1733,7 +1733,7 @@ export default function CompareRevisionsModal({
                     <Select
                       value={diffViewMode}
                       setValue={(v) => setDiffViewModeRaw(v)}
-                      size="2"
+                      size="small"
                       mb="0"
                     >
                       <SelectItem value="steps">Steps</SelectItem>
@@ -1759,7 +1759,7 @@ export default function CompareRevisionsModal({
               {displayLoading ? (
                 <LoadingOverlay />
               ) : displayFailed.length > 0 ? (
-                <Callout status="error" contentsAs="div" mt="4">
+                <Callout status="error" mt="4">
                   <Flex gap="4" align="start">
                     <span>
                       Could not load revision

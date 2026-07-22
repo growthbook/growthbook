@@ -71,10 +71,11 @@ li[data-item-id^="tag/"][data-item-id$="-v2"] > label::after,
   @include pill-style(#c2e6ff, #0d74ce);
 }
 
-// BETA pill — applied per-tag to brand-new groups still under active
-// iteration. Each tag here also gets the layout primitives so the pill
-// renders inline regardless of whether the tag also matches the -v2 rules
-// above.
+// BETA pill — apply per-tag to brand-new groups still under active
+// iteration. Each tag also gets the layout primitives so the pill renders
+// inline regardless of whether the tag also matches the -v2 rules above.
+// Keep this list in sync with the "**Beta**" tag descriptions in
+// back-end/src/scripts/generate-openapi.ts (the agent-/spec-visible marker).
 @mixin beta-tag($tag) {
   li[data-item-id="tag/#{$tag}"] > label {
     @extend %pill-host-label;
@@ -92,5 +93,10 @@ li[data-item-id^="tag/"][data-item-id$="-v2"] > label::after,
   }
 }
 
-@include beta-tag("feature-revisions-v2");
-@include beta-tag("saved-group-revisions");
+@include beta-tag("ContextualBandits");
+@include beta-tag("ContextualBanditQueries");
+@include beta-tag("constants");
+@include beta-tag("constant-revisions");
+@include beta-tag("configs");
+@include beta-tag("config-revisions");
+@include beta-tag("releases");

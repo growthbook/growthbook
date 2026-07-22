@@ -8,10 +8,11 @@ import { getDefaultRole } from "shared/permissions";
 import track from "@/services/track";
 import Modal from "@/components/Modal";
 import { useAuth } from "@/services/auth";
-import StringArrayField from "@/components/Forms/StringArrayField";
+import StringArrayField from "@/ui/StringArrayField";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useUser } from "@/services/UserContext";
 import { isCloud } from "@/services/env";
+import Callout from "@/ui/Callout";
 import RoleSelector from "./RoleSelector";
 
 type InviteResult = {
@@ -178,13 +179,13 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
       {successfulInvites.length || failedInvites.length ? (
         <>
           {successfulInvites.length === 1 && (
-            <div className="alert alert-success" role="alert">
+            <Callout status="success" role="alert">
               Successfully invited <strong>{successfulInvites[0].email}</strong>
               !
-            </div>
+            </Callout>
           )}
           {successfulInvites.length > 1 && (
-            <div className="alert alert-success" role="alert">
+            <Callout status="success" role="alert">
               <strong>Successfully invited the following members:</strong>
               <div className="pt-2">
                 <ul>
@@ -197,14 +198,14 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
                   })}
                 </ul>
               </div>
-            </div>
+            </Callout>
           )}
           {failedInvites.length === 1 && (
             <>
-              <div className="alert alert-danger">
+              <Callout status="error">
                 Failed to send invite email to{" "}
                 <strong>{failedInvites[0].email}</strong>
-              </div>
+              </Callout>
               <p>You can manually send them the following invite link:</p>
               <div className="mb-3">
                 <code>{failedInvites[0].inviteUrl}</code>
@@ -213,7 +214,7 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
           )}
           {failedInvites.length > 1 && (
             <>
-              <div className="alert alert-danger" role="alert">
+              <Callout status="error">
                 <strong>
                   Whoops! We weren&apos;t able to email the following members:
                 </strong>
@@ -228,7 +229,7 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
                     })}
                   </ul>
                 </div>
-              </div>
+              </Callout>
               <div className="pl-2 pr-2">
                 To manually send a member their invite link, close this modal
                 and click the 3 dots next to each member and select &apos;Resend
@@ -240,6 +241,7 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
       ) : (
         <>
           <StringArrayField
+            size="legacy"
             required
             label="Email Address"
             value={form.watch("email")}
@@ -262,6 +264,7 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
             value={form.watch("roleInfo")}
             setValue={(value) => form.setValue("roleInfo", value)}
             showUpgradeModal={() => setShowUpgradeModal(true)}
+            isNewAssignment
           />
         </>
       )}

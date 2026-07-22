@@ -7,16 +7,29 @@ import {
   getFeatureAutopublishOnApproval,
   getMatchingRules,
   getNewDraftExperimentsToPublish,
+} from "shared/util";
+import {
   isScheduledPublishDue,
   isScheduledPublishPending,
-} from "shared/util";
+} from "shared/enterprise";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import { getContextForUserIdInOrg } from "back-end/src/services/organizations";
 import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
-import { recordScheduledPublishFailure } from "back-end/src/models/FeatureRevisionModel";
-import { BadRequestError } from "back-end/src/util/errors";
+import {
+  recordScheduledPublishFailure,
+  parkScheduledPublish,
+  setScheduledPublishNextAttempt,
+  setAutoPublishOnApproval,
+} from "back-end/src/models/FeatureRevisionModel";
+import {
+  BadRequestError,
+  isTerminalPublishError,
+  getErrorMessage,
+} from "back-end/src/util/errors";
+import { decideScheduledPublishOutcome } from "back-end/src/revisions/publishFailurePolicy";
+import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
 import { logger } from "back-end/src/util/logger";
 import { publishFeatureRevision } from "./postFeatureRevisionPublish";
 
@@ -160,12 +173,20 @@ async function publishArmedRevision(
   enablerContext: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,
-  mergeNow: boolean,
+  mayForceMerge: boolean,
 ): Promise<FeatureRevisionInterface> {
   // Use the armer's context, not the caller's: a reviewer scoped out of a linked
-  // experiment's project would see no experiments and skip the checklist.
+  // experiment's project would see no experiments and skip the checklist. An
+  // admin bypass schedule force-merges past this governance gate.
+  // Plain (transient) error, not terminal — an incomplete checklist is
+  // recoverable, so the poller holds and retries rather than parking at once.
   if (
-    await revisionRequiresPreLaunchChecklist(enablerContext, feature, revision)
+    !mayForceMerge &&
+    (await revisionRequiresPreLaunchChecklist(
+      enablerContext,
+      feature,
+      revision,
+    ))
   ) {
     throw new Error("pre-launch checklist required");
   }
@@ -184,7 +205,7 @@ async function publishArmedRevision(
       audit: enablerContext.auditLog.bind(enablerContext),
       params: { id: feature.id, version: revision.version },
       // Only honored for armers who can bypass approvals (force-merge a stale draft).
-      body: { comment: "", mergeNow },
+      body: { comment: "", ignoreWarnings: mayForceMerge },
     },
     false,
   );
@@ -243,17 +264,76 @@ export async function maybeAutoPublishFeatureRevision(
       e,
       `auto-publish-on-approval failed for feature ${feature.id} revision ${revision.version}; left approved for manual publish`,
     );
+    // Notify on terminal failure (no poller retry loop here); transient failures
+    // stay approved for a manual publish. Features currently have no terminal
+    // publish error, so this branch is defensive — kept consistent with the
+    // generic twin, which disarms before notifying so a later trigger
+    // (re-approval, undo, rebase) can't re-run the doomed publish.
+    if (isTerminalPublishError(e)) {
+      try {
+        await setAutoPublishOnApproval(revision, false, null);
+      } catch {
+        // best-effort — still fire the webhook below
+      }
+      await dispatchFeatureRevisionEvent(
+        context,
+        feature,
+        revision,
+        "revision.publishFailed",
+        { failureReason: getErrorMessage(e), terminal: true, attempts: 1 },
+      );
+    }
     return revision;
   }
 }
 
 // Date-driven counterpart invoked by the Agenda poller once the target date has
 // arrived. If the draft can't publish yet (not approved, stale, conflict) it
-// holds and the next tick retries. Admin armers force-merge and skip approval.
-// Past this many failed poller attempts (~1/min) a held schedule is treated as
-// stuck: we log at error level so it surfaces in monitoring rather than retrying
-// silently forever.
-const SCHEDULED_PUBLISH_STUCK_AFTER_ATTEMPTS = 10;
+// holds and retries after a backoff, up to the attempt cap; a terminal failure
+// (or exhausting the cap) parks the schedule and fires `revision.publishFailed`
+// so a human is notified instead of it retrying silently forever.
+async function handleScheduledPublishFailure(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+  error: unknown,
+): Promise<void> {
+  const message = getErrorMessage(error);
+  const attempts = await recordScheduledPublishFailure(revision, message);
+  const outcome = decideScheduledPublishOutcome({
+    error,
+    attempts,
+    now: new Date(),
+  });
+
+  if (outcome.action === "retry") {
+    await setScheduledPublishNextAttempt(revision, outcome.nextAttemptAt);
+    logger.info(
+      {
+        featureId: feature.id,
+        version: revision.version,
+        attempts,
+        nextAttemptAt: outcome.nextAttemptAt,
+      },
+      `scheduled-publish held (retry after backoff): ${message}`,
+    );
+    return;
+  }
+
+  const terminal = outcome.classification === "terminal";
+  await parkScheduledPublish(revision);
+  logger.error(
+    { featureId: feature.id, version: revision.version, attempts, terminal },
+    `scheduled-publish gave up (${terminal ? "terminal failure" : "max attempts reached"}): ${message}`,
+  );
+  await dispatchFeatureRevisionEvent(
+    context,
+    feature,
+    revision,
+    "revision.publishFailed",
+    { failureReason: message, terminal, attempts },
+  );
+}
 
 export async function maybePublishScheduledRevision(
   context: ReqContext | ApiReqContext,
@@ -262,21 +342,23 @@ export async function maybePublishScheduledRevision(
 ): Promise<FeatureRevisionInterface> {
   if (!isScheduledPublishDue(revision)) return revision;
 
-  const recordFailure = async (message: string) => {
-    const attempts = await recordScheduledPublishFailure(revision, message);
-    const log =
-      attempts >= SCHEDULED_PUBLISH_STUCK_AFTER_ATTEMPTS
-        ? logger.error
-        : logger.info;
-    log(
-      { featureId: feature.id, version: revision.version, attempts },
-      `scheduled-publish held (will retry next tick): ${message}`,
-    );
-  };
+  // Respect the backoff window between transient retries.
+  if (
+    revision.scheduledPublishNextAttemptAt &&
+    revision.scheduledPublishNextAttemptAt > new Date()
+  ) {
+    return revision;
+  }
 
   const enablerContext = await getArmedPublishContext(context, revision);
   if (!enablerContext) {
-    await recordFailure("enabling user could not be resolved");
+    // Transient: the arming user may resolve on a later tick.
+    await handleScheduledPublishFailure(
+      context,
+      feature,
+      revision,
+      new Error("enabling user could not be resolved"),
+    );
     return revision;
   }
 
@@ -288,7 +370,7 @@ export async function maybePublishScheduledRevision(
       scheduledPublishMayForceMerge(enablerContext, feature, revision),
     );
   } catch (e) {
-    await recordFailure(e instanceof Error ? e.message : String(e));
+    await handleScheduledPublishFailure(context, feature, revision, e);
     return revision;
   }
 }

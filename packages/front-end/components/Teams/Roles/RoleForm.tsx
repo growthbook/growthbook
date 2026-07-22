@@ -13,6 +13,7 @@ import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import Button from "@/components/Button";
 import TempMessage from "@/components/TempMessage";
+import Callout from "@/ui/Callout";
 
 export default function RoleForm({
   role,
@@ -130,6 +131,7 @@ export default function RoleForm({
     <FormProvider {...form}>
       <div className="bg-white p-4 mt-2">
         <Field
+          size="legacy"
           label="Name"
           required
           autoFocus
@@ -151,6 +153,7 @@ export default function RoleForm({
           }
         />
         <Field
+          size="legacy"
           label="Description"
           disabled={status === "viewing"}
           currentLength={currentValue.description.length}
@@ -160,6 +163,7 @@ export default function RoleForm({
           {...form.register("description")}
         />
         <Field
+          size="legacy"
           label="Display Name"
           disabled={status === "viewing"}
           currentLength={currentValue.displayName?.length || 0}
@@ -236,9 +240,9 @@ export default function RoleForm({
         >
           <div className="container-fluid pagecontents d-flex">
             {error ? (
-              <div className="alert alert-danger">
+              <Callout status="error">
                 <strong>Error: {error}</strong>
-              </div>
+              </Callout>
             ) : null}
             <div className="flex-grow-1 mr-4">
               {saveMsg && (

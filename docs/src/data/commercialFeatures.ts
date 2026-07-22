@@ -77,6 +77,10 @@ export default {
     plan: "enterprise",
     displayName: "Experiment Impact",
   },
+  "feature-configs": {
+    plan: "enterprise",
+    displayName: "Feature Configs",
+  },
   "hash-secure-attributes": {
     plan: "pro",
     displayName: "Hash Secure Attributes",
@@ -196,6 +200,10 @@ export default {
   "regression-adjustment": {
     plan: "pro",
     displayName: "CUPED",
+  },
+  releases: {
+    plan: "enterprise",
+    displayName: "Releases",
   },
   "remote-evaluation": {
     plan: "pro",

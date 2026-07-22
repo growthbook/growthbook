@@ -130,6 +130,7 @@ function EditModal({ template, onClose, onSave }: EditModalProps) {
     >
       <Box mb="5">
         <Field
+          size="legacy"
           label="Template name"
           value={name}
           onChange={(e) => setName(e.target.value)}

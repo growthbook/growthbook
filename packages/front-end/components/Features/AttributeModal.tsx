@@ -4,6 +4,7 @@ import {
   SDKAttributeFormat,
   SDKAttributeType,
 } from "shared/types/organization";
+import { getDefaultProjectsForNewResource } from "shared/demo-datasource";
 import { FaExclamationCircle, FaInfoCircle } from "react-icons/fa";
 import React from "react";
 import { Box } from "@radix-ui/themes";
@@ -15,7 +16,7 @@ import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import { useUser } from "@/services/UserContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -47,7 +48,7 @@ export default function AttributeModal({ close, attribute }: Props) {
   const permissionsUtil = usePermissionsUtil();
   const { refreshOrganization } = useUser();
 
-  const { apiCall } = useAuth();
+  const { apiCall, orgId } = useAuth();
 
   const schema = useAttributeSchema(true);
   const current = schema.find((s) => s.property === attribute);
@@ -57,7 +58,12 @@ export default function AttributeModal({ close, attribute }: Props) {
       property: attribute || "",
       description: current?.description || "",
       datatype: current?.datatype || "string",
-      projects: attribute ? current?.projects || [] : project ? [project] : [],
+      projects: attribute
+        ? current?.projects || []
+        : getDefaultProjectsForNewResource({
+            project,
+            organizationId: orgId || undefined,
+          }),
       format: ((current?.format as unknown) !== "none"
         ? current?.format || ""
         : "") as SDKAttributeFormat,
@@ -204,6 +210,7 @@ export default function AttributeModal({ close, attribute }: Props) {
       })}
     >
       <Field
+        size="legacy"
         label={
           <>
             Attribute{" "}
@@ -244,6 +251,7 @@ export default function AttributeModal({ close, attribute }: Props) {
       {projects?.length > 0 && (
         <div className="form-group">
           <MultiSelectField
+            size="legacy"
             label={
               <>
                 Projects{" "}
@@ -255,7 +263,7 @@ export default function AttributeModal({ close, attribute }: Props) {
               </>
             }
             placeholder={
-              canCreateWithoutProject ? "All projects" : "Select projects..."
+              canCreateWithoutProject ? "All Projects" : "Select projects..."
             }
             value={form.watch("projects") || []}
             options={projectOptions}
@@ -266,6 +274,7 @@ export default function AttributeModal({ close, attribute }: Props) {
         </div>
       )}
       <SelectField
+        size="legacy"
         label="Data Type"
         value={datatype}
         onChange={(datatype: SDKAttributeType) =>
@@ -345,6 +354,7 @@ export default function AttributeModal({ close, attribute }: Props) {
       {datatype === "string" && (
         <>
           <SelectField
+            size="legacy"
             label="String Format"
             value={form.watch(`format`) || ""}
             onChange={(v) => form.setValue(`format`, v as SDKAttributeFormat)}
@@ -380,6 +390,7 @@ export default function AttributeModal({ close, attribute }: Props) {
       )}
       {supportsEnumOptions && (
         <Field
+          size="legacy"
           label={datatype === "enum" ? "Enum Options" : "Allowed Values"}
           textarea
           minRows={1}

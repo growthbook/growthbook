@@ -12,11 +12,12 @@ import RunQueriesButton, {
 } from "@/components/Queries/RunQueriesButton";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import Field from "@/components/Forms/Field";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import SelectField from "@/components/Forms/SelectField";
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
+import Callout from "@/ui/Callout";
 
 const smallPercentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -100,6 +101,7 @@ export const DimensionSlicesRunner: FC<DimensionSlicesRunnerProps> = ({
     <div className="d-inline-flex align-items-center mt-1">
       <label className="mb-0 mr-2 small">Days to look back</label>
       <Field
+        size="legacy"
         type="number"
         style={{ width: 70 }}
         {...form.register("lookbackDays", {
@@ -127,7 +129,7 @@ export const DimensionSlicesRunner: FC<DimensionSlicesRunnerProps> = ({
   const ErrorBox = (
     <>
       {(status === "failed" || error !== "") && dimensionSlices ? (
-        <div className="alert alert-danger mt-2">
+        <Callout status="error" mt="2">
           <Flex direction="column" gap="1">
             <Box>
               <strong>Error updating data</strong>
@@ -136,10 +138,10 @@ export const DimensionSlicesRunner: FC<DimensionSlicesRunnerProps> = ({
             <Box>{lookbackField}</Box>
             <Box>{asyncQueriesButton}</Box>
           </Flex>
-        </div>
+        </Callout>
       ) : null}
       {status === "succeeded" && dimensionSlices?.results.length === 0 ? (
-        <div className="alert alert-warning mt-2">
+        <Callout status="warning" mt="2">
           <p className="mb-0">
             <strong>
               No experiment assignment rows found in data source.
@@ -151,7 +153,7 @@ export const DimensionSlicesRunner: FC<DimensionSlicesRunnerProps> = ({
           </p>
           {lookbackField}
           {asyncQueriesButton}
-        </div>
+        </Callout>
       ) : null}
     </>
   );
@@ -401,6 +403,7 @@ export const DimensionSlicesResults: FC<{
                     {metadata?.customSlicesArray ? (
                       <>
                         <MultiSelectField
+                          size="legacy"
                           value={metadata?.customSlicesArray || []}
                           onChange={(values) =>
                             updateCustomSelectedSlices(
@@ -455,6 +458,7 @@ export const DimensionSlicesResults: FC<{
                 {growthbook.isOn("pre-computed-dimensions") ? (
                   <td>
                     <SelectField
+                      size="legacy"
                       value={metadata.priority?.toString() ?? "0"}
                       onChange={(value) =>
                         updatePriority(metadata.dimension, parseInt(value))

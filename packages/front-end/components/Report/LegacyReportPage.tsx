@@ -52,6 +52,7 @@ import DifferenceTypeChooser from "@/components/Experiment/DifferenceTypeChooser
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import useURLHash from "@/hooks/useURLHash";
 import Text from "@/ui/Text";
+import Callout from "@/ui/Callout";
 
 export default function LegacyReportPage({
   report,
@@ -136,7 +137,7 @@ export default function LegacyReportPage({
     return <LoadingOverlay />;
   }
   if (error) {
-    return <div className="alert alert-danger">{error.message}</div>;
+    return <Callout status="error">{error.message}</Callout>;
   }
   if (!report || report.type !== "experiment") {
     return null;
@@ -197,7 +198,7 @@ export default function LegacyReportPage({
             }}
             header="Edit Report"
           >
-            <Field label="Title" {...form.register("title")} />
+            <Field size="legacy" label="Title" {...form.register("title")} />
             <div className="form-group">
               <Text as="label" weight="semibold">
                 Description
@@ -447,26 +448,26 @@ export default function LegacyReportPage({
                   </div>
                 </div>
                 {report.error ? (
-                  <div className="alert alert-danger">
+                  <Callout status="error">
                     <strong>Error generating the report: </strong>{" "}
                     {report.error}
-                  </div>
+                  </Callout>
                 ) : null}
                 {refreshError && (
-                  <div className="alert alert-danger">
+                  <Callout status="error">
                     <strong>Error refreshing data: </strong> {refreshError}
-                  </div>
+                  </Callout>
                 )}
                 {!hasMetrics && (
-                  <div className="alert alert-info">
+                  <Callout status="info">
                     Add at least 1 metric to view results.
-                  </div>
+                  </Callout>
                 )}
                 {!hasData &&
                   !report.results?.unknownVariations?.length &&
                   queryStatusData.status !== "running" &&
                   hasMetrics && (
-                    <div className="alert alert-info">
+                    <Callout status="info">
                       No data yet.{" "}
                       {report.results &&
                         phaseAgeMinutes >= 120 &&
@@ -479,7 +480,7 @@ export default function LegacyReportPage({
                       {!report.results &&
                         canUpdateReport &&
                         `Click the "Refresh" button.`}
-                    </div>
+                    </Callout>
                   )}
               </div>
               {hasData &&

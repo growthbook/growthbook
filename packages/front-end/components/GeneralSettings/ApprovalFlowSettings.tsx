@@ -10,7 +10,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { OrganizationSettingsWithMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import Frame from "@/ui/Frame";
 import Checkbox from "@/ui/Checkbox";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import Link from "@/ui/Link";
 
 export default function ApprovalFlowSettings() {
@@ -116,6 +116,7 @@ export default function ApprovalFlowSettings() {
                         <Flex direction="column" gap="3" mb="3">
                           {showProjectScope[i] ? (
                             <MultiSelectField
+                              size="legacy"
                               id={`projects-${i}`}
                               label="Projects"
                               labelClassName="font-weight-semibold"
@@ -146,6 +147,7 @@ export default function ApprovalFlowSettings() {
                           )}
                           {showEnvScope[i] ? (
                             <MultiSelectField
+                              size="legacy"
                               id={`environments-${i}`}
                               label="Specific environments"
                               labelClassName="font-weight-semibold"
@@ -283,7 +285,7 @@ export default function ApprovalFlowSettings() {
                             <Checkbox
                               id="toggle-restApiBypassesReviews"
                               label="REST API always bypasses approval requirements"
-                              description="When enabled, all API calls bypass approval requirements. When disabled, API calls are blocked unless the caller's role grants bypassApprovalChecks on the feature's project."
+                              description="When enabled, all API calls bypass approval requirements. When disabled, API calls are blocked unless the caller's role grants bypassApprovalChecks on the Feature Flag's Project."
                               value={
                                 form.watch("restApiBypassesReviews") !== false
                               }
@@ -309,7 +311,7 @@ export default function ApprovalFlowSettings() {
             </Heading>
 
             <Text as="p" size="medium" mb="4" color="text-low">
-              All changes to saved groups are tracked as revisions. Requiring
+              All changes to Saved Groups are tracked as revisions. Requiring
               approvals adds a review step before any change goes live.
             </Text>
 
@@ -373,8 +375,8 @@ export default function ApprovalFlowSettings() {
                     />
                     <Checkbox
                       id="toggle-saved-group-block-self-approval"
-                      label="Require approval from a non-editor"
-                      description="Anyone who edited the draft is blocked from approving it. A separate reviewer must approve before publishing."
+                      label="Block contributors from self-approving"
+                      description="Prevents anyone who edited a draft from approving it. Requires a separate reviewer."
                       value={
                         !!form.watch(
                           `approvalFlows.savedGroups.0.blockSelfApproval`,
@@ -390,7 +392,7 @@ export default function ApprovalFlowSettings() {
                     <Checkbox
                       id="toggle-saved-group-autopublish-on-approval"
                       label="Allow approve & publish in one step"
-                      description="Adds an 'Approve & Publish' option so reviewers with publish access can approve and publish a saved group change together."
+                      description="Adds an 'Approve & Publish' option so reviewers with publish access can approve and publish a Saved Group change together."
                       value={
                         !!form.watch(
                           `approvalFlows.savedGroups.0.autopublishOnApproval`,
@@ -418,8 +420,8 @@ export default function ApprovalFlowSettings() {
               </Heading>
 
               <Text as="p" size="medium" mb="4" color="text-low">
-                These settings apply to every approval flow (features and saved
-                groups).
+                These settings apply to every approval flow (Feature Flags and
+                Saved Groups).
               </Text>
 
               <Flex direction="column" gap="3" align="start">

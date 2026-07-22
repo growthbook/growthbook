@@ -3,6 +3,8 @@ import { getValidDate } from "shared/dates";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import Switch from "@/ui/Switch";
 import GraphTypeSelector from "./GraphTypeSelector";
+import FunnelGraphTypeSelector from "./FunnelGraphTypeSelector";
+import FunnelYAxisSelector from "./FunnelYAxisSelector";
 import DateRangePicker, { ComparisonDateControls } from "./DateRangePicker";
 import GranularitySelector from "./GranularitySelector";
 import LastRefreshedIndicator from "./LastRefreshedIndicator";
@@ -15,8 +17,9 @@ export default function Toolbar() {
     submittedExploreState,
     compareEnabled,
     setCompareEnabled,
-    managedWarehouseAwaitingProvisioning,
+    managedWarehouseUnavailable,
   } = useExplorerContext();
+  const isFunnel = draftExploreState.dataset?.type === "funnel";
 
   const showComparisonDateControls =
     compareEnabled &&
@@ -49,7 +52,10 @@ export default function Toolbar() {
       <Flex align="start" gap="3" style={{ minHeight: "32px" }}>
         {/* Left Side */}
         <Flex align="center" gap="3" style={{ flexShrink: 0, height: "32px" }}>
-          <GraphTypeSelector />
+          {isFunnel ? <FunnelGraphTypeSelector /> : <GraphTypeSelector />}
+          {isFunnel && draftExploreState.chartType !== "table" && (
+            <FunnelYAxisSelector />
+          )}
         </Flex>
 
         {/* Right Side — everything wraps and stays right-aligned as one row. */}
@@ -64,9 +70,7 @@ export default function Toolbar() {
             label="Compare"
             value={compareEnabled}
             onChange={setCompareEnabled}
-            disabled={
-              !submittedExploreState || managedWarehouseAwaitingProvisioning
-            }
+            disabled={!submittedExploreState || managedWarehouseUnavailable}
           />
           {showComparisonDateControls ? (
             <ComparisonDateControls
@@ -81,9 +85,10 @@ export default function Toolbar() {
           ) : (
             <>
               <DateRangePicker />
-              {["line", "area", "timeseries-table"].includes(
-                draftExploreState.chartType,
-              ) && <GranularitySelector />}
+              {!isFunnel &&
+                ["line", "area", "timeseries-table"].includes(
+                  draftExploreState.chartType,
+                ) && <GranularitySelector />}
             </>
           )}
         </Flex>

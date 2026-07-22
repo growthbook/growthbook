@@ -284,7 +284,7 @@ export default function FilterQueryPopover({
           value={property}
           setValue={setProperty}
           placeholder="Choose property..."
-          size="2"
+          size="small"
           container={contentRef.current}
           style={{ width: 185, flexShrink: 0 }}
         >
@@ -344,7 +344,7 @@ export default function FilterQueryPopover({
           value={operator}
           setValue={(v) => setOperator(v as FilterOperator)}
           placeholder="Operator..."
-          size="2"
+          size="small"
           disabled={!property}
           container={contentRef.current}
           style={{ width: 140, flexShrink: 0 }}
@@ -365,7 +365,7 @@ export default function FilterQueryPopover({
                 value={value}
                 setValue={setValue}
                 placeholder="Choose value..."
-                size="2"
+                size="small"
                 container={contentRef.current}
                 style={{ width: 140, flexShrink: 0 }}
               >

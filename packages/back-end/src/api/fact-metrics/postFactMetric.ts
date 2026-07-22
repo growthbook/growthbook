@@ -86,18 +86,18 @@ export async function getCreateMetricPropsFromBody(
       scopedSettings.winRisk.value ||
       DEFAULT_WIN_RISK_THRESHOLD,
     maxPercentChange:
-      maxPercentChange ||
-      scopedSettings.metricDefaults.value.maxPercentageChange ||
+      maxPercentChange ??
+      scopedSettings.metricDefaults.value.maxPercentageChange ??
       0,
     minPercentChange:
-      minPercentChange ||
-      scopedSettings.metricDefaults.value.minPercentageChange ||
+      minPercentChange ??
+      scopedSettings.metricDefaults.value.minPercentageChange ??
       0,
     targetMDE:
       targetMDE || scopedSettings.metricDefaults.value.targetMDE || 0.1,
     minSampleSize:
-      minSampleSize ||
-      scopedSettings.metricDefaults.value.minimumSampleSize ||
+      minSampleSize ??
+      scopedSettings.metricDefaults.value.minimumSampleSize ??
       150,
     description: "",
     owner: "",

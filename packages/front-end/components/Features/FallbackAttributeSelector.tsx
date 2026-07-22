@@ -122,6 +122,7 @@ export default function FallbackAttributeSelector({
         attribute may be used instead.
       </Text>
       <SelectField
+        size="legacy"
         withRadixThemedPortal
         options={fallbackAttributeOptions}
         formatOptionLabel={(o, meta) => {

@@ -6,6 +6,7 @@ import {
   isEventForwarderManagedExposureQuery,
   isEventForwarderManagedFeatureUsageQuery,
   isManagedWarehouseAwaitingProvisioning,
+  isManagedWarehouseUnavailable,
 } from "shared/util";
 import {
   DataSourceInterface,
@@ -29,6 +30,7 @@ import {
   getConfigDatasources,
 } from "back-end/src/init/config";
 import { upgradeDatasourceObject } from "back-end/src/util/migrations";
+import { getCollection } from "back-end/src/util/mongo.util";
 import { queueCreateInformationSchema } from "back-end/src/jobs/createInformationSchema";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import { ReqContext } from "back-end/types/request";
@@ -162,6 +164,84 @@ export async function dangerouslyGetGrowthbookDatasourceBypassPermission(
   return doc ? toInterface(doc) : null;
 }
 
+/**
+ * Read the managed-warehouse recreate coordination fields the license server
+ * writes to the shared datasource doc: `lockUntil` (a rebuild is in progress) and
+ * `recreateStatus` (its outcome). Both live top-level (outside `settings`, which
+ * GrowthBook rewrites), so they aren't on the Mongoose schema — read them raw.
+ */
+export async function getManagedWarehouseRecreateState(
+  context: ReqContext | ApiReqContext,
+): Promise<{ locked: boolean; recreateStatus: "success" | "error" | null }> {
+  const doc = await getCollection<{
+    lockUntil?: Date | string | number | null;
+    recreateStatus?: { status?: string } | null;
+  }>("datasources").findOne(
+    { organization: context.org.id, type: "growthbook_clickhouse" },
+    { projection: { lockUntil: 1, recreateStatus: 1 } },
+  );
+  const lockUntil = doc?.lockUntil ? new Date(doc.lockUntil) : null;
+  const locked = lockUntil !== null && lockUntil.getTime() > Date.now();
+  const status = doc?.recreateStatus?.status;
+  return {
+    locked,
+    recreateStatus: status === "success" || status === "error" ? status : null,
+  };
+}
+
+/**
+ * Clear the license-server recreate outcome at the start of a migration so a stale
+ * `recreateStatus` from an earlier rebuild (e.g. a prior super-admin recreate) can't
+ * be misread as the current migration's result. Raw `$unset` since `recreateStatus`
+ * is a top-level field the license server owns, not on the Mongoose schema.
+ */
+export async function clearManagedWarehouseRecreateStatus(
+  context: ReqContext | ApiReqContext,
+): Promise<void> {
+  await getCollection<{ recreateStatus?: unknown }>("datasources").updateOne(
+    { organization: context.org.id, type: "growthbook_clickhouse" },
+    { $unset: { recreateStatus: "" } },
+  );
+}
+
+/**
+ * Best-effort acquire of the license server's per-datasource lock (`lockUntil` —
+ * top-level and schema-less like the recreate fields, with matching semantics) so
+ * app-side managed-warehouse mutations can mutually exclude license-server
+ * operations (provision/recreate) on the same doc. Returns false when the lock is
+ * already held; pair with `unlockManagedWarehouseDatasource` in a `finally`.
+ */
+export async function tryLockManagedWarehouseDatasource(
+  context: ReqContext | ApiReqContext,
+  seconds: number,
+): Promise<boolean> {
+  const now = new Date();
+  const result = await getCollection<{ lockUntil?: Date | null }>(
+    "datasources",
+  ).updateOne(
+    {
+      organization: context.org.id,
+      type: "growthbook_clickhouse",
+      $or: [
+        { lockUntil: { $exists: false } },
+        { lockUntil: null },
+        { lockUntil: { $lte: now } },
+      ],
+    },
+    { $set: { lockUntil: new Date(now.getTime() + seconds * 1000) } },
+  );
+  return result.matchedCount > 0;
+}
+
+export async function unlockManagedWarehouseDatasource(
+  context: ReqContext | ApiReqContext,
+): Promise<void> {
+  await getCollection<{ lockUntil?: Date | null }>("datasources").updateOne(
+    { organization: context.org.id, type: "growthbook_clickhouse" },
+    { $set: { lockUntil: null } },
+  );
+}
+
 export async function getDataSourceById(
   context: ReqContext | ApiReqContext,
   id: string,
@@ -267,6 +347,16 @@ export async function deleteDatasource(
  * Deletes data sources where the provided project is the only project of that data source.
  * Runs event-forwarder teardown per datasource before removal so Confluent resources are not orphaned.
  */
+export async function projectHasDataSources(
+  organizationId: string,
+  projectId: string,
+): Promise<boolean> {
+  return !!(await DataSourceModel.exists({
+    organization: organizationId,
+    projects: [projectId],
+  }));
+}
+
 export async function deleteAllDataSourcesForAProject({
   context,
   projectId,
@@ -391,7 +481,11 @@ export async function validateExposureQueriesAndAddMissingIds(
         if (!exposure.id) {
           exposure.id = uniqid("exq_");
         }
-        if (isManagedWarehouseAwaitingProvisioning(datasource)) {
+        // Skip live validation while the warehouse can't serve queries — never
+        // provisioned OR mid-migration (tables being recreated). Otherwise a
+        // concurrent settings save would test-run against unavailable tables and
+        // stamp a spurious error that self-heals only on the next validation.
+        if (isManagedWarehouseUnavailable(datasource)) {
           exposure.error = undefined;
           return;
         }
@@ -438,7 +532,7 @@ export async function validateExposureQueriesAndAddMissingIds(
   if (updatesCopy.queries?.featureUsage) {
     await Promise.all(
       updatesCopy.queries.featureUsage.map(async (featureUsage) => {
-        if (isManagedWarehouseAwaitingProvisioning(datasource)) {
+        if (isManagedWarehouseUnavailable(datasource)) {
           featureUsage.error = undefined;
           return;
         }

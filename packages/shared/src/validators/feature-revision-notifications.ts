@@ -1,5 +1,9 @@
 import { z } from "zod";
 import { featureRevisionWebhookPayload } from "./feature-webhook-schemas";
+import {
+  bulkPublishIdField,
+  revisionPublishFailedExtension,
+} from "./revision-publish-failed";
 
 export const featureRevisionCreatedPayload =
   featureRevisionWebhookPayload.strict();
@@ -102,8 +106,9 @@ export type FeatureRevisionRebasedPayload = z.infer<
   typeof featureRevisionRebasedPayload
 >;
 
-export const featureRevisionPublishedPayload =
-  featureRevisionWebhookPayload.strict();
+export const featureRevisionPublishedPayload = featureRevisionWebhookPayload
+  .extend({ bulkPublishId: bulkPublishIdField })
+  .strict();
 export type FeatureRevisionPublishedPayload = z.infer<
   typeof featureRevisionPublishedPayload
 >;
@@ -112,8 +117,16 @@ export const featureRevisionRevertedPayload = featureRevisionWebhookPayload
   .extend({
     // The version that was reverted *to* (source of truth for the new published state).
     revertedToVersion: z.number().int(),
+    bulkPublishId: bulkPublishIdField,
   })
   .strict();
 export type FeatureRevisionRevertedPayload = z.infer<
   typeof featureRevisionRevertedPayload
+>;
+
+export const featureRevisionPublishFailedPayload = featureRevisionWebhookPayload
+  .extend(revisionPublishFailedExtension)
+  .strict();
+export type FeatureRevisionPublishFailedPayload = z.infer<
+  typeof featureRevisionPublishFailedPayload
 >;

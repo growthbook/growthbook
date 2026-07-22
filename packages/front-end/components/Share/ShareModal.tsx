@@ -44,6 +44,7 @@ import { capitalizeFirstLetter } from "@/services/utils";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import PremiumCallout from "@/ui/PremiumCallout";
+import Callout from "@/ui/Callout";
 import Preview from "./Preview";
 
 export const presentationThemes = {
@@ -425,9 +426,9 @@ const ShareModal = ({
 
   if (experiments.length === 0) {
     return (
-      <div className="alert alert-danger" style={{ marginTop: "1rem" }}>
+      <Callout status="error" mt="4">
         You need some experiments to share first.
-      </div>
+      </Callout>
     );
   }
 
@@ -733,6 +734,7 @@ const ShareModal = ({
                           <div className="filters md-form row mb-3 align-items-center">
                             <div className="col">
                               <Field
+                                size="legacy"
                                 placeholder="Search..."
                                 type="search"
                                 {...searchInputProps}
@@ -892,10 +894,10 @@ const ShareModal = ({
                                     </table>
                                   </Box>
                                 ) : (
-                                  <div className="alert alert-info">
+                                  <Callout status="info">
                                     No {isFiltered ? "matching" : ""} {status}{" "}
                                     experiments
-                                  </div>
+                                  </Callout>
                                 )}
                               </TabsContent>
                             ))}
@@ -938,6 +940,7 @@ const ShareModal = ({
                         </label>
                         <Box className="">
                           <SelectField
+                            size="legacy"
                             value={currentThemeValue}
                             onChange={handleThemeChange}
                             options={presThemes}
@@ -950,7 +953,7 @@ const ShareModal = ({
                               <PremiumCallout
                                 mt="3"
                                 commercialFeature="adv-presentations"
-                                dismissable={false}
+                                dismissible={false}
                                 id="adv-presentations-new-pres"
                               >
                                 <strong>Customize your presentations</strong>:
@@ -1063,6 +1066,7 @@ const ShareModal = ({
                             </label>
                             <Box>
                               <SelectField
+                                size="legacy"
                                 value={
                                   form.watch("customTheme.celebration") ??
                                   "none"
@@ -1099,6 +1103,7 @@ const ShareModal = ({
                             </label>
                             <Box>
                               <SelectField
+                                size="legacy"
                                 value={
                                   form.watch("customTheme.transition") ?? "fade"
                                 }
@@ -1120,6 +1125,7 @@ const ShareModal = ({
                             </label>
                             <Box>
                               <SelectField
+                                size="legacy"
                                 value={
                                   form.watch("customTheme.headingFont") ?? ""
                                 }
@@ -1132,6 +1138,7 @@ const ShareModal = ({
                             <label className="text-right mb-0">Body font</label>
                             <Box>
                               <SelectField
+                                size="legacy"
                                 value={form.watch("customTheme.bodyFont") ?? ""}
                                 onChange={(v) =>
                                   form.setValue("customTheme.bodyFont", v)

@@ -35,6 +35,7 @@ export default function AIChatModelSelect({
     <Tooltip enabled={!!disabledReason} content={disabledReason ?? ""}>
       <span style={disabledReason ? { cursor: "not-allowed" } : undefined}>
         <SelectField
+          size="legacy"
           id={id}
           value={value}
           onChange={(v) => {

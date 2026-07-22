@@ -11,7 +11,7 @@ import {
 } from "shared/types/stats";
 import { BsX } from "react-icons/bs";
 import clsx from "clsx";
-import { ExperimentMetricInterface } from "shared/experiments";
+import { ExperimentMetricDefinition } from "shared/experiments";
 import { RowResults } from "@/services/experiments";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import AnalysisResultSummary from "@/ui/AnalysisResultSummary";
@@ -31,7 +31,7 @@ export type YAlign = "top" | "bottom";
 
 export interface TooltipData {
   metricRow: number;
-  metric: ExperimentMetricInterface;
+  metric: ExperimentMetricDefinition;
   metricSnapshotSettings?: MetricSnapshotSettings;
   sliceLevels?: Array<{
     dimension: string;

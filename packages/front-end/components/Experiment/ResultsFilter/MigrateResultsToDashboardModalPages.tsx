@@ -239,6 +239,7 @@ export function SelectDashboardAndBlockPage({
           <>
             <Box mt="4">
               <Field
+                size="legacy"
                 id="dashboard-name-input"
                 label="Dashboard Name"
                 {...form.register("newDashboardTitle")}
@@ -284,6 +285,7 @@ export function SelectDashboardAndBlockPage({
                       />
                     )}
                     <SelectField
+                      size="legacy"
                       label="View access"
                       containerClassName="mb-0"
                       options={[
@@ -305,6 +307,7 @@ export function SelectDashboardAndBlockPage({
                       }}
                     />
                     <SelectField
+                      size="legacy"
                       label="Edit access"
                       containerClassName="mb-0"
                       disabled={
@@ -338,6 +341,7 @@ export function SelectDashboardAndBlockPage({
 
         <Box mt="4">
           <Field
+            size="legacy"
             label="Block Name"
             {...form.register("blockName")}
             placeholder={defaultBlockName}
@@ -446,6 +450,7 @@ export function NewDashboardSettingsPage({
       </Heading>
       <Flex direction="column" gap="5" mb="2">
         <Field
+          size="legacy"
           label="Name"
           {...form.register("newDashboardTitle")}
           placeholder="Dashboard name"
@@ -464,6 +469,7 @@ export function NewDashboardSettingsPage({
           />
         )}
         <SelectField
+          size="legacy"
           label="View access"
           containerClassName="mb-0"
           options={[
@@ -485,6 +491,7 @@ export function NewDashboardSettingsPage({
           }}
         />
         <SelectField
+          size="legacy"
           label="Edit access"
           containerClassName="mb-0"
           disabled={form.watch("newDashboardShareLevel") === "private"}

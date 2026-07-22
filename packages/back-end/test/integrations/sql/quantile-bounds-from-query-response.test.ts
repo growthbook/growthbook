@@ -147,6 +147,99 @@ describe("getQuantileBoundsFromQueryResponse — array vs scalar shape", () => {
     expect(decodedSparse.m0_quantile_nstar).toBe(0);
   });
 
+  describe("collapsed-bounds fallback to a wider distinct nstar pair", () => {
+    // At very high nstar the percentile offsets get so small that the sketch
+    // resolves lower and upper to the same point. The selection must then fall
+    // back to the tightest (largest) nstar that still has distinct bounds.
+    const COLLAPSED = 0.9;
+    // Build bounds where the top few nstar values collapse to a single point
+    // and the rest stay distinct, controlled by a collapse threshold index.
+    const buildCollapsingScalarRow = (
+      quantileN: number,
+      collapseFromIndex: number,
+    ) => {
+      const row: Record<string, number> = {
+        [`${prefix}quantile`]: 0.9,
+        [`${prefix}quantile_n`]: quantileN,
+      };
+      N_STAR_VALUES.forEach((nstar, k) => {
+        if (k >= collapseFromIndex) {
+          row[`${prefix}quantile_lower_${nstar}`] = COLLAPSED;
+          row[`${prefix}quantile_upper_${nstar}`] = COLLAPSED;
+        } else {
+          row[`${prefix}quantile_lower_${nstar}`] = lowerFor(nstar);
+          row[`${prefix}quantile_upper_${nstar}`] = upperFor(nstar);
+        }
+      });
+      return row;
+    };
+
+    const buildCollapsingArrayRow = (
+      quantileN: number,
+      collapseFromIndex: number,
+    ) => {
+      const arr: number[] = [];
+      N_STAR_VALUES.forEach((nstar, k) => {
+        if (k >= collapseFromIndex) {
+          arr.push(COLLAPSED, COLLAPSED);
+        } else {
+          arr.push(lowerFor(nstar), upperFor(nstar));
+        }
+      });
+      return {
+        [`${prefix}quantile`]: 0.9,
+        [`${prefix}quantile_n`]: quantileN,
+        [`${prefix}quantile_grid`]: arr,
+      };
+    };
+
+    it.each(["scalar", "array"] as const)(
+      "falls back to the largest distinct nstar pair (%s shape)",
+      (shape) => {
+        // quantile_n above the top nstar so selection lands on the largest
+        // nstar, but the top two nstar pairs collapse — expect the third from
+        // the top to be selected with its distinct bounds.
+        const quantileN = Number.MAX_SAFE_INTEGER;
+        const collapseFromIndex = N_STAR_VALUES.length - 2;
+        const fallbackIndex = collapseFromIndex - 1;
+        const fallbackNstar = N_STAR_VALUES[fallbackIndex];
+
+        const row =
+          shape === "scalar"
+            ? buildCollapsingScalarRow(quantileN, collapseFromIndex)
+            : buildCollapsingArrayRow(quantileN, collapseFromIndex);
+        const bounds = getQuantileBoundsFromQueryResponse(row, prefix);
+
+        expect(bounds[`${prefix}quantile_nstar`]).toBe(fallbackNstar);
+        expect(bounds[`${prefix}quantile_lower`]).toBe(lowerFor(fallbackNstar));
+        expect(bounds[`${prefix}quantile_upper`]).toBe(upperFor(fallbackNstar));
+        expect(bounds[`${prefix}quantile_lower`]).not.toBe(
+          bounds[`${prefix}quantile_upper`],
+        );
+      },
+    );
+
+    it.each(["scalar", "array"] as const)(
+      "keeps collapsed bounds when every nstar pair collapses (%s shape)",
+      (shape) => {
+        const quantileN = Number.MAX_SAFE_INTEGER;
+        // collapseFromIndex 0 => every pair is a single point
+        const row =
+          shape === "scalar"
+            ? buildCollapsingScalarRow(quantileN, 0)
+            : buildCollapsingArrayRow(quantileN, 0);
+        const bounds = getQuantileBoundsFromQueryResponse(row, prefix);
+
+        expect(bounds[`${prefix}quantile_lower`]).toBe(COLLAPSED);
+        expect(bounds[`${prefix}quantile_upper`]).toBe(COLLAPSED);
+        // Originally selected nstar is preserved (no invented bounds)
+        expect(bounds[`${prefix}quantile_nstar`]).toBe(
+          Math.max(...N_STAR_VALUES),
+        );
+      },
+    );
+  });
+
   it("throws when the grid array length does not match N_STAR_VALUES*2", () => {
     // Empty array — would silently drop all bounds without validation.
     expect(() =>

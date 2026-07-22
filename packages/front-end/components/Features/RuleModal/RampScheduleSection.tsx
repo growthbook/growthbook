@@ -18,7 +18,7 @@ import {
 import {
   PiPlusBold,
   PiInfo,
-  PiCaretDownBold,
+  PiCaretDown,
   PiCaretDownFill,
   PiCaretRightFill,
   PiBookmarkSimple,
@@ -47,6 +47,7 @@ import {
   type RevisionRampUpdateAction,
   type StepHoldConditions,
   isReadyForApproval,
+  resolveStartApproval,
   DEFAULT_NO_TRAFFIC_GRACE_PERIOD_HOURS,
 } from "shared/validators";
 import { date as formatDate } from "shared/dates";
@@ -63,6 +64,7 @@ import Badge from "@/ui/Badge";
 import SelectField from "@/components/Forms/SelectField";
 import Field from "@/components/Forms/Field";
 import DatePicker from "@/components/DatePicker";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import Switch from "@/ui/Switch";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
@@ -170,6 +172,10 @@ export interface RampSectionState {
   name: string;
   // ISO datetime string. Empty means start immediately.
   startDate: string;
+  // When true, the ramp holds at the start (rule disabled, zero traffic) until
+  // a human approves. Mutually exclusive with startDate in the UI (the Start
+  // selector is enum-like), but stored as a boolean so it can compose.
+  requiresStartApproval: boolean;
   steps: UIStep[];
   // Empty means no end date.
   endScheduleAt: string;
@@ -868,6 +874,9 @@ interface Props {
   hideNameField?: boolean;
   // Hide template creation while already editing a template.
   hideTemplateSave?: boolean;
+  // Prefetched by the parent so templates are resolved before this mounts;
+  // falls back to the local fetch when absent.
+  preloadedTemplates?: RampScheduleTemplateInterface[];
   // Shows pending removal before the draft is saved.
   pendingDetach?: boolean;
   // Hash attribute + seed — shown below date controls when ramp has coverage steps.
@@ -896,6 +905,7 @@ export default function RampScheduleSection({
   boxStepGrid = false,
   hideNameField = false,
   hideTemplateSave = false,
+  preloadedTemplates,
   pendingDetach = false,
   hashAttribute,
   setHashAttribute,
@@ -963,21 +973,37 @@ export default function RampScheduleSection({
     () => selectedDatasource?.settings?.queries?.exposure ?? [],
     [selectedDatasource],
   );
-  const { data: templatesData, mutate: mutateTemplates } = useApi<{
+  const {
+    data: templatesData,
+    error: templatesError,
+    mutate: mutateTemplates,
+  } = useApi<{
     rampScheduleTemplates: RampScheduleTemplateInterface[];
   }>("/ramp-schedule-templates");
-  const templates = templatesData?.rampScheduleTemplates ?? [];
+  // Prefer the parent's prefetched list; fall back to the local request. Treat a
+  // fetch error as "loaded" (with no templates) so auto-select settles and the
+  // editor still renders — otherwise a failed request leaves it spinning forever.
+  const templatesLoaded =
+    preloadedTemplates !== undefined ||
+    templatesData !== undefined ||
+    templatesError !== undefined;
+  const templates =
+    templatesData?.rampScheduleTemplates ?? preloadedTemplates ?? [];
 
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [presetOpen, setPresetOpen] = useState(false);
   const hasAutoSelected = useRef(false);
+  // True once the initial preset auto-select has run; gates the step editor and
+  // the monitoring-default effects until then.
+  const [autoSelectDone, setAutoSelectDone] = useState(false);
   // The monitored-ness reflected by the last selection sync, so we can detect a
   // strategy flip that bypassed `patchState` (e.g. a page-1 release-strategy
   // switch reseeds the parent state directly).
   const lastSyncedMonitored = useRef<boolean | null>(null);
 
   useEffect(() => {
-    if (templates.length === 0) return;
+    // Wait for templates to resolve (an empty list is still "loaded").
+    if (!templatesLoaded) return;
     const stateMonitored = state.steps.some((s) => s.monitored);
 
     // Initial load: adopt an exact match, or pre-apply the first official
@@ -986,14 +1012,32 @@ export default function RampScheduleSection({
       hasAutoSelected.current = true;
       lastSyncedMonitored.current = stateMonitored;
       const matchId = findMatchingTemplate(state, templates);
+      // Only auto-APPLY a preset's steps when the ramp is still the pristine
+      // simple default. PagedModal unmounts inactive pages, so returning to the
+      // ramp page remounts this and re-runs auto-select against the persisted —
+      // possibly customized — state; applying then would clobber those edits.
+      // A non-pristine state just reflects the matching selection (if any).
+      const canApplyPreset =
+        !ruleRampSchedule &&
+        !hideTemplateSave &&
+        stepsMatchSimplePattern(state.steps, state.endPatch);
       if (matchId) {
-        setSelectedTemplateId(matchId);
-      } else if (!ruleRampSchedule && !hideTemplateSave) {
+        // A lossy match doesn't guarantee the rendered steps equal the template,
+        // so on a pristine ramp apply it to make the steps reflect the preset;
+        // otherwise just reflect the selection without overwriting the steps.
+        const matched = templates.find((t) => t.id === matchId);
+        if (matched && canApplyPreset) {
+          applyTemplate(matched);
+        } else {
+          setSelectedTemplateId(matchId);
+        }
+      } else if (canApplyPreset) {
         const defaultTemplate = templates.find(
           (t) => t.official && isMonitoredTemplate(t) === stateMonitored,
         );
         if (defaultTemplate) applyTemplate(defaultTemplate);
       }
+      setAutoSelectDone(true);
       return;
     }
 
@@ -1006,11 +1050,18 @@ export default function RampScheduleSection({
       setSelectedTemplateId(findMatchingTemplate(state, templates));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [templates, state.steps]);
+  }, [templatesLoaded, state.steps]);
 
-  // Auto-derive monitoring cadence from step durations on initial mount,
-  // but only if no explicit cadence override was already saved.
+  // A brand-new ramp hides the step editor until auto-select applies its preset,
+  // so the basic default never flashes.
+  const awaitingTemplateAutoSelect =
+    !ruleRampSchedule && !hideTemplateSave && !autoSelectDone;
+
+  // Derive monitoring cadence from step durations, unless already set. Gated on
+  // autoSelectDone: running before the preset is applied lets patchState's
+  // whole-state merge clobber the applied steps from a stale closure.
   useEffect(() => {
+    if (!autoSelectDone) return;
     if (state.builderMode !== "simple") return;
     if (state.monitoring.updateScheduleMinutes !== null) return;
     const overrides = deriveMonitoringOverrides(state.steps);
@@ -1023,7 +1074,7 @@ export default function RampScheduleSection({
       monitoring: { ...state.monitoring, ...overrides },
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [autoSelectDone]);
 
   const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
   const [templateName, setTemplateName] = useState("");
@@ -1658,7 +1709,7 @@ export default function RampScheduleSection({
           }}
         />
         <Flex direction="column" gap="2" pl="2">
-          <Flex align="center" gap="4" style={{ minHeight: 38 }}>
+          <Flex align="center" gap="4">
             <Box style={{ width: COL.num, flexShrink: 0, textAlign: "center" }}>
               <Text size="small" weight="medium" color="text-low">
                 end
@@ -1682,7 +1733,7 @@ export default function RampScheduleSection({
                     className={`position-relative ${styles.percentInputWrap}`}
                   >
                     <Field
-                      style={{ width: COL.coverage, minHeight: 38 }}
+                      style={{ width: COL.coverage }}
                       type="number"
                       min="0"
                       max="100"
@@ -1890,7 +1941,6 @@ export default function RampScheduleSection({
                           {isReadOnlyView ? (
                             <Box
                               style={{
-                                height: 38,
                                 display: "flex",
                                 alignItems: "center",
                               }}
@@ -1904,7 +1954,7 @@ export default function RampScheduleSection({
                               className={`position-relative ${styles.percentInputWrap}`}
                             >
                               <Field
-                                style={{ width: COL.coverage, minHeight: 38 }}
+                                style={{ width: COL.coverage }}
                                 type="number"
                                 min={minCov}
                                 max={maxCov}
@@ -2004,7 +2054,6 @@ export default function RampScheduleSection({
                               updateStep(i, update);
                             }}
                             className="select-unfixed"
-                            containerStyle={{ minHeight: 38 }}
                             useMultilineLabels
                             formatOptionLabel={(option, meta) => {
                               if (meta.context === "value")
@@ -2035,7 +2084,6 @@ export default function RampScheduleSection({
                         {step.triggerType === "interval" && (
                           <>
                             <Field
-                              style={{ minHeight: 38 }}
                               type="number"
                               min="0"
                               step="any"
@@ -2077,7 +2125,6 @@ export default function RampScheduleSection({
                                   })
                                 }
                                 className="select-unfixed"
-                                containerStyle={{ minHeight: 38 }}
                               />
                             </Box>
                             {!step.holdConditions?.requiresApproval && (
@@ -2144,7 +2191,6 @@ export default function RampScheduleSection({
                                       approvalNotes: e.target.value,
                                     })
                                   }
-                                  style={{ minHeight: 38 }}
                                 />
                               </Box>
                             )}
@@ -2484,7 +2530,6 @@ export default function RampScheduleSection({
                                         approvalNotes: e.target.value,
                                       })
                                     }
-                                    style={{ height: 32 }}
                                   />
                                 </Box>
                               )}
@@ -2653,6 +2698,10 @@ export default function RampScheduleSection({
       oldPatch.force !== undefined
         ? { ...newPatch, force: oldPatch.force }
         : newPatch;
+    const mergedSteps = newState.steps.map((s, i) => ({
+      ...s,
+      patch: mergeForce(s.patch, state.steps[i]?.patch ?? {}),
+    }));
     setState({
       ...newState,
       mode: resolvedMode,
@@ -2660,12 +2709,12 @@ export default function RampScheduleSection({
       linkedRampId: state.linkedRampId,
       startDate: state.startDate,
       endPatch: mergeForce(newState.endPatch, state.endPatch),
-      steps: newState.steps.map((s, i) => ({
-        ...s,
-        patch: mergeForce(s.patch, state.steps[i]?.patch ?? {}),
-      })),
+      steps: mergedSteps,
     });
     setSelectedTemplateId(tmpl.id);
+    // Mark this monitored-ness as synced so the selection-sync effect treats the
+    // apply as explicit and doesn't re-derive the selection to "none".
+    lastSyncedMonitored.current = mergedSteps.some((s) => s.monitored);
   };
 
   const clearTemplate = () => {
@@ -2680,6 +2729,7 @@ export default function RampScheduleSection({
       monitoring: state.monitoring,
     });
     setSelectedTemplateId("");
+    lastSyncedMonitored.current = fresh.steps.some((s) => s.monitored);
   };
 
   const presetTrigger = (
@@ -2714,7 +2764,10 @@ export default function RampScheduleSection({
             (templates.length === 0 ? "No templates" : "None")}
         </span>
       </Flex>
-      <PiCaretDownBold style={{ flexShrink: 0 }} />
+      <PiCaretDown
+        size={16}
+        style={{ flexShrink: 0, color: "var(--gray-12)" }}
+      />
     </Flex>
   );
 
@@ -3325,6 +3378,8 @@ export default function RampScheduleSection({
   const noneMonitored = state.steps.every((s) => !s.monitored);
 
   useEffect(() => {
+    // Gated like the cadence effect above, for the same stale-closure reason.
+    if (!autoSelectDone) return;
     if (noneMonitored || state.monitoring.datasourceId) return;
     const defaultDs =
       datasources.find((d) => d.id === settings?.defaultDataSource) ??
@@ -3336,7 +3391,7 @@ export default function RampScheduleSection({
       exposureQueryId: eqs[0]?.id ?? "",
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [noneMonitored, state.monitoring.datasourceId]);
+  }, [autoSelectDone, noneMonitored, state.monitoring.datasourceId]);
   const monitorCheckboxValue: boolean | "indeterminate" = allMonitored
     ? true
     : noneMonitored
@@ -3530,7 +3585,7 @@ export default function RampScheduleSection({
                 Math.max(0.01, state.simpleDurationDays),
               )
             }
-            style={{ width: 60, minHeight: 38 }}
+            style={{ width: 60 }}
             errorLevel={anyCadenceWarning ? "warning" : undefined}
           />
           <SelectField
@@ -3693,21 +3748,35 @@ export default function RampScheduleSection({
         </Text>
       </Box>
       <SelectField
-        value={state.startDate ? "on-date" : "immediately"}
+        value={
+          state.requiresStartApproval
+            ? "on-approval"
+            : state.startDate
+              ? "on-date"
+              : "immediately"
+        }
         options={[
           { value: "immediately", label: "Immediately" },
           { value: "on-date", label: "On date" },
+          { value: "on-approval", label: "On approval" },
         ]}
         onChange={(v) => {
+          // Enum-like: each choice clears the other axis so the two never
+          // coexist from the UI (the model still allows composing them).
           if (v === "immediately") {
-            patchState({ startDate: "" });
+            patchState({ startDate: "", requiresStartApproval: false });
+          } else if (v === "on-approval") {
+            patchState({ startDate: "", requiresStartApproval: true });
           } else {
             const d = new Date();
             d.setSeconds(0, 0);
-            patchState({ startDate: d.toISOString() });
+            patchState({
+              startDate: d.toISOString(),
+              requiresStartApproval: false,
+            });
           }
         }}
-        containerStyle={{ minHeight: 38, width: 150 }}
+        containerStyle={{ width: 150 }}
       />
       {state.startDate && (
         <DatePicker
@@ -4123,7 +4192,14 @@ export default function RampScheduleSection({
         </Flex>
         <Switch value={open} onChange={handleToggle} />
       </Flex>
-      {open && content}
+      {open &&
+        (awaitingTemplateAutoSelect ? (
+          <Flex align="center" justify="center" py="6">
+            <LoadingSpinner />
+          </Flex>
+        ) : (
+          content
+        ))}
     </Box>
   );
 }
@@ -4230,6 +4306,7 @@ export function rampScheduleToSectionState(
     mode: "edit",
     name: rs.name,
     startDate: rs.startDate ? new Date(rs.startDate).toISOString() : "",
+    requiresStartApproval: !!rs.requiresStartApproval,
     steps: uiSteps,
     endScheduleAt: rs.cutoffDate ? new Date(rs.cutoffDate).toISOString() : "",
     endPatch,
@@ -4286,6 +4363,7 @@ export function defaultRampSectionState(
     mode: "off",
     name: `ramp-up ${formatDate(new Date())}`,
     startDate: "",
+    requiresStartApproval: false,
     steps: generateSimpleSteps(5, "days"),
     endScheduleAt: "",
     endPatch: { coverage: 100 },
@@ -4311,6 +4389,7 @@ export function createActionToSectionState(
     mode: "create",
     name: action.name ?? "",
     startDate: action.startDate ? new Date(action.startDate).toISOString() : "",
+    requiresStartApproval: !!action.requiresStartApproval,
     steps: uiSteps,
     endScheduleAt: action.cutoffDate
       ? new Date(action.cutoffDate).toISOString()
@@ -4381,6 +4460,10 @@ export function updateActionToSectionState(
     linkedRampId: liveSchedule.id,
     // Fields not included in the update action fall back to the live schedule.
     name: action.name ?? liveSchedule.name,
+    requiresStartApproval: resolveStartApproval(
+      action.requiresStartApproval,
+      liveSchedule.requiresStartApproval,
+    ),
     startDate: action.startDate
       ? new Date(action.startDate).toISOString()
       : liveSchedule.startDate
@@ -4412,6 +4495,8 @@ export function templateToSectionState(
     mode,
     name: template.name,
     startDate: "",
+    // Start-gating is a per-launch decision, never stored on templates.
+    requiresStartApproval: false,
     steps: template.steps.map(reconstructUIStep),
     endScheduleAt: "",
     endPatch,

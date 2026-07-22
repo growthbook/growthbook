@@ -3,7 +3,7 @@ import { useRouter } from "next/router";
 import { useFeature } from "@growthbook/growthbook-react";
 import { Box, Flex } from "@radix-ui/themes";
 import { FaRegCircleCheck, FaRegCircleXmark } from "react-icons/fa6";
-import { FeatureInterface } from "shared/types/feature";
+import { FeatureInterface, FeatureMetaInfo } from "shared/types/feature";
 import { date, datetime } from "shared/dates";
 import { featureHasEnvironment } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
@@ -27,6 +27,7 @@ import WatchButton from "@/components/WatchButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import FeatureStatusBadge from "@/components/Features/FeatureStatusBadge";
+import FeatureValueTypeDisplay from "@/components/Features/FeatureValueTypeDisplay";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
@@ -97,18 +98,6 @@ const FEATURE_TABLE_COLUMN_WIDTH = {
   DATA_TYPE_MIN: 80,
   RECENT_USAGE: 170,
 } as const;
-
-function valueTypeLabel(
-  valueType: "boolean" | "string" | "number" | "json",
-): string {
-  const labels: Record<string, string> = {
-    boolean: "Boolean",
-    string: "String",
-    number: "Number",
-    json: "JSON",
-  };
-  return labels[valueType] ?? valueType;
-}
 
 export default function FeaturesPage() {
   const router = useRouter();
@@ -312,6 +301,7 @@ export default function FeaturesPage() {
               <Flex align="center" gap="1" width="40%">
                 <Box flexGrow="1" style={{ position: "relative" }}>
                   <Field
+                    size="legacy"
                     placeholder="Search..."
                     type="search"
                     containerClassName="mb-0"
@@ -499,7 +489,17 @@ export default function FeaturesPage() {
                         minWidth: FEATURE_TABLE_COLUMN_WIDTH.DATA_TYPE_MIN,
                       }}
                     >
-                      {valueTypeLabel(feature.valueType)}
+                      <Box style={{ marginRight: -40 }}>
+                        <FeatureValueTypeDisplay
+                          valueType={feature.valueType}
+                          configBackingKey={
+                            (feature as unknown as FeatureMetaInfo)
+                              .configBackingKey
+                          }
+                          link={false}
+                          maxWidth={120}
+                        />
+                      </Box>
                     </TableCell>
                     <TableCell>
                       {draftEntry
@@ -692,7 +692,7 @@ export default function FeaturesPage() {
       )}
       <Flex align="center" justify="between" gap="3" mt="4" mb="2">
         <Box style={{ flex: 1 }}>
-          <h1>Features</h1>
+          <h1>Feature Flags</h1>
         </Box>
         {!showSetUpFlow && (
           <Box>
