@@ -7,7 +7,7 @@ import AttributeForm from "@/components/Archetype/AttributeForm";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Modal from "@/components/Modal";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import { useEnvironments } from "@/services/features";
@@ -102,10 +102,16 @@ const ArchetypeAttributesModal: FC<{
       ) : (
         <>
           <div>
-            <Field label={"Name"} required={true} {...form.register("name")} />
+            <Field
+              size="legacy"
+              label={"Name"}
+              required={true}
+              {...form.register("name")}
+            />
           </div>
           <div>
             <Field
+              size="legacy"
               label={"Description"}
               maxLength={MAX_DESCRIPTION_LENGTH}
               {...form.register("description")}
@@ -115,8 +121,9 @@ const ArchetypeAttributesModal: FC<{
           {projects?.length > 0 && (
             <div className="form-group">
               <MultiSelectField
+                size="legacy"
                 label={<>Projects </>}
-                placeholder="All projects"
+                placeholder="All Projects"
                 value={form.watch("projects")}
                 options={projectOptions}
                 onChange={(v) => form.setValue("projects", v)}

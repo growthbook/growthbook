@@ -10,7 +10,6 @@ import { HoldoutInterfaceStringDates } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { experimentHasLiveLinkedChanges } from "shared/util";
 import { Flex } from "@radix-ui/themes";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import LinkedChanges from "@/components/Experiment/LinkedChanges/LinkedChanges";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
@@ -116,7 +115,6 @@ export default function Implementation({
   );
 
   const isHoldout = experiment.type === "holdout";
-  const simpleExperimentFlow = useFeatureIsOn("simple-experiment-flow");
 
   const safeToEdit =
     experiment.status !== "running" ||
@@ -124,7 +122,7 @@ export default function Implementation({
 
   // Temporary check while we test the new traffic funnel
   // TODO: Remove this once we're ready to support holdouts in the new traffic funnel UI.
-  const showTrafficFunnel = !isHoldout && simpleExperimentFlow;
+  const showTrafficFunnel = !isHoldout;
   const canEditHoldoutDefaultState =
     isHoldout &&
     !!holdout &&

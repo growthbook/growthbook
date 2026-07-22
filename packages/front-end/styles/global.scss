@@ -47,6 +47,11 @@ body {
 
 .main {
   padding-left: 240px;
+  &.product-analytics-explore-landing {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+  }
   &.lite {
     padding-left: 0;
   }
@@ -647,6 +652,28 @@ pre {
   }
 }
 
+// Wide config tables (the field editor + the usage tables on the config page).
+// Same trade-off as .experiment-results-wrapper: an `overflow-x` ancestor breaks
+// a document-sticky header AND would clip the inline edit-field dropdowns, so we
+// only enable x-scroll once the viewport is too narrow to show the table without
+// squeezing/truncating, and drop the sticky header at that same breakpoint.
+// Above it there is no scroll container (header sticks, dropdowns aren't
+// clipped); below it we trade the sticky header for horizontal scroll. Viewport
+// (not container) query on purpose — a container-query ancestor would establish a
+// containing block that re-clips the `position: fixed` react-select menus.
+// Keep the breakpoint in the two rules in sync.
+.config-table-scroll {
+  @media (max-width: 1400px) {
+    overflow-x: auto;
+  }
+}
+.config-table-sticky-header {
+  position: sticky;
+  @media (max-width: 1400px) {
+    position: static;
+  }
+}
+
 .experiment-results,
 .bandit-summary-results {
   tbody {
@@ -892,7 +919,7 @@ main.main {
 }
 .badge-purple {
   background-color: var(--form-multivalue-background-color);
-  color: var(--form-multivalue-text-color);
+  color: var(--slate-12);
 }
 .badge-yellow {
   background-color: var(--alert-warn-background);
@@ -3307,6 +3334,10 @@ td.disabled {
 .cursor-disabled {
   cursor: not-allowed;
 }
+// Offsets a row action button to align with the control of a labelless "normal"-size field.
+.field-row-action {
+  padding-top: 10px;
+}
 .cursor-default {
   cursor: default;
 }
@@ -3357,14 +3388,85 @@ td.disabled {
     }
   }
 }
+.form-control {
+  border-color: var(--gray-a7);
+  border-radius: var(--radius-2);
+  background-color: var(--color-surface);
+}
 .form-control:focus {
-  border-color: var(--border-color-200);
+  border-color: var(--gray-a7);
   box-shadow: 0px 0px 0px 1px var(--violet-8);
 }
 .form-control:disabled {
   cursor: not-allowed;
   color: var(--color-text-disabled) !important;
   background-color: var(--gray-a2) !important;
+}
+// Normalize input/select heights to our size scale; textarea uses min-height so it can still grow
+input.form-control,
+select.form-control {
+  height: 36px;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  font-size: var(--font-size-2);
+}
+textarea.form-control {
+  min-height: 36px;
+  font-size: var(--font-size-2);
+}
+input.form-control--sm,
+select.form-control--sm {
+  height: 28px;
+  border-radius: var(--radius-2);
+}
+input.form-control--sm,
+select.form-control--sm,
+textarea.form-control--sm {
+  padding-top: 2px;
+  padding-bottom: 2px;
+  font-size: var(--font-size-1);
+}
+input.form-control--md,
+select.form-control--md {
+  height: 32px;
+  border-radius: var(--radius-2);
+}
+input.form-control--legacy,
+select.form-control--legacy {
+  height: 36px;
+  border-radius: var(--radius-2);
+}
+input.form-control--md,
+select.form-control--md,
+textarea.form-control--md {
+  padding-top: 2px;
+  padding-bottom: 2px;
+  font-size: var(--font-size-2);
+}
+input.form-control--legacy,
+select.form-control--legacy {
+  padding-top: 4px;
+  padding-bottom: 4px;
+  font-size: var(--font-size-2);
+}
+// Textareas grow from padding rather than a fixed height, so they need more
+// vertical padding than the fixed-height inputs/selects to feel like legacy.
+textarea.form-control--legacy {
+  padding-top: 6px;
+  padding-bottom: 6px;
+  font-size: var(--font-size-2);
+}
+input.form-control--lg,
+select.form-control--lg {
+  height: 40px;
+  border-radius: var(--radius-3);
+}
+input.form-control--lg,
+select.form-control--lg,
+textarea.form-control--lg {
+  padding-top: 6px;
+  padding-bottom: 6px;
+  font-size: var(--font-size-3);
 }
 .form-control--error {
   border-color: var(--red-8) !important;
@@ -3414,15 +3516,6 @@ input:disabled {
 
   .alert-link {
     color: var(--text-color-main);
-  }
-}
-
-.alert-cool-1 {
-  border-radius: 5px;
-  color: #4d7693;
-  background: linear-gradient(to top, #c0d6e6, #d5ebf0);
-  .btn-link {
-    color: #007bff;
   }
 }
 

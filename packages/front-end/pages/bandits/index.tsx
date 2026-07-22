@@ -256,6 +256,7 @@ const ExperimentsPage = (): React.ReactElement => {
               <Flex gap="4" align="center" justify="between" mb="4" wrap="wrap">
                 <Box flexBasis="300px" flexShrink="0">
                   <Field
+                    size="legacy"
                     placeholder="Search..."
                     type="search"
                     {...searchInputProps}

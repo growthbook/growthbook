@@ -188,7 +188,8 @@ export default function BaselineChooserColumnLabel({
           ) : (
             <Box
               style={{
-                maxWidth: labelMaxWidth + 20,
+                width: labelMaxWidth + 20,
+                maxWidth: "100%",
                 minWidth: 0,
                 marginLeft: -4,
               }}

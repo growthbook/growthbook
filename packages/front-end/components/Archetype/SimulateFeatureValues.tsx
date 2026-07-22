@@ -230,6 +230,7 @@ export const SimulateFeatureValues: FC<{
           <div className="mb-2 d-flex">
             <div className="mr-2">
               <Field
+                size="legacy"
                 placeholder="Search..."
                 type="search"
                 {...searchInputProps}
@@ -245,6 +246,7 @@ export const SimulateFeatureValues: FC<{
                     Environment:
                   </div>
                   <SelectField
+                    size="legacy"
                     value={!selectedEnvironment ? "all" : selectedEnvironment}
                     options={environmentOptions}
                     onChange={(e) => {
@@ -363,7 +365,7 @@ export const SimulateFeatureValues: FC<{
           )}
         </div>
       </div>
-      <Callout status="info" mt="5" mb="5" contentsAs="div">
+      <Callout status="info" mt="5" mb="5">
         <Flex
           align="center"
           gap="3"

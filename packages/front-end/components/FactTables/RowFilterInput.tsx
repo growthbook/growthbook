@@ -3,12 +3,12 @@ import { FactTableInterface, RowFilter } from "shared/types/fact-table";
 import { PiPlus, PiX } from "react-icons/pi";
 import { useState } from "react";
 import Field from "@/components/Forms/Field";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import SelectField, {
   GroupedValue,
   SingleValue,
 } from "@/components/Forms/SelectField";
-import StringArrayField from "@/components/Forms/StringArrayField";
+import StringArrayField from "@/ui/StringArrayField";
 import Button from "@/ui/Button";
 import {
   NUMBER_PATTERN,
@@ -216,6 +216,7 @@ export function RowFilterInput({
           >
             {i > 0 && <div>AND</div>}
             <SelectField
+              size="legacy"
               value={
                 filter.operator === "sql_expr"
                   ? "$$sql_expr"
@@ -267,6 +268,7 @@ export function RowFilterInput({
             />
             {operatorInputRequired && firstSelectCompleted && (
               <SelectField
+                size="legacy"
                 value={filter.operator}
                 onChange={(v: RowFilter["operator"]) => {
                   let newValues = filter.values || [];
@@ -293,6 +295,7 @@ export function RowFilterInput({
               <>
                 {multiValueInput && useValueOptions ? (
                   <MultiSelectField
+                    size="legacy"
                     value={filter.values || []}
                     onChange={(v) => {
                       updateRowFilter({
@@ -310,6 +313,7 @@ export function RowFilterInput({
                   />
                 ) : multiValueInput ? (
                   <StringArrayField
+                    size="legacy"
                     value={filter.values || []}
                     onChange={(v) => {
                       updateRowFilter({
@@ -325,6 +329,7 @@ export function RowFilterInput({
                   />
                 ) : useValueOptions ? (
                   <SelectField
+                    size="legacy"
                     value={filter.values?.[0] || ""}
                     onChange={(v) => {
                       updateRowFilter({
@@ -342,6 +347,7 @@ export function RowFilterInput({
                   />
                 ) : (
                   <Field
+                    size="legacy"
                     value={filter.values?.[0] || ""}
                     onChange={(e) => {
                       updateRowFilter({

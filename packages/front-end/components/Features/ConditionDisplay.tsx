@@ -76,13 +76,13 @@ function operatorToText({
     case "$false":
       return "is";
     case "$regex":
-      return `matches the pattern`;
+      return `matches regex`;
     case "$notRegex":
-      return `does not match the pattern`;
+      return `does not match regex`;
     case "$regexi":
-      return `matches the pattern (case insensitive)`;
+      return `matches regex (case insensitive)`;
     case "$notRegexi":
-      return `does not match the pattern (case insensitive)`;
+      return `does not match regex (case insensitive)`;
   }
   return operator;
 }

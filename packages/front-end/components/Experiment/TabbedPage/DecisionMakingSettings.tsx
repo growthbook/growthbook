@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { getScopedSettings } from "shared/settings";
 import {
   expandMetricGroups,
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
   isFactMetric,
 } from "shared/experiments";
 import { DEFAULT_TARGET_MDE } from "shared/constants";
@@ -36,7 +36,7 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 });
 
 export type ExperimentMetricInterfaceWithComputedTargetMDE = Omit<
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
   "targetMDE"
 > & {
   computedTargetMDE: number;

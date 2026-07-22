@@ -1,6 +1,6 @@
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import {
-  isManagedWarehouseAwaitingProvisioning,
+  isManagedWarehouseUnavailable,
   MANAGED_WAREHOUSE_EVENTS_TABLE,
 } from "shared/util";
 import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
@@ -10,7 +10,7 @@ import { useEffect, useMemo, useState } from "react";
 import { FaRedo, FaTable } from "react-icons/fa";
 import { Box } from "@radix-ui/themes";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
-import { useDefinitions } from "@/services/DefinitionsContext";
+import useFullFactTable from "@/hooks/useFullFactTable";
 import { useAuth } from "@/services/auth";
 import Callout from "@/ui/Callout";
 import useApi from "@/hooks/useApi";
@@ -34,8 +34,7 @@ export default function DatasourceSchema({
   setError,
   canRunQueries,
 }: Props) {
-  const managedWarehousePending =
-    isManagedWarehouseAwaitingProvisioning(datasource);
+  const managedWarehousePending = isManagedWarehouseUnavailable(datasource);
 
   const { data, mutate } = useApi<{
     table: InformationSchemaTablesInterface;
@@ -49,29 +48,31 @@ export default function DatasourceSchema({
   const [dateLastUpdated, setDateLastUpdated] = useState<Date | null>(null);
   const [columnFilter, setColumnFilter] = useState("");
   const { apiCall } = useAuth();
-  const { getFactTableById } = useDefinitions();
-
   // For a managed warehouse, the raw information schema reports `attributes` /
   // `properties` as single JSON columns. Pull the detected sub-fields from the
   // built-in `ch_events` fact table so they show as `attributes.<field>` rows,
-  // matching the fact-table column list.
+  // matching the fact-table column list. jsonFields is slimmed out of the
+  // definitions copy, so fetch the full fact table by id.
+  const isManagedWarehouseEventsTable =
+    datasource.type === "growthbook_clickhouse" &&
+    table?.tableName === MANAGED_WAREHOUSE_EVENTS_TABLE;
+  const { factTable: eventsFactTable } = useFullFactTable(
+    isManagedWarehouseEventsTable
+      ? MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID
+      : null,
+  );
   const jsonFieldsByColumn = useMemo<Record<string, JSONColumnFields>>(() => {
-    if (
-      datasource.type !== "growthbook_clickhouse" ||
-      table?.tableName !== MANAGED_WAREHOUSE_EVENTS_TABLE
-    ) {
+    if (!eventsFactTable || eventsFactTable.datasource !== datasourceId) {
       return {};
     }
-    const factTable = getFactTableById(MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID);
-    if (!factTable || factTable.datasource !== datasourceId) return {};
     const map: Record<string, JSONColumnFields> = {};
-    for (const col of factTable.columns) {
+    for (const col of eventsFactTable.columns) {
       if (col.datatype === "json" && !col.deleted && col.jsonFields) {
         map[col.column] = col.jsonFields;
       }
     }
     return map;
-  }, [datasource.type, table?.tableName, getFactTableById, datasourceId]);
+  }, [eventsFactTable, datasourceId]);
 
   // Information-schema columns with JSON sub-fields expanded into their own
   // pseudo-column rows (`attributes.<field>`).
@@ -243,6 +244,7 @@ export default function DatasourceSchema({
           </div>
           <Box mt="1">
             <Field
+              size="legacy"
               type="search"
               value={columnFilter}
               onChange={(e) => setColumnFilter(e.target.value)}

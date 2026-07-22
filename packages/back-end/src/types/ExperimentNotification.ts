@@ -20,7 +20,14 @@ export type SRM = {
   threshold: number;
 };
 
+export type Underpowered = {
+  type: "underpowered";
+  experimentName: string;
+  experimentId: string;
+};
+
 export type ExperimentWarningNotificationPayload =
   | AutoUpdateFailed
   | MultipleExposures
-  | SRM;
+  | SRM
+  | Underpowered;

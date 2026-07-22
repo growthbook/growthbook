@@ -18,6 +18,7 @@ import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 import Button from "@/components/Button";
 import Checkbox from "@/ui/Checkbox";
+import Callout from "@/ui/Callout";
 import FactTableSchema from "./FactTableSchema";
 
 export interface Props {
@@ -125,7 +126,12 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
     >
       <div className="row">
         <div className="col">
-          <Field label="Name" {...form.register("name")} required />
+          <Field
+            size="legacy"
+            label="Name"
+            {...form.register("name")}
+            required
+          />
 
           {showDescription ? (
             <div className="form-group">
@@ -150,6 +156,7 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
           )}
 
           <Field
+            size="legacy"
             label="Filter SQL"
             required
             textarea
@@ -174,7 +181,7 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
           />
 
           {showExamples && (
-            <div className="alert alert-info">
+            <Callout status="info">
               <div className="mb-2">Here are some examples of Filter SQL:</div>
               <table className="table gbtable">
                 <tbody>
@@ -201,7 +208,7 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
                   </tr>
                 </tbody>
               </table>
-            </div>
+            </Callout>
           )}
 
           <Button

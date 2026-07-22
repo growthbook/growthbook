@@ -178,6 +178,10 @@ const GeneralSettingsPage = (): React.ReactElement => {
       restApiBypassesReviews: settings.restApiBypassesReviews ?? false,
       requireRebaseBeforePublish: settings.requireRebaseBeforePublish ?? false,
       revertsBypassApproval: settings.revertsBypassApproval ?? false,
+      configsExtensibleByDefault: settings.configsExtensibleByDefault ?? true,
+      configExperimentGuardDefault:
+        settings.configExperimentGuardDefault ?? false,
+      blockPublishOnSchemaError: settings.blockPublishOnSchemaError ?? true,
       maxConcurrentDrafts: settings.maxConcurrentDrafts ?? 0,
       defaultDataSource: settings.defaultDataSource || "",
       testQueryDays: DEFAULT_TEST_QUERY_DAYS,
@@ -519,16 +523,15 @@ const GeneralSettingsPage = (): React.ReactElement => {
         <Tabs value={activeTab} onValueChange={setUrlHash}>
           <StickyTabsList>
             <TabsTrigger value={SETTINGS_TAB.experiment}>
-              Experiment Settings
+              Experiments
             </TabsTrigger>
             <TabsTrigger value={SETTINGS_TAB.feature}>
-              Feature Settings
+              Feature Flags
             </TabsTrigger>
             <TabsTrigger value={SETTINGS_TAB.metrics}>
               Metrics &amp; Data
             </TabsTrigger>
             <TabsTrigger value={SETTINGS_TAB["approval-flow"]}>
-              {/* TODO: Check if we want to reuse this feature flag or not */}
               <PremiumTooltip commercialFeature="require-approvals">
                 Approval Flows
               </PremiumTooltip>
@@ -546,7 +549,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
             </TabsTrigger>
             <TabsTrigger value={SETTINGS_TAB.ai}>
               <PremiumTooltip commercialFeature="ai-suggestions">
-                AI Settings
+                AI &amp; Prompts
               </PremiumTooltip>
             </TabsTrigger>
           </StickyTabsList>
@@ -658,7 +661,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
               }}
               setError={setSubmitError}
             >
-              Save All
+              Save all
             </Button>
           </Box>
         </Box>

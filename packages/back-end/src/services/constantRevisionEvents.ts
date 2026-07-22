@@ -9,6 +9,7 @@ import { ApiReqContext } from "back-end/types/api";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
 import { toApiConstantRevision } from "back-end/src/api/constants/toApiConstantRevision";
 import type { RevisionLifecycleAction } from "back-end/src/events/revisionWebhookAdapters";
+import { bulkPublishFields } from "back-end/src/events/bulkPublishCorrelation";
 import { logger } from "back-end/src/util/logger";
 
 type ConstantRevisionEvent = Extract<
@@ -118,7 +119,19 @@ export async function dispatchConstantRevisionEvent(
         await emit("revision.rebased", apiRevision);
         break;
       case "published":
-        await emit("revision.published", apiRevision);
+        await emit("revision.published", {
+          ...apiRevision,
+          ...bulkPublishFields(context),
+        });
+        break;
+      case "publishFailed":
+        await emit("revision.publishFailed", {
+          ...apiRevision,
+          ...bulkPublishFields(context),
+          failureReason: action.reason,
+          terminal: action.terminal,
+          attempts: action.attempts,
+        });
         break;
       case "discarded":
         await emit("revision.discarded", apiRevision);
@@ -134,6 +147,7 @@ export async function dispatchConstantRevisionEvent(
           : null;
         await emit("revision.reverted", {
           ...apiRevision,
+          ...bulkPublishFields(context),
           ...(source && source.version !== undefined
             ? { revertedToVersion: source.version }
             : {}),

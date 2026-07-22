@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
   getAllMetricIdsFromExperiment,
   isBinomialMetric,
   isFactMetric,
@@ -9,7 +9,7 @@ import {
 import { config, FullModalPowerCalculationParams } from "shared/power";
 import { isProjectListValidForProject } from "shared/util";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import SelectField from "@/components/Forms/SelectField";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Modal from "@/components/Modal";
@@ -137,7 +137,7 @@ export const SelectStep = ({
 
   // only allow metrics from the same datasource in an analysis
   // combine both metrics and remove quantile metrics
-  const availableMetrics: ExperimentMetricInterface[] = useMemo(
+  const availableMetrics: ExperimentMetricDefinition[] = useMemo(
     () =>
       [...appMetrics, ...appFactMetrics].filter((m) => {
         // drop quantile metrics
@@ -273,7 +273,7 @@ export const SelectStep = ({
 
   const field = (
     key: keyof typeof config,
-    metric: ExperimentMetricInterface,
+    metric: ExperimentMetricDefinition,
   ) => ({
     [key]: defaultValue(config[key], metric.priorSettings, settings),
   });
@@ -376,6 +376,7 @@ export const SelectStep = ({
         {metricValuesSource !== "manual" ? (
           <>
             <SelectField
+              size="legacy"
               label={
                 <>
                   <span className="mr-auto font-weight-bold">
@@ -395,6 +396,7 @@ export const SelectStep = ({
               forceUndefinedValueToNull={true}
             />
             <SelectField
+              size="legacy"
               label={
                 <>
                   <span className="mr-auto font-weight-bold">
@@ -440,6 +442,7 @@ export const SelectStep = ({
           Pick the key metrics for which you want to estimate power.
         </div>
         <MultiSelectField
+          size="legacy"
           sort={false}
           value={selectedMetrics}
           options={availableMetrics.map(({ name: label, id: value }) => ({

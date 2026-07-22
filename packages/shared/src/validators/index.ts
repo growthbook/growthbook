@@ -1,5 +1,7 @@
 export * from "./agreements";
 export * from "./base-model";
+export * from "./config";
+export * from "./config-revisions";
 export * from "./constant";
 export * from "./constant-revisions";
 export * from "./custom-fields";
@@ -25,6 +27,7 @@ export * from "./queries";
 export * from "./safe-rollout";
 export * from "./ramp-schedule";
 export * from "./ramp-schedule-notifications";
+export * from "./releases";
 export * from "./feature-revision-notifications";
 export * from "./saved-group";
 export * from "./saved-group-revisions";

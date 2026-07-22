@@ -10,9 +10,11 @@ import {
   GrowthBook,
 } from "@growthbook/growthbook";
 import {
+  buildReverseDependencyIndex,
   evalDeterministicPrereqValue,
   evaluatePrerequisiteState,
   filterProjectsByEnvironmentWithNull,
+  getDependentFeatures,
   getRulesForEnvironment,
   isDefined,
   MergeResultChanges,
@@ -28,6 +30,9 @@ import {
   ruleAppliesToEnv,
   namespacesToMap,
   stemRuleId,
+  getConfigBackingKey,
+  getConfigBackingPatch,
+  stripConfigExtends,
 } from "shared/util";
 import {
   getConnectionSDKCapabilities,
@@ -35,7 +40,6 @@ import {
   replaceSavedGroups,
   SDKCapability,
   buildConstantValueMap,
-  resolveConstantRefs,
   ConstantValueMap,
 } from "shared/sdk-versioning";
 import { ConstantInterface } from "shared/types/constant";
@@ -96,7 +100,11 @@ import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { ApiReqContext } from "back-end/types/api";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
-import { getAllFeatures } from "back-end/src/models/FeatureModel";
+import { getResolvableValues } from "back-end/src/services/resolvableValues";
+import {
+  getAllFeatures,
+  getAllFeaturesWithoutEditorFields,
+} from "back-end/src/models/FeatureModel";
 import {
   getAllPayloadExperiments,
   getAllURLRedirectExperiments,
@@ -114,6 +122,7 @@ import { getEnabledEnvironments as getEnabledHoldoutEnvironments } from "back-en
 import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
 import { bucketRulesByEnv } from "back-end/src/util/toLegacy";
 import { ReqContext } from "back-end/types/request";
+import { BadRequestError, SoftWarningError } from "back-end/src/util/errors";
 import { getSDKPayloadCacheLocation } from "back-end/src/models/SdkConnectionCacheModel";
 import { logger } from "back-end/src/util/logger";
 import { Counter, Histogram, metrics } from "back-end/src/util/metrics";
@@ -127,6 +136,7 @@ import {
 import { triggerWebhookJobs } from "back-end/src/jobs/updateAllJobs";
 import {
   createRevision,
+  featureRevisionId,
   getRevision,
   normalizeRulesInputToV2,
 } from "back-end/src/models/FeatureRevisionModel";
@@ -136,43 +146,6 @@ import {
   getContextForAgendaJobByOrgObject,
   getEnvironmentIdsFromOrg,
 } from "./organizations";
-
-// Substitute `@const:` references in a feature definition's values (default,
-// rule force values, and experiment variations) using the per-environment
-// constant map. Mutates the definition in place. `onCycle` is invoked with any
-// constant key left unresolved due to a reference cycle.
-function resolveConstantsInDefinition(
-  def: FeatureDefinition,
-  map: ConstantValueMap,
-  onCycle: (key: string) => void,
-  featureProject: string,
-): void {
-  if (def.defaultValue !== undefined) {
-    def.defaultValue = resolveConstantRefs(
-      def.defaultValue,
-      map,
-      new Set(),
-      onCycle,
-      featureProject,
-    );
-  }
-  def.rules?.forEach((rule) => {
-    if (rule.force !== undefined) {
-      rule.force = resolveConstantRefs(
-        rule.force,
-        map,
-        new Set(),
-        onCycle,
-        featureProject,
-      );
-    }
-    if (rule.variations !== undefined) {
-      rule.variations = rule.variations.map((v) =>
-        resolveConstantRefs(v, map, new Set(), onCycle, featureProject),
-      );
-    }
-  });
-}
 
 export function generateFeaturesPayload({
   features,
@@ -249,6 +222,7 @@ export function generateFeaturesPayload({
         : null;
 
   newFeatures.forEach((feature) => {
+    const reportedCycles = new Set<string>();
     const def = getFeatureDefinition({
       feature,
       environment,
@@ -273,32 +247,22 @@ export function generateFeaturesPayload({
       },
       projectsMap,
       cbMap,
-      // Resolves sparse rule values against resolved constants (sparse fields
-      // win); the post-build pass below resolves all other values.
       constantMap: constantMap ?? undefined,
+      onConstantCycle: (key) => {
+        if (reportedCycles.has(key)) return;
+        reportedCycles.add(key);
+        logger.warn(
+          {
+            organization: organization?.id,
+            feature: feature.id,
+            environment,
+            constant: key,
+          },
+          "Cyclic constant reference detected during SDK payload generation; left unresolved",
+        );
+      },
     });
     if (def) {
-      if (constantMap && constantMap.size) {
-        const reported = new Set<string>();
-        resolveConstantsInDefinition(
-          def,
-          constantMap,
-          (key) => {
-            if (reported.has(key)) return;
-            reported.add(key);
-            logger.warn(
-              {
-                organization: organization?.id,
-                feature: feature.id,
-                environment,
-                constant: key,
-              },
-              "Cyclic constant reference detected during SDK payload generation; left unresolved",
-            );
-          },
-          feature.project || "",
-        );
-      }
       defs[feature.id] = def;
     }
   });
@@ -748,12 +712,78 @@ export function queueSDKPayloadRefresh(data: {
   treatEmptyProjectAsGlobal?: boolean;
   auditContext?: { event: string; model: string; id?: string };
 }) {
+  // Bulk-publish side-effect buffer: while a multi-entity commit is applying,
+  // collect the affected keys instead of refreshing per write — the publisher
+  // flushes one deduped refresh (at most one rebuild per SDK connection) after
+  // the whole commit lands, or none if it compensated. Buffered calls drop the
+  // narrowing options (skipRefreshForProject, explicit sdkConnections) but
+  // carry treatEmptyProjectAsGlobal so global-entity keys keep their reach.
+  const buffer = data.context.sdkPayloadRefreshBuffer;
+  if (buffer && !buffer.closed) {
+    buffer.keys.push(...data.payloadKeys);
+    buffer.treatEmptyProjectAsGlobal ||= !!data.treatEmptyProjectAsGlobal;
+    return;
+  }
   // Capture stack trace at the entry point to include the original caller
   const rawStack = new Error().stack || "";
   const stackTrace = rawStack.replace(/^Error.*?\n/, "");
   refreshSDKPayloadCache({ ...data, stackTrace }).catch((e) => {
     logger.error(e, "Error refreshing SDK Payload Cache");
   });
+}
+
+// Live features that list `featureId` as a prerequisite — top-level or on an
+// enabled rule (`getDependentFeatures` covers both). Deleting a feature that
+// something still gates on dangles the reference: a top-level prerequisite is
+// emitted as a `gate: true` parentCondition (see getFeatureDefinition in
+// util/features.ts), and a gate whose parent feature is absent from the payload
+// can never pass, so the dependent is silently dropped from every SDK payload
+// (fail-closed). We scan org-wide (a dependent in an unreadable project still
+// breaks) and skip archived features, which aren't served anyway. Deletes are
+// infrequent, so a single lightweight whole-collection scan is acceptable.
+export async function getFeaturesDependingOnAsPrerequisite(
+  context: ReqContext | ApiReqContext,
+  featureId: string,
+): Promise<string[]> {
+  const scanContext =
+    context.scanContextOverride ??
+    getContextForAgendaJobByOrgObject(context.org);
+  // Candidates are live features only — an archived dependent isn't served, so
+  // it can't be outaged. The target being deleted is usually archived (delete
+  // requires it), so it needn't be in this list: getDependentFeatures matches
+  // on `feature.id` alone, so a stub target suffices.
+  const features = await getAllFeaturesWithoutEditorFields(scanContext, {});
+  const envIds = getEnvironments(scanContext.org).map((e) => e.id);
+  const reverseDependencyIndex = buildReverseDependencyIndex(features);
+  const featuresMap = new Map(features.map((f) => [f.id, f]));
+  const dependents = getDependentFeatures(
+    { id: featureId } as FeatureInterface,
+    features,
+    envIds,
+    reverseDependencyIndex,
+    featuresMap,
+  );
+  return dependents.filter((id) => id !== featureId);
+}
+
+// Block deleting a feature that live features still list as a prerequisite —
+// deletion would dangle their gate and drop them from the SDK payload. Matches
+// the copy style of assertConstantArchivable / assertSavedGroupDeletable.
+export async function assertFeatureDeletable(
+  context: ReqContext | ApiReqContext,
+  featureId: string,
+): Promise<void> {
+  const dependents = await getFeaturesDependingOnAsPrerequisite(
+    context,
+    featureId,
+  );
+  if (!dependents.length) return;
+  // Count only — the dependent scan is org-wide (so a dependent in a project
+  // the caller can't read still blocks), so naming ids would disclose
+  // cross-project features. Mirrors assertSavedGroupDeletable / assertConstantArchivable.
+  throw new BadRequestError(
+    `Cannot delete Feature Flag: it is still used as a prerequisite by ${dependents.length} live Feature Flag(s). Remove these references first.`,
+  );
 }
 
 export async function refreshSDKPayloadCache({
@@ -819,7 +849,7 @@ export async function refreshSDKPayloadCache({
   const savedGroups = await context.models.savedGroups.getAll();
   const groupMap = await getSavedGroupMap(context, savedGroups);
   const allFeatures = await getAllFeatures(context);
-  const constants = await context.models.constants.getAll();
+  const constants = await getResolvableValues(context);
   const rampMonitoredRuleMap =
     await context.models.rampSchedules.getPayloadRampMonitoredRuleMap();
 
@@ -1505,7 +1535,7 @@ export async function getFeatureDefinitions(
       savedGroups: allSavedGroups,
       holdoutsMap,
       rampMonitoredRuleMap,
-      constants: await context.models.constants.getAll(),
+      constants: await getResolvableValues(context),
     },
   });
 }
@@ -1583,24 +1613,13 @@ export function evaluateFeature({
         safeRolloutMap,
         namespaces: namespaces,
         organization,
-        // Sparse rule values resolve against resolved constants here (sparse
-        // wins); other values resolve in the post-build pass below.
+        // Resolves `@const:` references so the preview matches the served
+        // payload. Cycles are left unresolved (rendered as-is), same as payload
+        // generation — no logging needed in this preview-only path.
         constantMap: envConstantMap ?? undefined,
       });
 
       if (definition) {
-        // Resolve `@const:` references so the preview matches the served
-        // payload. Cycles are left unresolved (rendered as-is), same as payload
-        // generation — no logging needed in this preview-only path.
-        if (envConstantMap) {
-          resolveConstantsInDefinition(
-            definition,
-            envConstantMap,
-            () => undefined,
-            feature.project || "",
-          );
-        }
-
         // Prerequisite scrubbing:
         const rulesWithPrereqs: FeatureDefinitionRule[] = [];
         if (scrubPrerequisites) {
@@ -1685,7 +1704,7 @@ export async function evaluateAllFeatures({
   const savedGroups = getSavedGroupsValuesFromGroupMap(groupMap);
 
   const allFeaturesRaw = await getAllFeatures(context);
-  const constants = await context.models.constants.getAll();
+  const constants = await getResolvableValues(context);
   const allFeatures: Record<string, FeatureDefinition> = {};
   if (allFeaturesRaw.length) {
     allFeaturesRaw.map((f) => {
@@ -2096,6 +2115,7 @@ export function revisionToApiInterface(
   );
 
   return {
+    id: rev.id ?? featureRevisionId(rev.featureId, rev.version),
     featureId: rev.featureId,
     baseVersion: rev.baseVersion,
     version: rev.version,
@@ -2138,13 +2158,85 @@ export function revisionToApiInterface(
 // ---- V2 serializers ----
 
 // v2 API rule shape: v1 fields + `allEnvironments` / `environments` scope.
+// v2 read transform: split a stored (possibly config-backed) value into the
+// API's `{ value, config }` pair. `@config:` is an internal detail — the API
+// exposes the config key + override patch, never the raw `$extends` directive.
+// The config a value directly extends is the value's own `@config:` ref (a
+// pure-patch value that relies on the feature's `baseConfig` reports null here —
+// `baseConfig` is a separate field). A descendant layered on the value reports
+// that descendant.
+function decomposeConfigValue(stored: string | undefined): {
+  value: string | undefined;
+  config: string | null;
+} {
+  const config = getConfigBackingKey(stored);
+  if (config === null) return { value: stored, config: null };
+  return { value: getConfigBackingPatch(stored), config };
+}
+
+// Recursively drop the internal `@config:` `$extends` directive from a compiled
+// SDK `definition` so the REST representation never exposes it — config backing
+// is conveyed via the standalone `baseConfig`/`config` fields instead. `@const:`
+// refs are left intact so the values stay round-trippable/upsertable (the REST
+// list mirrors what you'd send back, not the fully-resolved SDK payload).
+export function scrubConfigExtends<T>(node: T): T {
+  if (Array.isArray(node)) {
+    return node.map((n) => scrubConfigExtends(n)) as unknown as T;
+  }
+  if (node !== null && typeof node === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(node as Record<string, unknown>)) {
+      if (key === "$extends" && Array.isArray(val)) {
+        const kept = val.filter(
+          (r) => !(typeof r === "string" && r.startsWith("@config:")),
+        );
+        // Drop an emptied `$extends` entirely; keep any surviving `@const:` refs.
+        if (kept.length) out[key] = kept;
+      } else {
+        out[key] = scrubConfigExtends(val);
+      }
+    }
+    return out as unknown as T;
+  }
+  return node;
+}
+
 export function normalizeRuleForApiV2(rule: FeatureRule): ApiFeatureRuleV2 {
   const base = normalizeRuleForApi(rule);
-  return {
+  const scoped = {
     ...base,
     allEnvironments: rule.allEnvironments ?? true,
     ...(rule.environments !== undefined && { environments: rule.environments }),
   };
+
+  // Split config-backing out of the raw value into a discrete `config` field so
+  // callers never see the internal `$extends: ["@config:…"]` directive.
+  // `@const:`-extended (non-config) values pass through untouched.
+  if (scoped.type === "force" || scoped.type === "rollout") {
+    const { value, config } = decomposeConfigValue(scoped.value);
+    return {
+      ...scoped,
+      value: value ?? "",
+      ...(config !== null && { config }),
+    };
+  }
+  if (
+    scoped.type === "experiment-ref" ||
+    scoped.type === "contextual-bandit-ref"
+  ) {
+    return {
+      ...scoped,
+      variations: scoped.variations.map((v) => {
+        const { value, config } = decomposeConfigValue(v.value);
+        return {
+          ...v,
+          value: value ?? "",
+          ...(config !== null && { config }),
+        };
+      }),
+    };
+  }
+  return scoped;
 }
 
 // v2 exposes a flat `rules: FeatureRuleV2[]` array; each rule carries its
@@ -2167,7 +2259,10 @@ export function revisionToApiInterfaceV2(
       })
     : [];
 
+  const revDefault = decomposeConfigValue(rev.defaultValue);
+
   return {
+    id: rev.id ?? featureRevisionId(rev.featureId, rev.version),
     featureId: rev.featureId,
     baseVersion: rev.baseVersion,
     version: rev.version,
@@ -2178,7 +2273,10 @@ export function revisionToApiInterfaceV2(
     status: rev.status,
     createdBy: eventUserToApiEventUser(rev.createdBy),
     publishedBy: eventUserToApiEventUser(rev.publishedBy),
-    defaultValue: rev.defaultValue,
+    defaultValue: revDefault.value,
+    ...(revDefault.config !== null && {
+      defaultValueConfig: revDefault.config,
+    }),
     rules,
     ...(rev.environmentsEnabled !== undefined && {
       environmentsEnabled: rev.environmentsEnabled,
@@ -2306,7 +2404,12 @@ export function getApiFeatureObjV2({
   safeRolloutMap: Map<string, SafeRolloutInterface>;
   rampScheduleMap?: Map<string, string>;
 }): ApiFeatureWithRevisionsV2 {
-  const defaultValue = feature.defaultValue;
+  // `baseConfig` (Config mode) is a discrete field; `defaultValueConfig` is the
+  // default's own extension (a descendant it patches, else null) — the exposed
+  // `defaultValue` is the override patch, never the raw `@config:` directive.
+  const { value: decomposedDefault, config: defaultValueConfig } =
+    decomposeConfigValue(feature.defaultValue);
+  const defaultValue = decomposedDefault ?? feature.defaultValue;
   const featureEnvironments: Record<string, ApiFeatureEnvironmentV2> = {};
   const environments = getEnvironmentIdsFromOrg(organization);
 
@@ -2323,7 +2426,10 @@ export function getApiFeatureObjV2({
     });
     featureEnvironments[env] = { enabled, defaultValue };
     if (definition) {
-      featureEnvironments[env].definition = JSON.stringify(definition);
+      // Scrub `@config:` so the `definition` matches the upsertable top-level fields.
+      featureEnvironments[env].definition = JSON.stringify(
+        scrubConfigExtends(definition),
+      );
     }
   });
 
@@ -2335,6 +2441,7 @@ export function getApiFeatureObjV2({
   });
 
   const revisionDefs = revisions?.map(revisionToApiInterfaceV2);
+  const baseConfig = feature.baseConfig ?? null;
 
   return {
     id: feature.id,
@@ -2342,7 +2449,9 @@ export function getApiFeatureObjV2({
     archived: !!feature.archived,
     dateCreated: feature.dateCreated.toISOString(),
     dateUpdated: feature.dateUpdated.toISOString(),
-    defaultValue: feature.defaultValue,
+    defaultValue,
+    ...(baseConfig !== null && { baseConfig }),
+    ...(defaultValueConfig !== null && { defaultValueConfig }),
     rules: apiRules,
     environments: featureEnvironments,
     prerequisites: (feature?.prerequisites || []).map((p) => p.id),
@@ -2351,6 +2460,10 @@ export function getApiFeatureObjV2({
     tags: feature.tags || [],
     valueType: feature.valueType,
     revision: {
+      // Conditional: event snapshots and legacy docs may lack a version.
+      ...(typeof feature.version === "number"
+        ? { id: revision?.id ?? featureRevisionId(feature.id, feature.version) }
+        : {}),
       comment: revision?.comment || "",
       date: revision?.dateCreated.toISOString() || "",
       createdBy: eventUserToApiEventUser(revision?.createdBy),
@@ -2380,7 +2493,14 @@ export function getApiFeatureObj({
   revisions?: FeatureRevisionInterface[];
   safeRolloutMap: Map<string, SafeRolloutInterface>;
 }): ApiFeatureWithRevisions {
-  const defaultValue = feature.defaultValue;
+  // Scrub the internal `@config:` directive out of the exposed values and
+  // surface config backing via `baseConfig`/`defaultValueConfig` instead
+  // (mirrors the v2 REST shape; `@const:` refs are left intact). Shared by the
+  // v1 REST endpoint and the feature webhook payload.
+  const baseConfig = feature.baseConfig ?? null;
+  const { value: decomposedDefault, config: defaultValueConfig } =
+    decomposeConfigValue(feature.defaultValue);
+  const defaultValue = decomposedDefault ?? feature.defaultValue;
   const featureEnvironments: Record<string, ApiFeatureEnvironment> = {};
   const environments = getEnvironmentIdsFromOrg(organization);
   // Raw spread + standard overrides. Preserves internal FeatureRule field
@@ -2394,6 +2514,9 @@ export function getApiFeatureObj({
   // response by accident and are intentionally NOT re-introduced here — the
   // SDK payload (`definition`) is unaffected and external consumers should
   // null-check sparse rule fields.
+  // Strip `@config:` from a rule value string; `@const:` refs pass through.
+  const scrubValue = (v: string | undefined): string | undefined =>
+    v === undefined ? v : (stripConfigExtends(v) ?? v);
   const normalizeRuleForFeatureEnv = (rule: FeatureRule): ApiFeatureRule =>
     ({
       ...rule,
@@ -2408,6 +2531,34 @@ export function getApiFeatureObj({
       })),
       prerequisites: rule.prerequisites || [],
       enabled: !!rule.enabled,
+      // Scrub `@config:` from every value-bearing field of this rule type.
+      ...("value" in rule && typeof rule.value === "string"
+        ? { value: scrubValue(rule.value) }
+        : {}),
+      ...(rule.type === "experiment" && Array.isArray(rule.values)
+        ? {
+            values: rule.values.map((v) => ({
+              ...v,
+              value: scrubValue(v.value),
+            })),
+          }
+        : {}),
+      ...((rule.type === "experiment-ref" ||
+        rule.type === "contextual-bandit-ref") &&
+      Array.isArray(rule.variations)
+        ? {
+            variations: rule.variations.map((v) => ({
+              ...v,
+              value: scrubValue(v.value),
+            })),
+          }
+        : {}),
+      ...(rule.type === "safe-rollout"
+        ? {
+            controlValue: scrubValue(rule.controlValue),
+            variationValue: scrubValue(rule.variationValue),
+          }
+        : {}),
     }) as unknown as ApiFeatureRule;
   // `applicableEnvs` scopes `allEnvironments: true` rules; seeding with
   // `environments` keeps every org env present in the response.
@@ -2439,7 +2590,9 @@ export function getApiFeatureObj({
       rules: rules as ApiFeatureRule[],
     };
     if (definition) {
-      featureEnvironments[env].definition = JSON.stringify(definition);
+      featureEnvironments[env].definition = JSON.stringify(
+        scrubConfigExtends(definition),
+      );
     }
   });
   const createdBy =
@@ -2492,7 +2645,9 @@ export function getApiFeatureObj({
       });
 
       environmentRules[env] = revRulesByEnv[env] ?? [];
-      environmentDefinitions[env] = JSON.stringify(definition);
+      environmentDefinitions[env] = JSON.stringify(
+        scrubConfigExtends(definition),
+      );
     });
     const createdBy =
       rev?.createdBy?.type === "api_key"
@@ -2507,6 +2662,7 @@ export function getApiFeatureObj({
           ? "SYSTEM"
           : rev?.publishedBy?.name;
     return {
+      id: rev.id ?? featureRevisionId(rev.featureId, rev.version),
       featureId: rev.featureId,
       baseVersion: rev.baseVersion,
       version: rev.version,
@@ -2517,7 +2673,7 @@ export function getApiFeatureObj({
       publishedBy,
       rules: environmentRules,
       definitions: environmentDefinitions,
-      defaultValue: rev.defaultValue,
+      defaultValue: stripConfigExtends(rev.defaultValue) ?? rev.defaultValue,
       ...(rev.environmentsEnabled !== undefined && {
         environmentsEnabled: rev.environmentsEnabled,
       }),
@@ -2544,7 +2700,9 @@ export function getApiFeatureObj({
     archived: !!feature.archived,
     dateCreated: feature.dateCreated.toISOString(),
     dateUpdated: feature.dateUpdated.toISOString(),
-    defaultValue: feature.defaultValue,
+    defaultValue,
+    ...(baseConfig !== null && { baseConfig }),
+    ...(defaultValueConfig !== null && { defaultValueConfig }),
     environments: featureEnvironments,
     prerequisites: (feature?.prerequisites || []).map((p) => p.id),
     owner: feature.owner || "",
@@ -2552,6 +2710,10 @@ export function getApiFeatureObj({
     tags: feature.tags || [],
     valueType: feature.valueType,
     revision: {
+      // Conditional: event snapshots and legacy docs may lack a version.
+      ...(typeof feature.version === "number"
+        ? { id: revision?.id ?? featureRevisionId(feature.id, feature.version) }
+        : {}),
       comment: revision?.comment || "",
       date: revision?.dateCreated.toISOString() || "",
       createdBy: createdBy || "",
@@ -2763,13 +2925,123 @@ export function sha256(str: string, salt: string): string {
     .digest("hex");
 }
 
+// Validate every value a single rule carries against the feature's JSON schema
+// (no-op when schema validation is disabled on the feature). Mirrors the
+// per-type value fields the front-end `validateFeatureRule` covers.
+export function validateFeatureRuleValues(
+  feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
+  rule: FeatureRule,
+): void {
+  switch (rule.type) {
+    case "force":
+    case "rollout":
+      validateFeatureValue(feature, rule.value, "Value");
+      break;
+    case "experiment":
+      (rule.values ?? []).forEach((v, i) =>
+        validateFeatureValue(feature, v.value, `Variation ${i + 1}`),
+      );
+      break;
+    case "experiment-ref":
+      (rule.variations ?? []).forEach((v, i) =>
+        validateFeatureValue(feature, v.value, `Variation ${i + 1}`),
+      );
+      break;
+    case "safe-rollout":
+      validateFeatureValue(feature, rule.controlValue, "Control value");
+      validateFeatureValue(feature, rule.variationValue, "Variation value");
+      break;
+  }
+}
+
+// Enforce JSON-schema validation for a feature's default value and/or rule
+// values. Validation is on by default; an explicit `?skipSchemaValidation=true`
+// opts out (see context.skipSchemaValidation). Pass the EFFECTIVE feature —
+// i.e. one already carrying the inbound/draft `jsonSchema`, `valueType`, so a
+// request that changes the schema validates against the new schema.
+export function assertFeatureValuesValid(
+  context: ReqContext | ApiReqContext,
+  feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
+  values: { defaultValue?: string; rules?: FeatureRule[] },
+): void {
+  if (context.skipSchemaValidation) return;
+  if (values.defaultValue !== undefined) {
+    validateFeatureValue(feature, values.defaultValue, "Default value");
+  }
+  for (const rule of values.rules ?? []) {
+    validateFeatureRuleValues(feature, rule);
+  }
+}
+
+// Publish-time safety net: re-validate the values a revision is about to make
+// live. Per-write validation already covers normal edits; this catches values
+// that became invalid after the fact (staged with ?skipSchemaValidation, or
+// before a schema change). When the org's `blockPublishOnSchemaError` is true
+// (default) a mismatch blocks the publish; when false it's a bypassable soft
+// warning.
+// Collect the feature's own JSON-schema value errors WITHOUT throwing and
+// WITHOUT the skipSchemaValidation early return — the caller decides how to
+// weigh them (throw, or emit a publish gate). Shared by the throwing assert and
+// the REST publish handler's gate collector.
+export function collectFeatureValueErrorsForPublish(
+  feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
+  values: { defaultValue?: string; rules?: FeatureRule[] },
+): string[] {
+  const errors: string[] = [];
+  const collect = (fn: () => void) => {
+    try {
+      fn();
+    } catch (e) {
+      errors.push(e instanceof Error ? e.message : String(e));
+    }
+  };
+  if (values.defaultValue !== undefined) {
+    collect(() =>
+      validateFeatureValue(feature, values.defaultValue!, "Default value"),
+    );
+  }
+  for (const rule of values.rules ?? []) {
+    collect(() => validateFeatureRuleValues(feature, rule));
+  }
+  return errors;
+}
+
+export function assertFeatureValuesValidForPublish(
+  context: ReqContext | ApiReqContext,
+  feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
+  values: { defaultValue?: string; rules?: FeatureRule[] },
+): void {
+  if (context.skipSchemaValidation) return;
+
+  const errors = collectFeatureValueErrorsForPublish(feature, values);
+  if (!errors.length) return;
+
+  // Default to blocking when the setting is absent.
+  if (context.org.settings?.blockPublishOnSchemaError === false) {
+    // Warn mode: a bypassable soft warning (?ignoreWarnings=true), consistent
+    // with the rest of the publish flow.
+    if (context.ignoreWarnings) return;
+    throw new SoftWarningError(
+      "Publishing values that don't match the feature's JSON schema:\n" +
+        errors.join("\n"),
+      errors,
+    );
+  }
+  throw new BadRequestError(errors.join(", "));
+}
+
 export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
   context: ReqContext,
   feature: FeatureInterface,
   rules: ApiFeatureEnvSettingsRules,
   existingRules?: FeatureRule[],
-): FeatureRule[] =>
-  rules.map((r) => {
+): FeatureRule[] => {
+  // Honor the opt-in `?skipSchemaValidation=true` escape hatch: drop the schema
+  // so values are still normalized (parse / dirty-json) but not schema-checked.
+  const valFeature = context.skipSchemaValidation
+    ? { ...feature, jsonSchema: undefined }
+    : feature;
+  return rules.map((r) => {
     const conditionRes = validateCondition(r.condition);
     if (!conditionRes.success) {
       throw new Error(
@@ -2819,7 +3091,7 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
           experimentId: r.experimentId,
           variations: r.variations.map((v) => ({
             variationId: v.variationId,
-            value: validateFeatureValue(feature, v.value),
+            value: validateFeatureValue(valFeature, v.value),
           })),
           ...(r.sparse !== undefined && { sparse: r.sparse }),
           ...(r.prerequisites && { prerequisites: r.prerequisites }),
@@ -2831,6 +3103,12 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
         const values = r.values || r.value;
         if (!values) {
           throw new Error("Missing values");
+        }
+        // Validate each variation value against the schema (previously skipped).
+        if (Array.isArray(values)) {
+          values.forEach((v: { value: string }, i) =>
+            validateFeatureValue(valFeature, v.value, `Variation ${i + 1}`),
+          );
         }
         const experimentRule: ExperimentRule = {
           // missing id will be filled in by addIdsToRules
@@ -2856,7 +3134,7 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
           allEnvironments: false,
           type: r.type,
           description: r.description ?? "",
-          value: validateFeatureValue(feature, r.value),
+          value: validateFeatureValue(valFeature, r.value),
           condition: r.condition,
           savedGroups: (r.savedGroupTargeting || []).map((s) => ({
             ids: s.savedGroups,
@@ -2878,7 +3156,7 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
           coverage: r.coverage,
           description: r.description ?? "",
           hashAttribute: r.hashAttribute,
-          value: validateFeatureValue(feature, r.value),
+          value: validateFeatureValue(valFeature, r.value),
           condition: r.condition,
           savedGroups: (r.savedGroupTargeting || []).map((s) => ({
             ids: s.savedGroups,
@@ -2899,6 +3177,7 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
       }
     }
   });
+};
 
 // In v2, rules live exclusively on `feature.rules` (flat). The env-settings
 // reducer only emits `{ enabled }`; rule construction (and the registered-

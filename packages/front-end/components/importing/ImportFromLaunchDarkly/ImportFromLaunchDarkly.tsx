@@ -40,6 +40,7 @@ import {
   transformLDProjectsToGBProject,
 } from "@/services/importing/launchdarkly/launchdarkly-importing";
 import track from "@/services/track";
+import Callout from "@/ui/Callout";
 
 type ImportStatus = "invalid" | "skipped" | "pending" | "completed" | "failed";
 
@@ -720,6 +721,7 @@ export default function ImportFromLaunchDarkly() {
             <div className="row">
               <div className="col">
                 <Field
+                  size="legacy"
                   label="API Token"
                   value={token}
                   type="password"
@@ -729,6 +731,7 @@ export default function ImportFromLaunchDarkly() {
               </div>
               <div className="col-auto">
                 <Field
+                  size="legacy"
                   label="Max requests per 10 secs"
                   type="number"
                   value={intervalCap}
@@ -814,7 +817,7 @@ export default function ImportFromLaunchDarkly() {
 
       <div className="position-relative">
         {data.status === "error" ? (
-          <div className="alert alert-danger">{data.error || "Error"}</div>
+          <Callout status="error">{data.error || "Error"}</Callout>
         ) : data.status === "init" ? null : (
           <div>
             <h2>

@@ -18,7 +18,7 @@ export default function NorthStarMetricSettings() {
 
             <Flex align="start" direction="column" flexGrow="1" pt="6">
               <p>
-                North stars are metrics your team is focused on improving. These
+                North Stars are metrics your team is focused on improving. These
                 metrics are shown on the home page with the experiments that
                 have the metric as a goal.
               </p>
@@ -38,6 +38,7 @@ export default function NorthStarMetricSettings() {
                     />
                   </div>
                   <Field
+                    size="legacy"
                     label="Title"
                     value={watch("northStar.title")}
                     onChange={(e) => {

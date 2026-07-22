@@ -5,7 +5,7 @@ import { OrganizationSettings } from "shared/types/organization";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import {
   isProjectListValidForProject,
-  isManagedWarehouseAwaitingProvisioning,
+  isManagedWarehouseUnavailable,
   getActiveFeatureUsageQuery,
 } from "shared/util";
 import { FeatureEvalDiagnosticsQueryResponseRows } from "shared/types/integrations";
@@ -68,7 +68,7 @@ function getDatasourceInitialFormValue(
     validDatasources.find(
       (d) =>
         (d.type === "growthbook_clickhouse" &&
-          !isManagedWarehouseAwaitingProvisioning(d)) ||
+          !isManagedWarehouseUnavailable(d)) ||
         getActiveFeatureUsageQuery(d.settings?.queries?.featureUsage),
     )?.id || settings.defaultDataSource;
 
@@ -125,7 +125,7 @@ export default function FeatureDiagnostics({
   const datasource = datasourceId ? getDatasourceById(datasourceId) : null;
 
   const awaitingProvisioning = datasource
-    ? isManagedWarehouseAwaitingProvisioning(datasource)
+    ? isManagedWarehouseUnavailable(datasource)
     : false;
 
   // Managed warehouse natively supports diagnostics via its feature_usage table.
@@ -239,6 +239,7 @@ export default function FeatureDiagnostics({
 
       <Box width="400px">
         <SelectField
+          size="legacy"
           label="Select a Data Source"
           labelClassName="font-weight-bold"
           value={form.watch("datasourceId") ?? ""}
@@ -297,6 +298,7 @@ export default function FeatureDiagnostics({
             <Flex direction="row" justify="between" my="3">
               <Box flexBasis="40%" flexShrink="1" flexGrow="0">
                 <Field
+                  size="legacy"
                   placeholder="Search..."
                   type="search"
                   {...searchInputProps}

@@ -4,7 +4,7 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { BanditEvent } from "shared/validators";
 import clsx from "clsx";
 import {
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
   getLatestPhaseVariations,
 } from "shared/experiments";
 import { SnapshotMetric } from "shared/types/experiment-snapshot";
@@ -25,7 +25,7 @@ const ROW_HEIGHT_CONDENSED = 34;
 
 export type BanditSummaryTableProps = {
   experiment: ExperimentInterfaceStringDates;
-  metric: ExperimentMetricInterface | null;
+  metric: ExperimentMetricDefinition | null;
   phase: number;
   isTabActive: boolean;
   ssrPolyfills?: SSRPolyfills;

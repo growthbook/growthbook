@@ -66,7 +66,7 @@ export default function BanditSettings({
           <Grid columns="2" width="auto" gap="1">
             <Box>
               <Text weight="semibold" as="label" mb="1">
-                Exploratory Stage
+                Exploratory stage
               </Text>
               <Text size="small" color="text-mid" mb="2" as="p">
                 Period before variation weights update:
@@ -74,6 +74,7 @@ export default function BanditSettings({
               <Flex direction="row" align="center" gap="3">
                 <Box>
                   <Field
+                    size="legacy"
                     {...form.register("banditBurnInValue", {
                       valueAsNumber: true,
                     })}
@@ -87,6 +88,7 @@ export default function BanditSettings({
                 </Box>
                 <Box>
                   <SelectField
+                    size="legacy"
                     value={form.watch("banditBurnInUnit")}
                     onChange={(value) => {
                       form.setValue(
@@ -113,11 +115,12 @@ export default function BanditSettings({
               {page === "experiment-settings" && (
                 <Box mt="1">
                   <Text size="small" color="text-low">
-                    Default:{" "}
+                    Default is{" "}
                     <Text size="small" weight="semibold">
                       {settings?.banditBurnInValue?.value ?? 1}{" "}
                       {settings?.banditBurnInUnit?.value ?? "days"}
                     </Text>
+                    .
                   </Text>
                 </Box>
               )}
@@ -130,7 +133,7 @@ export default function BanditSettings({
 
             <Box>
               <Text weight="semibold" as="label" mb="1">
-                Update Cadence
+                Update cadence
               </Text>
               <Text size="small" color="text-mid" mb="2" as="p">
                 Update variation weights every:
@@ -138,6 +141,7 @@ export default function BanditSettings({
               <Flex direction="row" align="center" gap="3">
                 <Box>
                   <Field
+                    size="legacy"
                     {...form.register("banditScheduleValue", {
                       valueAsNumber: true,
                     })}
@@ -151,6 +155,7 @@ export default function BanditSettings({
                 </Box>
                 <Box>
                   <SelectField
+                    size="legacy"
                     value={form.watch("banditScheduleUnit")}
                     onChange={(value) => {
                       form.setValue(
@@ -177,11 +182,12 @@ export default function BanditSettings({
               {page === "experiment-settings" && (
                 <Box mt="1">
                   <Text size="small" color="text-low">
-                    Default:{" "}
+                    Default is{" "}
                     <Text size="small" weight="semibold">
                       {settings?.banditScheduleValue?.value ?? 1}{" "}
                       {settings?.banditScheduleUnit?.value ?? "days"}
                     </Text>
+                    .
                   </Text>
                 </Box>
               )}

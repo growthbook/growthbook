@@ -15,6 +15,7 @@ import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/Exp
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import GraphTypeSelector from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/GraphTypeSelector";
+import FunnelGraphTypeSelector from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/FunnelGraphTypeSelector";
 import DateRangePicker, {
   ComparisonDateControls,
 } from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/DateRangePicker";
@@ -22,9 +23,11 @@ import GranularitySelector from "@/enterprise/components/ProductAnalytics/MainSe
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Callout from "@/ui/Callout";
 import DataSourceDropdown from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/DataSourceDropdown";
+import { formatExplorationDateRange } from "@/enterprise/components/ProductAnalytics/dateRangeLabels";
 import Switch from "@/ui/Switch";
 import {
   createEmptyValue,
+  getInitialInlineFilters,
   showAsAppliesTo,
   stripExplorerDraftFields,
 } from "@/enterprise/components/ProductAnalytics/util";
@@ -34,16 +37,25 @@ import track from "@/services/track";
 import MetricTabContent from "./MetricTabContent";
 import FactTableTabContent from "./FactTableTabContent";
 import DatasourceTabContent from "./DatasourceTabContent";
+import FunnelTabContent from "./FunnelTabContent";
 import GroupBySection from "./GroupBySection";
 import ShowAsSection from "./ShowAsSection";
 import DatasourceConfigurator from "./DatasourceConfigurator";
 
 interface Props {
   renderingInDashboardSidebar?: boolean;
+  dashboardDateRange?: ExplorationConfig["dateRange"];
+  useDashboardDateControl?: boolean;
+  onGlobalControlSettingsChange?: (settings: { dateRange?: boolean }) => void;
+  onSubmit?: () => void;
 }
 
 export default function ExplorerSideBar({
   renderingInDashboardSidebar = false,
+  dashboardDateRange,
+  useDashboardDateControl = false,
+  onGlobalControlSettingsChange,
+  onSubmit,
 }: Props) {
   const [showSaveToDashboardModal, setShowSaveToDashboardModal] =
     useState(false);
@@ -63,9 +75,10 @@ export default function ExplorerSideBar({
     error,
     trackingSource,
     submittedExploreState,
-    managedWarehouseAwaitingProvisioning,
+    managedWarehouseUnavailable,
   } = useExplorerContext();
-  const { factTables, getFactMetricById, project } = useDefinitions();
+  const { factTables, getFactMetricById, getFactTableById, project } =
+    useDefinitions();
   const { hasCommercialFeature, permissionsUtil } = useUser();
   const canCreateDashboards = permissionsUtil.canCreateGeneralDashboards({
     projects: [project],
@@ -92,6 +105,12 @@ export default function ExplorerSideBar({
     activeType === "fact_table" && dataset?.type === "fact_table"
       ? dataset
       : null;
+  const hasFunnelInputs =
+    dataset?.type === "funnel" && !!dataset.steps?.some((s) => !!s.factTable);
+  const hasInputs =
+    dataset?.type === "funnel"
+      ? hasFunnelInputs
+      : (dataset?.values?.length ?? 0) > 0;
   const showComparisonDateControls =
     compareEnabled &&
     draftExploreState.dateRange.predefined === "customDateRange" &&
@@ -99,6 +118,9 @@ export default function ExplorerSideBar({
     Boolean(draftExploreState.dateRange.endDate);
   const isTimeSeriesChart = ["line", "area", "timeseries-table"].includes(
     draftExploreState.chartType,
+  );
+  const usesInheritedDashboardDateRange = Boolean(
+    dashboardDateRange && useDashboardDateControl,
   );
 
   return (
@@ -195,12 +217,10 @@ export default function ExplorerSideBar({
               <Button
                 size="sm"
                 variant="solid"
-                disabled={
-                  loading ||
-                  !draftExploreState?.dataset?.values?.length ||
-                  !isSubmittable
+                disabled={loading || !hasInputs || !isSubmittable}
+                onClick={() =>
+                  onSubmit ? onSubmit() : handleSubmit({ force: isStale })
                 }
-                onClick={() => handleSubmit({ force: isStale })}
               >
                 <Flex align="center" gap="2">
                   <PiArrowsClockwise />
@@ -242,22 +262,62 @@ export default function ExplorerSideBar({
                 label="Compare"
                 value={compareEnabled}
                 onChange={setCompareEnabled}
-                disabled={
-                  !submittedExploreState || managedWarehouseAwaitingProvisioning
-                }
+                disabled={!submittedExploreState || managedWarehouseUnavailable}
               />
             </Flex>
-            <GraphTypeSelector />
+            {activeType === "funnel" ? (
+              <FunnelGraphTypeSelector />
+            ) : (
+              <GraphTypeSelector />
+            )}
           </Flex>
           <Flex direction="column" gap="2" width="100%" style={{ minWidth: 0 }}>
-            <Text weight="medium">Date Range</Text>
-            {showComparisonDateControls ? (
+            <Flex justify="between" align="center" gap="2" width="100%">
+              <Text weight="medium">Date Range</Text>
+              {dashboardDateRange ? (
+                <Switch
+                  size="1"
+                  value={useDashboardDateControl}
+                  onChange={(checked) =>
+                    onGlobalControlSettingsChange?.({ dateRange: checked })
+                  }
+                  label={
+                    <Flex direction="row" align="center" gap="1">
+                      <Text size="small" weight="medium">
+                        Use dashboard date filter
+                      </Text>
+                      <Tooltip
+                        body={
+                          useDashboardDateControl
+                            ? "This block uses the dashboard date range."
+                            : "This block overrides the dashboard date filter."
+                        }
+                      />
+                    </Flex>
+                  }
+                />
+              ) : null}
+            </Flex>
+            {dashboardDateRange && useDashboardDateControl ? (
+              <Flex
+                p="2"
+                style={{
+                  border: "1px solid var(--gray-a3)",
+                  borderRadius: "var(--radius-3)",
+                  backgroundColor: "var(--gray-a2)",
+                }}
+              >
+                <Text size="medium" color="text-low">
+                  {formatExplorationDateRange(dashboardDateRange)}
+                </Text>
+              </Flex>
+            ) : showComparisonDateControls ? (
               <ComparisonDateControls fullWidth />
             ) : (
               <DateRangePicker fullWidth />
             )}
           </Flex>
-          {isTimeSeriesChart && (
+          {isTimeSeriesChart && !usesInheritedDashboardDateRange && (
             <Flex direction="column" gap="2" width="100%">
               <Text weight="medium">Date Granularity</Text>
               <GranularitySelector />
@@ -282,6 +342,7 @@ export default function ExplorerSideBar({
             Fact Table
           </Text>
           <SelectField
+            size="legacy"
             value={factTableDataset.factTableId ?? ""}
             disabled={
               !permissionsUtil.canRunFactQueries({ projects: [project] }) &&
@@ -291,14 +352,31 @@ export default function ExplorerSideBar({
               setDraftExploreState((prev) => {
                 const prevDataset =
                   prev.dataset?.type === "fact_table" ? prev.dataset : null;
+                const newFactTable = factTableId
+                  ? getFactTableById(factTableId)
+                  : null;
+                const baseValues = prevDataset?.values?.length
+                  ? prevDataset.values
+                  : [createEmptyValue("fact_table") as FactTableValue];
+                // Seed alwaysInlineFilter columns on every value (newly
+                // created or carried over). getInitialInlineFilters is a
+                // no-op when the column is already in rowFilters, so this
+                // is safe to apply on each fact-table change.
+                const values = newFactTable
+                  ? baseValues.map((v) => ({
+                      ...v,
+                      rowFilters: getInitialInlineFilters(
+                        newFactTable,
+                        v.rowFilters,
+                      ),
+                    }))
+                  : baseValues;
                 return {
                   ...prev,
                   dataset: {
                     ...factTableDataset,
                     factTableId,
-                    values: prevDataset?.values?.length
-                      ? prevDataset.values
-                      : [createEmptyValue("fact_table") as FactTableValue],
+                    values,
                   },
                 } as ExplorationConfig;
               });
@@ -330,16 +408,19 @@ export default function ExplorerSideBar({
           <DatasourceConfigurator dataset={dataset} />
         </Flex>
       )}
+
       <Box p="0">
         {activeType === "metric" && <MetricTabContent />}
         {activeType === "fact_table" && <FactTableTabContent />}
         {activeType === "data_source" && <DatasourceTabContent />}
+        {activeType === "funnel" && <FunnelTabContent />}
       </Box>
 
-      {showAsAppliesTo(draftExploreState, getFactMetricById) && (
-        <ShowAsSection />
-      )}
-      {dataset?.values?.length > 0 && <GroupBySection />}
+      {activeType !== "funnel" &&
+        showAsAppliesTo(draftExploreState, getFactMetricById) && (
+          <ShowAsSection />
+        )}
+      {hasInputs && <GroupBySection />}
     </Flex>
   );
 }

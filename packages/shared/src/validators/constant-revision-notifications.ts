@@ -6,6 +6,10 @@
 
 import { z } from "zod";
 import { apiConstantRevisionValidator } from "./constant-revisions";
+import {
+  bulkPublishIdField,
+  revisionPublishFailedExtension,
+} from "./revision-publish-failed";
 
 const reviewer = z
   .object({
@@ -50,7 +54,9 @@ export type ConstantRevisionRebasedPayload = z.infer<
   typeof constantRevisionRebasedPayload
 >;
 
-export const constantRevisionPublishedPayload = constantRevisionWebhookPayload;
+export const constantRevisionPublishedPayload = constantRevisionWebhookPayload
+  .extend({ bulkPublishId: bulkPublishIdField })
+  .strict();
 export type ConstantRevisionPublishedPayload = z.infer<
   typeof constantRevisionPublishedPayload
 >;
@@ -99,8 +105,19 @@ export type ConstantRevisionCommentedPayload = z.infer<
 >;
 
 export const constantRevisionRevertedPayload = constantRevisionWebhookPayload
-  .extend({ revertedToVersion: z.number().int().optional() })
+  .extend({
+    revertedToVersion: z.number().int().optional(),
+    bulkPublishId: bulkPublishIdField,
+  })
   .strict();
 export type ConstantRevisionRevertedPayload = z.infer<
   typeof constantRevisionRevertedPayload
+>;
+
+export const constantRevisionPublishFailedPayload =
+  constantRevisionWebhookPayload
+    .extend(revisionPublishFailedExtension)
+    .strict();
+export type ConstantRevisionPublishFailedPayload = z.infer<
+  typeof constantRevisionPublishFailedPayload
 >;

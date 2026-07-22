@@ -3,7 +3,6 @@ import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import {
   ApiContextualBanditQueryInterface,
-  CONTEXTUAL_BANDIT_EAQ_REQUIRED_COLUMNS,
   formatInvalidTargetingAttributeColumnMessages,
   formatMalformedTargetingAttributeColumnMessages,
   getInvalidTargetingAttributeColumnsForExposureQueries,
@@ -13,11 +12,12 @@ import { useForm } from "react-hook-form";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { TestQueryRow } from "shared/types/integrations";
 import Code from "@/components/SyntaxHighlighting/Code";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
 import Field from "@/components/Forms/Field";
+import SelectField from "@/components/Forms/SelectField";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
@@ -102,7 +102,6 @@ export const AddEditContextualBanditQueryModal: FC<Props> = ({
       "timestamp",
       userEnteredUserIdType,
       ...(userEnteredTargetingAttributeColumns || []),
-      ...CONTEXTUAL_BANDIT_EAQ_REQUIRED_COLUMNS,
     ]);
   }, [userEnteredUserIdType, userEnteredTargetingAttributeColumns]);
 
@@ -247,13 +246,15 @@ export const AddEditContextualBanditQueryModal: FC<Props> = ({
           maxLength={MAX_DESCRIPTION_LENGTH}
           {...form.register("description")}
         />
-        <Field
+        <SelectField
           label="Identifier Type"
-          options={(dataSource.settings.userIdTypes || []).map(
-            (i) => i.userIdType,
-          )}
+          options={(dataSource.settings.userIdTypes || []).map((i) => ({
+            value: i.userIdType,
+            label: i.userIdType,
+          }))}
           required
-          {...form.register("userIdType")}
+          value={form.watch("userIdType")}
+          onChange={(value) => form.setValue("userIdType", value)}
         />
 
         <div className="form-group">

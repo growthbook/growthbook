@@ -29,21 +29,28 @@ import {
 } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
-import SelectField from "@/components/Forms/SelectField";
+import SelectField, {
+  FormatOptionLabelType,
+} from "@/components/Forms/SelectField";
 import CodeTextArea, {
   FIVE_LINES_HEIGHT,
 } from "@/components/Forms/CodeTextArea";
-import StringArrayField from "@/components/Forms/StringArrayField";
+import StringArrayField from "@/ui/StringArrayField";
 import CountrySelector, {
   ALL_COUNTRY_CODES,
 } from "@/components/Forms/CountrySelector";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import DatePicker from "@/components/DatePicker";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import RadioGroup from "@/ui/RadioGroup";
 import SDKCapabilityWarning from "./SDKCapabilityWarning";
+import {
+  OperatorOption,
+  formatOperatorLabel,
+  getConditionOperators,
+} from "./conditionOperatorOptions";
 import {
   TargetingConditionsCard,
   ConditionRow,
@@ -390,6 +397,7 @@ export default function ConditionInput({
               />
             ) : (
               <Field
+                size="legacy"
                 labelClassName={labelClassName}
                 containerClassName="mb-0"
                 placeholder=""
@@ -710,17 +718,6 @@ function ConditionAndGroupInput({
     if (changed) setConds(next);
   }, [conds, attributes, setConds]);
 
-  const savedGroupOperators = [
-    {
-      label: "is in the saved group",
-      value: "$inGroup",
-    },
-    {
-      label: "is not in the saved group",
-      value: "$notInGroup",
-    },
-  ];
-
   const listOperators = ["$in", "$nin", "$ini", "$nini"];
 
   const attributeSchema = useAttributeSchema(false, props.project);
@@ -754,13 +751,10 @@ function ConditionAndGroupInput({
 
         const fieldSelector = (
           <SelectField
+            size="legacy"
             disabled={disabled}
             withRadixThemedPortal
-            useMultilineLabels={true}
             value={field}
-            containerStyles={{
-              control: (base) => ({ ...base, minHeight: 38, maxHeight: 38 }),
-            }}
             options={
               props.allowNestedSavedGroups
                 ? [
@@ -906,6 +900,7 @@ function ConditionAndGroupInput({
               attributeSlot={fieldSelector}
               valueSlot={
                 <MultiSelectField
+                  size="legacy"
                   disabled={disabled}
                   value={ids}
                   options={groupOptions}
@@ -975,136 +970,16 @@ function ConditionAndGroupInput({
           })
           .map((g) => ({ label: g.groupName, value: g.id }));
 
-        let operatorOptions =
-          attribute.datatype === "boolean"
-            ? [
-                { label: "is true", value: "$true" },
-                { label: "is false", value: "$false" },
-                { label: "is not NULL", value: "$exists" },
-                { label: "is NULL", value: "$notExists" },
-              ]
-            : attribute.array
-              ? attribute.enum.length
-                ? [
-                    // Enum-constrained list: set operators drive the restricted
-                    // MultiSelect. Single-value ops are only offered to keep an
-                    // existing condition that already uses them editable — hidden
-                    // otherwise to avoid duplicate-looking options.
-                    { label: "includes any of", value: "$in" },
-                    { label: "includes none of", value: "$nin" },
-                    ...(["$includes", "$notIncludes"].includes(operator)
-                      ? [
-                          { label: "includes", value: "$includes" },
-                          { label: "does not include", value: "$notIncludes" },
-                        ]
-                      : []),
-                    { label: "is empty", value: "$empty" },
-                    { label: "is not empty", value: "$notEmpty" },
-                    { label: "is not NULL", value: "$exists" },
-                    { label: "is NULL", value: "$notExists" },
-                  ]
-                : [
-                    { label: "includes", value: "$includes" },
-                    { label: "does not include", value: "$notIncludes" },
-                    { label: "is empty", value: "$empty" },
-                    { label: "is not empty", value: "$notEmpty" },
-                    { label: "is not NULL", value: "$exists" },
-                    { label: "is NULL", value: "$notExists" },
-                  ]
-              : attribute.enum.length
-                ? [
-                    { label: "is equal to", value: "$eq" },
-                    { label: "is not equal to", value: "$ne" },
-                    { label: "is any of", value: "$in" },
-                    { label: "is none of", value: "$nin" },
-                    { label: "is not NULL", value: "$exists" },
-                    { label: "is NULL", value: "$notExists" },
-                  ]
-                : attribute.datatype === "string"
-                  ? [
-                      {
-                        label: "is equal to",
-                        value: attribute.format === "version" ? "$veq" : "$eq",
-                      },
-                      {
-                        label: "is not equal to",
-                        value: attribute.format === "version" ? "$vne" : "$ne",
-                      },
-                      { label: "is any of", value: "$in" },
-                      { label: "is none of", value: "$nin" },
-                      { label: "matches regex", value: "$regex" },
-                      { label: "does not match regex", value: "$notRegex" },
-                      {
-                        label:
-                          attribute.format === "date"
-                            ? "is after"
-                            : "is greater than",
-                        value: attribute.format === "version" ? "$vgt" : "$gt",
-                      },
-                      {
-                        label:
-                          attribute.format === "date"
-                            ? "is after or on"
-                            : "is greater than or equal to",
-                        value:
-                          attribute.format === "version" ? "$vgte" : "$gte",
-                      },
-                      {
-                        label:
-                          attribute.format === "date"
-                            ? "is before"
-                            : "is less than",
-                        value: attribute.format === "version" ? "$vlt" : "$lt",
-                      },
-                      {
-                        label:
-                          attribute.format === "date"
-                            ? "is before or on"
-                            : "is less than or equal to",
-                        value:
-                          attribute.format === "version" ? "$vlte" : "$lte",
-                      },
-                      { label: "is not NULL", value: "$exists" },
-                      { label: "is NULL", value: "$notExists" },
-                      ...(savedGroupOptions.length > 0
-                        ? savedGroupOperators
-                        : []),
-                    ]
-                  : attribute.datatype === "secureString"
-                    ? [
-                        { label: "is equal to", value: "$eq" },
-                        { label: "is not equal to", value: "$ne" },
-                        { label: "is any of", value: "$in" },
-                        { label: "is none of", value: "$nin" },
-                        { label: "is not NULL", value: "$exists" },
-                        { label: "is NULL", value: "$notExists" },
-                        ...(savedGroupOptions.length > 0
-                          ? savedGroupOperators
-                          : []),
-                      ]
-                    : attribute.datatype === "number"
-                      ? [
-                          { label: "is equal to", value: "$eq" },
-                          { label: "is not equal to", value: "$ne" },
-                          { label: "is greater than", value: "$gt" },
-                          {
-                            label: "is greater than or equal to",
-                            value: "$gte",
-                          },
-                          { label: "is less than", value: "$lt" },
-                          {
-                            label: "is less than or equal to",
-                            value: "$lte",
-                          },
-                          { label: "is any of", value: "$in" },
-                          { label: "is none of", value: "$nin" },
-                          { label: "is not NULL", value: "$exists" },
-                          { label: "is NULL", value: "$notExists" },
-                          ...(savedGroupOptions.length > 0
-                            ? savedGroupOperators
-                            : []),
-                        ]
-                      : [];
+        let operatorOptions: OperatorOption[] = getConditionOperators(
+          attribute.datatype,
+          {
+            array: attribute.array,
+            enumValues: attribute.enum,
+            format: attribute.format,
+            savedGroupOptions,
+            operator,
+          },
+        );
 
         if (attribute.disableEqualityConditions) {
           operatorOptions = operatorOptions.filter(
@@ -1170,19 +1045,15 @@ function ConditionAndGroupInput({
               <Flex gap="3" align="start">
                 <Box flexGrow="1">
                   <SelectField
+                    size="legacy"
                     disabled={disabled}
-                    containerStyles={{
-                      control: (base) => ({
-                        ...base,
-                        minHeight: 38,
-                        maxHeight: 38,
-                      }),
-                    }}
-                    useMultilineLabels={true}
                     value={getDisplayOperator(operator)}
                     name="operator"
                     options={operatorOptions}
                     sort={false}
+                    formatOptionLabel={
+                      formatOperatorLabel as FormatOptionLabelType
+                    }
                     onChange={(v) => {
                       const newOperator = withOperatorCaseInsensitivity(
                         v,
@@ -1203,7 +1074,7 @@ function ConditionAndGroupInput({
                         variant={
                           isCaseInsensitiveOperator(operator) ? "soft" : "ghost"
                         }
-                        size="1"
+                        size="2"
                         radius="medium"
                         onClick={() => {
                           const newOperator = withOperatorCaseInsensitivity(
@@ -1213,13 +1084,16 @@ function ConditionAndGroupInput({
                           handleCondsChange(newOperator, "operator");
                         }}
                         style={{
-                          width: 24,
-                          height: 24,
-                          margin: "8px 0 0 0",
+                          width: 36,
+                          height: 36,
                           padding: 0,
+                          flexShrink: 0,
+                          alignSelf: "center",
+                          marginLeft: -4,
+                          marginRight: -4,
                         }}
                       >
-                        <PiTextAa />
+                        <PiTextAa size={18} />
                       </IconButton>
                     </Tooltip>
                   )}
@@ -1232,6 +1106,7 @@ function ConditionAndGroupInput({
                   savedGroupOptions.length > 0 ? (
                     <Box style={{ flexBasis: "100%", minWidth: 0 }}>
                       <SelectField
+                        size="legacy"
                         disabled={disabled}
                         options={savedGroupOptions.map((o) => ({
                           label: o.label,
@@ -1268,6 +1143,7 @@ function ConditionAndGroupInput({
                       style={{ flexBasis: "100%", minWidth: 0 }}
                     >
                       <StringArrayField
+                        size="legacy"
                         disabled={disabled}
                         containerClassName="w-100"
                         value={value ? value.trim().split(",") : []}
@@ -1311,6 +1187,7 @@ function ConditionAndGroupInput({
                     <Box style={{ flexBasis: "100%", minWidth: 0 }}>
                       {listOperators.includes(operator) ? (
                         <MultiSelectField
+                          size="legacy"
                           disabled={disabled}
                           options={attribute.enum.map((v) => ({
                             label: v,
@@ -1327,15 +1204,8 @@ function ConditionAndGroupInput({
                         />
                       ) : (
                         <SelectField
+                          size="legacy"
                           disabled={disabled}
-                          useMultilineLabels={true}
-                          containerStyles={{
-                            control: (base) => ({
-                              ...base,
-                              minHeight: 38,
-                              maxHeight: 38,
-                            }),
-                          }}
                           options={attribute.enum.map((v) => ({
                             label: v,
                             value: v,
@@ -1353,13 +1223,13 @@ function ConditionAndGroupInput({
                   ) : displayType === "number" ? (
                     <Box style={{ flexBasis: "100%", minWidth: 0 }}>
                       <Field
+                        size="legacy"
                         disabled={disabled}
                         type="number"
                         step="any"
                         value={value}
                         onChange={handleFieldChange}
                         name="value"
-                        style={{ minHeight: 38 }}
                         required
                       />
                     </Box>
@@ -1385,11 +1255,11 @@ function ConditionAndGroupInput({
                         />
                       ) : (
                         <Field
+                          size="legacy"
                           disabled={disabled}
                           value={value}
                           onChange={handleFieldChange}
                           name="value"
-                          style={{ minHeight: 38 }}
                           containerClassName={clsx({
                             error: hasExtraWhitespace,
                           })}

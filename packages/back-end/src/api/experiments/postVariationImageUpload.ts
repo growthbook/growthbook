@@ -6,6 +6,7 @@ import {
   getExperimentById,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
+import { validateExperimentChange } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { uploadFile } from "back-end/src/services/files";
 import { auditDetailsCreate } from "back-end/src/services/audit";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -116,6 +117,7 @@ export const postVariationImageUpload = createApiRequestHandler(
     description,
   });
 
+  await validateExperimentChange({ context, experiment, changes });
   await updateExperiment({
     context,
     experiment,

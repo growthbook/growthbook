@@ -23,13 +23,12 @@ import {
   PiClockFill,
 } from "react-icons/pi";
 import { ago, datetime } from "shared/dates";
+import { filterEnvironmentsByFeature, getReviewSetting } from "shared/util";
 import {
-  filterEnvironmentsByFeature,
-  getReviewSetting,
   isScheduledPublishPending,
   isScheduledPublishLockActive,
   isRevisionEditLockedBySchedule,
-} from "shared/util";
+} from "shared/enterprise";
 import { BiHide, BiShow } from "react-icons/bi";
 import Collapsible from "react-collapsible";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -57,6 +56,7 @@ import {
   useEnvironments,
   getPrerequisites,
   getRules,
+  useFeatureRulesEnv,
 } from "@/services/features";
 import { useFeatureDefaultValues } from "@/hooks/useFeatureDefaultValues";
 import { useFeatureDependents } from "@/hooks/useFeatureDependents";
@@ -277,6 +277,10 @@ export default function FeaturesOverview({
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const envs = environments.map((e) => e.id);
+  // Selected rules env tab, lifted here so the Default Value display resolves a
+  // config-backed value for the same environment the rules are filtered to.
+  // null = "All environments".
+  const [rulesEnv, setRulesEnv] = useFeatureRulesEnv();
 
   const { dependents: dependentsData } = useFeatureDependents(feature?.id);
   const dependentFeatures = dependentsData?.features ?? [];
@@ -553,7 +557,7 @@ export default function FeaturesOverview({
         onClick={() => setTab("review")}
         style={{ whiteSpace: "nowrap" as const }}
       >
-        Review and Publish
+        Review &amp; Publish
       </Button>
     </Box>
   ) : null;
@@ -850,6 +854,7 @@ export default function FeaturesOverview({
                     )}
                     {editingTitle ? (
                       <Field
+                        size="legacy"
                         autoFocus
                         value={titleDraft}
                         placeholder={`Revision ${revision.version}`}
@@ -931,7 +936,7 @@ export default function FeaturesOverview({
 
               <Flex align="center" justify="end" gap="4" flexGrow="1">
                 {/* Lifecycle actions (revert, discard, publish) live in the
-                    Review and Publish tab — the card only offers "New Draft"
+                    Review & Publish tab — the card only offers "New Draft"
                     and navigation into the review surface. */}
                 {canEditDrafts && !isDraft && (
                   <Box position="relative">
@@ -1540,6 +1545,14 @@ export default function FeaturesOverview({
                     <ForceSummary
                       value={getFeatureDefaultValue(feature)}
                       feature={feature}
+                      isDefault={true}
+                      // Match FeatureRules' tab: ignore a stored env that isn't
+                      // one of this feature's environments (falls back to base).
+                      environment={
+                        rulesEnv !== null && envs.includes(rulesEnv)
+                          ? rulesEnv
+                          : undefined
+                      }
                     />
                   </Box>
                 </Flex>
@@ -1580,6 +1593,9 @@ export default function FeaturesOverview({
                       revisionList={revisionList || []}
                       rampSchedules={rampSchedules}
                       draftRevision={revision}
+                      rulesEnv={rulesEnv}
+                      setRulesEnv={setRulesEnv}
+                      baseRevision={baseRevision}
                     />
                   </>
                 ) : (
@@ -1779,6 +1795,7 @@ export default function FeaturesOverview({
                   )}
                   {editingNewDraftTitle ? (
                     <Field
+                      size="legacy"
                       autoFocus
                       value={newDraftTitle}
                       placeholder={`Revision ${Math.max(0, ...revisionList.map((r) => r.version)) + 1}`}
@@ -1835,6 +1852,7 @@ export default function FeaturesOverview({
               </Box>
               {showNewDraftNotes ? (
                 <Field
+                  size="legacy"
                   label="Description"
                   labelClassName="font-weight-bold"
                   textarea

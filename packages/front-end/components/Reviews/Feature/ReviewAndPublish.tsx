@@ -21,11 +21,13 @@ import {
   checkIfRevisionNeedsReview,
   evaluatePublishGovernance,
   getLiveChangesSinceBase,
+  MergeStrategy,
+} from "shared/util";
+import {
   isScheduledPublishPending,
   isScheduledPublishLockActive,
   findPublishLockingScheduledRevision,
-  MergeStrategy,
-} from "shared/util";
+} from "shared/enterprise";
 import {
   EventUserLoggedIn,
   EventUserApiKey,
@@ -150,7 +152,7 @@ export interface Props {
   rampSchedules?: RampScheduleInterface[];
 }
 
-// The feature-page "Review and Publish" tab. Consolidates the former DraftModal
+// The feature-page "Review & Publish" tab. Consolidates the former DraftModal
 // (direct publish), RequestReviewModal (review lifecycle), and
 // FeatureFixConflictsModal (rebase / conflict resolution) into a single page
 // surface. Conflict resolution and review submission run as focused modals
@@ -1035,7 +1037,7 @@ export default function ReviewAndPublish({
         Select a revision from the dropdown above to review.
         {onClose && (
           <Box mt="2">
-            <Button variant="soft" onClick={() => onClose()}>
+            <Button color="inherit" variant="soft" onClick={() => onClose()}>
               Back to Overview
             </Button>
           </Box>
@@ -1954,20 +1956,14 @@ export default function ReviewAndPublish({
             mb="4"
             style={{ maxWidth: 800, margin: "0 auto var(--space-4)" }}
           >
-            <Callout
-              status="info"
-              contentsAs="div"
-              icon={<PiGitMergeBold size={18} />}
-            >
-              <Text as="p">
-                Your draft is based on an older version, and the live version
-                has since been published with conflicting changes. Resolve each
-                conflict below, then click{" "}
-                <Text as="span" weight="medium">
-                  Update Draft
-                </Text>{" "}
-                to rebase your draft onto the current live version.
-              </Text>
+            <Callout status="info" icon={<PiGitMergeBold size={18} />}>
+              Your draft is based on an older version, and the live version has
+              since been published with conflicting changes. Resolve each
+              conflict below, then click{" "}
+              <Text as="span" weight="medium">
+                Update Draft
+              </Text>{" "}
+              to rebase your draft onto the current live version.
             </Callout>
           </Box>
           {mergeResult.conflicts.map((conflict) => (
@@ -2366,6 +2362,18 @@ export default function ReviewAndPublish({
           renderExperimentSelection()}
 
         <Box mt="6">
+          {/* The poller gave up on this draft's scheduled publish (cleared on
+              cancel/re-arm). Shown to every viewer — matches the generic
+              ScheduledPublishControl notice. */}
+          {isActiveDraft && revision?.scheduledPublishGaveUpAt && (
+            <HelperText status="error" size="sm" mb="3">
+              Could not publish
+              {revision.scheduledPublishLastError
+                ? `: ${revision.scheduledPublishLastError}`
+                : "."}
+            </HelperText>
+          )}
+
           {/* Read-only arming summary for reviewers / non-managers. The dated
               schedule card renders with the arming control below the rebase
               notice when a publish/step section exists; here it's only a

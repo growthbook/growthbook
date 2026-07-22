@@ -19,6 +19,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import Switch from "@/ui/Switch";
 import { ExperimentDot } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import Callout from "@/ui/Callout";
+import Button from "@/ui/Button";
 import SelectField from "@/components/Forms/SelectField";
 import DSTooltip from "@/ui/Tooltip";
 
@@ -50,6 +51,7 @@ export default function ExecExperimentImpact({
   projects = [],
   experimentsToShow,
   setExperimentsToShow,
+  embedded = false,
 }: {
   allExperiments: ExperimentInterfaceStringDates[];
   projects?: string[];
@@ -59,6 +61,9 @@ export default function ExecExperimentImpact({
   setMetric?: (metric: string) => void;
   experimentsToShow: string;
   setExperimentsToShow: (experimentsToShow: string) => void;
+  // When embedded (e.g. as a dashboard block), the metric selector and header
+  // are owned by the surrounding chrome, so hide the internal ones.
+  embedded?: boolean;
 }) {
   const NUM_EXP_TO_SHOW = 5;
 
@@ -185,8 +190,21 @@ export default function ExecExperimentImpact({
           startDate: startDate?.toISOString() || "",
           endDate: endDate?.toISOString() || "",
           adjusted,
+          // The embedded (dashboard block) input is already date-filtered by
+          // the shared result-date helper, so skip the redundant date filter
+          // here to stay consistent with Win Percentage / Team Velocity.
+          skipDateFilter: embedded,
         }),
-      [experiments, snapshots, metric, projects, startDate, endDate, adjusted],
+      [
+        experiments,
+        snapshots,
+        metric,
+        projects,
+        startDate,
+        endDate,
+        adjusted,
+        embedded,
+      ],
     );
 
   // top winning experiments by scaled impact:
@@ -299,47 +317,49 @@ export default function ExecExperimentImpact({
   }
   return (
     <>
-      <Flex justify="between" align="start" mb="2">
-        <Box>
-          <Heading as="h3" size="3">
-            Scaled Impact{" "}
-            <Tooltip
-              body={
-                "This shows the estimated impact of experiments that have been marked as Won or Lost."
-              }
+      {!embedded && (
+        <Flex justify="between" align="start" mb="2">
+          <Box>
+            <Heading as="h3" size="3">
+              Scaled Impact{" "}
+              <Tooltip
+                body={
+                  "This shows the estimated impact of experiments that have been marked as Won or Lost."
+                }
+              />
+            </Heading>
+            <Heading as="h4" size="2" weight="regular" mb="0">
+              {projects.length > 0
+                ? projects.map((p) => getProjectById(p)?.name).join(", ")
+                : "All Projects"}
+            </Heading>
+          </Box>
+          <Flex align="center" gap="3" width="30%">
+            <label className="mb-1">Metric</label>
+            <MetricSelector
+              value={metric}
+              onChange={(metric) => {
+                if (setMetric) {
+                  setMetric(metric);
+                }
+              }}
+              projects={projects}
+              includeFacts={true}
+              containerClassName="w-100"
+              filterMetrics={(m) => {
+                // Only show metrics that are used in the experiments
+                return m.id === metric || !!metricExpCounts[m.id];
+              }}
+              sortMetrics={(a, b) => {
+                // Metrics with the most experiments first
+                return (
+                  (metricExpCounts[b.id] || 0) - (metricExpCounts[a.id] || 0)
+                );
+              }}
             />
-          </Heading>
-          <Heading as="h4" size="2" weight="regular" mb="0">
-            {projects.length > 0
-              ? projects.map((p) => getProjectById(p)?.name).join(", ")
-              : "All Projects"}
-          </Heading>
-        </Box>
-        <Flex align="center" gap="3" width="30%">
-          <label className="mb-1">Metric</label>
-          <MetricSelector
-            value={metric}
-            onChange={(metric) => {
-              if (setMetric) {
-                setMetric(metric);
-              }
-            }}
-            projects={projects}
-            includeFacts={true}
-            containerClassName="w-100"
-            filterMetrics={(m) => {
-              // Only show metrics that are used in the experiments
-              return m.id === metric || !!metricExpCounts[m.id];
-            }}
-            sortMetrics={(a, b) => {
-              // Metrics with the most experiments first
-              return (
-                (metricExpCounts[b.id] || 0) - (metricExpCounts[a.id] || 0)
-              );
-            }}
-          />
+          </Flex>
         </Flex>
-      </Flex>
+      )}
       <Flex gap="5" align="start" mb="0" mt="0">
         {metric && startDate && endDate ? (
           <>
@@ -353,31 +373,26 @@ export default function ExecExperimentImpact({
                 {summaryObj ? (
                   <>
                     {experimentsWithNoImpact.length > 0 ? (
-                      <div className={`mt-2 alert alert-warning`}>
-                        <div className="row">
-                          <div className="col-auto">
-                            <span>
-                              Some experiments are missing scaled impact
-                              results.
-                            </span>
-                          </div>
-                          <div className="flex-1" />
-                          <div className="col-auto">
-                            <button
-                              className="btn btn-sm btn-primary"
-                              onClick={() =>
-                                updateSnapshots(experimentsWithNoImpact).then(
-                                  () => {
-                                    fetchSnapshots(experiments);
-                                  },
-                                )
-                              }
-                            >
-                              Calculate Scaled Impact
-                            </button>
-                          </div>
-                        </div>
-                      </div>
+                      <Callout
+                        status="warning"
+                        mt="2"
+                        action={
+                          <Button
+                            color="inherit"
+                            onClick={() =>
+                              updateSnapshots(experimentsWithNoImpact).then(
+                                () => {
+                                  fetchSnapshots(experiments);
+                                },
+                              )
+                            }
+                          >
+                            Calculate Scaled Impact
+                          </Button>
+                        }
+                      >
+                        Some experiments are missing scaled impact results.
+                      </Callout>
                     ) : null}
                     <Box p="2" px="3" className="appbox" mb="3">
                       <Flex gap="2" align="center">
@@ -589,6 +604,7 @@ export default function ExecExperimentImpact({
                     <th>
                       <Flex>
                         <SelectField
+                          size="legacy"
                           containerClassName={"select-dropdown-underline"}
                           options={[
                             {
