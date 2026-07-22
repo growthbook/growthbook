@@ -555,6 +555,13 @@ export async function getOrganizationsWithNorthStars() {
   return withNorthStars.map(toInterface);
 }
 
+export async function getOrganizationsWithExperimentQualityScoring() {
+  const orgs = await OrganizationModel.find({
+    "settings.experimentQualityScoreSettings.enabled": true,
+  });
+  return orgs.map(toInterface);
+}
+
 export async function findOrganizationsByDomain(domain: string) {
   const docs = await OrganizationModel.find({
     verifiedDomain: domain,

@@ -7,6 +7,7 @@ export * from "./sso";
 export * from "./pipeline";
 export * from "./power";
 export * from "./decision-criteria";
+export * from "./experimentQualityScore";
 export * from "./dashboards";
 export * from "./product-analytics/sql";
 export * from "./product-analytics/columns";

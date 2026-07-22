@@ -16,6 +16,7 @@ import HelperText from "@/ui/HelperText";
 import StatsEngineSettings from "./StatsEngineSettings";
 import StickyBucketingSettings from "./StickyBucketingSettings";
 import DecisionFrameworkSettings from "./DecisionFrameworkSettings";
+import ExperimentQualityScoreSettings from "./ExperimentQualityScoreSettings";
 
 export default function ExperimentSettings({
   cronString,
@@ -507,6 +508,11 @@ export default function ExperimentSettings({
             {/* Decision Framework Settings */}
             <Box mb="4" width="100%">
               <DecisionFrameworkSettings />
+            </Box>
+
+            {/* Experiment Quality Scoring */}
+            <Box mb="4" width="100%">
+              <ExperimentQualityScoreSettings />
             </Box>
           </Flex>
         </Flex>

@@ -370,6 +370,20 @@ const experimentSchema = new mongoose.Schema({
   customFields: {},
   templateId: String,
   shareLevel: String,
+  aiQualityResults: {
+    _id: false,
+    inputsHash: String,
+    dateComputed: Date,
+    checks: [
+      {
+        _id: false,
+        key: String,
+        score: Number,
+        reason: String,
+      },
+    ],
+    error: String,
+  },
   analysisSummary: {
     _id: false,
     snapshotId: String,
@@ -1195,6 +1209,24 @@ export async function getExperimentsWithScheduledStatusUpdate(): Promise<
     id: exp.id,
     organization: exp.organization,
   }));
+}
+
+// Candidates for the AI quality-score sweep. IDs only — the per-experiment
+// job re-fetches the doc, re-checks all gates, and no-ops when the cached
+// AI results are still fresh (inputs hash unchanged).
+export async function getStoppedExperimentIdsByOrganization(
+  organization: string,
+): Promise<string[]> {
+  const experiments = await getCollection(COLLECTION)
+    .find({
+      organization,
+      status: "stopped",
+      archived: { $ne: true },
+    })
+    .project({ id: true })
+    .toArray();
+
+  return experiments.map((exp) => exp.id);
 }
 
 /**

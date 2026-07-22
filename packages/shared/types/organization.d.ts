@@ -14,6 +14,7 @@ import {
 import {
   AccountPlan,
   CommercialFeature,
+  ExperimentQualityScoreSettings,
   LicenseInterface,
   OrgLimits,
   SubscriptionInfo,
@@ -405,6 +406,7 @@ export interface OrganizationSettings {
   experimentMaxLengthDays?: number;
   decisionFrameworkEnabled?: boolean;
   defaultDecisionCriteriaId?: string;
+  experimentQualityScoreSettings?: ExperimentQualityScoreSettings;
   disableLegacyMetricCreation?: boolean;
   blockFileUploads?: boolean;
   savedGroupSizeLimit?: number;

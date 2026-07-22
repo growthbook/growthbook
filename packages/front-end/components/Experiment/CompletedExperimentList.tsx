@@ -11,6 +11,7 @@ import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import EmptyState from "@/components/EmptyState";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
+import QualityScoreBadge from "@/components/Experiment/QualityScoreBadge";
 import Pagination from "@/components/Pagination";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
@@ -265,6 +266,9 @@ const CompletedExperimentList = ({
                           />
                         </Box>
                         <Box>{expResult}</Box>
+                        <Box>
+                          <QualityScoreBadge experiment={e} />
+                        </Box>
                       </Flex>
                       <Flex gap="5" align="start" wrap={"wrap"}>
                         <Flex gap="2">

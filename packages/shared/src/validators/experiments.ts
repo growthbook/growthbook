@@ -390,6 +390,40 @@ export type ExperimentAnalysisSummary = z.infer<
   typeof experimentAnalysisSummary
 >;
 
+export const aiExperimentQualityCheckKeys = [
+  "ai-hypothesis-quality",
+  "ai-hypothesis-metric-alignment",
+  "ai-learnings-quality",
+] as const;
+export type AIExperimentQualityCheckKey =
+  (typeof aiExperimentQualityCheckKeys)[number];
+
+// Cached AI verdicts for experiment quality scoring. Invalidated by
+// inputsHash — a hash of the fields the AI judged (hypothesis, goal metric
+// names, analysis text, org AI context, prompt version). Stale results are
+// ignored by the scoring function and recomputed by a background job.
+export const experimentAIQualityResults = z
+  .object({
+    inputsHash: z.string(),
+    dateComputed: z.date(),
+    checks: z.array(
+      z
+        .object({
+          key: z.enum(aiExperimentQualityCheckKeys),
+          score: z.number().min(0).max(1),
+          reason: z.string(),
+        })
+        .strict(),
+    ),
+    // Set when the AI call failed; prevents retrying every sweep until the
+    // inputs change or a manual refresh forces recompute.
+    error: z.string().optional(),
+  })
+  .strict();
+export type ExperimentAIQualityResults = z.infer<
+  typeof experimentAIQualityResults
+>;
+
 // Also imported by the Mongoose experiment schema so the two can't drift.
 export const SCHEDULE_STOP_AFTER_UNITS = ["hours", "days"] as const;
 export const SCHEDULED_STATUS_UPDATE_TYPES = ["start", "stop"] as const;
@@ -552,6 +586,7 @@ export const experimentInterface = z
     templateId: z.string().optional(),
     shareLevel: z.enum(["public", "organization"]).optional(),
     analysisSummary: experimentAnalysisSummary.optional(),
+    aiQualityResults: experimentAIQualityResults.optional(),
     dismissedWarnings: z.array(z.enum(["low-power"])).optional(),
     holdoutId: z.string().optional(),
     defaultDashboardId: z.string().optional(),

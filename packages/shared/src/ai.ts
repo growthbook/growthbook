@@ -762,6 +762,7 @@ export const AI_PROMPT_TYPES = [
   "find-learnings-context",
   "general-chat",
   "chat-autocomplete",
+  "experiment-quality",
 ] as const;
 export type AIPromptType = (typeof AI_PROMPT_TYPES)[number];
 
@@ -802,6 +803,14 @@ export const AI_PROMPT_DEFAULTS: Record<AIPromptType, string> = {
   "find-learnings-context": "", // Org-specific context appended when finding cross-experiment insights
   "general-chat": "",
   "chat-autocomplete": "", // Always uses the default prompt set in agent.controller.ts
+  "experiment-quality":
+    "You are auditing the documentation quality of an A/B test experiment." +
+    "\nScore each requested dimension from 0 to 1 and give a one-sentence reason for each score:" +
+    "\n- Hypothesis quality: is the hypothesis clear, specific, and falsifiable? Does it state the expected change in user or product behavior?" +
+    "\n- Hypothesis-metric alignment: do the goal metrics directly measure what the hypothesis predicts will change?" +
+    "\n- Learnings quality: does the results summary state what happened, why, and what the team should do next?" +
+    "\nBe strict but fair: a score of 1 means exemplary, 0.5 means adequate but vague, 0 means missing or unrelated." +
+    "\nOnly score the dimensions you are asked to score.",
 };
 
 // Prompt types that have default values and can be customized by users

@@ -27,6 +27,8 @@ import {
   getExperimentById,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
+import { queueExperimentQualityScoreUpdate } from "back-end/src/jobs/updateExperimentQualityScores";
+import { logger } from "back-end/src/util/logger";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
@@ -904,6 +906,19 @@ export async function stopExperiment({
       result: updated.results,
     });
   }
+
+  // Fire-and-forget: the decision and learnings just landed, so kick off
+  // the AI quality checks right away instead of waiting for the sweep.
+  // The job re-checks all gates (feature flag, org settings, AI enabled).
+  queueExperimentQualityScoreUpdate({
+    experimentId: updated.id,
+    organization: updated.organization,
+  }).catch((e) =>
+    logger.error(
+      e,
+      `Failed to queue AI quality-score update for experiment ${updated.id}`,
+    ),
+  );
 
   return { experiment, updated, isEnding };
 }

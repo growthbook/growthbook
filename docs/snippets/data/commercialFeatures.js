@@ -85,6 +85,10 @@ export default {
     plan: "enterprise",
     displayName: "Experiment Impact",
   },
+  "experiment-quality-score": {
+    plan: "enterprise",
+    displayName: "Experiment Quality Score",
+  },
   "feature-configs": {
     plan: "enterprise",
     displayName: "Feature Configs",

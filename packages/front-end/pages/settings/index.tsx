@@ -45,6 +45,7 @@ import OrganizationAndLicenseSettings from "@/components/GeneralSettings/Organiz
 import ImportSettings from "@/components/GeneralSettings/ImportSettings";
 import NorthStarMetricSettings from "@/components/GeneralSettings/NorthStarMetricSettings";
 import ExperimentSettings from "@/components/GeneralSettings/ExperimentSettings";
+import { getExperimentQualityScoreFormValues } from "@/components/GeneralSettings/ExperimentSettings/ExperimentQualityScoreSettings";
 import MetricsSettings from "@/components/GeneralSettings/MetricsSettings";
 import FeatureSettings from "@/components/GeneralSettings/FeatureSettings";
 import RampScheduleTemplates from "@/components/GeneralSettings/RampScheduleTemplates";
@@ -204,6 +205,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
         settings.experimentMaxLengthDays ?? DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
       decisionFrameworkEnabled:
         settings.decisionFrameworkEnabled ?? DEFAULT_DECISION_FRAMEWORK_ENABLED,
+      experimentQualityScoreSettings: getExperimentQualityScoreFormValues(
+        settings.experimentQualityScoreSettings,
+      ),
       defaultDecisionCriteriaId:
         settings.defaultDecisionCriteriaId ?? PRESET_DECISION_CRITERIA.id,
       blockFileUploads: settings.blockFileUploads ?? false,
@@ -312,6 +316,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
     approvalFlows: form.watch("approvalFlows"),
     learningStatuses: form.watch("learningStatuses"),
     requireRegisteredAttributes: form.watch("requireRegisteredAttributes"),
+    experimentQualityScoreSettings: form.watch(
+      "experimentQualityScoreSettings",
+    ),
   };
   function updateCronString(cron?: string) {
     cron = cron || value.updateSchedule?.cron || "";
@@ -373,6 +380,13 @@ const GeneralSettingsPage = (): React.ReactElement => {
             settings?.approvalFlows,
             hasRequireApprovals,
           );
+        } else if (k === "experimentQualityScoreSettings") {
+          // Stored checks may be partial; expand to the full record so every
+          // check row in the form has explicit values
+          newVal.experimentQualityScoreSettings =
+            getExperimentQualityScoreFormValues(
+              settings?.experimentQualityScoreSettings,
+            );
         } else {
           newVal[k] = settings?.[k] || newVal[k];
         }
@@ -472,6 +486,26 @@ const GeneralSettingsPage = (): React.ReactElement => {
         value.approvalFlows,
         hasRequireApprovals,
       ),
+      // A cleared weight input yields NaN — normalize back to the default
+      experimentQualityScoreSettings: value.experimentQualityScoreSettings
+        ? {
+            ...value.experimentQualityScoreSettings,
+            checks: Object.fromEntries(
+              Object.entries(
+                value.experimentQualityScoreSettings.checks ?? {},
+              ).map(([key, check]) => [
+                key,
+                {
+                  ...check,
+                  weight:
+                    check.weight !== undefined && !Number.isNaN(check.weight)
+                      ? check.weight
+                      : 1,
+                },
+              ]),
+            ),
+          }
+        : undefined,
     };
 
     // Make sure the feature key example is valid
