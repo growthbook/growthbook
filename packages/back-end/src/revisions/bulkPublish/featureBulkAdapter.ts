@@ -381,17 +381,6 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     // Satellite reversals that couldn't complete; a non-empty list reports the
     // item "published" (stuck), not a clean rollback.
     const reversalFailures: string[] = [];
-    // Delete ramp schedules this apply created; a failed delete surfaces (not a
-    // silent log) so a leftover armed schedule can't hide behind a rollback.
-    if (desired.createdRampScheduleIds?.length) {
-      const failedIds = await rollbackCreatedRampSchedules(
-        context,
-        desired.createdRampScheduleIds,
-      );
-      if (failedIds.length) {
-        reversalFailures.push(`ramp schedule(s) ${failedIds.join(", ")}`);
-      }
-    }
     const current = await getFeature(context, feature.id);
     // Entity gone (concurrent hard-delete): can't restore a pre-image that no
     // longer exists, and the doc-dependent reversals below need it → route to
@@ -408,10 +397,10 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     //
     // ACCEPTED BOUNDARY: these reversals are not transactional. Deterministic
     // failures are designed out (safe-rollout throws before its write, the
-    // holdout config-guard is skipped on revert), but an infra failure after a
-    // prior satellite already reversed can still leave a partial — reported
-    // "published" (needs attention). Closing that fully needs DB transactions,
-    // not reordering; don't chase it with more per-satellite special-casing.
+    // holdout config-guard is skipped on revert, revert-only writes moved below
+    // the gate), but an INFRA failure after a prior satellite already reversed
+    // can still leave a partial — reported "published" (needs attention). That
+    // residual needs DB transactions; it can't be reordered away.
     for (const entry of desired.safeRollouts ?? []) {
       try {
         await context.models.safeRollout.restoreAfterFailedBulkPublish(
@@ -459,9 +448,23 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       );
     }
 
-    // Every satellite reversed → revert the feature doc, unlinking the
-    // experiments the restored rules no longer reference (paired with the rules
-    // restore: a reverted rule set must not leave a dangling link).
+    // Every satellite reversed → revert the feature doc. Delete the ramp
+    // schedules this apply created (the pre-image had none). ONLY here, not in
+    // the leave-whole branch above: a feature left published keeps its created
+    // ramp so the poller still activates it — deleting it there would freeze
+    // the published rule at zero traffic. A failed delete surfaces below.
+    if (desired.createdRampScheduleIds?.length) {
+      const failedIds = await rollbackCreatedRampSchedules(
+        context,
+        desired.createdRampScheduleIds,
+      );
+      if (failedIds.length) {
+        reversalFailures.push(`ramp schedule(s) ${failedIds.join(", ")}`);
+      }
+    }
+    // Unlink the experiments the restored rules no longer reference (paired
+    // with the rules restore: a reverted rule set must not leave a dangling
+    // link).
     const addedExperiments = (
       desired.updatedFeature?.linkedExperiments ?? []
     ).filter((id) => !(feature.linkedExperiments ?? []).includes(id));

@@ -7,6 +7,11 @@ import { isEqual } from "lodash";
  * value (a no-op the filter skips) means the rollback is partial — throw so the
  * caller surfaces it and the item is reported published, not a clean rollback
  * missing a field the publish wrote.
+ *
+ * Granularity is top-level keys by design: a config schema whose sub-field is
+ * stripped by ancestor normalization keeps its `schema` key, so it's a pass —
+ * correct, since the effective schema still resolves that field via `$extends`
+ * and the normalized form is the only reachable state.
  */
 export async function applyVerifiedRestore(params: {
   restore: Record<string, unknown>;

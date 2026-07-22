@@ -24,6 +24,7 @@ let mockFeatureReleaseNoop = false;
 let mockConstantBaselineUnavailable = false;
 let mockFailConstantApply = false;
 let mockFeatureSafeRolloutPoison: unknown = null;
+let mockFeatureCreatedRampScheduleIds: string[] | null = null;
 let mockBeforeFeatureApply: (() => Promise<void>) | null = null;
 jest.mock("back-end/src/revisions/bulkPublish/registry", () => {
   return new Proxy(
@@ -58,6 +59,11 @@ jest.mock("back-end/src/revisions/bulkPublish/registry", () => {
                     ...(ds.safeRollouts ?? []),
                     mockFeatureSafeRolloutPoison,
                   ];
+                }
+                if (mockFeatureCreatedRampScheduleIds) {
+                  (
+                    args[3] as { createdRampScheduleIds?: string[] }
+                  ).createdRampScheduleIds = mockFeatureCreatedRampScheduleIds;
                 }
                 return r;
               },
@@ -146,6 +152,7 @@ describe("POST /api/v2/releases/publish-revisions — commit failure", () => {
     mockConstantBaselineUnavailable = false;
     mockFailConstantApply = false;
     mockFeatureSafeRolloutPoison = null;
+    mockFeatureCreatedRampScheduleIds = null;
     mockBeforeFeatureApply = null;
   });
 
@@ -1026,6 +1033,16 @@ describe("POST /api/v2/releases/publish-revisions — commit failure", () => {
     expect(stageRes.status).toBe(200);
     const constVersion = stageRes.body.revision.version;
 
+    // A ramp schedule this apply "created" — it must SURVIVE the leave-whole
+    // path (the published feature keeps it so the poller can activate it).
+    await mongoose.connection.collection("rampschedules").insertOne({
+      id: "rs_sat",
+      organization: ORG_ID,
+      featureId: "sat-feat",
+      dateCreated: now,
+      dateUpdated: now,
+    });
+
     // The rollout was started by the apply (pre.startedAt null, writtenStatus
     // running) and its post-apply snapshot is missing (post undefined) → its
     // reversal throws.
@@ -1034,6 +1051,7 @@ describe("POST /api/v2/releases/publish-revisions — commit failure", () => {
       writtenStatus: "running",
       post: undefined,
     };
+    mockFeatureCreatedRampScheduleIds = ["rs_sat"];
     mockFailConstantApply = true;
 
     const res = await request(app)
@@ -1067,5 +1085,12 @@ describe("POST /api/v2/releases/publish-revisions — commit failure", () => {
       .collection("saferollout")
       .findOne({ organization: ORG_ID, id: "sr_sat" });
     expect(rollout?.status).toBe("running");
+
+    // The created ramp schedule was NOT deleted — the published feature keeps
+    // it (the cleanup runs only on a real revert, not leave-whole).
+    const rampSchedule = await mongoose.connection
+      .collection("rampschedules")
+      .findOne({ organization: ORG_ID, id: "rs_sat" });
+    expect(rampSchedule).not.toBeNull();
   });
 });
