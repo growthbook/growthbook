@@ -140,5 +140,6 @@ export type AppFeatures = {
   "show-switch-to-old-exp-create": boolean;
   "playstation-new-internal-dashboard": boolean;
   tester123: boolean;
+  "definitions-etag-304": boolean;
   "pricing-phase-1-limits": Record<string, unknown>;
 };

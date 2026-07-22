@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { TagDBInterface, TagInterface } from "shared/types/tag";
+import { touchDefinitionsVersion } from "back-end/src/models/DefinitionsVersionModel";
 
 const tagSchema = new mongoose.Schema({
   organization: {
@@ -57,6 +58,7 @@ export async function addTags(organization: string, tags: string[]) {
       upsert: true,
     },
   );
+  await touchDefinitionsVersion(organization);
 }
 
 export async function addTag(
@@ -96,6 +98,7 @@ export async function addTag(
       upsert: true,
     },
   );
+  await touchDefinitionsVersion(organization);
 }
 
 export async function removeTag(organization: string, tag: string) {
@@ -107,6 +110,7 @@ export async function removeTag(organization: string, tag: string) {
       $pull: { tags: tag },
     },
   );
+  await touchDefinitionsVersion(organization);
 }
 
 export async function addTagsDiff(

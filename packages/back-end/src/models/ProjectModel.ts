@@ -7,6 +7,10 @@ import {
 import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
+import {
+  pruneDefinitionsVersionProject,
+  touchDefinitionsVersion,
+} from "./DefinitionsVersionModel";
 import { MakeModelClass } from "./BaseModel";
 
 function slugify(text: string): string {
@@ -24,6 +28,7 @@ type MigratedProject = Omit<ProjectInterface, "settings"> & {
 const BaseClass = MakeModelClass({
   schema: projectValidator,
   collectionName: "projects",
+  affectsDefinitionsVersion: true,
   idPrefix: "prj_",
   auditLog: {
     entity: "project",
@@ -53,6 +58,12 @@ export class ProjectModel extends BaseClass {
 
   protected canDelete(doc: ProjectInterface) {
     return this.context.permissions.canDeleteProject(doc.id);
+  }
+
+  protected async afterDelete(doc: ProjectInterface) {
+    // Drop the deleted project's definitions-version counter; the delete
+    // itself bumps globally via affectsDefinitionsVersion.
+    await pruneDefinitionsVersionProject(this.context.org.id, doc.id);
   }
 
   protected migrate(doc: MigratedProject) {
@@ -199,6 +210,8 @@ export class ProjectModel extends BaseClass {
         },
       },
     );
+    // Raw write bypasses the BaseModel affectsDefinitionsVersion hook.
+    await touchDefinitionsVersion(this.context.org.id);
   }
 
   public async ensureProjectsExist(projectIds: string[]) {

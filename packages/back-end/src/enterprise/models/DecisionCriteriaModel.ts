@@ -7,6 +7,7 @@ import { MakeModelClass } from "back-end/src/models/BaseModel";
 const BaseClass = MakeModelClass({
   schema: decisionCriteriaInterface,
   collectionName: "decisioncriteria",
+  affectsDefinitionsVersion: true,
   idPrefix: "deccrit__",
   auditLog: {
     entity: "decisionCriteria",

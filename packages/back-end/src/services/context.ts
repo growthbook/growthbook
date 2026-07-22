@@ -1,5 +1,6 @@
 import { Permissions, userHasPermission } from "shared/permissions";
 import { uniq } from "lodash";
+import md5 from "md5";
 import type pino from "pino";
 import type { Request } from "express";
 import { ExperimentMetricInterface } from "shared/experiments";
@@ -541,6 +542,18 @@ export class ReqContextClass {
 
   public hasPremiumFeature(feature: CommercialFeature) {
     return orgHasPremiumFeature(this.org, feature);
+  }
+
+  // Stable hash of this user's resolved permissions. Used to vary the
+  // `/organization/definitions` ETag, since that response is permission
+  // filtered per user. Over-invalidation on any perm change is fine (extra
+  // 200, never stale).
+  private _permissionsFingerprint?: string;
+  public getPermissionsFingerprint(): string {
+    if (this._permissionsFingerprint === undefined) {
+      this._permissionsFingerprint = md5(JSON.stringify(this.userPermissions));
+    }
+    return this._permissionsFingerprint;
   }
 
   private _limits: OrgLimitsAccessor | null = null;
