@@ -437,6 +437,10 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     // Reverse the apply-time holdout transition. `isRevert` skips the config-
     // time guard: this restores a previously-valid holdout state, and the
     // still-published rules transiently include state the guard would refuse.
+    // Deliberately unconditional (converge to pre-image, not delta-undo): if
+    // the apply threw before the forward holdout write, every step here is an
+    // idempotent no-op; if it threw mid-transition, this repairs the half —
+    // gating on "did the forward write run" would leave that case broken.
     if (mergeResult.holdout !== undefined) {
       try {
         await applyHoldoutSideEffects(
