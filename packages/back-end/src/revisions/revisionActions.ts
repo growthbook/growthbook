@@ -35,7 +35,8 @@ export async function approveRevision(
   comment?: string,
 ): Promise<Revision> {
   const adapter = getAdapter(revision.target.type);
-  if (!adapter.canUpdate(context, entity as Record<string, unknown>)) {
+  const canReview = adapter.canReview ?? adapter.canUpdate;
+  if (!canReview(context, entity as Record<string, unknown>)) {
     context.permissions.throwPermissionError();
   }
 
@@ -173,11 +174,19 @@ export async function publishRevision(
     adapter.getUpdatableFields(),
   );
 
-  // The check above covers the live (source) entity. If the revision moves the
-  // entity to a different project, also require update permission on the
-  // destination — publishing a project move must not land where the caller
-  // lacks access.
-  if (!adapter.canUpdate(context, { ...entity, ...desiredState })) {
+  // The publish-authority check above covers the live (source) entity. If the
+  // revision moves the entity to a different project, also require update
+  // permission on the destination — publishing a project move must not land
+  // where the caller lacks access. Gate only on an actual project change so a
+  // publish-only role (no manage) isn't blocked on ordinary publishes.
+  const movesProject =
+    "project" in desiredState &&
+    (desiredState as { project?: string }).project !==
+      (entity as { project?: string }).project;
+  if (
+    movesProject &&
+    !adapter.canUpdate(context, { ...entity, ...desiredState })
+  ) {
     context.permissions.throwPermissionError();
   }
 
@@ -283,7 +292,9 @@ export function canEnableAutoPublishOnApproval(
         (entity as { project?: string }).project,
       );
   if (!enabled) return false;
-  return adapter.canUpdate(context, entity);
+  // Arming auto-publish-on-approval is a publish-authority concern.
+  const canPublish = adapter.canPublishRevision ?? adapter.canUpdate;
+  return canPublish(context, entity);
 }
 
 export async function maybeAutoPublishRevision(

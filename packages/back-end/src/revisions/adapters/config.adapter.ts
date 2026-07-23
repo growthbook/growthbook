@@ -99,6 +99,24 @@ function canEditConfig(context: Context, snapshot: ConfigInterface): boolean {
   return context.permissions.canUpdateConfig(snapshot, {});
 }
 
+// Environment footprint a config publish/revert can affect: a flavor targets its
+// scoped environments; a base config's value applies to all environments. Used
+// to env-scope the publish/revert permission checks (decision B). NOTE: this is
+// the entity's flavor scope, not the precise per-revision changed-env diff — a
+// conservative approximation worth tightening later against proposedChanges.
+function configPublishEnvironments(
+  context: Context,
+  snapshot: ConfigInterface,
+): string[] {
+  const flavorEnvs = snapshot.scopedConfig?.environments;
+  if (flavorEnvs && flavorEnvs.length) return flavorEnvs;
+  return context.org.settings?.environments?.map((e) => e.id) ?? [];
+}
+
+function configProjects(snapshot: ConfigInterface): string[] {
+  return snapshot.project ? [snapshot.project] : [];
+}
+
 function configApprovalConfigured(context: Context): boolean {
   if (!context.hasPremiumFeature("require-approvals")) return false;
   const requireReviews = context.org.settings?.requireReviews;
@@ -149,6 +167,32 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
 
   canDelete(context: Context, snapshot: ConfigInterface): boolean {
     return canBypassApprovalForConfig(context, snapshot);
+  },
+
+  canManageDrafts(context: Context, snapshot: ConfigInterface): boolean {
+    return context.permissions.canManageFlagDrafts({
+      projects: configProjects(snapshot),
+    });
+  },
+
+  canReview(context: Context, snapshot: ConfigInterface): boolean {
+    return context.permissions.canReviewFlag({
+      projects: configProjects(snapshot),
+    });
+  },
+
+  canPublishRevision(context: Context, snapshot: ConfigInterface): boolean {
+    return context.permissions.canPublishFlag(
+      { projects: configProjects(snapshot) },
+      configPublishEnvironments(context, snapshot),
+    );
+  },
+
+  canRevert(context: Context, snapshot: ConfigInterface): boolean {
+    return context.permissions.canRevertFlag(
+      { projects: configProjects(snapshot) },
+      configPublishEnvironments(context, snapshot),
+    );
   },
 
   isApprovalRequired(context: Context): boolean {

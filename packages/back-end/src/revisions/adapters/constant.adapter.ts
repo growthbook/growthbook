@@ -84,6 +84,19 @@ function canEditConstant(
   return context.permissions.canUpdateConstant(snapshot, {});
 }
 
+function constantProjects(snapshot: ConstantInterface): string[] {
+  return snapshot.project ? [snapshot.project] : [];
+}
+
+// Environment footprint for env-scoped publish/revert (decision B). A constant's
+// base `value` applies to all environments and `environmentValues` overrides can
+// touch any of them, so without the per-revision diff we conservatively require
+// publish/revert authority across all org environments. Tighten later against
+// the revision's actual changed environments.
+function constantPublishEnvironments(context: Context): string[] {
+  return context.org.settings?.environments?.map((e) => e.id) ?? [];
+}
+
 // Constants inherit the feature `requireReviews` org settings (drop-in for
 // feature config). Coarse, change-agnostic gate: does the org have any active
 // review rule? Used for inbox/badge surfacing; the precise per-change decision
@@ -144,6 +157,32 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
   // admin-level action.
   canDelete(context: Context, snapshot: ConstantInterface): boolean {
     return canBypassApprovalForConstant(context, snapshot);
+  },
+
+  canManageDrafts(context: Context, snapshot: ConstantInterface): boolean {
+    return context.permissions.canManageFlagDrafts({
+      projects: constantProjects(snapshot),
+    });
+  },
+
+  canReview(context: Context, snapshot: ConstantInterface): boolean {
+    return context.permissions.canReviewFlag({
+      projects: constantProjects(snapshot),
+    });
+  },
+
+  canPublishRevision(context: Context, snapshot: ConstantInterface): boolean {
+    return context.permissions.canPublishFlag(
+      { projects: constantProjects(snapshot) },
+      constantPublishEnvironments(context),
+    );
+  },
+
+  canRevert(context: Context, snapshot: ConstantInterface): boolean {
+    return context.permissions.canRevertFlag(
+      { projects: constantProjects(snapshot) },
+      constantPublishEnvironments(context),
+    );
   },
 
   isApprovalRequired(context: Context): boolean {

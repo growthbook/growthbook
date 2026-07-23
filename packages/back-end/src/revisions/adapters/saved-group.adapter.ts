@@ -124,6 +124,24 @@ export const savedGroupAdapter: EntityRevisionAdapter<SavedGroupInterface> = {
     return canBypassAcrossProjects(context, snapshot);
   },
 
+  // Saved groups have no environment concept, so publish/revert are
+  // project-scoped (unlike the Flags family).
+  canManageDrafts(context: Context, snapshot: SavedGroupInterface): boolean {
+    return context.permissions.canManageSavedGroupDrafts(snapshot);
+  },
+
+  canReview(context: Context, snapshot: SavedGroupInterface): boolean {
+    return context.permissions.canReviewSavedGroup(snapshot);
+  },
+
+  canPublishRevision(context: Context, snapshot: SavedGroupInterface): boolean {
+    return context.permissions.canPublishSavedGroup(snapshot);
+  },
+
+  canRevert(context: Context, snapshot: SavedGroupInterface): boolean {
+    return context.permissions.canRevertSavedGroup(snapshot);
+  },
+
   isApprovalRequired(context: Context): boolean {
     return isSavedGroupApprovalRequired(context);
   },

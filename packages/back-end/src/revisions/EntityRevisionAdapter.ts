@@ -59,6 +59,27 @@ export interface EntityRevisionAdapter<
   canUpdate(context: Context, snapshot: TSnapshot): boolean;
   canDelete(context: Context, snapshot: TSnapshot): boolean;
 
+  /**
+   * Author a draft: create/edit/discard/rebase a revision and request review.
+   * Split out from `canUpdate` so a "draft author" can propose changes without
+   * being able to publish. Defaults to `canUpdate` when absent.
+   */
+  canManageDrafts?(context: Context, snapshot: TSnapshot): boolean;
+
+  /**
+   * Review a revision: approve / request changes / undo a verdict. Split out
+   * from `canUpdate` so a "reviewer" role needs no edit access. Defaults to
+   * `canUpdate` when absent.
+   */
+  canReview?(context: Context, snapshot: TSnapshot): boolean;
+
+  /**
+   * Revert the entity to a previously-published revision. Split out from
+   * `canUpdate`/publish so an incident-responder can roll back without edit
+   * access. Defaults to `canUpdate` when absent.
+   */
+  canRevert?(context: Context, snapshot: TSnapshot): boolean;
+
   // ---------- Approval flow ----------
 
   /** Whether this org requires approval before a revision can be merged. */

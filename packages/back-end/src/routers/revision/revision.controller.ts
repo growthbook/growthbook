@@ -33,6 +33,27 @@ import {
   canEnableAutoPublishOnApproval,
 } from "back-end/src/revisions/revisionActions";
 
+// Route a revision permission check to the action-specific adapter hook,
+// falling back to canUpdate when the adapter doesn't override it. Lets a role
+// hold e.g. review-only or publish-only authority without full edit access.
+function canDoRevisionAction(
+  type: RevisionTargetType,
+  action: "draft" | "review" | "revert" | "publish",
+  context: ReqContext,
+  snapshot: Record<string, unknown>,
+): boolean {
+  const adapter = getAdapter(type);
+  const fn =
+    action === "draft"
+      ? adapter.canManageDrafts
+      : action === "review"
+        ? adapter.canReview
+        : action === "revert"
+          ? adapter.canRevert
+          : adapter.canPublishRevision;
+  return (fn ?? adapter.canUpdate)(context, snapshot);
+}
+
 // Arm-time acknowledgment for a deferred publish, via the entity's adapter hook
 // (config uses it for the experiment guard; others have none). Throws when the
 // armer must acknowledge a condition first; returns keys to snapshot on the arm.
@@ -216,9 +237,11 @@ export const postRevision = async (
     );
   }
 
-  // Verify the caller can edit the underlying entity before creating a revision
+  // Creating a draft requires draft-authoring permission (not entity-create).
   if (
-    !getAdapter(entityType).canCreate(
+    !canDoRevisionAction(
+      entityType,
+      "draft",
       context,
       originalEntity as Record<string, unknown>,
     )
@@ -453,11 +476,13 @@ export const postSubmit = async (
     });
   }
 
-  // Anyone with permission to update the underlying entity can move a draft
-  // into review (not just the original author), so co-authors and teammates
-  // can flag someone else's draft as ready for review.
+  // Anyone who can author drafts can move a draft into review (not just the
+  // original author), so co-authors and teammates can flag someone else's
+  // draft as ready for review.
   if (
-    !getAdapter(existingRevision.target.type).canUpdate(
+    !canDoRevisionAction(
+      existingRevision.target.type,
+      "draft",
       context,
       existingRevision.target.snapshot as Record<string, unknown>,
     )
@@ -574,9 +599,11 @@ export const postReview = async (
     });
   }
 
-  // Must have permission to edit the underlying entity
+  // Must have review permission for the underlying entity
   if (
-    !getAdapter(existingRevision.target.type).canUpdate(
+    !canDoRevisionAction(
+      existingRevision.target.type,
+      "review",
       context,
       existingRevision.target.snapshot as Record<string, unknown>,
     )
@@ -725,11 +752,13 @@ export const patchTitle = async (
     return res.status(404).json({ message: "Revision not found" });
   }
 
-  // Anyone who can update the underlying entity may edit a draft's title — not
-  // just the author. Matches the other revision-edit endpoints and the UI, which
-  // gate the title/description pencil on entity update permission, not authorship.
+  // Anyone who can author drafts may edit a draft's title — not just the author.
+  // Matches the other revision-edit endpoints and the UI, which gate the
+  // title/description pencil on draft-authoring permission, not authorship.
   if (
-    !getAdapter(existingRevision.target.type).canUpdate(
+    !canDoRevisionAction(
+      existingRevision.target.type,
+      "draft",
       context,
       existingRevision.target.snapshot as Record<string, unknown>,
     )
@@ -794,11 +823,13 @@ export const patchDescription = async (
     return res.status(404).json({ message: "Revision not found" });
   }
 
-  // Anyone who can update the underlying entity may edit a draft's description —
-  // not just the author. Matches the other revision-edit endpoints and the UI,
-  // which gate the title/description pencil on entity update permission.
+  // Anyone who can author drafts may edit a draft's description — not just the
+  // author. Matches the other revision-edit endpoints and the UI, which gate the
+  // title/description pencil on draft-authoring permission.
   if (
-    !getAdapter(existingRevision.target.type).canUpdate(
+    !canDoRevisionAction(
+      existingRevision.target.type,
+      "draft",
       context,
       existingRevision.target.snapshot as Record<string, unknown>,
     )
@@ -879,12 +910,13 @@ export const postRebase = async (
     return res.status(404).json({ message: "Entity not found" });
   }
 
-  // Anyone with permission to update the underlying entity can rebase a
-  // draft onto the latest live state (not just the original author), so
-  // teammates can unblock each other's stuck drafts. Matches the
-  // submit-for-review permission model.
+  // Anyone who can author drafts can rebase a draft onto the latest live state
+  // (not just the original author), so teammates can unblock each other's stuck
+  // drafts. Matches the submit-for-review permission model.
   if (
-    !getAdapter(revision.target.type).canUpdate(
+    !canDoRevisionAction(
+      revision.target.type,
+      "draft",
       context,
       entity as Record<string, unknown>,
     )
@@ -1147,7 +1179,17 @@ export const postApproveAndPublish = async (
   // publishRevisionAction, leaving the revision stuck in "approved" with no
   // corresponding entity update. Mirrors postFeatureApproveAndPublish.
   const adapter = getAdapter(revision.target.type);
-  if (!adapter.canUpdate(context, entity as Record<string, unknown>)) {
+  // Approve-and-publish needs both review and publish authority.
+  if (
+    !(adapter.canReview ?? adapter.canUpdate)(
+      context,
+      entity as Record<string, unknown>,
+    ) ||
+    !(adapter.canPublishRevision ?? adapter.canUpdate)(
+      context,
+      entity as Record<string, unknown>,
+    )
+  ) {
     context.permissions.throwPermissionError();
   }
   const conflictResult = checkMergeConflicts(
@@ -1231,10 +1273,13 @@ export const postToggleAutoPublish = async (
     return res.status(404).json({ message: "Revision not found" });
   }
 
-  // Same gate as submit-for-review: anyone who can edit the underlying entity
-  // can arm/disarm auto-publish (which for saved groups also implies publish).
+  // Same gate as submit-for-review: anyone who can author drafts can arm/disarm
+  // auto-publish. The separate canEnableAutoPublishOnApproval check below
+  // additionally requires publish authority when enabling.
   if (
-    !getAdapter(existing.target.type).canUpdate(
+    !canDoRevisionAction(
+      existing.target.type,
+      "draft",
       context,
       existing.target.snapshot as Record<string, unknown>,
     )
@@ -1332,9 +1377,11 @@ export const postClose = async (
   }
 
   if (existingRevision.authorId !== userId) {
-    // Also allow entity editors to close
+    // Also allow draft authors to close
     if (
-      !getAdapter(existingRevision.target.type).canUpdate(
+      !canDoRevisionAction(
+        existingRevision.target.type,
+        "draft",
         context,
         existingRevision.target.snapshot as Record<string, unknown>,
       )
@@ -1399,9 +1446,11 @@ export const postReopen = async (
   }
 
   if (existingRevision.authorId !== userId) {
-    // Also allow entity editors to reopen
+    // Also allow draft authors to reopen
     if (
-      !getAdapter(existingRevision.target.type).canUpdate(
+      !canDoRevisionAction(
+        existingRevision.target.type,
+        "draft",
         context,
         existingRevision.target.snapshot as Record<string, unknown>,
       )
@@ -1466,10 +1515,12 @@ export const postRecallReview = async (
     });
   }
 
-  // Author can always recall; otherwise require permission to edit the entity.
+  // Author can always recall; otherwise require draft-authoring permission.
   if (existingRevision.authorId !== userId) {
     if (
-      !getAdapter(existingRevision.target.type).canUpdate(
+      !canDoRevisionAction(
+        existingRevision.target.type,
+        "draft",
         context,
         existingRevision.target.snapshot as Record<string, unknown>,
       )
@@ -1519,10 +1570,12 @@ export const postUndoReview = async (
     return res.status(404).json({ message: "Revision not found" });
   }
 
-  // Must be able to edit the entity to touch verdicts; the model enforces that
+  // Must have review permission to touch verdicts; the model enforces that
   // only the caller's own active verdict is retracted.
   if (
-    !getAdapter(existingRevision.target.type).canUpdate(
+    !canDoRevisionAction(
+      existingRevision.target.type,
+      "review",
       context,
       existingRevision.target.snapshot as Record<string, unknown>,
     )
@@ -1592,10 +1645,12 @@ export const putComment = async (
     return res.status(404).json({ message: "Revision not found" });
   }
 
-  // Require entity edit permission (the model also enforces author-only),
+  // Require draft-authoring permission (the model also enforces author-only),
   // matching the other review-lifecycle endpoints.
   if (
-    !getAdapter(existingRevision.target.type).canUpdate(
+    !canDoRevisionAction(
+      existingRevision.target.type,
+      "draft",
       context,
       existingRevision.target.snapshot as Record<string, unknown>,
     )
@@ -1646,10 +1701,12 @@ export const deleteComment = async (
     return res.status(404).json({ message: "Revision not found" });
   }
 
-  // Require entity edit permission (the model also enforces author-only),
+  // Require draft-authoring permission (the model also enforces author-only),
   // matching the other review-lifecycle endpoints.
   if (
-    !getAdapter(existingRevision.target.type).canUpdate(
+    !canDoRevisionAction(
+      existingRevision.target.type,
+      "draft",
       context,
       existingRevision.target.snapshot as Record<string, unknown>,
     )
