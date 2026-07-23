@@ -6,6 +6,7 @@ import {
   createOrUpdateRevision,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
+import { callerCanRevisionAction } from "back-end/src/revisions/revisionActions";
 import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
 import {
   applyRevisionToSnapshot,
@@ -32,7 +33,14 @@ export const postSavedGroupRevisionItemsRemove = createApiRequestHandler(
   assertListGroup(savedGroup);
   assertValidListAttributeKey(req.context, savedGroup);
 
-  if (!req.context.permissions.canUpdateSavedGroup(savedGroup, savedGroup)) {
+  if (
+    !callerCanRevisionAction(
+      req.context,
+      "saved-group",
+      "draft",
+      savedGroup as Record<string, unknown>,
+    )
+  ) {
     req.context.permissions.throwPermissionError();
   }
 

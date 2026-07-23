@@ -30,7 +30,12 @@ export const postConstantRevisionRevert = createApiRequestHandler(
   }
 
   const adapter = getAdapter("constant");
-  if (!adapter.canUpdate(req.context, constant as Record<string, unknown>)) {
+  if (
+    !(adapter.canRevert ?? adapter.canUpdate)(
+      req.context,
+      constant as Record<string, unknown>,
+    )
+  ) {
     req.context.permissions.throwPermissionError();
   }
 

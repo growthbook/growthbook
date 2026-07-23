@@ -5,6 +5,7 @@ import {
   createOrUpdateRevision,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
+import { callerCanRevisionAction } from "back-end/src/revisions/revisionActions";
 import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
 import { toApiSavedGroupRevision } from "./toApiSavedGroupRevision";
 
@@ -20,7 +21,14 @@ export const postSavedGroupRevision = createApiRequestHandler(
 
   // Permission check delegates to canUpdate so it tracks the same edit gate
   // as every other write path on this entity.
-  if (!req.context.permissions.canUpdateSavedGroup(savedGroup, savedGroup)) {
+  if (
+    !callerCanRevisionAction(
+      req.context,
+      "saved-group",
+      "draft",
+      savedGroup as Record<string, unknown>,
+    )
+  ) {
     req.context.permissions.throwPermissionError();
   }
 

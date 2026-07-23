@@ -12,6 +12,7 @@ import {
   NotFoundError,
 } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
+import { callerCanRevisionAction } from "back-end/src/revisions/revisionActions";
 import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
 import { isDraftStatus, loadRevisionByVersion } from "./validations";
 import { toApiConstantRevision } from "./toApiConstantRevision";
@@ -37,7 +38,14 @@ export const postConstantRevisionRebase = createApiRequestHandler(
   }
 
   const adapter = getAdapter("constant");
-  if (!adapter.canUpdate(req.context, constant as Record<string, unknown>)) {
+  if (
+    !callerCanRevisionAction(
+      req.context,
+      "constant",
+      "draft",
+      constant as Record<string, unknown>,
+    )
+  ) {
     req.context.permissions.throwPermissionError();
   }
 

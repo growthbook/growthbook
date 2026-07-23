@@ -12,6 +12,7 @@ import {
   createOrUpdateRevision,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
+import { callerCanRevisionAction } from "back-end/src/revisions/revisionActions";
 import { assertConfigValueValid } from "back-end/src/services/configValidation";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 import {
@@ -34,12 +35,16 @@ export const putConfigRevisionMetadata = createApiRequestHandler(
   const { name, owner, description, project, parent, extensible } = req.body;
   const extendsKeys = req.body.extends;
 
-  // Re-check edit permission so a `project` move needs edit on old AND new.
-  // Done BEFORE probing project existence so it can't be an existence oracle.
+  // Editing draft metadata requires draft-authoring permission. Done BEFORE
+  // probing project existence so it can't be an existence oracle. A `project`
+  // move's destination-manage rights are re-checked at publish time.
   if (
-    !req.context.permissions.canUpdateConfig(config, {
-      project: typeof project !== "undefined" ? project : config.project,
-    })
+    !callerCanRevisionAction(
+      req.context,
+      "config",
+      "draft",
+      config as Record<string, unknown>,
+    )
   ) {
     req.context.permissions.throwPermissionError();
   }

@@ -52,10 +52,15 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
   const adapter = getAdapter("saved-group");
 
   // Re-check edit permission against the LIVE entity (not just the snapshot).
-  // A `projects` move encoded in the proposed changes shouldn't be able to
-  // launder write access — the caller still needs `canUpdateSavedGroup` on
-  // the existing entity, plus the bypass permission below if review is open.
-  if (!adapter.canUpdate(req.context, savedGroup as Record<string, unknown>)) {
+  // Require publish authority against the LIVE entity before leaking any
+  // revision state. Destination-project manage rights for a projects move are
+  // checked separately below, only when the revision actually changes projects.
+  if (
+    !(adapter.canPublishRevision ?? adapter.canUpdate)(
+      req.context,
+      savedGroup as Record<string, unknown>,
+    )
+  ) {
     req.context.permissions.throwPermissionError();
   }
 
@@ -134,8 +139,14 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
 
   // The live check above covers the source projects. If the revision moves the
   // group to different projects, also require update permission on the
-  // destination.
+  // destination (publish alone doesn't grant a cross-project move).
+  const proposedProjects = (desiredState as { projects?: string[] }).projects;
+  const movesProjects =
+    proposedProjects !== undefined &&
+    JSON.stringify([...proposedProjects].sort()) !==
+      JSON.stringify([...(savedGroup.projects ?? [])].sort());
   if (
+    movesProjects &&
     !adapter.canUpdate(req.context, {
       ...(savedGroup as unknown as Record<string, unknown>),
       ...desiredState,

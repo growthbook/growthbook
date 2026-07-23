@@ -6,6 +6,7 @@ import {
   createOrUpdateRevision,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
+import { callerCanRevisionAction } from "back-end/src/revisions/revisionActions";
 import { assertConfigArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 import {
@@ -24,7 +25,14 @@ export const putConfigRevisionArchive = createApiRequestHandler(
     throw new NotFoundError("Could not find config");
   }
 
-  if (!req.context.permissions.canUpdateConfig(config, config)) {
+  if (
+    !callerCanRevisionAction(
+      req.context,
+      "config",
+      "draft",
+      config as Record<string, unknown>,
+    )
+  ) {
     req.context.permissions.throwPermissionError();
   }
 

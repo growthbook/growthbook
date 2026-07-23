@@ -1,7 +1,7 @@
 import { postConstantRevisionDiscardValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
-import { getAdapter } from "back-end/src/revisions";
+import { callerCanRevisionAction } from "back-end/src/revisions/revisionActions";
 import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
 import { loadRevisionByVersion } from "./validations";
 import { toApiConstantRevision } from "./toApiConstantRevision";
@@ -29,8 +29,10 @@ export const postConstantRevisionDiscard = createApiRequestHandler(
   // Authors can always discard their own drafts; otherwise require edit perm.
   if (revision.authorId !== req.context.userId) {
     if (
-      !getAdapter("constant").canUpdate(
+      !callerCanRevisionAction(
         req.context,
+        "constant",
+        "draft",
         constant as Record<string, unknown>,
       )
     ) {

@@ -6,6 +6,7 @@ import {
   createOrUpdateRevision,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
+import { callerCanRevisionAction } from "back-end/src/revisions/revisionActions";
 import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
 import {
   assertConditionGroup,
@@ -32,7 +33,14 @@ export const putSavedGroupRevisionCondition = createApiRequestHandler(
 
   const { condition } = req.body;
 
-  if (!req.context.permissions.canUpdateSavedGroup(savedGroup, savedGroup)) {
+  if (
+    !callerCanRevisionAction(
+      req.context,
+      "saved-group",
+      "draft",
+      savedGroup as Record<string, unknown>,
+    )
+  ) {
     req.context.permissions.throwPermissionError();
   }
 

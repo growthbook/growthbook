@@ -54,9 +54,8 @@ export async function revertFeatureCore(
   const environmentIds = environments.map((e) => e.id);
   const allEnvironmentIds = getEnvironmentIdsFromOrg(organization);
 
-  if (!context.permissions.canUpdateFeature(feature, {})) {
-    context.permissions.throwPermissionError();
-  }
+  // Revert is gated per-change below via canRevertFeature (revertFlags), not
+  // manage/publish — an incident responder can roll back without edit rights.
 
   const { revision: version, comment } = body;
 
@@ -79,7 +78,7 @@ export async function revertFeatureCore(
 
   if (revision.defaultValue !== feature.defaultValue) {
     if (
-      !context.permissions.canPublishFeature(
+      !context.permissions.canRevertFeature(
         feature,
         Array.from(getEnabledEnvironments(feature, environmentIds)),
       )
@@ -120,7 +119,7 @@ export async function revertFeatureCore(
   }
 
   if (changedEnvs.length > 0) {
-    if (!context.permissions.canPublishFeature(feature, changedEnvs)) {
+    if (!context.permissions.canRevertFeature(feature, changedEnvs)) {
       context.permissions.throwPermissionError();
     }
   }
@@ -130,7 +129,7 @@ export async function revertFeatureCore(
     !isEqual(revision.prerequisites, feature.prerequisites || [])
   ) {
     if (
-      !context.permissions.canPublishFeature(
+      !context.permissions.canRevertFeature(
         feature,
         Array.from(getEnabledEnvironments(feature, environmentIds)),
       )
@@ -184,7 +183,7 @@ export async function revertFeatureCore(
     }
     if (hasMetaChange) {
       if (
-        !context.permissions.canPublishFeature(
+        !context.permissions.canRevertFeature(
           feature,
           Array.from(getEnabledEnvironments(feature, environmentIds)),
         )

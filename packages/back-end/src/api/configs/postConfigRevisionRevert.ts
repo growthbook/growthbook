@@ -34,7 +34,12 @@ export const postConfigRevisionRevert = createApiRequestHandler(
   }
 
   const adapter = getAdapter("config");
-  if (!adapter.canUpdate(req.context, config as Record<string, unknown>)) {
+  if (
+    !(adapter.canRevert ?? adapter.canUpdate)(
+      req.context,
+      config as Record<string, unknown>,
+    )
+  ) {
     req.context.permissions.throwPermissionError();
   }
 

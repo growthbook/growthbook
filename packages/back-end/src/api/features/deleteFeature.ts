@@ -1,12 +1,10 @@
-import { filterEnvironmentsByFeature, PermissionError } from "shared/util";
+import { PermissionError } from "shared/util";
 import { deleteFeatureValidator } from "shared/validators";
 import type { ApiRequestLocals } from "back-end/types/api";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { deleteFeature, getFeature } from "back-end/src/models/FeatureModel";
 import { assertFeatureDeletable } from "back-end/src/services/features";
 import { auditDetailsDelete } from "back-end/src/services/audit";
-import { getEnvironments } from "back-end/src/util/organization.util";
-import { getEnabledEnvironments } from "back-end/src/util/features";
 import { canUseRestApiBypassSetting } from "./reviewBypass";
 
 // Single handler shared by v1 and v2: identical semantics, identical response
@@ -22,18 +20,10 @@ export async function deleteFeatureHandler(
     );
   }
 
-  const allEnvironments = getEnvironments(req.context.org);
-  const environments = filterEnvironmentsByFeature(allEnvironments, feature);
-  const environmentsIds = environments.map((e) => e.id);
-
-  if (
-    !req.context.permissions.canDeleteFeature(feature) ||
-    !req.context.permissions.canManageFeatureDrafts(feature) ||
-    !req.context.permissions.canPublishFeature(
-      feature,
-      Array.from(getEnabledEnvironments(feature, environmentsIds)),
-    )
-  ) {
+  // Deleting a feature is gated by the dedicated delete permission. The
+  // production-safety guard for deleting a LIVE feature is enforced separately
+  // below (archived check + REST bypass setting), not via publish permission.
+  if (!req.context.permissions.canDeleteFeature(feature)) {
     req.context.permissions.throwPermissionError();
   }
 

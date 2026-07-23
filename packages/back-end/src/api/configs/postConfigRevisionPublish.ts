@@ -52,9 +52,15 @@ export const postConfigRevisionPublish = createApiRequestHandler(
 
   const adapter = getAdapter("config");
 
-  // Re-check edit permission against the LIVE entity (a proposed `project` move
-  // shouldn't launder write access) before leaking any revision state.
-  if (!adapter.canUpdate(req.context, config as Record<string, unknown>)) {
+  // Require publish authority against the LIVE entity before leaking any
+  // revision state. Destination-project manage rights for a project move are
+  // checked separately below, only when the revision actually changes project.
+  if (
+    !(adapter.canPublishRevision ?? adapter.canUpdate)(
+      req.context,
+      config as Record<string, unknown>,
+    )
+  ) {
     req.context.permissions.throwPermissionError();
   }
 
@@ -151,8 +157,12 @@ export const postConfigRevisionPublish = createApiRequestHandler(
   const isBypass = approvalRequired && revision.status !== "approved";
 
   // If the revision moves the config to a different project, also require update
-  // permission on the destination.
+  // permission on the destination (publish alone doesn't grant a cross-project move).
+  const movesProject =
+    "project" in desiredState &&
+    (desiredState as { project?: string }).project !== config.project;
   if (
+    movesProject &&
     !adapter.canUpdate(req.context, {
       ...(config as unknown as Record<string, unknown>),
       ...desiredState,

@@ -12,6 +12,7 @@ import {
   NotFoundError,
 } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
+import { callerCanRevisionAction } from "back-end/src/revisions/revisionActions";
 import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
 import { isDraftStatus, loadRevisionByVersion } from "./validations";
 import { toApiSavedGroupRevision } from "./toApiSavedGroupRevision";
@@ -41,7 +42,14 @@ export const postSavedGroupRevisionRebase = createApiRequestHandler(
   // Anyone with edit permission can unblock a stranded draft via rebase —
   // matches the internal /revision/:id/rebase semantics.
   const adapter = getAdapter("saved-group");
-  if (!adapter.canUpdate(req.context, savedGroup as Record<string, unknown>)) {
+  if (
+    !callerCanRevisionAction(
+      req.context,
+      "saved-group",
+      "draft",
+      savedGroup as Record<string, unknown>,
+    )
+  ) {
     req.context.permissions.throwPermissionError();
   }
 

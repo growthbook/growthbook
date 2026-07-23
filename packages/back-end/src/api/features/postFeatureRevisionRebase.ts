@@ -58,10 +58,7 @@ export async function computeRebaseMerge(
   // The preview requires the same permission as the rebase itself: it is a
   // planning step for that write, and accepting arbitrary resolutions makes
   // it more than a passive read.
-  if (
-    !context.permissions.canUpdateFeature(feature, {}) ||
-    !context.permissions.canManageFeatureDrafts(feature)
-  ) {
+  if (!context.permissions.canManageFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 

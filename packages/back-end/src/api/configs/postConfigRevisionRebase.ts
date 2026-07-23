@@ -12,6 +12,7 @@ import {
   NotFoundError,
 } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
+import { callerCanRevisionAction } from "back-end/src/revisions/revisionActions";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 import { isDraftStatus, loadRevisionByVersion } from "./validations";
 import { toApiConfigRevision } from "./toApiConfigRevision";
@@ -37,7 +38,14 @@ export const postConfigRevisionRebase = createApiRequestHandler(
   }
 
   const adapter = getAdapter("config");
-  if (!adapter.canUpdate(req.context, config as Record<string, unknown>)) {
+  if (
+    !callerCanRevisionAction(
+      req.context,
+      "config",
+      "draft",
+      config as Record<string, unknown>,
+    )
+  ) {
     req.context.permissions.throwPermissionError();
   }
 

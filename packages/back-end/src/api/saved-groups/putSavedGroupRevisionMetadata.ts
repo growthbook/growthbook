@@ -6,6 +6,7 @@ import {
   createOrUpdateRevision,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
+import { callerCanRevisionAction } from "back-end/src/revisions/revisionActions";
 import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
 import {
   assertValidDescription,
@@ -45,15 +46,13 @@ export const putSavedGroupRevisionMetadata = createApiRequestHandler(
     fieldsToUpdate.projects = projects;
   }
 
-  // Re-check edit permission against the merged change set so a `projects`
-  // move requires edit on both old AND new project sets — matches the
-  // internal controller. canUpdateSavedGroup's second arg accepts a partial
-  // update; the model union gives us both projection sets here.
   if (
-    !req.context.permissions.canUpdateSavedGroup(savedGroup, {
-      ...savedGroup,
-      ...fieldsToUpdate,
-    })
+    !callerCanRevisionAction(
+      req.context,
+      "saved-group",
+      "draft",
+      savedGroup as Record<string, unknown>,
+    )
   ) {
     req.context.permissions.throwPermissionError();
   }

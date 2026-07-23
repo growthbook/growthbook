@@ -43,10 +43,15 @@ export const postConstantRevisionPublish = createApiRequestHandler(
 
   const adapter = getAdapter("constant");
 
-  // Re-check edit permission against the LIVE entity (a `project` move in the
-  // proposed changes shouldn't be able to launder write access) before leaking
-  // any revision state.
-  if (!adapter.canUpdate(req.context, constant as Record<string, unknown>)) {
+  // Require publish authority against the LIVE entity before leaking any
+  // revision state. Destination-project manage rights for a project move are
+  // checked separately below, only when the revision actually changes project.
+  if (
+    !(adapter.canPublishRevision ?? adapter.canUpdate)(
+      req.context,
+      constant as Record<string, unknown>,
+    )
+  ) {
     req.context.permissions.throwPermissionError();
   }
 
@@ -123,8 +128,12 @@ export const postConstantRevisionPublish = createApiRequestHandler(
 
   // The live check above covers the source project. If the revision moves the
   // constant to a different project, also require update permission on the
-  // destination.
+  // destination (publish alone doesn't grant a cross-project move).
+  const movesProject =
+    "project" in desiredState &&
+    (desiredState as { project?: string }).project !== constant.project;
   if (
+    movesProject &&
     !adapter.canUpdate(req.context, {
       ...(constant as unknown as Record<string, unknown>),
       ...desiredState,
