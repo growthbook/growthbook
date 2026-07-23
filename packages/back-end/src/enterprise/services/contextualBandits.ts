@@ -39,7 +39,10 @@ import { getFeature } from "back-end/src/models/FeatureModel";
 import { getDraftRevision } from "back-end/src/services/features";
 import { updateRevision } from "back-end/src/models/FeatureRevisionModel";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
-import { publishPendingFeatureDraftsForContextualBandit } from "back-end/src/services/experiment-feature";
+import {
+  PendingDraftFailure,
+  publishPendingFeatureDraftsForContextualBandit,
+} from "back-end/src/services/experiment-feature";
 import {
   ContextualBanditResultsQueryRunner,
   ContextualBanditSrmResult,
@@ -90,7 +93,10 @@ export async function executeContextualBanditVariationChange(
   cb: ContextualBanditInterface,
   requestedVariations: Variation[],
   newVariationValues?: Record<string, Record<string, string>>,
-): Promise<{ updated: ContextualBanditInterface }> {
+): Promise<{
+  updated: ContextualBanditInterface;
+  featureDraftPublishFailures: PendingDraftFailure[];
+}> {
   if (cb.status === "stopped") {
     throw new Error(
       "invalid_status: Cannot edit variations on a stopped contextual bandit",
@@ -126,6 +132,17 @@ export async function executeContextualBanditVariationChange(
         )}. Update the linked feature(s) first.`,
       );
     }
+  }
+
+  // Validate + authorize new-arm feature values BEFORE any persistence, so a bad
+  // value or a missing publish permission aborts cleanly with nothing committed.
+  if (diff.addedIds.length > 0) {
+    await validateAndAuthorizeAddedVariationValues(
+      context,
+      cb,
+      diff.addedIds,
+      newVariationValues,
+    );
   }
 
   const armSetChanged = diff.addedIds.length > 0 || diff.removedIds.length > 0;
@@ -186,13 +203,16 @@ export async function executeContextualBanditVariationChange(
     }
   }
 
+  let featureDraftPublishFailures: PendingDraftFailure[] = [];
   if (diff.addedIds.length > 0) {
-    updated = await addVariationValuesToLinkedFeatures(
+    const applied = await addVariationValuesToLinkedFeatures(
       context,
       updated,
       diff.addedIds,
       newVariationValues,
     );
+    updated = applied.cb;
+    featureDraftPublishFailures = applied.failures;
   }
 
   await refreshLinkedFeaturePayloads(
@@ -201,7 +221,54 @@ export async function executeContextualBanditVariationChange(
     "contextualBandit.refresh",
   );
 
-  return { updated };
+  return { updated, featureDraftPublishFailures };
+}
+
+/**
+ * Validate the value each linked feature will serve for the newly-added arms,
+ * and (for a running CB, which publishes immediately) require publish permission
+ * on those features. Throws before any persistence so the whole edit is aborted.
+ */
+async function validateAndAuthorizeAddedVariationValues(
+  context: ReqContext | ApiReqContext,
+  cb: ContextualBanditInterface,
+  addedIds: string[],
+  providedValues?: Record<string, Record<string, string>>,
+): Promise<void> {
+  const linkedInfo = await getContextualBanditLinkedFeatureInfo(context, cb);
+  for (const info of linkedInfo) {
+    const feature = info.feature;
+    const existing = new Set(info.values.map((v) => v.variationId));
+    const controlValue = info.values[0]?.value;
+
+    let hasNewValue = false;
+    for (const addedId of addedIds) {
+      if (existing.has(addedId)) continue;
+      hasNewValue = true;
+      // Throws on a type mismatch (e.g. non-numeric value on a number feature).
+      validateFeatureValue(
+        feature,
+        defaultAddedVariationValue(
+          providedValues?.[feature.id]?.[addedId],
+          controlValue,
+          feature.defaultValue,
+        ),
+        `Variation ${addedId}`,
+      );
+    }
+
+    if (!hasNewValue) continue;
+
+    // A running CB publishes the linked-feature draft immediately, so the editor
+    // must be allowed to publish it.
+    if (cb.status === "running") {
+      const envs = Object.keys(info.environmentStates ?? {});
+      const publishEnvs = envs.length > 0 ? envs : context.environments;
+      if (!context.permissions.canPublishFeature(feature, publishEnvs)) {
+        context.permissions.throwPermissionError();
+      }
+    }
+  }
 }
 
 export async function addVariationValuesToLinkedFeatures(
@@ -209,9 +276,10 @@ export async function addVariationValuesToLinkedFeatures(
   cb: ContextualBanditInterface,
   addedIds: string[],
   providedValues?: Record<string, Record<string, string>>,
-): Promise<ContextualBanditInterface> {
+): Promise<{ cb: ContextualBanditInterface; failures: PendingDraftFailure[] }> {
   const featureIds = cb.linkedFeatures ?? [];
-  if (addedIds.length === 0 || featureIds.length === 0) return cb;
+  if (addedIds.length === 0 || featureIds.length === 0)
+    return { cb, failures: [] };
 
   let stagedAny = false;
 
@@ -297,15 +365,26 @@ export async function addVariationValuesToLinkedFeatures(
     stagedAny = true;
   }
 
-  if (!stagedAny) return cb;
+  if (!stagedAny) return { cb, failures: [] };
 
   const refreshed =
     (await context.models.contextualBandits.getById(cb.id)) ?? cb;
   if (refreshed.status === "running") {
-    await publishPendingFeatureDraftsForContextualBandit(context, refreshed);
-    return (await context.models.contextualBandits.getById(cb.id)) ?? refreshed;
+    const result = await publishPendingFeatureDraftsForContextualBandit(
+      context,
+      refreshed,
+    );
+    if (result.failed.length > 0) {
+      context.logger.warn(
+        { contextualBanditId: cb.id, failed: result.failed },
+        "Linked-feature draft(s) for added contextual bandit variations could not be auto-published; the new variation will serve its default value until the feature is published",
+      );
+    }
+    const rereadCb =
+      (await context.models.contextualBandits.getById(cb.id)) ?? refreshed;
+    return { cb: rereadCb, failures: result.failed };
   }
-  return refreshed;
+  return { cb: refreshed, failures: [] };
 }
 
 export type ContextualBanditResultsForUi = {

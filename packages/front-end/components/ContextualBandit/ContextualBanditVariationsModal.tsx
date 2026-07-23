@@ -116,11 +116,26 @@ export default function ContextualBanditVariationsModal({
             body.newVariationValues = values;
           }
 
-          await apiCall(`/api/v1/contextual-bandits/${cb.id}/variations`, {
+          const res = await apiCall<{
+            featureDraftPublishFailures?: { featureId: string }[];
+          }>(`/api/v1/contextual-bandits/${cb.id}/variations`, {
             method: "POST",
             body: JSON.stringify(body),
           });
+          // Changes are saved; refresh regardless.
           mutate();
+          // If a new arm's value couldn't be auto-published to a linked feature
+          // (e.g. it needs approval), surface it — the arm serves its default
+          // value until that feature is published.
+          const failures = res?.featureDraftPublishFailures ?? [];
+          if (failures.length > 0) {
+            const features = Array.from(
+              new Set(failures.map((f) => f.featureId)),
+            ).join(", ");
+            throw new Error(
+              `Variations saved. But the value for the new variation couldn't be published to: ${features}. Publish those feature(s) to finish rolling it out.`,
+            );
+          }
         })}
       >
         <Callout status="info" size="sm" mb="4">

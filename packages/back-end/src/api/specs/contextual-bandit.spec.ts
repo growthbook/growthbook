@@ -5,6 +5,7 @@ import {
   apiContextualBanditStartValidator,
   apiContextualBanditStopValidator,
   apiContextualBanditUpdateVariationsValidator,
+  apiContextualBanditVariationsReturn,
   apiContextualBanditValidator,
   apiCreateContextualBanditBody,
   apiListContextualBanditsValidator,
@@ -46,7 +47,7 @@ export const updateVariationsContextualBanditEndpoint = {
   verb: "post" as const,
   operationId: "updateContextualBanditVariations",
   validator: apiContextualBanditUpdateVariationsValidator,
-  zodReturnObject: apiContextualBanditLifecycleReturn,
+  zodReturnObject: apiContextualBanditVariationsReturn,
   summary: "Add or remove Contextual Bandit variations",
 };
 

@@ -3,8 +3,6 @@ import { getEqualWeights } from "./experiments";
 
 export const MIN_CONTEXTUAL_BANDIT_VARIATIONS = 2;
 
-export const MIN_VARIATION_WEIGHT = 0.01;
-
 export type WeightReconcileMode = "uniform" | "redistribute";
 export type VariationIdentity = { id: string };
 export type VariationDiff = {

@@ -313,6 +313,24 @@ export const apiContextualBanditLifecycleReturn = z.object({
   contextualBandit: apiContextualBanditValidator,
 });
 
+/**
+ * Return shape for the add/remove-variations endpoint. `featureDraftPublishFailures`
+ * lists linked features whose value for a newly-added arm was staged as a draft
+ * but could not be auto-published (e.g. needs approval), so the caller/UI can warn.
+ */
+export const apiContextualBanditVariationsReturn = z.object({
+  contextualBandit: apiContextualBanditValidator,
+  featureDraftPublishFailures: z
+    .array(
+      z.object({
+        featureId: z.string(),
+        revisionVersion: z.number(),
+        reason: z.string(),
+      }),
+    )
+    .optional(),
+});
+
 export const apiContextualBanditRefreshValidator = {
   paramsSchema: z.strictObject({ id: z.string() }),
   bodySchema: z.strictObject({}).optional(),

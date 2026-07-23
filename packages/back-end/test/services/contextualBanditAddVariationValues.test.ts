@@ -82,13 +82,15 @@ function makeCb(
 function makeContext(cb: ContextualBanditInterface) {
   const addPendingFeatureDraft = jest.fn().mockResolvedValue(undefined);
   const getById = jest.fn().mockResolvedValue(cb);
+  const warn = jest.fn();
   const context = {
     environments: ["production"],
     org: { id: "org_1", settings: {} },
     auditUser: { type: "dashboard", id: "u1", email: "u@x.co", name: "U" },
+    logger: { warn },
     models: { contextualBandits: { addPendingFeatureDraft, getById } },
   } as unknown as ApiReqContext;
-  return { context, addPendingFeatureDraft, getById };
+  return { context, addPendingFeatureDraft, getById, warn };
 }
 
 describe("addVariationValuesToLinkedFeatures", () => {
@@ -142,9 +144,34 @@ describe("addVariationValuesToLinkedFeatures", () => {
     const cb = makeCb({ status: "running" });
     const { context } = makeContext(cb);
 
-    await addVariationValuesToLinkedFeatures(context, cb, ["v2"], undefined);
+    const { failures } = await addVariationValuesToLinkedFeatures(
+      context,
+      cb,
+      ["v2"],
+      undefined,
+    );
 
     expect(publishMock).toHaveBeenCalledTimes(1);
+    expect(failures).toEqual([]);
+  });
+
+  it("surfaces + logs publish failures instead of swallowing them (#2)", async () => {
+    const failed = [
+      { featureId: "feature", revisionVersion: 5, reason: "needs-approval" },
+    ];
+    publishMock.mockResolvedValueOnce({ published: [], failed });
+    const cb = makeCb({ status: "running" });
+    const { context, warn } = makeContext(cb);
+
+    const { failures } = await addVariationValuesToLinkedFeatures(
+      context,
+      cb,
+      ["v2"],
+      undefined,
+    );
+
+    expect(failures).toEqual(failed);
+    expect(warn).toHaveBeenCalledTimes(1);
   });
 
   it("throws on a value that fails the feature's type validation", async () => {

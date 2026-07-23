@@ -87,8 +87,15 @@ function makeContext(cb: ContextualBanditInterface) {
         : cb.currentLeafWeights,
       banditVersion: cb.banditVersion + 1,
     }));
+  const canPublishFeature = jest.fn().mockReturnValue(true);
+  const throwPermissionError = jest.fn(() => {
+    throw new Error("permission error");
+  });
   const context = {
-    org: { id: "org_1" },
+    org: { id: "org_1", settings: {} },
+    environments: ["production"],
+    logger: { warn: jest.fn() },
+    permissions: { canPublishFeature, throwPermissionError },
     models: {
       contextualBandits: {
         update: updateMock,
@@ -96,7 +103,12 @@ function makeContext(cb: ContextualBanditInterface) {
       },
     },
   } as unknown as ApiReqContext;
-  return { context, updateMock, patchLeafWeightsMock };
+  return {
+    context,
+    updateMock,
+    patchLeafWeightsMock,
+    canPublishFeature,
+  };
 }
 
 const sum = (pairs: { weight: number }[]) =>
@@ -242,6 +254,67 @@ describe("executeContextualBanditVariationChange", () => {
     expect(patchLeafWeightsMock.mock.calls[0][2]).toEqual({
       bumpVersion: true,
     });
+  });
+
+  it("aborts before persisting when a new-arm value fails type validation (#3)", async () => {
+    // A linked feature with a numeric value type; a non-numeric provided value
+    // must throw before any weight write.
+    getRefLinkedFeatureInfoMock.mockResolvedValue([
+      {
+        feature: { id: "feature", valueType: "number", defaultValue: "1" },
+        values: [
+          { variationId: "v0", value: "1" },
+          { variationId: "v1", value: "2" },
+        ],
+        environmentStates: { production: "active" },
+      },
+    ]);
+    const cb = makeCb({ linkedFeatures: ["feature"] });
+    const { context, updateMock, patchLeafWeightsMock } = makeContext(cb);
+
+    await expect(
+      executeContextualBanditVariationChange(
+        context,
+        cb,
+        [v("v0", "0"), v("v1", "1"), v("v2", "2")],
+        { feature: { v2: "not-a-number" } },
+      ),
+    ).rejects.toThrow();
+
+    // Nothing persisted.
+    expect(updateMock).not.toHaveBeenCalled();
+    expect(patchLeafWeightsMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects when a running-CB editor lacks publish permission on a linked feature (#4)", async () => {
+    getRefLinkedFeatureInfoMock.mockResolvedValue([
+      {
+        feature: {
+          id: "feature",
+          valueType: "string",
+          defaultValue: "control",
+        },
+        values: [
+          { variationId: "v0", value: "control" },
+          { variationId: "v1", value: "treatment" },
+        ],
+        environmentStates: { production: "active" },
+      },
+    ]);
+    const cb = makeCb({ status: "running", linkedFeatures: ["feature"] });
+    const { context, updateMock, canPublishFeature } = makeContext(cb);
+    canPublishFeature.mockReturnValue(false);
+
+    await expect(
+      executeContextualBanditVariationChange(context, cb, [
+        v("v0", "0"),
+        v("v1", "1"),
+        v("v2", "2"),
+      ]),
+    ).rejects.toThrow(/permission/i);
+
+    expect(canPublishFeature).toHaveBeenCalled();
+    expect(updateMock).not.toHaveBeenCalled();
   });
 
   it("rejects editing variations on a stopped bandit", async () => {

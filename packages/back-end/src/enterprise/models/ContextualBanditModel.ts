@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   apiContextualBanditLifecycleReturn,
   apiContextualBanditRefreshReturn,
+  apiContextualBanditVariationsReturn,
   apiCreateContextualBanditBody,
   apiUpdateContextualBanditBody,
   ApiContextualBanditInterface,
@@ -143,7 +144,7 @@ const BaseClass = MakeModelClass({
         ...updateVariationsContextualBanditEndpoint,
         reqHandler: async (
           req,
-        ): Promise<z.infer<typeof apiContextualBanditLifecycleReturn>> => {
+        ): Promise<z.infer<typeof apiContextualBanditVariationsReturn>> => {
           const cb = await req.context.models.contextualBandits.getById(
             req.params.id,
           );
@@ -153,13 +154,19 @@ const BaseClass = MakeModelClass({
           if (!req.context.permissions.canUpdateContextualBandit(cb, cb)) {
             req.context.permissions.throwPermissionError();
           }
-          const { updated } = await executeContextualBanditVariationChange(
-            req.context,
-            cb,
-            req.body.variations,
-            req.body.newVariationValues,
-          );
-          return { contextualBandit: toApiContextualBandit(updated) };
+          const { updated, featureDraftPublishFailures } =
+            await executeContextualBanditVariationChange(
+              req.context,
+              cb,
+              req.body.variations,
+              req.body.newVariationValues,
+            );
+          return {
+            contextualBandit: toApiContextualBandit(updated),
+            ...(featureDraftPublishFailures.length > 0
+              ? { featureDraftPublishFailures }
+              : {}),
+          };
         },
       }),
     ],

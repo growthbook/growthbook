@@ -40154,6 +40154,10 @@ paths:
                 properties:
                   contextualBandit:
                     $ref: '#/components/schemas/ContextualBandit'
+                  featureDraftPublishFailures:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/featureDraftPublishFailures'
                 required:
                   - contextualBandit
                 additionalProperties: false
@@ -64346,6 +64350,20 @@ components:
             - locked
       required:
         - mode
+      additionalProperties: false
+    featureDraftPublishFailures:
+      type: object
+      properties:
+        featureId:
+          type: string
+        revisionVersion:
+          type: number
+        reason:
+          type: string
+      required:
+        - featureId
+        - revisionVersion
+        - reason
       additionalProperties: false
   securitySchemes:
     bearerAuth:
