@@ -843,8 +843,8 @@ importers:
         specifier: ^2.10.0
         version: 2.10.0(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       react-colorful:
-        specifier: ^5.3.0
-        version: 5.5.1(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
+        specifier: ^5.7.0
+        version: 5.7.0(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       react-day-picker:
         specifier: ^9.3.1
         version: 9.3.1(react@18.2.0)
@@ -945,6 +945,9 @@ importers:
       '@testing-library/react':
         specifier: ^16.3.0
         version: 16.3.0(@testing-library/dom@10.4.1)(@types/react-dom@18.0.6)(@types/react@18.0.15)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
+      '@testing-library/user-event':
+        specifier: ^14.6.1
+        version: 14.6.1(@testing-library/dom@10.4.1)
       '@types/crypto-js':
         specifier: ^4.2.2
         version: 4.2.2
@@ -6227,6 +6230,12 @@ packages:
         optional: true
       '@types/react-dom':
         optional: true
+
+  '@testing-library/user-event@14.6.1':
+    resolution: {integrity: sha512-vq7fv0rnt+QTXgPxr5Hjc210p6YKq2kmdziLgnsZGgLJ9e6VAShx1pACLuRjd/AS/sr7phAR58OIIpf0LlmQNw==}
+    engines: {node: '>=12', npm: '>=6'}
+    peerDependencies:
+      '@testing-library/dom': '>=7.21.4'
 
   '@tootallnate/once@1.1.2':
     resolution: {integrity: sha512-RbzJvlNzmRq5c3O09UipeuXno4tA1FE6ikOjxZK0tuxVv3412l64l5t1W5pj4+rJq9vpkm/kwiR07aZXnsKPxw==}
@@ -11976,8 +11985,8 @@ packages:
       react: ~15 || ~16 || ~17 || ~18
       react-dom: ~15 || ~16 || ~17 || ~18
 
-  react-colorful@5.5.1:
-    resolution: {integrity: sha512-M1TJH2X3RXEt12sWkpa6hLc/bbYS0H6F4rIqjQZ+RxNBstpY67d9TrFXtqdZwhpmBXcCwEi7stKqFue3ZRkiOg==}
+  react-colorful@5.7.0:
+    resolution: {integrity: sha512-fuesYIemttah97XmsIHmz4OORDHiSFzyc9HMAIrCHJou2jaRQmL8cFJ76K4zQhhj8jzwOBlOi4BaGTjjOZCfTg==}
     peerDependencies:
       react: '>=16.8.0'
       react-dom: '>=16.8.0'
@@ -20459,6 +20468,10 @@ snapshots:
       '@types/react': 18.0.15
       '@types/react-dom': 18.0.6
 
+  '@testing-library/user-event@14.6.1(@testing-library/dom@10.4.1)':
+    dependencies:
+      '@testing-library/dom': 10.4.1
+
   '@tootallnate/once@1.1.2': {}
 
   '@tootallnate/once@2.0.1': {}
@@ -27711,7 +27724,7 @@ snapshots:
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
 
-  react-colorful@5.5.1(react-dom@18.2.0(react@18.2.0))(react@18.2.0):
+  react-colorful@5.7.0(react-dom@18.2.0(react@18.2.0))(react@18.2.0):
     dependencies:
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
