@@ -130,8 +130,8 @@ const AddToHoldoutModal = ({
   }, [effectiveRules, experimentsMap, selectedHoldoutId]);
 
   const hasBlockers =
-    holdoutBlockers.nonDraftExperimentsWithoutHoldout.length > 0 &&
-    holdoutBlockers.banditExperiments.length > 0 &&
+    holdoutBlockers.nonDraftExperimentsWithoutHoldout.length > 0 ||
+    holdoutBlockers.banditExperiments.length > 0 ||
     holdoutBlockers.hasSafeRollout;
 
   const showHoldoutSelect = !hasBlockers;
