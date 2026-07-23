@@ -40,6 +40,7 @@ import {
   PendingMember,
   ProjectMemberRole,
 } from "shared/types/organization";
+import { UserInterface } from "shared/types/user";
 import { MetricInterface } from "shared/types/metric";
 import { DimensionInterface } from "shared/types/dimension";
 import { DataSourceInterface } from "shared/types/datasource";
@@ -168,6 +169,37 @@ export function validateLoginMethod(
   }
 
   return true;
+}
+
+// Self-serve managed SSO connections are configured by the organization's own
+// admins rather than vetted by GrowthBook, so the IdP behind them is only
+// trusted to assert identities for that organization's existing members,
+// pending invites, and approved email domains.
+export async function validateSelfServeSSOLogin(
+  connection: SSOConnectionInterface,
+  email: string,
+  user: UserInterface | null,
+): Promise<void> {
+  if (!connection.selfServeManaged || !connection.organization) return;
+
+  const emailLower = email.toLowerCase();
+  const domain = emailLower.split("@").pop() || "";
+  if (
+    domain &&
+    connection.emailDomains?.some((d) => d.toLowerCase() === domain)
+  ) {
+    return;
+  }
+
+  const org = await getOrganizationById(connection.organization);
+  if (org) {
+    if (user && org.members.some((m) => m.id === user.id)) return;
+    if (org.invites.some((i) => i.email.toLowerCase() === emailLower)) return;
+  }
+
+  throw new Error(
+    "This email address cannot sign in through your organization's SSO connection. Ask an admin to invite you to the organization first.",
+  );
 }
 
 export function getContextFromReq(req: AuthRequest): ReqContext {

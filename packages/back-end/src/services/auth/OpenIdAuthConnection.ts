@@ -328,8 +328,8 @@ async function getConnectionFromRequest(req: Request, res: Response) {
   let persistSSOConnectionId = false;
 
   // If there's no ssoConnectionId in the cookie, look in the querystring instead
-  // This is used for IdP-initiated Enterprise SSO on Cloud
-  if (IS_CLOUD && !ssoConnectionId) {
+  // This is used for IdP-initiated Enterprise SSO
+  if (!ssoConnectionId) {
     const ssoConnectionIdFromQuery = req.query.ssoId;
     if (
       ssoConnectionIdFromQuery &&
@@ -361,6 +361,19 @@ async function getConnectionFromRequest(req: Request, res: Response) {
     };
   } else if (IS_CLOUD && ssoConnectionId) {
     connection = await ssoConnectionCache.get(ssoConnectionId);
+  } else if (!IS_CLOUD && ssoConnectionId) {
+    // Self-hosted deployments can have per-organization Enterprise SSO
+    // connections in addition to the deployment-wide SSO_CONFIG
+    const orgConnection = await ssoConnectionCache
+      .get(ssoConnectionId)
+      .catch(() => null);
+    if (orgConnection) {
+      connection = orgConnection;
+    } else if (SSO_CONFIG) {
+      connection = SSO_CONFIG;
+    } else {
+      throw new Error("No SSO connection configured");
+    }
   } else if (SSO_CONFIG) {
     connection = SSO_CONFIG;
   } else {
