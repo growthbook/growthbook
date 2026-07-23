@@ -184,11 +184,15 @@ export async function putSSOConnection(
   // change breaks it immediately via the audience check; and wrong OAuth
   // credentials break token exchange and refresh. Require turning enforcement
   // off first, which forces the safe re-verify sequence.
+  // Compare the whole metadata object, not just issuer/JWKS: every endpoint
+  // and the signing algorithms affect redirects, token exchange, or id_token
+  // validation. Known providers regenerate metadata deterministically, so a
+  // same-provider secret rotation still won't trip this.
   // An empty clientSecret means "keep existing", so it is not a change.
   const authConfigChanged =
     !!existing &&
-    (existing.metadata?.issuer !== connectionFields.metadata?.issuer ||
-      existing.metadata?.jwks_uri !== connectionFields.metadata?.jwks_uri ||
+    (JSON.stringify(existing.metadata ?? {}) !==
+      JSON.stringify(connectionFields.metadata ?? {}) ||
       existing.clientId !== connectionFields.clientId ||
       (clientSecret !== "" && clientSecret !== existing.clientSecret));
   if (currentEnforce && authConfigChanged) {
