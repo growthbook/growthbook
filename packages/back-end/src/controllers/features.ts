@@ -99,6 +99,7 @@ import {
   getFeatureEnvStatus,
   hasArchivedFeatures,
   migrateDraft,
+  prevalidatePublishImmediate,
   prevalidatePublishRevision,
   publishRevision,
   setDefaultValue,
@@ -5139,6 +5140,19 @@ export async function putFeature(
         ? `Update ${metadataFieldLabels[changedKeys[0]] ?? changedKeys[0]}`
         : "Update feature"
       : undefined;
+    // Publish-immediately: run the publish validation hooks BEFORE writing the
+    // draft so a hook rejection fails here instead of orphaning the draft
+    // created below. publishRevision skips the re-run (skipPrevalidateValidation)
+    // so the hooks execute exactly once.
+    if (autoPublish) {
+      await prevalidatePublishImmediate({
+        context,
+        feature,
+        changes: envelopeChanges as Partial<FeatureRevisionInterface>,
+        result: envelopeChanges,
+        comment: draftComment,
+      });
+    }
     const draft = await createOrUpdateDraftWithChanges(
       context,
       feature,
@@ -5169,6 +5183,9 @@ export async function putFeature(
         revision: draft,
         result: envelopeChanges,
         bypassLockdown: context.permissions.canBypassApprovalChecks(feature),
+        // Validation hooks + config-backed value net already ran up front
+        // (before the draft was written); skip the re-run so they fire once.
+        skipPrevalidateValidation: true,
       });
     }
     // Keep the tag autocomplete table in sync (side-effect; revision already captures the values).

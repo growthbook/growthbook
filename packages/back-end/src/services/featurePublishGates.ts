@@ -313,7 +313,10 @@ export async function collectFeaturePublishGates({
   });
   const revisionHookResults = await collectValidateFeatureRevisionHookResults({
     context,
-    feature,
+    // Symmetric with the feature hook above: pass the proposed (merged) feature
+    // so a revision hook inspecting feature.tags/rules/etc. sees the staged
+    // change under validation, not the stored pre-change feature.
+    feature: proposedFeature,
     revision: {
       ...revision,
       ...computeRevisionPublishChanges(

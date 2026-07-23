@@ -2647,12 +2647,83 @@ export async function prevalidatePublishRevision({
   });
   await runValidateFeatureRevisionHooks({
     context,
-    feature,
+    // Symmetric with the feature hook above: pass the proposed (merged) feature
+    // so a revision hook that inspects feature.tags/rules/etc. sees the staged
+    // change under validation, not the stored pre-change feature (the tag/
+    // metadata edit lives on the merged feature, not on the revision itself).
+    feature: proposedFeature,
     revision: {
       ...revision,
       ...computeRevisionPublishChanges(revision, context.auditUser, comment),
     },
     original: revision,
+  });
+}
+
+// Build the current live-baseline revision (HEAD content) as a complete
+// FeatureRevisionInterface without writing anything. The stored revision doc can
+// be sparse or in a legacy shape, so the feature doc is overlaid as the
+// canonical live state. Used as the publish merge base and to synthesize the
+// would-be draft for up-front publish validation.
+export async function getLiveBaselineRevision(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+): Promise<FeatureRevisionInterface> {
+  const liveRevision = await getRevision({
+    context,
+    organization: feature.organization,
+    featureId: feature.id,
+    feature,
+    version: feature.version,
+  });
+  if (!liveRevision) throw new Error("Could not load live revision");
+  return {
+    ...liveRevision,
+    ...liveRevisionFromFeature(liveRevision, feature),
+  } as FeatureRevisionInterface;
+}
+
+// Run the publish-time validation (validateFeature + validateFeatureRevision
+// hooks and the config-backed value net) for a change that will be published
+// immediately, BEFORE any Mongo write. Publish-immediately paths that create a
+// draft and then publish it call this first so a hook rejection fails early
+// instead of orphaning the just-created draft (there is no wrapping
+// transaction). Delegates to prevalidatePublishRevision — the same choke point
+// publishRevision runs — off a synthetic draft built from the live baseline plus
+// the staged changes, so the up-front run validates the identical proposed
+// feature the subsequent publish applies. Callers pass skipPrevalidateValidation
+// to publishRevision afterward so the hooks run exactly once. `result` must be
+// what that publishRevision applies.
+export async function prevalidatePublishImmediate({
+  context,
+  feature,
+  changes,
+  result,
+  comment,
+}: {
+  context: ReqContext | ApiReqContext;
+  feature: FeatureInterface;
+  changes: Partial<FeatureRevisionInterface>;
+  result: MergeResultChanges;
+  comment?: string;
+}): Promise<void> {
+  const baseline = await getLiveBaselineRevision(context, feature);
+  // metadata is a partial patch — deep-merge onto the live snapshot so the
+  // synthetic revision carries the full staged metadata (matches createRevision).
+  const syntheticRevision: FeatureRevisionInterface = {
+    ...baseline,
+    version: baseline.version + 1,
+    ...changes,
+    ...(changes.metadata
+      ? { metadata: { ...(baseline.metadata ?? {}), ...changes.metadata } }
+      : {}),
+  } as FeatureRevisionInterface;
+  await prevalidatePublishRevision({
+    context,
+    feature,
+    revision: syntheticRevision,
+    result,
+    comment,
   });
 }
 
@@ -2840,31 +2911,22 @@ export async function createAndPublishRevision({
     applicableEnvSet.has(e),
   );
 
-  // Determine whether the revision would require review before we create anything.
-  // We need a synthetic revision to check against, mirroring what createRevision would build.
-  const liveRevision = await getRevision({
-    context,
-    organization: feature.organization,
-    featureId: feature.id,
-    feature,
-    version: feature.version,
-  });
-  if (!liveRevision) throw new Error("Could not load live revision");
-
-  // Live baseline for the review check and the publish merge, built from the
-  // feature document (the canonical live state). Stored revision docs can be
-  // sparse or in legacy shapes, so they're not a reliable baseline.
-  const liveBase: FeatureRevisionInterface = {
-    ...liveRevision,
-    ...liveRevisionFromFeature(liveRevision, feature),
-  } as FeatureRevisionInterface;
+  // Determine whether the revision would require review before we create
+  // anything. We need a synthetic revision to check against, mirroring what
+  // createRevision would build, off the live baseline (the canonical live
+  // state, built from the feature document).
+  const liveBase = await getLiveBaselineRevision(context, feature);
 
   // Synthetic revision for the review check; caller-supplied rules replace
-  // the live array wholesale (same as autoMerge).
+  // the live array wholesale (same as autoMerge). metadata is a partial patch,
+  // so it is deep-merged onto the live snapshot (matches createRevision).
   const syntheticRevision: FeatureRevisionInterface = {
     ...liveBase,
     ...(changes ?? {}),
     rules: changes?.rules ?? liveBase.rules ?? [],
+    ...(changes?.metadata
+      ? { metadata: { ...(liveBase.metadata ?? {}), ...changes.metadata } }
+      : {}),
   };
   const requiresReview = checkIfRevisionNeedsReview({
     feature,
@@ -2881,6 +2943,31 @@ export async function createAndPublishRevision({
         "Enable 'REST API always bypasses approval requirements' in organization settings.",
     );
   }
+
+  // Merge the synthetic revision against the live baseline up front so we can
+  // run the publish validation hooks BEFORE writing the draft — a hook rejection
+  // then fails here instead of orphaning the draft createRevision would persist.
+  // The real revision is merged and published below (validation is skipped there
+  // via skipPrevalidateValidation so the hooks run exactly once).
+  const preMergeResult = autoMerge(
+    liveBase,
+    liveBase,
+    syntheticRevision,
+    allEnvironments,
+    {},
+  );
+  if (!preMergeResult.success) {
+    throw new Error(
+      "Merge conflict detected while publishing revision. Please retry.",
+    );
+  }
+  await prevalidatePublishRevision({
+    context,
+    feature,
+    revision: syntheticRevision,
+    result: preMergeResult.result,
+    comment,
+  });
 
   // Create the draft revision (never auto-publishes; publish=false).
   const revision = await createRevision({
@@ -2922,6 +3009,9 @@ export async function createAndPublishRevision({
     // See postFeatureRevisionPublish.ts for the bypassLockdown policy rationale:
     // approval-bypass permission intentionally doubles as ramp-lockdown bypass.
     bypassLockdown: canBypassApprovalChecks,
+    // Validation hooks + config-backed value net already ran up front (before
+    // the draft was written); skip the re-run so the hooks execute exactly once.
+    skipPrevalidateValidation: true,
   });
 
   return { revision, updatedFeature };
