@@ -17,6 +17,37 @@ import { getAffectedSDKPayloadKeys } from "back-end/src/util/holdouts";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 
 /**
+ * Eagerly link an experiment into a holdout: set `experiment.holdoutId` and add
+ * the experiment to the holdout's `linkedExperiments` map. The write-side
+ * companion to `resolveHoldoutExperimentToLink` — call it with the experiment
+ * that resolver returned.
+ *
+ * Callers that compensate on downstream failure should record the experiment
+ * and holdout ids BEFORE calling: the standard rollback (clear `holdoutId`,
+ * remove the map entry if present) is idempotent, so compensating a write that
+ * never happened is harmless, while the reverse ordering would leave a
+ * mid-failure (experiment written, holdout write failed) uncompensated.
+ */
+export async function linkExperimentToHoldout(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+  holdoutId: string,
+): Promise<void> {
+  await updateExperiment({
+    context,
+    experiment,
+    changes: { holdoutId },
+  });
+  const holdout = await context.models.holdout.getById(holdoutId);
+  await context.models.holdout.updateById(holdoutId, {
+    linkedExperiments: {
+      ...holdout?.linkedExperiments,
+      [experiment.id]: { id: experiment.id, dateAdded: new Date() },
+    },
+  });
+}
+
+/**
  * Holdout-compatibility gate for adding an experiment-ref rule to a feature.
  *
  * `effectiveHoldout` is the holdout the rule will publish under, resolved by the
@@ -57,7 +88,7 @@ export async function resolveHoldoutExperimentToLink({
         experiment.holdoutId,
       );
       throw makeError(
-        `Cannot add experiment rule: experiment belongs to holdout "${expHoldout?.name || experiment.holdoutId}" but this Feature Flag uses holdout "${featureHoldout?.name || effectiveHoldout.id}".`,
+        `Cannot add experiment rule: experiment belongs to holdout "${expHoldout?.name || experiment.holdoutId}" but this feature flag uses holdout "${featureHoldout?.name || effectiveHoldout.id}".`,
       );
     }
 
@@ -66,7 +97,7 @@ export async function resolveHoldoutExperimentToLink({
     if (!experiment.holdoutId) {
       if (experiment.status !== "draft") {
         throw makeError(
-          `Cannot add experiment rule: this Feature Flag uses a holdout, so the experiment must be in "draft" status (currently "${experiment.status ?? "unknown"}").`,
+          `Cannot add experiment rule: this feature flag uses a holdout, so the experiment must be in "draft" status (currently "${experiment.status ?? "unknown"}").`,
         );
       }
       const expHasLinkedChanges =
@@ -78,7 +109,7 @@ export async function resolveHoldoutExperimentToLink({
         experiment.hasVisualChangesets;
       if (expHasLinkedChanges) {
         throw makeError(
-          `Cannot add experiment rule: this Feature Flag uses a holdout, but the experiment already has linked Feature Flags, URL redirects, or visual changesets. Unlink them first.`,
+          `Cannot add experiment rule: this feature flag uses a holdout, but the experiment already has linked Feature Flags, URL redirects, or visual changesets. Unlink them first.`,
         );
       }
       return experiment;
@@ -94,7 +125,7 @@ export async function resolveHoldoutExperimentToLink({
       experiment.holdoutId,
     );
     throw makeError(
-      `Cannot add experiment rule: this experiment belongs to holdout "${expHoldout?.name || experiment.holdoutId}", but this Feature Flag is not in a holdout. Add the Feature Flag to that holdout first, then add the experiment.`,
+      `Cannot add experiment rule: this experiment belongs to holdout "${expHoldout?.name || experiment.holdoutId}", but this feature flag is not in a holdout. Add the feature flag to that holdout first, then add the experiment.`,
     );
   }
 

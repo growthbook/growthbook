@@ -125,7 +125,10 @@ import {
   assertCanAutoPublish,
   revisionRequiresReview,
 } from "back-end/src/services/features";
-import { resolveHoldoutExperimentToLink } from "back-end/src/services/holdouts";
+import {
+  linkExperimentToHoldout,
+  resolveHoldoutExperimentToLink,
+} from "back-end/src/services/holdouts";
 import { assertFeatureArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
@@ -3097,23 +3100,11 @@ export async function postFeatureRule(
   // TODO(holdouts): remove code below (which makes this endpoint consistent with API routes)
   // and instead only link when the holdout and experiment go live
   if (holdoutExperimentToLink && feature.holdout?.id) {
-    await updateExperiment({
+    await linkExperimentToHoldout(
       context,
-      experiment: holdoutExperimentToLink,
-      changes: {
-        holdoutId: feature.holdout.id,
-      },
-    });
-    const holdout = await context.models.holdout.getById(feature.holdout.id);
-    await context.models.holdout.updateById(feature.holdout.id, {
-      linkedExperiments: {
-        ...holdout?.linkedExperiments,
-        [holdoutExperimentToLink.id]: {
-          id: holdoutExperimentToLink.id,
-          dateAdded: new Date(),
-        },
-      },
-    });
+      holdoutExperimentToLink,
+      feature.holdout.id,
+    );
   }
 
   const auditSubject =
@@ -3602,21 +3593,11 @@ export async function postFeatureExperimentRefRule(
   // TODO(holdouts): remove code below (which makes this endpoint consistent with API routes)
   // and instead only link when the holdout and experiment go live
   if (holdoutExperimentToLink && feature.holdout?.id) {
-    await updateExperiment({
+    await linkExperimentToHoldout(
       context,
-      experiment: holdoutExperimentToLink,
-      changes: { holdoutId: feature.holdout.id },
-    });
-    const holdout = await context.models.holdout.getById(feature.holdout.id);
-    await context.models.holdout.updateById(feature.holdout.id, {
-      linkedExperiments: {
-        ...holdout?.linkedExperiments,
-        [holdoutExperimentToLink.id]: {
-          id: holdoutExperimentToLink.id,
-          dateAdded: new Date(),
-        },
-      },
-    });
+      holdoutExperimentToLink,
+      feature.holdout.id,
+    );
   }
 
   res.status(200).json({

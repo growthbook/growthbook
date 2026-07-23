@@ -26,7 +26,10 @@ import {
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
-import { resolveHoldoutExperimentToLink } from "back-end/src/services/holdouts";
+import {
+  linkExperimentToHoldout,
+  resolveHoldoutExperimentToLink,
+} from "back-end/src/services/holdouts";
 import {
   getExperimentById,
   updateExperiment,
@@ -340,25 +343,15 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
     }
 
     if (holdoutExperimentToLink && feature.holdout?.id) {
-      await updateExperiment({
-        context: req.context,
-        experiment: holdoutExperimentToLink,
-        changes: { holdoutId: feature.holdout.id },
-      });
+      // Record ids for compensation BEFORE the writes — the rollback is
+      // idempotent, so a mid-write failure is still fully compensated.
       linkedExperimentId = holdoutExperimentToLink.id;
-      const holdout = await req.context.models.holdout.getById(
+      linkedHoldoutId = feature.holdout.id;
+      await linkExperimentToHoldout(
+        req.context,
+        holdoutExperimentToLink,
         feature.holdout.id,
       );
-      await req.context.models.holdout.updateById(feature.holdout.id, {
-        linkedExperiments: {
-          ...holdout?.linkedExperiments,
-          [holdoutExperimentToLink.id]: {
-            id: holdoutExperimentToLink.id,
-            dateAdded: new Date(),
-          },
-        },
-      });
-      linkedHoldoutId = feature.holdout.id;
     }
 
     await updateRevision(
