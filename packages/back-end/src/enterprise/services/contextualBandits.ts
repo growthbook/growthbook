@@ -85,22 +85,6 @@ export async function unlinkFeatureFromContextualBandit(
   await cbModel.removePendingFeatureDraft(cbId, featureId);
 }
 
-/**
- * P2 — edit a Contextual Bandit's variations (add/remove/rename) and reconcile
- * its weights. The client sends the full desired variation list; this function
- * owns weights:
- *   1. guards (not stopped; at least two arms; no removed arm still in use);
- *   2. only when the arm SET changes (add/remove), reconciles weights — the mode
- *      comes from the CB's stage (draft/explore → uniform; exploit/paused →
- *      redistribute, which throws until the P6 formula lands, so exploit
- *      add/remove is cleanly refused for now). A metadata-only edit (names/keys)
- *      or a reorder leaves the id-keyed weights valid, so weights and
- *      `banditVersion` are left untouched — this is what lets exploit-stage
- *      metadata edits through;
- *   3. persists the new `variations` (+ reconciled weights on an arm-set change,
- *      bumping `banditVersion` via `patchLeafWeights`);
- *   4. refreshes the SDK payload for linked features.
- */
 export async function executeContextualBanditVariationChange(
   context: ReqContext | ApiReqContext,
   cb: ContextualBanditInterface,
@@ -113,8 +97,6 @@ export async function executeContextualBanditVariationChange(
     );
   }
 
-  // Server owns ids: generate one for any new (id-less) variation, keep the
-  // screenshots array well-formed.
   const newVariations: Variation[] = requestedVariations.map((v) => ({
     ...v,
     id: v.id || generateVariationId(),
@@ -125,7 +107,6 @@ export async function executeContextualBanditVariationChange(
 
   const diff = diffVariations(cb.variations, newVariations);
 
-  // Block removing a variation that a linked feature still maps a value to.
   if (diff.removedIds.length > 0) {
     const linkedInfo = await getContextualBanditLinkedFeatureInfo(context, cb);
     const referencedVariationIds = new Set<string>();
@@ -156,17 +137,12 @@ export async function executeContextualBanditVariationChange(
       !cb.stage || cb.stage === "explore" ? "uniform" : "redistribute";
     const newVariationIds = newVariations.map((v) => v.id);
 
-    // Reconcile the aggregate (MAB-fallback) weights. In redistribute mode this
-    // throws (P6), aborting before any write.
     const newVariationWeights = reconcileVariationWeights(
       cb.variationWeights ?? [],
       newVariationIds,
       mode,
     );
 
-    // Reconcile every leaf's weights. Uniform mode has no per-leaf weights (they
-    // only exist in exploit), so we clear them and let the SDK fall back to the
-    // uniform aggregate.
     const newLeafWeights: LeafWeight[] =
       mode === "uniform"
         ? []
@@ -179,31 +155,21 @@ export async function executeContextualBanditVariationChange(
             ),
           }));
 
-    // Persist variations + aggregate weights (auto-audits as contextualBandit.update).
     await context.models.contextualBandits.update(cb, {
       variations: newVariations,
       variationWeights: newVariationWeights,
     });
 
-    // Bump banditVersion (and write leaf weights in exploit). patchLeafWeights
-    // always $inc's banditVersion; in uniform mode we pass an empty array, so the
-    // version advances without overwriting leaf weights.
     updated = await context.models.contextualBandits.patchLeafWeights(
       cb.id,
       newLeafWeights,
     );
   } else {
-    // Metadata-only or reorder: weights are keyed by variationId and stay valid,
-    // so we leave them (and banditVersion) untouched and just persist the new
-    // variation metadata/order.
     updated = await context.models.contextualBandits.update(cb, {
       variations: newVariations,
     });
   }
 
-  // For newly-added arms, write a value into each linked feature's CB-ref rule
-  // so the SDK payload doesn't serve the new arm as null (Option D). Runs before
-  // the payload refresh; for a running CB it publishes the staged drafts.
   if (diff.addedIds.length > 0) {
     updated = await addVariationValuesToLinkedFeatures(
       context,
@@ -213,8 +179,6 @@ export async function executeContextualBanditVariationChange(
     );
   }
 
-  // Regenerate the SDK payload for linked features (new variation set / weights /
-  // banditVersion). Uses the same helper as start/stop/refresh (post-v2-merge).
   await refreshLinkedFeaturePayloads(
     context,
     updated,
@@ -224,20 +188,6 @@ export async function executeContextualBanditVariationChange(
   return { updated };
 }
 
-/**
- * Option D — after an add, fill each linked feature's `contextual-bandit-ref`
- * rule with a value for every newly-added variation, so the SDK payload never
- * serves the new arm as `null`.
- *
- * Values come from `providedValues` (client), else fall back to the rule's
- * control value / feature default (`defaultAddedVariationValue`), then are
- * type-validated via `validateFeatureValue`. Writes go onto a draft revision
- * (same machinery as linking a feature) and are recorded as `pendingFeatureDrafts`
- * on the CB. For a running CB the drafts are published immediately (reusing the
- * CB-start publish path); for a draft CB they stay pending until start.
- *
- * Returns the (possibly re-read) CB doc.
- */
 export async function addVariationValuesToLinkedFeatures(
   context: ReqContext | ApiReqContext,
   cb: ContextualBanditInterface,
@@ -333,8 +283,6 @@ export async function addVariationValuesToLinkedFeatures(
 
   if (!stagedAny) return cb;
 
-  // Running CBs serve immediately, so publish the staged drafts now (reusing the
-  // CB-start publish path); a draft CB leaves them pending until it starts.
   const refreshed =
     (await context.models.contextualBandits.getById(cb.id)) ?? cb;
   if (refreshed.status === "running") {
@@ -459,8 +407,6 @@ export async function runContextualBanditSnapshot(
     frozenSettings: snapshotSettings,
     triggeredBy: opts.triggeredBy === "manual" ? "manual" : "schedule",
     weightsWereUpdated: false,
-    // Stamp the weight epoch at run-start so persist can detect a mid-run
-    // arm-set change (P3 concurrency guard).
     banditVersion: updatedCb.banditVersion,
   });
 
@@ -601,13 +547,6 @@ export async function persistContextualBanditEvent(
   const currentLeafWeights = cb.currentLeafWeights ?? [];
   const inExploreStage = cb.stage === "explore";
 
-  // Concurrency guard: if the CB's weight epoch changed while this run was in
-  // flight (e.g. an add/remove-variation edit bumped `banditVersion`), the run's
-  // per-leaf weights were computed against the old variation set. Their
-  // positional order no longer aligns with the current `cb.variations`, so
-  // `leafWeightsFromContextualBanditResult`'s index→id zip would misattribute
-  // weights. Discard the weights (keep the CBE for its stats/telemetry) rather
-  // than corrupt the live payload; the next scheduled run recomputes cleanly.
   const staleWeightEpoch =
     cbs.banditVersion !== undefined && cbs.banditVersion !== cb.banditVersion;
   if (staleWeightEpoch) {

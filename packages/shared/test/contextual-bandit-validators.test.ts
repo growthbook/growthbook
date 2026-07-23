@@ -47,9 +47,6 @@ describe("maxLeaves request-boundary cap", () => {
 });
 
 describe("namespace non-support is explicit", () => {
-  // CBs intentionally don't support namespaces. Both body validators are
-  // strict, so a `namespace` key (or any unknown key) errors loudly instead
-  // of being silently stripped.
   it("rejects a namespace key on create", () => {
     expect(() =>
       apiCreateContextualBanditBody.parse({

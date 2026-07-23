@@ -116,14 +116,12 @@ describe("executeContextualBanditVariationChange", () => {
     const { updated } = await executeContextualBanditVariationChange(
       context,
       cb,
-      [v("v0", "0"), v("v1", "1"), v("", "2")], // add a third arm (no id yet)
+      [v("v0", "0"), v("v1", "1"), v("", "2")],
     );
 
-    // update persists variations + reconciled aggregate weights
     expect(updateMock).toHaveBeenCalledTimes(1);
     const [, changes] = updateMock.mock.calls[0];
     expect(changes.variations).toHaveLength(3);
-    // server minted an id for the new arm
     expect(changes.variations[2].id).toBeTruthy();
     expect(changes.variationWeights).toHaveLength(3);
     expect(sum(changes.variationWeights)).toBeCloseTo(1, 6);
@@ -131,12 +129,10 @@ describe("executeContextualBanditVariationChange", () => {
       expect(w.weight).toBeCloseTo(1 / 3, 3),
     );
 
-    // uniform mode → no per-leaf weights written, but version still bumps
     expect(patchLeafWeightsMock).toHaveBeenCalledTimes(1);
     expect(patchLeafWeightsMock.mock.calls[0][1]).toEqual([]);
     expect(updated.banditVersion).toBe(cb.banditVersion + 1);
 
-    // SDK payload refreshed for linked features
     expect(refreshLinkedFeaturePayloadsMock).toHaveBeenCalledWith(
       context,
       expect.objectContaining({ id: cb.id }),
@@ -193,12 +189,10 @@ describe("executeContextualBanditVariationChange", () => {
         ],
       ),
     );
-    // v0,v1 were 0.5/0.5 → each scaled by K/(K+N)=2/3 → 1/3; new arm = 1/(K+N)=1/3.
     expect(wmap["v0"]).toBeCloseTo(1 / 3, 6);
     expect(wmap["v1"]).toBeCloseTo(1 / 3, 6);
     expect(wmap[newId]).toBeCloseTo(1 / 3, 6);
     expect(sum(changes.variationWeights)).toBeCloseTo(1, 6);
-    // patchLeafWeights runs (bumps banditVersion) even with empty leaf weights.
     expect(patchLeafWeightsMock).toHaveBeenCalledTimes(1);
     expect(updated.banditVersion).toBe(cb.banditVersion + 1);
   });
@@ -207,7 +201,6 @@ describe("executeContextualBanditVariationChange", () => {
     const cb = makeCb({ stage: "exploit" });
     const { context, updateMock, patchLeafWeightsMock } = makeContext(cb);
 
-    // Rename v1; the id set is unchanged, so no weight reconciliation should run.
     await executeContextualBanditVariationChange(context, cb, [
       v("v0", "0"),
       { id: "v1", name: "Renamed", key: "1", screenshots: [] } as Variation,
@@ -216,7 +209,6 @@ describe("executeContextualBanditVariationChange", () => {
     expect(updateMock).toHaveBeenCalledTimes(1);
     const [, changes] = updateMock.mock.calls[0];
     expect(changes.variations[1].name).toBe("Renamed");
-    // metadata-only: weights + banditVersion untouched
     expect(changes).not.toHaveProperty("variationWeights");
     expect(patchLeafWeightsMock).not.toHaveBeenCalled();
   });

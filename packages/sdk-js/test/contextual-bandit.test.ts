@@ -62,8 +62,6 @@ describe("contextual bandit feature rules", () => {
   });
 
   it("routes into a 3-arm (post-add) leaf and assigns the newly added arm", () => {
-    // After adding a third variation, the rule + leaf weights are length 3.
-    // A leaf whose weights favor the new arm must actually assign it.
     const gb = new GrowthBook({
       attributes: { id: "u1", plan: "enterprise" },
       features: {
@@ -104,10 +102,6 @@ describe("contextual bandit feature rules", () => {
   });
 
   it("skips a CB rule whose variations were stripped (old-SDK payload), no even-split fallback", () => {
-    // An SDK without the contextualBandits capability drops the CB-gated keys
-    // (`contextualVariations` and `contextualBanditRef`) and never sees
-    // `variations`, so the rule must be skipped and fall through to the default
-    // rather than run as a plain 50/50 experiment.
     const gb = new GrowthBook({
       attributes: { id: "u1", plan: "enterprise" },
       features: {
@@ -138,8 +132,6 @@ describe("contextual bandit feature rules", () => {
   });
 
   it("buckets into a leaf only when both global targeting and the leaf condition pass", () => {
-    // Rule-level `condition` is the global targeting; it is ANDed with the
-    // per-leaf context condition. Here the user passes both.
     const gb = new GrowthBook({
       attributes: { id: "u1", plan: "enterprise", country: "US" },
       features: cbFeatures({ condition: { country: "US" } }),
@@ -156,8 +148,6 @@ describe("contextual bandit feature rules", () => {
   });
 
   it("excludes the user (no exposure, no leaf metadata) when global targeting fails even if a leaf matches", () => {
-    // The user matches leaf 1 (plan=enterprise) but fails the global targeting
-    // condition (country != US). Must be excluded and leak no leaf metadata.
     const trackingCallback = jest.fn();
     const gb = new GrowthBook({
       attributes: { id: "u1", plan: "enterprise", country: "CA" },
@@ -220,9 +210,6 @@ describe("contextual bandit feature rules", () => {
   });
 
   it("falls into the catch-all leaf when an attribute used by a leaf condition is missing", () => {
-    // The SDK no longer enforces a list of required attributes. A user missing
-    // `plan` simply fails the specific leaf condition and matches the catch-all
-    // leaf like any other non-enterprise user.
     const trackingCallback = jest.fn();
     const gb = new GrowthBook({
       attributes: { id: "u1" },
@@ -245,8 +232,6 @@ describe("contextual bandit feature rules", () => {
   });
 
   it("buckets on fallback weights (leafId -1) and tracks when no leaf matches", () => {
-    // User passes global targeting and has the required attribute, but matches
-    // none of the leaves (no catch-all present). Fallback leaf, still tracked.
     const trackingCallback = jest.fn();
     const gb = new GrowthBook({
       attributes: { id: "u1", plan: "free" },
@@ -274,7 +259,6 @@ describe("contextual bandit feature rules", () => {
 
   it("does not crash and uses fallback weights (leafId -1) when leaf selection throws", () => {
     const trackingCallback = jest.fn();
-    // A condition that throws when evaluated (e.g. a malformed payload).
     const throwingCondition = new Proxy(
       {},
       {
@@ -293,8 +277,6 @@ describe("contextual bandit feature rules", () => {
       contextualBandits: bandits,
     });
 
-    // Should not throw; the user falls back to aggregate weights rather than
-    // being dropped, and is tracked as a fallback-leaf exposure.
     let res: ReturnType<typeof gb.evalFeature>;
     expect(() => {
       res = gb.evalFeature("promo");
@@ -370,9 +352,6 @@ describe("contextual bandit feature rules", () => {
   });
 
   it("uses marginal weights with fallback-leaf metadata when contexts[] is empty (explore stage)", () => {
-    // An explore-stage CB has no leaves yet. Users are bucketed on the aggregate
-    // weights but the exposure is still attributable via the fallback leaf (-1)
-    // and banditVersion, so it can be tied to a weight generation.
     const gb = new GrowthBook({
       attributes: { id: "u1" },
       features: cbFeatures(),
@@ -391,12 +370,9 @@ describe("contextual bandit feature rules", () => {
   });
 
   it("falls back to marginal weights with NO metadata when the contextualBanditRef is dangling", () => {
-    // No CB definition in the payload at all, so there is no banditVersion to
-    // report — the rule runs as a plain MAB experiment with no leaf metadata.
     const gb = new GrowthBook({
       attributes: { id: "u1" },
       features: cbFeatures(),
-      // No contextualBandits map at all
     });
 
     const res = gb.evalFeature("promo");
@@ -411,7 +387,6 @@ describe("contextual bandit feature rules", () => {
   });
 
   it("preserves attributes through deferred tracking calls", async () => {
-    // No trackingCallback at eval time => the exposure is deferred.
     const gb = new GrowthBook({
       attributes: { id: "u1", plan: "enterprise" },
       features: cbFeatures(),

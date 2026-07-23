@@ -53,13 +53,6 @@ export const contextualBanditSnapshotValidator = baseSchema
     frozenSettings: contextualBanditSnapshotSettingsValidator.optional(),
     contextualBanditEventId: z.string().nullable().optional(),
     weightsWereUpdated: z.boolean().optional(),
-    /**
-     * The parent CB's `banditVersion` at the moment this run started. Used to
-     * detect an arm-set/weight-epoch change that landed mid-run (e.g. an
-     * add/remove-variation edit): if it no longer matches the live CB when the
-     * run persists, the run's per-leaf weights are stale (their positional
-     * order was built against the old variation set) and are discarded.
-     */
     banditVersion: z.number().int().nonnegative().optional(),
     triggeredBy: z.enum(["manual", "schedule"]).optional(),
     srm: z

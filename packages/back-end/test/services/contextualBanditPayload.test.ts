@@ -6,9 +6,6 @@ import { getFeatureDefinition } from "back-end/src/util/features";
 import { filterUsedContextualBandits } from "back-end/src/services/features";
 import { measureContextualBanditPayload } from "back-end/src/services/contextualBanditPayload";
 
-// services/features.ts transitively imports datasource integrations, which
-// load native modules (kerberos, lz4) that aren't available in all
-// environments. Nothing in these tests touches datasources.
 jest.mock("back-end/src/services/datasource", () => ({}));
 
 const groupMap: GroupMap = new Map();
@@ -115,13 +112,9 @@ describe("getFeatureDefinition contextual-bandit-ref rules", () => {
     expect(def).toBeTruthy();
     const rule = def?.rules?.[0];
     expect(rule?.contextualBanditRef).toEqual("cb_1");
-    // Sticky bucketing must be disabled — CB weights retrain each epoch
     expect(rule?.disableStickyBucketing).toEqual(true);
-    // Nothing bulky on the rule — it all lives in the top-level map
     expect(rule).not.toHaveProperty("contexts");
     expect(rule).not.toHaveProperty("banditVersion");
-    // Variations live under `contextualVariations` (not `variations`) so older
-    // SDKs skip the rule; aggregate weights remain for the CB MAB fallback.
     expect(rule).not.toHaveProperty("variations");
     expect(rule?.contextualVariations).toEqual(["control", "treatment"]);
     expect(rule?.weights).toEqual([0.5, 0.5]);
@@ -142,14 +135,9 @@ describe("getFeatureDefinition contextual-bandit-ref rules", () => {
     const rule = def?.rules?.[0];
     expect(rule).toBeTruthy();
     expect(rule).not.toHaveProperty("contextualBanditRef");
-    // Non-capable SDKs get neither `contextualVariations` (stripped, CB-gated
-    // key) nor `variations`, so they skip the rule instead of running a plain
-    // experiment split. Weights remain but are never reached.
     expect(rule).not.toHaveProperty("contextualVariations");
     expect(rule).not.toHaveProperty("variations");
     expect(rule?.weights).toEqual([0.5, 0.5]);
-    // Sticky bucketing stays disabled even for the MAB fallback (weights still
-    // retrain each epoch), independent of the contextualBandits capability.
     expect(rule?.disableStickyBucketing).toEqual(true);
   });
 });
@@ -173,7 +161,6 @@ describe("filterUsedContextualBandits", () => {
       featuresWithRef,
     );
 
-    // Two rules, ONE entry — this is the dedup
     expect(map).toEqual({
       cb_1: {
         banditVersion: 7,
@@ -242,7 +229,6 @@ describe("add/remove variation payload behavior (P5)", () => {
     f: { defaultValue: "x", rules: [{ contextualBanditRef: "cb_1" }] },
   };
 
-  // A contextual-bandit-ref feature rule mapping a value to each given arm.
   function featureWithValues(
     pairs: { variationId: string; value: string }[],
   ): FeatureInterface {
@@ -299,7 +285,6 @@ describe("add/remove variation payload behavior (P5)", () => {
       ]),
     );
 
-    // New arm is present in the rule's variation list + aggregate weights.
     expect(rule?.contextualVariations).toEqual([
       "control",
       "treatment",
@@ -308,7 +293,6 @@ describe("add/remove variation payload behavior (P5)", () => {
     expect(rule?.weights?.length).toEqual(3);
     (rule?.weights ?? []).forEach((w) => expect(w).toBeCloseTo(1 / 3, 3));
 
-    // Explore ⇒ no per-leaf weights; SDK will fall back to the aggregate above.
     const map = filterUsedContextualBandits(cbMapOf(cb), refFeatures);
     expect(map?.cb_1?.banditVersion).toEqual(8);
     expect(map?.cb_1?.contexts).toEqual([]);
@@ -326,7 +310,6 @@ describe("add/remove variation payload behavior (P5)", () => {
       currentLeafWeights: [],
     } as unknown as Partial<ContextualBanditInterface>);
 
-    // Feature rule only maps the original two arms.
     const rule = ruleFor(
       cb,
       featureWithValues([
@@ -335,13 +318,11 @@ describe("add/remove variation payload behavior (P5)", () => {
       ]),
     );
 
-    // The added arm has no value yet ⇒ null placeholder; weights still length 3.
     expect(rule?.contextualVariations).toEqual(["control", "treatment", null]);
     expect(rule?.weights?.length).toEqual(3);
   });
 
   it("remove: the dropped arm appears nowhere in the payload", () => {
-    // Post-remove state: v1 gone, weights re-equalized over the survivors.
     const cb = makeCb({
       variations: [V0, V2],
       variationWeights: [
@@ -370,7 +351,6 @@ describe("add/remove variation payload behavior (P5)", () => {
 
     expect(rule?.contextualVariations).toEqual(["control", "added"]);
     expect(rule?.weights).toEqual([0.5, 0.5]);
-    // No trace of the removed arm's value anywhere on the rule.
     expect(JSON.stringify(rule)).not.toContain("treatment");
 
     const map = filterUsedContextualBandits(cbMapOf(cb), refFeatures);
@@ -380,9 +360,6 @@ describe("add/remove variation payload behavior (P5)", () => {
   });
 
   it("positional: an arm with no stored leaf weight resolves to 0 in that leaf", () => {
-    // Guards the positional zip: a variation present on the CB but absent from a
-    // leaf's paired weights (e.g. a newly added arm before the next retrain
-    // populates that leaf) maps to 0 rather than shifting the array.
     const cb = makeCb({
       variations: [V0, V1, V2],
       variationWeights: [
@@ -445,7 +422,6 @@ describe("measureContextualBanditPayload", () => {
     );
 
     expect(stats.cbCount).toEqual(2);
-    // 3 rules point at the map; ratio 3:2 shows a shared CB
     expect(stats.cbRuleCount).toEqual(3);
     expect(stats.maxLeaves).toEqual(3);
 

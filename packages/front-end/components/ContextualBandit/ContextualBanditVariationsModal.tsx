@@ -17,25 +17,12 @@ type EditableVariation = {
 
 type FormValues = {
   variations: EditableVariation[];
-  // Local-only bookkeeping so FeatureVariationsInput's add/remove behaves; NOT
-  // sent to the server — weight reconciliation is owned by the backend.
   variationWeights: number[];
 };
 
-// { [featureId]: { [variationId]: value } }
 type NewVariationValues = Record<string, Record<string, string>>;
 
 /**
- * CB-native variation editor built on the shared `FeatureVariationsInput`.
- * Splits/weights are hidden and never sent — the backend owns weight
- * reconciliation (POST /contextual-bandits/:id/variations): a uniform split
- * while exploring, and Luke's proportional redistribution once exploiting.
- *
- * When arms are ADDED and the bandit has linked features, we also collect a
- * value for each new arm per linked feature (`newVariationValues`) so the SDK
- * payload doesn't serve the new arm as null. Values are pre-filled with the
- * rule's control value / feature default; the server applies the same fallback
- * if a value is omitted.
  */
 export default function ContextualBanditVariationsModal({
   cb,
@@ -71,7 +58,6 @@ export default function ContextualBanditVariationsModal({
     },
   });
 
-  // Overrides the user has typed for a new arm's value on a linked feature.
   const [newVariationValues, setNewVariationValues] =
     useState<NewVariationValues>({});
 
@@ -82,8 +68,6 @@ export default function ContextualBanditVariationsModal({
   const showNewValueEditors =
     addedVariations.length > 0 && linkedFeatures.length > 0;
 
-  // Default a new arm's value on a feature to its control (first) variation
-  // value, falling back to the feature default — mirrors the server fallback.
   const defaultValueFor = (lf: LinkedFeatureInfo) =>
     lf.values?.[0]?.value ?? lf.feature.defaultValue;
 
@@ -114,8 +98,6 @@ export default function ContextualBanditVariationsModal({
             screenshots: [],
           }));
 
-          // Collect values only for arms that are actually new, only for
-          // features that have them. Omitted values fall back server-side.
           const addedIds = variations
             .map((v) => v.id)
             .filter((id) => !originalIds.has(id));

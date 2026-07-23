@@ -843,8 +843,6 @@ describe("experiments", () => {
     expect(trackingCallback2).toHaveBeenCalledTimes(0);
     gb2.fireDeferredTrackingCalls();
     expect(trackingCallback2).toHaveBeenCalledTimes(1);
-    // These deferred calls were set manually without a user field, so
-    // the callback receives `undefined` for the optional user arg.
     expect(trackingCallback2).toHaveBeenCalledWith(exp, result, undefined);
     expect(gb2.getDeferredTrackingCalls()).toEqual([]);
 

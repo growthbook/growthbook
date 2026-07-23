@@ -9,11 +9,8 @@ export const CB_PAYLOAD_WARN_BYTES = 512 * 1024;
 export const CB_PAYLOAD_WARN_FRACTION = 0.5;
 
 export type ContextualBanditPayloadStats = {
-  /** Distinct CBs in the payload's `contextualBandits` map */
   cbCount: number;
-  /** Rules pointing at the map — cbRuleCount/cbCount > 1 means shared CBs (dedup working) */
   cbRuleCount: number;
-  /** Sum of serialized map entry sizes (map braces/commas excluded) */
   cbBytes: number;
   maxSingleCbBytes: number;
   maxLeaves: number;

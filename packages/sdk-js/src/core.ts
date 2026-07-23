@@ -320,8 +320,6 @@ export function evalFeature<V = unknown>(
 
         return getFeatureResult(ctx, id, rule.force as V, "force", rule.id);
       }
-      // Contextual bandit rules carry their variations under
-      // `contextualVariations` so older SDKs skip them; read either field here.
       const ruleVariations = rule.contextualVariations ?? rule.variations;
       if (!ruleVariations) {
         process.env.NODE_ENV !== "production" &&
@@ -834,10 +832,6 @@ function getAttributes(ctx: EvalContext) {
   };
 }
 
-// A lean, serializable UserContext carrying only the user's (merged)
-// attributes. Used for the trackingCallback third argument and for deferred
-// tracking calls so we don't pass the full context (functions, sticky bucket
-// service, etc.) or invent a separate bare-attributes shape.
 function getTrackingUserContext(ctx: EvalContext): UserContext {
   return { attributes: getAttributes(ctx) };
 }
@@ -1226,9 +1220,6 @@ function deriveStickyBucketIdentifierAttributes(
     const feature = features[id];
     if (feature.rules) {
       for (const rule of feature.rules) {
-        // Contextual bandit rules carry their variations under
-        // `contextualVariations`; match either so CB rules also register
-        // their hash/fallback attributes for sticky bucketing.
         if (rule.variations || rule.contextualVariations) {
           attributes.add(rule.hashAttribute || "id");
           if (rule.fallbackAttribute) {

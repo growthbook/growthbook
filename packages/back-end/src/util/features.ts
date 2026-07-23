@@ -979,21 +979,12 @@ export function getFeatureDefinition({
             rule.seed = cb.seed;
           }
           rule.hashVersion = 2;
-          // Contextual bandit weights (leaf and aggregate) are retrained each
-          // epoch, so a sticky-bucket assignment would lock users to stale
-          // weights. Disable it for all consumers, not just CB-capable ones —
-          // the aggregate-weight (MAB) fallback reweights over time too.
           rule.disableStickyBucketing = true;
 
           if (cb.status === "stopped") {
             return null;
           }
 
-          // Store variations under `contextualVariations` (a CB-capability
-          // gated key) rather than `variations`. Older SDKs drop this key and,
-          // finding no `variations`, skip the rule instead of bucketing users
-          // into a plain experiment split. CB-capable SDKs read it back into
-          // the experiment during evaluation.
           rule.contextualVariations = cb.variations.map((v) => {
             const variation = r.variations?.find(
               (rv) => rv.variationId === v.id,
@@ -1016,7 +1007,6 @@ export function getFeatureDefinition({
             capabilities === undefined ||
             capabilities.includes("contextualBandits");
           if (cbCapable) {
-            // Presence of contextualBanditRef is what marks this as a CB rule.
             rule.contextualBanditRef = cb.id;
           }
 

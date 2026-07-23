@@ -132,7 +132,6 @@ describe("reconcileVariationWeights — redistribute mode (Luke A + B)", () => {
     Object.fromEntries(pairs.map((p) => [p.variationId, p.weight]));
 
   it("Algorithm A — drop: redistributes dropped mass proportionally over survivors", () => {
-    // drop b (S=0.3); survivors a,c mass 0.7 → a=0.2/0.7, c=0.5/0.7.
     const res = reconcileVariationWeights(
       w({ a: 0.2, b: 0.3, c: 0.5 }),
       ["a", "c"],
@@ -146,7 +145,6 @@ describe("reconcileVariationWeights — redistribute mode (Luke A + B)", () => {
   });
 
   it("Algorithm B — add: survivors scaled by K/(K+N), each new arm 1/(K+N)", () => {
-    // K=2, N=1 → survivors ×2/3, new arm 1/3.
     const res = reconcileVariationWeights(
       w({ a: 0.6, b: 0.4 }),
       ["a", "b", "c"],
@@ -160,7 +158,6 @@ describe("reconcileVariationWeights — redistribute mode (Luke A + B)", () => {
   });
 
   it("combined add + remove (10 arms → drop 4, add 2 = 8): A then B, sums to 1", () => {
-    // Survivors s0..s5 (6) with the given weights (sum 0.6); dropped d0..d3 (sum 0.4); add n0,n1.
     const current = w({
       s0: 0.05,
       s1: 0.1,
@@ -190,13 +187,10 @@ describe("reconcileVariationWeights — redistribute mode (Luke A + B)", () => {
     ]);
     expect(sum(res)).toBeCloseTo(1, 6);
     const m = asMap(res);
-    // survivor normalized by mass 0.6, then ×(6/8): e.g. s2 = (0.15/0.6)*0.75.
     expect(m.s2).toBeCloseTo((0.15 / 0.6) * (6 / 8), 6);
     expect(m.s0).toBeCloseTo((0.05 / 0.6) * (6 / 8), 6);
-    // each added arm = 1/8.
     expect(m.n0).toBeCloseTo(1 / 8, 6);
     expect(m.n1).toBeCloseTo(1 / 8, 6);
-    // survivor proportions preserved among themselves.
     expect(m.s2 / m.s0).toBeCloseTo(0.15 / 0.05, 6);
   });
 
@@ -223,7 +217,6 @@ describe("reconcileVariationWeights — redistribute mode (Luke A + B)", () => {
   });
 
   it("zero-mass survivors fall back to an even split among survivors", () => {
-    // Drop c (which holds all the mass); a,b had 0 → even split.
     const res = reconcileVariationWeights(
       w({ a: 0, b: 0, c: 1 }),
       ["a", "b"],

@@ -175,7 +175,6 @@ export default function ContextualBanditDetailPage({
       );
       globalAttributes = Array.from(fields);
     } else {
-      // Advanced condition jsonToConds can't simplify - fall back to top-level keys
       try {
         globalAttributes = Object.keys(JSON.parse(cb.condition)).filter(
           (k) => !k.startsWith("$"),

@@ -117,7 +117,6 @@ describe("addVariationValuesToLinkedFeatures", () => {
       value: "control",
     });
     expect(addPendingFeatureDraft).toHaveBeenCalledWith("cb_1", "feature", 5);
-    // Draft CB: no immediate publish.
     expect(publishMock).not.toHaveBeenCalled();
   });
 
@@ -164,7 +163,6 @@ describe("addVariationValuesToLinkedFeatures", () => {
     const cb = makeCb();
     const { context, addPendingFeatureDraft } = makeContext(cb);
 
-    // "v1" already exists on the rule.
     await addVariationValuesToLinkedFeatures(context, cb, ["v1"], undefined);
 
     expect(updateRevisionMock).not.toHaveBeenCalled();

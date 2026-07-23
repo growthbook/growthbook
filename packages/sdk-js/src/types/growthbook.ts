@@ -49,10 +49,6 @@ export type FeatureRule<T = any> = {
     result: Result<T>;
   }>;
   contextualBanditRef?: string;
-  // Contextual bandit rules carry their variations here instead of under
-  // `variations` so that older SDKs (which key off `variations` to detect an
-  // experiment rule) skip the rule entirely rather than mis-bucketing users
-  // into an even split. CB-capable SDKs read this into the experiment.
   contextualVariations?: T[];
 };
 
@@ -189,8 +185,6 @@ export type Attributes = Record<string, any>;
 export interface TrackingData {
   experiment: Experiment<any>;
   result: Result<any>;
-  // A lean UserContext carrying only the user's attributes, so deferred
-  // tracking calls stay serializable and match the trackingCallback shape.
   user?: UserContext;
 }
 
@@ -203,8 +197,6 @@ export interface TrackingDataWithUser {
 export type TrackingCallback = (
   experiment: Experiment<any>,
   result: Result<any>,
-  // A lean UserContext carrying only the user's attributes. Reuses the
-  // UserContext shape instead of passing a bare attributes object.
   user?: UserContext,
 ) => Promise<void> | void;
 

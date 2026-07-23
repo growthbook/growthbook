@@ -35,7 +35,6 @@ type Cases = {
   run: [string, Context, Experiment<any>, any, boolean, boolean][];
   // name, context, feature key, result
   feature: [string, Context, string, FeatureResult][];
-  // name, context, feature key, result (contextual-bandit feature rules)
   contextualBandit: [string, Context, string, FeatureResult][];
   // name, condition, attribute, result
   evalCondition: [string, any, any, boolean, SavedGroupsValues][];
