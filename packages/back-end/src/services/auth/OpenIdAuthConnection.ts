@@ -48,13 +48,15 @@ if (USE_PROXY) {
 
 const passthroughQueryParams = ["hypgen", "hypothesis"];
 
-// Micro-Cache with a TTL of 30 seconds, avoids hitting Mongo on every request
-const ssoConnectionCache = new MemoryCache(async (ssoConnectionId: string) => {
-  const ssoConnection = await _dangerousGetSSOConnectionById(ssoConnectionId);
-  if (ssoConnection) {
-    return ssoConnection;
-  }
-  throw new Error("Could not find SSO connection - " + ssoConnectionId);
+// Micro-Cache with a TTL of 30 seconds, avoids hitting Mongo on every request.
+// Returns null (rather than throwing) when the connection genuinely doesn't
+// exist, so callers can distinguish a deleted connection from a transient DB
+// error — the latter propagates and must not be treated as "not found".
+const ssoConnectionCache = new MemoryCache<
+  SSOConnectionInterface | null,
+  string
+>(async (ssoConnectionId: string) => {
+  return await _dangerousGetSSOConnectionById(ssoConnectionId);
 }, 30);
 
 // A stable key for clientMap
@@ -365,8 +367,11 @@ async function getConnectionFromRequest(req: Request, res: Response) {
     };
     resolvedFromId = true;
   } else {
+    // A real DB error propagates here (not caught) so a transient failure
+    // isn't misread as a deleted connection, which would wrongly clear the
+    // cookie and drop enterprise users to the default login.
     const byId = ssoConnectionId
-      ? await ssoConnectionCache.get(ssoConnectionId).catch(() => null)
+      ? await ssoConnectionCache.get(ssoConnectionId)
       : null;
     if (byId) {
       connection = byId;
