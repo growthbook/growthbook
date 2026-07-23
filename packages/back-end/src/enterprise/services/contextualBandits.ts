@@ -17,9 +17,8 @@ import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getRefLinkedFeatureInfo } from "back-end/src/services/experiments";
-import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
-import { getPayloadKeysForContextualBandit } from "back-end/src/services/contextualBanditChanges";
+import { refreshLinkedFeaturePayloads } from "back-end/src/services/contextualBanditChanges";
 import { computeContextualBanditStageAndSchedule } from "back-end/src/services/contextualBanditSchedule";
 import {
   ContextualBanditResultsQueryRunner,
@@ -56,11 +55,6 @@ export async function getContextualBanditLinkedFeatureInfo(
   });
 }
 
-/**
- * Detaches a feature from a Contextual Bandit: removes it from `linkedFeatures`
- * and cancels any queued draft auto-publish. Mirrors `unlinkFeatureFromExperiment`
- * — the feature's `contextual-bandit-ref` rule is intentionally left in place.
- */
 export async function unlinkFeatureFromContextualBandit(
   context: ReqContext | ApiReqContext,
   cbId: string,
@@ -144,12 +138,6 @@ export async function runContextualBanditSnapshot(
   cb: ContextualBanditInterface,
   opts: {
     triggeredBy: "manual" | "scheduled";
-    /**
-     * When true, block until queries + analysis finish and return the resulting
-     * CBE id. Background jobs that own the run lifecycle set this (mirroring
-     * `updateExperimentResults`). Interactive/API callers leave it false so the
-     * request returns immediately with a "running" snapshot the caller can poll.
-     */
     wait?: boolean;
   },
 ): Promise<{ snapshotId: string; cbeId?: string }> {
@@ -277,31 +265,42 @@ export function leafWeightsFromContextualBanditResult(
   return leafWeights;
 }
 
-/** True when any leaf's updated weights differ from the current persisted leaf weights, keyed on the leaf's targeting condition. */
 export function contextualBanditWeightsWereUpdated(
   result: ContextualBanditResult,
   currentLeafWeights: LeafWeight[],
   variations: { id: string }[],
 ): boolean {
+  const newLeafWeights = leafWeightsFromContextualBanditResult(
+    result,
+    variations,
+  );
+
+  if (newLeafWeights.length === 0) {
+    return false;
+  }
+
+  if (newLeafWeights.length !== currentLeafWeights.length) {
+    return true;
+  }
+
   const currentByCondition = new Map(
     currentLeafWeights.map((lw) => [
       JSON.stringify(lw.condition),
-      lw.weights.map((p) => p.weight),
+      { leafId: lw.leafId, weights: lw.weights.map((p) => p.weight) },
     ]),
   );
 
-  return leafWeightsFromContextualBanditResult(result, variations).some(
-    (lw) => {
-      const current = currentByCondition.get(JSON.stringify(lw.condition));
-      if (!current) {
-        return true;
-      }
-      return (
-        JSON.stringify(current) !==
+  return newLeafWeights.some((lw) => {
+    const current = currentByCondition.get(JSON.stringify(lw.condition));
+    if (!current) {
+      return true;
+    }
+    return (
+      current.leafId !== lw.leafId ||
+      JSON.stringify(current.weights) !==
         JSON.stringify(lw.weights.map((p) => p.weight))
-      );
-    },
-  );
+    );
+  });
 }
 
 /** Persists one CB run's side effects: creates the CBE doc, patches parent CB leaf weights, refreshes SDK payload. */
@@ -342,19 +341,12 @@ export async function persistContextualBanditEvent(
     ...(result.srm ? { degreesOfFreedom: result.srm.degreesOfFreedom } : {}),
   });
 
-  await context.models.contextualBandits.patchLeafWeights(cb.id, leafWeights);
+  await context.models.contextualBandits.patchLeafWeights(cb.id, leafWeights, {
+    bumpVersion: weightsWereUpdated,
+  });
 
-  const payloadKeys = getPayloadKeysForContextualBandit(context, cb);
-  if (payloadKeys.length > 0) {
-    queueSDKPayloadRefresh({
-      context,
-      payloadKeys,
-      auditContext: {
-        event: "contextualBandit.refresh",
-        model: "contextualBandit",
-        id: cb.id,
-      },
-    });
+  if (weightsWereUpdated) {
+    await refreshLinkedFeaturePayloads(context, cb, "contextualBandit.refresh");
   }
 
   return cbe;

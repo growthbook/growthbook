@@ -2,6 +2,7 @@ import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
 import {
   conditionHasSavedGroupErrors,
   expandNestedSavedGroups,
+  getPayloadAllowedKeys,
   SAVED_GROUP_ERROR_CYCLE,
   SAVED_GROUP_ERROR_INVALID,
   SAVED_GROUP_ERROR_MAX_DEPTH,
@@ -313,5 +314,22 @@ describe("expandNestedSavedGroups", () => {
       $and: [{ $and: { country: "US" } }, { foo: "bar" }],
     });
     expect(conditionHasSavedGroupErrors(condition)).toBe(false);
+  });
+});
+
+describe("getPayloadAllowedKeys (contextual bandits)", () => {
+  it("preserves contextual-bandit rule keys (contextualBanditRef + contextualVariations) when the capability is present", () => {
+    const { featureRuleKeys } = getPayloadAllowedKeys(["contextualBandits"]);
+    expect(featureRuleKeys).toContain("contextualBanditRef");
+    expect(featureRuleKeys).toContain("contextualVariations");
+    expect(featureRuleKeys).not.toContain("contexts");
+    expect(featureRuleKeys).not.toContain("banditVersion");
+  });
+
+  it("scrubs contextual-bandit rule keys when the capability is absent", () => {
+    const { featureRuleKeys } = getPayloadAllowedKeys(["bucketingV2"]);
+    expect(featureRuleKeys).not.toContain("contextualBanditRef");
+    expect(featureRuleKeys).not.toContain("contextualVariations");
+    expect(featureRuleKeys).toContain("weights");
   });
 });
