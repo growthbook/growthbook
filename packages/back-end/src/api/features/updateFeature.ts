@@ -314,9 +314,17 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     // Envs whose rule lists the caller is replacing. Envs present in the
     // payload with only `enabled` (no `rules` key) keep their current rules.
     const rulesTouchedEnvs = new Set(Object.keys(inboundRulesByEnv));
+    // Union of primary + targeting envs (not the bare primary), so a wildcard
+    // rule serving a targeting-only env isn't silently scrubbed on a PUT that
+    // touches a different env.
     const applicableEnvIds = getApplicableEnvIds(
       getEnvironments(req.context.org),
-      effectiveProject,
+      {
+        project: effectiveProject,
+        targetingProjects: targetingProjects ?? feature.targetingProjects,
+        targetingAllProjects:
+          targetingAllProjects ?? feature.targetingAllProjects,
+      },
     );
 
     // Carry through rules for envs the caller didn't touch. A single v2 rule
