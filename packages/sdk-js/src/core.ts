@@ -310,7 +310,7 @@ export function evalFeature<V = unknown>(
               ctx.global.saveDeferredTrack({
                 experiment: t.experiment,
                 result: t.result,
-                user: getTrackingUserContext(ctx),
+                user: getTrackingUserContext(ctx, true),
               });
             }
           });
@@ -765,7 +765,7 @@ export function runExperiment<T>(
     ctx.global.saveDeferredTrack({
       experiment,
       result,
-      user: getTrackingUserContext(ctx),
+      user: getTrackingUserContext(ctx, true),
     });
   }
   const trackingCall = !trackingCalls.length
@@ -823,8 +823,11 @@ function getAttributes(ctx: EvalContext) {
   };
 }
 
-function getTrackingUserContext(ctx: EvalContext): UserContext {
-  return { attributes: getAttributes(ctx) };
+function getTrackingUserContext(ctx: EvalContext, deep = false): UserContext {
+  const attributes = getAttributes(ctx);
+  return {
+    attributes: deep ? JSON.parse(JSON.stringify(attributes)) : attributes,
+  };
 }
 
 function conditionPasses(
