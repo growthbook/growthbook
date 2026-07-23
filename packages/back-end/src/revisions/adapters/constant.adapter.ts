@@ -160,26 +160,30 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
   },
 
   canManageDrafts(context: Context, snapshot: ConstantInterface): boolean {
-    return context.permissions.canManageFlagDrafts({
+    return context.permissions.canRevisionAction("flags", "draft", {
       projects: constantProjects(snapshot),
     });
   },
 
   canReview(context: Context, snapshot: ConstantInterface): boolean {
-    return context.permissions.canReviewFlag({
+    return context.permissions.canRevisionAction("flags", "review", {
       projects: constantProjects(snapshot),
     });
   },
 
   canPublishRevision(context: Context, snapshot: ConstantInterface): boolean {
-    return context.permissions.canPublishFlag(
+    return context.permissions.canRevisionAction(
+      "flags",
+      "publish",
       { projects: constantProjects(snapshot) },
       constantPublishEnvironments(context),
     );
   },
 
   canRevert(context: Context, snapshot: ConstantInterface): boolean {
-    return context.permissions.canRevertFlag(
+    return context.permissions.canRevisionAction(
+      "flags",
+      "revert",
       { projects: constantProjects(snapshot) },
       constantPublishEnvironments(context),
     );

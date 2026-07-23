@@ -1,6 +1,10 @@
 import {
+  ALL_PERMISSIONS,
   DEPRECATED_POLICIES,
+  ENV_SCOPED_PERMISSIONS,
   POLICY_PERMISSION_MAP,
+  REVISION_PERMISSIONS,
+  RevisionAction,
   permissionsFromRole,
   roleSupportsEnvLimitFromRole,
 } from "../src/permissions";
@@ -111,6 +115,50 @@ describe("granular flag permissions", () => {
       for (const policy of DEPRECATED_POLICIES) {
         expect((POLICY_PERMISSION_MAP[policy] || []).length).toBeGreaterThan(0);
       }
+    });
+  });
+
+  describe("REVISION_PERMISSIONS matrix", () => {
+    const ACTIONS: RevisionAction[] = [
+      "manage",
+      "delete",
+      "draft",
+      "review",
+      "publish",
+      "revert",
+    ];
+
+    it("defines every action for every family, mapped to a real atom", () => {
+      for (const family of Object.keys(REVISION_PERMISSIONS) as Array<
+        keyof typeof REVISION_PERMISSIONS
+      >) {
+        for (const action of ACTIONS) {
+          const entry = REVISION_PERMISSIONS[family][action];
+          expect(entry).toBeDefined();
+          expect(ALL_PERMISSIONS).toContain(entry.permission);
+        }
+      }
+    });
+
+    it("marks the atom's scope consistently with the scope arrays", () => {
+      for (const family of Object.keys(REVISION_PERMISSIONS) as Array<
+        keyof typeof REVISION_PERMISSIONS
+      >) {
+        for (const action of ACTIONS) {
+          const { permission, scope } = REVISION_PERMISSIONS[family][action];
+          const isEnv = (ENV_SCOPED_PERMISSIONS as readonly string[]).includes(
+            permission,
+          );
+          expect(scope === "environment").toBe(isEnv);
+        }
+      }
+    });
+
+    it("env-scopes flag publish/revert but keeps saved-group publish/revert project-scoped", () => {
+      expect(REVISION_PERMISSIONS.flags.publish.scope).toBe("environment");
+      expect(REVISION_PERMISSIONS.flags.revert.scope).toBe("environment");
+      expect(REVISION_PERMISSIONS.savedGroups.publish.scope).toBe("project");
+      expect(REVISION_PERMISSIONS.savedGroups.revert.scope).toBe("project");
     });
   });
 });

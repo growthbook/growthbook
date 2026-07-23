@@ -36,6 +36,11 @@ import { EventForwarderConfigInterface } from "../validators/event-forwarder-con
 import { HoldoutInterface } from "../validators/holdout";
 import { PermissionError } from "../util/";
 import { READ_ONLY_PERMISSIONS } from "./permissions.constants";
+import {
+  PermissionFamily,
+  REVISION_PERMISSIONS,
+  RevisionAction,
+} from "./revisionPermissions";
 
 type NotificationEvent = {
   containsSecrets: boolean;
@@ -333,6 +338,32 @@ export class Permissions {
     );
   };
 
+  // Table-driven permission check for a revisioned entity's lifecycle action.
+  // The family/action -> atom+scope mapping lives in revisionPermissions.ts
+  // (REVISION_PERMISSIONS) — the single source of truth. Project-scoped actions
+  // ignore `environments`; environment-scoped actions (flag publish/revert) gate
+  // on the environments a change touches. This is the entry point every
+  // revisioned entity should route through.
+  public canRevisionAction = (
+    family: PermissionFamily,
+    action: RevisionAction,
+    obj: { projects?: string[] },
+    environments: string[] = [],
+  ): boolean => {
+    const { permission, scope } = REVISION_PERMISSIONS[family][action];
+    if (scope === "environment") {
+      return this.checkEnvFilterPermission(
+        obj,
+        environments,
+        permission as EnvScopedPermission,
+      );
+    }
+    return this.checkProjectFilterPermission(
+      obj,
+      permission as ProjectScopedPermission,
+    );
+  };
+
   // Frontend helper to gate "Create Feature" UI.
   // Pass allProjects on list pages where "All Projects" may be selected;
   // omit it when checking a specific resource's project or global-only access.
@@ -346,52 +377,44 @@ export class Permissions {
       // read-only sample-data project) can't gate the CTA when it's the only
       // project.
       return (
-        this.checkProjectFilterPermission({ projects: [] }, "manageFlags") ||
+        this.canRevisionAction("flags", "manage", { projects: [] }) ||
         allProjects.some((p) =>
-          this.checkProjectFilterPermission(
-            { projects: [p.id] },
-            "manageFlags",
-          ),
+          this.canRevisionAction("flags", "manage", { projects: [p.id] }),
         )
       );
     }
-    return this.checkProjectFilterPermission(
-      { projects: project ? [project] : [] },
-      "manageFlags",
-    );
+    return this.canRevisionAction("flags", "manage", {
+      projects: project ? [project] : [],
+    });
   };
 
   public canCreateFeature = (
     feature: Pick<FeatureInterface, "project">,
   ): boolean => {
-    return this.checkProjectFilterPermission(
-      {
-        projects: feature.project ? [feature.project] : [],
-      },
-      "manageFlags",
-    );
+    return this.canRevisionAction("flags", "manage", {
+      projects: feature.project ? [feature.project] : [],
+    });
   };
 
   public canUpdateFeature = (
     existing: Pick<FeatureInterface, "project">,
     updated: Pick<FeatureInterface, "project">,
   ): boolean => {
+    // Edit is move-aware (needs manage on both source and destination project),
+    // so it keeps the update-permission helper but sources the atom from the table.
     return this.checkProjectFilterUpdatePermission(
       { projects: existing.project ? [existing.project] : [] },
       "project" in updated ? { projects: [updated.project || ""] } : {},
-      "manageFlags",
+      REVISION_PERMISSIONS.flags.manage.permission as ProjectScopedPermission,
     );
   };
 
   public canDeleteFeature = (
     feature: Pick<FeatureInterface, "project">,
   ): boolean => {
-    return this.checkProjectFilterPermission(
-      {
-        projects: feature.project ? [feature.project] : [],
-      },
-      "deleteFlags",
-    );
+    return this.canRevisionAction("flags", "delete", {
+      projects: feature.project ? [feature.project] : [],
+    });
   };
 
   // Revert a feature to a previously-published revision. Env-scoped: gate on the
@@ -400,10 +423,11 @@ export class Permissions {
     feature: Pick<FeatureInterface, "project">,
     environments: string[],
   ): boolean => {
-    return this.checkEnvFilterPermission(
+    return this.canRevisionAction(
+      "flags",
+      "revert",
       { projects: feature.project ? [feature.project] : [] },
       environments,
-      "revertFlags",
     );
   };
 
@@ -959,19 +983,17 @@ export class Permissions {
   public canManageFeatureDrafts = (
     feature: Pick<FeatureInterface, "project">,
   ) => {
-    return this.checkProjectFilterPermission(
-      { projects: feature.project ? [feature.project] : [] },
-      "manageFlagDrafts",
-    );
+    return this.canRevisionAction("flags", "draft", {
+      projects: feature.project ? [feature.project] : [],
+    });
   };
 
   public canReviewFeatureDrafts = (
     feature: Pick<FeatureInterface, "project">,
   ): boolean => {
-    return this.checkProjectFilterPermission(
-      { projects: feature.project ? [feature.project] : [] },
-      "reviewFlags",
-    );
+    return this.canRevisionAction("flags", "review", {
+      projects: feature.project ? [feature.project] : [],
+    });
   };
 
   public canBypassApprovalChecks = (
@@ -1265,12 +1287,11 @@ export class Permissions {
     feature: Pick<FeatureInterface, "project">,
     environments: string[],
   ): boolean => {
-    return this.checkEnvFilterPermission(
-      {
-        projects: feature.project ? [feature.project] : [],
-      },
+    return this.canRevisionAction(
+      "flags",
+      "publish",
+      { projects: feature.project ? [feature.project] : [] },
       environments,
-      "publishFlags",
     );
   };
 
@@ -1365,7 +1386,7 @@ export class Permissions {
   public canCreateSavedGroup = (
     savedGroup: Pick<SavedGroupInterface, "projects">,
   ): boolean => {
-    return this.checkProjectFilterPermission(savedGroup, "manageSavedGroups");
+    return this.canRevisionAction("savedGroups", "manage", savedGroup);
   };
 
   public canUpdateSavedGroup = (
@@ -1375,50 +1396,23 @@ export class Permissions {
     return this.checkProjectFilterUpdatePermission(
       existing,
       updates,
-      "manageSavedGroups",
+      REVISION_PERMISSIONS.savedGroups.manage
+        .permission as ProjectScopedPermission,
     );
   };
 
   public canDeleteSavedGroup = (
     savedGroup: Pick<SavedGroupInterface, "projects">,
   ): boolean => {
-    return this.checkProjectFilterPermission(savedGroup, "deleteSavedGroups");
-  };
-
-  public canManageSavedGroupDrafts = (
-    savedGroup: Pick<SavedGroupInterface, "projects">,
-  ): boolean => {
-    return this.checkProjectFilterPermission(
-      savedGroup,
-      "manageSavedGroupDrafts",
-    );
-  };
-
-  public canReviewSavedGroup = (
-    savedGroup: Pick<SavedGroupInterface, "projects">,
-  ): boolean => {
-    return this.checkProjectFilterPermission(savedGroup, "reviewSavedGroups");
-  };
-
-  public canPublishSavedGroup = (
-    savedGroup: Pick<SavedGroupInterface, "projects">,
-  ): boolean => {
-    return this.checkProjectFilterPermission(savedGroup, "publishSavedGroups");
-  };
-
-  public canRevertSavedGroup = (
-    savedGroup: Pick<SavedGroupInterface, "projects">,
-  ): boolean => {
-    return this.checkProjectFilterPermission(savedGroup, "revertSavedGroups");
+    return this.canRevisionAction("savedGroups", "delete", savedGroup);
   };
 
   public canCreateConstant = (
     constant: Pick<ConstantInterface, "project">,
   ): boolean => {
-    return this.checkProjectFilterPermission(
-      { projects: constant.project ? [constant.project] : [] },
-      "manageFlags",
-    );
+    return this.canRevisionAction("flags", "manage", {
+      projects: constant.project ? [constant.project] : [],
+    });
   };
 
   public canUpdateConstant = (
@@ -1428,26 +1422,24 @@ export class Permissions {
     return this.checkProjectFilterUpdatePermission(
       { projects: existing.project ? [existing.project] : [] },
       "project" in updated ? { projects: [updated.project || ""] } : {},
-      "manageFlags",
+      REVISION_PERMISSIONS.flags.manage.permission as ProjectScopedPermission,
     );
   };
 
   public canDeleteConstant = (
     constant: Pick<ConstantInterface, "project">,
   ): boolean => {
-    return this.checkProjectFilterPermission(
-      { projects: constant.project ? [constant.project] : [] },
-      "deleteFlags",
-    );
+    return this.canRevisionAction("flags", "delete", {
+      projects: constant.project ? [constant.project] : [],
+    });
   };
 
   public canCreateConfig = (
     config: Pick<ConfigInterface, "project">,
   ): boolean => {
-    return this.checkProjectFilterPermission(
-      { projects: config.project ? [config.project] : [] },
-      "manageFlags",
-    );
+    return this.canRevisionAction("flags", "manage", {
+      projects: config.project ? [config.project] : [],
+    });
   };
 
   public canUpdateConfig = (
@@ -1457,42 +1449,16 @@ export class Permissions {
     return this.checkProjectFilterUpdatePermission(
       { projects: existing.project ? [existing.project] : [] },
       "project" in updated ? { projects: [updated.project || ""] } : {},
-      "manageFlags",
+      REVISION_PERMISSIONS.flags.manage.permission as ProjectScopedPermission,
     );
   };
 
   public canDeleteConfig = (
     config: Pick<ConfigInterface, "project">,
   ): boolean => {
-    return this.checkProjectFilterPermission(
-      { projects: config.project ? [config.project] : [] },
-      "deleteFlags",
-    );
-  };
-
-  // Generic Flag-family revision permissions, shared by features, constants,
-  // and configs (project-list based so revision adapters can pass their entity's
-  // project). publish/revert are environment-scoped.
-  public canManageFlagDrafts = (obj: { projects?: string[] }): boolean => {
-    return this.checkProjectFilterPermission(obj, "manageFlagDrafts");
-  };
-
-  public canReviewFlag = (obj: { projects?: string[] }): boolean => {
-    return this.checkProjectFilterPermission(obj, "reviewFlags");
-  };
-
-  public canPublishFlag = (
-    obj: { projects?: string[] },
-    environments: string[],
-  ): boolean => {
-    return this.checkEnvFilterPermission(obj, environments, "publishFlags");
-  };
-
-  public canRevertFlag = (
-    obj: { projects?: string[] },
-    environments: string[],
-  ): boolean => {
-    return this.checkEnvFilterPermission(obj, environments, "revertFlags");
+    return this.canRevisionAction("flags", "delete", {
+      projects: config.project ? [config.project] : [],
+    });
   };
 
   public canBypassSavedGroupSizeLimit = (projects?: string[]): boolean => {

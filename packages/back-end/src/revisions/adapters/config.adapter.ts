@@ -170,26 +170,30 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
   },
 
   canManageDrafts(context: Context, snapshot: ConfigInterface): boolean {
-    return context.permissions.canManageFlagDrafts({
+    return context.permissions.canRevisionAction("flags", "draft", {
       projects: configProjects(snapshot),
     });
   },
 
   canReview(context: Context, snapshot: ConfigInterface): boolean {
-    return context.permissions.canReviewFlag({
+    return context.permissions.canRevisionAction("flags", "review", {
       projects: configProjects(snapshot),
     });
   },
 
   canPublishRevision(context: Context, snapshot: ConfigInterface): boolean {
-    return context.permissions.canPublishFlag(
+    return context.permissions.canRevisionAction(
+      "flags",
+      "publish",
       { projects: configProjects(snapshot) },
       configPublishEnvironments(context, snapshot),
     );
   },
 
   canRevert(context: Context, snapshot: ConfigInterface): boolean {
-    return context.permissions.canRevertFlag(
+    return context.permissions.canRevisionAction(
+      "flags",
+      "revert",
       { projects: configProjects(snapshot) },
       configPublishEnvironments(context, snapshot),
     );
