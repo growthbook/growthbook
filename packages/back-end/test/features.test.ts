@@ -2818,8 +2818,9 @@ describe("SDK Payloads", () => {
     });
 
     // With metadataOptions: experiment-ref rule gets tags/customFields from the
-    // experiment (exp-tag / bob), but NO projects — an unscoped rule emits none
-    // (the experiment's own project is not used).
+    // experiment (exp-tag / bob). Projects come from the set the rule is served
+    // to — here the feature's delivery set (proj_feature), since the rule is
+    // unscoped — NOT the experiment's own project.
     const defWithMeta = getFeatureDefinition({
       feature,
       environment: "production",
@@ -2841,15 +2842,18 @@ describe("SDK Payloads", () => {
       expect.objectContaining({
         id: "rule_1",
         metadata: {
+          projects: ["feature-project"],
           tags: ["exp-tag"],
           customFields: { owner: "bob" },
         },
       }),
     );
-    // Unscoped experiment-ref rule carries no projects (experiment's project unused)
-    expect(defWithMeta?.rules?.[0]?.metadata).not.toHaveProperty("projects");
+    // The rule's projects reflect delivery, not the experiment's own project
+    expect(defWithMeta?.rules?.[0]?.metadata?.projects).not.toContain(
+      "exp-project",
+    );
 
-    // A scoped experiment-ref rule emits its own scope (not the experiment's project)
+    // A scoped experiment-ref rule narrows to its own scope
     const featureScopedExpRule = cloneDeep(feature);
     featureScopedExpRule.targetingProjects = ["proj_exp"]; // delivers to both
     (
@@ -2922,7 +2926,7 @@ describe("SDK Payloads", () => {
     );
   });
 
-  it("Emits a rule's own project scope into rule metadata when enumerable", () => {
+  it("Emits the projects a rule is served to (scope ∩ delivery ∩ connection)", () => {
     const feature = cloneDeep(baseFeature);
     feature.project = "proj_feature";
     feature.targetingProjects = ["proj_exp"]; // delivers to both projects
@@ -2950,15 +2954,6 @@ describe("SDK Payloads", () => {
         description: "",
         allProjects: true,
       },
-      // Scoped to a project outside the feature's delivery set — scrubbed to nothing.
-      {
-        type: "force",
-        value: "true",
-        id: "dead",
-        enabled: true,
-        description: "",
-        projects: ["proj_other"],
-      },
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ] as any;
 
@@ -2968,6 +2963,7 @@ describe("SDK Payloads", () => {
         { id: "proj_feature", publicId: "feature-project", name: "F" },
       ],
       ["proj_exp", { id: "proj_exp", publicId: "exp-project", name: "E" }],
+      // A third org project the feature does not deliver to
       [
         "proj_other",
         { id: "proj_other", publicId: "other-project", name: "O" },
@@ -2975,6 +2971,8 @@ describe("SDK Payloads", () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ] as any);
 
+    // Unrestricted connection (no payloadProjects): bounded by the feature's
+    // delivery set only.
     const def = getFeatureDefinition({
       feature,
       environment: "production",
@@ -2986,16 +2984,39 @@ describe("SDK Payloads", () => {
       metadataOptions: { includeProjectIdInMetadata: true },
       projectsMap,
     });
-
     const byId = (id: string) => def?.rules?.find((r) => r.id === id);
 
-    // Enumerable scope → the rule's own projects as public ids
+    // Specific scope → its own projects (∩ delivery)
     expect(byId("scoped")?.metadata?.projects).toEqual(["exp-project"]);
-    // Unscoped (all) and explicit all-projects rules emit nothing
-    expect(byId("unscoped")?.metadata).toBeUndefined();
-    expect(byId("allprojects")?.metadata).toBeUndefined();
-    // Scope outside the delivery set is scrubbed to empty → no metadata
-    expect(byId("dead")?.metadata).toBeUndefined();
+    // All-projects / unscoped rules enumerate the feature's whole delivery set
+    expect(byId("unscoped")?.metadata?.projects).toEqual([
+      "feature-project",
+      "exp-project",
+    ]);
+    expect(byId("allprojects")?.metadata?.projects).toEqual([
+      "feature-project",
+      "exp-project",
+    ]);
+
+    // Connection restricted to a single project: every rule is bounded by it.
+    const scopedDef = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap: new Map(),
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      includeRuleIds: true,
+      metadataOptions: { includeProjectIdInMetadata: true },
+      projectsMap,
+      payloadProjects: ["proj_exp"],
+    });
+    const scopedById = (id: string) =>
+      scopedDef?.rules?.find((r) => r.id === id);
+    expect(scopedById("unscoped")?.metadata?.projects).toEqual(["exp-project"]);
+    expect(scopedById("allprojects")?.metadata?.projects).toEqual([
+      "exp-project",
+    ]);
   });
 
   it("Gets Feature Definitions", () => {

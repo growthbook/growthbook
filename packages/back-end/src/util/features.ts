@@ -126,23 +126,29 @@ function toProjectPublicIds(
     .map((p) => p.publicId || p.id);
 }
 
-// Emit a rule's own project scope as public ids, scrubbed to the feature's
-// delivery set. An all-projects (or unscoped) rule enumerates nothing — the
-// absence of a projects list means "wherever the feature is delivered".
-function applyRuleProjectScopeMetadata(
+// Emit the concrete set of projects a rule is served to in this connection's
+// payload, as public ids: rule scope ∩ feature delivery ∩ connection-served.
+// Each of those is unbounded when absent (rule/feature "all projects", or an
+// unrestricted connection), so an all-projects rule enumerates whatever the
+// connection is allowed to serve — falling back to every org project only when
+// nothing bounds it.
+function applyRuleProjectMetadata(
   rule: FeatureDefinitionRule,
   sourceRule: Parameters<typeof ruleProjectScope>[0],
   deliveryProjects: string[] | null,
+  payloadProjects: string[] | undefined,
   opts: MetadataOptions,
   projectsMap: Map<string, ProjectInterface> | undefined,
 ): void {
   if (!opts.includeProjectIdInMetadata || !projectsMap) return;
-  const scope = ruleProjectScope(sourceRule);
-  if (scope === null) return;
-  const effective =
-    deliveryProjects === null
-      ? scope
-      : scope.filter((p) => deliveryProjects.includes(p));
+  const bounds = [
+    ruleProjectScope(sourceRule),
+    deliveryProjects,
+    payloadProjects?.length ? payloadProjects : null,
+  ].filter((b): b is string[] => b !== null);
+  const effective = bounds.length
+    ? bounds.reduce((acc, b) => acc.filter((id) => b.includes(id)))
+    : Array.from(projectsMap.keys());
   const publicIds = toProjectPublicIds(effective, projectsMap);
   if (publicIds.length) {
     rule.metadata = { ...(rule.metadata ?? {}), projects: publicIds };
@@ -1024,10 +1030,11 @@ export function getFeatureDefinition({
               projectsMap,
             );
             if (expMetadata) rule.metadata = expMetadata;
-            applyRuleProjectScopeMetadata(
+            applyRuleProjectMetadata(
               rule,
               r,
               deliveryProjects,
+              payloadProjects,
               metadataOptions,
               projectsMap,
             );
@@ -1126,10 +1133,11 @@ export function getFeatureDefinition({
               projectsMap,
             );
             if (cbMetadata) rule.metadata = cbMetadata;
-            applyRuleProjectScopeMetadata(
+            applyRuleProjectMetadata(
               rule,
               r,
               deliveryProjects,
+              payloadProjects,
               metadataOptions,
               projectsMap,
             );
@@ -1370,10 +1378,11 @@ export function getFeatureDefinition({
             );
         }
         if (metadataOptions) {
-          applyRuleProjectScopeMetadata(
+          applyRuleProjectMetadata(
             rule,
             r,
             deliveryProjects,
+            payloadProjects,
             metadataOptions,
             projectsMap,
           );
