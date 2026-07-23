@@ -27,7 +27,7 @@ function validSession() {
     ingestedAt: new Date("2026-04-29T17:43:01.000Z"),
     durationMs: 60000,
     eventCount: 10,
-    meaningfulEventCount: 3,
+    keyEventCount: 3,
     errorCount: 0,
     urlFirst: "https://example.com",
     urlsVisited: ["https://example.com"],
@@ -266,10 +266,10 @@ describe("sessionReplayValidator", () => {
     expect(result.success).toBe(false);
   });
 
-  it("rejects a negative meaningfulEventCount", () => {
+  it("rejects a negative keyEventCount", () => {
     const result = sessionReplayValidator.safeParse({
       ...validSession(),
-      meaningfulEventCount: -1,
+      keyEventCount: -1,
     });
     expect(result.success).toBe(false);
   });

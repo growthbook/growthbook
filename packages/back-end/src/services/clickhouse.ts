@@ -64,7 +64,7 @@ export type SessionReplayRow = {
   ingested_at: string;
   duration_ms: number;
   event_count: number;
-  meaningful_event_count: number;
+  key_event_count: number;
   error_count: number;
   url_first: string;
   urls_visited: string[];

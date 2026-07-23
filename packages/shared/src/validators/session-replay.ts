@@ -82,7 +82,7 @@ export const sessionReplayValidator = baseSchema.safeExtend({
   // "Worth reviewing" signal: intentional user actions (clicks, inputs, media,
   // drags) classified from rrweb events by the ingestor — as opposed to
   // eventCount, which is the raw rrweb total (mostly mutation/mousemove noise).
-  meaningfulEventCount: z.number().int().nonnegative(),
+  keyEventCount: z.number().int().nonnegative(),
   errorCount: z.number().int().nonnegative(),
   urlFirst: z.string(),
   urlsVisited: z.array(z.string()),

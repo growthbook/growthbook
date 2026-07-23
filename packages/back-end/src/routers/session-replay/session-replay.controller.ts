@@ -23,7 +23,7 @@ type SessionReplayListItem = Pick<
   | "ingestedAt"
   | "durationMs"
   | "eventCount"
-  | "meaningfulEventCount"
+  | "keyEventCount"
   | "errorCount"
   | "urlFirst"
   | "urlsVisited"
@@ -108,7 +108,7 @@ function toListItem(session: SessionReplayInterface): SessionReplayListItem {
     ingestedAt: session.ingestedAt,
     durationMs: session.durationMs,
     eventCount: session.eventCount,
-    meaningfulEventCount: session.meaningfulEventCount,
+    keyEventCount: session.keyEventCount,
     errorCount: session.errorCount,
     urlFirst: session.urlFirst,
     urlsVisited: session.urlsVisited,

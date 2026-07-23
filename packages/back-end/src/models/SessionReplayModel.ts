@@ -163,11 +163,11 @@ export class SessionReplayModel {
 
       const durationMs = Number(row.duration_ms);
       const eventCount = Number(row.event_count);
-      const meaningfulEventCount = Number(row.meaningful_event_count);
+      const keyEventCount = Number(row.key_event_count);
       const errorCount = Number(row.error_count);
       if (durationMs > base.durationMs) base.durationMs = durationMs;
       base.eventCount += eventCount;
-      base.meaningfulEventCount += meaningfulEventCount;
+      base.keyEventCount += keyEventCount;
       base.errorCount += errorCount;
 
       for (const url of row.urls_visited ?? []) {
@@ -216,7 +216,7 @@ export class SessionReplayModel {
       ingestedAt,
       durationMs: Number(row.duration_ms),
       eventCount: Number(row.event_count),
-      meaningfulEventCount: Number(row.meaningful_event_count) || 0,
+      keyEventCount: Number(row.key_event_count) || 0,
       errorCount: Number(row.error_count),
       urlFirst: row.url_first,
       urlsVisited: row.urls_visited ?? [],

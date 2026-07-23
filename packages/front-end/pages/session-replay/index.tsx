@@ -45,7 +45,7 @@ type SessionReplayRow = {
   ingestedAt: string;
   durationMs: number;
   eventCount: number;
-  meaningfulEventCount: number;
+  keyEventCount: number;
   errorCount: number;
   urlFirst: string;
   urlsVisited: string[];
@@ -81,7 +81,7 @@ type SessionMetadata = {
   ingestedAt: string;
   durationMs: number;
   eventCount: number;
-  meaningfulEventCount: number;
+  keyEventCount: number;
   errorCount: number;
   urlFirst: string;
   urlsVisited: string[];
@@ -641,8 +641,7 @@ export default function SessionReplayPage() {
                     </Box>
                     <Flex gap="2" mt="1" align="center" wrap="wrap">
                       <Text color="text-low" size="small">
-                        ⌁ {session.meaningfulEventCount.toLocaleString()} key
-                        events
+                        ⌁ {session.keyEventCount.toLocaleString()} key events
                       </Text>
                       <Text color="text-low" size="small">
                         ⏱ {formatDuration(session.durationMs)}
@@ -777,7 +776,7 @@ export default function SessionReplayPage() {
                   Key events
                 </Text>
                 <Text color="text-low">
-                  {metadata?.meaningfulEventCount?.toLocaleString() ?? "—"}
+                  {metadata?.keyEventCount?.toLocaleString() ?? "—"}
                 </Text>
                 {metadata ? (
                   <Text color="text-low" size="small" ml="1">
