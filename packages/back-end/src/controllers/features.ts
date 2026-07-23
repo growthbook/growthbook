@@ -3500,6 +3500,66 @@ export async function postFeatureExperimentRefRule(
     : forceNewDraft
       ? feature.version
       : (draftVersion ?? feature.version);
+
+  // Reconcile holdout membership between the experiment and the feature/draft,
+  // mirroring postFeatureRule so linking a feature from an experiment obeys the
+  // same invariant. Draft-aware: read the target draft's holdout read-only, so a
+  // rejection here never creates a stray draft.
+  let effectiveHoldout = feature.holdout ?? null;
+  if (targetVersion !== feature.version) {
+    const targetRevision = await getRevision({
+      context,
+      organization: feature.organization,
+      featureId: feature.id,
+      feature,
+      version: targetVersion,
+    });
+    if (targetRevision) effectiveHoldout = targetRevision.holdout ?? null;
+  }
+
+  let holdoutExperimentToLink: ExperimentInterface | null = null;
+  if (effectiveHoldout?.id) {
+    if (experiment.holdoutId && experiment.holdoutId !== effectiveHoldout.id) {
+      const featureHoldout = await context.models.holdout.getById(
+        effectiveHoldout.id,
+      );
+      const expHoldout = await context.models.holdout.getById(
+        experiment.holdoutId,
+      );
+      throw new Error(
+        `Cannot add experiment rule: experiment belongs to holdout "${expHoldout?.name || experiment.holdoutId}" but this feature uses holdout "${featureHoldout?.name || effectiveHoldout.id}".`,
+      );
+    }
+    // A holdout-free experiment joining a holdout feature must be safe to pull
+    // into the holdout; if so it's linked below (mirroring postFeatureRule).
+    // When the experiment is already in this holdout there's nothing to do.
+    if (!experiment.holdoutId) {
+      if (experiment.status !== "draft") {
+        throw new Error(
+          `Cannot add experiment rule: this feature uses a holdout, so the experiment must be in "draft" status (currently "${experiment.status}").`,
+        );
+      }
+      const expHasOtherLinkedChanges =
+        (experiment.linkedFeatures?.some((fid) => fid !== feature.id) ??
+          false) ||
+        experiment.hasURLRedirects ||
+        experiment.hasVisualChangesets;
+      if (expHasOtherLinkedChanges) {
+        throw new Error(
+          `Cannot add experiment rule: this feature uses a holdout, but the experiment already has linked features, URL redirects, or visual changesets. Unlink them first.`,
+        );
+      }
+      holdoutExperimentToLink = experiment;
+    }
+  } else if (experiment.holdoutId) {
+    const expHoldout = await context.models.holdout.getById(
+      experiment.holdoutId,
+    );
+    throw new Error(
+      `Cannot add experiment rule: this experiment belongs to holdout "${expHoldout?.name || experiment.holdoutId}", but this feature is not in a holdout. Add the feature to that holdout first, then add the experiment.`,
+    );
+  }
+
   const revision = await getDraftRevision(context, feature, targetVersion);
 
   // One-way: any rule-footprint env that's currently off flips on. We never
@@ -3630,6 +3690,27 @@ export async function postFeatureExperimentRefRule(
     feature.id,
     experiment,
   );
+
+  // Link the experiment into the feature's holdout when that holdout is already
+  // live. If it exists only in the draft, linking defers to publish via
+  // applyHoldoutSideEffects (the experiment is now in feature.linkedExperiments).
+  if (holdoutExperimentToLink && feature.holdout?.id) {
+    await updateExperiment({
+      context,
+      experiment: holdoutExperimentToLink,
+      changes: { holdoutId: feature.holdout.id },
+    });
+    const holdout = await context.models.holdout.getById(feature.holdout.id);
+    await context.models.holdout.updateById(feature.holdout.id, {
+      linkedExperiments: {
+        ...holdout?.linkedExperiments,
+        [holdoutExperimentToLink.id]: {
+          id: holdoutExperimentToLink.id,
+          dateAdded: new Date(),
+        },
+      },
+    });
+  }
 
   res.status(200).json({
     status: 200,
