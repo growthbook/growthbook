@@ -1,0 +1,41 @@
+<CodeGroup>
+
+```java Java
+TrackingCallback trackingCallback = new TrackingCallback() {
+    @Override
+    public <ValueType> void onTrack(
+        Experiment<ValueType> experiment,
+        ExperimentResult<ValueType> experimentResult
+    ) {
+        // TODO: Something after it's been tracked
+    }
+};
+
+GBContext context = GBContext
+    .builder()
+    .featuresJson(featuresJson)
+    .attributesJson(userAttributesJson)
+    .trackingCallback(trackingCallback)
+    .build();
+```
+
+
+
+```kotlin Kotlin
+val trackingCallback: TrackingCallback = object : TrackingCallback {
+    override fun <ValueType : Any?> onTrack(
+        experiment: Experiment<ValueType>?,
+        experimentResult: ExperimentResult<ValueType>?
+    ) {
+        // TODO: Something after it's been tracked
+    }
+}
+
+val context = GBContext
+    .builder()
+    .featuresJson(featuresJson)
+    .attributesJson(userAttributes)
+    .trackingCallback(trackingCallback)
+    .build()
+```
+</CodeGroup>

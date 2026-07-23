@@ -1,0 +1,1022 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "luma",
+  "name": "GrowthBook Documentation",
+  "colors": {
+    "primary": "#039DD0",
+    "light": "#baa7ff",
+    "dark": "#039DD0"
+  },
+  "favicon": "/static/favicon.png",
+  "logo": {
+    "light": "/static/logo.svg",
+    "dark": "/static/logo.svg",
+    "href": "https://www.growthbook.io/"
+  },
+  "background": {
+    "color": {
+      "dark": "#1B1B1D"
+    }
+  },
+  "contextual": {
+    "options": [
+      "copy",
+      "view",
+      "assistant",
+      "chatgpt",
+      "claude",
+      "perplexity",
+      "grok",
+      "aistudio",
+      "devin",
+      "windsurf",
+      "mcp",
+      "cursor",
+      "vscode",
+      "devin-mcp"
+    ]
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Docs",
+        "groups": [
+          {
+            "group": " ",
+            "pages": [
+              "index",
+              "overview",
+              "quick-start",
+              {
+                "group": "Feature Flags",
+                "root": "app/features",
+                "pages": [
+                  {
+                    "group": "Core Concepts",
+                    "pages": [
+                      "features/basics",
+                      "features/environments"
+                    ]
+                  },
+                  {
+                    "group": "Targeting & Rules",
+                    "pages": [
+                      "features/rules",
+                      "features/targeting",
+                      "features/safe-rollouts",
+                      "features/prerequisites"
+                    ]
+                  },
+                  {
+                    "group": "Governance & Lifecycle",
+                    "pages": [
+                      "features/publishing-and-approval-flows",
+                      "features/saved-group-revisions-api",
+                      "features/json-schema-validation",
+                      "features/stale-detection",
+                      "features/code-references",
+                      "features/diagnostics",
+                      "features/custom-hooks"
+                    ]
+                  }
+                ]
+              },
+              {
+                "group": "Data & Metrics",
+                "pages": [
+                  "app/choose-data-path",
+                  "app/managed-warehouse",
+                  {
+                    "group": "Connecting to Your Data Warehouse",
+                    "root": "warehouses",
+                    "pages": [
+                      "warehouses/athena",
+                      "guide/bigquery",
+                      "warehouses/clickhouse",
+                      "warehouses/databricks",
+                      "warehouses/mixpanel",
+                      "warehouses/ms-sql-or-sql-server",
+                      "warehouses/mysql-or-mariadb",
+                      "warehouses/postgres",
+                      "warehouses/vertica",
+                      "warehouses/prestodb-or-trino",
+                      "warehouses/redshift",
+                      "warehouses/snowflake"
+                    ]
+                  },
+                  {
+                    "group": "Data Source Configuration",
+                    "root": "app/datasources",
+                    "pages": [
+                      "event-trackers/amplitude",
+                      "event-trackers/clevertap",
+                      "event-trackers/firebase",
+                      "event-trackers/freshpaint",
+                      "event-trackers/fullstory",
+                      "guide/GA4-google-analytics",
+                      "event-trackers/heap",
+                      "event-trackers/jitsu",
+                      "event-trackers/keenio",
+                      "guide/matomo",
+                      "guide/mixpanel",
+                      "event-trackers/mparticle",
+                      "guide/rudderstack",
+                      "event-trackers/segment",
+                      "event-trackers/snowplow",
+                      "event-trackers/custom"
+                    ]
+                  },
+                  {
+                    "group": "Metrics and Fact Tables",
+                    "root": "app/metrics",
+                    "pages": [
+                      "app/metrics",
+                      "app/metrics/examples",
+                      "app/metrics/legacy"
+                    ]
+                  },
+                  "app/query-optimization",
+                  "app/sql-templates",
+                  "app/data-pipeline",
+                  "app/event-forwarder",
+                  "official-resources"
+                ]
+              },
+              {
+                "group": "Experimentation",
+                "root": "experiments",
+                "pages": [
+                  "feature-flag-experiments",
+                  {
+                    "group": "Visual Editor",
+                    "tag": "Beta",
+                    "root": "app/visual",
+                    "pages": [
+                      "app/visual/install-and-connect",
+                      "app/visual/ai-mode",
+                      "app/visual/manual-mode",
+                      "app/visual/images",
+                      "app/visual/design-import",
+                      "app/visual/running-on-your-site",
+                      "app/visual/preview-and-qa",
+                      "app/visual/troubleshooting",
+                      "app/visual/legacy"
+                    ]
+                  },
+                  "app/url-redirects",
+                  "app/experiment-configuration",
+                  "running-experiments/experiment-templates",
+                  "app/experiment-results",
+                  "app/experiment-time-series",
+                  "app/experiment-decisions",
+                  "app/making-experiment-changes",
+                  {
+                    "group": "Bandits",
+                    "pages": [
+                      "bandits/overview",
+                      "bandits/config",
+                      "bandits/results"
+                    ]
+                  },
+                  "app/holdouts",
+                  "app/sticky-bucketing",
+                  "experimentation-analysis/cluster-experiments",
+                  "app/dimensions",
+                  "app/pre-launch-checklist",
+                  "app/experiment-dashboards",
+                  "app/importing-experiments",
+                  {
+                    "group": "Statistics",
+                    "pages": [
+                      "statistics/overview",
+                      "statistics/details",
+                      "statistics/quantile",
+                      "statistics/cuped",
+                      "statistics/sequential",
+                      "statistics/multiple-corrections",
+                      "statistics/aggregation",
+                      "statistics/power"
+                    ]
+                  }
+                ]
+              },
+              "insights",
+              {
+                "group": "Product Analytics",
+                "tag": "New",
+                "root": "app/product-analytics",
+                "pages": [
+                  "app/product-analytics/explorer",
+                  "app/product-analytics/dashboards"
+                ]
+              },
+              {
+                "group": "Self-Hosting",
+                "pages": [
+                  "self-host",
+                  "self-host/env",
+                  "self-host/production",
+                  "self-host/kubernetes",
+                  "self-host/cdn",
+                  "self-host/proxy",
+                  "self-host/remote-evaluation",
+                  "self-host/ferretdb",
+                  "self-host/config"
+                ]
+              },
+              "app/api",
+              {
+                "group": "Webhooks",
+                "pages": [
+                  "app/webhooks",
+                  {
+                    "group": "Event Webhooks",
+                    "root": "app/webhooks/event-webhooks",
+                    "pages": [
+                      "app/webhooks/event-webhooks/events"
+                    ]
+                  },
+                  "app/webhooks/sdk-webhooks",
+                  "app/webhooks/global-sdk-webhooks"
+                ]
+              },
+              {
+                "group": "Integrations",
+                "pages": [
+                  {
+                    "group": "AI Agents",
+                    "root": "integrations/ai-agents/index",
+                    "pages": [
+                      "integrations/mcp",
+                      {
+                        "group": "Agent Skills",
+                        "root": "integrations/ai-agents/agent-skills/index",
+                        "pages": [
+                          "integrations/ai-agents/agent-skills/feature-flags",
+                          "integrations/ai-agents/agent-skills/experiments"
+                        ]
+                      }
+                    ]
+                  },
+                  "integrations/vercel",
+                  "integrations/framer",
+                  "integrations/slack",
+                  "integrations/discord",
+                  "integrations/datadog",
+                  "integrations/github-metrics",
+                  "tools/chrome-extension",
+                  "tools/vscode-extension",
+                  "tools/cli",
+                  "integrations/clarity",
+                  "integrations/jira",
+                  "integrations/ai"
+                ]
+              },
+              {
+                "group": "Security",
+                "pages": [
+                  "account/user-permissions",
+                  "sso",
+                  "integrations/scim",
+                  "compliance",
+                  "account/audit-logs"
+                ]
+              },
+              "faq",
+              {
+                "group": "Tutorials",
+                "root": "guide",
+                "pages": [
+                  "guide/migrate-from-statsig",
+                  "guide/sanity",
+                  "guide/strapi",
+                  "guide/contentful",
+                  "guide/deno-hono",
+                  "guide/express-js",
+                  "guide/nextjs-and-vercel-feature-flags",
+                  "guide/nextjs-app-router",
+                  "guide/nextjs-and-growthbook",
+                  "guide/create-react-app-and-growthbook",
+                  "guide/GA4-google-analytics",
+                  "guide/google-tag-manager-and-growthbook",
+                  "integrations/shopify",
+                  "integrations/webflow",
+                  "integrations/wordpress",
+                  "guide/rudderstack-and-nextjs-with-growthbook",
+                  "guide/importing"
+                ]
+              },
+              {
+                "group": "Knowledge Base",
+                "pages": [
+                  {
+                    "group": "Experiments",
+                    "pages": [
+                      "kb/experiments/troubleshooting-experiments",
+                      "kb/experiments/aa-tests",
+                      "kb/experiments/carryover-bias",
+                      "kb/experiments/holdouts"
+                    ]
+                  },
+                  {
+                    "group": "Google Analytics",
+                    "pages": [
+                      "kb/google-analytics/google-big-query-bq-troubleshooting",
+                      "kb/google-analytics/google-analytics-ga4-troubleshooting",
+                      "kb/google-analytics/google-tag-manager-gtm-troubleshooting"
+                    ]
+                  },
+                  {
+                    "group": "Metrics",
+                    "pages": [
+                      "kb/metrics/fact-metric-optimization"
+                    ]
+                  },
+                  "kb/glossary"
+                ]
+              },
+              {
+                "group": "GrowthBook Guide",
+                "root": "using",
+                "pages": [
+                  "using/fundamentals",
+                  "using/experimentation-best-practices",
+                  "using/experimentation-problems",
+                  "using/product-development",
+                  "using/experimenting",
+                  "using/growthbook-best-practices",
+                  "using/security",
+                  "using/programs"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "SDKs",
+        "groups": [
+          {
+            "group": " ",
+            "pages": [
+              "lib/index",
+              "lib/quickstart",
+              {
+                "group": "Client",
+                "pages": [
+                  "lib/script-tag",
+                  "lib/js",
+                  "lib/react",
+                  "lib/vue",
+                  "lib/kotlin",
+                  "lib/flutter",
+                  "lib/swift",
+                  "lib/react-native",
+                  "lib/roku"
+                ]
+              },
+              {
+                "group": "Server",
+                "pages": [
+                  "lib/node",
+                  "lib/nextjs",
+                  "lib/php",
+                  "lib/ruby",
+                  "lib/python",
+                  "lib/java",
+                  "lib/kotlin-jvm",
+                  "lib/csharp",
+                  "lib/go",
+                  "lib/rust",
+                  "lib/elixir"
+                ]
+              },
+              {
+                "group": "Edge",
+                "pages": [
+                  "lib/edge/cloudflare",
+                  "lib/edge/fastly",
+                  "lib/edge/lambda",
+                  "lib/edge/other"
+                ]
+              },
+              "lib/openfeature",
+              "lib/build-your-own"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API",
+        "groups": [
+          {
+            "group": "Introduction",
+            "pages": [
+              "api/introduction"
+            ]
+          },
+          {
+            "group": "Endpoints",
+            "pages": [
+              {
+                "group": "Projects",
+                "pages": [
+                  "api/projects/operation/listProjects",
+                  "api/projects/operation/postProject",
+                  "api/projects/operation/getProject",
+                  "api/projects/operation/putProject",
+                  "api/projects/operation/deleteProject"
+                ]
+              },
+              {
+                "group": "Environments",
+                "pages": [
+                  "api/environments/operation/listEnvironments",
+                  "api/environments/operation/postEnvironment",
+                  "api/environments/operation/putEnvironment",
+                  "api/environments/operation/deleteEnvironment"
+                ]
+              },
+              {
+                "group": "Feature Flags",
+                "pages": [
+                  "api/features-v2/operation/listFeaturesV2",
+                  "api/features-v2/operation/postFeatureV2",
+                  "api/features-v2/operation/getFeatureV2",
+                  "api/features-v2/operation/updateFeatureV2",
+                  "api/features-v2/operation/deleteFeatureV2",
+                  "api/features-v2/operation/toggleFeatureV2",
+                  "api/features-v2/operation/revertFeatureV2",
+                  "api/features-v2/operation/getFeatureKeysV2",
+                  "api/features-v2/operation/getFeatureStaleV2"
+                ]
+              },
+              {
+                "group": "Feature Revisions",
+                "pages": [
+                  "api/feature-revisions-v2/operation/listRevisionsV2",
+                  "api/feature-revisions-v2/operation/getFeatureRevisionsV2",
+                  "api/feature-revisions-v2/operation/postFeatureRevisionV2",
+                  "api/feature-revisions-v2/operation/getFeatureRevisionLatestV2",
+                  "api/feature-revisions-v2/operation/getFeatureRevisionV2",
+                  "api/feature-revisions-v2/operation/getFeatureRevisionDiffV2",
+                  "api/feature-revisions-v2/operation/putFeatureRevisionMetadataV2",
+                  "api/feature-revisions-v2/operation/putFeatureRevisionDefaultValueV2",
+                  "api/feature-revisions-v2/operation/putFeatureRevisionPrerequisitesV2",
+                  "api/feature-revisions-v2/operation/putFeatureRevisionHoldoutV2",
+                  "api/feature-revisions-v2/operation/putFeatureRevisionArchiveV2",
+                  "api/feature-revisions-v2/operation/postFeatureRevisionToggleV2",
+                  "api/feature-revisions-v2/operation/postFeatureRevisionRuleAddV2",
+                  "api/feature-revisions-v2/operation/putFeatureRevisionRuleV2",
+                  "api/feature-revisions-v2/operation/deleteFeatureRevisionRuleV2",
+                  "api/feature-revisions-v2/operation/postFeatureRevisionRulesReorderV2",
+                  "api/feature-revisions-v2/operation/putFeatureRevisionRuleRampScheduleV2",
+                  "api/feature-revisions-v2/operation/deleteFeatureRevisionRuleRampScheduleV2",
+                  "api/feature-revisions-v2/operation/postFeatureRevisionRequestReviewV2",
+                  "api/feature-revisions-v2/operation/postFeatureRevisionSchedulePublishV2",
+                  "api/feature-revisions-v2/operation/postFeatureRevisionSubmitReviewV2",
+                  "api/feature-revisions-v2/operation/postFeatureRevisionRecallReviewV2",
+                  "api/feature-revisions-v2/operation/postFeatureRevisionUndoReviewV2",
+                  "api/feature-revisions-v2/operation/getFeatureRevisionLogV2",
+                  "api/feature-revisions-v2/operation/putFeatureRevisionLogCommentV2",
+                  "api/feature-revisions-v2/operation/deleteFeatureRevisionLogEntryV2",
+                  "api/feature-revisions-v2/operation/getFeatureRevisionMergeStatusV2",
+                  "api/feature-revisions-v2/operation/postFeatureRevisionRebasePreviewV2",
+                  "api/feature-revisions-v2/operation/postFeatureRevisionRebaseV2",
+                  "api/feature-revisions-v2/operation/postFeatureRevisionPublishV2",
+                  "api/feature-revisions-v2/operation/postFeatureRevisionDiscardV2",
+                  "api/feature-revisions-v2/operation/postFeatureRevisionReopenV2",
+                  "api/feature-revisions-v2/operation/postFeatureRevisionRevertV2"
+                ]
+              },
+              {
+                "group": "Feature Flags (legacy)",
+                "pages": [
+                  "api/features/operation/listFeatures",
+                  "api/features/operation/postFeature",
+                  "api/features/operation/getFeature",
+                  "api/features/operation/updateFeature",
+                  "api/features/operation/deleteFeature",
+                  "api/features/operation/toggleFeature",
+                  "api/features/operation/revertFeature",
+                  "api/features/operation/getFeatureKeys",
+                  "api/features/operation/getFeatureStale"
+                ]
+              },
+              {
+                "group": "Feature Revisions (legacy)",
+                "pages": [
+                  "api/feature-revisions/operation/listRevisions",
+                  "api/feature-revisions/operation/getFeatureRevisions",
+                  "api/feature-revisions/operation/postFeatureRevision",
+                  "api/feature-revisions/operation/getFeatureRevisionLatest",
+                  "api/feature-revisions/operation/getFeatureRevision",
+                  "api/feature-revisions/operation/putFeatureRevisionMetadata",
+                  "api/feature-revisions/operation/putFeatureRevisionDefaultValue",
+                  "api/feature-revisions/operation/putFeatureRevisionPrerequisites",
+                  "api/feature-revisions/operation/putFeatureRevisionHoldout",
+                  "api/feature-revisions/operation/putFeatureRevisionArchive",
+                  "api/feature-revisions/operation/postFeatureRevisionToggle",
+                  "api/feature-revisions/operation/postFeatureRevisionRuleAdd",
+                  "api/feature-revisions/operation/putFeatureRevisionRule",
+                  "api/feature-revisions/operation/deleteFeatureRevisionRule",
+                  "api/feature-revisions/operation/postFeatureRevisionRulesReorder",
+                  "api/feature-revisions/operation/putFeatureRevisionRuleRampSchedule",
+                  "api/feature-revisions/operation/deleteFeatureRevisionRuleRampSchedule",
+                  "api/feature-revisions/operation/postFeatureRevisionRequestReview",
+                  "api/feature-revisions/operation/postFeatureRevisionSubmitReview",
+                  "api/feature-revisions/operation/getFeatureRevisionMergeStatus",
+                  "api/feature-revisions/operation/postFeatureRevisionRebase",
+                  "api/feature-revisions/operation/postFeatureRevisionPublish",
+                  "api/feature-revisions/operation/postFeatureRevisionDiscard",
+                  "api/feature-revisions/operation/postFeatureRevisionRevert"
+                ]
+              },
+              {
+                "group": "Ramp Schedules",
+                "pages": [
+                  "api/ramp-schedules/operation/listRampSchedules",
+                  "api/ramp-schedules/operation/postRampSchedule",
+                  "api/ramp-schedules/operation/startRampSchedule",
+                  "api/ramp-schedules/operation/pauseRampSchedule",
+                  "api/ramp-schedules/operation/resumeRampSchedule",
+                  "api/ramp-schedules/operation/rollbackRampSchedule",
+                  "api/ramp-schedules/operation/restartRampSchedule",
+                  "api/ramp-schedules/operation/jumpRampSchedule",
+                  "api/ramp-schedules/operation/completeRampSchedule",
+                  "api/ramp-schedules/operation/approveStepRampSchedule",
+                  "api/ramp-schedules/operation/addTargetRampSchedule",
+                  "api/ramp-schedules/operation/ejectTargetRampSchedule",
+                  "api/ramp-schedules/operation/apiAdvanceRampSchedule",
+                  "api/ramp-schedules/operation/getRampScheduleStatus",
+                  "api/ramp-schedules/operation/setMonitoringModeRampSchedule",
+                  "api/ramp-schedules/operation/setAutoUpdateRampSchedule",
+                  "api/ramp-schedules/operation/updateRampScheduleMonitoring",
+                  "api/ramp-schedules/operation/updateRampScheduleLockdown",
+                  "api/ramp-schedules/operation/updateRampScheduleSteps",
+                  "api/ramp-schedules/operation/refreshMonitoringRampSchedule",
+                  "api/ramp-schedules/operation/getRampSchedule",
+                  "api/ramp-schedules/operation/updateRampSchedule",
+                  "api/ramp-schedules/operation/deleteRampSchedule"
+                ]
+              },
+              {
+                "group": "Data Sources",
+                "pages": [
+                  "api/data-sources/operation/listDataSources",
+                  "api/data-sources/operation/getDataSource",
+                  "api/data-sources/operation/getInformationSchema",
+                  "api/data-sources/operation/getInformationSchemaTable"
+                ]
+              },
+              {
+                "group": "Fact Tables",
+                "pages": [
+                  "api/fact-tables/operation/listFactTables",
+                  "api/fact-tables/operation/postFactTable",
+                  "api/fact-tables/operation/getFactTable",
+                  "api/fact-tables/operation/updateFactTable",
+                  "api/fact-tables/operation/deleteFactTable",
+                  "api/fact-tables/operation/listFactTableFilters",
+                  "api/fact-tables/operation/postFactTableFilter",
+                  "api/fact-tables/operation/getFactTableFilter",
+                  "api/fact-tables/operation/updateFactTableFilter",
+                  "api/fact-tables/operation/deleteFactTableFilter",
+                  "api/fact-tables/operation/getAggregatedFactTables",
+                  "api/fact-tables/operation/refreshAggregatedFactTable",
+                  "api/fact-tables/operation/listAggregatedTableRuns",
+                  "api/fact-tables/operation/getAggregatedTableRun",
+                  "api/fact-tables/operation/postBulkImportFacts"
+                ]
+              },
+              {
+                "group": "Fact Metrics",
+                "pages": [
+                  "api/fact-metrics/operation/listFactMetrics",
+                  "api/fact-metrics/operation/postFactMetric",
+                  "api/fact-metrics/operation/getFactMetric",
+                  "api/fact-metrics/operation/updateFactMetric",
+                  "api/fact-metrics/operation/deleteFactMetric",
+                  "api/fact-metrics/operation/postFactMetricAnalysis"
+                ]
+              },
+              {
+                "group": "Metrics (legacy)",
+                "pages": [
+                  "api/metrics/operation/listMetrics",
+                  "api/metrics/operation/postMetric",
+                  "api/metrics/operation/getMetric",
+                  "api/metrics/operation/putMetric",
+                  "api/metrics/operation/deleteMetric"
+                ]
+              },
+              {
+                "group": "Experiments",
+                "pages": [
+                  "api/experiments/operation/listExperiments",
+                  "api/experiments/operation/postExperiment",
+                  "api/experiments/operation/listExperimentResults",
+                  "api/experiments/operation/getExperiment",
+                  "api/experiments/operation/updateExperiment",
+                  "api/experiments/operation/getExperimentStartChecklist",
+                  "api/experiments/operation/getExperimentResults",
+                  "api/experiments/operation/postExperimentStart",
+                  "api/experiments/operation/postExperimentStartChecklistManualComplete",
+                  "api/experiments/operation/postExperimentStop",
+                  "api/experiments/operation/postExperimentModifyTemporaryRollout",
+                  "api/experiments/operation/postExperimentSnapshot",
+                  "api/experiments/operation/postVariationImageUpload",
+                  "api/experiments/operation/deleteVariationScreenshot",
+                  "api/experiments/operation/getExperimentNames"
+                ]
+              },
+              {
+                "group": "Namespaces",
+                "pages": [
+                  "api/namespaces/operation/listNamespaces",
+                  "api/namespaces/operation/postNamespace",
+                  "api/namespaces/operation/getNamespace",
+                  "api/namespaces/operation/putNamespace",
+                  "api/namespaces/operation/deleteNamespace",
+                  "api/namespaces/operation/getNamespaceMemberships",
+                  "api/namespaces/operation/postNamespaceRotateSeed"
+                ]
+              },
+              {
+                "group": "Experiment Snapshots",
+                "pages": [
+                  "api/snapshots/operation/getExperimentSnapshot"
+                ]
+              },
+              {
+                "group": "Dimensions",
+                "pages": [
+                  "api/dimensions/operation/listDimensions",
+                  "api/dimensions/operation/postDimension",
+                  "api/dimensions/operation/getDimension",
+                  "api/dimensions/operation/updateDimension",
+                  "api/dimensions/operation/deleteDimension"
+                ]
+              },
+              {
+                "group": "Segments",
+                "pages": [
+                  "api/segments/operation/listSegments",
+                  "api/segments/operation/postSegment",
+                  "api/segments/operation/getSegment",
+                  "api/segments/operation/updateSegment",
+                  "api/segments/operation/deleteSegment"
+                ]
+              },
+              {
+                "group": "Experiment Reports",
+                "pages": [
+                  "api/reports/operation/listReports",
+                  "api/reports/operation/postReport",
+                  "api/reports/operation/getReport",
+                  "api/reports/operation/postReportRefresh",
+                  "api/reports/operation/putReportMetadata",
+                  "api/reports/operation/putReportSettings"
+                ]
+              },
+              {
+                "group": "SDK Connections",
+                "pages": [
+                  "api/sdk-connections/operation/listSdkConnections",
+                  "api/sdk-connections/operation/postSdkConnection",
+                  "api/sdk-connections/operation/getSdkConnection",
+                  "api/sdk-connections/operation/putSdkConnection",
+                  "api/sdk-connections/operation/deleteSdkConnection",
+                  "api/sdk-connections/operation/lookupSdkConnectionByKey"
+                ]
+              },
+              {
+                "group": "Visual Changesets",
+                "pages": [
+                  "api/visual-changesets/operation/listVisualChangesets",
+                  "api/visual-changesets/operation/postVisualChangesets",
+                  "api/visual-changesets/operation/getVisualChangeset",
+                  "api/visual-changesets/operation/putVisualChangeset",
+                  "api/visual-changesets/operation/postVisualChange",
+                  "api/visual-changesets/operation/putVisualChange"
+                ]
+              },
+              {
+                "group": "Saved Groups",
+                "pages": [
+                  "api/saved-groups/operation/listSavedGroups",
+                  "api/saved-groups/operation/postSavedGroup",
+                  "api/saved-groups/operation/getSavedGroup",
+                  "api/saved-groups/operation/updateSavedGroup",
+                  "api/saved-groups/operation/deleteSavedGroup",
+                  "api/saved-groups/operation/archiveSavedGroup",
+                  "api/saved-groups/operation/unarchiveSavedGroup"
+                ]
+              },
+              {
+                "group": "Saved Group Revisions",
+                "pages": [
+                  "api/saved-group-revisions/operation/listSavedGroupRevisions",
+                  "api/saved-group-revisions/operation/getSavedGroupRevisions",
+                  "api/saved-group-revisions/operation/postSavedGroupRevision",
+                  "api/saved-group-revisions/operation/getSavedGroupRevisionLatest",
+                  "api/saved-group-revisions/operation/getSavedGroupRevision",
+                  "api/saved-group-revisions/operation/putSavedGroupRevisionMetadata",
+                  "api/saved-group-revisions/operation/putSavedGroupRevisionCondition",
+                  "api/saved-group-revisions/operation/putSavedGroupRevisionValues",
+                  "api/saved-group-revisions/operation/putSavedGroupRevisionArchive",
+                  "api/saved-group-revisions/operation/postSavedGroupRevisionItemsAdd",
+                  "api/saved-group-revisions/operation/postSavedGroupRevisionItemsRemove",
+                  "api/saved-group-revisions/operation/postSavedGroupRevisionRequestReview",
+                  "api/saved-group-revisions/operation/postSavedGroupRevisionSubmitReview",
+                  "api/saved-group-revisions/operation/getSavedGroupRevisionMergeStatus",
+                  "api/saved-group-revisions/operation/postSavedGroupRevisionRebase",
+                  "api/saved-group-revisions/operation/postSavedGroupRevisionPublish",
+                  "api/saved-group-revisions/operation/postSavedGroupRevisionDiscard",
+                  "api/saved-group-revisions/operation/postSavedGroupRevisionRevert"
+                ]
+              },
+              {
+                "group": "Organizations",
+                "pages": [
+                  "api/organizations/operation/listOrganizations",
+                  "api/organizations/operation/postOrganization",
+                  "api/organizations/operation/putOrganization"
+                ]
+              },
+              {
+                "group": "Members",
+                "pages": [
+                  "api/members/operation/listMembers",
+                  "api/members/operation/updateMemberRole",
+                  "api/members/operation/deleteMember"
+                ]
+              },
+              {
+                "group": "Code References",
+                "pages": [
+                  "api/code-references/operation/listCodeRefs",
+                  "api/code-references/operation/postCodeRefs",
+                  "api/code-references/operation/getCodeRefs"
+                ]
+              },
+              {
+                "group": "Archetypes",
+                "pages": [
+                  "api/archetypes/operation/listArchetypes",
+                  "api/archetypes/operation/postArchetype",
+                  "api/archetypes/operation/getArchetype",
+                  "api/archetypes/operation/putArchetype",
+                  "api/archetypes/operation/deleteArchetype"
+                ]
+              },
+              {
+                "group": "Queries",
+                "pages": [
+                  "api/queries/operation/getQuery"
+                ]
+              },
+              {
+                "group": "Settings",
+                "pages": [
+                  "api/settings/operation/getSettings"
+                ]
+              },
+              {
+                "group": "Attributes",
+                "pages": [
+                  "api/attributes/operation/listAttributes",
+                  "api/attributes/operation/postAttribute",
+                  "api/attributes/operation/putAttribute",
+                  "api/attributes/operation/deleteAttribute"
+                ]
+              },
+              {
+                "group": "Usage",
+                "pages": [
+                  "api/usage/operation/getMetricUsage"
+                ]
+              },
+              {
+                "group": "Meta",
+                "pages": [
+                  "api/meta/operation/getVersion"
+                ]
+              },
+              {
+                "group": "Dashboards",
+                "pages": [
+                  "api/Dashboards/operation/getDashboard",
+                  "api/Dashboards/operation/updateDashboard",
+                  "api/Dashboards/operation/deleteDashboard",
+                  "api/Dashboards/operation/listDashboards",
+                  "api/Dashboards/operation/createDashboard",
+                  "api/Dashboards/operation/getDashboardsForExperiment"
+                ]
+              },
+              {
+                "group": "Custom Fields",
+                "pages": [
+                  "api/CustomFields/operation/listCustomFields",
+                  "api/CustomFields/operation/createCustomField",
+                  "api/CustomFields/operation/getCustomField",
+                  "api/CustomFields/operation/updateCustomField",
+                  "api/CustomFields/operation/deleteCustomField"
+                ]
+              },
+              {
+                "group": "Metric Groups",
+                "pages": [
+                  "api/MetricGroups/operation/getMetricGroup",
+                  "api/MetricGroups/operation/updateMetricGroup",
+                  "api/MetricGroups/operation/deleteMetricGroup",
+                  "api/MetricGroups/operation/listMetricGroups",
+                  "api/MetricGroups/operation/createMetricGroup"
+                ]
+              },
+              {
+                "group": "Teams",
+                "pages": [
+                  "api/Teams/operation/getTeam",
+                  "api/Teams/operation/updateTeam",
+                  "api/Teams/operation/deleteTeam",
+                  "api/Teams/operation/listTeams",
+                  "api/Teams/operation/createTeam",
+                  "api/Teams/operation/addTeamMembers",
+                  "api/Teams/operation/removeTeamMember"
+                ]
+              },
+              {
+                "group": "Experiment Templates",
+                "pages": [
+                  "api/ExperimentTemplates/operation/getExperimentTemplate",
+                  "api/ExperimentTemplates/operation/updateExperimentTemplate",
+                  "api/ExperimentTemplates/operation/deleteExperimentTemplate",
+                  "api/ExperimentTemplates/operation/listExperimentTemplates",
+                  "api/ExperimentTemplates/operation/createExperimentTemplate",
+                  "api/ExperimentTemplates/operation/bulkImportExperimentTemplates"
+                ]
+              },
+              {
+                "group": "Analytics Explorations",
+                "pages": [
+                  "api/AnalyticsExplorations/operation/postMetricExploration",
+                  "api/AnalyticsExplorations/operation/postFactTableExploration",
+                  "api/AnalyticsExplorations/operation/postDataSourceExploration"
+                ]
+              },
+              {
+                "group": "Ramp Schedule Templates",
+                "pages": [
+                  "api/RampScheduleTemplates/operation/getRampScheduleTemplate",
+                  "api/RampScheduleTemplates/operation/updateRampScheduleTemplate",
+                  "api/RampScheduleTemplates/operation/deleteRampScheduleTemplate",
+                  "api/RampScheduleTemplates/operation/listRampScheduleTemplates",
+                  "api/RampScheduleTemplates/operation/createRampScheduleTemplate"
+                ]
+              }
+            ]
+          },
+          {
+            "group": "Models",
+            "pages": [
+              "api/AggregatedFactTable_model",
+              "api/AnalyticsExploration_model",
+              "api/Archetype_model",
+              "api/Attribute_model",
+              "api/CodeRef_model",
+              "api/CustomField_model",
+              "api/Dashboard_model",
+              "api/DataSource_model",
+              "api/Dimension_model",
+              "api/Environment_model",
+              "api/EventUser_model",
+              "api/Experiment_model",
+              "api/Experiment Rule_model",
+              "api/ExperimentAnalysisSettings_model",
+              "api/ExperimentDecisionFrameworkSettings_model",
+              "api/ExperimentMetric_model",
+              "api/ExperimentMetricOverrideEntry_model",
+              "api/ExperimentResults_model",
+              "api/ExperimentSnapshot_model",
+              "api/ExperimentTemplate_model",
+              "api/ExperimentWithEnhancedStatus_model",
+              "api/FactMetric_model",
+              "api/FactTable_model",
+              "api/FactTableColumn_model",
+              "api/FactTableFilter_model",
+              "api/FeatureBaseRule_model",
+              "api/FeatureDefinition_model",
+              "api/FeatureEnvironmentV1_model",
+              "api/FeatureEnvironmentV2_model",
+              "api/FeatureExperimentRefRule_model",
+              "api/FeatureExperimentRule_model",
+              "api/FeatureForceRule_model",
+              "api/FeatureRevisionSummary_model",
+              "api/FeatureRevisionV1_model",
+              "api/FeatureRevisionV2_model",
+              "api/FeatureRolloutRule_model",
+              "api/FeatureRuleV1_model",
+              "api/FeatureRuleV2_model",
+              "api/FeatureSafeRolloutRule_model",
+              "api/FeatureV1_model",
+              "api/FeatureV2_model",
+              "api/FeatureWithRevisionsV1_model",
+              "api/FeatureWithRevisionsV2_model",
+              "api/InformationSchema_model",
+              "api/InformationSchemaTable_model",
+              "api/LookbackOverride_model",
+              "api/Member_model",
+              "api/Metric_model",
+              "api/MetricAnalysis_model",
+              "api/MetricGroup_model",
+              "api/MetricUsage_model",
+              "api/Namespace_model",
+              "api/NamespaceExperimentMember_model",
+              "api/Organization_model",
+              "api/PaginationFields_model",
+              "api/Project_model",
+              "api/Query_model",
+              "api/RampSchedule_model",
+              "api/RampScheduleTemplate_model",
+              "api/Report_model",
+              "api/Safe Rollout Rule_model",
+              "api/SavedGroup_model",
+              "api/SavedGroupRevision_model",
+              "api/SavedGroupRevisionActivityLogEntry_model",
+              "api/SavedGroupRevisionReview_model",
+              "api/ScheduleRule_model",
+              "api/SdkConnection_model",
+              "api/Segment_model",
+              "api/Settings_model",
+              "api/Targeting Rule_model",
+              "api/Team_model",
+              "api/VisualChange_model",
+              "api/VisualChangeset_model"
+            ]
+          }
+        ]
+      }
+    ],
+    "global": {
+      "anchors": [
+        {
+          "anchor": "About Us",
+          "icon": "building",
+          "href": "https://www.growthbook.io/about"
+        },
+        {
+          "anchor": "Blog",
+          "icon": "newspaper",
+          "href": "https://blog.growthbook.io/"
+        },
+        {
+          "anchor": "Joins us on Slack",
+          "icon": "slack",
+          "href": "https://slack.growthbook.io/"
+        },
+        {
+          "anchor": "Open an Issue",
+          "icon": "github",
+          "href": "https://github.com/growthbook/growthbook/issues/new/choose"
+        }
+      ]
+    }
+  },
+  "navbar": {
+    "links": [
+      {
+        "label": "Github",
+        "type": "github",
+        "href": "https://github.com/growthbook/growthbook"
+      }
+    ],
+    "primary": {
+      "type": "button",
+      "label": "Log in",
+      "href": "https://app.growthbook.io/"
+    }
+  },
+  "footer": {
+    "socials": {
+      "x": "https://twitter.com/growth_book",
+      "linkedin": "https://www.linkedin.com/company/growthbook/",
+      "slack": "https://slack.growthbook.io/?ref=footer-icon"
+    }
+  },
+  "seo": {
+    "metatags": {
+      "robots": "noindex"
+    }
+  },
+  "redirects": [
+    {
+      "source": "/app/fact-tables",
+      "destination": "/app/metrics"
+    },
+    {
+      "source": "/GrowthBookStatsEngine.pdf",
+      "destination": "/statistics/overview#bayesian-statistics"
+    }
+  ]
+}
