@@ -11,6 +11,7 @@ import {
   namespacesToMap,
   recursiveWalk,
   ruleServedToConnection,
+  ruleProjectScope,
   ruleFootprint,
   stemRuleId,
   getNamespaceRanges,
@@ -115,6 +116,39 @@ export type MetadataOptions = {
   includeTagsInMetadata?: boolean;
 };
 
+function toProjectPublicIds(
+  ids: string[],
+  projectsMap: Map<string, ProjectInterface>,
+): string[] {
+  return ids
+    .map((id) => projectsMap.get(id))
+    .filter((p): p is ProjectInterface => !!p)
+    .map((p) => p.publicId || p.id);
+}
+
+// Emit a rule's own project scope as public ids, scrubbed to the feature's
+// delivery set. An all-projects (or unscoped) rule enumerates nothing — the
+// absence of a projects list means "wherever the feature is delivered".
+function applyRuleProjectScopeMetadata(
+  rule: FeatureDefinitionRule,
+  sourceRule: Parameters<typeof ruleProjectScope>[0],
+  deliveryProjects: string[] | null,
+  opts: MetadataOptions,
+  projectsMap: Map<string, ProjectInterface> | undefined,
+): void {
+  if (!opts.includeProjectIdInMetadata || !projectsMap) return;
+  const scope = ruleProjectScope(sourceRule);
+  if (scope === null) return;
+  const effective =
+    deliveryProjects === null
+      ? scope
+      : scope.filter((p) => deliveryProjects.includes(p));
+  const publicIds = toProjectPublicIds(effective, projectsMap);
+  if (publicIds.length) {
+    rule.metadata = { ...(rule.metadata ?? {}), projects: publicIds };
+  }
+}
+
 export function buildPayloadMetadata<
   T extends FeatureMetadata | ExperimentMetadata,
 >(
@@ -132,13 +166,10 @@ export function buildPayloadMetadata<
 
   if (opts.includeProjectIdInMetadata && projectsMap) {
     // Emit every delivered-to project as a public id (primary + targeting, or all).
-    const publicIds = resolveTargetingProjectIds(
-      entity,
-      Array.from(projectsMap.keys()),
-    )
-      .map((id) => projectsMap.get(id))
-      .filter((p): p is ProjectInterface => !!p)
-      .map((p) => p.publicId || p.id);
+    const publicIds = toProjectPublicIds(
+      resolveTargetingProjectIds(entity, Array.from(projectsMap.keys())),
+      projectsMap,
+    );
     if (publicIds.length) {
       metadata.projects = publicIds;
     }
@@ -757,8 +788,8 @@ export function getFeatureDefinition({
 
   // Drop rules not served to this connection (own scope ∩ feature delivery ∩
   // served). undefined payloadProjects = preview path, keep all rules.
+  const deliveryProjects = getTargetingProjectIds(feature);
   if (payloadProjects !== undefined) {
-    const deliveryProjects = getTargetingProjectIds(feature);
     rules = rules.filter((r) =>
       ruleServedToConnection(r, deliveryProjects, payloadProjects),
     );
@@ -992,6 +1023,13 @@ export function getFeatureDefinition({
               projectsMap,
             );
             if (expMetadata) rule.metadata = expMetadata;
+            applyRuleProjectScopeMetadata(
+              rule,
+              r,
+              deliveryProjects,
+              metadataOptions,
+              projectsMap,
+            );
           }
 
           if (allowedKeys) {
@@ -1087,6 +1125,13 @@ export function getFeatureDefinition({
               projectsMap,
             );
             if (cbMetadata) rule.metadata = cbMetadata;
+            applyRuleProjectScopeMetadata(
+              rule,
+              r,
+              deliveryProjects,
+              metadataOptions,
+              projectsMap,
+            );
           }
 
           if (allowedKeys) {
@@ -1322,6 +1367,15 @@ export function getFeatureDefinition({
               rule.parentConditions,
               replaceSavedGroups(savedGroupsMap, organization!),
             );
+        }
+        if (metadataOptions) {
+          applyRuleProjectScopeMetadata(
+            rule,
+            r,
+            deliveryProjects,
+            metadataOptions,
+            projectsMap,
+          );
         }
         if (allowedKeys) {
           const picked = pick(

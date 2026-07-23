@@ -2905,6 +2905,82 @@ describe("SDK Payloads", () => {
     );
   });
 
+  it("Emits a rule's own project scope into rule metadata when enumerable", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.project = "proj_feature";
+    feature.targetingProjects = ["proj_exp"]; // delivers to both projects
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "force",
+        value: "true",
+        id: "scoped",
+        enabled: true,
+        description: "",
+        projects: ["proj_exp"],
+      },
+      {
+        type: "force",
+        value: "true",
+        id: "unscoped",
+        enabled: true,
+        description: "",
+      },
+      {
+        type: "force",
+        value: "true",
+        id: "allprojects",
+        enabled: true,
+        description: "",
+        allProjects: true,
+      },
+      // Scoped to a project outside the feature's delivery set — scrubbed to nothing.
+      {
+        type: "force",
+        value: "true",
+        id: "dead",
+        enabled: true,
+        description: "",
+        projects: ["proj_other"],
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ] as any;
+
+    const projectsMap = new Map([
+      [
+        "proj_feature",
+        { id: "proj_feature", publicId: "feature-project", name: "F" },
+      ],
+      ["proj_exp", { id: "proj_exp", publicId: "exp-project", name: "E" }],
+      [
+        "proj_other",
+        { id: "proj_other", publicId: "other-project", name: "O" },
+      ],
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ] as any);
+
+    const def = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap: new Map(),
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      includeRuleIds: true,
+      metadataOptions: { includeProjectIdInMetadata: true },
+      projectsMap,
+    });
+
+    const byId = (id: string) => def?.rules?.find((r) => r.id === id);
+
+    // Enumerable scope → the rule's own projects as public ids
+    expect(byId("scoped")?.metadata?.projects).toEqual(["exp-project"]);
+    // Unscoped (all) and explicit all-projects rules emit nothing
+    expect(byId("unscoped")?.metadata).toBeUndefined();
+    expect(byId("allprojects")?.metadata).toBeUndefined();
+    // Scope outside the delivery set is scrubbed to empty → no metadata
+    expect(byId("dead")?.metadata).toBeUndefined();
+  });
+
   it("Gets Feature Definitions", () => {
     const feature = cloneDeep(baseFeature);
 
