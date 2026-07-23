@@ -237,10 +237,7 @@ export default function RuleList(props: RuleListProps) {
   //     unreachable in production but only soft-conflicting in dev shows both,
   //     each naming its environments. Rules with no env footprint never apply
   //     anywhere and are surfaced via the "No environments" badge.
-  // Reachability is computed per (environment × project) cell. The projects
-  // come from the current revision's staged scope (falling back to the live
-  // feature), so a rule scoped to one project stays reachable in the feature's
-  // other projects even when a 100% rule scoped elsewhere sits above it.
+  // Project buckets from the staged revision scope (falling back to the live feature).
   const projectBuckets = useMemo<string[]>(() => {
     const meta = draftRevision?.metadata;
     const deliveryIds = getTargetingProjectIds({
@@ -250,8 +247,7 @@ export default function RuleList(props: RuleListProps) {
         meta?.targetingAllProjects ?? feature.targetingAllProjects,
     });
     if (deliveryIds === null) {
-      // Feature delivers to all projects — can't enumerate. Partition by the
-      // projects any rule scopes to, plus a sentinel bucket for "the rest".
+      // Delivers to all projects (can't enumerate): partition by rule-scoped projects + sentinel.
       const scoped = new Set<string>();
       for (const r of feature.rules ?? []) {
         ruleProjectScope(r)?.forEach((p) => scoped.add(p));
@@ -294,11 +290,8 @@ export default function RuleList(props: RuleListProps) {
     savedGroupConflictMap,
   ]);
 
-  // Per-rule conflict banners. Single-env → env unnamed; all-envs → one banner
-  // per status naming the environments that share it. Multi-project features add
-  // "…for project X" when a status is confined to some of the feature's projects.
-  // The "rule number" maps a consuming rule's id to its 1-based position (offset
-  // by 1 for the holdout row when present).
+  // Per-rule conflict banners. Multi-project features add "…for project X" when a
+  // status is confined to some projects. "rule number" = 1-based position (+1 for holdout).
   const bannersByRule = useMemo<Map<string, ConflictBanner[]>>(() => {
     const flat = feature.rules ?? [];
     const offset = holdout ? 2 : 1;

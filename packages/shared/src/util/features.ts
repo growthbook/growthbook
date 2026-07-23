@@ -2612,9 +2612,7 @@ export type ResetReviewOnChange = {
   defaultValueChanged: boolean;
   settings?: OrganizationSettings;
 };
-// Resolve strict/loose review governance for a single targeting project.
-// Most-specific-wins: a rule naming the project beats an all-projects rule.
-// No matching rule (or no rules configured) defaults to strict.
+// Strict/loose review mode for one targeting project. Most-specific-wins; default strict.
 export function getTargetingReviewMode(
   rules: TargetingReviewRule[] | undefined,
   projectId: string,
@@ -2626,9 +2624,8 @@ export function getTargetingReviewMode(
   return all ? all.mode : "strict";
 }
 
-// Projects whose `requireReviews` rules govern a change to a targeting-scoped
-// entity: the primary (always) plus any targeting project in strict mode. Pass
-// the union of current + staged targeting projects so de-scoping is governed too.
+// Projects whose review rules govern a change: primary + strict-mode targeting
+// projects (pass current+staged union so de-scoping is governed too).
 export function getGoverningReviewProjects(
   primary: string | undefined,
   targetingProjects: string[],
@@ -2695,7 +2692,6 @@ export function featureRequiresReview(
   ) {
     return !!requiresReviewSettings;
   }
-  // OR the primary's review requirement with each strict targeting project's.
   return getGoverningReviewProjects(
     feature.project,
     feature.targetingProjects ?? [],
@@ -3129,10 +3125,8 @@ export function checkIfRevisionNeedsReview({
   // Boolean format: true = all changes require review, false/undefined = none do.
   if (!Array.isArray(requireReviews)) return !!requireReviews;
 
-  // Governing review settings = the primary project (always) plus any secondary
-  // targeting project in strict mode, across the union of current and staged
-  // targeting (so both adding and removing a project is governed). Each project's
-  // matched requireReviews rule is evaluated independently and OR'd together.
+  // Governing settings: primary + strict-mode targeting across the current+staged
+  // union (so adding and removing a project are both governed), each OR'd.
   const stagedTargeting =
     revision.metadata?.targetingProjects ?? feature.targetingProjects ?? [];
   const targetingUnion = Array.from(
@@ -3154,8 +3148,7 @@ export function checkIfRevisionNeedsReview({
     liveRampScheduleEnvs,
   );
 
-  // Change classification is independent of which review rule is evaluated, so
-  // compute it once and reuse across every governing setting.
+  // Classify the change once; it's independent of which review rule is evaluated.
   const metadataOnlyGlobal =
     affected === "all"
       ? revisionHasMetadataOnlyGlobalChange(revision, baseRevision)
@@ -3236,17 +3229,14 @@ export function checkIfRevisionNeedsReview({
   return reviewSettings.some(needsReviewForSetting);
 }
 
-// Any entity that pairs a single governance `project` with a secondary
-// targeting scope (features, constants, configs).
+// Entity pairing a single governance `project` with a secondary targeting scope.
 export type TargetingScopedEntity = {
   project?: string;
   targetingAllProjects?: boolean;
   targetingProjects?: string[];
 };
 
-// The set of project ids an entity targets — the governance project plus
-// its secondary targeting projects, deduped. Returns null when targeted in ALL
-// projects (targetingAllProjects), matching the empty-array "all" convention.
+// Project ids an entity targets (primary + targeting, deduped); null = all projects.
 export function getTargetingProjectIds(
   entity: TargetingScopedEntity,
 ): string[] | null {
@@ -3265,10 +3255,8 @@ export function entityTargetsProject(
   return (entity.targetingProjects ?? []).includes(projectId);
 }
 
-// Concrete, non-empty project ids an entity is delivered to, resolving the
-// "all projects" case (targetingAllProjects) against the org's full project
-// list. Used where a discrete id set is required — e.g. event routing, whose
-// project filter is intersected against the event's projects.
+// Concrete project ids an entity delivers to, resolving "all projects" against
+// the org's full project list. Used where a discrete id set is required.
 export function resolveTargetingProjectIds(
   entity: TargetingScopedEntity,
   allProjectIds: string[],
@@ -3278,8 +3266,7 @@ export function resolveTargetingProjectIds(
   return ids.filter((id) => !!id);
 }
 
-// Write-time normalization: drop blanks, dupes, and the governance project from
-// the targeting list, and clear the list entirely when targeted in all projects.
+// Write-time normalization: drop blanks/dupes/the primary from the list; clear it when targeting all projects.
 export function normalizeTargetingProjects(entity: TargetingScopedEntity): {
   targetingAllProjects: boolean;
   targetingProjects: string[];
@@ -3294,9 +3281,8 @@ export function normalizeTargetingProjects(entity: TargetingScopedEntity): {
   return { targetingAllProjects: false, targetingProjects };
 }
 
-// Normalize any targeting fields present in a partial feature update, in place.
-// Resolves against the update's project when it's changing, else the current
-// entity's, so the primary is correctly stripped from the targeting list.
+// Normalize targeting fields in a partial update in place, resolving the primary
+// against the update's project when changing (else current) so it's stripped correctly.
 export function normalizeTargetingInUpdates(
   updates: TargetingScopedEntity,
   current: TargetingScopedEntity,
@@ -3359,9 +3345,7 @@ export function featureHasEnvironment(
   feature: FeatureInterface,
   environment: Environment,
 ): boolean {
-  // Targeting a feature into additional projects widens its allowed
-  // environments to the union of every project it's delivered to (all
-  // environments when delivered to all projects).
+  // Allowed envs = union across every project the feature delivers to (all when targeting all projects).
   if (feature.targetingAllProjects) return true;
   const featureProjects = [
     feature.project,

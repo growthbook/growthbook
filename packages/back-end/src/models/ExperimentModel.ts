@@ -2047,8 +2047,7 @@ export function getPayloadKeys(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
   linkedFeatures?: FeatureInterface[],
-  // Every org project id — only consulted for linked features that target all
-  // projects, so their project-scoped connection caches invalidate too.
+  // Every org project id — only consulted for linked features that target all projects.
   allProjectIds: string[] = [],
 ): SDKPayloadKey[] {
   // If experiment is not included in the SDK payload

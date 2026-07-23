@@ -121,8 +121,7 @@ export function deriveRevisionEventEnvironments(
   orgEnvs: Environment[],
   overrideEnvironments?: string[],
 ): string[] {
-  // Union of the feature's primary + targeting projects (all envs when it
-  // targets all projects), so events cover envs reachable via targeting too.
+  // Union of primary + targeting projects (all envs when targeting all projects).
   const featureProjects = [
     feature.project,
     ...(feature.targetingProjects ?? []),

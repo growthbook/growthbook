@@ -9,10 +9,8 @@ import Text from "@/ui/Text";
 import MultiSelectField from "@/ui/MultiSelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 
-// Controlled targeting-projects editor shared by features, configs, and
-// constants (create + edit). Collapsed to a "+ Add" link until opted in (or
-// seeded open when a value is already set); then a Specific/All-projects radio
-// where "Specific" reveals a full-width project multiselect.
+// Controlled targeting-projects editor shared by features, configs, and constants.
+// Collapsed to a link until opted in; then a Specific/All-projects radio.
 export type TargetingProjectsFieldProps = {
   // Governance project, excluded from the options.
   primaryProject?: string;
@@ -20,7 +18,7 @@ export type TargetingProjectsFieldProps = {
   setAllProjects: (value: boolean) => void;
   targetingProjects: string[];
   setTargetingProjects: (value: string[]) => void;
-  // Noun used in the help tooltip (e.g. "feature", "config", "constant").
+  // Noun for the help tooltip (e.g. "feature", "config", "constant").
   entityLabel?: string;
 } & MarginProps;
 

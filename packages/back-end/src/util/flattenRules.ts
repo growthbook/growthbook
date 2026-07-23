@@ -92,9 +92,8 @@ export function ensureUniqueRuleIds(
 
 export function getApplicableEnvIds(
   orgEnvs: Environment[],
-  // A single project id (legacy callers) OR a feature's targeting scope. With a
-  // scope, applicability is the union of the primary + targeting projects (every
-  // environment when the feature targets all projects).
+  // A single project id (legacy) or a feature's targeting scope; applicability is
+  // the union of primary + targeting projects (all envs when targeting all projects).
   feature?:
     | string
     | {

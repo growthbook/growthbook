@@ -541,9 +541,8 @@ export async function getAllFeaturesWithoutEditorFields(
   );
 }
 
-// Mongo pre-filter mirroring canReadTargetingScopedResource: match by governance
-// `project`, secondary `targetingProjects`, or the all-projects flag, so
-// targeting-only features survive before the in-memory permission check.
+// Mongo pre-filter mirroring canReadTargetingScopedResource (project,
+// targetingProjects, or all-projects flag), so targeting-only features survive.
 function targetingScopedProjectClause(
   projects: string[],
 ): FilterQuery<FeatureDocument> {
@@ -863,9 +862,7 @@ export const createFeatureEvent = async <
     const safeRolloutMap =
       await eventData.context.models.safeRollout.getAllPayloadSafeRollouts();
 
-    // Full org project list, used to resolve targetingAllProjects into concrete
-    // ids so project-scoped webhooks route by delivery scope, not just the
-    // governance project. Cached on the context.
+    // Resolve targetingAllProjects into concrete ids so webhooks route by delivery scope.
     const allProjectIds = (await eventData.context.getProjects()).map(
       (p) => p.id,
     );
@@ -1565,10 +1562,8 @@ export async function removeProjectFromFeatures(
     });
   });
 
-  // Also drop the deleted project from any RULE-level project scope. A rule
-  // scoped to [deletedProject] becomes scoped to [] (no project) — never "all
-  // projects", because the rule keeps allProjects:false. Rewrites are per-doc
-  // because `rules` is a nested array of Mixed subdocuments.
+  // Also drop the deleted project from any rule-level scope. [deletedProject] → []
+  // (leak-safe: never "all"; allProjects stays false). Per-doc: rules is Mixed.
   const ruleScopeQuery = {
     organization: context.org.id,
     "rules.projects": project,

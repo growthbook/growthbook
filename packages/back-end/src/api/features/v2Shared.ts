@@ -221,10 +221,8 @@ export function resolveScopeFromInput(
   return { allEnvironments: true, environments: undefined };
 }
 
-// Project-scope resolution, mirroring resolveScopeFromInput. Defaults to
-// allProjects:true (all projects) when unspecified. `allProjects:false` keeps
-// an explicit `projects` list (possibly empty = scoped to nothing), so the
-// leak-safe encoding is preserved across REST round-trips.
+// Project-scope resolution mirroring resolveScopeFromInput. Default allProjects:true;
+// allProjects:false keeps an explicit projects list (empty = scoped to nothing, leak-safe).
 export function resolveProjectScopeFromInput(
   allProjects: boolean | undefined,
   projects: string[] | undefined,
@@ -392,8 +390,7 @@ export async function assertValidProjectId(
   }
 }
 
-// Validate that every targeting project id exists (mirrors the primary-project
-// check). Uses the cached `getProjects()`, so the loop is cheap.
+// Validate that every targeting project id exists (mirrors the primary-project check).
 export async function assertValidProjectIds(
   projectIds: string[] | undefined,
   context: ReqContext | ApiReqContext,

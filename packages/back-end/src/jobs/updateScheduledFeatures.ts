@@ -69,8 +69,7 @@ export const updateSingleFeature = async (job: UpdateSingleFeatureJob) => {
 
   const nextScheduledUpdate = getNextScheduledUpdate(feature.rules);
 
-  // Pass all org project ids so a targetingAllProjects feature invalidates every
-  // project-scoped connection cache, not just its enumerated projects.
+  // targetingAllProjects invalidates every project's cache, so pass all org project ids.
   const allProjectIds = (await context.getProjects()).map((p) => p.id);
   const payloadKeys = getSDKPayloadKeysByDiff(
     feature,

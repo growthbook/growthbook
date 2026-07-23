@@ -959,8 +959,7 @@ export class Permissions {
   public canReviewFeatureDrafts = (
     feature: Pick<FeatureInterface, "project" | "targetingProjects">,
   ): boolean => {
-    // Naive union: eligible if you can review the primary OR any project the
-    // feature targets. Stricter, mode-aware eligibility is a follow-up.
+    // Naive union: eligible to review the primary OR any targeting project (mode-aware is a follow-up).
     const projects = Array.from(
       new Set([feature.project ?? "", ...(feature.targetingProjects ?? [])]),
     );
@@ -1633,16 +1632,12 @@ export class Permissions {
     return projects.some((p) => this.hasPermission("readData", p));
   };
 
-  // Targeting-scoped read for entities (features/constants/configs) that pair a
-  // single governance `project` with a secondary targeting scope. Readable if
-  // the user can read the governance project OR any targeting project (or it's
-  // targeted in all projects). Governance/write still keys on `project` alone —
-  // this widens READ/discovery only.
+  // Targeting-scoped READ: readable via the governance project OR any targeting
+  // project (or all). Widens read/discovery only; governance/write keys on `project`.
   public canReadTargetingScopedResource = (
     entity: TargetingScopedEntity,
   ): boolean => {
-    // getTargetingProjectIds returns null for "all projects", which maps to the
-    // empty-array "all" convention canReadMultiProjectResource already handles.
+    // null (all projects) maps to the empty-array "all" convention.
     return this.canReadMultiProjectResource(
       getTargetingProjectIds(entity) ?? [],
     );

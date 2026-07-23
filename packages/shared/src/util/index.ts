@@ -390,14 +390,8 @@ export function getRulesForEnvironment(
   );
 }
 
-// A rule's own project scope: the explicit list, or null when it applies to all
-// projects (allProjects, or the legacy/default absent state). An empty array
-// means "no project" (leak-safe — project-deletion cleanup lands here), NOT all.
-//   allProjects:true          → null (all)
-//   projects:[list]           → list
-//   projects:[]               → [] (no project)
-//   neither (legacy/default)  → null (all)
-//   nullish/non-object        → [] (defensive: nowhere)
+// A rule's own project scope: explicit list, or null = all projects. Empty array
+// means "no project" (leak-safe — never "all"); allProjects/legacy-absent → null.
 export function ruleProjectScope(rule: FeatureRule): string[] | null {
   if (rule == null || typeof rule !== "object") return [];
   if (rule.allProjects) return null;
@@ -405,13 +399,8 @@ export function ruleProjectScope(rule: FeatureRule): string[] | null {
   return Array.isArray(rule.projects) ? rule.projects : [];
 }
 
-// Whether a rule is served into an SDK payload, given the feature's delivery set
-// (primary + targeting projects; null = all projects) and the connection's
-// served projects ([] = all). The rule takes effect only where all three scopes
-// overlap — its own scope, the feature's delivery set, and the served set — so a
-// rule scoped outside the feature's delivery set is scrubbed here at payload
-// generation even though the authoring UI may still show a stale selection. A
-// `null` in any position is treated as the universe of projects.
+// Whether a rule is served into an SDK payload: true only where its own scope,
+// the feature's delivery set (null = all), and the served set ([] = all) overlap.
 export function ruleServedToConnection(
   rule: FeatureRule,
   deliveryProjects: string[] | null,
@@ -423,7 +412,6 @@ export function ruleServedToConnection(
     servedProjects.length ? servedProjects : null,
   ];
   const concrete = scopes.filter((s): s is string[] => s !== null);
-  // Every scope is "all" → the rule is served everywhere.
   if (!concrete.length) return true;
   return (
     concrete.reduce((acc, s) => {

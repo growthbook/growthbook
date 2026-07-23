@@ -5,16 +5,11 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Text from "@/ui/Text";
 
-// Compact display of a project-scoped rule's projects. Only rendered for a
-// scoped rule (allProjects === false). Mirrors RuleEnvScopeBadges' no-effect
-// handling: projects outside the feature's delivery set render struck-through
-// (the rule is scrubbed there at payload generation), and a rule with no
-// reachable projects surfaces an amber "will not apply anywhere" warning — the
-// project analog of the "No environments" badge.
+// Compact display of a project-scoped rule's projects (mirrors RuleEnvScopeBadges):
+// out-of-delivery projects render struck-through, none-reachable shows an amber warning.
 type Props = {
   projectIds: string[];
-  // The feature's delivery set (primary + targeting projects). null = the
-  // feature delivers to all projects, so nothing is out of scope.
+  // Feature delivery set (primary + targeting); null = all projects, nothing out of scope.
   deliveryProjectIds: string[] | null;
 } & MarginProps;
 
@@ -36,8 +31,7 @@ export default function RuleProjectScopeBadges({
   const unavailable =
     deliverySet === null ? [] : projectIds.filter((p) => !deliverySet.has(p));
 
-  // Applies nowhere: no projects, or every scoped project is outside the
-  // feature's delivery set.
+  // Applies nowhere: no projects, or all outside the delivery set.
   if (reachable.length === 0) {
     return (
       <Tooltip

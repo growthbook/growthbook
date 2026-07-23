@@ -131,10 +131,7 @@ export function buildPayloadMetadata<
   const metadata: T = {} as T;
 
   if (opts.includeProjectIdInMetadata && projectsMap) {
-    // Emit every project the entity is delivered to — governance project plus
-    // targeting projects, or all projects when targeted everywhere — as public
-    // ids. Entities without targeting (e.g. experiments) resolve to just their
-    // single project, preserving the prior single-id shape.
+    // Emit every delivered-to project as a public id (primary + targeting, or all).
     const publicIds = resolveTargetingProjectIds(
       entity,
       Array.from(projectsMap.keys()),
@@ -370,8 +367,7 @@ export function getSDKPayloadKeysByDiff(
     "archived",
     "defaultValue",
     "project",
-    // A targeting change alters which connections include the feature across
-    // every environment, so treat it like a project change for invalidation.
+    // Targeting changes affect connection membership like a project change.
     "targetingAllProjects",
     "targetingProjects",
     "valueType",
@@ -455,8 +451,7 @@ export function getSDKPayloadKeysByDiff(
     ...(originalFeature.targetingProjects ?? []),
     ...(updatedFeature.targetingProjects ?? []),
   ]);
-  // targetingAllProjects delivers everywhere, so a change must invalidate every
-  // project's payload cache — not just the enumerated ones.
+  // targetingAllProjects delivers everywhere → invalidate every project's cache.
   if (
     originalFeature.targetingAllProjects ||
     updatedFeature.targetingAllProjects
@@ -620,9 +615,8 @@ export function getFeatureDefinition({
   >;
   metadataOptions?: MetadataOptions;
   projectsMap?: Map<string, ProjectInterface>;
-  // The projects this payload serves (a connection's project scope). When set
-  // and non-empty, rules whose project scope excludes all of them are dropped.
-  // Empty/undefined = unscoped (all projects) → no rule-level project filter.
+  // Projects this payload serves (a connection's scope). undefined = preview path
+  // (keep all rules); otherwise rules outside the served scope are dropped.
   payloadProjects?: string[];
   cbMap?: Map<string, ContextualBanditInterface>;
   rampMonitoredRuleMap?: Map<string, RampMonitoredRuleInfo>;
@@ -761,11 +755,8 @@ export function getFeatureDefinition({
     );
   }
 
-  // Rule-level project scoping: a rule is served only where its own scope, the
-  // feature's delivery set (primary + targeting), and the connection's served
-  // projects overlap — so a rule scoped outside the feature's delivery set is
-  // scrubbed here, not just relative to the served set. Preview paths (undefined
-  // payloadProjects) keep all rules; an all-projects connection is `[]`.
+  // Drop rules not served to this connection (own scope ∩ feature delivery ∩
+  // served). undefined payloadProjects = preview path, keep all rules.
   if (payloadProjects !== undefined) {
     const deliveryProjects = getTargetingProjectIds(feature);
     rules = rules.filter((r) =>

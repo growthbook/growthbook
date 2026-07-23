@@ -10,21 +10,15 @@ import MultiSelectField from "@/ui/MultiSelectField";
 import Callout from "@/ui/Callout";
 import Tooltip from "@/components/Tooltip/Tooltip";
 
-// Rule-level project scope editor. Sits under the environment scope widget in
-// every rule-type modal, opt-in like the feature-level targeting widget: a rule
-// applies to all of the feature's projects by default, collapsed to a "+ Project
-// scope" link until opted in (or seeded open when already scoped). "Specific
-// projects" reveals a multiselect; an empty selection scopes the rule to no
-// project (never "all") — matching the leak-safe backend encoding.
+// Rule-level project scope editor, opt-in like the feature-level targeting widget.
+// Empty "Specific projects" selection = no project, never "all" (leak-safe).
 export type ProjectScopeProps = {
   allProjects: boolean;
   setAllProjects: (v: boolean) => void;
   selectedProjects: string[];
   setSelectedProjects: (v: string[]) => void;
-  // The feature's delivery set (primary + targeting projects). `null` means the
-  // feature delivers to all projects, so every project is selectable. Scoping is
-  // limited to this set, but already-selected ids outside it are kept so a stale
-  // selection isn't silently orphaned — the payload scrubs it at generation.
+  // Feature delivery set (primary + targeting); null = all projects selectable.
+  // Selection limited to this set, but stale out-of-set ids are kept (payload scrubs them).
   allowedProjectIds?: string[] | null;
 } & MarginProps;
 
@@ -39,10 +33,7 @@ export default function RuleProjectScopeField({
   const { projects } = useDefinitions();
   const [enabled, setEnabled] = useState<boolean>(() => !allProjects);
 
-  // Scoping a rule only makes sense when the feature can reach more than one
-  // project (allowedProjectIds null = all projects). Otherwise hide the control
-  // entirely — unless a scope is already set (grandfathered), so existing
-  // config is never silently hidden.
+  // Only useful when the feature reaches >1 project; hide unless a scope is already set.
   const hasMultipleProjects =
     allowedProjectIds == null || allowedProjectIds.length > 1;
   const hasExistingScope = !allProjects || selectedProjects.length > 0;

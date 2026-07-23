@@ -1300,9 +1300,8 @@ export type ScopeCell = {
   reach: RuleReachability;
 };
 
-// Sentinel bucket for "any project the feature reaches that no rule specifically
-// scopes to" — used when the feature targets all projects and we can't enumerate
-// them. Unscoped rules occupy it; project-scoped rules do not. Never displayed.
+// Sentinel bucket for feature-reached projects no rule specifically scopes to
+// (used when targeting all projects). Unscoped rules occupy it; never displayed.
 export const OTHER_PROJECT_BUCKET = " other";
 
 function ruleInProjectBucket(rule: FeatureRule, project: string): boolean {
@@ -1310,14 +1309,9 @@ function ruleInProjectBucket(rule: FeatureRule, project: string): boolean {
   return scope === null || scope.includes(project);
 }
 
-// Per-rule reachability across the (environment × project) cells a feature
-// delivers to. Env applicability is pre-resolved in `rulesByEnv` (honoring
-// inheritance); project partitioning happens here — a rule whose project scope
-// excludes a bucket is dropped from that cell, so it can neither be shadowed
-// there nor shadow the rules below it. This is what lets a rule scoped to one
-// project stay reachable in the feature's other projects even when a 100% rule
-// scoped elsewhere sits above it. A rule that applies to no bucket (scoped to no
-// project) simply produces no cells and is surfaced separately.
+// Per-rule reachability across (environment × project) cells. Partitioning by
+// project drops a rule from cells it doesn't scope to, so it can't shadow or be
+// shadowed across projects; a rule scoped to no project produces no cells.
 export function getReachabilityCells(
   rulesByEnv: { env: string; rules: FeatureRule[] }[],
   projectBuckets: string[],
@@ -1410,9 +1404,7 @@ export type ConflictBanner = {
   conflicts: RuleConflictInfo;
   environments: string[];
   allEnvironments: boolean;
-  // Project display names this status applies to, when it's a strict subset of
-  // the feature's delivery projects (the nuanced "…for project X" case). Empty
-  // for single-project features or when the status spans every project.
+  // Project names this status is confined to (strict subset of delivery projects); empty otherwise.
   projects: string[];
   allProjects: boolean;
 };
@@ -1423,9 +1415,7 @@ export type ConflictBanner = {
 // no banner. When `nameEnvironments` is false (single-env view) env names are
 // omitted. Pass environments in the order they should be displayed.
 export function buildConflictBanners(
-  // A scope is one (environment × project) cell. `project` is optional so
-  // single-project callers (and older tests) can pass `{ env, reach }` and get
-  // the original env-only behavior.
+  // One (environment × project) cell; `project` optional for env-only callers.
   perScope: { env: string; project?: string; reach: RuleReachability }[],
   ruleNumber: (consumingRuleId: string) => number | undefined,
   nameEnvironments: boolean,
@@ -1443,9 +1433,7 @@ export function buildConflictBanners(
     if (level === "clean") continue;
     pushToBucket(cellsByLevel, level, cell);
   }
-  // Distinct env / project footprint across every cell (clean or not), so a
-  // status that covers the whole footprint reads "in all environments" / spans
-  // "all projects" rather than listing them.
+  // Distinct env/project footprint across all cells, so a full-footprint status reads "all" not a list.
   const envFootprint = new Set(perScope.map((c) => c.env));
   const projectFootprint = new Set(
     perScope
@@ -1455,11 +1443,8 @@ export function buildConflictBanners(
       ),
   );
 
-  // "Unreachable" (the orange, serves-nobody status) is reserved for a rule that
-  // is unreachable in EVERY cell it occupies. If it's reachable in any cell —
-  // another project or environment — the unreachable cells are a partial "will
-  // not reach … for project X" conflict (amber), not a total kill. This keeps
-  // the pill from overselling when a rule still serves some scope.
+  // "Unreachable" is reserved for a rule unreachable in EVERY cell it occupies;
+  // if reachable anywhere, its unreachable cells are a partial conflict, not a kill.
   const fullyUnreachable =
     perScope.length > 0 && perScope.every((c) => c.reach.unreachable);
 
@@ -1487,8 +1472,7 @@ export function buildConflictBanners(
         nameEnvironments &&
         envFootprint.size > 1 &&
         envs.length === envFootprint.size,
-      // Name the projects only when it's a strict subset of the feature's
-      // delivery projects — that's the "…cannot be reached for project X" case.
+      // Name projects only for a strict subset of the feature's delivery projects.
       projects:
         multiProject && realProjects.length < projectFootprint.size
           ? realProjects.map(projectLabel)
