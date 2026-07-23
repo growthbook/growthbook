@@ -301,6 +301,17 @@ tags:
       retypes fields descendants still use soft-blocks with a 422 unless the
       request body sets `ignoreWarnings: true`. Pass `version: "new"` on edit
       endpoints to auto-create a draft.
+  - name: releases
+    x-displayName: Releases
+    description: >-
+      **Beta** — these endpoints are new and may change in
+      backwards-incompatible ways.
+
+
+      Coordinated multi-entity publishing: publish a set of revisions across
+      Feature Flags, Saved Groups, configs, and constants as one all-or-nothing
+      operation, validated against the combined end-state instead of each
+      in-between state. Requires the `releases` commercial feature.
   - name: custom-hooks
     x-displayName: Custom Hooks
     description: >-
@@ -410,6 +421,9 @@ tags:
     description: >-
       <SchemaDefinition
       schemaRef="#/components/schemas/ConfigRevisionActivityLogEntry" />
+  - name: ConfigRevisionRef_model
+    x-displayName: Config Revision Ref
+    description: <SchemaDefinition schemaRef="#/components/schemas/ConfigRevisionRef" />
   - name: ConfigRevisionReview_model
     x-displayName: Config Revision Review
     description: <SchemaDefinition schemaRef="#/components/schemas/ConfigRevisionReview" />
@@ -439,6 +453,9 @@ tags:
     description: >-
       <SchemaDefinition
       schemaRef="#/components/schemas/ConstantRevisionActivityLogEntry" />
+  - name: ConstantRevisionRef_model
+    x-displayName: Constant Revision Ref
+    description: <SchemaDefinition schemaRef="#/components/schemas/ConstantRevisionRef" />
   - name: ConstantRevisionReview_model
     x-displayName: Constant Revision Review
     description: >-
@@ -553,6 +570,9 @@ tags:
   - name: FeatureForceRule_model
     x-displayName: Feature Force Rule
     description: <SchemaDefinition schemaRef="#/components/schemas/FeatureForceRule" />
+  - name: FeatureRevisionRef_model
+    x-displayName: Feature Revision Ref
+    description: <SchemaDefinition schemaRef="#/components/schemas/FeatureRevisionRef" />
   - name: FeatureRevisionSummary_model
     x-displayName: Feature Revision Summary
     description: >-
@@ -649,6 +669,9 @@ tags:
   - name: Report_model
     x-displayName: Report
     description: <SchemaDefinition schemaRef="#/components/schemas/Report" />
+  - name: RevisionIdRef_model
+    x-displayName: Revision Id Ref
+    description: <SchemaDefinition schemaRef="#/components/schemas/RevisionIdRef" />
   - name: Safe Rollout Rule_model
     x-displayName: Safe Rollout Rule
     description: <SchemaDefinition schemaRef="#/components/schemas/Safe Rollout Rule" />
@@ -666,6 +689,11 @@ tags:
     description: >-
       <SchemaDefinition
       schemaRef="#/components/schemas/SavedGroupRevisionActivityLogEntry" />
+  - name: SavedGroupRevisionRef_model
+    x-displayName: Saved Group Revision Ref
+    description: >-
+      <SchemaDefinition schemaRef="#/components/schemas/SavedGroupRevisionRef"
+      />
   - name: SavedGroupRevisionReview_model
     x-displayName: Saved Group Revision Review
     description: >-
@@ -6298,10 +6326,6 @@ paths:
               properties:
                 comment:
                   type: string
-                mergeNow:
-                  description: 'Deprecated — pass `ignoreWarnings: true` instead.'
-                  deprecated: true
-                  type: boolean
                 bypassApproval:
                   description: >-
                     Has no effect and is accepted only for backwards
@@ -12199,10 +12223,6 @@ paths:
               properties:
                 comment:
                   type: string
-                mergeNow:
-                  description: 'Deprecated — pass `ignoreWarnings: true` instead.'
-                  deprecated: true
-                  type: boolean
                 bypassApproval:
                   description: >-
                     Has no effect and is accepted only for backwards
@@ -19479,10 +19499,6 @@ paths:
             schema:
               type: object
               properties:
-                mergeNow:
-                  description: 'Deprecated — pass `ignoreWarnings: true` instead.'
-                  deprecated: true
-                  type: boolean
                 bypassApproval:
                   description: >-
                     Has no effect and is accepted only for backwards
@@ -24013,6 +24029,160 @@ paths:
             'https://api.growthbook.io/api/v1/configs-revisions/{key}/{version}/revert'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/releases/publish-revisions:
+    post:
+      operationId: postReleasePublishRevisions
+      summary: Atomically publish revisions across multiple entities
+      description: >-
+        Publishes a set of revisions — at most one per entity — across Feature
+        Flags, Saved Groups, configs, and constants as a single all-or-nothing
+        operation.
+
+
+        Validation, guards, and custom hooks run against the combined end-state
+        of the whole set, so interdependent changes (e.g. a config schema change
+        plus the values that depend on it) publish together even when the
+        in-between states would be invalid.
+
+
+        A blocked publish returns one 422 listing every gate across every item
+        and the flag that clears each. A concurrent change to any target aborts
+        with a 409 and nothing publishes. A failure after the commit starts
+        rolls everything back and emits `revision.publishFailed` for each
+        revision in the set. SDK payloads refresh once per request. Pass
+        `dryRun: true` for the full gate report with zero writes.
+
+
+        Requires the `releases` commercial feature.
+      tags:
+        - releases
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                revisions:
+                  description: The revisions to publish, at most one per entity.
+                  minItems: 1
+                  maxItems: 50
+                  type: array
+                  items:
+                    anyOf:
+                      - $ref: '#/components/schemas/FeatureRevisionRef'
+                      - $ref: '#/components/schemas/SavedGroupRevisionRef'
+                      - $ref: '#/components/schemas/ConfigRevisionRef'
+                      - $ref: '#/components/schemas/ConstantRevisionRef'
+                      - $ref: '#/components/schemas/RevisionIdRef'
+                dryRun:
+                  description: Report every gate and outcome without writing anything.
+                  type: boolean
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge warning-class gates: experiment guards,
+                    schema-break and archive warnings, stale-base force-merge
+                    (needs the bypass-approval permission).
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Force past schema and invariant failures. Only honored with
+                    the `bypassApprovalChecks` permission; validation still runs
+                    and is reported.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past custom validation-hook rejections. Only honored
+                    with the `bypassApprovalChecks` permission.
+                  type: boolean
+                comment:
+                  description: >-
+                    An optional publish comment recorded on every revision in
+                    this release — it appears in each entity's revision history
+                    and is passed to any custom validation hooks that run for
+                    the publish.
+                  type: string
+              required:
+                - revisions
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  dryRun:
+                    type: boolean
+                  bulkPublishId:
+                    description: >-
+                      Correlation token (`pub_…`) stamped on every event this
+                      publish emitted. Absent on dry runs.
+                    type: string
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/results'
+                  gates:
+                    description: >-
+                      Dry runs report every gate, cleared and blocking. Real
+                      publishes return an empty list — blocking gates fail with
+                      a 422 instead.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/gates'
+                  bypassedGates:
+                    description: >-
+                      Gates bypassed by the caller's flags or authority — what
+                      this publish overrode.
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        entityType:
+                          type: string
+                          enum:
+                            - feature
+                            - saved-group
+                            - config
+                            - constant
+                        id:
+                          type: string
+                        version:
+                          type: integer
+                        type:
+                          type: string
+                        via:
+                          description: >-
+                            What bypassed the gate: an override flag, the
+                            bypass-approval permission, or the REST-bypass org
+                            setting.
+                          type: string
+                      required:
+                        - entityType
+                        - id
+                        - version
+                        - type
+                        - via
+                      additionalProperties: false
+                  warnings:
+                    type: array
+                    items:
+                      type: string
+                required:
+                  - dryRun
+                  - results
+                  - gates
+                  - bypassedGates
+                  - warnings
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/releases/publish-revisions' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/custom-hooks:
     get:
       operationId: listCustomHooks
@@ -24704,6 +24874,15 @@ paths:
                 eventName:
                   description: The event name used in SQL template variables
                   type: string
+                columns:
+                  description: >-
+                    Optional array of column definitions to store for this fact
+                    table. Supplied columns are stored as-is. Omit `datatype`
+                    (or send "") on a column to have it auto-detected from the
+                    SQL.
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/FactTableColumnInput'
                 managedBy:
                   description: Set this to "api" to disable editing in the GrowthBook UI
                   type: string
@@ -24850,15 +25029,16 @@ paths:
                   type: string
                 columns:
                   description: >-
-                    Optional array of columns that you want to update. Only
-                    allows updating properties of existing columns. Cannot
-                    create new columns or delete existing ones. Columns cannot
-                    be added or deleted; column structure is determined by SQL
-                    parsing. Slice-related properties require an enterprise
-                    license.
+                    Optional array of columns to upsert by `column`: existing
+                    columns are patched, new columns are created, and columns
+                    not included are left unchanged. Omit `datatype` to leave an
+                    existing column's type untouched; send "" to reset it for
+                    auto-detection; new columns are auto-detected when
+                    `datatype` is omitted or "". Slice-related properties
+                    require an enterprise license.
                   type: array
                   items:
-                    $ref: '#/components/schemas/FactTableColumn'
+                    $ref: '#/components/schemas/FactTableColumnInput'
                 columnsError:
                   description: Error message if there was an issue parsing the SQL schema
                   anyOf:
@@ -26553,6 +26733,23 @@ paths:
                           eventName:
                             description: The event name used in SQL template variables
                             type: string
+                          columns:
+                            description: >-
+                              Optional array of column definitions for this fact
+                              table. On create, columns are stored as-is. On
+                              update, columns upsert by `column`: existing
+                              columns are patched, new columns are created, and
+                              columns not included are left unchanged. Omit
+                              `datatype` to leave an existing column's type
+                              untouched; send "" to reset it for auto-detection;
+                              new columns are auto-detected when `datatype` is
+                              omitted or "". Datatype-dependent properties (e.g.
+                              `alwaysInlineFilter`) are validated once the
+                              datatype is known. Slice-related properties
+                              require an enterprise license.
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/FactTableColumnInput'
                           managedBy:
                             description: >-
                               Set this to "api" to disable editing in the
@@ -46300,6 +46497,9 @@ components:
         revision:
           type: object
           properties:
+            id:
+              description: Stable id of the feature's live revision.
+              type: string
             version:
               type: integer
             comment:
@@ -47157,6 +47357,12 @@ components:
     FeatureRevisionV1:
       type: object
       properties:
+        id:
+          description: >-
+            Stable revision id. Newer revisions carry opaque ids; older ones a
+            derived `frev_<version>_<featureId>` form. Both work wherever
+            revision ids are accepted.
+          type: string
         featureId:
           description: The feature this revision belongs to
           type: string
@@ -48162,6 +48368,7 @@ components:
                   - ruleId
                 additionalProperties: false
       required:
+        - id
         - featureId
         - baseVersion
         - version
@@ -48516,6 +48723,9 @@ components:
     FeatureRevisionSummary:
       type: object
       properties:
+        id:
+          description: Stable id of the feature's live revision.
+          type: string
         version:
           type: integer
         comment:
@@ -48564,6 +48774,12 @@ components:
     FeatureRevisionV2:
       type: object
       properties:
+        id:
+          description: >-
+            Stable revision id. Newer revisions carry opaque ids; older ones a
+            derived `frev_<version>_<featureId>` form. Both work wherever
+            revision ids are accepted.
+          type: string
         featureId:
           description: The feature this revision belongs to
           type: string
@@ -49644,6 +49860,7 @@ components:
               - timestamp
             additionalProperties: false
       required:
+        - id
         - featureId
         - baseVersion
         - version
@@ -53425,6 +53642,93 @@ components:
         - action
         - dateCreated
       additionalProperties: false
+    FeatureRevisionRef:
+      type: object
+      properties:
+        entityType:
+          type: string
+          const: feature
+        id:
+          description: Feature Flag id.
+          type: string
+        version:
+          description: Revision version to publish.
+          type: integer
+      required:
+        - entityType
+        - id
+        - version
+      additionalProperties: false
+    SavedGroupRevisionRef:
+      type: object
+      properties:
+        entityType:
+          type: string
+          const: saved-group
+        id:
+          description: Saved Group id.
+          type: string
+        version:
+          description: Revision version to publish.
+          type: integer
+      required:
+        - entityType
+        - id
+        - version
+      additionalProperties: false
+    ConfigRevisionRef:
+      type: object
+      properties:
+        entityType:
+          type: string
+          const: config
+        key:
+          description: Config key.
+          type: string
+        version:
+          description: Revision version to publish.
+          type: integer
+      required:
+        - entityType
+        - key
+        - version
+      additionalProperties: false
+    ConstantRevisionRef:
+      type: object
+      properties:
+        entityType:
+          type: string
+          const: constant
+        key:
+          description: Constant key.
+          type: string
+        version:
+          description: Revision version to publish.
+          type: integer
+      required:
+        - entityType
+        - key
+        - version
+      additionalProperties: false
+    RevisionIdRef:
+      type: object
+      properties:
+        entityType:
+          type: string
+          enum:
+            - feature
+            - saved-group
+            - config
+            - constant
+        revisionId:
+          description: >-
+            A revision id from this API or the revision webhooks (`rev_…` /
+            `frev_…`). Alternative to identifier + version.
+          type: string
+      required:
+        - entityType
+        - revisionId
+      additionalProperties: false
     CustomHook:
       type: object
       properties:
@@ -53724,6 +54028,101 @@ components:
       required:
         - column
         - datatype
+      additionalProperties: false
+    FactTableColumnInput:
+      type: object
+      properties:
+        column:
+          description: The actual column name in the database/SQL query
+          type: string
+        datatype:
+          description: >-
+            The column's data type. Omit (or send "") to have it auto-detected
+            from the SQL.
+          type: string
+          enum:
+            - number
+            - string
+            - date
+            - boolean
+            - json
+            - binary
+            - other
+            - ''
+        numberFormat:
+          type: string
+          enum:
+            - ''
+            - currency
+            - time:seconds
+            - memory:bytes
+            - memory:kilobytes
+        jsonFields:
+          description: For JSON columns, defines the structure of nested fields
+          type: object
+          propertyNames:
+            type: string
+          additionalProperties:
+            type: object
+            properties:
+              datatype:
+                type: string
+                enum:
+                  - number
+                  - string
+                  - date
+                  - boolean
+                  - json
+                  - binary
+                  - other
+                  - ''
+            additionalProperties: false
+        name:
+          description: >-
+            Display name for the column (can be different from the actual column
+            name)
+          type: string
+        description:
+          type: string
+          maxLength: 10000
+        alwaysInlineFilter:
+          default: false
+          description: >-
+            Whether this column should always be included as an inline filter in
+            queries
+          type: boolean
+        deleted:
+          default: false
+          type: boolean
+        isAutoSliceColumn:
+          default: false
+          description: >-
+            Whether this column can be used for auto slice analysis. This is an
+            enterprise feature.
+          type: boolean
+        autoSlices:
+          description: Specific slices to automatically analyze for this column.
+          type: array
+          items:
+            type: string
+        lockedAutoSlices:
+          description: >-
+            Locked slices that are protected from automatic updates. These will
+            always be included in the slice levels even if they're not in the
+            top values query results.
+          type: array
+          items:
+            type: string
+        dateCreated:
+          readOnly: true
+          format: date-time
+          type: string
+        dateUpdated:
+          readOnly: true
+          format: date-time
+          type: string
+      required:
+        - column
       additionalProperties: false
     FactTableFilter:
       type: object
@@ -63203,6 +63602,100 @@ components:
         - ownedBy
         - identical
       additionalProperties: false
+    results:
+      type: object
+      properties:
+        entityType:
+          type: string
+          enum:
+            - feature
+            - saved-group
+            - config
+            - constant
+        id:
+          description: The identifier used in the request.
+          type: string
+        version:
+          type: integer
+        revisionId:
+          description: The revision's id (`rev_…` or `frev_…`).
+          type: string
+        status:
+          type: string
+          enum:
+            - published
+            - would-publish
+      required:
+        - entityType
+        - id
+        - version
+        - revisionId
+        - status
+      additionalProperties: false
+    gates:
+      type: object
+      properties:
+        entityType:
+          type: string
+          enum:
+            - feature
+            - saved-group
+            - config
+            - constant
+        id:
+          description: The identifier used in the request.
+          type: string
+        version:
+          type: integer
+        type:
+          description: Gate kind, e.g. "approval-required".
+          type: string
+        severity:
+          type: string
+          enum:
+            - blocker
+            - warning
+        messages:
+          type: array
+          items:
+            type: string
+        override:
+          description: Request flag that clears this gate on retry, if any.
+          anyOf:
+            - type: string
+            - type: 'null'
+        requiresPermission:
+          anyOf:
+            - type: string
+            - type: 'null'
+        resolution:
+          description: A route that resolves the gate without an override flag.
+          anyOf:
+            - type: object
+              properties:
+                action:
+                  type: string
+                method:
+                  type: string
+                path:
+                  type: string
+              required:
+                - action
+                - method
+                - path
+              additionalProperties: false
+            - type: 'null'
+      required:
+        - entityType
+        - id
+        - version
+        - type
+        - severity
+        - messages
+        - override
+        - requiresPermission
+        - resolution
+      additionalProperties: false
     versions:
       type: object
       properties:
@@ -63817,6 +64310,7 @@ x-tagGroups:
       - constant-revisions
       - configs
       - config-revisions
+      - releases
       - custom-hooks
       - organizations
       - members
@@ -63849,6 +64343,7 @@ x-tagGroups:
       - ConfigReferences_model
       - ConfigRevision_model
       - ConfigRevisionActivityLogEntry_model
+      - ConfigRevisionRef_model
       - ConfigRevisionReview_model
       - ConfigSchemaExport_model
       - ConfigSchemaSource_model
@@ -63858,6 +64353,7 @@ x-tagGroups:
       - ConstantReferences_model
       - ConstantRevision_model
       - ConstantRevisionActivityLogEntry_model
+      - ConstantRevisionRef_model
       - ConstantRevisionReview_model
       - ContextualBandit_model
       - ContextualBanditQuery_model
@@ -63890,6 +64386,7 @@ x-tagGroups:
       - FeatureExperimentRefRule_model
       - FeatureExperimentRule_model
       - FeatureForceRule_model
+      - FeatureRevisionRef_model
       - FeatureRevisionSummary_model
       - FeatureRevisionV1_model
       - FeatureRevisionV2_model
@@ -63918,11 +64415,13 @@ x-tagGroups:
       - RampSchedule_model
       - RampScheduleTemplate_model
       - Report_model
+      - RevisionIdRef_model
       - Safe Rollout Rule_model
       - SavedGroup_model
       - SavedGroupReferences_model
       - SavedGroupRevision_model
       - SavedGroupRevisionActivityLogEntry_model
+      - SavedGroupRevisionRef_model
       - SavedGroupRevisionReview_model
       - ScheduleRule_model
       - SdkConnection_model

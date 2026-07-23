@@ -8,7 +8,7 @@ import {
   getPayloadKeysForAllEnvs,
 } from "back-end/src/models/ExperimentModel";
 import { ApiReqContext } from "back-end/types/api";
-import { getAllFeatures } from "back-end/src/models/FeatureModel";
+import { getAllFeaturesWithoutEditorFields } from "back-end/src/models/FeatureModel";
 import { BadRequestError } from "back-end/src/util/errors";
 import { queueSDKPayloadRefresh } from "./features";
 import { getContextForAgendaJobByOrgObject } from "./organizations";
@@ -18,6 +18,9 @@ export async function savedGroupUpdated(
 ) {
   // This is a background job, so create a new context with full read permissions
   const context = getContextForAgendaJobByOrgObject(baseContext.org);
+  // Carry the bulk publisher's refresh buffer across the context boundary so a
+  // buffered commit's saved-group side effects don't escape it.
+  context.sdkPayloadRefreshBuffer = baseContext.sdkPayloadRefreshBuffer;
 
   // Saved groups can be nested recursively and may be referenced cross-project
   // To be safe, refresh all cache entries across all environments/projects
@@ -68,8 +71,11 @@ export async function loadSavedGroupReferences(
 
   const environments = context.org.settings?.environments || [];
 
+  // The lean loader: the reference scan reads only rules/env settings, and
+  // this loader honors the bulk publisher's feature scan overlay so the scan
+  // can evaluate a release's proposed end-state.
   const [allFeatures, allExperiments] = await Promise.all([
-    getAllFeatures(context, {}),
+    getAllFeaturesWithoutEditorFields(context, {}),
     getAllExperiments(context, {}),
   ]);
 

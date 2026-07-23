@@ -130,6 +130,7 @@ export const HoldoutSelect = ({
   return (
     <>
       <SelectField
+        size="legacy"
         label="Holdout"
         labelClassName="font-weight-bold"
         value={selectedHoldoutId || ""}

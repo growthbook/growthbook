@@ -27,7 +27,15 @@ import {
 import { Revision } from "shared/enterprise";
 import { Context } from "back-end/src/models/BaseModel";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
-import { runValidateConfigRevisionHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
+import {
+  collectValidateConfigRevisionHookResults,
+  runValidateConfigRevisionHooks,
+} from "back-end/src/enterprise/sandbox/sandbox-eval";
+import {
+  PublishGate,
+  hookResultsToGates,
+  schemaFailureGateOverride,
+} from "back-end/src/revisions/publishGates";
 import {
   BadRequestError,
   SoftWarningError,
@@ -728,4 +736,102 @@ export async function collectConfigBackedFeatureValueErrors(
   values: { defaultValue?: string; rules?: FeatureRule[] },
 ): Promise<string[]> {
   return collectConfigBackedSchemaInvariantErrors(context, feature, values);
+}
+
+/**
+ * Custom validation hooks for a config publish, surfaced as gates: a hard
+ * error (a hook threw) is hook-class (`skipHooks`); a warning is
+ * acknowledge-class (`ignoreWarnings`). Publish paths only — the archive
+ * handlers deliberately exclude publish hooks.
+ */
+export async function collectConfigPublishHookGates({
+  context,
+  config,
+  desiredState,
+  revision,
+}: {
+  context: Context;
+  config: ConfigInterface;
+  desiredState: Record<string, unknown>;
+  revision: Revision;
+}): Promise<PublishGate[]> {
+  const hookResults = await collectValidateConfigRevisionHookResults({
+    context,
+    config: {
+      key: config.key,
+      name: config.name,
+      project: config.project ?? "",
+      value: (desiredState.value as string | undefined) ?? config.value,
+      schema: desiredState.schema as SimpleSchema | null | undefined,
+      parent: (desiredState.parent as string | undefined) ?? config.parent,
+      extends: (desiredState.extends as string[] | undefined) ?? config.extends,
+      extensible:
+        (desiredState.extensible as boolean | undefined) ?? config.extensible,
+    },
+    // The live pre-publish state, so `incrementalChangesOnly` hooks can
+    // suppress errors/warnings that already existed before this change.
+    original: {
+      key: config.key,
+      name: config.name,
+      project: config.project ?? "",
+      value: config.value,
+      schema: config.schema,
+      parent: config.parent,
+      extends: config.extends,
+      extensible: config.extensible,
+    },
+    revision,
+  });
+  return hookResultsToGates(hookResults);
+}
+
+/**
+ * Gate form of assertConfigValueValidForPublish's schema half — conformance,
+ * required fields, and cross-field invariants of the post-publish resolved
+ * value, block-vs-warn per `blockPublishOnSchemaError`. The bulk publisher
+ * evaluates it at plan time (against the multi-entity overlay context) since
+ * its commit phase never runs the throwing net.
+ */
+export async function collectConfigPublishValueGates({
+  context,
+  config,
+  desiredState,
+}: {
+  context: Context;
+  config: ConfigInterface;
+  desiredState: Record<string, unknown>;
+}): Promise<PublishGate[]> {
+  const postValue = (desiredState.value as string | undefined) ?? config.value;
+  const leaf: ConfigLeaf = {
+    key: config.key,
+    name: config.name,
+    value: postValue,
+    // desiredState.schema is a full post-merge snapshot: `?? config.schema`
+    // would resurrect the live schema on a `null` clear.
+    schema: desiredState.schema as SimpleSchema | null | undefined,
+    parent: (desiredState.parent as string | undefined) ?? config.parent,
+    extends: (desiredState.extends as string[] | undefined) ?? config.extends,
+    extensible:
+      (desiredState.extensible as boolean | undefined) ?? config.extensible,
+  };
+  const errors = [
+    ...(await collectConfigValueErrors(context, leaf, { value: postValue })),
+    ...(await collectMissingRequiredFields(context, leaf, postValue)),
+    ...(await collectInvariantViolations(context, leaf, postValue)),
+  ];
+  if (!errors.length) return [];
+  return [
+    {
+      type: "schema-validation",
+      severity: "warning",
+      messages: [
+        "The published value does not conform to its effective schema:",
+        ...errors,
+      ],
+      ...schemaFailureGateOverride(
+        context.org.settings?.blockPublishOnSchemaError !== false,
+      ),
+      resolution: null,
+    },
+  ];
 }

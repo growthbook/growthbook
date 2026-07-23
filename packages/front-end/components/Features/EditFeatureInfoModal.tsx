@@ -125,12 +125,14 @@ const EditFeatureInfoModal: FC<{
           gatedEnvSet={metadataGated ? "all" : "none"}
         />
         <Field
+          size="legacy"
           label="Feature Key"
           value={feature.id}
           disabled={true}
           helpText="Feature keys are not editable"
         />
         <Field
+          size="legacy"
           label="Feature Type"
           value={feature.valueType}
           disabled={true}
@@ -142,6 +144,7 @@ const EditFeatureInfoModal: FC<{
         />
         <Box mb="4">
           <SelectField
+            size="legacy"
             label="Project"
             value={form.watch("project")}
             onChange={(v) => {

@@ -11,12 +11,17 @@ import {
   createFactTable,
   updateFactTable,
   updateFactFilter,
+  upsertColumns,
   getFactTableMap,
 } from "back-end/src/models/FactTableModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getCreateMetricPropsFromBody } from "back-end/src/api/fact-metrics/postFactMetric";
 import { getUpdateFactMetricPropsFromBody } from "back-end/src/api/fact-metrics/updateFactMetric";
-import { needsColumnRefresh } from "back-end/src/api/fact-tables/updateFactTable";
+import {
+  needsColumnRefresh,
+  columnsNeedDetection,
+} from "back-end/src/api/fact-tables/updateFactTable";
+import { columnsHaveAutoSlices } from "back-end/src/util/factTable";
 import { resolveOwnerToUserId } from "back-end/src/services/owner";
 
 export const postBulkImportFacts = createApiRequestHandler(
@@ -82,6 +87,14 @@ export const postBulkImportFacts = createApiRequestHandler(
         data.managedBy = "api";
       }
 
+      // Bulk-import is not transactional, so gate slices before any write.
+      if (
+        columnsHaveAutoSlices(data.columns) &&
+        !req.context.hasPremiumFeature("metric-slices")
+      ) {
+        throw new Error("Metric slices require an enterprise license");
+      }
+
       const existing = factTableMap.get(id);
       // Update existing fact table
       if (existing) {
@@ -101,13 +114,27 @@ export const postBulkImportFacts = createApiRequestHandler(
           data.owner =
             (await resolveOwnerToUserId(data.owner, req.context)) ?? "";
         }
+
+        if (data.columns) {
+          await upsertColumns({
+            context: req.context,
+            factTable: existing,
+            columns: data.columns,
+          });
+          delete data.columns;
+        }
+
         await updateFactTable(req.context, existing, data);
-        if (needsColumnRefresh(existing, data)) {
+        if (
+          needsColumnRefresh(existing, data) ||
+          columnsNeedDetection(existing.columns)
+        ) {
           await queueFactTableColumnsRefresh(existing);
         }
         factTableMap.set(existing.id, {
           ...existing,
           ...data,
+          columns: existing.columns,
         });
         numUpdated.factTables++;
       }

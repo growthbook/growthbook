@@ -159,7 +159,12 @@ const RevisionList: React.FC<RevisionListProps> = ({
       {/* Filters - matching experiments page style */}
       <Flex gap="4" align="start" justify="between" mb="4" wrap="wrap">
         <Box style={{ flexBasis: 300, flexShrink: 0 }}>
-          <Field placeholder="Search" type="search" {...searchInputProps} />
+          <Field
+            size="legacy"
+            placeholder="Search"
+            type="search"
+            {...searchInputProps}
+          />
         </Box>
         <Flex gap="5" align="center">
           {showEntityType && (

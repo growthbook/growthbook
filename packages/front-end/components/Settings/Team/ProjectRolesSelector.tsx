@@ -80,6 +80,7 @@ export default function ProjectRolesSelector({
         <div className="row">
           <div className="col">
             <SelectField
+              size="legacy"
               value={newProject}
               onChange={(p) => setNewProject(p)}
               initialOption="Choose Project..."

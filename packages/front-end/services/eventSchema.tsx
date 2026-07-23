@@ -360,10 +360,10 @@ export const dataSourceConnections: {
     icon: <SiDatabricks />,
     docs: "databricks",
     default: {
+      authType: "oauth-m2m",
       host: "",
       port: 443,
       path: "",
-      token: "",
     },
   },
   {

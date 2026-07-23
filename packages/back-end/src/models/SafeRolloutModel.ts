@@ -1,3 +1,4 @@
+import { isEqual } from "lodash";
 import { UpdateProps } from "shared/types/base-model";
 import { SafeRolloutInterface, safeRolloutValidator } from "shared/validators";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
@@ -63,6 +64,74 @@ export class SafeRolloutModel extends BaseClass {
 
   public async getAllByFeatureId(featureId: string) {
     return await this._find({ featureId });
+  }
+
+  /**
+   * Compensation for a failed bulk publish: put a safe rollout the apply's
+   * status sync advanced back to its pre-apply state. Restores ONLY the
+   * fields the sync writes, each with a per-field ownership check against the
+   * post-apply snapshot (`written`) — a field another writer advanced after
+   * the apply is newer intent and stays. Raw write, compensation-only: the
+   * validated update path can't express the start-metadata unset.
+   */
+  public async restoreAfterFailedBulkPublish(
+    pre: SafeRolloutInterface,
+    writtenStatus: string,
+    written?: SafeRolloutInterface,
+    // dryRun runs every check — including the deterministic missing-baseline
+    // refusal — without writing, so the caller can preflight ALL of a
+    // feature's rollouts before mutating any of them.
+    options?: { dryRun?: boolean },
+  ) {
+    const live = await this.getById(pre.id);
+    if (!live) return;
+    if (live.status === pre.status) return;
+    if (live.status !== (written?.status ?? writtenStatus)) return;
+    const sameDate = (a?: Date | null, b?: Date | null) =>
+      (a?.getTime() ?? null) === (b?.getTime() ?? null);
+    // The sync stamps start metadata only when transitioning a never-started
+    // rollout to running — the only case where those timing fields are ours to
+    // reverse. Ownership of each REQUIRES the post-apply snapshot (`written`).
+    const applyStartedIt =
+      !pre.startedAt && writtenStatus === "running" && !!live.startedAt;
+    // Apply stamped start metadata but the post-apply snapshot is missing: we
+    // can't prove ownership of the timing fields, and restoring status alone
+    // would leave a rolled-back rollout carrying the publish's startedAt/
+    // schedule. Refuse that half-restore — throw so this rollout is left
+    // running (untouched) and the caller records a reversal failure.
+    if (applyStartedIt && !written) {
+      throw new Error(
+        `safe rollout ${pre.id}: post-apply baseline missing — cannot reverse ` +
+          `start metadata; rollout left running`,
+      );
+    }
+    if (options?.dryRun) return;
+    const ownsStartedAt =
+      applyStartedIt &&
+      !!written &&
+      sameDate(live.startedAt, written.startedAt);
+    const ownsNextAttempt =
+      applyStartedIt &&
+      !!written &&
+      sameDate(live.nextSnapshotAttempt, written.nextSnapshotAttempt);
+    const ownsSchedule =
+      applyStartedIt &&
+      !!written &&
+      isEqual(live.rampUpSchedule, written.rampUpSchedule);
+    const unset: Record<string, 1> = {};
+    if (ownsStartedAt) unset.startedAt = 1;
+    if (ownsNextAttempt) unset.nextSnapshotAttempt = 1;
+    await this._dangerousGetCollection().updateOne(
+      { organization: this.context.org.id, id: pre.id },
+      {
+        $set: {
+          status: pre.status,
+          ...(ownsSchedule ? { rampUpSchedule: pre.rampUpSchedule } : {}),
+          dateUpdated: new Date(),
+        },
+        ...(Object.keys(unset).length ? { $unset: unset } : {}),
+      },
+    );
   }
   public async getAllByFeatureIds(featureIds: string[]) {
     return await this._find({ featureId: { $in: featureIds } });
