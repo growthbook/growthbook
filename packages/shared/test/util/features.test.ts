@@ -3178,6 +3178,13 @@ describe("ruleProjectScope / ruleServedToConnection", () => {
       expect(ruleProjectScope(scoped(["p1", "p2"]))).toEqual(["p1", "p2"]);
       expect(ruleProjectScope(scoped([]))).toEqual([]);
     });
+    it("allProjects:false with no projects list is [] (no project), never all", () => {
+      // A REST round-trip could send allProjects:false without an explicit list;
+      // it must not silently widen the rule to every project.
+      expect(
+        ruleProjectScope({ ...baseRule, allProjects: false } as FeatureRule),
+      ).toEqual([]);
+    });
   });
 
   describe("ruleServedToConnection", () => {

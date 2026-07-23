@@ -394,8 +394,10 @@ export function getRulesForEnvironment(
 // means "no project" (leak-safe — never "all"); allProjects/legacy-absent → null.
 export function ruleProjectScope(rule: FeatureRule): string[] | null {
   if (rule == null || typeof rule !== "object") return [];
-  if (rule.allProjects) return null;
-  if (rule.projects == null) return null;
+  if (rule.allProjects === true) return null;
+  // allProjects === false is explicit scoping — an absent/empty list means no
+  // project, never "all". Only the legacy state (no scope fields) falls back to all.
+  if (rule.allProjects !== false && rule.projects == null) return null;
   return Array.isArray(rule.projects) ? rule.projects : [];
 }
 
