@@ -36,7 +36,7 @@ export default function TargetingProjectsField({
     () => allProjects || targetingProjects.length > 0,
   );
 
-  const help = `Also include this ${entityLabel} in these projects' SDK payloads`;
+  const help = `Also include this ${entityLabel} in these Projects' SDK payloads`;
 
   return (
     <Box {...marginProps}>
@@ -48,7 +48,7 @@ export default function TargetingProjectsField({
             onClick={() => setEnabled(true)}
           >
             <PiPlusBold className="mr-1" />
-            Targeting projects
+            Targeting Projects
             <Tooltip body={<Text as="div">{help}</Text>}>
               <PiInfo color="var(--color-text-low)" className="ml-1" />
             </Tooltip>
@@ -58,7 +58,7 @@ export default function TargetingProjectsField({
         <>
           <Flex align="center" gap="1" mb="3">
             <label className="mb-0" style={{ fontWeight: 600 }}>
-              Additional Targeting Projects
+              Additional targeting Projects
             </label>
             <Tooltip body={help}>
               <PiInfo />
@@ -82,7 +82,7 @@ export default function TargetingProjectsField({
                       options={projects
                         .filter((p) => p.id !== primaryProject)
                         .map((p) => ({ value: p.id, label: p.name }))}
-                      placeholder="No projects selected"
+                      placeholder="No Projects selected"
                       sort={false}
                       showCopyButton={false}
                       containerClassName="w-full"

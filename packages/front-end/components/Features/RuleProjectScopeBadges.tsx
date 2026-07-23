@@ -35,7 +35,7 @@ export default function RuleProjectScopeBadges({
   if (reachable.length === 0) {
     return (
       <Tooltip
-        body="This rule is not scoped to any of the feature's projects and will not apply anywhere"
+        body="This rule is not scoped to any of the feature's Projects and will not apply anywhere"
         tipPosition="top"
         innerClassName="p-2"
         style={{ display: "inline-flex", alignItems: "center" }}
@@ -44,7 +44,7 @@ export default function RuleProjectScopeBadges({
           <span
             style={{ color: "var(--amber-11)", fontSize: "var(--font-size-2)" }}
           >
-            No projects
+            No Projects
           </span>
           <PiWarningCircle size={16} style={{ color: "var(--amber-11)" }} />
         </Flex>
@@ -60,7 +60,7 @@ export default function RuleProjectScopeBadges({
       {reachable.map(name).join(", ")}
       {unavailable.length > 0 && (
         <Tooltip
-          body="These projects aren't available for this feature, so the rule won't apply there"
+          body="These Projects aren't available for this feature, so the rule won't apply there"
           tipPosition="top"
         >
           <span

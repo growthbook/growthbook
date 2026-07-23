@@ -48,7 +48,7 @@ export default function RuleProjectScopeField({
         );
 
   const help =
-    "Limit this rule to specific projects. Applies to all of the feature's projects by default.";
+    "Limit this rule to specific Projects. Applies to all of the feature's Projects by default.";
 
   return (
     <Box {...marginProps}>
@@ -96,14 +96,14 @@ export default function RuleProjectScopeField({
                         value: p.id,
                         label: p.name,
                       }))}
-                      placeholder="No projects selected"
+                      placeholder="No Projects selected"
                       sort={false}
                       showCopyButton={false}
                       containerClassName="w-full"
                     />
                     {selectedProjects.length === 0 && (
                       <Callout status="warning" size="sm" mt="2">
-                        This rule will not apply in any project until at least
+                        This rule will not apply in any Project until at least
                         one is selected.
                       </Callout>
                     )}

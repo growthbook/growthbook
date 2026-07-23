@@ -1571,7 +1571,7 @@ export function renderFeatureMetadataSection(
     rows.push(
       <ChangeField
         key="targeting"
-        label="Targeting projects"
+        label="Targeting Projects"
         changed
         oldNode={renderTargetingNode(
           pre?.targetingAllProjects,
@@ -2141,7 +2141,7 @@ export function renderRevisionMetadata(
     rows.push(
       <ChangeField
         key="targeting"
-        label="Targeting projects"
+        label="Targeting Projects"
         changed
         oldNode={renderTargetingNode(
           current?.targetingAllProjects,
