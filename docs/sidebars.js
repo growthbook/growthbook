@@ -1108,6 +1108,12 @@ export default {
         },
         {
           type: "doc",
+          id: "lib/django",
+          label: "Django",
+          className: "sidebar-icon-django",
+        },
+        {
+          type: "doc",
           id: "lib/java",
           label: "Java",
           className: "sidebar-icon-java",
