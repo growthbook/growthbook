@@ -309,25 +309,6 @@ export default function FeatureFromExperimentModal({
     return holdoutsMap.get(existingFeature.holdout.id)?.name ?? "the holdout";
   }, [existing, existingFeature, experiment.holdoutId, holdoutsMap]);
 
-  // The experiment can only join a holdout if it's otherwise clean — the
-  // back-end (postFeatureExperimentRefRule) rejects it otherwise, so block here.
-  const experimentHasOtherLinkedChanges = useMemo(
-    () =>
-      (experiment.linkedFeatures?.some((fid) => fid !== existingFeature?.id) ??
-        false) ||
-      !!experiment.hasVisualChangesets ||
-      !!experiment.hasURLRedirects,
-    [
-      experiment.linkedFeatures,
-      experiment.hasVisualChangesets,
-      experiment.hasURLRedirects,
-      existingFeature?.id,
-    ],
-  );
-
-  const holdoutLinkBlockedByLinkedChanges =
-    !!holdoutToAddToExperiment && experimentHasOtherLinkedChanges;
-
   let ctaEnabled = true;
   let disabledMessage: string | undefined;
 
@@ -341,7 +322,7 @@ export default function FeatureFromExperimentModal({
       "You don't have permission to create feature flag drafts.";
   }
 
-  if (holdoutWarning || holdoutLinkBlockedByLinkedChanges) {
+  if (holdoutWarning) {
     ctaEnabled = false;
   }
 
@@ -561,20 +542,12 @@ export default function FeatureFromExperimentModal({
         </Callout>
       )}
 
-      {holdoutToAddToExperiment &&
-        (holdoutLinkBlockedByLinkedChanges ? (
-          <Callout status="error" mb="3">
-            The selected feature is in holdout &ldquo;{holdoutToAddToExperiment}
-            &rdquo;, so linking this experiment would add it to the holdout —
-            but the experiment already has other linked features, visual
-            changes, or URL redirects. Unlink those first.
-          </Callout>
-        ) : (
-          <Callout status="info" mb="3">
-            The selected feature is in holdout &ldquo;{holdoutToAddToExperiment}
-            &rdquo;. Adding this experiment will also add it to that holdout.
-          </Callout>
-        ))}
+      {holdoutToAddToExperiment && (
+        <Callout status="info" mb="3">
+          The selected feature is in holdout &ldquo;{holdoutToAddToExperiment}
+          &rdquo;. Adding this experiment will also add it to that holdout.
+        </Callout>
+      )}
 
       {disabledMessage && (
         <Callout status="warning" mb="3">
