@@ -821,14 +821,8 @@ describe("Experiments", () => {
             `(CAST(${dateColumn.column} AS TIMESTAMP) NOT BETWEEN CAST('2024-01-01' AS TIMESTAMP) AND CAST('2024-02-01' AS TIMESTAMP))`,
           );
         });
-        it("returns null for between with fewer than two valid bounds", () => {
-          for (const values of [
-            undefined,
-            [],
-            ["2024-01-01"],
-            ["2024-01-01", "foo"],
-            ["foo", "2024-02-01"],
-          ]) {
+        it("returns null for between with no valid bounds", () => {
+          for (const values of [undefined, [], ["", ""], ["foo", "bar"]]) {
             expect(
               getRowFilterSQL({
                 factTable,
@@ -845,6 +839,57 @@ describe("Experiments", () => {
               }),
             ).toBeNull();
           }
+        });
+        it("degrades a single-bound date between to an open-ended comparison", () => {
+          const call = (values: string[]) =>
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: dateColumn.column,
+                operator: "between",
+                values,
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+              castToTimestamp,
+            });
+          // only lower bound (upper empty or unparseable) -> >=
+          expect(call(["2024-01-01", ""])).toStrictEqual(
+            `(CAST(${dateColumn.column} AS TIMESTAMP) >= CAST('2024-01-01' AS TIMESTAMP))`,
+          );
+          expect(call(["2024-01-01", "foo"])).toStrictEqual(
+            `(CAST(${dateColumn.column} AS TIMESTAMP) >= CAST('2024-01-01' AS TIMESTAMP))`,
+          );
+          // only upper bound -> <=
+          expect(call(["", "2024-02-01"])).toStrictEqual(
+            `(CAST(${dateColumn.column} AS TIMESTAMP) <= CAST('2024-02-01' AS TIMESTAMP))`,
+          );
+        });
+        it("degrades a single-bound not_between to the inverted comparison", () => {
+          const call = (values: string[]) =>
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: dateColumn.column,
+                operator: "not_between",
+                values,
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+              castToTimestamp,
+            });
+          // not_between [lower, ∞) -> < lower
+          expect(call(["2024-01-01", ""])).toStrictEqual(
+            `(CAST(${dateColumn.column} AS TIMESTAMP) < CAST('2024-01-01' AS TIMESTAMP))`,
+          );
+          // not_between (-∞, upper] -> > upper
+          expect(call(["", "2024-02-01"])).toStrictEqual(
+            `(CAST(${dateColumn.column} AS TIMESTAMP) > CAST('2024-02-01' AS TIMESTAMP))`,
+          );
         });
         it("handles between for numeric columns without a cast", () => {
           expect(

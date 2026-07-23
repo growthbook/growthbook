@@ -444,16 +444,32 @@ export function getRowFilterSQL({
       return `(${comparisonColumn} ${operator} ${firstEscapedValue})`;
     case "between":
     case "not_between": {
-      // between needs both a lower and an upper bound. `filterValues` keeps the
-      // user's order (and, for dates, has already dropped unparseable bounds),
-      // so bail out to a no-op if we don't have two usable values.
-      if (filterValues.length < 2) {
-        return null;
+      // A range has a lower and an upper bound, but a user can leave one side
+      // empty. Rather than silently dropping the whole filter (which would look
+      // active in the UI while matching nothing), degrade a single-bound range
+      // to the equivalent open-ended comparison. Read the bounds positionally
+      // from `rowFilter.values` — `filterValues` collapses empties and loses
+      // which side was set.
+      const boundUsable = (v: string | undefined): v is string =>
+        !!v?.trim() && (!castDates || isValidRowFilterDateValue(v));
+      const lower = rowFilter.values[0];
+      const upper = rowFilter.values[1];
+      const hasLower = boundUsable(lower);
+      const hasUpper = boundUsable(upper);
+      const negated = operator === "not_between";
+
+      if (hasLower && hasUpper) {
+        return `(${comparisonColumn} ${negated ? "NOT " : ""}BETWEEN ${escapeValue(lower)} AND ${escapeValue(upper)})`;
       }
-      const lowerBound = escapeValue(filterValues[0]);
-      const upperBound = escapeValue(filterValues[1]);
-      const negation = operator === "not_between" ? "NOT " : "";
-      return `(${comparisonColumn} ${negation}BETWEEN ${lowerBound} AND ${upperBound})`;
+      if (hasLower) {
+        // between [lower, ∞) → >=  ;  not_between → <
+        return `(${comparisonColumn} ${negated ? "<" : ">="} ${escapeValue(lower)})`;
+      }
+      if (hasUpper) {
+        // between (-∞, upper] → <=  ;  not_between → >
+        return `(${comparisonColumn} ${negated ? ">" : "<="} ${escapeValue(upper)})`;
+      }
+      return null;
     }
     case "in":
       return `(${comparisonColumn} IN (\n  ${escapedValues.join(",\n  ")}\n))`;
