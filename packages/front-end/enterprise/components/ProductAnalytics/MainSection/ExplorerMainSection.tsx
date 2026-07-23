@@ -142,11 +142,7 @@ export default function ExplorerMainSection() {
               activeResultsTab={viewMode}
               onResultsTabChange={(value) => {
                 setIsQueryActive?.(false);
-                if (
-                  value === "chart" ||
-                  value === "results" ||
-                  value === "sql"
-                ) {
+                if (value === "chart" || value === "results") {
                   setViewMode?.(value);
                 }
               }}

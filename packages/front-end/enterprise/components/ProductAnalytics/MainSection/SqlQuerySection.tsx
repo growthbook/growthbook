@@ -1,23 +1,16 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { ReactNode, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { PiCaretDown, PiCaretRight, PiPlay, PiQuestion } from "react-icons/pi";
 import type { ImperativePanelHandle } from "react-resizable-panels";
-import {
-  ExplorationConfig,
-  QueryExecutionResult,
-  SqlValue,
-  type SqlDataset,
-} from "shared/validators";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import DisplayTestQueryResults, {
   type AdditionalQueryResultsTab,
 } from "@/components/Settings/DisplayTestQueryResults";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
-import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   Panel,
@@ -29,16 +22,78 @@ import AreaWithHeader from "@/components/SchemaBrowser/AreaWithHeader";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import { canFormatSql, formatSql } from "@/services/sqlFormatter";
-import {
-  createEmptyValue,
-  getInferredTimestampColumn,
-} from "@/enterprise/components/ProductAnalytics/util";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import { useSqlEditorContext } from "@/enterprise/components/ProductAnalytics/SqlEditorContext";
 import styles from "@/components/SchemaBrowser/EditSqlModal.module.scss";
-
-const PREVIEW_ROW_LIMIT = 100;
+import useSqlQueryPreview, { PREVIEW_ROW_LIMIT } from "./useSqlQueryPreview";
 const SQL_PLACEHOLDER = `SELECT timestamp, user_id, event_name FROM events`;
+
+function SqlQueryActions({
+  aiTrigger,
+  canFormat,
+  canRun,
+  formatError,
+  isAutocompleteEnabled,
+  loading,
+  onFormat,
+  onRun,
+  onToggleAutocomplete,
+  queryHelp,
+}: {
+  aiTrigger: ReactNode;
+  canFormat: boolean;
+  canRun: boolean;
+  formatError: string | null;
+  isAutocompleteEnabled: boolean;
+  loading: boolean;
+  onFormat: () => void;
+  onRun: () => void;
+  onToggleAutocomplete: () => void;
+  queryHelp?: ReactNode;
+}) {
+  return (
+    <>
+      {formatError ? (
+        <Tooltip body={formatError}>
+          <FaExclamationTriangle className="text-danger" />
+        </Tooltip>
+      ) : null}
+      {aiTrigger}
+      <Button
+        size="xs"
+        disabled={!canRun}
+        loading={loading}
+        onClick={onRun}
+        icon={<PiPlay />}
+      >
+        Run
+      </Button>
+      {queryHelp}
+      <DropdownMenu
+        trigger={
+          <IconButton
+            variant="ghost"
+            color="gray"
+            radius="full"
+            size="2"
+            aria-label="SQL editor options"
+          >
+            <BsThreeDotsVertical size={16} />
+          </IconButton>
+        }
+      >
+        <DropdownMenuItem onClick={onFormat} disabled={!canFormat}>
+          Format
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={onToggleAutocomplete}>
+          {isAutocompleteEnabled
+            ? "Disable Autocomplete"
+            : "Enable Autocomplete"}
+        </DropdownMenuItem>
+      </DropdownMenu>
+    </>
+  );
+}
 
 export default function SqlQuerySection({
   fullHeight = false,
@@ -67,9 +122,8 @@ export default function SqlQuerySection({
   onOpenChange?: (open: boolean) => void;
   onQueryFocus?: () => void;
 }) {
-  const { apiCall } = useAuth();
   const { getDatasourceById } = useDefinitions();
-  const { draftExploreState, setDraftExploreState } = useExplorerContext();
+  const { draftExploreState } = useExplorerContext();
   const dataset =
     draftExploreState.dataset.type === "sql" ? draftExploreState.dataset : null;
   const datasource = draftExploreState.datasource
@@ -85,157 +139,34 @@ export default function SqlQuerySection({
   } = useSqlEditorContext();
 
   const [open, setOpen] = useState(true);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [formatError, setFormatError] = useState<string | null>(null);
-  const [previewResult, setPreviewResult] =
-    useState<QueryExecutionResult | null>(null);
   const editorPanelRef = useRef<ImperativePanelHandle>(null);
-  const lastPreviewedSqlRef = useRef<string | null>(null);
-  const collapseAfterSuccessfulRunRef = useRef(false);
+  const {
+    status,
+    loading,
+    error,
+    previewResult,
+    runQuery: previewQuery,
+  } = useSqlQueryPreview({
+    dataset,
+    datasourceId: draftExploreState.datasource,
+    onChartReadyChange,
+    onRunStart,
+    onRunSuccess,
+    onRunError,
+  });
 
   useEffect(() => {
-    if ((dataset?.sql ?? "") !== lastPreviewedSqlRef.current) {
-      setPreviewResult(null);
-    }
-  }, [dataset?.sql]);
-
-  useEffect(() => {
-    lastPreviewedSqlRef.current = null;
-    setPreviewResult(null);
-  }, [draftExploreState.datasource]);
-
-  useEffect(() => {
-    if (!previewResult || error || !collapseAfterSuccessfulRunRef.current) {
-      return;
-    }
-    collapseAfterSuccessfulRunRef.current = false;
-    if (!resultsTarget) {
+    if (status === "success" && !resultsTarget) {
       editorPanelRef.current?.resize(30);
     }
-  }, [error, previewResult, resultsTarget]);
-
-  const chartReady =
-    !loading &&
-    !error &&
-    dataset !== null &&
-    dataset.sql.trim().length > 0 &&
-    dataset.timestampColumn.length > 0 &&
-    dataset.columnTypes[dataset.timestampColumn] === "date" &&
-    Object.keys(dataset.columnTypes).length > 0;
-
-  useEffect(() => {
-    onChartReadyChange?.(chartReady);
-  }, [chartReady, onChartReadyChange]);
+  }, [resultsTarget, status]);
 
   useEffect(() => {
     onOpenChange?.(open);
   }, [onOpenChange, open]);
 
   if (!dataset) return null;
-
-  const applyColumnMetadata = (
-    sql: string,
-    columnTypes: SqlDataset["columnTypes"],
-    timestampColumn: string,
-  ) => {
-    setDraftExploreState((prev) => {
-      if (prev.dataset.type !== "sql") return prev;
-      const valueColumns = new Set(Object.keys(columnTypes));
-      return {
-        ...prev,
-        dimensions: prev.dimensions.filter(
-          (d) => d.dimensionType !== "dynamic",
-        ),
-        dataset: {
-          ...prev.dataset,
-          sql,
-          columnTypes,
-          timestampColumn,
-          values: prev.dataset.values.length
-            ? prev.dataset.values.map((value) => ({
-                ...value,
-                valueColumn:
-                  value.valueColumn && valueColumns.has(value.valueColumn)
-                    ? value.valueColumn
-                    : null,
-              }))
-            : [createEmptyValue("sql") as SqlValue],
-        },
-      } as ExplorationConfig;
-    });
-  };
-
-  const previewQuery = async (sql: string): Promise<boolean> => {
-    if (!sql.trim() || !draftExploreState.datasource) return false;
-    onRunStart?.();
-    setLoading(true);
-    setError(null);
-    setPreviewResult(null);
-    collapseAfterSuccessfulRunRef.current = false;
-    try {
-      const response = await apiCall<QueryExecutionResult>("/query/run", {
-        method: "POST",
-        body: JSON.stringify({
-          datasourceId: draftExploreState.datasource,
-          query: sql,
-          limit: PREVIEW_ROW_LIMIT,
-        }),
-      });
-      setPreviewResult({
-        ...response,
-        sql: response.sql || sql,
-      });
-
-      if (response.error) {
-        setError(response.error);
-        onRunError?.();
-        return false;
-      }
-
-      const columnTypes = Object.fromEntries(
-        (response.columns ?? []).map((column) => [
-          column.name,
-          column.dataType ?? "other",
-        ]),
-      ) as SqlDataset["columnTypes"];
-      const dateColumns = (response.columns ?? [])
-        .filter((column) => column.dataType === "date")
-        .map((column) => column.name);
-      const inferredTimestamp = getInferredTimestampColumn(columnTypes);
-      const timestampColumn =
-        inferredTimestamp && columnTypes[inferredTimestamp] === "date"
-          ? inferredTimestamp
-          : (dateColumns[0] ?? "");
-
-      lastPreviewedSqlRef.current = sql;
-      applyColumnMetadata(sql, columnTypes, timestampColumn);
-
-      if (dateColumns.length === 0) {
-        setError(
-          "Your SQL query must return at least one date or timestamp column.",
-        );
-        onRunError?.();
-        return false;
-      }
-
-      collapseAfterSuccessfulRunRef.current = true;
-      onRunSuccess?.();
-      return true;
-    } catch (e) {
-      const err = e instanceof Error ? e : new Error(String(e));
-      setError(err.message);
-      setPreviewResult({
-        error: err.message,
-        results: [],
-        sql,
-      });
-      onRunError?.();
-      return false;
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleFormatClick = () => {
     const result = formatSql(localSql, datasource?.type);
@@ -261,7 +192,6 @@ export default function SqlQuerySection({
         activeTab={activeResultsTab}
         onTabChange={onResultsTabChange}
         additionalTab={additionalResultsTab}
-        showResultsTabWhenEmpty
         showNoRowsWarning={previewResult !== null}
         emptyResultsContent={
           !previewResult ? (
@@ -346,53 +276,20 @@ export default function SqlQuerySection({
                 </Button>
               </Flex>
               <Flex align="center" gap="2" mr="1">
-                {formatError ? (
-                  <Tooltip body={formatError}>
-                    <FaExclamationTriangle className="text-danger" />
-                  </Tooltip>
-                ) : null}
                 {open ? (
-                  <>
-                    {trigger}
-                    <Button
-                      size="xs"
-                      disabled={!canRunPreview}
-                      loading={loading}
-                      onClick={() => previewQuery(localSql)}
-                      icon={<PiPlay />}
-                    >
-                      Run
-                    </Button>
-                    <DropdownMenu
-                      trigger={
-                        <IconButton
-                          variant="ghost"
-                          color="gray"
-                          radius="full"
-                          size="2"
-                          aria-label="SQL editor options"
-                        >
-                          <BsThreeDotsVertical size={16} />
-                        </IconButton>
-                      }
-                    >
-                      <DropdownMenuItem
-                        onClick={handleFormatClick}
-                        disabled={!localSql || !canFormat}
-                      >
-                        Format
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() =>
-                          setIsAutocompleteEnabled(!isAutocompleteEnabled)
-                        }
-                      >
-                        {isAutocompleteEnabled
-                          ? "Disable Autocomplete"
-                          : "Enable Autocomplete"}
-                      </DropdownMenuItem>
-                    </DropdownMenu>
-                  </>
+                  <SqlQueryActions
+                    aiTrigger={trigger}
+                    canFormat={Boolean(localSql) && canFormat}
+                    canRun={canRunPreview}
+                    formatError={formatError}
+                    isAutocompleteEnabled={isAutocompleteEnabled}
+                    loading={loading}
+                    onFormat={handleFormatClick}
+                    onRun={() => void previewQuery(localSql)}
+                    onToggleAutocomplete={() =>
+                      setIsAutocompleteEnabled(!isAutocompleteEnabled)
+                    }
+                  />
                 ) : null}
               </Flex>
             </Flex>
@@ -431,53 +328,22 @@ export default function SqlQuerySection({
                               <Text weight="medium">SQL</Text>
                             </Flex>
                             <Flex align="center" gap="2">
-                              {formatError ? (
-                                <Tooltip body={formatError}>
-                                  <FaExclamationTriangle className="text-danger" />
-                                </Tooltip>
-                              ) : null}
-                              {trigger}
-                              <Button
-                                size="xs"
-                                disabled={!canRunPreview}
+                              <SqlQueryActions
+                                aiTrigger={trigger}
+                                canFormat={Boolean(localSql) && canFormat}
+                                canRun={canRunPreview}
+                                formatError={formatError}
+                                isAutocompleteEnabled={isAutocompleteEnabled}
                                 loading={loading}
-                                onClick={() => previewQuery(localSql)}
-                                icon={<PiPlay />}
-                              >
-                                Run
-                              </Button>
-                              {!showHeader ? queryHelp : null}
-                              <DropdownMenu
-                                trigger={
-                                  <IconButton
-                                    variant="ghost"
-                                    color="gray"
-                                    radius="full"
-                                    size="2"
-                                    aria-label="SQL editor options"
-                                  >
-                                    <BsThreeDotsVertical size={16} />
-                                  </IconButton>
+                                onFormat={handleFormatClick}
+                                onRun={() => void previewQuery(localSql)}
+                                onToggleAutocomplete={() =>
+                                  setIsAutocompleteEnabled(
+                                    !isAutocompleteEnabled,
+                                  )
                                 }
-                              >
-                                <DropdownMenuItem
-                                  onClick={handleFormatClick}
-                                  disabled={!localSql || !canFormat}
-                                >
-                                  Format
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() =>
-                                    setIsAutocompleteEnabled(
-                                      !isAutocompleteEnabled,
-                                    )
-                                  }
-                                >
-                                  {isAutocompleteEnabled
-                                    ? "Disable Autocomplete"
-                                    : "Enable Autocomplete"}
-                                </DropdownMenuItem>
-                              </DropdownMenu>
+                                queryHelp={!showHeader ? queryHelp : undefined}
+                              />
                             </Flex>
                           </Flex>
                         }
