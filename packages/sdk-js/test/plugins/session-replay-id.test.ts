@@ -116,6 +116,20 @@ describe("session replay ID manager", () => {
     });
   });
 
+  it("retains the in-memory fallback when sessionStorage writes fail", () => {
+    const setItemSpy = jest
+      .spyOn(Storage.prototype, "setItem")
+      .mockImplementation(() => {
+        throw new DOMException("QuotaExceededError");
+      });
+
+    const first = getOrCreateSessionReplayId();
+    const second = getOrCreateSessionReplayId();
+
+    expect(first).toBe(second);
+    setItemSpy.mockRestore();
+  });
+
   it("replaces invalid stored state", () => {
     sessionStorage.setItem(
       STORAGE_KEY,

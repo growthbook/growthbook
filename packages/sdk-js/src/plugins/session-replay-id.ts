@@ -36,7 +36,7 @@ function normalizeStoredSessionReplayState(
 function readStoredSessionReplayState(): StoredSessionReplayState | null {
   try {
     const raw = sessionStorage.getItem(SESSION_STORAGE_KEY);
-    if (!raw) return null;
+    if (!raw) return inMemorySessionReplayFallback;
     return normalizeStoredSessionReplayState(JSON.parse(raw));
   } catch {
     return inMemorySessionReplayFallback;
