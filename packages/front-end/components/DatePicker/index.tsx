@@ -31,12 +31,6 @@ type Props = {
   label2?: ReactNode;
   helpText?: ReactNode;
   inputWidth?: number;
-  /**
-   * Force a specific field height (px) so the picker can line up with adjacent
-   * inputs. Applies the same fixed-height treatment as `compact`. When omitted,
-   * the height follows `compact` (32) or the default (38).
-   */
-  inputHeight?: number;
   precision?: "datetime" | "date";
   disableBefore?: Date | string;
   disableAfter?: Date | string;
@@ -111,7 +105,6 @@ export default function DatePicker({
   label2,
   helpText,
   inputWidth,
-  inputHeight,
   precision = "datetime",
   disableBefore,
   disableAfter,
@@ -125,33 +118,28 @@ export default function DatePicker({
   disabled,
   fixedSpanMode,
 }: Props) {
-  // An explicit `inputHeight` wins; otherwise fall back to compact (32) or the
-  // default (38). `fixedHeight` is set whenever the field should be pinned to an
-  // exact height (compact or an explicit override) rather than only floored.
-  const fixedHeight = inputHeight ?? (compact ? 32 : undefined);
-  const resolvedInputHeight = inputHeight ?? (compact ? 32 : 38);
-  const fixedFieldStyle: React.CSSProperties =
-    fixedHeight !== undefined
-      ? {
-          height: fixedHeight,
-          minHeight: fixedHeight,
-          boxSizing: "border-box",
-          padding: "0 8px",
-          lineHeight: 1.25,
-        }
-      : {};
-  const hasTime = precision === "datetime";
-  // Minute-level datetime (native hh:mm) or a plain date. Picking a day from the
-  // calendar resets the time to 00:00.
-  const dateFormat = hasTime ? "yyyy-MM-dd'T'HH:mm" : "yyyy-MM-dd";
+  const inputHeight = compact ? 32 : 38;
+  const compactFieldStyle: React.CSSProperties = compact
+    ? {
+        height: 32,
+        minHeight: 32,
+        boxSizing: "border-box",
+        padding: "0 8px",
+        lineHeight: 1.25,
+      }
+    : {};
+  const dateFormat =
+    precision === "datetime" ? "yyyy-MM-dd'T'HH:mm" : "yyyy-MM-dd";
   // Parses a date prop / bound in the same frame as the user's typed input.
   // For `date` precision, `new Date("yyyy-MM-dd")` lands on UTC midnight, so
-  // we shift to local midnight via `getValidDateOffsetByUTC`. For datetime
-  // precisions, `new Date("yyyy-MM-ddTHH:mm")` already parses as local time.
+  // we shift to local midnight via `getValidDateOffsetByUTC`. For `datetime`,
+  // `new Date("yyyy-MM-ddTHH:mm")` already parses as local time.
   const parseDateInput = useCallback(
     (value: Date | string): Date =>
-      hasTime ? getValidDate(value) : getValidDateOffsetByUTC(value),
-    [hasTime],
+      precision === "datetime"
+        ? getValidDate(value)
+        : getValidDateOffsetByUTC(value),
+    [precision],
   );
   const [bufferedDate, setBufferedDate] = useState(
     date ? format(getValidDate(date), dateFormat) : "",
@@ -242,7 +230,13 @@ export default function DatePicker({
   const isRange = !!setDate2 || !!fixedSpanMode;
 
   const rangeFieldValue = useMemo(() => {
-    if (isRange && !hasTime && !rangeFieldFocused && date && date2) {
+    if (
+      isRange &&
+      precision === "date" &&
+      !rangeFieldFocused &&
+      date &&
+      date2
+    ) {
       return formatCompactDateRange(
         parseDateInput(date),
         parseDateInput(date2),
@@ -260,7 +254,7 @@ export default function DatePicker({
     date2,
     isRange,
     parseDateInput,
-    hasTime,
+    precision,
     rangeFieldFocused,
   ]);
 
@@ -356,8 +350,8 @@ export default function DatePicker({
                   inputWidth ||
                   (wrapRangeInputs && isRange ? undefined : "100%"),
                 minWidth: isRange ? 220 : undefined,
-                height: fixedHeight,
-                minHeight: resolvedInputHeight,
+                height: compact ? inputHeight : undefined,
+                minHeight: inputHeight,
                 flex: wrapRangeInputs && isRange ? "1 1 220px" : undefined,
               }}
             >
@@ -382,8 +376,8 @@ export default function DatePicker({
                   style={{
                     flex: 1,
                     minWidth: 0,
-                    height: fixedHeight,
-                    minHeight: resolvedInputHeight,
+                    height: compact ? inputHeight : undefined,
+                    minHeight: inputHeight,
                     overflow: "clip",
                   }}
                 >
@@ -395,19 +389,23 @@ export default function DatePicker({
                       border: 0,
                       marginRight: -20,
                       width: "calc(100% + 30px)",
-                      minHeight: resolvedInputHeight,
+                      minHeight: inputHeight,
                       cursor: "pointer",
-                      ...fixedFieldStyle,
+                      ...compactFieldStyle,
                     }}
                     className={clsx("date-picker-field", {
                       "text-muted": isRange ? !date || !date2 : !date,
                     })}
                     type={
-                      isRange ? "text" : hasTime ? "datetime-local" : "date"
+                      isRange
+                        ? "text"
+                        : precision === "datetime"
+                          ? "datetime-local"
+                          : "date"
                     }
                     placeholder={
                       isRange
-                        ? hasTime
+                        ? precision === "datetime"
                           ? `yyyy-MM-dd'T'HH:mm${RANGE_DISPLAY_SEP}yyyy-MM-dd'T'HH:mm`
                           : `yyyy-MM-dd${RANGE_DISPLAY_SEP}yyyy-MM-dd`
                         : undefined

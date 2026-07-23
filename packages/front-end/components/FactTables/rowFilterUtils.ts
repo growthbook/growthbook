@@ -5,15 +5,6 @@ export const NUMBER_PATTERN = "^-?(\\d+|\\d*\\.\\d+)$";
 export const numberRegex = new RegExp(NUMBER_PATTERN);
 
 /**
- * Height (px) of the date pickers in the filter rows, so they line up with the
- * sibling `SelectField`/`Field` controls, which render at the `size="legacy"`
- * height (36). There is no non-legacy design-system size at 36 (`small` is 32,
- * `medium` is 40), and `size="legacy"` is disallowed for new usage, so the
- * pickers take this as an explicit `inputHeight` instead.
- */
-export const FILTER_ROW_INPUT_HEIGHT = 36;
-
-/**
  * Date operators that compare against a whole calendar day rather than a
  * precise instant. Equality on a date means "on this day", and range bounds are
  * day-level, so these use a date-only picker (no time-of-day). The ordering
@@ -78,10 +69,6 @@ export function getAllowedOperators(datatype: string): RowFilter["operator"][] {
     return [
       "=",
       "!=",
-      "<",
-      "<=",
-      ">",
-      ">=",
       "in",
       "not_in",
       "starts_with",
