@@ -6,7 +6,10 @@ import {
   normalizeTargetingInUpdates,
   getTargetingReviewMode,
   getGoverningReviewProjects,
+  featureRequiresReview,
 } from "shared/util";
+import { FeatureInterface } from "shared/types/feature";
+import { OrganizationSettings } from "shared/types/organization";
 
 describe("targeting scope helpers", () => {
   describe("getTargetingProjectIds", () => {
@@ -165,6 +168,90 @@ describe("targeting scope helpers", () => {
           [{ projects: [], mode: "loose" }],
         ),
       ).toEqual(["p1"]);
+    });
+  });
+
+  describe("featureRequiresReview with targetingAllProjects", () => {
+    const feature = (over: Partial<FeatureInterface>): FeatureInterface =>
+      ({ project: "p1", ...over }) as unknown as FeatureInterface;
+    const settings = (
+      requireReviews: unknown,
+      targetingReviewMode?: unknown,
+    ): OrganizationSettings =>
+      ({
+        requireReviews,
+        targetingReviewMode,
+      }) as unknown as OrganizationSettings;
+    const rule = (projects: string[]) => ({
+      requireReviewOn: true,
+      projects,
+      environments: [],
+    });
+
+    it("requires review when an all-projects feature reaches a strict project that requires it", () => {
+      // p1 (primary) has no requirement; p2 does, and strict is the default
+      expect(
+        featureRequiresReview(
+          feature({ targetingAllProjects: true }),
+          ["production"],
+          true,
+          settings([rule(["p2"])]),
+        ),
+      ).toBe(true);
+    });
+
+    it("does not require review when the only requiring project is loose-mode", () => {
+      expect(
+        featureRequiresReview(
+          feature({ targetingAllProjects: true }),
+          ["production"],
+          true,
+          settings([rule(["p2"])], [{ projects: ["p2"], mode: "loose" }]),
+        ),
+      ).toBe(false);
+    });
+
+    it("still requires review via an org-wide rule (matches the primary)", () => {
+      expect(
+        featureRequiresReview(
+          feature({ targetingAllProjects: true }),
+          ["production"],
+          true,
+          settings([rule([])]),
+        ),
+      ).toBe(true);
+    });
+
+    it("does not require review for an all-projects feature when no project requires it", () => {
+      expect(
+        featureRequiresReview(
+          feature({ targetingAllProjects: true }),
+          ["production"],
+          true,
+          settings([]),
+        ),
+      ).toBe(false);
+    });
+
+    it("a specific-targeting feature is unaffected (only its own projects govern)", () => {
+      // targets p2 → p2's rule applies
+      expect(
+        featureRequiresReview(
+          feature({ targetingProjects: ["p2"] }),
+          ["production"],
+          true,
+          settings([rule(["p2"])]),
+        ),
+      ).toBe(true);
+      // targets p2 → a rule for p3 does not apply
+      expect(
+        featureRequiresReview(
+          feature({ targetingProjects: ["p2"] }),
+          ["production"],
+          true,
+          settings([rule(["p3"])]),
+        ),
+      ).toBe(false);
     });
   });
 

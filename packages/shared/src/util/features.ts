@@ -2624,6 +2624,17 @@ export function getTargetingReviewMode(
   return all ? all.mode : "strict";
 }
 
+// For an all-projects feature (which reaches every project), the only projects
+// that can add a review requirement beyond the primary are those named in a
+// requireReviews rule — so those are the projects to consider. getGoverning-
+// ReviewProjects then keeps the strict-mode ones. Avoids enumerating every org
+// project just to intersect it back down to the reviewed set.
+function candidateReviewProjects(requireReviews: RequireReview[]): string[] {
+  return Array.from(new Set(requireReviews.flatMap((r) => r.projects))).filter(
+    Boolean,
+  );
+}
+
 // Projects whose review rules govern a change: primary + strict-mode targeting
 // projects (pass current+staged union so de-scoping is governed too).
 export function getGoverningReviewProjects(
@@ -2692,9 +2703,12 @@ export function featureRequiresReview(
   ) {
     return !!requiresReviewSettings;
   }
+  const targetingProjects = feature.targetingAllProjects
+    ? candidateReviewProjects(requiresReviewSettings)
+    : (feature.targetingProjects ?? []);
   return getGoverningReviewProjects(
     feature.project,
-    feature.targetingProjects ?? [],
+    targetingProjects,
     settings?.targetingReviewMode,
   ).some((project) => {
     const reviewSetting = getReviewSetting(requiresReviewSettings, { project });
@@ -3126,12 +3140,19 @@ export function checkIfRevisionNeedsReview({
   if (!Array.isArray(requireReviews)) return !!requireReviews;
 
   // Governing settings: primary + strict-mode targeting across the current+staged
-  // union (so adding and removing a project are both governed), each OR'd.
+  // union (so adding and removing a project are both governed), each OR'd. When
+  // either the live or staged state targets all projects, the feature reaches
+  // every project, so consider the requireReviews-named projects (the only ones
+  // that can add a requirement) instead of an explicit list.
+  const usesAllProjects =
+    !!feature.targetingAllProjects || !!revision.metadata?.targetingAllProjects;
   const stagedTargeting =
     revision.metadata?.targetingProjects ?? feature.targetingProjects ?? [];
-  const targetingUnion = Array.from(
-    new Set([...(feature.targetingProjects ?? []), ...stagedTargeting]),
-  );
+  const targetingUnion = usesAllProjects
+    ? candidateReviewProjects(requireReviews)
+    : Array.from(
+        new Set([...(feature.targetingProjects ?? []), ...stagedTargeting]),
+      );
   const reviewSettings = getGoverningReviewProjects(
     feature.project,
     targetingUnion,
