@@ -39,6 +39,7 @@ import {
   ruleAppliesToEnv,
   ruleProjectScope,
   ruleServedToConnection,
+  rulesEqualIgnoringScopeEncoding,
   ruleFootprint,
   getRulesForEnvironment,
   getRevertValueValidationWarnings,
@@ -2944,6 +2945,51 @@ describe("check revision needs review", () => {
       }),
     ).toEqual(false);
   });
+
+  it("an all-projects feature is governed by a strict targeting project's review rule", () => {
+    // A rule requiring review only for project "eu" (strict by default). The
+    // feature's primary is "" and doesn't match it.
+    const settings: OrganizationSettings = {
+      requireReviews: [
+        {
+          requireReviewOn: true,
+          resetReviewOnChange: false,
+          environments: [],
+          projects: ["eu"],
+        },
+      ],
+    };
+    // Not all-projects: only the primary governs → "eu" rule never applies.
+    expect(
+      checkIfRevisionNeedsReview({
+        feature,
+        baseRevision,
+        revision,
+        allEnvironments: ["prod", "dev", "staging"],
+        settings,
+      }),
+    ).toEqual(false);
+    // targetingAllProjects reaches "eu", so its strict review rule applies.
+    expect(
+      checkIfRevisionNeedsReview({
+        feature: { ...feature, targetingAllProjects: true },
+        baseRevision,
+        revision,
+        allEnvironments: ["prod", "dev", "staging"],
+        settings,
+      }),
+    ).toEqual(true);
+    // Staged all-projects (via revision metadata) is honored too.
+    expect(
+      checkIfRevisionNeedsReview({
+        feature,
+        baseRevision,
+        revision: { ...revision, metadata: { targetingAllProjects: true } },
+        allEnvironments: ["prod", "dev", "staging"],
+        settings,
+      }),
+    ).toEqual(true);
+  });
 });
 
 describe("reset review on change", () => {
@@ -3219,6 +3265,41 @@ describe("ruleProjectScope / ruleServedToConnection", () => {
       );
       expect(
         ruleServedToConnection(baseRule as FeatureRule, ["p1"], ["p2"]),
+      ).toBe(false);
+    });
+  });
+
+  describe("rulesEqualIgnoringScopeEncoding", () => {
+    it("treats a legacy rule and its allProjects:true round-trip as equal", () => {
+      const stored = [baseRule as FeatureRule];
+      const roundTripped = [
+        { ...baseRule, allProjects: true, projects: undefined } as FeatureRule,
+      ];
+      expect(rulesEqualIgnoringScopeEncoding(stored, roundTripped)).toBe(true);
+    });
+    it("ignores undefined-valued keys (Mongo drops them, the mapper stamps them)", () => {
+      const stored = [baseRule as FeatureRule];
+      const stamped = [{ ...baseRule, environments: undefined } as FeatureRule];
+      expect(rulesEqualIgnoringScopeEncoding(stored, stamped)).toBe(true);
+    });
+    it("still detects a real project-scope change", () => {
+      expect(
+        rulesEqualIgnoringScopeEncoding([scoped(["p1"])], [scoped(["p2"])]),
+      ).toBe(false);
+      // all → specific is a real change
+      expect(
+        rulesEqualIgnoringScopeEncoding(
+          [baseRule as FeatureRule],
+          [scoped(["p1"])],
+        ),
+      ).toBe(false);
+    });
+    it("still detects a non-scope change", () => {
+      expect(
+        rulesEqualIgnoringScopeEncoding(
+          [baseRule as FeatureRule],
+          [{ ...baseRule, value: "y" } as FeatureRule],
+        ),
       ).toBe(false);
     });
   });

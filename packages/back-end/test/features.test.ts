@@ -1026,6 +1026,92 @@ describe("Detecting Feature Changes", () => {
       },
     ]);
   });
+
+  it("invalidates targeting projects and fans out all-projects via allProjectIds", () => {
+    const feature = cloneDeep(baseFeature);
+    const base = cloneDeep(baseFeature);
+    const envs = ["dev", "production", "test"];
+    const norm = (keys: { environment: string; project: string }[]) =>
+      keys.map((k) => `${k.environment}:${k.project}`).sort();
+
+    // Adding a targeting project invalidates that project's caches too
+    expect(
+      norm(
+        getSDKPayloadKeysByDiff(
+          feature,
+          { ...base, targetingProjects: ["p2"] },
+          envs,
+        ),
+      ),
+    ).toEqual(
+      norm([
+        { environment: "dev", project: "" },
+        { environment: "dev", project: "p2" },
+        { environment: "production", project: "" },
+        { environment: "production", project: "p2" },
+      ]),
+    );
+
+    // targetingAllProjects enumerates every org project — but only when
+    // allProjectIds is supplied (the invalidation-fan-out fix)
+    const allProjectIds = ["p1", "p2"];
+    expect(
+      norm(
+        getSDKPayloadKeysByDiff(
+          feature,
+          { ...base, targetingAllProjects: true },
+          envs,
+          allProjectIds,
+        ),
+      ),
+    ).toEqual(
+      norm([
+        { environment: "dev", project: "" },
+        { environment: "dev", project: "p1" },
+        { environment: "dev", project: "p2" },
+        { environment: "production", project: "" },
+        { environment: "production", project: "p1" },
+        { environment: "production", project: "p2" },
+      ]),
+    );
+
+    // Without allProjectIds the all-projects fan-out can't happen (regression guard)
+    expect(
+      norm(
+        getSDKPayloadKeysByDiff(
+          feature,
+          { ...base, targetingAllProjects: true },
+          envs,
+        ),
+      ),
+    ).toEqual(
+      norm([
+        { environment: "dev", project: "" },
+        { environment: "production", project: "" },
+      ]),
+    );
+
+    // getAffectedSDKPayloadKeys enumerates for an all-projects feature too
+    expect(
+      norm(
+        getAffectedSDKPayloadKeys(
+          [{ ...base, targetingAllProjects: true }],
+          envs,
+          undefined,
+          allProjectIds,
+        ),
+      ),
+    ).toEqual(
+      norm([
+        { environment: "dev", project: "" },
+        { environment: "dev", project: "p1" },
+        { environment: "dev", project: "p2" },
+        { environment: "production", project: "" },
+        { environment: "production", project: "p1" },
+        { environment: "production", project: "p2" },
+      ]),
+    );
+  });
 });
 
 describe("Changes are ignored when archived or disabled", () => {

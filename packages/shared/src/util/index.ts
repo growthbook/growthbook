@@ -423,6 +423,26 @@ export function ruleServedToConnection(
   );
 }
 
+// Compare two rule lists ignoring the several equivalent encodings of project
+// scope (legacy: no fields = all; allProjects:true = all; projects:[] +
+// allProjects:false = none) and undefined-valued keys (Mongo drops them, the
+// API mapper stamps them). Lets an idempotent API round-trip read as unchanged
+// while a genuine scope change still differs.
+export function rulesEqualIgnoringScopeEncoding(
+  a: FeatureRule[],
+  b: FeatureRule[],
+): boolean {
+  const canon = (rules: FeatureRule[]) =>
+    rules.map((r) => {
+      const { projects: _p, allProjects: _ap, ...rest } = r;
+      const defined = Object.fromEntries(
+        Object.entries(rest).filter(([, v]) => v !== undefined),
+      );
+      return { ...defined, canonicalProjectScope: ruleProjectScope(r) };
+    });
+  return isEqual(canon(a), canon(b));
+}
+
 // Footprint of a rule, intersected with `applicableEnvs`. Must match
 // `ruleAppliesToEnv`.
 //   allEnvironments:true           → every applicable env
