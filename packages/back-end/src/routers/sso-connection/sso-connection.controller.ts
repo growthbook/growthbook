@@ -178,18 +178,22 @@ export async function putSSOConnection(
   }
   const newEnforce = enforceSSO ?? currentEnforce;
 
-  // While SSO is enforced, changing the token trust anchor (issuer or JWKS)
-  // could lock every member out once their sessions expire, since nobody can
-  // verify against the new config until they sign in through it. Require
-  // turning off enforcement first, which forces the safe re-verify sequence.
-  if (
-    existing &&
-    currentEnforce &&
+  // While SSO is enforced, changing any auth-critical field could lock every
+  // member out, since nobody can prove the new config works without signing in
+  // through it. Issuer/JWKS changes break id_token verification; a clientId
+  // change breaks it immediately via the audience check; and wrong OAuth
+  // credentials break token exchange and refresh. Require turning enforcement
+  // off first, which forces the safe re-verify sequence.
+  // An empty clientSecret means "keep existing", so it is not a change.
+  const authConfigChanged =
+    !!existing &&
     (existing.metadata?.issuer !== connectionFields.metadata?.issuer ||
-      existing.metadata?.jwks_uri !== connectionFields.metadata?.jwks_uri)
-  ) {
+      existing.metadata?.jwks_uri !== connectionFields.metadata?.jwks_uri ||
+      existing.clientId !== connectionFields.clientId ||
+      (clientSecret !== "" && clientSecret !== existing.clientSecret));
+  if (currentEnforce && authConfigChanged) {
     throw new Error(
-      "Turn off enforced SSO sign-in before changing the identity provider, then sign in through the updated connection to re-enable it.",
+      "Turn off enforced SSO sign-in before changing the identity provider or its credentials, then sign in through the updated connection to re-enable it.",
     );
   }
   if (!existing && !clientSecret) {
