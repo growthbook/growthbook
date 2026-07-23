@@ -187,8 +187,10 @@ export function validateLoginMethod(
 
 // Enterprise SSO sign-in stops once the connection's organization loses the
 // "sso" feature — e.g. an expired license after any applicable grace period
-// (air-gapped licenses get 14 days via getEffectiveAccountPlan). License
-// lookups fail open so a license-server outage can't cause a login outage.
+// (air-gapped licenses get 14 days via getEffectiveAccountPlan). The decision
+// is always made by orgHasPremiumFeature, which already distinguishes a
+// definitively invalid/expired license (no feature -> block) from a transient
+// license-server outage (covered by the cached license, so still allowed).
 export async function validateLicensedSSOLogin(
   connection: SSOConnectionInterface,
 ): Promise<void> {
@@ -197,14 +199,27 @@ export async function validateLicensedSSOLogin(
   let org: OrganizationInterface | null = null;
   try {
     org = await getOrganizationById(connection.organization);
-    if (!org) return;
+  } catch (e) {
+    // Can't load the org at all: pure infra failure with no entitlement
+    // signal, so don't block sign-in.
+    logger.error(
+      { err: e, organization: connection.organization },
+      "Could not load the organization for the SSO license check; allowing sign-in",
+    );
+    return;
+  }
+  if (!org) return;
+
+  // Best-effort refresh. If it throws (e.g. a transient license-server issue),
+  // fall through to the cached entitlement rather than granting access — an
+  // invalid or expired license still resolves to "no sso" below.
+  try {
     await licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
   } catch (e) {
     logger.error(
       { err: e, organization: connection.organization },
-      "Could not check the license for SSO login; allowing sign-in",
+      "Could not refresh the license for SSO login; using cached entitlement",
     );
-    return;
   }
 
   if (!orgHasPremiumFeature(org, "sso")) {
@@ -1316,18 +1331,20 @@ export async function addMemberFromSSOConnection(
   if (!organization) return null;
 
   // Auto-join is part of licensed enterprise SSO (Vercel installs excepted).
-  // License lookups fail open so a license-server outage can't block joins
+  // The entitlement decision is always orgHasPremiumFeature, which treats an
+  // invalid/expired license as "no sso"; only a transient refresh failure
+  // falls back to the cached entitlement.
   if (!ssoConnection.id?.startsWith("vercel:")) {
     try {
       await licenseInit(organization, getUserCodesForOrg, getLicenseMetaData);
-      if (!orgHasPremiumFeature(organization, "sso")) {
-        return null;
-      }
     } catch (e) {
       logger.error(
         { err: e, organization: organization.id },
-        "Could not check the license for SSO auto-join; allowing it",
+        "Could not refresh the license for SSO auto-join; using cached entitlement",
       );
+    }
+    if (!orgHasPremiumFeature(organization, "sso")) {
+      return null;
     }
   }
 
