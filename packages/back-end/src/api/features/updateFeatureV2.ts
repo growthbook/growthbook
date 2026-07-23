@@ -3,6 +3,7 @@ import {
   getConfigBackingPatch,
   getConfigBackingKey,
   normalizeTargetingInUpdates,
+  ruleProjectScope,
 } from "shared/util";
 import { isEqual } from "lodash";
 import { updateFeatureV2Validator } from "shared/validators";
@@ -54,6 +55,28 @@ import {
   extractRevisionMetadata,
   mapV2ApiRuleToFeatureRule,
 } from "./v2Shared";
+
+// The v2 mapper stamps an explicit rule-scope encoding (allProjects/projects,
+// and undefined environments/projects) that a stored rule lacks — Mongo drops
+// undefined keys, and legacy rules store no project scope at all. So a
+// byte-identical PUT would otherwise look like a rule change and spuriously
+// republish (and can hard-fail review). Compare on a canonical form: project
+// scope via ruleProjectScope, with undefined-valued keys dropped — so
+// equivalent encodings match while real changes still differ.
+function rulesEqualIgnoringScopeEncoding(
+  a: FeatureRule[],
+  b: FeatureRule[],
+): boolean {
+  const canon = (rules: FeatureRule[]) =>
+    rules.map((r) => {
+      const { projects: _p, allProjects: _ap, ...rest } = r;
+      const defined = Object.fromEntries(
+        Object.entries(rest).filter(([, v]) => v !== undefined),
+      );
+      return { ...defined, canonicalProjectScope: ruleProjectScope(r) };
+    });
+  return isEqual(canon(a), canon(b));
+}
 
 export const updateFeatureV2 = createApiRequestHandler(
   updateFeatureV2Validator,
@@ -367,7 +390,7 @@ export const updateFeatureV2 = createApiRequestHandler(
   const hasRuleChanges =
     defaultValueChanged ||
     (inboundFlatRules != null &&
-      !isEqual(inboundFlatRules, feature.rules ?? []));
+      !rulesEqualIgnoringScopeEncoding(inboundFlatRules, feature.rules ?? []));
   const hasEnvEnabledChanges = Object.keys(changedEnvEnabled).length > 0;
   const hasMetadataChanges = Object.keys(metadataChanges).length > 0;
   const hasPrereqChanges = newPrerequisites !== null;
