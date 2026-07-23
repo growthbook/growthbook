@@ -5,7 +5,6 @@ import { APP_ORIGIN, SLACK_SIGNING_SECRET } from "back-end/src/util/secrets";
 import { EventWebHookModel } from "back-end/src/models/EventWebhookModel";
 import { snoozeSlackExperimentNotifications } from "back-end/src/models/SlackNotificationSnoozeModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
-import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { resolveSlackAssistantTarget } from "back-end/src/services/slack/slackIdentity";
 import { logger } from "back-end/src/util/logger";
 import {
@@ -113,8 +112,18 @@ router.post("/commands", slackBodyParser, async (req: SlackRequest, res) => {
       });
     }
 
-    const context = await getContextForAgendaJobByOrgId(webhook.organizationId);
-    const experiment = await getExperimentById(context, experimentId);
+    // Resolve the Slack user to their linked GrowthBook account + permission-
+    // scoped context, so experiment details go only to someone who can actually
+    // read it — not any (even unlinked) member of the channel.
+    const target = await resolveSlackAssistantTarget({
+      teamId: req.body.team_id,
+      channelId: req.body.channel_id,
+      slackUserId: req.body.user_id,
+    });
+    if (!target.ok) {
+      return res.json({ response_type: "ephemeral", text: target.message });
+    }
+    const experiment = await getExperimentById(target.context, experimentId);
     if (!experiment) {
       return res.json({
         response_type: "ephemeral",
