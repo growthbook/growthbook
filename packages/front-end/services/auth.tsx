@@ -326,6 +326,7 @@ export const AuthProvider: React.FC<{
       setAuthComponent(
         <Welcome
           firstTime={resp.newInstallation}
+          registrationDisabled={resp.registrationDisabled}
           onSuccess={(t, pid) => {
             setToken(t);
             if (pid) {

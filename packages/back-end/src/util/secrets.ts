@@ -43,6 +43,12 @@ export const ALLOW_SELF_ORG_CREATION = stringToBoolean(
   true,
 );
 
+// When true, prevents new users from registering via the UI.
+// Existing users can still log in, and admins can still invite users.
+export const DISABLE_REGISTRATION = stringToBoolean(
+  process.env.DISABLE_REGISTRATION,
+);
+
 export const UPLOAD_METHOD = (() => {
   const method = process.env.UPLOAD_METHOD;
   if (method && ["s3", "google-cloud"].includes(method)) {
