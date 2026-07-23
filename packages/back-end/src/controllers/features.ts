@@ -5177,8 +5177,8 @@ export async function putFeature(
         tags: "tags",
         owner: "owner",
         project: "project",
-        targetingAllProjects: "targeting",
-        targetingProjects: "targeting projects",
+        targetingAllProjects: "Targeting Projects",
+        targetingProjects: "Targeting Projects",
         customFields: "custom fields",
         holdout: "holdout",
       };

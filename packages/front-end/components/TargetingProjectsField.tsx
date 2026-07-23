@@ -58,7 +58,7 @@ export default function TargetingProjectsField({
         <>
           <Flex align="center" gap="1" mb="3">
             <label className="mb-0" style={{ fontWeight: 600 }}>
-              Additional targeting Projects
+              Additional Targeting Projects
             </label>
             <Tooltip body={help}>
               <PiInfo />

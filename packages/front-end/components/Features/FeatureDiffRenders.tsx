@@ -1661,7 +1661,7 @@ export function getFeatureMetadataBadges(
     )
   ) {
     badges.push({
-      label: "Edit targeting projects",
+      label: "Edit Targeting Projects",
       action: "edit targeting",
     });
   }
