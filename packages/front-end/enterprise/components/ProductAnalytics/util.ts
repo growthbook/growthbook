@@ -466,7 +466,7 @@ export function getCommonColumns(
 
   type SimpleColumn = Pick<
     ColumnInterface,
-    "column" | "name" | "deleted" | "datatype"
+    "column" | "name" | "deleted" | "datatype" | "jsonFields"
   >;
   let columns: SimpleColumn[] | null = null;
   const userIdTypes = new Set<string>();
@@ -510,12 +510,31 @@ export function getCommonColumns(
     columns = ft?.columns || [];
   }
 
-  return (columns || [])
+  const groupByColumns: Pick<ColumnInterface, "column" | "name">[] = [];
+  (columns || [])
     .filter((c) => !c.deleted)
-    .filter((c) => c.datatype === "string")
     .filter((c) => !userIdTypes.has(c.column))
-    .sort((a, b) => (a.name || a.column).localeCompare(b.name || b.column))
-    .map((c) => ({ column: c.column, name: c.name }));
+    .forEach((c) => {
+      // Top-level string columns
+      if (c.datatype === "string") {
+        groupByColumns.push({ column: c.column, name: c.name });
+      }
+      // Nested JSON fields (use dot-notation, matching getColumnExpression)
+      if (c.datatype === "json" && c.jsonFields) {
+        Object.entries(c.jsonFields).forEach(([field, info]) => {
+          if (info.datatype === "string") {
+            groupByColumns.push({
+              column: `${c.column}.${field}`,
+              name: `${c.name || c.column}.${field}`,
+            });
+          }
+        });
+      }
+    });
+
+  return groupByColumns.sort((a, b) =>
+    (a.name || a.column).localeCompare(b.name || b.column),
+  );
 }
 
 export function getMaxDimensions(dataset: ExplorationDataset): number {
