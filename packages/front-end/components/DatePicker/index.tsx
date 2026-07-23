@@ -545,9 +545,6 @@ export default function DatePicker({
                   selected={getValidDate(date)}
                   onSelect={(selectedDate: Date) => {
                     if (!selectedDate) selectedDate = new Date();
-                    // Picking a day resets the time to 00:00:00 (the calendar
-                    // has no time controls). Users can still type a specific
-                    // hh:mm:ss into the field afterwards.
                     setDate(selectedDate);
                     setBufferedDate(format(selectedDate, dateFormat));
                   }}
