@@ -69,10 +69,14 @@ export const updateSingleFeature = async (job: UpdateSingleFeatureJob) => {
 
   const nextScheduledUpdate = getNextScheduledUpdate(feature.rules);
 
+  // Pass all org project ids so a targetingAllProjects feature invalidates every
+  // project-scoped connection cache, not just its enumerated projects.
+  const allProjectIds = (await context.getProjects()).map((p) => p.id);
   const payloadKeys = getSDKPayloadKeysByDiff(
     feature,
     { ...feature, nextScheduledUpdate: nextScheduledUpdate ?? undefined },
     getEnvironmentIdsFromOrg(context.org),
+    allProjectIds,
   );
 
   // Intentionally fire-and-forget: releasing the Agenda job quickly lets a

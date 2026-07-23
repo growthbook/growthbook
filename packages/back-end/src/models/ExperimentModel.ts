@@ -2047,6 +2047,9 @@ export function getPayloadKeys(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
   linkedFeatures?: FeatureInterface[],
+  // Every org project id — only consulted for linked features that target all
+  // projects, so their project-scoped connection caches invalidate too.
+  allProjectIds: string[] = [],
 ): SDKPayloadKey[] {
   // If experiment is not included in the SDK payload
   if (!includeExperimentInPayload(experiment, linkedFeatures)) {
@@ -2079,6 +2082,7 @@ export function getPayloadKeys(
         rule.type === "experiment-ref" &&
         rule.experimentId === experiment.id &&
         rule.enabled !== false,
+      allProjectIds,
     );
   }
 
@@ -2177,14 +2181,16 @@ const onExperimentUpdate = async ({
     if (featureIds.size > 0) {
       linkedFeatures = await getFeaturesByIds(context, [...featureIds]);
     }
+    const allProjectIds = (await context.getProjects()).map((p) => p.id);
 
     const oldPayloadKeys = oldExperiment
-      ? getPayloadKeys(context, oldExperiment, linkedFeatures)
+      ? getPayloadKeys(context, oldExperiment, linkedFeatures, allProjectIds)
       : [];
     const newPayloadKeys = getPayloadKeys(
       context,
       newExperiment,
       linkedFeatures,
+      allProjectIds,
     );
     const payloadKeys = uniqWith(
       [...oldPayloadKeys, ...newPayloadKeys],
@@ -2236,7 +2242,13 @@ const onExperimentDelete = async (
     linkedFeatures = await getFeaturesByIds(context, featureIds);
   }
 
-  const payloadKeys = getPayloadKeys(context, experiment, linkedFeatures);
+  const allProjectIds = (await context.getProjects()).map((p) => p.id);
+  const payloadKeys = getPayloadKeys(
+    context,
+    experiment,
+    linkedFeatures,
+    allProjectIds,
+  );
   queueSDKPayloadRefresh({
     context,
     payloadKeys,
