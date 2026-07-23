@@ -132,44 +132,41 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
           "Either provide variationId for all variations or none; mixed inputs are not allowed.",
         );
       }
-      // Legacy revisions store holdout sparsely, so absence carries the
-      // feature's holdout forward.
-      const effectiveHoldout = getEffectiveRevisionHoldout(revision, feature);
-      const needsHoldoutCheck = Boolean(effectiveHoldout?.id);
-      if (anyMissing || needsHoldoutCheck) {
-        const experiment = await getExperimentById(
-          req.context,
-          ruleInput.experimentId,
+      // Always resolve the experiment: holdout compatibility must be checked
+      // in both directions (the experiment may belong to a holdout even when
+      // this Feature Flag does not).
+      const experiment = await getExperimentById(
+        req.context,
+        ruleInput.experimentId,
+      );
+      if (!experiment)
+        throw new NotFoundError(
+          `Could not find experiment "${ruleInput.experimentId}"`,
         );
-        if (!experiment)
-          throw new NotFoundError(
-            `Could not find experiment "${ruleInput.experimentId}"`,
+
+      if (anyMissing) {
+        const phaseVariations = getLatestPhaseVariations(experiment);
+        if (phaseVariations.length < ruleInput.variations.length) {
+          throw new BadRequestError(
+            `Experiment has ${phaseVariations.length} variation(s) but ${ruleInput.variations.length} were specified`,
           );
-
-        if (anyMissing) {
-          const phaseVariations = getLatestPhaseVariations(experiment);
-          if (phaseVariations.length < ruleInput.variations.length) {
-            throw new BadRequestError(
-              `Experiment has ${phaseVariations.length} variation(s) but ${ruleInput.variations.length} were specified`,
-            );
-          }
-          ruleInput.variations = ruleInput.variations.map((v, i) => ({
-            variationId: phaseVariations[i].id,
-            value: v.value,
-          }));
         }
-
-        if (needsHoldoutCheck) {
-          // Linking writes are deferred until after custom-hook prevalidation below.
-          holdoutExperimentToLink = await resolveHoldoutExperimentToLink({
-            context: req.context,
-            feature,
-            experiment,
-            effectiveHoldout,
-            makeError: (message) => new BadRequestError(message),
-          });
-        }
+        ruleInput.variations = ruleInput.variations.map((v, i) => ({
+          variationId: phaseVariations[i].id,
+          value: v.value,
+        }));
       }
+
+      // Legacy revisions store holdout sparsely, so absence carries the
+      // feature's holdout forward. Linking writes are deferred until after
+      // custom-hook prevalidation below.
+      holdoutExperimentToLink = await resolveHoldoutExperimentToLink({
+        context: req.context,
+        feature,
+        experiment,
+        effectiveHoldout: getEffectiveRevisionHoldout(revision, feature),
+        makeError: (message) => new BadRequestError(message),
+      });
     }
 
     // V2: derive scope from the rule itself, not from a body `environment` field.
