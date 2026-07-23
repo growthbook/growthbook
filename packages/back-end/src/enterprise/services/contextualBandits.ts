@@ -204,6 +204,7 @@ export async function executeContextualBanditVariationChange(
   }
 
   let featureDraftPublishFailures: PendingDraftFailure[] = [];
+  let payloadAlreadyRefreshed = false;
   if (diff.addedIds.length > 0) {
     const applied = await addVariationValuesToLinkedFeatures(
       context,
@@ -213,13 +214,18 @@ export async function executeContextualBanditVariationChange(
     );
     updated = applied.cb;
     featureDraftPublishFailures = applied.failures;
+    payloadAlreadyRefreshed = applied.refreshedPayload;
   }
 
-  await refreshLinkedFeaturePayloads(
-    context,
-    updated,
-    "contextualBandit.refresh",
-  );
+  // Publishing the added-arm feature drafts already rebuilds the payload; only
+  // refresh here when it didn't (no adds, draft CB, or a failed/partial publish).
+  if (!payloadAlreadyRefreshed) {
+    await refreshLinkedFeaturePayloads(
+      context,
+      updated,
+      "contextualBandit.refresh",
+    );
+  }
 
   return { updated, featureDraftPublishFailures };
 }
@@ -276,10 +282,16 @@ export async function addVariationValuesToLinkedFeatures(
   cb: ContextualBanditInterface,
   addedIds: string[],
   providedValues?: Record<string, Record<string, string>>,
-): Promise<{ cb: ContextualBanditInterface; failures: PendingDraftFailure[] }> {
+): Promise<{
+  cb: ContextualBanditInterface;
+  failures: PendingDraftFailure[];
+  // True when publishing already rebuilt the SDK payload for every affected
+  // feature (so the caller can skip a redundant refresh).
+  refreshedPayload: boolean;
+}> {
   const featureIds = cb.linkedFeatures ?? [];
   if (addedIds.length === 0 || featureIds.length === 0)
-    return { cb, failures: [] };
+    return { cb, failures: [], refreshedPayload: false };
 
   let stagedAny = false;
 
@@ -365,7 +377,7 @@ export async function addVariationValuesToLinkedFeatures(
     stagedAny = true;
   }
 
-  if (!stagedAny) return { cb, failures: [] };
+  if (!stagedAny) return { cb, failures: [], refreshedPayload: false };
 
   const refreshed =
     (await context.models.contextualBandits.getById(cb.id)) ?? cb;
@@ -382,9 +394,18 @@ export async function addVariationValuesToLinkedFeatures(
     }
     const rereadCb =
       (await context.models.contextualBandits.getById(cb.id)) ?? refreshed;
-    return { cb: rereadCb, failures: result.failed };
+    // Every added arm stages a draft on every linked feature, so a clean publish
+    // (nothing failed) rebuilt the payload for all of them — no extra refresh
+    // needed. A partial/failed publish leaves some payloads stale, so the caller
+    // must still refresh.
+    return {
+      cb: rereadCb,
+      failures: result.failed,
+      refreshedPayload:
+        result.published.length > 0 && result.failed.length === 0,
+    };
   }
-  return { cb: refreshed, failures: [] };
+  return { cb: refreshed, failures: [], refreshedPayload: false };
 }
 
 export type ContextualBanditResultsForUi = {

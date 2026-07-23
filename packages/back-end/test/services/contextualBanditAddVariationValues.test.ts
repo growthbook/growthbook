@@ -140,19 +140,21 @@ describe("addVariationValuesToLinkedFeatures", () => {
     });
   });
 
-  it("publishes staged drafts immediately for a running CB", async () => {
+  it("publishes staged drafts immediately for a running CB (and reports the payload was refreshed)", async () => {
+    publishMock.mockResolvedValueOnce({
+      published: [{ featureId: "feature", revisionVersion: 5 }],
+      failed: [],
+    });
     const cb = makeCb({ status: "running" });
     const { context } = makeContext(cb);
 
-    const { failures } = await addVariationValuesToLinkedFeatures(
-      context,
-      cb,
-      ["v2"],
-      undefined,
-    );
+    const { failures, refreshedPayload } =
+      await addVariationValuesToLinkedFeatures(context, cb, ["v2"], undefined);
 
     expect(publishMock).toHaveBeenCalledTimes(1);
     expect(failures).toEqual([]);
+    // Clean publish rebuilt the payload → caller can skip the extra refresh.
+    expect(refreshedPayload).toBe(true);
   });
 
   it("surfaces + logs publish failures instead of swallowing them (#2)", async () => {
@@ -163,15 +165,13 @@ describe("addVariationValuesToLinkedFeatures", () => {
     const cb = makeCb({ status: "running" });
     const { context, warn } = makeContext(cb);
 
-    const { failures } = await addVariationValuesToLinkedFeatures(
-      context,
-      cb,
-      ["v2"],
-      undefined,
-    );
+    const { failures, refreshedPayload } =
+      await addVariationValuesToLinkedFeatures(context, cb, ["v2"], undefined);
 
     expect(failures).toEqual(failed);
     expect(warn).toHaveBeenCalledTimes(1);
+    // A failed/partial publish leaves payloads stale → caller must still refresh.
+    expect(refreshedPayload).toBe(false);
   });
 
   it("throws on a value that fails the feature's type validation", async () => {
