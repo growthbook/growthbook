@@ -13,7 +13,7 @@ import { OAuthAuthCodeModel } from "back-end/src/models/OAuthAuthCodeModel";
 import {
   createOAuthClient,
   getOAuthClientById,
-} from "back-end/src/models/OAuthModels";
+} from "back-end/src/models/OAuthClientModel";
 import { OAuthRefreshTokenModel } from "back-end/src/models/OAuthRefreshTokenModel";
 import { findOrganizationById } from "back-end/src/models/OrganizationModel";
 import {

@@ -11,7 +11,7 @@ import {
   revokeToken,
 } from "back-end/src/services/oauth";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
-import { getOAuthClientById } from "back-end/src/models/OAuthModels";
+import { getOAuthClientById } from "back-end/src/models/OAuthClientModel";
 import { OAuthRefreshTokenModel } from "back-end/src/models/OAuthRefreshTokenModel";
 import { findOrganizationById } from "back-end/src/models/OrganizationModel";
 import {
@@ -39,7 +39,7 @@ jest.mock("back-end/src/models/OAuthRefreshTokenModel", () => ({
   },
 }));
 
-jest.mock("back-end/src/models/OAuthModels", () => ({
+jest.mock("back-end/src/models/OAuthClientModel", () => ({
   createOAuthClient: jest.fn(),
   getOAuthClientById: jest.fn(),
 }));
