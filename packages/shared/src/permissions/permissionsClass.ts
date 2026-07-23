@@ -346,18 +346,18 @@ export class Permissions {
       // read-only sample-data project) can't gate the CTA when it's the only
       // project.
       return (
-        this.checkProjectFilterPermission({ projects: [] }, "manageFeatures") ||
+        this.checkProjectFilterPermission({ projects: [] }, "manageFlags") ||
         allProjects.some((p) =>
           this.checkProjectFilterPermission(
             { projects: [p.id] },
-            "manageFeatures",
+            "manageFlags",
           ),
         )
       );
     }
     return this.checkProjectFilterPermission(
       { projects: project ? [project] : [] },
-      "manageFeatures",
+      "manageFlags",
     );
   };
 
@@ -368,7 +368,7 @@ export class Permissions {
       {
         projects: feature.project ? [feature.project] : [],
       },
-      "manageFeatures",
+      "manageFlags",
     );
   };
 
@@ -379,7 +379,7 @@ export class Permissions {
     return this.checkProjectFilterUpdatePermission(
       { projects: existing.project ? [existing.project] : [] },
       "project" in updated ? { projects: [updated.project || ""] } : {},
-      "manageFeatures",
+      "manageFlags",
     );
   };
 
@@ -390,7 +390,20 @@ export class Permissions {
       {
         projects: feature.project ? [feature.project] : [],
       },
-      "manageFeatures",
+      "deleteFlags",
+    );
+  };
+
+  // Revert a feature to a previously-published revision. Env-scoped: gate on the
+  // environments the revert would change.
+  public canRevertFeature = (
+    feature: Pick<FeatureInterface, "project">,
+    environments: string[],
+  ): boolean => {
+    return this.checkEnvFilterPermission(
+      { projects: feature.project ? [feature.project] : [] },
+      environments,
+      "revertFlags",
     );
   };
 
@@ -948,7 +961,7 @@ export class Permissions {
   ) => {
     return this.checkProjectFilterPermission(
       { projects: feature.project ? [feature.project] : [] },
-      "manageFeatureDrafts",
+      "manageFlagDrafts",
     );
   };
 
@@ -957,7 +970,7 @@ export class Permissions {
   ): boolean => {
     return this.checkProjectFilterPermission(
       { projects: feature.project ? [feature.project] : [] },
-      "canReview",
+      "reviewFlags",
     );
   };
 
@@ -1257,7 +1270,7 @@ export class Permissions {
         projects: feature.project ? [feature.project] : [],
       },
       environments,
-      "publishFeatures",
+      "publishFlags",
     );
   };
 
@@ -1369,7 +1382,34 @@ export class Permissions {
   public canDeleteSavedGroup = (
     savedGroup: Pick<SavedGroupInterface, "projects">,
   ): boolean => {
-    return this.checkProjectFilterPermission(savedGroup, "manageSavedGroups");
+    return this.checkProjectFilterPermission(savedGroup, "deleteSavedGroups");
+  };
+
+  public canManageSavedGroupDrafts = (
+    savedGroup: Pick<SavedGroupInterface, "projects">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      savedGroup,
+      "manageSavedGroupDrafts",
+    );
+  };
+
+  public canReviewSavedGroup = (
+    savedGroup: Pick<SavedGroupInterface, "projects">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(savedGroup, "reviewSavedGroups");
+  };
+
+  public canPublishSavedGroup = (
+    savedGroup: Pick<SavedGroupInterface, "projects">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(savedGroup, "publishSavedGroups");
+  };
+
+  public canRevertSavedGroup = (
+    savedGroup: Pick<SavedGroupInterface, "projects">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(savedGroup, "revertSavedGroups");
   };
 
   public canCreateConstant = (
@@ -1377,7 +1417,7 @@ export class Permissions {
   ): boolean => {
     return this.checkProjectFilterPermission(
       { projects: constant.project ? [constant.project] : [] },
-      "manageConstants",
+      "manageFlags",
     );
   };
 
@@ -1388,7 +1428,7 @@ export class Permissions {
     return this.checkProjectFilterUpdatePermission(
       { projects: existing.project ? [existing.project] : [] },
       "project" in updated ? { projects: [updated.project || ""] } : {},
-      "manageConstants",
+      "manageFlags",
     );
   };
 
@@ -1397,7 +1437,7 @@ export class Permissions {
   ): boolean => {
     return this.checkProjectFilterPermission(
       { projects: constant.project ? [constant.project] : [] },
-      "manageConstants",
+      "deleteFlags",
     );
   };
 
@@ -1406,7 +1446,7 @@ export class Permissions {
   ): boolean => {
     return this.checkProjectFilterPermission(
       { projects: config.project ? [config.project] : [] },
-      "manageConfigs",
+      "manageFlags",
     );
   };
 
@@ -1417,7 +1457,7 @@ export class Permissions {
     return this.checkProjectFilterUpdatePermission(
       { projects: existing.project ? [existing.project] : [] },
       "project" in updated ? { projects: [updated.project || ""] } : {},
-      "manageConfigs",
+      "manageFlags",
     );
   };
 
@@ -1426,8 +1466,33 @@ export class Permissions {
   ): boolean => {
     return this.checkProjectFilterPermission(
       { projects: config.project ? [config.project] : [] },
-      "manageConfigs",
+      "deleteFlags",
     );
+  };
+
+  // Generic Flag-family revision permissions, shared by features, constants,
+  // and configs (project-list based so revision adapters can pass their entity's
+  // project). publish/revert are environment-scoped.
+  public canManageFlagDrafts = (obj: { projects?: string[] }): boolean => {
+    return this.checkProjectFilterPermission(obj, "manageFlagDrafts");
+  };
+
+  public canReviewFlag = (obj: { projects?: string[] }): boolean => {
+    return this.checkProjectFilterPermission(obj, "reviewFlags");
+  };
+
+  public canPublishFlag = (
+    obj: { projects?: string[] },
+    environments: string[],
+  ): boolean => {
+    return this.checkEnvFilterPermission(obj, environments, "publishFlags");
+  };
+
+  public canRevertFlag = (
+    obj: { projects?: string[] },
+    environments: string[],
+  ): boolean => {
+    return this.checkEnvFilterPermission(obj, environments, "revertFlags");
   };
 
   public canBypassSavedGroupSizeLimit = (projects?: string[]): boolean => {
