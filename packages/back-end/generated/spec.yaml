@@ -6527,6 +6527,12 @@ paths:
         - $ref: '#/components/parameters/projectId'
         - $ref: '#/components/parameters/clientKey'
         - $ref: '#/components/parameters/archived'
+        - $ref: '#/components/parameters/tag'
+        - $ref: '#/components/parameters/owner'
+        - $ref: '#/components/parameters/valueType'
+        - $ref: '#/components/parameters/baseConfig'
+        - $ref: '#/components/parameters/sortBy'
+        - $ref: '#/components/parameters/sortOrder'
         - $ref: '#/components/parameters/skipPagination'
       responses:
         '200':
@@ -16222,7 +16228,12 @@ paths:
           schema:
             description: Filter by comma-separated project ids or names
             type: string
-        - $ref: '#/components/parameters/owner'
+        - name: owner
+          in: query
+          description: Filter by comma-separated owner ids, names, or emails
+          schema:
+            description: Filter by comma-separated owner ids, names, or emails
+            type: string
         - name: status
           in: query
           description: Filter by comma-separated statuses (draft, running, stopped)
@@ -16230,7 +16241,12 @@ paths:
             description: Filter by comma-separated statuses (draft, running, stopped)
             type: string
         - $ref: '#/components/parameters/result'
-        - $ref: '#/components/parameters/tag'
+        - name: tag
+          in: query
+          description: Filter by comma-separated tags
+          schema:
+            description: Filter by comma-separated tags
+            type: string
         - $ref: '#/components/parameters/type'
         - $ref: '#/components/parameters/bandits'
         - $ref: '#/components/parameters/startDate'
@@ -45989,6 +46005,88 @@ components:
           - type: string
             const: '1'
           - type: boolean
+    tag:
+      name: tag
+      in: query
+      description: Filter by comma-separated tags (returns features that have any of them)
+      schema:
+        description: >-
+          Filter by comma-separated tags (returns features that have any of
+          them)
+        type: string
+    owner:
+      name: owner
+      in: query
+      description: >-
+        Filter by comma-separated owners. Each value may be a userId (u_...) or
+        an email address (resolved to the matching organization member); legacy
+        features that store a raw name or email as their owner are matched
+        exactly
+      schema:
+        description: >-
+          Filter by comma-separated owners. Each value may be a userId (u_...)
+          or an email address (resolved to the matching organization member);
+          legacy features that store a raw name or email as their owner are
+          matched exactly
+        type: string
+    valueType:
+      name: valueType
+      in: query
+      description: >-
+        Filter by comma-separated value types (boolean, string, number, json).
+        Note: config-backed flags are JSON flags — filter those with
+        `baseConfig`
+      schema:
+        description: >-
+          Filter by comma-separated value types (boolean, string, number, json).
+          Note: config-backed flags are JSON flags — filter those with
+          `baseConfig`
+        type: array
+        items:
+          type: string
+          enum:
+            - boolean
+            - string
+            - number
+            - json
+      explode: false
+    baseConfig:
+      name: baseConfig
+      in: query
+      description: >-
+        Filter by the key of the config backing the flag (Config mode). Returns
+        only flags whose baseConfig equals this key
+      schema:
+        description: >-
+          Filter by the key of the config backing the flag (Config mode).
+          Returns only flags whose baseConfig equals this key
+        type: string
+    sortBy:
+      name: sortBy
+      in: query
+      description: >-
+        Field to sort the results by. If omitted, results are returned in
+        insertion order
+      schema:
+        description: >-
+          Field to sort the results by. If omitted, results are returned in
+          insertion order
+        type: string
+        enum:
+          - id
+          - dateCreated
+          - dateUpdated
+    sortOrder:
+      name: sortOrder
+      in: query
+      description: Sort direction (used with `sortBy`)
+      schema:
+        default: asc
+        description: Sort direction (used with `sortBy`)
+        type: string
+        enum:
+          - asc
+          - desc
     skipSchemaValidation:
       name: skipSchemaValidation
       in: query
@@ -46145,26 +46243,12 @@ components:
           (`!`) and operators (`~`, `^`, `>`, `<`, `=`) are not supported and
           return a 400
         type: string
-    owner:
-      name: owner
-      in: query
-      description: Filter by comma-separated owner ids, names, or emails
-      schema:
-        description: Filter by comma-separated owner ids, names, or emails
-        type: string
     result:
       name: result
       in: query
       description: Filter by comma-separated results (won, lost, inconclusive, dnf)
       schema:
         description: Filter by comma-separated results (won, lost, inconclusive, dnf)
-        type: string
-    tag:
-      name: tag
-      in: query
-      description: Filter by comma-separated tags
-      schema:
-        description: Filter by comma-separated tags
         type: string
     type:
       name: type

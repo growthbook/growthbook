@@ -79,6 +79,48 @@ export const paginationQueryFields = {
     .meta({ default: 0 }),
 };
 
+/**
+ * Comma-separated query param restricted to a fixed set of values
+ * (case-insensitive), e.g. `?result=won,lost`.
+ *
+ * At runtime the value is a plain string validated by the refinement. The
+ * meta() overrides the generated OpenAPI schema to the spec-correct encoding
+ * for CSV enums — `type: array` with `items.enum` and `explode: false` (the
+ * generator hoists `explode` to the parameter level) — so the docs surface
+ * the allowed values instead of a bare string.
+ */
+export const csvQueryField = (
+  allowed: readonly string[],
+  description: string,
+) => {
+  const allowedSet = new Set(allowed.map((v) => v.toLowerCase()));
+  return (
+    z
+      .string()
+      .refine(
+        (v) =>
+          v
+            .split(",")
+            .map((s) => s.trim())
+            .filter((s) => s.length > 0)
+            .every((t) => allowedSet.has(t.toLowerCase())),
+        {
+          message: `Must be a comma-separated list of: ${allowed.join(", ")}`,
+        },
+      )
+      // describe() must come after refine() — refine() clones the schema and
+      // the clone doesn't carry registry metadata, so the description would be
+      // dropped from the generated OpenAPI spec
+      .describe(description)
+      .meta({
+        type: "array",
+        items: { type: "string", enum: [...allowed] },
+        explode: false,
+      })
+      .optional()
+  );
+};
+
 /** Accepts boolean query params in both string and native boolean form. */
 export const booleanQueryField = z
   .union([

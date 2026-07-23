@@ -1,5 +1,6 @@
 import { listFeaturesValidator } from "shared/validators";
 import { stringToBoolean } from "shared/util";
+import type { FeatureInterface, FeatureValueType } from "shared/types/feature";
 import type { ApiReqContext } from "back-end/types/api";
 import { getFeatureRevisionsByFeaturesCurrentVersion } from "back-end/src/models/FeatureRevisionModel";
 import { getAllPayloadExperiments } from "back-end/src/models/ExperimentModel";
@@ -7,12 +8,17 @@ import {
   getAllFeatures,
   getFeaturesPage,
   countFeatures,
+  FeatureSortFilter,
 } from "back-end/src/models/FeatureModel";
+import { splitCsv } from "back-end/src/services/experimentFilters";
 import {
   getApiFeatureObj,
   getSavedGroupMap,
 } from "back-end/src/services/features";
-import { resolveOwnerEmails } from "back-end/src/services/owner";
+import {
+  resolveOwnerEmails,
+  resolveOwnerToUserId,
+} from "back-end/src/services/owner";
 import { getFeatureDefinitionsWithCache } from "back-end/src/controllers/features";
 import {
   applyPagination,
@@ -48,6 +54,13 @@ export async function loadFeaturesPage(
     skipPagination?: string | boolean;
     limit?: number;
     offset?: number;
+    // v2-only filter/sort params (the v1 validator rejects them)
+    tag?: string;
+    owner?: string;
+    valueType?: string;
+    baseConfig?: string;
+    sortBy?: "id" | "dateCreated" | "dateUpdated";
+    sortOrder?: "asc" | "desc";
   },
 ): Promise<
   | { empty: true; response: ReturnType<typeof emptyListResponse> }
@@ -76,6 +89,66 @@ export async function loadFeaturesPage(
   // archived features; true includes them alongside non-archived ones.
   const includeArchived = stringToBoolean(query.archived?.toString()) ?? false;
   const skipPagination = stringToBoolean(query.skipPagination?.toString());
+
+  // Owner values may be userIds (u_...) or emails. feature.owner stores a
+  // userId on the modern write paths but legacy features can hold a raw name
+  // or email, so match each token both as-given and resolved to a userId.
+  const ownerTokens = splitCsv(query.owner);
+  let owners: string[] | undefined;
+  if (ownerTokens) {
+    const candidates = new Set<string>(ownerTokens);
+    for (const token of ownerTokens) {
+      try {
+        const resolved = await resolveOwnerToUserId(token, context);
+        if (resolved) candidates.add(resolved);
+      } catch {
+        // Unknown u_ id — keep the raw token; a filter should return an
+        // empty match, not an error
+      }
+    }
+    owners = [...candidates];
+  }
+
+  // CSV filters — values within a param are ORed, params AND together. The
+  // valueType tokens are enum-validated (case-insensitively) by the v2 query
+  // schema; lowercase them so mixed-case input still matches the exact $in
+  const filters = {
+    tags: splitCsv(query.tag),
+    owners,
+    valueTypes: splitCsv(query.valueType)?.map(
+      (v) => v.toLowerCase() as FeatureValueType,
+    ),
+    baseConfig: query.baseConfig || undefined,
+  };
+
+  const sortDir = query.sortOrder === "desc" ? -1 : 1;
+  // Without sortBy, preserve each path's historical default order (insertion
+  // order in the DB path, dateCreated ascending in the in-memory paths). With
+  // sortBy, the _id tiebreak keeps ties stable across pages.
+  const sort: FeatureSortFilter | undefined = query.sortBy
+    ? { [query.sortBy]: sortDir, _id: 1 }
+    : undefined;
+  const sortInMemory = (features: FeatureInterface[]): FeatureInterface[] => {
+    const sortBy = query.sortBy;
+    if (!sortBy) {
+      return features.sort(
+        (a, b) => a.dateCreated.getTime() - b.dateCreated.getTime(),
+      );
+    }
+    return features.sort((a, b) => {
+      const av = a[sortBy];
+      const bv = b[sortBy];
+      const diff =
+        av instanceof Date && bv instanceof Date
+          ? av.getTime() - bv.getTime()
+          : String(av) < String(bv)
+            ? -1
+            : String(av) > String(bv)
+              ? 1
+              : 0;
+      return sortDir === -1 ? -diff : diff;
+    });
+  };
   if (skipPagination && !API_ALLOW_SKIP_PAGINATION) {
     throw new Error(
       "skipPagination is not allowed. Set API_ALLOW_SKIP_PAGINATION=true in API environment variables. Self-hosted only.",
@@ -119,6 +192,7 @@ export async function loadFeaturesPage(
     const features = await getAllFeatures(context, {
       projects: projectId ? [projectId] : undefined,
       includeArchived,
+      ...filters,
     });
     const sdkConnection = await findSDKConnectionByKey(query.clientKey);
     if (!sdkConnection || sdkConnection.organization !== organizationId) {
@@ -132,9 +206,9 @@ export async function loadFeaturesPage(
         encryptionKey: "", // Ensure no encryption
       },
     });
-    const filteredFeatures = features
-      .filter((f) => f.id in payload.features)
-      .sort((a, b) => a.dateCreated.getTime() - b.dateCreated.getTime());
+    const filteredFeatures = sortInMemory(
+      features.filter((f) => f.id in payload.features),
+    );
     if (skipPagination) {
       filtered = filteredFeatures;
       total = filteredFeatures.length;
@@ -148,10 +222,9 @@ export async function loadFeaturesPage(
       const features = await getAllFeatures(context, {
         projects: [projectId],
         includeArchived,
+        ...filters,
       });
-      const sorted = features.sort(
-        (a, b) => a.dateCreated.getTime() - b.dateCreated.getTime(),
-      );
+      const sorted = sortInMemory(features);
       filtered = sorted;
       total = sorted.length;
     } else {
@@ -160,10 +233,13 @@ export async function loadFeaturesPage(
         includeArchived,
         limit,
         offset,
+        sort,
+        ...filters,
       });
       total = await countFeatures(context, {
         project: projectId,
         includeArchived,
+        ...filters,
       });
     }
   } else {
@@ -172,10 +248,9 @@ export async function loadFeaturesPage(
       const features = await getAllFeatures(context, {
         projects: projectsFilter,
         includeArchived,
+        ...filters,
       });
-      const sorted = features.sort(
-        (a, b) => a.dateCreated.getTime() - b.dateCreated.getTime(),
-      );
+      const sorted = sortInMemory(features);
       filtered = sorted;
       total = sorted.length;
     } else {
@@ -184,10 +259,13 @@ export async function loadFeaturesPage(
         includeArchived,
         limit,
         offset,
+        sort,
+        ...filters,
       });
       total = await countFeatures(context, {
         projectIds: projectsFilter,
         includeArchived,
+        ...filters,
       });
     }
   }

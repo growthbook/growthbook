@@ -48,6 +48,16 @@ Prefer a named entity in the user's message over page context when they conflict
 
 - **Mutations:** non-GET `callApi` calls are gated automatically. Issue the
   call when ready — do not use `askUser` for mutation confirmation.
+- **List filtering/sorting:** `GET /api/v2/features` filters by `projectId`,
+  `tag`, `owner` (userId `u_...` or email), `valueType`
+  (`boolean` | `string` | `number` | `json` — config-backed flags are
+  `json`), `baseConfig` (config key; finds Config-mode flags backed by that
+  config), `archived` (`true` includes archived alongside non-archived), and
+  `clientKey`. `tag`, `owner`, and `valueType` take comma-separated values,
+  ORed within a param; separate params AND together. Sort with `sortBy` (`id` | `dateCreated` |
+  `dateUpdated`) + `sortOrder` (`asc` | `desc`); omitting `sortBy` returns
+  insertion order. Filter and sort API-side instead of pulling pages and
+  filtering by hand.
 - **Identifiers:** show users the feature **key** (`id`), not internal mongo ids.
   Link with `/features/<key>`.
 - **v2 create:** `defaultValue` is always a string; set `{enabled: false}` per
