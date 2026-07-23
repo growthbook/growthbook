@@ -8,9 +8,40 @@ import {
 } from "back-end/src/util/api-key.util";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { getCollection } from "back-end/src/util/mongo.util";
+import { logger } from "back-end/src/util/logger";
 import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "apikeys";
+
+let oauthTtlIndexEnsured = false;
+/**
+ * OAuth-issued access tokens are stored as user-scoped API keys with an
+ * `expiresAt` and an `oauthClientId`. Unlike refresh tokens they are never
+ * explicitly deleted (refresh rotation only replaces the refresh token), so
+ * expired ones would accumulate forever. A partial TTL index reaps them once
+ * they pass `expiresAt`. The partial filter scopes the TTL to OAuth tokens
+ * only, so classic API keys / PATs (which may have no `expiresAt`, or a
+ * long-lived one) are never touched.
+ */
+function ensureOAuthAccessTokenTtlIndex() {
+  if (oauthTtlIndexEnsured) return;
+  oauthTtlIndexEnsured = true;
+  void getCollection(COLLECTION_NAME)
+    .createIndex(
+      { expiresAt: 1 },
+      {
+        expireAfterSeconds: 0,
+        partialFilterExpression: { oauthClientId: { $exists: true } },
+        name: "oauthAccessTokenTtl",
+      },
+    )
+    .catch((err) => {
+      logger.error(
+        err,
+        `Error creating oauthAccessTokenTtl index for ${COLLECTION_NAME}`,
+      );
+    });
+}
 
 const BaseClass = MakeModelClass({
   schema: apiKeySchema,
@@ -28,6 +59,11 @@ const BaseClass = MakeModelClass({
 });
 
 export class ApiKeyModel extends BaseClass {
+  constructor(...args: ConstructorParameters<typeof BaseClass>) {
+    super(...args);
+    ensureOAuthAccessTokenTtlIndex();
+  }
+
   protected canCreate(apiKey: ApiKeyInterface): boolean {
     if (apiKey.userId) {
       return apiKey.userId === this.context.userId;

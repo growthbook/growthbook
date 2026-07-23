@@ -83,6 +83,17 @@ export class OAuthRefreshTokenModel extends BaseClass {
     return this._findOne({ tokenHash });
   }
 
+  /**
+   * All active refresh tokens for a user in this org. One row per active grant
+   * (tokens rotate, so at most one per client/authorization survives), used to
+   * build the user's "Connected Apps" list.
+   */
+  public async getByUser(
+    userId: string,
+  ): Promise<OAuthRefreshTokenInterface[]> {
+    return this._find({ userId }, { bypassReadPermissionChecks: true });
+  }
+
   /** Tear down every refresh token for one client/user grant in this org. */
   public async deleteForGrant(clientId: string, userId: string): Promise<void> {
     const tokens = await this._find(

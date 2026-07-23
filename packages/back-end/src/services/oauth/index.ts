@@ -83,6 +83,87 @@ async function tearDownGrant(
   );
 }
 
+export interface ConnectedApp {
+  clientId: string;
+  clientName: string;
+  clientUri?: string;
+  scopes: string[];
+  firstAuthorizedAt: Date;
+  lastAuthorizedAt: Date;
+}
+
+/**
+ * The OAuth apps a user has an active grant with in the current org, one row
+ * per client. Built from refresh tokens (the durable per-grant record) and
+ * enriched with client metadata. This is the read side of the "Connected Apps"
+ * settings surface — the user-facing counterpart to the hidden access-token
+ * API keys.
+ */
+export async function listConnectedApps(
+  context: ApiReqContext,
+): Promise<ConnectedApp[]> {
+  if (!context.userId) return [];
+  const tokens = await context.models.oauthRefreshTokens.getByUser(
+    context.userId,
+  );
+
+  const byClient = new Map<string, ConnectedApp>();
+  for (const token of tokens) {
+    const created = token.dateCreated ?? new Date();
+    const existing = byClient.get(token.clientId);
+    const scopes = token.scope ? token.scope.split(/\s+/).filter(Boolean) : [];
+    if (existing) {
+      existing.firstAuthorizedAt = new Date(
+        Math.min(existing.firstAuthorizedAt.getTime(), created.getTime()),
+      );
+      existing.lastAuthorizedAt = new Date(
+        Math.max(existing.lastAuthorizedAt.getTime(), created.getTime()),
+      );
+      existing.scopes = Array.from(new Set([...existing.scopes, ...scopes]));
+    } else {
+      byClient.set(token.clientId, {
+        clientId: token.clientId,
+        clientName: token.clientId,
+        scopes,
+        firstAuthorizedAt: created,
+        lastAuthorizedAt: created,
+      });
+    }
+  }
+
+  // Enrich with client metadata. A missing client (e.g. an old grant whose
+  // client record was removed) still lists, falling back to the clientId.
+  await Promise.all(
+    Array.from(byClient.values()).map(async (app) => {
+      const client = await getOAuthClientById(app.clientId);
+      if (client) {
+        app.clientName = client.clientName || client.clientId;
+        app.clientUri = client.clientUri;
+      }
+    }),
+  );
+
+  return Array.from(byClient.values()).sort(
+    (a, b) => b.lastAuthorizedAt.getTime() - a.lastAuthorizedAt.getTime(),
+  );
+}
+
+/**
+ * Revoke a user's grant with one OAuth client in the current org: deletes the
+ * refresh tokens and disables the access-token API keys for that grant. Same
+ * teardown the token endpoint uses, but keyed to the authenticated user so a
+ * user can only ever revoke their own grants.
+ */
+export async function revokeConnectedApp(
+  context: ApiReqContext,
+  clientId: string,
+): Promise<void> {
+  if (!context.userId) {
+    throw new OAuthError("access_denied", "Must be authenticated");
+  }
+  await tearDownGrant(context, clientId, context.userId);
+}
+
 export function getIssuer(req?: Request): string {
   if (OAUTH_ISSUER) return OAUTH_ISSUER;
   if (req) {

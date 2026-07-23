@@ -1827,7 +1827,13 @@ export const autoAddGroupsAttribute = async (
 export async function getApiKeys(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
   const keys = await context.models.apiKeys.getAll();
-  const filteredKeys = keys.filter((k) => !k.userId || k.userId === req.userId);
+  // OAuth-issued access tokens are stored as user-scoped API keys (see
+  // issueTokenPair). They must not appear in the API Keys / Personal Access
+  // Tokens UI: they're hashed (so "reveal" is useless), short-lived, and churn
+  // on every refresh rotation. Exclude anything carrying an oauthClientId.
+  const filteredKeys = keys.filter(
+    (k) => !k.oauthClientId && (!k.userId || k.userId === req.userId),
+  );
 
   res.status(200).json({
     status: 200,

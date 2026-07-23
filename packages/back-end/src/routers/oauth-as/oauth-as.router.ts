@@ -62,3 +62,11 @@ oauthAsAuthedRouter.get(
   controller.getAuthorizeInfoHandler,
 );
 oauthAsAuthedRouter.post("/oauth/authorize", controller.postAuthorize);
+oauthAsAuthedRouter.get(
+  "/oauth/connected-apps",
+  controller.getConnectedAppsHandler,
+);
+oauthAsAuthedRouter.post(
+  "/oauth/connected-apps/revoke",
+  controller.postRevokeConnectedApp,
+);

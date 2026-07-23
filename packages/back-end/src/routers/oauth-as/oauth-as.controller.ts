@@ -2,14 +2,17 @@ import { Request, Response } from "express";
 import { oauthDcrRequestValidator } from "shared/validators";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { findOrganizationsByMemberId } from "back-end/src/models/OrganizationModel";
+import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   exchangeAuthorizationCode,
   exchangeRefreshToken,
   getAuthorizationServerMetadata,
   getAuthorizeInfo,
+  listConnectedApps,
   mintAuthorizationCode,
   OAuthError,
   registerPublicClient,
+  revokeConnectedApp,
   revokeToken,
 } from "back-end/src/services/oauth";
 
@@ -218,6 +221,45 @@ export async function postAuthorize(
     });
 
     return res.status(200).json({ status: 200, redirectTo });
+  } catch (e) {
+    if (e instanceof OAuthError) {
+      return res.status(400).json({
+        status: 400,
+        message: e.errorDescription || e.error,
+      });
+    }
+    throw e;
+  }
+}
+
+/**
+ * GET /oauth/connected-apps — authenticated.
+ * Lists the OAuth apps the current user has an active grant with in this org.
+ */
+export async function getConnectedAppsHandler(req: AuthRequest, res: Response) {
+  const context = getContextFromReq(req);
+  const connectedApps = await listConnectedApps(context);
+  return res.status(200).json({ status: 200, connectedApps });
+}
+
+/**
+ * POST /oauth/connected-apps/revoke — authenticated.
+ * Revokes the current user's grant with one OAuth client in this org.
+ */
+export async function postRevokeConnectedApp(
+  req: AuthRequest<{ clientId?: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const clientId = String(req.body?.clientId || "");
+  if (!clientId) {
+    return res
+      .status(400)
+      .json({ status: 400, message: "clientId is required" });
+  }
+  try {
+    await revokeConnectedApp(context, clientId);
+    return res.status(200).json({ status: 200 });
   } catch (e) {
     if (e instanceof OAuthError) {
       return res.status(400).json({
