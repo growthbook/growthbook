@@ -1,5 +1,4 @@
 import { Flex } from "@radix-ui/themes";
-import { isValidRowFilterDateValue } from "shared/experiments";
 import { FactTableInterface, RowFilter } from "shared/types/fact-table";
 import { PiPlus, PiX } from "react-icons/pi";
 import { useState } from "react";
@@ -18,11 +17,10 @@ import {
   operatorLabelMap,
   getColumnInfo,
   getAttributeFieldsExposedAsColumns,
-  isDateOnlyOperator,
-  reshapeDateValueForOperator,
+  cleanupDateColumnValues,
+  reshapeDateValuesOnOperatorChange,
 } from "./rowFilterUtils";
-import { DateRangeFilterInput } from "./DateRangeFilterInput";
-import { DateFilterInput } from "./DateFilterInput";
+import { DateColumnFilterInput } from "./DateColumnFilterInput";
 
 export function RowFilterInput({
   value,
@@ -185,10 +183,6 @@ export function RowFilterInput({
 
         const multiValueInput = ["in", "not_in"].includes(filter.operator);
 
-        const dateRangeInput = ["between", "not_between"].includes(
-          filter.operator,
-        );
-
         const useValueOptions =
           (valueOptions.length > 0 || !allowCreatingNewOptions) &&
           ["in", "not_in", "=", "!=", "saved_filter"].includes(filter.operator);
@@ -264,14 +258,7 @@ export function RowFilterInput({
                   }
 
                   if (datatype === "date") {
-                    // Drop values with the same strict validator getRowFilterSQL
-                    // uses, not the browser's permissive `new Date()`. Otherwise
-                    // a value like "2024-01-01 24:00:00" survives here but is
-                    // dropped by SQL generation, leaving a filter that looks
-                    // active in the UI while the query silently omits it.
-                    newValues = newValues.filter((v) =>
-                      isValidRowFilterDateValue(v),
-                    );
+                    newValues = cleanupDateColumnValues(newValues);
                   }
 
                   updateRowFilter({
@@ -302,19 +289,12 @@ export function RowFilterInput({
                     newValues = newValues.filter((val) => val !== "");
                   }
 
-                  // Keep the stored date format in sync with the new operator so
-                  // e.g. switching `>` → `=` drops the time (and `=` → `>` gives
-                  // the datetime picker a parseable value rather than shifting
-                  // the day).
-                  if (
-                    isDateColumn &&
-                    isDateOnlyOperator(v) !==
-                      isDateOnlyOperator(filter.operator)
-                  ) {
-                    newValues = newValues.map((val) =>
-                      reshapeDateValueForOperator(val, isDateOnlyOperator(v)),
-                    );
-                  }
+                  newValues = reshapeDateValuesOnOperatorChange(
+                    newValues,
+                    filter.operator,
+                    v,
+                    isDateColumn,
+                  );
 
                   updateRowFilter({
                     operator: v,
@@ -328,18 +308,12 @@ export function RowFilterInput({
             )}
             {valueInputRequired && firstSelectCompleted && (
               <>
-                {isDateColumn && dateRangeInput ? (
-                  <DateRangeFilterInput
+                {isDateColumn ? (
+                  <DateColumnFilterInput
+                    operator={filter.operator}
                     values={filter.values}
                     onChange={(values) => updateRowFilter({ values })}
                     inputWidth={260}
-                  />
-                ) : isDateColumn && !multiValueInput ? (
-                  <DateFilterInput
-                    value={filter.values?.[0]}
-                    operator={filter.operator}
-                    onChange={(values) => updateRowFilter({ values })}
-                    inputWidth={200}
                   />
                 ) : multiValueInput && useValueOptions ? (
                   <MultiSelectField

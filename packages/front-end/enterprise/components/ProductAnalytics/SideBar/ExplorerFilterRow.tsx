@@ -2,7 +2,6 @@ import { Box, Flex } from "@radix-ui/themes";
 import { FactTableInterface, RowFilter } from "shared/types/fact-table";
 import { PiCaretDown, PiCaretUp, PiX } from "react-icons/pi";
 import Collapsible from "react-collapsible";
-import { isValidRowFilterDateValue } from "shared/experiments";
 import Text from "@/ui/Text";
 import Field from "@/components/Forms/Field";
 import MultiSelectField from "@/ui/MultiSelectField";
@@ -20,11 +19,10 @@ import {
   numberRegex,
   getColumnInfo,
   getAttributeFieldsExposedAsColumns,
-  isDateOnlyOperator,
-  reshapeDateValueForOperator,
+  cleanupDateColumnValues,
+  reshapeDateValuesOnOperatorChange,
 } from "@/components/FactTables/rowFilterUtils";
-import { DateRangeFilterInput } from "@/components/FactTables/DateRangeFilterInput";
-import { DateFilterInput } from "@/components/FactTables/DateFilterInput";
+import { DateColumnFilterInput } from "@/components/FactTables/DateColumnFilterInput";
 
 const NUMBER_PARTIAL_PATTERN = /^-?\.?$|^-?\d*\.?\d*$/;
 
@@ -215,8 +213,6 @@ export function ExplorerFilterRow({
 
   const multiValueInput = ["in", "not_in"].includes(filter.operator);
 
-  const dateRangeInput = ["between", "not_between"].includes(filter.operator);
-
   const useValueOptions =
     (valueOptions.length > 0 || !allowCreatingNewOptions) &&
     ["in", "not_in", "=", "!=", "saved_filter"].includes(filter.operator);
@@ -262,12 +258,7 @@ export function ExplorerFilterRow({
           }
 
           if (datatype === "date") {
-            // Use the same strict validator getRowFilterSQL uses (not the
-            // browser's permissive `new Date()`), so a value like
-            // "2024-01-01 24:00:00" isn't kept here only to be dropped by SQL
-            // generation — which would leave a filter that looks active in the
-            // UI while the query silently omits it.
-            newValues = newValues.filter((v) => isValidRowFilterDateValue(v));
+            newValues = cleanupDateColumnValues(newValues);
           }
 
           onUpdate({
@@ -297,16 +288,12 @@ export function ExplorerFilterRow({
         ) {
           newValues = newValues.filter((val) => val !== "");
         }
-        // Keep the stored date format in sync with the new operator (e.g.
-        // `>` → `=` drops the time; `=` → `>` yields a parseable datetime).
-        if (
-          isDateColumn &&
-          isDateOnlyOperator(v) !== isDateOnlyOperator(filter.operator)
-        ) {
-          newValues = newValues.map((val) =>
-            reshapeDateValueForOperator(val, isDateOnlyOperator(v)),
-          );
-        }
+        newValues = reshapeDateValuesOnOperatorChange(
+          newValues,
+          filter.operator,
+          v,
+          isDateColumn,
+        );
         onUpdate({ operator: v, values: newValues });
       }}
       options={operatorOptions}
@@ -318,15 +305,10 @@ export function ExplorerFilterRow({
 
   const valueInput = valueInputRequired && firstSelectCompleted && (
     <>
-      {isDateColumn && dateRangeInput ? (
-        <DateRangeFilterInput
-          values={filter.values}
-          onChange={(values) => onUpdate({ values })}
-        />
-      ) : isDateColumn && !multiValueInput ? (
-        <DateFilterInput
-          value={filter.values?.[0]}
+      {isDateColumn ? (
+        <DateColumnFilterInput
           operator={filter.operator}
+          values={filter.values}
           onChange={(values) => onUpdate({ values })}
         />
       ) : multiValueInput && useValueOptions ? (

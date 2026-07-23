@@ -2,7 +2,10 @@ import { ColumnInterface, FactTableInterface } from "shared/types/fact-table";
 import {
   getAttributeFieldsExposedAsColumns,
   isDateOnlyOperator,
+  isDateRangeOperator,
   reshapeDateValueForOperator,
+  cleanupDateColumnValues,
+  reshapeDateValuesOnOperatorChange,
 } from "@/components/FactTables/rowFilterUtils";
 
 function col(
@@ -104,5 +107,69 @@ describe("reshapeDateValueForOperator", () => {
   it("passes empty values through untouched", () => {
     expect(reshapeDateValueForOperator("", true)).toBe("");
     expect(reshapeDateValueForOperator("", false)).toBe("");
+  });
+});
+
+describe("isDateRangeOperator", () => {
+  it("is true only for between / not_between", () => {
+    expect(isDateRangeOperator("between")).toBe(true);
+    expect(isDateRangeOperator("not_between")).toBe(true);
+    for (const op of ["=", "<", "<=", ">", ">="]) {
+      expect(isDateRangeOperator(op)).toBe(false);
+    }
+  });
+});
+
+describe("cleanupDateColumnValues", () => {
+  it("keeps parseable dates and drops empty/invalid ones", () => {
+    expect(
+      cleanupDateColumnValues([
+        "2026-07-15",
+        "",
+        "foo",
+        "2026-07-15T09:30",
+        "2026-01-01 24:00:00",
+      ]),
+    ).toEqual(["2026-07-15", "2026-07-15T09:30"]);
+  });
+});
+
+describe("reshapeDateValuesOnOperatorChange", () => {
+  it("no-ops for non-date columns", () => {
+    expect(
+      reshapeDateValuesOnOperatorChange(["2026-07-15"], "=", ">", false),
+    ).toEqual(["2026-07-15"]);
+  });
+
+  it("no-ops when the operator stays on the same side of the boundary", () => {
+    // both date-only
+    expect(
+      reshapeDateValuesOnOperatorChange(
+        ["2026-07-15", "2026-07-20"],
+        "between",
+        "not_between",
+        true,
+      ),
+    ).toEqual(["2026-07-15", "2026-07-20"]);
+    // both datetime
+    expect(
+      reshapeDateValuesOnOperatorChange(["2026-07-15T09:30"], ">", "<", true),
+    ).toEqual(["2026-07-15T09:30"]);
+  });
+
+  it("reshapes every value when crossing the date-only/datetime boundary", () => {
+    // datetime -> date-only strips the time
+    expect(
+      reshapeDateValuesOnOperatorChange(["2026-07-15T09:30"], ">", "=", true),
+    ).toEqual(["2026-07-15"]);
+    // date-only -> datetime appends midnight
+    expect(
+      reshapeDateValuesOnOperatorChange(
+        ["2026-07-15", "2026-07-20"],
+        "between",
+        ">",
+        true,
+      ),
+    ).toEqual(["2026-07-15T00:00", "2026-07-20T00:00"]);
   });
 });
