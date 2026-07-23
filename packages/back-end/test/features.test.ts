@@ -2817,8 +2817,9 @@ describe("SDK Payloads", () => {
       rules: [expect.objectContaining({ id: "rule_1", key: "meta-exp-key" })],
     });
 
-    // With metadataOptions: experiment-ref rule gets ExperimentMetadata from the
-    // experiment (proj_exp / exp-tag / bob), NOT from the feature
+    // With metadataOptions: experiment-ref rule gets tags/customFields from the
+    // experiment (exp-tag / bob), but NO projects — an unscoped rule emits none
+    // (the experiment's own project is not used).
     const defWithMeta = getFeatureDefinition({
       feature,
       environment: "production",
@@ -2840,19 +2841,35 @@ describe("SDK Payloads", () => {
       expect.objectContaining({
         id: "rule_1",
         metadata: {
-          projects: ["exp-project"],
           tags: ["exp-tag"],
           customFields: { owner: "bob" },
         },
       }),
     );
+    // Unscoped experiment-ref rule carries no projects (experiment's project unused)
+    expect(defWithMeta?.rules?.[0]?.metadata).not.toHaveProperty("projects");
 
-    // Confirm experiment metadata differs from what feature metadata would be
-    expect(defWithMeta?.rules?.[0]?.metadata).not.toEqual({
-      projects: ["feature-project"],
-      tags: ["feature-tag"],
-      customFields: { owner: "alice" },
+    // A scoped experiment-ref rule emits its own scope (not the experiment's project)
+    const featureScopedExpRule = cloneDeep(feature);
+    featureScopedExpRule.targetingProjects = ["proj_exp"]; // delivers to both
+    (
+      featureScopedExpRule.environmentSettings["production"]
+        .rules[0] as unknown as { projects: string[] }
+    ).projects = ["proj_exp"];
+    const defScopedExpRule = getFeatureDefinition({
+      feature: featureScopedExpRule,
+      environment: "production",
+      groupMap,
+      experimentMap: expMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      includeRuleIds: true,
+      metadataOptions: { includeProjectIdInMetadata: true },
+      projectsMap,
     });
+    expect(defScopedExpRule?.rules?.[0]?.metadata?.projects).toEqual([
+      "exp-project",
+    ]);
 
     // allowedCustomFieldsInMetadata filters keys — region is excluded
     expect(defWithMeta?.rules?.[0]?.metadata?.customFields).not.toHaveProperty(

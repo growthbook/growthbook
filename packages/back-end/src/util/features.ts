@@ -1015,7 +1015,8 @@ export function getFeatureDefinition({
           if (metadataOptions) {
             const expMetadata = buildPayloadMetadata<ExperimentMetadata>(
               {
-                project: exp.project,
+                // No project here — metadata.projects comes solely from the
+                // rule's own scope below, not the experiment's project.
                 customFields: exp.customFields,
                 tags: exp.tags,
               },
@@ -1118,7 +1119,7 @@ export function getFeatureDefinition({
           if (metadataOptions) {
             const cbMetadata = buildPayloadMetadata<ExperimentMetadata>(
               {
-                project: cb.project,
+                // Projects come solely from the rule's own scope below.
                 tags: cb.tags,
               },
               metadataOptions,
