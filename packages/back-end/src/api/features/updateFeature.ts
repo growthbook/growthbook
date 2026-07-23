@@ -51,6 +51,7 @@ import {
   assertValidHoldout,
   assertValidProjectId,
   assertValidProjectIds,
+  assertValidRuleProjectIds,
   assertValidBaseConfig,
   assertConfigSchemaCompat,
   extractRevisionMetadata,
@@ -311,6 +312,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
             featureProject: effectiveProject,
           })
         : [];
+    await assertValidRuleProjectIds(inboundFlatRules, req.context);
     // Envs whose rule lists the caller is replacing. Envs present in the
     // payload with only `enabled` (no `rules` key) keep their current rules.
     const rulesTouchedEnvs = new Set(Object.keys(inboundRulesByEnv));

@@ -29,6 +29,7 @@ import {
   assertConfigSchemaCompat,
   assertValidProjectId,
   assertValidProjectIds,
+  assertValidRuleProjectIds,
   assertValidRuleConfigKeys,
   assertValidBaseConfig,
   assertValidDefaultValueConfig,
@@ -131,6 +132,7 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
     feature.rules = (req.body.rules ?? []).map((rule) =>
       mapV2ApiRuleToFeatureRule(rule),
     );
+    await assertValidRuleProjectIds(feature.rules, req.context);
 
     // Config backing comes through dedicated fields — reject a raw `@config:`
     // in the default value, validate the fields, then compose the stored value

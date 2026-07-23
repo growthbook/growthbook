@@ -47,6 +47,7 @@ import {
   assertValidHoldout,
   assertValidProjectId,
   assertValidProjectIds,
+  assertValidRuleProjectIds,
   assertValidRuleConfigKeys,
   assertValidBaseConfig,
   assertValidDefaultValueConfig,
@@ -246,6 +247,7 @@ export const updateFeatureV2 = createApiRequestHandler(
     inboundFlatRules = req.body.rules.map((rule) =>
       mapV2ApiRuleToFeatureRule(rule, feature),
     );
+    await assertValidRuleProjectIds(inboundFlatRules, req.context);
     // Request-supplied config keys must exist, be live, and belong to the
     // default config's family — same gate as the revision rule endpoints.
     await assertValidRuleConfigKeys(

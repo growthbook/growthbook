@@ -394,15 +394,27 @@ export async function assertValidProjectId(
 export async function assertValidProjectIds(
   projectIds: string[] | undefined,
   context: ReqContext | ApiReqContext,
+  label = "targeting",
 ): Promise<void> {
   if (!projectIds?.length) return;
   const valid = new Set((await context.getProjects()).map((p) => p.id));
   const missing = projectIds.filter((id) => id && !valid.has(id));
   if (missing.length) {
     throw new Error(
-      `The following targeting project ids are not valid: ${missing.join(", ")}`,
+      `The following ${label} project ids are not valid: ${missing.join(", ")}`,
     );
   }
+}
+
+// Validate every rule-level project scope id across a set of rules.
+export async function assertValidRuleProjectIds(
+  rules: { projects?: string[] }[] | undefined,
+  context: ReqContext | ApiReqContext,
+): Promise<void> {
+  const ids = Array.from(
+    new Set((rules ?? []).flatMap((r) => r.projects ?? [])),
+  );
+  await assertValidProjectIds(ids, context, "rule");
 }
 
 // `null` (explicit removal) and `undefined` (no change) are both no-ops.

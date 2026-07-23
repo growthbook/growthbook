@@ -27,6 +27,7 @@ import { validateCustomFields } from "./validations";
 import {
   assertValidProjectId,
   assertValidProjectIds,
+  assertValidRuleProjectIds,
   validateEnvRulesScheduleRules,
   assertValidBaseConfig,
   assertConfigSchemaCompat,
@@ -147,6 +148,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
     orgEnvs,
     req.body.environments ?? {},
   );
+  await assertValidRuleProjectIds(feature.rules, req.context);
 
   const jsonSchema = parseApiJsonSchema(
     req.context.org,
