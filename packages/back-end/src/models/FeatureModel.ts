@@ -2850,9 +2850,16 @@ export async function publishRevision({
 
     if (result.holdout !== undefined) {
       // Guard already ran above (before any mutation) — skip the re-check.
-      await applyHoldoutSideEffects(context, feature, result.holdout, {
-        skipGuard: true,
-      });
+      // Pass the POST-publish rules: side effects enroll the experiments in
+      // the feature's rules, and a draft can add the holdout and the
+      // experiment-ref rule together — the pre-publish rules would miss it
+      // (the deferred half of the eager-link-at-rule-add flow).
+      await applyHoldoutSideEffects(
+        context,
+        { ...feature, rules: result.rules ?? feature.rules },
+        result.holdout,
+        { skipGuard: true },
+      );
     }
 
     await markRevisionAsPublished(

@@ -387,9 +387,14 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
 
     if (mergeResult.holdout !== undefined) {
       // Guard already ran above (before any mutation) — skip the re-check.
-      await applyHoldoutSideEffects(context, feature, mergeResult.holdout, {
-        skipGuard: true,
-      });
+      // Pass the POST-publish rules so experiments added in the same revision
+      // are enrolled (mirrors publishRevision).
+      await applyHoldoutSideEffects(
+        context,
+        { ...feature, rules: mergeResult.rules ?? feature.rules },
+        mergeResult.holdout,
+        { skipGuard: true },
+      );
     }
   },
 

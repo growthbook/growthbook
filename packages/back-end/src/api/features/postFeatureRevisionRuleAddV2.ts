@@ -359,15 +359,23 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
       createdSafeRolloutId = safeRollout.id;
     }
 
-    if (holdoutExperimentToLink && feature.holdout?.id) {
+    // Link now only when the validated holdout is already live. A draft-only
+    // holdout defers to publish — applyHoldoutSideEffects enrolls the
+    // experiments in the merged rules when the holdout change lands.
+    const linkHoldoutId = getEffectiveRevisionHoldout(revision, feature)?.id;
+    if (
+      holdoutExperimentToLink &&
+      linkHoldoutId &&
+      feature.holdout?.id === linkHoldoutId
+    ) {
       // Record ids for compensation BEFORE the writes — the rollback is
       // idempotent, so a mid-write failure is still fully compensated.
       linkedExperimentId = holdoutExperimentToLink.id;
-      linkedHoldoutId = feature.holdout.id;
+      linkedHoldoutId = linkHoldoutId;
       await linkExperimentToHoldout(
         req.context,
         holdoutExperimentToLink,
-        feature.holdout.id,
+        linkHoldoutId,
       );
     }
 

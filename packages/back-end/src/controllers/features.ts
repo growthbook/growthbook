@@ -3099,12 +3099,17 @@ export async function postFeatureRule(
 
   // TODO(holdouts): remove code below (which makes this endpoint consistent with API routes)
   // and instead only link when the holdout and experiment go live
-  if (holdoutExperimentToLink && feature.holdout?.id) {
-    await linkExperimentToHoldout(
-      context,
-      holdoutExperimentToLink,
-      feature.holdout.id,
-    );
+  if (holdoutExperimentToLink && effectiveHoldout?.id) {
+    // Link now only when the validated holdout is already live. A draft-only
+    // holdout defers to publish — applyHoldoutSideEffects enrolls the
+    // experiments in the merged rules when the holdout change lands.
+    if (feature.holdout?.id === effectiveHoldout.id) {
+      await linkExperimentToHoldout(
+        context,
+        holdoutExperimentToLink,
+        effectiveHoldout.id,
+      );
+    }
   }
 
   const auditSubject =
@@ -3592,12 +3597,17 @@ export async function postFeatureExperimentRefRule(
 
   // TODO(holdouts): remove code below (which makes this endpoint consistent with API routes)
   // and instead only link when the holdout and experiment go live
-  if (holdoutExperimentToLink && feature.holdout?.id) {
-    await linkExperimentToHoldout(
-      context,
-      holdoutExperimentToLink,
-      feature.holdout.id,
-    );
+  if (holdoutExperimentToLink && effectiveHoldout?.id) {
+    // Link now only when the validated holdout is already live. A draft-only
+    // holdout defers to publish — applyHoldoutSideEffects enrolls the
+    // experiments in the merged rules when the holdout change lands.
+    if (feature.holdout?.id === effectiveHoldout.id) {
+      await linkExperimentToHoldout(
+        context,
+        holdoutExperimentToLink,
+        effectiveHoldout.id,
+      );
+    }
   }
 
   res.status(200).json({
