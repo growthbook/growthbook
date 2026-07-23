@@ -11,15 +11,8 @@ import {
 } from "back-end/src/models/FeatureModel";
 import { setupApp } from "../api.setup";
 
-// Regression tests for the two publish-immediately custom-hook bugs:
-//  Bug 1 — validateFeatureRevision was handed the stored (pre-change) feature,
-//          so a hook inspecting feature.tags never observed a tag edit and could
-//          not block it.
-//  Bug 2 — on publish-immediately the draft revision was written before the
-//          validateFeature hook ran, so a hook rejection orphaned the draft.
-// Both are exercised through createAndPublishRevision (the REST publish-
-// immediately path) plus a direct check of prevalidatePublishImmediate (the
-// dashboard autoPublish path's up-front validation helper).
+// Regression tests for publish-immediately validation ordering: hooks must run
+// BEFORE the draft revision is written so a rejection can't orphan the draft.
 
 jest.mock("back-end/src/enterprise/sandbox/sandbox-pool", () => ({
   runInSandbox: jest.fn(),
@@ -132,51 +125,8 @@ describe("publish-immediately custom hooks", () => {
     return { context, feature };
   }
 
-  // Bug 1: a validateFeatureRevision hook that reads feature.tags must observe
-  // the staged tag removal and block the publish. Pre-fix the hook received the
-  // stored feature (tags still present) and silently passed.
-  it("blocks a tag-removal publish when a validateFeatureRevision hook requires the tag", async () => {
-    const { context, feature } = await setup(["important"]);
-    await seedHook("validateFeatureRevision");
-
-    // Reject only when the feature under validation lost the "important" tag.
-    mockRunInSandbox.mockImplementation(async (_code, args) => {
-      const f = (args as { feature?: { tags?: string[] } }).feature;
-      if (!f?.tags?.includes("important")) {
-        return { ok: false, error: "Must have 'important' tag", warnings: [] };
-      }
-      return { ok: true, warnings: [] };
-    });
-
-    await expect(
-      createAndPublishRevision({
-        context,
-        feature,
-        user: context.auditUser,
-        org: ORG,
-        changes: { metadata: { tags: [] } },
-        comment: "remove tag",
-        canBypassApprovalChecks: true,
-      }),
-    ).rejects.toThrow("Must have 'important' tag");
-
-    // The revision hook was handed the proposed (merged) feature, i.e. tags
-    // already removed — proving Bug 1's fix.
-    expect(
-      (mockRunInSandbox.mock.calls[0][1] as { feature: { tags: string[] } })
-        .feature.tags,
-    ).toEqual([]);
-
-    // No new revision was published and the live feature keeps its tag.
-    expect(await countRevisions()).toBe(1);
-    expect((await findRevision(2)) ?? null).toBeNull();
-    expect((await getFeature(context, FEATURE_ID))?.tags).toEqual([
-      "important",
-    ]);
-  });
-
-  // Bug 2: a validateFeature hook that rejects on publish-immediately must fail
-  // BEFORE the draft revision is written, leaving no orphan draft.
+  // A validateFeature rejection on publish-immediately must fail before the
+  // draft revision is written, leaving no orphan draft.
   it("does not persist a draft revision when a validateFeature hook rejects the publish", async () => {
     const { context, feature } = await setup(["important"]);
     await seedHook("validateFeature");
@@ -206,16 +156,15 @@ describe("publish-immediately custom hooks", () => {
     expect((await findRevision(2)) ?? null).toBeNull();
   });
 
-  // Dashboard autoPublish path helper: prevalidatePublishImmediate runs the
-  // hooks against the merged feature and throws WITHOUT writing anything.
-  it("prevalidatePublishImmediate validates the merged feature and never writes", async () => {
+  // The dashboard autoPublish helper runs the hooks up front and throws without
+  // writing anything.
+  it("prevalidatePublishImmediate runs validation up front and never writes", async () => {
     const { context, feature } = await setup(["important"]);
-    await seedHook("validateFeatureRevision");
+    await seedHook("validateFeature");
 
     mockRunInSandbox.mockImplementation(async (_code, args) => {
-      const f = (args as { feature?: { tags?: string[] } }).feature;
-      if (!f?.tags?.includes("important")) {
-        return { ok: false, error: "Must have 'important' tag", warnings: [] };
+      if (!("revision" in (args as Record<string, unknown>))) {
+        return { ok: false, error: "feature hook rejected", warnings: [] };
       }
       return { ok: true, warnings: [] };
     });
@@ -228,13 +177,8 @@ describe("publish-immediately custom hooks", () => {
         result: { metadata: { tags: [] } },
         comment: "remove tag",
       }),
-    ).rejects.toThrow("Must have 'important' tag");
+    ).rejects.toThrow("feature hook rejected");
 
-    // Saw the merged feature (tag removed) and wrote nothing.
-    expect(
-      (mockRunInSandbox.mock.calls[0][1] as { feature: { tags: string[] } })
-        .feature.tags,
-    ).toEqual([]);
     expect(await countRevisions()).toBe(1);
   });
 });

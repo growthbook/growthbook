@@ -5140,10 +5140,7 @@ export async function putFeature(
         ? `Update ${metadataFieldLabels[changedKeys[0]] ?? changedKeys[0]}`
         : "Update feature"
       : undefined;
-    // Publish-immediately: run the publish validation hooks BEFORE writing the
-    // draft so a hook rejection fails here instead of orphaning the draft
-    // created below. publishRevision skips the re-run (skipPrevalidateValidation)
-    // so the hooks execute exactly once.
+    // Publish-immediately: validate before writing the draft so a hook rejection can't orphan it.
     if (autoPublish) {
       await prevalidatePublishImmediate({
         context,
@@ -5183,8 +5180,7 @@ export async function putFeature(
         revision: draft,
         result: envelopeChanges,
         bypassLockdown: context.permissions.canBypassApprovalChecks(feature),
-        // Validation hooks + config-backed value net already ran up front
-        // (before the draft was written); skip the re-run so they fire once.
+        // Already validated up front; skip the re-run so hooks fire once.
         skipPrevalidateValidation: true,
       });
     }
