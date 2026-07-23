@@ -166,9 +166,24 @@ export async function executeContextualBanditVariationChange(
       { bumpVersion: true },
     );
   } else {
+    // Same arm set: weights stay valid (keyed by variationId). A reorder still
+    // shifts variation indices / the positional SDK arrays, so it must open a
+    // new epoch (bump banditVersion) to avoid conflating pre/post-reorder
+    // exposures; a pure metadata edit (names/keys) leaves assignment unchanged
+    // and skips the bump.
+    const orderChanged =
+      cb.variations.map((v) => v.id).join(",") !==
+      newVariations.map((v) => v.id).join(",");
     updated = await context.models.contextualBandits.update(cb, {
       variations: newVariations,
     });
+    if (orderChanged) {
+      updated = await context.models.contextualBandits.patchLeafWeights(
+        cb.id,
+        [],
+        { bumpVersion: true },
+      );
+    }
   }
 
   if (diff.addedIds.length > 0) {

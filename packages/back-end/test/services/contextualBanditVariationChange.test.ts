@@ -219,6 +219,31 @@ describe("executeContextualBanditVariationChange", () => {
     expect(patchLeafWeightsMock).not.toHaveBeenCalled();
   });
 
+  it("reorders variations (same set): bumps version without recomputing weights", async () => {
+    const cb = makeCb({ stage: "exploit" });
+    const { context, updateMock, patchLeafWeightsMock } = makeContext(cb);
+
+    // Swap the order of the two existing arms.
+    await executeContextualBanditVariationChange(context, cb, [
+      v("v1", "1"),
+      v("v0", "0"),
+    ]);
+
+    // Variations persisted in the new order, weights NOT recomputed...
+    const [, changes] = updateMock.mock.calls[0];
+    expect(changes.variations.map((x: Variation) => x.id)).toEqual([
+      "v1",
+      "v0",
+    ]);
+    expect(changes).not.toHaveProperty("variationWeights");
+    // ...but the version is bumped (empty leaf weights, bumpVersion requested).
+    expect(patchLeafWeightsMock).toHaveBeenCalledTimes(1);
+    expect(patchLeafWeightsMock.mock.calls[0][1]).toEqual([]);
+    expect(patchLeafWeightsMock.mock.calls[0][2]).toEqual({
+      bumpVersion: true,
+    });
+  });
+
   it("rejects editing variations on a stopped bandit", async () => {
     const cb = makeCb({ status: "stopped" });
     const { context } = makeContext(cb);
