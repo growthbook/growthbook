@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   createFactFilterPropsValidator,
   createColumnPropsValidator,
+  createVirtualColumnPropsValidator,
   createFactTablePropsValidator,
   numberFormatValidator,
   updateFactFilterPropsValidator,
@@ -185,6 +186,9 @@ export type TestVirtualColumnProps = z.infer<
 
 export type UpdateColumnProps = z.infer<typeof updateColumnPropsValidator>;
 export type CreateColumnProps = z.infer<typeof createColumnPropsValidator>;
+export type CreateVirtualColumnProps = z.infer<
+  typeof createVirtualColumnPropsValidator
+>;
 
 export type CreateFactMetricProps = CreateProps<FactMetricInterface>;
 export type UpdateFactMetricProps = UpdateProps<FactMetricInterface>;

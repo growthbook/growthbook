@@ -1,7 +1,7 @@
 import express from "express";
 import { z } from "zod";
 import {
-  createColumnPropsValidator,
+  createVirtualColumnPropsValidator,
   createFactFilterPropsValidator,
   createFactTablePropsValidator,
   updateFactFilterPropsValidator,
@@ -116,12 +116,12 @@ router.post(
 );
 
 router.post(
-  "/fact-tables/:id/column",
+  "/fact-tables/:id/virtual-column",
   validateRequestMiddleware({
     params: factTableParams,
-    body: createColumnPropsValidator,
+    body: createVirtualColumnPropsValidator,
   }),
-  factTableController.postColumn,
+  factTableController.postVirtualColumn,
 );
 
 router.put(

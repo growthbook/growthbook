@@ -45,6 +45,7 @@ export function getFactMetricColumn(
               (jsonCol: string, path: string, isNumeric: boolean): string =>
                 dialect.jsonExtract(jsonCol, path, isNumeric),
               alias,
+              dialect.identifierQuote,
             )
           : `${alias}.${column}`;
 

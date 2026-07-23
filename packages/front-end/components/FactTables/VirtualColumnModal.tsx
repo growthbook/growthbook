@@ -183,7 +183,7 @@ export default function VirtualColumnModal({
               "Please enter a name with at least one letter or number",
             );
           }
-          await apiCall(`/fact-tables/${factTable.id}/column`, {
+          await apiCall(`/fact-tables/${factTable.id}/virtual-column`, {
             method: "POST",
             body: JSON.stringify({
               column: columnId,
@@ -191,7 +191,6 @@ export default function VirtualColumnModal({
               description: value.description,
               datatype: value.datatype,
               sql: value.sql,
-              isVirtual: true,
             }),
           });
           track("Create Virtual Column");

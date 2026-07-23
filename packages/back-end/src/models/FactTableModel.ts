@@ -2,6 +2,8 @@ import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import { omit } from "lodash";
 import { sqlReferencesColumn } from "shared/experiments";
+import { explorationConfigReferencesColumn } from "shared/enterprise";
+import { SqlIdentifierQuote } from "shared/types/sql";
 import {
   CreateColumnProps,
   CreateFactFilterProps,
@@ -15,7 +17,11 @@ import {
   UpdateFactTableProps,
   ColumnInterface,
 } from "shared/types/fact-table";
-import { ApiFactTable, ApiFactTableFilter } from "shared/validators";
+import {
+  ApiFactTable,
+  ApiFactTableColumn,
+  ApiFactTableFilter,
+} from "shared/validators";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { promiseAllChunks } from "back-end/src/util/promise";
@@ -626,7 +632,13 @@ export async function createColumn(
   factTable: FactTableInterface,
   data: CreateColumnProps,
 ): Promise<ColumnInterface> {
-  if (factTable.columns.some((c) => c.column === data.column && !c.deleted)) {
+  // Collide against ALL existing column identifiers, including soft-deleted
+  // source columns. `column` is the stable identifier inlined into generated
+  // SQL and metric references, so reusing a soft-deleted source column's id
+  // would resolve inconsistently if that source column later reappears on a
+  // refresh. Comparison is case-insensitive.
+  const newId = data.column.toLowerCase();
+  if (factTable.columns.some((c) => c.column.toLowerCase() === newId)) {
     throw new Error(
       `A column with the id "${data.column}" already exists in this fact table`,
     );
@@ -667,6 +679,7 @@ function columnRefReferencesColumn(
   ref: ColumnRef,
   columnName: string,
   factTable: FactTableInterface,
+  identifierQuote: SqlIdentifierQuote,
 ): boolean {
   if (ref.factTableId !== factTable.id) return false;
   if (ref.column === columnName) return true;
@@ -677,7 +690,7 @@ function columnRefReferencesColumn(
     if (
       rowFilter.operator === "sql_expr" &&
       rowFilter.values?.[0] &&
-      sqlReferencesColumn(rowFilter.values[0], columnName)
+      sqlReferencesColumn(rowFilter.values[0], columnName, identifierQuote)
     ) {
       return true;
     }
@@ -685,7 +698,10 @@ function columnRefReferencesColumn(
       const filter = factTable.filters.find(
         (f) => f.id === rowFilter.values?.[0],
       );
-      if (filter && sqlReferencesColumn(filter.value, columnName)) {
+      if (
+        filter &&
+        sqlReferencesColumn(filter.value, columnName, identifierQuote)
+      ) {
         return true;
       }
     }
@@ -693,10 +709,59 @@ function columnRefReferencesColumn(
   return false;
 }
 
+// Saved explorations and dashboard blocks that still reference `columnName` on
+// this fact table. Scanned on demand so no dependency state is persisted.
+// `getAll()` applies each model's read filter, so a scan can under-report for a
+// caller who lacks read access to some datasources — acceptable for a
+// best-effort delete guard.
+async function getDependentExplorationsAndDashboards(
+  context: ReqContext | ApiReqContext,
+  factTableId: string,
+  columnName: string,
+  identifierQuote: SqlIdentifierQuote,
+): Promise<{
+  explorations: Array<{ id: string; name?: string }>;
+  dashboards: Array<{ id: string; name?: string }>;
+}> {
+  const [allExplorations, allDashboards] = await Promise.all([
+    context.models.analyticsExplorations.getAll(),
+    context.models.dashboards.getAll(),
+  ]);
+
+  const explorations = allExplorations
+    .filter((e) =>
+      explorationConfigReferencesColumn(
+        e.config,
+        factTableId,
+        columnName,
+        identifierQuote,
+      ),
+    )
+    .map((e) => ({ id: e.id }));
+
+  const dashboards = allDashboards
+    .filter((d) =>
+      d.blocks.some(
+        (block) =>
+          "config" in block &&
+          explorationConfigReferencesColumn(
+            block.config,
+            factTableId,
+            columnName,
+            identifierQuote,
+          ),
+      ),
+    )
+    .map((d) => ({ id: d.id, name: d.title }));
+
+  return { explorations, dashboards };
+}
+
 export async function deleteColumn(
   context: ReqContext | ApiReqContext,
   factTable: FactTableInterface,
   columnName: string,
+  identifierQuote: SqlIdentifierQuote = '"',
 ): Promise<void> {
   const col = factTable.columns.find((c) => c.column === columnName);
   if (!col) {
@@ -711,24 +776,49 @@ export async function deleteColumn(
   // Block deletion if anything still references this column — otherwise
   // generated SQL falls back to a bare, now-undefined identifier and fails
   // at query time. Scanned on demand (other virtual columns, saved filters,
-  // and Fact Metrics); no dependency state is persisted.
+  // Fact Metrics, saved explorations, and dashboard blocks); no dependency
+  // state is persisted.
   const dependentVirtualColumns = factTable.columns.filter(
     (c) =>
       c.isVirtual &&
       !c.deleted &&
       c.column !== columnName &&
       c.sql &&
-      sqlReferencesColumn(c.sql, columnName),
+      sqlReferencesColumn(c.sql, columnName, identifierQuote),
   );
   const dependentFilters = factTable.filters.filter((f) =>
-    sqlReferencesColumn(f.value, columnName),
+    sqlReferencesColumn(f.value, columnName, identifierQuote),
   );
   const allFactMetrics = await context.models.factMetrics.getAll();
   const dependentMetrics = allFactMetrics.filter(
     (metric) =>
-      columnRefReferencesColumn(metric.numerator, columnName, factTable) ||
+      columnRefReferencesColumn(
+        metric.numerator,
+        columnName,
+        factTable,
+        identifierQuote,
+      ) ||
       (metric.denominator !== null &&
-        columnRefReferencesColumn(metric.denominator, columnName, factTable)),
+        columnRefReferencesColumn(
+          metric.denominator,
+          columnName,
+          factTable,
+          identifierQuote,
+        )),
+  );
+
+  // Explorations and dashboard blocks persist column references (valueColumn,
+  // dimensions, row filters) that resolve through the same query-time
+  // chokepoint, so a virtual column they use must not be deleted out from
+  // under them.
+  const {
+    explorations: dependentExplorations,
+    dashboards: dependentDashboards,
+  } = await getDependentExplorationsAndDashboards(
+    context,
+    factTable.id,
+    columnName,
+    identifierQuote,
   );
 
   const lines: string[] = [
@@ -737,6 +827,8 @@ export async function deleteColumn(
     ),
     ...dependentFilters.map((f) => `\n - Filter: ${f.name || f.id}`),
     ...dependentMetrics.map((m) => `\n - Fact Metric: ${m.name || m.id}`),
+    ...dependentExplorations.map((e) => `\n - Exploration: ${e.name || e.id}`),
+    ...dependentDashboards.map((d) => `\n - Dashboard: ${d.name || d.id}`),
   ];
   if (lines.length) {
     throw new Error(
@@ -791,12 +883,24 @@ export function mergeUpsertColumns(
         "jsonFields",
         "dateCreated",
         "dateUpdated",
+        // Origin is immutable on upsert (handled explicitly below).
+        "isVirtual",
+        "sql",
       ]),
       datatype: incomingColumn.datatype ?? originalColumn.datatype,
       jsonFields:
         incomingColumn.jsonFields !== undefined
           ? normalizeJSONFieldsInput(incomingColumn.jsonFields)
           : originalColumn.jsonFields,
+      // A column's origin cannot be flipped through an upsert: a SQL-detected
+      // column can never become virtual, and a virtual column can never lose
+      // its definition. For a virtual column, an incoming `sql` updates the
+      // expression; when omitted, the existing expression is preserved (so a
+      // partial sync that doesn't repeat `sql` never blanks it out).
+      isVirtual: originalColumn.isVirtual,
+      sql: originalColumn.isVirtual
+        ? (incomingColumn.sql ?? originalColumn.sql)
+        : undefined,
       ...(incomingColumn.topValues ? { topValuesDate: new Date() } : {}),
       dateUpdated: new Date(),
     });
@@ -1058,6 +1162,18 @@ export function toFactTableApiInterface(
       factTable.aggregatedFactTableSettings ?? undefined,
     dateCreated: factTable.dateCreated?.toISOString() || "",
     dateUpdated: factTable.dateUpdated?.toISOString() || "",
+  };
+}
+
+export function toFactTableColumnApiInterface(
+  column: ColumnInterface,
+): ApiFactTableColumn {
+  return {
+    ...omit(column, ["dateCreated", "dateUpdated", "topValuesDate"]),
+    alwaysInlineFilter: column.alwaysInlineFilter ?? false,
+    isAutoSliceColumn: column.isAutoSliceColumn ?? false,
+    dateCreated: column.dateCreated.toISOString(),
+    dateUpdated: column.dateUpdated.toISOString(),
   };
 }
 

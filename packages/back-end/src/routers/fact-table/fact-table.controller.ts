@@ -6,7 +6,7 @@ import {
 import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
 import { cloneDeep } from "lodash";
 import {
-  CreateColumnProps,
+  CreateVirtualColumnProps,
   CreateFactFilterProps,
   CreateFactTableProps,
   FactMetricInterface,
@@ -41,7 +41,10 @@ import {
   updateFactFilter,
 } from "back-end/src/models/FactTableModel";
 import { addTags, addTagsDiff } from "back-end/src/models/TagModel";
-import { getSourceIntegrationObject } from "back-end/src/services/datasource";
+import {
+  getSourceIntegrationObject,
+  getIntegrationIdentifierQuote,
+} from "back-end/src/services/datasource";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   runRefreshColumnsQuery,
@@ -53,6 +56,7 @@ import {
   deriveUserIdTypesFromColumns,
   validateAggregatedFactTableSettings,
   getNextUpdateOccurrence,
+  validateVirtualColumnProps,
 } from "back-end/src/util/factTable";
 import { logger } from "back-end/src/util/logger";
 import { needsColumnRefresh } from "back-end/src/api/fact-tables/updateFactTable";
@@ -121,7 +125,11 @@ async function testFilterQuery(
     // Expand any virtual column references so the filter runs against real columns.
     query: `SELECT * FROM (
       ${factTable.sql}
-    ) f WHERE ${expandVirtualColumnsInSql(filter, factTable)}`,
+    ) f WHERE ${expandVirtualColumnsInSql(
+      filter,
+      factTable,
+      getIntegrationIdentifierQuote(integration),
+    )}`,
     templateVariables: {
       eventName: factTable.eventName,
     },
@@ -176,9 +184,13 @@ async function testVirtualColumnQuery(
   // how the column resolves in metric queries. Exclude the column being edited
   // so a self-reference surfaces as an error instead of silently expanding to
   // its previously-saved definition.
-  const expandedSql = expandVirtualColumnsInSql(sql, {
-    columns: factTable.columns.filter((c) => c.column !== columnId),
-  });
+  const expandedSql = expandVirtualColumnsInSql(
+    sql,
+    {
+      columns: factTable.columns.filter((c) => c.column !== columnId),
+    },
+    getIntegrationIdentifierQuote(integration),
+  );
 
   // Select the computed expression alongside the raw rows. The expression
   // references bare column names, which resolve against the aliased subquery.
@@ -961,6 +973,15 @@ export const putColumn = async (
     throw new Error("Virtual columns require a SQL expression");
   }
 
+  // A virtual column must be removed via the delete endpoint so the dependency
+  // guard in `deleteColumn` runs. `UpdateColumnProps` accepts an optional
+  // `deleted` flag, so block that path here to avoid bypassing it.
+  if (col.isVirtual && data.deleted !== undefined) {
+    throw new Error(
+      "Virtual columns must be deleted using the delete endpoint",
+    );
+  }
+
   // Check enterprise feature access for dimension properties
   if (data.isAutoSliceColumn) {
     if (!context.hasPremiumFeature("metric-slices")) {
@@ -1139,8 +1160,8 @@ export const deleteFactFilter = async (
   });
 };
 
-export const postColumn = async (
-  req: AuthRequest<CreateColumnProps, { id: string }>,
+export const postVirtualColumn = async (
+  req: AuthRequest<CreateVirtualColumnProps, { id: string }>,
   res: Response<{ status: 200; column: ColumnInterface }>,
 ) => {
   const data = req.body;
@@ -1156,23 +1177,11 @@ export const postColumn = async (
   }
 
   // This endpoint only creates virtual columns. SQL-detected columns are
-  // created by column auto-detection, not directly.
-  if (!data.isVirtual) {
-    throw new Error("Only virtual columns can be created directly");
-  }
-  if (!data.sql || !data.sql.trim()) {
-    throw new Error("Virtual columns require a SQL expression");
-  }
-  if (!data.column.match(/^[a-zA-Z0-9_]+_vc$/)) {
-    throw new Error(
-      "Virtual column ids must contain only letters, numbers, and underscores and end with '_vc'",
-    );
-  }
-  if (!data.datatype) {
-    throw new Error("Virtual columns require a data type");
-  }
+  // created by column auto-detection, not directly. The validator omits
+  // `isVirtual`, so it is forced on here.
+  validateVirtualColumnProps(data);
 
-  const column = await createColumn(factTable, data);
+  const column = await createColumn(factTable, { ...data, isVirtual: true });
 
   res.status(200).json({
     status: 200,
@@ -1195,7 +1204,17 @@ export const deleteColumn = async (
     context.permissions.throwPermissionError();
   }
 
-  await deleteColumnInDb(context, factTable, req.params.column);
+  const datasource = await getDataSourceById(context, factTable.datasource);
+  await deleteColumnInDb(
+    context,
+    factTable,
+    req.params.column,
+    datasource
+      ? getIntegrationIdentifierQuote(
+          getSourceIntegrationObject(context, datasource),
+        )
+      : '"',
+  );
 
   res.status(200).json({
     status: 200,

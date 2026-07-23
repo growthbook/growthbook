@@ -1929,5 +1929,105 @@ describe("Virtual Columns", () => {
     it("does not match an already-qualified identifier", () => {
       expect(sqlReferencesColumn("m.price", "price")).toBe(false);
     });
+
+    it("matches a double-quoted identifier in the default dialect", () => {
+      expect(sqlReferencesColumn('"margin_vc" / 2', "margin_vc")).toBe(true);
+    });
+
+    it("treats a double-quoted span as a string literal in a backtick dialect", () => {
+      expect(sqlReferencesColumn('label = "margin_vc"', "margin_vc", "`")).toBe(
+        false,
+      );
+    });
+
+    it("matches a backtick-quoted identifier in a backtick dialect", () => {
+      expect(sqlReferencesColumn("`margin_vc` / 2", "margin_vc", "`")).toBe(
+        true,
+      );
+    });
+
+    it("does not match a name inside a line comment", () => {
+      expect(sqlReferencesColumn("price -- margin_vc\n + 1", "margin_vc")).toBe(
+        false,
+      );
+    });
+
+    it("does not match a name inside a block comment", () => {
+      expect(
+        sqlReferencesColumn("price /* margin_vc */ + 1", "margin_vc"),
+      ).toBe(false);
+    });
+
+    it("does not match a name inside a dollar-quoted string", () => {
+      expect(sqlReferencesColumn("$$margin_vc$$", "margin_vc")).toBe(false);
+      expect(sqlReferencesColumn("$tag$margin_vc$tag$", "margin_vc")).toBe(
+        false,
+      );
+    });
+
+    it("still matches around a lone dollar sign with no closing delimiter", () => {
+      expect(sqlReferencesColumn("margin_vc + $1", "margin_vc")).toBe(true);
+    });
+  });
+
+  describe("dialect-aware quoted-identifier expansion", () => {
+    const chained = (ref: string) => ({
+      columns: [
+        col({ column: "price", datatype: "number" }),
+        col({ column: "cost", datatype: "number" }),
+        col({
+          column: "margin_vc",
+          isVirtual: true,
+          sql: "price - cost",
+          datatype: "number",
+        }),
+        col({
+          column: "margin_pct_vc",
+          isVirtual: true,
+          sql: ref,
+          datatype: "number",
+        }),
+      ],
+    });
+
+    it("expands a nested virtual column referenced via a double-quoted identifier", () => {
+      expect(
+        getColumnExpression(
+          "margin_pct_vc",
+          chained('"margin_vc" / price'),
+          jsonExtract,
+          "m",
+        ),
+      ).toBe("((m.price - m.cost) / m.price)");
+    });
+
+    it("expands a nested virtual column referenced via a backtick identifier (backtick dialect)", () => {
+      expect(
+        getColumnExpression(
+          "margin_pct_vc",
+          chained("`margin_vc` / price"),
+          jsonExtract,
+          "m",
+          "`",
+        ),
+      ).toBe("((m.price - m.cost) / m.price)");
+    });
+
+    it("re-quotes a real column referenced via a quoted identifier", () => {
+      const ft = {
+        columns: [
+          col({ column: "price", datatype: "number" }),
+          col({
+            column: "doubled_vc",
+            isVirtual: true,
+            sql: '"price" * 2',
+            datatype: "number",
+          }),
+        ],
+      };
+      expect(getColumnExpression("doubled_vc", ft, jsonExtract, "m")).toBe(
+        '(m."price" * 2)',
+      );
+    });
   });
 });

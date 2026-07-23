@@ -25309,6 +25309,179 @@ paths:
             'https://api.growthbook.io/api/v1/fact-tables/abc123/filters/abc123'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/fact-tables/{factTableId}/columns:
+    post:
+      operationId: postFactTableColumn
+      summary: Create a virtual (computed) column on a fact table
+      tags:
+        - fact-tables
+      parameters:
+        - $ref: '#/components/parameters/factTableId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                column:
+                  description: >-
+                    The column identifier used in generated SQL. Must contain
+                    only letters, numbers, and underscores and end with `_vc`.
+                  example: revenue_vc
+                  type: string
+                name:
+                  description: Display name for the column
+                  type: string
+                description:
+                  type: string
+                  maxLength: 10000
+                numberFormat:
+                  type: string
+                  enum:
+                    - ''
+                    - currency
+                    - time:seconds
+                    - memory:bytes
+                    - memory:kilobytes
+                datatype:
+                  description: The data type of the computed column
+                  type: string
+                  enum:
+                    - number
+                    - string
+                    - date
+                    - boolean
+                    - json
+                    - binary
+                    - other
+                sql:
+                  description: The SQL expression that computes the column value
+                  example: price * quantity
+                  type: string
+              required:
+                - column
+                - datatype
+                - sql
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  factTableColumn:
+                    $ref: '#/components/schemas/FactTableColumn'
+                required:
+                  - factTableColumn
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/fact-tables/abc123/columns' \
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"column":"revenue_vc","datatype":"number","sql":"price * quantity"}'
+  /v1/fact-tables/{factTableId}/columns/{id}:
+    post:
+      operationId: updateFactTableColumn
+      summary: Update a virtual (computed) column on a fact table
+      tags:
+        - fact-tables
+      parameters:
+        - $ref: '#/components/parameters/factTableId'
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  description: Display name for the column
+                  type: string
+                description:
+                  type: string
+                  maxLength: 10000
+                numberFormat:
+                  type: string
+                  enum:
+                    - ''
+                    - currency
+                    - time:seconds
+                    - memory:bytes
+                    - memory:kilobytes
+                datatype:
+                  description: The data type of the computed column
+                  type: string
+                  enum:
+                    - number
+                    - string
+                    - date
+                    - boolean
+                    - json
+                    - binary
+                    - other
+                sql:
+                  description: The SQL expression that computes the column value
+                  type: string
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  factTableColumn:
+                    $ref: '#/components/schemas/FactTableColumn'
+                required:
+                  - factTableColumn
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/fact-tables/abc123/columns/revenue_vc'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"sql":"price * quantity * 1.1"}'
+    delete:
+      operationId: deleteFactTableColumn
+      summary: Delete a virtual (computed) column from a fact table
+      tags:
+        - fact-tables
+      parameters:
+        - $ref: '#/components/parameters/factTableId'
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Resource deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deletedId:
+                    description: The id of the deleted virtual column
+                    example: revenue_vc
+                    type: string
+                required:
+                  - deletedId
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X DELETE
+            'https://api.growthbook.io/api/v1/fact-tables/abc123/columns/revenue_vc'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/fact-tables/{id}/aggregated-tables:
     get:
       operationId: getAggregatedFactTables
@@ -54021,13 +54194,15 @@ components:
           default: false
           description: >-
             Whether this is a virtual (computed) column defined by a SQL
-            expression rather than detected from the fact table SQL. Read-only
-            via the API.
+            expression rather than detected from the fact table SQL. Managed via
+            the dedicated virtual-column endpoints, not the fact table
+            create/update body.
           type: boolean
         sql:
           description: >-
             For virtual columns, the SQL expression that computes the column
-            value. Read-only via the API.
+            value. Managed via the dedicated virtual-column endpoints, not the
+            fact table create/update body.
           type: string
         dateCreated:
           readOnly: true
@@ -54129,13 +54304,15 @@ components:
           default: false
           description: >-
             Whether this is a virtual (computed) column defined by a SQL
-            expression rather than detected from the fact table SQL. Read-only
-            via the API.
+            expression rather than detected from the fact table SQL. Managed via
+            the dedicated virtual-column endpoints, not the fact table
+            create/update body.
           type: boolean
         sql:
           description: >-
             For virtual columns, the SQL expression that computes the column
-            value. Read-only via the API.
+            value. Managed via the dedicated virtual-column endpoints, not the
+            fact table create/update body.
           type: string
         dateCreated:
           readOnly: true
