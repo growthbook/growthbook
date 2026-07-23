@@ -1504,7 +1504,7 @@ function renderTargetingNode(
   allProjects: boolean | undefined,
   projects: string[] | undefined,
 ): ReactNode {
-  if (allProjects) return "All projects";
+  if (allProjects) return "All Projects";
   if (!projects?.length) return <em>none</em>;
   return (
     <>

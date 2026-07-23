@@ -493,7 +493,7 @@ export default function FeaturesHeader({
                 label="Targeting Projects"
                 value={
                   feature.targetingAllProjects
-                    ? "All projects"
+                    ? "All Projects"
                     : (feature.targetingProjects ?? [])
                         .map((id) => getProjectById(id)?.name || id)
                         .join(", ")
