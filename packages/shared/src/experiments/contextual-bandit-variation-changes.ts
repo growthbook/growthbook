@@ -60,6 +60,20 @@ export function getRemovedVariationsInUse(
   return removedIds.filter((id) => referenced.has(id));
 }
 
+/**
+ * Value for a newly-added variation on a linked feature's contextual-bandit-ref
+ * rule. Precedence: caller-supplied → the rule's control (first) variation value
+ * → the feature default. Ensures an added arm is never served as `null` in the
+ * SDK payload. The caller type-validates the result via `validateFeatureValue`.
+ */
+export function defaultAddedVariationValue(
+  provided: string | undefined,
+  controlValue: string | undefined,
+  featureDefaultValue: string,
+): string {
+  return provided ?? controlValue ?? featureDefaultValue;
+}
+
 /** Even split across the given variation ids, in order, summing to 1. */
 function uniformWeightPairs(variationIds: string[]): VariationWeightPair[] {
   const weights = getEqualWeights(variationIds.length || 1);

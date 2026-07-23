@@ -312,6 +312,14 @@ export const apiContextualBanditUpdateVariationsValidator = {
   paramsSchema: z.strictObject({ id: z.string() }),
   bodySchema: z.strictObject({
     variations: z.array(variation),
+    // Optional value for each ADDED variation on each linked feature's
+    // contextual-bandit-ref rule: { [featureId]: { [variationId]: value } }.
+    // Missing entries fall back to a server default (the rule's control value /
+    // feature default), so a newly-added arm is never served as null. Weights
+    // are still never accepted from the client — only these feature values.
+    newVariationValues: z
+      .record(z.string(), z.record(z.string(), z.string()))
+      .optional(),
   }),
   querySchema: z.never(),
 };

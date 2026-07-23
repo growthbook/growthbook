@@ -40131,6 +40131,16 @@ paths:
                       - key
                       - screenshots
                     additionalProperties: false
+                newVariationValues:
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties:
+                    type: object
+                    propertyNames:
+                      type: string
+                    additionalProperties:
+                      type: string
               required:
                 - variations
               additionalProperties: false

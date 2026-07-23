@@ -15,13 +15,19 @@ import {
 import {
   assertAtLeastTwoVariations,
   conditionFromLeafClauses,
+  defaultAddedVariationValue,
   diffVariations,
   getRemovedVariationsInUse,
   reconcileVariationWeights,
   WeightReconcileMode,
 } from "shared/experiments";
-import { generateVariationId } from "shared/util";
+import {
+  generateVariationId,
+  resetReviewOnChange,
+  validateFeatureValue,
+} from "shared/util";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
+import { cloneDeep } from "lodash";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
@@ -29,6 +35,11 @@ import { getRefLinkedFeatureInfo } from "back-end/src/services/experiments";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { refreshLinkedFeaturePayloads } from "back-end/src/services/contextualBanditChanges";
 import { computeContextualBanditStageAndSchedule } from "back-end/src/services/contextualBanditSchedule";
+import { getFeature } from "back-end/src/models/FeatureModel";
+import { getDraftRevision } from "back-end/src/services/features";
+import { updateRevision } from "back-end/src/models/FeatureRevisionModel";
+import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
+import { publishPendingFeatureDraftsForContextualBandit } from "back-end/src/services/experiment-feature";
 import {
   ContextualBanditResultsQueryRunner,
   ContextualBanditSrmResult,
@@ -94,6 +105,7 @@ export async function executeContextualBanditVariationChange(
   context: ReqContext | ApiReqContext,
   cb: ContextualBanditInterface,
   requestedVariations: Variation[],
+  newVariationValues?: Record<string, Record<string, string>>,
 ): Promise<{ updated: ContextualBanditInterface }> {
   if (cb.status === "stopped") {
     throw new Error(
@@ -189,6 +201,18 @@ export async function executeContextualBanditVariationChange(
     });
   }
 
+  // For newly-added arms, write a value into each linked feature's CB-ref rule
+  // so the SDK payload doesn't serve the new arm as null (Option D). Runs before
+  // the payload refresh; for a running CB it publishes the staged drafts.
+  if (diff.addedIds.length > 0) {
+    updated = await addVariationValuesToLinkedFeatures(
+      context,
+      updated,
+      diff.addedIds,
+      newVariationValues,
+    );
+  }
+
   // Regenerate the SDK payload for linked features (new variation set / weights /
   // banditVersion). Uses the same helper as start/stop/refresh (post-v2-merge).
   await refreshLinkedFeaturePayloads(
@@ -198,6 +222,126 @@ export async function executeContextualBanditVariationChange(
   );
 
   return { updated };
+}
+
+/**
+ * Option D — after an add, fill each linked feature's `contextual-bandit-ref`
+ * rule with a value for every newly-added variation, so the SDK payload never
+ * serves the new arm as `null`.
+ *
+ * Values come from `providedValues` (client), else fall back to the rule's
+ * control value / feature default (`defaultAddedVariationValue`), then are
+ * type-validated via `validateFeatureValue`. Writes go onto a draft revision
+ * (same machinery as linking a feature) and are recorded as `pendingFeatureDrafts`
+ * on the CB. For a running CB the drafts are published immediately (reusing the
+ * CB-start publish path); for a draft CB they stay pending until start.
+ *
+ * Returns the (possibly re-read) CB doc.
+ */
+export async function addVariationValuesToLinkedFeatures(
+  context: ReqContext | ApiReqContext,
+  cb: ContextualBanditInterface,
+  addedIds: string[],
+  providedValues?: Record<string, Record<string, string>>,
+): Promise<ContextualBanditInterface> {
+  const featureIds = cb.linkedFeatures ?? [];
+  if (addedIds.length === 0 || featureIds.length === 0) return cb;
+
+  let stagedAny = false;
+
+  for (const featureId of featureIds) {
+    const feature = await getFeature(context, featureId);
+    if (!feature) continue;
+
+    const revision = await getDraftRevision(context, feature, feature.version);
+    const rules = cloneDeep(revision.rules ?? []);
+    const changedEnvironments = new Set<string>();
+    let changed = false;
+
+    for (const rule of rules) {
+      if (
+        rule.type !== "contextual-bandit-ref" ||
+        rule.contextualBanditId !== cb.id
+      ) {
+        continue;
+      }
+      const existing = new Set(rule.variations.map((v) => v.variationId));
+      const controlValue = rule.variations[0]?.value;
+      let ruleChanged = false;
+      for (const addedId of addedIds) {
+        if (existing.has(addedId)) continue;
+        const value = validateFeatureValue(
+          feature,
+          defaultAddedVariationValue(
+            providedValues?.[featureId]?.[addedId],
+            controlValue,
+            feature.defaultValue,
+          ),
+          `Variation ${addedId}`,
+        );
+        rule.variations.push({ variationId: addedId, value });
+        ruleChanged = true;
+      }
+      if (ruleChanged) {
+        changed = true;
+        (rule.allEnvironments
+          ? context.environments
+          : (rule.environments ?? [])
+        ).forEach((e) => changedEnvironments.add(e));
+      }
+    }
+
+    if (!changed) continue;
+
+    const resetReview = resetReviewOnChange({
+      feature,
+      changedEnvironments: [...changedEnvironments],
+      defaultValueChanged: false,
+      settings: context.org.settings,
+    });
+
+    const updatedRevision =
+      (await updateRevision(
+        context,
+        feature,
+        revision,
+        { rules },
+        {
+          user: context.auditUser,
+          action: "add contextual bandit variation value",
+          subject: `for "${cb.name}"`,
+          value: JSON.stringify({ addedVariationIds: addedIds }),
+        },
+        resetReview,
+      )) ?? revision;
+
+    await recordRevisionUpdate(
+      context,
+      feature,
+      updatedRevision,
+      "rule.update",
+      { environments: [...changedEnvironments] },
+    );
+
+    await context.models.contextualBandits.addPendingFeatureDraft(
+      cb.id,
+      feature.id,
+      updatedRevision.version,
+    );
+    stagedAny = true;
+  }
+
+  if (!stagedAny) return cb;
+
+  // Running CBs serve immediately, so publish the staged drafts now (reusing the
+  // CB-start publish path); a draft CB leaves them pending until it starts.
+  const refreshed =
+    (await context.models.contextualBandits.getById(cb.id)) ?? cb;
+  if (refreshed.status === "running") {
+    await publishPendingFeatureDraftsForContextualBandit(context, refreshed);
+    return (await context.models.contextualBandits.getById(cb.id)) ?? refreshed;
+  }
+  return refreshed;
 }
 
 export type ContextualBanditResultsForUi = {

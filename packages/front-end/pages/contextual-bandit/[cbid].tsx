@@ -160,7 +160,11 @@ const ContextualBanditPage = (): ReactElement => {
       {variationsModalOpen && (
         <ContextualBanditVariationsModal
           cb={cb}
-          mutate={mutate}
+          linkedFeatures={linkedFeatures}
+          mutate={() => {
+            mutate();
+            mutateLinkedFeatures();
+          }}
           close={() => setVariationsModalOpen(false)}
         />
       )}

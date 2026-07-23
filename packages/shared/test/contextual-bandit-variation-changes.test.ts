@@ -1,5 +1,6 @@
 import {
   assertAtLeastTwoVariations,
+  defaultAddedVariationValue,
   diffVariations,
   getRemovedVariationsInUse,
   MIN_CONTEXTUAL_BANDIT_VARIATIONS,
@@ -101,6 +102,23 @@ describe("reconcileVariationWeights — uniform mode", () => {
   it("preserves the new-set order in the output", () => {
     const result = reconcileVariationWeights([], ["c", "a", "b"], "uniform");
     expect(result.map((p) => p.variationId)).toEqual(["c", "a", "b"]);
+  });
+});
+
+describe("defaultAddedVariationValue", () => {
+  it("prefers a caller-supplied value", () => {
+    expect(defaultAddedVariationValue("mine", "control", "def")).toBe("mine");
+  });
+  it("falls back to the control value when none supplied", () => {
+    expect(defaultAddedVariationValue(undefined, "control", "def")).toBe(
+      "control",
+    );
+  });
+  it("falls back to the feature default when there is no control value", () => {
+    expect(defaultAddedVariationValue(undefined, undefined, "def")).toBe("def");
+  });
+  it("treats an empty-string supplied value as an intentional value", () => {
+    expect(defaultAddedVariationValue("", "control", "def")).toBe("");
   });
 });
 
