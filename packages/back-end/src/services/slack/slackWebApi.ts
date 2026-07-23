@@ -303,24 +303,6 @@ export async function uploadSlackImageFile({
   return completeRes?.ok ? getRes.file_id : null;
 }
 
-/**
- * Look up a Slack user's profile email (requires the `users:read.email` scope,
- * which the OAuth install requests). Returns null if unavailable.
- */
-export async function getSlackUserEmail({
-  token,
-  slackUserId,
-}: {
-  token: string;
-  slackUserId: string;
-}): Promise<string | null> {
-  const res = await slackApiGet<
-    SlackApiResponse & { user?: { profile?: { email?: string } } }
-  >(token, "users.info", { user: slackUserId });
-  const email = res?.ok ? res.user?.profile?.email : undefined;
-  return email || null;
-}
-
 // Resolve a channel's current name via conversations.info (needs channels:read
 // / groups:read). Installs predating those scopes return `missing_scope`; we
 // return null so callers fall back to the name captured at install time.

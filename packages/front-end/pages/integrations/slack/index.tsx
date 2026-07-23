@@ -291,8 +291,6 @@ oauth_config:
       - groups:read
       - channels:join
       - commands
-      - users:read
-      - users:read.email
       - app_mentions:read
       - channels:history
       - groups:history
