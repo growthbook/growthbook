@@ -63,6 +63,7 @@ describe("features events", () => {
           getAll: jest.fn().mockResolvedValue([]),
         },
       },
+      getProjects: jest.fn().mockResolvedValue([]),
       userId: "aabb",
       email: "user@mail.com",
       userName: "User Name",
