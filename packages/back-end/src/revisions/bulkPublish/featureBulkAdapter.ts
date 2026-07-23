@@ -123,12 +123,13 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     return revision ? toRef(revision) : null;
   },
 
-  // Entity-level check only; the env-scoped canPublishFeature check happens
-  // in collectGates, narrowed to the environments the merge touches.
+  // Coarse project-level publish authority (no env restriction here); the
+  // precise env-scoped canPublishFeature check happens in collectGates, narrowed
+  // to the environments the merge touches. Publishing does not require manage.
   canPublish(context, entity) {
-    return context.permissions.canUpdateFeature(
+    return context.permissions.canPublishFeature(
       entity as unknown as FeatureInterface,
-      {},
+      [],
     );
   },
 

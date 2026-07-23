@@ -35,6 +35,22 @@ import type {
 
 export const MAX_BULK_PUBLISH_ITEMS = 50;
 
+// Whether a merge changes the entity's project ownership (project / projects[]).
+function ownershipChanged(
+  entity: Record<string, unknown>,
+  proposedEntity: Record<string, unknown>,
+): boolean {
+  if (entity.project !== proposedEntity.project) return true;
+  const before = entity.projects;
+  const after = proposedEntity.projects;
+  if (Array.isArray(before) || Array.isArray(after)) {
+    const norm = (v: unknown) =>
+      JSON.stringify([...((v as string[] | undefined) ?? [])].sort());
+    return norm(before) !== norm(after);
+  }
+  return false;
+}
+
 function tag(ref: BulkPublishItemRef, gates: PublishGate[]): BulkPublishGate[] {
   return gates.map((gate) => ({
     ...gate,
@@ -186,9 +202,11 @@ export async function planBulkPublish(
     try {
       const { desiredState, hasChanges, proposedEntity } =
         await adapter.buildDesiredState(context, entity, revision);
-      // Project-move laundering guard: the caller needs authority over the
-      // post-merge state too, not just the live entity.
-      if (!adapter.canUpdate(context, proposedEntity)) {
+      // A project move additionally requires manage on the destination.
+      if (
+        ownershipChanged(entity, proposedEntity) &&
+        !adapter.canUpdate(context, proposedEntity)
+      ) {
         blockLoad(
           itemGate(
             ref,

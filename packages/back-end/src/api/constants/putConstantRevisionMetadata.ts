@@ -25,12 +25,11 @@ export const putConstantRevisionMetadata = createApiRequestHandler(
 
   const { name, owner, description, project } = req.body;
 
-  // Re-check edit permission so a `project` move needs edit on old AND new.
-  // Done BEFORE probing project existence so it can't be an existence oracle.
+  // Editing draft metadata requires draft-authoring permission. Done BEFORE
+  // probing project existence so it can't be an existence oracle. A `project`
+  // move's destination-manage rights are re-checked at publish time.
   if (
-    !req.context.permissions.canUpdateConstant(constant, {
-      project: typeof project !== "undefined" ? project : constant.project,
-    })
+    !req.context.permissions.canRevisionAction("constant", "draft", constant)
   ) {
     req.context.permissions.throwPermissionError();
   }

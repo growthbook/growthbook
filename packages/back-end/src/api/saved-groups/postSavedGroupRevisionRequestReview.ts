@@ -1,7 +1,6 @@
 import { postSavedGroupRevisionRequestReviewValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
-import { getAdapter } from "back-end/src/revisions";
 import { canEnableAutoPublishOnApproval } from "back-end/src/revisions/revisionActions";
 import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
 import { loadRevisionByVersion } from "./validations";
@@ -27,9 +26,10 @@ export const postSavedGroupRevisionRequestReview = createApiRequestHandler(
   // review (matches the internal `submitForReview` controller). Saved groups
   // don't have a separate "manage drafts" permission like features do.
   if (
-    !getAdapter("saved-group").canUpdate(
-      req.context,
-      savedGroup as Record<string, unknown>,
+    !req.context.permissions.canRevisionAction(
+      "saved-group",
+      "draft",
+      savedGroup,
     )
   ) {
     req.context.permissions.throwPermissionError();

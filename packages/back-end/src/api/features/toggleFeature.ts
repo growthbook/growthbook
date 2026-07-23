@@ -47,7 +47,6 @@ export async function toggleFeatureCore(
   const environmentIds = getEnvironmentIdsFromOrg(organization);
 
   if (
-    !context.permissions.canUpdateFeature(feature, {}) ||
     !context.permissions.canPublishFeature(
       feature,
       Object.keys(body.environments),

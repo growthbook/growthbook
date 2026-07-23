@@ -32,10 +32,7 @@ export async function toggleRevisionEnvironment(
   const feature = await getFeature(context, params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
-  if (
-    !context.permissions.canUpdateFeature(feature, {}) ||
-    !context.permissions.canManageFeatureDrafts(feature)
-  ) {
+  if (!context.permissions.canManageFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 

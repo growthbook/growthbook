@@ -12,6 +12,7 @@ import {
   NotFoundError,
 } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
+import { constantPublishEnvironments } from "back-end/src/revisions/revisionPublishEnvironments";
 import {
   evaluatePublishGates,
   PublishBlockedError,
@@ -43,10 +44,15 @@ export const postConstantRevisionPublish = createApiRequestHandler(
 
   const adapter = getAdapter("constant");
 
-  // Re-check edit permission against the LIVE entity (a `project` move in the
-  // proposed changes shouldn't be able to launder write access) before leaking
-  // any revision state.
-  if (!adapter.canUpdate(req.context, constant as Record<string, unknown>)) {
+  // Publish authority on the live entity (project-move manage checked below).
+  if (
+    !req.context.permissions.canRevisionAction(
+      "constant",
+      "publish",
+      constant,
+      constantPublishEnvironments(req.context),
+    )
+  ) {
     req.context.permissions.throwPermissionError();
   }
 
@@ -121,10 +127,12 @@ export const postConstantRevisionPublish = createApiRequestHandler(
 
   const isBypass = approvalRequired && revision.status !== "approved";
 
-  // The live check above covers the source project. If the revision moves the
-  // constant to a different project, also require update permission on the
-  // destination.
+  // A project move additionally requires manage on the destination.
+  const movesProject =
+    "project" in desiredState &&
+    (desiredState as { project?: string }).project !== constant.project;
   if (
+    movesProject &&
     !adapter.canUpdate(req.context, {
       ...(constant as unknown as Record<string, unknown>),
       ...desiredState,

@@ -3,8 +3,12 @@ import { DefaultMemberRole, Permission, Role } from "shared/types/organization";
 export const POLICIES = [
   "ReadData",
   "Comments",
-  "FeaturesFullAccess",
+  "FlagsFullAccess",
+  "FlagsBypassApprovals",
   "ArchetypesFullAccess",
+  // Deprecated: merged into the Flags family. Kept resolvable for back-compat
+  // (JIT-migrated to Flags* on load) and hidden from the role editor.
+  "FeaturesFullAccess",
   "FeaturesBypassApprovals",
   "ConstantsFullAccess",
   "ConfigsFullAccess",
@@ -54,22 +58,61 @@ export const POLICIES = [
 
 export type Policy = (typeof POLICIES)[number];
 
+// Policies retained only for back-compat after the Flags merge. They still
+// resolve (mapped to the merged Flags atoms in POLICY_PERMISSION_MAP) so
+// existing stored custom roles keep their exact access, but they are hidden
+// from the role editor (excluded from POLICY_DISPLAY_GROUPS) and must not be
+// offered for new selection.
+export const DEPRECATED_POLICIES: Policy[] = [
+  "FeaturesFullAccess",
+  "FeaturesBypassApprovals",
+  "ConfigsFullAccess",
+  "ConstantsFullAccess",
+];
+
 export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   ReadData: ["readData"],
   Comments: ["readData", "addComments"],
-  FeaturesFullAccess: [
+  FlagsFullAccess: [
     "readData",
-    "manageFeatureDrafts",
-    "manageFeatures",
+    "manageFlags",
+    "deleteFlags",
+    "manageFlagDrafts",
+    "reviewFlags",
+    "publishFlags",
+    "revertFlags",
     "manageArchetype",
-    "canReview",
+  ],
+  FlagsBypassApprovals: [
+    "readData",
+    "manageFlags",
+    "deleteFlags",
+    "manageFlagDrafts",
+    "reviewFlags",
+    "publishFlags",
+    "revertFlags",
+    "manageArchetype",
+    "bypassApprovalChecks",
   ],
   ArchetypesFullAccess: ["readData", "manageArchetype"],
+  // Deprecated: merged into the Flags family. Mapped to the equivalent Flags
+  // atoms to preserve legacy access exactly; hidden from the role editor and
+  // JIT-migrated to Flags* on org load. (Legacy Features access never included
+  // publish, so these omit publishFlags/revertFlags.)
+  FeaturesFullAccess: [
+    "readData",
+    "manageFlags",
+    "deleteFlags",
+    "manageFlagDrafts",
+    "reviewFlags",
+    "manageArchetype",
+  ],
   FeaturesBypassApprovals: [
     "readData",
-    "manageFeatureDrafts",
-    "manageFeatures",
-    "canReview",
+    "manageFlags",
+    "deleteFlags",
+    "manageFlagDrafts",
+    "reviewFlags",
     "bypassApprovalChecks",
   ],
   ExperimentsFullAccess: ["readData", "createAnalyses", "runQueries"],
@@ -106,7 +149,7 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   SegmentsFullAccess: ["readData", "createSegments", "runQueries"],
   IdeasFullAccess: ["readData", "createIdeas"],
   PresentationsFullAccess: ["readData", "createPresentations"],
-  SDKPayloadPublish: ["readData", "publishFeatures", "runExperiments"],
+  SDKPayloadPublish: ["readData", "publishFlags", "runExperiments"],
   SDKConnectionsFullAccess: [
     "readData",
     "manageSDKConnections",
@@ -116,12 +159,38 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   AttributesFullAccess: ["readData", "manageTargetingAttributes"],
   EnvironmentsFullAccess: ["readData", "manageEnvironments"],
   NamespacesFullAccess: ["readData", "manageNamespaces"],
-  ConstantsFullAccess: ["readData", "manageConstants"],
-  ConfigsFullAccess: ["readData", "manageConfigs"],
-  SavedGroupsFullAccess: ["readData", "manageSavedGroups"],
+  // Deprecated: merged into the Flags family (see note above).
+  ConstantsFullAccess: [
+    "readData",
+    "manageFlags",
+    "deleteFlags",
+    "manageFlagDrafts",
+    "reviewFlags",
+  ],
+  ConfigsFullAccess: [
+    "readData",
+    "manageFlags",
+    "deleteFlags",
+    "manageFlagDrafts",
+    "reviewFlags",
+  ],
+  SavedGroupsFullAccess: [
+    "readData",
+    "manageSavedGroups",
+    "deleteSavedGroups",
+    "manageSavedGroupDrafts",
+    "reviewSavedGroups",
+    "publishSavedGroups",
+    "revertSavedGroups",
+  ],
   SavedGroupsBypassSizeLimit: [
     "readData",
     "manageSavedGroups",
+    "deleteSavedGroups",
+    "manageSavedGroupDrafts",
+    "reviewSavedGroups",
+    "publishSavedGroups",
+    "revertSavedGroups",
     "bypassSavedGroupSizeLimit",
   ],
   GeneralSettingsFullAccess: ["readData", "organizationSettings"],
@@ -166,13 +235,13 @@ export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
     policies: ["ReadData", "Comments"],
   },
   {
-    name: "Features",
+    name: "Feature Flagging",
     policies: [
-      "FeaturesFullAccess",
+      "FlagsFullAccess",
+      "FlagsBypassApprovals",
       "ArchetypesFullAccess",
-      "FeaturesBypassApprovals",
-      "ConstantsFullAccess",
-      "ConfigsFullAccess",
+      "SavedGroupsFullAccess",
+      "SavedGroupsBypassSizeLimit",
     ],
   },
   {
@@ -220,8 +289,6 @@ export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
       "AttributesFullAccess",
       "EnvironmentsFullAccess",
       "NamespacesFullAccess",
-      "SavedGroupsFullAccess",
-      "SavedGroupsBypassSizeLimit",
     ],
   },
   {
@@ -262,6 +329,16 @@ export const POLICY_METADATA_MAP: Record<
   Comments: {
     displayName: "Comments",
     description: "Add comments to any resource",
+  },
+  FlagsFullAccess: {
+    displayName: "Flags Full Access",
+    description:
+      "Create, edit, delete, draft, review, publish, and revert feature flags, constants, and configs",
+  },
+  FlagsBypassApprovals: {
+    displayName: "Flags Bypass Approvals",
+    description:
+      "Bypass required approval checks when publishing feature flags, constants, and configs",
   },
   FeaturesFullAccess: {
     displayName: "Features Full Access",
@@ -479,6 +556,75 @@ export const POLICY_METADATA_MAP: Record<
   },
 };
 
+// Display metadata for the fine-grained permission atoms that the role editor
+// can expose beneath a policy preset. Only atoms meant to be individually
+// grantable via a custom role's `permissions[]` need an entry.
+export const GRANULAR_PERMISSION_METADATA: Partial<
+  Record<Permission, { displayName: string; description: string }>
+> = {
+  manageFlags: {
+    displayName: "Create & edit",
+    description: "Create and edit feature flags, constants, and configs",
+  },
+  deleteFlags: {
+    displayName: "Delete",
+    description: "Delete feature flags, constants, and configs",
+  },
+  manageFlagDrafts: {
+    displayName: "Manage drafts",
+    description: "Create, edit, and discard drafts and request review",
+  },
+  reviewFlags: {
+    displayName: "Review",
+    description: "Approve or request changes on revisions",
+  },
+  publishFlags: {
+    displayName: "Publish",
+    description: "Publish revisions to environments (environment-scoped)",
+  },
+  revertFlags: {
+    displayName: "Revert",
+    description:
+      "Revert to a previously published revision (environment-scoped)",
+  },
+  manageArchetype: {
+    displayName: "Manage archetypes",
+    description: "Create, edit, and delete saved user archetypes",
+  },
+  bypassApprovalChecks: {
+    displayName: "Bypass approvals",
+    description: "Publish without required approvals",
+  },
+  manageSavedGroups: {
+    displayName: "Create & edit",
+    description: "Create and edit saved groups",
+  },
+  deleteSavedGroups: {
+    displayName: "Delete",
+    description: "Delete saved groups",
+  },
+  manageSavedGroupDrafts: {
+    displayName: "Manage drafts",
+    description: "Create, edit, and discard saved-group drafts",
+  },
+  reviewSavedGroups: {
+    displayName: "Review",
+    description: "Approve or request changes on saved-group revisions",
+  },
+  publishSavedGroups: {
+    displayName: "Publish",
+    description: "Publish saved-group revisions",
+  },
+  revertSavedGroups: {
+    displayName: "Revert",
+    description: "Revert a saved group to a previously published revision",
+  },
+  bypassSavedGroupSizeLimit: {
+    displayName: "Bypass size limit",
+    description: "Bypass org-defined saved-group size limits",
+  },
+};
+
 export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
   noaccess: {
     id: "noaccess",
@@ -517,7 +663,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
     policies: [
       "ReadData",
       "Comments",
-      "FeaturesFullAccess",
+      "FlagsFullAccess",
       "ArchetypesFullAccess",
       "VisualEditorFullAccess",
       "IdeasFullAccess",
@@ -528,8 +674,6 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "EnvironmentsFullAccess",
       "NamespacesFullAccess",
       "SavedGroupsFullAccess",
-      "ConstantsFullAccess",
-      "ConfigsFullAccess",
       "TagsFullAccess",
     ],
   },
@@ -566,7 +710,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
     policies: [
       "ReadData",
       "Comments",
-      "FeaturesFullAccess",
+      "FlagsFullAccess",
       "ExperimentsFullAccess",
       "VisualEditorFullAccess",
       "ArchetypesFullAccess",
@@ -585,8 +729,6 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "EnvironmentsFullAccess",
       "NamespacesFullAccess",
       "SavedGroupsFullAccess",
-      "ConstantsFullAccess",
-      "ConfigsFullAccess",
       "TagsFullAccess",
       "DataSourceConfiguration",
       "TemplatesFullAccess",
@@ -602,7 +744,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
     policies: [
       "ReadData",
       "Comments",
-      "FeaturesFullAccess",
+      "FlagsFullAccess",
       "ExperimentsFullAccess",
       "VisualEditorFullAccess",
       "ArchetypesFullAccess",
@@ -621,15 +763,13 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "EnvironmentsFullAccess",
       "NamespacesFullAccess",
       "SavedGroupsFullAccess",
-      "ConstantsFullAccess",
-      "ConfigsFullAccess",
       "TagsFullAccess",
       "DataSourceConfiguration",
       "TemplatesFullAccess",
       "DecisionCriteriaFullAccess",
       "HoldoutsFullAccess",
       "GeneralDashboardsFullAccess",
-      "FeaturesBypassApprovals",
+      "FlagsBypassApprovals",
       "ProjectAdminAccess",
     ],
   },
@@ -652,7 +792,8 @@ export const RESERVED_ROLE_IDS = [
 ];
 
 export const ENV_SCOPED_PERMISSIONS = [
-  "publishFeatures",
+  "publishFlags",
+  "revertFlags",
   "manageEnvironments",
   "manageSDKConnections",
   "manageSDKWebhooks",
@@ -663,9 +804,10 @@ export const PROJECT_SCOPED_PERMISSIONS = [
   "readData",
   "addComments",
   "bypassApprovalChecks",
-  "canReview",
-  "manageFeatureDrafts",
-  "manageFeatures",
+  "manageFlags",
+  "deleteFlags",
+  "manageFlagDrafts",
+  "reviewFlags",
   "manageArchetype",
   "manageProjects",
   "createProjects",
@@ -684,8 +826,11 @@ export const PROJECT_SCOPED_PERMISSIONS = [
   "manageTargetingAttributes",
   "manageVisualChanges",
   "manageSavedGroups",
-  "manageConstants",
-  "manageConfigs",
+  "deleteSavedGroups",
+  "manageSavedGroupDrafts",
+  "reviewSavedGroups",
+  "publishSavedGroups",
+  "revertSavedGroups",
   "manageCustomFields",
   "manageTemplates",
   "manageExecReports",

@@ -13,6 +13,7 @@ import {
   NotFoundError,
 } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
+import { configPublishEnvironments } from "back-end/src/revisions/revisionPublishEnvironments";
 import {
   evaluatePublishGates,
   PublishBlockedError,
@@ -52,9 +53,15 @@ export const postConfigRevisionPublish = createApiRequestHandler(
 
   const adapter = getAdapter("config");
 
-  // Re-check edit permission against the LIVE entity (a proposed `project` move
-  // shouldn't launder write access) before leaking any revision state.
-  if (!adapter.canUpdate(req.context, config as Record<string, unknown>)) {
+  // Publish authority on the live entity (project-move manage checked below).
+  if (
+    !req.context.permissions.canRevisionAction(
+      "config",
+      "publish",
+      config,
+      configPublishEnvironments(req.context, config),
+    )
+  ) {
     req.context.permissions.throwPermissionError();
   }
 
@@ -150,9 +157,12 @@ export const postConfigRevisionPublish = createApiRequestHandler(
 
   const isBypass = approvalRequired && revision.status !== "approved";
 
-  // If the revision moves the config to a different project, also require update
-  // permission on the destination.
+  // A project move additionally requires manage on the destination.
+  const movesProject =
+    "project" in desiredState &&
+    (desiredState as { project?: string }).project !== config.project;
   if (
+    movesProject &&
     !adapter.canUpdate(req.context, {
       ...(config as unknown as Record<string, unknown>),
       ...desiredState,

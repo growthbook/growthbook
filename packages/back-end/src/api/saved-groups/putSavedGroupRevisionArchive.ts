@@ -26,7 +26,13 @@ export const putSavedGroupRevisionArchive = createApiRequestHandler(
     throw new NotFoundError("Could not find saved group");
   }
 
-  if (!req.context.permissions.canUpdateSavedGroup(savedGroup, savedGroup)) {
+  if (
+    !req.context.permissions.canRevisionAction(
+      "saved-group",
+      "draft",
+      savedGroup,
+    )
+  ) {
     req.context.permissions.throwPermissionError();
   }
 

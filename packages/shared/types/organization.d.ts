@@ -112,6 +112,10 @@ export type Role = {
   id: string;
   description: string;
   policies: Policy[];
+  // Additive, fine-grained permission atoms granted on top of `policies`.
+  // Effective permissions = union(policies-derived, permissions). Lets custom
+  // roles compose individual atoms without a dedicated policy per combination.
+  permissions?: Permission[];
   displayName?: string;
 };
 

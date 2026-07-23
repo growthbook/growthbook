@@ -2,7 +2,6 @@ import { constantBlockSelfApproval } from "shared/util";
 import { postConfigRevisionSubmitReviewValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
-import { getAdapter } from "back-end/src/revisions";
 import { maybeAutoPublishRevision } from "back-end/src/revisions/revisionActions";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 import { loadRevisionByVersion } from "./validations";
@@ -22,12 +21,7 @@ export const postConfigRevisionSubmitReview = createApiRequestHandler(
     req.params.version,
   );
 
-  if (
-    !getAdapter("config").canUpdate(
-      req.context,
-      config as Record<string, unknown>,
-    )
-  ) {
+  if (!req.context.permissions.canRevisionAction("config", "review", config)) {
     req.context.permissions.throwPermissionError();
   }
 

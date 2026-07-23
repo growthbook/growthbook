@@ -63,6 +63,7 @@ import {
   schemaFailureGateOverride,
 } from "back-end/src/revisions/publishGates";
 import { applyPatchToSnapshot } from "back-end/src/revisions/util";
+import { configPublishEnvironments } from "back-end/src/revisions/revisionPublishEnvironments";
 import { BadRequestError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import { normalizeConfigChangesAgainstAncestors } from "./configSchemaNormalize";
@@ -97,6 +98,10 @@ function canBypassApprovalForConfig(
 
 function canEditConfig(context: Context, snapshot: ConfigInterface): boolean {
   return context.permissions.canUpdateConfig(snapshot, {});
+}
+
+function configProjects(snapshot: ConfigInterface): string[] {
+  return snapshot.project ? [snapshot.project] : [];
 }
 
 function configApprovalConfigured(context: Context): boolean {
@@ -149,6 +154,36 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
 
   canDelete(context: Context, snapshot: ConfigInterface): boolean {
     return canBypassApprovalForConfig(context, snapshot);
+  },
+
+  canManageDrafts(context: Context, snapshot: ConfigInterface): boolean {
+    return context.permissions.canRevisionAction("config", "draft", {
+      projects: configProjects(snapshot),
+    });
+  },
+
+  canReview(context: Context, snapshot: ConfigInterface): boolean {
+    return context.permissions.canRevisionAction("config", "review", {
+      projects: configProjects(snapshot),
+    });
+  },
+
+  canPublishRevision(context: Context, snapshot: ConfigInterface): boolean {
+    return context.permissions.canRevisionAction(
+      "config",
+      "publish",
+      { projects: configProjects(snapshot) },
+      configPublishEnvironments(context, snapshot),
+    );
+  },
+
+  canRevert(context: Context, snapshot: ConfigInterface): boolean {
+    return context.permissions.canRevisionAction(
+      "config",
+      "revert",
+      { projects: configProjects(snapshot) },
+      configPublishEnvironments(context, snapshot),
+    );
   },
 
   isApprovalRequired(context: Context): boolean {

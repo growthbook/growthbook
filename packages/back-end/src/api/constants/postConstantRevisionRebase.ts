@@ -37,7 +37,9 @@ export const postConstantRevisionRebase = createApiRequestHandler(
   }
 
   const adapter = getAdapter("constant");
-  if (!adapter.canUpdate(req.context, constant as Record<string, unknown>)) {
+  if (
+    !req.context.permissions.canRevisionAction("constant", "draft", constant)
+  ) {
     req.context.permissions.throwPermissionError();
   }
 

@@ -25,7 +25,9 @@ export const putConstantRevisionValue = createApiRequestHandler(
     throw new NotFoundError("Could not find constant");
   }
 
-  if (!req.context.permissions.canUpdateConstant(constant, constant)) {
+  if (
+    !req.context.permissions.canRevisionAction("constant", "draft", constant)
+  ) {
     req.context.permissions.throwPermissionError();
   }
 

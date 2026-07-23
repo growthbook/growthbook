@@ -50,9 +50,7 @@ export async function publishFeatureRevision(
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
-  if (!req.context.permissions.canUpdateFeature(feature, {})) {
-    req.context.permissions.throwPermissionError();
-  }
+  // Publish is gated per-env by canPublishFeature below; no manage required.
 
   const revision = await getRevision({
     context: req.context,

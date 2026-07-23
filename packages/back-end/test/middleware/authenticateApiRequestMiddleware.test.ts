@@ -173,7 +173,7 @@ describe("REST API auth middleware", () => {
     });
 
     it("should throw an error for user API keys where the user does not have access to the project", () => {
-      const permission: Permission = "manageFeatures";
+      const permission: Permission = "manageFlags";
       const project = "prj_xyz987";
       const environments = ["production"];
 

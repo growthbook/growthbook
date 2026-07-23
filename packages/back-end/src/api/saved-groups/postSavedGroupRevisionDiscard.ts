@@ -1,7 +1,6 @@
 import { postSavedGroupRevisionDiscardValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
-import { getAdapter } from "back-end/src/revisions";
 import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
 import { loadRevisionByVersion } from "./validations";
 import { toApiSavedGroupRevision } from "./toApiSavedGroupRevision";
@@ -33,9 +32,10 @@ export const postSavedGroupRevisionDiscard = createApiRequestHandler(
   // controller's close handler — same permission semantics, same code path.
   if (revision.authorId !== req.context.userId) {
     if (
-      !getAdapter("saved-group").canUpdate(
-        req.context,
-        savedGroup as Record<string, unknown>,
+      !req.context.permissions.canRevisionAction(
+        "saved-group",
+        "draft",
+        savedGroup,
       )
     ) {
       req.context.permissions.throwPermissionError();

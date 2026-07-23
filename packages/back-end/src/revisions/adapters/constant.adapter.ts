@@ -49,6 +49,7 @@ import {
   schemaFailureGateOverride,
 } from "back-end/src/revisions/publishGates";
 import { applyPatchToSnapshot } from "back-end/src/revisions/util";
+import { constantPublishEnvironments } from "back-end/src/revisions/revisionPublishEnvironments";
 import { logger } from "back-end/src/util/logger";
 
 // Whitelist of fields the snapshot is allowed to carry, derived from the schema
@@ -82,6 +83,10 @@ function canEditConstant(
   snapshot: ConstantInterface,
 ): boolean {
   return context.permissions.canUpdateConstant(snapshot, {});
+}
+
+function constantProjects(snapshot: ConstantInterface): string[] {
+  return snapshot.project ? [snapshot.project] : [];
 }
 
 // Constants inherit the feature `requireReviews` org settings (drop-in for
@@ -144,6 +149,36 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
   // admin-level action.
   canDelete(context: Context, snapshot: ConstantInterface): boolean {
     return canBypassApprovalForConstant(context, snapshot);
+  },
+
+  canManageDrafts(context: Context, snapshot: ConstantInterface): boolean {
+    return context.permissions.canRevisionAction("constant", "draft", {
+      projects: constantProjects(snapshot),
+    });
+  },
+
+  canReview(context: Context, snapshot: ConstantInterface): boolean {
+    return context.permissions.canRevisionAction("constant", "review", {
+      projects: constantProjects(snapshot),
+    });
+  },
+
+  canPublishRevision(context: Context, snapshot: ConstantInterface): boolean {
+    return context.permissions.canRevisionAction(
+      "constant",
+      "publish",
+      { projects: constantProjects(snapshot) },
+      constantPublishEnvironments(context),
+    );
+  },
+
+  canRevert(context: Context, snapshot: ConstantInterface): boolean {
+    return context.permissions.canRevisionAction(
+      "constant",
+      "revert",
+      { projects: constantProjects(snapshot) },
+      constantPublishEnvironments(context),
+    );
   },
 
   isApprovalRequired(context: Context): boolean {

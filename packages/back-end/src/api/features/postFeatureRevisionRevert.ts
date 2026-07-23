@@ -52,10 +52,7 @@ export async function revertFeatureRevision(
   const feature = await getFeature(context, params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
-  if (!context.permissions.canUpdateFeature(feature, {})) {
-    context.permissions.throwPermissionError();
-  }
-
+  // Revert authority gated per strategy below (publish: canRevertFeature; draft: canManageFeatureDrafts).
   const { strategy = "draft", comment, title } = body;
   // Publish perms only apply to strategy: "publish"; the draft branch is
   // gated by canManageFeatureDrafts below.
@@ -93,7 +90,7 @@ export async function revertFeatureRevision(
   if (targetRevision.defaultValue !== feature.defaultValue) {
     if (
       isPublish &&
-      !context.permissions.canPublishFeature(
+      !context.permissions.canRevertFeature(
         feature,
         environmentIds.filter(
           (env) => feature.environmentSettings?.[env]?.enabled,
@@ -137,7 +134,7 @@ export async function revertFeatureRevision(
   }
 
   if (isPublish && changedEnvs.length > 0) {
-    if (!context.permissions.canPublishFeature(feature, changedEnvs)) {
+    if (!context.permissions.canRevertFeature(feature, changedEnvs)) {
       context.permissions.throwPermissionError();
     }
   }
@@ -152,7 +149,7 @@ export async function revertFeatureRevision(
   ) {
     if (
       isPublish &&
-      !context.permissions.canPublishFeature(feature, allEnabledEnvs)
+      !context.permissions.canRevertFeature(feature, allEnabledEnvs)
     ) {
       context.permissions.throwPermissionError();
     }
@@ -166,7 +163,7 @@ export async function revertFeatureRevision(
   ) {
     if (
       isPublish &&
-      !context.permissions.canPublishFeature(feature, allEnabledEnvs)
+      !context.permissions.canRevertFeature(feature, allEnabledEnvs)
     ) {
       context.permissions.throwPermissionError();
     }
@@ -221,7 +218,7 @@ export async function revertFeatureRevision(
     if (hasMetaChange) {
       if (
         isPublish &&
-        !context.permissions.canPublishFeature(feature, allEnabledEnvs)
+        !context.permissions.canRevertFeature(feature, allEnabledEnvs)
       ) {
         context.permissions.throwPermissionError();
       }

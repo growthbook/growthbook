@@ -1,11 +1,13 @@
 import {
+  GRANULAR_PERMISSION_METADATA,
   POLICY_DISPLAY_GROUPS,
   POLICY_METADATA_MAP,
+  POLICY_PERMISSION_MAP,
   Policy,
   RESERVED_ROLE_IDS,
 } from "shared/permissions";
 import { FormProvider, useForm } from "react-hook-form";
-import { Role } from "shared/types/organization";
+import { Permission, Role } from "shared/types/organization";
 import router from "next/router";
 import { useState } from "react";
 import Field from "@/components/Forms/Field";
@@ -30,10 +32,15 @@ export default function RoleForm({
     action,
   );
 
+  const [expandedPolicies, setExpandedPolicies] = useState<Set<Policy>>(
+    new Set(),
+  );
+
   const validateInputs = (input: {
     id: string;
     description: string;
     policies: Policy[];
+    permissions?: Permission[];
     displayName?: string;
   }): boolean => {
     if (!input.id.length) {
@@ -70,15 +77,17 @@ export default function RoleForm({
     id: string;
     description: string;
     policies: Policy[];
+    permissions: Permission[];
     displayName?: string;
   }>({
-    defaultValues: role,
+    defaultValues: { ...role, permissions: role.permissions || [] },
   });
 
   const currentValue = {
     id: form.watch("id"),
     description: form.watch("description"),
     policies: form.watch("policies"),
+    permissions: form.watch("permissions"),
     displayName: form.watch("displayName"),
   };
 
@@ -95,7 +104,14 @@ export default function RoleForm({
     return "Create & Save";
   };
 
-  const hasChanges = JSON.stringify(role) !== JSON.stringify(currentValue);
+  const hasChanges =
+    JSON.stringify({
+      id: role.id,
+      description: role.description,
+      policies: role.policies,
+      permissions: role.permissions || [],
+      displayName: role.displayName,
+    }) !== JSON.stringify(currentValue);
 
   const saveSettings = form.handleSubmit(async (currentValue) => {
     setError(null);
@@ -115,6 +131,7 @@ export default function RoleForm({
           body: JSON.stringify({
             description: currentValue.description,
             policies: currentValue.policies,
+            permissions: currentValue.permissions,
             displayName: currentValue.displayName,
           }),
         });
@@ -190,8 +207,15 @@ export default function RoleForm({
                   {policies.map((policy) => {
                     const policyData = POLICY_METADATA_MAP[policy];
                     const currentPolicies = form.watch("policies");
+                    const currentPermissions = form.watch("permissions");
 
                     const checked = currentPolicies.includes(policy);
+                    // Fine-grained atoms this policy bundles that can be granted
+                    // individually via the role's permissions[] (excludes readData).
+                    const granularAtoms = (
+                      POLICY_PERMISSION_MAP[policy] || []
+                    ).filter((p) => GRANULAR_PERMISSION_METADATA[p]);
+                    const expanded = expandedPolicies.has(policy);
                     return (
                       <div key={policyData.displayName}>
                         <div className="d-flex align-items-baseline pb-3">
@@ -208,7 +232,7 @@ export default function RoleForm({
                                   currentPolicies.indexOf(policy);
                                 currentPolicies.splice(indexToRemove, 1);
                               }
-                              form.setValue("policies", currentPolicies);
+                              form.setValue("policies", [...currentPolicies]);
                             }}
                           />
                           <div className="ml-2">
@@ -220,6 +244,75 @@ export default function RoleForm({
                               <div className="text-danger">
                                 <strong>Warning: </strong>
                                 {policyData.warning}
+                              </div>
+                            ) : null}
+                            {granularAtoms.length ? (
+                              <div className="mt-1">
+                                <a
+                                  role="button"
+                                  style={{
+                                    cursor: "pointer",
+                                    fontSize: "0.8em",
+                                  }}
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    setExpandedPolicies((prev) => {
+                                      const next = new Set(prev);
+                                      if (next.has(policy)) next.delete(policy);
+                                      else next.add(policy);
+                                      return next;
+                                    });
+                                  }}
+                                >
+                                  {expanded
+                                    ? "− Hide individual permissions"
+                                    : "+ Grant individual permissions instead"}
+                                </a>
+                                {expanded ? (
+                                  <div className="ml-3 mt-2">
+                                    {granularAtoms.map((atom) => {
+                                      const meta =
+                                        GRANULAR_PERMISSION_METADATA[atom];
+                                      if (!meta) return null;
+                                      const atomChecked =
+                                        currentPermissions.includes(atom);
+                                      return (
+                                        <div
+                                          key={atom}
+                                          className="d-flex align-items-baseline pb-2"
+                                        >
+                                          <input
+                                            type="checkbox"
+                                            checked={atomChecked}
+                                            disabled={status === "viewing"}
+                                            id={`${policy}-${atom}-checkbox`}
+                                            onChange={() => {
+                                              const next = [
+                                                ...currentPermissions,
+                                              ];
+                                              const idx = next.indexOf(atom);
+                                              if (idx === -1) next.push(atom);
+                                              else next.splice(idx, 1);
+                                              form.setValue(
+                                                "permissions",
+                                                next,
+                                              );
+                                            }}
+                                          />
+                                          <div className="ml-2">
+                                            <span className="font-weight-bold">
+                                              {meta.displayName}
+                                            </span>
+                                            <span className="text-muted">
+                                              {" — "}
+                                              {meta.description}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                ) : null}
                               </div>
                             ) : null}
                           </div>

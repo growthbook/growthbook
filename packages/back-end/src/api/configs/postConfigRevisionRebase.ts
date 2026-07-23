@@ -37,7 +37,7 @@ export const postConfigRevisionRebase = createApiRequestHandler(
   }
 
   const adapter = getAdapter("config");
-  if (!adapter.canUpdate(req.context, config as Record<string, unknown>)) {
+  if (!req.context.permissions.canRevisionAction("config", "draft", config)) {
     req.context.permissions.throwPermissionError();
   }
 

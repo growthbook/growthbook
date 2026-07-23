@@ -21,12 +21,7 @@ export const postConfigRevisionRequestReview = createApiRequestHandler(
     req.params.version,
   );
 
-  if (
-    !getAdapter("config").canUpdate(
-      req.context,
-      config as Record<string, unknown>,
-    )
-  ) {
+  if (!req.context.permissions.canRevisionAction("config", "draft", config)) {
     req.context.permissions.throwPermissionError();
   }
 

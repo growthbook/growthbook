@@ -1,0 +1,164 @@
+import {
+  ALL_PERMISSIONS,
+  DEPRECATED_POLICIES,
+  ENV_SCOPED_PERMISSIONS,
+  POLICY_PERMISSION_MAP,
+  REVISION_PERMISSIONS,
+  RevisionAction,
+  permissionsFromRole,
+  roleSupportsEnvLimitFromRole,
+} from "../src/permissions";
+
+describe("granular flag permissions", () => {
+  describe("permissionsFromRole", () => {
+    it("unions policy-derived permissions with additive permissions[]", () => {
+      const perms = permissionsFromRole({
+        policies: ["ReadData"],
+        permissions: ["deleteFlags", "revertFlags"],
+      });
+      expect(perms.readData).toBe(true);
+      expect(perms.deleteFlags).toBe(true);
+      expect(perms.revertFlags).toBe(true);
+      // Not granted by ReadData nor listed explicitly
+      expect(perms.manageFlags).toBeUndefined();
+    });
+
+    it("works with no additive permissions", () => {
+      const perms = permissionsFromRole({ policies: ["ReadData"] });
+      expect(perms.readData).toBe(true);
+      expect(perms.deleteFlags).toBeUndefined();
+    });
+
+    it("grants only the single atom for a review-only custom role", () => {
+      const perms = permissionsFromRole({
+        policies: [],
+        permissions: ["reviewFlags"],
+      });
+      expect(perms.reviewFlags).toBe(true);
+      expect(perms.manageFlags).toBeUndefined();
+      expect(perms.publishFlags).toBeUndefined();
+      expect(perms.deleteFlags).toBeUndefined();
+    });
+  });
+
+  describe("roleSupportsEnvLimitFromRole", () => {
+    it("is true when an additive permission is environment-scoped", () => {
+      expect(
+        roleSupportsEnvLimitFromRole({
+          policies: [],
+          permissions: ["revertFlags"],
+        }),
+      ).toBe(true);
+    });
+
+    it("is false when neither policies nor permissions are env-scoped", () => {
+      expect(
+        roleSupportsEnvLimitFromRole({
+          policies: ["ReadData"],
+          permissions: ["deleteFlags"],
+        }),
+      ).toBe(false);
+    });
+  });
+
+  describe("policy mapping", () => {
+    it("FlagsFullAccess grants the full flag lifecycle including publish/revert", () => {
+      const p = POLICY_PERMISSION_MAP.FlagsFullAccess;
+      expect(p).toEqual(
+        expect.arrayContaining([
+          "manageFlags",
+          "deleteFlags",
+          "manageFlagDrafts",
+          "reviewFlags",
+          "publishFlags",
+          "revertFlags",
+        ]),
+      );
+      // Full access alone does not grant approval bypass
+      expect(p).not.toContain("bypassApprovalChecks");
+    });
+
+    it("FlagsBypassApprovals adds bypassApprovalChecks", () => {
+      expect(POLICY_PERMISSION_MAP.FlagsBypassApprovals).toContain(
+        "bypassApprovalChecks",
+      );
+    });
+
+    it("deprecated Configs/Constants policies resolve to the merged Flags atoms", () => {
+      for (const policy of [
+        "ConfigsFullAccess",
+        "ConstantsFullAccess",
+      ] as const) {
+        const p = POLICY_PERMISSION_MAP[policy];
+        expect(p).toEqual(
+          expect.arrayContaining([
+            "manageFlags",
+            "deleteFlags",
+            "manageFlagDrafts",
+            "reviewFlags",
+          ]),
+        );
+      }
+    });
+
+    it("deprecated Features access preserves legacy scope (no publish)", () => {
+      const p = POLICY_PERMISSION_MAP.FeaturesFullAccess;
+      expect(p).toEqual(
+        expect.arrayContaining(["manageFlags", "deleteFlags", "reviewFlags"]),
+      );
+      // Legacy Features Full Access never granted publish/revert directly
+      expect(p).not.toContain("publishFlags");
+      expect(p).not.toContain("revertFlags");
+    });
+
+    it("every deprecated policy still resolves to a non-empty permission set", () => {
+      for (const policy of DEPRECATED_POLICIES) {
+        expect((POLICY_PERMISSION_MAP[policy] || []).length).toBeGreaterThan(0);
+      }
+    });
+  });
+
+  describe("REVISION_PERMISSIONS matrix", () => {
+    const ACTIONS: RevisionAction[] = [
+      "manage",
+      "delete",
+      "draft",
+      "review",
+      "publish",
+      "revert",
+    ];
+
+    it("defines every action for every family, mapped to a real atom", () => {
+      for (const family of Object.keys(REVISION_PERMISSIONS) as Array<
+        keyof typeof REVISION_PERMISSIONS
+      >) {
+        for (const action of ACTIONS) {
+          const entry = REVISION_PERMISSIONS[family][action];
+          expect(entry).toBeDefined();
+          expect(ALL_PERMISSIONS).toContain(entry.permission);
+        }
+      }
+    });
+
+    it("marks the atom's scope consistently with the scope arrays", () => {
+      for (const family of Object.keys(REVISION_PERMISSIONS) as Array<
+        keyof typeof REVISION_PERMISSIONS
+      >) {
+        for (const action of ACTIONS) {
+          const { permission, scope } = REVISION_PERMISSIONS[family][action];
+          const isEnv = (ENV_SCOPED_PERMISSIONS as readonly string[]).includes(
+            permission,
+          );
+          expect(scope === "environment").toBe(isEnv);
+        }
+      }
+    });
+
+    it("env-scopes flag publish/revert but keeps saved-group publish/revert project-scoped", () => {
+      expect(REVISION_PERMISSIONS.flags.publish.scope).toBe("environment");
+      expect(REVISION_PERMISSIONS.flags.revert.scope).toBe("environment");
+      expect(REVISION_PERMISSIONS.savedGroups.publish.scope).toBe("project");
+      expect(REVISION_PERMISSIONS.savedGroups.revert.scope).toBe("project");
+    });
+  });
+});

@@ -22,10 +22,7 @@ export const postConstantRevisionRequestReview = createApiRequestHandler(
   );
 
   if (
-    !getAdapter("constant").canUpdate(
-      req.context,
-      constant as Record<string, unknown>,
-    )
+    !req.context.permissions.canRevisionAction("constant", "draft", constant)
   ) {
     req.context.permissions.throwPermissionError();
   }

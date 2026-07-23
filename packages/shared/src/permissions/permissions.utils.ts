@@ -41,6 +41,31 @@ export function getPermissionsObjectByPolicies(
   return permissions;
 }
 
+// Effective permissions for a role: the union of its policy-derived permissions
+// and any additive fine-grained permission atoms (role.permissions).
+export function permissionsFromRole(
+  role: Pick<Role, "policies"> & { permissions?: Permission[] },
+): PermissionsObject {
+  const permissions = getPermissionsObjectByPolicies(role.policies || []);
+  (role.permissions || []).forEach((permission) => {
+    permissions[permission] = true;
+  });
+  return permissions;
+}
+
+// Whether a role can be limited by environment: true if any policy OR any
+// additive permission is environment-scoped.
+export function roleSupportsEnvLimitFromRole(
+  role: Pick<Role, "policies"> & { permissions?: Permission[] },
+): boolean {
+  if (policiesSupportEnvLimit(role.policies || [])) return true;
+  return (role.permissions || []).some((permission) =>
+    ENV_SCOPED_PERMISSIONS.includes(
+      permission as (typeof ENV_SCOPED_PERMISSIONS)[number],
+    ),
+  );
+}
+
 export function getRoleById(
   roleId: string,
   organization: Partial<OrganizationInterface>,
@@ -178,8 +203,9 @@ export function roleSupportsEnvLimit(
   if (["admin", "gbDefault_projectAdmin"].includes(roleId)) return false;
 
   const role = getRoleById(roleId, org);
+  if (!role) return false;
 
-  return policiesSupportEnvLimit(role?.policies || []);
+  return roleSupportsEnvLimitFromRole(role);
 }
 
 export function roleToPermissionMap(
@@ -187,8 +213,8 @@ export function roleToPermissionMap(
   org: OrganizationInterface,
 ): PermissionsObject {
   const role = getRoleById(roleId || "readonly", org);
-  const policies = role?.policies || [];
-  return getPermissionsObjectByPolicies(policies);
+  if (!role) return {};
+  return permissionsFromRole(role);
 }
 
 export type EffectiveRoleSource = {

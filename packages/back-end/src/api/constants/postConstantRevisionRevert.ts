@@ -8,6 +8,7 @@ import {
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
+import { constantPublishEnvironments } from "back-end/src/revisions/revisionPublishEnvironments";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 import {
   applyPatchToSnapshot,
@@ -30,7 +31,14 @@ export const postConstantRevisionRevert = createApiRequestHandler(
   }
 
   const adapter = getAdapter("constant");
-  if (!adapter.canUpdate(req.context, constant as Record<string, unknown>)) {
+  if (
+    !req.context.permissions.canRevisionAction(
+      "constant",
+      "revert",
+      constant,
+      constantPublishEnvironments(req.context),
+    )
+  ) {
     req.context.permissions.throwPermissionError();
   }
 

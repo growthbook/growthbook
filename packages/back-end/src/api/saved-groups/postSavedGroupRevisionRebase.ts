@@ -41,7 +41,13 @@ export const postSavedGroupRevisionRebase = createApiRequestHandler(
   // Anyone with edit permission can unblock a stranded draft via rebase —
   // matches the internal /revision/:id/rebase semantics.
   const adapter = getAdapter("saved-group");
-  if (!adapter.canUpdate(req.context, savedGroup as Record<string, unknown>)) {
+  if (
+    !req.context.permissions.canRevisionAction(
+      "saved-group",
+      "draft",
+      savedGroup,
+    )
+  ) {
     req.context.permissions.throwPermissionError();
   }
 

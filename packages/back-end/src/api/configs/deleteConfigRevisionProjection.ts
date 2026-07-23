@@ -24,7 +24,7 @@ export const deleteConfigRevisionProjection = createApiRequestHandler(
     throw new NotFoundError("Could not find config");
   }
 
-  if (!req.context.permissions.canUpdateConfig(config, config)) {
+  if (!req.context.permissions.canRevisionAction("config", "draft", config)) {
     req.context.permissions.throwPermissionError();
   }
 
