@@ -177,6 +177,17 @@ export class EventWebHookNotifier implements Notifier {
       );
     }
 
+    // The fan-out only enqueues enabled webhooks, but an admin can pause one
+    // while this job waits in the queue. Don't deliver a notification for a
+    // now-disabled webhook. Matches the coalesce-flush guard.
+    if (!eventWebHook.enabled) {
+      logger.info(
+        { eventWebHookId, organizationId: event.organizationId },
+        "EventWebHook: skipping delivery, webhook disabled after it was queued",
+      );
+      return;
+    }
+
     const organization = await findOrganizationById(event.organizationId);
     if (!organization) {
       throw new Error(
