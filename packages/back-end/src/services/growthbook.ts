@@ -6,9 +6,10 @@ import {
 } from "@growthbook/growthbook";
 import { growthbookTrackingPlugin } from "@growthbook/growthbook/plugins";
 import { EventSource } from "eventsource";
-import { Request } from "express";
+import { NextFunction, Request, Response } from "express";
 import { AppFeatures } from "shared/types/app-features";
 import { logger } from "back-end/src/util/logger";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   GB_SDK_ID,
   IS_CLOUD,
@@ -148,6 +149,66 @@ export function getGrowthBookTrackingAttributes(
     ...(ip ? { ip } : {}),
     ...(ua ? { ua } : {}),
   };
+}
+
+const EVENT_REQUEST_COMPLETED = "Request Completed";
+
+function parseContentLength(value: string | undefined): number | undefined {
+  if (value === undefined) return undefined;
+  const parsed = Number(value);
+  return Number.isNaN(parsed) ? undefined : parsed;
+}
+
+/**
+ * Route pattern (e.g. "/auth/reset/:token") rather than the resolved path, so
+ * dynamic segments that carry secrets (tokens, keys, etc.) never appear in the event.
+ */
+function getRoutePath(req: {
+  path: string;
+  baseUrl: string;
+  route?: { path?: string };
+}): string {
+  return req.route?.path ? `${req.baseUrl}${req.route.path}` : req.path;
+}
+
+/**
+ * Logs a "Request Completed" event with latency, payload sizes, and status once
+ * the response finishes, using the per-request scoped client (`req.gb`, set in
+ * auth/index.ts) so the event carries the same user attributes as feature events.
+ */
+export function trackRequestCompletion(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  const start = Date.now();
+
+  // compression strips Content-Length for compressed responses, so measure
+  // the actual bytes written instead of trusting the response header
+  let resContentSize = 0;
+  const origWrite = res.write.bind(res);
+  const origEnd = res.end.bind(res);
+  res.write = ((chunk: unknown, ...rest: unknown[]) => {
+    if (chunk) resContentSize += Buffer.byteLength(chunk as string);
+    return (origWrite as (...a: unknown[]) => boolean)(chunk, ...rest);
+  }) as typeof res.write;
+  res.end = ((chunk?: unknown, ...rest: unknown[]) => {
+    if (chunk && typeof chunk !== "function")
+      resContentSize += Buffer.byteLength(chunk as string);
+    return (origEnd as (...a: unknown[]) => Response)(chunk, ...rest);
+  }) as typeof res.end;
+
+  res.on("finish", () => {
+    req.gb?.logEvent(EVENT_REQUEST_COMPLETED, {
+      path: getRoutePath(req),
+      method: req.method,
+      statusCode: res.statusCode,
+      latencyMs: Date.now() - start,
+      reqContentSize: parseContentLength(req.headers["content-length"]),
+      resContentSize,
+    });
+  });
+  next();
 }
 
 function ensureGrowthBookClient(): GrowthBookClient<AppFeatures> | null {

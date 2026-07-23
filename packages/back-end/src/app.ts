@@ -33,6 +33,7 @@ import {
   getExperimentsScript,
 } from "./controllers/config";
 import { getAuthConnection, processJWT, usingOpenId } from "./services/auth";
+import { trackRequestCompletion } from "./services/growthbook";
 import { wrapController } from "./routers/wrapController";
 import apiRouter from "./api/api.router";
 import scimRouter from "./scim/scim.router";
@@ -288,6 +289,7 @@ app.get("/", (req, res) => {
 });
 
 app.use(httpLogger);
+app.use(trackRequestCompletion as unknown as RequestHandler);
 
 // Initialize db connections
 app.use(async (req, res, next) => {
