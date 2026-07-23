@@ -18,6 +18,10 @@ import {
   getSkillByName,
   getSkillNames,
 } from "back-end/src/agent/skills";
+import {
+  isKapaConfigured,
+  searchKapaDocumentation,
+} from "back-end/src/agent/kapa";
 
 // =============================================================================
 // System prompt
@@ -40,6 +44,12 @@ How to use the \`callApi\` tool:
 - When a write is the right next step, just issue the call. You do NOT need to
   ask the user to confirm writes before making them — issuing the call is how
   you propose the change.
+
+How to use the \`searchDocs\` tool:
+- For technical / how-to / SDK / setup / "how does X work?" questions about
+  GrowthBook itself (not the user's own data), search the live docs with
+  \`searchDocs\` and ground your answer in the returned sources, citing their
+  links. Load the \`growthbook-docs\` skill for the full workflow.
 
 How to use the \`askUser\` tool:
 - Use it ONLY when the request is genuinely ambiguous and you can't pick a
@@ -436,6 +446,24 @@ const ASK_USER_DESCRIPTION =
   "message. Use only when the request is ambiguous and you cannot pick a " +
   "sensible default. After calling this, end your turn.";
 
+// --- searchDocs ------------------------------------------------------------
+
+const searchDocsInputSchema = z.object({
+  query: z
+    .string()
+    .min(1)
+    .describe("The search query — write it as a natural-language question."),
+});
+
+const SEARCH_DOCS_DESCRIPTION =
+  "Search the GrowthBook documentation and community Q&A for technical " +
+  "questions about how GrowthBook works: setup, configuration, SDK " +
+  "integration, API usage, feature behaviour, and troubleshooting. Returns " +
+  "{ status, sources }: ground your answer in each source's `content`, citing " +
+  "its `url` when present or the links embedded in the content otherwise. Do " +
+  "NOT use this for questions about the user's own experiments, features, or " +
+  "metrics — use callApi for those.";
+
 // =============================================================================
 // AgentConfig
 // =============================================================================
@@ -487,6 +515,41 @@ const generalAgentConfig: AgentConfig<GeneralAgentParams> = {
             description: skill.description,
             body: skill.body,
           };
+        },
+      }),
+
+      searchDocs: aiTool({
+        description: SEARCH_DOCS_DESCRIPTION,
+        inputSchema: searchDocsInputSchema,
+        execute: async (input) => {
+          if (!isKapaConfigured()) {
+            return {
+              status: "unavailable" as const,
+              message:
+                "Documentation search is not configured on this instance. " +
+                "Answer from your own knowledge and link to docs.growthbook.io.",
+            };
+          }
+          try {
+            const { sources } = await searchKapaDocumentation(input.query);
+            if (!sources.length) {
+              return {
+                status: "no_results" as const,
+                message:
+                  "No documentation results found. Answer from your own " +
+                  "knowledge and link to docs.growthbook.io.",
+              };
+            }
+            return { status: "ok" as const, sources };
+          } catch (err) {
+            ctx.logger.error(err, "Kapa documentation search failed");
+            return {
+              status: "error" as const,
+              message:
+                "Documentation search is temporarily unavailable. Answer " +
+                "from your own knowledge and link to docs.growthbook.io.",
+            };
+          }
         },
       }),
 

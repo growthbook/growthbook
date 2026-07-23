@@ -321,6 +321,12 @@ export const AI_IMAGE_OPTIMIZATION_TIMEOUT_MS = parseEnvInt(
   20000,
   { name: "AI_IMAGE_OPTIMIZATION_TIMEOUT_MS", min: 1000, max: 120000 },
 );
+// Kapa.ai MCP server for documentation search. When KAPA_AI_API_KEY is unset,
+// the agent's searchDocs tool is disabled and it falls back to its own
+// knowledge plus the static doc links in the growthbook-docs skill.
+export const KAPA_AI_API_KEY = process.env.KAPA_AI_API_KEY || "";
+export const KAPA_AI_MCP_URL =
+  process.env.KAPA_AI_MCP_URL || "https://gb-agent.mcp.kapa.ai/";
 // This is typically used for the Proxy Server, which only requires readonly access
 export const SECRET_API_KEY_ROLE =
   process.env.SECRET_API_KEY_ROLE || "readonly";
