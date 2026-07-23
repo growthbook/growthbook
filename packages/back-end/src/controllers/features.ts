@@ -906,10 +906,7 @@ export async function postFeatureRebase(
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const environmentIds = environments.map((e) => e.id);
 
-  if (
-    !context.permissions.canUpdateFeature(feature, {}) ||
-    !context.permissions.canManageFeatureDrafts(feature)
-  ) {
+  if (!context.permissions.canManageFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -1855,9 +1852,8 @@ export async function postFeaturePublish(
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const environmentIds = environments.map((e) => e.id);
 
-  if (!context.permissions.canUpdateFeature(feature, {})) {
-    context.permissions.throwPermissionError();
-  }
+  // Publishing is gated per-environment by canPublishFeature below; it does not
+  // require edit/manage rights (a publish-only role can ship approved drafts).
 
   const revision = await getRevision({
     context,
@@ -2294,9 +2290,9 @@ export async function postFeatureRevert(
     throw new Error("Can only revert to previously published revisions");
   }
 
-  if (!context.permissions.canUpdateFeature(feature, {})) {
-    context.permissions.throwPermissionError();
-  }
+  // Revert is its own capability (revertFlags), gated per-change below via
+  // canRevertFeature — an incident responder can roll back without edit or
+  // general publish rights.
 
   // Intentionally no assertRegisteredAttributes() call here — reverting
   // restores a previously-published state as-is, which may reference
@@ -2325,7 +2321,7 @@ export async function postFeatureRevert(
   );
 
   if (revision.defaultValue !== feature.defaultValue) {
-    if (!context.permissions.canPublishFeature(feature, allEnabledEnvs)) {
+    if (!context.permissions.canRevertFeature(feature, allEnabledEnvs)) {
       context.permissions.throwPermissionError();
     }
     mergeChanges.defaultValue = revision.defaultValue;
@@ -2364,7 +2360,7 @@ export async function postFeatureRevert(
     mergeChanges.rules = revRules;
   }
   if (changedEnvs.length > 0) {
-    if (!context.permissions.canPublishFeature(feature, changedEnvs)) {
+    if (!context.permissions.canRevertFeature(feature, changedEnvs)) {
       context.permissions.throwPermissionError();
     }
   }
@@ -2374,7 +2370,7 @@ export async function postFeatureRevert(
     revision.prerequisites !== undefined &&
     !isEqual(revision.prerequisites, feature.prerequisites || [])
   ) {
-    if (!context.permissions.canPublishFeature(feature, allEnabledEnvs)) {
+    if (!context.permissions.canRevertFeature(feature, allEnabledEnvs)) {
       context.permissions.throwPermissionError();
     }
     mergeChanges.prerequisites = revision.prerequisites;
@@ -2385,7 +2381,7 @@ export async function postFeatureRevert(
     revision.archived !== undefined &&
     revision.archived !== (feature.archived ?? false)
   ) {
-    if (!context.permissions.canPublishFeature(feature, allEnabledEnvs)) {
+    if (!context.permissions.canRevertFeature(feature, allEnabledEnvs)) {
       context.permissions.throwPermissionError();
     }
     mergeChanges.archived = revision.archived;
@@ -2585,10 +2581,7 @@ export async function postFeatureRevertDraft(
     );
   }
 
-  if (
-    !context.permissions.canUpdateFeature(feature, {}) ||
-    !context.permissions.canManageFeatureDrafts(feature)
-  ) {
+  if (!context.permissions.canManageFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -2665,10 +2658,7 @@ export async function postFeatureFork(
     throw new Error("Could not find feature revision");
   }
 
-  if (
-    !context.permissions.canUpdateFeature(feature, {}) ||
-    !context.permissions.canManageFeatureDrafts(feature)
-  ) {
+  if (!context.permissions.canManageFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -2717,10 +2707,7 @@ export async function postFeatureDiscard(
     throw new Error(`Can not discard ${revision.status} revisions`);
   }
 
-  if (
-    !context.permissions.canUpdateFeature(feature, {}) ||
-    !context.permissions.canManageFeatureDrafts(feature)
-  ) {
+  if (!context.permissions.canManageFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -2797,10 +2784,7 @@ export async function postFeatureReopen(
     throw new Error(`Can only reopen discarded revisions`);
   }
 
-  if (
-    !context.permissions.canUpdateFeature(feature, {}) ||
-    !context.permissions.canManageFeatureDrafts(feature)
-  ) {
+  if (!context.permissions.canManageFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -2871,10 +2855,7 @@ export async function postFeatureRule(
     }
   });
 
-  if (
-    !context.permissions.canUpdateFeature(feature, {}) ||
-    !context.permissions.canManageFeatureDrafts(feature)
-  ) {
+  if (!context.permissions.canManageFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -3410,10 +3391,7 @@ export async function postFeatureExperimentRefRule(
     throw new Error("Could not find feature");
   }
 
-  if (
-    !context.permissions.canUpdateFeature(feature, {}) ||
-    !context.permissions.canManageFeatureDrafts(feature)
-  ) {
+  if (!context.permissions.canManageFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -3643,10 +3621,7 @@ export async function postFeatureContextualBanditRefRule(
     throw new Error("Could not find feature");
   }
 
-  if (
-    !context.permissions.canUpdateFeature(feature, {}) ||
-    !context.permissions.canManageFeatureDrafts(feature)
-  ) {
+  if (!context.permissions.canManageFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -3837,10 +3812,7 @@ export async function putRevisionComment(
     throw new Error("Could not find feature");
   }
 
-  if (
-    !context.permissions.canUpdateFeature(feature, {}) ||
-    !context.permissions.canManageFeatureDrafts(feature)
-  ) {
+  if (!context.permissions.canManageFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -3894,10 +3866,7 @@ export async function putRevisionTitle(
     throw new Error("Could not find feature");
   }
 
-  if (
-    !context.permissions.canUpdateFeature(feature, {}) ||
-    !context.permissions.canManageFeatureDrafts(feature)
-  ) {
+  if (!context.permissions.canManageFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -3951,10 +3920,7 @@ export async function postFeatureDefaultValue(
     throw new Error("Could not find feature");
   }
 
-  if (
-    !context.permissions.canUpdateFeature(feature, {}) ||
-    !context.permissions.canManageFeatureDrafts(feature)
-  ) {
+  if (!context.permissions.canManageFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -4010,10 +3976,7 @@ export async function postFeatureSchema(
     throw new Error("Could not find feature");
   }
 
-  if (
-    !context.permissions.canUpdateFeature(feature, {}) ||
-    !context.permissions.canManageFeatureDrafts(feature)
-  ) {
+  if (!context.permissions.canManageFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -4222,10 +4185,7 @@ export async function putFeatureRule(
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const environmentIds = environments.map((e) => e.id);
 
-  if (
-    !context.permissions.canUpdateFeature(feature, {}) ||
-    !context.permissions.canManageFeatureDrafts(feature)
-  ) {
+  if (!context.permissions.canManageFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -4550,10 +4510,7 @@ export async function postFeatureCreateDraft(
     throw new Error("Could not find feature");
   }
 
-  if (
-    !context.permissions.canUpdateFeature(feature, {}) ||
-    !context.permissions.canManageFeatureDrafts(feature)
-  ) {
+  if (!context.permissions.canManageFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -4653,10 +4610,7 @@ export async function postFeatureToggle(
     }
   }
 
-  if (
-    !context.permissions.canUpdateFeature(feature, {}) ||
-    !context.permissions.canPublishFeature(feature, envIds)
-  ) {
+  if (!context.permissions.canPublishFeature(feature, envIds)) {
     context.permissions.throwPermissionError();
   }
 
@@ -4797,10 +4751,7 @@ export async function postFeatureMoveRule(
     throw new Error("Could not find feature");
   }
 
-  if (
-    !context.permissions.canUpdateFeature(feature, {}) ||
-    !context.permissions.canManageFeatureDrafts(feature)
-  ) {
+  if (!context.permissions.canManageFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -4900,10 +4851,7 @@ export async function deleteFeatureRule(
   const featureEnvs = filterEnvironmentsByFeature(allEnvironments, feature);
   const environmentIds = featureEnvs.map((e) => e.id);
 
-  if (
-    !context.permissions.canUpdateFeature(feature, {}) ||
-    !context.permissions.canManageFeatureDrafts(feature)
-  ) {
+  if (!context.permissions.canManageFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -5394,10 +5342,7 @@ export async function postFeatureArchive(
     throw new Error("Could not find feature");
   }
 
-  if (
-    !context.permissions.canUpdateFeature(feature, {}) ||
-    !context.permissions.canManageFeatureDrafts(feature)
-  ) {
+  if (!context.permissions.canManageFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
