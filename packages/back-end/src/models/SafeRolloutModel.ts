@@ -155,7 +155,7 @@ export class SafeRolloutModel extends BaseClass {
       const feature = await getFeature(this.context, existing.featureId);
       if (!feature) return;
 
-      const allProjectIds = (await this.context.getProjects()).map((p) => p.id);
+      const allProjectIds = await this.context.getAllProjectIds();
       queueSDKPayloadRefresh({
         context: this.context,
         payloadKeys: getAffectedSDKPayloadKeys(

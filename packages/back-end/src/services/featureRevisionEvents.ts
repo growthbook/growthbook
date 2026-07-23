@@ -86,7 +86,7 @@ export async function dispatchFeatureRevisionEvent<
 ): Promise<void> {
   try {
     const apiRevision = toApiRevision(revision, ctx, feature);
-    const allProjectIds = (await ctx.getProjects()).map((p) => p.id);
+    const allProjectIds = await ctx.getAllProjectIds();
     const projects = resolveTargetingProjectIds(feature, allProjectIds);
     const tags = feature.tags ?? [];
     const environments = deriveRevisionEventEnvironments(

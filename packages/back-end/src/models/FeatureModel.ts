@@ -863,9 +863,7 @@ export const createFeatureEvent = async <
       await eventData.context.models.safeRollout.getAllPayloadSafeRollouts();
 
     // Resolve targetingAllProjects into concrete ids so webhooks route by delivery scope.
-    const allProjectIds = (await eventData.context.getProjects()).map(
-      (p) => p.id,
-    );
+    const allProjectIds = await eventData.context.getAllProjectIds();
 
     const currentApiFeature = getApiFeatureObj({
       feature: eventData.data.object,
@@ -1013,7 +1011,7 @@ async function onFeatureCreate(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
 ) {
-  const allProjectIds = (await context.getProjects()).map((p) => p.id);
+  const allProjectIds = await context.getAllProjectIds();
   queueSDKPayloadRefresh({
     context,
     payloadKeys: getAffectedSDKPayloadKeys(
@@ -1042,7 +1040,7 @@ async function onFeatureDelete(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
 ) {
-  const allProjectIds = (await context.getProjects()).map((p) => p.id);
+  const allProjectIds = await context.getAllProjectIds();
   queueSDKPayloadRefresh({
     context,
     payloadKeys: getAffectedSDKPayloadKeys(
@@ -1073,7 +1071,7 @@ export async function onFeatureUpdate(
   updatedFeature: FeatureInterface,
   skipRefreshForProject?: string,
 ) {
-  const allProjectIds = (await context.getProjects()).map((p) => p.id);
+  const allProjectIds = await context.getAllProjectIds();
   queueSDKPayloadRefresh({
     context,
     payloadKeys: getSDKPayloadKeysByDiff(

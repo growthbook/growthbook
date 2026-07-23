@@ -44,7 +44,7 @@ async function refreshLinkedFeaturePayloads(
   if (!linkedFeatures.length) return;
 
   const environments = getEnvironmentIdsFromOrg(context.org);
-  const allProjectIds = (await context.getProjects()).map((p) => p.id);
+  const allProjectIds = await context.getAllProjectIds();
   const payloadKeys = getAffectedSDKPayloadKeys(
     linkedFeatures,
     environments,

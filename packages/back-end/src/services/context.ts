@@ -647,6 +647,17 @@ export class ReqContextClass {
     return this._projects;
   }
 
+  // Every project id in the org, unfiltered by the acting user's read
+  // permissions. Use for internal fan-out (all-projects SDK payload cache
+  // invalidation), never for user-facing reads — getProjects() is filtered.
+  private _allProjectIds: string[] | null = null;
+  public async getAllProjectIds(): Promise<string[]> {
+    if (this._allProjectIds === null) {
+      this._allProjectIds = await this.models.projects.getAllIdsForOrg();
+    }
+    return this._allProjectIds;
+  }
+
   // Tags can be created on the fly, so we cache which ones already exist
   private _tags: Set<string> | null = null;
   public async registerTags(tags: string[]) {

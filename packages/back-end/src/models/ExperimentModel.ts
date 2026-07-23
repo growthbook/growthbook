@@ -2180,7 +2180,7 @@ const onExperimentUpdate = async ({
     if (featureIds.size > 0) {
       linkedFeatures = await getFeaturesByIds(context, [...featureIds]);
     }
-    const allProjectIds = (await context.getProjects()).map((p) => p.id);
+    const allProjectIds = await context.getAllProjectIds();
 
     const oldPayloadKeys = oldExperiment
       ? getPayloadKeys(context, oldExperiment, linkedFeatures, allProjectIds)
@@ -2241,7 +2241,7 @@ const onExperimentDelete = async (
     linkedFeatures = await getFeaturesByIds(context, featureIds);
   }
 
-  const allProjectIds = (await context.getProjects()).map((p) => p.id);
+  const allProjectIds = await context.getAllProjectIds();
   const payloadKeys = getPayloadKeys(
     context,
     experiment,

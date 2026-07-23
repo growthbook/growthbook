@@ -70,7 +70,7 @@ export const updateSingleFeature = async (job: UpdateSingleFeatureJob) => {
   const nextScheduledUpdate = getNextScheduledUpdate(feature.rules);
 
   // targetingAllProjects invalidates every project's cache, so pass all org project ids.
-  const allProjectIds = (await context.getProjects()).map((p) => p.id);
+  const allProjectIds = await context.getAllProjectIds();
   const payloadKeys = getSDKPayloadKeysByDiff(
     feature,
     { ...feature, nextScheduledUpdate: nextScheduledUpdate ?? undefined },
