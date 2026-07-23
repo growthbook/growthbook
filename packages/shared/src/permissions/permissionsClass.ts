@@ -1271,6 +1271,34 @@ export class Permissions {
     );
   };
 
+  // Guards a targeting-scope change against injecting a feature into a project
+  // the user can't publish in: each newly-added targeting project (and turning
+  // on all-projects delivery, which is org-wide) requires publish permission
+  // there. Removing targeting projects / turning all-projects off isn't gated.
+  public canPublishAddedTargetingProjects = (
+    current: { targetingAllProjects?: boolean; targetingProjects?: string[] },
+    updated: { targetingAllProjects?: boolean; targetingProjects?: string[] },
+    environments: string[],
+  ): boolean => {
+    const wasAll = !!current.targetingAllProjects;
+    const isAll = updated.targetingAllProjects ?? wasAll;
+    if (isAll) {
+      return wasAll || this.canPublishFeature({}, environments);
+    }
+    // Narrowing from all-projects to a specific set only removes delivery
+    // (every target was already reachable), so nothing is newly added.
+    if (wasAll) return true;
+    const oldSet = new Set(current.targetingProjects ?? []);
+    const added = (
+      updated.targetingProjects ??
+      current.targetingProjects ??
+      []
+    ).filter((p) => p && !oldSet.has(p));
+    return added.every((project) =>
+      this.canPublishFeature({ project }, environments),
+    );
+  };
+
   public canRunExperiment = (
     experiment: Pick<ExperimentInterface, "project">,
     environments: string[],

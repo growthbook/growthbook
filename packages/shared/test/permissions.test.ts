@@ -1217,3 +1217,121 @@ describe("getEffectiveRolesForProject", () => {
     ]);
   });
 });
+
+describe("canPublishAddedTargetingProjects", () => {
+  const org: OrganizationInterface = {
+    id: "org_targeting",
+    name: "Test Org",
+    ownerEmail: "test@test.com",
+    url: "https://test.com",
+    dateCreated: new Date(),
+    invites: [],
+    members: [],
+    settings: { environments: [{ id: "production", description: "" }] },
+  };
+  const envs = ["production"];
+
+  // Publishes only in prj_a (project role), nothing globally.
+  const projectScoped = () =>
+    new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", org),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        prj_a: {
+          permissions: roleToPermissionMap("engineer", org),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+      },
+    });
+
+  const globalPublisher = () =>
+    new Permissions({
+      global: {
+        permissions: roleToPermissionMap("engineer", org),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {},
+    });
+
+  it("allows adding a targeting project the user can publish in", () => {
+    expect(
+      projectScoped().canPublishAddedTargetingProjects(
+        {},
+        { targetingProjects: ["prj_a"] },
+        envs,
+      ),
+    ).toBe(true);
+  });
+
+  it("blocks adding a targeting project the user cannot publish in", () => {
+    expect(
+      projectScoped().canPublishAddedTargetingProjects(
+        {},
+        { targetingProjects: ["prj_b"] },
+        envs,
+      ),
+    ).toBe(false);
+  });
+
+  it("does not gate an already-present targeting project", () => {
+    expect(
+      projectScoped().canPublishAddedTargetingProjects(
+        { targetingProjects: ["prj_b"] },
+        { targetingProjects: ["prj_b", "prj_a"] },
+        envs,
+      ),
+    ).toBe(true);
+  });
+
+  it("does not gate removing a targeting project", () => {
+    expect(
+      projectScoped().canPublishAddedTargetingProjects(
+        { targetingProjects: ["prj_b"] },
+        { targetingProjects: [] },
+        envs,
+      ),
+    ).toBe(true);
+  });
+
+  it("requires global publish to turn on all-projects delivery", () => {
+    expect(
+      projectScoped().canPublishAddedTargetingProjects(
+        {},
+        { targetingAllProjects: true },
+        envs,
+      ),
+    ).toBe(false);
+    expect(
+      globalPublisher().canPublishAddedTargetingProjects(
+        {},
+        { targetingAllProjects: true },
+        envs,
+      ),
+    ).toBe(true);
+  });
+
+  it("does not gate narrowing from all-projects to a specific set", () => {
+    expect(
+      projectScoped().canPublishAddedTargetingProjects(
+        { targetingAllProjects: true },
+        { targetingAllProjects: false, targetingProjects: ["prj_b"] },
+        envs,
+      ),
+    ).toBe(true);
+  });
+
+  it("is a no-op when targeting is unchanged", () => {
+    expect(
+      projectScoped().canPublishAddedTargetingProjects(
+        { targetingProjects: ["prj_b"] },
+        {},
+        envs,
+      ),
+    ).toBe(true);
+  });
+});

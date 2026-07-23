@@ -172,15 +172,18 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   // ensure default value matches value type
   feature.defaultValue = validateFeatureValue(feature, feature.defaultValue);
 
-  if (
-    !req.context.permissions.canPublishFeature(
+  const enabledEnvIds = Array.from(
+    getEnabledEnvironments(
       feature,
-      Array.from(
-        getEnabledEnvironments(
-          feature,
-          orgEnvs.map((e) => e.id),
-        ),
-      ),
+      orgEnvs.map((e) => e.id),
+    ),
+  );
+  if (
+    !req.context.permissions.canPublishFeature(feature, enabledEnvIds) ||
+    !req.context.permissions.canPublishAddedTargetingProjects(
+      {},
+      feature,
+      enabledEnvIds,
     )
   ) {
     req.context.permissions.throwPermissionError();

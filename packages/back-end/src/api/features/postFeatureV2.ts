@@ -198,15 +198,18 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
       baseConfig: feature.baseConfig,
     });
 
-    if (
-      !req.context.permissions.canPublishFeature(
+    const enabledEnvIds = Array.from(
+      getEnabledEnvironments(
         feature,
-        Array.from(
-          getEnabledEnvironments(
-            feature,
-            orgEnvs.map((e) => e.id),
-          ),
-        ),
+        orgEnvs.map((e) => e.id),
+      ),
+    );
+    if (
+      !req.context.permissions.canPublishFeature(feature, enabledEnvIds) ||
+      !req.context.permissions.canPublishAddedTargetingProjects(
+        {},
+        feature,
+        enabledEnvIds,
       )
     ) {
       req.context.permissions.throwPermissionError();

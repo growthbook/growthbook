@@ -110,6 +110,16 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     await assertValidProjectId(project, req.context);
     await assertValidProjectIds(targetingProjects, req.context);
 
+    if (
+      !req.context.permissions.canPublishAddedTargetingProjects(
+        feature,
+        { targetingAllProjects, targetingProjects },
+        Array.from(getEnabledEnvironments(feature, orgEnvs)),
+      )
+    ) {
+      req.context.permissions.throwPermissionError();
+    }
+
     // check if the custom fields are valid
     const projectChanged = project !== undefined && project !== feature.project;
     const customFieldsChanged = shouldValidateCustomFieldsOnUpdate({
