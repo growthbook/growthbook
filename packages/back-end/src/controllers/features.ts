@@ -1308,26 +1308,19 @@ export async function postFeatureReviewOrComment(
     throw new Error("Comment cannot be empty");
   }
 
+  // request-changes / comment by the author don't make sense.
   if (createdByUser?.id === context.userId && review !== "Comment") {
-    throw Error("cannot submit a review for your self");
-  }
-
-  // Block contributors from self-approving when the org setting is enabled.
-  // Note: contributors[] is only populated on drafts created after contributor tracking was
-  // deployed. Legacy drafts with no contributors[] bypass this check — there is no way to
-  // retroactively determine co-authors without reading revision logs.
-  if (review === "Approved") {
-    const requireReviews = context.org.settings?.requireReviews;
-    const reviewSetting = Array.isArray(requireReviews)
-      ? getReviewSetting(requireReviews, feature)
-      : undefined;
-    if (reviewSetting?.blockSelfApproval) {
-      const isSelfApproval = (revision.contributors ?? []).some(
-        (id) => id === context.userId,
-      );
-      if (isSelfApproval) {
+    if (review === "Approved") {
+      // When blockSelfApproval is OFF, the author may self-approve.
+      const requireReviews = context.org.settings?.requireReviews;
+      const reviewSetting = Array.isArray(requireReviews)
+        ? getReviewSetting(requireReviews, feature)
+        : undefined;
+      if (reviewSetting?.blockSelfApproval) {
         throw new Error("You cannot approve a draft you contributed to.");
       }
+    } else {
+      throw Error("cannot submit a review for your self");
     }
   }
   // dont allow review unless you are adding a comment
@@ -1418,16 +1411,18 @@ export async function postFeatureApproveAndPublish(
   if (!revision) throw new Error("Could not find feature revision");
 
   const createdByUser = revision.createdBy as EventUserLoggedIn;
-  if (createdByUser?.id === context.userId) {
-    throw Error("Cannot approve a draft you created");
-  }
 
-  if (revision.contributors?.some((cid) => cid === context.userId)) {
-    const requireReviews = context.org.settings?.requireReviews;
-    const reviewSetting = Array.isArray(requireReviews)
-      ? getReviewSetting(requireReviews, feature)
-      : undefined;
-    if (reviewSetting?.blockSelfApproval) {
+  // When blockSelfApproval is ON, the author and any contributor are blocked.
+  // When it's OFF, self-approval is allowed.
+  const requireReviews = context.org.settings?.requireReviews;
+  const reviewSetting = Array.isArray(requireReviews)
+    ? getReviewSetting(requireReviews, feature)
+    : undefined;
+  if (reviewSetting?.blockSelfApproval) {
+    const isSelfApproval =
+      createdByUser?.id === context.userId ||
+      (revision.contributors ?? []).some((cid) => cid === context.userId);
+    if (isSelfApproval) {
       throw new Error("You cannot approve a draft you contributed to.");
     }
   }

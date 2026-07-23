@@ -39,10 +39,6 @@ export async function approveRevision(
     context.permissions.throwPermissionError();
   }
 
-  if (revision.authorId === context.userId) {
-    throw new BadRequestError("Cannot approve your own revision");
-  }
-
   if (
     context.hasPremiumFeature("require-approvals") &&
     isUserBlockedFromApproving({

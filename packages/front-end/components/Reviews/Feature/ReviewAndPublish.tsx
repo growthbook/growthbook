@@ -678,12 +678,14 @@ export default function ReviewAndPublish({
   const reviewSetting = Array.isArray(requireReviewSettings)
     ? getReviewSetting(requireReviewSettings, feature)
     : undefined;
+  const isAuthor = createdBy?.id === user?.id;
   const isBlockedContributor =
     reviewSetting?.blockSelfApproval &&
-    (revision?.contributors ?? []).some((id) => id === user?.id);
+    ((revision?.contributors ?? []).some((id) => id === user?.id) ||
+      !!isAuthor);
   const canReview =
     !!isPendingReview &&
-    createdBy?.id !== user?.id &&
+    !(isAuthor && reviewSetting?.blockSelfApproval) &&
     permissionsUtil.canReviewFeatureDrafts(feature);
   const approved = revision?.status === "approved" || adminPublish;
 
