@@ -162,21 +162,11 @@ import {
 } from "back-end/src/models/InstallationModel";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
-  const startTime = Date.now();
   const context = getContextFromReq(req);
   const orgId = context.org.id;
   if (!orgId) {
     throw new Error("Must be part of an organization");
   }
-
-  // Latency/status telemetry so the ETag short-circuit can be evaluated as an
-  // experiment (hit rate, 304 vs 200 response times).
-  res.once("finish", () => {
-    req.gb?.logEvent("definitions-endpoint", {
-      latencyMs: Date.now() - startTime,
-      statusCode: res.statusCode,
-    });
-  });
 
   // Short-circuit with a cheap 304 before the expensive reads below when the
   // client's cached copy is still current. The ETag combines the org's global
