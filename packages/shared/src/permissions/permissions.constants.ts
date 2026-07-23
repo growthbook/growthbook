@@ -544,6 +544,75 @@ export const POLICY_METADATA_MAP: Record<
   },
 };
 
+// Display metadata for the fine-grained permission atoms that the role editor
+// can expose beneath a policy preset. Only atoms meant to be individually
+// grantable via a custom role's `permissions[]` need an entry.
+export const GRANULAR_PERMISSION_METADATA: Partial<
+  Record<Permission, { displayName: string; description: string }>
+> = {
+  manageFlags: {
+    displayName: "Create & edit",
+    description: "Create and edit feature flags, constants, and configs",
+  },
+  deleteFlags: {
+    displayName: "Delete",
+    description: "Delete feature flags, constants, and configs",
+  },
+  manageFlagDrafts: {
+    displayName: "Manage drafts",
+    description: "Create, edit, and discard drafts and request review",
+  },
+  reviewFlags: {
+    displayName: "Review",
+    description: "Approve or request changes on revisions",
+  },
+  publishFlags: {
+    displayName: "Publish",
+    description: "Publish revisions to environments (environment-scoped)",
+  },
+  revertFlags: {
+    displayName: "Revert",
+    description:
+      "Revert to a previously published revision (environment-scoped)",
+  },
+  manageArchetype: {
+    displayName: "Manage archetypes",
+    description: "Create, edit, and delete saved user archetypes",
+  },
+  bypassApprovalChecks: {
+    displayName: "Bypass approvals",
+    description: "Publish without required approvals",
+  },
+  manageSavedGroups: {
+    displayName: "Create & edit",
+    description: "Create and edit saved groups",
+  },
+  deleteSavedGroups: {
+    displayName: "Delete",
+    description: "Delete saved groups",
+  },
+  manageSavedGroupDrafts: {
+    displayName: "Manage drafts",
+    description: "Create, edit, and discard saved-group drafts",
+  },
+  reviewSavedGroups: {
+    displayName: "Review",
+    description: "Approve or request changes on saved-group revisions",
+  },
+  publishSavedGroups: {
+    displayName: "Publish",
+    description: "Publish saved-group revisions",
+  },
+  revertSavedGroups: {
+    displayName: "Revert",
+    description: "Revert a saved group to a previously published revision",
+  },
+  bypassSavedGroupSizeLimit: {
+    displayName: "Bypass size limit",
+    description: "Bypass org-defined saved-group size limits",
+  },
+};
+
 export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
   noaccess: {
     id: "noaccess",
