@@ -159,6 +159,43 @@ describe("growthbookTrackingPlugin", () => {
     gb.destroy();
   });
 
+  it("maps anonymous_id to device_id and user_id separately", async () => {
+    const plugin = growthbookTrackingPlugin({
+      debug: true,
+      enable: false,
+    });
+
+    const gb = new GrowthBook({
+      clientKey: "test",
+      plugins: [plugin],
+      url: "http://localhost:3000",
+      attributes: {
+        anonymous_id: "anon-123",
+        user_id: "user-456",
+        id: "legacy-id",
+      },
+    });
+
+    const log = jest.spyOn(console, "log").mockImplementation(() => {});
+
+    gb.logEvent("test");
+
+    expect(log).toHaveBeenCalledWith("Logging event to GrowthBook", {
+      context_json: {},
+      device_id: "anon-123",
+      event_name: "test",
+      page_id: null,
+      properties_json: {},
+      sdk_language: "js",
+      sdk_version: "",
+      session_id: null,
+      url: "http://localhost:3000",
+      user_id: "user-456",
+    });
+
+    gb.destroy();
+  });
+
   it("Skips logging duplicate Feature Evaluted events", async () => {
     const plugin = growthbookTrackingPlugin();
 
