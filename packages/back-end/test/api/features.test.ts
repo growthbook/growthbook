@@ -121,7 +121,6 @@ describe("features API", () => {
 
   const defaultPermissions = (extra = {}) => ({
     canPublishFeature: () => true,
-    canPublishAddedTargetingProjects: () => true,
     canUpdateFeature: () => true,
     canCreateFeature: () => true,
     canBypassApprovalChecks: () => false,

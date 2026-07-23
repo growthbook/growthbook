@@ -807,11 +807,6 @@ export async function postFeatures(
     !context.permissions.canPublishFeature(
       feature,
       Array.from(getEnabledEnvironments(feature, environmentIds)),
-    ) ||
-    !context.permissions.canPublishAddedTargetingProjects(
-      {},
-      feature,
-      Array.from(getEnabledEnvironments(feature, environmentIds)),
     )
   ) {
     context.permissions.throwPermissionError();
@@ -5082,17 +5077,6 @@ export async function putFeature(
     ) {
       context.permissions.throwPermissionError();
     }
-  }
-
-  // Adding a targeting project widens SDK payload delivery into it; require publish permission there
-  if (
-    !context.permissions.canPublishAddedTargetingProjects(
-      feature,
-      updates,
-      Array.from(getEnabledEnvironments(feature, environments)),
-    )
-  ) {
-    context.permissions.throwPermissionError();
   }
 
   const allowedKeys: (keyof FeatureInterface)[] = [
