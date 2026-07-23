@@ -7,7 +7,7 @@ sidebar_label: AI Agents
 GrowthBook works directly inside your AI coding agent: Claude Code, Cursor, and others. There are two ways to connect, and they're complementary:
 
 - **[MCP Server](/integrations/mcp):** a live set of tools your agent can call mid-conversation.
-- **[Agent Skills](/integrations/ai-agents/agent-skills):** installable workflows that run the full feature-flag and experiment lifecycle, with GrowthBook's draft → review → publish guardrails built in. No server to run.
+- **[Agent Skills](/integrations/ai-agents/agent-skills):** installable workflows that run the full feature-flag and experiment lifecycle and explore your product data, with GrowthBook's draft → review → publish guardrails built into every change. No server to run.
 
 You can install both. Many teams reach for the MCP server for quick, conversational tasks and the skills for repeatable, end-to-end workflows.
 
@@ -18,7 +18,7 @@ You can install both. Many teams reach for the MCP server for quick, conversatio
 | **What it is**         | A server exposing GrowthBook tools to your agent                        | Markdown playbooks your agent follows step by step                                                                        |
 | **Setup**              | Add an MCP server entry that runs `npx @growthbook/mcp`                 | Install the plugin (no running server)                                                                                    |
 | **Best for**           | Quick lookups and one-off actions while you code                        | Repeatable, multi-step lifecycle workflows                                                                                |
-| **Lifecycle coverage** | Core flag, experiment, and product analytics actions                    | The full flag and experimentation lifecycle: create, target, ramp, experiment, analyze, stop, and clean up                |
+| **Lifecycle coverage** | Core flag, experiment, and product analytics actions                    | The full flag and experimentation lifecycle plus product analytics: create, target, ramp, experiment, analyze, stop, chart, and clean up |
 | **Governance**         | Direct API calls                                                        | Draft → review → publish, safe rollouts, and two-step deletes built into each skill                                       |
 | **Where it runs**      | Any MCP-compatible host, including agents that can't run shell commands | Agents that can run shell commands: Claude Code, Cursor, Codex, and other [agentskills.io](https://agentskills.io) agents |
 
