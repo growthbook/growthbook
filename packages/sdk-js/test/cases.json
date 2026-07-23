@@ -7128,10 +7128,10 @@
       ]
     ],
     [
-      "redirects with query string on original url and persistQueryString enabled",
+      "preserves repeated query parameters when persistQueryString is enabled",
       {
         "attributes": { "id": "1" },
-        "url": "http://www.example.com/home?color=blue&food=sushi",
+        "url": "http://www.example.com/home?color=blue&color=green&food=sushi",
         "experiments": [
           {
             "key": "my-experiment",
@@ -7157,7 +7157,7 @@
         {
           "inExperiment": true,
           "urlRedirect": "http://www.example.com/home-new",
-          "urlWithParams": "http://www.example.com/home-new?color=blue&food=sushi"
+          "urlWithParams": "http://www.example.com/home-new?color=blue&color=green&food=sushi"
         }
       ]
     ],
