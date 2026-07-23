@@ -26,7 +26,6 @@ import {
   ensureConfigBacking,
   stripConfigExtends,
   deepMergePatch,
-  resolveTargetingProjectIds,
   getTargetingProjectIds,
 } from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
@@ -126,29 +125,24 @@ function toProjectPublicIds(
     .map((p) => p.publicId || p.id);
 }
 
-// Emit the concrete set of projects a rule is served to in this connection's
-// payload, as public ids: rule scope ∩ feature delivery ∩ connection-served.
-// Each of those is unbounded when absent (rule/feature "all projects", or an
-// unrestricted connection), so an all-projects rule enumerates whatever the
-// connection is allowed to serve — falling back to every org project only when
-// nothing bounds it.
+// Emit a rule's explicit project scope as public ids, scrubbed to the feature's
+// delivery set. An all-projects (or unscoped) rule emits nothing: by convention
+// an absent list means "every project the connection delivers to", so "all" is
+// never enumerated.
 function applyRuleProjectMetadata(
   rule: FeatureDefinitionRule,
   sourceRule: Parameters<typeof ruleProjectScope>[0],
   deliveryProjects: string[] | null,
-  payloadProjects: string[] | undefined,
   opts: MetadataOptions,
   projectsMap: Map<string, ProjectInterface> | undefined,
 ): void {
   if (!opts.includeProjectIdInMetadata || !projectsMap) return;
-  const bounds = [
-    ruleProjectScope(sourceRule),
-    deliveryProjects,
-    payloadProjects?.length ? payloadProjects : null,
-  ].filter((b): b is string[] => b !== null);
-  const effective = bounds.length
-    ? bounds.reduce((acc, b) => acc.filter((id) => b.includes(id)))
-    : Array.from(projectsMap.keys());
+  const scope = ruleProjectScope(sourceRule);
+  if (scope === null) return;
+  const effective =
+    deliveryProjects === null
+      ? scope
+      : scope.filter((p) => deliveryProjects.includes(p));
   const publicIds = toProjectPublicIds(effective, projectsMap);
   if (publicIds.length) {
     rule.metadata = { ...(rule.metadata ?? {}), projects: publicIds };
@@ -171,13 +165,18 @@ export function buildPayloadMetadata<
   const metadata: T = {} as T;
 
   if (opts.includeProjectIdInMetadata && projectsMap) {
-    // Emit every delivered-to project as a public id (primary + targeting, or all).
-    const publicIds = toProjectPublicIds(
-      resolveTargetingProjectIds(entity, Array.from(projectsMap.keys())),
-      projectsMap,
-    );
-    if (publicIds.length) {
-      metadata.projects = publicIds;
+    // Emit the explicit delivery projects (primary + targeting) as public ids.
+    // A feature targeting all projects emits nothing — an absent list means
+    // "all projects" by convention, so "all" is never enumerated.
+    const ids = getTargetingProjectIds(entity);
+    if (ids !== null) {
+      const publicIds = toProjectPublicIds(
+        ids.filter((id) => !!id),
+        projectsMap,
+      );
+      if (publicIds.length) {
+        metadata.projects = publicIds;
+      }
     }
   }
 
@@ -1034,7 +1033,6 @@ export function getFeatureDefinition({
               rule,
               r,
               deliveryProjects,
-              payloadProjects,
               metadataOptions,
               projectsMap,
             );
@@ -1137,7 +1135,6 @@ export function getFeatureDefinition({
               rule,
               r,
               deliveryProjects,
-              payloadProjects,
               metadataOptions,
               projectsMap,
             );
@@ -1382,7 +1379,6 @@ export function getFeatureDefinition({
             rule,
             r,
             deliveryProjects,
-            payloadProjects,
             metadataOptions,
             projectsMap,
           );

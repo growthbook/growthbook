@@ -2842,18 +2842,16 @@ describe("SDK Payloads", () => {
       expect.objectContaining({
         id: "rule_1",
         metadata: {
-          projects: ["feature-project"],
           tags: ["exp-tag"],
           customFields: { owner: "bob" },
         },
       }),
     );
-    // The rule's projects reflect delivery, not the experiment's own project
-    expect(defWithMeta?.rules?.[0]?.metadata?.projects).not.toContain(
-      "exp-project",
-    );
+    // An unscoped rule omits projects entirely (absent = all), and never carries
+    // the experiment's own project
+    expect(defWithMeta?.rules?.[0]?.metadata).not.toHaveProperty("projects");
 
-    // A scoped experiment-ref rule narrows to its own scope
+    // A scoped experiment-ref rule emits its own scope (∩ delivery)
     const featureScopedExpRule = cloneDeep(feature);
     featureScopedExpRule.targetingProjects = ["proj_exp"]; // delivers to both
     (
@@ -2907,7 +2905,8 @@ describe("SDK Payloads", () => {
       "exp-project",
     ]);
 
-    // targetingAllProjects enumerates every project in the map
+    // targetingAllProjects omits the projects list (absent = all), rather than
+    // enumerating every org project
     const featureAllProjects = cloneDeep(feature);
     featureAllProjects.targetingAllProjects = true;
     const defAllProjects = getFeatureDefinition({
@@ -2921,12 +2920,10 @@ describe("SDK Payloads", () => {
       metadataOptions: { includeProjectIdInMetadata: true },
       projectsMap,
     });
-    expect([...(defAllProjects?.metadata?.projects ?? [])].sort()).toEqual(
-      ["exp-project", "feature-project"].sort(),
-    );
+    expect(defAllProjects?.metadata?.projects).toBeUndefined();
   });
 
-  it("Emits the projects a rule is served to (scope ∩ delivery ∩ connection)", () => {
+  it("Emits a rule's explicit project scope, omitting when the rule targets all", () => {
     const feature = cloneDeep(baseFeature);
     feature.project = "proj_feature";
     feature.targetingProjects = ["proj_exp"]; // delivers to both projects
@@ -2954,6 +2951,15 @@ describe("SDK Payloads", () => {
         description: "",
         allProjects: true,
       },
+      // Scoped partly outside the feature's delivery set — scrubbed to delivery.
+      {
+        type: "force",
+        value: "true",
+        id: "partly-dead",
+        enabled: true,
+        description: "",
+        projects: ["proj_exp", "proj_other"],
+      },
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ] as any;
 
@@ -2971,8 +2977,6 @@ describe("SDK Payloads", () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ] as any);
 
-    // Unrestricted connection (no payloadProjects): bounded by the feature's
-    // delivery set only.
     const def = getFeatureDefinition({
       feature,
       environment: "production",
@@ -2986,37 +2990,12 @@ describe("SDK Payloads", () => {
     });
     const byId = (id: string) => def?.rules?.find((r) => r.id === id);
 
-    // Specific scope → its own projects (∩ delivery)
+    // Specific scope → its own projects, scrubbed to the delivery set
     expect(byId("scoped")?.metadata?.projects).toEqual(["exp-project"]);
-    // All-projects / unscoped rules enumerate the feature's whole delivery set
-    expect(byId("unscoped")?.metadata?.projects).toEqual([
-      "feature-project",
-      "exp-project",
-    ]);
-    expect(byId("allprojects")?.metadata?.projects).toEqual([
-      "feature-project",
-      "exp-project",
-    ]);
-
-    // Connection restricted to a single project: every rule is bounded by it.
-    const scopedDef = getFeatureDefinition({
-      feature,
-      environment: "production",
-      groupMap,
-      experimentMap: new Map(),
-      safeRolloutMap,
-      capabilities: ["looseUnmarshalling"],
-      includeRuleIds: true,
-      metadataOptions: { includeProjectIdInMetadata: true },
-      projectsMap,
-      payloadProjects: ["proj_exp"],
-    });
-    const scopedById = (id: string) =>
-      scopedDef?.rules?.find((r) => r.id === id);
-    expect(scopedById("unscoped")?.metadata?.projects).toEqual(["exp-project"]);
-    expect(scopedById("allprojects")?.metadata?.projects).toEqual([
-      "exp-project",
-    ]);
+    expect(byId("partly-dead")?.metadata?.projects).toEqual(["exp-project"]);
+    // All-projects / unscoped rules omit projects entirely (absent = all)
+    expect(byId("unscoped")?.metadata).toBeUndefined();
+    expect(byId("allprojects")?.metadata).toBeUndefined();
   });
 
   it("Gets Feature Definitions", () => {
