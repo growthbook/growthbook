@@ -9,7 +9,7 @@ import {
   SafeRolloutInterface,
 } from "shared/validators";
 import type { FeatureRule, SafeRolloutRule } from "shared/validators";
-import { resetReviewOnChange } from "shared/util";
+import { getEffectiveRevisionHoldout, resetReviewOnChange } from "shared/util";
 import { RevisionChanges } from "shared/types/feature-revision";
 import { ExperimentInterface } from "shared/types/experiment";
 import { CreateProps } from "shared/types/base-model";
@@ -129,7 +129,10 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
           "Either provide variationId for all variations or none; mixed inputs are not allowed.",
         );
       }
-      const needsHoldoutCheck = Boolean(feature.holdout?.id);
+      // Legacy revisions store holdout sparsely, so absence carries the
+      // feature's holdout forward.
+      const effectiveHoldout = getEffectiveRevisionHoldout(revision, feature);
+      const needsHoldoutCheck = Boolean(effectiveHoldout?.id);
       if (anyMissing || needsHoldoutCheck) {
         const experiment = await getExperimentById(
           req.context,
@@ -153,13 +156,13 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
           }));
         }
 
-        if (needsHoldoutCheck && feature.holdout?.id) {
+        if (needsHoldoutCheck) {
           // Linking writes are deferred until after custom-hook prevalidation below.
           holdoutExperimentToLink = await resolveHoldoutExperimentToLink({
             context: req.context,
             feature,
             experiment,
-            effectiveHoldout: feature.holdout,
+            effectiveHoldout,
             makeError: (message) => new BadRequestError(message),
           });
         }

@@ -14,7 +14,7 @@ import type {
   RolloutRule,
   SafeRolloutRule,
 } from "shared/validators";
-import { resetReviewOnChange } from "shared/util";
+import { getEffectiveRevisionHoldout, resetReviewOnChange } from "shared/util";
 import { RevisionChanges } from "shared/types/feature-revision";
 import { ExperimentInterface } from "shared/types/experiment";
 import { CreateProps } from "shared/types/base-model";
@@ -212,9 +212,9 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
         }));
       }
 
-      // Use target revision holdout to check compatibility. Linking writes are
-      // deferred until after custom-hook prevalidation below.
-      const effectiveHoldout = revision.holdout ?? null;
+      // Use target revision holdout to check compatibility.
+      // Linking writes are deferred until after custom-hook prevalidation below.
+      const effectiveHoldout = getEffectiveRevisionHoldout(revision, feature);
       holdoutExperimentToLink = await resolveHoldoutExperimentToLink({
         context: req.context,
         feature,

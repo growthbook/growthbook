@@ -21,8 +21,9 @@ export default function RemoveFromHoldoutModal({
   // in the live feature revision
   const experimentIsDraft = experiment.status === "draft";
   const experimentHasLinkedChanges =
-    experiment.hasURLRedirects || experiment.hasVisualChangesets; //||
-  //(experiment.linkedFeatures?.length ?? 0) > 0;
+    experiment.hasURLRedirects ||
+    experiment.hasVisualChangesets ||
+    (experiment.linkedFeatures?.length ?? 0) > 0;
   const canRemoveFromHoldout = experimentIsDraft && !experimentHasLinkedChanges;
 
   const handleSubmit = async () => {

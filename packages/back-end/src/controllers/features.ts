@@ -32,6 +32,7 @@ import {
   namespacesToMap,
   pruneOrphanedRampActions,
   assertSchemaMatchesValueType,
+  getEffectiveRevisionHoldout,
 } from "shared/util";
 import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
 import {
@@ -2915,21 +2916,9 @@ export async function postFeatureRule(
     rule.safeRolloutId = generateId("sr_");
   }
 
-  let effectiveHoldout = feature.holdout ?? null;
-  // If posting to a different revision, use the holdout from that revision
-  // to check compatibility
-  if (parseInt(version) !== feature.version) {
-    const targetRevision = await getRevision({
-      context,
-      organization: feature.organization,
-      featureId: feature.id,
-      feature,
-      version: parseInt(version),
-    });
-    if (targetRevision) {
-      effectiveHoldout = targetRevision.holdout ?? null;
-    }
-  }
+  const revision = await getDraftRevision(context, feature, parseInt(version));
+
+  const effectiveHoldout = getEffectiveRevisionHoldout(revision, feature);
 
   // Add holdout to existing experiment and experiment to holdout linkedExperiments
   // if the experiment is not running and has no linked implementations for
@@ -2952,7 +2941,6 @@ export async function postFeatureRule(
     }
   }
 
-  const revision = await getDraftRevision(context, feature, parseInt(version));
   const resetReview = resetReviewOnChange({
     feature,
     changedEnvironments: selectedEnvironments,
@@ -3106,6 +3094,8 @@ export async function postFeatureRule(
     }
   }
 
+  // TODO(holdouts): remove code below (which makes this endpoint consistent with API routes)
+  // and instead only link when the holdout and experiment go live
   if (holdoutExperimentToLink && feature.holdout?.id) {
     await updateExperiment({
       context,
@@ -3466,19 +3456,11 @@ export async function postFeatureExperimentRefRule(
       ? feature.version
       : (draftVersion ?? feature.version);
 
+  const revision = await getDraftRevision(context, feature, targetVersion);
+
   // If posting to a different revision, use the holdout from that revision
   // to check compatibility
-  let effectiveHoldout = feature.holdout ?? null;
-  if (targetVersion !== feature.version) {
-    const targetRevision = await getRevision({
-      context,
-      organization: feature.organization,
-      featureId: feature.id,
-      feature,
-      version: targetVersion,
-    });
-    if (targetRevision) effectiveHoldout = targetRevision.holdout ?? null;
-  }
+  const effectiveHoldout = getEffectiveRevisionHoldout(revision, feature);
 
   const holdoutExperimentToLink = await resolveHoldoutExperimentToLink({
     context,
@@ -3487,8 +3469,6 @@ export async function postFeatureExperimentRefRule(
     effectiveHoldout,
     allowExistingLinkToThisFeature: true,
   });
-
-  const revision = await getDraftRevision(context, feature, targetVersion);
 
   // One-way: any rule-footprint env that's currently off flips on. We never
   // turn envs off here.

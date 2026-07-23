@@ -1741,20 +1741,13 @@ export async function applyRevisionChanges(
 }
 
 // Refuse to remove/change a feature's holdout while an experiment in the current
-// draft is linked to the holdout.
+// draft rules for this feature is linked to the holdout.
 export async function assertNoLinkedHoldoutExperiments(
   context: ReqContext | ApiReqContext,
   holdoutId: string,
   // The feature's post-publish rules (revision's merged rules)
   rules: FeatureRule[],
 ) {
-  // Union of two views of "experiments attached to this feature":
-  //  - linkedExperiments: catches enrollments whose experiment-ref rule is still
-  //    only in a draft (e.g. create-from-experiment) — live rules would miss it.
-  //  - experiment-ref rules: forward-looking, and a backstop if linkedExperiments
-  //    has drifted from the rules.
-  // Either one being in this holdout means removing the feature's holdout would
-  // strand that experiment, so block on the union.
   const experimentIds = rules
     .filter((rule) => rule.type === "experiment-ref")
     .map((rule) => rule.experimentId);
@@ -1892,18 +1885,26 @@ export async function applyHoldoutSideEffects(
     );
   }
 
-  // Link feature (and its experiments) to the new holdout
+  // Link feature (and experiments in its rules) to the new holdout.
   if (newHoldoutId && holdoutObj) {
+    const ruleExperimentIds = Array.from(
+      new Set(
+        (feature.rules ?? [])
+          .filter((rule) => rule.type === "experiment-ref")
+          .map((rule) => rule.experimentId),
+      ),
+    );
+
     await context.models.holdout.updateById(newHoldoutId, {
       linkedFeatures: {
         [feature.id]: { id: feature.id, dateAdded: new Date() },
         ...holdoutObj.linkedFeatures,
       },
-      ...(feature.linkedExperiments?.length
+      ...(ruleExperimentIds.length
         ? {
             linkedExperiments: {
               ...Object.fromEntries(
-                feature.linkedExperiments.map((experimentId) => [
+                ruleExperimentIds.map((experimentId) => [
                   experimentId,
                   { id: experimentId, dateAdded: new Date() },
                 ]),
@@ -1914,9 +1915,9 @@ export async function applyHoldoutSideEffects(
         : {}),
     });
 
-    if (feature.linkedExperiments?.length) {
+    if (ruleExperimentIds.length) {
       const linkedExperiments = await Promise.all(
-        feature.linkedExperiments.map((eid) => getExperimentById(context, eid)),
+        ruleExperimentIds.map((eid) => getExperimentById(context, eid)),
       );
       await Promise.all(
         linkedExperiments.map(async (exp) => {

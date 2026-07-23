@@ -57,7 +57,7 @@ export async function resolveHoldoutExperimentToLink({
         experiment.holdoutId,
       );
       throw makeError(
-        `Cannot add experiment rule: experiment belongs to holdout "${expHoldout?.name || experiment.holdoutId}" but this feature uses holdout "${featureHoldout?.name || effectiveHoldout.id}".`,
+        `Cannot add experiment rule: experiment belongs to holdout "${expHoldout?.name || experiment.holdoutId}" but this Feature Flag uses holdout "${featureHoldout?.name || effectiveHoldout.id}".`,
       );
     }
 
@@ -66,7 +66,7 @@ export async function resolveHoldoutExperimentToLink({
     if (!experiment.holdoutId) {
       if (experiment.status !== "draft") {
         throw makeError(
-          `Cannot add experiment rule: this feature uses a holdout, so the experiment must be in "draft" status (currently "${experiment.status ?? "unknown"}").`,
+          `Cannot add experiment rule: this Feature Flag uses a holdout, so the experiment must be in "draft" status (currently "${experiment.status ?? "unknown"}").`,
         );
       }
       const expHasLinkedChanges =
@@ -78,7 +78,7 @@ export async function resolveHoldoutExperimentToLink({
         experiment.hasVisualChangesets;
       if (expHasLinkedChanges) {
         throw makeError(
-          `Cannot add experiment rule: this feature uses a holdout, but the experiment already has linked features, URL redirects, or visual changesets. Unlink them first.`,
+          `Cannot add experiment rule: this Feature Flag uses a holdout, but the experiment already has linked Feature Flags, URL redirects, or visual changesets. Unlink them first.`,
         );
       }
       return experiment;
@@ -94,7 +94,7 @@ export async function resolveHoldoutExperimentToLink({
       experiment.holdoutId,
     );
     throw makeError(
-      `Cannot add experiment rule: this experiment belongs to holdout "${expHoldout?.name || experiment.holdoutId}", but this feature is not in a holdout. Add the feature to that holdout first, then add the experiment.`,
+      `Cannot add experiment rule: this experiment belongs to holdout "${expHoldout?.name || experiment.holdoutId}", but this Feature Flag is not in a holdout. Add the Feature Flag to that holdout first, then add the experiment.`,
     );
   }
 
