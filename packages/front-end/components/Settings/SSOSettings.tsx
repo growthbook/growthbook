@@ -1,7 +1,6 @@
 import { SSOConnectionInterface } from "shared/types/sso-connection";
 import { useState } from "react";
-import clsx from "clsx";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Code as InlineCode, Flex, Separator } from "@radix-ui/themes";
 import { datetime } from "shared/dates";
 import { getSSOProviderDocsUrl, SSO_IDP_TYPE_OPTIONS } from "shared/util";
 import { isCloud, usingSSO } from "@/services/env";
@@ -14,27 +13,15 @@ import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import LinkButton from "@/ui/LinkButton";
 import Switch from "@/ui/Switch";
+import Text from "@/ui/Text";
+import Frame from "@/ui/Frame";
+import DataList, { DataListItem } from "@/ui/DataList";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
+import EmptyState from "@/components/EmptyState";
 import EditSSOConnectionModal from "@/components/Settings/EditSSOConnectionModal";
 import ScimCard from "@/components/Settings/ScimCard";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
-import styles from "./SSOSettings.module.scss";
-
-function DetailRow({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <>
-      <div className={styles.detailLabel}>{label}</div>
-      <div className={styles.detailValue}>{children}</div>
-    </>
-  );
-}
 
 export default function SSOSettings() {
   const [expanded, setExpanded] = useState(false);
@@ -101,40 +88,39 @@ export default function SSOSettings() {
             }}
           />
         ) : null}
-        <div className={clsx("appbox", styles.emptyState)}>
-          <Flex direction="column" align="center">
-            <div className={styles.emptyTitle}>Set up single sign-on</div>
-            <p className={styles.emptyBody}>
-              {envSetupMode
-                ? "Connect an OpenID Connect identity provider like Auth0, Okta, or Microsoft Entra ID. Self-hosted instances enable SSO with the SSO_CONFIG environment variable, which you can generate here."
-                : "Connect an OpenID Connect identity provider like Auth0, Okta, or Microsoft Entra ID. Members will sign in to GrowthBook through your provider."}
-            </p>
-            <Flex align="center" gap="2">
-              <Button onClick={() => setEditOpen(true)}>
-                {envSetupMode ? "Generate config" : "Set up SSO"}
-              </Button>
-              <LinkButton
-                variant="ghost"
-                href="https://docs.growthbook.io/sso"
-                external={true}
-              >
-                View docs
-              </LinkButton>
-            </Flex>
-          </Flex>
-        </div>
+        <EmptyState
+          title="Set up single sign-on"
+          description={
+            envSetupMode
+              ? "Connect an OpenID Connect identity provider like Auth0, Okta, or Microsoft Entra ID. Self-hosted instances enable SSO with the SSO_CONFIG environment variable, which you can generate here."
+              : "Connect an OpenID Connect identity provider like Auth0, Okta, or Microsoft Entra ID. Members will sign in to GrowthBook through your provider."
+          }
+          leftButton={
+            <Button onClick={() => setEditOpen(true)}>
+              {envSetupMode ? "Generate config" : "Set up SSO"}
+            </Button>
+          }
+          rightButton={
+            <LinkButton
+              variant="ghost"
+              href="https://docs.growthbook.io/sso"
+              external={true}
+            >
+              View docs
+            </LinkButton>
+          }
+        />
         {generatedConfig ? (
-          <div
-            className={clsx("appbox", styles.cardPad)}
-            style={{ marginTop: 16 }}
-          >
+          <Frame>
             <Flex align="start" gap="4" mb="3">
               <Box flexGrow="1" minWidth="0">
-                <div className={styles.cardTitle}>Your SSO configuration</div>
-                <div className={styles.cardSubtitle}>
+                <Text as="div" size="x-large" weight="semibold">
+                  Your SSO configuration
+                </Text>
+                <Text as="div" size="small" color="text-mid">
                   Set this environment variable on your GrowthBook server and
                   restart it. SSO also requires an active LICENSE_KEY.
-                </div>
+                </Text>
               </Box>
               <LinkButton
                 variant="ghost"
@@ -159,7 +145,7 @@ export default function SSOSettings() {
               when you leave this page &mdash; copy it now. It includes your
               client secret, so store it securely.
             </Callout>
-          </div>
+          </Frame>
         ) : null}
       </>
     );
@@ -172,6 +158,40 @@ export default function SSOSettings() {
   const lastUpdated = connection.dateUpdated || connection.dateCreated;
   const enforceLocked = !data.enforceSSO && !data.loggedInViaConnection;
   const managedByEnv = !!data.managedByEnv;
+
+  const details: DataListItem[] = [];
+  if (idpLabel) {
+    details.push({ label: "Identity provider", value: idpLabel });
+  }
+  details.push({
+    label: "Client ID",
+    value: <InlineCode>{connection.clientId}</InlineCode>,
+  });
+  if (connection.baseURL) {
+    details.push({
+      label: "Base URL",
+      value: <InlineCode>{connection.baseURL}</InlineCode>,
+    });
+  }
+  if (connection.tenantId) {
+    details.push({
+      label: "Tenant ID",
+      value: <InlineCode>{connection.tenantId}</InlineCode>,
+    });
+  }
+  details.push({
+    label: "Email domains",
+    value: connection.emailDomains?.length ? (
+      connection.emailDomains.join(", ")
+    ) : (
+      <Text color="text-low">
+        None &mdash; members must be invited manually
+      </Text>
+    ),
+  });
+  if (lastUpdated) {
+    details.push({ label: "Last updated", value: datetime(lastUpdated) });
+  }
 
   return (
     <>
@@ -230,27 +250,20 @@ export default function SSOSettings() {
           Enterprise plan.
         </Callout>
       ) : null}
-      <div className="appbox" style={{ marginBottom: 16 }}>
-        <Flex align="center" gap="4" className={styles.cardPad}>
+      <Frame>
+        <Flex align="center" gap="4">
           <Box flexGrow="1" minWidth="0">
             <Flex align="center" gap="2">
-              <span className={styles.cardTitle}>Enterprise SSO</span>
-              <Badge
-                label={
-                  <>
-                    <span className={styles.statusDot} />
-                    Enabled
-                  </>
-                }
-                color="green"
-                variant="soft"
-              />
+              <Text size="x-large" weight="semibold">
+                Enterprise SSO
+              </Text>
+              <Badge label="Enabled" color="green" variant="soft" />
             </Flex>
-            <div className={styles.cardSubtitle}>
+            <Text as="div" size="small" color="text-mid">
               {idpLabel
                 ? `Connected to ${idpLabel} via OpenID Connect`
                 : "Connected via OpenID Connect"}
-            </div>
+            </Text>
           </Box>
           <Flex align="center" gap="2" flexShrink="0">
             <Button variant="ghost" onClick={() => setExpanded(!expanded)}>
@@ -276,60 +289,38 @@ export default function SSOSettings() {
             ) : null}
           </Flex>
         </Flex>
-        <div className={styles.detailsGrid}>
-          {idpLabel ? (
-            <DetailRow label="Identity provider">{idpLabel}</DetailRow>
-          ) : null}
-          <DetailRow label="Client ID">
-            <span className={styles.mono}>{connection.clientId}</span>
-          </DetailRow>
-          {connection.baseURL ? (
-            <DetailRow label="Base URL">
-              <span className={styles.mono}>{connection.baseURL}</span>
-            </DetailRow>
-          ) : null}
-          {connection.tenantId ? (
-            <DetailRow label="Tenant ID">
-              <span className={styles.mono}>{connection.tenantId}</span>
-            </DetailRow>
-          ) : null}
-          <DetailRow label="Email domains">
-            {connection.emailDomains?.length ? (
-              connection.emailDomains.join(", ")
-            ) : (
-              <span className={styles.subtle}>
-                None &mdash; members must be invited manually
-              </span>
-            )}
-          </DetailRow>
-          {lastUpdated ? (
-            <DetailRow label="Last updated">{datetime(lastUpdated)}</DetailRow>
-          ) : null}
-        </div>
-        {expanded && (
-          <div className={styles.cardSection}>
+        <DataList data={details} columns={2} mt="4" />
+        {expanded ? (
+          <>
+            <Separator size="4" my="4" />
             <Code language="json" code={JSON.stringify(connection, null, 2)} />
-          </div>
-        )}
-        {managedByEnv ? (
-          <div className={styles.cardNote}>
-            This connection is managed by the <code>SSO_CONFIG</code>{" "}
-            environment variable on your server and cannot be edited here.
-          </div>
+          </>
         ) : null}
-      </div>
+        {managedByEnv ? (
+          <>
+            <Separator size="4" my="4" />
+            <Text as="div" size="small" color="text-mid">
+              This connection is managed by the{" "}
+              <InlineCode>SSO_CONFIG</InlineCode> environment variable on your
+              server and cannot be edited here.
+            </Text>
+          </>
+        ) : null}
+      </Frame>
       {managedByEnv ? (
         <ScimCard />
       ) : (
         <>
-          <div className={clsx("appbox", styles.cardPad)}>
+          <Frame>
             <Flex align="start" gap="4">
               <Box flexGrow="1" minWidth="0">
-                <div className={styles.settingTitle}>Enforce SSO sign-in</div>
-                <div className={styles.cardSubtitle}>
+                <Text as="div" weight="semibold">
+                  Enforce SSO sign-in
+                </Text>
+                <Text as="div" size="small" color="text-mid">
                   Require all members of your organization to sign in through
                   this SSO connection.
-                </div>
+                </Text>
               </Box>
               <Switch
                 mt="1"
@@ -360,7 +351,7 @@ export default function SSOSettings() {
                 {enforceError}
               </Callout>
             ) : null}
-          </div>
+          </Frame>
           <ScimCard />
         </>
       )}

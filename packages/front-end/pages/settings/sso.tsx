@@ -22,10 +22,10 @@ const SSOPage: FC = () => {
 
   return (
     <div className="container-fluid pagecontents">
-      <Box style={{ maxWidth: 920, margin: "0 auto" }}>
+      <Box mx="auto" style={{ maxWidth: 920 }}>
         <Flex align="center" gap="3" mb="1">
           <Heading size="2x-large" as="h1" mb="0">
-            Single sign-on (SSO)
+            Single Sign-On (SSO)
           </Heading>
           <Badge label="Enterprise" color="amber" variant="soft" />
         </Flex>

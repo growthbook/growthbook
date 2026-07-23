@@ -1,4 +1,4 @@
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Code as InlineCode, Flex } from "@radix-ui/themes";
 import { getApiHost, isCloud, usingSSO } from "@/services/env";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { useUser } from "@/services/UserContext";
@@ -6,7 +6,9 @@ import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
 import LinkButton from "@/ui/LinkButton";
-import styles from "./SSOSettings.module.scss";
+import Text from "@/ui/Text";
+import Frame from "@/ui/Frame";
+import DataList, { DataListItem } from "@/ui/DataList";
 
 export default function ScimCard() {
   const { copySupported, copySuccess, performCopy } = useCopyToClipboard({
@@ -26,35 +28,73 @@ export default function ScimCard() {
     (m) => m.managedByIdp,
   ).length;
 
+  const details: DataListItem[] = [
+    {
+      label: "Base URL",
+      tooltip:
+        "Enter this as the SCIM connector base URL in your identity provider.",
+      value: (
+        <>
+          <InlineCode>{scimBaseUrl}</InlineCode>
+          {copySupported ? (
+            <Button
+              ml="2"
+              variant="ghost"
+              size="xs"
+              onClick={() => performCopy(scimBaseUrl)}
+            >
+              {copySuccess ? "Copied" : "Copy"}
+            </Button>
+          ) : null}
+        </>
+      ),
+    },
+    {
+      label: "Bearer token",
+      tooltip: "We recommend creating a dedicated key for SCIM.",
+      value: (
+        <>
+          Use a secret API key with the Admin role.{" "}
+          <Link href="/settings/keys">Manage API keys</Link>
+        </>
+      ),
+    },
+    {
+      label: "Managed members",
+      value:
+        managedCount > 0 ? (
+          `${managedCount} member${
+            managedCount === 1 ? " is" : "s are"
+          } managed by your identity provider`
+        ) : (
+          <Text color="text-low">
+            None yet &mdash; assign users to GrowthBook in your identity
+            provider to provision them
+          </Text>
+        ),
+    },
+  ];
+
   return (
-    <div className="appbox" style={{ marginTop: 16 }}>
-      <Flex align="center" gap="4" className={styles.cardPad}>
+    <Frame>
+      <Flex align="center" gap="4">
         <Box flexGrow="1" minWidth="0">
           <Flex align="center" gap="2">
-            <span className={styles.cardTitle}>
+            <Text size="x-large" weight="semibold">
               Automated user provisioning (SCIM)
-            </span>
+            </Text>
             {scimAvailable ? (
-              <Badge
-                label={
-                  <>
-                    <span className={styles.statusDot} />
-                    Available
-                  </>
-                }
-                color="green"
-                variant="soft"
-              />
+              <Badge label="Available" color="green" variant="soft" />
             ) : !hasScimFeature ? (
               <Badge label="Enterprise" color="amber" variant="soft" />
             ) : (
               <Badge label="Requires SSO" color="gray" variant="soft" />
             )}
           </Flex>
-          <div className={styles.cardSubtitle}>
+          <Text as="div" size="small" color="text-mid">
             Provision and deprovision members and Teams from your identity
             provider. Okta and Azure AD / Microsoft Entra ID are supported.
-          </div>
+          </Text>
         </Box>
         <Flex align="center" gap="2" flexShrink="0">
           <LinkButton
@@ -67,60 +107,16 @@ export default function ScimCard() {
         </Flex>
       </Flex>
       {!hasScimFeature ? (
-        <div className={styles.cardNote}>
+        <Text as="div" size="small" color="text-mid" mt="4">
           SCIM user provisioning is available on the GrowthBook Enterprise plan.
-        </div>
+        </Text>
       ) : !ssoReady ? (
-        <div className={styles.cardNote}>
+        <Text as="div" size="small" color="text-mid" mt="4">
           Enable SSO for your GrowthBook instance to use SCIM.
-        </div>
+        </Text>
       ) : (
-        <div className={styles.detailsGrid}>
-          <div className={styles.detailLabel}>Base URL</div>
-          <div className={styles.detailValue}>
-            <Flex align="center" gap="2">
-              <span className={styles.mono}>{scimBaseUrl}</span>
-              {copySupported ? (
-                <Button
-                  variant="ghost"
-                  size="xs"
-                  onClick={() => performCopy(scimBaseUrl)}
-                >
-                  {copySuccess ? "Copied" : "Copy"}
-                </Button>
-              ) : null}
-            </Flex>
-            <div className={styles.smallNote}>
-              Enter this as the SCIM connector base URL in your identity
-              provider.
-            </div>
-          </div>
-
-          <div className={styles.detailLabel}>Bearer token</div>
-          <div className={styles.detailValue}>
-            Use a secret API key with the Admin role.{" "}
-            <Link href="/settings/keys">Manage API keys</Link>
-            <div className={styles.smallNote}>
-              We recommend creating a dedicated key for SCIM.
-            </div>
-          </div>
-
-          <div className={styles.detailLabel}>Managed members</div>
-          <div className={styles.detailValue}>
-            {managedCount > 0 ? (
-              <>
-                {managedCount} member{managedCount === 1 ? " is" : "s are"}{" "}
-                managed by your identity provider
-              </>
-            ) : (
-              <span className={styles.subtle}>
-                None yet &mdash; assign users to GrowthBook in your identity
-                provider to provision them
-              </span>
-            )}
-          </div>
-        </div>
+        <DataList data={details} columns={1} mt="4" />
       )}
-    </div>
+    </Frame>
   );
 }

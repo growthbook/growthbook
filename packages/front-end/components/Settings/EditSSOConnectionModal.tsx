@@ -14,6 +14,7 @@ import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import StringArrayField from "@/ui/StringArrayField";
 import Callout from "@/ui/Callout";
+import Link from "@/ui/Link";
 
 function jsonSafeParse(str: string) {
   if (!str) return null;
@@ -76,7 +77,7 @@ export default function EditSSOConnectionModal({
       close={close}
       header={
         mode === "generate"
-          ? "Generate SSO configuration"
+          ? "Generate SSO Configuration"
           : current
             ? "Edit SSO Connection"
             : "Set Up SSO"
@@ -188,7 +189,7 @@ export default function EditSSOConnectionModal({
         helpText={
           <>
             See the{" "}
-            <a
+            <Link
               href={getSSOProviderDocsUrl(idpType)}
               target="_blank"
               rel="noreferrer"
@@ -196,7 +197,7 @@ export default function EditSSOConnectionModal({
               {idpLabel
                 ? `${idpLabel} setup instructions`
                 : "SSO setup instructions"}
-            </a>{" "}
+            </Link>{" "}
             for how to configure your provider.
           </>
         }
