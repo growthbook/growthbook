@@ -88,7 +88,11 @@ import {
   getLicenseMetaData,
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
-import { getLicense, licenseInit } from "back-end/src/enterprise";
+import {
+  getLicense,
+  licenseInit,
+  orgHasPremiumFeature,
+} from "back-end/src/enterprise";
 import { getEffectiveOrgLimits } from "back-end/src/services/plan-limits";
 import { TeamModel } from "back-end/src/models/TeamModel";
 import { findVercelInstallationByInstallationId } from "back-end/src/models/VercelNativeIntegrationModel";
@@ -133,8 +137,19 @@ export function validateLoginMethod(
   org: OrganizationInterface,
   req: AuthRequest,
 ) {
+  // SSO enforcement is only applied while the plan includes the sso feature;
+  // otherwise members fall back to standard sign-in instead of being locked
+  // out entirely. Vercel-managed orgs are not license-gated, and when the
+  // org's license hasn't been loaded yet we keep enforcing rather than let a
+  // cold cache weaken it.
+  const licenseKnown = !org.licenseKey || !!getLicense(org.licenseKey);
+  const enforcementActive =
+    org.restrictLoginMethod?.startsWith("vercel:") ||
+    !licenseKnown ||
+    orgHasPremiumFeature(org, "sso");
   if (
     org.restrictLoginMethod &&
+    enforcementActive &&
     req.loginMethod?.id !== org.restrictLoginMethod &&
     !req.superAdmin
   ) {
@@ -168,6 +183,35 @@ export function validateLoginMethod(
   }
 
   return true;
+}
+
+// Enterprise SSO sign-in stops once the connection's organization loses the
+// "sso" feature — e.g. an expired license after any applicable grace period
+// (air-gapped licenses get 14 days via getEffectiveAccountPlan). License
+// lookups fail open so a license-server outage can't cause a login outage.
+export async function validateLicensedSSOLogin(
+  connection: SSOConnectionInterface,
+): Promise<void> {
+  if (!connection.organization) return;
+
+  let org: OrganizationInterface | null = null;
+  try {
+    org = await getOrganizationById(connection.organization);
+    if (!org) return;
+    await licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
+  } catch (e) {
+    logger.error(
+      { err: e, organization: connection.organization },
+      "Could not check the license for SSO login; allowing sign-in",
+    );
+    return;
+  }
+
+  if (!orgHasPremiumFeature(org, "sso")) {
+    throw new Error(
+      "Your organization's license no longer includes SSO. Sign in with your email and password instead, or ask an admin to renew the license.",
+    );
+  }
 }
 
 export function getContextFromReq(req: AuthRequest): ReqContext {
@@ -1270,6 +1314,22 @@ export async function addMemberFromSSOConnection(
     organization = orgs[0];
   }
   if (!organization) return null;
+
+  // Auto-join is part of licensed enterprise SSO (Vercel installs excepted).
+  // License lookups fail open so a license-server outage can't block joins
+  if (!ssoConnection.id?.startsWith("vercel:")) {
+    try {
+      await licenseInit(organization, getUserCodesForOrg, getLicenseMetaData);
+      if (!orgHasPremiumFeature(organization, "sso")) {
+        return null;
+      }
+    } catch (e) {
+      logger.error(
+        { err: e, organization: organization.id },
+        "Could not check the license for SSO auto-join; allowing it",
+      );
+    }
+  }
 
   // If the org has explicitly disabled autoApproveMembers, add the user as a pending member
   // This differs from the non-SSO path (`undefined` is auto-approved there) to preserve existing behavior

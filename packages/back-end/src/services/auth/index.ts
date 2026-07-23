@@ -21,6 +21,7 @@ import {
 } from "back-end/src/models/UserModel";
 import {
   getOrganizationById,
+  validateLicensedSSOLogin,
   validateLoginMethod,
 } from "back-end/src/services/organizations";
 import {
@@ -41,7 +42,11 @@ import {
   getLicenseMetaData,
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
-import { licenseInit, getEffectiveAccountPlan } from "back-end/src/enterprise";
+import {
+  licenseInit,
+  getEffectiveAccountPlan,
+  orgHasPremiumFeature,
+} from "back-end/src/enterprise";
 import {
   getGrowthBookClient,
   getGrowthBookRequestUrl,
@@ -164,6 +169,20 @@ export async function processJWT(
 
   const user = await getUserFromJWT(parsedJWT);
 
+  // Enterprise SSO sign-in is a licensed feature: block it once the
+  // connection's organization loses the sso feature (e.g. expired license)
+  if (req.loginMethod?.organization && !user?.superAdmin) {
+    try {
+      await validateLicensedSSOLogin(req.loginMethod);
+    } catch (e) {
+      res.status(403).json({
+        status: 403,
+        message: e.message,
+      });
+      return;
+    }
+  }
+
   if (user) {
     req.currentUser = user;
     req.email = user.email;
@@ -255,6 +274,32 @@ export async function processJWT(
           req.organization.id,
         );
 
+        // Init license for org if it exists. Must happen before
+        // validateLoginMethod, which reads the cached license to decide
+        // whether SSO enforcement is still covered by the plan
+        await licenseInit(
+          req.organization,
+          getUserCodesForOrg,
+          getLicenseMetaData,
+        );
+
+        // Self-hosted SSO (via SSO_CONFIG) requires a license that includes
+        // the sso feature. Air-gapped licenses get a 14-day grace period
+        // after expiration via getEffectiveAccountPlan
+        if (
+          !IS_CLOUD &&
+          usingOpenId() &&
+          !req.superAdmin &&
+          !orgHasPremiumFeature(req.organization, "sso")
+        ) {
+          res.status(403).json({
+            status: 403,
+            message:
+              "Your GrowthBook license no longer includes SSO, so SSO sign-in is disabled. Renew your license, or remove the SSO_CONFIG environment variable and restart the server to use standard sign-in.",
+          });
+          return;
+        }
+
         // Make sure this is a valid login method for the organization
         try {
           validateLoginMethod(req.organization, req);
@@ -265,13 +310,6 @@ export async function processJWT(
           });
           return;
         }
-
-        // init license for org if it exists
-        await licenseInit(
-          req.organization,
-          getUserCodesForOrg,
-          getLicenseMetaData,
-        );
       } else {
         res.status(404).json({
           status: 404,
