@@ -109,6 +109,14 @@ export class GrowthBook<
   private _autoExperimentsAllowed: boolean;
   private _destroyed?: boolean;
 
+  // Bounded buffer for events logged before an eventLogger is registered
+  private _pendingEvents: Array<{
+    eventName: string;
+    properties?: Record<string, unknown>;
+  }> = [];
+  private static _MAX_PENDING_EVENTS = 100;
+  private _warnedNoEventLogger?: boolean;
+
   constructor(options?: Options) {
     options = options || {};
     // These properties are all initialized in the constructor instead of above
@@ -959,6 +967,14 @@ export class GrowthBook<
 
   public setEventLogger(logger: EventLogger) {
     this._options.eventLogger = logger;
+    // Flush any events buffered before a logger was registered
+    if (this._pendingEvents.length) {
+      const pending = this._pendingEvents;
+      this._pendingEvents = [];
+      for (const { eventName, properties } of pending) {
+        this.logEvent(eventName, properties).catch((e) => console.error(e));
+      }
+    }
   }
 
   public async logEvent(
@@ -988,7 +1004,21 @@ export class GrowthBook<
         console.error(e);
       }
     } else {
-      console.error("No event logger configured");
+      // Buffer for a logger registered later (e.g. plugin-order race);
+      // drop the oldest when over cap
+      this._pendingEvents.push({ eventName, properties });
+      if (this._pendingEvents.length > GrowthBook._MAX_PENDING_EVENTS) {
+        this._pendingEvents.shift();
+      }
+      if (!this._warnedNoEventLogger) {
+        this._warnedNoEventLogger = true;
+        console.warn(
+          "GrowthBook: logEvent called before an event logger was registered. " +
+            "Events are being buffered (up to " +
+            GrowthBook._MAX_PENDING_EVENTS +
+            ") and will flush when setEventLogger is called.",
+        );
+      }
     }
   }
 
