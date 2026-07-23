@@ -69,7 +69,9 @@ export default function RuleProjectScopeField({
       ) : (
         <>
           <Flex align="center" gap="1" mb="3">
-            <label className="mb-0">Rule Projects</label>
+            <label className="mb-0" style={{ fontWeight: 600 }}>
+              Rule Projects
+            </label>
             <Tooltip body={help}>
               <PiInfo />
             </Tooltip>
