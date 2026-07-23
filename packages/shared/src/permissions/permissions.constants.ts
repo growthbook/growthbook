@@ -58,6 +58,18 @@ export const POLICIES = [
 
 export type Policy = (typeof POLICIES)[number];
 
+// Policies retained only for back-compat after the Flags merge. They still
+// resolve (mapped to the merged Flags atoms in POLICY_PERMISSION_MAP) so
+// existing stored custom roles keep their exact access, but they are hidden
+// from the role editor (excluded from POLICY_DISPLAY_GROUPS) and must not be
+// offered for new selection.
+export const DEPRECATED_POLICIES: Policy[] = [
+  "FeaturesFullAccess",
+  "FeaturesBypassApprovals",
+  "ConfigsFullAccess",
+  "ConstantsFullAccess",
+];
+
 export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   ReadData: ["readData"],
   Comments: ["readData", "addComments"],
