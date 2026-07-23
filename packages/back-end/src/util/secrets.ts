@@ -21,14 +21,15 @@ export const IS_MULTI_ORG = stringToBoolean(process.env.IS_MULTI_ORG);
 export const OAUTH_AS_ENABLED = stringToBoolean(process.env.OAUTH_AS_ENABLED);
 
 /**
- * Issuer identifier for the OAuth AS (RFC 8414). Defaults to the API host
- * derived at request time when unset; set explicitly in production
- * (e.g. https://api.growthbook.io).
+ * Issuer identifier for the OAuth AS (RFC 8414). Falls back to API_HOST, then
+ * to the request-derived host at runtime. Set explicitly to override
+ * (e.g. https://api.growthbook.io). Must be byte-stable — clients compare it.
  */
-export const OAUTH_ISSUER = (process.env.OAUTH_ISSUER || "").replace(
-  /\/+$/,
-  "",
-);
+export const OAUTH_ISSUER = (
+  process.env.OAUTH_ISSUER ||
+  process.env.API_HOST ||
+  ""
+).replace(/\/+$/, "");
 
 /** Access token lifetime in seconds (default 1 hour). */
 export const OAUTH_ACCESS_TOKEN_TTL_SECONDS = parseEnvInt(

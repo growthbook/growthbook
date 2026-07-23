@@ -14,15 +14,9 @@ import { MakeModelClass } from "./BaseModel";
 export const COLLECTION_NAME = "apikeys";
 
 let oauthTtlIndexEnsured = false;
-/**
- * OAuth-issued access tokens are stored as user-scoped API keys with an
- * `expiresAt` and an `oauthClientId`. Unlike refresh tokens they are never
- * explicitly deleted (refresh rotation only replaces the refresh token), so
- * expired ones would accumulate forever. A partial TTL index reaps them once
- * they pass `expiresAt`. The partial filter scopes the TTL to OAuth tokens
- * only, so classic API keys / PATs (which may have no `expiresAt`, or a
- * long-lived one) are never touched.
- */
+// Partial TTL index that reaps expired OAuth access tokens (which are never
+// explicitly deleted). The partial filter scopes it to OAuth tokens, so
+// classic API keys / PATs are never touched.
 function ensureOAuthAccessTokenTtlIndex() {
   if (oauthTtlIndexEnsured) return;
   oauthTtlIndexEnsured = true;
@@ -389,7 +383,6 @@ export class ApiKeyModel extends BaseClass {
     );
   }
 
-  /** Disable every non-disabled OAuth access token for one client/user/org grant. */
   public static async dangerousDisableOAuthGrant(
     clientId: string,
     userId: string,

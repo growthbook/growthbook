@@ -12,6 +12,8 @@ import { OAuthClientInterface } from "shared/validators";
  * Mongoose models stay file-private; only helpers are exported.
  */
 
+// Raw Mongoose (not BaseModel): clients are global, so there's no
+// `organization` scope for BaseModel's multi-tenant helpers to key on.
 const oauthClientSchema = new mongoose.Schema({
   clientId: { type: String, unique: true, required: true },
   clientName: String,

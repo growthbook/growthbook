@@ -512,9 +512,7 @@ app.post("/auth/logout", authController.postLogout);
 app.get("/auth/hasorgs", authController.getHasOrganizations);
 
 // OAuth 2.1 Authorization Server (public) — discovery, DCR, token, revoke.
-// Mount the router only (per-route open CORS lives on the router). Do NOT wrap
-// with app-wide cors(*) — that leaked onto /oauth/authorize/info and broke
-// credentialed browser fetches (ACAO * + credentials = NetworkError).
+// CORS is per-route on the router; don't add app-wide cors(*) here.
 if (OAUTH_AS_ENABLED) {
   app.use(oauthAsPublicRouter);
 }

@@ -6,6 +6,7 @@ import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
 import Tooltip from "@/ui/Tooltip";
 import ConfirmDialog from "@/ui/ConfirmDialog";
+import Heading from "@/ui/Heading";
 
 interface ConnectedApp {
   clientId: string;
@@ -28,7 +29,9 @@ export const ConnectedApps: FC<ConnectedAppsProps> = ({ apps, onRevoke }) => {
 
   return (
     <div className="mb-4">
-      <h1>Connected Apps</h1>
+      <Heading as="h2" size="x-large" mb="2">
+        Connected Apps
+      </Heading>
       <p className="text-gray">
         Third-party applications you have authorized to access GrowthBook on
         your behalf in this organization. Revoking access signs the app out and
