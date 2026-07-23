@@ -97,6 +97,7 @@ const BreakDownResults: FC<{
   setSortBy?: SetExperimentSortBy;
   sortDirection?: "asc" | "desc" | null;
   setSortDirection?: (d: "asc" | "desc" | null) => void;
+  dimensionSortBy?: ExperimentSortBy;
   customMetricOrder?: string[];
   analysisBarSettings?: {
     variationFilter: number[];
@@ -149,6 +150,7 @@ const BreakDownResults: FC<{
   setSortBy,
   sortDirection,
   setSortDirection,
+  dimensionSortBy,
   customMetricOrder,
   analysisBarSettings,
   setBaselineRow,
@@ -183,6 +185,7 @@ const BreakDownResults: FC<{
     metricsFilter,
     sortBy,
     sortDirection,
+    dimensionSortBy,
     customMetricOrder,
     analysisBarSettings,
     statsEngine,

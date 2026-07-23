@@ -70,6 +70,7 @@ const Results: FC<{
   setSortBy?: (s: "significance" | "change" | null) => void;
   sortDirection?: "asc" | "desc" | null;
   setSortDirection?: (d: "asc" | "desc" | null) => void;
+  dimensionSortBy?: "dimension-traffic" | "dimension-alpha" | null;
 }> = ({
   experiment,
   mutateExperiment,
@@ -88,6 +89,7 @@ const Results: FC<{
   setSortBy,
   sortDirection,
   setSortDirection,
+  dimensionSortBy,
 }) => {
   const { apiCall } = useAuth();
 
@@ -478,6 +480,7 @@ const Results: FC<{
               setSortBy={setSortBy}
               sortDirection={sortDirection}
               setSortDirection={setSortDirection}
+              dimensionSortBy={dimensionSortBy ?? null}
               analysisBarSettings={analysisBarSettings}
             />
           ) : showCompactResults ? (
