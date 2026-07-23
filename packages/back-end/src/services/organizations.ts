@@ -185,6 +185,15 @@ export function validateLoginMethod(
   return true;
 }
 
+// A cryptographic/signature validation failure means the license is
+// definitively invalid, so we must not fall back to a previously cached (and
+// still valid-looking) entitlement — licenseInit preserves the old plan before
+// rethrowing. Transient failures (network/server) don't mention "signature"
+// and are safe to ride out on the cache via orgHasPremiumFeature's grace.
+function isInvalidLicenseError(e: unknown): boolean {
+  return e instanceof Error && /signature/i.test(e.message);
+}
+
 // Enterprise SSO sign-in stops once the connection's organization loses the
 // "sso" feature — e.g. an expired license after any applicable grace period
 // (air-gapped licenses get 14 days via getEffectiveAccountPlan). The decision
@@ -210,12 +219,17 @@ export async function validateLicensedSSOLogin(
   }
   if (!org) return;
 
-  // Best-effort refresh. If it throws (e.g. a transient license-server issue),
-  // fall through to the cached entitlement rather than granting access — an
-  // invalid or expired license still resolves to "no sso" below.
+  const noSSOMessage =
+    "Your organization's license no longer includes SSO. Sign in with your email and password instead, or ask an admin to renew the license.";
+
+  // Best-effort refresh. A definitively invalid license blocks sign-in even if
+  // a valid plan is still cached; a transient failure falls back to the cache.
   try {
     await licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
   } catch (e) {
+    if (isInvalidLicenseError(e)) {
+      throw new Error(noSSOMessage);
+    }
     logger.error(
       { err: e, organization: connection.organization },
       "Could not refresh the license for SSO login; using cached entitlement",
@@ -223,9 +237,7 @@ export async function validateLicensedSSOLogin(
   }
 
   if (!orgHasPremiumFeature(org, "sso")) {
-    throw new Error(
-      "Your organization's license no longer includes SSO. Sign in with your email and password instead, or ask an admin to renew the license.",
-    );
+    throw new Error(noSSOMessage);
   }
 }
 
@@ -1338,6 +1350,11 @@ export async function addMemberFromSSOConnection(
     try {
       await licenseInit(organization, getUserCodesForOrg, getLicenseMetaData);
     } catch (e) {
+      // A definitively invalid license blocks auto-join even if a valid plan
+      // is still cached; a transient failure falls back to the cache below.
+      if (isInvalidLicenseError(e)) {
+        return null;
+      }
       logger.error(
         { err: e, organization: organization.id },
         "Could not refresh the license for SSO auto-join; using cached entitlement",
