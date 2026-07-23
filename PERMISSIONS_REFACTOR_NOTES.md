@@ -7,7 +7,7 @@ Working artifact for review — delete before opening the real PR.
 
 - Merge **Features + Constants + Configs → one "Flags" permission family**. Saved Groups stays separate.
 - Uniform `resource × action` taxonomy, derived from one source-of-truth table.
-- New `Flags`/`SavedGroups` atom naming (option B). Back-compat via: keep deprecated **policy** ids resolvable (mapped to new atoms) + hidden from the picker; JIT-normalize stored custom-role policy arrays on org load.
+- New `Flags`/`SavedGroups` atom naming (option B). Back-compat via **shadowing**: deprecated policy ids stay resolvable (mapped to the exact legacy atoms) but are hidden from the picker. No JIT policy-name migration — Features→Flags is not access-equivalent (Flags adds publish), so renaming stored policies would silently escalate; shadowing preserves exact access instead.
 - Env-scoped publish/revert across **all** of Flags (decision B) — configs/constants included, using each adapter's existing changed-env computation. Saved Groups publish/revert = project-scoped (no env).
 - Additive `permissions[]` on custom roles alongside `policies[]`; effective = union. No deny.
 - Solve end-to-end incl. UI (drill-down grid). No backend-only path.
@@ -51,7 +51,7 @@ Kept untouched: `manageArchetype`, `runExperiments`, everything else.
 New (shown in editor, "Feature Flagging" group):
 
 - `FlagsFullAccess` → readData, manageFlags, deleteFlags, manageFlagDrafts, reviewFlags, publishFlags, revertFlags, manageArchetype
-- `FlagsBypassApprovals` → FlagsFullAccess + bypassApprovalFlags
+- `FlagsBypassApprovals` → FlagsFullAccess + bypassApprovalChecks
 
 Expanded in place (id kept):
 
@@ -62,7 +62,7 @@ Expanded in place (id kept):
 Deprecated (resolvable, hidden from POLICY_DISPLAY_GROUPS; mapped to new atoms to preserve exact access):
 
 - `FeaturesFullAccess` → readData, manageFlags, deleteFlags, manageFlagDrafts, reviewFlags, manageArchetype (note: no publish — matches old)
-- `FeaturesBypassApprovals` → above + bypassApprovalFlags + bypassApprovalSavedGroups (preserves old cross-resource bypass)
+- `FeaturesBypassApprovals` → above + bypassApprovalChecks (preserves old bypass, incl. cross-resource since bypass stayed a single shared atom)
 - `ConfigsFullAccess` / `ConstantsFullAccess` → readData, manageFlags, deleteFlags, manageFlagDrafts, reviewFlags
 
 ## Behavior changes to release-note
