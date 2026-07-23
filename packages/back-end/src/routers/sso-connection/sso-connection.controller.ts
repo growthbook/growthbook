@@ -184,17 +184,24 @@ export async function putSSOConnection(
   // change breaks it immediately via the audience check; and wrong OAuth
   // credentials break token exchange and refresh. Require turning enforcement
   // off first, which forces the safe re-verify sequence.
-  // Compare the whole metadata object, not just issuer/JWKS: every endpoint
-  // and the signing algorithms affect redirects, token exchange, or id_token
-  // validation. Known providers regenerate metadata deterministically, so a
-  // same-provider secret rotation still won't trip this.
-  // An empty clientSecret means "keep existing", so it is not a change.
+  // Re-verification is required for any change that affects how logins are
+  // performed or tokens validated, so a bad value can't lock members out.
+  // This covers metadata endpoints/algorithms, scopes, and extra query params;
+  // known providers regenerate these deterministically, so a same-provider
+  // secret rotation still won't trip it. An empty clientSecret means "keep
+  // existing", so it is not a change.
+  const authConfigSnapshot = (c: Partial<SSOConnectionInterface>) =>
+    JSON.stringify({
+      idpType: c.idpType ?? "",
+      clientId: c.clientId ?? "",
+      additionalScope: c.additionalScope ?? "",
+      extraQueryParams: c.extraQueryParams ?? {},
+      metadata: c.metadata ?? {},
+    });
   const authConfigChanged =
     !!existing &&
-    (JSON.stringify(existing.metadata ?? {}) !==
-      JSON.stringify(connectionFields.metadata ?? {}) ||
-      existing.clientId !== connectionFields.clientId ||
-      (clientSecret !== "" && clientSecret !== existing.clientSecret));
+    ((clientSecret !== "" && clientSecret !== existing.clientSecret) ||
+      authConfigSnapshot(existing) !== authConfigSnapshot(connectionFields));
   if (currentEnforce && authConfigChanged) {
     throw new Error(
       "Turn off enforced SSO sign-in before changing the identity provider or its credentials, then sign in through the updated connection to re-enable it.",
