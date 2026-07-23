@@ -322,8 +322,8 @@ export default function ApprovalFlowSettings() {
                 <Box mt="4">
                   <Checkbox
                     id="toggle-targeting-review-mode"
-                    label="Require review from secondary (targeting) projects"
-                    description="When a feature or config is targeted in secondary projects, also apply those projects' approval requirements before publishing (strict). Disable to let only the primary project govern approvals (loose)."
+                    label="Apply approval requirements from targeting Projects"
+                    description="When a Feature Flag is delivered into targeting Projects, its changes must also satisfy those Projects' approval requirements before publishing. When off, only the primary Project governs approvals."
                     value={targetingStrict}
                     setValue={setTargetingMode}
                   />
