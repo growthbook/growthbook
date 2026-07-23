@@ -18,6 +18,7 @@ import ExplorerChart from "./ExplorerChart";
 import ExplorerDataTable from "./ExplorerDataTable";
 import SqlQuerySection from "./SqlQuerySection";
 import Toolbar from "./Toolbar";
+import DataSourceDropdown from "./Toolbar/DataSourceDropdown";
 
 export default function ExplorerMainSection() {
   const {
@@ -104,6 +105,9 @@ export default function ExplorerMainSection() {
       id="main-section-wrapper"
       style={{ flex: "1", minHeight: 0 }}
     >
+      <Flex align="center" flexShrink="0" height="32px">
+        <DataSourceDropdown />
+      </Flex>
       {isSql ? (
         <PanelGroup
           direction="vertical"
@@ -213,6 +217,11 @@ export default function ExplorerMainSection() {
                 overflow: "hidden",
               }}
               id="main-section-visuals"
+              onPointerDown={() => {
+                if (isSql) {
+                  setIsQueryActive?.(false);
+                }
+              }}
             >
               <Toolbar />
               <Flex
