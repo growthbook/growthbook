@@ -1,6 +1,8 @@
 import { HoldoutInterface } from "shared/validators";
 import { ExperimentInterface } from "shared/types/experiment";
+import { FeatureInterface } from "shared/types/feature";
 import { ReqContext } from "back-end/types/request";
+import { ApiReqContext } from "back-end/types/api";
 import {
   deleteExperimentByIdForOrganization,
   getExperimentsByIds,
@@ -13,6 +15,91 @@ import {
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/holdouts";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
+
+/**
+ * Holdout-compatibility gate for adding an experiment-ref rule to a feature.
+ *
+ * `effectiveHoldout` is the holdout the rule will publish under, resolved by the
+ * caller (the live `feature.holdout`, or the target revision's holdout when
+ * posting to a different draft). Given the referenced `experiment`, this
+ * enforces the constraints for attaching an experiment to a holdout and returns
+ * the experiment that should be eagerly linked, or `null` when no linking is
+ * needed (experiment already in this holdout, or neither side uses a holdout).
+ *
+ * Incompatibilities throw via `makeError`, so REST handlers can surface a 400
+ * (`BadRequestError`) while controllers get a plain `Error` (the default).
+ */
+export async function resolveHoldoutExperimentToLink({
+  context,
+  feature,
+  experiment,
+  effectiveHoldout,
+  // `postFeatureExperimentRefRule` tolerates the experiment already being linked
+  // to *this* feature (create-from-experiment); the other call sites reject any
+  // pre-existing linked feature.
+  allowExistingLinkToThisFeature = false,
+  makeError = (message: string) => new Error(message),
+}: {
+  context: ReqContext | ApiReqContext;
+  feature: FeatureInterface;
+  experiment: ExperimentInterface;
+  effectiveHoldout: { id: string } | null | undefined;
+  allowExistingLinkToThisFeature?: boolean;
+  makeError?: (message: string) => Error;
+}): Promise<ExperimentInterface | null> {
+  if (effectiveHoldout?.id) {
+    // Experiment already belongs to a different holdout — refuse the mismatch.
+    if (experiment.holdoutId && experiment.holdoutId !== effectiveHoldout.id) {
+      const featureHoldout = await context.models.holdout.getById(
+        effectiveHoldout.id,
+      );
+      const expHoldout = await context.models.holdout.getById(
+        experiment.holdoutId,
+      );
+      throw makeError(
+        `Cannot add experiment rule: experiment belongs to holdout "${expHoldout?.name || experiment.holdoutId}" but this feature uses holdout "${featureHoldout?.name || effectiveHoldout.id}".`,
+      );
+    }
+
+    // Not yet linked: validate it can join the holdout, then signal the caller
+    // to perform the link.
+    if (!experiment.holdoutId) {
+      if (experiment.status !== "draft") {
+        throw makeError(
+          `Cannot add experiment rule: this feature uses a holdout, so the experiment must be in "draft" status (currently "${experiment.status ?? "unknown"}").`,
+        );
+      }
+      const expHasLinkedChanges =
+        (allowExistingLinkToThisFeature
+          ? (experiment.linkedFeatures?.some((fid) => fid !== feature.id) ??
+            false)
+          : (experiment.linkedFeatures?.length ?? 0) > 0) ||
+        experiment.hasURLRedirects ||
+        experiment.hasVisualChangesets;
+      if (expHasLinkedChanges) {
+        throw makeError(
+          `Cannot add experiment rule: this feature uses a holdout, but the experiment already has linked features, URL redirects, or visual changesets. Unlink them first.`,
+        );
+      }
+      return experiment;
+    }
+
+    // Already linked to this same holdout: nothing to do.
+    return null;
+  }
+
+  // Feature is not in a holdout, but the experiment already belongs to one.
+  if (experiment.holdoutId) {
+    const expHoldout = await context.models.holdout.getById(
+      experiment.holdoutId,
+    );
+    throw makeError(
+      `Cannot add experiment rule: this experiment belongs to holdout "${expHoldout?.name || experiment.holdoutId}", but this feature is not in a holdout. Add the feature to that holdout first, then add the experiment.`,
+    );
+  }
+
+  return null;
+}
 
 /**
  * Delete a holdout along with its underlying experiment, unlink it from its

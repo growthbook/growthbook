@@ -26,6 +26,7 @@ import {
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
+import { resolveHoldoutExperimentToLink } from "back-end/src/services/holdouts";
 import {
   getExperimentById,
   updateExperiment,
@@ -211,50 +212,16 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
         }));
       }
 
-      // Use target revision holdout to check compatibility
+      // Use target revision holdout to check compatibility. Linking writes are
+      // deferred until after custom-hook prevalidation below.
       const effectiveHoldout = revision.holdout ?? null;
-      if (effectiveHoldout?.id) {
-        if (experiment.status !== "draft") {
-          throw new BadRequestError(
-            `Cannot add experiment rule: this feature uses a holdout, so the experiment must be in "draft" status (currently "${experiment.status}").`,
-          );
-        }
-        const expHasLinkedChanges =
-          (experiment.linkedFeatures?.length ?? 0) > 0 ||
-          experiment.hasURLRedirects ||
-          experiment.hasVisualChangesets;
-        if (expHasLinkedChanges) {
-          throw new BadRequestError(
-            `Cannot add experiment rule: this feature uses a holdout, but the experiment already has linked features, URL redirects, or visual changesets. Unlink them first.`,
-          );
-        }
-        if (
-          experiment.holdoutId &&
-          experiment.holdoutId !== effectiveHoldout.id
-        ) {
-          const featureHoldout = await req.context.models.holdout.getById(
-            effectiveHoldout.id,
-          );
-          const expHoldout = experiment.holdoutId
-            ? await req.context.models.holdout.getById(experiment.holdoutId)
-            : null;
-          throw new BadRequestError(
-            `Cannot add experiment rule: experiment belongs to holdout "${expHoldout?.name || experiment.holdoutId}" but this feature uses holdout "${featureHoldout?.name || effectiveHoldout.id}".`,
-          );
-        }
-
-        if (!experiment.holdoutId) {
-          // Deferred until after custom-hook prevalidation below
-          holdoutExperimentToLink = experiment;
-        }
-      } else if (experiment.holdoutId) {
-        const expHoldout = await req.context.models.holdout.getById(
-          experiment.holdoutId,
-        );
-        throw new BadRequestError(
-          `Cannot add experiment rule: this experiment belongs to holdout "${expHoldout?.name || experiment.holdoutId}", but this feature is not in a holdout. Add the feature to that holdout first, then add the experiment.`,
-        );
-      }
+      holdoutExperimentToLink = await resolveHoldoutExperimentToLink({
+        context: req.context,
+        feature,
+        experiment,
+        effectiveHoldout,
+        makeError: (message) => new BadRequestError(message),
+      });
     }
 
     const rule = buildRuleFromInput(ruleInput, uuidv4());

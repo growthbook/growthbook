@@ -1740,17 +1740,13 @@ export async function applyRevisionChanges(
   return await updateFeature(context, feature, changes);
 }
 
-// Refuse to remove/change a feature's holdout while a linked experiment still
-// belongs to it. We deliberately do NOT auto-unlink the experiment: doing so
-// would silently mutate a possibly-running experiment (and can't be right when
-// the experiment is shared with other features).
+// Refuse to remove/change a feature's holdout while an experiment in the current
+// draft is linked to the holdout.
 export async function assertNoLinkedHoldoutExperiments(
   context: ReqContext | ApiReqContext,
-  feature: FeatureInterface,
   holdoutId: string,
-  // The feature's post-publish rules (revision's merged rules), defaulting to
-  // the live rules. Folded in alongside linkedExperiments below.
-  rules?: FeatureRule[],
+  // The feature's post-publish rules (revision's merged rules)
+  rules: FeatureRule[],
 ) {
   // Union of two views of "experiments attached to this feature":
   //  - linkedExperiments: catches enrollments whose experiment-ref rule is still
@@ -1759,16 +1755,14 @@ export async function assertNoLinkedHoldoutExperiments(
   //    has drifted from the rules.
   // Either one being in this holdout means removing the feature's holdout would
   // strand that experiment, so block on the union.
-  const ruleExperimentIds = (rules ?? feature.rules ?? [])
+  const experimentIds = rules
     .filter((rule) => rule.type === "experiment-ref")
     .map((rule) => rule.experimentId);
-  const experimentIds = Array.from(
-    new Set([...(feature.linkedExperiments ?? []), ...ruleExperimentIds]),
-  );
-  const linked = await Promise.all(
+
+  const experiments = await Promise.all(
     experimentIds.map((eid) => getExperimentById(context, eid)),
   );
-  const stillInHoldout = linked
+  const stillInHoldout = experiments
     .filter(
       (exp): exp is NonNullable<typeof exp> =>
         !!exp && exp.holdoutId === holdoutId,
@@ -1779,8 +1773,8 @@ export async function assertNoLinkedHoldoutExperiments(
     throw new Error(
       `Cannot remove the holdout while experiment${plural ? "s" : ""} ${stillInHoldout.join(
         ", ",
-      )} ${plural ? "are" : "is"} linked to this feature and in the holdout. ` +
-        `Remove the experiment rule from this feature, or remove the experiment from the holdout, first.`,
+      )} ${plural ? "are" : "is"} in the rules for this feature and in the holdout. ` +
+        `Remove the experiment rule from this feature first or in the same draft.`,
     );
   }
 }
@@ -1808,22 +1802,17 @@ export async function assertHoldoutChangeAllowed(
   if (newHoldoutId === prevHoldoutId) return;
 
   // Leaving the current holdout (removal, or a change to a different one):
-  // refuse while any linked experiment still belongs to it. The user detaches
+  // refuse while any experiment in the rules for this feature still belongs to it. The user detaches
   // the experiment side first rather than us silently unlinking it.
   if (prevHoldoutId) {
-    await assertNoLinkedHoldoutExperiments(
-      context,
-      feature,
-      prevHoldoutId,
-      rules,
-    );
+    await assertNoLinkedHoldoutExperiments(context, prevHoldoutId, rules);
   }
 
   // Pure removal: nothing further to validate.
   if (newHoldout === null) return;
 
   // Adding or changing to a holdout: the feature's post-publish rules must not
-  // carry running experiments, bandits, or safe rollouts.
+  // carry running experiments in a different holdout, bandits, or safe rollouts.
   const currentExperimentIds = (rules ?? [])
     .filter((rule) => rule.type === "experiment-ref")
     .map((rule) => rule.experimentId);
@@ -1834,8 +1823,8 @@ export async function assertHoldoutChangeAllowed(
   const experiments = experimentResults.filter(
     (exp): exp is NonNullable<typeof exp> => exp !== null && exp !== undefined,
   );
-  const hasNonDraftExperiments = experiments.some(
-    (exp) => exp.status !== "draft",
+  const hasNonDraftExperimentsInDifferentHoldout = experiments.some(
+    (exp) => exp.status !== "draft" && exp.holdoutId !== newHoldoutId,
   );
   const hasBandits = experiments.some(
     (exp) => exp.type === "multi-armed-bandit",
@@ -1843,9 +1832,13 @@ export async function assertHoldoutChangeAllowed(
   const hasSafeRollouts = (rules ?? []).some(
     (rule) => rule?.type === "safe-rollout",
   );
-  if (hasNonDraftExperiments || hasBandits || hasSafeRollouts) {
+  if (
+    hasNonDraftExperimentsInDifferentHoldout ||
+    hasBandits ||
+    hasSafeRollouts
+  ) {
     throw new Error(
-      "Cannot change holdout when there are running linked experiments, safe rollout rules, or multi-armed bandit rules",
+      "Cannot change holdout when there are running linked experiments in different holdouts, safe rollout rules, or multi-armed bandit rules",
     );
   }
 }

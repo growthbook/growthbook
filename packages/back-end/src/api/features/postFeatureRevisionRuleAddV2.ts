@@ -23,6 +23,7 @@ import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/conf
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
+import { resolveHoldoutExperimentToLink } from "back-end/src/services/holdouts";
 import {
   getExperimentById,
   updateExperiment,
@@ -153,38 +154,14 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
         }
 
         if (needsHoldoutCheck && feature.holdout?.id) {
-          if (experiment.status !== "draft") {
-            throw new BadRequestError(
-              `Cannot add experiment rule: this feature uses a holdout, so the experiment must be in "draft" status (currently "${experiment.status}").`,
-            );
-          }
-          const expHasLinkedChanges =
-            (experiment.linkedFeatures?.length ?? 0) > 0 ||
-            experiment.hasURLRedirects ||
-            experiment.hasVisualChangesets;
-          if (expHasLinkedChanges) {
-            throw new BadRequestError(
-              `Cannot add experiment rule: this feature uses a holdout, but the experiment already has linked features, URL redirects, or visual changesets. Unlink them first.`,
-            );
-          }
-          if (
-            experiment.holdoutId &&
-            experiment.holdoutId !== feature.holdout.id
-          ) {
-            const featureHoldout = await req.context.models.holdout.getById(
-              feature.holdout.id,
-            );
-            const expHoldout = experiment.holdoutId
-              ? await req.context.models.holdout.getById(experiment.holdoutId)
-              : null;
-            throw new BadRequestError(
-              `Cannot add experiment rule: experiment belongs to holdout "${expHoldout?.name || experiment.holdoutId}" but this feature uses holdout "${featureHoldout?.name || feature.holdout.id}".`,
-            );
-          }
-          if (!experiment.holdoutId) {
-            // Deferred until after custom-hook prevalidation below
-            holdoutExperimentToLink = experiment;
-          }
+          // Linking writes are deferred until after custom-hook prevalidation below.
+          holdoutExperimentToLink = await resolveHoldoutExperimentToLink({
+            context: req.context,
+            feature,
+            experiment,
+            effectiveHoldout: feature.holdout,
+            makeError: (message) => new BadRequestError(message),
+          });
         }
       }
     }

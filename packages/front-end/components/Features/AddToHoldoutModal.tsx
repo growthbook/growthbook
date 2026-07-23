@@ -77,7 +77,7 @@ const AddToHoldoutModal = ({
   // Categorize what would block the holdout so the warning can name each one.
   // Deleted experiments (absent from experimentsMap) don't block — they're gone.
   const holdoutBlockers = useMemo(() => {
-    const nonDraftExperiments: {
+    const nonDraftExperimentsWithoutHoldout: {
       id: string;
       name: string;
       status: string;
@@ -92,8 +92,8 @@ const AddToHoldoutModal = ({
         if (exp.type === "multi-armed-bandit") {
           banditExperiments.push({ id: exp.id, name: exp.name });
         }
-        if (exp.status !== "draft") {
-          nonDraftExperiments.push({
+        if (exp.status !== "draft" && !exp.holdoutId) {
+          nonDraftExperimentsWithoutHoldout.push({
             id: exp.id,
             name: exp.name,
             status: exp.status,
@@ -106,7 +106,7 @@ const AddToHoldoutModal = ({
     );
 
     return {
-      nonDraftExperiments,
+      nonDraftExperimentsWithoutHoldout,
       banditExperiments,
       hasSafeRollout,
     };
@@ -130,8 +130,8 @@ const AddToHoldoutModal = ({
   }, [effectiveRules, experimentsMap, selectedHoldoutId]);
 
   const hasBlockers =
-    holdoutBlockers.nonDraftExperiments.length > 0 ||
-    holdoutBlockers.banditExperiments.length > 0 ||
+    holdoutBlockers.nonDraftExperimentsWithoutHoldout.length > 0 &&
+    holdoutBlockers.banditExperiments.length > 0 &&
     holdoutBlockers.hasSafeRollout;
 
   const showHoldoutSelect = !hasBlockers;
@@ -188,10 +188,11 @@ const AddToHoldoutModal = ({
             following are resolved:
           </Text>
           <ul style={{ marginBottom: 0 }}>
-            {holdoutBlockers.nonDraftExperiments.map((exp) => (
+            {holdoutBlockers.nonDraftExperimentsWithoutHoldout.map((exp) => (
               <li key={`status-${exp.id}`}>
                 Experiment &ldquo;{exp.name}&rdquo; is {exp.status}. You
-                can&apos;t add a holdout in front of a non-draft experiment.
+                can&apos;t add a holdout in front of a non-draft experiment with
+                no holdout.
               </li>
             ))}
             {holdoutBlockers.banditExperiments.map((exp) => (
