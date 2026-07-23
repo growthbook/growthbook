@@ -19,10 +19,42 @@ type AuthorizeInfoResponse = {
   user?: { id: string; email: string; name: string };
 };
 
+// Loopback hosts are the OS itself — clarify that the code lands on this
+// device rather than showing a bare "127.0.0.1" that reads as a remote server.
+const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
+
+// Describe where the authorization code will be delivered. This is the one
+// signal on this page that the app cannot fake: the code is always sent to a
+// redirect_uri pre-registered by the client, so a name/destination mismatch is
+// how a user catches a spoof.
+function describeRedirectTarget(
+  redirectUri?: string,
+): { host: string; isLoopback: boolean; scheme: string } | null {
+  if (!redirectUri) return null;
+  try {
+    const url = new URL(redirectUri);
+    if (url.protocol === "http:" || url.protocol === "https:") {
+      return {
+        host: url.host,
+        isLoopback: LOOPBACK_HOSTS.has(url.hostname),
+        scheme: url.protocol.replace(":", ""),
+      };
+    }
+    // Custom schemes (cursor://, etc.) hand off to a locally installed app.
+    return {
+      host: url.protocol.replace(":", "") + "://",
+      isLoopback: false,
+      scheme: url.protocol.replace(":", ""),
+    };
+  } catch {
+    return null;
+  }
+}
+
 // Shared narrow-page wrapper so the consent and success screens can't drift.
 function ConsentPageWrapper({ children }: { children: ReactNode }) {
   return (
-    <Box maxWidth="480px" mx="auto" my="9" px="4">
+    <Box maxWidth="600px" mx="auto" my="9" px="4">
       {children}
     </Box>
   );
@@ -191,21 +223,92 @@ export default function OAuthAuthorizePage() {
     );
   }
 
+  const claimedName = info?.client?.clientName;
+  const redirectTarget = describeRedirectTarget(info?.redirectUri);
+  const showDetails = !!info?.client && !error;
+
   return (
     <ConsentPageWrapper>
       <Heading as="h1" size="x-large" mb="2">
         Authorize Application
       </Heading>
       <Text as="p" size="medium" color="text-mid" mb="4">
-        {info?.client
-          ? `${info.client.clientName} wants to access your GrowthBook account.`
-          : "An application wants to access your GrowthBook account."}
+        An application is requesting access to your GrowthBook account.
+        GrowthBook cannot verify who built it, so review the details below
+        before you continue.
       </Text>
 
       {error ? (
         <Callout status="error" mb="4">
           {error}
         </Callout>
+      ) : null}
+
+      {showDetails ? (
+        <>
+          <Callout status="warning" mb="4">
+            GrowthBook has not verified this application&rsquo;s identity. The
+            name below is provided by the application itself and could be
+            impersonated. Only continue if you started this from an application
+            you trust.
+          </Callout>
+
+          <Box
+            mb="4"
+            p="3"
+            style={{
+              border: "1px solid var(--gray-a5)",
+              borderRadius: "var(--radius-3)",
+            }}
+          >
+            <Flex direction="column" gap="2">
+              <Flex justify="between" gap="3">
+                <Text size="medium" color="text-mid">
+                  Application
+                </Text>
+                <Box style={{ textAlign: "right" }}>
+                  <Text size="medium" weight="medium">
+                    {claimedName}{" "}
+                    <Text
+                      as="span"
+                      size="small"
+                      color="text-mid"
+                      weight="regular"
+                    >
+                      (self-reported)
+                    </Text>
+                  </Text>
+                </Box>
+              </Flex>
+
+              {redirectTarget ? (
+                <Flex justify="between" gap="3">
+                  <Text size="medium" color="text-mid">
+                    Sends your access code to
+                  </Text>
+                  <Box style={{ textAlign: "right", wordBreak: "break-all" }}>
+                    <Text size="medium" weight="medium">
+                      {redirectTarget.host}
+                      {redirectTarget.isLoopback ? (
+                        <>
+                          {" "}
+                          <Text
+                            as="span"
+                            size="small"
+                            color="text-mid"
+                            weight="regular"
+                          >
+                            (an app on this device)
+                          </Text>
+                        </>
+                      ) : null}
+                    </Text>
+                  </Box>
+                </Flex>
+              ) : null}
+            </Flex>
+          </Box>
+        </>
       ) : null}
 
       {info?.user ? (
