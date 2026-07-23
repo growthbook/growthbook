@@ -3076,10 +3076,23 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
       feature.project,
     );
 
+    // Preserve rule-level project scope on the round-trip (mirrors
+    // resolveProjectScopeFromInput). Absent scope stays unscoped (all).
+    const scoped = r as { allProjects?: boolean; projects?: string[] };
+    const projectScope: { allProjects?: boolean; projects?: string[] } =
+      scoped.allProjects === true
+        ? { allProjects: true }
+        : scoped.allProjects === false
+          ? { allProjects: false, projects: scoped.projects ?? [] }
+          : Array.isArray(scoped.projects)
+            ? { allProjects: false, projects: scoped.projects }
+            : {};
+
     switch (r.type) {
       case "experiment-ref": {
         const experimentRefRule: ExperimentRefRule = {
           // missing id will be filled in by addIdsToRules
+          ...projectScope,
           id: r.id ?? "",
           allEnvironments: false,
           type: r.type,
@@ -3109,6 +3122,7 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
         }
         const experimentRule: ExperimentRule = {
           // missing id will be filled in by addIdsToRules
+          ...projectScope,
           id: r.id ?? "",
           allEnvironments: false,
           type: r.type,
@@ -3127,6 +3141,7 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
       case "force": {
         const forceRule: ForceRule = {
           // missing id will be filled in by addIdsToRules
+          ...projectScope,
           id: r.id ?? "",
           allEnvironments: false,
           type: r.type,
@@ -3147,6 +3162,7 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
       case "rollout": {
         const rolloutRule: RolloutRule = {
           // missing id will be filled in by addIdsToRules
+          ...projectScope,
           id: r.id ?? "",
           allEnvironments: false,
           type: r.type,

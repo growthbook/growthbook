@@ -1382,7 +1382,25 @@ const postSparseRuleField = z
   )
   .optional();
 
+// Rule-level project scope, shared across the v1 write rule schemas so a v1
+// GET → PUT round-trip preserves it (non-strict Zod would otherwise strip it).
+const postFeatureRuleProjectScopeShape = {
+  allProjects: z
+    .boolean()
+    .describe(
+      "When true (default), the rule applies to every project the feature is delivered to. When false, `projects` scopes it.",
+    )
+    .optional(),
+  projects: z
+    .array(z.string())
+    .describe(
+      "Project IDs this rule is scoped to when `allProjects` is false. An empty array scopes the rule to no project.",
+    )
+    .optional(),
+};
+
 const postFeatureForceRule = z.object({
+  ...postFeatureRuleProjectScopeShape,
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   condition: z.string().describe("Applied to everyone by default.").optional(),
   savedGroupTargeting: z.array(postFeatureSavedGroupTargeting).optional(),
@@ -1396,6 +1414,7 @@ const postFeatureForceRule = z.object({
 });
 
 const postFeatureRolloutRule = z.object({
+  ...postFeatureRuleProjectScopeShape,
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   condition: z.string().describe("Applied to everyone by default.").optional(),
   savedGroupTargeting: z.array(postFeatureSavedGroupTargeting).optional(),
@@ -1422,6 +1441,7 @@ const postFeatureRolloutRule = z.object({
 });
 
 const postFeatureExperimentRefRule = z.object({
+  ...postFeatureRuleProjectScopeShape,
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   id: z.string().optional(),
   enabled: z.boolean().describe("Enabled by default").optional(),
@@ -1441,6 +1461,7 @@ const postFeatureExperimentRefRule = z.object({
 });
 
 const postFeatureExperimentRule = z.object({
+  ...postFeatureRuleProjectScopeShape,
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   condition: z.string(),
   id: z.string().optional(),
