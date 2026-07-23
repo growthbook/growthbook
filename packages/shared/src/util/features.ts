@@ -3318,6 +3318,16 @@ export function normalizeTargetingInUpdates(
   });
   if (hasAll) updates.targetingAllProjects = norm.targetingAllProjects;
   if (hasList) updates.targetingProjects = norm.targetingProjects;
+  // Keep the invariant that all-projects implies no explicit list: a partial
+  // update turning all-projects on (without also sending the list) must clear
+  // any stale stored list rather than leave it behind.
+  if (
+    norm.targetingAllProjects &&
+    !hasList &&
+    (current.targetingProjects?.length ?? 0) > 0
+  ) {
+    updates.targetingProjects = [];
+  }
 }
 
 export function filterProjectsByEnvironment(

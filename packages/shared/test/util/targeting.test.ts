@@ -290,5 +290,19 @@ describe("targeting scope helpers", () => {
         targetingProjects: [],
       });
     });
+    it("clears a stale stored list when a partial update only sets targetingAllProjects", () => {
+      const updates: {
+        targetingAllProjects?: boolean;
+        targetingProjects?: string[];
+      } = { targetingAllProjects: true };
+      normalizeTargetingInUpdates(updates, {
+        project: "p1",
+        targetingProjects: ["p2", "p3"],
+      });
+      expect(updates).toEqual({
+        targetingAllProjects: true,
+        targetingProjects: [],
+      });
+    });
   });
 });
