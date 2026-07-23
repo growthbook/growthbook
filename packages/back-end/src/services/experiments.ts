@@ -70,6 +70,7 @@ import {
   BanditResult,
   ExperimentAnalysisSummary,
   ExperimentAnalysisSummaryResultsStatus,
+  ApiVariationInput,
   GoalMetricResult,
   SafeRolloutInterface,
   postExperimentValidator,
@@ -2080,11 +2081,7 @@ export function fillEmptyVariationKeys(
 }
 
 export function validateVariationIds(
-  variations: {
-    id?: string;
-    variationId?: string;
-    key?: string;
-  }[],
+  variations: Partial<Pick<ApiVariationInput, "id" | "variationId" | "key">>[],
 ) {
   variations.forEach((variation, i) => {
     if (!variation.id) {
