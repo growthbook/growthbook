@@ -957,17 +957,13 @@ export class Permissions {
   };
 
   public canReviewFeatureDrafts = (
-    feature: Pick<FeatureInterface, "project" | "targetingProjects">,
+    feature: Pick<FeatureInterface, "project">,
   ): boolean => {
-    // Naive union: eligible to review the primary OR any targeting project (mode-aware is a follow-up).
-    const projects = Array.from(
-      new Set([feature.project ?? "", ...(feature.targetingProjects ?? [])]),
-    );
-    return projects.some((project) =>
-      this.checkProjectFilterPermission(
-        { projects: project ? [project] : [] },
-        "canReview",
-      ),
+    // Reviewer eligibility follows the primary project only. Targeting projects
+    // affect whether a review is required, never who may approve.
+    return this.checkProjectFilterPermission(
+      { projects: feature.project ? [feature.project] : [] },
+      "canReview",
     );
   };
 
