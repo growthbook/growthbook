@@ -12,7 +12,6 @@ import { useAISettings } from "@/hooks/useOrgSettings";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { useUser } from "@/services/UserContext";
-import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 
 type AiSqlGeneratorControls = {
@@ -142,20 +141,15 @@ export default function AiSqlGenerator({
         )
       }
     >
-      <Button size="xs" variant="ghost" onClick={handleTriggerClick}>
-        <BsStars /> Text to SQL{" "}
-        <Badge
-          label="BETA"
-          color="amber"
-          variant="solid"
-          style={{
-            margin: "0 4px",
-            paddingTop: "1px",
-            backgroundColor: "var(--slate-12)",
-            color: "var(--gray-1)",
-          }}
-        />
+      <Button
+        size="xs"
+        variant="ghost"
+        color="violet"
+        onClick={handleTriggerClick}
+      >
+        <BsStars /> Generate Query
         <FiChevronRight
+          className="ml-2"
           style={{
             transform: isOpen ? "rotate(90deg)" : "none",
           }}

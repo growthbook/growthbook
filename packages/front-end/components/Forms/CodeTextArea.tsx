@@ -207,6 +207,7 @@ export type Props = CodeTextAreaFieldProps & {
   setCursorData?: (data: CursorData) => void;
   minLines?: number;
   maxLines?: number;
+  paddingTop?: number;
   // Editor font size (Ace accepts px number or any CSS size). Smaller values
   // also shrink line height, so a fixed line count takes less vertical space.
   fontSize?: string | number;
@@ -239,6 +240,7 @@ export default function CodeTextArea({
   placeholder,
   minLines = 10,
   maxLines = 50,
+  paddingTop = 0,
   fontSize = "1em",
   slimGutter = false,
   setCursorData,
@@ -435,6 +437,7 @@ export default function CodeTextArea({
                   name={id}
                   onLoad={(e) => {
                     setEditor(e);
+                    e.renderer.setScrollMargin(paddingTop, 0, 0, 0);
                     onEditorLoad?.(e);
                     // Clear auto-selection after editor loads
                     setTimeout(() => {

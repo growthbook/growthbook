@@ -101,11 +101,6 @@ export default function SqlQuerySection({
   }, [dataset?.sql]);
 
   useEffect(() => {
-    setError(null);
-    setPreviewResult(null);
-  }, [localSql]);
-
-  useEffect(() => {
     lastPreviewedSqlRef.current = null;
     setPreviewResult(null);
   }, [draftExploreState.datasource]);
@@ -121,9 +116,10 @@ export default function SqlQuerySection({
   }, [error, previewResult, resultsTarget]);
 
   const chartReady =
+    !loading &&
+    !error &&
     dataset !== null &&
-    localSql.trim().length > 0 &&
-    localSql === dataset.sql &&
+    dataset.sql.trim().length > 0 &&
     dataset.timestampColumn.length > 0 &&
     dataset.columnTypes[dataset.timestampColumn] === "date" &&
     Object.keys(dataset.columnTypes).length > 0;
@@ -175,6 +171,7 @@ export default function SqlQuerySection({
     onRunStart?.();
     setLoading(true);
     setError(null);
+    setPreviewResult(null);
     collapseAfterSuccessfulRunRef.current = false;
     try {
       const response = await apiCall<QueryExecutionResult>("/query/run", {
@@ -185,7 +182,10 @@ export default function SqlQuerySection({
           limit: PREVIEW_ROW_LIMIT,
         }),
       });
-      setPreviewResult(response);
+      setPreviewResult({
+        ...response,
+        sql: response.sql || sql,
+      });
 
       if (response.error) {
         setError(response.error);
@@ -247,7 +247,6 @@ export default function SqlQuerySection({
     }
   };
 
-  const sqlChanged = localSql !== dataset.sql;
   const canRunPreview = !!localSql.trim() && !!draftExploreState.datasource;
   const canFormat = datasource ? canFormatSql(datasource.type) : false;
   const showContent = open || !showHeader;
@@ -311,8 +310,6 @@ export default function SqlQuerySection({
       datasourceId={draftExploreState.datasource}
       onSqlGenerated={(sql) => {
         setLocalSql(sql);
-        setError(null);
-        setPreviewResult(null);
       }}
     >
       {({ prompt, trigger }) => (
@@ -347,60 +344,56 @@ export default function SqlQuerySection({
                     <Text weight="medium">Query</Text>
                   </Flex>
                 </Button>
-                {trigger}
               </Flex>
               <Flex align="center" gap="2" mr="1">
-                {sqlChanged ? (
-                  <Text size="small" color="text-low">
-                    Unsaved query changes
-                  </Text>
-                ) : null}
                 {formatError ? (
                   <Tooltip body={formatError}>
                     <FaExclamationTriangle className="text-danger" />
                   </Tooltip>
                 ) : null}
-                <Button
-                  size="xs"
-                  variant="ghost"
-                  onClick={handleFormatClick}
-                  disabled={!localSql || !canFormat}
-                >
-                  Format
-                </Button>
-                <Button
-                  size="xs"
-                  disabled={!canRunPreview}
-                  loading={loading}
-                  onClick={() => previewQuery(localSql)}
-                  icon={<PiPlay />}
-                >
-                  Run
-                </Button>
-                {queryHelp}
-                <DropdownMenu
-                  trigger={
-                    <IconButton
-                      variant="ghost"
-                      color="gray"
-                      radius="full"
-                      size="2"
-                      aria-label="SQL editor options"
+                {open ? (
+                  <>
+                    {trigger}
+                    <Button
+                      size="xs"
+                      disabled={!canRunPreview}
+                      loading={loading}
+                      onClick={() => previewQuery(localSql)}
+                      icon={<PiPlay />}
                     >
-                      <BsThreeDotsVertical size={16} />
-                    </IconButton>
-                  }
-                >
-                  <DropdownMenuItem
-                    onClick={() =>
-                      setIsAutocompleteEnabled(!isAutocompleteEnabled)
-                    }
-                  >
-                    {isAutocompleteEnabled
-                      ? "Disable Autocomplete"
-                      : "Enable Autocomplete"}
-                  </DropdownMenuItem>
-                </DropdownMenu>
+                      Run
+                    </Button>
+                    <DropdownMenu
+                      trigger={
+                        <IconButton
+                          variant="ghost"
+                          color="gray"
+                          radius="full"
+                          size="2"
+                          aria-label="SQL editor options"
+                        >
+                          <BsThreeDotsVertical size={16} />
+                        </IconButton>
+                      }
+                    >
+                      <DropdownMenuItem
+                        onClick={handleFormatClick}
+                        disabled={!localSql || !canFormat}
+                      >
+                        Format
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() =>
+                          setIsAutocompleteEnabled(!isAutocompleteEnabled)
+                        }
+                      >
+                        {isAutocompleteEnabled
+                          ? "Disable Autocomplete"
+                          : "Enable Autocomplete"}
+                      </DropdownMenuItem>
+                    </DropdownMenu>
+                  </>
+                ) : null}
               </Flex>
             </Flex>
           ) : null}
@@ -408,7 +401,7 @@ export default function SqlQuerySection({
             <Flex
               direction="column"
               gap="3"
-              p={showHeader ? "3" : "0"}
+              p="0"
               style={{
                 flex: fullHeight ? 1 : undefined,
                 minHeight: fullHeight ? 0 : undefined,
@@ -436,7 +429,6 @@ export default function SqlQuerySection({
                           <Flex align="center" justify="between" gap="3">
                             <Flex align="center" gap="2">
                               <Text weight="medium">SQL</Text>
-                              {trigger}
                             </Flex>
                             <Flex align="center" gap="2">
                               {formatError ? (
@@ -444,14 +436,7 @@ export default function SqlQuerySection({
                                   <FaExclamationTriangle className="text-danger" />
                                 </Tooltip>
                               ) : null}
-                              <Button
-                                size="xs"
-                                variant="ghost"
-                                onClick={handleFormatClick}
-                                disabled={!localSql || !canFormat}
-                              >
-                                Format
-                              </Button>
+                              {trigger}
                               <Button
                                 size="xs"
                                 disabled={!canRunPreview}
@@ -476,6 +461,12 @@ export default function SqlQuerySection({
                                 }
                               >
                                 <DropdownMenuItem
+                                  onClick={handleFormatClick}
+                                  disabled={!localSql || !canFormat}
+                                >
+                                  Format
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
                                   onClick={() =>
                                     setIsAutocompleteEnabled(
                                       !isAutocompleteEnabled,
@@ -498,14 +489,13 @@ export default function SqlQuerySection({
                           value={localSql}
                           setValue={(sql) => {
                             setLocalSql(sql);
-                            setError(null);
                             setFormatError(null);
-                            setPreviewResult(null);
                           }}
                           setCursorData={setCursorData}
                           onCtrlEnter={() => previewQuery(localSql)}
                           completions={autoCompletions}
                           fullHeight
+                          paddingTop={8}
                           placeholder={SQL_PLACEHOLDER}
                         />
                       </AreaWithHeader>

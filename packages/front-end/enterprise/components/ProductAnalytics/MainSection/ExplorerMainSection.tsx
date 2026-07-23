@@ -62,6 +62,7 @@ export default function ExplorerMainSection() {
     useState<HTMLDivElement | null>(null);
   const [visualizationTarget, setVisualizationTarget] =
     useState<HTMLDivElement | null>(null);
+  const [sqlQueryOpen, setSqlQueryOpen] = useState(true);
   const sqlQueryPanelRef = useRef<ImperativePanelHandle>(null);
 
   useEffect(() => {
@@ -81,6 +82,7 @@ export default function ExplorerMainSection() {
     [setViewMode],
   );
   const handleSqlQueryOpenChange = useCallback((open: boolean) => {
+    setSqlQueryOpen(open);
     if (open) {
       sqlQueryPanelRef.current?.expand();
     } else {
@@ -127,9 +129,15 @@ export default function ExplorerMainSection() {
               onChartReadyChange={handleChartReadyChange}
               onQueryFocus={() => setIsQueryActive?.(true)}
               onOpenChange={handleSqlQueryOpenChange}
-              onRunStart={() => setViewMode?.("results")}
+              onRunStart={() => {
+                setChartReady(false);
+                setViewMode?.("results");
+              }}
               onRunSuccess={() => setViewMode?.("results")}
-              onRunError={() => setViewMode?.("sql")}
+              onRunError={() => {
+                setChartReady(false);
+                setViewMode?.("results");
+              }}
               resultsTarget={sqlResultsTarget}
               activeResultsTab={viewMode}
               onResultsTabChange={(value) => {
@@ -157,32 +165,34 @@ export default function ExplorerMainSection() {
               }}
             />
           </Panel>
-          <PanelResizeHandle
-            style={{
-              height: 20,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Box
-              flexGrow="1"
-              mx="3"
+          {sqlQueryOpen ? (
+            <PanelResizeHandle
               style={{
-                height: 1,
-                backgroundColor: "var(--gray-a4)",
+                height: 20,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
               }}
-            />
-            <PiDotsSix size={16} />
-            <Box
-              flexGrow="1"
-              mx="3"
-              style={{
-                height: 1,
-                backgroundColor: "var(--gray-a4)",
-              }}
-            />
-          </PanelResizeHandle>
+            >
+              <Box
+                flexGrow="1"
+                mx="3"
+                style={{
+                  height: 1,
+                  backgroundColor: "var(--gray-a4)",
+                }}
+              />
+              <PiDotsSix size={16} />
+              <Box
+                flexGrow="1"
+                mx="3"
+                style={{
+                  height: 1,
+                  backgroundColor: "var(--gray-a4)",
+                }}
+              />
+            </PanelResizeHandle>
+          ) : null}
           <Panel order={2} defaultSize={40} minSize={25}>
             <Box
               ref={setSqlResultsTarget}

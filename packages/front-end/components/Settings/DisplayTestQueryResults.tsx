@@ -108,7 +108,7 @@ export default function DisplayTestQueryResults({
   const durationStatus = error ? "Query failed" : "Query succeeded";
   const showDurationStatus = showDuration && duration > 0;
 
-  const forceShowSql = error || (!results.length && !showResultsTabWhenEmpty);
+  const forceShowSql = !error && !results.length && !showResultsTabWhenEmpty;
   const tabsProps =
     activeTab !== undefined
       ? {
@@ -196,6 +196,43 @@ export default function DisplayTestQueryResults({
     downloadCSVFile(csv);
   }
 
+  const renderedSqlContent = (
+    <div
+      style={{
+        overflowY: "auto",
+        height: "100%",
+        paddingLeft: "12px",
+        paddingRight: "12px",
+      }}
+      className="mt-3"
+    >
+      {error ? (
+        isManagedWarehousePendingQueryError(error) ? (
+          <div className="mb-3 mr-auto" style={{ maxWidth: 720 }}>
+            <ManagedWarehouseNoEventsCallout />
+          </div>
+        ) : (
+          <Callout status="error" mr="auto">
+            {error}
+          </Callout>
+        )
+      ) : (
+        showNoRowsWarning &&
+        !results.length && (
+          <Callout status="warning" mr="auto">
+            No rows returned, could not verify result
+          </Callout>
+        )
+      )}
+      <Code
+        code={sql}
+        language="sql"
+        errorLine={errorLine}
+        expandable={expandable}
+      />
+    </div>
+  );
+
   return (
     <>
       {showQueryModal ? (
@@ -264,201 +301,219 @@ export default function DisplayTestQueryResults({
                 paddingRight: "12px",
               }}
             >
-              {emptyResultsContent ? (
-                emptyResultsContent
-              ) : (
-                <>
-                  <div className="mt-2 rounded p-2 bg-light">
-                    {downloadError ? (
-                      <div className="mb-2">
-                        <Callout status="error">{downloadError}</Callout>
-                      </div>
-                    ) : null}
-                    <Flex align="center" gap="4">
-                      <Flex align="center" flexGrow="1">
-                        {totalPages > 1 ? (
-                          <Flex align="center">
-                            <div className="mr-1">
-                              Showing {page * pageSize - pageSize + 1} -{" "}
-                              {Math.min(page * pageSize, results.length)} of{" "}
-                              <Tooltip
-                                body={
-                                  "GrowthBook limits the result to 1,000 rows max"
-                                }
-                                shouldDisplay={results.length >= 1000}
-                              >
-                                <strong>{results.length}</strong> rows
-                              </Tooltip>
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="xs"
-                              disabled={page <= 1}
-                              onClick={() => {
-                                setPage((p) => Math.max(p - 1, 1));
-                                // Scroll to top
-                                tableBodyScrollRef.current?.scrollTo({
-                                  top: 0,
-                                  behavior: "instant",
-                                });
-                              }}
-                            >
-                              <PiCaretLeft size={16} />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="xs"
-                              disabled={page >= totalPages}
-                              onClick={() => {
-                                setPage((p) => Math.min(p + 1, totalPages));
-                                // Scroll to top
-                                tableBodyScrollRef.current?.scrollTo({
-                                  top: 0,
-                                  behavior: "instant",
-                                });
-                              }}
-                            >
-                              <PiCaretRight size={16} />
-                            </Button>
-                          </Flex>
-                        ) : (
-                          <strong className="pr-1">
-                            {rowsLabel ??
-                              `${showSampleHeader ? "Sample " : ""}${results?.length} Rows`}
-                          </strong>
-                        )}
-                      </Flex>
-                      {showDurationStatus ? (
-                        <Tooltip body={durationStatus}>
-                          <span
-                            aria-label={`${durationStatus} in ${floatRound(duration, 2)} milliseconds`}
-                            style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: 4,
-                              color: error
-                                ? "var(--red-11)"
-                                : "var(--green-11)",
-                            }}
-                          >
-                            <PiTimer size={16} aria-hidden />
-                            {floatRound(duration, 2)}ms
-                          </span>
-                        </Tooltip>
+              <Flex
+                direction="column"
+                style={{
+                  flex: 1,
+                  minHeight: 0,
+                  marginTop: 8,
+                  marginBottom: 16,
+                  border: "1px solid var(--gray-a3)",
+                  borderRadius: "var(--radius-4)",
+                  backgroundColor: "var(--color-panel-translucent)",
+                  overflow: "hidden",
+                }}
+              >
+                {error ? (
+                  renderedSqlContent
+                ) : emptyResultsContent ? (
+                  emptyResultsContent
+                ) : (
+                  <>
+                    <div className="mt-2 rounded p-2 bg-light">
+                      {downloadError ? (
+                        <div className="mb-2">
+                          <Callout status="error">{downloadError}</Callout>
+                        </div>
                       ) : null}
-                      {sql || (allowDownload && results.length) ? (
-                        <DropdownMenu
-                          menuPlacement="end"
-                          trigger={
-                            <IconButton
-                              variant="ghost"
-                              color="gray"
-                              radius="full"
-                              size="1"
-                              aria-label="Query result options"
-                            >
-                              <BsThreeDotsVertical size={16} />
-                            </IconButton>
-                          }
-                        >
-                          {sql ? (
-                            <DropdownMenuItem
-                              onClick={() => setShowQueryModal(true)}
-                            >
-                              View Rendered SQL
-                            </DropdownMenuItem>
-                          ) : null}
-                          {allowDownload && results.length ? (
-                            <DropdownMenuItem
-                              onClick={() => {
-                                setDownloadError(null);
-                                try {
-                                  handleDownload(results);
-                                } catch (e) {
-                                  setDownloadError(
-                                    e instanceof Error
-                                      ? e.message
-                                      : "Error downloading results.",
-                                  );
-                                }
-                              }}
-                            >
-                              Download CSV
-                            </DropdownMenuItem>
-                          ) : null}
-                        </DropdownMenu>
-                      ) : null}
-                    </Flex>
-                  </div>
-                  <div
-                    style={{ width: "100%", overflow: "auto", flexGrow: 1 }}
-                    className="mb-3"
-                    ref={tableBodyScrollRef}
-                  >
-                    <table className="table table-bordered appbox gbtable table-hover mb-0">
-                      <thead
-                        style={{
-                          position: "sticky",
-                          top: -1,
-                          zIndex: 2,
-                          backgroundColor: "var(--color-panel-solid)",
-                        }}
-                      >
-                        {useTwoRowHeader && headerStructure ? (
-                          <>
-                            <tr>
-                              {headerStructure.row1.map((cell, idx) => (
-                                <th
-                                  key={idx}
-                                  rowSpan={cell.rowSpan}
-                                  colSpan={cell.colSpan ?? 1}
-                                  style={{ minWidth: 150 }}
+                      <Flex align="center" gap="4">
+                        <Flex align="center" flexGrow="1">
+                          {totalPages > 1 ? (
+                            <Flex align="center">
+                              <div className="mr-1">
+                                Showing {page * pageSize - pageSize + 1} -{" "}
+                                {Math.min(page * pageSize, results.length)} of{" "}
+                                <Tooltip
+                                  body={
+                                    "GrowthBook limits the result to 1,000 rows max"
+                                  }
+                                  shouldDisplay={results.length >= 1000}
                                 >
-                                  {cell.label}
-                                </th>
-                              ))}
-                            </tr>
+                                  <strong>{results.length}</strong> rows
+                                </Tooltip>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="xs"
+                                disabled={page <= 1}
+                                onClick={() => {
+                                  setPage((p) => Math.max(p - 1, 1));
+                                  // Scroll to top
+                                  tableBodyScrollRef.current?.scrollTo({
+                                    top: 0,
+                                    behavior: "instant",
+                                  });
+                                }}
+                              >
+                                <PiCaretLeft size={16} />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="xs"
+                                disabled={page >= totalPages}
+                                onClick={() => {
+                                  setPage((p) => Math.min(p + 1, totalPages));
+                                  // Scroll to top
+                                  tableBodyScrollRef.current?.scrollTo({
+                                    top: 0,
+                                    behavior: "instant",
+                                  });
+                                }}
+                              >
+                                <PiCaretRight size={16} />
+                              </Button>
+                            </Flex>
+                          ) : (
+                            <strong className="pr-1">
+                              {rowsLabel ??
+                                `${showSampleHeader ? "Sample " : ""}${results?.length} Rows`}
+                            </strong>
+                          )}
+                        </Flex>
+                        {showDurationStatus ? (
+                          <Tooltip body={durationStatus}>
+                            <span
+                              aria-label={`${durationStatus} in ${floatRound(duration, 2)} milliseconds`}
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 4,
+                                color: error
+                                  ? "var(--red-11)"
+                                  : "var(--green-11)",
+                              }}
+                            >
+                              <PiTimer size={16} aria-hidden />
+                              {floatRound(duration, 2)}ms
+                            </span>
+                          </Tooltip>
+                        ) : null}
+                        {sql || (allowDownload && results.length) ? (
+                          <DropdownMenu
+                            menuPlacement="end"
+                            trigger={
+                              <IconButton
+                                variant="ghost"
+                                color="gray"
+                                radius="full"
+                                size="1"
+                                aria-label="Query result options"
+                              >
+                                <BsThreeDotsVertical size={16} />
+                              </IconButton>
+                            }
+                          >
+                            {sql ? (
+                              <DropdownMenuItem
+                                onClick={() => setShowQueryModal(true)}
+                              >
+                                View Rendered SQL
+                              </DropdownMenuItem>
+                            ) : null}
+                            {allowDownload && results.length ? (
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setDownloadError(null);
+                                  try {
+                                    handleDownload(results);
+                                  } catch (e) {
+                                    setDownloadError(
+                                      e instanceof Error
+                                        ? e.message
+                                        : "Error downloading results.",
+                                    );
+                                  }
+                                }}
+                              >
+                                Download CSV
+                              </DropdownMenuItem>
+                            ) : null}
+                          </DropdownMenu>
+                        ) : null}
+                      </Flex>
+                    </div>
+                    <div
+                      style={{ width: "100%", overflow: "auto", flexGrow: 1 }}
+                      className="mb-3"
+                      ref={tableBodyScrollRef}
+                    >
+                      <table className="table table-bordered appbox gbtable table-hover mb-0">
+                        <thead
+                          style={{
+                            position: "sticky",
+                            top: -1,
+                            zIndex: 2,
+                            backgroundColor: "var(--color-panel-solid)",
+                          }}
+                        >
+                          {useTwoRowHeader && headerStructure ? (
+                            <>
+                              <tr>
+                                {headerStructure.row1.map((cell, idx) => (
+                                  <th
+                                    key={idx}
+                                    rowSpan={cell.rowSpan}
+                                    colSpan={cell.colSpan ?? 1}
+                                    style={{ minWidth: 150 }}
+                                  >
+                                    {cell.label}
+                                  </th>
+                                ))}
+                              </tr>
+                              <tr>
+                                {headerStructure.row2Labels.map(
+                                  (label, idx) => (
+                                    <th key={idx} style={{ minWidth: 150 }}>
+                                      {label}
+                                    </th>
+                                  ),
+                                )}
+                              </tr>
+                            </>
+                          ) : (
                             <tr>
-                              {headerStructure.row2Labels.map((label, idx) => (
-                                <th key={idx} style={{ minWidth: 150 }}>
-                                  {label}
+                              {cols.map((col, i) => (
+                                <th key={col} style={{ minWidth: 150 }}>
+                                  {labels[i] ?? col}
                                 </th>
                               ))}
                             </tr>
-                          </>
-                        ) : (
-                          <tr>
-                            {cols.map((col, i) => (
-                              <th key={col} style={{ minWidth: 150 }}>
-                                {labels[i] ?? col}
-                              </th>
+                          )}
+                        </thead>
+                        <tbody>
+                          {results
+                            .slice((page - 1) * pageSize, page * pageSize)
+                            .map((result, i) => (
+                              <tr key={i}>
+                                {cols.map((key, j) => {
+                                  const raw = result[key];
+                                  const custom = renderCell?.(key, raw, result);
+                                  return (
+                                    <td key={j}>
+                                      {custom !== undefined && custom !== null
+                                        ? custom
+                                        : defaultCellContent(raw)}
+                                    </td>
+                                  );
+                                })}
+                              </tr>
                             ))}
-                          </tr>
-                        )}
-                      </thead>
-                      <tbody>
-                        {results
-                          .slice((page - 1) * pageSize, page * pageSize)
-                          .map((result, i) => (
-                            <tr key={i}>
-                              {cols.map((key, j) => {
-                                const raw = result[key];
-                                const custom = renderCell?.(key, raw, result);
-                                return (
-                                  <td key={j}>
-                                    {custom !== undefined && custom !== null
-                                      ? custom
-                                      : defaultCellContent(raw)}
-                                  </td>
-                                );
-                              })}
-                            </tr>
-                          ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </>
-              )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                )}
+              </Flex>
             </TabsContent>
           )}
 
@@ -466,40 +521,7 @@ export default function DisplayTestQueryResults({
             value="sql"
             style={{ display: "flex", flexDirection: "column", height: "100%" }}
           >
-            <div
-              style={{
-                overflowY: "auto",
-                height: "100%",
-                paddingLeft: "12px",
-                paddingRight: "12px",
-              }}
-              className="mt-3"
-            >
-              {error ? (
-                isManagedWarehousePendingQueryError(error) ? (
-                  <div className="mb-3 mr-auto" style={{ maxWidth: 720 }}>
-                    <ManagedWarehouseNoEventsCallout />
-                  </div>
-                ) : (
-                  <Callout status="error" mr="auto">
-                    {error}
-                  </Callout>
-                )
-              ) : (
-                showNoRowsWarning &&
-                !results.length && (
-                  <Callout status="warning" mr="auto">
-                    No rows returned, could not verify result
-                  </Callout>
-                )
-              )}
-              <Code
-                code={sql}
-                language="sql"
-                errorLine={errorLine}
-                expandable={expandable}
-              />
-            </div>
+            {renderedSqlContent}
           </TabsContent>
           {additionalTab ? (
             <TabsContent
@@ -509,6 +531,8 @@ export default function DisplayTestQueryResults({
                 flexDirection: "column",
                 height: "100%",
                 minHeight: 0,
+                padding: "8px 12px 16px",
+                boxSizing: "border-box",
               }}
             >
               {additionalTab.content}
