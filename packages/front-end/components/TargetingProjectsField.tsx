@@ -84,6 +84,7 @@ export default function TargetingProjectsField({
                         .map((p) => ({ value: p.id, label: p.name }))}
                       placeholder="No projects selected"
                       sort={false}
+                      showCopyButton={false}
                       containerClassName="w-full"
                     />
                   </Box>

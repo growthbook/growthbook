@@ -98,6 +98,7 @@ export default function RuleProjectScopeField({
                       }))}
                       placeholder="No projects selected"
                       sort={false}
+                      showCopyButton={false}
                       containerClassName="w-full"
                     />
                     {selectedProjects.length === 0 && (
