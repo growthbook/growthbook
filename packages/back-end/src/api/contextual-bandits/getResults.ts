@@ -14,8 +14,13 @@ export const getContextualBanditResults = createApiRequestHandler(
     req.context,
     req.params.id,
   );
-  const { contextualBanditSnapshot, latestSnapshotSummary, srm } =
-    await getContextualBanditResultsForUi(req.context, contextualBandit);
+  const {
+    contextualBanditSnapshot,
+    latestSnapshotSummary,
+    srm,
+    traffic,
+    multipleExposures,
+  } = await getContextualBanditResultsForUi(req.context, contextualBandit);
 
   const overallWeights = contextualBanditSnapshot
     ? computeOverallVariationWeights(
@@ -56,7 +61,7 @@ export const getContextualBanditResults = createApiRequestHandler(
             ? latestSnapshotSummary.runStarted.toISOString()
             : null,
           dateCreated: latestSnapshotSummary.dateCreated.toISOString(),
-          multipleExposures: latestSnapshotSummary.multipleExposures,
+          multipleExposures,
           type: latestSnapshotSummary.type ?? "standard",
           triggeredBy: latestSnapshotSummary.triggeredBy ?? "manual",
           srm: srm
@@ -64,8 +69,12 @@ export const getContextualBanditResults = createApiRequestHandler(
                 statistic: srm.statistic,
                 pValue: srm.pValue,
                 degreesOfFreedom: srm.degreesOfFreedom,
+                ...(srm.latestPeriod
+                  ? { latestPeriod: srm.latestPeriod }
+                  : {}),
               }
             : null,
+          traffic: traffic ?? null,
         }
       : null,
   };

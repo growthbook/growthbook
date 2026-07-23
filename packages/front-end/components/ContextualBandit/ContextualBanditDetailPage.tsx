@@ -32,6 +32,7 @@ import {
 } from "@/ui/DropdownMenu";
 import { DetailSectionColumn } from "@/components/DetailSectionBox";
 import ContextualBanditResultsTable from "@/components/ContextualBandit/ContextualBanditResultsTable";
+import ContextualBanditHealthTab from "@/components/ContextualBandit/ContextualBanditHealthTab";
 import ContextualBanditVariations from "@/components/ContextualBandit/ContextualBanditVariations";
 import ContextualBanditLinkedFeatures from "@/components/ContextualBandit/ContextualBanditLinkedFeatures";
 import StartContextualBanditModal from "@/components/ContextualBandit/StartContextualBanditModal";
@@ -362,7 +363,10 @@ export default function ContextualBanditDetailPage({
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           {showResultsTab ? (
-            <TabsTrigger value="results">Results</TabsTrigger>
+            <>
+              <TabsTrigger value="results">Results</TabsTrigger>
+              <TabsTrigger value="health">Health</TabsTrigger>
+            </>
           ) : null}
         </TabsList>
 
@@ -518,6 +522,14 @@ export default function ContextualBanditDetailPage({
               <Frame>
                 <ContextualBanditResultsTable cb={cb} mutate={mutate} />
               </Frame>
+            </Box>
+          </TabsContent>
+        ) : null}
+
+        {showResultsTab ? (
+          <TabsContent value="health">
+            <Box pt="4">
+              <ContextualBanditHealthTab cb={cb} />
             </Box>
           </TabsContent>
         ) : null}

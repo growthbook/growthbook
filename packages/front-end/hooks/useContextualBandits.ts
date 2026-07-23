@@ -1,6 +1,9 @@
 import { ApiContextualBanditInterface } from "shared/validators";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { SnapshotStatusSummary } from "shared/types/experiment-snapshot";
+import type {
+  ExperimentSnapshotTraffic,
+  SnapshotStatusSummary,
+} from "shared/types/experiment-snapshot";
 import type { ContextualBanditSnapshot } from "shared/types/stats";
 import type { ContextualBanditResultsView } from "shared/experiments";
 import type { LinkedFeatureInfo } from "shared/types/experiment";
@@ -66,12 +69,25 @@ export function useContextualBandit(cbId: string | undefined) {
   };
 }
 
+export type ContextualBanditResultsLatest = SnapshotStatusSummary & {
+  srm?: {
+    statistic: number;
+    pValue: number;
+    degreesOfFreedom: number;
+    latestPeriod?: {
+      banditVersion: string;
+      leaves: { leafId: string; observed: number[]; expected: number[] }[];
+    };
+  } | null;
+  traffic?: ExperimentSnapshotTraffic | null;
+};
+
 export type ContextualBanditResultsResponse = {
   status: number;
   contextualBanditSnapshot: ContextualBanditSnapshot | null;
   overallWeights: { variationId: string; weight: number | null }[] | null;
   results: ContextualBanditResultsView | null;
-  latest: SnapshotStatusSummary | null;
+  latest: ContextualBanditResultsLatest | null;
 };
 
 /**

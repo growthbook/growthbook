@@ -2,6 +2,10 @@ import { getDelayWindowHours, getUserIdTypes } from "shared/experiments";
 import type { DataSourceInterface } from "shared/types/datasource";
 import type { ExperimentUnitsQueryParams } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
+import {
+  CONTEXTUAL_BANDIT_EAQ_BANDIT_VERSION_COLUMN,
+  queryHasContextualBanditVersionColumn,
+} from "shared/validators";
 import { compileSqlTemplate } from "back-end/src/util/sql";
 
 import { getConversionWindowClause } from "back-end/src/integrations/sql/clauses/conversion-window-clause";
@@ -85,6 +89,50 @@ export function getExperimentUnitsQuery(
 
   const contextualBanditCfg = getContextualBanditUnitsSqlConfig(unitsSettings);
 
+  // Contextual bandits run without sticky bucketing, so flag __multiple__ only when
+  // they see >1 variation within the same bandit_version.
+  const scopeMultipleExposuresByBanditVersion =
+    !!unitsSettings.banditSettings?.contextualBandit &&
+    queryHasContextualBanditVersionColumn(exposureQuery.query);
+
+  const banditVersionExposureSelectCol = scopeMultipleExposuresByBanditVersion
+    ? `, e.${CONTEXTUAL_BANDIT_EAQ_BANDIT_VERSION_COLUMN} AS bandit_version`
+    : "";
+
+  const contextualBanditMultipleExposuresCte =
+    scopeMultipleExposuresByBanditVersion
+      ? `, __cbMultipleExposuresByVersion AS (
+      SELECT
+        pv.${baseIdType} AS ${baseIdType}
+        , MAX(pv.__num_variations) AS __max_variations_per_version
+      FROM (
+        SELECT
+          e.${baseIdType} AS ${baseIdType}
+          , COUNT(DISTINCT e.variation) AS __num_variations
+        FROM __experimentExposures e
+        GROUP BY e.${baseIdType}, e.bandit_version
+      ) pv
+      GROUP BY pv.${baseIdType}
+    )`
+      : "";
+
+  // Contextual bandits need bandit_version column to flag __multiple__.
+  const isContextualBandit = !!unitsSettings.banditSettings?.contextualBandit;
+
+  const variationValuePerUnit = scopeMultipleExposuresByBanditVersion
+    ? dialect.ifElse(
+        "MAX(mult.__max_variations_per_version) > 1",
+        "'__multiple__'",
+        getFirstVariationValuePerUnit(dialect),
+      )
+    : isContextualBandit || unitsSettings.banditSettings?.useFirstExposure
+      ? getFirstVariationValuePerUnit(dialect)
+      : dialect.ifElse(
+          "count(distinct e.variation) > 1",
+          "'__multiple__'",
+          "max(e.variation)",
+        );
+
   const {
     contextualExposureSelectCols,
     contextualUnitsBaseSelectCols,
@@ -146,6 +194,7 @@ export function getExperimentUnitsQuery(
         e.${baseIdType} as ${baseIdType}
         , ${dialect.castToString("e.variation_id")} as variation
         , ${timestampDateTimeColumn} as timestamp
+        ${banditVersionExposureSelectCol}
         ${contextualExposureSelectCols}
         ${experimentDimensions
           .map((d) => {
@@ -227,20 +276,12 @@ export function getExperimentUnitsQuery(
           )})`,
       )
       .join("\n")}
+    ${contextualBanditMultipleExposuresCte}
     , ${unitsCteName} AS (
       -- One row per user
       SELECT
         e.${baseIdType} AS ${baseIdType}
-        , ${
-          !!unitsSettings.banditSettings?.useFirstExposure &&
-          unitsSettings.banditSettings
-            ? getFirstVariationValuePerUnit(dialect)
-            : dialect.ifElse(
-                "count(distinct e.variation) > 1",
-                "'__multiple__'",
-                "max(e.variation)",
-              )
-        } AS variation
+        , ${variationValuePerUnit} AS variation
         , MIN(${timestampColumn}) AS first_exposure_timestamp
         ${unitDimensions
           .map(
@@ -274,6 +315,11 @@ export function getExperimentUnitsQuery(
         ${contextualUnitsBaseSelectCols}
       FROM
         __experimentExposures e
+        ${
+          scopeMultipleExposuresByBanditVersion
+            ? `LEFT JOIN __cbMultipleExposuresByVersion mult ON (mult.${baseIdType} = e.${baseIdType})`
+            : ""
+        }
         ${
           segment
             ? `JOIN __segment s ON (s.${baseIdType} = e.${baseIdType})`

@@ -71,6 +71,16 @@ describe("getContextualBanditSrmQuery", () => {
       "COALESCE(SUM(num_valid_cells),0)-COUNT(*)ASdegrees_of_freedom",
     );
     expect(c).toContain("ASdegrees_of_freedom");
+
+    // Latest-period breakdown: a summary row plus one cell row per leaf/variation
+    // for the most recent bandit_version, discriminated by row_type.
+    expect(c).toContain("MAX(bandit_version)ASbandit_version");
+    expect(c).toContain("__cbLatestVersion");
+    expect(c).toContain("__cbLatestBreakdown");
+    expect(c).toContain("ASrow_type");
+    expect(c).toContain("'summary'");
+    expect(c).toContain("'cell'");
+    expect(c).toContain("JOIN__cbLatestVersionvON(a.bandit_version=v.bandit_version)");
   });
 
   it("emits one observed/expected pair and array index per variation", () => {
@@ -89,7 +99,9 @@ describe("getContextualBanditSrmQuery", () => {
     expect(c).toContain("ASobserved_2");
     expect(c).toContain("ASexpected_2");
     expect(c).not.toContain("num_variations");
-    expect(sql.match(/UNION ALL/gi)?.length).toBe(2);
+    // __cbCells (3 SELECTs => 2) + __cbLatestBreakdown (3 SELECTs => 2) +
+    // the summary/breakdown union (1) = 5.
+    expect(sql.match(/UNION ALL/gi)?.length).toBe(5);
   });
 
   it("omits the upper time bound when endDate is not set", () => {

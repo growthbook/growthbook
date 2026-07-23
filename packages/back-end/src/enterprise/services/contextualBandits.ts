@@ -1,5 +1,6 @@
 import type {
   ExperimentSnapshotSettings,
+  ExperimentSnapshotTraffic,
   SnapshotStatusSummary,
 } from "shared/types/experiment-snapshot";
 import type { ContextualBanditSnapshot } from "shared/types/stats";
@@ -76,6 +77,9 @@ export type ContextualBanditResultsForUi = {
   latestSnapshotSummary: SnapshotStatusSummary | null;
   /** SRM of the latest snapshot run; null when the run has no SRM result. */
   srm: ContextualBanditSrmResult | null;
+  /** Health traffic of the latest snapshot run; null when unavailable. */
+  traffic: ExperimentSnapshotTraffic | null;
+  multipleExposures: number;
 };
 
 function mapCbsStatusToSnapshotStatus(
@@ -136,6 +140,8 @@ export async function getContextualBanditResultsForUi(
     contextualBanditSnapshot,
     latestSnapshotSummary,
     srm: latestSnapshot?.srm ?? null,
+    traffic: latestSnapshot?.traffic ?? null,
+    multipleExposures: latestSnapshot?.multipleExposures ?? 0,
   };
 }
 

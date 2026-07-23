@@ -43,6 +43,19 @@ export type ContextualBanditSnapshotSettings = z.infer<
   typeof contextualBanditSnapshotSettingsValidator
 >;
 
+const trafficDimensionValidator = z.object({
+  name: z.string(),
+  srm: z.number(),
+  variationUnits: z.array(z.number()),
+});
+
+/** Health traffic shape, matching `ExperimentSnapshotTraffic` for reuse of the experiment health UI. */
+export const contextualBanditTrafficValidator = z.object({
+  overall: trafficDimensionValidator,
+  dimension: z.record(z.string(), z.array(trafficDimensionValidator)),
+  error: z.string().optional(),
+});
+
 export const contextualBanditSnapshotValidator = baseSchema
   .extend({
     contextualBandit: z.string(),
@@ -59,8 +72,24 @@ export const contextualBanditSnapshotValidator = baseSchema
         statistic: z.number(),
         pValue: z.number(),
         degreesOfFreedom: z.number().int().nonnegative(),
+        // Illustrative observed vs expected per leaf & variation for the most
+        // recent bandit period only. Does not reconcile to the p-value above.
+        latestPeriod: z
+          .object({
+            banditVersion: z.string(),
+            leaves: z.array(
+              z.object({
+                leafId: z.string(),
+                observed: z.array(z.number()),
+                expected: z.array(z.number()),
+              }),
+            ),
+          })
+          .optional(),
       })
       .optional(),
+    multipleExposures: z.number().optional(),
+    traffic: contextualBanditTrafficValidator.optional(),
   })
   .strict();
 

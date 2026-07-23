@@ -8,6 +8,8 @@ import {
 } from "shared/validators";
 import {
   CONTEXTUAL_BANDIT_ROWS_QUERY_NAME,
+  CONTEXTUAL_BANDIT_SRM_QUERY_NAME,
+  CONTEXTUAL_BANDIT_TRAFFIC_QUERY_NAME,
   ContextualBanditResultsQueryRunner,
 } from "back-end/src/enterprise/queryRunners/ContextualBanditResultsQueryRunner";
 import {
@@ -170,6 +172,10 @@ function makeIntegration(): SourceIntegrationInterface {
       .fn()
       .mockReturnValue("-- contextual-bandit metric SQL"),
     runExperimentFactMetricsQuery: jest.fn().mockResolvedValue({ rows: [] }),
+    getExperimentAggregateUnitsQuery: jest
+      .fn()
+      .mockReturnValue("-- contextual-bandit traffic SQL"),
+    runExperimentAggregateUnitsQuery: jest.fn().mockResolvedValue({ rows: [] }),
   } as unknown as SourceIntegrationInterface;
 }
 
@@ -279,7 +285,10 @@ describe("ContextualBanditResultsQueryRunner", () => {
 
       const result = await runner.runAnalysis(queryMap);
 
-      expect(result).toEqual(fitted);
+      expect(result).toMatchObject(fitted);
+      expect(result.srm).toBeUndefined();
+      expect(result.traffic).toBeUndefined();
+      expect(result.multipleExposures).toBe(0);
       expect(runContextualStatsEngineMock).toHaveBeenCalledTimes(1);
 
       const [statsSettings, forwardedRows, runParams] =
@@ -295,6 +304,165 @@ describe("ContextualBanditResultsQueryRunner", () => {
           (r) => !("contextId" in (r as Record<string, unknown>)),
         ),
       ).toBe(true);
+    });
+
+    it("parses traffic keyed by variation key (does not drop rows)", async () => {
+      const cb = makeCb();
+      const context = makeContext(cb);
+      const runner = newRunner(context);
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (runner as any).snapshotSettings = makeSnapshotSettings();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (runner as any).variationNames = ["Control", "Treatment"];
+
+      const rows: ExperimentMetricQueryResponseRows = [
+        {
+          variation: "0",
+          users: 100,
+          count: 100,
+          main_sum: 5,
+          main_sum_squares: 0.5,
+        },
+        {
+          variation: "1",
+          users: 100,
+          count: 100,
+          main_sum: 6,
+          main_sum_squares: 0.6,
+        },
+      ];
+      const trafficRows = [
+        {
+          variation: "0",
+          units: 60,
+          dimension_value: "2026-05-14",
+          dimension_name: "dim_exposure_date",
+        },
+        {
+          variation: "1",
+          units: 40,
+          dimension_value: "2026-05-14",
+          dimension_name: "dim_exposure_date",
+        },
+      ];
+
+      const queryMap: QueryMap = new Map<string, QueryInterface>([
+        [
+          CONTEXTUAL_BANDIT_ROWS_QUERY_NAME,
+          { result: rows } as unknown as QueryInterface,
+        ],
+        [
+          CONTEXTUAL_BANDIT_TRAFFIC_QUERY_NAME,
+          { result: trafficRows } as unknown as QueryInterface,
+        ],
+      ]);
+
+      runContextualStatsEngineMock.mockResolvedValueOnce({
+        attributes: [],
+        responses: [],
+      });
+
+      const result = await runner.runAnalysis(queryMap);
+
+      expect(result.traffic).toBeDefined();
+      const byDate = result.traffic?.dimension?.dim_exposure_date;
+      expect(byDate).toHaveLength(1);
+      // Rows must be mapped to the right variation index, not dropped.
+      expect(byDate?.[0]?.variationUnits).toEqual([60, 40]);
+      expect(result.traffic?.overall.variationUnits).toEqual([60, 40]);
+    });
+
+    it("extracts the SRM summary plus the latest-period per-leaf breakdown", async () => {
+      const cb = makeCb();
+      const context = makeContext(cb);
+      const runner = newRunner(context);
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (runner as any).snapshotSettings = makeSnapshotSettings();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (runner as any).variationNames = ["Control", "Treatment"];
+
+      const rows: ExperimentMetricQueryResponseRows = [
+        { variation: "0", users: 100, count: 100, main_sum: 5 },
+        { variation: "1", users: 100, count: 100, main_sum: 6 },
+      ];
+
+      // One summary row (overall statistic/dof, across all periods) plus cell
+      // rows for the most recent period only. The empty-variation/leaf values on
+      // the summary row must be ignored; the numeric-string variation on cell
+      // rows maps onto the variation index.
+      const srmRows = [
+        {
+          row_type: "summary",
+          statistic: 3.5,
+          degrees_of_freedom: 2,
+          bandit_version: "",
+          leaf_id: "",
+          variation: "",
+          observed: 0,
+          expected: 0,
+        },
+        {
+          row_type: "cell",
+          statistic: 0,
+          degrees_of_freedom: 0,
+          bandit_version: "v3",
+          leaf_id: "US",
+          variation: "0",
+          observed: 55,
+          expected: 50,
+        },
+        {
+          row_type: "cell",
+          statistic: 0,
+          degrees_of_freedom: 0,
+          bandit_version: "v3",
+          leaf_id: "US",
+          variation: "1",
+          observed: 45,
+          expected: 50,
+        },
+        {
+          row_type: "cell",
+          statistic: 0,
+          degrees_of_freedom: 0,
+          bandit_version: "v3",
+          leaf_id: "CA",
+          variation: "0",
+          observed: 10,
+          expected: 12,
+        },
+      ];
+
+      const queryMap: QueryMap = new Map<string, QueryInterface>([
+        [
+          CONTEXTUAL_BANDIT_ROWS_QUERY_NAME,
+          { result: rows } as unknown as QueryInterface,
+        ],
+        [
+          CONTEXTUAL_BANDIT_SRM_QUERY_NAME,
+          { result: srmRows } as unknown as QueryInterface,
+        ],
+      ]);
+
+      runContextualStatsEngineMock.mockResolvedValueOnce({
+        attributes: [],
+        responses: [],
+      });
+
+      const result = await runner.runAnalysis(queryMap);
+
+      expect(result.srm?.statistic).toBe(3.5);
+      expect(result.srm?.degreesOfFreedom).toBe(2);
+      expect(result.srm?.pValue).toBeGreaterThan(0);
+      expect(result.srm?.latestPeriod?.banditVersion).toBe("v3");
+      // All leaves for the period, each with per-variation arrays. Unobserved
+      // cells default to 0 (CA variation 1 was not emitted).
+      expect(result.srm?.latestPeriod?.leaves).toEqual([
+        { leafId: "US", observed: [55, 45], expected: [50, 50] },
+        { leafId: "CA", observed: [10, 0], expected: [12, 0] },
+      ]);
     });
 
     it("rejects when snapshotSettings have not been initialised", async () => {
@@ -471,8 +639,12 @@ describe("ContextualBanditResultsQueryRunner", () => {
       ).toEqual(["country"]);
       expect(callArgs.metrics[0].id).toBe("fact__g1");
       expect(callArgs.unitsSource).toBe("exposureQuery");
-      expect(queries).toHaveLength(1);
+      expect(
+        integration.getExperimentAggregateUnitsQuery,
+      ).toHaveBeenCalledTimes(1);
+      expect(queries).toHaveLength(2);
       expect(queries[0].name).toBe(CONTEXTUAL_BANDIT_ROWS_QUERY_NAME);
+      expect(queries[1].name).toBe(CONTEXTUAL_BANDIT_TRAFFIC_QUERY_NAME);
     });
   });
 });
