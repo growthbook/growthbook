@@ -289,7 +289,6 @@ app.get("/", (req, res) => {
 });
 
 app.use(httpLogger);
-app.use(trackRequestCompletion as unknown as RequestHandler);
 
 // Initialize db connections
 app.use(async (req, res, next) => {
@@ -515,6 +514,10 @@ app.use(auth.middleware as RequestHandler);
 
 // Add logged in user props to the request
 app.use(asyncHandler(processJWT as unknown as RequestHandler));
+
+// Track request completion for GrowthBook telemetry — only routes past this
+// point can have `req.gb` set, so earlier (public/SDK) routes never pay for it
+app.use(trackRequestCompletion as unknown as RequestHandler);
 
 // Add logged in user props to the logger
 app.use(((

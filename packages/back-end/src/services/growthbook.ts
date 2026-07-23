@@ -153,7 +153,9 @@ export function getGrowthBookTrackingAttributes(
 
 const EVENT_REQUEST_COMPLETED = "Request Completed";
 
-function parseContentLength(value: string | undefined): number | undefined {
+export function parseContentLength(
+  value: string | undefined,
+): number | undefined {
   if (value === undefined) return undefined;
   const parsed = Number(value);
   return Number.isNaN(parsed) ? undefined : parsed;
@@ -163,7 +165,7 @@ function parseContentLength(value: string | undefined): number | undefined {
  * Route pattern (e.g. "/auth/reset/:token") rather than the resolved path, so
  * dynamic segments that carry secrets (tokens, keys, etc.) never appear in the event.
  */
-function getRoutePath(req: {
+export function getRoutePath(req: {
   path: string;
   baseUrl: string;
   route?: { path?: string };
@@ -200,7 +202,10 @@ export function trackRequestCompletion(
     return (origEnd as (...a: unknown[]) => Response)(chunk, ...rest);
   }) as typeof res.end;
 
-  res.on("finish", () => {
+  // "close" also covers requests the client aborted before "finish" fired
+  const onComplete = () => {
+    res.removeListener("finish", onComplete);
+    res.removeListener("close", onComplete);
     req.gb?.logEvent(EVENT_REQUEST_COMPLETED, {
       path: getRoutePath(req),
       method: req.method,
@@ -209,7 +214,9 @@ export function trackRequestCompletion(
       reqContentSize: parseContentLength(req.headers["content-length"]),
       resContentSize,
     });
-  });
+  };
+  res.on("finish", onComplete);
+  res.on("close", onComplete);
   next();
 }
 
