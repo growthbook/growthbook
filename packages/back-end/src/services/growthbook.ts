@@ -168,7 +168,9 @@ function getRoutePath(req: {
   baseUrl: string;
   route?: { path?: string };
 }): string {
-  return req.route?.path ? `${req.baseUrl}${req.route.path}` : req.path;
+  // No matched route (e.g. a 404) means no safe pattern to bound the path to,
+  // so don't fall back to the raw path, which may contain arbitrary user input.
+  return req.route?.path ? `${req.baseUrl}${req.route.path}` : "(unmatched)";
 }
 
 /**
