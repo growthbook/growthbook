@@ -96,33 +96,58 @@ export function reconcileVariationWeights(
   newVariationIds: string[],
   mode: WeightReconcileMode,
 ): VariationWeightPair[] {
-  // Reference `current` so the signature is stable for the redistribute impl.
-  void current;
-
   if (mode === "uniform") {
     return uniformWeightPairs(newVariationIds);
   }
 
-  // =========================================================================
-  // TODO(luke) — P6: REDISTRIBUTE-MODE WEIGHT FORMULA — NOT YET DECIDED.
+  // Redistribute mode (exploit): preserve the learned weights across an arm-set
+  // change, per Luke's algorithms. Applied once per call site — the aggregate
+  // (MAB fallback) weights and each leaf's weights.
   //
-  // How weights are recomputed when the arm set changes while learned weights
-  // exist (exploit stage) is an open product/stats decision. Do NOT implement an
-  // interim formula here — a wrong split ships incorrect live traffic and
-  // mis-buckets exposures.
+  //   Algorithm A (dropping M of K0 arms): let S = total weight of the dropped
+  //   arms; each surviving arm i becomes w_i / (1 - S) — i.e. the dropped mass is
+  //   spread proportionally over the survivors (here: normalize survivors by
+  //   their surviving mass, which equals 1 - S when `current` sums to 1).
   //
-  // When defined, the implementation must:
-  //   - read `current` (previous paired weights, sums ~1) and return a paired set
-  //     over exactly `newVariationIds`, in that order;
-  //   - handle removals (arms in `current` absent from `newVariationIds`) and
-  //     additions (arms in `newVariationIds` absent from `current`); an added
-  //     arm's seed weight must be large enough to accrue data (the CB stays in
-  //     its current stage on add — no reset);
-  //   - clamp each weight to MIN_VARIATION_WEIGHT and renormalize to sum to 1.
-  // =========================================================================
-  throw new Error(
-    "Contextual bandit weight redistribution ('redistribute' mode) is not " +
-      "implemented yet (awaiting formula). See TODO(luke) in " +
-      "contextual-bandit-variation-changes.ts.",
+  //   Algorithm B (adding N arms to the K survivors): mix the survivor vector
+  //   (scaled by K/(K+N)) with the N new arms (each weight 1/(K+N)):
+  //       w' = (K/(K+N))·[survivors…, 0×N] + (1/(K+N))·[0×K, 1×N]
+  //   So each survivor keeps K/(K+N) of its post-drop share and each added arm
+  //   gets 1/(K+N). Sums to 1 and is independent of ordering, so we emit directly
+  //   in `newVariationIds` order. Combined add+remove = A then B.
+  const currentById = new Map(current.map((p) => [p.variationId, p.weight]));
+
+  const survivorIds = newVariationIds.filter((id) => currentById.has(id));
+  const K = survivorIds.length;
+  const denom = newVariationIds.length; // K + N (every final id is survivor or added)
+  if (denom === 0) return [];
+
+  // Algorithm A: normalize survivor weights by their surviving mass (== 1 - S).
+  // Robust to `current` not summing to exactly 1, and to a zero-mass survivor
+  // set (fall back to an even split among survivors).
+  const survivorMass = survivorIds.reduce(
+    (sum, id) => sum + (currentById.get(id) ?? 0),
+    0,
+  );
+  const normalizedSurvivor = new Map<string, number>();
+  if (K > 0) {
+    if (survivorMass > 0) {
+      survivorIds.forEach((id) =>
+        normalizedSurvivor.set(id, (currentById.get(id) ?? 0) / survivorMass),
+      );
+    } else {
+      const even = getEqualWeights(K);
+      survivorIds.forEach((id, i) => normalizedSurvivor.set(id, even[i]));
+    }
+  }
+
+  // Algorithm B: survivors scaled by K/(K+N); each added arm gets 1/(K+N).
+  return newVariationIds.map((id) =>
+    normalizedSurvivor.has(id)
+      ? {
+          variationId: id,
+          weight: (K / denom) * (normalizedSurvivor.get(id) ?? 0),
+        }
+      : { variationId: id, weight: 1 / denom },
   );
 }

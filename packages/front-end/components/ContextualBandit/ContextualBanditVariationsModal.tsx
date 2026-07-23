@@ -28,10 +28,8 @@ type NewVariationValues = Record<string, Record<string, string>>;
 /**
  * CB-native variation editor built on the shared `FeatureVariationsInput`.
  * Splits/weights are hidden and never sent — the backend owns weight
- * reconciliation (POST /contextual-bandits/:id/variations). While the bandit is
- * exploiting it holds learned per-leaf weights and add/remove isn't supported
- * yet (pending the redistribution formula), so exploit edits are restricted to
- * variation metadata only.
+ * reconciliation (POST /contextual-bandits/:id/variations): a uniform split
+ * while exploring, and Luke's proportional redistribution once exploiting.
  *
  * When arms are ADDED and the bandit has linked features, we also collect a
  * value for each new arm per linked feature (`newVariationValues`) so the SDK
@@ -52,11 +50,7 @@ export default function ContextualBanditVariationsModal({
 }) {
   const { apiCall } = useAuth();
 
-  // Add/remove is only offered while the arm split is still uniform (draft or
-  // explore). In exploit/paused the bandit has learned per-leaf weights and
-  // redistribution on arm changes isn't available yet, so we allow metadata
-  // edits only.
-  const metadataOnly = cb.stage === "exploit" || cb.stage === "paused";
+  const exploiting = cb.stage === "exploit" || cb.stage === "paused";
 
   const originalIds = new Set(cb.variations.map((v) => v.id));
 
@@ -86,7 +80,7 @@ export default function ContextualBanditVariationsModal({
     (v) => v.id && !originalIds.has(v.id),
   );
   const showNewValueEditors =
-    !metadataOnly && addedVariations.length > 0 && linkedFeatures.length > 0;
+    addedVariations.length > 0 && linkedFeatures.length > 0;
 
   // Default a new arm's value on a feature to its control (first) variation
   // value, falling back to the feature default — mirrors the server fallback.
@@ -148,8 +142,8 @@ export default function ContextualBanditVariationsModal({
         })}
       >
         <Callout status="info" size="sm" mb="4">
-          {metadataOnly
-            ? "This bandit is exploiting, so you can edit variation names and keys here. Adding or removing variations isn't available while it's exploiting."
+          {exploiting
+            ? "This bandit is exploiting. Removing a variation redistributes its weight proportionally across the others; a new variation starts with an even share and the bandit re-learns its weight from there."
             : "Traffic is split evenly across variations while the bandit explores. Adding or removing a variation re-balances that even split."}
         </Callout>
         <FeatureVariationsInput
@@ -159,7 +153,6 @@ export default function ContextualBanditVariationsModal({
           hideCoverage
           showDescriptions
           showPreview={false}
-          onlySafeToEditVariationMetadata={metadataOnly}
           setWeight={(i, weight) => {
             form.setValue(`variationWeights.${i}`, weight);
           }}

@@ -171,21 +171,36 @@ describe("executeContextualBanditVariationChange", () => {
     ]);
   });
 
-  it("refuses variation changes in exploit until the redistribution formula exists (P6)", async () => {
+  it("adds a variation in exploit: redistributes weights (Luke A+B) and bumps version", async () => {
     const cb = makeCb({ stage: "exploit" });
     const { context, updateMock, patchLeafWeightsMock } = makeContext(cb);
 
-    await expect(
-      executeContextualBanditVariationChange(context, cb, [
-        v("v0", "0"),
-        v("v1", "1"),
-        v("", "2"),
-      ]),
-    ).rejects.toThrow(/not\s+implemented/i);
+    const { updated } = await executeContextualBanditVariationChange(
+      context,
+      cb,
+      [v("v0", "0"), v("v1", "1"), v("", "2")],
+    );
 
-    // throws before any persistence
-    expect(updateMock).not.toHaveBeenCalled();
-    expect(patchLeafWeightsMock).not.toHaveBeenCalled();
+    expect(updateMock).toHaveBeenCalledTimes(1);
+    const [, changes] = updateMock.mock.calls[0];
+    expect(changes.variations).toHaveLength(3);
+    const newId = changes.variations[2].id;
+    const wmap = Object.fromEntries(
+      changes.variationWeights.map(
+        (p: { variationId: string; weight: number }) => [
+          p.variationId,
+          p.weight,
+        ],
+      ),
+    );
+    // v0,v1 were 0.5/0.5 → each scaled by K/(K+N)=2/3 → 1/3; new arm = 1/(K+N)=1/3.
+    expect(wmap["v0"]).toBeCloseTo(1 / 3, 6);
+    expect(wmap["v1"]).toBeCloseTo(1 / 3, 6);
+    expect(wmap[newId]).toBeCloseTo(1 / 3, 6);
+    expect(sum(changes.variationWeights)).toBeCloseTo(1, 6);
+    // patchLeafWeights runs (bumps banditVersion) even with empty leaf weights.
+    expect(patchLeafWeightsMock).toHaveBeenCalledTimes(1);
+    expect(updated.banditVersion).toBe(cb.banditVersion + 1);
   });
 
   it("allows metadata-only edits in exploit without reconciling weights or bumping version", async () => {
