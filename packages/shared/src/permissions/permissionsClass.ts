@@ -37,9 +37,10 @@ import { HoldoutInterface } from "../validators/holdout";
 import { PermissionError } from "../util/";
 import { READ_ONLY_PERMISSIONS } from "./permissions.constants";
 import {
-  PermissionFamily,
+  MODEL_FAMILY,
   REVISION_PERMISSIONS,
   RevisionAction,
+  RevisionModel,
 } from "./revisionPermissions";
 
 type NotificationEvent = {
@@ -338,28 +339,29 @@ export class Permissions {
     );
   };
 
-  // Table-driven permission check for a revisioned entity's lifecycle action.
-  // The family/action -> atom+scope mapping lives in revisionPermissions.ts
-  // (REVISION_PERMISSIONS) — the single source of truth. Project-scoped actions
-  // ignore `environments`; environment-scoped actions (flag publish/revert) gate
-  // on the environments a change touches. This is the entry point every
-  // revisioned entity should route through.
+  // The single entry point for a revisioned entity's lifecycle permissions.
+  // Maps (model, action) -> atom+scope via REVISION_PERMISSIONS. Env-scoped
+  // actions gate on `environments`; project-scoped actions ignore them.
   public canRevisionAction = (
-    family: PermissionFamily,
+    model: RevisionModel,
     action: RevisionAction,
-    obj: { projects?: string[] },
+    // Pass the entity directly — single-project (`project`) or multi-project
+    // (`projects`) — so callers don't wrap or cast.
+    obj: { project?: string; projects?: string[] },
     environments: string[] = [],
   ): boolean => {
-    const { permission, scope } = REVISION_PERMISSIONS[family][action];
+    const projects = obj.projects ?? (obj.project ? [obj.project] : []);
+    const { permission, scope } =
+      REVISION_PERMISSIONS[MODEL_FAMILY[model]][action];
     if (scope === "environment") {
       return this.checkEnvFilterPermission(
-        obj,
+        { projects },
         environments,
         permission as EnvScopedPermission,
       );
     }
     return this.checkProjectFilterPermission(
-      obj,
+      { projects },
       permission as ProjectScopedPermission,
     );
   };
@@ -377,13 +379,13 @@ export class Permissions {
       // read-only sample-data project) can't gate the CTA when it's the only
       // project.
       return (
-        this.canRevisionAction("flags", "manage", { projects: [] }) ||
+        this.canRevisionAction("feature", "manage", { projects: [] }) ||
         allProjects.some((p) =>
-          this.canRevisionAction("flags", "manage", { projects: [p.id] }),
+          this.canRevisionAction("feature", "manage", { projects: [p.id] }),
         )
       );
     }
-    return this.canRevisionAction("flags", "manage", {
+    return this.canRevisionAction("feature", "manage", {
       projects: project ? [project] : [],
     });
   };
@@ -391,7 +393,7 @@ export class Permissions {
   public canCreateFeature = (
     feature: Pick<FeatureInterface, "project">,
   ): boolean => {
-    return this.canRevisionAction("flags", "manage", {
+    return this.canRevisionAction("feature", "manage", {
       projects: feature.project ? [feature.project] : [],
     });
   };
@@ -412,7 +414,7 @@ export class Permissions {
   public canDeleteFeature = (
     feature: Pick<FeatureInterface, "project">,
   ): boolean => {
-    return this.canRevisionAction("flags", "delete", {
+    return this.canRevisionAction("feature", "delete", {
       projects: feature.project ? [feature.project] : [],
     });
   };
@@ -424,7 +426,7 @@ export class Permissions {
     environments: string[],
   ): boolean => {
     return this.canRevisionAction(
-      "flags",
+      "feature",
       "revert",
       { projects: feature.project ? [feature.project] : [] },
       environments,
@@ -983,7 +985,7 @@ export class Permissions {
   public canManageFeatureDrafts = (
     feature: Pick<FeatureInterface, "project">,
   ) => {
-    return this.canRevisionAction("flags", "draft", {
+    return this.canRevisionAction("feature", "draft", {
       projects: feature.project ? [feature.project] : [],
     });
   };
@@ -991,7 +993,7 @@ export class Permissions {
   public canReviewFeatureDrafts = (
     feature: Pick<FeatureInterface, "project">,
   ): boolean => {
-    return this.canRevisionAction("flags", "review", {
+    return this.canRevisionAction("feature", "review", {
       projects: feature.project ? [feature.project] : [],
     });
   };
@@ -1288,7 +1290,7 @@ export class Permissions {
     environments: string[],
   ): boolean => {
     return this.canRevisionAction(
-      "flags",
+      "feature",
       "publish",
       { projects: feature.project ? [feature.project] : [] },
       environments,
@@ -1386,7 +1388,7 @@ export class Permissions {
   public canCreateSavedGroup = (
     savedGroup: Pick<SavedGroupInterface, "projects">,
   ): boolean => {
-    return this.canRevisionAction("savedGroups", "manage", savedGroup);
+    return this.canRevisionAction("saved-group", "manage", savedGroup);
   };
 
   public canUpdateSavedGroup = (
@@ -1404,13 +1406,13 @@ export class Permissions {
   public canDeleteSavedGroup = (
     savedGroup: Pick<SavedGroupInterface, "projects">,
   ): boolean => {
-    return this.canRevisionAction("savedGroups", "delete", savedGroup);
+    return this.canRevisionAction("saved-group", "delete", savedGroup);
   };
 
   public canCreateConstant = (
     constant: Pick<ConstantInterface, "project">,
   ): boolean => {
-    return this.canRevisionAction("flags", "manage", {
+    return this.canRevisionAction("constant", "manage", {
       projects: constant.project ? [constant.project] : [],
     });
   };
@@ -1429,7 +1431,7 @@ export class Permissions {
   public canDeleteConstant = (
     constant: Pick<ConstantInterface, "project">,
   ): boolean => {
-    return this.canRevisionAction("flags", "delete", {
+    return this.canRevisionAction("constant", "delete", {
       projects: constant.project ? [constant.project] : [],
     });
   };
@@ -1437,7 +1439,7 @@ export class Permissions {
   public canCreateConfig = (
     config: Pick<ConfigInterface, "project">,
   ): boolean => {
-    return this.canRevisionAction("flags", "manage", {
+    return this.canRevisionAction("config", "manage", {
       projects: config.project ? [config.project] : [],
     });
   };
@@ -1456,7 +1458,7 @@ export class Permissions {
   public canDeleteConfig = (
     config: Pick<ConfigInterface, "project">,
   ): boolean => {
-    return this.canRevisionAction("flags", "delete", {
+    return this.canRevisionAction("config", "delete", {
       projects: config.project ? [config.project] : [],
     });
   };

@@ -1852,8 +1852,7 @@ export async function postFeaturePublish(
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const environmentIds = environments.map((e) => e.id);
 
-  // Publishing is gated per-environment by canPublishFeature below; it does not
-  // require edit/manage rights (a publish-only role can ship approved drafts).
+  // Publish is gated per-env by canPublishFeature below; no manage required.
 
   const revision = await getRevision({
     context,
@@ -2290,9 +2289,7 @@ export async function postFeatureRevert(
     throw new Error("Can only revert to previously published revisions");
   }
 
-  // Revert is its own capability (revertFlags), gated per-change below via
-  // canRevertFeature — an incident responder can roll back without edit or
-  // general publish rights.
+  // Revert is its own capability (revertFlags), gated per-change below.
 
   // Intentionally no assertRegisteredAttributes() call here — reverting
   // restores a previously-published state as-is, which may reference

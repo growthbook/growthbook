@@ -128,7 +128,7 @@ export const savedGroupAdapter: EntityRevisionAdapter<SavedGroupInterface> = {
   // project-scoped (unlike the Flags family).
   canManageDrafts(context: Context, snapshot: SavedGroupInterface): boolean {
     return context.permissions.canRevisionAction(
-      "savedGroups",
+      "saved-group",
       "draft",
       snapshot,
     );
@@ -136,7 +136,7 @@ export const savedGroupAdapter: EntityRevisionAdapter<SavedGroupInterface> = {
 
   canReview(context: Context, snapshot: SavedGroupInterface): boolean {
     return context.permissions.canRevisionAction(
-      "savedGroups",
+      "saved-group",
       "review",
       snapshot,
     );
@@ -144,7 +144,7 @@ export const savedGroupAdapter: EntityRevisionAdapter<SavedGroupInterface> = {
 
   canPublishRevision(context: Context, snapshot: SavedGroupInterface): boolean {
     return context.permissions.canRevisionAction(
-      "savedGroups",
+      "saved-group",
       "publish",
       snapshot,
     );
@@ -152,7 +152,7 @@ export const savedGroupAdapter: EntityRevisionAdapter<SavedGroupInterface> = {
 
   canRevert(context: Context, snapshot: SavedGroupInterface): boolean {
     return context.permissions.canRevisionAction(
-      "savedGroups",
+      "saved-group",
       "revert",
       snapshot,
     );

@@ -8,6 +8,7 @@ import {
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
+import { configPublishEnvironments } from "back-end/src/revisions/revisionPublishEnvironments";
 import { configChangeAffectsServedValue } from "back-end/src/services/experimentGuard";
 import { assertConfigPublishGuards } from "back-end/src/services/publishGuards";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
@@ -35,9 +36,11 @@ export const postConfigRevisionRevert = createApiRequestHandler(
 
   const adapter = getAdapter("config");
   if (
-    !(adapter.canRevert ?? adapter.canUpdate)(
-      req.context,
-      config as Record<string, unknown>,
+    !req.context.permissions.canRevisionAction(
+      "config",
+      "revert",
+      config,
+      configPublishEnvironments(req.context, config),
     )
   ) {
     req.context.permissions.throwPermissionError();

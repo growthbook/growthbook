@@ -50,8 +50,7 @@ export async function publishFeatureRevision(
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
-  // Publishing is gated per-environment by canPublishFeature below; it does not
-  // require edit/manage rights (a publish-only role can ship approved drafts).
+  // Publish is gated per-env by canPublishFeature below; no manage required.
 
   const revision = await getRevision({
     context: req.context,

@@ -35,10 +35,7 @@ import type {
 
 export const MAX_BULK_PUBLISH_ITEMS = 50;
 
-// Whether a merge changes the entity's project ownership (single `project` or
-// `projects[]`). Only then does the post-merge state need manage authority on
-// the destination — otherwise publishing a same-project revision must not
-// require manage (a publish-only role can ship approved drafts).
+// Whether a merge changes the entity's project ownership (project / projects[]).
 function ownershipChanged(
   entity: Record<string, unknown>,
   proposedEntity: Record<string, unknown>,
@@ -205,9 +202,7 @@ export async function planBulkPublish(
     try {
       const { desiredState, hasChanges, proposedEntity } =
         await adapter.buildDesiredState(context, entity, revision);
-      // Project-move laundering guard: only a revision that changes project
-      // ownership needs manage authority over the post-merge (destination)
-      // state. A same-project publish is gated by publish authority alone.
+      // A project move additionally requires manage on the destination.
       if (
         ownershipChanged(entity, proposedEntity) &&
         !adapter.canUpdate(context, proposedEntity)

@@ -20,9 +20,7 @@ export async function deleteFeatureHandler(
     );
   }
 
-  // Deleting a feature is gated by the dedicated delete permission. The
-  // production-safety guard for deleting a LIVE feature is enforced separately
-  // below (archived check + REST bypass setting), not via publish permission.
+  // Delete is gated by the delete permission; live-feature safety is enforced below.
   if (!req.context.permissions.canDeleteFeature(feature)) {
     req.context.permissions.throwPermissionError();
   }

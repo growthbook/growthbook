@@ -49,6 +49,7 @@ import {
   schemaFailureGateOverride,
 } from "back-end/src/revisions/publishGates";
 import { applyPatchToSnapshot } from "back-end/src/revisions/util";
+import { constantPublishEnvironments } from "back-end/src/revisions/revisionPublishEnvironments";
 import { logger } from "back-end/src/util/logger";
 
 // Whitelist of fields the snapshot is allowed to carry, derived from the schema
@@ -86,15 +87,6 @@ function canEditConstant(
 
 function constantProjects(snapshot: ConstantInterface): string[] {
   return snapshot.project ? [snapshot.project] : [];
-}
-
-// Environment footprint for env-scoped publish/revert (decision B). A constant's
-// base `value` applies to all environments and `environmentValues` overrides can
-// touch any of them, so without the per-revision diff we conservatively require
-// publish/revert authority across all org environments. Tighten later against
-// the revision's actual changed environments.
-function constantPublishEnvironments(context: Context): string[] {
-  return context.org.settings?.environments?.map((e) => e.id) ?? [];
 }
 
 // Constants inherit the feature `requireReviews` org settings (drop-in for
@@ -160,20 +152,20 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
   },
 
   canManageDrafts(context: Context, snapshot: ConstantInterface): boolean {
-    return context.permissions.canRevisionAction("flags", "draft", {
+    return context.permissions.canRevisionAction("constant", "draft", {
       projects: constantProjects(snapshot),
     });
   },
 
   canReview(context: Context, snapshot: ConstantInterface): boolean {
-    return context.permissions.canRevisionAction("flags", "review", {
+    return context.permissions.canRevisionAction("constant", "review", {
       projects: constantProjects(snapshot),
     });
   },
 
   canPublishRevision(context: Context, snapshot: ConstantInterface): boolean {
     return context.permissions.canRevisionAction(
-      "flags",
+      "constant",
       "publish",
       { projects: constantProjects(snapshot) },
       constantPublishEnvironments(context),
@@ -182,7 +174,7 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
 
   canRevert(context: Context, snapshot: ConstantInterface): boolean {
     return context.permissions.canRevisionAction(
-      "flags",
+      "constant",
       "revert",
       { projects: constantProjects(snapshot) },
       constantPublishEnvironments(context),

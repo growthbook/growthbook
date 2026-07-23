@@ -1,7 +1,6 @@
 import { postConfigRevisionReopenValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
-import { callerCanRevisionAction } from "back-end/src/revisions/revisionActions";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 import { loadRevisionByVersion } from "./validations";
 import { toApiConfigRevision } from "./toApiConfigRevision";
@@ -26,14 +25,7 @@ export const postConfigRevisionReopen = createApiRequestHandler(
 
   // Authors can always reopen their own drafts; otherwise require edit perm.
   if (revision.authorId !== req.context.userId) {
-    if (
-      !callerCanRevisionAction(
-        req.context,
-        "config",
-        "draft",
-        config as Record<string, unknown>,
-      )
-    ) {
+    if (!req.context.permissions.canRevisionAction("config", "draft", config)) {
       req.context.permissions.throwPermissionError();
     }
   }

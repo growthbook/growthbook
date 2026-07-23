@@ -2,10 +2,7 @@ import { isUserBlockedFromApproving } from "shared/enterprise";
 import { postConstantRevisionSubmitReviewValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
-import {
-  callerCanRevisionAction,
-  maybeAutoPublishRevision,
-} from "back-end/src/revisions/revisionActions";
+import { maybeAutoPublishRevision } from "back-end/src/revisions/revisionActions";
 import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
 import { loadRevisionByVersion } from "./validations";
 import { toApiConstantRevision } from "./toApiConstantRevision";
@@ -25,12 +22,7 @@ export const postConstantRevisionSubmitReview = createApiRequestHandler(
   );
 
   if (
-    !callerCanRevisionAction(
-      req.context,
-      "constant",
-      "review",
-      constant as Record<string, unknown>,
-    )
+    !req.context.permissions.canRevisionAction("constant", "review", constant)
   ) {
     req.context.permissions.throwPermissionError();
   }

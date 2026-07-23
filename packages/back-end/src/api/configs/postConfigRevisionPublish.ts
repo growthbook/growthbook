@@ -13,6 +13,7 @@ import {
   NotFoundError,
 } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
+import { configPublishEnvironments } from "back-end/src/revisions/revisionPublishEnvironments";
 import {
   evaluatePublishGates,
   PublishBlockedError,
@@ -52,13 +53,13 @@ export const postConfigRevisionPublish = createApiRequestHandler(
 
   const adapter = getAdapter("config");
 
-  // Require publish authority against the LIVE entity before leaking any
-  // revision state. Destination-project manage rights for a project move are
-  // checked separately below, only when the revision actually changes project.
+  // Publish authority on the live entity (project-move manage checked below).
   if (
-    !(adapter.canPublishRevision ?? adapter.canUpdate)(
-      req.context,
-      config as Record<string, unknown>,
+    !req.context.permissions.canRevisionAction(
+      "config",
+      "publish",
+      config,
+      configPublishEnvironments(req.context, config),
     )
   ) {
     req.context.permissions.throwPermissionError();
@@ -156,8 +157,7 @@ export const postConfigRevisionPublish = createApiRequestHandler(
 
   const isBypass = approvalRequired && revision.status !== "approved";
 
-  // If the revision moves the config to a different project, also require update
-  // permission on the destination (publish alone doesn't grant a cross-project move).
+  // A project move additionally requires manage on the destination.
   const movesProject =
     "project" in desiredState &&
     (desiredState as { project?: string }).project !== config.project;

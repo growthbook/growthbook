@@ -54,8 +54,7 @@ export async function revertFeatureCore(
   const environmentIds = environments.map((e) => e.id);
   const allEnvironmentIds = getEnvironmentIdsFromOrg(organization);
 
-  // Revert is gated per-change below via canRevertFeature (revertFlags), not
-  // manage/publish — an incident responder can roll back without edit rights.
+  // Revert is gated per-change below via canRevertFeature (revertFlags).
 
   const { revision: version, comment } = body;
 

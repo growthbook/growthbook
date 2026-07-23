@@ -30,9 +30,10 @@ export const postSavedGroupRevisionRevert = createApiRequestHandler(
 
   const adapter = getAdapter("saved-group");
   if (
-    !(adapter.canRevert ?? adapter.canUpdate)(
-      req.context,
-      savedGroup as Record<string, unknown>,
+    !req.context.permissions.canRevisionAction(
+      "saved-group",
+      "revert",
+      savedGroup,
     )
   ) {
     req.context.permissions.throwPermissionError();

@@ -63,6 +63,7 @@ import {
   schemaFailureGateOverride,
 } from "back-end/src/revisions/publishGates";
 import { applyPatchToSnapshot } from "back-end/src/revisions/util";
+import { configPublishEnvironments } from "back-end/src/revisions/revisionPublishEnvironments";
 import { BadRequestError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import { normalizeConfigChangesAgainstAncestors } from "./configSchemaNormalize";
@@ -97,20 +98,6 @@ function canBypassApprovalForConfig(
 
 function canEditConfig(context: Context, snapshot: ConfigInterface): boolean {
   return context.permissions.canUpdateConfig(snapshot, {});
-}
-
-// Environment footprint a config publish/revert can affect: a flavor targets its
-// scoped environments; a base config's value applies to all environments. Used
-// to env-scope the publish/revert permission checks (decision B). NOTE: this is
-// the entity's flavor scope, not the precise per-revision changed-env diff — a
-// conservative approximation worth tightening later against proposedChanges.
-function configPublishEnvironments(
-  context: Context,
-  snapshot: ConfigInterface,
-): string[] {
-  const flavorEnvs = snapshot.scopedConfig?.environments;
-  if (flavorEnvs && flavorEnvs.length) return flavorEnvs;
-  return context.org.settings?.environments?.map((e) => e.id) ?? [];
 }
 
 function configProjects(snapshot: ConfigInterface): string[] {
@@ -170,20 +157,20 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
   },
 
   canManageDrafts(context: Context, snapshot: ConfigInterface): boolean {
-    return context.permissions.canRevisionAction("flags", "draft", {
+    return context.permissions.canRevisionAction("config", "draft", {
       projects: configProjects(snapshot),
     });
   },
 
   canReview(context: Context, snapshot: ConfigInterface): boolean {
-    return context.permissions.canRevisionAction("flags", "review", {
+    return context.permissions.canRevisionAction("config", "review", {
       projects: configProjects(snapshot),
     });
   },
 
   canPublishRevision(context: Context, snapshot: ConfigInterface): boolean {
     return context.permissions.canRevisionAction(
-      "flags",
+      "config",
       "publish",
       { projects: configProjects(snapshot) },
       configPublishEnvironments(context, snapshot),
@@ -192,7 +179,7 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
 
   canRevert(context: Context, snapshot: ConfigInterface): boolean {
     return context.permissions.canRevisionAction(
-      "flags",
+      "config",
       "revert",
       { projects: configProjects(snapshot) },
       configPublishEnvironments(context, snapshot),

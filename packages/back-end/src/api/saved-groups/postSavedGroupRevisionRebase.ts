@@ -12,7 +12,6 @@ import {
   NotFoundError,
 } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
-import { callerCanRevisionAction } from "back-end/src/revisions/revisionActions";
 import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
 import { isDraftStatus, loadRevisionByVersion } from "./validations";
 import { toApiSavedGroupRevision } from "./toApiSavedGroupRevision";
@@ -43,11 +42,10 @@ export const postSavedGroupRevisionRebase = createApiRequestHandler(
   // matches the internal /revision/:id/rebase semantics.
   const adapter = getAdapter("saved-group");
   if (
-    !callerCanRevisionAction(
-      req.context,
+    !req.context.permissions.canRevisionAction(
       "saved-group",
       "draft",
-      savedGroup as Record<string, unknown>,
+      savedGroup,
     )
   ) {
     req.context.permissions.throwPermissionError();

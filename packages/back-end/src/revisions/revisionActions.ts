@@ -28,30 +28,8 @@ import {
 import { decideScheduledPublishOutcome } from "back-end/src/revisions/publishFailurePolicy";
 import { logger } from "back-end/src/util/logger";
 
+// Actions the generic revision controller dispatches to adapter hooks.
 export type RevisionActionKind = "draft" | "review" | "revert" | "publish";
-
-// Whether the caller may perform a revision lifecycle action on an entity,
-// routed to the action-specific adapter hook and falling back to canUpdate when
-// the adapter doesn't override it. Single source of truth shared by the generic
-// revision controller and the external REST revision endpoints so both enforce
-// the same shape (draft-author / reviewer / publisher / reverter split).
-export function callerCanRevisionAction(
-  context: Context,
-  type: RevisionTargetType,
-  action: RevisionActionKind,
-  snapshot: Record<string, unknown>,
-): boolean {
-  const adapter = getAdapter(type);
-  const fn =
-    action === "draft"
-      ? adapter.canManageDrafts
-      : action === "review"
-        ? adapter.canReview
-        : action === "revert"
-          ? adapter.canRevert
-          : adapter.canPublishRevision;
-  return (fn ?? adapter.canUpdate)(context, snapshot);
-}
 
 export async function approveRevision(
   context: Context,

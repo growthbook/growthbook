@@ -14,7 +14,6 @@ import {
   createOrUpdateRevision,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
-import { callerCanRevisionAction } from "back-end/src/revisions/revisionActions";
 import { assertNoReferenceCycle } from "back-end/src/services/constants";
 import { assertConfigValueValid } from "back-end/src/services/configValidation";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
@@ -36,14 +35,7 @@ export const putConfigRevisionValue = createApiRequestHandler(
     throw new NotFoundError("Could not find config");
   }
 
-  if (
-    !callerCanRevisionAction(
-      req.context,
-      "config",
-      "draft",
-      config as Record<string, unknown>,
-    )
-  ) {
+  if (!req.context.permissions.canRevisionAction("config", "draft", config)) {
     req.context.permissions.throwPermissionError();
   }
 

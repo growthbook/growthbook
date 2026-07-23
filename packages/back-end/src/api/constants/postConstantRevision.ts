@@ -5,7 +5,6 @@ import {
   createOrUpdateRevision,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
-import { callerCanRevisionAction } from "back-end/src/revisions/revisionActions";
 import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
 import { toApiConstantRevision } from "./toApiConstantRevision";
 
@@ -18,12 +17,7 @@ export const postConstantRevision = createApiRequestHandler(
   }
 
   if (
-    !callerCanRevisionAction(
-      req.context,
-      "constant",
-      "draft",
-      constant as Record<string, unknown>,
-    )
+    !req.context.permissions.canRevisionAction("constant", "draft", constant)
   ) {
     req.context.permissions.throwPermissionError();
   }
