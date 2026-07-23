@@ -125,10 +125,8 @@ function toProjectPublicIds(
     .map((p) => p.publicId || p.id);
 }
 
-// Emit a rule's explicit project scope as public ids, scrubbed to the feature's
-// delivery set. An all-projects (or unscoped) rule emits nothing: by convention
-// an absent list means "every project the connection delivers to", so "all" is
-// never enumerated.
+// A rule's explicit project scope as public ids, scrubbed to the feature's
+// delivery set. All-projects/unscoped rules emit nothing (absent = all).
 function applyRuleProjectMetadata(
   rule: FeatureDefinitionRule,
   sourceRule: Parameters<typeof ruleProjectScope>[0],
@@ -165,9 +163,7 @@ export function buildPayloadMetadata<
   const metadata: T = {} as T;
 
   if (opts.includeProjectIdInMetadata && projectsMap) {
-    // Emit the explicit delivery projects (primary + targeting) as public ids.
-    // A feature targeting all projects emits nothing — an absent list means
-    // "all projects" by convention, so "all" is never enumerated.
+    // Explicit delivery projects as public ids; all-projects emits nothing (absent = all).
     const ids = getTargetingProjectIds(entity);
     if (ids !== null) {
       const publicIds = toProjectPublicIds(

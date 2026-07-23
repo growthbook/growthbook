@@ -43,9 +43,8 @@ export class ProjectModel extends BaseClass {
     return this.context.permissions.canReadSingleProjectResource(doc.id);
   }
 
-  // Every project id in the org, ignoring per-user read permissions. Used to
-  // fan out SDK-payload cache invalidation for all-projects features regardless
-  // of who triggered the change — NOT for anything user-facing.
+  // Every project id in the org, ignoring per-user read permissions — for
+  // all-projects cache-invalidation fan-out, never for user-facing reads.
   public async getAllIdsForOrg(): Promise<string[]> {
     const projects = await this._find({}, { bypassReadPermissionChecks: true });
     return projects.map((p) => p.id);

@@ -2624,11 +2624,9 @@ export function getTargetingReviewMode(
   return all ? all.mode : "strict";
 }
 
-// For an all-projects feature (which reaches every project), the only projects
-// that can add a review requirement beyond the primary are those named in a
-// requireReviews rule — so those are the projects to consider. getGoverning-
-// ReviewProjects then keeps the strict-mode ones. Avoids enumerating every org
-// project just to intersect it back down to the reviewed set.
+// The projects an all-projects feature can be governed by: only those named in
+// a requireReviews rule can add a requirement beyond the primary. Lets us skip
+// enumerating every org project just to intersect it back down.
 function candidateReviewProjects(requireReviews: RequireReview[]): string[] {
   return Array.from(new Set(requireReviews.flatMap((r) => r.projects))).filter(
     Boolean,
@@ -3139,11 +3137,9 @@ export function checkIfRevisionNeedsReview({
   // Boolean format: true = all changes require review, false/undefined = none do.
   if (!Array.isArray(requireReviews)) return !!requireReviews;
 
-  // Governing settings: primary + strict-mode targeting across the current+staged
-  // union (so adding and removing a project are both governed), each OR'd. When
-  // either the live or staged state targets all projects, the feature reaches
-  // every project, so consider the requireReviews-named projects (the only ones
-  // that can add a requirement) instead of an explicit list.
+  // Govern by primary + strict-mode targeting over the current+staged union (so
+  // adding and removing a project are both governed). All-projects (live or
+  // staged) uses the requireReviews-named projects instead of an explicit list.
   const usesAllProjects =
     !!feature.targetingAllProjects || !!revision.metadata?.targetingAllProjects;
   const stagedTargeting =
