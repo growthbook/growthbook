@@ -186,10 +186,8 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
           "Either provide variationId for all variations or none; mixed inputs are not allowed.",
         );
       }
-      // Always resolve the experiment for experiment-ref rules: needed to fill
-      // missing variationIds, to enforce holdout compatibility on holdout-bound
-      // features, and to block adding a holdout-bound experiment to a feature
-      // that is not itself in a holdout (below).
+      // Always resolve the experiment to check for missing variations
+      // and to check for holdout compatibility
       const experiment = await getExperimentById(
         req.context,
         ruleInput.experimentId,
@@ -213,10 +211,7 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
         }));
       }
 
-      // Use the target draft's holdout (revision.holdout carries the draft's
-      // holdout change, or a carry-forward of live), not just the live feature's
-      // — so a holdout added in this same draft satisfies the compatibility
-      // rules and a matching-holdout experiment can be added.
+      // Use target revision holdout to check compatibility
       const effectiveHoldout = revision.holdout ?? null;
       if (effectiveHoldout?.id) {
         if (experiment.status !== "draft") {
@@ -253,10 +248,6 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
           holdoutExperimentToLink = experiment;
         }
       } else if (experiment.holdoutId) {
-        // Feature is not in a holdout but the experiment is. Holdout gating is
-        // applied per-feature at payload build time (feature.holdout), so the
-        // experiment would run with no holdout carve-out. Require the feature to
-        // join the holdout first.
         const expHoldout = await req.context.models.holdout.getById(
           experiment.holdoutId,
         );

@@ -1743,18 +1743,30 @@ export async function applyRevisionChanges(
 // Refuse to remove/change a feature's holdout while a linked experiment still
 // belongs to it. We deliberately do NOT auto-unlink the experiment: doing so
 // would silently mutate a possibly-running experiment (and can't be right when
-// the experiment is shared with other features). Instead the user detaches the
-// experiment side explicitly first — either remove the experiment rule from the
-// feature, or remove the experiment from the holdout on the experiment.
+// the experiment is shared with other features).
 export async function assertNoLinkedHoldoutExperiments(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   holdoutId: string,
+  // The feature's post-publish rules (revision's merged rules), defaulting to
+  // the live rules. Folded in alongside linkedExperiments below.
+  rules?: FeatureRule[],
 ) {
+  // Union of two views of "experiments attached to this feature":
+  //  - linkedExperiments: catches enrollments whose experiment-ref rule is still
+  //    only in a draft (e.g. create-from-experiment) — live rules would miss it.
+  //  - experiment-ref rules: forward-looking, and a backstop if linkedExperiments
+  //    has drifted from the rules.
+  // Either one being in this holdout means removing the feature's holdout would
+  // strand that experiment, so block on the union.
+  const ruleExperimentIds = (rules ?? feature.rules ?? [])
+    .filter((rule) => rule.type === "experiment-ref")
+    .map((rule) => rule.experimentId);
+  const experimentIds = Array.from(
+    new Set([...(feature.linkedExperiments ?? []), ...ruleExperimentIds]),
+  );
   const linked = await Promise.all(
-    (feature.linkedExperiments ?? []).map((eid) =>
-      getExperimentById(context, eid),
-    ),
+    experimentIds.map((eid) => getExperimentById(context, eid)),
   );
   const stillInHoldout = linked
     .filter(
@@ -1773,16 +1785,10 @@ export async function assertNoLinkedHoldoutExperiments(
   }
 }
 
-// Read-only guard for a holdout membership change. Extracted from
-// `applyHoldoutSideEffects` so publish paths can run it BEFORE mutating the
-// feature: `applyRevisionChanges` advances `feature.version` and writes
-// `feature.holdout`, so a guard that throws afterward would strand the feature
-// pointing at a still-draft revision (the "live version is actually a draft"
-// corruption). Runs nothing side-effecting, so callers can invoke it up front.
-//
-// `rules` should be the feature's POST-publish rule set (the revision's merged
-// rules), not the stale live `feature.rules` — otherwise a draft that bundles a
-// new experiment-ref for an already-running experiment slips past the guard.
+// Use POST-publish rule set for `rules` so we can check for holdout compatibility
+// on the draft revision and make sure the holdout change is allowed.
+
+// Read-only so a rejection doesn't happen mid-publish and strand features.
 export async function assertHoldoutChangeAllowed(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
@@ -1805,7 +1811,12 @@ export async function assertHoldoutChangeAllowed(
   // refuse while any linked experiment still belongs to it. The user detaches
   // the experiment side first rather than us silently unlinking it.
   if (prevHoldoutId) {
-    await assertNoLinkedHoldoutExperiments(context, feature, prevHoldoutId);
+    await assertNoLinkedHoldoutExperiments(
+      context,
+      feature,
+      prevHoldoutId,
+      rules,
+    );
   }
 
   // Pure removal: nothing further to validate.
@@ -1844,7 +1855,6 @@ export async function assertHoldoutChangeAllowed(
 // `result.holdout` is defined, so all publish paths (direct, approval,
 // revert, etc.) are covered. `feature` is pre-publish (used for prevHoldout);
 // `newHoldout: null` means "remove from holdout".
-
 export async function applyHoldoutSideEffects(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
@@ -2877,6 +2887,8 @@ export async function publishRevision({
         );
       }
     }
+
+    // TODO(holdouts): undo holdout side effects if the publish failed
     throw err;
   }
 

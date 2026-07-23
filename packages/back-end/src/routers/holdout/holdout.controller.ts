@@ -742,7 +742,12 @@ export const deleteHoldoutFeature = async (
   // off a feature while a linked experiment still belongs to it, or the
   // experiment would be left held-out with no feature gating it. Detach the
   // experiment (remove its rule, or remove it from the holdout) first.
-  await assertNoLinkedHoldoutExperiments(context, feature, holdout.id);
+  await assertNoLinkedHoldoutExperiments(
+    context,
+    feature,
+    holdout.id,
+    feature.rules,
+  );
 
   await removeHoldoutFromFeature(context, feature);
 

@@ -2914,13 +2914,9 @@ export async function postFeatureRule(
     rule.safeRolloutId = generateId("sr_");
   }
 
-  // Determine the holdout that will be live when this rule's revision is
-  // published: the target draft's holdout when editing an existing draft,
-  // otherwise the live feature's (a new draft branched from live carries
-  // feature.holdout forward). Checking the draft — not just live — lets a
-  // holdout added in the same draft satisfy the compatibility rules below.
-  // Read-only here so a rejection never leaves a stray draft behind.
   let effectiveHoldout = feature.holdout ?? null;
+  // If posting to a different revision, use the holdout from that revision
+  // to check compatibility
   if (parseInt(version) !== feature.version) {
     const targetRevision = await getRevision({
       context,
@@ -2971,11 +2967,6 @@ export async function postFeatureRule(
       holdoutExperimentToLink = experiment;
     }
   } else if (rule.type === "experiment-ref" && !effectiveHoldout?.id) {
-    // Block adding a holdout-bound experiment to a feature/draft that is not in
-    // a holdout. Holdout gating is applied per-feature at payload build time
-    // (via feature.holdout), so the experiment would run with no holdout
-    // carve-out and its analysis would be wrong. Require the feature to join the
-    // holdout first — either in this draft or a published revision.
     const experiment = await getExperimentById(context, rule.experimentId);
     if (experiment?.holdoutId) {
       const expHoldout = await context.models.holdout.getById(
@@ -3501,10 +3492,8 @@ export async function postFeatureExperimentRefRule(
       ? feature.version
       : (draftVersion ?? feature.version);
 
-  // Reconcile holdout membership between the experiment and the feature/draft,
-  // mirroring postFeatureRule so linking a feature from an experiment obeys the
-  // same invariant. Draft-aware: read the target draft's holdout read-only, so a
-  // rejection here never creates a stray draft.
+  // If posting to a different revision, use the holdout from that revision
+  // to check compatibility
   let effectiveHoldout = feature.holdout ?? null;
   if (targetVersion !== feature.version) {
     const targetRevision = await getRevision({
@@ -3530,9 +3519,6 @@ export async function postFeatureExperimentRefRule(
         `Cannot add experiment rule: experiment belongs to holdout "${expHoldout?.name || experiment.holdoutId}" but this feature uses holdout "${featureHoldout?.name || effectiveHoldout.id}".`,
       );
     }
-    // A holdout-free experiment joining a holdout feature must be safe to pull
-    // into the holdout; if so it's linked below (mirroring postFeatureRule).
-    // When the experiment is already in this holdout there's nothing to do.
     if (!experiment.holdoutId) {
       if (experiment.status !== "draft") {
         throw new Error(
@@ -3691,9 +3677,8 @@ export async function postFeatureExperimentRefRule(
     experiment,
   );
 
-  // Link the experiment into the feature's holdout when that holdout is already
-  // live. If it exists only in the draft, linking defers to publish via
-  // applyHoldoutSideEffects (the experiment is now in feature.linkedExperiments).
+  // TODO(holdouts): remove code below (which makes this endpoint consistent with API routes)
+  // and instead only link when the holdout and experiment go live
   if (holdoutExperimentToLink && feature.holdout?.id) {
     await updateExperiment({
       context,
