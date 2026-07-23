@@ -163,6 +163,7 @@ export async function executeContextualBanditVariationChange(
     updated = await context.models.contextualBandits.patchLeafWeights(
       cb.id,
       newLeafWeights,
+      { bumpVersion: true },
     );
   } else {
     updated = await context.models.contextualBandits.update(cb, {

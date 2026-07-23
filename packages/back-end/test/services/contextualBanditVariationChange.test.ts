@@ -131,6 +131,9 @@ describe("executeContextualBanditVariationChange", () => {
 
     expect(patchLeafWeightsMock).toHaveBeenCalledTimes(1);
     expect(patchLeafWeightsMock.mock.calls[0][1]).toEqual([]);
+    expect(patchLeafWeightsMock.mock.calls[0][2]).toEqual({
+      bumpVersion: true,
+    });
     expect(updated.banditVersion).toBe(cb.banditVersion + 1);
 
     expect(refreshLinkedFeaturePayloadsMock).toHaveBeenCalledWith(
@@ -194,6 +197,9 @@ describe("executeContextualBanditVariationChange", () => {
     expect(wmap[newId]).toBeCloseTo(1 / 3, 6);
     expect(sum(changes.variationWeights)).toBeCloseTo(1, 6);
     expect(patchLeafWeightsMock).toHaveBeenCalledTimes(1);
+    expect(patchLeafWeightsMock.mock.calls[0][2]).toEqual({
+      bumpVersion: true,
+    });
     expect(updated.banditVersion).toBe(cb.banditVersion + 1);
   });
 
