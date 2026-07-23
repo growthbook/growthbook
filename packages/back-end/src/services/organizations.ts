@@ -134,6 +134,21 @@ export function validateLoginMethod(
   org: OrganizationInterface,
   req: AuthRequest,
 ) {
+  // A self-serve managed connection is only trusted to assert identities for
+  // its own organization. Sessions are global, so without this an org admin
+  // who controls the connection's IdP could assert another org member's email
+  // and then access that member's other organizations.
+  if (
+    req.loginMethod?.selfServeManaged &&
+    req.loginMethod.organization &&
+    org.id !== req.loginMethod.organization &&
+    !req.superAdmin
+  ) {
+    throw new Error(
+      "This login method can only be used with the organization that owns the SSO connection.",
+    );
+  }
+
   if (
     org.restrictLoginMethod &&
     req.loginMethod?.id !== org.restrictLoginMethod &&
