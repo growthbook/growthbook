@@ -31,27 +31,20 @@ import {
   publishRevision as publishRevisionAction,
   maybeAutoPublishRevision,
   canEnableAutoPublishOnApproval,
+  callerCanRevisionAction,
+  RevisionActionKind,
 } from "back-end/src/revisions/revisionActions";
 
-// Route a revision permission check to the action-specific adapter hook,
-// falling back to canUpdate when the adapter doesn't override it. Lets a role
-// hold e.g. review-only or publish-only authority without full edit access.
+// Thin adapter over the shared revision-permission router (arg order suited to
+// this controller's call sites). Single source of routing logic lives in
+// revisionActions.callerCanRevisionAction.
 function canDoRevisionAction(
   type: RevisionTargetType,
-  action: "draft" | "review" | "revert" | "publish",
+  action: RevisionActionKind,
   context: ReqContext,
   snapshot: Record<string, unknown>,
 ): boolean {
-  const adapter = getAdapter(type);
-  const fn =
-    action === "draft"
-      ? adapter.canManageDrafts
-      : action === "review"
-        ? adapter.canReview
-        : action === "revert"
-          ? adapter.canRevert
-          : adapter.canPublishRevision;
-  return (fn ?? adapter.canUpdate)(context, snapshot);
+  return callerCanRevisionAction(context, type, action, snapshot);
 }
 
 // Arm-time acknowledgment for a deferred publish, via the entity's adapter hook
