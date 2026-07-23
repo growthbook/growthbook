@@ -3,6 +3,7 @@ import {
   SavedGroupInterface,
   LegacySavedGroupInterface,
   SavedGroupWithoutValues,
+  SavedGroupForDefinitions,
 } from "shared/types/saved-group";
 import { savedGroupValidator, ApiSavedGroup } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
@@ -193,6 +194,19 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
   public async getAllWithoutValues(): Promise<SavedGroupWithoutValues[]> {
     const groups = await this._find({}, { projection: { values: 0 } });
     return groups as SavedGroupWithoutValues[];
+  }
+
+  /**
+   * For `/organization/definitions`: drops both `values` and `condition`.
+   * Condition groups can carry multi-MB payloads, and definitions load on
+   * every page — fetch full fields per-group via `getById` instead.
+   */
+  public async getAllForDefinitions(): Promise<SavedGroupForDefinitions[]> {
+    const groups = await this._find(
+      {},
+      { projection: { values: 0, condition: 0 } },
+    );
+    return groups as SavedGroupForDefinitions[];
   }
 
   public toApiInterface(savedGroup: SavedGroupInterface): ApiSavedGroup {

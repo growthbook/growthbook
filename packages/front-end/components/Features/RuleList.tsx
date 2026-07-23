@@ -122,77 +122,82 @@ export default function RuleList(props: RuleListProps) {
   const { savedGroups } = useDefinitions();
   const [activeId, setActiveId] = useState<string | null>(null);
 
-  // Saved group definitions for conflict detection. Condition groups carry
-  // their `condition` in the definitions payload, but ID-list `values` are
-  // stripped from it (for size), so we fetch those lazily below. Until they
-  // arrive, a list group is opaque — conflict detection still surfaces soft
-  // overlap on its attribute, then upgrades to precise conflicts once values
-  // load and this map (and the memos below) recompute.
+  // Light defs from /organization/definitions (no condition/values). Heavy
+  // fields for groups this feature references are fetched below; until they
+  // arrive, conflict detection stays soft/opaque and upgrades once loaded.
   const savedGroupDefs = useMemo<Map<string, SavedGroupForConflicts>>(() => {
     const map = new Map<string, SavedGroupForConflicts>();
     for (const g of savedGroups) {
-      map.set(g.id, {
-        type: g.type,
-        attributeKey: g.attributeKey,
-        condition: g.condition,
-      });
+      map.set(g.id, { type: g.type, attributeKey: g.attributeKey });
     }
     return map;
   }, [savedGroups]);
 
-  // ID-list saved group ids referenced by this feature's rules (any env).
-  const referencedListGroupIds = useMemo<string[]>(() => {
+  // Saved group ids referenced by this feature's rules (any env).
+  const referencedGroupIds = useMemo<string[]>(() => {
     const ids = new Set<string>();
     for (const r of feature.rules ?? []) {
       for (const sg of r.savedGroups ?? []) {
         for (const id of sg.ids) {
-          if (savedGroupDefs.get(id)?.type === "list") ids.add(id);
+          if (savedGroupDefs.has(id)) ids.add(id);
         }
       }
     }
     return [...ids];
   }, [feature.rules, savedGroupDefs]);
 
-  // Lazily-fetched ID-list values, keyed by saved group id.
-  const [listGroupValues, setListGroupValues] = useState<Map<string, string[]>>(
-    new Map(),
-  );
+  // Lazily-fetched `values` / `condition`, keyed by saved group id.
+  const [fetchedGroupDetails, setFetchedGroupDetails] = useState<
+    Map<string, { values?: string[]; condition?: string }>
+  >(new Map());
 
   useEffect(() => {
-    const toFetch = referencedListGroupIds.filter(
-      (id) => !listGroupValues.has(id),
+    const toFetch = referencedGroupIds.filter(
+      (id) => !fetchedGroupDetails.has(id),
     );
     if (!toFetch.length) return;
     let cancelled = false;
     Promise.all(
       toFetch.map((id) =>
-        apiCall<{ savedGroup?: { values?: string[] } }>(`/saved-groups/${id}`)
-          .then((res) => ({ id, values: res.savedGroup?.values ?? [] }))
-          .catch(() => ({ id, values: [] as string[] })),
+        apiCall<{ savedGroup?: { values?: string[]; condition?: string } }>(
+          `/saved-groups/${id}`,
+        )
+          .then((res) => ({
+            id,
+            values: res.savedGroup?.values,
+            condition: res.savedGroup?.condition,
+          }))
+          .catch(() => ({
+            id,
+            values: undefined,
+            condition: undefined,
+          })),
       ),
     ).then((results) => {
       if (cancelled) return;
-      setListGroupValues((prev) => {
+      setFetchedGroupDetails((prev) => {
         const next = new Map(prev);
-        for (const { id, values } of results) next.set(id, values);
+        for (const { id, values, condition } of results) {
+          next.set(id, { values, condition });
+        }
         return next;
       });
     });
     return () => {
       cancelled = true;
     };
-  }, [referencedListGroupIds, listGroupValues, apiCall]);
+  }, [referencedGroupIds, fetchedGroupDetails, apiCall]);
 
   const savedGroupConflictMap = useMemo<
     Map<string, SavedGroupForConflicts>
   >(() => {
     const map = new Map<string, SavedGroupForConflicts>();
     for (const [id, def] of savedGroupDefs) {
-      const values = listGroupValues.get(id);
-      map.set(id, values ? { ...def, values } : def);
+      const details = fetchedGroupDetails.get(id);
+      map.set(id, details ? { ...def, ...details } : def);
     }
     return map;
-  }, [savedGroupDefs, listGroupValues]);
+  }, [savedGroupDefs, fetchedGroupDetails]);
 
   // allEnvsView: flat feature.rules narrowed by hiddenRuleIds.
   // single-env: project via getRules to honor env applicability + inheritance.

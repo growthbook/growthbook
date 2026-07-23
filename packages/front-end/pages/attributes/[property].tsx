@@ -14,7 +14,7 @@ import Link from "@/ui/Link";
 import PageHead from "@/components/Layout/PageHead";
 import { useAttributeSchema, useFeaturesList } from "@/services/features";
 import { useAuth } from "@/services/auth";
-import { useDefinitions } from "@/services/DefinitionsContext";
+import useApi from "@/hooks/useApi";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -43,7 +43,13 @@ export default function AttributeDetailPage() {
     [attributeSchema, property],
   );
 
-  const { savedGroups } = useDefinitions();
+  const { data: savedGroupsData } = useApi<{
+    savedGroups: SavedGroupWithoutValues[];
+  }>("/saved-groups");
+  const savedGroups = useMemo(
+    () => savedGroupsData?.savedGroups ?? [],
+    [savedGroupsData],
+  );
   const { features } = useFeaturesList({ useCurrentProject: false });
   const { experiments } = useExperiments();
   const { apiCall } = useAuth();

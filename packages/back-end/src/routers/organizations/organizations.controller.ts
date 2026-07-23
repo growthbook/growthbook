@@ -193,7 +193,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     context.models.segments.getAll(),
     context.models.metricGroups.getAll(),
     getAllTags(orgId),
-    context.models.savedGroups.getAllWithoutValues(),
+    context.models.savedGroups.getAllForDefinitions(),
     context.models.constants.getAllWithoutValues(),
     context.models.configs.getAllWithoutValues(),
     context.models.customFields.getCustomFields(),
