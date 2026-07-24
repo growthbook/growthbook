@@ -27,6 +27,16 @@
         "types": "./dist/plugins/index.d.ts",
         "default": "./dist/cjs/plugins/index.js"
       }
+    },
+    "./plugins/session-replay": {
+      "import": {
+        "types": "./dist/plugins/session-replay.d.ts",
+        "default": "./dist/esm/plugins/session-replay.mjs"
+      },
+      "require": {
+        "types": "./dist/plugins/session-replay.d.ts",
+        "default": "./dist/cjs/plugins/session-replay.js"
+      }
     }
   },
   "files": [
@@ -59,7 +69,8 @@
   },
   "author": "Jeremy Dorn",
   "dependencies": {
-    "dom-mutator": "^0.6.0"
+    "dom-mutator": "^0.6.0",
+    "rrweb": "2.0.1"
   },
   "devDependencies": {
     "@babel/cli": "^7.28.3",
@@ -69,6 +80,7 @@
     "@rollup/plugin-babel": "^6.1.0",
     "@rollup/plugin-node-resolve": "^16.0.3",
     "@rollup/plugin-replace": "^6.0.3",
+    "@rrweb/types": "2.0.1",
     "@types/jest": "^29.5.14",
     "@types/js-cookie": "^3.0.5",
     "@types/lodash": "^4.14.169",

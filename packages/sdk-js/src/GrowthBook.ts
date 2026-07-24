@@ -16,6 +16,8 @@ import type {
   RenderFunction,
   Result,
   SubscriptionFunction,
+  FeatureEvalCallback,
+  EventEvalCallback,
   TrackingCallback,
   TrackingData,
   WidenPrimitives,
@@ -82,6 +84,8 @@ export class GrowthBook<
   private _completedChangeIds: Set<string>;
   private _trackedFeatures: Record<string, string>;
   private _subscriptions: Set<SubscriptionFunction>;
+  private _featureEvalSubs: Set<FeatureEvalCallback>;
+  private _eventEvalSubs: Set<EventEvalCallback>;
   private _assigned: Map<
     string,
     {
@@ -108,6 +112,8 @@ export class GrowthBook<
 
   private _autoExperimentsAllowed: boolean;
   private _destroyed?: boolean;
+  private _sessionReplayStart: (() => void) | undefined;
+  private _sessionReplayStop: (() => void) | undefined;
 
   constructor(options?: Options) {
     options = options || {};
@@ -121,6 +127,8 @@ export class GrowthBook<
     this._trackedFeatures = {};
     this.debug = !!options.debug;
     this._subscriptions = new Set();
+    this._featureEvalSubs = new Set();
+    this._eventEvalSubs = new Set();
     this.ready = false;
     this._assigned = new Map();
     this._activeAutoExperiments = new Map();
@@ -519,6 +527,18 @@ export class GrowthBook<
     };
   }
 
+  /** @internal — for plugin use only (e.g. sessionReplayPlugin) */
+  public _onFeatureEval(cb: FeatureEvalCallback): () => void {
+    this._featureEvalSubs.add(cb);
+    return () => this._featureEvalSubs.delete(cb);
+  }
+
+  /** @internal — for plugin use only (e.g. sessionReplayPlugin) */
+  public _onEvent(cb: EventEvalCallback): () => void {
+    this._eventEvalSubs.add(cb);
+    return () => this._eventEvalSubs.delete(cb);
+  }
+
   private async _refreshForRemoteEval() {
     if (!this._options.remoteEval) return;
     if (!this._initialized) return;
@@ -536,6 +556,38 @@ export class GrowthBook<
 
   public onDestroy(cb: () => void) {
     this._destroyCallbacks.push(cb);
+  }
+
+  /** @internal — called by sessionReplayPlugin to register its handlers */
+  public _registerSessionReplay(start: () => void, stop: () => void) {
+    if (this._sessionReplayStart || this._sessionReplayStop) {
+      console.warn(
+        "[GrowthBook] sessionReplayPlugin registered more than once — " +
+          "only the latest handlers will be used. Check your plugins array for duplicates.",
+      );
+    }
+    this._sessionReplayStart = start;
+    this._sessionReplayStop = stop;
+  }
+
+  /** @internal — called by sessionReplayPlugin cleanup */
+  public _unregisterSessionReplay(start: () => void, stop: () => void) {
+    if (this._sessionReplayStart === start) {
+      this._sessionReplayStart = undefined;
+    }
+    if (this._sessionReplayStop === stop) {
+      this._sessionReplayStop = undefined;
+    }
+  }
+
+  public startSessionReplay() {
+    if (this._destroyed) return;
+    this._sessionReplayStart?.();
+  }
+
+  public stopSessionReplay() {
+    if (this._destroyed) return;
+    this._sessionReplayStop?.();
   }
 
   public isDestroyed() {
@@ -557,7 +609,11 @@ export class GrowthBook<
     });
 
     // Release references to save memory
+    this._sessionReplayStart = undefined;
+    this._sessionReplayStop = undefined;
     this._subscriptions.clear();
+    this._featureEvalSubs.clear();
+    this._eventEvalSubs.clear();
     this._assigned.clear();
     this._trackedExperiments.clear();
     this._completedChangeIds.clear();
@@ -652,6 +708,7 @@ export class GrowthBook<
       trackingCallback: this._options.trackingCallback,
       onFeatureUsage: this._options.onFeatureUsage,
       devLogs: this.logs,
+      featureEvalSubs: this._featureEvalSubs,
       trackedExperiments: this._trackedExperiments,
       trackedFeatureUsage: this._trackedFeatures,
     };
@@ -975,6 +1032,15 @@ export class GrowthBook<
         properties,
         timestamp: Date.now().toString(),
         logType: "event",
+      });
+    }
+    if (this._eventEvalSubs.size) {
+      this._eventEvalSubs.forEach((cb) => {
+        try {
+          cb(eventName, properties);
+        } catch (e) {
+          console.error(e);
+        }
       });
     }
     if (this._options.eventLogger) {

@@ -141,6 +141,16 @@ function onFeatureUsage(
         logType: "feature",
       });
     }
+
+    if (ctx.user.featureEvalSubs?.size) {
+      ctx.user.featureEvalSubs.forEach((cb) => {
+        try {
+          cb(key, ret);
+        } catch (e) {
+          console.error(e);
+        }
+      });
+    }
   }
 
   if (ctx.global.onFeatureUsage) {

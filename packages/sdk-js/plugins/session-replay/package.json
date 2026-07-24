@@ -1,0 +1,4 @@
+{
+  "main": "../../dist/cjs/plugins/session-replay.js",
+  "types": "../../dist/plugins/session-replay.d.ts"
+}
