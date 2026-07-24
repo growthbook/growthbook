@@ -865,30 +865,15 @@ export const apiExperimentResultsValidator = namedSchema(
   "ExperimentResults",
   z
     .object({
-      id: z
-        .string()
-        .describe(
-          "Unique result item id. Bulk result ids are derived from the snapshot and analysis dimension.",
-        ),
-      // Items expanded from the same snapshot run share this id.
-      snapshotId: z.string(),
+      id: z.string(),
       dateUpdated: z.string(),
-      // When the snapshot was generated.
-      dateCreated: z.string(),
       experimentId: z.string(),
       phase: z.string(),
-      type: z.enum(["standard", "exploratory", "report"]),
-      // What triggered the snapshot run, when recorded.
-      triggeredBy: z.string().optional(),
-      // Report id when type === "report".
-      reportId: z.string().optional(),
       dateStart: z.string(),
       dateEnd: z.string(),
       dimension: z.object({
         type: z.string(),
         id: z.string().optional(),
-        // `precomputed` is orthogonal to `type`; `type` is never "precomputed".
-        precomputed: z.boolean(),
       }),
       settings: apiExperimentAnalysisSettingsValidator,
       queryIds: z.array(z.string()),
@@ -911,37 +896,16 @@ export const apiExperimentResultsValidator = namedSchema(
                   analyses: z.array(
                     z.object({
                       engine: z.enum(["bayesian", "frequentist"]),
-                      differenceType: z.enum([
-                        "relative",
-                        "absolute",
-                        "scaled",
-                      ]),
-                      numerator: z.coerce.number().nullable(),
-                      denominator: z.coerce.number().nullable(),
-                      mean: z.coerce.number().nullable(),
-                      stddev: z.coerce.number().nullable(),
-                      effect: z.coerce
-                        .number()
-                        .nullable()
-                        .describe(
-                          "The estimated effect expressed according to differenceType.",
-                        ),
-                      percentChange: z.coerce
-                        .number()
-                        .nullable()
-                        .optional()
-                        .describe(
-                          "Deprecated. The relative effect, returned only when differenceType is relative. Use effect instead.",
-                        )
-                        .meta({ deprecated: true }),
-                      ciLow: z.coerce.number().nullable(),
-                      ciHigh: z.coerce.number().nullable(),
-                      pValue: z.coerce.number().nullable().optional(),
-                      risk: z.coerce.number().nullable().optional(),
-                      chanceToBeatControl: z.coerce
-                        .number()
-                        .nullable()
-                        .optional(),
+                      numerator: z.coerce.number(),
+                      denominator: z.coerce.number(),
+                      mean: z.coerce.number(),
+                      stddev: z.coerce.number(),
+                      percentChange: z.coerce.number(),
+                      ciLow: z.coerce.number(),
+                      ciHigh: z.coerce.number(),
+                      pValue: z.coerce.number().optional(),
+                      risk: z.coerce.number().optional(),
+                      chanceToBeatControl: z.coerce.number().optional(),
                     }),
                   ),
                 }),
@@ -956,6 +920,153 @@ export const apiExperimentResultsValidator = namedSchema(
 
 export type ApiExperimentResults = z.infer<
   typeof apiExperimentResultsValidator
+>;
+
+// ---------------------------------------------------------------------------
+// Bulk experiment results (dedicated to GET /experiments/:id/bulk-results)
+//
+// Unlike ExperimentResults (which is enriched from the current experiment),
+// this schema is snapshot-authoritative: settings, metric lists, effective
+// metric settings, the analysis window, and variation identity all come from
+// the stored snapshot and the specific analysis that produced the numbers.
+// Human-readable names remain best-effort current display metadata.
+// ---------------------------------------------------------------------------
+
+// Snapshot-time effective metric settings, copied from
+// snapshot.settings.metricSettings[].computedSettings. Omitted entirely for
+// legacy snapshots that predate computedSettings.
+const apiBulkResultMetricEffectiveSettings = z.object({
+  windowType: z.enum(["conversion", "lookback", ""]),
+  windowValue: z.number(),
+  windowUnit: z.enum(["minutes", "hours", "days", "weeks"]),
+  delayValue: z.number(),
+  delayUnit: z.enum(["minutes", "hours", "days", "weeks"]),
+  properPrior: z.boolean(),
+  properPriorMean: z.number(),
+  properPriorStdDev: z.number(),
+  regressionAdjustmentEnabled: z.boolean(),
+  regressionAdjustmentDays: z.number(),
+  targetMDE: z.number().optional(),
+});
+
+// Metric role entry. No `overrides` field: the snapshot stores effective
+// values, not override provenance, and this is a new schema with no existing
+// consumers.
+const apiBulkResultMetric = z.object({
+  metricId: z.string(),
+  effectiveSettings: apiBulkResultMetricEffectiveSettings.optional(),
+});
+
+// Snapshot-authoritative analysis settings.
+const apiBulkResultSettings = z.object({
+  datasourceId: z.string(),
+  assignmentQueryId: z.string(),
+  experimentId: z.string(),
+  segmentId: z.string(),
+  queryFilter: z.string(),
+  inProgressConversions: z.enum(["include", "exclude"]),
+  attributionModel: z.enum([
+    "firstExposure",
+    "experimentDuration",
+    "lookbackOverride",
+  ]),
+  lookbackOverride: apiLookbackOverride.optional(),
+  statsEngine: z.enum(["bayesian", "frequentist"]),
+  regressionAdjustmentEnabled: z.boolean(),
+  sequentialTestingEnabled: z.boolean().optional(),
+  sequentialTestingTuningParameter: z.number().optional(),
+  postStratificationEnabled: z.boolean().optional(),
+  pValueThreshold: z.number().optional(),
+  goals: z.array(apiBulkResultMetric),
+  secondaryMetrics: z.array(apiBulkResultMetric),
+  guardrails: z.array(apiBulkResultMetric),
+  activationMetric: apiBulkResultMetric.optional(),
+});
+
+const apiBulkResultVariation = z.object({
+  // Position in the snapshot's stored variation array; the authoritative
+  // join key for statistics.
+  variationIndex: z.number(),
+  // snapshot.settings.variations[i].id (the warehouse/SDK variation key).
+  // Synthetic index strings ("0", "1", ...) on legacy migrated snapshots.
+  variationKey: z.string(),
+  // Current internal experiment variation id/name, present only when
+  // variationKey matches a current variation. Best-effort display metadata;
+  // may reflect post-snapshot renames.
+  variationId: z.string().optional(),
+  variationName: z.string().optional(),
+  users: z.number(),
+  analyses: z.array(
+    z.object({
+      engine: z.enum(["bayesian", "frequentist"]),
+      differenceType: z.enum(["relative", "absolute", "scaled"]),
+      // All statistics are null when missing or non-finite.
+      numerator: z.number().nullable(),
+      denominator: z.number().nullable(),
+      mean: z.number().nullable(),
+      stddev: z.number().nullable(),
+      // Estimated effect expressed according to differenceType.
+      effect: z.number().nullable(),
+      ciLow: z.number().nullable(),
+      ciHigh: z.number().nullable(),
+      pValue: z.number().nullable().optional(),
+      chanceToBeatControl: z.number().nullable().optional(),
+    }),
+  ),
+});
+
+// Corresponds to schemas/ExperimentBulkResult.yaml
+export const apiExperimentBulkResultValidator = namedSchema(
+  "ExperimentBulkResult",
+  z
+    .object({
+      // Unique per item: `${snapshotId}:overall` or
+      // `${snapshotId}:dimension:${encodedDimensionId}`.
+      id: z.string(),
+      // Shared by items expanded from the same snapshot run.
+      snapshotId: z.string(),
+      experimentId: z.string(),
+      phase: z.string(),
+      type: z.enum(["standard", "exploratory", "report"]),
+      triggeredBy: z.string().optional(),
+      // Report id when type === "report".
+      reportId: z.string().optional(),
+      // When the snapshot was generated.
+      dateCreated: z.string(),
+      // Analysis window frozen at snapshot time
+      // (snapshot.settings.startDate/endDate, not current phase dates).
+      dateStart: z.string(),
+      dateEnd: z.string(),
+      dimension: z.object({
+        type: z.string(),
+        id: z.string().optional(),
+        // `precomputed` is orthogonal to `type`; `type` is never "precomputed".
+        precomputed: z.boolean(),
+      }),
+      settings: apiBulkResultSettings,
+      queryIds: z.array(z.string()),
+      results: z.array(
+        z.object({
+          dimension: z.string(),
+          totalUsers: z.number(),
+          checks: z.object({ srm: z.number() }),
+          metrics: z.array(
+            z.object({
+              metricId: z.string(),
+              // Best-effort current display name; omitted when the metric no
+              // longer resolves. May reflect post-snapshot renames.
+              metricName: z.string().optional(),
+              variations: z.array(apiBulkResultVariation),
+            }),
+          ),
+        }),
+      ),
+    })
+    .strict(),
+);
+
+export type ApiExperimentBulkResult = z.infer<
+  typeof apiExperimentBulkResultValidator
 >;
 
 // ---------------------------------------------------------------------------
@@ -1964,13 +2075,15 @@ export const getExperimentBulkResultsValidator = {
   paramsSchema: idParams,
   responseSchema: z.intersection(
     z.object({
-      results: z.array(apiExperimentResultsValidator),
+      results: z.array(apiExperimentBulkResultValidator),
     }),
     apiPaginationFieldsValidator,
   ),
   summary: "Get bulk results for an experiment",
   description: [
-    "Returns every snapshot for an experiment generated within a date window, as a flat list of result items that reuse the `ExperimentResults` shape.",
+    "Returns every snapshot for an experiment generated within a date window, as a flat list of `ExperimentBulkResult` items.",
+    "",
+    "This payload is snapshot-authoritative: `settings`, metric lists, effective metric settings, the analysis window (`dateStart`/`dateEnd`), and each variation's `variationKey`/`variationIndex` all come from the stored snapshot and the analysis that produced the numbers. `variationId`, `variationName`, and `metricName` are best-effort current display metadata resolved by id and may reflect renames (or be absent) if the experiment changed after the snapshot was generated.",
     "",
     "Each snapshot expands into one item per dimension. Items from the same snapshot share `snapshotId`, and each stored difference type (relative, absolute, scaled) is folded into each variation's `analyses` array. Missing difference-type variants are not computed by this endpoint. Only the snapshot's default analysis and its stored difference-type variants are returned; ad-hoc analyses with other settings (e.g. a different baseline or stats engine) are excluded.",
     "Each item has a unique `id` derived from its `snapshotId` and raw analysis dimension id.",
@@ -1978,6 +2091,8 @@ export const getExperimentBulkResultsValidator = {
     "Snapshot type and dimension breakdown are independent, explicit signals:",
     "- `type` is one of `standard`, `exploratory`, or `report`; report snapshots also include `reportId`.",
     "- `dimension` describes the breakdown; `dimension.precomputed` marks precomputed dimensions while `dimension.type` resolves to the underlying kind (never `precomputed`).",
+    "",
+    "Legacy snapshots generated before certain fields were captured fall back to current experiment values only when the stored field is absent; `effectiveSettings` is omitted when the snapshot predates computed metric settings.",
     "",
     "Pagination semantics:",
     "- `total` is the count of snapshots matching the filters.",

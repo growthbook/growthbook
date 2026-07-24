@@ -2,7 +2,7 @@ import { getExperimentBulkResultsValidator } from "shared/validators";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { findSnapshotsByExperiment } from "back-end/src/models/ExperimentSnapshotModel";
 import {
-  getMetricMapForExperiment,
+  getMetricMapForExperimentSnapshots,
   toExperimentSnapshotBulkResultsApiInterface,
 } from "back-end/src/services/experiments";
 import {
@@ -36,18 +36,23 @@ export const getExperimentBulkResults = createApiRequestHandler(
 
   const { limit, offset } = validatePagination(req.query);
 
-  const [{ snapshots, total }, metricsById] = await Promise.all([
-    findSnapshotsByExperiment(req.context, {
-      experiment: experiment.id,
-      dateStart,
-      dateEnd,
-      phase,
-      type: req.query.type,
-      limit,
-      offset,
-    }),
-    getMetricMapForExperiment(req.context, experiment),
-  ]);
+  const { snapshots, total } = await findSnapshotsByExperiment(req.context, {
+    experiment: experiment.id,
+    dateStart,
+    dateEnd,
+    phase,
+    type: req.query.type,
+    limit,
+    offset,
+  });
+
+  // Resolve display names from metrics referenced by the returned snapshots,
+  // including any since removed from the experiment but still in the org.
+  const metricsById = await getMetricMapForExperimentSnapshots(
+    req.context,
+    experiment,
+    snapshots,
+  );
 
   // A single snapshot expands into one result item per dimension; pagination
   // stays over snapshots, so `count` reflects snapshots on this page.

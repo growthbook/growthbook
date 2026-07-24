@@ -78,10 +78,12 @@ import {
   updateExperimentValidator,
   SafeRolloutSnapshotAnalysis,
   IncrementalRefreshInterface,
+  LookbackOverride,
   LookbackOverrideValueUnit,
   ApiExperiment,
   ApiExperimentMetric,
   ApiExperimentResults,
+  ApiExperimentBulkResult,
   ApiMetric,
   ExperimentType,
 } from "shared/validators";
@@ -299,6 +301,36 @@ export async function getMetricMapForExperiment(
     metricGroups,
   );
   const metrics = await getExperimentMetricsByIds(context, metricIds);
+  return new Map(metrics.map((m) => [m.id, m]));
+}
+
+// Like getMetricMapForExperiment, but also resolves metrics referenced only by
+// the given snapshots (e.g. metrics since removed from the experiment but still
+// present in the org). Used to enrich bulk-result display names by id.
+export async function getMetricMapForExperimentSnapshots(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+  snapshots: ExperimentSnapshotInterface[],
+): Promise<Map<string, ExperimentMetricInterface>> {
+  const metricGroups = await context.models.metricGroups.getAll();
+  const metricIds = new Set(
+    getAllMetricIdsFromExperiment(experiment, true, metricGroups),
+  );
+  for (const snapshot of snapshots) {
+    const settings = snapshot.settings;
+    settings.metricSettings.forEach((m) => metricIds.add(m.id));
+    settings.goalMetrics.forEach((m) => metricIds.add(m));
+    settings.secondaryMetrics.forEach((m) => metricIds.add(m));
+    settings.guardrailMetrics.forEach((m) => metricIds.add(m));
+    if (settings.activationMetric) metricIds.add(settings.activationMetric);
+  }
+  // Snapshot ids may be slice-metric ids; resolve to base metric ids to fetch.
+  const baseMetricIds = Array.from(
+    new Set(
+      Array.from(metricIds).map((id) => parseSliceMetricId(id).baseMetricId),
+    ),
+  );
+  const metrics = await getExperimentMetricsByIds(context, baseMetricIds);
   return new Map(metrics.map((m) => [m.id, m]));
 }
 
@@ -3031,14 +3063,14 @@ export function getPrecomputedDimensionIdsInAnalyses(
   return Array.from(ids);
 }
 
-// Maps a single per-variation SnapshotMetric into an API analysis entry for a
-// given stats engine + difference type.
+// Maps a single per-variation SnapshotMetric into a bulk-results API analysis
+// entry for a given stats engine + difference type. Missing/non-finite stats
+// are emitted as null. Used only by the bulk-results serializer.
 export function toApiResultAnalysis(
   engine: StatsEngine,
   differenceType: DifferenceType,
   data: SnapshotMetric | undefined,
 ) {
-  const effect = safeFloatOrNull(data?.expected);
   return {
     engine,
     differenceType,
@@ -3046,14 +3078,21 @@ export function toApiResultAnalysis(
     denominator: safeFloatOrNull(data?.denominator ?? data?.users),
     mean: safeFloatOrNull(data?.stats?.mean),
     stddev: safeFloatOrNull(data?.stats?.stddev),
-    effect,
-    ...(differenceType === "relative" ? { percentChange: effect } : null),
+    effect: safeFloatOrNull(data?.expected),
     ciLow: safeFloatOrNull(data?.ci?.[0]),
     ciHigh: safeFloatOrNull(data?.ci?.[1]),
     pValue: safeFloatOrNull(data?.pValue),
-    risk: safeFloatOrNull(data?.risk?.[1]),
     chanceToBeatControl: safeFloatOrNull(data?.chanceToWin),
   };
+}
+
+// Round to 20 decimal places to avoid returning subnormal floats (e.g. 2.7e-313)
+// that break many real-world JSON parsers. Legacy helper for the existing
+// (non-bulk) results serializer, which emits 0 rather than null for missing
+// values to preserve its established API contract.
+function safeFloat(n: number | undefined, fallback = 0): number {
+  if (n == null || !isFinite(n)) return fallback;
+  return parseFloat(n.toFixed(20));
 }
 
 export function toSnapshotApiInterface(
@@ -3061,10 +3100,23 @@ export function toSnapshotApiInterface(
   snapshot: ExperimentSnapshotInterface,
   metricsById: Map<string, ExperimentMetricInterface>,
 ): ApiExperimentResults {
-  const dimension = parseApiResultDimension(
-    snapshot.dimension ?? "",
-    snapshot.settings.precomputedUnitDimensionIds ?? [],
-  );
+  const dimension = !snapshot.dimension
+    ? {
+        type: "none",
+      }
+    : snapshot.dimension.match(/^exp:/)
+      ? {
+          type: "experiment",
+          id: snapshot.dimension.substring(4),
+        }
+      : snapshot.dimension.match(/^pre:/)
+        ? {
+            type: snapshot.dimension.substring(4),
+          }
+        : {
+            type: "user",
+            id: snapshot.dimension,
+          };
 
   const phase = experiment.phases[snapshot.phase];
 
@@ -3091,18 +3143,36 @@ export function toSnapshotApiInterface(
   // Resolve display names for every metric that appears in the results, using
   // the canonical "Parent (col: val, ...)" format for slice metrics so the
   // payload is self-describing.
-  const getMetricName = buildResultMetricNameResolver(metricIds, metricsById);
+  const baseMetricIds = Array.from(
+    new Set(
+      Array.from(metricIds).map((id) => parseSliceMetricId(id).baseMetricId),
+    ),
+  );
+  const baseMetricsById = new Map(
+    baseMetricIds.flatMap((id) => {
+      const m = metricsById.get(id);
+      return m ? [[id, m]] : [];
+    }),
+  );
+  const getMetricName = (id: string): string | undefined => {
+    const { baseMetricId, sliceLevels } = parseSliceMetricId(id);
+    const baseName = baseMetricsById.get(baseMetricId)?.name;
+    if (!baseName) return undefined;
+    if (!sliceLevels.length) return baseName;
+    const sliceContext = sliceLevels
+      .map(
+        (s) =>
+          `${s.column}: ${s.levels.length ? s.levels.join(" OR ") : "other"}`,
+      )
+      .join(", ");
+    return `${baseName} (${sliceContext})`;
+  };
 
   return {
     id: snapshot.id,
-    snapshotId: snapshot.id,
     dateUpdated: snapshot.dateCreated.toISOString(),
-    dateCreated: snapshot.dateCreated.toISOString(),
     experimentId: snapshot.experiment,
     phase: snapshot.phase + "",
-    type: snapshot.type ?? "standard",
-    ...(snapshot.triggeredBy ? { triggeredBy: snapshot.triggeredBy } : null),
-    ...(snapshot.report ? { reportId: snapshot.report } : null),
     dimension: dimension,
     dateStart: phase?.dateStarted?.toISOString() || "",
     dateEnd:
@@ -3156,11 +3226,20 @@ export function toSnapshotApiInterface(
                 ...(variationName ? { variationName } : null),
                 users: v.users,
                 analyses: [
-                  toApiResultAnalysis(
-                    analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE,
-                    analysis?.settings?.differenceType ?? "relative",
-                    data,
-                  ),
+                  {
+                    engine:
+                      analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE,
+                    numerator: safeFloat(data?.value),
+                    denominator: safeFloat(data?.denominator ?? data?.users),
+                    mean: safeFloat(data?.stats?.mean),
+                    stddev: safeFloat(data?.stats?.stddev),
+                    percentChange: safeFloat(data?.expected),
+                    ciLow: safeFloat(data?.ci?.[0]),
+                    ciHigh: safeFloat(data?.ci?.[1]),
+                    pValue: safeFloat(data?.pValue),
+                    risk: safeFloat(data?.risk?.[1]),
+                    chanceToBeatControl: safeFloat(data?.chanceToWin),
+                  },
                 ],
               };
             }),
@@ -3171,28 +3250,92 @@ export function toSnapshotApiInterface(
   };
 }
 
-// Serializes a single snapshot into one ExperimentResults-shaped item per
+// Snapshot-time effective metric settings, read from the stored
+// metricSettings[].computedSettings. Returns just `{ metricId }` for legacy
+// snapshots that predate computed settings (no invented values).
+function buildBulkResultMetric(
+  metricId: string,
+  snapshot: ExperimentSnapshotInterface,
+): ApiExperimentBulkResult["settings"]["goals"][number] {
+  const { baseMetricId } = parseSliceMetricId(metricId);
+  const metricSettings =
+    snapshot.settings.metricSettings.find((m) => m.id === metricId) ??
+    snapshot.settings.metricSettings.find((m) => m.id === baseMetricId);
+  const computed = metricSettings?.computedSettings;
+  const windowSettings = computed?.windowSettings;
+  if (!computed || !windowSettings) {
+    return { metricId };
+  }
+  return {
+    metricId,
+    effectiveSettings: {
+      windowType: windowSettings.type,
+      windowValue: windowSettings.windowValue,
+      windowUnit: windowSettings.windowUnit,
+      delayValue: windowSettings.delayValue,
+      delayUnit: windowSettings.delayUnit,
+      properPrior: computed.properPrior,
+      properPriorMean: computed.properPriorMean,
+      properPriorStdDev: computed.properPriorStdDev,
+      regressionAdjustmentEnabled: computed.regressionAdjustmentEnabled,
+      regressionAdjustmentDays: computed.regressionAdjustmentDays,
+      ...(computed.targetMDE !== undefined
+        ? { targetMDE: computed.targetMDE }
+        : null),
+    },
+  };
+}
+
+// Maps a stored snapshot lookback override to the API shape (date values are
+// serialized to ISO strings; window values stay numeric with their unit).
+function toApiBulkLookbackOverride(
+  lookbackOverride: LookbackOverride,
+): ApiExperimentBulkResult["settings"]["lookbackOverride"] {
+  if (lookbackOverride.type === "date") {
+    return { type: "date", value: lookbackOverride.value.toISOString() };
+  }
+  return {
+    type: "window",
+    value: lookbackOverride.value,
+    valueUnit: lookbackOverride.valueUnit,
+  };
+}
+
+// Serializes a single snapshot into one ExperimentBulkResult item per
 // dimension, using a curated selection of analyses: the default (0th)
 // analysis plus the variants differing from it only by difference type
 // (absolute/scaled), folded into each variation's `analyses` array. Precomputed
 // dimensions that have analyses on the snapshot become additional items using
 // the same selection rule. Ad-hoc setting variants (different baseline,
 // engine, the internal covariate-as-response helper, etc.) are never included.
+//
+// Unlike toSnapshotApiInterface, this payload is snapshot-authoritative:
+// settings, metric lists, effective metric settings, the analysis window, and
+// variation identity all come from the stored snapshot + the analysis that
+// produced the numbers. Current experiment values are used only to resolve
+// display names (best-effort) or as a fallback for absent legacy fields.
 export function toExperimentSnapshotBulkResultsApiInterface(
   experiment: ExperimentInterface,
   snapshot: ExperimentSnapshotInterface,
   metricsById: Map<string, ExperimentMetricInterface>,
-): ApiExperimentResults[] {
+): ApiExperimentBulkResult[] {
   const defaultAnalysis = snapshot.analyses[0];
   if (!defaultAnalysis || defaultAnalysis.status !== "success") return [];
 
   const phase = experiment.phases[snapshot.phase];
-  const phaseVariations = getPhaseVariations(experiment, snapshot.phase);
-  const variationIds = phaseVariations.map((v) => v.id);
-  const variationNames = phaseVariations.map((v) => v.name);
 
-  const activationMetric =
-    snapshot.settings.activationMetric || experiment.activationMetric;
+  // Resolve current internal id/name by matching the snapshot's stored
+  // variation key (never by blindly indexing the current phase). Keys are
+  // matched first, falling back to internal ids for older snapshots that
+  // stored ids as keys.
+  const currentVariationByKey = new Map(
+    experiment.variations.map((v) => [v.key, v] as const),
+  );
+  const currentVariationById = new Map(
+    experiment.variations.map((v) => [v.id, v] as const),
+  );
+
+  const activationMetric = snapshot.settings.activationMetric;
 
   const precomputedUnitDimensionIds =
     snapshot.settings.precomputedUnitDimensionIds ?? [];
@@ -3222,39 +3365,59 @@ export function toExperimentSnapshotBulkResultsApiInterface(
     );
   }
 
-  const dateStart = phase?.dateStarted?.toISOString() || "";
+  // Analysis window frozen at snapshot time; fall back to phase dates only for
+  // legacy snapshots without stored settings dates.
+  const dateStart =
+    snapshot.settings.startDate?.toISOString() ||
+    phase?.dateStarted?.toISOString() ||
+    "";
   const dateEnd =
-    phase?.dateEnded?.toISOString() || snapshot.runStarted?.toISOString() || "";
+    snapshot.settings.endDate?.toISOString() ||
+    phase?.dateEnded?.toISOString() ||
+    snapshot.runStarted?.toISOString() ||
+    "";
 
   // Data-generation settings are identical across dimensions of one snapshot;
-  // only the per-analysis statsEngine is added per item below.
+  // per-analysis stats options (statsEngine, regressionAdjustment, etc.) are
+  // added per item below.
   const baseSettings = {
-    datasourceId: experiment.datasource || "",
-    assignmentQueryId: experiment.exposureQueryId || "",
-    experimentId: experiment.trackingKey,
+    datasourceId: snapshot.settings.datasourceId || experiment.datasource || "",
+    assignmentQueryId:
+      snapshot.settings.exposureQueryId || experiment.exposureQueryId || "",
+    experimentId: snapshot.settings.experimentId || experiment.trackingKey,
     segmentId: snapshot.settings.segment,
     queryFilter: snapshot.settings.queryFilter,
     inProgressConversions: snapshot.settings.skipPartialData
       ? ("exclude" as const)
       : ("include" as const),
-    attributionModel: experiment.attributionModel || "firstExposure",
-    goals: experiment.goalMetrics.map((m) =>
-      getExperimentMetric(experiment, m),
+    attributionModel:
+      snapshot.settings.attributionModel ||
+      experiment.attributionModel ||
+      "firstExposure",
+    ...(snapshot.settings.lookbackOverride
+      ? {
+          lookbackOverride: toApiBulkLookbackOverride(
+            snapshot.settings.lookbackOverride,
+          ),
+        }
+      : null),
+    goals: snapshot.settings.goalMetrics.map((m) =>
+      buildBulkResultMetric(m, snapshot),
     ),
-    secondaryMetrics: experiment.secondaryMetrics.map((m) =>
-      getExperimentMetric(experiment, m),
+    secondaryMetrics: snapshot.settings.secondaryMetrics.map((m) =>
+      buildBulkResultMetric(m, snapshot),
     ),
-    guardrails: experiment.guardrailMetrics.map((m) =>
-      getExperimentMetric(experiment, m),
+    guardrails: snapshot.settings.guardrailMetrics.map((m) =>
+      buildBulkResultMetric(m, snapshot),
     ),
     ...(activationMetric
-      ? { activationMetric: getExperimentMetric(experiment, activationMetric) }
+      ? { activationMetric: buildBulkResultMetric(activationMetric, snapshot) }
       : null),
   };
 
   const queryIds = snapshot.queries.map((q) => q.query);
 
-  const items: ApiExperimentResults[] = [];
+  const items: ApiExperimentBulkResult[] = [];
 
   for (const [dimensionId, analyses] of analysesByDimension) {
     // The default (first) analysis establishes the result structure; every
@@ -3288,19 +3451,40 @@ export function toExperimentSnapshotBulkResultsApiInterface(
     items.push({
       id: buildExperimentBulkResultId(snapshot.id, dimensionId),
       snapshotId: snapshot.id,
-      dateUpdated: snapshot.dateCreated.toISOString(),
-      dateCreated: snapshot.dateCreated.toISOString(),
       experimentId: snapshot.experiment,
       phase: snapshot.phase + "",
       type: snapshot.type ?? "standard",
       ...(snapshot.triggeredBy ? { triggeredBy: snapshot.triggeredBy } : null),
       ...(snapshot.report ? { reportId: snapshot.report } : null),
-      dimension,
+      dateCreated: snapshot.dateCreated.toISOString(),
       dateStart,
       dateEnd,
+      dimension,
       settings: {
         ...baseSettings,
         statsEngine: baseAnalysis.settings.statsEngine || DEFAULT_STATS_ENGINE,
+        regressionAdjustmentEnabled:
+          baseAnalysis.settings.regressionAdjusted ?? false,
+        ...(baseAnalysis.settings.sequentialTesting !== undefined
+          ? {
+              sequentialTestingEnabled: baseAnalysis.settings.sequentialTesting,
+            }
+          : null),
+        ...(baseAnalysis.settings.sequentialTestingTuningParameter !== undefined
+          ? {
+              sequentialTestingTuningParameter:
+                baseAnalysis.settings.sequentialTestingTuningParameter,
+            }
+          : null),
+        ...(baseAnalysis.settings.postStratificationEnabled !== undefined
+          ? {
+              postStratificationEnabled:
+                baseAnalysis.settings.postStratificationEnabled,
+            }
+          : null),
+        ...(baseAnalysis.settings.pValueThreshold !== undefined
+          ? { pValueThreshold: baseAnalysis.settings.pValueThreshold }
+          : null),
       },
       queryIds,
       results: (baseAnalysis.results || []).map((s) => {
@@ -3316,10 +3500,16 @@ export function toExperimentSnapshotBulkResultsApiInterface(
               metricId: m,
               ...(metricName ? { metricName } : null),
               variations: s.variations.map((v, i) => {
-                const variationName = variationNames[i];
+                const variationKey =
+                  snapshot.settings.variations[i]?.id ?? `${i}`;
+                const current =
+                  currentVariationByKey.get(variationKey) ??
+                  currentVariationById.get(variationKey);
                 return {
-                  variationId: variationIds[i],
-                  ...(variationName ? { variationName } : null),
+                  variationIndex: i,
+                  variationKey,
+                  ...(current?.id ? { variationId: current.id } : null),
+                  ...(current?.name ? { variationName: current.name } : null),
                   users: v.users,
                   analyses: sliceByNamePerAnalysis.map(
                     ({ analysis, sliceByName }) => {

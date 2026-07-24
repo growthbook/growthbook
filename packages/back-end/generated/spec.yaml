@@ -377,6 +377,9 @@ tags:
     description: >-
       <SchemaDefinition
       schemaRef="#/components/schemas/ExperimentAnalysisSettings" />
+  - name: ExperimentBulkResult_model
+    x-displayName: Experiment Bulk Result
+    description: <SchemaDefinition schemaRef="#/components/schemas/ExperimentBulkResult" />
   - name: ExperimentDecisionFrameworkSettings_model
     x-displayName: Experiment Decision Framework Settings
     description: >-
@@ -12671,7 +12674,16 @@ paths:
       summary: Get bulk results for an experiment
       description: >-
         Returns every snapshot for an experiment generated within a date window,
-        as a flat list of result items that reuse the `ExperimentResults` shape.
+        as a flat list of `ExperimentBulkResult` items.
+
+
+        This payload is snapshot-authoritative: `settings`, metric lists,
+        effective metric settings, the analysis window (`dateStart`/`dateEnd`),
+        and each variation's `variationKey`/`variationIndex` all come from the
+        stored snapshot and the analysis that produced the numbers.
+        `variationId`, `variationName`, and `metricName` are best-effort current
+        display metadata resolved by id and may reflect renames (or be absent)
+        if the experiment changed after the snapshot was generated.
 
 
         Each snapshot expands into one item per dimension. Items from the same
@@ -12694,6 +12706,12 @@ paths:
         - `dimension` describes the breakdown; `dimension.precomputed` marks
         precomputed dimensions while `dimension.type` resolves to the underlying
         kind (never `precomputed`).
+
+
+        Legacy snapshots generated before certain fields were captured fall back
+        to current experiment values only when the stored field is absent;
+        `effectiveSettings` is omitted when the snapshot predates computed
+        metric settings.
 
 
         Pagination semantics:
@@ -12732,7 +12750,7 @@ paths:
                       results:
                         type: array
                         items:
-                          $ref: '#/components/schemas/ExperimentResults'
+                          $ref: '#/components/schemas/ExperimentBulkResult'
                     required:
                       - results
                     additionalProperties: false
@@ -42502,29 +42520,12 @@ components:
       type: object
       properties:
         id:
-          description: >-
-            Unique result item id. Bulk result ids are derived from the snapshot
-            and analysis dimension.
-          type: string
-        snapshotId:
           type: string
         dateUpdated:
-          type: string
-        dateCreated:
           type: string
         experimentId:
           type: string
         phase:
-          type: string
-        type:
-          type: string
-          enum:
-            - standard
-            - exploratory
-            - report
-        triggeredBy:
-          type: string
-        reportId:
           type: string
         dateStart:
           type: string
@@ -42537,11 +42538,8 @@ components:
               type: string
             id:
               type: string
-            precomputed:
-              type: boolean
           required:
             - type
-            - precomputed
           additionalProperties: false
         settings:
           $ref: '#/components/schemas/ExperimentAnalysisSettings'
@@ -42596,72 +42594,33 @@ components:
                                   enum:
                                     - bayesian
                                     - frequentist
-                                differenceType:
-                                  type: string
-                                  enum:
-                                    - relative
-                                    - absolute
-                                    - scaled
                                 numerator:
-                                  anyOf:
-                                    - type: number
-                                    - type: 'null'
+                                  type: number
                                 denominator:
-                                  anyOf:
-                                    - type: number
-                                    - type: 'null'
+                                  type: number
                                 mean:
-                                  anyOf:
-                                    - type: number
-                                    - type: 'null'
+                                  type: number
                                 stddev:
-                                  anyOf:
-                                    - type: number
-                                    - type: 'null'
-                                effect:
-                                  description: >-
-                                    The estimated effect expressed according to
-                                    differenceType.
-                                  anyOf:
-                                    - type: number
-                                    - type: 'null'
+                                  type: number
                                 percentChange:
-                                  description: >-
-                                    Deprecated. The relative effect, returned
-                                    only when differenceType is relative. Use
-                                    effect instead.
-                                  deprecated: true
-                                  anyOf:
-                                    - type: number
-                                    - type: 'null'
+                                  type: number
                                 ciLow:
-                                  anyOf:
-                                    - type: number
-                                    - type: 'null'
+                                  type: number
                                 ciHigh:
-                                  anyOf:
-                                    - type: number
-                                    - type: 'null'
+                                  type: number
                                 pValue:
-                                  anyOf:
-                                    - type: number
-                                    - type: 'null'
+                                  type: number
                                 risk:
-                                  anyOf:
-                                    - type: number
-                                    - type: 'null'
+                                  type: number
                                 chanceToBeatControl:
-                                  anyOf:
-                                    - type: number
-                                    - type: 'null'
+                                  type: number
                               required:
                                 - engine
-                                - differenceType
                                 - numerator
                                 - denominator
                                 - mean
                                 - stddev
-                                - effect
+                                - percentChange
                                 - ciLow
                                 - ciHigh
                               additionalProperties: false
@@ -42681,12 +42640,9 @@ components:
             additionalProperties: false
       required:
         - id
-        - snapshotId
         - dateUpdated
-        - dateCreated
         - experimentId
         - phase
-        - type
         - dateStart
         - dateEnd
         - dimension
@@ -43055,6 +43011,481 @@ components:
                 - status
               additionalProperties: false
           additionalProperties: false
+    ExperimentBulkResult:
+      type: object
+      properties:
+        id:
+          type: string
+        snapshotId:
+          type: string
+        experimentId:
+          type: string
+        phase:
+          type: string
+        type:
+          type: string
+          enum:
+            - standard
+            - exploratory
+            - report
+        triggeredBy:
+          type: string
+        reportId:
+          type: string
+        dateCreated:
+          type: string
+        dateStart:
+          type: string
+        dateEnd:
+          type: string
+        dimension:
+          type: object
+          properties:
+            type:
+              type: string
+            id:
+              type: string
+            precomputed:
+              type: boolean
+          required:
+            - type
+            - precomputed
+          additionalProperties: false
+        settings:
+          type: object
+          properties:
+            datasourceId:
+              type: string
+            assignmentQueryId:
+              type: string
+            experimentId:
+              type: string
+            segmentId:
+              type: string
+            queryFilter:
+              type: string
+            inProgressConversions:
+              type: string
+              enum:
+                - include
+                - exclude
+            attributionModel:
+              type: string
+              enum:
+                - firstExposure
+                - experimentDuration
+                - lookbackOverride
+            lookbackOverride:
+              $ref: '#/components/schemas/LookbackOverride'
+            statsEngine:
+              type: string
+              enum:
+                - bayesian
+                - frequentist
+            regressionAdjustmentEnabled:
+              type: boolean
+            sequentialTestingEnabled:
+              type: boolean
+            sequentialTestingTuningParameter:
+              type: number
+            postStratificationEnabled:
+              type: boolean
+            pValueThreshold:
+              type: number
+            goals:
+              type: array
+              items:
+                type: object
+                properties:
+                  metricId:
+                    type: string
+                  effectiveSettings:
+                    type: object
+                    properties:
+                      windowType:
+                        type: string
+                        enum:
+                          - conversion
+                          - lookback
+                          - ''
+                      windowValue:
+                        type: number
+                      windowUnit:
+                        type: string
+                        enum:
+                          - minutes
+                          - hours
+                          - days
+                          - weeks
+                      delayValue:
+                        type: number
+                      delayUnit:
+                        type: string
+                        enum:
+                          - minutes
+                          - hours
+                          - days
+                          - weeks
+                      properPrior:
+                        type: boolean
+                      properPriorMean:
+                        type: number
+                      properPriorStdDev:
+                        type: number
+                      regressionAdjustmentEnabled:
+                        type: boolean
+                      regressionAdjustmentDays:
+                        type: number
+                      targetMDE:
+                        type: number
+                    required:
+                      - windowType
+                      - windowValue
+                      - windowUnit
+                      - delayValue
+                      - delayUnit
+                      - properPrior
+                      - properPriorMean
+                      - properPriorStdDev
+                      - regressionAdjustmentEnabled
+                      - regressionAdjustmentDays
+                    additionalProperties: false
+                required:
+                  - metricId
+                additionalProperties: false
+            secondaryMetrics:
+              type: array
+              items:
+                type: object
+                properties:
+                  metricId:
+                    type: string
+                  effectiveSettings:
+                    type: object
+                    properties:
+                      windowType:
+                        type: string
+                        enum:
+                          - conversion
+                          - lookback
+                          - ''
+                      windowValue:
+                        type: number
+                      windowUnit:
+                        type: string
+                        enum:
+                          - minutes
+                          - hours
+                          - days
+                          - weeks
+                      delayValue:
+                        type: number
+                      delayUnit:
+                        type: string
+                        enum:
+                          - minutes
+                          - hours
+                          - days
+                          - weeks
+                      properPrior:
+                        type: boolean
+                      properPriorMean:
+                        type: number
+                      properPriorStdDev:
+                        type: number
+                      regressionAdjustmentEnabled:
+                        type: boolean
+                      regressionAdjustmentDays:
+                        type: number
+                      targetMDE:
+                        type: number
+                    required:
+                      - windowType
+                      - windowValue
+                      - windowUnit
+                      - delayValue
+                      - delayUnit
+                      - properPrior
+                      - properPriorMean
+                      - properPriorStdDev
+                      - regressionAdjustmentEnabled
+                      - regressionAdjustmentDays
+                    additionalProperties: false
+                required:
+                  - metricId
+                additionalProperties: false
+            guardrails:
+              type: array
+              items:
+                type: object
+                properties:
+                  metricId:
+                    type: string
+                  effectiveSettings:
+                    type: object
+                    properties:
+                      windowType:
+                        type: string
+                        enum:
+                          - conversion
+                          - lookback
+                          - ''
+                      windowValue:
+                        type: number
+                      windowUnit:
+                        type: string
+                        enum:
+                          - minutes
+                          - hours
+                          - days
+                          - weeks
+                      delayValue:
+                        type: number
+                      delayUnit:
+                        type: string
+                        enum:
+                          - minutes
+                          - hours
+                          - days
+                          - weeks
+                      properPrior:
+                        type: boolean
+                      properPriorMean:
+                        type: number
+                      properPriorStdDev:
+                        type: number
+                      regressionAdjustmentEnabled:
+                        type: boolean
+                      regressionAdjustmentDays:
+                        type: number
+                      targetMDE:
+                        type: number
+                    required:
+                      - windowType
+                      - windowValue
+                      - windowUnit
+                      - delayValue
+                      - delayUnit
+                      - properPrior
+                      - properPriorMean
+                      - properPriorStdDev
+                      - regressionAdjustmentEnabled
+                      - regressionAdjustmentDays
+                    additionalProperties: false
+                required:
+                  - metricId
+                additionalProperties: false
+            activationMetric:
+              type: object
+              properties:
+                metricId:
+                  type: string
+                effectiveSettings:
+                  type: object
+                  properties:
+                    windowType:
+                      type: string
+                      enum:
+                        - conversion
+                        - lookback
+                        - ''
+                    windowValue:
+                      type: number
+                    windowUnit:
+                      type: string
+                      enum:
+                        - minutes
+                        - hours
+                        - days
+                        - weeks
+                    delayValue:
+                      type: number
+                    delayUnit:
+                      type: string
+                      enum:
+                        - minutes
+                        - hours
+                        - days
+                        - weeks
+                    properPrior:
+                      type: boolean
+                    properPriorMean:
+                      type: number
+                    properPriorStdDev:
+                      type: number
+                    regressionAdjustmentEnabled:
+                      type: boolean
+                    regressionAdjustmentDays:
+                      type: number
+                    targetMDE:
+                      type: number
+                  required:
+                    - windowType
+                    - windowValue
+                    - windowUnit
+                    - delayValue
+                    - delayUnit
+                    - properPrior
+                    - properPriorMean
+                    - properPriorStdDev
+                    - regressionAdjustmentEnabled
+                    - regressionAdjustmentDays
+                  additionalProperties: false
+              required:
+                - metricId
+              additionalProperties: false
+          required:
+            - datasourceId
+            - assignmentQueryId
+            - experimentId
+            - segmentId
+            - queryFilter
+            - inProgressConversions
+            - attributionModel
+            - statsEngine
+            - regressionAdjustmentEnabled
+            - goals
+            - secondaryMetrics
+            - guardrails
+          additionalProperties: false
+        queryIds:
+          type: array
+          items:
+            type: string
+        results:
+          type: array
+          items:
+            type: object
+            properties:
+              dimension:
+                type: string
+              totalUsers:
+                type: number
+              checks:
+                type: object
+                properties:
+                  srm:
+                    type: number
+                required:
+                  - srm
+                additionalProperties: false
+              metrics:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    metricId:
+                      type: string
+                    metricName:
+                      type: string
+                    variations:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          variationIndex:
+                            type: number
+                          variationKey:
+                            type: string
+                          variationId:
+                            type: string
+                          variationName:
+                            type: string
+                          users:
+                            type: number
+                          analyses:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                engine:
+                                  type: string
+                                  enum:
+                                    - bayesian
+                                    - frequentist
+                                differenceType:
+                                  type: string
+                                  enum:
+                                    - relative
+                                    - absolute
+                                    - scaled
+                                numerator:
+                                  anyOf:
+                                    - type: number
+                                    - type: 'null'
+                                denominator:
+                                  anyOf:
+                                    - type: number
+                                    - type: 'null'
+                                mean:
+                                  anyOf:
+                                    - type: number
+                                    - type: 'null'
+                                stddev:
+                                  anyOf:
+                                    - type: number
+                                    - type: 'null'
+                                effect:
+                                  anyOf:
+                                    - type: number
+                                    - type: 'null'
+                                ciLow:
+                                  anyOf:
+                                    - type: number
+                                    - type: 'null'
+                                ciHigh:
+                                  anyOf:
+                                    - type: number
+                                    - type: 'null'
+                                pValue:
+                                  anyOf:
+                                    - type: number
+                                    - type: 'null'
+                                chanceToBeatControl:
+                                  anyOf:
+                                    - type: number
+                                    - type: 'null'
+                              required:
+                                - engine
+                                - differenceType
+                                - numerator
+                                - denominator
+                                - mean
+                                - stddev
+                                - effect
+                                - ciLow
+                                - ciHigh
+                              additionalProperties: false
+                        required:
+                          - variationIndex
+                          - variationKey
+                          - users
+                          - analyses
+                        additionalProperties: false
+                  required:
+                    - metricId
+                    - variations
+                  additionalProperties: false
+            required:
+              - dimension
+              - totalUsers
+              - checks
+              - metrics
+            additionalProperties: false
+      required:
+        - id
+        - snapshotId
+        - experimentId
+        - phase
+        - type
+        - dateCreated
+        - dateStart
+        - dateEnd
+        - dimension
+        - settings
+        - queryIds
+        - results
+      additionalProperties: false
     VisualChangeset:
       type: object
       properties:
@@ -53247,6 +53678,7 @@ x-tagGroups:
       - Experiment_model
       - Experiment Rule_model
       - ExperimentAnalysisSettings_model
+      - ExperimentBulkResult_model
       - ExperimentDecisionFrameworkSettings_model
       - ExperimentMetric_model
       - ExperimentMetricOverrideEntry_model
