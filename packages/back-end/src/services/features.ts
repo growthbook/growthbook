@@ -1848,17 +1848,7 @@ export function addIdsToRules(
   Object.values(environmentSettings).forEach((env) => {
     const rules = (env as unknown as { rules?: FeatureRule[] }).rules;
     if (rules && rules.length) {
-      rules.forEach((r) => {
-        if (r.type === "experiment" && !r?.trackingKey) {
-          r.trackingKey = featureId;
-        }
-        if (!r.id) {
-          r.id = generateRuleId();
-        }
-        if (r.type === "rollout" && !r.seed) {
-          r.seed = r.id;
-        }
-      });
+      addIdsToFlatRules(rules, featureId);
     }
   });
 }
@@ -1874,12 +1864,11 @@ export function addIdsToFlatRules(
     if (!r.id) {
       r.id = generateRuleId();
     }
-    // Rollout rules without an explicit seed default to their rule ID.
-    // This ensures the SDK (which falls back to rule.id when no seed is sent)
-    // and the monitored-ramp payload both bucket users identically, preventing
-    // variation hopping when a rule transitions between monitored/unmonitored.
+    // Backfill seed = feature ID — the SDK's no-seed fallback — so persisting
+    // it never changes who is in the rollout, and the monitored-ramp payload
+    // (same fallback) buckets identically across monitored/unmonitored steps.
     if (r.type === "rollout" && !r.seed) {
-      r.seed = r.id;
+      r.seed = featureId;
     }
   });
 }
@@ -3176,6 +3165,10 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
             match: s.matchType,
           })),
           enabled: r.enabled != null ? r.enabled : true,
+          // Preserve bucketing inputs on round-trips: dropping them would let
+          // the seed backfill (or the hashVersion default) re-bucket the rollout.
+          ...(r.seed !== undefined && { seed: r.seed }),
+          ...(r.hashVersion !== undefined && { hashVersion: r.hashVersion }),
           ...(r.sparse !== undefined && { sparse: r.sparse }),
           ...(r.prerequisites && { prerequisites: r.prerequisites }),
           ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),

@@ -930,7 +930,7 @@ export const apiFeatureRolloutRuleValidator = namedSchema(
       seed: z
         .string()
         .describe(
-          "Optional seed for the hash function; defaults to the rule id",
+          "Optional seed for the hash function; defaults to the feature id",
         )
         .optional(),
       hashVersion: z

@@ -3504,10 +3504,12 @@ describe("generateRuleId invariant", () => {
 // Rollout rules must always carry an explicit seed so that the monitored-ramp
 // payload and the plain-rollout payload hash users through the same seed,
 // preventing variation hopping when a rule transitions between states.
+// The backfilled value must be the feature ID — the SDK's fallback when no
+// seed is sent — so persisting it never changes who is inside the rollout.
 // ---------------------------------------------------------------------------
 
 describe("addIdsToFlatRules — rollout seed backfill", () => {
-  it("backfills seed = id for a rollout rule with no explicit seed", () => {
+  it("backfills seed = feature ID for a rollout rule with no explicit seed", () => {
     const rules: FeatureInterface["rules"] = [
       {
         type: "rollout",
@@ -3524,7 +3526,7 @@ describe("addIdsToFlatRules — rollout seed backfill", () => {
       rules as Parameters<typeof addIdsToFlatRules>[0],
       "feat_1",
     );
-    expect((rules[0] as { seed?: string }).seed).toBe("fr_abc");
+    expect((rules[0] as { seed?: string }).seed).toBe("feat_1");
   });
 
   it("assigns a new id AND backfills seed when rule has neither", () => {
@@ -3543,7 +3545,7 @@ describe("addIdsToFlatRules — rollout seed backfill", () => {
     const r = rules[0] as { id?: string; seed?: string };
     expect(r.id).toBeDefined();
     expect(r.id!.startsWith("fr_")).toBe(true);
-    expect(r.seed).toBe(r.id);
+    expect(r.seed).toBe("feat_1");
   });
 
   it("preserves an explicitly-set seed and does not overwrite it", () => {
@@ -3619,13 +3621,13 @@ describe("addIdsToFlatRules — rollout seed backfill", () => {
       },
     ] as Parameters<typeof addIdsToFlatRules>[0];
     addIdsToFlatRules(rules, "feat_1");
-    expect((rules[0] as { seed?: string }).seed).toBe("fr_1");
+    expect((rules[0] as { seed?: string }).seed).toBe("feat_1");
     expect((rules[1] as { seed?: string }).seed).toBe("explicit"); // untouched
   });
 });
 
 describe("addIdsToRules — rollout seed backfill (legacy env format)", () => {
-  it("backfills seed = id for rollout rules in legacy environmentSettings", () => {
+  it("backfills seed = feature ID for rollout rules in legacy environmentSettings", () => {
     const envSettings = {
       production: {
         enabled: true,
@@ -3648,7 +3650,7 @@ describe("addIdsToRules — rollout seed backfill (legacy env format)", () => {
     );
     const rule = (envSettings.production as { rules?: { seed?: string }[] })
       .rules?.[0];
-    expect(rule?.seed).toBe("fr_legacy");
+    expect(rule?.seed).toBe("feat_legacy");
   });
 
   it("preserves an explicit seed in the legacy path", () => {
