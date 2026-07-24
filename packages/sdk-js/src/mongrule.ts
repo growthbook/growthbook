@@ -142,7 +142,9 @@ function elemMatch(actual: any, expected: any, savedGroups: SavedGroupsValues) {
     ? (v: any) => evalConditionValue(expected, v, savedGroups)
     : (v: any) => evalCondition(v, expected, savedGroups);
   for (let i = 0; i < actual.length; i++) {
-    if (actual[i] && check(actual[i])) {
+    // Only skip nullish elements; falsy values like 0, "" and false are valid
+    // array members and must still be tested against the condition.
+    if ((actual[i] ?? null) !== null && check(actual[i])) {
       return true;
     }
   }
