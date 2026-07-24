@@ -44,6 +44,7 @@ async function refreshLinkedFeaturePayloads(
   if (!linkedFeatures.length) return;
 
   const environments = getEnvironmentIdsFromOrg(context.org);
+  const allProjectIds = await context.getAllProjectIds();
   const payloadKeys = getAffectedSDKPayloadKeys(
     linkedFeatures,
     environments,
@@ -54,6 +55,7 @@ async function refreshLinkedFeaturePayloads(
         rule.contextualBanditId === cb.id
       );
     },
+    allProjectIds,
   );
   if (payloadKeys.length === 0) return;
   queueSDKPayloadRefresh({

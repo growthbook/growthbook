@@ -2,7 +2,6 @@ import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import {
   ExperimentInterfaceExcludingHoldouts,
   ExperimentTemplateInterface,
-  Variation,
   postExperimentValidator,
 } from "shared/validators";
 import { omit } from "lodash";
@@ -245,7 +244,7 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       }
     }
     if (payload.variations) {
-      validateVariationIds(payload.variations as Variation[]);
+      validateVariationIds(payload.variations);
     }
 
     if (payload.precomputedUnitDimensionIds !== undefined) {

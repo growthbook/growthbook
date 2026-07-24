@@ -1,7 +1,6 @@
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import {
   ExperimentInterfaceExcludingHoldouts,
-  Variation,
   updateExperimentValidator,
 } from "shared/validators";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
@@ -209,13 +208,7 @@ export const updateExperiment = createApiRequestHandler(
   }
 
   if (req.body.variations) {
-    // Resolve the `variationId` response-field alias to `id` before validating,
-    // so echoing GET variations back doesn't regenerate ids (validateVariationIds
-    // assigns a fresh id to any variation missing one).
-    req.body.variations.forEach((v) => {
-      if (!v.id && v.variationId) v.id = v.variationId;
-    });
-    validateVariationIds(req.body.variations as Variation[]);
+    validateVariationIds(req.body.variations);
   }
 
   const effectivePrecomputedUnitDimensionType =

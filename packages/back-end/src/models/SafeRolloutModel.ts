@@ -155,11 +155,14 @@ export class SafeRolloutModel extends BaseClass {
       const feature = await getFeature(this.context, existing.featureId);
       if (!feature) return;
 
+      const allProjectIds = await this.context.getAllProjectIds();
       queueSDKPayloadRefresh({
         context: this.context,
         payloadKeys: getAffectedSDKPayloadKeys(
           [feature],
           getEnvironmentIdsFromOrg(this.context.org),
+          undefined,
+          allProjectIds,
         ),
         auditContext: {
           event: "step changed",

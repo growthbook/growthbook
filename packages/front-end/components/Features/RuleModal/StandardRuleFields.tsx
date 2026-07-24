@@ -35,6 +35,9 @@ import ScheduleInputs from "@/components/Features/RuleModal/ScheduleInputs";
 import RuleEnvironmentScopeField, {
   type EnvScopeProps,
 } from "@/components/Features/RuleModal/EnvironmentScopeField";
+import RuleProjectScopeField, {
+  type ProjectScopeProps,
+} from "@/components/Features/RuleModal/ProjectScopeField";
 export type ScheduleType = "none" | "schedule" | "ramp";
 type ScheduleSelectorType = ScheduleType | "ramp-monitored";
 
@@ -72,6 +75,7 @@ export default function StandardRuleFields({
   scheduleType,
   setScheduleType,
   envScope,
+  projectScope,
   isLiveRule,
   isNew,
   onRuleCyclicChange,
@@ -92,6 +96,7 @@ export default function StandardRuleFields({
   scheduleType: ScheduleType;
   setScheduleType: (t: ScheduleType) => void;
   envScope: EnvScopeProps;
+  projectScope: ProjectScopeProps;
   isLiveRule?: boolean;
   isNew?: boolean;
   onRuleCyclicChange?: (result: RuleCyclicResult) => void;
@@ -275,6 +280,7 @@ export default function StandardRuleFields({
       />
 
       <RuleEnvironmentScopeField {...envScope} my="5" />
+      <RuleProjectScopeField {...projectScope} mb="5" />
 
       <Box mb="5">
         <FeatureValueField
