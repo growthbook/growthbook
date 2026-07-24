@@ -23,6 +23,7 @@ import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypa
 import {
   buildMergeDesiredState,
   isRevisionDiverged,
+  ownershipChanged,
 } from "back-end/src/revisions/util";
 import {
   assertConfigValueValidForPublish,
@@ -157,12 +158,14 @@ export const postConfigRevisionPublish = createApiRequestHandler(
 
   const isBypass = approvalRequired && revision.status !== "approved";
 
-  // A project move additionally requires manage on the destination.
-  const movesProject =
-    "project" in desiredState &&
-    (desiredState as { project?: string }).project !== config.project;
+  // A project move (including a clear to global) additionally requires manage
+  // on the destination. `ownershipChanged` is the shared detector used by every
+  // revision publish path, so this can't drift from the saved-group/bulk cases.
   if (
-    movesProject &&
+    ownershipChanged(
+      config as unknown as Record<string, unknown>,
+      desiredState,
+    ) &&
     !adapter.canUpdate(req.context, {
       ...(config as unknown as Record<string, unknown>),
       ...desiredState,

@@ -14,6 +14,7 @@ import { getAdapter } from "back-end/src/revisions";
 import {
   buildMergeDesiredState,
   isRevisionDiverged,
+  ownershipChanged,
 } from "back-end/src/revisions/util";
 import { getRevisionWebhookAdapter } from "back-end/src/events/revisionWebhookAdapters";
 import { getContextForUserIdInOrg } from "back-end/src/services/organizations";
@@ -180,14 +181,11 @@ export async function publishRevision(
   // The publish-authority check above covers the live (source) entity. If the
   // revision moves the entity to a different project, also require update
   // permission on the destination — publishing a project move must not land
-  // where the caller lacks access. Gate only on an actual project change so a
-  // publish-only role (no manage) isn't blocked on ordinary publishes.
-  const movesProject =
-    "project" in desiredState &&
-    (desiredState as { project?: string }).project !==
-      (entity as { project?: string }).project;
+  // where the caller lacks access. `ownershipChanged` covers the scalar
+  // `project` (configs/constants) and the `projects[]` array (saved groups),
+  // including clears-to-global, so an ordinary publish (no move) isn't blocked.
   if (
-    movesProject &&
+    ownershipChanged(entity, desiredState) &&
     !adapter.canUpdate(context, { ...entity, ...desiredState })
   ) {
     context.permissions.throwPermissionError();

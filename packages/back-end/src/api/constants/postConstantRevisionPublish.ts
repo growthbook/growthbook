@@ -22,6 +22,7 @@ import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypa
 import {
   buildMergeDesiredState,
   isRevisionDiverged,
+  ownershipChanged,
 } from "back-end/src/revisions/util";
 import { collectRevisionGovernanceGates } from "back-end/src/revisions/governanceGates";
 import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
@@ -127,12 +128,14 @@ export const postConstantRevisionPublish = createApiRequestHandler(
 
   const isBypass = approvalRequired && revision.status !== "approved";
 
-  // A project move additionally requires manage on the destination.
-  const movesProject =
-    "project" in desiredState &&
-    (desiredState as { project?: string }).project !== constant.project;
+  // A project move (including a clear to global) additionally requires manage
+  // on the destination. `ownershipChanged` is the shared detector used by every
+  // revision publish path, so this can't drift from the saved-group/bulk cases.
   if (
-    movesProject &&
+    ownershipChanged(
+      constant as unknown as Record<string, unknown>,
+      desiredState,
+    ) &&
     !adapter.canUpdate(req.context, {
       ...(constant as unknown as Record<string, unknown>),
       ...desiredState,

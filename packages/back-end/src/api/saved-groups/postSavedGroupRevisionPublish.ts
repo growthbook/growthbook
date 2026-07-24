@@ -20,6 +20,7 @@ import {
 import {
   buildMergeDesiredState,
   isRevisionDiverged,
+  ownershipChanged,
 } from "back-end/src/revisions/util";
 import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
 import { collectSavedGroupArchiveDependentsGate } from "back-end/src/services/archiveDependentsGuard";
@@ -136,14 +137,15 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
 
   const isBypass = approvalRequired && revision.status !== "approved";
 
-  // A projects move additionally requires manage on the destination.
-  const proposedProjects = (desiredState as { projects?: string[] }).projects;
-  const movesProjects =
-    proposedProjects !== undefined &&
-    JSON.stringify([...proposedProjects].sort()) !==
-      JSON.stringify([...(savedGroup.projects ?? [])].sort());
+  // A projects move (including a clear to global) additionally requires manage
+  // on the destination. `ownershipChanged` is the shared detector used by every
+  // revision publish path, so this can't drift from the config/constant/bulk
+  // cases (and, unlike the old inline check, catches a cleared `projects`).
   if (
-    movesProjects &&
+    ownershipChanged(
+      savedGroup as unknown as Record<string, unknown>,
+      desiredState,
+    ) &&
     !adapter.canUpdate(req.context, {
       ...(savedGroup as unknown as Record<string, unknown>),
       ...desiredState,
