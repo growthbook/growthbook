@@ -110,6 +110,7 @@ const featureRevisionSchema = new mongoose.Schema({
   publishedBy: {},
   comment: String,
   title: String,
+  revertedFromVersion: Number,
   defaultValue: String,
   rules: {},
   // Revision envelopes — only present when explicitly changed
@@ -1026,6 +1027,9 @@ export async function createRevision({
     publishedBy: null,
     comment: comment || "",
     ...(title ? { title } : {}),
+    ...(changes?.revertedFromVersion !== undefined
+      ? { revertedFromVersion: changes.revertedFromVersion }
+      : {}),
     defaultValue,
     rules,
     environmentsEnabled,

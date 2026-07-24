@@ -231,6 +231,8 @@ export async function revertFeatureRevision(
   const revisionChanges: Partial<FeatureRevisionInterface> = {
     defaultValue: targetRevision.defaultValue,
     rules: targetRevision.rules ?? feature.rules ?? [],
+    // Provenance for the revert-authority publish path; re-verified at publish.
+    revertedFromVersion: targetRevision.version,
   };
   if (targetRevision.environmentsEnabled !== undefined) {
     revisionChanges.environmentsEnabled = targetRevision.environmentsEnabled;

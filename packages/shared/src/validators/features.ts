@@ -636,6 +636,12 @@ const featureRevisionInterface = minimalFeatureRevisionInterface
     dateCreated: z.date(),
     publishedBy: z.union([z.null(), eventUser]),
     comment: z.string(),
+    // Version this draft reverts to, set when the draft is created by a revert.
+    // Same role as `revertedFrom` on the shared Revision model, but keyed by
+    // version since that's how feature revisions are addressed. Provenance only —
+    // publishing under revert authority additionally re-verifies that the draft
+    // still restores that revision's content and nothing else.
+    revertedFromVersion: z.number().optional(),
     defaultValue: z.string(),
     rules: revisionRulesSchema,
     // Revision envelopes — only present when explicitly changed

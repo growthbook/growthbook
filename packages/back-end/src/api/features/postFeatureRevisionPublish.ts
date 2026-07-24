@@ -28,6 +28,7 @@ import {
   evaluatePublishGates,
   PublishBlockedError,
 } from "back-end/src/revisions/publishGates";
+import { assertCanPublishFeatureRevision } from "back-end/src/revisions/featureRevertPurity";
 import { canUseRestApiBypassSetting } from "./reviewBypass";
 
 export async function publishFeatureRevision(
@@ -170,9 +171,12 @@ export async function publishFeatureRevision(
     result: mergeChanges,
     environmentIds,
   });
-  if (!req.context.permissions.canPublishFeature(feature, envsToCheck)) {
-    req.context.permissions.throwPermissionError();
-  }
+  await assertCanPublishFeatureRevision({
+    context: req.context,
+    feature,
+    revision,
+    environments: envsToCheck,
+  });
 
   // Armed/scheduled path only: the feature's own-schema value net still throws
   // here (interactive publishes ran it above as a gate). The config-backed net +

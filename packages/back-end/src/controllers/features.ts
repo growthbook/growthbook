@@ -128,6 +128,7 @@ import { assertFeatureArchiveDependentsGuard } from "back-end/src/services/archi
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
+import { assertCanPublishFeatureRevision } from "back-end/src/revisions/featureRevertPurity";
 import {
   moveFlatRule,
   stampRuleForEnvs,
@@ -1490,9 +1491,12 @@ export async function postFeatureApproveAndPublish(
     result: mergeResult.result,
     environmentIds: featureEnvironmentIds,
   });
-  if (!context.permissions.canPublishFeature(feature, envsToCheck)) {
-    context.permissions.throwPermissionError();
-  }
+  await assertCanPublishFeatureRevision({
+    context,
+    feature,
+    revision,
+    environments: envsToCheck,
+  });
 
   // Mirror postFeaturePublish's adminOverride + rebase-governance gates BEFORE
   // committing the approval. postFeaturePublish runs them only after the
@@ -1987,9 +1991,12 @@ export async function postFeaturePublish(
     result: mergeResult.result,
     environmentIds,
   });
-  if (!context.permissions.canPublishFeature(feature, envsToCheck)) {
-    context.permissions.throwPermissionError();
-  }
+  await assertCanPublishFeatureRevision({
+    context,
+    feature,
+    revision,
+    environments: envsToCheck,
+  });
 
   // If publishing experiments along with this draft, ensure they are valid.
   // Experiments with a future statusUpdateSchedule.startAt are routed through
@@ -2587,6 +2594,8 @@ export async function postFeatureRevertDraft(
   const changes: Partial<FeatureRevisionInterface> = {
     defaultValue: revision.defaultValue,
     rules: revision.rules ?? feature.rules ?? [],
+    // Provenance for the revert-authority publish path; re-verified at publish.
+    revertedFromVersion: revision.version,
   };
 
   if (revision.environmentsEnabled !== undefined) {
