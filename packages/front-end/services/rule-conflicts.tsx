@@ -7,7 +7,7 @@ import { ruleProjectScope } from "shared/util";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
-import { getRadixColor, RadixColor, RadixStatusIcon } from "@/ui/HelperText";
+import { RadixColor, RadixStatusIcon } from "@/ui/HelperText";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import { isRuleInactive } from "@/services/features";
 
@@ -1553,8 +1553,8 @@ function joinEnvNames(names: string[]): ReactElement {
 
 // The status badge for a rule's conflicts, mirroring the colour + icon of the
 // callout it summarizes so the top-right pill and the detail banner can never
-// disagree. Unreachable is the strongest tier (orange + the error/octagon icon);
-// any lesser conflict ("will not reach" / "may not reach") is an amber warning.
+// disagree. Both unreachable and lesser conflicts render as an amber warning;
+// only the label differs ("Unreachable" vs "Conflict").
 // Returns null when the rule has no conflicts (no badge).
 export type ConflictBadge = {
   color: RadixColor;
@@ -1567,21 +1567,14 @@ export function getConflictBadge(
   banners: ConflictBanner[] | undefined,
 ): ConflictBadge | null {
   if (!banners?.length) return null;
-  if (banners.some((b) => b.isUnreachable)) {
-    return {
-      // Sourced from the "attention" status so the badge and the
-      // ConflictCallout always share the same orange + octagon icon.
-      color: getRadixColor("attention"),
-      icon: <RadixStatusIcon status="attention" size="sm" />,
-      label: "Unreachable",
-      title: "No matching traffic will reach this rule",
-    };
-  }
+  const isUnreachable = banners.some((b) => b.isUnreachable);
   return {
     color: "amber",
     icon: <RadixStatusIcon status="warning" size="sm" />,
-    label: "Conflict",
-    title: "Some matching traffic may not reach this rule",
+    label: isUnreachable ? "Unreachable" : "Conflict",
+    title: isUnreachable
+      ? "No matching traffic will reach this rule"
+      : "Some matching traffic may not reach this rule",
   };
 }
 
@@ -1635,12 +1628,10 @@ export function ConflictCallout({
     </span>
   );
   const hasDetails = hasHard || hasSoft;
-  // Unreachable uses the orange "attention" status (orange + the error octagon
-  // icon + alert role) so the banner matches its status badge; lesser conflicts
-  // stay amber "warning".
-  const status = isUnreachable ? "attention" : "warning";
+  // Both conflict tiers render as an amber warning: a prompt to confirm the
+  // rule order is intentional, not a hard error.
   return (
-    <Callout status={status} size="sm">
+    <Callout status="warning" size="sm">
       <Flex direction="column" gap="1">
         <Flex align="center" gap="2" wrap="wrap">
           {headline}

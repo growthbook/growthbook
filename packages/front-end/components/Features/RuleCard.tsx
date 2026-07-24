@@ -19,7 +19,7 @@ const sideColorVar: Record<RuleCardSideColor, string> = {
   active: "var(--green-9)",
   skipped: "var(--amber-7)",
   disabled: "var(--gray-5)",
-  unreachable: "var(--orange-7)",
+  unreachable: "var(--amber-7)",
   removed: "var(--red-7)",
 };
 

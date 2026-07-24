@@ -10,18 +10,7 @@ import {
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { Responsive } from "@radix-ui/themes/dist/esm/props/prop-def.js";
 
-// "attention" is an orange severity tier between "warning" (amber) and "error"
-// (red). It defaults to the error octagon icon and gets role="alert", but is
-// recolored orange, for banners that should stand out more than a warning without
-// reading as a hard error. Used by the rule-conflict "unreachable" banner and the
-// rule approval-notes banner.
-export type Status =
-  | "wizard"
-  | "info"
-  | "warning"
-  | "error"
-  | "success"
-  | "attention";
+export type Status = "wizard" | "info" | "warning" | "error" | "success";
 export type RadixColor = TextProps["color"];
 export type Size = "sm" | "md";
 
@@ -37,8 +26,6 @@ export function getRadixColor(status: Status): TextProps["color"] {
       return "red";
     case "success":
       return "green";
-    case "attention":
-      return "orange";
   }
 }
 
@@ -78,10 +65,6 @@ export function RadixStatusIcon({
       return <PiWarningOctagonFill size={getIconSize(size)} />;
     case "success":
       return <PiCheckCircleFill size={getIconSize(size)} />;
-    // Shares the error octagon: attention is error-shaped severity, only the
-    // color differs (and callers can override the icon, e.g. a spinner).
-    case "attention":
-      return <PiWarningOctagonFill size={getIconSize(size)} />;
   }
 }
 

@@ -1398,7 +1398,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             rampSchedule.steps[rampSchedule.currentStepIndex]
               ?.approvalNotes && (
               <Callout
-                status="attention"
+                status="warning"
                 mt="3"
                 size="sm"
                 icon={<PiSpinnerGapBold />}
@@ -1945,8 +1945,8 @@ export function getRuleMetaInfo({
   ));
 
   // The status badge is derived from the same banners as the callouts, so its
-  // colour + icon always mirror the callout: orange/octagon for unreachable,
-  // amber/triangle for a softer "may not reach" conflict.
+  // colour + icon always mirror the callout: an amber/triangle warning for
+  // both unreachable and softer "may not reach" conflicts.
   const conflictBadge = getConflictBadge(conflictBanners);
   const conflictPill = conflictBadge ? (
     <Badge
