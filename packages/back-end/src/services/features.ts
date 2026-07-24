@@ -1875,6 +1875,34 @@ export function addIdsToFlatRules(
   });
 }
 
+// A bulk update replaces the whole rules array, so an inbound rollout rule that
+// echoes an existing rule by id but omits seed/hashVersion would have them reset
+// by `addIdsToFlatRules` (seed → rule.id) — re-drawing the cohort. Inherit those
+// bucketing inputs from the stored rule when the request omits them, so
+// `addIdsToFlatRules` only stamps rules with no prior history. Callers pass the
+// existing (already read-time-pinned) feature rules as `storedRules`, so a legacy
+// rule inherits its pinned feature-id seed. hashAttribute is a required input and
+// can't be dropped this way.
+export function inheritStoredRolloutSeeds(
+  inbound: FeatureRule[] = [],
+  storedRules: FeatureRule[] = [],
+): void {
+  const priorById = new Map(
+    storedRules.filter((r) => r?.id).map((r) => [r.id, r]),
+  );
+  inbound.forEach((r) => {
+    if (r?.type !== "rollout" || !r.id) return;
+    const prior = priorById.get(r.id);
+    if (prior?.type !== "rollout") return;
+    if (r.seed === undefined && prior.seed !== undefined) {
+      r.seed = prior.seed;
+    }
+    if (r.hashVersion === undefined && prior.hashVersion !== undefined) {
+      r.hashVersion = prior.hashVersion;
+    }
+  });
+}
+
 export function arrayMove<T>(
   array: Array<T>,
   from: number,

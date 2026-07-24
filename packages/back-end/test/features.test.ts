@@ -15,6 +15,7 @@ import {
   generateRuleId,
   addIdsToFlatRules,
   addIdsToRules,
+  inheritStoredRolloutSeeds,
   getFeatureDefinitionsResponse,
   hashStrings,
   sha256,
@@ -3711,5 +3712,76 @@ describe("addIdsToRules — rollout seed backfill (legacy env format)", () => {
     const rule = (envSettings.production as { rules?: { seed?: string }[] })
       .rules?.[0];
     expect(rule?.seed).toBe("keep-me");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// inheritStoredRolloutSeeds — a bulk update that echoes a rollout rule by id
+// but omits seed/hashVersion must inherit them from the stored (already
+// read-time-pinned) rule, so the write-time backfill can't re-bucket it.
+// ---------------------------------------------------------------------------
+describe("inheritStoredRolloutSeeds", () => {
+  const inboundRollout = (over: Record<string, unknown> = {}) =>
+    ({
+      id: "fr_legacy",
+      type: "rollout",
+      value: "true",
+      coverage: 0.5,
+      hashAttribute: "id",
+      ...over,
+    }) as unknown as FeatureInterface["rules"][number];
+
+  const storedRollout = (over: Record<string, unknown> = {}) =>
+    ({
+      id: "fr_legacy",
+      type: "rollout",
+      value: "true",
+      coverage: 0.5,
+      hashAttribute: "id",
+      seed: "feat_1", // pinned to the feature id at read time
+      ...over,
+    }) as unknown as FeatureInterface["rules"][number];
+
+  it("inherits a stored seed when the inbound rule omits it", () => {
+    const inbound = [inboundRollout()];
+    inheritStoredRolloutSeeds(inbound, [storedRollout()]);
+    expect((inbound[0] as { seed?: string }).seed).toBe("feat_1");
+  });
+
+  it("inherits stored hashVersion when omitted", () => {
+    const inbound = [inboundRollout()];
+    inheritStoredRolloutSeeds(inbound, [
+      storedRollout({ hashVersion: 1, seed: "feat_1" }),
+    ]);
+    expect((inbound[0] as { hashVersion?: number }).hashVersion).toBe(1);
+  });
+
+  it("does not override a seed the caller explicitly sent", () => {
+    const inbound = [inboundRollout({ seed: "client-seed" })];
+    inheritStoredRolloutSeeds(inbound, [storedRollout()]);
+    expect((inbound[0] as { seed?: string }).seed).toBe("client-seed");
+  });
+
+  it("only matches by id — a new rule (no stored match) is left seedless", () => {
+    const inbound = [inboundRollout({ id: "fr_new" })];
+    inheritStoredRolloutSeeds(inbound, [storedRollout()]);
+    expect((inbound[0] as { seed?: string }).seed).toBeUndefined();
+  });
+
+  it("ignores non-rollout stored/inbound rules", () => {
+    const inbound = [inboundRollout({ type: "force" })];
+    inheritStoredRolloutSeeds(inbound, [storedRollout()]);
+    expect(inbound[0]).not.toHaveProperty("seed");
+  });
+
+  // The regression Anna reported: a client echoes a legacy rule by id but omits
+  // the seed. With inheritance it settles on the stored (feature-id) seed; the
+  // backfill must NOT then stamp the rule id.
+  it("keeps a legacy rollout on the feature-id seed through inherit → backfill", () => {
+    const inbound = [inboundRollout()]; // no seed
+    inheritStoredRolloutSeeds(inbound, [storedRollout({ seed: "feat_1" })]);
+    addIdsToFlatRules(inbound as FeatureInterface["rules"], "feat_1");
+    expect((inbound[0] as { seed?: string }).seed).toBe("feat_1");
+    expect((inbound[0] as { seed?: string }).seed).not.toBe(inbound[0].id);
   });
 });

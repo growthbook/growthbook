@@ -26,6 +26,7 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import {
   addIdsToFlatRules,
+  inheritStoredRolloutSeeds,
   assertFeatureValuesValid,
   getApiFeatureObjV2,
   getNextScheduledUpdate,
@@ -262,6 +263,9 @@ export const updateFeatureV2 = createApiRequestHandler(
       effectiveBaseConfig,
       effectiveProject,
     );
+    // Carry seed/hashVersion forward from the stored rule when the caller echoes
+    // a rule by id but omits them, so the backfill below can't re-bucket it.
+    inheritStoredRolloutSeeds(inboundFlatRules, feature.rules ?? []);
     addIdsToFlatRules(inboundFlatRules, feature.id);
     // `mapV2ApiRuleToFeatureRule` doesn't validate values; enforce the schema
     // here (against the effective schema, opt-out via ?skipSchemaValidation).
