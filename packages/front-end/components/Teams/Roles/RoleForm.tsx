@@ -341,11 +341,6 @@ export default function RoleForm({
                                       }
                                       setValue={() => togglePermission(atom)}
                                       disabled={status === "viewing" || locked}
-                                      disabledMessage={
-                                        locked
-                                          ? "Granted by a selected policy. Clear the policy to choose individual permissions."
-                                          : undefined
-                                      }
                                       label={meta.displayName}
                                       description={meta.description}
                                     />
