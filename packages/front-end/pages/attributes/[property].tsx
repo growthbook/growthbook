@@ -7,7 +7,7 @@ import { FeatureInterface } from "shared/validators";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { SavedGroupWithoutValues } from "shared/types/saved-group";
 import { FaQuestionCircle } from "react-icons/fa";
-import { BiShow } from "react-icons/bi";
+import ReferencesLink from "@/components/References/ReferencesLink";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
@@ -33,7 +33,6 @@ import {
 } from "@/ui/DropdownMenu";
 import AttributeReferencesList from "@/components/Features/AttributeReferencesList";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import LoadingSpinner from "@/components/LoadingSpinner";
 
 export default function AttributeDetailPage() {
   const router = useRouter();
@@ -44,10 +43,9 @@ export default function AttributeDetailPage() {
     [attributeSchema, property],
   );
 
-  const { data: savedGroupsData, error: savedGroupsError } = useApi<{
+  const { data: savedGroupsData } = useApi<{
     savedGroups: SavedGroupWithoutValues[];
   }>("/saved-groups");
-  const savedGroupsLoading = !savedGroupsData && !savedGroupsError;
   const savedGroups = useMemo(
     () => savedGroupsData?.savedGroups ?? [],
     [savedGroupsData],
@@ -342,32 +340,11 @@ export default function AttributeDetailPage() {
             </Text>
           </Flex>
           <Flex direction="column" align="end" gap="2">
-            {savedGroupsLoading ? (
-              <span style={{ color: "var(--gray-10)", cursor: "not-allowed" }}>
-                <BiShow /> <LoadingSpinner /> Loading references…
-              </span>
-            ) : savedGroupsError ? (
-              <Tooltip body="The saved groups list failed to load, so references can't be counted.">
-                <span
-                  style={{ color: "var(--gray-10)", cursor: "not-allowed" }}
-                >
-                  <BiShow /> References unavailable
-                </span>
-              </Tooltip>
-            ) : totalReferences > 0 ? (
-              <Link onClick={() => setShowReferencesModal(true)}>
-                <BiShow /> {totalReferences} reference
-                {totalReferences !== 1 && "s"}
-              </Link>
-            ) : (
-              <Tooltip body="No features, experiments, or saved groups currently reference this attribute.">
-                <span
-                  style={{ color: "var(--gray-10)", cursor: "not-allowed" }}
-                >
-                  <BiShow /> {totalReferences} references
-                </span>
-              </Tooltip>
-            )}
+            <ReferencesLink
+              total={totalReferences}
+              onShow={() => setShowReferencesModal(true)}
+              emptyTooltip="No features, experiments, or saved groups currently reference this attribute."
+            />
           </Flex>
         </Flex>
 
