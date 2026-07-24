@@ -10,6 +10,8 @@ export const userInterface = z
     superAdmin: z.boolean(),
     minTokenDate: z.date().optional(),
     agreedToTerms: z.boolean().optional(),
+    npsSurveyStatus: z.enum(["responded", "dismissed"]).optional(),
+    npsSurveyAt: z.date().optional(),
     dateCreated: z.date().optional(),
   })
   .strict();

@@ -178,6 +178,11 @@ export const SITE_MANAGER_EMAIL = process.env.SITE_MANAGER_EMAIL;
 
 export const SLACK_SIGNING_SECRET = process.env.SLACK_SIGNING_SECRET || "";
 
+// Internal-only: incoming webhook URL for forwarding NPS survey responses to
+// GrowthBook's own Slack. Only set on GrowthBook Cloud — self-hosted and Cloud
+// users never see this, and nothing is sent unless it's configured.
+export const NPS_SLACK_WEBHOOK = process.env.NPS_SLACK_WEBHOOK || "";
+
 const testConn = process.env.POSTGRES_TEST_CONN;
 export const POSTGRES_TEST_CONN = testConn ? JSON.parse(testConn) : {};
 
