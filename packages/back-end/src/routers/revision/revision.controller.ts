@@ -1952,6 +1952,18 @@ export const getConflicts = async (
     return res.status(404).json({ message: "Entity not found" });
   }
 
+  // The response echoes conflicting draft and live field values, so require read
+  // access to the entity. Checked against the LIVE entity, whose project is
+  // authoritative (a snapshot may carry a stale project).
+  if (
+    !getAdapter(revision.target.type).canRead(
+      context,
+      liveEntity as Record<string, unknown>,
+    )
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
   // The Zod-typed snapshot widens to a generic object so checkMergeConflicts
   // can compare arbitrary entity shapes; the adapter owns the concrete type.
   const result = checkMergeConflicts(
