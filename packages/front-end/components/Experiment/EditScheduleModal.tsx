@@ -3,8 +3,9 @@ import { useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { DEFAULT_DECISION_FRAMEWORK_ENABLED } from "shared/constants";
 import { getValidDate, resolveScheduleStopAfter } from "shared/dates";
-import { PiArrowSquareOut, PiInfo } from "react-icons/pi";
+import { PiArrowSquareOut } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
+import Tooltip from "@/ui/Tooltip";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import DatePicker from "@/components/DatePicker";
 import Field from "@/components/Forms/Field";
@@ -14,7 +15,6 @@ import Link from "@/ui/Link";
 import Helpertext from "@/ui/HelperText";
 import Button from "@/ui/Button";
 import SelectField from "@/components/Forms/SelectField";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import VariationLabel from "@/ui/VariationLabel";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -596,15 +596,11 @@ export default function EditScheduleModal({
                       return <>{o.label}</>;
                     }
                     return (
-                      <Flex align="center" justify="between" gap="2">
-                        <Text color="text-low">{o.label}</Text>
-                        <Tooltip
-                          body={autoShipDisabledReason}
-                          tipPosition="top"
-                        >
-                          <PiInfo style={{ verticalAlign: "middle" }} />
-                        </Tooltip>
-                      </Flex>
+                      <Tooltip content={autoShipDisabledReason}>
+                        <Box>
+                          <Text color="text-low">{o.label}</Text>
+                        </Box>
+                      </Tooltip>
                     );
                   }}
                   onChange={(v) =>
