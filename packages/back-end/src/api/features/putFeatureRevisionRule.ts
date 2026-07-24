@@ -14,6 +14,7 @@ import {
 import { RevisionChanges } from "shared/types/feature-revision";
 import { updateRuleAtEnvIndex } from "back-end/src/util/revisionRuleOps";
 import {
+  addIdsToFlatRules,
   assertFeatureValuesValid,
   toApiRevision,
 } from "back-end/src/services/features";
@@ -288,6 +289,11 @@ export const putFeatureRevisionRule = createApiRequestHandler(
         );
     }
     const updatedRule = applyPatch(oldRule, patch);
+
+    // A coverage patch can turn a force rule into a rollout, which arrives with
+    // no seed. Stamp it so it hashes off its own rule id; an existing rollout
+    // already carries a seed here (pinned on read) and is left untouched.
+    addIdsToFlatRules([updatedRule as FeatureRule], feature.id);
 
     // Enforce the feature's JSON schema on the patched rule values (no-op for
     // config-backed values). Opt out with ?skipSchemaValidation=true.
