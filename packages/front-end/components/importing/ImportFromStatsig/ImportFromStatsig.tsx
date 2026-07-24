@@ -5,6 +5,7 @@ import { MdPending } from "react-icons/md";
 import { FeatureInterface } from "shared/types/feature";
 import { ProjectInterface } from "shared/types/project";
 import { FactTableInterface } from "shared/types/fact-table";
+import { SavedGroupWithoutValues } from "shared/types/saved-group";
 import {
   buildImportedData,
   runImport,
@@ -1001,8 +1002,7 @@ export default function ImportFromStatsig() {
   const { features, mutate: mutateFeatures } = useFeaturesList({
     useCurrentProject: false,
   });
-  const { mutateDefinitions, savedGroups, tags, projects, factMetrics } =
-    useDefinitions();
+  const { mutateDefinitions, tags, projects, factMetrics } = useDefinitions();
   // The import diff compares fact table sql, which the slimmed definitions
   // don't include, so fetch the full fact tables
   const {
@@ -1013,6 +1013,16 @@ export default function ImportFromStatsig() {
   const factTables = useMemo(
     () => factTablesData?.factTables || [],
     [factTablesData],
+  );
+  // Same reason as fact tables: the segment diff compares saved group
+  // `condition`, which the slimmed definitions drop. Archived groups are
+  // filtered out to match what definitions exposed.
+  const { data: savedGroupsData, mutate: mutateSavedGroups } = useApi<{
+    savedGroups: SavedGroupWithoutValues[];
+  }>("/saved-groups");
+  const savedGroups = useMemo(
+    () => (savedGroupsData?.savedGroups ?? []).filter((sg) => !sg.archived),
+    [savedGroupsData],
   );
   const { experiments } = useExperiments();
   const environments = useEnvironments();
@@ -1277,8 +1287,9 @@ export default function ImportFromStatsig() {
                 mutateFeatures();
                 refreshOrganization();
                 // Await so a quick repeat import diffs against the freshly
-                // imported fact tables, not the stale pre-import cache
-                await mutateFactTables();
+                // imported fact tables and saved groups, not the stale
+                // pre-import cache
+                await Promise.all([mutateFactTables(), mutateSavedGroups()]);
               }}
             >
               Step 2: Import to GrowthBook
