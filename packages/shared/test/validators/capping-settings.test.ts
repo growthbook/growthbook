@@ -1,6 +1,7 @@
 import {
   validateCappingSettingsIgnoreZerosConsistency,
   validateCappingSettingsMetricTypeCompatibility,
+  validateCappingSettingsValueEntered,
 } from "../../src/validators/fact-table";
 
 describe("validateCappingSettingsMetricTypeCompatibility", () => {
@@ -133,16 +134,16 @@ describe("validateCappingSettingsIgnoreZerosConsistency", () => {
     ).not.toThrow();
   });
 
-  it("rejects ignoring zeros on the upper tail only", () => {
+  it("rejects ignoring zeros on the upper percentile tail only", () => {
     expect(() =>
       validateCappingSettingsIgnoreZerosConsistency(upperIgnore, lowerKeep),
-    ).toThrow(/both capping tails or on neither/);
+    ).toThrow(/both percentile capping tails or on neither/);
   });
 
-  it("rejects ignoring zeros on the lower tail only", () => {
+  it("rejects ignoring zeros on the lower percentile tail only", () => {
     expect(() =>
       validateCappingSettingsIgnoreZerosConsistency(upperKeep, lowerIgnore),
-    ).toThrow(/both capping tails or on neither/);
+    ).toThrow(/both percentile capping tails or on neither/);
   });
 
   it("ignores the inactive tail's flag when only one tail caps", () => {
@@ -166,5 +167,112 @@ describe("validateCappingSettingsIgnoreZerosConsistency", () => {
         lowerIgnore,
       ),
     ).not.toThrow();
+  });
+
+  it("only applies to percentile capping, ignoring absolute tails", () => {
+    // ignoreZeros is meaningless for absolute capping, so a percentile tail
+    // that ignores zeros paired with an absolute tail (regardless of its flag)
+    // must pass.
+    expect(() =>
+      validateCappingSettingsIgnoreZerosConsistency(upperIgnore, {
+        type: "absolute",
+        value: 5,
+        ignoreZeros: false,
+      }),
+    ).not.toThrow();
+    expect(() =>
+      validateCappingSettingsIgnoreZerosConsistency(upperIgnore, {
+        type: "absolute",
+        value: 5,
+        ignoreZeros: true,
+      }),
+    ).not.toThrow();
+    // Absolute upper + percentile lower that ignores zeros.
+    expect(() =>
+      validateCappingSettingsIgnoreZerosConsistency(
+        { type: "absolute", value: 100, ignoreZeros: false },
+        lowerIgnore,
+      ),
+    ).not.toThrow();
+    // Both tails absolute with differing flags is irrelevant.
+    expect(() =>
+      validateCappingSettingsIgnoreZerosConsistency(
+        { type: "absolute", value: 100, ignoreZeros: true },
+        { type: "absolute", value: 5, ignoreZeros: false },
+      ),
+    ).not.toThrow();
+  });
+});
+
+describe("validateCappingSettingsValueEntered", () => {
+  it("skips tails with no capping mode selected", () => {
+    expect(() =>
+      validateCappingSettingsValueEntered({ type: "", value: 0 }, false),
+    ).not.toThrow();
+    expect(() =>
+      validateCappingSettingsValueEntered({ type: "none", value: 0 }, false),
+    ).not.toThrow();
+    expect(() => validateCappingSettingsValueEntered(null, true)).not.toThrow();
+    expect(() =>
+      validateCappingSettingsValueEntered(undefined, false),
+    ).not.toThrow();
+  });
+
+  it("requires a percentile value strictly within (0, 1)", () => {
+    expect(() =>
+      validateCappingSettingsValueEntered({ type: "percentile" }, false),
+    ).toThrow(/percentile between 0 and 1/);
+    expect(() =>
+      validateCappingSettingsValueEntered(
+        { type: "percentile", value: 0 },
+        false,
+      ),
+    ).toThrow(/percentile between 0 and 1/);
+    expect(() =>
+      validateCappingSettingsValueEntered(
+        { type: "percentile", value: 1 },
+        true,
+      ),
+    ).toThrow(/percentile between 0 and 1/);
+    expect(() =>
+      validateCappingSettingsValueEntered(
+        { type: "percentile", value: 0.99 },
+        false,
+      ),
+    ).not.toThrow();
+  });
+
+  it("requires the upper absolute ceiling to be greater than 0", () => {
+    expect(() =>
+      validateCappingSettingsValueEntered({ type: "absolute" }, false),
+    ).toThrow(/maximum user value greater than 0/);
+    expect(() =>
+      validateCappingSettingsValueEntered(
+        { type: "absolute", value: 0 },
+        false,
+      ),
+    ).toThrow(/maximum user value greater than 0/);
+    expect(() =>
+      validateCappingSettingsValueEntered(
+        { type: "absolute", value: 15 },
+        false,
+      ),
+    ).not.toThrow();
+  });
+
+  it("allows any finite absolute floor (including 0 and negatives)", () => {
+    expect(() =>
+      validateCappingSettingsValueEntered({ type: "absolute", value: 0 }, true),
+    ).not.toThrow();
+    expect(() =>
+      validateCappingSettingsValueEntered(
+        { type: "absolute", value: -5 },
+        true,
+      ),
+    ).not.toThrow();
+    // But a floor with no value entered is still rejected.
+    expect(() =>
+      validateCappingSettingsValueEntered({ type: "absolute" }, true),
+    ).toThrow(/minimum user value/);
   });
 });

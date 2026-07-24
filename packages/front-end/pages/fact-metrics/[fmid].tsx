@@ -933,29 +933,38 @@ export default function FactMetricPage() {
                       <span className="font-weight-bold">Inverse</span>
                     </li>
                   )}
-                  {(hasUpperPercentileCap || hasLowerPercentileCap) && (
+                  {hasUpperPercentileCap ||
+                  hasLowerPercentileCap ||
+                  hasUpperAbsoluteCap ||
+                  hasLowerAbsoluteCap ? (
                     <>
                       <li className="mb-2">
-                        <span className="uppercase-title lg">
-                          Percentile capping
-                        </span>
+                        <span className="uppercase-title lg">Capping</span>
                       </li>
+                      {/* Upper tail is always shown above the lower tail. */}
                       {hasUpperPercentileCap ? (
                         <li className="mb-2">
-                          {hasLowerPercentileCap ? (
-                            <span className="text-gray">Upper: </span>
-                          ) : null}
+                          <span className="text-gray">
+                            Percentile (ceiling):{" "}
+                          </span>
                           <span className="font-weight-bold">{cap.value}</span>{" "}
                           {`(${100 * (cap.value ?? 0)}%${
                             cap.ignoreZeros ? ", ignore zeros" : ""
                           })`}
                         </li>
+                      ) : hasUpperAbsoluteCap ? (
+                        <li className="mb-2">
+                          <span className="text-gray">
+                            Maximum user value:{" "}
+                          </span>
+                          <span className="font-weight-bold">{cap.value}</span>
+                        </li>
                       ) : null}
                       {hasLowerPercentileCap ? (
                         <li className="mb-2">
-                          {hasUpperPercentileCap ? (
-                            <span className="text-gray">Lower: </span>
-                          ) : null}
+                          <span className="text-gray">
+                            Percentile (floor):{" "}
+                          </span>
                           <span className="font-weight-bold">
                             {lowerCap?.value}
                           </span>{" "}
@@ -963,36 +972,18 @@ export default function FactMetricPage() {
                             lowerPercentileIgnoresZeros ? ", ignore zeros" : ""
                           })`}
                         </li>
-                      ) : null}
-                    </>
-                  )}
-                  {(hasUpperAbsoluteCap || hasLowerAbsoluteCap) && (
-                    <>
-                      <li className="mb-2">
-                        <span className="uppercase-title lg">
-                          Absolute capping
-                        </span>
-                      </li>
-                      {hasUpperAbsoluteCap ? (
+                      ) : hasLowerAbsoluteCap ? (
                         <li className="mb-2">
-                          {hasLowerAbsoluteCap ? (
-                            <span className="text-gray">Upper: </span>
-                          ) : null}
-                          <span className="font-weight-bold">{cap.value}</span>
-                        </li>
-                      ) : null}
-                      {hasLowerAbsoluteCap ? (
-                        <li className="mb-2">
-                          {hasUpperAbsoluteCap ? (
-                            <span className="text-gray">Lower: </span>
-                          ) : null}
+                          <span className="text-gray">
+                            Minimum user value:{" "}
+                          </span>
                           <span className="font-weight-bold">
                             {lowerCap?.value}
                           </span>
                         </li>
                       ) : null}
                     </>
-                  )}
+                  ) : null}
                 </ul>
               </RightRailSectionGroup>
 

@@ -1,9 +1,7 @@
 import { Flex, Tooltip } from "@radix-ui/themes";
 import { MdSwapCalls } from "react-icons/md";
 import {
-  ExperimentMetricDefinition,
   getLowerCappingSettings,
-  hasActiveCappingTails,
   isAbsoluteCappedMetric,
   isFactMetric,
   isLowerAbsoluteCappedMetric,
@@ -11,7 +9,7 @@ import {
   isUpperPercentileCappedMetric,
   quantileMetricType,
 } from "shared/experiments";
-import { getCappingTailState, LookbackOverride } from "shared/validators";
+import { LookbackOverride } from "shared/validators";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { StatsEngine } from "shared/types/stats";
 import { date } from "shared/dates";
@@ -24,26 +22,12 @@ import {
 } from "@/services/utils";
 import { ExperimentTableRow } from "@/services/experiments";
 
-/** Short label for tooltip / metadata when capping is enabled. */
-function formatMetricCappingSummary(metric: ExperimentMetricDefinition) {
-  const cs = metric.cappingSettings;
-  const lower = getLowerCappingSettings(metric);
-  const parts: string[] = [];
-  if (isUpperPercentileCappedMetric(metric)) {
-    parts.push(
-      `Upper: ${100 * (cs.value as number)}%${cs.ignoreZeros ? " (ignore zeros)" : ""}`,
-    );
-  } else if (isAbsoluteCappedMetric(metric)) {
-    parts.push(`Upper: ${cs.value}`);
-  }
-  if (isLowerPercentileCappedMetric(metric)) {
-    parts.push(
-      `Lower: ${100 * (lower?.value as number)}%${lower?.ignoreZeros ? " (ignore zeros)" : ""}`,
-    );
-  } else if (isLowerAbsoluteCappedMetric(metric)) {
-    parts.push(`Lower: ${lower?.value}`);
-  }
-  return parts.join("; ");
+/** Percentile value shown as a percentage, with an optional zero-handling note. */
+function formatPercentileCap(
+  value: number | undefined,
+  ignoreZeros: boolean | null | undefined,
+) {
+  return `${100 * (value as number)}%${ignoreZeros ? " (ignore zeros)" : ""}`;
 }
 
 export function MetricDrilldownMetadata({
@@ -57,30 +41,8 @@ export function MetricDrilldownMetadata({
 }) {
   const { metric, metricOverrideFields, metricSnapshotSettings } = row;
 
-  // Derive the capping label from the active tail(s) so a lower-only metric
-  // doesn't render an empty "Capping ()". cappingSettings.type only reflects
-  // the upper tail, which may be unset.
-  const cappingTailState = getCappingTailState(
-    metric.cappingSettings,
-    getLowerCappingSettings(metric),
-  );
-  const cappingTypes = Array.from(
-    new Set(
-      [
-        cappingTailState.upperPercentileCapped ||
-        cappingTailState.lowerPercentileCapped
-          ? "percentile"
-          : null,
-        cappingTailState.upperAbsoluteCapped ||
-        cappingTailState.lowerAbsoluteCapped
-          ? "absolute"
-          : null,
-      ].filter((t): t is string => t !== null),
-    ),
-  );
-  const cappingLabel = cappingTypes.length
-    ? `Capping (${cappingTypes.join(" / ")})`
-    : "Capping";
+  const cappingSettings = metric.cappingSettings;
+  const lowerCappingSettings = getLowerCappingSettings(metric);
 
   return (
     <Flex gap="4">
@@ -133,14 +95,35 @@ export function MetricDrilldownMetadata({
         </>
       ) : null}
 
-      {hasActiveCappingTails(metric) ? (
+      {isUpperPercentileCappedMetric(metric) ? (
         <Metadata
-          label={cappingLabel}
-          value={formatMetricCappingSummary(metric)}
+          label="Percentile (ceiling)"
+          value={formatPercentileCap(
+            cappingSettings.value,
+            cappingSettings.ignoreZeros,
+          )}
         />
-      ) : (
-        <Metadata label="Capping" value="Disabled" />
-      )}
+      ) : isAbsoluteCappedMetric(metric) ? (
+        <Metadata
+          label="Maximum user value"
+          value={`${cappingSettings.value}`}
+        />
+      ) : null}
+
+      {isLowerPercentileCappedMetric(metric) ? (
+        <Metadata
+          label="Percentile (floor)"
+          value={formatPercentileCap(
+            lowerCappingSettings?.value,
+            lowerCappingSettings?.ignoreZeros,
+          )}
+        />
+      ) : isLowerAbsoluteCappedMetric(metric) ? (
+        <Metadata
+          label="Minimum user value"
+          value={`${lowerCappingSettings?.value}`}
+        />
+      ) : null}
 
       {/* Brute force show override from latest experiment settings, but we could instead show computed window from 
       metricForSnapshot, but would require potentially reconstructing more settings*/}

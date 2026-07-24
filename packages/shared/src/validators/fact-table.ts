@@ -377,23 +377,57 @@ export function validateCappingSettingsOrdering(
 }
 
 /**
- * Zero handling must be consistent across tails: a metric ignores zeros on both
- * the upper and lower tail, or on neither. Only enforced when both tails are
- * actually capping — an inactive tail's `ignoreZeros` is irrelevant.
+ * `ignoreZeros` only applies to percentile capping, so consistency is
+ * enforced only when both tails use percentile capping.
  */
 export function validateCappingSettingsIgnoreZerosConsistency(
   upper: CappingSettingsTailInput | null | undefined,
   lower?: CappingSettingsTailInput | null | undefined,
 ): void {
   const tails = getCappingTailState(upper, lower);
-  const upperActive = tails.upperPercentileCapped || tails.upperAbsoluteCapped;
-  const lowerActive = tails.lowerPercentileCapped || tails.lowerAbsoluteCapped;
-  if (!upperActive || !lowerActive) return;
+  if (!tails.upperPercentileCapped || !tails.lowerPercentileCapped) return;
 
   // Normalize null/undefined/false to false so only an explicit true differs.
   if (!!upper?.ignoreZeros !== !!lower?.ignoreZeros) {
     throw new Error(
-      "Ignore zeros must be enabled on both capping tails or on neither.",
+      "Ignore zeros must be enabled on both percentile capping tails or on neither.",
+    );
+  }
+}
+
+/**
+ * A capping tail with a selected type must have a usable value.
+ */
+export function validateCappingSettingsValueEntered(
+  tail: CappingSettingsTailInput | null | undefined,
+  isLower: boolean,
+): void {
+  const type = normalizeCappingTypeForTails(tail?.type);
+  if (type === "") return;
+
+  const value = tail?.value;
+  const tailLabel = isLower ? '"Cap low values"' : '"Cap high values"';
+
+  if (type === "percentile") {
+    if (value == null || !Number.isFinite(value) || value <= 0 || value >= 1) {
+      throw new Error(
+        `Enter a percentile between 0 and 1, or set ${tailLabel} to No.`,
+      );
+    }
+    return;
+  }
+
+  // Absolute: the lower floor may be 0 or negative, so any finite value is
+  // valid; the upper ceiling must be greater than 0.
+  if (isLower) {
+    if (value == null || !Number.isFinite(value)) {
+      throw new Error(`Enter a minimum user value, or set ${tailLabel} to No.`);
+    }
+    return;
+  }
+  if (value == null || !Number.isFinite(value) || value <= 0) {
+    throw new Error(
+      `Enter a maximum user value greater than 0, or set ${tailLabel} to No.`,
     );
   }
 }

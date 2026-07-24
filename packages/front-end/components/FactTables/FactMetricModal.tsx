@@ -12,6 +12,7 @@ import {
   getCappingTailState,
   validateCappingSettingsIgnoreZerosConsistency,
   validateCappingSettingsOrdering,
+  validateCappingSettingsValueEntered,
 } from "shared/validators";
 import {
   CreateFactMetricProps,
@@ -1554,6 +1555,20 @@ export default function FactMetricModal({
         }
 
         {
+          const isCappableType =
+            values.metricType !== "quantile" &&
+            values.metricType !== "proportion" &&
+            values.metricType !== "retention" &&
+            values.metricType !== "dailyParticipation";
+
+          if (isCappableType) {
+            validateCappingSettingsValueEntered(values.cappingSettings, false);
+            validateCappingSettingsValueEntered(
+              values.lowerCappingSettings,
+              true,
+            );
+          }
+
           const tails = getCappingTailState(
             values.cappingSettings,
             values.lowerCappingSettings,

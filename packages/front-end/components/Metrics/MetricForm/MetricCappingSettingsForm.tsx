@@ -19,18 +19,6 @@ function isUpperCapped(mode: CappingMode, value: number | undefined): boolean {
   return false;
 }
 
-function isLowerCapped(
-  mode: CappingMode,
-  lowerValue: number | undefined,
-): boolean {
-  if (mode === "absolute") {
-    return lowerValue !== undefined && Number.isFinite(lowerValue);
-  }
-  if (mode === "percentile")
-    return (lowerValue ?? 0) > 0 && (lowerValue ?? 0) < 1;
-  return false;
-}
-
 function getCappingMode(cappingSettings: { type?: CappingType }): CappingMode {
   if (cappingSettings?.type === "percentile") {
     return "percentile";
@@ -156,7 +144,7 @@ function LegacyMetricCappingSettingsFormContent({
         }}
         sort={false}
         options={cappingOptions}
-        helpText="Winsorization: limit how extreme aggregated user values can be on the high end. Does not apply to binomial metrics."
+        helpText="Winsorization: limit how extreme aggregated user values can be on the high end, which can reduce variance. Does not apply to binomial metrics."
       />
       <div
         style={{
@@ -188,12 +176,12 @@ function LegacyMetricCappingSettingsFormContent({
               helpText={
                 mode === "absolute"
                   ? "Maximum aggregated value per user"
-                  : "All aggregated user values will be capped at this percentile (e.g. 0.99 = 99th percentile)"
+                  : "All aggregated user values will be capped at this percentile (e.g. 0.99 = 99th percentile). Enter a number between 0 and 0.99999"
               }
             />
             {mode === "percentile" && upperCapped ? (
               <Checkbox
-                label="Ignore zeros"
+                label="Ignore zero values in percentile calculation"
                 value={cappingSettings?.ignoreZeros ?? false}
                 setValue={(v) => {
                   form.setValue("cappingSettings.ignoreZeros", v);
@@ -246,10 +234,8 @@ function FactCappingTailEditor({
       : []),
   ];
 
-  const value = settings?.value ?? 0;
-  const capped = isLower
-    ? isLowerCapped(mode, settings?.value)
-    : isUpperCapped(mode, value);
+  const rawValue = settings?.value;
+  const hasValue = rawValue != null && Number.isFinite(rawValue);
 
   const [focused, setFocused] = useState(false);
   const [draft, setDraft] = useState("");
@@ -268,11 +254,14 @@ function FactCappingTailEditor({
     }
   };
 
-  const writeTail = (m: CappingMode, n: number) => {
+  const writeTail = (m: CappingMode, n: number | undefined) => {
     form.setValue(path, {
       type: m,
       value: n,
-      ignoreZeros: settings?.ignoreZeros ?? false,
+      // ignoreZeros only applies to percentile capping; absolute tails always
+      // keep zeros so a stale flag doesn't linger after switching modes.
+      ignoreZeros:
+        m === "percentile" ? (settings?.ignoreZeros ?? false) : false,
     });
   };
 
@@ -281,34 +270,26 @@ function FactCappingTailEditor({
       clearTail();
       return;
     }
-    // Start a newly-enabled tail with a 0 value; the user then enters a value.
-    form.setValue(path, {
-      type: m,
-      value: 0,
-      ignoreZeros: settings?.ignoreZeros ?? false,
-    });
+    // Start a newly-enabled tail with no value ("None"); the user then enters a
+    // value. Submit validation rejects a selected mode left without a value.
+    writeTail(m, undefined);
   };
 
   const flushInput = (raw: string) => {
     const trimmed = raw.trim();
     if (trimmed === "") {
-      clearTail();
+      writeTail(mode, undefined);
       return;
     }
     const n = parseFloat(trimmed);
     if (Number.isNaN(n)) {
-      clearTail();
-      return;
-    }
-    const nowCapped = isLower ? isLowerCapped(mode, n) : isUpperCapped(mode, n);
-    if (!nowCapped) {
-      clearTail();
+      writeTail(mode, undefined);
       return;
     }
     writeTail(mode, n);
   };
 
-  const displayValue = focused ? draft : capped ? String(value) : "";
+  const displayValue = focused ? draft : hasValue ? String(rawValue) : "";
 
   const label = isLower
     ? mode === "absolute"
@@ -355,7 +336,7 @@ function FactCappingTailEditor({
             value={displayValue}
             onFocus={() => {
               setFocused(true);
-              setDraft(capped ? String(value) : "");
+              setDraft(hasValue ? String(rawValue) : "");
             }}
             onBlur={(e) => {
               flushInput(e.target.value);
@@ -364,14 +345,14 @@ function FactCappingTailEditor({
             onChange={(e) => setDraft(e.target.value)}
             helpText={valueHelpText}
           />
-          {mode === "percentile" && capped ? (
+          {mode === "percentile" ? (
             <Checkbox
               label="Ignore zeros"
               value={settings?.ignoreZeros ?? false}
               setValue={(v) => {
                 form.setValue(path, {
                   type: settings?.type ?? mode,
-                  value: settings?.value ?? 0,
+                  value: settings?.value,
                   ignoreZeros: v,
                 });
               }}
