@@ -91,10 +91,9 @@ describe("computeRevisionMergeChanges", () => {
 
     expect(hasChanges).toBe(true);
     expect(changes.rules?.[0].id).toBeTruthy();
-    // Rollout rules without an explicit seed default to their rule id.
-    expect((changes.rules?.[0] as { seed?: string }).seed).toBe(
-      changes.rules?.[0].id,
-    );
+    // Rollout rules without an explicit seed default to the feature id — the
+    // SDK's no-seed fallback, so the backfill never re-buckets the rollout.
+    expect((changes.rules?.[0] as { seed?: string }).seed).toBe("feat_test");
     expect("nextScheduledUpdate" in changes).toBe(true);
   });
 

@@ -2960,15 +2960,7 @@ export async function postFeatureRule(
     settings: org?.settings,
   });
 
-  // Assign rule ID if not present
-  if (!rule.id) {
-    rule.id = generateRuleId();
-  }
-  // Rollout rules always carry an explicit seed (= rule.id when user didn't set
-  // one) so monitored and non-monitored steps bucket users identically.
-  if (rule.type === "rollout" && !rule.seed) {
-    rule.seed = rule.id;
-  }
+  addIdsToFlatRules([rule], feature.id);
   let rampActionsUpdate:
     | RevisionRampCreateAction
     | RevisionRampDetachAction

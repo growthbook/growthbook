@@ -388,10 +388,10 @@ describe("ramp-monitored SDK payload", () => {
       expect(rule.variations).toBeUndefined();
     });
 
-    it("uses rule.id as payload seed when the rule's seed was backfilled (seed === rule.id)", () => {
-      // After addIdsToFlatRules, rollout rules have seed = rule.id persisted.
-      // The monitored payload uses r.seed, which is now rule.id. The SDK's own
-      // rollout path uses rule.seed (also rule.id after backfill), so both hash
+    it("uses the persisted seed as payload seed even when it equals rule.id", () => {
+      // Rules stamped while the backfill wrote seed = rule.id keep that value
+      // (an explicit seed is never rewritten). The monitored payload uses
+      // r.seed verbatim, and the SDK's own rollout path does too, so both hash
       // consistently and no variation hopping occurs.
       const feature = makeRolloutFeature({
         rules: [
@@ -1025,16 +1025,17 @@ describe("ramp-monitored SDK payload", () => {
     });
   });
 
-  describe("seed backfill (rule.id as default seed) prevents hopping for new rules", () => {
-    // When a rollout rule has no explicit seed, addIdsToFlatRules now persists
-    // seed = rule.id. The SDK's own rollout fallback is also `rule.seed || id`
-    // (where id is the rule id), so both paths hash identically.
-    // These tests verify that a rule whose seed equals its id produces the same
-    // bucketing across monitored and unmonitored steps — i.e. no variation hopping.
+  describe("rules stamped with seed = rule.id keep bucketing consistently", () => {
+    // An earlier version of the write-time backfill persisted seed = rule.id.
+    // Those rules keep that seed (explicit seeds are never rewritten), and both
+    // monitored and unmonitored payloads must carry it verbatim so the SDK
+    // hashes users through the same space — i.e. no variation hopping.
+    // (The backfill itself now writes the feature ID, matching the SDK's
+    // no-seed fallback `rule.seed || featureId`.)
     const RULE_ID = "fr_backfill_rule";
     const FEATURE_ID = "feat_backfill";
 
-    it("getFeatureDefinition uses rule.id as seed when rule.seed is backfilled to rule.id", () => {
+    it("getFeatureDefinition uses rule.id as seed when the persisted seed is rule.id", () => {
       const feature = makeRolloutFeature({
         id: FEATURE_ID,
         rules: [
@@ -1046,7 +1047,7 @@ describe("ramp-monitored SDK payload", () => {
             value: "true",
             coverage: 0.5,
             hashAttribute: "id",
-            seed: RULE_ID, // post-backfill: seed === rule.id
+            seed: RULE_ID, // stamped by the old backfill: seed === rule.id
             allEnvironments: true,
           },
         ],
@@ -1058,8 +1059,8 @@ describe("ramp-monitored SDK payload", () => {
       expect(rule.seed).not.toBe(FEATURE_ID);
     });
 
-    it("backfilled rule: monitored and unmonitored payloads use the same seed", () => {
-      // After addIdsToFlatRules, rule.seed === rule.id. Both monitored (experiment)
+    it("legacy-stamped rule: monitored and unmonitored payloads use the same seed", () => {
+      // Rules may carry a persisted seed === rule.id. Both monitored (experiment)
       // and unmonitored (force-coverage) payloads must carry that same seed so the
       // SDK hashes users through the same space and no variation hopping can occur.
       const ruleId = "fr_backfill_rule";

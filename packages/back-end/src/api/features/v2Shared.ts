@@ -284,6 +284,12 @@ export function mapV2ApiRuleToFeatureRule(
       ...(ruleInput.sparse !== undefined && { sparse: ruleInput.sparse }),
       coverage: ruleInput.coverage ?? 1,
       hashAttribute: ruleInput.hashAttribute ?? "",
+      // Preserve bucketing inputs on round-trips: dropping them would let
+      // the seed backfill (or the hashVersion default) re-bucket the rollout.
+      ...(ruleInput.seed !== undefined && { seed: ruleInput.seed }),
+      ...(ruleInput.hashVersion !== undefined && {
+        hashVersion: ruleInput.hashVersion,
+      }),
     };
   }
   if (ruleInput.type === "safe-rollout") {

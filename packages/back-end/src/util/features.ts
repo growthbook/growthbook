@@ -1128,7 +1128,8 @@ export function getFeatureDefinition({
           // payload (tracking key, stable bucketing). Fall back to feature.id (matches
           // the SDK's own `rule.seed || featureId` fallback for force-coverage rules)
           // for older rules that predate the seed-at-write-time backfill.
-          // New rules always have seed persisted as rule.id via addIdsToFlatRules.
+          // Persisted seeds are used verbatim; existing rules may carry any
+          // value (including their rule ID) and are never rewritten.
           if (monitorInfo && r.hashAttribute) {
             const monitoredSeed = r.seed || feature.id;
             // Reuse rollout bucketing so monitored steps do not cause variation hopping.

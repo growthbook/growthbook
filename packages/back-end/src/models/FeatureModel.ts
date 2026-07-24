@@ -41,7 +41,6 @@ import { ResourceEvents } from "shared/types/events/base-types";
 import { DiffResult } from "shared/types/events/diff";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import {
-  generateRuleId,
   addIdsToFlatRules,
   getApiFeatureObj,
   getNextScheduledUpdate,
@@ -1334,12 +1333,7 @@ export async function addFeatureRule(
   user: EventUser,
   resetReview: boolean,
 ) {
-  if (!rule.id) {
-    rule.id = generateRuleId();
-  }
-  if (rule.type === "rollout" && !rule.seed) {
-    rule.seed = rule.id;
-  }
+  addIdsToFlatRules([rule], feature.id);
 
   const applicableEnvs = getEnvironmentIdsFromOrg(context.org);
   const isAllEnvs =
@@ -1631,7 +1625,8 @@ export function computeRevisionMergeChanges(
     // Ensure every rollout rule that's being published has a seed — required
     // for ramp-monitored payload stability. Rules created before the
     // seed-backfill was introduced (or attached to a ramp for the first time)
-    // get seed = rule.id here so they match the SDK's featureId fallback.
+    // get seed = feature ID here, matching the SDK's fallback when no seed is
+    // sent so the backfill never re-buckets an existing rollout.
     addIdsToFlatRules(changes.rules, feature.id);
     hasChanges = true;
   }
