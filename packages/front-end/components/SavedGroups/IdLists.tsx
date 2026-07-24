@@ -40,7 +40,7 @@ import SavedGroupDeleteModal from "./SavedGroupDeleteModal";
 
 export interface Props {
   groups: SavedGroupWithoutValues[];
-  mutate: () => void;
+  mutate: () => void | Promise<void>;
 }
 
 export default function IdLists({ groups, mutate }: Props) {

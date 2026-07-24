@@ -63,7 +63,8 @@ const SavedGroupForm: FC<{
   editInfoOnly?: boolean;
   editConditionOnly?: boolean;
   autoBypassApproval?: boolean;
-  mutate?: () => void;
+  // Awaited on save, so callers that refresh a cache must return the promise.
+  mutate?: () => void | Promise<void>;
 }> = ({
   close,
   current,
