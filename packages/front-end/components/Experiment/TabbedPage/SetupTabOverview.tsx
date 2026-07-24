@@ -135,9 +135,17 @@ export default function SetupTabOverview({
   const scheduleSummary = scheduleSummaryParts.join(" · ");
 
   // End-only summary for a running experiment (start is already in the past, and
-  // any relative stopAfter was resolved to a concrete stopAt at start).
+  // any relative stopAfter was resolved to a concrete stopAt at start). A
+  // passed end date means a notify-mode end already fired and deliberately kept
+  // the experiment running — say so instead of implying a future stop.
+  const scheduledEndPassed =
+    experiment.status === "running" &&
+    !!schedule?.stopAt &&
+    new Date(schedule.stopAt) <= new Date();
   const scheduledEndSummary = schedule?.stopAt
-    ? `Ends ${format(new Date(schedule.stopAt), "MMM d, yyyy 'at' h:mm a (z)")}`
+    ? scheduledEndPassed
+      ? `Ended ${format(new Date(schedule.stopAt), "MMM d, yyyy 'at' h:mm a (z)")} — kept running`
+      : `Ends ${format(new Date(schedule.stopAt), "MMM d, yyyy 'at' h:mm a (z)")}`
     : schedule?.stopAfter
       ? `Ends ${schedule.stopAfter.value} ${schedule.stopAfter.unit} after start`
       : null;
@@ -234,6 +242,9 @@ export default function SetupTabOverview({
             {showEditRunningSchedule ? (
               <Link onClick={() => editSchedule()}>
                 <Flex align="center" gap="1">
+                  {scheduledEndPassed && (
+                    <PiWarningFill color="var(--warning)" />
+                  )}
                   {experimentHasSchedule ? (
                     <PiPencilSimpleFill />
                   ) : (
