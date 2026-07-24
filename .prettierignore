@@ -1,5 +1,8 @@
 .next
 node_modules
+# Gitignored agent scratch space. Formatting it would fail CI on files that
+# never reach the repo, and pnpm pretty would silently rewrite local notes.
+.context
 public
 coverage
 *.py
@@ -13,3 +16,7 @@ packages/back-end/src/templates/javascript.js
 packages/shared/types/*.js
 docs/static/scripts/reo.js
 packages/sdk-js/scripts/bump-version.js
+
+# ESLint writes this with its own stable serializer and emits no trailing
+# newline, so every regeneration would otherwise fail pretty:check.
+eslint-suppressions.json

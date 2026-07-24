@@ -26,11 +26,10 @@ fi
 echo "#### Formatting and linting staged files"
 pnpm lint-staged
 
-# Format and add eslint-suppressions.json if it was modified during linting
+# Add eslint-suppressions.json if it was modified during linting
 if [ -n "$(git status --porcelain eslint-suppressions.json)" ]
   then
-    echo "#### Formatting and adding updated eslint-suppressions.json"
-    pnpm prettier --write eslint-suppressions.json
+    echo "#### Adding updated eslint-suppressions.json"
     git add eslint-suppressions.json
 fi
 

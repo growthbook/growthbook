@@ -35,13 +35,10 @@ jobs:
           node-version: "24"
           cache: "pnpm"
 
-      - name: Cache eslint
-        uses: actions/cache@v5
-        with:
-          path: ${{ github.workspace }}/.eslintcache
-          key: ${{ runner.os }}-eslint-${{ hashFiles('eslint.config.mjs', 'eslint-suppressions.json', 'pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-eslint-
+      # No eslint cache here on purpose. ESLint keys its cache on file content
+      # plus the serialized config, neither of which changes when a type in
+      # another package or a rule under eslint-rules/ changes. Caching would let
+      # type-aware rules such as switch-exhaustiveness-check pass on stale results.
 
       - name: Cache tsbuildinfo
         uses: actions/cache@v5

@@ -559,14 +559,23 @@ export default defineConfig([
     },
   },
   {
-    files: ["./packages/front-end/**/*.{ts,tsx}"],
+    // TypeScript already resolves imports, and every package under packages/ has
+    // a type-check script, so re-deriving resolution in ESLint is duplicated work
+    // and roughly doubles lint wall time. docs/ is not a workspace member and has
+    // no type-check, and plain .js files are never seen by tsc, so both keep these.
+    files: ["./packages/**/*.{ts,tsx}"],
 
-    languageOptions: {
-      parserOptions: {
-        projectService: true,
-        tsconfigRootDir: __dirname,
-      },
+    rules: {
+      "import/default": "off",
+      "import/namespace": "off",
+      "import/no-unresolved": "off",
     },
+  },
+  {
+    // Narrower resolver projects than the repo-wide default. import/order and
+    // import/no-restricted-paths still resolve, and scoping each package to its
+    // own tsconfig keeps that work small.
+    files: ["./packages/front-end/**/*.{ts,tsx}"],
 
     settings: {
       "import/resolver": {
@@ -577,16 +586,51 @@ export default defineConfig([
         },
       },
     },
+  },
+  {
+    files: ["./packages/back-end/**/*.{ts,tsx}"],
 
-    rules: {
-      "@typescript-eslint/switch-exhaustiveness-check": "error",
-      "import/default": "off",
-      "import/namespace": "off",
-      "import/no-unresolved": "off",
+    settings: {
+      "import/resolver": {
+        node: true,
+        typescript: {
+          alwaysTryTypes: true,
+          project: [
+            "packages/back-end/tsconfig.json",
+            "packages/back-end/test/tsconfig.json",
+          ],
+        },
+      },
     },
   },
   {
-    files: ["./packages/back-end/src/**/*.{ts,tsx}"],
+    files: ["./packages/shared/**/*.{ts,tsx}"],
+
+    settings: {
+      "import/resolver": {
+        node: true,
+        typescript: {
+          alwaysTryTypes: true,
+          project: ["packages/shared/tsconfig.json"],
+        },
+      },
+    },
+  },
+  {
+    // Type-aware linting. Each entry is a package's tsconfig'd source root.
+    // projectService hard-errors on any file it cannot map to a project, so this
+    // list must track the `include` arrays in the corresponding tsconfig.json.
+    files: [
+      "./packages/front-end/**/*.{ts,tsx}",
+      "./packages/back-end/src/**/*.{ts,tsx}",
+      "./packages/shared/src/**/*.{ts,tsx}",
+    ],
+
+    // Test directories are excluded uniformly across all three packages.
+    // shared/test and back-end/test sit outside their package tsconfig, and
+    // front-end/test would otherwise be the only test tree that is type-linted.
+    // No test file in any package currently contains a switch statement.
+    ignores: ["./packages/*/test/**"],
 
     languageOptions: {
       parserOptions: {
@@ -595,21 +639,8 @@ export default defineConfig([
       },
     },
 
-    settings: {
-      "import/resolver": {
-        node: true,
-        typescript: {
-          alwaysTryTypes: true,
-          project: ["packages/back-end/tsconfig.json"],
-        },
-      },
-    },
-
     rules: {
       "@typescript-eslint/switch-exhaustiveness-check": "error",
-      "import/default": "off",
-      "import/namespace": "off",
-      "import/no-unresolved": "off",
     },
   },
   {
