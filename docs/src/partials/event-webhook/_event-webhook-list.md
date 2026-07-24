@@ -1014,6 +1014,7 @@ Triggered when a new draft revision is created for a feature
     created: number;
     data: {
         object: {
+            id?: string | undefined;
             /** The feature this revision belongs to */
             featureId: string;
             baseVersion: number;
@@ -1081,6 +1082,7 @@ Triggered when a draft revision is modified (rules, default value, toggles, prer
     created: number;
     data: {
         object: {
+            id?: string | undefined;
             /** The feature this revision belongs to */
             featureId: string;
             baseVersion: number;
@@ -1150,6 +1152,7 @@ Triggered when a draft revision is submitted for review
     created: number;
     data: {
         object: {
+            id?: string | undefined;
             /** The feature this revision belongs to */
             featureId: string;
             baseVersion: number;
@@ -1218,6 +1221,7 @@ Triggered when a draft revision is approved by a reviewer
     created: number;
     data: {
         object: {
+            id?: string | undefined;
             /** The feature this revision belongs to */
             featureId: string;
             baseVersion: number;
@@ -1291,6 +1295,7 @@ Triggered when a reviewer requests changes on a draft revision
     created: number;
     data: {
         object: {
+            id?: string | undefined;
             /** The feature this revision belongs to */
             featureId: string;
             baseVersion: number;
@@ -1364,6 +1369,7 @@ Triggered when a comment is added to a draft revision
     created: number;
     data: {
         object: {
+            id?: string | undefined;
             /** The feature this revision belongs to */
             featureId: string;
             baseVersion: number;
@@ -1437,6 +1443,7 @@ Triggered when a draft revision is discarded
     created: number;
     data: {
         object: {
+            id?: string | undefined;
             /** The feature this revision belongs to */
             featureId: string;
             baseVersion: number;
@@ -1504,6 +1511,7 @@ Triggered when a discarded draft revision is reopened as a draft
     created: number;
     data: {
         object: {
+            id?: string | undefined;
             /** The feature this revision belongs to */
             featureId: string;
             baseVersion: number;
@@ -1571,6 +1579,7 @@ Triggered when a draft revision is rebased onto the latest published version
     created: number;
     data: {
         object: {
+            id?: string | undefined;
             /** The feature this revision belongs to */
             featureId: string;
             baseVersion: number;
@@ -1638,6 +1647,7 @@ Triggered when a draft revision is published. Overlaps with `feature.updated` bu
     created: number;
     data: {
         object: {
+            id?: string | undefined;
             /** The feature this revision belongs to */
             featureId: string;
             baseVersion: number;
@@ -1663,6 +1673,7 @@ Triggered when a draft revision is published. Overlaps with `feature.updated` bu
                 condition: string;
             }[] | undefined;
             metadata?: {} | undefined;
+            bulkPublishId?: string | undefined;
         };
     };
     user: {
@@ -1705,6 +1716,7 @@ Triggered when a feature is reverted to a previous published revision
     created: number;
     data: {
         object: {
+            id?: string | undefined;
             /** The feature this revision belongs to */
             featureId: string;
             baseVersion: number;
@@ -1731,6 +1743,7 @@ Triggered when a feature is reverted to a previous published revision
             }[] | undefined;
             metadata?: {} | undefined;
             revertedToVersion: number;
+            bulkPublishId?: string | undefined;
         };
     };
     user: {
@@ -1773,6 +1786,7 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
     created: number;
     data: {
         object: {
+            id?: string | undefined;
             /** The feature this revision belongs to */
             featureId: string;
             baseVersion: number;
@@ -1798,6 +1812,7 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
                 condition: string;
             }[] | undefined;
             metadata?: {} | undefined;
+            bulkPublishId?: string | undefined;
             failureReason: string;
             terminal: boolean;
             attempts: number;
@@ -4941,6 +4956,7 @@ Triggered when a draft revision is published. Overlaps with `savedGroup.updated`
                 op: string;
                 path: string;
             }[];
+            bulkPublishId?: string | undefined;
         };
     };
     user: {
@@ -5057,6 +5073,7 @@ Triggered when a saved group is reverted to a previous published revision
                 path: string;
             }[];
             revertedToVersion?: number | undefined;
+            bulkPublishId?: string | undefined;
         };
     };
     user: {
@@ -5287,6 +5304,7 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
                 op: string;
                 path: string;
             }[];
+            bulkPublishId?: string | undefined;
             failureReason: string;
             terminal: boolean;
             attempts: number;
@@ -6549,6 +6567,7 @@ Triggered when a draft revision is published. Overlaps with `constant.updated` b
                 op: string;
                 path: string;
             }[];
+            bulkPublishId?: string | undefined;
         };
     };
     user: {
@@ -6665,6 +6684,7 @@ Triggered when a constant is reverted to a previous published revision
                 path: string;
             }[];
             revertedToVersion?: number | undefined;
+            bulkPublishId?: string | undefined;
         };
     };
     user: {
@@ -6895,6 +6915,7 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
                 op: string;
                 path: string;
             }[];
+            bulkPublishId?: string | undefined;
             failureReason: string;
             terminal: boolean;
             attempts: number;
@@ -6994,7 +7015,7 @@ Triggered when a config is created
             }[] | undefined;
             /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
             locked?: boolean | undefined;
-            /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `?ignoreWarnings=true` or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
+            /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
             experimentGuard?: boolean | undefined;
             /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
             lockedRevision?: {
@@ -7103,7 +7124,7 @@ Triggered when a config is updated
             }[] | undefined;
             /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
             locked?: boolean | undefined;
-            /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `?ignoreWarnings=true` or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
+            /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
             experimentGuard?: boolean | undefined;
             /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
             lockedRevision?: {
@@ -7172,7 +7193,7 @@ Triggered when a config is updated
             }[] | undefined;
             /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
             locked?: boolean | undefined;
-            /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `?ignoreWarnings=true` or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
+            /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
             experimentGuard?: boolean | undefined;
             /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
             lockedRevision?: {
@@ -7286,7 +7307,7 @@ Triggered when a config is deleted
             }[] | undefined;
             /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
             locked?: boolean | undefined;
-            /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `?ignoreWarnings=true` or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
+            /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
             experimentGuard?: boolean | undefined;
             /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
             lockedRevision?: {
@@ -7425,7 +7446,7 @@ Triggered when a new draft revision is created for a config
                 }[] | undefined;
                 /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
                 locked?: boolean | undefined;
-                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `?ignoreWarnings=true` or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
+                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
                 experimentGuard?: boolean | undefined;
                 /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
                 lockedRevision?: {
@@ -7494,7 +7515,7 @@ Triggered when a new draft revision is created for a config
                 }[] | undefined;
                 /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
                 locked?: boolean | undefined;
-                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `?ignoreWarnings=true` or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
+                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
                 experimentGuard?: boolean | undefined;
                 /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
                 lockedRevision?: {
@@ -7638,7 +7659,7 @@ Triggered when a draft revision's proposed changes are modified (value, schema, 
                 }[] | undefined;
                 /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
                 locked?: boolean | undefined;
-                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `?ignoreWarnings=true` or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
+                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
                 experimentGuard?: boolean | undefined;
                 /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
                 lockedRevision?: {
@@ -7707,7 +7728,7 @@ Triggered when a draft revision's proposed changes are modified (value, schema, 
                 }[] | undefined;
                 /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
                 locked?: boolean | undefined;
-                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `?ignoreWarnings=true` or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
+                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
                 experimentGuard?: boolean | undefined;
                 /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
                 lockedRevision?: {
@@ -7852,7 +7873,7 @@ Triggered when a draft revision is submitted for review
                 }[] | undefined;
                 /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
                 locked?: boolean | undefined;
-                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `?ignoreWarnings=true` or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
+                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
                 experimentGuard?: boolean | undefined;
                 /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
                 lockedRevision?: {
@@ -7921,7 +7942,7 @@ Triggered when a draft revision is submitted for review
                 }[] | undefined;
                 /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
                 locked?: boolean | undefined;
-                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `?ignoreWarnings=true` or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
+                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
                 experimentGuard?: boolean | undefined;
                 /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
                 lockedRevision?: {
@@ -8065,7 +8086,7 @@ Triggered when a draft revision is approved by a reviewer
                 }[] | undefined;
                 /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
                 locked?: boolean | undefined;
-                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `?ignoreWarnings=true` or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
+                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
                 experimentGuard?: boolean | undefined;
                 /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
                 lockedRevision?: {
@@ -8134,7 +8155,7 @@ Triggered when a draft revision is approved by a reviewer
                 }[] | undefined;
                 /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
                 locked?: boolean | undefined;
-                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `?ignoreWarnings=true` or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
+                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
                 experimentGuard?: boolean | undefined;
                 /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
                 lockedRevision?: {
@@ -8284,7 +8305,7 @@ Triggered when a reviewer requests changes on a draft revision
                 }[] | undefined;
                 /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
                 locked?: boolean | undefined;
-                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `?ignoreWarnings=true` or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
+                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
                 experimentGuard?: boolean | undefined;
                 /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
                 lockedRevision?: {
@@ -8353,7 +8374,7 @@ Triggered when a reviewer requests changes on a draft revision
                 }[] | undefined;
                 /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
                 locked?: boolean | undefined;
-                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `?ignoreWarnings=true` or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
+                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
                 experimentGuard?: boolean | undefined;
                 /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
                 lockedRevision?: {
@@ -8503,7 +8524,7 @@ Triggered when a comment is added to a draft revision
                 }[] | undefined;
                 /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
                 locked?: boolean | undefined;
-                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `?ignoreWarnings=true` or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
+                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
                 experimentGuard?: boolean | undefined;
                 /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
                 lockedRevision?: {
@@ -8572,7 +8593,7 @@ Triggered when a comment is added to a draft revision
                 }[] | undefined;
                 /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
                 locked?: boolean | undefined;
-                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `?ignoreWarnings=true` or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
+                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
                 experimentGuard?: boolean | undefined;
                 /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
                 lockedRevision?: {
@@ -8722,7 +8743,7 @@ Triggered when a draft revision is discarded
                 }[] | undefined;
                 /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
                 locked?: boolean | undefined;
-                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `?ignoreWarnings=true` or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
+                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
                 experimentGuard?: boolean | undefined;
                 /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
                 lockedRevision?: {
@@ -8791,7 +8812,7 @@ Triggered when a draft revision is discarded
                 }[] | undefined;
                 /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
                 locked?: boolean | undefined;
-                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `?ignoreWarnings=true` or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
+                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
                 experimentGuard?: boolean | undefined;
                 /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
                 lockedRevision?: {
@@ -8935,7 +8956,7 @@ Triggered when a draft revision is rebased onto the latest live state
                 }[] | undefined;
                 /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
                 locked?: boolean | undefined;
-                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `?ignoreWarnings=true` or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
+                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
                 experimentGuard?: boolean | undefined;
                 /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
                 lockedRevision?: {
@@ -9004,7 +9025,7 @@ Triggered when a draft revision is rebased onto the latest live state
                 }[] | undefined;
                 /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
                 locked?: boolean | undefined;
-                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `?ignoreWarnings=true` or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
+                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
                 experimentGuard?: boolean | undefined;
                 /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
                 lockedRevision?: {
@@ -9148,7 +9169,7 @@ Triggered when a draft revision is published. Overlaps with `config.updated` but
                 }[] | undefined;
                 /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
                 locked?: boolean | undefined;
-                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `?ignoreWarnings=true` or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
+                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
                 experimentGuard?: boolean | undefined;
                 /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
                 lockedRevision?: {
@@ -9217,7 +9238,7 @@ Triggered when a draft revision is published. Overlaps with `config.updated` but
                 }[] | undefined;
                 /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
                 locked?: boolean | undefined;
-                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `?ignoreWarnings=true` or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
+                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
                 experimentGuard?: boolean | undefined;
                 /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
                 lockedRevision?: {
@@ -9235,6 +9256,7 @@ Triggered when a draft revision is published. Overlaps with `config.updated` but
                 op: string;
                 path: string;
             }[];
+            bulkPublishId?: string | undefined;
         };
     };
     user: {
@@ -9361,7 +9383,7 @@ Triggered when a config is reverted to a previous published revision
                 }[] | undefined;
                 /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
                 locked?: boolean | undefined;
-                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `?ignoreWarnings=true` or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
+                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
                 experimentGuard?: boolean | undefined;
                 /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
                 lockedRevision?: {
@@ -9430,7 +9452,7 @@ Triggered when a config is reverted to a previous published revision
                 }[] | undefined;
                 /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
                 locked?: boolean | undefined;
-                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `?ignoreWarnings=true` or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
+                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
                 experimentGuard?: boolean | undefined;
                 /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
                 lockedRevision?: {
@@ -9449,6 +9471,7 @@ Triggered when a config is reverted to a previous published revision
                 path: string;
             }[];
             revertedToVersion?: number | undefined;
+            bulkPublishId?: string | undefined;
         };
     };
     user: {
@@ -9575,7 +9598,7 @@ Triggered when a discarded revision is reopened
                 }[] | undefined;
                 /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
                 locked?: boolean | undefined;
-                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `?ignoreWarnings=true` or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
+                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
                 experimentGuard?: boolean | undefined;
                 /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
                 lockedRevision?: {
@@ -9644,7 +9667,7 @@ Triggered when a discarded revision is reopened
                 }[] | undefined;
                 /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
                 locked?: boolean | undefined;
-                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `?ignoreWarnings=true` or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
+                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
                 experimentGuard?: boolean | undefined;
                 /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
                 lockedRevision?: {
@@ -9788,7 +9811,7 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
                 }[] | undefined;
                 /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
                 locked?: boolean | undefined;
-                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `?ignoreWarnings=true` or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
+                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
                 experimentGuard?: boolean | undefined;
                 /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
                 lockedRevision?: {
@@ -9857,7 +9880,7 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
                 }[] | undefined;
                 /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
                 locked?: boolean | undefined;
-                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `?ignoreWarnings=true` or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
+                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
                 experimentGuard?: boolean | undefined;
                 /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
                 lockedRevision?: {
@@ -9875,6 +9898,7 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
                 op: string;
                 path: string;
             }[];
+            bulkPublishId?: string | undefined;
             failureReason: string;
             terminal: boolean;
             attempts: number;

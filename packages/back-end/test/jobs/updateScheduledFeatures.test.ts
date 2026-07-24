@@ -48,6 +48,8 @@ const makeContext = () => ({
     settings: { environments: [{ id: "production" }] },
   },
   environments: ["production"],
+  getProjects: async () => [],
+  getAllProjectIds: async () => [],
 });
 
 describe("updateSingleFeature", () => {

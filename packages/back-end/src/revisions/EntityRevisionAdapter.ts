@@ -2,6 +2,7 @@ import { isEqual } from "lodash";
 import type { Revision } from "shared/enterprise";
 import type { Context } from "back-end/src/models/BaseModel";
 import type { ArmAcknowledgments } from "back-end/src/services/armGuards";
+import type { PublishGate } from "back-end/src/revisions/publishGates";
 
 /**
  * Narrow a proposed-changes object to the fields an adapter may write, dropping
@@ -104,13 +105,19 @@ export interface EntityRevisionAdapter<
    * `options.isRevert` is set when the revision being merged carries a
    * `revertedFrom` link, so adapters can skip validations that would otherwise
    * block restoring a previously-published state.
+   *
+   * Returns the keys this call actually persisted on the entity — the changes
+   * that survived the updatable filter AND any adapter normalization (e.g. a
+   * config field stripped as owned by an ancestor). Bulk compensation restores
+   * ONLY these keys, so a field the write dropped is never rolled back over a
+   * concurrent writer's value. Single-entity callers ignore the return.
    */
   applyChanges(
     context: Context,
     entity: TSnapshot,
     changes: Record<string, unknown>,
     options?: { isRevert?: boolean },
-  ): Promise<void>;
+  ): Promise<string[]>;
 
   /**
    * Validate that `desiredState` (the changes a merge would apply) can be
@@ -133,6 +140,26 @@ export interface EntityRevisionAdapter<
     // bypass applies).
     options?: { isRevert?: boolean; deferred?: boolean },
   ): Promise<void>;
+
+  /**
+   * Non-throwing view of this entity's publish guards, for the REST publish
+   * handlers' aggregated 422 (PublishBlockedError): evaluate the same guard
+   * conditions the sequential asserts enforce and return one PublishGate per
+   * live conflict set, so a blocked publish reports every gate — and the flag
+   * that clears it — in one response. Gates the caller's authority or request
+   * disposition already clears implicitly (bypass-approval permission, a live
+   * ignoreWarnings) are omitted, matching the asserts' synchronous override —
+   * but the overridden conflicts must still be logged, matching the asserts'
+   * override logging. On the REST publish path this plus the handler's
+   * evaluatePublishGates IS the guard enforcement; deferred/internal paths keep
+   * their asserts.
+   */
+  collectPublishGates?(
+    context: Context,
+    entity: TSnapshot,
+    revision: Revision,
+    desiredState: Record<string, unknown>,
+  ): Promise<PublishGate[]>;
 
   /**
    * Called on the no-op merge path (publish with no net entity change — a

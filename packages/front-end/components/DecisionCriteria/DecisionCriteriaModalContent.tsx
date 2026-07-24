@@ -10,6 +10,7 @@ import {
   PiTrash,
 } from "react-icons/pi";
 import { Select, SelectItem } from "@/ui/Select";
+import Field from "@/components/Forms/Field";
 import { useDecisionCriteriaForm } from "@/hooks/useDecisionCriteriaForm";
 
 // Match options
@@ -135,12 +136,12 @@ const DecisionCriteriaModalContent: FC<DecisionCriteriaModalContentProps> = ({
           Description
         </Text>
         <div className="form-group">
-          <textarea
-            className="form-control"
+          <Field
+            textarea
             placeholder="(optional)"
             value={form.watch("description")}
             onChange={(e) => form.setValue("description", e.target.value)}
-            rows={2}
+            minRows={1}
             disabled={!editable}
           />
         </div>
@@ -189,7 +190,7 @@ const DecisionCriteriaModalContent: FC<DecisionCriteriaModalContentProps> = ({
 
                 <Box style={{ flex: 1 }}>
                   <Select
-                    size={"2"}
+                    size={"small"}
                     value={condition.match}
                     setValue={(value) =>
                       updateCondition(rule.key, condition.key, "match", value)
@@ -206,7 +207,7 @@ const DecisionCriteriaModalContent: FC<DecisionCriteriaModalContentProps> = ({
 
                 <Box style={{ flex: 1 }}>
                   <Select
-                    size={"2"}
+                    size={"small"}
                     value={condition.metrics}
                     setValue={(value) => {
                       if (value === "guardrails") {
@@ -236,7 +237,7 @@ const DecisionCriteriaModalContent: FC<DecisionCriteriaModalContentProps> = ({
 
                 <Box style={{ flex: 1 }}>
                   <Select
-                    size={"2"}
+                    size={"small"}
                     value={condition.direction}
                     setValue={(value) =>
                       updateCondition(
@@ -314,7 +315,7 @@ const DecisionCriteriaModalContent: FC<DecisionCriteriaModalContentProps> = ({
             </Box>
             <Flex width="100%" align="center" style={{ gridColumn: "span 11" }}>
               <Select
-                size={"2"}
+                size={"small"}
                 value={rule.action}
                 setValue={(value) =>
                   updateRuleAction(
@@ -363,7 +364,7 @@ const DecisionCriteriaModalContent: FC<DecisionCriteriaModalContentProps> = ({
             </Text>
           </Box>
           <Select
-            size={"2"}
+            size={"small"}
             value={form.watch("defaultAction")}
             setValue={(value) =>
               form.setValue(

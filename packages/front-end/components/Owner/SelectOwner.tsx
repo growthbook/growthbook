@@ -40,6 +40,7 @@ export default function SelectOwner({
 
   return (
     <SelectField
+      size="legacy"
       label="Owner"
       labelClassName="font-weight-bold"
       options={options}

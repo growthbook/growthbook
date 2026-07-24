@@ -457,6 +457,7 @@ export default function EditSqlModal({
                           </Text>
                           {hasEventName && (
                             <Field
+                              size="legacy"
                               label="eventName"
                               labelClassName="mr-2"
                               value={templateVariables?.eventName || ""}
@@ -475,6 +476,7 @@ export default function EditSqlModal({
                           )}
                           {hasValueCol && (
                             <Field
+                              size="legacy"
                               label="valueColumn"
                               labelClassName="mr-2"
                               value={templateVariables?.valueColumn || ""}

@@ -8,8 +8,10 @@ import {
   getConfigSubtree,
   isScopedConfig,
   valueHasConfigExtends,
+  parsePlainJSONObject,
 } from "shared/util";
 import type { ApiReqContext } from "back-end/types/api";
+import type { ReqContext } from "back-end/types/request";
 import { BadRequestError } from "back-end/src/util/errors";
 import type { ApiFeatureEnvSettings } from "./postFeature";
 
@@ -39,6 +41,7 @@ const CONFIG_KEY_RE = /^[a-z0-9][a-z0-9_-]*$/;
 async function requireLiveConfig(
   context: ApiReqContext,
   key: string,
+  featureProject: string | undefined,
 ): Promise<void> {
   if (!CONFIG_KEY_RE.test(key)) {
     throw new BadRequestError(
@@ -54,6 +57,15 @@ async function requireLiveConfig(
       `Config "${key}" is archived and cannot back a feature value.`,
     );
   }
+  // Resolution scrubs a ref whose config is scoped to a different project than
+  // the resolving feature, so a cross-project attach would serve a bare patch
+  // while its values are validated against a schema that never applies. Global
+  // configs (no project) are usable everywhere. Matches the UI's config picker.
+  if (config.project && config.project !== (featureProject || "")) {
+    throw new BadRequestError(
+      `Config "${key}" is scoped to a different project than this feature and cannot back its values. Use a global config or one in the feature's project.`,
+    );
+  }
   // Flavors are selected implicitly per environment via the base's
   // scopedOverrides — referencing one directly would serve its patch in EVERY
   // environment and dodge its env-scoped review.
@@ -62,15 +74,6 @@ async function requireLiveConfig(
       `Config "${key}" is an environment/project override of "${config.scopedConfig?.parent}" and can't back a feature value directly — reference its base config instead.`,
     );
   }
-}
-
-// A request-supplied config key backing the DEFAULT value may be any live
-// config; it defines the feature's config family.
-export async function assertValidDefaultValueConfigKey(
-  context: ApiReqContext,
-  key: string,
-): Promise<void> {
-  await requireLiveConfig(context, key);
 }
 
 // Config backing is set only through dedicated fields (`baseConfig`,
@@ -87,17 +90,41 @@ export function assertNoRawConfigExtends(
   }
 }
 
+// Compose a stored config-backed value from a config key + an override patch,
+// rejecting a patch that isn't a JSON object. A config backing is a deep-merge
+// of the patch onto the config's object, so a scalar/array patch has nothing to
+// merge onto — setConfigBacking would silently drop the backing ref and store
+// the bare value unbacked. Reject the contradictory input instead. An empty
+// patch ("" / whitespace) is fine: it means "pure backing, no override".
+export function composeConfigBacking(
+  configKey: string | null | undefined,
+  value: string | undefined,
+  label: string,
+): string {
+  if (
+    (configKey ?? null) !== null &&
+    (value ?? "").trim() !== "" &&
+    !parsePlainJSONObject(value ?? "")
+  ) {
+    throw new BadRequestError(
+      `${label} must be a JSON object when backed by a config — a scalar or array value can't extend a config.`,
+    );
+  }
+  return setConfigBacking(configKey ?? null, value);
+}
+
 // `baseConfig` puts a flag in Config mode: JSON-typed and backed by a live config.
 export async function assertValidBaseConfig(
   context: ApiReqContext,
   baseConfig: string | null | undefined,
   valueType: string | undefined,
+  featureProject: string | undefined,
 ): Promise<void> {
   if ((baseConfig ?? null) === null) return;
   if (valueType !== "json") {
     throw new BadRequestError('`baseConfig` requires `valueType: "json"`.');
   }
-  await requireLiveConfig(context, baseConfig as string);
+  await requireLiveConfig(context, baseConfig as string, featureProject);
 }
 
 // The default's optional extension must be a live config within `baseConfig`'s
@@ -106,6 +133,7 @@ export async function assertValidDefaultValueConfig(
   context: ApiReqContext,
   baseConfig: string | null | undefined,
   defaultValueConfig: string | null | undefined,
+  featureProject: string | undefined,
 ): Promise<void> {
   if ((defaultValueConfig ?? null) === null) return;
   if ((baseConfig ?? null) === null) {
@@ -113,7 +141,11 @@ export async function assertValidDefaultValueConfig(
       "`defaultValueConfig` requires `baseConfig` to be set.",
     );
   }
-  await requireLiveConfig(context, defaultValueConfig as string);
+  await requireLiveConfig(
+    context,
+    defaultValueConfig as string,
+    featureProject,
+  );
   const allConfigs = await context.models.configs.getAll();
   const family = new Set(getConfigSubtree(baseConfig as string, allConfigs));
   if (!family.has(defaultValueConfig as string)) {
@@ -131,7 +163,8 @@ export async function assertValidRuleConfigKeys(
   context: ApiReqContext,
   configKeys: (string | null | undefined)[],
   effectiveDefaultValue: string | undefined,
-  baseConfig?: string | null,
+  baseConfig: string | null | undefined,
+  featureProject: string | undefined,
 ): Promise<void> {
   const keys = [
     ...new Set(configKeys.filter((k): k is string => typeof k === "string")),
@@ -139,7 +172,7 @@ export async function assertValidRuleConfigKeys(
   if (!keys.length) return;
 
   for (const key of keys) {
-    await requireLiveConfig(context, key);
+    await requireLiveConfig(context, key, featureProject);
   }
 
   const defaultConfigKey =
@@ -188,6 +221,24 @@ export function resolveScopeFromInput(
   return { allEnvironments: true, environments: undefined };
 }
 
+// Project-scope resolution mirroring resolveScopeFromInput. Default allProjects:true;
+// allProjects:false keeps an explicit projects list (empty = scoped to nothing, leak-safe).
+export function resolveProjectScopeFromInput(
+  allProjects: boolean | undefined,
+  projects: string[] | undefined,
+): { allProjects: boolean; projects: string[] | undefined } {
+  if (allProjects === true) {
+    return { allProjects: true, projects: undefined };
+  }
+  if (allProjects === false) {
+    return { allProjects: false, projects: projects ?? [] };
+  }
+  if (Array.isArray(projects)) {
+    return { allProjects: false, projects };
+  }
+  return { allProjects: true, projects: undefined };
+}
+
 // Convert a v2 API rule input to the internal `FeatureRule` shape. New rules
 // leave `id` blank; `addIdsToFlatRules` fills it in downstream.
 //
@@ -200,9 +251,12 @@ export function mapV2ApiRuleToFeatureRule(
   r: ApiRuleV2Input,
   existingFeature?: FeatureInterface,
 ): FeatureRule {
-  const { allEnvironments, environments, ...ruleInput } = r;
+  const { allEnvironments, environments, allProjects, projects, ...ruleInput } =
+    r;
   const { allEnvironments: resolvedAllEnvs, environments: resolvedEnvs } =
     resolveScopeFromInput(allEnvironments, environments);
+  const { allProjects: resolvedAllProjects, projects: resolvedProjects } =
+    resolveProjectScopeFromInput(allProjects, projects);
   const baseRule = {
     id: ruleInput.id ?? "",
     description: ruleInput.description ?? "",
@@ -214,6 +268,8 @@ export function mapV2ApiRuleToFeatureRule(
     })),
     allEnvironments: resolvedAllEnvs,
     environments: resolvedEnvs,
+    allProjects: resolvedAllProjects,
+    projects: resolvedProjects,
   };
 
   if (ruleInput.type === "experiment-ref") {
@@ -229,7 +285,7 @@ export function mapV2ApiRuleToFeatureRule(
           variationId: v.variationId,
           value:
             v.config !== undefined
-              ? setConfigBacking(v.config, v.value)
+              ? composeConfigBacking(v.config, v.value, "Variation value")
               : v.value,
         };
       }),
@@ -243,7 +299,11 @@ export function mapV2ApiRuleToFeatureRule(
       type: "rollout" as const,
       value:
         ruleInput.config !== undefined
-          ? setConfigBacking(ruleInput.config, ruleInput.value)
+          ? composeConfigBacking(
+              ruleInput.config,
+              ruleInput.value,
+              "Rule value",
+            )
           : ruleInput.value,
       ...(ruleInput.sparse !== undefined && { sparse: ruleInput.sparse }),
       coverage: ruleInput.coverage ?? 1,
@@ -283,7 +343,7 @@ export function mapV2ApiRuleToFeatureRule(
     type: "force" as const,
     value:
       ruleInput.config !== undefined
-        ? setConfigBacking(ruleInput.config, ruleInput.value)
+        ? composeConfigBacking(ruleInput.config, ruleInput.value, "Rule value")
         : ruleInput.value,
     ...(ruleInput.sparse !== undefined && { sparse: ruleInput.sparse }),
   };
@@ -294,6 +354,8 @@ const METADATA_FIELDS = [
   "owner",
   "description",
   "project",
+  "targetingAllProjects",
+  "targetingProjects",
   "tags",
   "customFields",
   "jsonSchema",
@@ -326,6 +388,33 @@ export async function assertValidProjectId(
   if (!projects.some((p) => p.id === projectId)) {
     throw new Error(`Project id ${projectId} is not a valid project.`);
   }
+}
+
+// Validate that every targeting project id exists (mirrors the primary-project check).
+export async function assertValidProjectIds(
+  projectIds: string[] | undefined,
+  context: ReqContext | ApiReqContext,
+  label = "targeting",
+): Promise<void> {
+  if (!projectIds?.length) return;
+  const valid = new Set((await context.getProjects()).map((p) => p.id));
+  const missing = projectIds.filter((id) => id && !valid.has(id));
+  if (missing.length) {
+    throw new Error(
+      `The following ${label} project ids are not valid: ${missing.join(", ")}`,
+    );
+  }
+}
+
+// Validate every rule-level project scope id across a set of rules.
+export async function assertValidRuleProjectIds(
+  rules: { projects?: string[] }[] | undefined,
+  context: ReqContext | ApiReqContext,
+): Promise<void> {
+  const ids = Array.from(
+    new Set((rules ?? []).flatMap((r) => r.projects ?? [])),
+  );
+  await assertValidProjectIds(ids, context, "rule");
 }
 
 // `null` (explicit removal) and `undefined` (no change) are both no-ops.

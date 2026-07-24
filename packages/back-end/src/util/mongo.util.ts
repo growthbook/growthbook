@@ -216,6 +216,21 @@ export function isDuplicateKeyError(err: unknown): boolean {
 }
 
 /**
+ * A duplicate-key error attributable to a specific named index — a concurrent
+ * writer won the race for a partial unique index (e.g. the publish lock-others
+ * index). Combines the code check with an index-name match in the message.
+ */
+export function isDuplicateKeyErrorForIndex(
+  err: unknown,
+  indexName: string,
+): boolean {
+  return (
+    isDuplicateKeyError(err) &&
+    String((err as { message?: string }).message ?? "").includes(indexName)
+  );
+}
+
+/**
  * Retry an insert operation on duplicate-key error. Intended for use with
  * sequential-version unique indexes (e.g. `(organization, target, version)`)
  * where two concurrent creates can compute the same `nextVersion` from the

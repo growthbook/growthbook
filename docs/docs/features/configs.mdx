@@ -51,7 +51,7 @@ Precedence, lowest to highest:
 
 When fields collide, the **closest base wins**: a child cannot redefine a field that a published ancestor already owns. This keeps a family's shape coherent — the base config governs the fields it declares, and children may only _add_ fields. Changing a base cascades down to its descendants automatically.
 
-Values layer as a **deep (targeted) patch**: when a child and its inherited value are both objects, they merge **recursively, key by key**, so a child restates only the leaves it changes and inherits the rest of a nested object. **Arrays and scalars replace wholesale** (arrays are never merged element-by-element), and **`null` is a value** (it sets the field to `null`, it does not delete it). A value composed from a [constant](/features/constants) via `$extends` is applied **whole** — the patch never reaches inside a referenced chunk.
+Values layer as a **deep (targeted) patch**: when a child and its inherited value are both objects, they merge **recursively, key by key**, so a child restates only the leaves it changes and inherits the rest of a nested object. **Arrays and scalars replace wholesale** (arrays are never merged element-by-element), and **`null` is a value** (it sets the field to `null`, it does not delete it). A value composed from a [constant](/features/constants) via `$extends` is applied **whole** — the patch never reaches inside a referenced chunk. [Constants](/features/constants) compose the opposite way: a constant's own keys **replace** what its `$extends` bases provide, wholesale — configs and feature values patch; constants are atomic building blocks.
 
 A config's value can also interpolate [string constants](/features/constants) with `{{ @const:key }}` inside any string field, exactly as in feature values — including constants with per-environment overrides, another way to vary a config's value by environment alongside [environment overrides](#environment-overrides).
 
@@ -106,16 +106,16 @@ While editing, the schema editor shows live pass/fail per rule, but a draft can 
 
 Because publishing a config changes every descendant's resolved value, the publish also re-checks each descendant against its effective rules. Only violations **introduced by that publish** block it: a pre-existing violation elsewhere in the family never blocks an unrelated edit.
 
-Violations share the enforcement gate with schema errors — the **Block publishing on JSON schema errors** organization setting (on by default):
+Schema errors, validation-rule failures, and **downstream schema breaks** (a change that makes a dependent config or config-backed feature value violate its schema) are governed by the **Block publishing on JSON schema errors** organization setting (on by default):
 
-- **On** — a publish that violates a rule fails (HTTP 400 on the API), listing the failed rules' messages.
-- **Off (warn mode)** — violations surface as a bypassable warning; the API proceeds with `?ignoreWarnings=true`.
+- **On (default)** — these are **validation-class** failures. `"ignoreWarnings": true` does **not** clear them (that flag only acknowledges soft warnings, like a running experiment reading a value or dependents dropped by an archive). To force one past, a caller with org-wide bypass authority (the **bypass-approvals** permission) sets `"skipSchemaValidation": true` in the request body; it is ignored for anyone else.
+- **Off (warn mode)** — these are demoted to soft warnings: any caller proceeds with `"ignoreWarnings": true`, and in the app the publish shows a "Save anyway" prompt.
 
-`?skipSchemaValidation=true` skips validation rules together with schema validation; it is only honored for callers with org-wide bypass authority.
+Either way the editor surfaces these inline as you edit — the failing field rows are flagged so you see them before publishing. (Custom-hook rejections are separate — see below — and are not affected by this setting.)
 
 ## Custom validation hooks
 
-Beyond schema conformance and validation rules, you can run your own validation logic with **Custom Hooks** — sandboxed JavaScript that GrowthBook executes on config save and publish. The `validateConfig` hook runs when a config is created or updated, and `validateConfigRevision` runs on every publish path; either can hard-block the change with a custom error message, or raise a soft warning that the user can review and bypass.
+Beyond schema conformance and validation rules, you can run your own validation logic with **Custom Hooks** — sandboxed JavaScript that GrowthBook executes on config save and publish. The `validateConfig` hook runs when a config is created or updated, and `validateConfigRevision` runs on every publish path; either can hard-block the change with a custom error message (forced past only with `"skipHooks": true` by a bypass-approvals caller — a hook failure is not a schema error, so `"skipSchemaValidation"` does not clear it), or raise a soft warning that anyone can review and bypass with `"ignoreWarnings": true`.
 
 Hooks are scoped Global, Project, or Config; a config-scoped hook automatically covers the whole family (the scoped config and everything that inherits from it). Manage them from a config's **Validation** tab or under **Settings → Custom Hooks**.
 
@@ -139,7 +139,7 @@ Every config tracks where its keys are consumed. On the config's page — and ov
 
 Changing a config value that a **running experiment** depends on can distort that experiment's results. You can opt a config into a guard — an organization-wide default, overridable per config — that **blocks publishing** a change to any key currently used by a running experiment or contextual bandit. The guard is computed live, so it clears on its own once the experiment stops; there's nothing to unlock.
 
-When you genuinely need to publish anyway, acknowledge the block: in the app, confirm the warning; over the REST API, pass `?ignoreWarnings=true` on the publish request. Turning the guard _off_ for a config requires the **bypass-approvals** permission.
+When you genuinely need to publish anyway, acknowledge the block: in the app, confirm the warning; over the REST API, pass `"ignoreWarnings": true` in the body of the publish request. Turning the guard _off_ for a config requires the **bypass-approvals** permission.
 
 ## Import and export
 

@@ -47,6 +47,11 @@ body {
 
 .main {
   padding-left: 240px;
+  &.product-analytics-explore-landing {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+  }
   &.lite {
     padding-left: 0;
   }
@@ -914,7 +919,7 @@ main.main {
 }
 .badge-purple {
   background-color: var(--form-multivalue-background-color);
-  color: var(--form-multivalue-text-color);
+  color: var(--slate-12);
 }
 .badge-yellow {
   background-color: var(--alert-warn-background);
@@ -3329,6 +3334,10 @@ td.disabled {
 .cursor-disabled {
   cursor: not-allowed;
 }
+// Offsets a row action button to align with the control of a labelless "normal"-size field.
+.field-row-action {
+  padding-top: 10px;
+}
 .cursor-default {
   cursor: default;
 }
@@ -3379,14 +3388,85 @@ td.disabled {
     }
   }
 }
+.form-control {
+  border-color: var(--gray-a7);
+  border-radius: var(--radius-2);
+  background-color: var(--color-surface);
+}
 .form-control:focus {
-  border-color: var(--border-color-200);
+  border-color: var(--gray-a7);
   box-shadow: 0px 0px 0px 1px var(--violet-8);
 }
 .form-control:disabled {
   cursor: not-allowed;
   color: var(--color-text-disabled) !important;
   background-color: var(--gray-a2) !important;
+}
+// Normalize input/select heights to our size scale; textarea uses min-height so it can still grow
+input.form-control,
+select.form-control {
+  height: 36px;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  font-size: var(--font-size-2);
+}
+textarea.form-control {
+  min-height: 36px;
+  font-size: var(--font-size-2);
+}
+input.form-control--sm,
+select.form-control--sm {
+  height: 28px;
+  border-radius: var(--radius-2);
+}
+input.form-control--sm,
+select.form-control--sm,
+textarea.form-control--sm {
+  padding-top: 2px;
+  padding-bottom: 2px;
+  font-size: var(--font-size-1);
+}
+input.form-control--md,
+select.form-control--md {
+  height: 32px;
+  border-radius: var(--radius-2);
+}
+input.form-control--legacy,
+select.form-control--legacy {
+  height: 36px;
+  border-radius: var(--radius-2);
+}
+input.form-control--md,
+select.form-control--md,
+textarea.form-control--md {
+  padding-top: 2px;
+  padding-bottom: 2px;
+  font-size: var(--font-size-2);
+}
+input.form-control--legacy,
+select.form-control--legacy {
+  padding-top: 4px;
+  padding-bottom: 4px;
+  font-size: var(--font-size-2);
+}
+// Textareas grow from padding rather than a fixed height, so they need more
+// vertical padding than the fixed-height inputs/selects to feel like legacy.
+textarea.form-control--legacy {
+  padding-top: 6px;
+  padding-bottom: 6px;
+  font-size: var(--font-size-2);
+}
+input.form-control--lg,
+select.form-control--lg {
+  height: 40px;
+  border-radius: var(--radius-3);
+}
+input.form-control--lg,
+select.form-control--lg,
+textarea.form-control--lg {
+  padding-top: 6px;
+  padding-bottom: 6px;
+  font-size: var(--font-size-3);
 }
 .form-control--error {
   border-color: var(--red-8) !important;

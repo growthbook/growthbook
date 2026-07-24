@@ -25,7 +25,7 @@ import { useExperiments } from "@/hooks/useExperiments";
 import { useFeaturesList, useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import TagsInput from "@/components/Tags/TagsInput";
 import SlackMessagePreview from "@/components/SlackIntegrations/SlackMessagePreview";
 import Frame from "@/ui/Frame";
@@ -205,7 +205,7 @@ function EventSelect({
   label?: string;
 }) {
   return (
-    <Select size="2" label={label} value={value} setValue={onChange}>
+    <Select size="legacy" label={label} value={value} setValue={onChange}>
       {PREVIEW_EVENT_GROUPS.map((g) => (
         <SelectGroup key={g.key}>
           <SelectLabel>{g.heading}</SelectLabel>
@@ -303,7 +303,7 @@ function DigestSubSection({
             gapY="4"
           >
             <Select
-              size="2"
+              size="legacy"
               label="Frequency"
               value={value.frequency}
               setValue={(v) =>
@@ -321,7 +321,7 @@ function DigestSubSection({
 
             {value.frequency === "weekly" && (
               <Select
-                size="2"
+                size="legacy"
                 label="Day of week"
                 value={`${value.dayOfWeekUtc}`}
                 setValue={(v) =>
@@ -339,7 +339,7 @@ function DigestSubSection({
             {(value.frequency === "monthly" ||
               value.frequency === "quarterly") && (
               <Select
-                size="2"
+                size="legacy"
                 label="Day of month"
                 value={`${value.dayOfMonth}`}
                 setValue={(v) => onChange({ ...value, dayOfMonth: Number(v) })}
@@ -354,7 +354,7 @@ function DigestSubSection({
 
             {value.frequency === "custom" && (
               <Select
-                size="2"
+                size="legacy"
                 label="Every"
                 value={`${value.intervalDays}`}
                 setValue={(v) =>
@@ -370,7 +370,7 @@ function DigestSubSection({
             )}
 
             <Select
-              size="2"
+              size="legacy"
               label="Time (UTC)"
               value={`${value.hourUtc}`}
               setValue={(v) => onChange({ ...value, hourUtc: Number(v) })}
@@ -1249,7 +1249,7 @@ export default function SlackChannelSettings({
           <Flex gap="6" align="start" wrap="wrap">
             <Box style={{ flex: 1, minWidth: 220 }}>
               <Select
-                size="2"
+                size="legacy"
                 label="Card style"
                 value={cardFormat}
                 setValue={(v) => {

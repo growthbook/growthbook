@@ -4,6 +4,7 @@ import {
   apiPaginationFieldsValidator,
   booleanQueryField,
   paginationQueryFields,
+  publishOverrideBodyFields,
   schemaValidationQueryFields,
   skipPaginationQueryField,
 } from "./shared";
@@ -41,6 +42,9 @@ const apiRuleScopeExtension = z
       .describe(
         "The environment IDs this rule is active in. Populated when `allEnvironments` is false.",
       ),
+    // Project scope (allProjects/projects) lives on the shared base rule
+    // validator so it appears on both v1 and v2 rules; only the flat-array env
+    // scope is v2-specific and lives here.
     pendingRamp: z
       .enum(["create", "detach"])
       .optional()
@@ -201,6 +205,11 @@ export const apiFeatureRevisionV2Validator = namedSchema(
   "FeatureRevisionV2",
   z
     .object({
+      id: z
+        .string()
+        .describe(
+          "Stable revision id. Newer revisions carry opaque ids; older ones a derived `frev_<version>_<featureId>` form. Both work wherever revision ids are accepted.",
+        ),
       featureId: z.string().describe("The feature this revision belongs to"),
       baseVersion: z.coerce.number().int(),
       version: z.coerce.number().int(),
@@ -334,6 +343,10 @@ export const apiFeatureRevisionSummaryValidator = namedSchema(
   "FeatureRevisionSummary",
   z
     .object({
+      id: z
+        .string()
+        .describe("Stable id of the feature's live revision.")
+        .optional(),
       version: z.coerce.number().int(),
       comment: z.string(),
       date: z.string().meta({ format: "date-time" }),
@@ -354,6 +367,8 @@ export const apiFeatureV2Validator = namedSchema(
       description: z.string().max(MAX_DESCRIPTION_LENGTH),
       owner: ownerInputField,
       project: z.string(),
+      targetingAllProjects: z.boolean().optional(),
+      targetingProjects: z.array(z.string()).optional(),
       valueType: z.enum(["boolean", "string", "number", "json"]),
       defaultValue: z.string(),
       baseConfig: apiBaseConfigField,
@@ -428,6 +443,18 @@ const v2RuleScopeInput = z.object({
     .optional()
     .describe(
       "Specific environment IDs this rule applies to. Required when allEnvironments is false.",
+    ),
+  allProjects: z
+    .boolean()
+    .optional()
+    .describe(
+      "When true (the default) the rule applies to every project the feature is delivered to. Set false and supply `projects` to scope the rule.",
+    ),
+  projects: z
+    .array(z.string())
+    .optional()
+    .describe(
+      "Specific project IDs this rule applies to. Used when allProjects is false. An empty array scopes the rule to no project.",
     ),
 });
 
@@ -582,6 +609,18 @@ export const postFeatureBodyV2 = z
       .optional(),
     owner: requiredUnlessPatOwnerInputField,
     project: z.string().describe("An associated project ID").optional(),
+    targetingAllProjects: z
+      .boolean()
+      .describe(
+        "Make this feature discoverable in — and served to — every project, beyond its primary `project`. Governance/approvals stay with `project`.",
+      )
+      .optional(),
+    targetingProjects: z
+      .array(z.string())
+      .describe(
+        "Secondary project IDs this feature is targeted in and served to, beyond its primary `project`. Governance/approvals stay with `project`.",
+      )
+      .optional(),
     valueType: z
       .enum(["boolean", "string", "number", "json"])
       .describe("The data type of the feature payload. Boolean by default."),
@@ -616,6 +655,7 @@ export const postFeatureBodyV2 = z
       )
       .optional(),
     customFields: z.record(z.string(), z.string()).optional(),
+    ...publishOverrideBodyFields,
   })
   .strict();
 
@@ -629,6 +669,18 @@ export const updateFeatureBodyV2 = z
       .optional(),
     archived: z.boolean().optional(),
     project: z.string().describe("An associated project ID").optional(),
+    targetingAllProjects: z
+      .boolean()
+      .describe(
+        "Make this feature discoverable in — and served to — every project, beyond its primary `project`. Governance/approvals stay with `project`.",
+      )
+      .optional(),
+    targetingProjects: z
+      .array(z.string())
+      .describe(
+        "Secondary project IDs this feature is targeted in and served to, beyond its primary `project`. Governance/approvals stay with `project`.",
+      )
+      .optional(),
     owner: ownerInputField.optional(),
     defaultValue: z.string().optional(),
     baseConfig: apiBaseConfigUpdateField,
@@ -676,6 +728,7 @@ export const updateFeatureBodyV2 = z
         "Holdout to assign this feature to. Pass `null` to remove the feature from its current holdout. Omit the field entirely to leave the holdout unchanged.\n",
       )
       .optional(),
+    ...publishOverrideBodyFields,
   })
   .strict();
 
@@ -847,6 +900,7 @@ export const revertFeatureV2Validator = {
     .object({
       revision: z.number(),
       comment: z.string().optional(),
+      ...publishOverrideBodyFields,
     })
     .strict(),
   querySchema: z.never(),
@@ -854,7 +908,7 @@ export const revertFeatureV2Validator = {
   responseSchema: featureV2ResponseSchema,
   summary: "Revert a feature to a specific revision",
   description:
-    'Creates a new revision whose rules and values match a previously-published revision, then immediately publishes it, leaving a clear audit trail of the revert in the revision history.\n\nReturns 403 if the API key lacks permission, or if approval rules are enabled for an affected environment and neither the "REST API always bypasses approval requirements" nor the "Allow reverts without approval" org setting is enabled.\n\nReturns 422 with a list of `warnings` if the restored values no longer validate against the feature\'s current value type or JSON schema (e.g. reverting to a config the current schema can no longer read). Re-submit with `?ignoreWarnings=true` to revert anyway.\n',
+    'Creates a new revision whose rules and values match a previously-published revision, then immediately publishes it, leaving a clear audit trail of the revert in the revision history.\n\nReturns 403 if the API key lacks permission, or if approval rules are enabled for an affected environment and neither the "REST API always bypasses approval requirements" nor the "Allow reverts without approval" org setting is enabled.\n\nReturns 422 with a list of `warnings` if the restored values no longer validate against the feature\'s current value type or JSON schema (e.g. reverting to a config the current schema can no longer read). Re-submit with `"ignoreWarnings": true` in the request body to revert anyway.\n',
   operationId: "revertFeatureV2",
   tags: ["features-v2"],
   method: "post" as const,

@@ -917,6 +917,11 @@ export function collectResolvedConfigValueViolations({
     value,
     fields: effectiveSchema,
     additionalProperties,
+    // The value is fully resolved (nothing left to inherit or substitute), so
+    // completeness is checkable: a required field missing HERE is missing from
+    // what ships — e.g. resolution scrubbed an archived reference that supplied
+    // it. Sparse own values are validated elsewhere without requireAll.
+    requireAll: true,
   });
   if (!res.valid) errors.push(...res.errors);
 
@@ -931,7 +936,11 @@ export function collectResolvedConfigValueViolations({
       invByName.set(inv.name, inv);
   }
   for (const vi of evaluateInvariants(value, [...invByName.values()])) {
-    errors.push(vi.message);
+    // Name the rule, not just its message: these strings double as the
+    // schema-break guard's acknowledgment fingerprint, so two rules sharing a
+    // message must stay distinguishable or a new break can masquerade as an
+    // already-acknowledged one.
+    errors.push(`validation rule "${vi.name}": ${vi.message}`);
   }
   return errors;
 }

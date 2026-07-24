@@ -27,8 +27,20 @@ import {
 import { Revision } from "shared/enterprise";
 import { Context } from "back-end/src/models/BaseModel";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
-import { runValidateConfigRevisionHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
-import { BadRequestError, SoftWarningError } from "back-end/src/util/errors";
+import {
+  collectValidateConfigRevisionHookResults,
+  runValidateConfigRevisionHooks,
+} from "back-end/src/enterprise/sandbox/sandbox-eval";
+import {
+  PublishGate,
+  hookResultsToGates,
+  schemaFailureGateOverride,
+} from "back-end/src/revisions/publishGates";
+import {
+  BadRequestError,
+  SoftWarningError,
+  TerminalPublishError,
+} from "back-end/src/util/errors";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 
 // The leaf config we're validating, with optional draft overrides for the
@@ -314,55 +326,67 @@ export async function assertConfigValueValidForPublish(
   // The revision being published, when available — lets a hook gate the publish
   // on approval policy (reviews/status). Absent for direct (non-revision) writes.
   revision?: Revision,
+  // `deferred` = this invocation is a scheduled/auto-publish merge. A staged
+  // value that violates the effective schema won't heal by retrying, so the
+  // block-mode rejection is terminal there: the publish parks and the failure
+  // webhook fires immediately instead of after the retry cap.
+  // `skipHooks`: the caller (a REST publish handler) already ran the hooks as
+  // publish gates, so don't re-execute them here (avoids double-running the
+  // sandboxed hook on the happy path).
+  opts?: { deferred?: boolean; skipHooks?: boolean },
 ): Promise<void> {
   // Customer-defined publish-time checks (sandboxed, self-host + enterprise).
   // A separate gate from schema validation — runs on every publish path
   // (including bypass-approval / schema-skip), can hard-block or soft-warn.
   const stored = await context.models.configs.getByKey(leaf.key);
-  await runValidateConfigRevisionHooks({
-    context,
-    config: {
-      key: leaf.key,
-      name: leaf.name,
-      project: stored?.project ?? "",
-      value: values.value,
-      schema: leaf.schema,
-      parent: leaf.parent,
-      extends: leaf.extends,
-      extensible: leaf.extensible,
-    },
-    // Pre-publish state, so `incrementalChangesOnly` hooks can suppress
-    // errors/warnings that already existed before this change.
-    original: stored
-      ? {
-          key: stored.key,
-          name: stored.name,
-          project: stored.project ?? "",
-          value: stored.value,
-          schema: stored.schema,
-          parent: stored.parent,
-          extends: stored.extends,
-          extensible: stored.extensible,
-        }
-      : null,
-    revision: revision
-      ? {
-          version: revision.version,
-          status: revision.status,
-          title: revision.title,
-          comment: revision.comment,
-          authorId: revision.authorId,
-          contributors: revision.contributors,
-          reviews: revision.reviews.map((r) => ({
-            userId: r.userId,
-            decision: r.decision,
-            comment: r.comment,
-            stale: r.stale,
-            dateCreated: r.dateCreated,
-          })),
-        }
-      : undefined,
-  });
+  // Skipped when the caller (a REST publish handler) already ran the hooks as
+  // publish gates.
+  if (!opts?.skipHooks) {
+    await runValidateConfigRevisionHooks({
+      context,
+      config: {
+        key: leaf.key,
+        name: leaf.name,
+        project: stored?.project ?? "",
+        value: values.value,
+        schema: leaf.schema,
+        parent: leaf.parent,
+        extends: leaf.extends,
+        extensible: leaf.extensible,
+      },
+      // Pre-publish state, so `incrementalChangesOnly` hooks can suppress
+      // errors/warnings that already existed before this change.
+      original: stored
+        ? {
+            key: stored.key,
+            name: stored.name,
+            project: stored.project ?? "",
+            value: stored.value,
+            schema: stored.schema,
+            parent: stored.parent,
+            extends: stored.extends,
+            extensible: stored.extensible,
+          }
+        : null,
+      revision: revision
+        ? {
+            version: revision.version,
+            status: revision.status,
+            title: revision.title,
+            comment: revision.comment,
+            authorId: revision.authorId,
+            contributors: revision.contributors,
+            reviews: revision.reviews.map((r) => ({
+              userId: r.userId,
+              decision: r.decision,
+              comment: r.comment,
+              stale: r.stale,
+              dateCreated: r.dateCreated,
+            })),
+          }
+        : undefined,
+    });
+  }
 
   if (context.skipSchemaValidation) return;
   const errors = [
@@ -381,6 +405,9 @@ export async function assertConfigValueValidForPublish(
         errors.join("\n"),
       errors,
     );
+  }
+  if (opts?.deferred) {
+    throw new TerminalPublishError(errors.join("; "));
   }
   throw new BadRequestError(errors.join("; "));
 }
@@ -488,21 +515,29 @@ export function collectFeatureConfigBackedValues(
     backed.push({ config, patch: getConfigBackingPatch(raw), label });
   };
   add(values.defaultValue, "Default value");
-  for (const rule of values.rules ?? []) {
+  (values.rules ?? []).forEach((rule, ruleIndex) => {
+    // Name the specific rule: the labels prefix validation errors AND feed the
+    // schema-break guard's acknowledgment fingerprint, so two rules of the same
+    // type must not collapse to identical strings.
+    const ruleRef = `Rule ${rule.id || `#${ruleIndex + 1}`}`;
     if (rule.type === "force" || rule.type === "rollout") {
-      add(rule.value, "Rule value");
+      add(rule.value, `${ruleRef} value`);
     } else if (
       rule.type === "experiment-ref" ||
       rule.type === "contextual-bandit-ref"
     ) {
-      rule.variations?.forEach((v, i) => add(v.value, `Variation ${i + 1}`));
+      rule.variations?.forEach((v, i) =>
+        add(v.value, `${ruleRef} variation ${i + 1}`),
+      );
     } else if (rule.type === "experiment") {
-      rule.values?.forEach((v, i) => add(v.value, `Variation ${i + 1}`));
+      rule.values?.forEach((v, i) =>
+        add(v.value, `${ruleRef} variation ${i + 1}`),
+      );
     } else if (rule.type === "safe-rollout") {
-      add(rule.controlValue, "Control value");
-      add(rule.variationValue, "Variation value");
+      add(rule.controlValue, `${ruleRef} control value`);
+      add(rule.variationValue, `${ruleRef} variation value`);
     }
-  }
+  });
   return backed;
 }
 
@@ -527,18 +562,21 @@ export function configCheckedRuleValues(
   }
 }
 
-export async function assertConfigBackedFeatureValuesValid(
+// The config-backed schema + cross-field-invariant errors for a feature's
+// values, collected without throwing and WITHOUT the skipSchemaValidation early
+// return (the caller decides how to weigh them). The `no-overrides` check on the
+// default is handled separately by the callers, so this covers only the
+// schema/invariant net. Shared by the throwing assert and the non-throwing
+// collector below.
+async function collectConfigBackedSchemaInvariantErrors(
   context: Context,
   feature: Pick<FeatureInterface, "valueType" | "baseConfig" | "project">,
   values: { defaultValue?: string; rules?: FeatureRule[] },
-): Promise<void> {
-  assertConfigBackedDefaultHasNoOverrides(feature, values.defaultValue);
-
-  if (context.skipSchemaValidation) return;
-  if (feature.valueType !== "json") return;
+): Promise<string[]> {
+  if (feature.valueType !== "json") return [];
 
   const backed = collectFeatureConfigBackedValues(feature, values);
-  if (!backed.length) return;
+  if (!backed.length) return [];
 
   const all = await context.models.configs.getAllForReconcile();
   const byKey = new Map<string, ConfigInterface>(all.map((c) => [c.key, c]));
@@ -654,6 +692,23 @@ export async function assertConfigBackedFeatureValuesValid(
       errors.push(`${label} [${environment}]: ${message}`);
     }
   }
+  return errors;
+}
+
+export async function assertConfigBackedFeatureValuesValid(
+  context: Context,
+  feature: Pick<FeatureInterface, "valueType" | "baseConfig" | "project">,
+  values: { defaultValue?: string; rules?: FeatureRule[] },
+): Promise<void> {
+  assertConfigBackedDefaultHasNoOverrides(feature, values.defaultValue);
+
+  if (context.skipSchemaValidation) return;
+
+  const errors = await collectConfigBackedSchemaInvariantErrors(
+    context,
+    feature,
+    values,
+  );
   if (!errors.length) return;
 
   if (context.org.settings?.blockPublishOnSchemaError === false) {
@@ -665,4 +720,118 @@ export async function assertConfigBackedFeatureValuesValid(
     );
   }
   throw new BadRequestError(errors.join("; "));
+}
+
+// Non-throwing variant for the REST publish handler, which surfaces the
+// SCHEMA/INVARIANT config-backed failures as a demotable publish gate. Does NOT
+// include the default's no-overrides invariant — that is a structural payload
+// guard (an override on a config-backed default breaks the SDK payload), not a
+// schema error, so it must stay unbypassable and is enforced separately by the
+// caller via `assertConfigBackedDefaultHasNoOverrides`. Omits the
+// skipSchemaValidation early return — the caller weighs blockPublishOnSchemaError
+// when shaping the gate.
+export async function collectConfigBackedFeatureValueErrors(
+  context: Context,
+  feature: Pick<FeatureInterface, "valueType" | "baseConfig" | "project">,
+  values: { defaultValue?: string; rules?: FeatureRule[] },
+): Promise<string[]> {
+  return collectConfigBackedSchemaInvariantErrors(context, feature, values);
+}
+
+/**
+ * Custom validation hooks for a config publish, surfaced as gates: a hard
+ * error (a hook threw) is hook-class (`skipHooks`); a warning is
+ * acknowledge-class (`ignoreWarnings`). Publish paths only — the archive
+ * handlers deliberately exclude publish hooks.
+ */
+export async function collectConfigPublishHookGates({
+  context,
+  config,
+  desiredState,
+  revision,
+}: {
+  context: Context;
+  config: ConfigInterface;
+  desiredState: Record<string, unknown>;
+  revision: Revision;
+}): Promise<PublishGate[]> {
+  const hookResults = await collectValidateConfigRevisionHookResults({
+    context,
+    config: {
+      key: config.key,
+      name: config.name,
+      project: config.project ?? "",
+      value: (desiredState.value as string | undefined) ?? config.value,
+      schema: desiredState.schema as SimpleSchema | null | undefined,
+      parent: (desiredState.parent as string | undefined) ?? config.parent,
+      extends: (desiredState.extends as string[] | undefined) ?? config.extends,
+      extensible:
+        (desiredState.extensible as boolean | undefined) ?? config.extensible,
+    },
+    // The live pre-publish state, so `incrementalChangesOnly` hooks can
+    // suppress errors/warnings that already existed before this change.
+    original: {
+      key: config.key,
+      name: config.name,
+      project: config.project ?? "",
+      value: config.value,
+      schema: config.schema,
+      parent: config.parent,
+      extends: config.extends,
+      extensible: config.extensible,
+    },
+    revision,
+  });
+  return hookResultsToGates(hookResults);
+}
+
+/**
+ * Gate form of assertConfigValueValidForPublish's schema half — conformance,
+ * required fields, and cross-field invariants of the post-publish resolved
+ * value, block-vs-warn per `blockPublishOnSchemaError`. The bulk publisher
+ * evaluates it at plan time (against the multi-entity overlay context) since
+ * its commit phase never runs the throwing net.
+ */
+export async function collectConfigPublishValueGates({
+  context,
+  config,
+  desiredState,
+}: {
+  context: Context;
+  config: ConfigInterface;
+  desiredState: Record<string, unknown>;
+}): Promise<PublishGate[]> {
+  const postValue = (desiredState.value as string | undefined) ?? config.value;
+  const leaf: ConfigLeaf = {
+    key: config.key,
+    name: config.name,
+    value: postValue,
+    // desiredState.schema is a full post-merge snapshot: `?? config.schema`
+    // would resurrect the live schema on a `null` clear.
+    schema: desiredState.schema as SimpleSchema | null | undefined,
+    parent: (desiredState.parent as string | undefined) ?? config.parent,
+    extends: (desiredState.extends as string[] | undefined) ?? config.extends,
+    extensible:
+      (desiredState.extensible as boolean | undefined) ?? config.extensible,
+  };
+  const errors = [
+    ...(await collectConfigValueErrors(context, leaf, { value: postValue })),
+    ...(await collectMissingRequiredFields(context, leaf, postValue)),
+    ...(await collectInvariantViolations(context, leaf, postValue)),
+  ];
+  if (!errors.length) return [];
+  return [
+    {
+      type: "schema-validation",
+      severity: "warning",
+      messages: [
+        "The published value does not conform to its effective schema:",
+        ...errors,
+      ],
+      ...schemaFailureGateOverride(
+        context.org.settings?.blockPublishOnSchemaError !== false,
+      ),
+      resolution: null,
+    },
+  ];
 }

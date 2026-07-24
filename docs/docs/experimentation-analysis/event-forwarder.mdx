@@ -148,6 +148,23 @@ gb.logEvent("Button Click", {
 });
 ```
 
+#### Event Delivery on Page Navigation
+
+Events are batched and sent with `fetch` using `keepalive`, and when the page
+is hidden or unloading the queue is flushed with `navigator.sendBeacon`. Both
+survive the page being torn down, so exposure events are not lost when a user
+navigates away immediately — which matters especially for **redirect
+experiments**, where the losing request would otherwise skew traffic splits
+and trigger SRM warnings.
+
+You can override this with the `transport` option (`data-event-transport` on
+the script tag): `"auto"` (default, described above), `"beacon"` (always
+prefer `sendBeacon`), or `"fetch"` (never use `sendBeacon`).
+
+```js
+growthbookTrackingPlugin({ transport: "beacon" });
+```
+
 #### Node.js
 
 Use the `growthbookTrackingPlugin` to enable tracking:

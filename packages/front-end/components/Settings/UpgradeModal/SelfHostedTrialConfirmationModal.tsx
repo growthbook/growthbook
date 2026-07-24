@@ -43,8 +43,14 @@ export default function SelfHostedTrialConfirmationModal({
         No credit card required. Simply verify your account via email to start
         your free 14-day {plan} plan trial.
       </div>
-      <Field required={true} label="Name" {...form.register("name")} />
       <Field
+        size="legacy"
+        required={true}
+        label="Name"
+        {...form.register("name")}
+      />
+      <Field
+        size="legacy"
         required={true}
         label="Email address"
         {...form.register("email")}

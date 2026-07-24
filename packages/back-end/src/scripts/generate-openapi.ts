@@ -36,6 +36,7 @@ const openApiTags = [
   "constant-revisions",
   "configs",
   "config-revisions",
+  "releases",
   "custom-hooks",
   "organizations",
   "members",
@@ -154,22 +155,27 @@ const tags: Record<OpenApiTag, { display: string; description: string }> = {
   constants: {
     display: "Constants",
     description:
-      "Reusable named values referenced from feature flag values as `@const:key` and resolved into the SDK payload at build time. String constants are interpolated via `{{ @const:key }}`; JSON (object) constants are composed via an `$extends` array.",
+      "**Beta** — these endpoints are new and may change in backwards-incompatible ways.\n\nReusable named values referenced from feature flag values as `@const:key` and resolved into the SDK payload at build time. String constants are interpolated via `{{ @const:key }}`; JSON (object) constants are composed via an `$extends` array. A constant's own keys **replace** what its `$extends` bases provide, wholesale — constants are atomic building blocks. (Config and feature values compose as deep, targeted patches instead.)",
   },
   "constant-revisions": {
     display: "Constant Revisions",
     description:
-      'Draft revisions for constants, including pending changes, approvals, and lifecycle (publish, discard, revert). Pass `version: "new"` on edit endpoints to auto-create a draft.',
+      '**Beta** — these endpoints are new and may change in backwards-incompatible ways.\n\nDraft revisions for constants, including pending changes, approvals, and lifecycle (publish, discard, revert). Pass `version: "new"` on edit endpoints to auto-create a draft.',
   },
   configs: {
     display: "Configs",
     description:
-      "Reusable, typed, inheritable JSON objects referenced from feature flag values as `@config:key`. A config carries a field `schema` (with TypeScript/JSON Schema import-export) and a lineage `parent`; it resolves like a `json` constant, composed via `$extends`. Inheritance is expressed via `parent`, never an in-value `@config:` entry. Schema fields colliding with a published ancestor's key follow 'base wins': identical re-declarations are stripped with a warning, differing ones are rejected.",
+      "**Beta** — these endpoints are new and may change in backwards-incompatible ways.\n\nReusable, typed, inheritable JSON objects referenced from feature flag values as `@config:key`. A config carries a field `schema` (with TypeScript/JSON Schema import-export) and a lineage `parent`. Inheritance is expressed via `parent`, never an in-value `@config:` entry. Values layer as a **deep, targeted patch**: a child (or a config-backed feature value) restates only the leaves it changes and inherits the rest — unlike a constant's `$extends`, whose own keys replace wholesale. Schema fields colliding with a published ancestor's key follow 'base wins': identical re-declarations are stripped with a warning, differing ones are rejected.",
   },
   "config-revisions": {
     display: "Config Revisions",
     description:
-      'Draft revisions for configs, including value and schema edits, schema import (JSON Schema / TypeScript / inferred), approvals, and lifecycle (publish, discard, revert). Publishing a schema change cascades the "base wins" normalization to descendant configs; a publish that removes or retypes fields descendants still use soft-blocks with a 422 unless `?ignoreWarnings=true`. Pass `version: "new"` on edit endpoints to auto-create a draft.',
+      '**Beta** — these endpoints are new and may change in backwards-incompatible ways.\n\nDraft revisions for configs, including value and schema edits, schema import (JSON Schema / TypeScript / inferred), approvals, and lifecycle (publish, discard, revert). Publishing a schema change cascades the "base wins" normalization to descendant configs; a publish that removes or retypes fields descendants still use soft-blocks with a 422 unless the request body sets `ignoreWarnings: true`. Pass `version: "new"` on edit endpoints to auto-create a draft.',
+  },
+  releases: {
+    display: "Releases",
+    description:
+      "**Beta** — these endpoints are new and may change in backwards-incompatible ways.\n\nCoordinated multi-entity publishing: publish a set of revisions across Feature Flags, Saved Groups, configs, and constants as one all-or-nothing operation, validated against the combined end-state instead of each in-between state. Requires the `releases` commercial feature.",
   },
   "custom-hooks": {
     display: "Custom Hooks",
@@ -516,7 +522,7 @@ The API may return the following error status codes:
 - **402** - Request Failed - The parameters are valid, but the request failed
 - **403** - Forbidden - Provided API key does not have the required access
 - **404** - Not Found - Unknown API route or requested resource
-- **422** - Soft Warning - The request failed, but can be re-submitted with \`?ignoreWarnings=true\` to proceed anyway.
+- **422** - Soft Warning - The request failed, but can be re-submitted with \`"ignoreWarnings": true\` in the request body to proceed anyway. Blocked publishes include a \`gates\` array, one entry per blocking gate, each carrying a uniform set of fields: \`type\`, \`severity\`, \`messages\`, \`override\` (the body flag that clears it — \`ignoreWarnings\` for acknowledge-class warnings, or the privileged \`skipSchemaValidation\` (schema/invariant/schema-break) / \`skipHooks\` (custom-hook rejections), or \`null\` when no flag applies), \`requiresPermission\` (a permission the override needs, or \`null\`), and \`resolution\` (the non-flag way out as a callable \`{ action, method, path }\` route, or \`null\`). So one response lists every way past every gate. A gate with \`override: null\` (approval required) clears by getting the revision approved, or implicitly for callers with the \`bypassApprovalChecks\` permission; a locked config clears by calling its \`resolution\` unlock route. On a SUCCESSFUL publish (200), if a gate that would have blocked was bypassed by the caller's authority, the response includes a \`bypassedGates\` array (\`{ type, outcome: "bypassed", via }\`, where \`via\` is \`ignoreWarnings\`, \`skipSchemaValidation\`, \`skipHooks\`, \`bypassApprovalChecks\`, or \`restApiBypassesReviews\`); the key is omitted when nothing was bypassed.
 - **429** - Too Many Requests - You exceeded the rate limit of 60 requests per minute. Try again later.
 - **5XX** - Server Error - Something went wrong on GrowthBook's end (these are rare)
 

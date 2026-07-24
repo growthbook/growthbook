@@ -8,7 +8,7 @@ import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 
 const DEFAULT_TIME = "02:00";
 const DEFAULT_LOOKBACK_WINDOW = 60;

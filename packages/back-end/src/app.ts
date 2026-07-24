@@ -277,9 +277,10 @@ app.get("/", (req, res) => {
     res.json({
       name: "GrowthBook API",
       production: ENVIRONMENT === "production",
-      api_host:
+      api_host: (
         process.env.API_HOST ||
-        req.protocol + "://" + req.hostname + ":" + app.get("port"),
+        req.protocol + "://" + req.hostname + ":" + app.get("port")
+      ).replace(/\/+$/, ""),
       app_origin: APP_ORIGIN,
       config_source: usingFileConfig() ? "file" : "db",
       email_enabled: isEmailEnabled(),

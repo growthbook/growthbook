@@ -27,7 +27,10 @@ import {
   mergeRevision,
   liveRevisionFromFeature,
   fillRevisionFromFeature,
+  reconcileMergeBaselines,
   getReviewSetting,
+  normalizeTargetingProjects,
+  normalizeTargetingInUpdates,
   namespacesToMap,
   pruneOrphanedRampActions,
   assertSchemaMatchesValueType,
@@ -109,6 +112,7 @@ import { generateId } from "back-end/src/util/uuid";
 import {
   addIdsToFlatRules,
   addIdsToRules,
+  assertFeatureDeletable,
   evaluateAllFeatures,
   evaluateFeature,
   FeatureDefinitionSDKPayload,
@@ -122,6 +126,7 @@ import {
   assertCanAutoPublish,
   revisionRequiresReview,
 } from "back-end/src/services/features";
+import { assertFeatureArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
@@ -744,6 +749,11 @@ export async function postFeatures(
   if (otherProps.project) {
     await context.models.projects.ensureProjectsExist([otherProps.project]);
   }
+  const createTargetingProjects = (otherProps as Partial<FeatureInterface>)
+    .targetingProjects;
+  if (createTargetingProjects?.length) {
+    await context.models.projects.ensureProjectsExist(createTargetingProjects);
+  }
 
   await validateCustomFieldsForSection({
     customFieldValues: customFields,
@@ -780,6 +790,7 @@ export async function postFeatures(
     holdout: holdout?.id ? holdout : undefined,
     jsonSchema: initialJsonSchema,
   };
+  Object.assign(feature, normalizeTargetingProjects(feature));
 
   const allEnvironments = getEnvironments(org);
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
@@ -2408,6 +2419,20 @@ export async function postFeatureRevert(
       metadataChanges.project = m.project;
       hasMetadataChanges = true;
     }
+    if (
+      m.targetingAllProjects !== undefined &&
+      m.targetingAllProjects !== (feature.targetingAllProjects ?? false)
+    ) {
+      metadataChanges.targetingAllProjects = m.targetingAllProjects;
+      hasMetadataChanges = true;
+    }
+    if (
+      m.targetingProjects !== undefined &&
+      !isEqual(m.targetingProjects, feature.targetingProjects ?? [])
+    ) {
+      metadataChanges.targetingProjects = m.targetingProjects;
+      hasMetadataChanges = true;
+    }
     if (m.tags !== undefined && !isEqual(m.tags, feature.tags ?? [])) {
       metadataChanges.tags = m.tags;
       hasMetadataChanges = true;
@@ -3042,6 +3067,15 @@ export async function postFeatureRule(
           allEnvironments: true,
         } as FeatureRule)
       : stampRuleForEnvs(rule, selectedEnvironments);
+  // Mirror the env-scope invariant for project scope: an all-projects rule
+  // carries no explicit list, so cleanup can't later empty it into "all".
+  if (stampedRule.allProjects === true) {
+    delete (stampedRule as { projects?: string[] }).projects;
+  }
+  const ruleScopeProjects = (stampedRule as { projects?: string[] }).projects;
+  if (ruleScopeProjects?.length) {
+    await context.models.projects.ensureProjectsExist(ruleScopeProjects);
+  }
   const ruleAdditionChanges = {
     rules: [...existingRules, stampedRule],
   };
@@ -3539,7 +3573,18 @@ export async function postFeatureExperimentRefRule(
       revision: updatedRevision,
     });
     const orgEnvIds = environments;
-    const mergeResult = autoMerge(live, base, updatedRevision, orgEnvIds, {});
+    const { live: mergeLive, base: mergeBase } = reconcileMergeBaselines(
+      feature,
+      live,
+      base,
+    );
+    const mergeResult = autoMerge(
+      mergeLive,
+      mergeBase,
+      updatedRevision,
+      orgEnvIds,
+      {},
+    );
     if (!mergeResult.success) {
       throw new Error(
         `Unable to auto-publish: please resolve conflicts on draft #${updatedRevision.version} before publishing.`,
@@ -3753,7 +3798,18 @@ export async function postFeatureContextualBanditRefRule(
       revision: updatedRevision,
     });
     const orgEnvIds = environments;
-    const mergeResult = autoMerge(live, base, updatedRevision, orgEnvIds, {});
+    const { live: mergeLive, base: mergeBase } = reconcileMergeBaselines(
+      feature,
+      live,
+      base,
+    );
+    const mergeResult = autoMerge(
+      mergeLive,
+      mergeBase,
+      updatedRevision,
+      orgEnvIds,
+      {},
+    );
     if (!mergeResult.success) {
       throw new Error(
         `Unable to auto-publish: please resolve conflicts on draft #${updatedRevision.version} before publishing.`,
@@ -4409,17 +4465,20 @@ export async function putFeatureRule(
     // "clear" removes any pending ramp action for this rule without adding a new one
   }
 
-  // Drop stale `environments` when merge produces `allEnvironments: true`.
+  // Drop stale `environments`/`projects` when merge produces an all-* scope.
   const { rules: nextRules } = updateRuleById(existingRules, ruleId, (e) => {
-    const merged = {
+    let merged = {
       ...e,
       ...(rule as Partial<FeatureRule>),
     } as FeatureRule;
     if (merged.allEnvironments === true) {
-      return {
+      merged = {
         ...omit(merged, ["environments"]),
         allEnvironments: true,
       } as FeatureRule;
+    }
+    if (merged.allProjects === true) {
+      merged = omit(merged, ["projects"]) as FeatureRule;
     }
     return merged;
   });
@@ -4431,6 +4490,11 @@ export async function putFeatureRule(
   // feature is config-backed JSON.
   const ruleToValidate = nextRules.find((r) => r.id === ruleId);
   if (ruleToValidate) {
+    const ruleScopeProjects = (ruleToValidate as { projects?: string[] })
+      .projects;
+    if (ruleScopeProjects?.length) {
+      await context.models.projects.ensureProjectsExist(ruleScopeProjects);
+    }
     await assertConfigBackedFeatureValuesValid(context, feature, {
       rules: [ruleToValidate],
     });
@@ -5002,8 +5066,13 @@ export async function putFeature(
   if (updates.project && feature.project !== updates.project) {
     await context.models.projects.ensureProjectsExist([updates.project]);
   }
+  if (updates.targetingProjects?.length) {
+    await context.models.projects.ensureProjectsExist(
+      updates.targetingProjects,
+    );
+  }
 
-  // Changing the project can affect SDK payload visibility; require publish permission in both old and new project
+  // Changing the project can affect SDK payload targeting; require publish permission in both old and new project
   if ("project" in updates) {
     if (
       !context.permissions.canPublishFeature(
@@ -5023,6 +5092,8 @@ export async function putFeature(
     "tags",
     "description",
     "project",
+    "targetingAllProjects",
+    "targetingProjects",
     "owner",
     "customFields",
     "holdout",
@@ -5057,6 +5128,8 @@ export async function putFeature(
     "tags",
     "description",
     "project",
+    "targetingAllProjects",
+    "targetingProjects",
     "owner",
     "customFields",
   ];
@@ -5065,6 +5138,7 @@ export async function putFeature(
       metadataKeys.includes(k as keyof FeatureInterface),
     ),
   ) as Partial<FeatureInterface>;
+  normalizeTargetingInUpdates(metadataUpdates, feature);
   const holdoutUpdate = "holdout" in updates ? updates.holdout : undefined;
 
   if (Object.keys(metadataUpdates).length > 0 || holdoutUpdate !== undefined) {
@@ -5082,6 +5156,12 @@ export async function putFeature(
         }),
         ...(metadataUpdates.project !== undefined && {
           project: metadataUpdates.project,
+        }),
+        ...(metadataUpdates.targetingAllProjects !== undefined && {
+          targetingAllProjects: metadataUpdates.targetingAllProjects,
+        }),
+        ...(metadataUpdates.targetingProjects !== undefined && {
+          targetingProjects: metadataUpdates.targetingProjects,
         }),
         ...(metadataUpdates.tags !== undefined && {
           tags: metadataUpdates.tags,
@@ -5106,6 +5186,8 @@ export async function putFeature(
         tags: "tags",
         owner: "owner",
         project: "project",
+        targetingAllProjects: "Targeting Projects",
+        targetingProjects: "Targeting Projects",
         customFields: "custom fields",
         holdout: "holdout",
       };
@@ -5190,6 +5272,9 @@ export async function deleteFeatureById(
     if (!context.permissions.canDeleteFeature(feature)) {
       context.permissions.throwPermissionError();
     }
+    // Reference integrity: deleting a feature that other live features gate on
+    // as a prerequisite dangles their gate and drops them from the SDK payload.
+    await assertFeatureDeletable(context, feature.id);
     if (feature.holdout?.id) {
       try {
         await context.models.holdout.removeFeatureFromHoldout(
@@ -5403,6 +5488,13 @@ export async function postFeatureArchive(
 
   if (autoPublish) {
     await assertCanAutoPublish(context, feature, draft);
+    // Soft-warn (bypassable by ignoreWarnings) when auto-publishing an archive of
+    // a feature that live features/experiments still gate on as a prerequisite.
+    // Mirrors the postFeatureRevisionPublish choke point; only the archive
+    // transition is guarded.
+    if (newArchivedState === true && !feature.archived) {
+      await assertFeatureArchiveDependentsGuard(context, feature);
+    }
     const updatedFeature = await publishRevision({
       context,
       feature,

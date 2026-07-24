@@ -14,13 +14,15 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 // in the default's lineage subtree. Shared by the experiment-ref, MAB, and
 // contextual-bandit-ref rule editors so their config-backed value UI stays
 // consistent (which config keys are offered, and whether backing is locked on).
-export function useConfigBacking(feature: FeatureInterface): {
+// `feature` may be undefined while it is still loading (e.g. the linked-flag
+// modals fetch the selected feature async) — treated as not config-backed.
+export function useConfigBacking(feature: FeatureInterface | undefined): {
   defaultConfigKey: string | null;
   isConfigBacked: boolean;
   configBackingOptionKeys: string[] | undefined;
 } {
   const { configs } = useDefinitions();
-  const defaultConfigKey = getFeatureBaseConfigKey(feature);
+  const defaultConfigKey = feature ? getFeatureBaseConfigKey(feature) : null;
   const isConfigBacked = defaultConfigKey !== null;
   const configBackingOptionKeys = useMemo(
     () =>

@@ -121,6 +121,7 @@ const ProjectsPage: FC = () => {
           <>
             <Box className="relative" width="40%" mb="4">
               <Field
+                size="legacy"
                 placeholder="Search..."
                 type="search"
                 {...searchInputProps}
@@ -155,6 +156,10 @@ const ProjectsPage: FC = () => {
                     // If the project has the `managedBy` property, we block deletion.
                     permissionsUtil.canDeleteProject(p.id) &&
                     !p.managedBy?.type;
+                  const isDemoProject = isDemoDatasourceProject({
+                    projectId: p.id,
+                    organizationId: organization?.id,
+                  });
                   return (
                     <tr key={p.id}>
                       <td className="text-gray">
@@ -195,15 +200,29 @@ const ProjectsPage: FC = () => {
                           canDelete={canDelete}
                           onEdit={() => setModalOpen(p)}
                           onDelete={async () => {
-                            await apiCall(
-                              `/projects/${p.id}?deleteResources=${deleteProjectResources ? "true" : "false"}`,
-                              {
+                            if (isDemoProject) {
+                              // The Sample Data project has a dedicated
+                              // endpoint that also removes legacy sample
+                              // resources; deleting it like a normal project
+                              // can leave sample data behind in a state
+                              // that's hard to clean up.
+                              await apiCall(`/demo-datasource-project`, {
                                 method: "DELETE",
-                              },
-                            );
+                              });
+                            } else {
+                              await apiCall(
+                                `/projects/${p.id}?deleteResources=${deleteProjectResources ? "true" : "false"}`,
+                                {
+                                  method: "DELETE",
+                                },
+                              );
+                            }
                             mutateDefinitions();
                           }}
-                          deleteProjectResources={deleteProjectResources}
+                          deleteProjectResources={
+                            // Sample data is always deleted with its project
+                            isDemoProject ? null : deleteProjectResources
+                          }
                           setDeleteProjectResources={setDeleteProjectResources}
                         />
                       </td>

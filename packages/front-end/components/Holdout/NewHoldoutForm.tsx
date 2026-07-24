@@ -54,7 +54,7 @@ import SDKCapabilityWarning from "@/components/Features/SDKCapabilityWarning";
 import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetricsSelector";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import EnvironmentSelect from "@/components/Features/FeatureModal/EnvironmentSelect";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -406,9 +406,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
 
             {currentProjectIsDemo && (
               <Callout status="warning">
-                You are creating a holdout under the demo datasource project.
-                This experiment will be deleted when the demo datasource project
-                is deleted.
+                You are creating a holdout in the Sample Data Project.
               </Callout>
             )}
 
@@ -416,6 +414,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
             {remoteEvalAlert}
 
             <Field
+              size="legacy"
               label={"Holdout Name"}
               required
               minLength={2}
@@ -444,6 +443,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
             {projects?.length > 0 && (
               <div className="form-group">
                 <MultiSelectField
+                  size="legacy"
                   label={
                     <>
                       Projects{" "}
@@ -470,6 +470,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
 
             {includeDescription && (
               <Field
+                size="legacy"
                 label="Description"
                 textarea
                 minRows={1}
@@ -520,6 +521,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
                 variation to assign
               </Text>
               <SelectField
+                size="legacy"
                 withRadixThemedPortal
                 containerClassName="flex-1"
                 options={attributeSchema
@@ -562,6 +564,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
                 style={{ width: 110 }}
               >
                 <Field
+                  size="legacy"
                   style={{ width: 95 }}
                   value={
                     isNaN(form.watch("phases.0.coverage") ?? 0)
@@ -614,6 +617,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
 
             <div className="rounded px-3 pt-3 pb-1 bg-highlight mb-4">
               <SelectField
+                size="legacy"
                 label="Data Source"
                 labelClassName="font-weight-bold"
                 value={form.watch("datasource") ?? ""}
@@ -648,6 +652,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
 
               {datasource?.properties?.exposureQueries && exposureQueries ? (
                 <SelectField
+                  size="legacy"
                   label={
                     <>
                       Experiment Assignment Table{" "}

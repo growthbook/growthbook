@@ -4,6 +4,7 @@ import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { useAuth } from "@/services/auth";
 import { DraftMode } from "@/components/DraftSelector";
 import Callout from "@/ui/Callout";
+import Checkbox from "@/ui/Checkbox";
 import Text from "@/ui/Text";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
@@ -41,9 +42,17 @@ export interface Props {
   // The entity's reference list node, rendered when archiving is blocked.
   referencesList: ReactNode;
   // "hard" (default): references hard-block the archive client-side. "soft": the
-  // server decides (it may allow, or return a soft warning the user confirms via
-  // the shared apiCall handler) — references render only as informational context.
+  // server allows the archive but treats live references as a bypassable warning
+  // — the modal surfaces the referenced items inline and requires an explicit
+  // acknowledgment (which sends `ignoreWarnings`) before archiving.
   referenceBlockMode?: "hard" | "soft";
+  // Soft mode only: render the reference warning as an elevated ("this will
+  // break live Feature Flags") confirmation rather than an ordinary warning —
+  // used when archiving a config that live feature flags consume.
+  elevatedWarning?: boolean;
+  // Keep `entityNoun`'s casing in body copy instead of lowercasing it — set for
+  // glossary resource names (e.g. "Saved Group") that stay Title Case mid-sentence.
+  preserveNounCase?: boolean;
   // Renders the entity's DraftSelectorForChanges (publish-now vs. create-draft
   // picker), reusing the same control the edit modals use.
   renderDraftSelector: (opts: {
@@ -80,6 +89,8 @@ export default function ArchiveModal({
   referencesError = false,
   referencesList,
   referenceBlockMode = "hard",
+  elevatedWarning = false,
+  preserveNounCase = false,
   renderDraftSelector,
   trackingEventModalType,
   close,
@@ -111,13 +122,21 @@ export default function ArchiveModal({
   // handler asks the user to confirm) only when the entity is actually serving a
   // value. So don't pre-warn or block on references here; that would nag on the
   // common harmless case.
+  const [acknowledged, setAcknowledged] = useState(false);
   const soft = referenceBlockMode === "soft";
   const blockedByReferences = !isArchived && referenceCount > 0 && !soft;
+  // Soft mode: archiving a still-referenced entity is allowed, but the caller
+  // must acknowledge the live references first (the acknowledgment sends
+  // `ignoreWarnings`). References may still be loading (referenceCount
+  // transiently 0); the server re-checks and the global soft-warning dialog is
+  // the backstop if the client under-counts.
+  const needsAcknowledge = soft && !isArchived && referenceCount > 0;
   const canSubmit =
     isArchived ||
-    soft ||
-    (!referencesLoading && !referencesError && referenceCount === 0);
-  const lowerNoun = entityNoun.toLowerCase();
+    (soft
+      ? !needsAcknowledge || acknowledged
+      : !referencesLoading && !referencesError && referenceCount === 0);
+  const lowerNoun = preserveNounCase ? entityNoun : entityNoun.toLowerCase();
 
   return (
     <ModalStandard
@@ -162,7 +181,13 @@ export default function ArchiveModal({
           revision?: Revision;
         }>(`${apiPathBase}/${entityId}${qs ? `?${qs}` : ""}`, {
           method: "PUT",
-          body: JSON.stringify({ archived: desiredArchived }),
+          body: JSON.stringify({
+            archived: desiredArchived,
+            // The acknowledgment clears the server's soft archive-dependents
+            // warning. Only sent when the user ticked the box for a referenced
+            // entity; an unreferenced archive doesn't need it.
+            ...(needsAcknowledge ? { ignoreWarnings: true } : {}),
+          }),
         });
 
         if (res?.revision) {
@@ -210,6 +235,37 @@ export default function ArchiveModal({
             </Text>
           </Callout>
           {referencesList}
+        </>
+      ) : needsAcknowledge ? (
+        <>
+          <Callout status={elevatedWarning ? "error" : "warning"} mb="4">
+            <Text as="p" weight="semibold" mb="2">
+              {elevatedWarning
+                ? `This ${lowerNoun} is consumed by live Feature Flags`
+                : `This ${lowerNoun} is still referenced`}
+            </Text>
+            <Text as="p" mb="0">
+              {elevatedWarning
+                ? "Archiving it will break the following live Feature Flag" +
+                  (referenceCount > 1 ? "s" : "") +
+                  ":"
+                : `Archiving it will remove it from the following item${
+                    referenceCount > 1 ? "s" : ""
+                  }:`}
+            </Text>
+          </Callout>
+          {referencesList}
+          <Checkbox
+            mt="4"
+            weight="regular"
+            value={acknowledged}
+            setValue={setAcknowledged}
+            label={
+              elevatedWarning
+                ? "I understand this will break live Feature Flags and want to archive anyway."
+                : `I acknowledge these references and want to archive this ${lowerNoun} anyway.`
+            }
+          />
         </>
       ) : (
         <p>
