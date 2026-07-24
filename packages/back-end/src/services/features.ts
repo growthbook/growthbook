@@ -1876,13 +1876,9 @@ export function addIdsToFlatRules(
 }
 
 // A bulk update replaces the whole rules array, so an inbound rollout rule that
-// echoes an existing rule by id but omits seed/hashVersion would have them reset
-// by `addIdsToFlatRules` (seed → rule.id) — re-drawing the cohort. Inherit those
-// bucketing inputs from the stored rule when the request omits them, so
-// `addIdsToFlatRules` only stamps rules with no prior history. Callers pass the
-// existing (already read-time-pinned) feature rules as `storedRules`, so a legacy
-// rule inherits its pinned feature-id seed. hashAttribute is a required input and
-// can't be dropped this way.
+// echoes an existing rule by id but omits seed/hashVersion would be re-stamped
+// (seed → rule.id) by addIdsToFlatRules, re-drawing the cohort. Inherit those from
+// the stored (read-time-pinned) rule so only rules with no history get stamped.
 export function inheritStoredRolloutSeeds(
   inbound: FeatureRule[] = [],
   storedRules: FeatureRule[] = [],

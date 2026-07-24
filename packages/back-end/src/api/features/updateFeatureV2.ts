@@ -263,8 +263,7 @@ export const updateFeatureV2 = createApiRequestHandler(
       effectiveBaseConfig,
       effectiveProject,
     );
-    // Carry seed/hashVersion forward from the stored rule when the caller echoes
-    // a rule by id but omits them, so the backfill below can't re-bucket it.
+    // Inherit stored seed/hashVersion first so the backfill can't re-bucket a legacy rollout.
     inheritStoredRolloutSeeds(inboundFlatRules, feature.rules ?? []);
     addIdsToFlatRules(inboundFlatRules, feature.id);
     // `mapV2ApiRuleToFeatureRule` doesn't validate values; enforce the schema

@@ -300,8 +300,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         envSettings.rules,
         feature.rules ?? [],
       );
-      // Carry seed/hashVersion forward from the stored rule when the caller
-      // echoes a rule by id but omits them, so the backfill can't re-bucket it.
+      // Inherit stored seed/hashVersion first so the backfill can't re-bucket a legacy rollout.
       inheritStoredRolloutSeeds(converted, feature.rules ?? []);
       // Stamp ids before flattening — `flattenV1ToV2Rules` groups by id and
       // drops id-less rules. Without this, v1 clients that omit ids would
