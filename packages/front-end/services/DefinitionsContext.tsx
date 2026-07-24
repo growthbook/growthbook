@@ -40,7 +40,6 @@ type Definitions = {
   segments: SegmentInterface[];
   projects: ProjectInterface[];
   savedGroups: SavedGroupForDefinitions[];
-  _savedGroupsIncludingArchived: SavedGroupForDefinitions[];
   constants: ConstantWithoutValue[];
   _constantsIncludingArchived: ConstantWithoutValue[];
   configs: ConfigWithoutValue[];
@@ -100,7 +99,6 @@ const defaultValue: DefinitionContextValue = {
   segments: [],
   tags: [],
   savedGroups: [],
-  _savedGroupsIncludingArchived: [],
   constants: [],
   _constantsIncludingArchived: [],
   configs: [],
@@ -388,7 +386,6 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       segments: data.segments,
       tags: allTags,
       savedGroups: activeSavedGroups,
-      _savedGroupsIncludingArchived: allSavedGroups,
       constants: activeConstants,
       _constantsIncludingArchived: allConstants,
       configs: activeConfigs,
