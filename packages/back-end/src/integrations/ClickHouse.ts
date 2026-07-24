@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { subDays } from "date-fns";
 import { createClient, ResponseJSON } from "@clickhouse/client";
 import {
@@ -5,6 +6,7 @@ import {
   FeatureUsageAggregateRow,
   FeatureUsageLookback,
   QueryResponse,
+  ExternalIdCallback,
 } from "shared/types/integrations";
 import { ClickHouseConnectionParams } from "shared/types/integrations/clickhouse";
 import {
@@ -20,6 +22,11 @@ import { queueMigrateManagedWarehouse } from "back-end/src/jobs/migrateManagedWa
 import { getHost } from "back-end/src/util/sql";
 import { logger } from "back-end/src/util/logger";
 import SqlIntegration from "./SqlIntegration";
+import {
+  assertClickHouseQueryWasCancelled,
+  getClickHouseCluster,
+  getClickHouseOnClusterClause,
+} from "./clickhouse/cancelQuery";
 import { clickHouseDialect } from "./dialects/clickhouse";
 
 // Matches ClickHouse DateTime/DateTime64 column types with no explicit
@@ -86,7 +93,27 @@ export default class ClickHouse extends SqlIntegration {
     return super.testConnection();
   }
 
-  async runQuery(sql: string): Promise<QueryResponse> {
+  private getClient() {
+    return createClient({
+      url: getHost(this.params.url, this.params.port),
+      username: this.params.username,
+      password: this.params.password,
+      database: this.params.database,
+      application: "GrowthBook",
+      request_timeout: 3620_000,
+      clickhouse_settings: {
+        max_execution_time: Math.min(
+          this.params.maxExecutionTime ?? 1800,
+          3600,
+        ),
+      },
+    });
+  }
+
+  async runQuery(
+    sql: string,
+    setExternalId?: ExternalIdCallback,
+  ): Promise<QueryResponse> {
     // Legacy (materialized-column) managed warehouses migrate to native JSON
     // columns on first use — enqueued async + deduped so it never blocks the query.
     // Runs before the guards below so a warehouse left mid-migration (pending +
@@ -110,21 +137,18 @@ export default class ClickHouse extends SqlIntegration {
     ) {
       throw new ManagedWarehousePendingError();
     }
-    const client = createClient({
-      url: getHost(this.params.url, this.params.port),
-      username: this.params.username,
-      password: this.params.password,
-      database: this.params.database,
-      application: "GrowthBook",
-      request_timeout: 3620_000,
-      clickhouse_settings: {
-        max_execution_time: Math.min(
-          this.params.maxExecutionTime ?? 1800,
-          3600,
-        ),
-      },
+    const client = this.getClient();
+
+    const queryId = randomUUID();
+    if (setExternalId) {
+      await setExternalId(queryId);
+    }
+
+    const results = await client.query({
+      query_id: queryId,
+      query: sql,
+      format: "JSON",
     });
-    const results = await client.query({ query: sql, format: "JSON" });
     // eslint-disable-next-line
     const data: ResponseJSON<Record<string, any>[]> = await results.json();
     const rows = data.data ? data.data : [];
@@ -141,6 +165,26 @@ export default class ClickHouse extends SqlIntegration {
           }
         : undefined,
     };
+  }
+
+  async cancelQuery(externalId: string): Promise<void> {
+    if (isManagedWarehouseAwaitingProvisioning(this.datasource)) {
+      throw new ManagedWarehousePendingError();
+    }
+    const client = this.getClient();
+
+    const cluster = getClickHouseCluster(
+      this.params,
+      this.datasource.type === "growthbook_clickhouse",
+    );
+    const results = await client.query({
+      query: `KILL QUERY${getClickHouseOnClusterClause(cluster)} WHERE query_id = {qid:String} SYNC`,
+      query_params: { qid: externalId },
+      format: "JSON",
+    });
+    const data: ResponseJSON<{ kill_status?: string }> = await results.json();
+    assertClickHouseQueryWasCancelled(data.data ?? [], cluster);
+    logger.info({ externalId, cluster }, "ClickHouse query cancelled");
   }
 
   getInformationSchemaWhereClause(): string {
@@ -213,7 +257,8 @@ export default class ClickHouse extends SqlIntegration {
       throw new Error(`Invalid lookback: ${lookback}`);
     }
 
-    const res = await this.runQuery(`
+    const res = await this.runQuery(
+      `
 WITH _data as (
 	SELECT
 	  ${this.getSqlDialect().formatDateTimeString(roundedTimestamp)} as ts,
@@ -245,7 +290,9 @@ WITH _data as (
     variationId
   ORDER BY evaluations DESC
   LIMIT 200
-      `);
+      `,
+      undefined,
+    );
 
     return {
       start: start.getTime(),
