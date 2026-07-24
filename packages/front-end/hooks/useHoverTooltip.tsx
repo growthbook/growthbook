@@ -135,6 +135,7 @@ function TooltipPortal({
 
   const { refs, floatingStyles, update, placement } = useFloating({
     placement: "top",
+    strategy: positioning === "cursor" ? "fixed" : "absolute",
     middleware: [
       offset(VERTICAL_OFFSET_PX),
       flip({ fallbackPlacements: ["bottom", "top"] }),
@@ -180,7 +181,12 @@ function TooltipPortal({
     zIndex: 9999,
   };
 
-  // Prevent clicks from passing through to elements below the tooltip
+  const cursorTooltipStyle: React.CSSProperties = {
+    ...tooltipStyle,
+    pointerEvents: "none",
+  };
+
+  // Element-mode tooltips are interactive, so clicks should not pass through.
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
   };
@@ -191,8 +197,7 @@ function TooltipPortal({
         <div
           ref={refs.setFloating}
           className={styles.tooltip}
-          style={tooltipStyle}
-          onClick={handleClick}
+          style={cursorTooltipStyle}
         >
           {content}
         </div>
@@ -289,6 +294,22 @@ export function useHoverTooltip({
       window.removeEventListener("scroll", handleScroll, { capture: true });
     };
   }, [isVisible, close]);
+
+  useEffect(() => {
+    if (!isVisible || positioning !== "cursor") return;
+
+    const handleMove = () => {
+      close();
+    };
+
+    window.addEventListener("mousemove", handleMove);
+    window.addEventListener("pointermove", handleMove);
+
+    return () => {
+      window.removeEventListener("mousemove", handleMove);
+      window.removeEventListener("pointermove", handleMove);
+    };
+  }, [isVisible, positioning, close]);
 
   const onMouseEnter = useCallback(
     (e: React.MouseEvent) => {
