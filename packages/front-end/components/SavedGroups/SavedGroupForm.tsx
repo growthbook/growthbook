@@ -323,21 +323,11 @@ const SavedGroupForm: FC<{
                   : undefined
         : undefined;
 
-  // Create a Map from saved groups for cycle detection. Overlay the in-progress
-  // condition for the group being edited so a cycle this edit introduces (a
-  // self-reference, or one that closes a loop) is caught — persisted conditions
-  // alone miss it, since they don't yet contain the proposed change.
-  const proposedCondition = form.watch("condition");
-  const groupMap = useMemo(() => {
-    const map = new Map(savedGroups.map((group) => [group.id, group]));
-    if (current.id) {
-      const existing = map.get(current.id);
-      if (existing) {
-        map.set(current.id, { ...existing, condition: proposedCondition });
-      }
-    }
-    return map;
-  }, [savedGroups, current.id, proposedCondition]);
+  // Create a Map from saved groups for cycle detection
+  const groupMap = useMemo(
+    () => new Map(savedGroups.map((group) => [group.id, group])),
+    [savedGroups],
+  );
 
   return upgradeModal ? (
     <UpgradeModal
