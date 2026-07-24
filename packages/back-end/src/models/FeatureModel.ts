@@ -1851,6 +1851,102 @@ export async function applyRevisionChanges(
   return await updateFeature(context, feature, changes);
 }
 
+// Refuse to remove/change a feature's holdout while an experiment in the current
+// draft rules for this feature is linked to the holdout.
+export async function assertNoLinkedHoldoutExperiments(
+  context: ReqContext | ApiReqContext,
+  holdoutId: string,
+  // The feature's post-publish rules (revision's merged rules)
+  rules: FeatureRule[],
+) {
+  const experimentIds = rules
+    .filter((rule) => rule.type === "experiment-ref")
+    .map((rule) => rule.experimentId);
+
+  const experiments = await Promise.all(
+    experimentIds.map((eid) => getExperimentById(context, eid)),
+  );
+  const stillInHoldout = experiments
+    .filter(
+      (exp): exp is NonNullable<typeof exp> =>
+        !!exp && exp.holdoutId === holdoutId,
+    )
+    .map((exp) => `"${exp.name}"`);
+  if (stillInHoldout.length) {
+    const plural = stillInHoldout.length > 1;
+    throw new Error(
+      `Cannot remove the holdout while experiment${plural ? "s" : ""} ${stillInHoldout.join(
+        ", ",
+      )} ${plural ? "are" : "is"} in the rules for this feature and in the holdout. ` +
+        `Remove the experiment rule from this feature first or in the same draft.`,
+    );
+  }
+}
+
+// Use POST-publish rule set for `rules` so we can check for holdout compatibility
+// on the draft revision and make sure the holdout change is allowed.
+
+// Read-only so a rejection doesn't happen mid-publish and strand features.
+export async function assertHoldoutChangeAllowed(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  newHoldout: { id: string; value: string } | null,
+  rules: FeatureRule[],
+  // `isRevert` skips the guard — a rollback restores a previously-valid holdout
+  // state (the caller reverts the transiently-blocking rules moments later), so
+  // this create-time check would wrongly refuse it.
+  { isRevert }: { isRevert?: boolean } = {},
+) {
+  if (isRevert) return;
+
+  const prevHoldoutId = feature.holdout?.id;
+  const newHoldoutId = newHoldout?.id;
+
+  // No change.
+  if (newHoldoutId === prevHoldoutId) return;
+
+  // Leaving the current holdout (removal, or a change to a different one):
+  // refuse while any experiment in the rules for this feature still belongs to it. The user detaches
+  // the experiment side first rather than us silently unlinking it.
+  if (prevHoldoutId) {
+    await assertNoLinkedHoldoutExperiments(context, prevHoldoutId, rules);
+  }
+
+  // Pure removal: nothing further to validate.
+  if (newHoldout === null) return;
+
+  // Adding or changing to a holdout: the feature's post-publish rules must not
+  // carry running experiments in a different holdout, bandits, or safe rollouts.
+  const currentExperimentIds = (rules ?? [])
+    .filter((rule) => rule.type === "experiment-ref")
+    .map((rule) => rule.experimentId);
+  const experimentResults = await Promise.all(
+    currentExperimentIds.map((id) => getExperimentById(context, id)),
+  );
+  // Filter out deleted experiments (null/undefined) before checking status
+  const experiments = experimentResults.filter(
+    (exp): exp is NonNullable<typeof exp> => exp !== null && exp !== undefined,
+  );
+  const hasNonDraftExperimentsInDifferentHoldout = experiments.some(
+    (exp) => exp.status !== "draft" && exp.holdoutId !== newHoldoutId,
+  );
+  const hasBandits = experiments.some(
+    (exp) => exp.type === "multi-armed-bandit",
+  );
+  const hasSafeRollouts = (rules ?? []).some(
+    (rule) => rule?.type === "safe-rollout",
+  );
+  if (
+    hasNonDraftExperimentsInDifferentHoldout ||
+    hasBandits ||
+    hasSafeRollouts
+  ) {
+    throw new Error(
+      "Cannot change holdout when there are running linked experiments in different holdouts, safe rollout rules, or multi-armed bandit rules",
+    );
+  }
+}
+
 // Run HoldoutModel / Experiment side-effects when a feature's holdout
 // membership changes at publish. Called from `publishRevision` when
 // `result.holdout` is defined, so all publish paths (direct, approval,
@@ -1860,37 +1956,24 @@ export async function applyHoldoutSideEffects(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   newHoldout: { id: string; value: string } | null,
-  // `isRevert` skips the guard below — a rollback restores a previously-valid
-  // holdout state (the caller reverts the transiently-blocking rules moments
-  // later), so this create-time check would wrongly refuse it.
-  { isRevert }: { isRevert?: boolean } = {},
+  // `isRevert` skips the guard — see assertHoldoutChangeAllowed. `skipGuard` is
+  // set by callers that already ran assertHoldoutChangeAllowed BEFORE mutating
+  // the feature, so the guard isn't re-run against the stale live rules here.
+  { isRevert, skipGuard }: { isRevert?: boolean; skipGuard?: boolean } = {},
 ) {
   const prevHoldoutId = feature.holdout?.id;
   const newHoldoutId = newHoldout?.id;
 
   if (newHoldoutId === prevHoldoutId) return;
 
-  // Guard: cannot change holdout when there are running experiments, bandits, or safe rollouts
-  if (newHoldout !== null && !isRevert) {
-    const experiments = await Promise.all(
-      (feature.linkedExperiments ?? []).map((id) =>
-        getExperimentById(context, id),
-      ),
+  if (!skipGuard) {
+    await assertHoldoutChangeAllowed(
+      context,
+      feature,
+      newHoldout,
+      feature.rules ?? [],
+      { isRevert },
     );
-    const hasNonDraftExperiments = experiments.some(
-      (exp) => exp?.status !== "draft",
-    );
-    const hasBandits = experiments.some(
-      (exp) => exp?.type === "multi-armed-bandit",
-    );
-    const hasSafeRollouts = (feature.rules ?? []).some(
-      (rule) => rule?.type === "safe-rollout",
-    );
-    if (hasNonDraftExperiments || hasBandits || hasSafeRollouts) {
-      throw new Error(
-        "Cannot change holdout when there are running linked experiments, safe rollout rules, or multi-armed bandit rules",
-      );
-    }
   }
 
   // Resolve the new holdout BEFORE removing from the old one, so a missing
@@ -1902,7 +1985,10 @@ export async function applyHoldoutSideEffects(
     throw new Error("Holdout not found");
   }
 
-  // Remove feature from the old holdout
+  // Remove feature from the old holdout. The guard (assertHoldoutChangeAllowed)
+  // has already refused this move if any linked experiment still belongs to the
+  // old holdout, so there's nothing to cascade here — the experiment side is
+  // detached explicitly by the user first.
   if (prevHoldoutId) {
     await context.models.holdout.removeFeatureFromHoldout(
       prevHoldoutId,
@@ -1910,18 +1996,26 @@ export async function applyHoldoutSideEffects(
     );
   }
 
-  // Link feature (and its experiments) to the new holdout
+  // Link feature (and experiments in its rules) to the new holdout.
   if (newHoldoutId && holdoutObj) {
+    const ruleExperimentIds = Array.from(
+      new Set(
+        (feature.rules ?? [])
+          .filter((rule) => rule.type === "experiment-ref")
+          .map((rule) => rule.experimentId),
+      ),
+    );
+
     await context.models.holdout.updateById(newHoldoutId, {
       linkedFeatures: {
         [feature.id]: { id: feature.id, dateAdded: new Date() },
         ...holdoutObj.linkedFeatures,
       },
-      ...(feature.linkedExperiments?.length
+      ...(ruleExperimentIds.length
         ? {
             linkedExperiments: {
               ...Object.fromEntries(
-                feature.linkedExperiments.map((experimentId) => [
+                ruleExperimentIds.map((experimentId) => [
                   experimentId,
                   { id: experimentId, dateAdded: new Date() },
                 ]),
@@ -1932,9 +2026,9 @@ export async function applyHoldoutSideEffects(
         : {}),
     });
 
-    if (feature.linkedExperiments?.length) {
+    if (ruleExperimentIds.length) {
       const linkedExperiments = await Promise.all(
-        feature.linkedExperiments.map((eid) => getExperimentById(context, eid)),
+        ruleExperimentIds.map((eid) => getExperimentById(context, eid)),
       );
       await Promise.all(
         linkedExperiments.map(async (exp) => {
@@ -2821,6 +2915,20 @@ export async function publishRevision({
     skipValidation: skipPrevalidateValidation,
   });
 
+  // Guard the holdout change BEFORE any mutation. applyRevisionChanges (below)
+  // advances feature.version and writes feature.holdout; if the holdout guard
+  // ran only afterward and threw, the feature would be left pointing at this
+  // still-draft revision. Check the revision's merged rules (post-publish state)
+  // so a bundled experiment-ref for an already-running experiment is caught.
+  if (result.holdout !== undefined) {
+    await assertHoldoutChangeAllowed(
+      context,
+      feature,
+      result.holdout,
+      result.rules ?? feature.rules ?? [],
+    );
+  }
+
   // Create ramp schedules BEFORE writing the feature so that a schedule
   // creation failure gates the publish (atomicity: no published feature without
   // its ramp schedule).
@@ -2852,7 +2960,17 @@ export async function publishRevision({
     );
 
     if (result.holdout !== undefined) {
-      await applyHoldoutSideEffects(context, feature, result.holdout);
+      // Guard already ran above (before any mutation) — skip the re-check.
+      // Pass the POST-publish rules: side effects enroll the experiments in
+      // the feature's rules, and a draft can add the holdout and the
+      // experiment-ref rule together — the pre-publish rules would miss it
+      // (the deferred half of the eager-link-at-rule-add flow).
+      await applyHoldoutSideEffects(
+        context,
+        { ...feature, rules: result.rules ?? feature.rules },
+        result.holdout,
+        { skipGuard: true },
+      );
     }
 
     await markRevisionAsPublished(
@@ -2881,6 +2999,8 @@ export async function publishRevision({
         );
       }
     }
+
+    // TODO(holdouts): undo holdout side effects if the publish failed
     throw err;
   }
 

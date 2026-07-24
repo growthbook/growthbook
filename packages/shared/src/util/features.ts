@@ -1077,6 +1077,19 @@ export type RevisionFields = Pick<
   | "rampActions"
 >;
 
+// Resolves the holdout a revision will publish under. Revisions store holdout
+// sparsely: `undefined` (legacy revisions that predate the field) means
+// carry-forward from the live feature, while an explicit `null` means the
+// draft removes the holdout.
+export function getEffectiveRevisionHoldout(
+  revision: Pick<RevisionFields, "holdout">,
+  feature: FeatureInterface,
+): Exclude<RevisionFields["holdout"], undefined> {
+  return revision.holdout !== undefined
+    ? revision.holdout
+    : (feature.holdout ?? null);
+}
+
 // Per-field backfill for old/sparse revisions before passing to autoMerge.
 // Fields not listed here are left as-is; sparse absence is meaningful for those.
 const revisionFieldFillers: Partial<{
@@ -1115,9 +1128,8 @@ const revisionFieldFillers: Partial<{
   // Backfill holdout from feature so that removing a holdout is detected as a change.
   // Without this, comparing draft.holdout (null) vs base.holdout (undefined → null)
   // would show no change when the feature actually has a holdout.
-  // Note: we check for undefined explicitly because null is a valid value (means removal).
   holdout: (feature, current) =>
-    current !== undefined ? current : (feature.holdout ?? null),
+    getEffectiveRevisionHoldout({ holdout: current }, feature),
 };
 
 // Backfills stale/missing fields on a revision before passing to autoMerge.
