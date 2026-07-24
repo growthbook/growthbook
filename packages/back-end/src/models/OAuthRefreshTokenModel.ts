@@ -2,7 +2,6 @@ import {
   OAuthRefreshTokenInterface,
   oauthRefreshTokenValidator,
 } from "shared/validators";
-import { logger } from "back-end/src/util/logger";
 import { getCollection } from "back-end/src/util/mongo.util";
 import { MakeModelClass } from "./BaseModel";
 
@@ -20,25 +19,13 @@ const BaseClass = MakeModelClass({
     updateEvent: "oauthRefreshToken.update",
     deleteEvent: "oauthRefreshToken.delete",
   },
-  additionalIndexes: [{ fields: { organization: 1, clientId: 1, userId: 1 } }],
+  additionalIndexes: [
+    { fields: { organization: 1, clientId: 1, userId: 1 } },
+    // No custom name — mongoose previously created this as `expiresAt_1`.
+    // Also reaps consumed tokens once they pass the reuse-detection window.
+    { fields: { expiresAt: 1 }, expireAfterSeconds: 0 },
+  ],
 });
-
-let ttlIndexEnsured = false;
-function ensureExpiresAtTtlIndex() {
-  if (ttlIndexEnsured) return;
-  ttlIndexEnsured = true;
-  // Kept local so we don't need to extend BaseModel's additionalIndexes for TTL.
-  // No custom name — mongoose previously created this as `expiresAt_1`, and
-  // createIndex is idempotent when the name/options match.
-  void getCollection(COLLECTION_NAME)
-    .createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 })
-    .catch((err) => {
-      logger.error(
-        err,
-        `Error creating expiresAt TTL index for ${COLLECTION_NAME}`,
-      );
-    });
-}
 
 /**
  * Org-scoped OAuth refresh tokens.
@@ -46,13 +33,11 @@ function ensureExpiresAtTtlIndex() {
  * Revoke/refresh look up by hash before the org is known
  * ({@link dangerousFindByHash}); subsequent lifecycle ops use a ReqContext
  * instance so deletes are org-scoped and audited.
+ *
+ * Rotation marks tokens consumed ({@link consumeByTokenHash}) rather than
+ * deleting them, so replay is detectable as reuse (RFC 9700 §4.14.2).
  */
 export class OAuthRefreshTokenModel extends BaseClass {
-  constructor(...args: ConstructorParameters<typeof BaseClass>) {
-    super(...args);
-    ensureExpiresAtTtlIndex();
-  }
-
   protected canCreate(): boolean {
     return true;
   }
@@ -70,28 +55,35 @@ export class OAuthRefreshTokenModel extends BaseClass {
   public static async dangerousFindByHash(
     tokenHash: string,
   ): Promise<OAuthRefreshTokenInterface | null> {
-    ensureExpiresAtTtlIndex();
     const doc = await getCollection<OAuthRefreshTokenInterface>(
       COLLECTION_NAME,
     ).findOne({ tokenHash });
     return doc;
   }
 
-  public async getByTokenHash(
+  /**
+   * Atomically mark consumed; returns null if already consumed (reuse signal).
+   * Org-scoped so rotation can't touch another org's token.
+   */
+  public async consumeByTokenHash(
     tokenHash: string,
   ): Promise<OAuthRefreshTokenInterface | null> {
-    return this._findOne({ tokenHash });
-  }
-
-  /**
-   * All active refresh tokens for a user in this org. One row per active grant
-   * (tokens rotate, so at most one per client/authorization survives), used to
-   * build the user's "Connected Apps" list.
-   */
-  public async getByUser(
-    userId: string,
-  ): Promise<OAuthRefreshTokenInterface[]> {
-    return this._find({ userId }, { bypassReadPermissionChecks: true });
+    const now = new Date();
+    const result = await this._dangerousGetCollection().findOneAndUpdate(
+      {
+        tokenHash,
+        organization: this.context.org.id,
+        // Matches missing or explicitly null consumedAt
+        consumedAt: null,
+      },
+      { $set: { consumedAt: now, dateUpdated: now } },
+      { returnDocument: "before" },
+    );
+    // mongodb@4 returns ModifyResult `{ value }`; newer drivers may return the doc.
+    if (result && typeof result === "object" && "value" in result) {
+      return (result.value as OAuthRefreshTokenInterface | null) ?? null;
+    }
+    return (result as OAuthRefreshTokenInterface | null) ?? null;
   }
 
   /** Tear down every refresh token for one client/user grant in this org. */

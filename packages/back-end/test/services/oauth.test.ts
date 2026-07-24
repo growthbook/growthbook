@@ -42,6 +42,7 @@ jest.mock("back-end/src/models/OAuthRefreshTokenModel", () => ({
 jest.mock("back-end/src/models/OAuthClientModel", () => ({
   createOAuthClient: jest.fn(),
   getOAuthClientById: jest.fn(),
+  touchOAuthClient: jest.fn(),
 }));
 
 jest.mock("back-end/src/models/OrganizationModel", () => ({
@@ -83,22 +84,40 @@ function mockOrgContext(
   overrides: {
     userId?: string;
     deleteForGrant?: jest.Mock;
-    getByTokenHash?: jest.Mock;
-    deleteRefresh?: jest.Mock;
+    consumeByTokenHash?: jest.Mock;
     createRefresh?: jest.Mock;
     createApiKey?: jest.Mock;
+    getGrant?: jest.Mock;
+    ensureGrant?: jest.Mock;
+    startGrant?: jest.Mock;
+    markRevoked?: jest.Mock;
+    getActiveForUser?: jest.Mock;
   } = {},
 ) {
+  const activeGrant = {
+    clientId: "client-a",
+    userId: "user-1",
+    revoked: false,
+  };
   const deleteForGrant =
     overrides.deleteForGrant ?? jest.fn().mockResolvedValue(undefined);
-  const getByTokenHash =
-    overrides.getByTokenHash ?? jest.fn().mockResolvedValue(null);
-  const deleteRefresh =
-    overrides.deleteRefresh ?? jest.fn().mockResolvedValue(undefined);
+  const consumeByTokenHash =
+    overrides.consumeByTokenHash ??
+    jest.fn().mockResolvedValue({ tokenHash: "old" });
   const createRefresh =
     overrides.createRefresh ?? jest.fn().mockResolvedValue({});
   const createApiKey =
     overrides.createApiKey ?? jest.fn().mockResolvedValue({});
+  const getGrant =
+    overrides.getGrant ?? jest.fn().mockResolvedValue(activeGrant);
+  const ensureGrant =
+    overrides.ensureGrant ?? jest.fn().mockResolvedValue(activeGrant);
+  const startGrant =
+    overrides.startGrant ?? jest.fn().mockResolvedValue(activeGrant);
+  const markRevoked =
+    overrides.markRevoked ?? jest.fn().mockResolvedValue(undefined);
+  const getActiveForUser =
+    overrides.getActiveForUser ?? jest.fn().mockResolvedValue([]);
 
   const context = {
     org: { id: "org-1" },
@@ -106,9 +125,15 @@ function mockOrgContext(
     models: {
       oauthRefreshTokens: {
         deleteForGrant,
-        getByTokenHash,
-        delete: deleteRefresh,
+        consumeByTokenHash,
         create: createRefresh,
+      },
+      oauthGrants: {
+        getGrant,
+        ensureGrant,
+        startGrant,
+        markRevoked,
+        getActiveForUser,
       },
       oauthAuthCodes: {
         create: jest.fn(),
@@ -126,10 +151,14 @@ function mockOrgContext(
   return {
     context,
     deleteForGrant,
-    getByTokenHash,
-    deleteRefresh,
+    consumeByTokenHash,
     createRefresh,
     createApiKey,
+    getGrant,
+    ensureGrant,
+    startGrant,
+    markRevoked,
+    getActiveForUser,
   };
 }
 
@@ -195,13 +224,14 @@ describe("revokeToken", () => {
       userId: "user-1",
       organization: "org-1",
     } as never);
-    const { deleteForGrant } = mockOrgContext();
+    const { deleteForGrant, markRevoked } = mockOrgContext();
 
     await revokeToken({
       token: OAUTH_ACCESS_TOKEN_PREFIX + "secret",
       clientId: "client-a",
     });
 
+    expect(markRevoked).toHaveBeenCalledWith("client-a", "user-1");
     expect(deleteForGrant).toHaveBeenCalledWith("client-a", "user-1");
     expect(mockDangerousDisableOAuthGrant).toHaveBeenCalledWith(
       "client-a",
@@ -367,24 +397,19 @@ describe("exchangeRefreshToken membership", () => {
       dateCreated: new Date(),
       dateUpdated: new Date(),
     });
-    const oldDoc = { tokenHash: "old" };
-    const { getByTokenHash, deleteRefresh, createRefresh, createApiKey } =
-      mockOrgContext({
-        getByTokenHash: jest.fn().mockResolvedValue(oldDoc),
-      });
+    const { consumeByTokenHash, createRefresh, createApiKey } =
+      mockOrgContext();
 
     const res = await exchangeRefreshToken({
       refreshToken: OAUTH_REFRESH_TOKEN_PREFIX + "secret",
       clientId: "client-a",
     });
 
-    // Old token is rotated out via the org-scoped model
-    expect(getByTokenHash).toHaveBeenCalledWith(
+    // Rotated via consume (not delete) so replay is detectable as reuse.
+    expect(consumeByTokenHash).toHaveBeenCalledWith(
       hashToken(OAUTH_REFRESH_TOKEN_PREFIX + "secret"),
     );
-    expect(deleteRefresh).toHaveBeenCalledWith(oldDoc);
 
-    // Access token is created through the audited BaseModel path
     expect(createApiKey).toHaveBeenCalledTimes(1);
     expect(createApiKey).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -397,7 +422,6 @@ describe("exchangeRefreshToken membership", () => {
       }),
     );
 
-    // New refresh token is stored hashed with the same grant metadata
     expect(createRefresh).toHaveBeenCalledWith(
       expect.objectContaining({
         tokenHash: hashToken(res.refresh_token),
@@ -415,5 +439,99 @@ describe("exchangeRefreshToken membership", () => {
     expect(res.refresh_token).toMatch(
       new RegExp(`^${OAUTH_REFRESH_TOKEN_PREFIX}`),
     );
+  });
+});
+
+describe("exchangeRefreshToken reuse detection + revoke race", () => {
+  function mockValidClientAndToken() {
+    mockGetOAuthClientById.mockResolvedValue({
+      clientId: "client-a",
+      redirectUris: ["http://localhost/cb"],
+      tokenEndpointAuthMethod: "none",
+      grantTypes: ["refresh_token"],
+      responseTypes: ["code"],
+      dateCreated: new Date(),
+    });
+    mockDangerousFindByHash.mockResolvedValue({
+      tokenHash: hashToken(OAUTH_REFRESH_TOKEN_PREFIX + "secret"),
+      clientId: "client-a",
+      userId: "user-1",
+      organization: "org-1",
+      scope: "openid offline_access",
+      expiresAt: new Date(Date.now() + 60_000),
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    });
+  }
+
+  function refresh() {
+    return exchangeRefreshToken({
+      refreshToken: OAUTH_REFRESH_TOKEN_PREFIX + "secret",
+      clientId: "client-a",
+    });
+  }
+
+  it("tears down the whole grant when a consumed token is replayed", async () => {
+    mockValidClientAndToken();
+    const { deleteForGrant, markRevoked, createRefresh, createApiKey } =
+      mockOrgContext({
+        consumeByTokenHash: jest.fn().mockResolvedValue(null),
+      });
+
+    await expect(refresh()).rejects.toMatchObject({
+      error: "invalid_grant",
+      errorDescription: "Refresh token has already been used",
+    } satisfies Partial<OAuthError>);
+
+    expect(markRevoked).toHaveBeenCalledWith("client-a", "user-1");
+    expect(deleteForGrant).toHaveBeenCalledWith("client-a", "user-1");
+    expect(mockDangerousDisableOAuthGrant).toHaveBeenCalledWith(
+      "client-a",
+      "user-1",
+      "org-1",
+    );
+    expect(createRefresh).not.toHaveBeenCalled();
+    expect(createApiKey).not.toHaveBeenCalled();
+  });
+
+  it("refuses to refresh a revoked grant", async () => {
+    mockValidClientAndToken();
+    const { consumeByTokenHash, createApiKey } = mockOrgContext({
+      ensureGrant: jest
+        .fn()
+        .mockResolvedValue({ clientId: "client-a", revoked: true }),
+    });
+
+    await expect(refresh()).rejects.toMatchObject({
+      error: "invalid_grant",
+      errorDescription: "Grant has been revoked",
+    } satisfies Partial<OAuthError>);
+
+    expect(consumeByTokenHash).not.toHaveBeenCalled();
+    expect(createApiKey).not.toHaveBeenCalled();
+  });
+
+  it("self-heals when a revoke races an in-flight refresh", async () => {
+    mockValidClientAndToken();
+    // Active at start; concurrent revoke flips it before the post-write re-read.
+    const { deleteForGrant, markRevoked, createRefresh, createApiKey } =
+      mockOrgContext({
+        ensureGrant: jest
+          .fn()
+          .mockResolvedValue({ clientId: "client-a", revoked: false }),
+        getGrant: jest
+          .fn()
+          .mockResolvedValue({ clientId: "client-a", revoked: true }),
+      });
+
+    await expect(refresh()).rejects.toMatchObject({
+      error: "invalid_grant",
+      errorDescription: "Grant has been revoked",
+    } satisfies Partial<OAuthError>);
+
+    expect(createApiKey).toHaveBeenCalledTimes(1);
+    expect(createRefresh).toHaveBeenCalledTimes(1);
+    expect(markRevoked).toHaveBeenCalledWith("client-a", "user-1");
+    expect(deleteForGrant).toHaveBeenCalledWith("client-a", "user-1");
   });
 });

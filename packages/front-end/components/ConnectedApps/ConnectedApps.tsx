@@ -14,7 +14,7 @@ interface ConnectedApp {
   clientUri?: string;
   scopes: string[];
   firstAuthorizedAt: string;
-  lastAuthorizedAt: string;
+  lastUsedAt: string;
 }
 
 type ConnectedAppsProps = {
@@ -43,7 +43,7 @@ export const ConnectedApps: FC<ConnectedAppsProps> = ({ apps, onRevoke }) => {
             <tr>
               <th>Application</th>
               <th>Scopes</th>
-              <th>Authorized</th>
+              <th>Last used</th>
               <th style={{ width: 100 }}></th>
             </tr>
           </thead>
@@ -61,8 +61,8 @@ export const ConnectedApps: FC<ConnectedAppsProps> = ({ apps, onRevoke }) => {
                   )}
                 </td>
                 <td>
-                  <Tooltip content={datetime(app.lastAuthorizedAt)}>
-                    <span>{ago(app.lastAuthorizedAt)}</span>
+                  <Tooltip content={datetime(app.lastUsedAt)}>
+                    <span>{ago(app.lastUsedAt)}</span>
                   </Tooltip>
                 </td>
                 <td>

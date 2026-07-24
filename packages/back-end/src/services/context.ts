@@ -87,6 +87,7 @@ import { WatchModel } from "back-end/src/models/WatchModel";
 import { FigmaConnectionModel } from "back-end/src/models/FigmaConnectionModel";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import { OAuthAuthCodeModel } from "back-end/src/models/OAuthAuthCodeModel";
+import { OAuthGrantModel } from "back-end/src/models/OAuthGrantModel";
 import { OAuthRefreshTokenModel } from "back-end/src/models/OAuthRefreshTokenModel";
 import { getUserByEmail, getUsersByIds } from "back-end/src/models/UserModel";
 import { getExperimentMetricsByIds } from "./experiments";
@@ -139,6 +140,7 @@ export type ModelName =
   | "figmaConnections"
   | "apiKeys"
   | "oauthAuthCodes"
+  | "oauthGrants"
   | "oauthRefreshTokens"
   | "rampSchedules"
   | "rampScheduleTemplates"
@@ -191,6 +193,7 @@ export const modelClasses = {
   figmaConnections: FigmaConnectionModel,
   apiKeys: ApiKeyModel,
   oauthAuthCodes: OAuthAuthCodeModel,
+  oauthGrants: OAuthGrantModel,
   oauthRefreshTokens: OAuthRefreshTokenModel,
   rampSchedules: RampScheduleModel,
   rampScheduleTemplates: RampScheduleTemplateModel,
@@ -261,6 +264,7 @@ export class ReqContextClass {
       figmaConnections: new FigmaConnectionModel(this),
       apiKeys: new ApiKeyModel(this),
       oauthAuthCodes: new OAuthAuthCodeModel(this),
+      oauthGrants: new OAuthGrantModel(this),
       oauthRefreshTokens: new OAuthRefreshTokenModel(this),
       rampSchedules: new RampScheduleModel(this),
       rampScheduleTemplates: new RampScheduleTemplateModel(this),

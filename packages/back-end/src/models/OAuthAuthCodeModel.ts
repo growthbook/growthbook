@@ -2,7 +2,6 @@ import {
   OAuthAuthCodeInterface,
   oauthAuthCodeValidator,
 } from "shared/validators";
-import { logger } from "back-end/src/util/logger";
 import { getCollection } from "back-end/src/util/mongo.util";
 import { MakeModelClass } from "./BaseModel";
 
@@ -24,25 +23,12 @@ const BaseClass = MakeModelClass({
     used: false,
     codeChallengeMethod: "S256" as const,
   },
-  additionalIndexes: [{ fields: { organization: 1, clientId: 1, userId: 1 } }],
+  additionalIndexes: [
+    { fields: { organization: 1, clientId: 1, userId: 1 } },
+    // No custom name — mongoose previously created this as `expiresAt_1`.
+    { fields: { expiresAt: 1 }, expireAfterSeconds: 0 },
+  ],
 });
-
-let ttlIndexEnsured = false;
-function ensureExpiresAtTtlIndex() {
-  if (ttlIndexEnsured) return;
-  ttlIndexEnsured = true;
-  // Kept local so we don't need to extend BaseModel's additionalIndexes for TTL.
-  // No custom name — mongoose previously created this as `expiresAt_1`, and
-  // createIndex is idempotent when the name/options match.
-  void getCollection(COLLECTION_NAME)
-    .createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 })
-    .catch((err) => {
-      logger.error(
-        err,
-        `Error creating expiresAt TTL index for ${COLLECTION_NAME}`,
-      );
-    });
-}
 
 /**
  * Org-scoped authorization codes.
@@ -52,11 +38,6 @@ function ensureExpiresAtTtlIndex() {
  * go through a ReqContext instance for multi-tenant scoping + audit logs.
  */
 export class OAuthAuthCodeModel extends BaseClass {
-  constructor(...args: ConstructorParameters<typeof BaseClass>) {
-    super(...args);
-    ensureExpiresAtTtlIndex();
-  }
-
   protected canCreate(): boolean {
     return true;
   }
@@ -77,7 +58,6 @@ export class OAuthAuthCodeModel extends BaseClass {
   public static async dangerousConsumeByHash(
     codeHash: string,
   ): Promise<OAuthAuthCodeInterface | null> {
-    ensureExpiresAtTtlIndex();
     const now = new Date();
     const result = await getCollection<OAuthAuthCodeInterface>(
       COLLECTION_NAME,

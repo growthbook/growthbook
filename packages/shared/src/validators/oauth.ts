@@ -1,7 +1,11 @@
 import { z } from "zod";
 import { createBaseSchemaWithPrimaryKey } from "./base-model";
 
-/** Public OAuth clients registered via DCR (RFC 7591). No org scoping. */
+/**
+ * Public OAuth clients registered via DCR (RFC 7591). No org scoping.
+ * DCR is unauthenticated, so `expiresAt` + TTL bound growth (idle window
+ * reset on token issuance).
+ */
 export const oauthClientValidator = z
   .object({
     clientId: z.string(),
@@ -13,6 +17,7 @@ export const oauthClientValidator = z
     scope: z.string().optional(),
     clientUri: z.string().optional(),
     dateCreated: z.date(),
+    expiresAt: z.date(),
   })
   .strict();
 
@@ -43,6 +48,8 @@ export type OAuthAuthCodeInterface = z.infer<typeof oauthAuthCodeValidator>;
 /**
  * Rotating refresh tokens. Primary key is the hashed token (`tokenHash`);
  * globally unique for the same bootstrap-before-org reason as auth codes.
+ * `consumedAt` (not delete) makes replay distinguishable for reuse detection
+ * (RFC 9700 §4.14.2).
  */
 export const oauthRefreshTokenValidator = createBaseSchemaWithPrimaryKey({
   tokenHash: z.string(),
@@ -53,11 +60,34 @@ export const oauthRefreshTokenValidator = createBaseSchemaWithPrimaryKey({
   scope: z.string().optional(),
   resource: z.string().optional(),
   expiresAt: z.date(),
+  consumedAt: z.date().optional(),
 });
 
 export type OAuthRefreshTokenInterface = z.infer<
   typeof oauthRefreshTokenValidator
 >;
+
+/**
+ * Durable per-(org, client, user) grant — outlives rotating tokens so revoke
+ * has a target. `revoked` closes the revoke-vs-refresh race (issuance
+ * re-checks after write) and gives reuse detection a family to tear down.
+ *
+ * `expiresAt` is bumped with each refresh-token lifetime (+ margin) on
+ * issuance/consent/revoke; TTL-safe because expired refresh tokens are
+ * rejected before the grant is consulted.
+ */
+export const oauthGrantValidator = createBaseSchemaWithPrimaryKey({
+  id: z.string(),
+}).safeExtend({
+  clientId: z.string(),
+  userId: z.string(),
+  scope: z.string().optional(),
+  resource: z.string().optional(),
+  revoked: z.boolean(),
+  expiresAt: z.date(),
+});
+
+export type OAuthGrantInterface = z.infer<typeof oauthGrantValidator>;
 
 /** RFC 7591 registration request body (public MCP clients).
  * Not `.strict()` — clients (e.g. Cursor) send optional metadata like logo_uri.

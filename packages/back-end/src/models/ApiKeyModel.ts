@@ -8,34 +8,9 @@ import {
 } from "back-end/src/util/api-key.util";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { getCollection } from "back-end/src/util/mongo.util";
-import { logger } from "back-end/src/util/logger";
 import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "apikeys";
-
-let oauthTtlIndexEnsured = false;
-// Partial TTL index that reaps expired OAuth access tokens (which are never
-// explicitly deleted). The partial filter scopes it to OAuth tokens, so
-// classic API keys / PATs are never touched.
-function ensureOAuthAccessTokenTtlIndex() {
-  if (oauthTtlIndexEnsured) return;
-  oauthTtlIndexEnsured = true;
-  void getCollection(COLLECTION_NAME)
-    .createIndex(
-      { expiresAt: 1 },
-      {
-        expireAfterSeconds: 0,
-        partialFilterExpression: { oauthClientId: { $exists: true } },
-        name: "oauthAccessTokenTtl",
-      },
-    )
-    .catch((err) => {
-      logger.error(
-        err,
-        `Error creating oauthAccessTokenTtl index for ${COLLECTION_NAME}`,
-      );
-    });
-}
 
 const BaseClass = MakeModelClass({
   schema: apiKeySchema,
@@ -43,7 +18,16 @@ const BaseClass = MakeModelClass({
   pKey: ["key"] as const,
   globallyUniquePrimaryKeys: true,
   idPrefix: "key_",
-  additionalIndexes: [{ fields: { id: 1 } }],
+  additionalIndexes: [
+    { fields: { id: 1 } },
+    // Partial TTL for OAuth access tokens only — classic API keys/PATs are untouched.
+    {
+      fields: { expiresAt: 1 },
+      expireAfterSeconds: 0,
+      partialFilterExpression: { oauthClientId: { $exists: true } },
+      name: "oauthAccessTokenTtl",
+    },
+  ],
   skipDateUpdatedFields: ["lastUsed"],
   defaultValues: {
     limitAccessByEnvironment: false,
@@ -53,11 +37,6 @@ const BaseClass = MakeModelClass({
 });
 
 export class ApiKeyModel extends BaseClass {
-  constructor(...args: ConstructorParameters<typeof BaseClass>) {
-    super(...args);
-    ensureOAuthAccessTokenTtlIndex();
-  }
-
   protected canCreate(apiKey: ApiKeyInterface): boolean {
     if (apiKey.userId) {
       return apiKey.userId === this.context.userId;

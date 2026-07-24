@@ -13,6 +13,7 @@ import { OAuthAuthCodeModel } from "back-end/src/models/OAuthAuthCodeModel";
 import {
   createOAuthClient,
   getOAuthClientById,
+  touchOAuthClient,
 } from "back-end/src/models/OAuthClientModel";
 import { OAuthRefreshTokenModel } from "back-end/src/models/OAuthRefreshTokenModel";
 import { findOrganizationById } from "back-end/src/models/OrganizationModel";
@@ -70,11 +71,18 @@ async function getTeardownContext(
   return getContextForAgendaJobByOrgObject(org);
 }
 
+/**
+ * Order matters for the revoke-vs-refresh race: mark revoked first (durable
+ * linearization point), then delete refresh tokens, then disable access
+ * tokens. A concurrent refresh that slips a new pair in after the deletes
+ * re-reads the grant, sees `revoked`, and self-cleans (see {@link issueTokenPair}).
+ */
 async function tearDownGrant(
   context: ApiReqContext,
   clientId: string,
   userId: string,
 ): Promise<void> {
+  await context.models.oauthGrants.markRevoked(clientId, userId);
   await context.models.oauthRefreshTokens.deleteForGrant(clientId, userId);
   await ApiKeyModel.dangerousDisableOAuthGrant(
     clientId,
@@ -89,52 +97,34 @@ export interface ConnectedApp {
   clientUri?: string;
   scopes: string[];
   firstAuthorizedAt: Date;
-  lastAuthorizedAt: Date;
+  // Last token activity (issuance or refresh bumps the grant), not last consent
+  lastUsedAt: Date;
 }
 
 /**
- * The OAuth apps a user has an active grant with in the current org, one row
- * per client. Built from refresh tokens (the durable per-grant record) and
- * enriched with client metadata. This is the read side of the "Connected Apps"
- * settings surface — the user-facing counterpart to the hidden access-token
- * API keys.
+ * Connected Apps list: active grants in this org, enriched with client
+ * metadata (not built from rotating token rows).
  */
 export async function listConnectedApps(
   context: ApiReqContext,
 ): Promise<ConnectedApp[]> {
   if (!context.userId) return [];
-  const tokens = await context.models.oauthRefreshTokens.getByUser(
+  const grants = await context.models.oauthGrants.getActiveForUser(
     context.userId,
   );
 
-  const byClient = new Map<string, ConnectedApp>();
-  for (const token of tokens) {
-    const created = token.dateCreated ?? new Date();
-    const existing = byClient.get(token.clientId);
-    const scopes = token.scope ? token.scope.split(/\s+/).filter(Boolean) : [];
-    if (existing) {
-      existing.firstAuthorizedAt = new Date(
-        Math.min(existing.firstAuthorizedAt.getTime(), created.getTime()),
-      );
-      existing.lastAuthorizedAt = new Date(
-        Math.max(existing.lastAuthorizedAt.getTime(), created.getTime()),
-      );
-      existing.scopes = Array.from(new Set([...existing.scopes, ...scopes]));
-    } else {
-      byClient.set(token.clientId, {
-        clientId: token.clientId,
-        clientName: token.clientId,
-        scopes,
-        firstAuthorizedAt: created,
-        lastAuthorizedAt: created,
-      });
-    }
-  }
+  const apps: ConnectedApp[] = grants.map((grant) => ({
+    clientId: grant.clientId,
+    clientName: grant.clientId,
+    scopes: grant.scope ? grant.scope.split(/\s+/).filter(Boolean) : [],
+    firstAuthorizedAt: grant.dateCreated,
+    lastUsedAt: grant.dateUpdated,
+  }));
 
   // Enrich with client metadata. A missing client (e.g. an old grant whose
   // client record was removed) still lists, falling back to the clientId.
   await Promise.all(
-    Array.from(byClient.values()).map(async (app) => {
+    apps.map(async (app) => {
       const client = await getOAuthClientById(app.clientId);
       if (client) {
         app.clientName = client.clientName || client.clientId;
@@ -143,9 +133,7 @@ export async function listConnectedApps(
     }),
   );
 
-  return Array.from(byClient.values()).sort(
-    (a, b) => b.lastAuthorizedAt.getTime() - a.lastAuthorizedAt.getTime(),
-  );
+  return apps.sort((a, b) => b.lastUsedAt.getTime() - a.lastUsedAt.getTime());
 }
 
 /**
@@ -348,6 +336,13 @@ export async function exchangeAuthorizationCode(params: {
     );
   }
 
+  await context.models.oauthGrants.startGrant({
+    clientId: authCode.clientId,
+    userId: authCode.userId,
+    scope: authCode.scope,
+    resource: authCode.resource,
+  });
+
   return issueTokenPair(context, {
     clientId: authCode.clientId,
     userId: authCode.userId,
@@ -397,10 +392,30 @@ export async function exchangeRefreshToken(params: {
     );
   }
 
-  // Rotate: delete old refresh token (re-read org-scoped) before issuing a
-  // new pair.
-  const doc = await context.models.oauthRefreshTokens.getByTokenHash(tokenHash);
-  if (doc) await context.models.oauthRefreshTokens.delete(doc);
+  // ensureGrant bumps TTL; if already revoked, re-tear-down in case a prior
+  // teardown was interrupted after markRevoked.
+  const grant = await context.models.oauthGrants.ensureGrant({
+    clientId: existing.clientId,
+    userId: existing.userId,
+    scope: existing.scope,
+    resource: existing.resource,
+  });
+  if (grant.revoked) {
+    await tearDownGrant(context, existing.clientId, existing.userId);
+    throw new OAuthError("invalid_grant", "Grant has been revoked");
+  }
+
+  // Reuse detection (RFC 9700 §4.14.2): null consume means replay — tear down
+  // the whole grant family so a stolen-and-rotated token can't survive.
+  const consumed =
+    await context.models.oauthRefreshTokens.consumeByTokenHash(tokenHash);
+  if (!consumed) {
+    await tearDownGrant(context, existing.clientId, existing.userId);
+    throw new OAuthError(
+      "invalid_grant",
+      "Refresh token has already been used",
+    );
+  }
 
   return issueTokenPair(context, {
     clientId: existing.clientId,
@@ -507,6 +522,21 @@ async function issueTokenPair(
     resource: params.resource,
     expiresAt: refreshExpires,
   });
+
+  // Race guard: re-read after writing. tearDownGrant marks revoked before
+  // deleting tokens, so an interleaved revoke shows up here and we clean up
+  // the pair we just wrote.
+  const grant = await context.models.oauthGrants.getGrant(
+    params.clientId,
+    params.userId,
+  );
+  if (!grant || grant.revoked) {
+    await tearDownGrant(context, params.clientId, params.userId);
+    throw new OAuthError("invalid_grant", "Grant has been revoked");
+  }
+
+  // Keep the DCR client row alive while in use.
+  await touchOAuthClient(params.clientId);
 
   return {
     access_token: accessToken,
