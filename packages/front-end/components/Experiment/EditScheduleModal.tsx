@@ -4,7 +4,7 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { DEFAULT_DECISION_FRAMEWORK_ENABLED } from "shared/constants";
 import { getValidDate, resolveScheduleStopAfter } from "shared/dates";
 import { PiArrowSquareOut } from "react-icons/pi";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, Separator } from "@radix-ui/themes";
 import Tooltip from "@/ui/Tooltip";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import DatePicker from "@/components/DatePicker";
@@ -406,7 +406,6 @@ export default function EditScheduleModal({
       >
         <Flex direction="column" gap="4">
           <Flex direction="column" gap="1">
-            {/* Start row */}
             <Flex align="center" gap="3" py="1" style={{ minHeight: 42 }}>
               <Box style={{ width: LABEL_COL_WIDTH }}>
                 <Text as="label" weight="medium" mb="0">
@@ -448,7 +447,8 @@ export default function EditScheduleModal({
               )}
             </Flex>
 
-            {/* End row */}
+            <Separator size="4" my="3" />
+
             <Flex align="center" gap="3" py="1" style={{ minHeight: 42 }}>
               <Box style={{ width: LABEL_COL_WIDTH }}>
                 <Text as="label" weight="medium" mb="0">
@@ -580,9 +580,6 @@ export default function EditScheduleModal({
                       label: "Stop the experiment (no rollout)",
                     },
                   ]}
-                  // Only auto-ship needs the decision framework to function; the
-                  // others are basic. Disabled options use solid muted color
-                  // instead of the default 0.5 opacity that bleeds through.
                   isOptionDisabled={(o) =>
                     "value" in o &&
                     o.value === "auto-ship" &&
@@ -598,7 +595,7 @@ export default function EditScheduleModal({
                     return (
                       <Tooltip content={autoShipDisabledReason}>
                         <Box>
-                          <Text color="text-low">{o.label}</Text>
+                          <Text color="text-disabled">{o.label}</Text>
                         </Box>
                       </Tooltip>
                     );
