@@ -320,20 +320,20 @@ function FactCappingTailEditor({
 
   const valueHelpText = isLower
     ? mode === "absolute"
-      ? "Values below this are raised to this floor. Leave empty for no lower cap. Must be less than the ceiling when both use absolute capping."
-      : "Quantile for the floor (e.g. 0.05). Leave empty for no lower cap. Must be less than the upper percentile when both use percentile capping."
+      ? "Values below this are raised to this floor. Must be less than the ceiling when both use absolute capping."
+      : "Quantile for the floor (e.g. 0.05). Must be less than the upper percentile when both use percentile capping."
     : mode === "absolute"
-      ? "Maximum aggregated value per user. Leave empty for no upper cap."
-      : "Quantile for the ceiling (e.g. 0.99). Leave empty for no upper cap.";
+      ? "Maximum aggregated value per user."
+      : "Quantile for the ceiling (e.g. 0.99).";
 
   const selectHelpText = isLower
-    ? "Lower-tail winsorization: raise extreme low aggregated user values. Independent of the upper tail."
-    : "Upper-tail winsorization: limit extreme high aggregated user values. Independent of the lower tail.";
+    ? "Lower-tail winsorization: raise extreme low aggregated user values."
+    : "Upper-tail winsorization: limit extreme high aggregated user values.";
 
   return (
     <Box mb="3">
       <SelectField
-        label={isLower ? "Cap lower tail" : "Cap upper tail"}
+        label={isLower ? "Cap low values" : "Cap high values"}
         value={mode}
         onChange={(v: CappingMode) => {
           setCappingMode(v);
