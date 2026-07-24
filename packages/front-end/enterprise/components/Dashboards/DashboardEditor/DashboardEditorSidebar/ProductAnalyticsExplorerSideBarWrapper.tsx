@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { ReactNode, useCallback, useEffect, useMemo, useRef } from "react";
 import {
   DashboardBlockInterfaceOrData,
   DashboardInterface,
@@ -16,17 +16,17 @@ import { isEqual } from "lodash";
 import ExplorerSideBar from "@/enterprise/components/ProductAnalytics/SideBar/ExplorerSideBar";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import { stripExplorerDraftFields } from "@/enterprise/components/ProductAnalytics/util";
-import SqlExplorationBlockEditor from "./SqlExplorationBlockEditor";
 
 export default function ProductAnalyticsExplorerSideBarWrapper({
   block,
   setBlock,
   dashboardGlobalControls,
-  sqlBlockEditorTarget,
-  sqlBlockEditorHeaderTarget,
   invalidateStaleResults = true,
   saveAndCloseTrigger,
   onSaveAndClose,
+  hideDataSourceSelector = false,
+  sqlChartConfigOnly = false,
+  dashboardHeaderLeadingContent,
 }: {
   block: DashboardBlockInterfaceOrData<
     | MetricExplorationBlockInterface
@@ -45,11 +45,12 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
     >
   >;
   dashboardGlobalControls?: DashboardInterface["globalControls"];
-  sqlBlockEditorTarget?: HTMLDivElement | null;
-  sqlBlockEditorHeaderTarget?: HTMLDivElement | null;
   invalidateStaleResults?: boolean;
   saveAndCloseTrigger?: number;
   onSaveAndClose?: () => void;
+  hideDataSourceSelector?: boolean;
+  sqlChartConfigOnly?: boolean;
+  dashboardHeaderLeadingContent?: ReactNode;
 }) {
   const {
     needsFetch,
@@ -192,18 +193,11 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
 
   return (
     <>
-      {block.type === "sql-exploration" &&
-      sqlBlockEditorTarget &&
-      sqlBlockEditorHeaderTarget ? (
-        <SqlExplorationBlockEditor
-          block={block}
-          dashboardGlobalControls={dashboardGlobalControls}
-          target={sqlBlockEditorTarget}
-          headerTarget={sqlBlockEditorHeaderTarget}
-        />
-      ) : null}
       <ExplorerSideBar
         renderingInDashboardSidebar
+        hideDataSourceSelector={hideDataSourceSelector}
+        sqlChartConfigOnly={sqlChartConfigOnly}
+        dashboardHeaderLeadingContent={dashboardHeaderLeadingContent}
         dashboardDateRange={dashboardGlobalControls?.dateRange}
         useDashboardDateControl={usesDashboardDateRange}
         onSubmit={() =>

@@ -20,7 +20,11 @@ import SqlQuerySection from "./SqlQuerySection";
 import Toolbar from "./Toolbar";
 import DataSourceDropdown from "./Toolbar/DataSourceDropdown";
 
-export default function ExplorerMainSection() {
+export default function ExplorerMainSection({
+  showDataSourceSelector = true,
+}: {
+  showDataSourceSelector?: boolean;
+}) {
   const {
     exploration,
     submittedExploreState,
@@ -107,9 +111,11 @@ export default function ExplorerMainSection() {
       id="main-section-wrapper"
       style={{ flex: "1", minHeight: 0 }}
     >
-      <Flex align="center" flexShrink="0" height="32px">
-        <DataSourceDropdown />
-      </Flex>
+      {showDataSourceSelector ? (
+        <Flex align="center" flexShrink="0" height="32px">
+          <DataSourceDropdown />
+        </Flex>
+      ) : null}
       {isSql ? (
         <PanelGroup
           direction="vertical"

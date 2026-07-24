@@ -13,6 +13,7 @@ import {
   blockUsesDashboardDateControl,
   SqlExplorationBlockInterface,
 } from "shared/enterprise";
+import { ReactNode } from "react";
 import { isEqual } from "lodash";
 import type {
   ExplorationDateRange,
@@ -43,20 +44,22 @@ interface Props {
     >
   >;
   dashboardGlobalControls?: DashboardInterface["globalControls"];
-  sqlBlockEditorTarget?: HTMLDivElement | null;
-  sqlBlockEditorHeaderTarget?: HTMLDivElement | null;
   saveAndCloseTrigger?: number;
   onSaveAndClose?: () => void;
+  hideDataSourceSelector?: boolean;
+  sqlChartConfigOnly?: boolean;
+  dashboardHeaderLeadingContent?: ReactNode;
 }
 
 export default function ProductAnalyticsExplorerSettings({
   block,
   setBlock,
   dashboardGlobalControls,
-  sqlBlockEditorTarget,
-  sqlBlockEditorHeaderTarget,
   saveAndCloseTrigger,
   onSaveAndClose,
+  hideDataSourceSelector,
+  sqlChartConfigOnly,
+  dashboardHeaderLeadingContent,
 }: Props) {
   const { data, error } = useApi<{
     status: number;
@@ -196,11 +199,12 @@ export default function ProductAnalyticsExplorerSettings({
         block={block}
         setBlock={setBlock}
         dashboardGlobalControls={dashboardGlobalControls}
-        sqlBlockEditorTarget={sqlBlockEditorTarget}
-        sqlBlockEditorHeaderTarget={sqlBlockEditorHeaderTarget}
         invalidateStaleResults={!hasStaleDashboardDateResults}
         saveAndCloseTrigger={saveAndCloseTrigger}
         onSaveAndClose={onSaveAndClose}
+        hideDataSourceSelector={hideDataSourceSelector}
+        sqlChartConfigOnly={sqlChartConfigOnly}
+        dashboardHeaderLeadingContent={dashboardHeaderLeadingContent}
       />
     </ExplorerProvider>
   );

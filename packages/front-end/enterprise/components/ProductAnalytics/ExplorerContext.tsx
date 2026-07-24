@@ -135,6 +135,8 @@ interface ExplorerProviderProps {
   children: ReactNode;
   initialConfig: ExplorerDraftConfig;
   initialSubmittedConfig?: ExplorerDraftConfig;
+  initialExploration?: ProductAnalyticsExploration | null;
+  initialComparisonExploration?: ProductAnalyticsExploration | null;
   hasExistingResults?: boolean;
   onRunComplete?: (
     exploration: ProductAnalyticsExploration,
@@ -148,6 +150,8 @@ export function ExplorerProvider({
   children,
   initialConfig,
   initialSubmittedConfig,
+  initialExploration = null,
+  initialComparisonExploration = null,
   hasExistingResults = false,
   onRunComplete,
   trackingSource,
@@ -194,7 +198,7 @@ export function ExplorerProvider({
     return {
       draftState: normalizedInitial,
       submittedState: hasExistingResults ? normalizedSubmitted : null,
-      exploration: null,
+      exploration: initialExploration,
       error: null,
       query: null,
     };
@@ -211,7 +215,7 @@ export function ExplorerProvider({
     };
   }, []);
   const [comparisonExploration, setComparisonExploration] =
-    useState<ProductAnalyticsExploration | null>(null);
+    useState<ProductAnalyticsExploration | null>(initialComparisonExploration);
   const [comparisonQuery, setComparisonQuery] = useState<QueryInterface | null>(
     null,
   );

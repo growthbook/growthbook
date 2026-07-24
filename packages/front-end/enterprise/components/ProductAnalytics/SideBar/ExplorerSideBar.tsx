@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { ReactNode, useState } from "react";
 import { Flex, Box, IconButton } from "@radix-ui/themes";
 import {
   DatasetType,
@@ -51,6 +51,10 @@ interface Props {
   useDashboardDateControl?: boolean;
   onGlobalControlSettingsChange?: (settings: { dateRange?: boolean }) => void;
   onSubmit?: () => void;
+  headerActions?: ReactNode;
+  hideDataSourceSelector?: boolean;
+  sqlChartConfigOnly?: boolean;
+  dashboardHeaderLeadingContent?: ReactNode;
 }
 
 export default function ExplorerSideBar({
@@ -59,6 +63,10 @@ export default function ExplorerSideBar({
   useDashboardDateControl = false,
   onGlobalControlSettingsChange,
   onSubmit,
+  headerActions,
+  hideDataSourceSelector = false,
+  sqlChartConfigOnly = false,
+  dashboardHeaderLeadingContent,
 }: Props) {
   const [showSaveToDashboardModal, setShowSaveToDashboardModal] =
     useState(false);
@@ -108,8 +116,10 @@ export default function ExplorerSideBar({
   const isSqlQueryActive = sqlEditorContext?.isQueryActive ?? false;
   const showSqlSchemaBrowser =
     activeType === "sql" &&
+    !sqlChartConfigOnly &&
     (sqlEditorContext?.viewMode !== "chart" || isSqlQueryActive);
   const showChartControls =
+    sqlChartConfigOnly ||
     activeType !== "sql" ||
     (sqlEditorContext?.viewMode === "chart" && !isSqlQueryActive);
   const factTableDataset =
@@ -171,99 +181,115 @@ export default function ExplorerSideBar({
       {error && renderingInDashboardSidebar ? (
         <Callout status="error">{error}</Callout>
       ) : null}
-      <Flex justify="end" align="center" height="32px" py="2" gap="2">
-        {!renderingInDashboardSidebar ? (
-          <>
-            <Tooltip
-              body={saveToDashboardDisabledReason || ""}
-              shouldDisplay={!!saveToDashboardDisabledReason}
-            >
-              <Button
-                size="sm"
-                disabled={!!saveToDashboardDisabledReason}
-                onClick={() => {
-                  if (!hasDashboardsFeature) {
-                    setShowUpgradeModal(true);
-                  } else {
-                    setShowSaveToDashboardModal(true);
-                  }
-                }}
+      {headerActions ? (
+        <Flex justify="end" align="center" height="32px" py="2" gap="2">
+          {headerActions}
+        </Flex>
+      ) : (
+        <Flex justify="end" align="center" height="32px" py="2" gap="2">
+          {!renderingInDashboardSidebar ? (
+            <>
+              <Tooltip
+                body={saveToDashboardDisabledReason || ""}
+                shouldDisplay={!!saveToDashboardDisabledReason}
               >
-                <Flex align="center" justify="center" gap="2">
-                  <PaidFeatureBadge
-                    commercialFeature="product-analytics-dashboards"
-                    useTip={false}
-                    inheritColor
-                  />
-                  Save to Dashboard
-                </Flex>
-              </Button>
-            </Tooltip>
-            <ShareUrlPopover
-              title="Share this exploration"
-              description="Anyone in your organization with read access to the Data Source this exploration uses, can open this exploration."
-              trigger={
-                <IconButton
-                  size="2"
-                  variant="solid"
-                  color="violet"
-                  aria-label="Share exploration link"
-                  style={{ height: 32, width: 32 }}
-                >
-                  <PiLink size={20} />
-                </IconButton>
-              }
-              side="bottom"
-              align="end"
-              onCopy={
-                trackingSource
-                  ? () => {
-                      track("Product Analytics Explorer: Copy Link Clicked", {
-                        source: trackingSource,
-                        type: draftExploreState.type,
-                        chart_type: draftExploreState.chartType,
-                      });
+                <Button
+                  size="sm"
+                  disabled={!!saveToDashboardDisabledReason}
+                  onClick={() => {
+                    if (!hasDashboardsFeature) {
+                      setShowUpgradeModal(true);
+                    } else {
+                      setShowSaveToDashboardModal(true);
                     }
-                  : undefined
-              }
-            />
-          </>
-        ) : (
-          <Flex direction="row" align="center" justify="between" width="100%">
-            <DataSourceDropdown />
-            <Tooltip
-              body="Configuration has changed. Click to refresh the chart."
-              shouldDisplay={isStale}
-            >
-              <Button
-                size="sm"
-                variant="solid"
-                disabled={loading || !hasInputs || !isSubmittable}
-                onClick={() =>
-                  onSubmit ? onSubmit() : handleSubmit({ force: isStale })
-                }
-              >
-                <Flex align="center" gap="2">
-                  <PiArrowsClockwise />
-                  Update
-                  {isStale && (
-                    <span
-                      style={{
-                        width: 6,
-                        height: 6,
-                        borderRadius: "50%",
-                        backgroundColor: "var(--amber-9)",
-                        flexShrink: 0,
-                      }}
-                      aria-hidden
+                  }}
+                >
+                  <Flex align="center" justify="center" gap="2">
+                    <PaidFeatureBadge
+                      commercialFeature="product-analytics-dashboards"
+                      useTip={false}
+                      inheritColor
                     />
-                  )}
-                </Flex>
-              </Button>
-            </Tooltip>
-          </Flex>
-        )}
-      </Flex>
+                    Save to Dashboard
+                  </Flex>
+                </Button>
+              </Tooltip>
+              <ShareUrlPopover
+                title="Share this exploration"
+                description="Anyone in your organization with read access to the Data Source this exploration uses, can open this exploration."
+                trigger={
+                  <IconButton
+                    size="2"
+                    variant="solid"
+                    color="violet"
+                    aria-label="Share exploration link"
+                    style={{ height: 32, width: 32 }}
+                  >
+                    <PiLink size={20} />
+                  </IconButton>
+                }
+                side="bottom"
+                align="end"
+                onCopy={
+                  trackingSource
+                    ? () => {
+                        track("Product Analytics Explorer: Copy Link Clicked", {
+                          source: trackingSource,
+                          type: draftExploreState.type,
+                          chart_type: draftExploreState.chartType,
+                        });
+                      }
+                    : undefined
+                }
+              />
+            </>
+          ) : (
+            <Flex
+              direction="row"
+              align="center"
+              justify={
+                hideDataSourceSelector && !dashboardHeaderLeadingContent
+                  ? "end"
+                  : "between"
+              }
+              width="100%"
+            >
+              {dashboardHeaderLeadingContent ??
+                (hideDataSourceSelector ? null : <DataSourceDropdown />)}
+              <Tooltip
+                body="Configuration has changed. Click to refresh the chart."
+                shouldDisplay={isStale}
+              >
+                <Button
+                  size="sm"
+                  variant="solid"
+                  disabled={loading || !hasInputs || !isSubmittable}
+                  onClick={() =>
+                    onSubmit ? onSubmit() : handleSubmit({ force: isStale })
+                  }
+                >
+                  <Flex align="center" gap="2">
+                    <PiArrowsClockwise />
+                    Update
+                    {isStale && (
+                      <span
+                        style={{
+                          width: 6,
+                          height: 6,
+                          borderRadius: "50%",
+                          backgroundColor: "var(--amber-9)",
+                          flexShrink: 0,
+                        }}
+                        aria-hidden
+                      />
+                    )}
+                  </Flex>
+                </Button>
+              </Tooltip>
+            </Flex>
+          )}
+        </Flex>
+      )}
       {renderingInDashboardSidebar &&
       showSqlSchemaBrowser &&
       isSqlSetupState ? (

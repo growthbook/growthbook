@@ -391,8 +391,6 @@ interface EditBlockProps {
   duplicateBlock: (index: number) => void;
   deleteBlock: (index: number) => void;
   updateLayout: (layout: readonly LayoutItem[]) => void;
-  onSqlBlockEditorTargetChange: (target: HTMLDivElement | null) => void;
-  onSqlBlockEditorHeaderTargetChange: (target: HTMLDivElement | null) => void;
 }
 
 interface Props {
@@ -471,8 +469,6 @@ function DashboardEditor({
     duplicateBlock,
     deleteBlock,
     updateLayout,
-    onSqlBlockEditorTargetChange,
-    onSqlBlockEditorHeaderTargetChange,
   } = editBlockProps ?? {};
 
   const [editDashboard, setEditDashboard] = useState(false);
@@ -558,12 +554,6 @@ function DashboardEditor({
         canEdit={canEdit}
         setIsEditing={setIsEditing}
         enterEditModeForBlock={enterEditModeForBlock}
-        onSqlBlockEditorTargetChange={
-          isEditingBlock ? onSqlBlockEditorTargetChange : undefined
-        }
-        onSqlBlockEditorHeaderTargetChange={
-          isEditingBlock ? onSqlBlockEditorHeaderTargetChange : undefined
-        }
       />
     );
   };

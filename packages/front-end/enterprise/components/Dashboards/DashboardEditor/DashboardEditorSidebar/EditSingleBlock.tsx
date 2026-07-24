@@ -4,6 +4,7 @@ import {
   DashboardBlockInterface,
   DashboardBlockType,
   DashboardInterface,
+  SqlExplorationBlockInterface,
   blockHasFieldOfType,
   isDifferenceType,
   BLOCK_CONFIG_ITEM_TYPES,
@@ -82,6 +83,7 @@ import MetricExperimentsSettings from "./MetricExperimentsSettings";
 import ExperimentsScaledImpactSettings from "./ExperimentsScaledImpactSettings";
 import ExperimentsWinRateSettings from "./ExperimentsWinRateSettings";
 import ExperimentsStatusSettings from "./ExperimentsStatusSettings";
+import SqlExplorationExternalEditor from "./SqlExplorationExternalEditor";
 
 type RequiredField = {
   field: string;
@@ -159,13 +161,13 @@ interface Props {
   experiment: ExperimentInterfaceStringDates | null;
   dashboardGlobalControls?: DashboardInterface["globalControls"];
   cancel: () => void;
-  submit: () => void;
+  submit: (
+    blockOverride?: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+  ) => void;
   block?: DashboardBlockInterfaceOrData<DashboardBlockInterface>;
   setBlock: React.Dispatch<
     DashboardBlockInterfaceOrData<DashboardBlockInterface>
   >;
-  sqlBlockEditorTarget: HTMLDivElement | null;
-  sqlBlockEditorHeaderTarget: HTMLDivElement | null;
 }
 
 function isBlockConfigItemSelected(
@@ -263,8 +265,6 @@ export default function EditSingleBlock({
   block,
   setBlock,
   projects,
-  sqlBlockEditorTarget,
-  sqlBlockEditorHeaderTarget,
 }: Props) {
   const {
     dimensions,
@@ -1788,8 +1788,18 @@ export default function EditSingleBlock({
                 dashboardGlobalControls={dashboardGlobalControls}
                 saveAndCloseTrigger={saveAndCloseTrigger}
                 onSaveAndClose={submit}
-                sqlBlockEditorTarget={sqlBlockEditorTarget}
-                sqlBlockEditorHeaderTarget={sqlBlockEditorHeaderTarget}
+                hideDataSourceSelector
+                sqlChartConfigOnly
+                dashboardHeaderLeadingContent={
+                  <SqlExplorationExternalEditor
+                    block={
+                      block as DashboardBlockInterfaceOrData<SqlExplorationBlockInterface>
+                    }
+                    dashboardGlobalControls={dashboardGlobalControls}
+                    onUpdate={(updatedBlock) => submit(updatedBlock)}
+                    onExit={cancel}
+                  />
+                }
               />
             )}
           </Flex>
