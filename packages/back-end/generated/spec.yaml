@@ -12665,7 +12665,7 @@ paths:
             curl -X GET
             'https://api.growthbook.io/api/v1/experiments/{id}/results' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/experiments/{id}/all-analyses:
+  /v1/experiments/{id}/bulk-results:
     get:
       operationId: getExperimentAllAnalyses
       summary: Get all analyses for an experiment
@@ -12737,7 +12737,7 @@ paths:
         - lang: cURL
           source: >-
             curl -X GET
-            'https://api.growthbook.io/api/v1/experiments/{id}/all-analyses' \
+            'https://api.growthbook.io/api/v1/experiments/{id}/bulk-results' \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/experiments/{id}/start:
     post:

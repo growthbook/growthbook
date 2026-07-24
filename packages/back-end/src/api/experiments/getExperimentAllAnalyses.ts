@@ -1,5 +1,5 @@
 import isEqual from "lodash/isEqual";
-import { getExperimentAllAnalysesValidator } from "shared/validators";
+import { getExperimentBulkResultsValidator } from "shared/validators";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotInterface,
@@ -149,7 +149,7 @@ async function fillMissingPrecomputedDimensionAnalyses(
 }
 
 export const getExperimentAllAnalyses = createApiRequestHandler(
-  getExperimentAllAnalysesValidator,
+  getExperimentBulkResultsValidator,
 )(async (req) => {
   const experiment = await getExperimentById(req.context, req.params.id);
   if (!experiment) {

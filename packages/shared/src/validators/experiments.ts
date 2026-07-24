@@ -1911,7 +1911,7 @@ export const getExperimentResultsValidator = {
   path: "/experiments/:id/results",
 };
 
-export const getExperimentAllAnalysesValidator = {
+export const getExperimentBulkResultsValidator = {
   bodySchema: z.never(),
   querySchema: z
     .object({
@@ -1966,7 +1966,7 @@ export const getExperimentAllAnalysesValidator = {
   operationId: "getExperimentAllAnalyses",
   tags: ["experiments"],
   method: "get" as const,
-  path: "/experiments/:id/all-analyses",
+  path: "/experiments/:id/bulk-results",
 };
 
 export const listExperimentResultsValidator = {
