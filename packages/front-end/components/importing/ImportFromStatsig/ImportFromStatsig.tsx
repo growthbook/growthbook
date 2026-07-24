@@ -1017,7 +1017,11 @@ export default function ImportFromStatsig() {
   // Same reason as fact tables: the segment diff compares saved group
   // `condition`, which the slimmed definitions drop. Archived groups are
   // filtered out to match what definitions exposed.
-  const { data: savedGroupsData, mutate: mutateSavedGroups } = useApi<{
+  const {
+    data: savedGroupsData,
+    mutate: mutateSavedGroups,
+    isLoading: savedGroupsLoading,
+  } = useApi<{
     savedGroups: SavedGroupWithoutValues[];
   }>("/saved-groups");
   const savedGroups = useMemo(
@@ -1193,7 +1197,7 @@ export default function ImportFromStatsig() {
             <Button
               type="button"
               color={step === 1 ? "primary" : "outline-primary"}
-              disabled={factTablesLoading}
+              disabled={factTablesLoading || savedGroupsLoading}
               onClick={async () => {
                 if (!token) return;
 
@@ -1205,6 +1209,19 @@ export default function ImportFromStatsig() {
                     status: "error",
                     error:
                       "Could not load existing fact tables. Please refresh and try again.",
+                  });
+                  return;
+                }
+
+                // Same for saved groups: an empty map makes every Statsig
+                // segment look new, so Step 2 would create duplicates instead
+                // of updating the groups that already exist.
+                if (!savedGroupsData) {
+                  setData({
+                    ...data,
+                    status: "error",
+                    error:
+                      "Could not load existing saved groups. Please refresh and try again.",
                   });
                   return;
                 }
