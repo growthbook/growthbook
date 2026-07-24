@@ -130,12 +130,26 @@ export async function assertCanPublishFeatureRevision({
   feature,
   revision,
   environments,
+  mergeChanges,
 }: {
   context: ReqContext | ApiReqContext;
   feature: FeatureInterface;
   revision: FeatureRevisionInterface;
   environments: string[];
+  mergeChanges?: MergeResultChanges;
 }): Promise<void> {
+  // A merge that archives the feature is delete-class wherever it lands, not
+  // just via the archive endpoint — archiving takes the flag out of service and
+  // is what lets it then be deleted freely. Unarchiving is an ordinary payload
+  // change, covered by the publish check below.
+  if (
+    mergeChanges?.archived === true &&
+    !feature.archived &&
+    !context.permissions.canDeleteFeature(feature)
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
   if (context.permissions.canPublishFeature(feature, environments)) return;
 
   if (

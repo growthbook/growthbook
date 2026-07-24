@@ -204,6 +204,24 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       );
     }
 
+    // Archiving is delete-class wherever the merge lands (it takes the flag out
+    // of service and is what lets it then be deleted freely), so bulk publish
+    // enforces it too. Unarchiving is covered by the publish check above.
+    if (
+      plan.mergeResult?.archived === true &&
+      !feature.archived &&
+      !callerContext.permissions.canDeleteFeature(feature)
+    ) {
+      gates.push(
+        makeBlockingGate({
+          type: "permission-denied",
+          messages: [
+            "You do not have permission to archive this Feature Flag.",
+          ],
+        }),
+      );
+    }
+
     // The generic no-op merge path doesn't apply to features — a publish must
     // advance the live version pointer — so an empty revision blocks.
     if (!plan.hasChanges) {

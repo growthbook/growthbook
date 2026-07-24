@@ -176,6 +176,7 @@ export async function publishFeatureRevision(
     feature,
     revision,
     environments: envsToCheck,
+    mergeChanges,
   });
 
   // Armed/scheduled path only: the feature's own-schema value net still throws

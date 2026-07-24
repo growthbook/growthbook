@@ -1496,6 +1496,7 @@ export async function postFeatureApproveAndPublish(
     feature,
     revision,
     environments: envsToCheck,
+    mergeChanges: mergeResult.result,
   });
 
   // Mirror postFeaturePublish's adminOverride + rebase-governance gates BEFORE
@@ -1996,6 +1997,7 @@ export async function postFeaturePublish(
     feature,
     revision,
     environments: envsToCheck,
+    mergeChanges: mergeResult.result,
   });
 
   // If publishing experiments along with this draft, ensure they are valid.
@@ -5355,13 +5357,6 @@ export async function postFeatureArchive(
     throw new Error("Could not find feature");
   }
 
-  // Archive is delete-class, not draft-class: an archived flag stops being
-  // served, and being archived is what lets it then be deleted freely (see
-  // deleteFeature). Gating it lower would make archive a route to delete.
-  if (!context.permissions.canDeleteFeature(feature)) {
-    context.permissions.throwPermissionError();
-  }
-
   const {
     archived: archivedParam,
     autoPublish,
@@ -5370,6 +5365,22 @@ export async function postFeatureArchive(
   } = req.body ?? {};
   // Use the explicitly requested state if provided; fall back to toggling.
   const newArchivedState = archivedParam ?? !feature.archived;
+
+  // The two directions carry different authority. Archiving is delete-class: it
+  // takes the flag out of service, and being archived is what lets it then be
+  // deleted freely (see deleteFeature), so a lower gate would make archive a
+  // route to delete. Unarchiving only puts it back into service, which is an
+  // ordinary SDK-payload change.
+  const archiveEnvs = filterEnvironmentsByFeature(
+    getEnvironments(context.org),
+    feature,
+  ).map((e) => e.id);
+  const canChangeArchivedState = newArchivedState
+    ? context.permissions.canDeleteFeature(feature)
+    : context.permissions.canPublishFeature(feature, archiveEnvs);
+  if (!canChangeArchivedState) {
+    context.permissions.throwPermissionError();
+  }
   const archiveChanges = { archived: newArchivedState };
   const archiveComment = newArchivedState
     ? "Archive feature"
