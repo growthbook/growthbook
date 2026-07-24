@@ -1201,11 +1201,17 @@ export default function SDKConnectionForm({
                   <Tooltip
                     body={
                       <>
-                        <p className="mb-0">
+                        <p>
                           When enabled, each feature and experiment in the SDK
                           payload will include a <code>metadata.projects</code>{" "}
                           array containing the project&apos;s public ID (or
                           internal ID if no public ID is set).
+                        </p>
+                        <p className="mb-0">
+                          Features and rules that target all projects omit the
+                          array by convention — treat a missing{" "}
+                          <code>metadata.projects</code> as &quot;all
+                          projects&quot;.
                         </p>
                       </>
                     }

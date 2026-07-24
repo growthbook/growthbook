@@ -43,6 +43,12 @@ export class ProjectModel extends BaseClass {
     return this.context.permissions.canReadSingleProjectResource(doc.id);
   }
 
+  // Every org project id, unfiltered by read permissions (internal fan-out only).
+  public async getAllIdsForOrg(): Promise<string[]> {
+    const projects = await this._find({}, { bypassReadPermissionChecks: true });
+    return projects.map((p) => p.id);
+  }
+
   protected canCreate() {
     return this.context.permissions.canCreateProjects();
   }

@@ -29,6 +29,8 @@ import {
   fillRevisionFromFeature,
   reconcileMergeBaselines,
   getReviewSetting,
+  normalizeTargetingProjects,
+  normalizeTargetingInUpdates,
   namespacesToMap,
   pruneOrphanedRampActions,
   assertSchemaMatchesValueType,
@@ -752,6 +754,11 @@ export async function postFeatures(
   if (otherProps.project) {
     await context.models.projects.ensureProjectsExist([otherProps.project]);
   }
+  const createTargetingProjects = (otherProps as Partial<FeatureInterface>)
+    .targetingProjects;
+  if (createTargetingProjects?.length) {
+    await context.models.projects.ensureProjectsExist(createTargetingProjects);
+  }
 
   await validateCustomFieldsForSection({
     customFieldValues: customFields,
@@ -788,6 +795,7 @@ export async function postFeatures(
     holdout: holdout?.id ? holdout : undefined,
     jsonSchema: initialJsonSchema,
   };
+  Object.assign(feature, normalizeTargetingProjects(feature));
 
   const allEnvironments = getEnvironments(org);
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
@@ -2416,6 +2424,20 @@ export async function postFeatureRevert(
       metadataChanges.project = m.project;
       hasMetadataChanges = true;
     }
+    if (
+      m.targetingAllProjects !== undefined &&
+      m.targetingAllProjects !== (feature.targetingAllProjects ?? false)
+    ) {
+      metadataChanges.targetingAllProjects = m.targetingAllProjects;
+      hasMetadataChanges = true;
+    }
+    if (
+      m.targetingProjects !== undefined &&
+      !isEqual(m.targetingProjects, feature.targetingProjects ?? [])
+    ) {
+      metadataChanges.targetingProjects = m.targetingProjects;
+      hasMetadataChanges = true;
+    }
     if (m.tags !== undefined && !isEqual(m.tags, feature.tags ?? [])) {
       metadataChanges.tags = m.tags;
       hasMetadataChanges = true;
@@ -3036,6 +3058,15 @@ export async function postFeatureRule(
           allEnvironments: true,
         } as FeatureRule)
       : stampRuleForEnvs(rule, selectedEnvironments);
+  // Mirror the env-scope invariant for project scope: an all-projects rule
+  // carries no explicit list, so cleanup can't later empty it into "all".
+  if (stampedRule.allProjects === true) {
+    delete (stampedRule as { projects?: string[] }).projects;
+  }
+  const ruleScopeProjects = (stampedRule as { projects?: string[] }).projects;
+  if (ruleScopeProjects?.length) {
+    await context.models.projects.ensureProjectsExist(ruleScopeProjects);
+  }
   const ruleAdditionChanges = {
     rules: [...existingRules, stampedRule],
   };
@@ -4448,17 +4479,20 @@ export async function putFeatureRule(
     // "clear" removes any pending ramp action for this rule without adding a new one
   }
 
-  // Drop stale `environments` when merge produces `allEnvironments: true`.
+  // Drop stale `environments`/`projects` when merge produces an all-* scope.
   const { rules: nextRules } = updateRuleById(existingRules, ruleId, (e) => {
-    const merged = {
+    let merged = {
       ...e,
       ...(rule as Partial<FeatureRule>),
     } as FeatureRule;
     if (merged.allEnvironments === true) {
-      return {
+      merged = {
         ...omit(merged, ["environments"]),
         allEnvironments: true,
       } as FeatureRule;
+    }
+    if (merged.allProjects === true) {
+      merged = omit(merged, ["projects"]) as FeatureRule;
     }
     return merged;
   });
@@ -4470,6 +4504,11 @@ export async function putFeatureRule(
   // feature is config-backed JSON.
   const ruleToValidate = nextRules.find((r) => r.id === ruleId);
   if (ruleToValidate) {
+    const ruleScopeProjects = (ruleToValidate as { projects?: string[] })
+      .projects;
+    if (ruleScopeProjects?.length) {
+      await context.models.projects.ensureProjectsExist(ruleScopeProjects);
+    }
     await assertConfigBackedFeatureValuesValid(context, feature, {
       rules: [ruleToValidate],
     });
@@ -5041,8 +5080,13 @@ export async function putFeature(
   if (updates.project && feature.project !== updates.project) {
     await context.models.projects.ensureProjectsExist([updates.project]);
   }
+  if (updates.targetingProjects?.length) {
+    await context.models.projects.ensureProjectsExist(
+      updates.targetingProjects,
+    );
+  }
 
-  // Changing the project can affect SDK payload visibility; require publish permission in both old and new project
+  // Changing the project can affect SDK payload targeting; require publish permission in both old and new project
   if ("project" in updates) {
     if (
       !context.permissions.canPublishFeature(
@@ -5062,6 +5106,8 @@ export async function putFeature(
     "tags",
     "description",
     "project",
+    "targetingAllProjects",
+    "targetingProjects",
     "owner",
     "customFields",
     "holdout",
@@ -5096,6 +5142,8 @@ export async function putFeature(
     "tags",
     "description",
     "project",
+    "targetingAllProjects",
+    "targetingProjects",
     "owner",
     "customFields",
   ];
@@ -5104,6 +5152,7 @@ export async function putFeature(
       metadataKeys.includes(k as keyof FeatureInterface),
     ),
   ) as Partial<FeatureInterface>;
+  normalizeTargetingInUpdates(metadataUpdates, feature);
   const holdoutUpdate = "holdout" in updates ? updates.holdout : undefined;
 
   if (Object.keys(metadataUpdates).length > 0 || holdoutUpdate !== undefined) {
@@ -5121,6 +5170,12 @@ export async function putFeature(
         }),
         ...(metadataUpdates.project !== undefined && {
           project: metadataUpdates.project,
+        }),
+        ...(metadataUpdates.targetingAllProjects !== undefined && {
+          targetingAllProjects: metadataUpdates.targetingAllProjects,
+        }),
+        ...(metadataUpdates.targetingProjects !== undefined && {
+          targetingProjects: metadataUpdates.targetingProjects,
         }),
         ...(metadataUpdates.tags !== undefined && {
           tags: metadataUpdates.tags,
@@ -5145,6 +5200,8 @@ export async function putFeature(
         tags: "tags",
         owner: "owner",
         project: "project",
+        targetingAllProjects: "Targeting Projects",
+        targetingProjects: "Targeting Projects",
         customFields: "custom fields",
         holdout: "holdout",
       };

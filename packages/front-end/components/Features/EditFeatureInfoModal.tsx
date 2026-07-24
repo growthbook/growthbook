@@ -9,6 +9,7 @@ import TagsInput from "@/components/Tags/TagsInput";
 import SelectOwner from "@/components/Owner/SelectOwner";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import SelectField from "@/components/Forms/SelectField";
+import TargetingProjectsField from "@/components/TargetingProjectsField";
 import Callout from "@/ui/Callout";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -73,6 +74,8 @@ const EditFeatureInfoModal: FC<{
       tags: feature.tags || [],
       owner: feature.owner,
       project: feature.project || "",
+      targetingAllProjects: feature.targetingAllProjects || false,
+      targetingProjects: feature.targetingProjects || [],
       description: feature.description || "",
     },
   });
@@ -178,6 +181,18 @@ const EditFeatureInfoModal: FC<{
             </>
           )}
         </Box>
+        <TargetingProjectsField
+          mb="4"
+          primaryProject={form.watch("project")}
+          allProjects={form.watch("targetingAllProjects")}
+          setAllProjects={(v) =>
+            form.setValue("targetingAllProjects", v, { shouldDirty: true })
+          }
+          targetingProjects={form.watch("targetingProjects")}
+          setTargetingProjects={(v) =>
+            form.setValue("targetingProjects", v, { shouldDirty: true })
+          }
+        />
         <Box mb="4">
           <label>Tags</label>
           <TagsInput
