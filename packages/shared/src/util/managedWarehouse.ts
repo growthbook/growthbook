@@ -47,6 +47,40 @@ export function isManagedWarehousePendingQueryError(
   return message.includes(MANAGED_WAREHOUSE_PENDING_ERROR_CODE);
 }
 
+/** Docs: querying attributes/properties on native JSON columns. */
+export const MANAGED_WAREHOUSE_JSON_SYNTAX_DOC_URL =
+  "https://docs.growthbook.io/app/managed-warehouse#querying-attributes-and-properties";
+
+export const MANAGED_WAREHOUSE_JSON_SYNTAX_MESSAGE =
+  "attributes/properties are native JSON columns. Use dot notation (e.g. attributes.foo::Nullable(String)) instead of JSONExtract on a String.";
+
+/** Returned in API `error` fields so the front-end can show the JSON-syntax callout. */
+export const MANAGED_WAREHOUSE_JSON_SYNTAX_ERROR_CODE =
+  "managed_warehouse_json_syntax_error" as const;
+
+export class ManagedWarehouseJsonSyntaxError extends Error {
+  readonly code: typeof MANAGED_WAREHOUSE_JSON_SYNTAX_ERROR_CODE =
+    MANAGED_WAREHOUSE_JSON_SYNTAX_ERROR_CODE;
+
+  constructor() {
+    super(MANAGED_WAREHOUSE_JSON_SYNTAX_ERROR_CODE);
+    this.name = "ManagedWarehouseJsonSyntaxError";
+    Object.setPrototypeOf(this, ManagedWarehouseJsonSyntaxError.prototype);
+  }
+}
+
+export function isManagedWarehouseJsonSyntaxError(
+  message: string | null | undefined,
+): boolean {
+  if (message == null || message === "") return false;
+  if (message.includes(MANAGED_WAREHOUSE_JSON_SYNTAX_ERROR_CODE)) return true;
+  // ClickHouse's error when a JSONExtract* / has() call targets a native JSON
+  // column instead of a String, e.g. post-26.3 on `attributes`/`properties`.
+  return (
+    /illegal type: JSON/i.test(message) && /JSONExtract|\bhas\(/i.test(message)
+  );
+}
+
 /**
  * Information schema and other APIs may persist a legacy long message, the
  * stable pending code, or the no-events sentence alone — use this to show the
@@ -71,6 +105,9 @@ export function formatQueryExecutionErrorForApi(e: unknown): string {
     e.message === MANAGED_WAREHOUSE_PENDING_ERROR_CODE
   ) {
     return MANAGED_WAREHOUSE_PENDING_ERROR_CODE;
+  }
+  if (e instanceof ManagedWarehouseJsonSyntaxError) {
+    return MANAGED_WAREHOUSE_JSON_SYNTAX_ERROR_CODE;
   }
   return e instanceof Error ? e.message : String(e);
 }
