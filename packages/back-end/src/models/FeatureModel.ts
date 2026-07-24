@@ -1807,10 +1807,9 @@ export async function applyRevisionChanges(
     result,
   );
 
-  // A revision staged before a project was deleted can carry the now-dead id
-  // in its targeting or rule scope. removeProjectFromFeatures only scrubs live
-  // features, not pending revisions, so drop dead ids here as they're published
-  // rather than restoring them into the live feature.
+  // removeProjectFromFeatures only scrubs live features, so a revision staged
+  // before a project deletion can still carry the dead id — drop it on publish
+  // rather than restoring it into the live feature.
   const rulesHaveProjectScope = (changes.rules ?? []).some((r) =>
     Array.isArray((r as { projects?: string[] }).projects),
   );

@@ -647,8 +647,7 @@ export class ReqContextClass {
     return this._projects;
   }
 
-  // Every project id in the org, unfiltered by read permissions — for internal
-  // fan-out (all-projects payload invalidation), not user-facing (unlike getProjects()).
+  // Cached, unfiltered by read permissions (internal fan-out, unlike getProjects()).
   private _allProjectIds: string[] | null = null;
   public async getAllProjectIds(): Promise<string[]> {
     if (this._allProjectIds === null) {

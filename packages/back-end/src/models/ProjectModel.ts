@@ -43,8 +43,7 @@ export class ProjectModel extends BaseClass {
     return this.context.permissions.canReadSingleProjectResource(doc.id);
   }
 
-  // Every project id in the org, ignoring per-user read permissions — for
-  // all-projects cache-invalidation fan-out, never for user-facing reads.
+  // Every org project id, unfiltered by read permissions (internal fan-out only).
   public async getAllIdsForOrg(): Promise<string[]> {
     const projects = await this._find({}, { bypassReadPermissionChecks: true });
     return projects.map((p) => p.id);

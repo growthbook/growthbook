@@ -423,11 +423,9 @@ export function ruleServedToConnection(
   );
 }
 
-// Compare two rule lists ignoring the several equivalent encodings of project
-// scope (legacy: no fields = all; allProjects:true = all; projects:[] +
-// allProjects:false = none) and undefined-valued keys (Mongo drops them, the
-// API mapper stamps them). Lets an idempotent API round-trip read as unchanged
-// while a genuine scope change still differs.
+// Compare rule lists ignoring project-scope encoding (ruleProjectScope
+// canonicalizes the several "all"/"none" forms) and undefined keys, so an
+// idempotent API round-trip isn't mistaken for a change.
 export function rulesEqualIgnoringScopeEncoding(
   a: FeatureRule[],
   b: FeatureRule[],
