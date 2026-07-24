@@ -3402,6 +3402,41 @@ describe("buildFeatureRulesFromApiEnvSettings", () => {
     expect(rules[0]).not.toHaveProperty("prerequisites");
   });
 
+  // GET→edit→PUT must persist rollout id/seed/hashVersion verbatim (else re-bucketing).
+  it("preserves rollout id/seed/hashVersion through the v1 converter", () => {
+    const rules = buildFeatureRulesFromApiEnvSettings(
+      mockContext,
+      baseFeature,
+      [{ id: "production" }],
+      {
+        production: {
+          enabled: true,
+          rules: [
+            {
+              id: "fr_explicit",
+              type: "rollout",
+              value: "true",
+              coverage: 0.5,
+              hashAttribute: "userId",
+              seed: "my-seed",
+              hashVersion: 2,
+            },
+          ],
+        },
+      },
+    );
+    const rule = rules[0] as {
+      id?: string;
+      seed?: string;
+      hashAttribute?: string;
+      hashVersion?: number;
+    };
+    expect(rule.id).toBe("fr_explicit");
+    expect(rule.seed).toBe("my-seed");
+    expect(rule.hashAttribute).toBe("userId");
+    expect(rule.hashVersion).toBe(2);
+  });
+
   // ---------------------------------------------------------------------------
   // Content-identical rules across envs must merge into ONE v2 rule with a
   // multi-env footprint — not two split rules with the second id suffixed by

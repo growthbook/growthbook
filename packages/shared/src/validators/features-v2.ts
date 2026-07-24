@@ -528,6 +528,10 @@ const v2RuleRolloutBase = z.object({
   sparse: v2SparseRuleField,
   coverage: z.number(),
   hashAttribute: z.string(),
+  seed: z
+    .string()
+    .describe("Optional seed for the hash function; defaults to the rule id")
+    .optional(),
   hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
 });
 
