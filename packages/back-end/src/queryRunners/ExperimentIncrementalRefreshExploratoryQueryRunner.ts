@@ -32,7 +32,7 @@ import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { updateReport } from "back-end/src/models/ReportModel";
 import { parseDimension } from "back-end/src/services/experiments";
 import { analyzeExperimentResults } from "back-end/src/services/stats";
-import { validateIncrementalPipeline } from "back-end/src/enterprise/services/data-pipeline";
+import { assertIncrementalRefreshPrerequisites } from "back-end/src/enterprise/services/data-pipeline";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import {
   QueryRunner,
@@ -73,6 +73,19 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
   const activationMetric = snapshotSettings.activationMetric
     ? (metricMap.get(snapshotSettings.activationMetric) ?? null)
     : null;
+
+  const exposureQuery = (
+    integration.datasource.settings?.queries?.exposure || []
+  ).find((q) => q.id === snapshotSettings.exposureQueryId);
+
+  if (!exposureQuery) {
+    throw new Error("Exposure query not found");
+  }
+
+  const resolvedExposureQuery = {
+    query: exposureQuery.query,
+    userIdType: exposureQuery.userIdType,
+  };
 
   // Only include metrics tied to this experiment, which is goverend by the snapshotSettings.metricSettings
   // after the introduction of metric slices
@@ -231,6 +244,7 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
       displayTitle: `Compute Statistics ${sourceName}`,
       query: integration.getIncrementalRefreshStatisticsQuery({
         settings: snapshotSettings,
+        exposureQuery: resolvedExposureQuery,
         activationMetric: activationMetric,
         // TODO(incremental-refresh): add post-stratification to exploratory
         // analysis. Pre-computation is unused here; we lean on
@@ -291,6 +305,7 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
       displayTitle: `Compute Cross-Fact Statistics ${sourceName}`,
       query: integration.getIncrementalRefreshStatisticsQuery({
         settings: snapshotSettings,
+        exposureQuery: resolvedExposureQuery,
         activationMetric: activationMetric,
         dimensionsForPrecomputation: [],
         dimensionsForAnalysis: dimensionObjs,
@@ -383,12 +398,11 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
       throw new Error("Experiment not found");
     }
 
-    await validateIncrementalPipeline({
+    await assertIncrementalRefreshPrerequisites({
       org: this.context.org,
       integration: this.integration,
       snapshotSettings: params.snapshotSettings,
       metricMap: params.metricMap,
-      factTableMap: params.factTableMap,
       experiment,
       incrementalRefreshModel,
       analysisType: "exploratory",
@@ -471,6 +485,7 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
       context: this.context,
       id: this.model.id,
       updates,
+      experimentUpdateExecutionLogger: this.experimentUpdateExecutionLogger,
     });
     if (
       this.model.report &&

@@ -5,6 +5,7 @@ import {
   getExperimentById,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
+import { validateExperimentChange } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
@@ -79,6 +80,7 @@ export const deleteVariationScreenshot = createApiRequestHandler(
     (s) => normalizeScreenshotPath(s.path) !== normalizedPath,
   );
 
+  await validateExperimentChange({ context, experiment, changes });
   const updated = await updateExperiment({
     context,
     experiment,

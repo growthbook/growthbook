@@ -17,6 +17,7 @@ import { useRouter } from "next/router";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { date } from "shared/dates";
+import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
@@ -119,6 +120,10 @@ export default function ResultsTab({
   const permissionsUtil = usePermissionsUtil();
   const { organization, hasCommercialFeature } = useUser();
   const project = getProjectById(experiment.project || "");
+  const isDemoExperiment =
+    !!experiment.project &&
+    experiment.project ===
+      getDemoDatasourceProjectIdForOrganization(organization.id);
   const honoredPrecomputedUnitDimensionIds =
     getHonoredPrecomputedUnitDimensionIds(
       experiment.precomputedUnitDimensionIds,
@@ -392,7 +397,7 @@ export default function ResultsTab({
               !experiment.datasource &&
               !snapshot &&
               !experiment.id.match(/^exp_sample/) ? (
-                <div className="alert-cool-1 text-center m-4 px-3 py-4">
+                <div className="appbox text-center m-4 px-3 py-4">
                   <p className="h4">Use GrowthBook for Analysis</p>
                   {datasources.length > 0 ? (
                     <>
@@ -448,7 +453,7 @@ export default function ResultsTab({
           )}
         </div>
       </div>
-      {snapshot && (
+      {snapshot && !isDemoExperiment && (
         <div className="appbox mt-4">
           <div className="row mx-2 py-3 d-flex align-items-center">
             <div className="col ml-2">

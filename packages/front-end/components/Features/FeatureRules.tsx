@@ -19,11 +19,11 @@ import track from "@/services/track";
 import {
   getRules,
   isRuleInactive,
-  useFeatureRulesEnv,
   FEATURE_RULES_ALL_ENVS,
 } from "@/services/features";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { isHoldoutEnabledAnyEnv } from "@/hooks/useHoldouts";
+import useApi from "@/hooks/useApi";
 import Switch from "@/ui/Switch";
 import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
@@ -40,6 +40,7 @@ export default function FeatureRules({
   environments,
   feature,
   isLocked,
+  lockedBySchedule,
   canEditDrafts,
   experimentsMap,
   mutate,
@@ -52,13 +53,18 @@ export default function FeatureRules({
   revisionList,
   rampSchedules,
   draftRevision,
+  baseRevision,
   pendingRuleEdit,
   onPendingRuleEditHandled,
+  rulesEnv,
+  setRulesEnv,
 }: {
   environments: Environment[];
   feature: FeatureInterface;
   baseFeature: FeatureInterface;
   isLocked: boolean;
+  // `isLocked` is due to a pending scheduled publish; ramp controls stay interactive.
+  lockedBySchedule?: boolean;
   canEditDrafts: boolean;
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
   mutate: () => Promise<unknown>;
@@ -70,12 +76,19 @@ export default function FeatureRules({
   revisionList: MinimalFeatureRevisionInterface[];
   rampSchedules?: RampScheduleInterface[];
   draftRevision?: FeatureRevisionInterface | null;
+  // The revision the draft is based on — used to tell an intentional disable
+  // from a stale-inherited one when live has diverged.
+  baseRevision?: FeatureRevisionInterface | null;
   pendingRuleEdit?: { environment: string; ruleId: string } | null;
   onPendingRuleEditHandled?: () => void;
+  // Selected env tab, lifted to the parent so the Default Value display can
+  // resolve for the same environment. null = "All environments" view.
+  rulesEnv: string | null;
+  setRulesEnv: (v: string | null) => void;
 }) {
   const envs = environments.map((e) => e.id);
-  // null = "All environments" view.
-  const [storedEnv, setEnv] = useFeatureRulesEnv();
+  const storedEnv = rulesEnv;
+  const setEnv = setRulesEnv;
   const [hideInactive, setHideInactive] = useLocalStorage(
     "hide-disabled-rules",
     false,
@@ -171,15 +184,45 @@ export default function FeatureRules({
     !feature.holdout?.id &&
     !!baseFeature.holdout?.id &&
     holdoutEnabledInActiveEnv;
-  const includeHoldoutRule = liveHoldoutActive || draftDeletesHoldout;
+
+  // A draft adds a holdout when the merged (viewed) feature references one that
+  // live doesn't. The page-level `holdout` prop is resolved from the live
+  // feature, so it's undefined here — fetch the added holdout to know which
+  // envs it's enabled in (SWR dedupes with HoldoutRule's own fetch).
+  const draftAddsHoldoutBase =
+    !!feature.holdout?.id && !baseFeature.holdout?.id;
+  const { data: addedHoldoutData } = useApi<{ holdout: HoldoutInterface }>(
+    `/holdout/${feature.holdout?.id}`,
+    { shouldRun: () => draftAddsHoldoutBase },
+  );
+  const addedHoldout = draftAddsHoldoutBase
+    ? addedHoldoutData?.holdout
+    : undefined;
+  const draftAddsHoldout =
+    draftAddsHoldoutBase &&
+    !!activeEnv &&
+    !!addedHoldout?.environmentSettings?.[activeEnv.id]?.enabled;
+
+  const includeHoldoutRule =
+    liveHoldoutActive || draftDeletesHoldout || draftAddsHoldout;
 
   // Show holdout in All-Envs whenever it's enabled in any of the org's envs.
   const holdoutEnabledAnyEnv = isHoldoutEnabledAnyEnv(holdout, envs);
   const liveHoldoutActiveAnyEnv = !!feature.holdout?.id && holdoutEnabledAnyEnv;
   const draftDeletesHoldoutAnyEnv =
     !feature.holdout?.id && !!baseFeature.holdout?.id && holdoutEnabledAnyEnv;
+  const draftAddsHoldoutAnyEnv =
+    draftAddsHoldoutBase && isHoldoutEnabledAnyEnv(addedHoldout, envs);
   const includeHoldoutRuleAllEnvs =
-    liveHoldoutActiveAnyEnv || draftDeletesHoldoutAnyEnv;
+    liveHoldoutActiveAnyEnv ||
+    draftDeletesHoldoutAnyEnv ||
+    draftAddsHoldoutAnyEnv;
+
+  // Whether a holdout row occupies the given env's rule list — the live/deleted
+  // holdout (from the page `holdout` prop) or a draft-added one.
+  const holdoutRowInEnv = (envId: string) =>
+    !!holdout?.environmentSettings?.[envId]?.enabled ||
+    !!addedHoldout?.environmentSettings?.[envId]?.enabled;
 
   // Tab overflow: cache each trigger's natural width once, then compute
   // cumulative-width overflow against the tabs-bar. Caching avoids the
@@ -273,7 +316,7 @@ export default function FeatureRules({
     }
     const e = envById.get(key);
     if (!e) continue;
-    const count = holdout?.environmentSettings?.[e.id]?.enabled
+    const count = holdoutRowInEnv(e.id)
       ? rulesByEnv[e.id].length + 1
       : rulesByEnv[e.id].length;
     overflowLabels.push({ key: e.id, label: e.id, count });
@@ -341,7 +384,7 @@ export default function FeatureRules({
               {orderedEnvIds.map((id) => {
                 const e = envById.get(id);
                 if (!e) return null;
-                const count = holdout?.environmentSettings?.[e.id]?.enabled
+                const count = holdoutRowInEnv(e.id)
                   ? rulesByEnv[e.id].length + 1
                   : rulesByEnv[e.id].length;
                 return (
@@ -485,16 +528,19 @@ export default function FeatureRules({
                 version={currentVersion}
                 setVersion={setVersion}
                 locked={isLocked}
+                lockedBySchedule={lockedBySchedule}
                 experimentsMap={experimentsMap}
                 hideInactive={hideInactive}
                 isDraft={isDraft}
                 safeRolloutsMap={safeRolloutsMap}
                 holdout={liveHoldoutActiveAnyEnv ? holdout : undefined}
                 holdoutIsDeleted={draftDeletesHoldoutAnyEnv}
+                holdoutIsPendingAdd={draftAddsHoldoutAnyEnv}
                 openHoldoutModal={() => setHoldoutModal(true)}
                 revisionList={revisionList}
                 rampSchedules={rampSchedules}
                 draftRevision={draftRevision}
+                baseRevision={baseRevision}
                 hiddenRuleIds={showOrphaned ? undefined : orphanedRuleIds}
               />
             ) : (
@@ -502,9 +548,10 @@ export default function FeatureRules({
                 <em>No rules have been added yet</em>
               </Box>
             )}
-            {canEditDrafts && !isLocked && (
+            {!isLocked && (
               <Flex mt="5" mb="1" justify="end">
                 <Button
+                  disabled={!canEditDrafts}
                   onClick={() => {
                     // environment="" → rule modal defaults to allEnvironments scope
                     setRuleModal({
@@ -536,29 +583,33 @@ export default function FeatureRules({
                 version={currentVersion}
                 setVersion={setVersion}
                 locked={isLocked}
+                lockedBySchedule={lockedBySchedule}
                 experimentsMap={experimentsMap}
                 hideInactive={hideInactive}
                 isDraft={isDraft}
                 safeRolloutsMap={safeRolloutsMap}
                 holdout={liveHoldoutActive ? holdout : undefined}
                 holdoutIsDeleted={draftDeletesHoldout}
+                holdoutIsPendingAdd={draftAddsHoldout}
                 openHoldoutModal={() => setHoldoutModal(true)}
                 revisionList={revisionList}
                 rampSchedules={rampSchedules}
                 draftRevision={draftRevision}
+                baseRevision={baseRevision}
               />
             ) : (
               <Box py="4" className="text-muted">
                 <em>No rules have been added to this environment yet</em>
               </Box>
             )}
-            {canEditDrafts && !isLocked && (
+            {!isLocked && (
               <>
                 <Flex pt="4" justify="between" align="center">
                   <Text weight="semibold" size="large">
                     Add rule to {activeEnv.id}
                   </Text>
                   <Button
+                    disabled={!canEditDrafts}
                     onClick={() => {
                       setRuleModal({
                         environment: activeEnv.id,

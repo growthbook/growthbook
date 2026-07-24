@@ -36,12 +36,15 @@ interface AIChatFeedbackProps {
     rating: AIChatFeedbackRating | null,
     comment: string,
   ) => void;
+  /** Defaults to "AI Chat Feedback" (PA). General agent passes "AI Assistant Feedback". */
+  trackingEventName?: string;
 }
 
 export function AIChatFeedback({
   messageId,
   value,
   onSubmit,
+  trackingEventName = "AI Chat Feedback",
 }: AIChatFeedbackProps) {
   const [commentOpen, setCommentOpen] = useState(false);
   const [draftComment, setDraftComment] = useState(value.comment);
@@ -59,13 +62,13 @@ export function AIChatFeedback({
       action: "rate" | "comment" | "clear",
       rating: AIChatFeedbackRating | null,
     ) => {
-      track("AI Chat Feedback", {
+      track(trackingEventName, {
         action,
         rating,
         hasComment: action === "comment",
       });
     },
-    [],
+    [trackingEventName],
   );
 
   const handleThumbsUp = useCallback(() => {

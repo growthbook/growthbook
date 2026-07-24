@@ -3,10 +3,10 @@ import { ExternalIdCallback, QueryResponse } from "shared/types/integrations";
 import {
   Queries,
   QueryInterface,
-  QueryMetadata,
   QueryPointer,
   QueryStatus,
   QueryType,
+  RunQueryMetadata,
 } from "shared/types/query";
 import { parseIntWithDefault, parseOptionalInt } from "shared/util";
 import {
@@ -25,6 +25,10 @@ import { logger } from "back-end/src/util/logger";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
+import {
+  ExperimentUpdateExecutionLogger,
+  ExperimentUpdateTimingPhase,
+} from "back-end/src/services/experimentUpdateExecutionLogger";
 
 export type QueryMap = Map<string, QueryInterface>;
 
@@ -60,7 +64,7 @@ export type StartQueryParams<Rows, ProcessedRows> = {
   run: (
     query: string,
     setExternalId: ExternalIdCallback,
-    queryMetadata?: QueryMetadata,
+    queryMetadata: RunQueryMetadata,
   ) => Promise<QueryResponse<Rows>>;
   /** @deprecated */
   process?: (rows: Rows) => ProcessedRows;
@@ -75,6 +79,24 @@ const FINISH_EVENT = "finish";
 // Wait is doubled on subsequent retries, capped at the maximum
 const INITIAL_CONCURRENCY_TIMEOUT = 250;
 const MAX_CONCURRENCY_TIMEOUT = 4000;
+
+const GENERIC_QUERY_FAILURE_ERROR =
+  "Failed to run a majority of the database queries";
+
+// Pick the most useful error to surface for a failed runner. Prefer a real
+// failing query's error (e.g. the warehouse's invalid-SQL message) over the
+// "Dependencies failed: ..." cascade messages the runner writes onto queries
+// whose upstream failed, and fall back to a generic message when no query
+// carries a usable error.
+export function getQueryFailureError(queryMap: QueryMap): string {
+  const failed = Array.from(queryMap.values()).filter(
+    (q) => q.status === "failed" && q.error,
+  );
+  const rootCause = failed.find(
+    (q) => !q.error?.startsWith("Dependencies failed"),
+  );
+  return (rootCause ?? failed[0])?.error || GENERIC_QUERY_FAILURE_ERROR;
+}
 
 export async function getQueryMap(
   context: ReqContext,
@@ -124,17 +146,21 @@ export abstract class QueryRunner<
       run: (
         query: string,
         setExternalId: ExternalIdCallback,
-        queryMetadata?: QueryMetadata,
+        queryMetadata: RunQueryMetadata,
       ) => Promise<QueryResponse<RowsType>>;
       process?: (rows: RowsType) => ProcessedRowsType;
       onSuccess?: (rows: RowsType) => void | Promise<void>;
       onFailure: () => void;
     };
   } = {};
+  // Prevent early query completions from refreshing against a partial DAG.
+  private dagPersisted = false;
   private useCache: boolean;
   private pendingTimers: Record<string, NodeJS.Timeout> = {};
   private lockHeartbeatTimer: null | NodeJS.Timeout = null;
   private finishedQueryMapCache: QueryMap = new Map();
+  protected experimentUpdateExecutionLogger: ExperimentUpdateExecutionLogger | null =
+    null;
 
   public constructor(
     context: ReqContext | ApiReqContext,
@@ -210,6 +236,17 @@ export abstract class QueryRunner<
   }
 
   async onQueryFinish() {
+    // Dependency-free queries can finish while startAnalysis() is still
+    // persisting the query DAG. Wait until the DAG is durable so the debounced
+    // refresh cannot read an empty query list and swallow the real refresh.
+    if (!this.dagPersisted) {
+      logger.debug(
+        "Query finished for " +
+          this.model.id +
+          " runner before DAG was persisted; deferring refresh",
+      );
+      return;
+    }
     if (!this.timer) {
       logger.debug(
         "Query finished for " +
@@ -280,12 +317,32 @@ export abstract class QueryRunner<
     return getQueryMap(this.context, pointers, this.finishedQueryMapCache);
   }
 
+  setExperimentUpdateExecutionLogger(
+    logger: ExperimentUpdateExecutionLogger | null,
+  ): void {
+    this.experimentUpdateExecutionLogger = logger;
+  }
+
+  withExperimentUpdateTiming<T>(
+    phase: ExperimentUpdateTimingPhase,
+    fn: () => Promise<T> | T,
+  ): Promise<T> | T {
+    if (!this.experimentUpdateExecutionLogger) {
+      return fn();
+    }
+    return this.experimentUpdateExecutionLogger.withTiming(phase, fn);
+  }
+
   public async startAnalysis(params: Params): Promise<Model> {
     logger.debug(this.model.id + " runner: Starting queries");
-    const queries = await this.startQueries(params);
+    const queries = await this.withExperimentUpdateTiming("generateSql", () =>
+      this.startQueries(params),
+    );
+    this.experimentUpdateExecutionLogger?.startPhase("runQueries");
     this.model.queries = queries;
 
     if (queries.length === 0) {
+      this.experimentUpdateExecutionLogger?.endPhase("runQueries");
       const noQueriesError = "No queries were generated for this analysis";
       logger.debug(this.model.id + " runner: " + noQueriesError);
       const newModel = await this.updateModel({
@@ -308,47 +365,36 @@ export abstract class QueryRunner<
       logger.debug(this.model.id + " runner: Query already succeeded (cached)");
       const queryMap = await this.getQueryMap(queries);
       try {
-        result = await this.runAnalysis(queryMap);
+        this.experimentUpdateExecutionLogger?.endPhase("runQueries");
+        result = await this.withExperimentUpdateTiming("analyze", () =>
+          this.runAnalysis(queryMap),
+        );
         logger.debug(this.model.id + " runner: Ran analysis successfully");
       } catch (e) {
         logger.error(e, this.model.id + " runner: Error running analysis");
         error = "Error running analysis: " + e.message;
       }
     } else if (queryStatus === "failed") {
+      this.experimentUpdateExecutionLogger?.endPhase("runQueries");
       logger.debug(this.model.id + " runner: Query failed immediately");
       error = "Error running one or more database queries";
     }
 
     const newModel = await this.updateModel({
-      status: queryStatus,
+      status: error ? "failed" : queryStatus,
       queries,
       runStarted: new Date(),
       result: result,
       error: error,
     });
     this.model = newModel;
+    this.dagPersisted = true;
 
     if (error || result) {
       this.setStatus("finished", error, result);
     } else {
       this.setStatus("running");
-      // Schedule one more pass through refreshQueryStatuses/startReadyQueries
-      // now that the full `queries` array has been persisted to the model.
-      //
-      // This closes a race: queries with no dependencies are executed
-      // fire-and-forget inside startQueries() (see startQuery's readyToRun
-      // branch). If one of them is very fast (e.g. a DROP TABLE during a
-      // Full Refresh), it can finish — and its onQueryFinish 1-second timer
-      // can fire — while startQueries() is still generating SQL for the
-      // remaining queries and before updateModel() above has written them.
-      // That early timer reloads the model, sees no running/queued queries,
-      // and gives up. Once startQueries() finally returns, nothing re-arms
-      // the timer, so every other query in the DAG stays "queued" forever.
-      //
-      // Calling onQueryFinish() here guarantees at least one refresh happens
-      // after the DAG is visible in the persisted model. If the timer from
-      // the early-finishing query is still pending this is a no-op; if it
-      // already fired and found nothing, this re-arms it with the real DAG.
+      // Pick up any query completions that happened before the DAG write.
       this.onQueryFinish();
     }
 
@@ -466,7 +512,8 @@ export abstract class QueryRunner<
           logger.debug(
             `${query.id}: "Run at end query" waiting for other queries to finish...`,
           );
-          return;
+          // Keep scanning. A later non-runAtEnd query may be ready.
+          continue;
         }
       }
 
@@ -503,16 +550,9 @@ export abstract class QueryRunner<
       )
     ) {
       if (this.status !== "finished") {
-        // Being asked to refresh a non-terminal runner whose persisted model
-        // has no active queries is unexpected. It most likely means a query
-        // finished (and its onQueryFinish timer fired) before startAnalysis()
-        // persisted the full `queries` array. Historically this was only a
-        // debug log, which made the resulting "snapshot stuck running forever"
-        // failure mode invisible. Log at warn so it surfaces; the post-persist
-        // onQueryFinish() in startAnalysis() will re-drive the DAG.
         logger.warn(
           `No running or queued queries for ${this.model.id} but runner status is "${this.status}". ` +
-            `Likely a query finished before the full query DAG was persisted; a follow-up refresh is scheduled.`,
+            `The persisted query DAG is empty or fully terminal; nothing to refresh.`,
         );
       } else {
         logger.debug(
@@ -539,27 +579,28 @@ export abstract class QueryRunner<
     let error: string | undefined = undefined;
     let result: Result | undefined = undefined;
 
-    if (oldStatus === "running" && newStatus === "failed") {
-      error = "Failed to run a majority of the database queries";
+    if (newStatus === "failed") {
+      error = getQueryFailureError(queryMap);
 
-      // If there's just a single query, use the error from the query itself
-      if (queryMap.size === 1) {
-        const query = Array.from(queryMap.values())[0];
-        error = query.error || error;
+      if (oldStatus === "running") {
+        this.experimentUpdateExecutionLogger?.endPhase("runQueries");
+
+        logger.debug(
+          "Query failed for " +
+            this.model.id +
+            " runner, transitioning to error state",
+        );
       }
-
-      logger.debug(
-        "Query failed for " +
-          this.model.id +
-          " runner, transitioning to error state",
-      );
     }
     if (
       oldStatus === "running" &&
       (newStatus === "succeeded" || newStatus === "partially-succeeded")
     ) {
       try {
-        result = await this.runAnalysis(queryMap);
+        this.experimentUpdateExecutionLogger?.endPhase("runQueries");
+        result = await this.withExperimentUpdateTiming("analyze", () =>
+          this.runAnalysis(queryMap),
+        );
         logger.debug(`Queries ${newStatus}, ran analysis successfully`);
       } catch (e) {
         error = "Error running analysis: " + e.message;
@@ -568,7 +609,7 @@ export abstract class QueryRunner<
     }
 
     const newModel = await this.updateModel({
-      status: newStatus,
+      status: error ? "failed" : newStatus,
       queries: this.model.queries,
       result,
       error,
@@ -756,7 +797,7 @@ export abstract class QueryRunner<
       run: (
         query: string,
         setExternalId: ExternalIdCallback,
-        queryMetadata?: QueryMetadata,
+        queryMetadata: RunQueryMetadata,
       ) => Promise<QueryResponse<Rows>>;
       process?: (rows: Rows) => ProcessedRows;
       onFailure: () => void;
@@ -801,7 +842,7 @@ export abstract class QueryRunner<
       });
     };
 
-    run(doc.query, setExternalId, { queryType: doc.queryType })
+    run(doc.query, setExternalId, { queryType: doc.queryType || "unknown" })
       .then(async ({ rows, statistics }) => {
         clearInterval(timer);
         logger.debug("Query succeeded: " + doc.id);
@@ -997,7 +1038,7 @@ export abstract class QueryRunner<
     return numRunningQueries >= numericConcurrencyLimit;
   }
 
-  private getOverallQueryStatus(): QueryStatus {
+  protected getOverallQueryStatus(): QueryStatus {
     const failedQueries = this.model.queries.filter(
       (q) => q.status === "failed",
     );

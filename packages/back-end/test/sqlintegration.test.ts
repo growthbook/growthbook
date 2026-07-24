@@ -8,16 +8,26 @@ import {
   RowFilter,
 } from "shared/types/fact-table";
 import { ExposureQuery } from "shared/types/datasource";
+import { SqlDialect } from "shared/types/sql";
+import { getRowFilterSQL } from "shared/experiments";
+import { buildUnitsQuerySettingsFromSnapshot } from "shared/util";
 import BigQuery from "back-end/src/integrations/BigQuery";
+import Snowflake from "back-end/src/integrations/Snowflake";
 import { bigQueryDialect } from "back-end/src/integrations/dialects/bigquery";
 import { mysqlDialect } from "back-end/src/integrations/dialects/mysql";
 import { clickHouseDialect } from "back-end/src/integrations/dialects/clickhouse";
 import { snowflakeDialect } from "back-end/src/integrations/dialects/snowflake";
+import { redshiftDialect } from "back-end/src/integrations/dialects/redshift";
+import { databricksDialect } from "back-end/src/integrations/dialects/databricks";
+import { mssqlDialect } from "back-end/src/integrations/dialects/mssql";
+import { postgresDialect } from "back-end/src/integrations/dialects/postgres";
+import { verticaDialect } from "back-end/src/integrations/dialects/vertica";
 import { addCaseWhenTimeFilter } from "back-end/src/integrations/sql/clauses/add-case-when-time-filter";
 import { getAggregateMetricColumnLegacyMetrics } from "back-end/src/integrations/sql/columns/aggregate-metric-column-legacy-metrics";
 import { getMaxHoursToConvert } from "back-end/src/integrations/sql/dates/max-hours-to-convert";
 import { getFactMetricCTE } from "back-end/src/integrations/sql/ctes/fact-metric-cte";
 import { getExperimentFactMetricsQuery } from "back-end/src/integrations/sql/queries/experiment-fact-metrics-query";
+import { N_STAR_VALUES } from "back-end/src/services/experimentQueries/constants";
 import { getFeatureEvalDiagnosticsQuery } from "back-end/src/integrations/sql/queries/feature-eval-diagnostics-query";
 import { factMetricFactory } from "./factories/FactMetric.factory";
 import { factTableFactory } from "./factories/FactTable.factory";
@@ -268,6 +278,153 @@ describe("bigquery integration", () => {
     expect(snowflakeDialect.escapeStringLiteral(`test\\'string`)).toEqual(
       `test\\\\''string`,
     );
+  });
+
+  it("escapes backslash and single quotes for Redshift", () => {
+    expect(redshiftDialect.escapeStringLiteral(`test\\'string`)).toEqual(
+      `test\\\\''string`,
+    );
+  });
+
+  describe("ClickHouse jsonExtract JSON path quoting", () => {
+    it("backtick-quotes a native-JSON key that isn't a safe identifier", () => {
+      const sql = clickHouseDialect.jsonExtract(
+        "attributes",
+        "company id",
+        false,
+      );
+      expect(sql).toContain("attributes.`company id`::Nullable(String)");
+      // Fallback (String column) branch still passes the raw key as a literal.
+      expect(sql).toContain("JSONExtractString(attributes, 'company id')");
+    });
+
+    it("leaves a safe identifier key unquoted", () => {
+      const sql = clickHouseDialect.jsonExtract(
+        "attributes",
+        "company_id",
+        false,
+      );
+      expect(sql).toContain("attributes.company_id::Nullable(String)");
+    });
+
+    it("quotes the key in the numeric branch too", () => {
+      const sql = clickHouseDialect.jsonExtract(
+        "attributes",
+        "company id",
+        true,
+      );
+      expect(sql).toContain(
+        "toFloat64OrNull(attributes.`company id`::Nullable(String))",
+      );
+    });
+
+    it("escapes backticks within a key", () => {
+      const sql = clickHouseDialect.jsonExtract("attributes", "a`b", false);
+      expect(sql).toContain("attributes.`a``b`::Nullable(String)");
+    });
+  });
+
+  describe("LIKE row filters with real dialects", () => {
+    const factTable = factTableFactory.build({
+      columns: [
+        {
+          column: "event_name",
+          datatype: "string",
+          dateCreated: new Date(),
+          dateUpdated: new Date(),
+          description: "",
+          numberFormat: "",
+          name: "Event Name",
+          deleted: false,
+        },
+      ],
+    });
+
+    const likeSQL = (dialect: SqlDialect, value: string) =>
+      getRowFilterSQL({
+        factTable,
+        rowFilter: {
+          column: "event_name",
+          operator: "starts_with",
+          values: [value],
+        },
+        escapeStringLiteral: dialect.escapeStringLiteral,
+        jsonExtract: dialect.jsonExtract,
+        evalBoolean: dialect.evalBoolean,
+        stringMatch: dialect.stringMatch,
+      });
+
+    it("emits a valid BigQuery pattern with no ESCAPE clause", () => {
+      expect(likeSQL(bigQueryDialect, "foo_bar")).toEqual(
+        String.raw`(event_name LIKE 'foo\\_bar%')`,
+      );
+    });
+
+    it("emits a valid ClickHouse pattern with no ESCAPE clause", () => {
+      expect(likeSQL(clickHouseDialect, "foo_bar")).toEqual(
+        String.raw`(event_name LIKE 'foo\\_bar%')`,
+      );
+    });
+
+    it("emits a Snowflake pattern with a doubled-backslash ESCAPE clause", () => {
+      expect(likeSQL(snowflakeDialect, "foo_bar")).toEqual(
+        String.raw`(event_name LIKE 'foo\\_bar%' ESCAPE '\\')`,
+      );
+    });
+
+    it("emits a Redshift pattern with a doubled-backslash ESCAPE clause", () => {
+      expect(likeSQL(redshiftDialect, "foo_bar")).toEqual(
+        String.raw`(event_name LIKE 'foo\\_bar%' ESCAPE '\\')`,
+      );
+    });
+
+    it("matches a literal backslash on Redshift", () => {
+      expect(likeSQL(redshiftDialect, String.raw`a\b`)).toEqual(
+        String.raw`(event_name LIKE 'a\\\\b%' ESCAPE '\\')`,
+      );
+    });
+
+    it("emits a valid MySQL pattern with no ESCAPE clause", () => {
+      expect(likeSQL(mysqlDialect, "foo_bar")).toEqual(
+        String.raw`(event_name LIKE 'foo\\_bar%')`,
+      );
+    });
+
+    it("emits a valid Databricks pattern with no ESCAPE clause", () => {
+      expect(likeSQL(databricksDialect, "foo_bar")).toEqual(
+        String.raw`(event_name LIKE 'foo\\_bar%')`,
+      );
+    });
+
+    it("emits a valid Postgres pattern with no ESCAPE clause", () => {
+      expect(likeSQL(postgresDialect, "foo_bar")).toEqual(
+        String.raw`(event_name LIKE 'foo\_bar%')`,
+      );
+    });
+
+    it("emits a valid Vertica pattern with no ESCAPE clause", () => {
+      expect(likeSQL(verticaDialect, "foo_bar")).toEqual(
+        String.raw`(event_name LIKE 'foo\_bar%')`,
+      );
+    });
+
+    it("brackets wildcards for SQL Server instead of an ESCAPE clause", () => {
+      expect(likeSQL(mssqlDialect, "foo_bar")).toEqual(
+        `(event_name LIKE 'foo[_]bar%')`,
+      );
+    });
+
+    it("brackets the [ metacharacter for SQL Server", () => {
+      expect(likeSQL(mssqlDialect, "a[b")).toEqual(
+        `(event_name LIKE 'a[[]b%')`,
+      );
+    });
+
+    it("leaves ] bare for SQL Server", () => {
+      expect(likeSQL(mssqlDialect, "a]b[c")).toEqual(
+        `(event_name LIKE 'a]b[[]c%')`,
+      );
+    });
   });
 
   function trimLeadingWhitespace(str: string) {
@@ -1333,38 +1490,44 @@ describe("full fact metric experiment query - bigquery", () => {
       const startDate = new Date("2023-01-01");
       const endDate = new Date("2023-01-31");
 
+      const settings = {
+        manual: false,
+        dimensions: [],
+        metricSettings: [],
+        goalMetrics: [],
+        secondaryMetrics: [],
+        guardrailMetrics: [],
+        activationMetric: null,
+        defaultMetricPriorSettings: {
+          override: false,
+          proper: false,
+          mean: 0,
+          stddev: 0,
+        },
+        regressionAdjustmentEnabled: true,
+        attributionModel: "firstExposure" as const,
+        experimentId: "",
+        queryFilter: "",
+        segment: "",
+        // TODO
+        skipPartialData: false,
+        datasourceId: "",
+        exposureQueryId: "",
+        startDate,
+        endDate,
+        variations: [],
+      };
+
       const sql = getExperimentFactMetricsQuery(
         bigQueryDialect,
         bqIntegration.datasource,
         {
-          settings: {
-            manual: false,
-            dimensions: [],
-            metricSettings: [],
-            goalMetrics: [],
-            secondaryMetrics: [],
-            guardrailMetrics: [],
-            activationMetric: null,
-            defaultMetricPriorSettings: {
-              override: false,
-              proper: false,
-              mean: 0,
-              stddev: 0,
-            },
-            regressionAdjustmentEnabled: true,
-            attributionModel: "firstExposure",
-            experimentId: "",
-            queryFilter: "",
-            segment: "",
-            // TODO
-            skipPartialData: false,
-            datasourceId: "",
-            exposureQueryId: "",
-            startDate,
-            endDate,
-            variations: [],
-          },
+          settings,
           unitsSource: "exposureQuery",
+          unitsSettings: buildUnitsQuerySettingsFromSnapshot(settings, {
+            query: testExposureQuery.query,
+            userIdType: testExposureQuery.userIdType,
+          }),
           activationMetric: null,
           dimensions: [],
           segment: null,
@@ -1381,9 +1544,232 @@ describe("full fact metric experiment query - bigquery", () => {
   );
 });
 
+describe("quantile grid array packing is BigQuery-only", () => {
+  // The array-packed quantile grid is gated entirely on
+  // dialect.hasArrayQuantileGrid(). This drives two distinct behaviors:
+  //   1. SQL generation — getExperimentFactMetricsQuery emits ONE array column
+  //      (m0_quantile_grid) instead of N_STAR_VALUES.length * 2 scalar columns.
+  //   2. Column budgeting — getSourceProperties().hasArrayQuantileGrid (which
+  //      just forwards the dialect flag) flips chunkMetrics into efficient mode.
+  // These tests pin both behaviors to BigQuery so the optimization can't
+  // silently leak into another warehouse that doesn't actually support arrays.
+  const testExposureQuery: ExposureQuery = {
+    id: "anonymous_id",
+    name: "Exposure",
+    description: "Exposure",
+    query: "*",
+    userIdType: "user_id",
+    dimensions: [],
+  };
+
+  const ordersFactTable = factTableFactory.build({
+    id: "orders",
+    name: "Orders Fact Table",
+    sql: "*",
+  });
+  const factTableMap = new Map([[ordersFactTable.id, ordersFactTable]]);
+
+  // A single BigQuery instance only to source a valid (dialect-agnostic)
+  // datasource object — the SQL is generated from the dialect we pass in, not
+  // from the integration, so the same datasource feeds both branches and the
+  // ONLY difference between the two SQL strings is the dialect.
+  // @ts-expect-error -- context not needed for test
+  const datasourceIntegration = new BigQuery("", {
+    settings: { queries: { exposure: [testExposureQuery] } },
+  });
+
+  const buildQuantileSql = (
+    dialect: SqlDialect,
+    quantileSettings: FactMetricInterface["quantileSettings"],
+  ): string => {
+    const metric = factMetricFactory.build({
+      id: "fact_uq1",
+      metricType: "quantile",
+      quantileSettings,
+      numerator: {
+        factTableId: "orders",
+        column: "amount",
+        aggregation: "sum",
+      },
+    });
+    const settings = {
+      manual: false,
+      dimensions: [],
+      metricSettings: [],
+      goalMetrics: [],
+      secondaryMetrics: [],
+      guardrailMetrics: [],
+      activationMetric: null,
+      defaultMetricPriorSettings: {
+        override: false,
+        proper: false,
+        mean: 0,
+        stddev: 0,
+      },
+      regressionAdjustmentEnabled: false,
+      attributionModel: "firstExposure" as const,
+      experimentId: "",
+      queryFilter: "",
+      segment: "",
+      skipPartialData: false,
+      datasourceId: "",
+      exposureQueryId: "",
+      startDate: new Date("2023-01-01"),
+      endDate: new Date("2023-01-31"),
+      variations: [],
+    };
+
+    return getExperimentFactMetricsQuery(
+      dialect,
+      datasourceIntegration.datasource,
+      {
+        settings,
+        unitsSource: "exposureQuery",
+        unitsSettings: buildUnitsQuerySettingsFromSnapshot(settings, {
+          query: testExposureQuery.query,
+          userIdType: testExposureQuery.userIdType,
+        }),
+        activationMetric: null,
+        dimensions: [],
+        segment: null,
+        metrics: [metric],
+        factTableMap,
+      },
+    );
+  };
+
+  describe("dialect flag", () => {
+    it.each([
+      ["bigquery", bigQueryDialect, true],
+      ["snowflake", snowflakeDialect, false],
+      ["clickhouse", clickHouseDialect, false],
+      ["mysql", mysqlDialect, false],
+    ] as const)(
+      "%s reports hasArrayQuantileGrid() === %s",
+      (_name, dialect, expected) => {
+        expect(dialect.hasArrayQuantileGrid()).toBe(expected);
+      },
+    );
+
+    it("quantileGridArrayLiteral collapses to NULL when the grid has no data", () => {
+      // Defensive contract: a dialect must not advertise array support without
+      // implementing quantileGridArrayLiteral, and must not have it silently
+      // no-op if it doesn't support arrays.
+      expect(() =>
+        snowflakeDialect.quantileGridArrayLiteral(["1", "2"]),
+      ).toThrow();
+      // BigQuery rejects a NULL-containing array in a query result, so the grid
+      // must collapse to NULL (all-or-nothing) instead of emitting a partial array.
+      expect(bigQueryDialect.quantileGridArrayLiteral(["a", "b"])).toBe(
+        "IF(a IS NULL, NULL, [a, b])",
+      );
+    });
+  });
+
+  describe("column budgeting (source properties)", () => {
+    it("only BigQuery's source properties enable the efficient (array) grid", () => {
+      // @ts-expect-error -- context not needed for test
+      const bq = new BigQuery("", {
+        settings: { queries: { exposure: [testExposureQuery] } },
+      });
+      // @ts-expect-error -- context not needed for test
+      const sf = new Snowflake("", {
+        settings: { queries: { exposure: [testExposureQuery] } },
+      });
+
+      expect(bq.getSourceProperties().hasArrayQuantileGrid).toBe(true);
+      expect(sf.getSourceProperties().hasArrayQuantileGrid).toBe(false);
+    });
+  });
+
+  describe("SQL generation", () => {
+    it.each(["unit", "event"] as const)(
+      "%s quantile: BigQuery packs one array column; Snowflake keeps scalar columns",
+      (quantileType) => {
+        const quantileSettings = {
+          type: quantileType,
+          quantile: 0.9,
+          ignoreZeros: false,
+        };
+        const bqSql = buildQuantileSql(bigQueryDialect, quantileSettings);
+        const sfSql = buildQuantileSql(snowflakeDialect, quantileSettings);
+
+        // BigQuery: single array column, no per-nstar scalar columns.
+        expect(bqSql).toMatch(/AS\s+m0_quantile_grid/);
+        expect(bqSql).not.toMatch(/m0_quantile_lower_\d+/);
+        expect(bqSql).not.toMatch(/m0_quantile_upper_\d+/);
+
+        // Snowflake: per-nstar scalar columns, no packed array column.
+        expect(sfSql).not.toContain("m0_quantile_grid");
+        expect(sfSql).toMatch(/m0_quantile_lower_\d+/);
+        expect(sfSql).toMatch(/m0_quantile_upper_\d+/);
+
+        // The central point estimate and quantile_n are present in both shapes
+        // (the read side needs them regardless of the grid encoding).
+        expect(bqSql).toContain("m0_quantile_n");
+        expect(sfSql).toContain("m0_quantile_n");
+      },
+    );
+
+    it("Snowflake emits exactly N_STAR_VALUES*2 scalar bound columns (no array)", () => {
+      const sfSql = buildQuantileSql(snowflakeDialect, {
+        type: "unit",
+        quantile: 0.9,
+        ignoreZeros: false,
+      });
+
+      const lowerCount = (sfSql.match(/AS\s+m0_quantile_lower_\d+/g) || [])
+        .length;
+      const upperCount = (sfSql.match(/AS\s+m0_quantile_upper_\d+/g) || [])
+        .length;
+
+      expect(lowerCount).toBe(N_STAR_VALUES.length);
+      expect(upperCount).toBe(N_STAR_VALUES.length);
+    });
+  });
+
+  // Coverage transfer: the BigQuery snapshot suite above used to be the only
+  // thing pinning the exact scalar-column quantile SQL. Now that BigQuery emits
+  // an array, that path is exercised only by non-array warehouses — so we pin
+  // the exact scalar SQL here, under Snowflake, to keep the unchanged path
+  // guarded against unintended structural changes (offsets, CTE shape, etc.).
+  describe("exact scalar quantile SQL (Snowflake snapshots)", () => {
+    const quantileVariants: {
+      label: string;
+      settings: FactMetricInterface["quantileSettings"];
+    }[] = [
+      {
+        label: "unit_0.9_includeZeros",
+        settings: { type: "unit", quantile: 0.9, ignoreZeros: false },
+      },
+      {
+        label: "unit_0.9_ignoreZeros",
+        settings: { type: "unit", quantile: 0.9, ignoreZeros: true },
+      },
+      {
+        label: "event_0.9_includeZeros",
+        settings: { type: "event", quantile: 0.9, ignoreZeros: false },
+      },
+      {
+        label: "event_0.9_ignoreZeros",
+        settings: { type: "event", quantile: 0.9, ignoreZeros: true },
+      },
+    ];
+
+    it.each(quantileVariants)(
+      "snowflake scalar quantile SQL is correct for $label",
+      ({ settings }) => {
+        const sql = buildQuantileSql(snowflakeDialect, settings);
+        const normalizedSql = sql.replace(/\s+/g, " ").trim();
+        expect(format(normalizedSql, "snowflake")).toMatchSnapshot();
+      },
+    );
+  });
+});
+
 describe("getFeatureEvalDiagnosticsQuery", () => {
   beforeEach(() => {
-    jest.useFakeTimers("modern");
+    jest.useFakeTimers();
     jest.setSystemTime(new Date("2025-03-24T12:00:00.000Z"));
   });
 

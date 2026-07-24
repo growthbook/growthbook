@@ -1,11 +1,14 @@
-import { omit } from "lodash";
 import { updateFactTableValidator } from "shared/validators";
-import { UpdateFactTableProps } from "shared/types/fact-table";
+import {
+  ColumnInterface,
+  FactTableInterface,
+  UpdateFactTableProps,
+} from "shared/types/fact-table";
 import { queueFactTableColumnsRefresh } from "back-end/src/jobs/refreshFactTableColumns";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   updateFactTable as updateFactTableInDb,
-  updateColumn,
+  upsertColumns,
   toFactTableApiInterface,
   getFactTable,
 } from "back-end/src/models/FactTableModel";
@@ -15,11 +18,10 @@ import {
   resolveOwnerToUserId,
   resolveOwnerEmail,
 } from "back-end/src/services/owner";
-
-// Type override to handle auto-generated OpenAPI types vs internal types
-type UpdateFactTableRequest = Omit<UpdateFactTableProps, "columns"> & {
-  columns?: Array<NonNullable<UpdateFactTableProps["columns"]>[0]>;
-};
+import {
+  columnsHaveAutoSlices,
+  validateAggregatedFactTableSettings,
+} from "back-end/src/util/factTable";
 
 export const updateFactTable = createApiRequestHandler(
   updateFactTableValidator,
@@ -40,12 +42,11 @@ export const updateFactTable = createApiRequestHandler(
     }
   }
 
+  let datasource: Awaited<ReturnType<typeof getDataSourceById>> | undefined;
+
   // Validate userIdTypes
   if (req.body.userIdTypes) {
-    const datasource = await getDataSourceById(
-      req.context,
-      factTable.datasource,
-    );
+    datasource ??= await getDataSourceById(req.context, factTable.datasource);
     if (!datasource) {
       throw new Error("Could not find datasource for this fact table");
     }
@@ -60,49 +61,52 @@ export const updateFactTable = createApiRequestHandler(
     }
   }
 
-  const data: UpdateFactTableProps = { ...req.body } as UpdateFactTableRequest;
+  if (req.body.aggregatedFactTableSettings) {
+    if (!req.context.hasPremiumFeature("pipeline-mode")) {
+      throw new Error(
+        "Maintaining shared daily aggregated tables requires the data pipeline feature.",
+      );
+    }
+    datasource ??= await getDataSourceById(req.context, factTable.datasource);
+    if (!datasource) {
+      throw new Error("Could not find datasource for this fact table");
+    }
+    if (!req.context.permissions.canUpdateDataSourceSettings(datasource)) {
+      req.context.permissions.throwPermissionError();
+    }
+    validateAggregatedFactTableSettings(
+      req.body.aggregatedFactTableSettings,
+      req.body.userIdTypes ?? factTable.userIdTypes,
+    );
+  }
+
+  if (
+    columnsHaveAutoSlices(req.body.columns) &&
+    !req.context.hasPremiumFeature("metric-slices")
+  ) {
+    throw new Error("Metric slices require an enterprise license");
+  }
+
+  const data: UpdateFactTableProps = { ...req.body };
   const resolvedOwner = await resolveOwnerToUserId(req.body.owner, req.context);
   if (req.body.owner !== undefined) data.owner = resolvedOwner ?? "";
 
-  // Handle column property updates only (no creation/deletion of columns)
+  let columnsUpserted = false;
   if (data.columns) {
-    // Check if any column has auto slice properties
-    const hasAutoSliceProperties = data.columns.some(
-      (col) => col.isAutoSliceColumn || col.autoSlices,
-    );
-
-    if (hasAutoSliceProperties) {
-      // Check enterprise feature access
-      if (!req.context.hasPremiumFeature("metric-slices")) {
-        throw new Error("Metric slices require an enterprise license");
-      }
-    }
-
-    // Only allow updating properties of existing columns
-    for (const columnUpdate of data.columns) {
-      const existingColumn = factTable.columns.find(
-        (c) => c.column === columnUpdate.column,
-      );
-      if (!existingColumn) {
-        throw new Error(
-          `Column ${columnUpdate.column} not found - cannot create new columns via API`,
-        );
-      }
-
-      await updateColumn({
-        context: req.context,
-        factTable,
-        column: columnUpdate.column,
-        changes: omit(columnUpdate, ["dateCreated", "dateUpdated"]),
-      });
-    }
-
-    // Remove columns from the main update since we handled them individually
+    await upsertColumns({
+      context: req.context,
+      factTable,
+      columns: data.columns,
+    });
+    columnsUpserted = true;
     delete data.columns;
   }
 
   await updateFactTableInDb(req.context, factTable, data);
-  if (needsColumnRefresh(data)) {
+  if (
+    needsColumnRefresh(factTable, data) ||
+    (columnsUpserted && columnsNeedDetection(factTable.columns))
+  ) {
     await queueFactTableColumnsRefresh(factTable);
   }
 
@@ -113,21 +117,7 @@ export const updateFactTable = createApiRequestHandler(
   const updatedFactTable = {
     ...factTable,
     ...req.body,
-    columns: req.body.columns
-      ? (
-          req.body.columns as NonNullable<UpdateFactTableRequest["columns"]>
-        ).map((col) => ({
-          ...col,
-          name: col.name ?? col.column,
-          description: col.description ?? "",
-          numberFormat: col.numberFormat ?? "",
-          dateCreated:
-            factTable.columns.find((c) => c.column === col.column)
-              ?.dateCreated || new Date(),
-          dateUpdated: new Date(),
-          deleted: false,
-        }))
-      : factTable.columns,
+    columns: factTable.columns,
   };
   return {
     factTable: await resolveOwnerEmail(
@@ -137,6 +127,16 @@ export const updateFactTable = createApiRequestHandler(
   };
 });
 
-export function needsColumnRefresh(changes: UpdateFactTableProps): boolean {
-  return !!(changes.sql || changes.eventName);
+export function needsColumnRefresh(
+  existing: Pick<FactTableInterface, "sql" | "eventName">,
+  changes: UpdateFactTableProps,
+): boolean {
+  const sqlChanged = changes.sql !== undefined && changes.sql !== existing.sql;
+  const eventNameChanged =
+    changes.eventName !== undefined && changes.eventName !== existing.eventName;
+  return sqlChanged || eventNameChanged;
+}
+
+export function columnsNeedDetection(columns?: ColumnInterface[]): boolean {
+  return (columns ?? []).some((c) => c.datatype === "");
 }

@@ -11,6 +11,7 @@ import {
   ReviewSubmittedType,
   submitReviewAndComments,
 } from "back-end/src/models/FeatureRevisionModel";
+import { maybeAutoPublishFeatureRevision } from "./autoPublishOnApproval";
 
 export const actionToReviewType: Record<string, ReviewSubmittedType> = {
   approve: "Approved",
@@ -24,6 +25,7 @@ export async function submitRevisionReview(
     body: {
       action?: "approve" | "request-changes" | "comment";
       comment?: string;
+      skipAutoPublish?: boolean;
     };
   },
 ) {
@@ -92,6 +94,10 @@ export async function submitRevisionReview(
     req.context.auditUser,
     review,
     comment,
+    // Capture the live version the approval is made against so a later publish
+    // can detect when the approval has gone stale (parity with the internal
+    // app's review flow).
+    feature.version,
   );
 
   const updated = await getRevision({
@@ -119,12 +125,29 @@ export async function submitRevisionReview(
     reviewer,
   );
 
-  return { feature, revision: finalRevision };
+  if (action === "approve" && !req.body.skipAutoPublish) {
+    const afterAutoPublish = await maybeAutoPublishFeatureRevision(
+      req.context,
+      feature,
+      finalRevision,
+    );
+    const didAutoPublish = afterAutoPublish.status === "published";
+    return {
+      feature,
+      revision: afterAutoPublish,
+      autoPublished: didAutoPublish,
+    };
+  }
+
+  return { feature, revision: finalRevision, autoPublished: false };
 }
 
 export const postFeatureRevisionSubmitReview = createApiRequestHandler(
   postFeatureRevisionSubmitReviewValidator,
 )(async (req) => {
-  const { feature, revision } = await submitRevisionReview(req);
-  return { revision: toApiRevision(revision, req.context, feature) };
+  const { feature, revision, autoPublished } = await submitRevisionReview(req);
+  return {
+    revision: toApiRevision(revision, req.context, feature),
+    autoPublished,
+  };
 });

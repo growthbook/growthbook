@@ -8,15 +8,52 @@ import {
 } from "shared/types/integrations";
 import { ClickHouseConnectionParams } from "shared/types/integrations/clickhouse";
 import {
+  isManagedWarehouse,
+  isManagedWarehouseAwaitingJsonMigration,
   isManagedWarehouseAwaitingProvisioning,
+  isManagedWarehouseMigrating,
   ManagedWarehousePendingError,
 } from "shared/util";
 import { SqlDialect } from "shared/types/sql";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
+import { queueMigrateManagedWarehouse } from "back-end/src/jobs/migrateManagedWarehouse";
 import { getHost } from "back-end/src/util/sql";
 import { logger } from "back-end/src/util/logger";
 import SqlIntegration from "./SqlIntegration";
 import { clickHouseDialect } from "./dialects/clickhouse";
+
+// Matches ClickHouse DateTime/DateTime64 column types with no explicit
+// timezone argument (e.g. "DateTime", "DateTime64(3)", "Nullable(DateTime64(3))").
+// Types with an explicit timezone (e.g. "DateTime('UTC')") contain a quote
+// and are intentionally excluded, since their naive-string rendering already
+// reflects that declared zone rather than needing this override.
+const NAIVE_CLICKHOUSE_DATETIME_TYPE =
+  /^Nullable\(DateTime(64\(\d+\))?\)$|^DateTime(64\(\d+\))?$/;
+
+// Managed warehouse DateTime/DateTime64 columns carry no explicit timezone,
+// so ClickHouse renders them as bare "YYYY-MM-DD HH:mm:ss[.ffffff]" strings
+// (no "Z"/offset) in UTC, GrowthBook's convention for that schema. JS's
+// `new Date(...)` parses that shape as local time on whatever host runs the
+// app server, silently shifting it. Append "Z" so it's parsed as UTC instead.
+function normalizeManagedWarehouseDatetimes(
+  // eslint-disable-next-line
+  rows: Record<string, any>[],
+  meta: Array<{ name: string; type: string }> | undefined,
+): void {
+  const dateCols = (meta ?? [])
+    .filter((col) => NAIVE_CLICKHOUSE_DATETIME_TYPE.test(col.type))
+    .map((col) => col.name);
+  if (!dateCols.length) return;
+
+  for (const row of rows) {
+    for (const col of dateCols) {
+      const value = row[col];
+      if (typeof value === "string") {
+        row[col] = value.replace(" ", "T") + "Z";
+      }
+    }
+  }
+}
 
 export default class ClickHouse extends SqlIntegration {
   params!: ClickHouseConnectionParams;
@@ -50,7 +87,27 @@ export default class ClickHouse extends SqlIntegration {
   }
 
   async runQuery(sql: string): Promise<QueryResponse> {
-    if (isManagedWarehouseAwaitingProvisioning(this.datasource)) {
+    // Legacy (materialized-column) managed warehouses migrate to native JSON
+    // columns on first use — enqueued async + deduped so it never blocks the query.
+    // Runs before the guards below so a warehouse left mid-migration (pending +
+    // matcols still present) OR stuck fully-migrated-but-still-`migrating` (the
+    // flag clear failed) can re-trigger and recover itself on next use.
+    if (
+      isManagedWarehouseAwaitingJsonMigration(this.datasource) ||
+      isManagedWarehouseMigrating(this.datasource)
+    ) {
+      void queueMigrateManagedWarehouse(this.datasource.organization).catch(
+        (e) =>
+          logger.error(e, "Failed to queue managed warehouse JSON migration"),
+      );
+    }
+    // Block queries while never-provisioned OR mid-migration (tables being recreated).
+    // Reuse the pending error so existing UI surfaces show the managed-warehouse callout;
+    // the callout distinguishes the migrating case for honest "upgrading" copy.
+    if (
+      isManagedWarehouseAwaitingProvisioning(this.datasource) ||
+      isManagedWarehouseMigrating(this.datasource)
+    ) {
       throw new ManagedWarehousePendingError();
     }
     const client = createClient({
@@ -70,8 +127,12 @@ export default class ClickHouse extends SqlIntegration {
     const results = await client.query({ query: sql, format: "JSON" });
     // eslint-disable-next-line
     const data: ResponseJSON<Record<string, any>[]> = await results.json();
+    const rows = data.data ? data.data : [];
+    if (isManagedWarehouse(this.datasource)) {
+      normalizeManagedWarehouseDatetimes(rows, data.meta);
+    }
     return {
-      rows: data.data ? data.data : [],
+      rows,
       statistics: data.statistics
         ? {
             executionDurationMs: data.statistics.elapsed,
@@ -189,7 +250,7 @@ WITH _data as (
     return {
       start: start.getTime(),
       rows: res.rows.map((row) => ({
-        timestamp: new Date(row.ts + "Z"),
+        timestamp: new Date(row.ts.includes("T") ? row.ts : row.ts + "Z"),
         environment: "" + row.environment,
         value: "" + row.value,
         source: "" + row.source,

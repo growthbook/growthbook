@@ -1,4 +1,5 @@
 import React, { FC } from "react";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { useForm } from "react-hook-form";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { useAuth } from "@/services/auth";
@@ -6,7 +7,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import MetricsSelector from "@/components/Experiment/MetricsSelector";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -92,15 +93,23 @@ const MetricGroupModal: FC<{
       cta="Save"
       close={close}
     >
-      <Field label="Name" {...form.register("name")} required={true} />
       <Field
+        size="legacy"
+        label="Name"
+        {...form.register("name")}
+        required={true}
+      />
+      <Field
+        size="legacy"
         label="Description"
         type="textarea"
+        maxLength={MAX_DESCRIPTION_LENGTH}
         {...form.register("description")}
       />
       {projects?.length > 0 && (
         <div className="form-group">
           <MultiSelectField
+            size="legacy"
             label={
               <>
                 Projects{" "}
@@ -109,7 +118,7 @@ const MetricGroupModal: FC<{
                 />
               </>
             }
-            placeholder="All projects"
+            placeholder="All Projects"
             value={form.watch("projects") || []}
             options={projectOptions}
             onChange={(v) => form.setValue("projects", v)}
@@ -119,6 +128,7 @@ const MetricGroupModal: FC<{
       )}
       <div className="form-group">
         <SelectField
+          size="legacy"
           required={true}
           label="Data Source"
           value={datasource?.id || ""}

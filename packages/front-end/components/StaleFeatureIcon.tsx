@@ -144,7 +144,6 @@ export default function StaleFeatureIcon({
           header="Stale Status"
           trackingEventModalType="stale-feature-status"
           closeCta="Close"
-          useRadixButton={true}
         >
           {neverStaleContent}
         </Modal>
@@ -198,7 +197,6 @@ export default function StaleFeatureIcon({
           header="Stale Status"
           trackingEventModalType="stale-feature-status"
           closeCta="Close"
-          useRadixButton={true}
         >
           {loadingContent}
         </Modal>
@@ -487,7 +485,6 @@ export default function StaleFeatureIcon({
         trackingEventModalType="stale-feature-status"
         closeCta="Close"
         size="lg"
-        useRadixButton={true}
       >
         {body}
       </Modal>

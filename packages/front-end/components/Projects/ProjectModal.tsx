@@ -1,4 +1,5 @@
 import { ProjectInterface } from "shared/types/project";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { useForm } from "react-hook-form";
 import { postProjectValidator, putProjectValidator } from "shared/validators";
 import { useRestApiCall } from "@/services/restApi";
@@ -46,8 +47,15 @@ export default function ProjectModal({
         await onSuccess();
       })}
     >
-      <Field label="Name" maxLength={30} required {...form.register("name")} />
       <Field
+        size="legacy"
+        label="Name"
+        maxLength={30}
+        required
+        {...form.register("name")}
+      />
+      <Field
+        size="legacy"
         label="Public ID"
         maxLength={64}
         pattern="^[a-z0-9-]+$"
@@ -56,8 +64,9 @@ export default function ProjectModal({
         {...form.register("publicId")}
       />
       <Field
+        size="legacy"
         label="Description"
-        maxLength={100}
+        maxLength={MAX_DESCRIPTION_LENGTH}
         minRows={3}
         maxRows={8}
         textarea={true}

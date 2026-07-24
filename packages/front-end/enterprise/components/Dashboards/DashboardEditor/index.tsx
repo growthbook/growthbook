@@ -18,6 +18,9 @@ import {
   PiDatabase,
   PiTable,
   PiChartBar,
+  PiFunnel,
+  PiChartBarDuotone,
+  PiGaugeDuotone,
 } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import {
@@ -35,7 +38,7 @@ import {
   getBlockSizeBounds,
 } from "shared/enterprise";
 import { isDefined } from "shared/util";
-import { Flex, IconButton } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
 import clsx from "clsx";
 import { withErrorBoundary } from "@sentry/nextjs";
 import {
@@ -70,15 +73,21 @@ import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
 import { DashboardSnapshotContext } from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
 import DashboardUpdateDisplay from "./DashboardUpdateDisplay";
 import DashboardBlock from "./DashboardBlock";
+import DashboardGlobalControlsBar from "./DashboardGlobalControlsBar";
 
 export const DASHBOARD_TOPBAR_HEIGHT = "40px";
-export const BLOCK_TYPE_INFO: Record<
-  DashboardBlockType,
-  { name: string; icon: ReactElement; deprecated?: boolean }
-> = {
+type BlockTypeInfo = {
+  name: string;
+  icon: ReactElement;
+  description?: string;
+  deprecated?: boolean;
+};
+
+export const BLOCK_TYPE_INFO: Record<DashboardBlockType, BlockTypeInfo> = {
   markdown: {
     name: "Markdown",
     icon: <PiArticleMediumDuotone />,
+    description: "Adds formatted text, links, and images to your dashboard.",
   },
   "experiment-metadata": {
     name: "Experiment Metadata",
@@ -87,6 +96,29 @@ export const BLOCK_TYPE_INFO: Record<
   "experiment-metric": {
     name: "Metric Results",
     icon: <PiTableDuotone />,
+  },
+  "metric-experiments": {
+    name: "Experiments with Lift",
+    icon: <PiTableDuotone />,
+    description: "Shows experiments with lift for a selected metric.",
+  },
+  "experiments-scaled-impact": {
+    name: "Scaled Impact",
+    icon: <PiChartLineDuotone />,
+    description:
+      "Shows the scaled impact of a metric across multiple experiments.",
+  },
+  "experiments-win-rate": {
+    name: "Win Percentage",
+    icon: <PiGaugeDuotone />,
+    description:
+      "Shows the win percentage for selected experiments, optionally filtered by project.",
+  },
+  "experiments-status": {
+    name: "Team Velocity",
+    icon: <PiChartBarDuotone />,
+    description:
+      "Shows number of experiments in each status (won, lost, inconclusive, and dnf) over a selected date range.",
   },
   "experiment-dimension": {
     name: "Dimension Results",
@@ -103,23 +135,38 @@ export const BLOCK_TYPE_INFO: Record<
   "sql-explorer": {
     name: "Custom SQL Query",
     icon: <PiFileSqlDuotone />,
+    description:
+      "Displays results and saved visualizations from a custom SQL query.",
   },
   "metric-explorer": {
     name: "Metric",
     icon: <PiFileSqlDuotone />,
+    description: "Shows an analysis of a single Fact Metric.",
     deprecated: true,
   },
   "metric-exploration": {
     name: "Metric Explorer",
     icon: <PiChartBar />,
+    description:
+      "Charts one or more of your existing GrowthBook Metrics over a selected date range. View trends, compare time periods, and slice/dice your data.",
   },
   "fact-table-exploration": {
     name: "Fact Table Explorer",
     icon: <PiTable />,
+    description:
+      "Builds an analysis directly from events and columns in one of your existing Fact Tables.",
   },
   "data-source-exploration": {
     name: "Data Source Explorer",
     icon: <PiDatabase />,
+    description:
+      "Builds a custom analysis from tables and columns from one of your connected Data Sources.",
+  },
+  "funnel-exploration": {
+    name: "Funnel Explorer",
+    icon: <PiFunnel />,
+    description:
+      "Builds a custom funnel from events and columns from one of your connected Fact Tables.",
   },
 };
 
@@ -131,7 +178,21 @@ export const BLOCK_SUBGROUPS: [string, DashboardBlockType[]][] = [
   ["Experiment Info", ["experiment-metadata", "experiment-traffic"]],
   [
     "Product Analytics",
-    ["metric-exploration", "fact-table-exploration", "data-source-exploration"],
+    [
+      "metric-exploration",
+      "fact-table-exploration",
+      "data-source-exploration",
+      "funnel-exploration",
+    ],
+  ],
+  [
+    "Experimentation",
+    [
+      "experiments-status",
+      "experiments-win-rate",
+      "metric-experiments",
+      "experiments-scaled-impact",
+    ],
   ],
   ["Other", ["sql-explorer", "markdown", "metric-explorer"]],
 ];
@@ -143,6 +204,11 @@ export const GENERAL_DASHBOARD_BLOCK_TYPES: DashboardBlockType[] = [
   "metric-exploration",
   "fact-table-exploration",
   "data-source-exploration",
+  "funnel-exploration",
+  "metric-experiments",
+  "experiments-scaled-impact",
+  "experiments-win-rate",
+  "experiments-status",
   "markdown",
 ];
 
@@ -324,11 +390,13 @@ interface Props {
   isTabActive: boolean;
   title: string;
   blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
+  globalControlBlocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
   id: string;
   isEditing: boolean;
   projects: string[];
   enableAutoUpdates: boolean;
   updateSchedule: DashboardUpdateSchedule | undefined;
+  globalControls?: DashboardInterface["globalControls"];
   ownerId: string;
   initialEditLevel: DashboardEditLevel;
   initialShareLevel: DashboardShareLevel;
@@ -342,6 +410,14 @@ interface Props {
         block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
       ) => void);
   mutate: () => void;
+  onGlobalControlsChange?: (
+    globalControls: DashboardInterface["globalControls"],
+    blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[],
+  ) => Promise<void>;
+  updateTemporaryDashboardResults?: (
+    globalControls?: DashboardInterface["globalControls"],
+    blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[],
+  ) => Promise<void>;
   switchToExperimentView?: () => void;
   isGeneralDashboard: boolean;
   setIsEditing?: (v: boolean) => void;
@@ -353,9 +429,11 @@ function DashboardEditor({
   isTabActive,
   title,
   blocks,
+  globalControlBlocks,
   isEditing,
   enableAutoUpdates,
   updateSchedule,
+  globalControls,
   ownerId,
   initialEditLevel,
   initialShareLevel,
@@ -366,6 +444,8 @@ function DashboardEditor({
   projects,
   setBlock,
   mutate,
+  onGlobalControlsChange,
+  updateTemporaryDashboardResults,
   switchToExperimentView,
   isGeneralDashboard = false,
   setIsEditing,
@@ -389,6 +469,7 @@ function DashboardEditor({
   const [duplicateDashboard, setDuplicateDashboard] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [queriesModalOpen, setQueriesModalOpen] = useState(false);
+  const [needsUpdate, setNeedsUpdate] = useState(false);
   const { apiCall } = useAuth();
   const { userId } = useUser();
   const permissionsUtil = usePermissionsUtil();
@@ -421,7 +502,6 @@ function DashboardEditor({
 
   const error = snapshotError;
   const count = queryStrings.length + savedQueryIds.length;
-
   const handleViewQueries = () => {
     setQueriesModalOpen(true);
     setDropdownOpen(false);
@@ -446,6 +526,7 @@ function DashboardEditor({
       <DashboardBlock
         isTabActive={isTabActive}
         block={block}
+        dashboardGlobalControls={globalControls}
         blockIndex={i}
         isEditing={isEditing}
         isFocused={isFocused}
@@ -524,6 +605,7 @@ function DashboardEditor({
                 experimentId: "",
                 updateSchedule: data.updateSchedule,
                 projects: data.projects,
+                globalControls,
                 blocks: (data.blocks ?? []).map(getBlockData),
               }),
             });
@@ -557,7 +639,7 @@ function DashboardEditor({
         isGeneralDashboard={isGeneralDashboard}
         dashboardId={id}
       />
-      <div className="mb-3">
+      <Box mt={isEditing ? "1" : undefined} mb="3">
         <Flex align="center" height={DASHBOARD_TOPBAR_HEIGHT} gap="1">
           {switchToExperimentView ? (
             <Button variant="ghost" size="xs" onClick={switchToExperimentView}>
@@ -586,6 +668,9 @@ function DashboardEditor({
             dashboardLastUpdated={dashboardLastUpdated}
             disabled={!!editSidebarDirty}
             isEditing={isEditing}
+            needsUpdate={needsUpdate}
+            updateTemporaryDashboardResults={updateTemporaryDashboardResults}
+            onUpdated={() => setNeedsUpdate(false)}
           />
           {isGeneralDashboard && setIsEditing && !isEditing ? (
             <Flex align="center" gap="4" ml="4" flexShrink="0">
@@ -731,7 +816,17 @@ function DashboardEditor({
             </Flex>
           </Flex>
         )}
-      </div>
+        {isGeneralDashboard && onGlobalControlsChange ? (
+          <DashboardGlobalControlsBar
+            blocks={globalControlBlocks ?? blocks}
+            globalControls={globalControls}
+            canEdit={canEdit}
+            onGlobalControlsChange={onGlobalControlsChange}
+            updateTemporaryDashboardResults={updateTemporaryDashboardResults}
+            setNeedsUpdate={setNeedsUpdate}
+          />
+        ) : null}
+      </Box>
       <div>
         {blocks.length === 0 ? (
           <Flex

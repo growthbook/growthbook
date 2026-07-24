@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ownerInputField } from "./owner-field";
+import { apiFactTableColumnInputValidator } from "./fact-table";
 
 // The body references PostFactTablePayload, PostFactTableFilterPayload, and PostFactMetricPayload
 const postBulkImportFactsBody = z
@@ -8,39 +9,47 @@ const postBulkImportFactsBody = z
       .array(
         z.object({
           id: z.string(),
-          data: z.object({
-            name: z.string(),
-            description: z
-              .string()
-              .describe("Description of the fact table")
-              .optional(),
-            owner: ownerInputField.optional(),
-            projects: z
-              .array(z.string())
-              .describe("List of associated project ids")
-              .optional(),
-            tags: z
-              .array(z.string())
-              .describe("List of associated tags")
-              .optional(),
-            datasource: z.string().describe("The datasource id"),
-            userIdTypes: z
-              .array(z.string())
-              .describe(
-                'List of identifier columns in this table. For example, "id" or "anonymous_id"',
-              ),
-            sql: z.string().describe("The SQL query for this fact table"),
-            eventName: z
-              .string()
-              .describe("The event name used in SQL template variables")
-              .optional(),
-            managedBy: z
-              .enum(["", "api", "admin"])
-              .describe(
-                'Set this to "api" to disable editing in the GrowthBook UI',
-              )
-              .optional(),
-          }),
+          data: z
+            .object({
+              name: z.string(),
+              description: z
+                .string()
+                .describe("Description of the fact table")
+                .optional(),
+              owner: ownerInputField.optional(),
+              projects: z
+                .array(z.string())
+                .describe("List of associated project ids")
+                .optional(),
+              tags: z
+                .array(z.string())
+                .describe("List of associated tags")
+                .optional(),
+              datasource: z.string().describe("The datasource id"),
+              userIdTypes: z
+                .array(z.string())
+                .describe(
+                  'List of identifier columns in this table. For example, "id" or "anonymous_id"',
+                ),
+              sql: z.string().describe("The SQL query for this fact table"),
+              eventName: z
+                .string()
+                .describe("The event name used in SQL template variables")
+                .optional(),
+              columns: z
+                .array(apiFactTableColumnInputValidator)
+                .describe(
+                  'Optional array of column definitions for this fact table. On create, columns are stored as-is. On update, columns upsert by `column`: existing columns are patched, new columns are created, and columns not included are left unchanged. Omit `datatype` to leave an existing column\'s type untouched; send "" to reset it for auto-detection; new columns are auto-detected when `datatype` is omitted or "". Datatype-dependent properties (e.g. `alwaysInlineFilter`) are validated once the datatype is known. Slice-related properties require an enterprise license.',
+                )
+                .optional(),
+              managedBy: z
+                .enum(["", "api", "admin"])
+                .describe(
+                  'Set this to "api" to disable editing in the GrowthBook UI',
+                )
+                .optional(),
+            })
+            .strict(),
         }),
       )
       .optional(),

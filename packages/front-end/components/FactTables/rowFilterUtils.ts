@@ -60,6 +60,31 @@ export const operatorLabelMap: Record<RowFilter["operator"], string> = {
   ends_with: "ends with",
 };
 
+/**
+ * `attributes` JSON-field names that are also exposed as a top-level column on
+ * the fact table — e.g. managed-warehouse identifiers aliased out of
+ * `attributes`, or legacy materialized columns. Column pickers hide these JSON
+ * fields so a value isn't offered both as a top-level column and an
+ * `attributes.<field>` path. Only the `attributes` column is de-duped; other
+ * JSON columns (e.g. `properties`) carry independent data.
+ */
+export function getAttributeFieldsExposedAsColumns(
+  factTable: Pick<FactTableInterface, "columns">,
+): Set<string> {
+  const attributesCol = factTable.columns.find(
+    (c) => c.column === "attributes" && c.datatype === "json" && !c.deleted,
+  );
+  if (!attributesCol?.jsonFields) return new Set();
+  const topLevel = new Set(
+    factTable.columns
+      .filter((c) => c.datatype !== "json" && !c.deleted)
+      .map((c) => c.column),
+  );
+  return new Set(
+    Object.keys(attributesCol.jsonFields).filter((f) => topLevel.has(f)),
+  );
+}
+
 export function getColumnInfo(
   factTable: Pick<FactTableInterface, "columns">,
   column: string | undefined,

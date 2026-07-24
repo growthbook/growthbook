@@ -17,6 +17,7 @@ const ChangePasswordModal: FC<{
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       header="Change Password"
       open={true}
@@ -32,6 +33,7 @@ const ChangePasswordModal: FC<{
       })}
     >
       <Field
+        size="legacy"
         label="Current Password"
         type="password"
         required
@@ -46,6 +48,7 @@ const ChangePasswordModal: FC<{
         }
       />
       <Field
+        size="legacy"
         label="New Password"
         type="password"
         required

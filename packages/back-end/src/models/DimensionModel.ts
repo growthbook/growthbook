@@ -5,6 +5,7 @@ import { getConfigDimensions, usingFileConfig } from "back-end/src/init/config";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import { ALLOW_CREATE_DIMENSIONS } from "back-end/src/util/secrets";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 
 const dimensionSchema = new mongoose.Schema({
   id: String,
@@ -105,6 +106,16 @@ export async function findDimensionById(id: string, organization: string) {
   const doc = await DimensionModel.findOne({ id, organization });
 
   return doc ? toInterface(doc) : null;
+}
+
+// A dimension inherits project access from its datasource, so access is granted
+// only when that datasource is readable. A dimension whose datasource is
+// inaccessible or no longer exists is treated as not found.
+export async function hasDimensionDatasourceAccess(
+  context: ReqContext | ApiReqContext,
+  dimension: DimensionInterface,
+): Promise<boolean> {
+  return !!(await getDataSourceById(context, dimension.datasource));
 }
 
 export async function findDimensionsByDataSource(

@@ -254,6 +254,44 @@ class TestSumStats(TestCase):
             sum_stats([(self.q_stat_c, self.q_stat_t), (self.q_stat_c, self.q_stat_t)])
 
 
+class TestQuantileStatisticZeroVariance(TestCase):
+    # Collapsed bounds (lower == upper) can happen at any n: sketch resolution
+    # at very high n, or an atom at the quantile for discrete data. Both must
+    # route to the zero-variance error path instead of a floored variance.
+    def make_stat(self, n: int, lower: float, upper: float) -> QuantileStatistic:
+        return QuantileStatistic(
+            n=n,
+            n_star=n,
+            nu=0.9,
+            quantile_hat=5.0,
+            quantile_lower=lower,
+            quantile_upper=upper,
+        )
+
+    def test_collapsed_bounds_large_n_has_zero_variance(self):
+        stat = self.make_stat(n=60_000_000, lower=5.0, upper=5.0)
+        self.assertTrue(stat._has_zero_variance)
+
+    def test_collapsed_bounds_small_n_has_zero_variance(self):
+        stat = self.make_stat(n=999, lower=5.0, upper=5.0)
+        self.assertTrue(stat._has_zero_variance)
+
+    def test_distinct_bounds_no_zero_variance(self):
+        stat = self.make_stat(n=60_000_000, lower=4.99, upper=5.01)
+        self.assertFalse(stat._has_zero_variance)
+
+    def test_collapsed_bounds_returns_error_message(self):
+        stat_a = self.make_stat(n=60_000_000, lower=5.0, upper=5.0)
+        stat_b = self.make_stat(n=60_000_000, lower=4.99, upper=5.01)
+        moments = EffectMoments(
+            [(stat_a, stat_b)],
+            config=EffectMomentsConfig(difference_type="absolute"),
+        )
+        self.assertEqual(
+            moments.compute_result().error_message, ZERO_NEGATIVE_VARIANCE_MESSAGE
+        )
+
+
 # Statistics for EffectMoments
 RASTAT_A = RegressionAdjustedStatistic(
     post_statistic=ProportionStatistic(n=4, sum=1),

@@ -14,7 +14,7 @@ Releasing a new feature always carries risk. Even small changes can introduce re
 
 ## Overview
 
-Safe Rollouts are a type of feature [rule](/features/rules) that releases a feature to a subset of users and automatically monitors guardrail metrics for regressions. Guardrails can be any metrics that matter to your team, such as error rates, latency, or conversions.
+A Safe Rollout is a [Ramp Schedule](/features/ramp-schedules) with guardrail monitoring turned on. It releases a feature to a subset of users and automatically monitors guardrail metrics for regressions. Guardrails can be any metrics that matter to your team, such as error rates, latency, or conversions.
 
 The rollout runs as a short-term A/B test:
 
@@ -25,58 +25,63 @@ GrowthBook analyzes the rollout's impact on your selected guardrail metrics and 
 
 ## How to Add a Safe Rollout
 
-### 1. Select "Safe Rollout" When Adding a Rule
+### 1. Add a Targeting Rule with Monitoring
 
 <MaxWidthImage border>
-![Add a safe rollout rule](/images/features/safe-rollout-new-rule.webp)
+![Rule type picker with the Looking for Safe Rollouts callout and Show me shortcut](/images/features/rule-type-picker.webp)
 </MaxWidthImage>
 
-When adding a new rule to your feature, select **Safe Rollout** from the list of options.
+When adding a new rule to your feature, select **Targeting rule**, then choose **Monitored Ramp-up** as the release plan. The **Show me** shortcut on the rule type screen configures a fully monitored ramp for you.
+
+:::note
+Safe Rollouts are now configured as a monitored [Ramp Schedule](/features/ramp-schedules) rather than a separate rule type. The monitoring, analysis, and rollback behavior described below is unchanged.
+:::
 
 ### 2. Configure the Safe Rollout
 
-<MaxWidthImage border>
-![Safe rollout configuration](/images/features/safe-rollout-create.webp)
-</MaxWidthImage>
-
-- **Rollout Value:** Add or select the value to serve during the rollout. This is compared against the Control (default value).
-- **Split Attribute:** Choose the attribute for assigning users to the Control and Rollout groups (for example, `id` or `organization_id`).
-- **Auto Rollback:** Toggle this option to automatically disable the rollout rule if any guardrail metric fails significantly.
+- **Rollout value:** the value users in the Rollout group receive. It is compared against the Control (the rule's existing value).
+- **Sample by:** the attribute used to assign users to the Control and Rollout groups (for example, `id` or `organization_id`).
 
 ### 3. Define Metrics and Monitoring
 
-- **Data Source and Assignment Table:** Confirm your data source and the experiment assignment table for exposure tracking.
-- **Guardrail Metrics:** Select one or more metrics to monitor for regressions during the rollout.
-- **Monitoring Duration:** Set how many days to collect data before making a decision.
+<MaxWidthImage border>
+![Monitored ramp-up editor showing the Monitor this release toggle, data source, assignment table, and guardrail and signal metrics](/images/features/safe-rollout-create.webp)
+</MaxWidthImage>
+
+- **Data Source and Assignment Table:** Confirm the data source and assignment table used for exposure tracking.
+- **Guardrail Metrics:** Select one or more metrics to monitor for regressions. GrowthBook automatically rolls back and disables the rule if any of them regress significantly, so there is no separate auto-rollback toggle.
+- **Signal Metrics:** Optional metrics that pause the rollout at the current step if they regress, without rolling it back. It resumes when they recover.
+
+Under **Advanced Settings**, you can choose how GrowthBook responds to other issues, such as a sample ratio mismatch, no traffic, or multiple exposures: hold the ramp, roll back, or warn only.
 
 ### 4. Ramp Up Schedule
 
-Safe Rollouts automatically manage traffic exposure to ensure safety. The rollout follows a gradual ramp-up schedule:
+A Safe Rollout ramps traffic up through the steps of its underlying [Ramp Schedule](/features/ramp-schedules). By default, a monitored ramp steps the rollout through:
 
-**10% → 25% → 50% → 75% → 100%**
+**1% → 5% → 10% → 25% → 50%**
 
-This ramp-up occurs over the first 25% of the monitoring duration. For example, if your duration is set to 4 days, traffic ramps from 10% to 100% during the first day. The remaining time monitors the fully rolled-out feature for failing guardrail metrics.
+Each monitored step splits its traffic 50/50 between the Rollout and the Control, so monitored steps top out at 50%. The early steps each hold for a short slice of the **Duration**, then the rollout holds at 50% for the rest of the window before releasing to 100% when the schedule completes. You can change the pace with **Duration**, or edit the steps directly in **Advanced View**.
 
 ### 5. Monitor the Rollout
 
 <MaxWidthImage border>
-![Safe rollout rollback now warning message](/images/features/safe-rollout-rollback-now.webp)
+![Feature rule card showing a Safe Rollout with a Guardrails Failing badge and a Revert Now button](/images/features/safe-rollout-rollback-now.webp)
 </MaxWidthImage>
 
-Once published, GrowthBook begins monitoring the guardrail metrics. The rollout status updates automatically based on results.
+Once published, GrowthBook begins monitoring the guardrail metrics. The rule shows a status badge that updates automatically as results come in:
 
-Status indicators:
-
-| Status             | Meaning                                                                              |
-| ------------------ | ------------------------------------------------------------------------------------ |
-| X days left        | The rollout is in progress. Monitoring continues.                                    |
-| Unhealthy          | Traffic is imbalanced. Check your implementation.                                    |
-| Guardrails Failing | Regression detected. Consider reverting the change.                                  |
-| Ready to ship      | No regressions detected and safe rollout duration completed. Ready to release fully. |
-| No Data            | No traffic detected after 24 hours. Check setup.                                     |
+| Status             | Meaning                                                                                                       |
+| ------------------ | ------------------------------------------------------------------------------------------------------------- |
+| X days left        | The rollout is running. Monitoring continues until the duration completes.                                    |
+| Unhealthy          | A health check failed, such as a sample ratio mismatch. Traffic may be imbalanced; check your implementation. |
+| Guardrails Failing | A guardrail metric is regressing. The rule shows a **Revert Now** button so you can roll back.                |
+| Ready to ship      | The duration finished with no failing guardrails. Safe to release to 100%.                                    |
+| No Data            | No traffic detected. Check your setup.                                                                        |
+| Reverted           | The rollout was rolled back to the control value.                                                             |
+| Released           | The rollout was shipped to all users.                                                                         |
 
 :::info
-Guardrails are analyzed for failure using one-sided sequential testing, allowing you to roll back as soon as statistical significance is reached without fear of false positives. Your safe rollout is automatically monitored for implementation errors with sample ratio mismatch and multiple exposures checks.
+Guardrails are analyzed for failure using frequentist sequential testing, allowing you to roll back as soon as statistical significance is reached without fear of false positives. Your safe rollout is automatically monitored for implementation errors with sample ratio mismatch and multiple exposures checks.
 :::
 
 ### 6. Take Action
@@ -87,7 +92,7 @@ At the end of the monitoring period (or sooner if issues arise), you can:
 - Revert the feature to the control value.
 - Continue to monitor.
 
-If **Auto Rollback** is enabled and a regression is detected, GrowthBook automatically disables the rollout rule to protect your users.
+If a guardrail metric regresses, GrowthBook automatically rolls back and disables the rule to protect your users.
 
 ## Understanding the Time Series Graph
 
@@ -105,14 +110,11 @@ The threshold for when a metric is considered failing. It's always set to zero �
 
 ### How Does the Traffic Ramp Up Work?
 
-Safe Rollouts use a fixed ramp-up schedule (10% → 25% → 50% → 75% → 100%) that completes within the first 25% of your configured duration. This keeps the initial blast radius small and scales up quickly if no immediate issues appear.
+A Safe Rollout ramps traffic through the steps of its [Ramp Schedule](/features/ramp-schedules). By default it steps through 1%, 5%, 10%, 25%, and 50% before releasing to 100%, keeping the initial blast radius small and widening as monitoring stays healthy. You set the pace with the rollout's **Duration** and can customize the steps in **Advanced View**.
 
 ### What Happens if a Guardrail Metric Degrades?
 
-If a guardrail metric crosses a significance threshold indicating a regression, the rollout status reflects the issue.
-
-- If **Automatic Rollback** is enabled, GrowthBook automatically disables the feature to prevent further harm.
-- If **Automatic Rollback** is disabled, you retain control and can manually stop or revert the rollout.
+If a guardrail metric crosses the significance threshold for a regression, GrowthBook rolls back and disables the rule automatically to prevent further harm, and the rollout's status shows the failing guardrail. For the other automated checks (sample ratio mismatch, no traffic, and multiple exposures), you choose the response under **Advanced Settings**: hold the ramp, roll back, or warn only.
 
 ### What Should I Use as My Guardrail Metrics?
 

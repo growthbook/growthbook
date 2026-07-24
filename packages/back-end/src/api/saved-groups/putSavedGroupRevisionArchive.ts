@@ -6,6 +6,8 @@ import {
   createOrUpdateRevision,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
+import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
+import { assertSavedGroupArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 import {
   discardIfJustCreated,
   isDraftStatus,
@@ -29,6 +31,16 @@ export const putSavedGroupRevisionArchive = createApiRequestHandler(
   }
 
   const { archived } = req.body;
+
+  // Soft-warn (bypassably) when staging an archive while the saved group is
+  // still referenced. Unarchiving is always allowed.
+  if (archived && !savedGroup.archived) {
+    await assertSavedGroupArchiveDependentsGuard(
+      req.context,
+      { id: savedGroup.id },
+      { armed: false },
+    );
+  }
 
   await ensureLiveRevisionExists(
     req.context,
@@ -63,6 +75,17 @@ export const putSavedGroupRevisionArchive = createApiRequestHandler(
       patchOps,
       { revisionId: revision.id },
     );
+
+    if (created) {
+      await dispatchSavedGroupRevisionEvent(req.context, updated, {
+        type: "created",
+      });
+    } else {
+      await dispatchSavedGroupRevisionEvent(req.context, updated, {
+        type: "updated",
+        change: "archive",
+      });
+    }
 
     return {
       revision: await toApiSavedGroupRevision(updated, req.context),

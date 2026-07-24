@@ -13,7 +13,11 @@ import {
 } from "shared/validators";
 import { RevisionChanges } from "shared/types/feature-revision";
 import { updateRuleAtEnvIndex } from "back-end/src/util/revisionRuleOps";
-import { toApiRevision } from "back-end/src/services/features";
+import {
+  addIdsToFlatRules,
+  assertFeatureValuesValid,
+  toApiRevision,
+} from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -82,6 +86,7 @@ export function applyPatch(
         experimentId: patch.experimentId,
       }),
       ...(patch.variations !== undefined && { variations: patch.variations }),
+      ...(patch.sparse !== undefined && { sparse: patch.sparse }),
     };
     return updated;
   }
@@ -156,6 +161,7 @@ export function applyPatch(
         ...(patch.hashVersion !== undefined && {
           hashVersion: patch.hashVersion,
         }),
+        ...(patch.sparse !== undefined && { sparse: patch.sparse }),
       };
       return updated;
     } else {
@@ -171,6 +177,7 @@ export function applyPatch(
           hashAttribute: effectiveHashAttr,
         }),
         ...(patch.seed !== undefined && { seed: patch.seed }),
+        ...(patch.sparse !== undefined && { sparse: patch.sparse }),
       };
       return updated;
     }
@@ -282,6 +289,16 @@ export const putFeatureRevisionRule = createApiRequestHandler(
         );
     }
     const updatedRule = applyPatch(oldRule, patch);
+
+    // A coverage patch can convert a force rule to a rollout, which arrives
+    // seedless. Existing rollouts already carry a seed and are left untouched.
+    addIdsToFlatRules([updatedRule as FeatureRule], feature.id);
+
+    // Enforce the feature's JSON schema on the patched rule values (no-op for
+    // config-backed values). Opt out with ?skipSchemaValidation=true.
+    assertFeatureValuesValid(req.context, feature, {
+      rules: [updatedRule as FeatureRule],
+    });
 
     // Only validate fields in the patch, so edits don't break on stale refs
     // elsewhere in the rule (e.g. since-deleted saved groups).

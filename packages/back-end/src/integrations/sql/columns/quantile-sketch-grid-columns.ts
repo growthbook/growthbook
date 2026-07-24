@@ -3,6 +3,7 @@ import type { SqlDialect } from "shared/types/sql";
 import { N_STAR_VALUES } from "back-end/src/services/experimentQueries/constants";
 
 import { getQuantileBoundValues } from "back-end/src/integrations/sql/columns/quantile-bound-values";
+import { getQuantileGridArrayColumn } from "back-end/src/integrations/sql/columns/quantile-grid-array-column";
 
 export function getQuantileSketchGridColumns(
   dialect: SqlDialect,
@@ -10,7 +11,20 @@ export function getQuantileSketchGridColumns(
   sketchCol: string,
   prefix: string,
 ): string {
-  return `, ${dialect.quantileSketchExtractPoint(sketchCol, metricQuantileSettings.quantile)} AS ${prefix}quantile
+  const asArray = dialect.hasArrayQuantileGrid();
+  const centralCol = `, ${dialect.quantileSketchExtractPoint(sketchCol, metricQuantileSettings.quantile)} AS ${prefix}quantile`;
+
+  if (asArray) {
+    return `${centralCol}
+    ${getQuantileGridArrayColumn(
+      dialect,
+      metricQuantileSettings.quantile,
+      prefix,
+      (bound) => dialect.quantileSketchExtractPoint(sketchCol, bound),
+    )}`;
+  }
+
+  return `${centralCol}
     ${N_STAR_VALUES.map((nstar) => {
       const { lower, upper } = getQuantileBoundValues(
         metricQuantileSettings.quantile,

@@ -25,31 +25,36 @@ import {
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Badge from "@/ui/Badge";
 import { useUser } from "@/services/UserContext";
+import { useIncrementalPipelineUnsupportedReason } from "@/hooks/useIncrementalPipelineUnsupportedReason";
 import { useSnapshot } from "./SnapshotProvider";
 
 export function canShowRefreshMenuItem({
   forceRefresh,
   datasource,
   canRunExperimentQueries,
-  isExperimentIncludedInIncrementalRefresh,
-  dimension,
 }: {
   forceRefresh?: () => Promise<void>;
   datasource?: DataSourceInterfaceWithParams | null;
   canRunExperimentQueries: boolean;
-  isExperimentIncludedInIncrementalRefresh: boolean;
-  dimension?: string;
 }): boolean {
   if (!forceRefresh) return false;
   if (!datasource) return false;
   if (!canRunExperimentQueries) return false;
+  return true;
+}
 
-  // allowFullRefresh mirrors component logic
-  const allowFullRefresh =
-    !isExperimentIncludedInIncrementalRefresh ||
-    (!dimension && isExperimentIncludedInIncrementalRefresh);
-
-  return allowFullRefresh;
+export function shouldOfferMenuRefresh({
+  isIncremental,
+  dimension,
+  overallNeedsFullRefresh,
+}: {
+  isIncremental: boolean;
+  dimension?: string;
+  overallNeedsFullRefresh: boolean;
+}): boolean {
+  if (isIncremental && dimension) return false;
+  if (overallNeedsFullRefresh) return false;
+  return true;
 }
 
 export function isExperimentExcludedFromIncrementalRefresh({
@@ -140,8 +145,18 @@ export default function ResultMoreMenu({
     ? getIsExperimentIncludedInIncrementalRefresh(
         datasource ?? undefined,
         experiment.id,
+        experiment.type,
       )
     : false;
+
+  // An experiment that is unsupported by Incremental Pipeline mode
+  // will always do a full rescan.
+  // So Full Refresh does not apply.
+  const incrementalPipelineUnsupportedReason =
+    useIncrementalPipelineUnsupportedReason(experiment);
+  const runsIncrementalRefresh =
+    isExperimentIncludedInIncrementalRefresh &&
+    !incrementalPipelineUnsupportedReason;
 
   const experimentExcludedFromIncrementalRefresh =
     isExperimentExcludedFromIncrementalRefresh({
@@ -154,7 +169,7 @@ export default function ResultMoreMenu({
 
   const { getExperimentMetricById, getDimensionById, ready } = useDefinitions();
 
-  const rerunAllQueriesText = isExperimentIncludedInIncrementalRefresh
+  const rerunAllQueriesText = runsIncrementalRefresh
     ? "Full refresh"
     : !hasData
       ? "Force update"
@@ -314,7 +329,7 @@ export default function ResultMoreMenu({
 
   // Re-enable Incremental Refresh: drops the experiment from the exclusion
   // list and (if the datasource defaults to ephemeral) adds it to the
-  // opt-in list. Mirror of handleDisableIncrementalRefresh.
+  // opt-in list.
   const handleReenableIncrementalRefresh = useCallback(async () => {
     if (!datasource || !experiment) return;
 
@@ -400,13 +415,11 @@ export default function ResultMoreMenu({
               (datasource &&
                 permissionsUtil.canRunExperimentQueries(datasource)) ??
               false,
-            isExperimentIncludedInIncrementalRefresh,
-            dimension,
           }) && (
             <DropdownMenuItem
               onClick={handleForceRefresh}
               confirmation={
-                isExperimentIncludedInIncrementalRefresh
+                runsIncrementalRefresh
                   ? {
                       confirmationTitle: "Full Refresh",
                       cta: "I understand",

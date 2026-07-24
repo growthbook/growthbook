@@ -1,6 +1,6 @@
 import { SnapshotMetric } from "shared/types/experiment-snapshot";
 import { DifferenceType, StatsEngine } from "shared/types/stats";
-import { ExperimentMetricInterface } from "shared/experiments";
+import { ExperimentMetricDefinition } from "shared/experiments";
 import { RowResults } from "@/services/experiments";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useResultPopover } from "./useResultPopover";
@@ -8,7 +8,7 @@ import { useResultPopover } from "./useResultPopover";
 interface UseColumnStatusPopoversOptions {
   stats: SnapshotMetric;
   rowResults: RowResults;
-  metric?: ExperimentMetricInterface;
+  metric?: ExperimentMetricDefinition;
   pValueThreshold: number;
   differenceType?: DifferenceType;
   statsEngine?: StatsEngine;

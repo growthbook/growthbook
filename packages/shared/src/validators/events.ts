@@ -21,6 +21,8 @@ import {
   rampScheduleCreatedPayload,
   rampScheduleDeletedPayload,
   rampScheduleJumpedPayload,
+  rampScheduleAwaitingStartApprovalPayload,
+  rampScheduleStartApprovedPayload,
 } from "./ramp-schedule-notifications";
 import {
   featureRevisionCreatedPayload,
@@ -30,15 +32,62 @@ import {
   featureRevisionChangesRequestedPayload,
   featureRevisionCommentedPayload,
   featureRevisionDiscardedPayload,
+  featureRevisionReopenedPayload,
   featureRevisionRebasedPayload,
   featureRevisionPublishedPayload,
   featureRevisionRevertedPayload,
+  featureRevisionPublishFailedPayload,
 } from "./feature-revision-notifications";
 
 import { experimentWarningNotificationPayload } from "./experiment-warnings";
 import { experimentInfoSignificance } from "./experiment-info";
 import { experimentDecisionNotificationPayload } from "./experiment-decision";
 import { userLoginInterface } from "./users";
+import { apiSavedGroupValidator } from "./saved-group";
+import {
+  savedGroupRevisionCreatedPayload,
+  savedGroupRevisionUpdatedPayload,
+  savedGroupRevisionReviewRequestedPayload,
+  savedGroupRevisionApprovedPayload,
+  savedGroupRevisionChangesRequestedPayload,
+  savedGroupRevisionCommentedPayload,
+  savedGroupRevisionDiscardedPayload,
+  savedGroupRevisionRebasedPayload,
+  savedGroupRevisionPublishedPayload,
+  savedGroupRevisionRevertedPayload,
+  savedGroupRevisionReopenedPayload,
+  savedGroupRevisionPublishFailedPayload,
+} from "./saved-group-revision-notifications";
+import { apiConstantValidator } from "./constant";
+import {
+  constantRevisionCreatedPayload,
+  constantRevisionUpdatedPayload,
+  constantRevisionReviewRequestedPayload,
+  constantRevisionApprovedPayload,
+  constantRevisionChangesRequestedPayload,
+  constantRevisionCommentedPayload,
+  constantRevisionDiscardedPayload,
+  constantRevisionRebasedPayload,
+  constantRevisionPublishedPayload,
+  constantRevisionRevertedPayload,
+  constantRevisionReopenedPayload,
+  constantRevisionPublishFailedPayload,
+} from "./constant-revision-notifications";
+import { apiConfigValidator } from "./config";
+import {
+  configRevisionCreatedPayload,
+  configRevisionUpdatedPayload,
+  configRevisionReviewRequestedPayload,
+  configRevisionApprovedPayload,
+  configRevisionChangesRequestedPayload,
+  configRevisionCommentedPayload,
+  configRevisionDiscardedPayload,
+  configRevisionRebasedPayload,
+  configRevisionPublishedPayload,
+  configRevisionRevertedPayload,
+  configRevisionReopenedPayload,
+  configRevisionPublishFailedPayload,
+} from "./config-revision-notifications";
 
 // Re-export for consumers of shared/validators
 export { eventUser } from "./event-user";
@@ -127,11 +176,21 @@ export const notificationEvents = {
     "rampSchedule.actions.step.advanced": {
       schema: rampScheduleStepAdvancedPayload,
       description:
-        "Triggered when a feature ramp schedule advances to the next step",
+        "Triggered when a feature ramp schedule advances. Overdue steps are caught up in a single advance: when `currentStepIndex - previousStepIndex > 1`, the intermediate steps were folded into this one event (one revision publish) rather than fired individually.",
     },
     "rampSchedule.actions.step.approvalRequired": {
       schema: rampScheduleStepApprovalRequiredPayload,
       description: "Triggered when a feature ramp step is waiting for approval",
+    },
+    "rampSchedule.actions.awaitingStartApproval": {
+      schema: rampScheduleAwaitingStartApprovalPayload,
+      description:
+        "Triggered when a feature ramp schedule is published but held at the start, awaiting an explicit start approval",
+    },
+    "rampSchedule.actions.startApproved": {
+      schema: rampScheduleStartApprovedPayload,
+      description:
+        "Triggered when a held ramp schedule's start is approved by a user",
     },
     "revision.created": {
       schema: featureRevisionCreatedPayload,
@@ -164,6 +223,11 @@ export const notificationEvents = {
       schema: featureRevisionDiscardedPayload,
       description: "Triggered when a draft revision is discarded",
     },
+    "revision.reopened": {
+      schema: featureRevisionReopenedPayload,
+      description:
+        "Triggered when a discarded draft revision is reopened as a draft",
+    },
     "revision.rebased": {
       schema: featureRevisionRebasedPayload,
       description:
@@ -178,6 +242,11 @@ export const notificationEvents = {
       schema: featureRevisionRevertedPayload,
       description:
         "Triggered when a feature is reverted to a previous published revision",
+    },
+    "revision.publishFailed": {
+      schema: featureRevisionPublishFailedPayload,
+      description:
+        "Triggered when a deferred publish (scheduled publish or auto-publish-on-approval) is given up on after failing — terminally, or after exhausting retries. The draft is left open for a human to resolve.",
     },
   },
   experiment: {
@@ -214,6 +283,216 @@ export const notificationEvents = {
     "decision.review": {
       schema: experimentDecisionNotificationPayload,
       description: `Triggered when an experiment has reached the desired power point, but the results may be ambiguous.`,
+    },
+  },
+  savedGroup: {
+    created: {
+      schema: apiSavedGroupValidator,
+      description: "Triggered when a saved group is created",
+    },
+    updated: {
+      schema: apiSavedGroupValidator,
+      description: "Triggered when a saved group is updated",
+      isDiff: true,
+    },
+    deleted: {
+      schema: apiSavedGroupValidator,
+      description: "Triggered when a saved group is deleted",
+    },
+    "revision.created": {
+      schema: savedGroupRevisionCreatedPayload,
+      description:
+        "Triggered when a new draft revision is created for a saved group",
+    },
+    "revision.updated": {
+      schema: savedGroupRevisionUpdatedPayload,
+      description:
+        "Triggered when a draft revision's proposed changes are modified (values, condition, archive, or metadata). The `change` field indicates the kind of mutation.",
+    },
+    "revision.reviewRequested": {
+      schema: savedGroupRevisionReviewRequestedPayload,
+      description: "Triggered when a draft revision is submitted for review",
+    },
+    "revision.approved": {
+      schema: savedGroupRevisionApprovedPayload,
+      description: "Triggered when a draft revision is approved by a reviewer",
+    },
+    "revision.changesRequested": {
+      schema: savedGroupRevisionChangesRequestedPayload,
+      description:
+        "Triggered when a reviewer requests changes on a draft revision",
+    },
+    "revision.commented": {
+      schema: savedGroupRevisionCommentedPayload,
+      description: "Triggered when a comment is added to a draft revision",
+    },
+    "revision.discarded": {
+      schema: savedGroupRevisionDiscardedPayload,
+      description: "Triggered when a draft revision is discarded",
+    },
+    "revision.rebased": {
+      schema: savedGroupRevisionRebasedPayload,
+      description:
+        "Triggered when a draft revision is rebased onto the latest live state",
+    },
+    "revision.published": {
+      schema: savedGroupRevisionPublishedPayload,
+      description:
+        "Triggered when a draft revision is published. Overlaps with `savedGroup.updated` but provides revision-specific context.",
+    },
+    "revision.reverted": {
+      schema: savedGroupRevisionRevertedPayload,
+      description:
+        "Triggered when a saved group is reverted to a previous published revision",
+    },
+    "revision.reopened": {
+      schema: savedGroupRevisionReopenedPayload,
+      description: "Triggered when a discarded revision is reopened",
+    },
+    "revision.publishFailed": {
+      schema: savedGroupRevisionPublishFailedPayload,
+      description:
+        "Triggered when a deferred publish (scheduled publish or auto-publish-on-approval) is given up on after failing — terminally, or after exhausting retries. The draft is left open for a human to resolve.",
+    },
+  },
+  constant: {
+    created: {
+      schema: apiConstantValidator,
+      description: "Triggered when a constant is created",
+    },
+    updated: {
+      schema: apiConstantValidator,
+      description: "Triggered when a constant is updated",
+      isDiff: true,
+    },
+    deleted: {
+      schema: apiConstantValidator,
+      description: "Triggered when a constant is deleted",
+    },
+    "revision.created": {
+      schema: constantRevisionCreatedPayload,
+      description:
+        "Triggered when a new draft revision is created for a constant",
+    },
+    "revision.updated": {
+      schema: constantRevisionUpdatedPayload,
+      description:
+        "Triggered when a draft revision's proposed changes are modified (value, archive, or metadata). The `change` field indicates the kind of mutation.",
+    },
+    "revision.reviewRequested": {
+      schema: constantRevisionReviewRequestedPayload,
+      description: "Triggered when a draft revision is submitted for review",
+    },
+    "revision.approved": {
+      schema: constantRevisionApprovedPayload,
+      description: "Triggered when a draft revision is approved by a reviewer",
+    },
+    "revision.changesRequested": {
+      schema: constantRevisionChangesRequestedPayload,
+      description:
+        "Triggered when a reviewer requests changes on a draft revision",
+    },
+    "revision.commented": {
+      schema: constantRevisionCommentedPayload,
+      description: "Triggered when a comment is added to a draft revision",
+    },
+    "revision.discarded": {
+      schema: constantRevisionDiscardedPayload,
+      description: "Triggered when a draft revision is discarded",
+    },
+    "revision.rebased": {
+      schema: constantRevisionRebasedPayload,
+      description:
+        "Triggered when a draft revision is rebased onto the latest live state",
+    },
+    "revision.published": {
+      schema: constantRevisionPublishedPayload,
+      description:
+        "Triggered when a draft revision is published. Overlaps with `constant.updated` but provides revision-specific context.",
+    },
+    "revision.reverted": {
+      schema: constantRevisionRevertedPayload,
+      description:
+        "Triggered when a constant is reverted to a previous published revision",
+    },
+    "revision.reopened": {
+      schema: constantRevisionReopenedPayload,
+      description: "Triggered when a discarded revision is reopened",
+    },
+    "revision.publishFailed": {
+      schema: constantRevisionPublishFailedPayload,
+      description:
+        "Triggered when a deferred publish (scheduled publish or auto-publish-on-approval) is given up on after failing — terminally, or after exhausting retries. The draft is left open for a human to resolve.",
+    },
+  },
+  config: {
+    created: {
+      schema: apiConfigValidator,
+      description: "Triggered when a config is created",
+    },
+    updated: {
+      schema: apiConfigValidator,
+      description: "Triggered when a config is updated",
+      isDiff: true,
+    },
+    deleted: {
+      schema: apiConfigValidator,
+      description: "Triggered when a config is deleted",
+    },
+    "revision.created": {
+      schema: configRevisionCreatedPayload,
+      description:
+        "Triggered when a new draft revision is created for a config",
+    },
+    "revision.updated": {
+      schema: configRevisionUpdatedPayload,
+      description:
+        "Triggered when a draft revision's proposed changes are modified (value, schema, archive, or metadata). The `change` field indicates the kind of mutation.",
+    },
+    "revision.reviewRequested": {
+      schema: configRevisionReviewRequestedPayload,
+      description: "Triggered when a draft revision is submitted for review",
+    },
+    "revision.approved": {
+      schema: configRevisionApprovedPayload,
+      description: "Triggered when a draft revision is approved by a reviewer",
+    },
+    "revision.changesRequested": {
+      schema: configRevisionChangesRequestedPayload,
+      description:
+        "Triggered when a reviewer requests changes on a draft revision",
+    },
+    "revision.commented": {
+      schema: configRevisionCommentedPayload,
+      description: "Triggered when a comment is added to a draft revision",
+    },
+    "revision.discarded": {
+      schema: configRevisionDiscardedPayload,
+      description: "Triggered when a draft revision is discarded",
+    },
+    "revision.rebased": {
+      schema: configRevisionRebasedPayload,
+      description:
+        "Triggered when a draft revision is rebased onto the latest live state",
+    },
+    "revision.published": {
+      schema: configRevisionPublishedPayload,
+      description:
+        "Triggered when a draft revision is published. Overlaps with `config.updated` but provides revision-specific context.",
+    },
+    "revision.reverted": {
+      schema: configRevisionRevertedPayload,
+      description:
+        "Triggered when a config is reverted to a previous published revision",
+    },
+    "revision.reopened": {
+      schema: configRevisionReopenedPayload,
+      description: "Triggered when a discarded revision is reopened",
+    },
+    "revision.publishFailed": {
+      schema: configRevisionPublishFailedPayload,
+      description:
+        "Triggered when a deferred publish (scheduled publish or auto-publish-on-approval) is given up on after failing — terminally, or after exhausting retries. The draft is left open for a human to resolve.",
     },
   },
   user: {
@@ -307,6 +586,10 @@ export const notificationEventPayload = <
     data: notificationEventPayloadData(resource, event),
     user: eventUser,
     tags: z.array(z.string()),
-    environments: z.array(z.string()),
+    environments: z
+      .array(z.string())
+      .describe(
+        "The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter).",
+      ),
     containsSecrets: z.boolean(),
   });

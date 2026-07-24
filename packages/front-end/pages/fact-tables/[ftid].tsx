@@ -1,22 +1,24 @@
 import { useRouter } from "next/router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import {
   FactTableInterface,
   FactMetricInterface,
 } from "shared/types/fact-table";
-import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
+import Callout from "@/ui/Callout";
 import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBEdit } from "@/components/Icons";
 import { useAuth } from "@/services/auth";
 import FactTableModal from "@/components/FactTables/FactTableModal";
 import Code from "@/components/SyntaxHighlighting/Code";
 import ColumnList from "@/components/FactTables/ColumnList";
+import AggregatedFactTablesCard from "@/components/FactTables/AggregatedFactTablesCard";
 import FactFilterList from "@/components/FactTables/FactFilterList";
 import EditProjectsForm from "@/components/Projects/EditProjectsForm";
 import PageHead from "@/components/Layout/PageHead";
@@ -42,10 +44,9 @@ import {
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
 import { useUser } from "@/services/UserContext";
-import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
-import Callout from "@/ui/Callout";
 import Modal from "@/components/Modal";
 import HistoryTable from "@/components/HistoryTable";
+import OpenInExplorerButton from "@/enterprise/components/ProductAnalytics/OpenInExplorerButton";
 
 export function getMetricsForFactTable(
   factMetrics: FactMetricInterface[],
@@ -80,7 +81,7 @@ export default function FactTablePage() {
   const { apiCall } = useAuth();
 
   const permissionsUtil = usePermissionsUtil();
-  const { hasCommercialFeature, organization, getOwnerDisplay } = useUser();
+  const { hasCommercialFeature, getOwnerDisplay } = useUser();
 
   const {
     getFactTableById,
@@ -91,23 +92,45 @@ export default function FactTablePage() {
     _factMetricsIncludingArchived: factMetrics,
     getDatasourceById,
   } = useDefinitions();
-  const factTable = getFactTableById(ftid as string);
+  // Definitions only contain a slimmed fact table (no sql or per-column
+  // jsonFields), so fetch the full version for this page
+  const factTableDefinition = getFactTableById(ftid as string);
+  const {
+    data,
+    error: factTableError,
+    mutate: mutateFactTable,
+  } = useApi<{ factTable: FactTableInterface }>(`/fact-tables/${ftid}`, {
+    shouldRun: () => !!ftid,
+  });
+  const factTable = data?.factTable;
+
+  // Child modals refresh definitions after saving; cascade that to the full
+  // fact table fetch so this page never shows stale data. Keying off the whole
+  // definition (not dateUpdated) is intentional: background column refreshes
+  // update columns without bumping dateUpdated.
+  useEffect(() => {
+    mutateFactTable();
+  }, [factTableDefinition, mutateFactTable]);
 
   const metrics = getMetricsForFactTable(factMetrics, factTable?.id || "");
 
-  if (!ready) return <LoadingOverlay />;
+  if (!ready || (!data && !factTableError)) return <LoadingOverlay />;
 
   if (!factTable) {
     return (
-      <div className="alert alert-danger">
+      <Callout status="error">
         Could not find the requested fact table.{" "}
         <Link href="/fact-tables">Back to all fact tables</Link>
-      </div>
+      </Callout>
     );
   }
   const canDuplicate = permissionsUtil.canCreateFactTable({
     projects: factTable.projects,
   });
+  const datasource = getDatasourceById(factTable.datasource);
+  const canOpenInExplorer = datasource
+    ? permissionsUtil.canRunFactQueries(datasource)
+    : false;
 
   let canEdit = permissionsUtil.canUpdateFactTable(factTable, factTable);
   let canDelete = permissionsUtil.canDeleteFactTable(factTable);
@@ -222,6 +245,7 @@ export default function FactTablePage() {
       )}
       {auditModal && (
         <Modal
+          useRadixButton={false}
           trackingEventModalType=""
           open={true}
           header="Audit Log"
@@ -239,30 +263,12 @@ export default function FactTablePage() {
         ]}
       />
 
-      {factTable.projects?.includes(
-        getDemoDatasourceProjectIdForOrganization(organization.id),
-      ) && (
-        <Callout status="info" mb="4">
-          <Flex align="center" justify="between" gap="3">
-            <div>
-              This Fact Table is part of our sample dataset. You can safely
-              delete this once you are done exploring.
-            </div>
-            <DeleteDemoDatasourceButton
-              onDelete={() => router.push("/fact-tables")}
-              source="fact-table"
-              asLink
-            />
-          </Flex>
-        </Callout>
-      )}
-
       {factTable.archived && (
-        <div className="alert alert-secondary mb-2">
+        <Callout status="info" mb="2">
           <strong>This Fact Table is archived.</strong> Existing references will
           continue working, but you will be unable to add metrics from this Fact
           Table to new experiments.
-        </div>
+        </Callout>
       )}
       <Flex align="start" justify="between" gap="2" mb="2">
         <Flex align="center" gap="3" style={{ marginTop: "-4px" }}>
@@ -275,7 +281,14 @@ export default function FactTablePage() {
             />
           </Heading>
         </Flex>
-        <Flex align="center" pr="2">
+        <Flex align="center" gap="2" pr="2">
+          <OpenInExplorerButton
+            enabled={canOpenInExplorer}
+            href={`/product-analytics/explore/fact-table?factTableId=${encodeURIComponent(
+              factTable.id,
+            )}`}
+            tooltip="Open this Fact Table in the Product Analytics Explorer and view trends, compare time periods, and slice/dice your data."
+          />
           <DropdownMenu
             trigger={
               <IconButton
@@ -447,7 +460,7 @@ export default function FactTablePage() {
               href={`/datasources/${factTable.datasource}`}
               className="font-weight-bold"
             >
-              {getDatasourceById(factTable.datasource)?.name || "Unknown"}
+              {datasource?.name || "Unknown"}
             </Link>
           }
         />
@@ -579,6 +592,8 @@ export default function FactTablePage() {
           </TabsContent>
         </Box>
       </Tabs>
+
+      <AggregatedFactTablesCard factTable={factTable} />
     </div>
   );
 }

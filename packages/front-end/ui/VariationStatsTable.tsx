@@ -1,7 +1,7 @@
 import { Flex, Text } from "@radix-ui/themes";
 import { SnapshotMetric } from "shared/types/experiment-snapshot";
 import {
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
   quantileMetricType,
   isFactMetric,
 } from "shared/experiments";
@@ -35,7 +35,7 @@ export interface VariationStatRow {
 }
 
 interface VariationStatsTableProps {
-  metric: ExperimentMetricInterface;
+  metric: ExperimentMetricDefinition;
   rows: VariationStatRow[];
   isBandit?: boolean;
   ssrPolyfills?: SSRPolyfills;

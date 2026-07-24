@@ -130,7 +130,7 @@ const PendingMemberList: FC<{
                   </button>
                 </td>
                 <td>
-                  <MoreMenu>
+                  <MoreMenu useRadix={false}>
                     <button
                       className="dropdown-item"
                       onClick={(e) => {
@@ -141,6 +141,7 @@ const PendingMemberList: FC<{
                       Edit Role
                     </button>
                     <DeleteButton
+                      useRadix={false}
                       link={true}
                       text="Remove User"
                       useIcon={false}

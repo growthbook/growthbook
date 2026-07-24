@@ -22,12 +22,13 @@ Open **Product Analytics** in the left sidebar. From the landing page, you can:
 - **Ask a question with AI Chat** — Type a question like "How many signups did we have last week, broken out by country?" and let GrowthBook generate the exploration for you.
 - **Choose an explorer manually** — Pick the type that matches the shape of your data:
 
-| Explorer        | When to use it                                                                                           |
-| :-------------- | :------------------------------------------------------------------------------------------------------- |
-| **Metrics**     | Visualize one or more existing GrowthBook metrics over time.                                             |
-| **Fact Table**  | Aggregate a fact table — counts, distinct units, or a sum of a numeric column.                           |
-| **Data Source** | Query any timestamped table in your warehouse without first defining a fact table.                       |
-| **Custom SQL**  | Write your own `SELECT` query and visualize the result. Opens [Custom SQL Reports](#custom-sql-reports). |
+| Explorer        | When to use it                                                                                                 |
+| :-------------- | :------------------------------------------------------------------------------------------------------------- |
+| **Metrics**     | Visualize one or more existing GrowthBook metrics over time.                                                   |
+| **Fact Table**  | Aggregate a fact table — counts, distinct units, or a sum of a numeric column.                                 |
+| **Data Source** | Query any timestamped table in your warehouse without first defining a fact table.                             |
+| **Funnel**      | Measure how many users complete an ordered sequence of steps and where they drop off. See [Funnels](#funnels). |
+| **Custom SQL**  | Write your own `SELECT` query and visualize the result. Opens [Custom SQL Reports](#custom-sql-reports).       |
 
 Each explorer opens with the same layout: a chart on the left, a configuration sidebar on the right, and a toolbar above the chart for chart type, date range, and granularity.
 
@@ -144,6 +145,65 @@ A few rules apply automatically:
 For time-series charts, **Granularity** controls how dates are bucketed: `Auto`, `By Hour`, `By Day`, `By Week`, `By Month`, `By Year`. `Auto` picks a sensible bucket based on the date range (e.g., a 7-day window auto-selects `By Day`, a 1-year window auto-selects `By Week`).
 
 Granularities that would produce too many or too few buckets for the selected date range are hidden from the dropdown.
+
+## Funnels
+
+The Funnel explorer measures how many users complete a sequence of steps and where they drop off. Use it to answer questions like "of the users who viewed a product, how many added it to a cart, and then checked out?"
+
+Pick **Funnel** from the explorer list. A funnel uses the same chart-and-sidebar layout as the other explorers, but instead of a list of values you configure an ordered list of **steps**.
+
+### Steps
+
+A funnel is an ordered list of steps, and it needs at least two. Click **Add step** to append one. Each step has:
+
+- **Name** — Double-click the step header to rename it. Defaults to `Step N`.
+- **Fact table** — Where the step's events come from. The first step sets the funnel's fact table; each later step **inherits from the previous step** and can **Override fact table** to point somewhere else. This lets one funnel span multiple fact tables, for example a `views` table for step 1 and an `orders` table for step 2.
+- **Row filters** — Applied per step to define what counts as completing it, such as `event_name = add_to_cart`. These work exactly like [Row Filters](#row-filters) elsewhere in the Explorer.
+
+### User identifier
+
+A funnel counts unique units that move through the steps in order, matched by a single identifier that exists on **every** step's fact table. If the steps don't share an identifier type, GrowthBook shows "No shared user identifier across steps" and the funnel won't run until the steps have one in common.
+
+:::tip
+The identifier doesn't have to be a user. If your fact tables share a session identifier, counting by it turns the funnel into a per-session funnel. To use a value that lives inside a JSON column, expose it as its own identifier column in the fact table's SQL first.
+:::
+
+### Optional steps and conversion windows
+
+Steps after the first have an **Advanced Options** section:
+
+- **Optional step** — Users who skip this step can still convert to later steps. Use it for steps that aren't required to continue.
+- **Conversion window** — How long after the previous step a user has to complete this step and still count. Enter a number and a unit: `minutes`, `hours`, `days`, or `weeks`. With no conversion window, a step counts as long as it happens after the previous one.
+
+### Breaking down a funnel
+
+Add a dimension in the **Group By** section to split the funnel by a property, such as country or plan. Funnels use a single, first-touch dimension: each unit is bucketed by the dimension value on its first step.
+
+### Reading the results
+
+Switch between two views from the toolbar:
+
+- **Funnel** — One bar per step, with the drop-off to the next step shown behind it.
+- **Funnel Table** — The same data in tabular form.
+
+The y-axis toggle controls how each step is measured:
+
+- **Unit Count** — The number of units that reached the step.
+- **Percent** — The share of the starting cohort that reached the step.
+
+Each step after the first also reports the average time to convert from the previous step.
+
+### Supported data sources
+
+Funnels run on Postgres, ClickHouse (including the [Managed Warehouse](/app/managed-warehouse)), BigQuery, Snowflake, Athena, Presto, and Databricks.
+
+:::note
+Redshift, Vertica, MySQL, and MSSQL are not yet supported for funnels. The Funnel explorer is hidden for data sources it can't query.
+:::
+
+### Saving and sharing
+
+Like any other exploration, a funnel can be [saved to a dashboard](#save-to-dashboard) or [shared as a link](#share-a-link).
 
 ## Running and Refreshing
 

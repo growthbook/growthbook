@@ -146,9 +146,11 @@ describe("Experiment Significance notifications", () => {
       }),
     );
 
-    await experiments.map(async (exp) => {
-      await ExperimentModel.create(exp);
-    });
+    await Promise.all(
+      experiments.map(async (exp) => {
+        await ExperimentModel.create(exp);
+      }),
+    );
   });
 
   it("detects significance", async () => {

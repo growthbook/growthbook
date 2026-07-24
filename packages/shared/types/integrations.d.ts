@@ -2,7 +2,13 @@ import { BigQueryTimestamp } from "@google-cloud/bigquery";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { MetricAnalysisSettings } from "shared/types/metric-analysis";
 import { DimensionInterface } from "shared/types/dimension";
-import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import { AttributionModel } from "shared/types/experiment";
+import {
+  ExperimentSnapshotSettings,
+  MetricForSnapshot,
+  SnapshotBanditSettings,
+  SnapshotSettingsVariation,
+} from "shared/types/experiment-snapshot";
 import { MetricInterface, MetricType } from "shared/types/metric";
 import { QueryStatistics } from "shared/types/query";
 import {
@@ -15,7 +21,7 @@ import {
 } from "shared/types/fact-table";
 import type { PopulationDataQuerySettings } from "shared/types/query";
 import { SegmentInterface } from "shared/types/segment";
-import { TemplateVariables } from "shared/types/sql";
+import { PhaseSQLVar, TemplateVariables } from "shared/types/sql";
 
 export interface PipelineIntegration {
   getExperimentUnitsTableQueryFromCte(
@@ -293,17 +299,34 @@ export type ColumnTopValuesParams = {
   factTable: Pick<FactTableInterface, "sql" | "eventName">;
   columns: ColumnInterface[];
   limit?: number;
-  lookbackDays?: number;
+  lookbackDays: number;
   maxValueLength?: number;
 };
+
+/** Rows are returned most-frequent-first per column. */
 export type ColumnTopValuesResponseRow = {
   column: string;
   value: string;
-  count: number;
 };
+
+export interface ExperimentUnitsQuerySettings {
+  experimentId: string;
+  exposureQuery: { query: string; userIdType: string };
+  startDate: Date;
+  endDate: Date;
+  skipPartialData: boolean;
+  attributionModel: AttributionModel;
+  queryFilter: string;
+  phase?: PhaseSQLVar;
+  customFields?: Record<string, unknown>;
+  variations: SnapshotSettingsVariation[];
+  banditSettings?: SnapshotBanditSettings;
+  metricSettings: MetricForSnapshot[];
+}
 
 interface ExperimentBaseQueryParams {
   settings: ExperimentSnapshotSettings;
+  unitsSettings: ExperimentUnitsQuerySettings;
   activationMetric: ExperimentMetricInterface | null;
   factTableMap: FactTableMap;
   dimensions: Dimension[];
@@ -311,12 +334,23 @@ interface ExperimentBaseQueryParams {
   unitsTableFullName?: string;
 }
 
-export interface ExperimentUnitsQueryParams extends ExperimentBaseQueryParams {
+export interface ExperimentUnitsQueryParams {
+  unitsSettings: ExperimentUnitsQuerySettings;
+  activationMetric: ExperimentMetricInterface | null;
+  factTableMap: FactTableMap;
+  dimensions: Dimension[];
+  segment: SegmentInterface | null;
+  unitsTableFullName?: string;
   includeIdJoins: boolean;
+}
+
+export interface ContextualBanditSrmQueryParams {
+  settings: ExperimentUnitsQuerySettings;
 }
 
 export interface CreateExperimentIncrementalUnitsQueryParams {
   settings: ExperimentSnapshotSettings;
+  exposureQuery: ResolvedExposureQuery;
   activationMetric: ExperimentMetricInterface | null;
   dimensions: Dimension[];
   factTableMap: FactTableMap;
@@ -353,6 +387,7 @@ export interface MaxTimestampMetricSourceQueryParams {
 
 export interface CreateMetricSourceTableQueryParams {
   settings: ExperimentSnapshotSettings;
+  exposureQuery: ResolvedExposureQuery;
   // The fact table this cache is rooted in. Schema generation uses this to
   // decide, for each metric, which of its sides (numerator, denominator) the
   // cache materializes — a cross-FT ratio metric's numerator-only cache lives
@@ -366,6 +401,7 @@ export interface CreateMetricSourceTableQueryParams {
 
 export interface InsertMetricSourceDataQueryParams {
   settings: ExperimentSnapshotSettings;
+  exposureQuery: ResolvedExposureQuery;
   activationMetric: ExperimentMetricInterface | null;
   factTableMap: FactTableMap;
   // The fact table whose rows feed this cache. For cross-FT ratio metrics
@@ -384,6 +420,7 @@ export interface DropMetricSourceCovariateTableQueryParams {
 
 export interface CreateMetricSourceCovariateTableQueryParams {
   settings: ExperimentSnapshotSettings;
+  exposureQuery: ResolvedExposureQuery;
   // The fact table this covariate cache is rooted in. Like the metric source
   // schema, only the side(s) this FT actually hosts get materialized — a
   // cross-FT ratio metric's numerator-only covariate cache lives in its
@@ -396,6 +433,7 @@ export interface CreateMetricSourceCovariateTableQueryParams {
 
 export interface InsertMetricSourceCovariateDataQueryParams {
   settings: ExperimentSnapshotSettings;
+  exposureQuery: ResolvedExposureQuery;
   activationMetric: ExperimentMetricInterface | null;
   factTableMap: FactTableMap;
   // The fact table whose rows feed this covariate cache. Disambiguates which
@@ -405,25 +443,75 @@ export interface InsertMetricSourceCovariateDataQueryParams {
   unitsSourceTableFullName: string;
   metrics: FactMetricInterface[];
   lastCovariateSuccessfulMaxTimestamp: Date | null;
+  // When true, snap the raw scan to daily grain so this fallback covers the same
+  // days the pre-aggregated table would.
+  alignLegacyScanToDailyGrain: boolean;
+}
+
+// Reads daily partials from an aggregated fact table and re-aggregates them per
+// unit into the experiment covariate cache, in place of scanning raw events.
+export interface InsertMetricSourceCovariateFromAggregatedFactTableQueryParams {
+  settings: ExperimentSnapshotSettings;
+  exposureQuery: ResolvedExposureQuery;
+  activationMetric: ExperimentMetricInterface | null;
+  factTableMap: FactTableMap;
+  factTableId: string;
+  metricSourceCovariateTableFullName: string;
+  unitsSourceTableFullName: string;
+  metrics: FactMetricInterface[];
+  lastCovariateSuccessfulMaxTimestamp: Date | null;
+  // Warehouse table the daily partials are read from (registry.tableFullName).
+  aggregatedTableFullName: string;
+  // Native id type the aggregated table is keyed on (= exposure userIdType).
+  idType: string;
+}
+
+// ---- Shared daily aggregated fact tables (materialization only) ----
+//
+// Daily per-id aggregates of a single fact table, one warehouse table per
+// (organization, datasource, factTable, idType), appended insert-only at the
+// native `<idType>` + `event_date` grain.
+
+export interface CreateAggregatedFactTableQueryParams {
+  factTableId: string;
+  idType: string;
+  metrics: FactMetricInterface[];
+  tableFullName: string;
+  // Drop partitions older than this many days (BigQuery only).
+  retentionWindowDays?: number;
+}
+
+export interface InsertAggregatedFactTableDataQueryParams {
+  factTable: FactTableInterface;
+  idType: string;
+  metrics: FactMetricInterface[];
+  tableFullName: string;
+  // Lower bound on event timestamp: incremental uses the watermark with
+  // exclusiveStart=true; restate uses the chunk start with exclusiveStart=false.
+  windowStartDate: Date;
+  exclusiveStart: boolean;
+  // Exclusive upper bound on event timestamp. Set for all but the last chunk
+  // of a chunked restate so chunks tile [windowStart, now) half-open; null for
+  // incremental, the final restate chunk, and unchunked restates (open to "now").
+  windowEndDate: Date | null;
+}
+
+export interface AggregatedFactTableMaxTimestampQueryParams {
+  tableFullName: string;
+  scanStartDate: Date;
+}
+
+export interface DropAggregatedFactTableQueryParams {
+  tableFullName: string;
 }
 
 export interface IncrementalRefreshStatisticsQueryParams {
   settings: ExperimentSnapshotSettings;
+  exposureQuery: ResolvedExposureQuery;
   activationMetric: ExperimentMetricInterface | null;
   dimensionsForPrecomputation: ExperimentDimensionWithSpecifiedSlices[];
   dimensionsForAnalysis: Dimension[];
   factTableMap: FactTableMap;
-  // Cache tables for this query, one entry per fact table referenced by
-  // `metrics`. Single-fact-table queries pass exactly one entry; cross-fact-
-  // table ratio queries pass two. Each entry carries the cache table name
-  // (`tableFullName`) and, when the FT hosts a regression-adjusted metric,
-  // the matching covariate cache (`covariateTableFullName`). The SQL layer
-  // derives source ordering and `m{i}` aliases on the fly from the metrics'
-  // fact-table first-appearance order; the caller-supplied entry order is
-  // not significant, but every FT referenced by `metrics` (numerator and
-  // denominator) must have a matching entry. For cross-FT ratio CUPED, the
-  // numerator FT's covariate cache holds `_value` covariates and the
-  // denominator FT's holds `_denominator_value` covariates.
   metricSources: {
     factTableId: string;
     tableFullName: string;
@@ -435,12 +523,14 @@ export interface IncrementalRefreshStatisticsQueryParams {
 }
 
 type UnitsSource = "exposureQuery" | "exposureTable" | "otherQuery";
+
+export type ResolvedExposureQuery = { query: string; userIdType: string };
+
 export interface ExperimentMetricQueryParams extends ExperimentBaseQueryParams {
   metric: MetricInterface;
   denominatorMetrics: MetricInterface[];
   unitsSource: UnitsSource;
   unitsSql?: string;
-  forcedUserIdType?: string;
 }
 
 export interface ExperimentFactMetricsQueryParams
@@ -448,7 +538,6 @@ export interface ExperimentFactMetricsQueryParams
   metrics: FactMetricInterface[];
   unitsSource: UnitsSource;
   unitsSql?: string;
-  forcedUserIdType?: string;
 }
 
 export interface PopulationBaseQueryParams {
@@ -470,7 +559,7 @@ export interface ExperimentAggregateUnitsQueryParams
 }
 
 export type DimensionSlicesQueryParams = {
-  exposureQueryId: string;
+  exposureQuery: ResolvedExposureQuery;
   dimensions: ExperimentDimension[];
   lookbackDays: number;
 };
@@ -505,6 +594,7 @@ export type MetricAnalysisParams = {
   metric: FactMetricInterface;
   factTableMap: FactTableMap;
   segment: SegmentInterface | null;
+  populationExposureQuery?: ResolvedExposureQuery;
 };
 
 export type ProductAnalyticsExplorationParams = {
@@ -691,6 +781,20 @@ export type DimensionSlicesQueryResponseRows = {
   total_units: number;
 }[];
 
+export type ContextualBanditSrmQueryResponseRows = {
+  /**
+   * Chi-square statistic: SUM((observed - expected)^2 / expected) over the
+   * usable cells (expected >= 5) of the kept (leaf_id, bandit_version)
+   * groups (those with at least 2 usable cells).
+   */
+  statistic: number;
+  /**
+   * Degrees of freedom computed in SQL as
+   * (sum of usable cells across kept groups) - (number of kept groups).
+   */
+  degrees_of_freedom: number;
+}[];
+
 export type MaxTimestampQueryResponseRow = {
   max_timestamp: string;
 };
@@ -736,6 +840,8 @@ export type ExperimentAggregateUnitsQueryResponse =
   QueryResponse<ExperimentAggregateUnitsQueryResponseRows>;
 export type DimensionSlicesQueryResponse =
   QueryResponse<DimensionSlicesQueryResponseRows>;
+export type ContextualBanditSrmQueryResponse =
+  QueryResponse<ContextualBanditSrmQueryResponseRows>;
 export type DropTableQueryResponse = QueryResponse;
 export type IncrementalWithNoOutputQueryResponse = QueryResponse;
 export type MaxTimestampQueryResponse = QueryResponse<

@@ -2,9 +2,11 @@ import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import { omit } from "lodash";
 import {
+  CreateColumnProps,
   CreateFactFilterProps,
   CreateFactTableProps,
   FactFilterInterface,
+  FactTableDefinition,
   FactTableInterface,
   UpdateFactFilterProps,
   UpdateColumnProps,
@@ -17,6 +19,12 @@ import { ApiReqContext } from "back-end/types/api";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { projectFilterQuery } from "back-end/src/util/mongo.util";
 import { createModelAuditLogger } from "back-end/src/services/audit";
+import { deferAggregatedFactTableToNextSlot } from "back-end/src/services/aggregatedFactTables";
+import {
+  ensureAutoSliceDefaults,
+  normalizeJSONFieldsInput,
+  normalizePersistedColumn,
+} from "back-end/src/util/factTable";
 
 const audit = createModelAuditLogger({
   entity: "factTable",
@@ -76,6 +84,22 @@ const factTableSchema = new mongoose.Schema({
   ],
   archived: Boolean,
   autoSliceUpdatesEnabled: Boolean,
+  aggregatedFactTableSettings: {
+    _id: false,
+    type: {
+      idTypes: [String],
+      updateTime: {
+        _id: false,
+        type: {
+          time: String,
+          timezone: String,
+        },
+      },
+      lookbackWindow: Number,
+      restateChunkDays: Number,
+    },
+    default: undefined,
+  },
   columnRefreshPending: Boolean,
 });
 
@@ -95,6 +119,24 @@ function toInterface(doc: FactTableDocument): FactTableInterface {
   return omit(ret, ["__v", "_id"]);
 }
 
+export function buildColumnInterface(
+  column: CreateColumnProps,
+): ColumnInterface {
+  const columnInterface: ColumnInterface = {
+    ...column,
+    name: column.name ?? column.column,
+    description: column.description ?? "",
+    numberFormat: column.numberFormat ?? "",
+    datatype: column.datatype ?? "",
+    jsonFields: normalizeJSONFieldsInput(column.jsonFields),
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+    deleted: false,
+  };
+
+  return normalizePersistedColumn(columnInterface);
+}
+
 function createPropsToInterface(
   context: ReqContext | ApiReqContext,
   rawProps: CreateFactTableProps,
@@ -111,17 +153,7 @@ function createPropsToInterface(
   }
 
   const columns: ColumnInterface[] = props.columns
-    ? props.columns.map((column) => {
-        return {
-          ...column,
-          name: column.name ?? column.column,
-          description: column.description ?? "",
-          numberFormat: column.numberFormat ?? "",
-          dateCreated: new Date(),
-          dateUpdated: new Date(),
-          deleted: false,
-        };
-      })
+    ? props.columns.map(buildColumnInterface)
     : [];
 
   return {
@@ -142,6 +174,7 @@ function createPropsToInterface(
     columns,
     columnsError: null,
     managedBy: props.managedBy || "",
+    aggregatedFactTableSettings: props.aggregatedFactTableSettings ?? null,
     columnRefreshPending: props.columnRefreshPending || false,
   };
 }
@@ -160,6 +193,22 @@ export async function getAllFactTablesForOrganization(
   };
 
   const docs = await FactTableModel.find(query).sort({ id: 1 });
+  return docs
+    .map((doc) => toInterface(doc))
+    .filter((f) => context.permissions.canReadMultiProjectResource(f.projects));
+}
+
+// Slimmed version of getAllFactTablesForOrganization for the definitions
+// endpoint. The sql field and per-column jsonFields maps are excluded at the DB
+// layer to keep the payload small; consumers fetch the full fact table by id
+// when they need them.
+export async function getAllFactTablesForDefinitions(
+  context: ReqContext | ApiReqContext,
+): Promise<FactTableDefinition[]> {
+  const docs = await FactTableModel.find(
+    { organization: context.org.id },
+    { sql: 0, "columns.jsonFields": 0 },
+  ).sort({ id: 1 });
   return docs
     .map((doc) => toInterface(doc))
     .filter((f) => context.permissions.canReadMultiProjectResource(f.projects));
@@ -187,6 +236,16 @@ export async function getFactTableMap(
   const factTables = await getAllFactTablesForOrganization(context);
 
   return new Map(factTables.map((f) => [f.id, f]));
+}
+
+// WARNING: bypasses project-read permission. Use only for system-driven
+// managed-warehouse sync (see dangerouslyGetGrowthbookDatasourceBypassPermission).
+export async function dangerouslyGetFactTableByIdBypassPermission(
+  organization: string,
+  id: string,
+): Promise<FactTableInterface | null> {
+  const doc = await FactTableModel.findOne({ organization, id });
+  return doc ? toInterface(doc) : null;
 }
 
 export async function getFactTable(
@@ -241,6 +300,17 @@ export async function getAllFactTablesWithAutoSliceUpdatesEnabled(): Promise<
   return docs.map((doc) => toInterface(doc));
 }
 
+// Across all organizations; used by the nightly aggregated fact table job.
+export async function getAllFactTablesWithAggregatedTablesEnabled(): Promise<
+  FactTableInterface[]
+> {
+  const docs = await FactTableModel.find({
+    "aggregatedFactTableSettings.idTypes": { $exists: true, $ne: [] },
+    archived: { $ne: true },
+  });
+  return docs.map((doc) => toInterface(doc));
+}
+
 export async function createFactTable(
   context: ReqContext | ApiReqContext,
   data: CreateFactTableProps,
@@ -258,9 +328,13 @@ export async function createFactTable(
     context.permissions.throwPermissionError();
   }
 
-  const doc = await FactTableModel.create(
-    createPropsToInterface(context, data),
-  );
+  const factTableProps = createPropsToInterface(context, data);
+
+  // We claim this slot first to avoid a potential race condition when the FactTable is created at
+  // the same time the background job is scheduling the aggregated table update
+  await deferAggregatedFactTableToNextSlot(context, factTableProps);
+
+  const doc = await FactTableModel.create(factTableProps);
 
   const factTable = toInterface(doc);
 
@@ -274,10 +348,13 @@ export async function updateFactTable(
   factTable: FactTableInterface,
   changes: UpdateFactTableProps,
 ) {
-  // Allow changing columns even for API-managed fact tables
+  // Allow changing columns even for API-managed fact tables. Also allow
+  // system/background contexts (which have no audit user) through, e.g. the
+  // event forwarder sync.
   if (
     factTable.managedBy === "api" &&
     context.auditUser?.type !== "api_key" &&
+    context.auditUser !== null &&
     Object.keys(changes).some((k) => k !== "columns")
   ) {
     throw new Error(
@@ -372,6 +449,43 @@ export async function updateFactTableColumns(
   }
 }
 
+// System-driven update of the managed-warehouse events fact table (managedBy "api").
+// Unlike updateFactTable, this is allowed from internal (non-API) requests because
+// GrowthBook itself owns this table's sql/columns/userIdTypes. Used when the org's
+// identifiers (hashAttribute attributes) change.
+export async function dangerouslySyncManagedWarehouseFactTable(
+  context: ReqContext | ApiReqContext,
+  factTable: FactTableInterface,
+  changes: Pick<UpdateFactTableProps, "sql" | "columns" | "userIdTypes">,
+) {
+  if (changes.columns) {
+    const removedColumns = detectRemovedColumns(
+      factTable.columns || [],
+      changes.columns,
+    );
+    if (removedColumns.length > 0) {
+      await cleanupMetricAutoSlices({
+        context,
+        factTableId: factTable.id,
+        removedColumns,
+      });
+    }
+  }
+
+  await FactTableModel.updateOne(
+    {
+      id: factTable.id,
+      organization: factTable.organization,
+    },
+    {
+      $set: {
+        ...changes,
+        dateUpdated: new Date(),
+      },
+    },
+  );
+}
+
 // Detect columns that were removed or had auto slice disabled
 export function detectRemovedColumns(
   originalColumns: Array<{
@@ -464,22 +578,16 @@ export async function updateColumn({
   }
 
   const originalColumn = factTable.columns[columnIndex];
-  const updatedColumn = {
+  const updatedColumn = ensureAutoSliceDefaults({
     ...originalColumn,
     ...changes,
+    jsonFields:
+      changes.jsonFields !== undefined
+        ? normalizeJSONFieldsInput(changes.jsonFields)
+        : originalColumn.jsonFields,
     ...(changes.topValues ? { topValuesDate: new Date() } : {}),
     dateUpdated: new Date(),
-  };
-
-  // If auto slice settings changed, reset autoSlices to empty array
-  if (updatedColumn.isAutoSliceColumn && !updatedColumn.autoSlices) {
-    updatedColumn.autoSlices = [];
-  }
-
-  // Ensure boolean columns only save ["true", "false"]
-  if (updatedColumn.datatype === "boolean" && updatedColumn.autoSlices) {
-    updatedColumn.autoSlices = ["true", "false"];
-  }
+  });
 
   factTable.columns[columnIndex] = updatedColumn;
 
@@ -506,6 +614,90 @@ export async function updateColumn({
       context,
       factTableId: factTable.id,
       removedColumns: [column],
+    });
+  }
+}
+
+export function mergeUpsertColumns(
+  existing: ColumnInterface[],
+  incoming: Array<UpdateColumnProps & { column: string }>,
+): { columns: ColumnInterface[]; removedAutoSliceColumns: string[] } {
+  const columns: ColumnInterface[] = existing.map((c) => ({ ...c }));
+  const removedAutoSliceColumns: string[] = [];
+
+  for (const incomingColumn of incoming) {
+    const index = columns.findIndex((c) => c.column === incomingColumn.column);
+
+    if (index < 0) {
+      columns.push(buildColumnInterface(incomingColumn));
+      continue;
+    }
+
+    const originalColumn = columns[index];
+    const nextColumn = normalizePersistedColumn({
+      ...originalColumn,
+      ...omit(incomingColumn, [
+        "column",
+        "datatype",
+        "jsonFields",
+        "dateCreated",
+        "dateUpdated",
+      ]),
+      datatype: incomingColumn.datatype ?? originalColumn.datatype,
+      jsonFields:
+        incomingColumn.jsonFields !== undefined
+          ? normalizeJSONFieldsInput(incomingColumn.jsonFields)
+          : originalColumn.jsonFields,
+      ...(incomingColumn.topValues ? { topValuesDate: new Date() } : {}),
+      dateUpdated: new Date(),
+    });
+
+    columns[index] = nextColumn;
+    if (
+      nextColumn.deleted ||
+      (!nextColumn.isAutoSliceColumn && originalColumn.isAutoSliceColumn)
+    ) {
+      removedAutoSliceColumns.push(incomingColumn.column);
+    }
+  }
+
+  return { columns, removedAutoSliceColumns };
+}
+
+export async function upsertColumns({
+  context,
+  factTable,
+  columns,
+}: {
+  context?: ReqContext | ApiReqContext;
+  factTable: FactTableInterface;
+  columns: Array<UpdateColumnProps & { column: string }>;
+}): Promise<void> {
+  const { columns: nextColumns, removedAutoSliceColumns } = mergeUpsertColumns(
+    factTable.columns,
+    columns,
+  );
+
+  factTable.columns = nextColumns;
+
+  await FactTableModel.updateOne(
+    {
+      id: factTable.id,
+      organization: factTable.organization,
+    },
+    {
+      $set: {
+        dateUpdated: new Date(),
+        columns: nextColumns,
+      },
+    },
+  );
+
+  if (context && removedAutoSliceColumns.length > 0) {
+    await cleanupMetricAutoSlices({
+      context,
+      factTableId: factTable.id,
+      removedColumns: removedAutoSliceColumns,
     });
   }
 }
@@ -629,6 +821,16 @@ export async function deleteFactTable(
   await audit.logDelete(context, factTable);
 }
 
+export async function projectHasFactTables(
+  context: ReqContext | ApiReqContext,
+  projectId: string,
+): Promise<boolean> {
+  return !!(await FactTableModel.exists({
+    organization: context.org.id,
+    projects: [projectId],
+  }));
+}
+
 export async function deleteAllFactTablesForAProject({
   projectId,
   context,
@@ -703,6 +905,8 @@ export function toFactTableApiInterface(
       topValuesDate: col.topValuesDate?.toISOString(),
     })),
     managedBy: factTable.managedBy || "",
+    aggregatedFactTableSettings:
+      factTable.aggregatedFactTableSettings ?? undefined,
     dateCreated: factTable.dateCreated?.toISOString() || "",
     dateUpdated: factTable.dateUpdated?.toISOString() || "",
   };

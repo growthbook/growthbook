@@ -12,7 +12,10 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { postFeatureRevisionRevertValidator } from "shared/validators";
 import type { ApiReqContext } from "back-end/types/api";
 import { toApiRevision } from "back-end/src/services/features";
-import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
+import {
+  dispatchFeatureRevisionEvent,
+  getPublishedRevisionForEvents,
+} from "back-end/src/services/featureRevisionEvents";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import {
   BadRequestError,
@@ -189,6 +192,20 @@ export async function revertFeatureRevision(
       metadataChanges.project = m.project;
       hasMetaChange = true;
     }
+    if (
+      m.targetingAllProjects !== undefined &&
+      m.targetingAllProjects !== (feature.targetingAllProjects ?? false)
+    ) {
+      metadataChanges.targetingAllProjects = m.targetingAllProjects;
+      hasMetaChange = true;
+    }
+    if (
+      m.targetingProjects !== undefined &&
+      !isEqual(m.targetingProjects, feature.targetingProjects ?? [])
+    ) {
+      metadataChanges.targetingProjects = m.targetingProjects;
+      hasMetaChange = true;
+    }
     if (m.tags !== undefined && !isEqual(m.tags, feature.tags ?? [])) {
       metadataChanges.tags = m.tags;
       hasMetaChange = true;
@@ -338,14 +355,13 @@ export async function revertFeatureRevision(
     }),
   });
 
-  const updated = await getRevision({
+  // Re-read so events and the response carry the published status; falls back
+  // to the in-memory revision instead of failing the already-committed revert.
+  const finalRevision = await getPublishedRevisionForEvents(
     context,
-    organization: organization.id,
-    featureId: feature.id,
-    feature,
-    version: publishedRevision.version,
-  });
-  const finalRevision = updated ?? publishedRevision;
+    updatedFeature,
+    publishedRevision,
+  );
 
   await dispatchFeatureRevisionEvent(
     context,
@@ -353,6 +369,16 @@ export async function revertFeatureRevision(
     finalRevision,
     "revision.reverted",
     { revertedToVersion: targetRevision.version },
+  );
+
+  // A revert publishes a new revision, so emit the same lifecycle event as a
+  // regular publish — consumers watching `revision.published` see reverts too.
+  await dispatchFeatureRevisionEvent(
+    context,
+    updatedFeature,
+    finalRevision,
+    "revision.published",
+    {},
   );
 
   return { feature, revision: finalRevision };

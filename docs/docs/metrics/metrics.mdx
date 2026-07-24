@@ -347,7 +347,7 @@ You can enable automatic updates of auto slice levels based on top column values
 
 **Fact Table level setting:**
 
-In the **Fact Table** modal, check the **Auto-update slice levels** checkbox. When enabled, a scheduled job periodically refreshes auto slice levels from **top values** using a 14-day lookback period. The job runs:
+In the **Fact Table** modal, check the **Auto-update slice levels** checkbox. When enabled, a scheduled job periodically refreshes auto slice levels from **top values**, scanning the lookback window configured in your organization's **Data Source settings** (default 14 days). The job runs:
 
 - Every 7 days by default (configurable via `AUTO_SLICE_UPDATE_FREQUENCY_HOURS` environment variable for self-hosted users)
 - Automatically when the fact table changes

@@ -4,6 +4,7 @@ import {
   DataSourceInterfaceWithParams,
   UserIdType,
 } from "shared/types/datasource";
+import { isEventForwarderManagedIdentifierId } from "shared/util";
 import { FaPlus } from "react-icons/fa";
 import { Box, Card, Flex } from "@radix-ui/themes";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
@@ -15,6 +16,7 @@ import Button from "@/ui/Button";
 import Metadata from "@/ui/Metadata";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
+import Callout from "@/ui/Callout";
 
 type DataSourceInlineEditIdentifierTypesProps =
   DataSourceQueryEditingModalBaseProps;
@@ -28,14 +30,33 @@ export const DataSourceInlineEditIdentifierTypes: FC<
   const permissionsUtil = usePermissionsUtil();
   canEdit = canEdit && permissionsUtil.canUpdateDataSourceSettings(dataSource);
 
+  const eventForwarderActive = Boolean(dataSource.eventForwarderConfig);
+
   const userIdTypes = useMemo(
     () => dataSource.settings?.userIdTypes || [],
     [dataSource.settings?.userIdTypes],
   );
 
+  // Only Event Forwarder managed identifier types (prefixed with `ef_`) are
+  // locked. User-created identifier types that happen to use the same hash
+  // attribute remain editable / deletable.
+  const isEventForwarderManagedType = useCallback(
+    (userIdType: string) =>
+      eventForwarderActive && isEventForwarderManagedIdentifierId(userIdType),
+    [eventForwarderActive],
+  );
+
   const recordEditing = useMemo((): null | UserIdType => {
     return userIdTypes[editingIndex] || null;
   }, [editingIndex, userIdTypes]);
+
+  const isEditingEventForwarderManagedType = useMemo(
+    () =>
+      recordEditing
+        ? isEventForwarderManagedType(recordEditing.userIdType)
+        : false,
+    [isEventForwarderManagedType, recordEditing],
+  );
 
   const handleCancel = useCallback(() => {
     setUiMode("view");
@@ -66,16 +87,34 @@ export const DataSourceInlineEditIdentifierTypes: FC<
     (idx: number) =>
       async (userIdType: string, description: string, attributes: string[]) => {
         const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
-        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-        copy.settings.userIdTypes[idx] = {
-          userIdType,
-          description,
-          attributes,
-        };
+        const types = copy.settings?.userIdTypes ?? [];
+        const editingManagedType =
+          uiMode === "edit" && isEventForwarderManagedType(userIdType);
+
+        if (idx >= types.length) {
+          types.push({ userIdType, description, attributes });
+        } else {
+          const existing = types[idx];
+          if (!existing) {
+            return;
+          }
+          types[idx] = editingManagedType
+            ? { ...existing, description }
+            : {
+                userIdType,
+                description,
+                attributes,
+              };
+        }
+
+        if (!copy.settings) {
+          copy.settings = {};
+        }
+        copy.settings.userIdTypes = types;
 
         await onSave(copy);
       },
-    [dataSource, onSave],
+    [dataSource, isEventForwarderManagedType, onSave, uiMode],
   );
 
   const handleAdd = useCallback(() => {
@@ -97,60 +136,71 @@ export const DataSourceInlineEditIdentifierTypes: FC<
           </Heading>
           <Badge label={userIdTypes.length + ""} color="gray" radius="medium" />
         </Flex>
-        {canEdit && (
-          <Box>
-            <Button variant="solid" onClick={handleAdd}>
-              <FaPlus className="mr-1" /> Add
-            </Button>
-          </Box>
-        )}
+        <Box>
+          <Button variant="solid" onClick={handleAdd} disabled={!canEdit}>
+            <FaPlus className="mr-1" /> Add
+          </Button>
+        </Box>
       </Flex>
       <p>The different units you use to split traffic in an experiment.</p>
 
-      {userIdTypes.map(({ userIdType, description, attributes }, idx) => (
-        <Card key={userIdType} mt="3">
-          <Flex align="start" justify="between" py="2" px="3" gap="3">
-            {/* region Identity Type text */}
-            <Box>
-              <Heading size="small" as="h3" mb="1">
-                {userIdType}
-              </Heading>
-              <Box mb="2">
-                <Metadata
-                  label="Linked Hash Attributes"
-                  value={attributes?.join(", ") || "None"}
-                />
-              </Box>
-              <Text color="text-mid">{description || "(no description)"}</Text>
-            </Box>
-            {/* endregion Identity Type text */}
+      {userIdTypes.map(({ userIdType, description, attributes }, idx) => {
+        const deleteDisabled = isEventForwarderManagedType(userIdType);
 
-            {/* region Identity Type actions */}
-            {canEdit && (
-              <Flex gap="3">
-                <DeleteButton
-                  onClick={handleActionDeleteClicked(idx)}
-                  useRadix={true}
-                  useIcon={false}
-                  displayName={userIdTypes[idx]?.userIdType}
-                  deleteMessage={`Are you sure you want to delete identifier type ${userIdTypes[idx]?.userIdType}?`}
-                  title="Delete"
-                  text="Delete"
-                  outline={false}
-                />
-                <Button variant="ghost" onClick={handleActionEditClicked(idx)}>
-                  Edit
-                </Button>
-              </Flex>
-            )}
-            {/* endregion Identity Type actions */}
-          </Flex>
-        </Card>
-      ))}
+        return (
+          <Card key={userIdType} mt="3">
+            <Flex align="start" justify="between" py="2" px="3" gap="3">
+              {/* region Identity Type text */}
+              <Box>
+                <Heading size="small" as="h3" mb="1">
+                  {userIdType}
+                </Heading>
+                <Box mb="2">
+                  <Metadata
+                    label="Linked Hash Attributes"
+                    value={attributes?.join(", ") || "None"}
+                  />
+                </Box>
+                <Text color="text-mid">
+                  {description || "(no description)"}
+                </Text>
+              </Box>
+              {/* endregion Identity Type text */}
+
+              {/* region Identity Type actions */}
+              {canEdit && (
+                <Flex gap="3">
+                  {!deleteDisabled && (
+                    <DeleteButton
+                      onClick={handleActionDeleteClicked(idx)}
+                      useIcon={false}
+                      displayName={userIdTypes[idx]?.userIdType}
+                      deleteMessage={`Are you sure you want to delete identifier type ${userIdTypes[idx]?.userIdType}?`}
+                      title="Delete"
+                      text="Delete"
+                      outline={false}
+                      disabled={deleteDisabled}
+                    />
+                  )}
+                  <Button
+                    variant="ghost"
+                    onClick={handleActionEditClicked(idx)}
+                  >
+                    Edit
+                  </Button>
+                </Flex>
+              )}
+              {/* endregion Identity Type actions */}
+            </Flex>
+          </Card>
+        );
+      })}
 
       {/* region Identity Type empty state */}
       {userIdTypes.length === 0 ? (
-        <div className="mb-0 alert alert-info">No user identifier types.</div>
+        <Callout status="info" mb="0">
+          No user identifier types.
+        </Callout>
       ) : null}
       {/* endregion Identity Type empty state */}
 
@@ -164,6 +214,7 @@ export const DataSourceInlineEditIdentifierTypes: FC<
           attributes={recordEditing?.attributes}
           onSave={handleSave(editingIndex)}
           dataSource={dataSource}
+          isEventForwarderManagedType={isEditingEventForwarderManagedType}
         />
       ) : null}
       {/* endregion Add/Edit modal */}

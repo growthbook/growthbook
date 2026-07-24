@@ -22,6 +22,7 @@ export default function EnvironmentDropdown({
 }) {
   return (
     <SelectField
+      size="legacy"
       containerClassName={containerClassName}
       label={label}
       value={env || ""}

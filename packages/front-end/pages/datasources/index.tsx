@@ -8,6 +8,7 @@ import { Flex } from "@radix-ui/themes";
 import { DocLink } from "@/components/DocLink";
 import DataSources from "@/components/Settings/DataSources";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import track from "@/services/track";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -120,7 +121,6 @@ const DataSourcesPage: FC = () => {
     exists: demoDataSourceExists,
     projectId: demoProjectId,
     demoDataSourceId,
-    currentProjectIsDemo,
   } = useDemoDataSourceProject();
   const { apiCall } = useAuth();
   const { mutateDefinitions, setProject, project, projects, datasources } =
@@ -128,13 +128,12 @@ const DataSourcesPage: FC = () => {
 
   const router = useRouter();
 
-  const filteredDatasources = (
-    project
-      ? datasources.filter((ds) =>
-          isProjectListValidForProject(ds.projects, project),
-        )
-      : datasources
-  ).filter((ds) => !ds.projects?.includes(demoProjectId || ""));
+  const filteredDatasources = project
+    ? datasources.filter((ds) =>
+        isProjectListValidForProject(ds.projects, project),
+      )
+    : // "All Projects" — hide the sample datasource so it doesn't muddle the view
+      datasources.filter((ds) => !ds.projects?.includes(demoProjectId || ""));
 
   const [newModalData, setNewModalData] =
     useState<null | Partial<DataSourceInterfaceWithParams>>(null);
@@ -170,49 +169,57 @@ const DataSourcesPage: FC = () => {
       <div className="d-flex align-items-center mb-3">
         <h1>Data Sources</h1>
         <div className="ml-auto" />
-        {!hasFileConfig() && !demoDataSourceExists && (
-          <Button
-            onClick={async () => {
-              try {
-                await apiCall("/demo-datasource-project", {
-                  method: "POST",
-                });
-                track("Create Sample Project", {
-                  source: "sample-project-page",
-                });
-                if (demoProjectId) {
-                  setProject(demoProjectId);
+        {filteredDatasources.length === 0 &&
+          !hasFileConfig() &&
+          !demoDataSourceExists && (
+            <Button
+              onClick={async () => {
+                try {
+                  await apiCall("/demo-datasource-project", {
+                    method: "POST",
+                  });
+                  track("Create Sample Project", {
+                    source: "sample-project-page",
+                  });
+                  if (demoProjectId) {
+                    setProject(demoProjectId);
+                  }
+                  await mutateDefinitions();
+                } catch (e: unknown) {
+                  console.error(e);
                 }
-                await mutateDefinitions();
-              } catch (e: unknown) {
-                console.error(e);
-              }
-            }}
-            variant="soft"
-          >
-            View Sample Data Source
-          </Button>
-        )}
-        {demoDataSourceExists && demoProjectId && demoDataSourceId ? (
+              }}
+              variant="soft"
+            >
+              View Sample Data Source
+            </Button>
+          )}
+        {filteredDatasources.length === 0 &&
+        demoDataSourceExists &&
+        demoProjectId &&
+        demoDataSourceId ? (
           <LinkButton href={`/datasources/${demoDataSourceId}`} variant="soft">
             View Sample Data Source
           </LinkButton>
         ) : null}
-        {!hasFileConfig() &&
-          permissionsUtil.canViewCreateDataSourceModal(project, projects) && (
+        {!hasFileConfig() && (
+          <Tooltip
+            body="You don't have permission to add data sources in this project."
+            shouldDisplay={
+              !permissionsUtil.canViewCreateDataSourceModal(project, projects)
+            }
+          >
             <Button
-              disabled={currentProjectIsDemo}
-              title={
-                currentProjectIsDemo
-                  ? "You cannot create a datasource under the demo project"
-                  : ""
+              disabled={
+                !permissionsUtil.canViewCreateDataSourceModal(project, projects)
               }
               onClick={() => setNewModalData({})}
               ml="2"
             >
               Add Data Source
             </Button>
-          )}
+          </Tooltip>
+        )}
       </div>
       {filteredDatasources.length > 0 ? (
         <DataSources />
@@ -264,7 +271,7 @@ const DataSourcesPage: FC = () => {
               <Callout status="info" mt="5">
                 Don&apos;t have a data warehouse yet? We recommend using
                 BigQuery with Google Analytics.{" "}
-                <DocLink docSection="ga4BigQuery">
+                <DocLink useRadix={false} docSection="ga4BigQuery">
                   Learn more <FaExternalLinkAlt />
                 </DocLink>
               </Callout>

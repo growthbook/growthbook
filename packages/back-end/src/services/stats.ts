@@ -151,6 +151,11 @@ export async function runStatsEngine(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...(process.env.PYTHON_SERVER_AUTH_TOKEN
+            ? {
+                Authorization: `Bearer ${process.env.PYTHON_SERVER_AUTH_TOKEN}`,
+              }
+            : {}),
         },
         body: JSON.stringify(statsData),
       },

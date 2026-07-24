@@ -1,5 +1,5 @@
 import { ReactNode, ReactElement } from "react";
-import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
+import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
 import isEqual from "lodash/isEqual";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiArrowSquareOut } from "react-icons/pi";
@@ -20,6 +20,7 @@ import type {
 } from "shared/validators";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
+import ContextualBanditLink from "@/components/ContextualBandit/ContextualBanditLink";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
@@ -141,6 +142,8 @@ function getRuleTypeLabel(type: FeatureRule["type"]): string {
       return "Experiment";
     case "experiment-ref":
       return "Experiment ref";
+    case "contextual-bandit-ref":
+      return "Contextual Bandit ref";
     case "safe-rollout":
       return "Safe rollout";
   }
@@ -455,6 +458,10 @@ function RuleHeading({ rule, index }: { rule: FeatureRule; index: number }) {
     detail = `key: ${rule.trackingKey}`;
   } else if (rule.type === "experiment-ref") {
     detail = <ExperimentLink experimentId={rule.experimentId} />;
+  } else if (rule.type === "contextual-bandit-ref") {
+    detail = (
+      <ContextualBanditLink contextualBanditId={rule.contextualBanditId} />
+    );
   }
   return (
     <div className="mb-2">
@@ -897,6 +904,30 @@ function NewRuleDetails({
         post={formatValue(rule.variationValue)}
       />,
     );
+  }
+
+  if (rule.type === "contextual-bandit-ref") {
+    rows.push(
+      <ChangeField
+        key="contextualBanditId"
+        label="Contextual Bandit"
+        changed
+        oldNode={<em>unset</em>}
+        newNode={
+          <ContextualBanditLink contextualBanditId={rule.contextualBanditId} />
+        }
+      />,
+    );
+    rule.variations.forEach((v, i) => {
+      rows.push(
+        <ValueChangedField
+          key={`cb-var-${i}`}
+          label={`Variation ${i} value`}
+          pre={null}
+          post={formatValue(v.value)}
+        />,
+      );
+    });
   }
 
   if (rule.type === "experiment-ref") {
@@ -1454,6 +1485,39 @@ export function renderFeatureArchived(
   );
 }
 
+// Targeting-projects change detection + rendering, shared by every metadata
+// diff surface (revision compare, audit-event compare) so the two projections
+// stay identical. `targetingAllProjects` overrides the explicit list.
+export function targetingProjectsChanged(
+  preAll: boolean | undefined,
+  preProjects: string[] | undefined,
+  postAll: boolean | undefined,
+  postProjects: string[] | undefined,
+): boolean {
+  return (
+    (preAll ?? false) !== (postAll ?? false) ||
+    !isEqual(preProjects ?? [], postProjects ?? [])
+  );
+}
+
+function renderTargetingNode(
+  allProjects: boolean | undefined,
+  projects: string[] | undefined,
+): ReactNode {
+  if (allProjects) return "All Projects";
+  if (!projects?.length) return <em>none</em>;
+  return (
+    <>
+      {projects.map((p, i) => (
+        <span key={p}>
+          {i > 0 ? ", " : ""}
+          <ProjectName id={p} />
+        </span>
+      ))}
+    </>
+  );
+}
+
 export function renderFeatureMetadataSection(
   pre: FeaturePartial,
   post: Partial<FeatureInterface>,
@@ -1490,6 +1554,33 @@ export function renderFeatureMetadataSection(
           pre?.project ? <ProjectName id={pre.project} /> : <em>unset</em>
         }
         newNode={<ProjectName id={post.project} />}
+      />,
+    );
+  }
+
+  if (
+    (post.targetingAllProjects !== undefined ||
+      post.targetingProjects !== undefined) &&
+    targetingProjectsChanged(
+      pre?.targetingAllProjects,
+      pre?.targetingProjects,
+      post.targetingAllProjects,
+      post.targetingProjects,
+    )
+  ) {
+    rows.push(
+      <ChangeField
+        key="targeting"
+        label="Targeting Projects"
+        changed
+        oldNode={renderTargetingNode(
+          pre?.targetingAllProjects,
+          pre?.targetingProjects,
+        )}
+        newNode={renderTargetingNode(
+          post.targetingAllProjects,
+          post.targetingProjects,
+        )}
       />,
     );
   }
@@ -1558,6 +1649,21 @@ export function getFeatureMetadataBadges(
     post.project !== undefined
   ) {
     badges.push({ label: "Edit project", action: "edit project" });
+  }
+  if (
+    (post.targetingAllProjects !== undefined ||
+      post.targetingProjects !== undefined) &&
+    targetingProjectsChanged(
+      pre?.targetingAllProjects,
+      pre?.targetingProjects,
+      post.targetingAllProjects,
+      post.targetingProjects,
+    )
+  ) {
+    badges.push({
+      label: "Edit Targeting Projects",
+      action: "edit targeting",
+    });
   }
   if (!isEqual(pre?.tags, post.tags) && post.tags !== undefined) {
     const preTags = pre?.tags ?? [];
@@ -2018,6 +2124,33 @@ export function renderRevisionMetadata(
         newNode={
           draft.project ? <ProjectName id={draft.project} /> : <em>unset</em>
         }
+      />,
+    );
+  }
+
+  if (
+    (draft.targetingAllProjects !== undefined ||
+      draft.targetingProjects !== undefined) &&
+    targetingProjectsChanged(
+      current?.targetingAllProjects,
+      current?.targetingProjects,
+      draft.targetingAllProjects,
+      draft.targetingProjects,
+    )
+  ) {
+    rows.push(
+      <ChangeField
+        key="targeting"
+        label="Targeting Projects"
+        changed
+        oldNode={renderTargetingNode(
+          current?.targetingAllProjects,
+          current?.targetingProjects,
+        )}
+        newNode={renderTargetingNode(
+          draft.targetingAllProjects,
+          draft.targetingProjects,
+        )}
       />,
     );
   }

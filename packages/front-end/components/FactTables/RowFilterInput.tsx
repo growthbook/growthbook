@@ -3,12 +3,12 @@ import { FactTableInterface, RowFilter } from "shared/types/fact-table";
 import { PiPlus, PiX } from "react-icons/pi";
 import { useState } from "react";
 import Field from "@/components/Forms/Field";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import SelectField, {
   GroupedValue,
   SingleValue,
 } from "@/components/Forms/SelectField";
-import StringArrayField from "@/components/Forms/StringArrayField";
+import StringArrayField from "@/ui/StringArrayField";
 import Button from "@/ui/Button";
 import {
   NUMBER_PATTERN,
@@ -16,6 +16,7 @@ import {
   getAllowedOperators,
   operatorLabelMap,
   getColumnInfo,
+  getAttributeFieldsExposedAsColumns,
 } from "./rowFilterUtils";
 
 export function RowFilterInput({
@@ -28,6 +29,7 @@ export function RowFilterInput({
   factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">;
 }) {
   const [rowDeleted, setRowDeleted] = useState(false);
+  const hiddenAttributeFields = getAttributeFieldsExposedAsColumns(factTable);
 
   return (
     <Flex direction="column" gap="2">
@@ -48,6 +50,11 @@ export function RowFilterInput({
           // Add JSON fields as separate options
           if (col.jsonFields) {
             Object.keys(col.jsonFields).forEach((field) => {
+              if (
+                col.column === "attributes" &&
+                hiddenAttributeFields.has(field)
+              )
+                return;
               columnOptions.push({
                 label: `${col.name || col.column}.${field}`,
                 value: `${col.column}.${field}`,
@@ -209,6 +216,7 @@ export function RowFilterInput({
           >
             {i > 0 && <div>AND</div>}
             <SelectField
+              size="legacy"
               value={
                 filter.operator === "sql_expr"
                   ? "$$sql_expr"
@@ -260,6 +268,7 @@ export function RowFilterInput({
             />
             {operatorInputRequired && firstSelectCompleted && (
               <SelectField
+                size="legacy"
                 value={filter.operator}
                 onChange={(v: RowFilter["operator"]) => {
                   let newValues = filter.values || [];
@@ -286,6 +295,7 @@ export function RowFilterInput({
               <>
                 {multiValueInput && useValueOptions ? (
                   <MultiSelectField
+                    size="legacy"
                     value={filter.values || []}
                     onChange={(v) => {
                       updateRowFilter({
@@ -303,6 +313,7 @@ export function RowFilterInput({
                   />
                 ) : multiValueInput ? (
                   <StringArrayField
+                    size="legacy"
                     value={filter.values || []}
                     onChange={(v) => {
                       updateRowFilter({
@@ -318,6 +329,7 @@ export function RowFilterInput({
                   />
                 ) : useValueOptions ? (
                   <SelectField
+                    size="legacy"
                     value={filter.values?.[0] || ""}
                     onChange={(v) => {
                       updateRowFilter({
@@ -335,6 +347,7 @@ export function RowFilterInput({
                   />
                 ) : (
                   <Field
+                    size="legacy"
                     value={filter.values?.[0] || ""}
                     onChange={(e) => {
                       updateRowFilter({

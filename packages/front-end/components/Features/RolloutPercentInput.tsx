@@ -272,6 +272,7 @@ export default function RolloutPercentInput({
         </Box>
         <Box position="relative" className={styles.percentInputWrap}>
           <Field
+            size="legacy"
             style={{ width: 95 }}
             disabled={locked}
             value={isNaN(value ?? 0) ? "" : decimalToPercent(value ?? 0)}

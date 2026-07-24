@@ -5,6 +5,8 @@ import {
   Output,
   tool as aiTool,
   stepCountIs,
+  NoObjectGeneratedError,
+  NoOutputGeneratedError,
 } from "ai";
 import type { ToolSet, ModelMessage } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
@@ -22,6 +24,7 @@ import {
   AIPromptType,
   getProviderFromModel,
   getProviderFromEmbeddingModel,
+  isReasoningModel,
 } from "shared/ai";
 import { z, ZodObject, ZodRawShape } from "zod";
 import { OrganizationInterface } from "shared/types/organization";
@@ -55,7 +58,9 @@ export const getAIProviderClass = (
   } = getAISettingsForOrg(context, true);
 
   if (!aiEnabled) {
-    throw new Error("AI is not enabled for this organization.");
+    throw new Error(
+      "AI is not enabled for this organization. Visit Settings → AI Settings to enable it.",
+    );
   }
 
   const selectedProvider = getProviderFromModel(model);
@@ -98,19 +103,11 @@ export const getAIProviderClass = (
   }
 };
 
-type ChatCompletionRequestMessage = {
-  role: "user" | "assistant" | "system";
-  content: string;
-};
-
 /**
  * The docs say OpenAI might not always return token usage info in rare edge cases.
  * So this is a fallback, so we can keep track of token usage on cloud regardless.
  */
-const numTokensFromMessages = (
-  messages: ChatCompletionRequestMessage[],
-  model: AIModel,
-) => {
+const numTokensFromMessages = (messages: ModelMessage[], model: AIModel) => {
   logger.warn("Calculating token usage from messages as fallback");
   // Use tiktoken for OpenAI models
   let encoding;
@@ -124,9 +121,25 @@ const numTokensFromMessages = (
   let numTokens = 0;
   for (const message of messages) {
     numTokens += 4;
-    for (const [key, value] of Object.entries(message)) {
-      numTokens += encoding.encode(value as string).length;
-      if (key === "name") numTokens -= 1;
+    const { content } = message;
+    if (typeof content === "string") {
+      numTokens += encoding.encode(content).length;
+    } else if (Array.isArray(content)) {
+      // Multimodal content: only text parts are token-encodable here.
+      // Image/file parts are counted by the provider's own usage; this
+      // fallback under-counts them slightly, which is acceptable for the
+      // rare cloud edge case where `usage` is missing.
+      for (const part of content) {
+        if (
+          part &&
+          typeof part === "object" &&
+          "type" in part &&
+          part.type === "text" &&
+          typeof part.text === "string"
+        ) {
+          numTokens += encoding.encode(part.text).length;
+        }
+      }
     }
   }
 
@@ -148,8 +161,12 @@ export const secondsUntilAICanBeUsedAgain = async (
 const constructMessages = (
   prompt: string,
   instructions?: string,
-): ChatCompletionRequestMessage[] => {
-  const messages: ChatCompletionRequestMessage[] = [];
+  // Optional image inputs for vision models. When present, the user
+  // message becomes a content-part array (images first, then the text
+  // prompt) instead of a bare string. Base64-encoded, no data: prefix.
+  images?: Array<{ data: string; mimeType: string }>,
+): ModelMessage[] => {
+  const messages: ModelMessage[] = [];
 
   if (instructions) {
     messages.push({
@@ -158,10 +175,24 @@ const constructMessages = (
     });
   }
 
-  messages.push({
-    role: "user",
-    content: prompt,
-  });
+  if (images && images.length > 0) {
+    messages.push({
+      role: "user",
+      content: [
+        ...images.map((img) => ({
+          type: "image" as const,
+          image: Buffer.from(img.data, "base64"),
+          mediaType: img.mimeType,
+        })),
+        { type: "text" as const, text: prompt },
+      ],
+    });
+  } else {
+    messages.push({
+      role: "user",
+      content: prompt,
+    });
+  }
 
   return messages;
 };
@@ -199,10 +230,18 @@ export const simpleCompletion = async ({
 
   const messages = constructMessages(prompt, instructions);
 
+  // Reasoning models reject `temperature`; omit it rather than let the
+  // provider warn and drop it.
+  const effectiveTemperature = isReasoningModel(model)
+    ? undefined
+    : temperature;
+
   const generateOptions = {
     model: aiProvider(model) as Parameters<typeof generateText>[0]["model"],
     messages,
-    ...(temperature != null ? { temperature } : {}),
+    ...(effectiveTemperature != null
+      ? { temperature: effectiveTemperature }
+      : {}),
   };
 
   let numTokensUsed: number | undefined;
@@ -242,7 +281,7 @@ export const simpleCompletion = async ({
       model,
       numPromptTokensUsed: inputTokensUsed,
       numCompletionTokensUsed: outputTokensUsed,
-      temperature,
+      temperature: effectiveTemperature,
       usedDefaultPrompt: isDefaultPrompt,
     });
   }
@@ -281,11 +320,19 @@ export const streamingChatCompletion = async ({
     throw new Error("AI provider not enabled or key not set");
   }
 
+  // Reasoning models reject `temperature`; omit it rather than let the
+  // provider warn and drop it.
+  const effectiveTemperature = isReasoningModel(model)
+    ? undefined
+    : temperature;
+
   const result = streamText({
     model: aiProvider(model) as Parameters<typeof streamText>[0]["model"],
     system,
     messages,
-    ...(temperature != null ? { temperature } : {}),
+    ...(effectiveTemperature != null
+      ? { temperature: effectiveTemperature }
+      : {}),
     ...(tools ? { tools, stopWhen: stepCountIs(maxSteps) } : {}),
     ...(abortSignal ? { abortSignal } : {}),
     onFinish: async ({ usage }) => {
@@ -301,7 +348,7 @@ export const streamingChatCompletion = async ({
           model,
           numPromptTokensUsed: usage?.inputTokens,
           numCompletionTokensUsed: usage?.outputTokens,
-          temperature,
+          temperature: effectiveTemperature,
           usedDefaultPrompt: isDefaultPrompt,
         });
       }
@@ -322,6 +369,14 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   isDefaultPrompt,
   zodObjectSchema,
   overrideModel,
+  images,
+  tools,
+  maxSteps = 1,
+  cacheSystemPrompt = false,
+  onStepFinish,
+  retryOnNoObject = true,
+  maxOutputTokens = 8000,
+  logContext,
 }: {
   context: ReqContext | ApiReqContext;
   instructions?: string;
@@ -331,6 +386,43 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   isDefaultPrompt: boolean;
   zodObjectSchema: T;
   overrideModel?: AIModel;
+  // Optional image inputs for vision-capable models. Threaded into the
+  // user message as content parts. The caller is responsible for picking
+  // a vision-capable `overrideModel` (see pickVisionModel in shared/ai).
+  images?: Array<{ data: string; mimeType: string }>;
+  // Retry once on NoObjectGeneratedError. Pass false from callers that
+  // are themselves a retry so attempts don't stack (e.g. postAIEdit's
+  // selector-correction retry — otherwise one request could fan out to
+  // 4 LLM calls).
+  retryOnNoObject?: boolean;
+  // Cap on GENERATED (output) tokens. Set explicitly because an un-capped
+  // call relies on the provider default (~4k for Anthropic), and a large
+  // response — e.g. a full global-CSS replacement, where the model must
+  // re-emit all existing CSS — can blow past it and get truncated
+  // mid-JSON, which surfaces as NoObjectGeneratedError ("couldn't format a
+  // valid response"). 8000 stays under every current provider's ceiling;
+  // callers that emit large artifacts (Figma → Variant) can raise it.
+  maxOutputTokens?: number;
+  // Extra fields merged into the NoObjectGeneratedError diagnostic logs so
+  // callers can attach request-specific context (e.g. the visual editor's
+  // picked-element selectors) for correlating which inputs trip the
+  // structured-output failure. Diagnostic only — never affects the model.
+  logContext?: Record<string, unknown>;
+  // Optional tool-calling: when present, the model may emit tool calls
+  // across up to `maxSteps` LLM round-trips before producing the final
+  // structured output. Default of 1 keeps the no-tools shape identical.
+  tools?: ToolSet;
+  maxSteps?: number;
+  // Mark the system message as cacheable on providers that honor an
+  // explicit cache breakpoint (Anthropic). OpenAI and Google cache
+  // automatically based on prefix, so this flag is a no-op for them.
+  // Cache TTL is ~5 minutes; back-to-back chat turns benefit, idle
+  // sessions don't.
+  cacheSystemPrompt?: boolean;
+  // Per-step telemetry hook — fires after each LLM round-trip in a
+  // tool-calling loop. Useful for logging which tools the model picked
+  // and how many steps a turn used.
+  onStepFinish?: Parameters<typeof generateText>[0]["onStepFinish"];
 }): Promise<z.infer<T>> => {
   const { defaultAIModel } = getAISettingsForOrg(context, true);
   const model = overrideModel || defaultAIModel;
@@ -347,16 +439,158 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     );
   }
 
-  const messages = constructMessages(prompt, instructions);
+  const messages = constructMessages(prompt, instructions, images);
 
-  const response = await generateText({
-    model: aiProvider(model) as Parameters<typeof generateText>[0]["model"],
-    messages: messages,
-    output: Output.object({
-      schema: zodObjectSchema,
-    }),
-    ...(temperature != null ? { temperature } : {}),
-  });
+  // Attach a provider-specific cache breakpoint to the system message
+  // when requested. Anthropic charges ~10% of input cost for cached
+  // tokens on hit — for a multi-step tool-calling loop where the system
+  // prompt is large and re-sent N times, this is the difference between
+  // tool calling being roughly cost-neutral vs N× more expensive than
+  // single-shot.
+  if (cacheSystemPrompt && instructions) {
+    const sys = messages.find((m) => m.role === "system");
+    if (sys) {
+      sys.providerOptions = {
+        anthropic: { cacheControl: { type: "ephemeral" } },
+      };
+    }
+  }
+
+  // Reasoning models reject `temperature`; omit it rather than let the
+  // provider warn and drop it.
+  const effectiveTemperature = isReasoningModel(model)
+    ? undefined
+    : temperature;
+
+  const generateOnce = async () => {
+    const result = await generateText({
+      model: aiProvider(model) as Parameters<typeof generateText>[0]["model"],
+      messages: messages,
+      output: Output.object({
+        schema: zodObjectSchema,
+      }),
+      maxOutputTokens,
+      ...(effectiveTemperature != null
+        ? { temperature: effectiveTemperature }
+        : {}),
+      ...(tools
+        ? {
+            tools,
+            stopWhen: stepCountIs(maxSteps),
+            // Force a final answer on the last allowed step. Otherwise a model
+            // that keeps calling tools until it exhausts maxSteps ends ON a
+            // tool call (finishReason !== "stop"), so no output object is
+            // produced and the run fails with NoOutputGeneratedError (observed
+            // with claude-haiku-4-5 on visual-editor moves). Forbidding tools
+            // on the final step makes it commit to the structured output using
+            // whatever it has gathered. Only fires on a runaway loop — a model
+            // that answers within budget never reaches this step.
+            prepareStep: ({ stepNumber }: { stepNumber: number }) =>
+              stepNumber >= maxSteps - 1 ? { toolChoice: "none" as const } : {},
+          }
+        : {}),
+      ...(onStepFinish ? { onStepFinish } : {}),
+    });
+    // Read the lazy `output` getter HERE, inside this awaited function, so the
+    // try/catch below catches BOTH generation failures. generateText only
+    // parses the object (and throws NoObjectGeneratedError) when the run ends
+    // on "stop"; when it ends on a tool call it RESOLVES normally with no
+    // output, and the getter throws NoOutputGeneratedError only on access.
+    // Touching it here routes that lazy throw through the same retry path
+    // instead of letting it escape at the call site as an opaque error.
+    return { output: result.output, usage: result.usage };
+  };
+
+  // Output.object steers the model toward the schema but doesn't
+  // grammar-constrain it, so conformance is probabilistic: a complex
+  // schema, a smaller model, or mixing in tools + multi-step all raise
+  // the chance it returns something the schema rejects
+  // (NoObjectGeneratedError). It's almost always transient, so retry
+  // once before surfacing a clear error. The durable fix for a high
+  // rate is a simpler schema or a stronger model; this is just a cheap
+  // backstop. A failed attempt still bills tokens (the error carries its
+  // usage), so track them or the retry under-counts on Cloud.
+  // Two distinct generation failures share this retry path:
+  //   - NoObjectGeneratedError: the model produced text that didn't validate
+  //     against the schema (truncated mid-JSON, or invalid/prose output).
+  //   - NoOutputGeneratedError: with tools + multi-step, the run ENDED without
+  //     ever emitting the output object (e.g. it stopped on a tool call, or
+  //     returned only prose). The SDK surfaces this as a bare error with no
+  //     finishReason/text/usage. Left unhandled it escaped as an opaque
+  //     "No output generated." 400 — no retry, no friendly message, no log.
+  const isGenerationFailure = (
+    e: unknown,
+  ): e is NoObjectGeneratedError | NoOutputGeneratedError =>
+    NoObjectGeneratedError.isInstance(e) ||
+    NoOutputGeneratedError.isInstance(e);
+
+  // Pull whatever diagnostics the error carries so prod logs show WHY it
+  // failed. Only NoObjectGeneratedError has finishReason ("length" =
+  // truncated mid-JSON vs "stop" = invalid/prose) and the raw text sample;
+  // NoOutputGeneratedError carries just a cause, so guard those reads.
+  const noOutputDiag = (e: NoObjectGeneratedError | NoOutputGeneratedError) => {
+    const objErr = NoObjectGeneratedError.isInstance(e) ? e : undefined;
+    return {
+      // Spread caller context FIRST so the authoritative error fields below
+      // always win — a colliding logContext key can't mask the real signal.
+      ...(logContext ?? {}),
+      errorType: objErr ? "no-object" : "no-output",
+      finishReason: objErr?.finishReason,
+      cause: e.cause instanceof Error ? e.cause.message : String(e.cause ?? ""),
+      textSample: (objErr?.text ?? "").slice(0, 2000),
+    };
+  };
+
+  // usage is only present on NoObjectGeneratedError; NoOutputGeneratedError
+  // bills nothing extra to track.
+  const failureTokens = (e: NoObjectGeneratedError | NoOutputGeneratedError) =>
+    NoObjectGeneratedError.isInstance(e) ? (e.usage?.totalTokens ?? 0) : 0;
+
+  let retriedTokens = 0;
+  let response: Awaited<ReturnType<typeof generateOnce>>;
+  try {
+    response = await generateOnce();
+  } catch (err) {
+    if (!isGenerationFailure(err)) throw err;
+    // Don't stack retries when the caller is already a retry path.
+    if (!retryOnNoObject) throw err;
+    retriedTokens += failureTokens(err);
+    logger.warn(
+      { type, model, ...noOutputDiag(err) },
+      "parsePrompt: model returned no usable output; retrying once",
+    );
+    try {
+      response = await generateOnce();
+    } catch (retryErr) {
+      if (!isGenerationFailure(retryErr)) throw retryErr;
+      retriedTokens += failureTokens(retryErr);
+      logger.warn(
+        { type, model, ...noOutputDiag(retryErr) },
+        "parsePrompt: model returned no usable output after retry; giving up",
+      );
+      // Bill both failed attempts before surfacing the error so Cloud
+      // rate-limiting doesn't under-count a double failure.
+      if (IS_CLOUD && retriedTokens > 0) {
+        await updateTokenUsage({
+          numTokensUsed: retriedTokens,
+          organization: context.org,
+        });
+      }
+      // If either attempt stopped on the output-token ceiling, the JSON was
+      // cut off mid-stream — a generic "try again" won't help an inherently
+      // too-large response, so point the user at narrowing the request.
+      const truncated =
+        (NoObjectGeneratedError.isInstance(err) &&
+          err.finishReason === "length") ||
+        (NoObjectGeneratedError.isInstance(retryErr) &&
+          retryErr.finishReason === "length");
+      throw new Error(
+        truncated
+          ? "Your request produced a response too large to return in one piece. Try a more focused request — for example, edit one section or a few elements at a time, then layer on more."
+          : "The AI couldn't format a valid response for this request. Please try again, or rephrase/simplify the request.",
+      );
+    }
+  }
 
   if (IS_CLOUD) {
     // Fire and forget
@@ -366,12 +600,13 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
       model: model,
       numPromptTokensUsed: response.usage?.inputTokens,
       numCompletionTokensUsed: response.usage?.outputTokens,
-      temperature,
+      temperature: effectiveTemperature,
       usedDefaultPrompt: isDefaultPrompt,
     });
 
     const numTokensUsed =
-      response.usage?.totalTokens ?? numTokensFromMessages(messages, model);
+      (response.usage?.totalTokens ?? numTokensFromMessages(messages, model)) +
+      retriedTokens;
     await updateTokenUsage({ numTokensUsed, organization: context.org });
   }
 

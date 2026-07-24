@@ -219,7 +219,7 @@ function Header({ children }: { children: ReactNode }) {
 
 function Title({ children }: { children: ReactNode }) {
   return (
-    <Dialog.Title size="5" mb="0">
+    <Dialog.Title size="5" mb="0" style={{ color: "var(--color-text-high)" }}>
       {children}
     </Dialog.Title>
   );
@@ -245,7 +245,15 @@ function Description({ children }: { children: ReactNode }) {
 function Body({ children }: { children: ReactNode }) {
   const { bodyRef, error } = useModalContext();
   return (
-    <ScrollArea type="auto" mt="5" mb="3" ml="-1" ref={bodyRef}>
+    <ScrollArea
+      type="auto"
+      mt="5"
+      mb="3"
+      ml="-1"
+      ref={bodyRef}
+      scrollbars="vertical"
+      className={styles.bodyScrollArea}
+    >
       <Box pr="7" pl="1" className={styles.body}>
         {error && <ErrorDisplay error={error} mb="5" />}
         {children}

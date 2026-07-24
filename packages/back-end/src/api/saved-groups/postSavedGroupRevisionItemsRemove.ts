@@ -6,6 +6,7 @@ import {
   createOrUpdateRevision,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
+import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
 import {
   applyRevisionToSnapshot,
   assertListGroup,
@@ -79,6 +80,17 @@ export const postSavedGroupRevisionItemsRemove = createApiRequestHandler(
       patchOps,
       { revisionId: revision.id },
     );
+
+    if (created) {
+      await dispatchSavedGroupRevisionEvent(req.context, updated, {
+        type: "created",
+      });
+    } else {
+      await dispatchSavedGroupRevisionEvent(req.context, updated, {
+        type: "updated",
+        change: "values",
+      });
+    }
 
     return {
       revision: await toApiSavedGroupRevision(updated, req.context),
