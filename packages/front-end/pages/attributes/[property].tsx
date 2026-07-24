@@ -48,8 +48,11 @@ export default function AttributeDetailPage() {
     savedGroups: SavedGroupWithoutValues[];
   }>("/saved-groups");
   const savedGroupsLoading = !savedGroupsData && !savedGroupsError;
+  // Archived groups are filtered out because this page previously read
+  // `useDefinitions().savedGroups`, which is archived-filtered. Counting them
+  // would change the reference count users see.
   const savedGroups = useMemo(
-    () => savedGroupsData?.savedGroups ?? [],
+    () => (savedGroupsData?.savedGroups ?? []).filter((sg) => !sg.archived),
     [savedGroupsData],
   );
   const { features } = useFeaturesList({ useCurrentProject: false });
