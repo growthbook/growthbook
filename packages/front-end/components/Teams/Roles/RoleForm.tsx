@@ -10,10 +10,18 @@ import { FormProvider, useForm } from "react-hook-form";
 import { Permission, Role } from "shared/types/organization";
 import router from "next/router";
 import { useState } from "react";
+import { Box, Flex } from "@radix-ui/themes";
+import { PiCaretDownBold, PiCaretRightBold } from "react-icons/pi";
 import Field from "@/components/Forms/Field";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
-import Button from "@/components/Button";
+import Button from "@/ui/Button";
+import Checkbox from "@/ui/Checkbox";
+import Frame from "@/ui/Frame";
+import Heading from "@/ui/Heading";
+import HelperText from "@/ui/HelperText";
+import Link from "@/ui/Link";
+import Text from "@/ui/Text";
 import TempMessage from "@/components/TempMessage";
 import Callout from "@/ui/Callout";
 
@@ -144,9 +152,38 @@ export default function RoleForm({
     }
   });
 
+  const togglePolicy = (policy: Policy) => {
+    const current = form.getValues("policies");
+    form.setValue(
+      "policies",
+      current.includes(policy)
+        ? current.filter((p) => p !== policy)
+        : [...current, policy],
+    );
+  };
+
+  const togglePermission = (permission: Permission) => {
+    const current = form.getValues("permissions");
+    form.setValue(
+      "permissions",
+      current.includes(permission)
+        ? current.filter((p) => p !== permission)
+        : [...current, permission],
+    );
+  };
+
+  const toggleExpanded = (policy: Policy) => {
+    setExpandedPolicies((prev) => {
+      const next = new Set(prev);
+      if (next.has(policy)) next.delete(policy);
+      else next.add(policy);
+      return next;
+    });
+  };
+
   return (
     <FormProvider {...form}>
-      <div className="bg-white p-4 mt-2">
+      <Frame mt="2">
         <Field
           size="legacy"
           label="Name"
@@ -190,20 +227,29 @@ export default function RoleForm({
           {...form.register("displayName")}
           helpText="Optional. If not provided, the role ID will be used for display."
         />
-      </div>
-      <div className="pt-4">
-        <h2 className="py-2">Select Permissions</h2>
-        <div className="bg-white p-5">
+      </Frame>
+      <Box pt="2">
+        <Heading as="h2" size="medium" mb="3">
+          Select Permissions
+        </Heading>
+        <Frame>
           {POLICY_DISPLAY_GROUPS.map((group) => {
             const policies = group.policies;
 
             if (!policies.length) return null;
             return (
-              <div key={group.name} className="pb-4">
-                <>
-                  <p className="text-secondary font-weight-bold">
-                    {group.name.toUpperCase()}
-                  </p>
+              <Box key={group.name} mb="5">
+                <Text
+                  as="div"
+                  size="small"
+                  weight="semibold"
+                  color="text-mid"
+                  textTransform="uppercase"
+                  mb="3"
+                >
+                  {group.name}
+                </Text>
+                <Flex direction="column" gap="3">
                   {policies.map((policy) => {
                     const policyData = POLICY_METADATA_MAP[policy];
                     const currentPolicies = form.watch("policies");
@@ -217,127 +263,88 @@ export default function RoleForm({
                     ).filter((p) => GRANULAR_PERMISSION_METADATA[p]);
                     const expanded = expandedPolicies.has(policy);
                     return (
-                      <div key={policyData.displayName}>
-                        <div className="d-flex align-items-baseline pb-3">
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            disabled={status === "viewing"}
-                            id={`${policy}-checkbox`}
-                            onChange={() => {
-                              if (!checked) {
-                                currentPolicies.push(policy);
-                              } else {
-                                const indexToRemove =
-                                  currentPolicies.indexOf(policy);
-                                currentPolicies.splice(indexToRemove, 1);
-                              }
-                              form.setValue("policies", [...currentPolicies]);
-                            }}
-                          />
-                          <div className="ml-2">
-                            <p className="m-0 font-weight-bold">
-                              {policyData.displayName}
-                            </p>
-                            <span>{policyData.description}</span>
-                            {policyData.warning ? (
-                              <div className="text-danger">
-                                <strong>Warning: </strong>
-                                {policyData.warning}
-                              </div>
-                            ) : null}
-                            {granularAtoms.length ? (
-                              <div className="mt-1">
-                                <a
-                                  role="button"
-                                  style={{
-                                    cursor: "pointer",
-                                    fontSize: "0.8em",
-                                  }}
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    setExpandedPolicies((prev) => {
-                                      const next = new Set(prev);
-                                      if (next.has(policy)) next.delete(policy);
-                                      else next.add(policy);
-                                      return next;
-                                    });
-                                  }}
-                                >
-                                  {expanded
-                                    ? "− Hide individual permissions"
-                                    : "+ Grant individual permissions instead"}
-                                </a>
+                      <Box key={policy}>
+                        <Checkbox
+                          id={`${policy}-checkbox`}
+                          value={checked}
+                          setValue={() => togglePolicy(policy)}
+                          disabled={status === "viewing"}
+                          weight="bold"
+                          label={policyData.displayName}
+                          description={policyData.description}
+                        />
+                        {policyData.warning ? (
+                          // Informational, not a validation error — so it sits
+                          // beside the checkbox rather than tinting it.
+                          <Box ml="6" mt="1">
+                            <HelperText status="warning" size="sm">
+                              {policyData.warning}
+                            </HelperText>
+                          </Box>
+                        ) : null}
+                        {granularAtoms.length ? (
+                          <Box ml="6" mt="1">
+                            <Link onClick={() => toggleExpanded(policy)}>
+                              <Flex align="center" gap="1">
                                 {expanded ? (
-                                  <div className="ml-3 mt-2">
-                                    {granularAtoms.map((atom) => {
-                                      const meta =
-                                        GRANULAR_PERMISSION_METADATA[atom];
-                                      if (!meta) return null;
-                                      const atomChecked =
-                                        currentPermissions.includes(atom);
-                                      return (
-                                        <div
-                                          key={atom}
-                                          className="d-flex align-items-baseline pb-2"
-                                        >
-                                          <input
-                                            type="checkbox"
-                                            checked={atomChecked}
-                                            disabled={status === "viewing"}
-                                            id={`${policy}-${atom}-checkbox`}
-                                            onChange={() => {
-                                              const next = [
-                                                ...currentPermissions,
-                                              ];
-                                              const idx = next.indexOf(atom);
-                                              if (idx === -1) next.push(atom);
-                                              else next.splice(idx, 1);
-                                              form.setValue(
-                                                "permissions",
-                                                next,
-                                              );
-                                            }}
-                                          />
-                                          <div className="ml-2">
-                                            <span className="font-weight-bold">
-                                              {meta.displayName}
-                                            </span>
-                                            <span className="text-muted">
-                                              {" — "}
-                                              {meta.description}
-                                            </span>
-                                          </div>
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                ) : null}
-                              </div>
+                                  <PiCaretDownBold />
+                                ) : (
+                                  <PiCaretRightBold />
+                                )}
+                                {expanded
+                                  ? "Hide individual permissions"
+                                  : "Grant individual permissions instead"}
+                              </Flex>
+                            </Link>
+                            {expanded ? (
+                              <Flex direction="column" gap="2" mt="2">
+                                {granularAtoms.map((atom) => {
+                                  const meta =
+                                    GRANULAR_PERMISSION_METADATA[atom];
+                                  if (!meta) return null;
+                                  return (
+                                    <Checkbox
+                                      key={atom}
+                                      id={`${policy}-${atom}-checkbox`}
+                                      value={currentPermissions.includes(atom)}
+                                      setValue={() => togglePermission(atom)}
+                                      disabled={status === "viewing"}
+                                      label={meta.displayName}
+                                      description={meta.description}
+                                    />
+                                  );
+                                })}
+                              </Flex>
                             ) : null}
-                          </div>
-                        </div>
-                      </div>
+                          </Box>
+                        ) : null}
+                      </Box>
                     );
                   })}
-                </>
-              </div>
+                </Flex>
+              </Box>
             );
           })}
-        </div>
-      </div>
+        </Frame>
+      </Box>
       {!isReservedRole ? (
-        <div
-          className="bg-main-color position-sticky w-100 py-3 border-top"
-          style={{ bottom: 0, height: 70 }}
+        <Box
+          py="3"
+          className="bg-main-color"
+          style={{
+            position: "sticky",
+            bottom: 0,
+            width: "100%",
+            borderTop: "1px solid var(--slate-a5)",
+          }}
         >
-          <div className="container-fluid pagecontents d-flex">
+          <Flex className="container-fluid pagecontents" align="center" gap="3">
             {error ? (
               <Callout status="error">
                 <strong>Error: {error}</strong>
               </Callout>
             ) : null}
-            <div className="flex-grow-1 mr-4">
+            <Box flexGrow="1">
               {saveMsg && (
                 <TempMessage
                   className="mb-0 py-2"
@@ -348,32 +355,28 @@ export default function RoleForm({
                   Custom Role has been saved
                 </TempMessage>
               )}
-            </div>
-            <div>
-              <button
-                className="btn btn-link mr-2"
-                onClick={async () => await router.push("/settings/team#roles")}
-              >
-                Cancel
-              </button>
-              <Button
-                style={{ marginRight: "4rem" }}
-                color={"primary"}
-                loadingCta="Saving"
-                disabled={status !== "viewing" && !hasChanges}
-                onClick={async () => {
-                  if (status === "viewing") {
-                    setStatus("editing");
-                    return;
-                  }
-                  await saveSettings();
-                }}
-              >
-                {getFooterCTA()}
-              </Button>
-            </div>
-          </div>
-        </div>
+            </Box>
+            <Button
+              variant="ghost"
+              onClick={() => router.push("/settings/team#roles")}
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={status !== "viewing" && !hasChanges}
+              setError={setError}
+              onClick={async () => {
+                if (status === "viewing") {
+                  setStatus("editing");
+                  return;
+                }
+                await saveSettings();
+              }}
+            >
+              {getFooterCTA()}
+            </Button>
+          </Flex>
+        </Box>
       ) : null}
     </FormProvider>
   );

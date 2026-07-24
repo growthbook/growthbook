@@ -252,6 +252,9 @@ export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
     policies: [
       "FlagsFullAccess",
       "FlagsBypassApprovals",
+      // Publish/revert are flag-family atoms, so this belongs next to the
+      // policies that grant editing rather than under SDK Configuration.
+      "SDKPayloadPublish",
       "ArchetypesFullAccess",
       "SavedGroupsFullAccess",
       "SavedGroupsBypassSizeLimit",
@@ -297,7 +300,6 @@ export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
   {
     name: "SDK Configuration",
     policies: [
-      "SDKPayloadPublish",
       "SDKConnectionsFullAccess",
       "AttributesFullAccess",
       "EnvironmentsFullAccess",
@@ -438,7 +440,7 @@ export const POLICY_METADATA_MAP: Record<
   SDKPayloadPublish: {
     displayName: "SDK Payload Publish",
     description:
-      "Make changes that affect data sent to SDKs. For example: edit a saved group, toggle a feature flag, stop an experiment, etc.",
+      "Publish and revert changes that affect data sent to SDKs. For example: publish a revision, toggle a Feature Flag, revert to a previously published revision, stop an experiment.",
   },
   SDKConnectionsFullAccess: {
     displayName: "SDK Connections Full Access",
