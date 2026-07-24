@@ -647,6 +647,15 @@ export class ReqContextClass {
     return this._projects;
   }
 
+  // Cached, unfiltered by read permissions (internal fan-out, unlike getProjects()).
+  private _allProjectIds: string[] | null = null;
+  public async getAllProjectIds(): Promise<string[]> {
+    if (this._allProjectIds === null) {
+      this._allProjectIds = await this.models.projects.getAllIdsForOrg();
+    }
+    return this._allProjectIds;
+  }
+
   // Tags can be created on the fly, so we cache which ones already exist
   private _tags: Set<string> | null = null;
   public async registerTags(tags: string[]) {

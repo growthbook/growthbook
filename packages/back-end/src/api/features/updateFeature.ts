@@ -2,6 +2,7 @@ import {
   validateFeatureValue,
   getRulesForEnvironment,
   stemRuleId,
+  normalizeTargetingInUpdates,
 } from "shared/util";
 import { isEqual, omit } from "lodash";
 import { updateFeatureValidator } from "shared/validators";
@@ -49,6 +50,8 @@ import { canBypassReviewChecks } from "./reviewBypass";
 import {
   assertValidHoldout,
   assertValidProjectId,
+  assertValidProjectIds,
+  assertValidRuleProjectIds,
   assertValidBaseConfig,
   assertConfigSchemaCompat,
   extractRevisionMetadata,
@@ -67,6 +70,8 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       archived,
       description,
       project,
+      targetingAllProjects,
+      targetingProjects,
       tags,
       customFields,
     } = req.body;
@@ -104,6 +109,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     }
 
     await assertValidProjectId(project, req.context);
+    await assertValidProjectIds(targetingProjects, req.context);
 
     // check if the custom fields are valid
     const projectChanged = project !== undefined && project !== feature.project;
@@ -198,6 +204,8 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       ...(archived != null ? { archived } : {}),
       ...(description != null ? { description } : {}),
       ...(project != null ? { project } : {}),
+      ...(targetingAllProjects != null ? { targetingAllProjects } : {}),
+      ...(targetingProjects != null ? { targetingProjects } : {}),
       ...(tags != null ? { tags } : {}),
       ...(defaultValue != null ? { defaultValue } : {}),
       ...(req.body.baseConfig !== undefined
@@ -208,6 +216,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       ...(jsonSchema != null ? { jsonSchema } : {}),
       ...(customFields != null ? { customFields } : {}),
     };
+    normalizeTargetingInUpdates(updates, feature);
 
     if (
       updates.environmentSettings ||
@@ -303,12 +312,21 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
             featureProject: effectiveProject,
           })
         : [];
+    await assertValidRuleProjectIds(inboundFlatRules, req.context);
     // Envs whose rule lists the caller is replacing. Envs present in the
     // payload with only `enabled` (no `rules` key) keep their current rules.
     const rulesTouchedEnvs = new Set(Object.keys(inboundRulesByEnv));
+    // Union of primary + targeting envs (not the bare primary), so a wildcard
+    // rule serving a targeting-only env isn't silently scrubbed on a PUT that
+    // touches a different env.
     const applicableEnvIds = getApplicableEnvIds(
       getEnvironments(req.context.org),
-      effectiveProject,
+      {
+        project: effectiveProject,
+        targetingProjects: targetingProjects ?? feature.targetingProjects,
+        targetingAllProjects:
+          targetingAllProjects ?? feature.targetingAllProjects,
+      },
     );
 
     // Carry through rules for envs the caller didn't touch. A single v2 rule

@@ -13,6 +13,7 @@ import {
   generateVariationId,
   isProjectListValidForProject,
   getReviewSetting,
+  getTargetingProjectIds,
   stemRuleId,
   parsePlainJSONObject,
   stripDefaultsForSparse,
@@ -81,6 +82,7 @@ import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
 import { useDefaultDraft } from "@/hooks/useDefaultDraft";
+import { useFeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
 import { useTemplates } from "@/hooks/useTemplates";
 import SafeRolloutFields from "@/components/Features/RuleModal/SafeRolloutFields";
 import RampScheduleSection from "@/components/Features/RuleModal/RampScheduleSection";
@@ -361,6 +363,19 @@ export default function RuleModal({
       ? selectedDraft
       : feature.version;
 
+  // Holdout a newly-created experiment should join: the holdout of the draft the
+  // rule is being added to (revision.holdout), not just the live feature's — so
+  // a holdout added in that same draft is picked up. Falls back to the merged
+  // feature's holdout when the target revision isn't in context (e.g. a new
+  // draft branched from the viewed version carries that holdout forward).
+  const revisionsCtx = useFeatureRevisionsContext();
+  const targetHoldoutId = useMemo(() => {
+    const targetRev = revisionsCtx?.revisions.find(
+      (r) => r.version === targetVersion,
+    );
+    return (targetRev ? targetRev.holdout : feature.holdout)?.id;
+  }, [revisionsCtx, targetVersion, feature.holdout]);
+
   const gatedEnvSet: Set<string> | "all" | "none" = useMemo(() => {
     const raw = settings?.requireReviews;
     if (raw === true) return "all";
@@ -518,6 +533,18 @@ export default function RuleModal({
       // New rules: pre-select the active env tab (or empty if "All" fallback).
       return environment ? [environment] : [];
     },
+  );
+
+  // Rule-level project scope. Absent `allProjects`/`projects` (legacy/default)
+  // means "all projects"; `allProjects === false` with a `projects` list scopes
+  // the rule. On duplicate/edit, seed from the existing rule.
+  const existingRuleAllProjects =
+    rule === undefined || rule.allProjects !== false;
+  const [scopeAllProjects, setScopeAllProjects] = useState<boolean>(
+    () => existingRuleAllProjects,
+  );
+  const [selectedProjects, setSelectedProjects] = useState<string[]>(() =>
+    Array.isArray(rule?.projects) ? (rule?.projects ?? []) : [],
   );
 
   const defaultHasSchedule = (defaultValues.scheduleRules || []).some(
@@ -903,6 +930,15 @@ export default function RuleModal({
       };
     }
 
+    // An all-projects rule carries no explicit list, so project-deletion
+    // cleanup can never later empty it into "all". A scoped rule keeps its
+    // (possibly empty = "no project") list.
+    if (scopeAllProjects) {
+      values = { ...values, allProjects: true, projects: [] };
+    } else {
+      values = { ...values, allProjects: false, projects: selectedProjects };
+    }
+
     // Loop through each scheduleRule and convert the timestamp to an ISOString()
     if (values.scheduleRules?.length) {
       values.scheduleRules?.forEach((scheduleRule: ScheduleRule) => {
@@ -1076,9 +1112,7 @@ export default function RuleModal({
           statsEngine: values.statsEngine ?? undefined,
           type: values.experimentType,
           holdoutId:
-            values.experimentType === "standard"
-              ? feature.holdout?.id
-              : undefined,
+            values.experimentType === "standard" ? targetHoldoutId : undefined,
         };
 
         if (values?.customFields) {
@@ -1137,6 +1171,8 @@ export default function RuleModal({
           id: values.id,
           allEnvironments: values.allEnvironments ?? false,
           environments: values.environments,
+          allProjects: values.allProjects ?? true,
+          projects: values.projects,
           condition: "",
           savedGroups: [],
           enabled: values.enabled ?? true,
@@ -1828,6 +1864,15 @@ export default function RuleModal({
     disabledEnvironmentIds,
   };
 
+  const projectScopeProps = {
+    allProjects: scopeAllProjects,
+    setAllProjects: setScopeAllProjects,
+    selectedProjects,
+    setSelectedProjects,
+    // Limit scoping to the feature's delivery set (null = all projects).
+    allowedProjectIds: getTargetingProjectIds(feature),
+  };
+
   // Resolved env list used by child components that care about which envs the
   // rule currently covers (prereq cycle checks, targeting previews, etc).
   // When `allEnvironments` is on, treat every applicable env as in-scope.
@@ -1914,6 +1959,7 @@ export default function RuleModal({
               scheduleType={scheduleType}
               setScheduleType={setScheduleType}
               envScope={envScopeProps!}
+              projectScope={projectScopeProps}
               isLiveRule={isLiveRule}
               isNew={mode === "create"}
               onRuleCyclicChange={onRuleCyclicChange}
@@ -1964,6 +2010,7 @@ export default function RuleModal({
             mode={mode}
             isDraft={!safeRollout?.startedAt}
             envScope={envScopeProps}
+            projectScope={projectScopeProps}
             onRuleCyclicChange={onRuleCyclicChange}
           />
         )}
@@ -1979,6 +2026,7 @@ export default function RuleModal({
             scheduleToggleEnabled={scheduleToggleEnabled}
             setScheduleToggleEnabled={setScheduleToggleEnabled}
             envScope={envScopeProps!}
+            projectScope={projectScopeProps}
           />
         ) : null}
 
@@ -1989,6 +2037,7 @@ export default function RuleModal({
             existingRule={mode === "edit"}
             changeRuleType={changeRuleType}
             envScope={envScopeProps!}
+            projectScope={projectScopeProps}
           />
         ) : null}
 
@@ -2054,6 +2103,7 @@ export default function RuleModal({
                     form.setValue("customFields", customFields)
                   }
                   envScope={i === 0 ? envScopeProps : undefined}
+                  projectScope={i === 0 ? projectScopeProps : undefined}
                   onRuleCyclicChange={onRuleCyclicChange}
                 />
               </Page>
@@ -2114,6 +2164,7 @@ export default function RuleModal({
                     setDisableBanditConversionWindow
                   }
                   envScope={i === 0 ? envScopeProps : undefined}
+                  projectScope={i === 0 ? projectScopeProps : undefined}
                   onRuleCyclicChange={onRuleCyclicChange}
                 />
               </Page>

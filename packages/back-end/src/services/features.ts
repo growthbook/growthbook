@@ -33,6 +33,7 @@ import {
   getConfigBackingKey,
   getConfigBackingPatch,
   stripConfigExtends,
+  entityTargetsProject,
 } from "shared/util";
 import {
   getConnectionSDKCapabilities,
@@ -171,6 +172,7 @@ export function generateFeaturesPayload({
   cbMap,
   includeDraftExperimentRefs,
   rampMonitoredRuleMap,
+  payloadProjects,
 }: {
   features: FeatureInterface[];
   experimentMap: Map<string, ExperimentInterface>;
@@ -200,6 +202,7 @@ export function generateFeaturesPayload({
   cbMap?: Map<string, ContextualBanditInterface>;
   includeDraftExperimentRefs?: boolean;
   rampMonitoredRuleMap?: Map<string, RampMonitoredRuleInfo>;
+  payloadProjects?: string[];
 }): Record<string, FeatureDefinition> {
   const defs: Record<string, FeatureDefinition> = {};
   const newFeatures = reduceFeaturesWithPrerequisites(
@@ -243,6 +246,7 @@ export function generateFeaturesPayload({
         includeTagsInMetadata,
       },
       projectsMap,
+      payloadProjects,
       cbMap,
       constantMap: constantMap ?? undefined,
       onConstantCycle: (key) => {
@@ -1292,7 +1296,9 @@ export async function buildSDKPayloadForConnection(
   const projectList = projects && projects.length > 0 ? projects : [];
   const filteredFeatures =
     projectList.length > 0
-      ? data.features.filter((f) => projectList.includes(f.project || ""))
+      ? data.features.filter((f) =>
+          projectList.some((p) => entityTargetsProject(f, p)),
+        )
       : data.features;
   const filteredExperimentMap =
     projectList.length > 0
@@ -1381,6 +1387,7 @@ export async function buildSDKPayloadForConnection(
     allowedCustomFieldsInMetadata,
     includeTagsInMetadata,
     projectsMap,
+    payloadProjects: projectList,
     cbMap,
     rampMonitoredRuleMap: data.rampMonitoredRuleMap,
   });
@@ -2075,7 +2082,7 @@ export function toApiRevision(
   return revisionToApiInterface(
     rev,
     getEnvironments(ctx.org),
-    feature?.project,
+    feature ?? undefined,
   );
 }
 
@@ -2085,9 +2092,13 @@ export function toApiRevision(
 export function revisionToApiInterface(
   rev: FeatureRevisionInterface,
   orgEnvs: Environment[],
-  featureProject?: string,
+  feature?: {
+    project?: string;
+    targetingProjects?: string[];
+    targetingAllProjects?: boolean;
+  },
 ): z.infer<typeof apiFeatureRevisionValidator> {
-  const applicableEnvs = getApplicableEnvIds(orgEnvs, featureProject);
+  const applicableEnvs = getApplicableEnvIds(orgEnvs, feature);
   const rules = bucketRulesByEnv(
     Array.isArray(rev.rules) ? rev.rules : undefined,
     applicableEnvs,
@@ -2187,6 +2198,8 @@ export function normalizeRuleForApiV2(rule: FeatureRule): ApiFeatureRuleV2 {
     ...base,
     allEnvironments: rule.allEnvironments ?? true,
     ...(rule.environments !== undefined && { environments: rule.environments }),
+    allProjects: rule.allProjects ?? true,
+    ...(rule.projects !== undefined && { projects: rule.projects }),
   };
 
   // Split config-backing out of the raw value into a discrete `config` field so
@@ -2437,6 +2450,8 @@ export function getApiFeatureObjV2({
     prerequisites: (feature?.prerequisites || []).map((p) => p.id),
     owner: feature.owner || "",
     project: feature.project || "",
+    targetingAllProjects: feature.targetingAllProjects ?? false,
+    targetingProjects: feature.targetingProjects ?? [],
     tags: feature.tags || [],
     valueType: feature.valueType,
     revision: {
@@ -2543,7 +2558,7 @@ export function getApiFeatureObj({
   // `applicableEnvs` scopes `allEnvironments: true` rules; seeding with
   // `environments` keeps every org env present in the response.
   const orgEnvs = getEnvironments(organization);
-  const applicableEnvs = getApplicableEnvIds(orgEnvs, feature.project);
+  const applicableEnvs = getApplicableEnvIds(orgEnvs, feature);
   const featureRulesByEnv = bucketRulesByEnv(
     feature.rules,
     applicableEnvs,
@@ -2687,6 +2702,8 @@ export function getApiFeatureObj({
     prerequisites: (feature?.prerequisites || []).map((p) => p.id),
     owner: feature.owner || "",
     project: feature.project || "",
+    targetingAllProjects: feature.targetingAllProjects ?? false,
+    targetingProjects: feature.targetingProjects ?? [],
     tags: feature.tags || [],
     valueType: feature.valueType,
     revision: {
@@ -3059,10 +3076,23 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
       feature.project,
     );
 
+    // Preserve rule-level project scope on the round-trip (mirrors
+    // resolveProjectScopeFromInput). Absent scope stays unscoped (all).
+    const scoped = r as { allProjects?: boolean; projects?: string[] };
+    const projectScope: { allProjects?: boolean; projects?: string[] } =
+      scoped.allProjects === true
+        ? { allProjects: true }
+        : scoped.allProjects === false
+          ? { allProjects: false, projects: scoped.projects ?? [] }
+          : Array.isArray(scoped.projects)
+            ? { allProjects: false, projects: scoped.projects }
+            : {};
+
     switch (r.type) {
       case "experiment-ref": {
         const experimentRefRule: ExperimentRefRule = {
           // missing id will be filled in by addIdsToRules
+          ...projectScope,
           id: r.id ?? "",
           allEnvironments: false,
           type: r.type,
@@ -3092,6 +3122,7 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
         }
         const experimentRule: ExperimentRule = {
           // missing id will be filled in by addIdsToRules
+          ...projectScope,
           id: r.id ?? "",
           allEnvironments: false,
           type: r.type,
@@ -3110,6 +3141,7 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
       case "force": {
         const forceRule: ForceRule = {
           // missing id will be filled in by addIdsToRules
+          ...projectScope,
           id: r.id ?? "",
           allEnvironments: false,
           type: r.type,
@@ -3130,6 +3162,7 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
       case "rollout": {
         const rolloutRule: RolloutRule = {
           // missing id will be filled in by addIdsToRules
+          ...projectScope,
           id: r.id ?? "",
           allEnvironments: false,
           type: r.type,
