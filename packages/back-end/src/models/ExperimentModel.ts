@@ -468,6 +468,18 @@ export async function getExperimentById(
     : null;
 }
 
+export async function getExperimentByIdForOrganization(
+  organizationId: string,
+  id: string,
+): Promise<ExperimentInterface | null> {
+  const doc = await getCollection(COLLECTION).findOne({
+    organization: organizationId,
+    id,
+  });
+
+  return doc ? toInterface(doc) : null;
+}
+
 export async function getExperimentByUid(
   uid: string,
 ): Promise<ExperimentInterface | null> {
@@ -1211,7 +1223,26 @@ export const logExperimentCreated = async (
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
 ) => {
-  if (experiment.type === "holdout") return;
+  if (experiment.type === "holdout") {
+    await createEvent({
+      context,
+      object: "experiment",
+      objectId: experiment.id,
+      event: "holdout.created",
+      data: {
+        object: {
+          type: "holdout-created",
+          experimentId: experiment.id,
+          experimentName: experiment.name,
+        },
+      },
+      projects: experiment.project ? [experiment.project] : [],
+      tags: experiment.tags || [],
+      environments: [],
+      containsSecrets: false,
+    });
+    return;
+  }
 
   const apiExperiment = await toExperimentApiInterface(
     context,
@@ -1253,7 +1284,48 @@ export const logExperimentUpdated = async ({
   current: ExperimentInterface;
   previous: ExperimentInterface;
 }) => {
-  if (current.type === "holdout") return;
+  if (current.type === "holdout") {
+    await createEvent({
+      context,
+      object: "experiment",
+      objectId: current.id,
+      event: "holdout.updated",
+      data: {
+        object: {
+          type: "holdout-updated",
+          experimentId: current.id,
+          experimentName: current.name,
+        },
+      },
+      projects: current.project ? [current.project] : [],
+      tags: current.tags || [],
+      environments: [],
+      containsSecrets: false,
+    });
+
+    if (previous.status !== current.status) {
+      await createEvent({
+        context,
+        object: "experiment",
+        objectId: current.id,
+        event: "status.changed",
+        data: {
+          object: {
+            type: "status-changed",
+            experimentId: current.id,
+            experimentName: current.name,
+            previousStatus: previous.status,
+            currentStatus: current.status,
+          },
+        },
+        projects: current.project ? [current.project] : [],
+        tags: current.tags || [],
+        environments: [],
+        containsSecrets: false,
+      });
+    }
+    return;
+  }
 
   const previousApiExperimentPromise = toExperimentApiInterface(
     context,
@@ -1324,6 +1396,32 @@ export const logExperimentUpdated = async ({
     environments: changedEnvs,
     containsSecrets: false,
   });
+
+  if (previous.status !== current.status) {
+    await createEvent({
+      context,
+      object: "experiment",
+      objectId: current.id,
+      event: "status.changed",
+      data: {
+        object: {
+          type: "status-changed",
+          experimentId: current.id,
+          experimentName: current.name,
+          previousStatus: previous.status,
+          currentStatus: current.status,
+        },
+      },
+      projects: Array.from(
+        new Set([previousApiExperiment.project, currentApiExperiment.project]),
+      ),
+      tags: Array.from(
+        new Set([...previousApiExperiment.tags, ...currentApiExperiment.tags]),
+      ),
+      environments: changedEnvs,
+      containsSecrets: false,
+    });
+  }
 };
 
 /**

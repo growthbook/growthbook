@@ -177,6 +177,8 @@ export const EMAIL_FROM = process.env.EMAIL_FROM;
 export const SITE_MANAGER_EMAIL = process.env.SITE_MANAGER_EMAIL;
 
 export const SLACK_SIGNING_SECRET = process.env.SLACK_SIGNING_SECRET || "";
+export const SLACK_CLIENT_ID = process.env.SLACK_CLIENT_ID || "";
+export const SLACK_CLIENT_SECRET = process.env.SLACK_CLIENT_SECRET || "";
 
 const testConn = process.env.POSTGRES_TEST_CONN;
 export const POSTGRES_TEST_CONN = testConn ? JSON.parse(testConn) : {};

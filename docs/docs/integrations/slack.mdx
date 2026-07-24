@@ -6,72 +6,252 @@ import ExternalLink from '@site/src/components/ExternalLink'
 
 # Slack integration
 
-The GrowthBook Slack integration allows you to receive alerts for the events that you care about in a Slack channel of your choosing.
+The GrowthBook Slack integration sends GrowthBook event notifications to Slack
+channels. Each connected Slack channel creates a Slack-formatted Event Webhook
+in GrowthBook, so delivery status, retries, logs, and notification filters use
+the same system as other Event Webhooks.
 
-## Creating and configuring an app in Slack
+## Connect your Slack workspace
 
-### Create a Slack app
+1. In GrowthBook, go to **Integrations → Slack**.
+2. Click **Connect to Slack** and approve the GrowthBook app for your
+   workspace.
+3. After Slack redirects back to GrowthBook, add the channels GrowthBook
+   should post to.
 
-The first step to setting up the GrowthBook Slack integration is to create a new app under your workspace's owned apps. You will need administrative privileges for your workspace in order to be able to manage apps.
+## Add channels
 
-Navigate to your workspace’s apps and choose to create a new app. You can get to that page directly [here](https://api.slack.com/apps?new_app=1).
+Once the workspace is connected, click **Add channel** on the Slack
+integrations page and pick a channel from the searchable list. GrowthBook
+joins public channels automatically.
 
-![](../../static/images/integrations/slack/slack-create-app.png)
+For **private channels**, first run `/invite @GrowthBook` in the channel in
+Slack — it then appears in the channel picker.
 
-Name the app and choose the workspace. In this case we are created the app named GrowthBook Alerts and are picking the GrowthBook Dev workspace.
+Each channel is configured independently (events, filters, digests), so
+different channels can receive different updates.
 
-![](../../static/images/integrations/slack/slack-name-app-choose-workspace.png)
+## Configure notifications
 
-### Create an Incoming Webhook
+Slack connections are backed by Event Webhooks with the `Slack` payload type.
+From the Slack integrations page, use **Configure Slack alerts** to quickly
+toggle common alert groups for each channel:
 
-We will be alerting via Slack's incoming webhooks functionality. Under the **Basic Information** tab of your app, click on **Incoming Webhooks**.
+- **Lifecycle**: experiment started, experiment stopped and shipped, and
+  experiment stopped and rolled back.
+- **Health**: SRM warnings, multiple exposure warnings, guardrail failures,
+  results updated with no data, and query failures.
+- **Decisions**: ship, rollback, review, and metric significance alerts.
 
-![](../../static/images/integrations/slack/slack-incoming-webhooks.png)
+Open **Configure** for a channel to manage advanced Event Webhook filters:
 
-### Subscribe a channel to alerts
+- **Event filters**: choose which GrowthBook events should post to Slack.
+- **Environment filters**: limit notifications to specific environments.
+- **Project filters**: limit notifications to specific GrowthBook projects.
+- **Tag filters**: limit notifications to events with matching tags.
+- **Enabled**: pause or resume delivery for the channel.
 
-Click on the button at the bottom of the **Incoming Webhooks** page that says **Add New Webhook to Workspace**.
+The experiment alert events available for Slack include:
 
-You will be asked to install the app into your workspace. Choose the desired channel you'd like to receive notifications in.
+- `experiment.started`
+- `experiment.stopped.shipped`
+- `experiment.stopped.rolledback`
+- `experiment.warning`
+- `experiment.health.guardrailFailed`
+- `experiment.health.noData`
+- `experiment.health.queryFailed`
+- `experiment.info.significance`
+- `experiment.decision.ship`
+- `experiment.decision.rollback`
+- `experiment.decision.review`
 
-![](../../static/images/integrations/slack/slack-install-flow.png)
+## Coalesced notifications
 
-Once you've completed this flow, you will see a URL available for you to copy. Save this value for later.
+When several events fire for the same object (experiment or feature) within a
+short window, GrowthBook combines them into a single Slack message instead of
+posting each one separately. For example, a failed bandit refresh that emits a
+query-failed event plus a follow-up internal `experiment.updated` will arrive
+as one digest message that lists both changes.
 
-![](../../static/images/integrations/slack/slack-copy-webhook-url.png)
+- The default window is 15 seconds and applies to newly connected Slack
+  channels. Existing webhooks keep delivering one Slack message per event
+  until the window is set on them.
+- The window keys on the touched object: events about different experiments do
+  not get merged with each other.
+- The first event's arrival time + window determines when the digest is sent;
+  the window does not extend as more events arrive, so a steady stream still
+  produces a digest every window length.
+- Up to five events are shown in full; the rest are summarized as "+N more
+  changes not shown".
+- Webhook test deliveries always fire immediately, never coalesced.
 
-## Add the Slack integration to GrowthBook
-
-Next step is to login to the GrowthBook app and visit the **Webhooks** tab under **Settings**, also available [here](https://app.growthbook.io/settings/webhooks). You will need privileges to manage webhooks in order for this menu item to be available.
-
-Click the **Create an Event Webhook** button. You should see a modal pop up with some fields for configuring the Slack notification webhook.
-
-![](../../static/images/webhooks/slack/new-webhook.png)
-
-Then, configure the following:
-
-- **Name**: The name of the integration. In case you have multiple integrations, this can help you tell them apart. This will also show in the contextual text alongside the alerts.
-- **Endpoint URL**: Copy and paste the webhook URL provided by your slack app.
-- **Payload**: Select the `Slack` payload.
-- **Event filters**: You can optionally filter by events you care about. For example, if you only care about when features are deleted, you can choose `feature.deleted` from the list. If you care about all events, leave this blank.
-- **Environment filters**: You can optionally choose to filter by environment. For example, if you only want to hear about events that are for the production environment, you can choose `production` from the list. For all environments, leave this blank.
-- **Project filters**: You can optionally choose to filter by project. For example, if you have a project named "Onboarding V2" and you only want to alert for that project, you can choose that project from the projects list. For all projects, leave this blank.
-- **Tag filters**: You can optionally choose to filter by tag. For all events regardless of tag, leave this blank.
-
-After configuring all the fields, press **Create** to save your new Slack notification webhook.
-
-You can also edit these fields at any point if you make a mistake.
-
-![](../../static/images/webhooks/slack/edit-webhook.png)
-
-### Adding more alerts
-
-If you'd like to be alerted in another Slack channel, you can add another Incoming Webhook in Slack.
-
-Then, you can create new integrations in the GrowthBook dashboard, specifying all of the same information except adding your new webhook URL.
+To change or disable the window for a channel, set `coalesceWindowMs` on the
+underlying Event Webhook (0 disables coalescing). Raw and JSON Event Webhooks
+keep their one-to-one event mapping regardless of this setting so API consumers
+see every event.
 
 ## Testing your alerts
 
-You are now ready to test your alerts. First, you can hit the `Test` button on the webhook settings page. This should trigger a test notification.
+Open the Event Webhook for the Slack channel and click **Test**. You can also
+trigger one of the events selected in your filters, such as creating a test
+feature and then deleting it.
 
-Next, perform one of the actions you're watching if you've added Event filters. If you haven't added any event filters, the quickest way to test it's working is to either create a new test feature (then delete it if it's not needed), or toggle an environment on or off for an existing feature.
+## Self-hosted setup
+
+GrowthBook Cloud runs a shared Slack app, so no setup is needed there. When
+self-hosting you **create your own Slack app** in your workspace: the shared
+Cloud app can't redirect OAuth to your private domain, and you can't reuse its
+credentials. Each self-hosted instance points its own app at its own URLs.
+
+### Which features do you need?
+
+Slack talks to GrowthBook in two directions, and they have different network
+requirements. Decide which tier you need before configuring the app:
+
+| Feature                                                                                     | Traffic direction                  | Requirement                                                                                                                          |
+| ------------------------------------------------------------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| **Notifications** — cards, digests, event webhooks                                          | Outbound only (GrowthBook → Slack) | Works from anywhere, including behind a firewall                                                                                     |
+| **AI assistant** — @mentions, Confirm/Cancel buttons, `/growthbook` command, link unfurling | Inbound (Slack → GrowthBook)       | GrowthBook API must be **publicly reachable over HTTPS**; requires `SLACK_SIGNING_SECRET` and an AI provider configured for your org |
+
+In both cases, your GrowthBook **app URL must be served over HTTPS** — Slack
+rejects non-HTTPS OAuth redirect URLs (a plain `http://` domain, other than
+`localhost` during local development, will not save).
+
+### Create the app from a manifest (recommended)
+
+A Slack **app manifest** packages every scope, redirect URL, event
+subscription, and command into one document, so you don't set them by hand. In
+Slack, go to **Your Apps → Create New App → From a manifest**, pick your
+workspace, paste one of the manifests below, and replace the placeholders:
+
+- `YOUR_GROWTHBOOK_APP_URL` — your GrowthBook web app (`APP_ORIGIN`), e.g.
+  `https://growthbook.example.com`
+- `YOUR_GROWTHBOOK_API_URL` — your GrowthBook API (`API_HOST`), e.g.
+  `https://growthbook-api.example.com`. If your app and API share one host, use
+  the same URL for both.
+- `YOUR_GROWTHBOOK_APP_DOMAIN` — the host portion of the app URL, e.g.
+  `growthbook.example.com` (used for link unfurling only)
+
+**Notifications only** (no inbound traffic, no signing secret):
+
+```yaml
+display_information:
+  name: GrowthBook
+  description: GrowthBook experiment and feature-flag notifications
+features:
+  bot_user:
+    display_name: GrowthBook
+    always_online: true
+oauth_config:
+  redirect_urls:
+    - https://YOUR_GROWTHBOOK_APP_URL/integrations/slack
+  scopes:
+    bot:
+      - chat:write
+      - files:write
+      - channels:read
+      - groups:read
+      - channels:join
+settings:
+  org_deploy_enabled: false
+  socket_mode_enabled: false
+  token_rotation_enabled: false
+```
+
+**Notifications + AI assistant** (adds the inbound endpoints and command):
+
+```yaml
+display_information:
+  name: GrowthBook
+  description: GrowthBook notifications and the GrowthBook AI assistant
+features:
+  bot_user:
+    display_name: GrowthBook
+    always_online: true
+  slash_commands:
+    - command: /growthbook
+      url: https://YOUR_GROWTHBOOK_API_URL/integrations/slack/commands
+      description: Query experiments and manage this channel's subscriptions
+      usage_hint: list | subscribe | status <experiment-id> | results <experiment-id>
+      should_escape: false
+oauth_config:
+  redirect_urls:
+    - https://YOUR_GROWTHBOOK_APP_URL/integrations/slack
+  scopes:
+    bot:
+      - chat:write
+      - files:write
+      - channels:read
+      - groups:read
+      - channels:join
+      - commands
+      - app_mentions:read
+      - channels:history
+      - groups:history
+      - im:history
+      - mpim:history
+      - links:read
+      - links:write
+settings:
+  event_subscriptions:
+    request_url: https://YOUR_GROWTHBOOK_API_URL/integrations/slack/events
+    bot_events:
+      - app_mention
+      - message.channels
+      - message.groups
+      - message.im
+      - message.mpim
+      - link_shared
+    unfurl_domains:
+      - YOUR_GROWTHBOOK_APP_DOMAIN
+  interactivity:
+    is_enabled: true
+    request_url: https://YOUR_GROWTHBOOK_API_URL/integrations/slack/interactions
+  org_deploy_enabled: false
+  socket_mode_enabled: false
+  token_rotation_enabled: false
+```
+
+After creating the app, open **Basic Information → App Credentials** and set
+these on the GrowthBook API server:
+
+| Env var                | Where to find it                     |
+| ---------------------- | ------------------------------------ |
+| `SLACK_CLIENT_ID`      | Client ID                            |
+| `SLACK_CLIENT_SECRET`  | Client Secret                        |
+| `SLACK_SIGNING_SECRET` | Signing Secret (assistant tier only) |
+
+Restart GrowthBook so the values take effect, then connect from
+**Integrations → Slack**.
+
+:::note Assistant tier: verify the URLs after setting the signing secret
+
+Slack verifies the Event Subscriptions and Interactivity Request URLs by sending
+a signed challenge, which GrowthBook only accepts once `SLACK_SIGNING_SECRET` is
+set. Because that secret doesn't exist until the app is created, there's a
+chicken-and-egg: create the app from the **notifications** manifest first, set
+all three env vars and restart, then edit the app's manifest to the
+**assistant** version — the URL checks now pass. Reinstall the app to grant the
+added scopes.
+:::
+
+### Configure manually
+
+If you'd rather not use a manifest, create the app, then set the same bot
+scopes, OAuth redirect URL (`YOUR_GROWTHBOOK_APP_URL/integrations/slack`), and —
+for the assistant — the Event Subscriptions, Interactivity, and Slash Command
+Request URLs listed in the manifests above, and set the matching env vars.
+
+### How installs work
+
+Installing is workspace-level — Slack shows no channel picker during OAuth.
+Delivery uses the bot token (`chat.postMessage` and private file uploads);
+channels are selected in GrowthBook after connecting. Connections created by
+older GrowthBook versions with the `incoming-webhook` scope keep working
+unchanged.
+
+## Slack references
+
+- <ExternalLink href="https://docs.slack.dev/authentication/installing-with-oauth/">Slack OAuth v2</ExternalLink>
+- <ExternalLink href="https://docs.slack.dev/messaging/#sending">Sending messages with chat.postMessage</ExternalLink>
+- <ExternalLink href="https://docs.slack.dev/reference/methods/conversations.list/">`conversations.list`</ExternalLink>

@@ -3,7 +3,7 @@ import type { Response } from "express";
 import type { ToolSet, TextStreamPart } from "ai";
 import type { AIModel, AIPromptType } from "shared/ai";
 import type { AIChatMessage } from "shared/ai-chat";
-import { stringifyToolResultForStorage } from "shared/ai-chat";
+import { getMessageText, stringifyToolResultForStorage } from "shared/ai-chat";
 import type { AIAgentPendingAction } from "shared/validators";
 import type { ReqContext } from "back-end/types/request";
 import type { AuthRequest } from "back-end/src/types/AuthRequest";
@@ -29,6 +29,7 @@ import { toModelMessages } from "back-end/src/enterprise/services/ai-chat-to-mod
 import { logger } from "back-end/src/util/logger";
 import {
   runAccessGates,
+  checkAccessGates,
   buildSystemPromptForRequest,
 } from "back-end/src/enterprise/services/ai-access";
 import {
@@ -128,7 +129,11 @@ export interface AgentConfig<TParams = unknown> {
 type AgentRequestBody = {
   message: string;
   conversationId: string;
-  model: AIModel;
+  /**
+   * Self-hosted callers may pick a model on the first turn; Cloud ignores it.
+   * Optional so non-HTTP callers (e.g. the Slack bot) can omit it.
+   */
+  model?: AIModel;
   /**
    * Optional URL the user was on when they sent this message. Persisted
    * on the resulting `AIChatUserMessage` and surfaced to the LLM via a
@@ -176,7 +181,7 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
     res: Response,
   ): Promise<void> => {
     const body = req.body as AgentRequestBody;
-    const { message, conversationId } = body;
+    const { conversationId } = body;
     const context = getContextFromReq(req);
 
     config.onStreamStart?.(conversationId);
@@ -198,182 +203,354 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
       config.agentType,
     );
 
-    const storedModel = buffer.getModel() as AIModel | undefined;
-
-    // Resolve the model override. `undefined` falls through to the org's
-    // `defaultAIModel` below — which on Cloud is always the hardcoded model.
-    //
-    // Cloud: continued conversations keep their stored model; new ones fall
-    // through to the hardcoded default. `body.model` and `dbOverrideModel`
-    // are deliberately ignored — Cloud users cannot pick a model.
-    //
-    // Self-hosted: continued conversations keep their stored model; on the
-    // first turn we honor the user's per-request choice, else the org-level
-    // prompt override, else the org default. The model selector is disabled
-    // in the UI after the first turn, so `body.model` won't be set on
-    // follow-ups in normal usage.
-    const overrideModel: AIModel | undefined = IS_CLOUD
-      ? storedModel
-      : storedModel || body.model || dbOverrideModel;
-
-    const { defaultAIModel } = getAISettingsForOrg(context, false);
-    const resolvedModel = overrideModel || defaultAIModel;
-    buffer.setModel(resolvedModel);
-
     setSseHeaders(res);
     const emit = createEmit(res, buffer);
-    const tools = config.buildTools(context, buffer, params, emit);
 
-    const isFirstMessage = buffer.getMessages().length === 0;
-
-    // Deterministic mutation-confirmation gate. If a prior turn parked a
-    // pending mutation, act on the user's explicit decision before running
-    // the model — the model is never relied upon to confirm or replay it.
-    const pendingAction = buffer.getPendingAction();
-    const decision =
-      typeof body.confirmDecision === "string"
-        ? body.confirmDecision
-        : undefined;
-    const actionId =
-      typeof body.confirmActionId === "string"
-        ? body.confirmActionId
-        : undefined;
-    const isConfirm =
-      !!pendingAction &&
-      decision === "confirm" &&
-      actionId === pendingAction.id;
-    const isCancel =
-      !!pendingAction &&
-      decision === "cancel" &&
-      (!actionId || actionId === pendingAction.id);
-
-    // Resolve a parked mutation, if any, BEFORE appending a superseding user
-    // message — the replayed call/result pair must directly follow the prior
-    // assistant turn. On confirm we dispatch the real call; on cancel or any
-    // other message (a supersede) we record a "rejected" result. Either way
-    // the model sees an ordinary tool result and continues, agnostic of the
-    // gate. A cancel/supersede with a follow-up message lets the model react
-    // to the rejection plus the new instruction in the same turn.
-    if (pendingAction) {
-      await resolvePendingAction(
-        context,
-        buffer,
-        pendingAction,
-        emit,
-        isConfirm,
-      );
-      buffer.setPendingAction(undefined);
-    }
-
-    // A confirm/cancel decision is a control signal, not a chat message — we
-    // don't persist a visible "Confirm"/"Cancel" user bubble for it. Any other
-    // message (including one that supersedes a pending action) is a normal
-    // user turn, appended after the parked action has been resolved.
-    if (!isConfirm && !isCancel) {
-      const datasourceHint =
-        config.injectDatasourceHint && typeof body.datasourceId === "string"
-          ? body.datasourceId
-          : undefined;
-      appendUserMessage(buffer, message, body.currentPage, datasourceHint);
-    }
-    buffer.setStreaming(true);
-
-    persistConversation(context.models.aiConversations, buffer).catch((err) => {
-      logger.error(err, "Failed to persist user message");
+    await executeAgentTurn({
+      context,
+      config,
+      body,
+      params,
+      buffer,
+      system,
+      isDefaultPrompt: !orgAdditionalPrompt,
+      dbOverrideModel,
+      emit,
     });
 
-    const messagesForLLM = toModelMessages(buffer.getMessages());
+    // executeAgentTurn already emitted "done" and persisted; close the SSE
+    // stream if it's still open.
+    if (!res.writableFinished && !res.destroyed) {
+      res.end();
+    }
+  };
+}
 
-    const titlePromise: Promise<void> = isFirstMessage
-      ? generateTitle(context, config, message, overrideModel, buffer, emit)
-      : Promise.resolve();
+// =============================================================================
+// Headless entry — run a turn to completion without an HTTP/SSE transport
+// =============================================================================
 
-    const abortController = new AbortController();
-    activeStreamControllers.set(conversationId, abortController);
-    let cancelledExternally = false;
+export type RunAgentTurnResult =
+  | {
+      ok: true;
+      conversationId: string;
+      /** The assistant's final user-visible reply text (may be empty). */
+      reply: string;
+      /** A mutation the agent parked for confirmation, or null. */
+      pendingAction: AIAgentPendingAction | null;
+      /**
+       * Experiment ids the agent asked to attach a results card for (via an
+       * `experiment-card` emit from a tool). The caller renders + delivers them.
+       */
+      experimentCardIds: string[];
+    }
+  | { ok: false; status: number; message: string; retryAfter?: number };
 
-    const checkCancellation = async (): Promise<boolean> => {
-      if (cancelledExternally) return true;
-      const doc = await context.models.aiConversations.getById(conversationId);
-      if (doc && !doc.isStreaming) {
-        cancelledExternally = true;
-        abortController.abort();
-        return true;
-      }
-      return false;
+/** Minimal input for a headless turn — the non-HTTP analogue of the chat request body. */
+export interface HeadlessTurnInput {
+  message: string;
+  conversationId: string;
+  /** Optional page/context hint, surfaced to the model the same way the UI does. */
+  currentPage?: string;
+  /** Optional product-analytics datasource hint (only used by agents that opt in). */
+  datasourceId?: string;
+  /**
+   * Resolve a parked mutation from a prior turn. `confirmDecision: "confirm"`
+   * dispatches the stored call; "cancel" records a rejection. `message` is
+   * typically empty for these control turns.
+   */
+  confirmActionId?: string;
+  confirmDecision?: "confirm" | "cancel";
+}
+
+/**
+ * Run a single agent turn to completion with no HTTP/SSE transport and return
+ * the assistant's final reply as a string. Used by non-browser callers (e.g.
+ * the Slack bot) that need the answer rather than a stream.
+ *
+ * The caller must build a permission-scoped `context` for the acting user
+ * (e.g. via getContextForUserIdInOrg) — the agent's API calls run with exactly
+ * that context's permissions, so a Slack user can't read anything they
+ * couldn't read in the app.
+ */
+export async function runAgentTurnToCompletion<TParams>({
+  context,
+  config,
+  input,
+}: {
+  context: ReqContext;
+  config: AgentConfig<TParams>;
+  input: HeadlessTurnInput;
+}): Promise<RunAgentTurnResult> {
+  const body: AgentRequestBody = {
+    message: input.message,
+    conversationId: input.conversationId,
+    ...(input.currentPage ? { currentPage: input.currentPage } : {}),
+    ...(input.datasourceId ? { datasourceId: input.datasourceId } : {}),
+    ...(input.confirmActionId
+      ? { confirmActionId: input.confirmActionId }
+      : {}),
+    ...(input.confirmDecision
+      ? { confirmDecision: input.confirmDecision }
+      : {}),
+  };
+
+  config.onStreamStart?.(body.conversationId);
+
+  const gate = await checkAccessGates(context);
+  if (!gate.ok) {
+    return {
+      ok: false,
+      status: gate.status,
+      message: gate.message,
+      ...(gate.retryAfter !== undefined ? { retryAfter: gate.retryAfter } : {}),
     };
+  }
 
-    try {
-      const stream = await streamingChatCompletion({
-        context,
-        system,
-        messages: messagesForLLM,
-        temperature: config.temperature,
-        type: config.promptType,
-        isDefaultPrompt: !orgAdditionalPrompt,
-        overrideModel,
-        tools,
-        maxSteps: config.maxSteps,
-        abortSignal: abortController.signal,
-      });
+  const params = config.parseParams(body);
+  const {
+    system,
+    orgAdditionalPrompt,
+    overrideModel: dbOverrideModel,
+  } = await buildSystemPromptForRequest(context, config, params);
+  const buffer = await loadOrInitConversation(
+    context.models.aiConversations,
+    body.conversationId,
+    context.userId,
+    config.agentType,
+  );
 
-      await processStream(stream, config, buffer, emit, abortController, () => {
-        // A tool just parked a mutation for confirmation: stop the turn
-        // deterministically so the model can't continue past the gate. The
-        // pending state is persisted below and acted on next turn.
-        if (buffer.getPendingAction()) {
-          abortController.abort();
-        }
-        void (async () => {
-          if (await checkCancellation()) return;
-          await persistConversation(context.models.aiConversations, buffer);
-        })().catch((err) => {
-          logger.error(
-            err,
-            "Failed to persist intermediate conversation state",
-          );
-        });
-      });
-
-      try {
-        await stream.response;
-      } catch {
-        // Provider errors after stream close — already handled
-      }
-
-      await titlePromise;
-    } finally {
-      activeStreamControllers.delete(conversationId);
-
-      try {
-        config.onCleanup?.(conversationId);
-      } catch {
-        // ignore cleanup errors
-      }
-
-      buffer.setStreaming(false);
-
-      if (!cancelledExternally) {
-        await checkCancellation();
-      }
-
-      // Persist the final assistant/tool turn BEFORE closing the stream. The
-      // client kicks off syncMessagesFromServer() the instant it sees the SSE
-      // stream close, so MongoDB must already hold the final state. If we
-      // persisted fire-and-forget after res.end() (as before), that GET could
-      // race ahead of the write and return stale messages missing the just-
-      // streamed reply — which then visibly disappeared until the next refresh.
-      // persistConversation swallows its own errors, so this never throws.
-      if (!cancelledExternally) {
-        await persistConversation(context.models.aiConversations, buffer);
-      }
-
-      if (!res.writableFinished && !res.destroyed) {
-        emit("done", {});
-        res.end();
+  // No SSE sink — keep the streamed-at timestamp fresh (so stale-stream
+  // detection matches the HTTP path) and collect experiment-card events.
+  const experimentCardIds: string[] = [];
+  const emit: AgentEmit = (event, data) => {
+    buffer.touchStreamedAt();
+    if (event === "experiment-card" && data && typeof data === "object") {
+      const id = (data as { experimentId?: unknown }).experimentId;
+      if (typeof id === "string" && id && !experimentCardIds.includes(id)) {
+        experimentCardIds.push(id);
       }
     }
   };
+
+  await executeAgentTurn({
+    context,
+    config,
+    body,
+    params,
+    buffer,
+    system,
+    isDefaultPrompt: !orgAdditionalPrompt,
+    dbOverrideModel,
+    emit,
+  });
+
+  return {
+    ok: true,
+    conversationId: buffer.conversationId,
+    reply: extractFinalAssistantText(buffer.getMessages()),
+    pendingAction: buffer.getPendingAction() ?? null,
+    experimentCardIds,
+  };
+}
+
+/**
+ * Transport-agnostic core of a single agent turn, shared between the HTTP
+ * handler and the headless runner. Transport coupling (SSE headers, `res.end`,
+ * access-gate error responses) lives in the callers.
+ */
+async function executeAgentTurn<TParams>({
+  context,
+  config,
+  body,
+  params,
+  buffer,
+  system,
+  isDefaultPrompt,
+  dbOverrideModel,
+  emit,
+}: {
+  context: ReqContext;
+  config: AgentConfig<TParams>;
+  body: AgentRequestBody;
+  params: TParams;
+  buffer: ConversationBuffer;
+  system: string;
+  isDefaultPrompt: boolean;
+  dbOverrideModel: AIModel | undefined;
+  emit: AgentEmit;
+}): Promise<void> {
+  const { message } = body;
+  const { conversationId } = buffer;
+
+  const storedModel = buffer.getModel() as AIModel | undefined;
+
+  // Resolve the model override. `undefined` falls through to the org's
+  // `defaultAIModel` below — which on Cloud is always the hardcoded model.
+  //
+  // Cloud: continued conversations keep their stored model; new ones fall
+  // through to the hardcoded default. `body.model` and `dbOverrideModel`
+  // are deliberately ignored — Cloud users cannot pick a model.
+  //
+  // Self-hosted: continued conversations keep their stored model; on the
+  // first turn we honor the user's per-request choice, else the org-level
+  // prompt override, else the org default. The model selector is disabled
+  // in the UI after the first turn, so `body.model` won't be set on
+  // follow-ups in normal usage.
+  const overrideModel: AIModel | undefined = IS_CLOUD
+    ? storedModel
+    : storedModel || body.model || dbOverrideModel;
+
+  const { defaultAIModel } = getAISettingsForOrg(context, false);
+  const resolvedModel = overrideModel || defaultAIModel;
+  buffer.setModel(resolvedModel);
+
+  const tools = config.buildTools(context, buffer, params, emit);
+
+  const isFirstMessage = buffer.getMessages().length === 0;
+
+  // Deterministic mutation-confirmation gate. If a prior turn parked a
+  // pending mutation, act on the user's explicit decision before running
+  // the model — the model is never relied upon to confirm or replay it.
+  const pendingAction = buffer.getPendingAction();
+  const decision =
+    typeof body.confirmDecision === "string" ? body.confirmDecision : undefined;
+  const actionId =
+    typeof body.confirmActionId === "string" ? body.confirmActionId : undefined;
+  const isConfirm =
+    !!pendingAction && decision === "confirm" && actionId === pendingAction.id;
+  const isCancel =
+    !!pendingAction &&
+    decision === "cancel" &&
+    (!actionId || actionId === pendingAction.id);
+
+  // Resolve a parked mutation, if any, BEFORE appending a superseding user
+  // message — the replayed call/result pair must directly follow the prior
+  // assistant turn. On confirm we dispatch the real call; on cancel or any
+  // other message (a supersede) we record a "rejected" result. Either way
+  // the model sees an ordinary tool result and continues, agnostic of the
+  // gate. A cancel/supersede with a follow-up message lets the model react
+  // to the rejection plus the new instruction in the same turn.
+  if (pendingAction) {
+    await resolvePendingAction(context, buffer, pendingAction, emit, isConfirm);
+    buffer.setPendingAction(undefined);
+  }
+
+  // A confirm/cancel decision is a control signal, not a chat message — we
+  // don't persist a visible "Confirm"/"Cancel" user bubble for it. Any other
+  // message (including one that supersedes a pending action) is a normal
+  // user turn, appended after the parked action has been resolved.
+  if (!isConfirm && !isCancel) {
+    const datasourceHint =
+      config.injectDatasourceHint && typeof body.datasourceId === "string"
+        ? body.datasourceId
+        : undefined;
+    appendUserMessage(buffer, message, body.currentPage, datasourceHint);
+  }
+  buffer.setStreaming(true);
+
+  persistConversation(context.models.aiConversations, buffer).catch((err) => {
+    logger.error(err, "Failed to persist user message");
+  });
+
+  const messagesForLLM = toModelMessages(buffer.getMessages());
+
+  const titlePromise: Promise<void> = isFirstMessage
+    ? generateTitle(context, config, message, overrideModel, buffer, emit)
+    : Promise.resolve();
+
+  const abortController = new AbortController();
+  activeStreamControllers.set(conversationId, abortController);
+  let cancelledExternally = false;
+
+  const checkCancellation = async (): Promise<boolean> => {
+    if (cancelledExternally) return true;
+    const doc = await context.models.aiConversations.getById(conversationId);
+    if (doc && !doc.isStreaming) {
+      cancelledExternally = true;
+      abortController.abort();
+      return true;
+    }
+    return false;
+  };
+
+  try {
+    const stream = await streamingChatCompletion({
+      context,
+      system,
+      messages: messagesForLLM,
+      temperature: config.temperature,
+      type: config.promptType,
+      isDefaultPrompt,
+      overrideModel,
+      tools,
+      maxSteps: config.maxSteps,
+      abortSignal: abortController.signal,
+    });
+
+    await processStream(stream, config, buffer, emit, abortController, () => {
+      // A tool just parked a mutation for confirmation: stop the turn
+      // deterministically so the model can't continue past the gate. The
+      // pending state is persisted below and acted on next turn.
+      if (buffer.getPendingAction()) {
+        abortController.abort();
+      }
+      void (async () => {
+        if (await checkCancellation()) return;
+        await persistConversation(context.models.aiConversations, buffer);
+      })().catch((err) => {
+        logger.error(err, "Failed to persist intermediate conversation state");
+      });
+    });
+
+    try {
+      await stream.response;
+    } catch {
+      // Provider errors after stream close — already handled
+    }
+
+    await titlePromise;
+  } finally {
+    activeStreamControllers.delete(conversationId);
+
+    try {
+      config.onCleanup?.(conversationId);
+    } catch {
+      // ignore cleanup errors
+    }
+
+    buffer.setStreaming(false);
+
+    if (!cancelledExternally) {
+      await checkCancellation();
+    }
+
+    // Persist the final assistant/tool turn BEFORE the caller closes the
+    // stream. The HTTP client kicks off syncMessagesFromServer() the instant
+    // it sees the SSE stream close, so MongoDB must already hold the final
+    // state; the headless caller reads the reply straight off the buffer.
+    // persistConversation swallows its own errors, so this never throws.
+    if (!cancelledExternally) {
+      await persistConversation(context.models.aiConversations, buffer);
+    }
+
+    emit("done", {});
+  }
+}
+
+/**
+ * Walk the conversation backwards and return the most recent assistant
+ * message's user-visible text (tool-call-only assistant turns are skipped).
+ */
+function extractFinalAssistantText(messages: AIChatMessage[]): string {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (m && m.role === "assistant") {
+      const text = getMessageText(m).trim();
+      if (text) return text;
+    }
+  }
+  return "";
 }
 
 // =============================================================================

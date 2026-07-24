@@ -38,6 +38,10 @@ import {
   publishPendingFeatureDraftsForExperiment,
 } from "back-end/src/services/experiment-feature";
 import {
+  notifyExperimentStarted,
+  notifyExperimentStopped,
+} from "back-end/src/services/experimentNotifications";
+import {
   ChecklistIncompleteError,
   InvalidStatusError,
   PendingDraftPublishFailedError,
@@ -435,6 +439,14 @@ export async function executeExperimentStart(
     experiment,
     changes: { nextScheduledStatusUpdate: null, ...changes },
   });
+
+  if (experiment.status === "draft") {
+    await notifyExperimentStarted({
+      context,
+      experiment: updated,
+    });
+  }
+
   return { updated, publishResult };
 }
 
@@ -757,6 +769,28 @@ export async function stopExperiment({
     experiment,
     changes,
   });
+
+  if (isEnding) {
+    const stoppedType =
+      input.results === "won" ||
+      (input.results !== "lost" && enableTemporaryRollout)
+        ? "shipped"
+        : "rolledback";
+    const releasedVariationName =
+      variations[releasedVariationIndexFromId]?.name ||
+      variations[winner]?.name ||
+      undefined;
+
+    await notifyExperimentStopped({
+      context,
+      experiment: updated,
+      type: stoppedType,
+      results: input.results,
+      enableTemporaryRollout,
+      releasedVariationName,
+      reason: input.reason,
+    });
+  }
 
   return { experiment, updated, isEnding };
 }

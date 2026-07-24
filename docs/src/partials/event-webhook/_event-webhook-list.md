@@ -8,6 +8,7 @@
 | **[feature.saferollout.ship](#featuresaferolloutship)** | Triggered when a safe rollout is completed and safe to rollout to 100%. |
 | **[feature.saferollout.rollback](#featuresaferolloutrollback)** | Triggered when a safe rollout has a failing guardrail and should be reverted. |
 | **[feature.saferollout.unhealthy](#featuresaferolloutunhealthy)** | Triggered when a safe rollout is failing a health check and may not be working as expected. |
+| **[feature.stale.candidate](#featurestalecandidate)** | Triggered when a feature flag looks stale and may be ready for cleanup. |
 | **[feature.rampSchedule.created](#featurerampSchedulecreated)** | Triggered when a ramp schedule is created for a feature |
 | **[feature.rampSchedule.deleted](#featurerampScheduledeleted)** | Triggered when a ramp schedule is deleted from a feature |
 | **[feature.rampSchedule.actions.started](#featurerampScheduleactionsstarted)** | Triggered when a feature ramp schedule starts |
@@ -38,6 +39,19 @@
 | **[experiment.decision.ship](#experimentdecisionship)** | Triggered when an experiment is ready to ship a variation. |
 | **[experiment.decision.rollback](#experimentdecisionrollback)** | Triggered when an experiment should be rolled back to the control. |
 | **[experiment.decision.review](#experimentdecisionreview)** | Triggered when an experiment has reached the desired power point, but the results may be ambiguous. |
+| **[experiment.started](#experimentstarted)** | Triggered when an experiment starts running. |
+| **[experiment.stopped.shipped](#experimentstoppedshipped)** | Triggered when an experiment is stopped and a variation is shipped. |
+| **[experiment.stopped.rolledback](#experimentstoppedrolledback)** | Triggered when an experiment is stopped and rolled back to control. |
+| **[experiment.health.guardrailFailed](#experimenthealthguardrailFailed)** | Triggered when a running experiment has a failing guardrail metric. |
+| **[experiment.health.noData](#experimenthealthnoData)** | Triggered when experiment results update successfully but contain no data. |
+| **[experiment.health.queryFailed](#experimenthealthqueryFailed)** | Triggered when experiment results fail to update because of a query error. |
+| **[experiment.status.changed](#experimentstatuschanged)** | Triggered when an experiment status changes. |
+| **[experiment.endingSoon](#experimentendingSoon)** | Triggered when a running experiment is nearing its scheduled end date. |
+| **[experiment.stale](#experimentstale)** | Triggered when a running experiment has been active for a long time without a decision. |
+| **[experiment.metric.regression](#experimentmetricregression)** | Triggered when a metric regression is detected in an experiment. |
+| **[experiment.bandit.weightsChanged](#experimentbanditweightsChanged)** | Triggered when a multi-armed bandit materially changes variation weights. |
+| **[experiment.holdout.created](#experimentholdoutcreated)** | Triggered when a holdout is created. |
+| **[experiment.holdout.updated](#experimentholdoutupdated)** | Triggered when a holdout is updated. |
 | **[savedGroup.created](#savedGroupcreated)** | Triggered when a saved group is created |
 | **[savedGroup.updated](#savedGroupupdated)** | Triggered when a saved group is updated |
 | **[savedGroup.deleted](#savedGroupdeleted)** | Triggered when a saved group is deleted |
@@ -439,6 +453,52 @@ Triggered when a safe rollout is failing a health check and may not be working a
             safeRolloutId: string;
             environment: string;
             unhealthyReason: ("srm" | "multipleExposures")[];
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### feature.stale.candidate
+
+Triggered when a feature flag looks stale and may be ready for cleanup.
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.stale.candidate";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            featureId: string;
+            featureName?: string | undefined;
+            daysSinceLastUpdate?: number | undefined;
+            reason: string;
         };
     };
     user: {
@@ -2878,6 +2938,12 @@ Triggered when a goal or guardrail metric reaches significance in an experiment 
             statsEngine: string;
             criticalValue: number;
             winning: boolean;
+            metricRole?: ("goal" | "secondary" | "guardrail") | undefined;
+            uplift?: number | undefined;
+            ci?: [
+                number,
+                number
+            ] | undefined;
         };
     };
     user: {
@@ -3013,6 +3079,624 @@ Triggered when an experiment has reached the desired power point, but the result
             experimentName: string;
             experimentId: string;
             decisionDescription?: string | undefined;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### experiment.started
+
+Triggered when an experiment starts running.
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "experiment.started";
+    object: "experiment";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            type: "started";
+            experimentId: string;
+            experimentName: string;
+            phaseName?: string | undefined;
+            variationCount: number;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### experiment.stopped.shipped
+
+Triggered when an experiment is stopped and a variation is shipped.
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "experiment.stopped.shipped";
+    object: "experiment";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            type: "shipped" | "rolledback";
+            experimentId: string;
+            experimentName: string;
+            results: "dnf" | "won" | "lost" | "inconclusive";
+            releasedVariationName?: string | undefined;
+            enableTemporaryRollout: boolean;
+            reason?: string | undefined;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### experiment.stopped.rolledback
+
+Triggered when an experiment is stopped and rolled back to control.
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "experiment.stopped.rolledback";
+    object: "experiment";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            type: "shipped" | "rolledback";
+            experimentId: string;
+            experimentName: string;
+            results: "dnf" | "won" | "lost" | "inconclusive";
+            releasedVariationName?: string | undefined;
+            enableTemporaryRollout: boolean;
+            reason?: string | undefined;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### experiment.health.guardrailFailed
+
+Triggered when a running experiment has a failing guardrail metric.
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "experiment.health.guardrailFailed";
+    object: "experiment";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            type: "guardrail-failed";
+            experimentId: string;
+            experimentName: string;
+            failedMetrics: {
+                id: string;
+                name: string;
+                variationName: string;
+            }[];
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### experiment.health.noData
+
+Triggered when experiment results update successfully but contain no data.
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "experiment.health.noData";
+    object: "experiment";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            type: "no-data";
+            experimentId: string;
+            experimentName: string;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### experiment.health.queryFailed
+
+Triggered when experiment results fail to update because of a query error.
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "experiment.health.queryFailed";
+    object: "experiment";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            type: "query-failed";
+            experimentId: string;
+            experimentName: string;
+            errorMessage?: string | undefined;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### experiment.status.changed
+
+Triggered when an experiment status changes.
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "experiment.status.changed";
+    object: "experiment";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            type: "status-changed";
+            experimentId: string;
+            experimentName: string;
+            previousStatus: string;
+            currentStatus: string;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### experiment.endingSoon
+
+Triggered when a running experiment is nearing its scheduled end date.
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "experiment.endingSoon";
+    object: "experiment";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            type: "ending-soon";
+            experimentId: string;
+            experimentName: string;
+            endsAt: string;
+            daysRemaining: number;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### experiment.stale
+
+Triggered when a running experiment has been active for a long time without a decision.
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "experiment.stale";
+    object: "experiment";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            type: "stale";
+            experimentId: string;
+            experimentName: string;
+            daysRunning: number;
+            reason: string;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### experiment.metric.regression
+
+Triggered when a metric regression is detected in an experiment.
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "experiment.metric.regression";
+    object: "experiment";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            type: "metric-regression";
+            experimentId: string;
+            experimentName: string;
+            metricId: string;
+            metricName: string;
+            variationName: string;
+            metricRole?: ("goal" | "secondary" | "guardrail") | undefined;
+            uplift?: number | undefined;
+            ci?: [
+                number,
+                number
+            ] | undefined;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### experiment.bandit.weightsChanged
+
+Triggered when a multi-armed bandit materially changes variation weights.
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "experiment.bandit.weightsChanged";
+    object: "experiment";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            type: "bandit-weights-changed";
+            experimentId: string;
+            experimentName: string;
+            currentWeights: number[];
+            updatedWeights: number[];
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### experiment.holdout.created
+
+Triggered when a holdout is created.
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "experiment.holdout.created";
+    object: "experiment";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            type: "holdout-created" | "holdout-updated";
+            experimentId: string;
+            experimentName: string;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### experiment.holdout.updated
+
+Triggered when a holdout is updated.
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "experiment.holdout.updated";
+    object: "experiment";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            type: "holdout-created" | "holdout-updated";
+            experimentId: string;
+            experimentName: string;
         };
     };
     user: {

@@ -66,10 +66,13 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
     enabled,
     environments = [],
     projects: projectIds,
+    experiments = [],
+    metrics = [],
     tags = [],
     events,
     name,
     signingKey,
+    coalesceWindowMs,
   } = eventWebHook;
 
   const defined = <T,>(v: T): v is NonNullable<T> => !!v;
@@ -264,7 +267,7 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
         </Flex>
       )}
 
-      <Box className="card mt-3 p-3 p-4">
+      <Box className="appbox mt-3 p-3 p-4">
         <div className="row">
           <div className="col-xs-12 col-md-6">
             <Box mt="2">
@@ -344,6 +347,69 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
                   All
                 </Text>
               )}
+            </Box>
+          </div>
+        </div>
+
+        <div className="row mt-4">
+          <div className="col mt-2 mt-md-0">
+            <Box mt="2">
+              <Text weight="semibold" as="div" mb="1">
+                Experiments
+              </Text>
+              {experiments.length ? (
+                <Flex gap="2" wrap="wrap">
+                  {experiments.map((experiment) => (
+                    <Badge
+                      key={experiment}
+                      label={experiment}
+                      color="purple"
+                      variant="soft"
+                    />
+                  ))}
+                </Flex>
+              ) : (
+                <Text color="text-low" fontStyle="italic">
+                  All
+                </Text>
+              )}
+            </Box>
+          </div>
+
+          <div className="col mt-2 mt-md-0">
+            <Box mt="2">
+              <Text weight="semibold" as="div" mb="1">
+                Metrics
+              </Text>
+              {metrics.length ? (
+                <Flex gap="2" wrap="wrap">
+                  {metrics.map((metric) => (
+                    <Badge
+                      key={metric}
+                      label={metric}
+                      color="purple"
+                      variant="soft"
+                    />
+                  ))}
+                </Flex>
+              ) : (
+                <Text color="text-low" fontStyle="italic">
+                  All
+                </Text>
+              )}
+            </Box>
+          </div>
+
+          <div className="col mt-2 mt-md-0">
+            <Box mt="2">
+              <Text weight="semibold" as="div" mb="1">
+                Coalescing
+              </Text>
+              <Text color="text-low">
+                {coalesceWindowMs
+                  ? `Burst window ${coalesceWindowMs / 1000}s`
+                  : "Off"}
+              </Text>
             </Box>
           </div>
         </div>

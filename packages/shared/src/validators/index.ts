@@ -53,6 +53,7 @@ export * from "./events";
 export * from "./experiment-decision";
 export * from "./experiment-info";
 export * from "./experiment-warnings";
+export * from "./experiment-alerts";
 
 export * from "./features";
 export * from "./features-v2";

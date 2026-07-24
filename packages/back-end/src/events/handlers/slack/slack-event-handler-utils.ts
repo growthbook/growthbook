@@ -3,16 +3,29 @@ import formatNumber from "number-format.js";
 import omit from "lodash/omit";
 import pick from "lodash/pick";
 import isEqual from "lodash/isEqual";
+import { daysBetween } from "shared/dates";
 import {
   NotificationEvent,
   LegacyNotificationEvent,
 } from "shared/types/events/notification-events";
 import { EventInterface } from "shared/types/events/event";
+import { EventWebHookInterface } from "shared/types/event-webhook";
 import { SlackIntegrationInterface } from "shared/types/slack-integration";
 import {
   ExperimentWarningNotificationPayload,
   ExperimentInfoSignificancePayload,
   ExperimentDecisionNotificationPayload,
+  ExperimentStartedNotificationPayload,
+  ExperimentStoppedNotificationPayload,
+  ExperimentGuardrailFailedNotificationPayload,
+  ExperimentNoDataNotificationPayload,
+  ExperimentQueryFailedNotificationPayload,
+  ExperimentStatusChangedNotificationPayload,
+  ExperimentEndingSoonNotificationPayload,
+  ExperimentStaleNotificationPayload,
+  ExperimentMetricRegressionNotificationPayload,
+  ExperimentBanditChangedNotificationPayload,
+  ExperimentHoldoutNotificationPayload,
   SafeRolloutDecisionNotificationPayload,
   SafeRolloutUnhealthyNotificationPayload,
   RampScheduleStepApprovalRequiredPayload,
@@ -31,8 +44,15 @@ import {
 } from "back-end/src/events/handlers/utils";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
 import { getEvent } from "back-end/src/models/EventModel";
+import { getExperimentByIdForOrganization } from "back-end/src/models/ExperimentModel";
+import { getSlackBotAccessTokenForWebhook } from "back-end/src/models/EventWebhookModel";
+import { getUserById } from "back-end/src/models/UserModel";
 import { cancellableFetch } from "back-end/src/util/http.util";
 import { logger } from "back-end/src/util/logger";
+import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import { buildExperimentCardData } from "back-end/src/services/slack/experimentCardData";
+import { renderExperimentCard } from "back-end/src/services/slack/cards";
+import type { CompactEvent } from "back-end/src/services/slack/chartImage";
 
 // region Filtering
 
@@ -41,9 +61,17 @@ export type DataForNotificationEvent = {
   slackMessage: SlackMessage;
 };
 
+export type SlackMessageRenderContext = {
+  eventUser?: string;
+  organizationId?: string;
+  event?: NotificationEvent;
+  experimentDetails?: ExperimentDetailsSource;
+};
+
 export const getSlackMessageForNotificationEvent = async (
   event: NotificationEvent,
   eventId: string,
+  renderContext?: SlackMessageRenderContext,
 ): Promise<SlackMessage | null> => {
   let invalidEvent: never;
 
@@ -55,18 +83,21 @@ export const getSlackMessageForNotificationEvent = async (
       return buildSlackMessageForFeatureCreatedEvent(
         event.data.object.id,
         eventId,
+        renderContext,
       );
 
     case "feature.updated":
       return buildSlackMessageForFeatureUpdatedEvent(
         event.data.object.id,
         eventId,
+        renderContext,
       );
 
     case "feature.deleted":
       return buildSlackMessageForFeatureDeletedEvent(
         event.data.object.id,
         eventId,
+        renderContext,
       );
 
     case "feature.saferollout.ship":
@@ -87,40 +118,146 @@ export const getSlackMessageForNotificationEvent = async (
         eventId,
       );
 
+    case "feature.stale.candidate":
+      return buildSlackMessageForFeatureStaleCandidateEvent(
+        event.data.object,
+        eventId,
+      );
+
     case "experiment.created":
       return await buildSlackMessageForExperimentCreatedEvent(
         event.data.object,
         eventId,
+        renderContext,
       );
 
     case "experiment.updated":
       return await buildSlackMessageForExperimentUpdatedEvent(
         event.data.object,
         eventId,
+        renderContext,
       );
 
     case "experiment.warning":
-      return buildSlackMessageForExperimentWarningEvent(event.data.object);
+      return await buildSlackMessageForExperimentWarningEvent(
+        event.data.object,
+        eventId,
+        renderContext,
+      );
 
     case "experiment.info.significance":
-      return buildSlackMessageForExperimentInfoSignificanceEvent(
+      return await buildSlackMessageForExperimentInfoSignificanceEvent(
         event.data.object,
+        eventId,
+        renderContext,
       );
 
     case "experiment.deleted":
       return await buildSlackMessageForExperimentDeletedEvent(
-        event.data.object.name,
+        event.data.object,
         eventId,
+        renderContext,
       );
 
     case "experiment.decision.ship":
-      return buildSlackMessageForExperimentShipEvent(event.data.object);
+      return await buildSlackMessageForExperimentShipEvent(
+        event.data.object,
+        eventId,
+        renderContext,
+      );
 
     case "experiment.decision.rollback":
-      return buildSlackMessageForExperimentRollbackEvent(event.data.object);
+      return await buildSlackMessageForExperimentRollbackEvent(
+        event.data.object,
+        eventId,
+        renderContext,
+      );
 
     case "experiment.decision.review":
-      return buildSlackMessageForExperimentReviewEvent(event.data.object);
+      return await buildSlackMessageForExperimentReviewEvent(
+        event.data.object,
+        eventId,
+        renderContext,
+      );
+
+    case "experiment.started":
+      return await buildSlackMessageForExperimentStartedEvent(
+        event.data.object,
+        eventId,
+        renderContext,
+      );
+
+    case "experiment.stopped.shipped":
+    case "experiment.stopped.rolledback":
+      return await buildSlackMessageForExperimentStoppedEvent(
+        event.data.object,
+        eventId,
+        renderContext,
+      );
+
+    case "experiment.health.guardrailFailed":
+      return await buildSlackMessageForExperimentGuardrailFailedEvent(
+        event.data.object,
+        eventId,
+        renderContext,
+      );
+
+    case "experiment.health.noData":
+      return await buildSlackMessageForExperimentNoDataEvent(
+        event.data.object,
+        eventId,
+        renderContext,
+      );
+
+    case "experiment.health.queryFailed":
+      return await buildSlackMessageForExperimentQueryFailedEvent(
+        event.data.object,
+        eventId,
+        renderContext,
+      );
+
+    case "experiment.status.changed":
+      return await buildSlackMessageForExperimentStatusChangedEvent(
+        event.data.object,
+        eventId,
+        renderContext,
+      );
+
+    case "experiment.endingSoon":
+      return await buildSlackMessageForExperimentEndingSoonEvent(
+        event.data.object,
+        eventId,
+        renderContext,
+      );
+
+    case "experiment.stale":
+      return await buildSlackMessageForExperimentStaleEvent(
+        event.data.object,
+        eventId,
+        renderContext,
+      );
+
+    case "experiment.metric.regression":
+      return await buildSlackMessageForExperimentMetricRegressionEvent(
+        event.data.object,
+        eventId,
+        renderContext,
+      );
+
+    case "experiment.bandit.weightsChanged":
+      return await buildSlackMessageForExperimentBanditChangedEvent(
+        event.data.object,
+        eventId,
+        renderContext,
+      );
+
+    case "experiment.holdout.created":
+    case "experiment.holdout.updated":
+      return await buildSlackMessageForExperimentHoldoutEvent(
+        event.data.object,
+        eventId,
+        renderContext,
+      );
 
     case "webhook.test":
       return buildSlackMessageForWebhookTestEvent(event.data.object.webhookId);
@@ -264,6 +401,107 @@ export const getSlackMessageForNotificationEvent = async (
   }
 };
 
+// Map a notification event to the compact card's *event* (which drives its hero
+// layout). Returns undefined when it doesn't map cleanly; the card then derives
+// one from the experiment's state. The set of card events here mirrors
+// SLACK_CARD_EVENT_KINDS in shared (used by the settings UI to badge card vs
+// text) — keep the two in sync.
+const compactEventForNotification = (
+  event: NotificationEvent,
+): CompactEvent | undefined => {
+  switch (event.event) {
+    case "experiment.started":
+      return "started";
+    case "experiment.info.significance":
+      return "significance";
+    // Decision Framework recommendations — the experiment is still running, so
+    // these are "ship/rollback recommended", not the stopped "won"/"lost"
+    // outcome (that's experiment.stopped.*).
+    case "experiment.decision.ship":
+      return "decisionShip";
+    case "experiment.decision.rollback":
+      return "decisionRollback";
+    case "experiment.warning":
+    case "experiment.health.guardrailFailed":
+    case "experiment.health.noData":
+    case "experiment.health.queryFailed":
+      return "warning";
+    // A stop is emitted as shipped/rolledback, but the real outcome is in
+    // `results`: a non-ship stop can be inconclusive/dnf, i.e. a neutral
+    // "stopped" rather than a "rolled back / no lift" loss.
+    case "experiment.stopped.shipped":
+    case "experiment.stopped.rolledback": {
+      const results = (event.data?.object as { results?: string } | undefined)
+        ?.results;
+      if (results === "won") return "won";
+      if (results === "lost") return "lost";
+      return "stopped";
+    }
+    default:
+      return undefined;
+  }
+};
+
+// Short, URL-free card caption. Omits the experiment name (which can contain a
+// URL that Slack would unfurl); the card image already shows the name.
+const CARD_CAPTION: Record<CompactEvent, string> = {
+  started: "Experiment started",
+  significance: "Reached significance",
+  won: "Declared a winner",
+  lost: "Rolled back",
+  stopped: "Experiment stopped",
+  warning: "Health alert",
+  decisionShip: "Ship recommended",
+  decisionRollback: "Rollback recommended",
+};
+
+// Render the compact results-card PNG for an experiment event (best-effort).
+// Only card-worthy lifecycle events get one (not metadata changes like
+// experiment.updated); returns the PNG plus a URL-free caption. Never throws.
+export const renderExperimentCardForEvent = async (
+  event: NotificationEvent,
+  organizationId: string,
+  format: "none" | "compact" | "detailed" = "compact",
+): Promise<{
+  png: Buffer;
+  altText: string;
+  caption: string;
+  experimentId: string;
+} | null> => {
+  if (format === "none") return null;
+  const compactEvent = compactEventForNotification(event);
+  if (!compactEvent) return null; // not a card-worthy event
+
+  const object = event.data?.object as
+    | { id?: string; experimentId?: string }
+    | undefined;
+  const experimentId = object?.id || object?.experimentId;
+  if (!experimentId) return null;
+
+  try {
+    const context = await getContextForAgendaJobByOrgId(organizationId);
+    const card = await buildExperimentCardData(context, experimentId);
+    if (!card) return null;
+    card.event = compactEvent;
+    const png = await renderExperimentCard(
+      card,
+      format === "detailed" ? "detailed" : "compact",
+    );
+    return {
+      png,
+      altText: `${card.name} — experiment results`,
+      caption: CARD_CAPTION[compactEvent],
+      experimentId,
+    };
+  } catch (e) {
+    logger.warn(
+      e,
+      `Slack notification: failed to render experiment card for ${experimentId}`,
+    );
+    return null;
+  }
+};
+
 export const getSlackMessageForLegacyNotificationEvent = async (
   event: LegacyNotificationEvent,
   eventId: string,
@@ -305,11 +543,11 @@ export const getSlackMessageForLegacyNotificationEvent = async (
       );
 
     case "experiment.warning":
-      return buildSlackMessageForExperimentWarningEvent(event.data);
+      return buildSlackMessageForExperimentWarningEvent(event.data, eventId);
 
     case "experiment.deleted":
       return await buildSlackMessageForExperimentDeletedEvent(
-        event.data.previous.name,
+        event.data.previous,
         eventId,
       );
 
@@ -373,13 +611,22 @@ export const getSlackIntegrationContextBlock = (
 
 // region Event-specific messages -> Feature
 
+// Standalone "View ..." footer links make Slack messages noisy. Prefer
+// inline links in the message body when a resource link is useful.
+const suppressStandaloneLink = (value: string): string => value.slice(0, 0);
+
 export const getFeatureUrlFormatted = (featureId: string): string =>
-  `\n• <${APP_ORIGIN}/features/${featureId}|View Feature>`;
+  suppressStandaloneLink(featureId);
 
 export const getEventUrlFormatted = (eventId: string): string =>
-  `\n• <${APP_ORIGIN}/events/${eventId}|View Event>`;
+  suppressStandaloneLink(eventId);
 
-export const getEventUserFormatted = async (eventId: string) => {
+export const getEventUserFormatted = async (
+  eventId: string,
+  renderContext?: SlackMessageRenderContext,
+) => {
+  if (renderContext?.eventUser) return renderContext.eventUser;
+
   const event = await getEvent(eventId);
 
   if (!event || !event.data?.user) return "an unknown user";
@@ -404,8 +651,9 @@ export const getEventUserFormatted = async (eventId: string) => {
 const buildSlackMessageForFeatureCreatedEvent = async (
   featureId: string,
   eventId: string,
+  renderContext?: SlackMessageRenderContext,
 ): Promise<SlackMessage> => {
-  const eventUser = await getEventUserFormatted(eventId);
+  const eventUser = await getEventUserFormatted(eventId, renderContext);
 
   const text = `The feature ${featureId} has been created by ${eventUser}`;
 
@@ -429,27 +677,27 @@ const buildSlackMessageForFeatureCreatedEvent = async (
 const buildSlackMessageForFeatureUpdatedEvent = async (
   featureId: string,
   eventId: string,
+  renderContext?: SlackMessageRenderContext,
 ): Promise<SlackMessage> => {
-  const eventUser = await getEventUserFormatted(eventId);
-  const event = await getEvent(eventId);
+  const eventUser = await getEventUserFormatted(eventId, renderContext);
+  const event =
+    renderContext?.event ||
+    ((await getEvent(eventId))?.data as NotificationEvent | undefined);
 
   let changeBlocks: KnownBlock[] = [];
 
   // Check if we have changes (diff) to format
-  if (event?.data?.data && "changes" in event.data.data) {
-    const formattedDiff = formatDiffForSlack(
-      event.data.data.changes as DiffResult,
-      {
-        itemLabelFields: [
-          "type",
-          "value",
-          "coverage",
-          "condition",
-          "savedGroupTargeting",
-          "prerequisites",
-        ],
-      },
-    );
+  if (event?.data && "changes" in event.data) {
+    const formattedDiff = formatDiffForSlack(event.data.changes as DiffResult, {
+      itemLabelFields: [
+        "type",
+        "value",
+        "coverage",
+        "condition",
+        "savedGroupTargeting",
+        "prerequisites",
+      ],
+    });
     changeBlocks = formattedDiff.blocks;
   }
 
@@ -490,8 +738,9 @@ const buildSlackMessageForFeatureUpdatedEvent = async (
 const buildSlackMessageForFeatureDeletedEvent = async (
   featureId: string,
   eventId: string,
+  renderContext?: SlackMessageRenderContext,
 ): Promise<SlackMessage> => {
-  const eventUser = await getEventUserFormatted(eventId);
+  const eventUser = await getEventUserFormatted(eventId, renderContext);
   const text = `The feature ${featureId} has been deleted by ${eventUser}.`;
 
   return {
@@ -568,6 +817,46 @@ const buildSlackMessageForSafeRolloutUnhealthyEvent = (
           type: "mrkdwn",
           text:
             text +
+            getFeatureUrlFormatted(data.featureId) +
+            getEventUrlFormatted(eventId),
+        },
+      },
+    ],
+  };
+};
+
+const buildSlackMessageForFeatureStaleCandidateEvent = (
+  data: {
+    featureId: string;
+    featureName?: string;
+    daysSinceLastUpdate?: number;
+    reason: string;
+  },
+  eventId: string,
+): SlackMessage => {
+  const featureLabel = data.featureName || data.featureId;
+  const ageText =
+    typeof data.daysSinceLastUpdate === "number"
+      ? ` It has not been updated for ${data.daysSinceLastUpdate} days.`
+      : "";
+  const text = `Feature ${featureLabel} may be ready for cleanup. ${data.reason}${ageText}`;
+
+  return {
+    text,
+    blocks: [
+      {
+        type: "header",
+        text: {
+          type: "plain_text",
+          text: "Feature may be stale",
+        },
+      },
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text:
+            `Feature *${featureLabel}* may be ready for cleanup.\n${data.reason}${ageText}` +
             getFeatureUrlFormatted(data.featureId) +
             getEventUrlFormatted(eventId),
         },
@@ -1324,49 +1613,295 @@ const buildSlackMessageForConfigRevisionEvent = (
 // region Event-specific messages -> Experiment
 
 export const getExperimentUrlFormatted = (experimentId: string): string =>
-  `\n• <${APP_ORIGIN}/experiment/${experimentId}|View Experiment>`;
+  suppressStandaloneLink(experimentId);
+
+const getExperimentUrl = (experimentId: string, hash?: string): string =>
+  `${APP_ORIGIN}/experiment/${experimentId}${hash ? `#${hash}` : ""}`;
+
+// A Slack-mrkdwn click-through link ("<url|label>"). Used as the initial
+// comment on uploaded card/digest images, which are otherwise just a picture
+// with no way to open the experiment in GrowthBook.
+export const growthbookViewLink = (
+  path: string,
+  label = "View in GrowthBook",
+): string => `<${APP_ORIGIN}${path}|${label}>`;
+
+export const getExperimentViewLink = (experimentId: string): string =>
+  growthbookViewLink(`/experiment/${experimentId}`);
 
 export const getExperimentUrlAndNameFormatted = (
   experimentId: string,
   experimentName: string,
-): string => `<${APP_ORIGIN}/experiment/${experimentId}|${experimentName}>`;
+): string => `<${getExperimentUrl(experimentId)}|${experimentName}>`;
 
-const buildSlackMessageForExperimentCreatedEvent = async (
-  { id: experimentId, name: experimentName }: { id: string; name: string },
+const getExperimentActionBlock = (
+  experimentId: string,
+  actions: { text: string; hash?: string; actionId: string; value?: string }[],
+): KnownBlock => ({
+  type: "actions",
+  elements: actions.map(({ text, hash, actionId, value }) => ({
+    type: "button",
+    text: {
+      type: "plain_text",
+      text,
+    },
+    action_id: actionId,
+    ...(hash !== undefined
+      ? { url: getExperimentUrl(experimentId, hash) }
+      : {}),
+    ...(value ? { value } : {}),
+  })),
+});
+
+const getExperimentResultsActionBlock = (experimentId: string): KnownBlock =>
+  getExperimentActionBlock(experimentId, [
+    {
+      text: "Open Results",
+      hash: "results",
+      actionId: "growthbook_open_results",
+    },
+    {
+      text: "Snooze 24h",
+      actionId: "growthbook_snooze_experiment_24h",
+      value: experimentId,
+    },
+  ]);
+
+const getExperimentDiagnosticsActionBlock = (
+  experimentId: string,
+): KnownBlock =>
+  getExperimentActionBlock(experimentId, [
+    {
+      text: "Open Results",
+      hash: "results",
+      actionId: "growthbook_open_results",
+    },
+    {
+      text: "Open Experiment",
+      hash: "",
+      actionId: "growthbook_open_experiment",
+    },
+    {
+      text: "Snooze 24h",
+      actionId: "growthbook_snooze_experiment_24h",
+      value: experimentId,
+    },
+  ]);
+
+type ExperimentDetailsSource = {
+  id?: string;
+  experimentId?: string;
+  trackingKey?: string;
+  name?: string;
+  experimentName?: string;
+  owner?: string;
+  ownerEmail?: string;
+  phases?: {
+    dateStarted?: string | Date;
+    dateEnded?: string | Date;
+  }[];
+  analysisSummary?: {
+    health?: {
+      totalUsers?: number | null;
+    };
+  };
+};
+
+const formatCompactNumber = (value: number): string =>
+  new Intl.NumberFormat("en-US", {
+    notation: "compact",
+    maximumFractionDigits: 1,
+  }).format(value);
+
+const getSafeDate = (date: string | Date | undefined): Date | null => {
+  if (!date) return null;
+  const parsed = new Date(date);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const getExperimentDurationText = (
+  experiment: ExperimentDetailsSource,
+): string => {
+  const firstPhase = experiment.phases?.[0];
+  const lastPhase = experiment.phases?.[experiment.phases.length - 1];
+  const startDate = getSafeDate(firstPhase?.dateStarted);
+  if (!startDate) return "No duration yet";
+
+  const endDate = getSafeDate(lastPhase?.dateEnded) || new Date();
+  const days = Math.max(0, daysBetween(startDate, endDate));
+  return `${days} ${days === 1 ? "day" : "days"}`;
+};
+
+const getExperimentUsersText = (
+  experiment: ExperimentDetailsSource,
+): string => {
+  const totalUsers = experiment.analysisSummary?.health?.totalUsers;
+  if (typeof totalUsers !== "number") return "No users yet";
+  return `${formatCompactNumber(totalUsers)} users`;
+};
+
+const getOwnerText = async (
+  experiment: ExperimentDetailsSource,
+): Promise<string> => {
+  const owner = experiment.owner;
+  const ownerEmail = experiment.ownerEmail;
+
+  if (!owner && !ownerEmail) return "Owner: Unassigned";
+
+  if (owner?.startsWith("u_")) {
+    const user = await getUserById(owner);
+    return `Owner: ${user?.email || ownerEmail || "Unknown user"}`;
+  }
+
+  return `Owner: ${ownerEmail || owner}`;
+};
+
+const getExperimentDetailsSource = async (
   eventId: string,
-): Promise<SlackMessage> => {
-  const eventUser = await getEventUserFormatted(eventId);
-  const isUnknownUser = eventUser === "an unknown user";
-  const text = `The experiment ${experimentName} has been created ${isUnknownUser ? "automatically" : `by ${eventUser}`}`;
+  source: ExperimentDetailsSource,
+  renderContext?: SlackMessageRenderContext,
+): Promise<ExperimentDetailsSource> => {
+  if (renderContext?.experimentDetails) {
+    return {
+      ...renderContext.experimentDetails,
+      ...source,
+    };
+  }
+
+  const experimentId = source.id || source.experimentId;
+  if (!experimentId) return source;
+
+  const event = await getEvent(eventId);
+  const organizationId = event?.organizationId || renderContext?.organizationId;
+  if (!organizationId) return source;
+
+  try {
+    return (
+      (await getExperimentByIdForOrganization(organizationId, experimentId)) ||
+      source
+    );
+  } catch (e) {
+    logger.error(e, "Failed to load experiment details for Slack message");
+    return source;
+  }
+};
+
+const getExperimentDetailsBlock = async (
+  eventId: string,
+  source: ExperimentDetailsSource,
+  renderContext?: SlackMessageRenderContext,
+): Promise<KnownBlock | null> => {
+  const experiment = await getExperimentDetailsSource(
+    eventId,
+    source,
+    renderContext,
+  );
+  const label =
+    experiment.trackingKey ||
+    experiment.name ||
+    experiment.experimentName ||
+    experiment.id ||
+    experiment.experimentId;
+
+  if (!label) return null;
 
   return {
-    text,
-    blocks: [
+    type: "context",
+    elements: [
       {
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text:
-            `The experiment *${experimentName}* has been created ${isUnknownUser ? "automatically" : `by ${eventUser}`}.` +
-            getExperimentUrlFormatted(experimentId) +
-            getEventUrlFormatted(eventId),
-        },
+        type: "mrkdwn",
+        text: [
+          label,
+          getExperimentDurationText(experiment),
+          getExperimentUsersText(experiment),
+          await getOwnerText(experiment),
+        ].join(" | "),
       },
     ],
   };
 };
 
-const buildSlackMessageForExperimentUpdatedEvent = async (
-  { id: experimentId, name: experimentName }: { id: string; name: string },
+const withExperimentDetailsBlock = async (
+  slackMessage: SlackMessage,
   eventId: string,
+  source: ExperimentDetailsSource,
+  renderContext?: SlackMessageRenderContext,
 ): Promise<SlackMessage> => {
-  const eventUser = await getEventUserFormatted(eventId);
-  const event = await getEvent(eventId);
+  const detailsBlock = await getExperimentDetailsBlock(
+    eventId,
+    source,
+    renderContext,
+  );
+  if (!detailsBlock) return slackMessage;
+
+  return {
+    ...slackMessage,
+    blocks: [...slackMessage.blocks, detailsBlock],
+  };
+};
+
+const getExperimentWarningTitleBlock = (
+  experimentId: string,
+  experimentName: string,
+  label: string,
+): KnownBlock => ({
+  type: "section",
+  text: {
+    type: "mrkdwn",
+    text: `⚠️ ${getExperimentUrlAndNameFormatted(
+      experimentId,
+      experimentName,
+    )} · ${label}`,
+  },
+});
+
+const buildSlackMessageForExperimentCreatedEvent = async (
+  experiment: ExperimentDetailsSource & { id: string; name: string },
+  eventId: string,
+  renderContext?: SlackMessageRenderContext,
+): Promise<SlackMessage> => {
+  const { id: experimentId, name: experimentName } = experiment;
+  const eventUser = await getEventUserFormatted(eventId, renderContext);
+  const isUnknownUser = eventUser === "an unknown user";
+  const text = `The experiment ${experimentName} has been created ${isUnknownUser ? "automatically" : `by ${eventUser}`}`;
+
+  return withExperimentDetailsBlock(
+    {
+      text,
+      blocks: [
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text:
+              `The experiment *${experimentName}* has been created ${isUnknownUser ? "automatically" : `by ${eventUser}`}.` +
+              getExperimentUrlFormatted(experimentId) +
+              getEventUrlFormatted(eventId),
+          },
+        },
+      ],
+    },
+    eventId,
+    experiment,
+    renderContext,
+  );
+};
+
+const buildSlackMessageForExperimentUpdatedEvent = async (
+  experiment: ExperimentDetailsSource & { id: string; name: string },
+  eventId: string,
+  renderContext?: SlackMessageRenderContext,
+): Promise<SlackMessage> => {
+  const { id: experimentId, name: experimentName } = experiment;
+  const eventUser = await getEventUserFormatted(eventId, renderContext);
+  const event =
+    renderContext?.event ||
+    ((await getEvent(eventId))?.data as NotificationEvent | undefined);
 
   let changeBlocks: KnownBlock[] = [];
 
   // Check if we have changes (diff) to format
-  if (event?.data?.data && "changes" in event.data.data) {
+  if (event?.data && "changes" in event.data) {
     const metricClassifier = (item: unknown) => {
       if (typeof item === "object" && item !== null && "metricId" in item) {
         const metricId = (item as Record<string, unknown>).metricId;
@@ -1380,165 +1915,158 @@ const buildSlackMessageForExperimentUpdatedEvent = async (
       }
       return null;
     };
-    const formattedDiff = formatDiffForSlack(
-      event.data.data.changes as DiffResult,
-      {
-        itemLabelFields: [
-          "name",
-          "description",
-          "status",
-          "hypothesis",
-          "metrics",
-        ],
-        arrayIdFields: {
-          variations: "variationId",
-          phases: "__index",
-        },
-        arrayIgnoredFields: {
-          variations: ["screenshots", "dom", "css", "js"],
-          phases: ["dateStarted", "dateEnded"],
-        },
-        countArrayFields: ["*"],
-        arrayItemNames: {
-          goals: "metric",
-          secondaryMetrics: "metric",
-          guardrails: "metric",
-        },
-        arrayItemClassifiers: {
-          goals: metricClassifier,
-          secondaryMetrics: metricClassifier,
-          guardrails: metricClassifier,
-        },
-        arrayZeroBasedIndex: {
-          variations: true,
-        },
-        fieldFormatters: {
-          trafficSplit: (val: unknown) => {
-            if (Array.isArray(val)) {
-              const weights = val.map((item: unknown) => {
-                if (
-                  typeof item === "object" &&
-                  item !== null &&
-                  "weight" in item
-                ) {
-                  return (item as Record<string, unknown>).weight;
-                }
-                return item;
-              });
-              return `\`[${weights.join(", ")}]\``;
-            }
-            return `\`${JSON.stringify(val)}\``;
-          },
-          resultSummary: (val: unknown) => {
-            if (typeof val === "object" && val !== null) {
-              const obj = val as Record<string, unknown>;
-              const lines: string[] = [];
-
-              // Get current experiment data to look up variation index
-              const eventData = event?.data?.data as Record<string, unknown>;
-              const currentExperiment = eventData?.object as Record<
-                string,
-                unknown
-              >;
-              const variations =
-                (currentExperiment?.variations as unknown[]) || [];
-
-              if (obj.status) {
-                lines.push(`- status: \`"${obj.status}"\``);
-              }
-
-              // Skip winner if empty
-              if (obj.winner && obj.winner !== "") {
-                // Look up variation index from variations array
-                const variationIndex = variations.findIndex(
-                  (v: unknown) =>
-                    typeof v === "object" &&
-                    v !== null &&
-                    (v as Record<string, unknown>).variationId === obj.winner,
-                );
-                const displayIndex =
-                  variationIndex >= 0 ? variationIndex : obj.winner;
-                lines.push(`- winner: \`${displayIndex}\``);
-              }
-
-              // Skip conclusions if empty
-              if (obj.conclusions && obj.conclusions !== "") {
-                lines.push(`- conclusions: "${obj.conclusions}"`);
-              }
-
-              if (obj.releasedVariationId) {
-                // Look up variation index from variations array
-                const variationIndex = variations.findIndex(
-                  (v: unknown) =>
-                    typeof v === "object" &&
-                    v !== null &&
-                    (v as Record<string, unknown>).variationId ===
-                      obj.releasedVariationId,
-                );
-                const displayIndex =
-                  variationIndex >= 0
-                    ? variationIndex
-                    : obj.releasedVariationId;
-                lines.push(`- releasedVariationId: \`${displayIndex}\``);
-              }
-
-              if (obj.excludeFromPayload !== undefined) {
-                lines.push(
-                  `- excludeFromPayload: \`${obj.excludeFromPayload}\``,
-                );
-              }
-
-              return "\n" + lines.join("\n");
-            }
-            return `\`${JSON.stringify(val)}\``;
-          },
-          // Individual resultSummary property formatters (for hierarchical modifications)
-          status: (val: unknown) => `\`"${val}"\``,
-          conclusions: (val: unknown) => `\`"${val}"\``,
-          winner: (val: unknown) => {
-            if (typeof val === "string" && val !== "") {
-              // Get current experiment data to look up variation index
-              const eventData = event?.data?.data as Record<string, unknown>;
-              const currentExperiment = eventData?.object as Record<
-                string,
-                unknown
-              >;
-              const variations =
-                (currentExperiment?.variations as unknown[]) || [];
-              const variationIndex = variations.findIndex(
-                (v: unknown) =>
-                  typeof v === "object" &&
-                  v !== null &&
-                  (v as Record<string, unknown>).variationId === val,
-              );
-              return variationIndex >= 0 ? `\`${variationIndex}\`` : "none";
-            }
-            return "none";
-          },
-          releasedVariationId: (val: unknown) => {
-            if (typeof val === "string" && val !== "") {
-              // Get current experiment data to look up variation index
-              const eventData = event?.data?.data as Record<string, unknown>;
-              const currentExperiment = eventData?.object as Record<
-                string,
-                unknown
-              >;
-              const variations =
-                (currentExperiment?.variations as unknown[]) || [];
-              const variationIndex = variations.findIndex(
-                (v: unknown) =>
-                  typeof v === "object" &&
-                  v !== null &&
-                  (v as Record<string, unknown>).variationId === val,
-              );
-              return variationIndex >= 0 ? `\`${variationIndex}\`` : "none";
-            }
-            return "none";
-          },
-          excludeFromPayload: (val: unknown) => `\`${val}\``,
-        },
+    const formattedDiff = formatDiffForSlack(event.data.changes as DiffResult, {
+      itemLabelFields: [
+        "name",
+        "description",
+        "status",
+        "hypothesis",
+        "metrics",
+      ],
+      arrayIdFields: {
+        variations: "variationId",
+        phases: "__index",
       },
-    );
+      arrayIgnoredFields: {
+        variations: ["screenshots", "dom", "css", "js"],
+        phases: ["dateStarted", "dateEnded"],
+      },
+      countArrayFields: ["*"],
+      arrayItemNames: {
+        goals: "metric",
+        secondaryMetrics: "metric",
+        guardrails: "metric",
+      },
+      arrayItemClassifiers: {
+        goals: metricClassifier,
+        secondaryMetrics: metricClassifier,
+        guardrails: metricClassifier,
+      },
+      arrayZeroBasedIndex: {
+        variations: true,
+      },
+      fieldFormatters: {
+        trafficSplit: (val: unknown) => {
+          if (Array.isArray(val)) {
+            const weights = val.map((item: unknown) => {
+              if (
+                typeof item === "object" &&
+                item !== null &&
+                "weight" in item
+              ) {
+                return (item as Record<string, unknown>).weight;
+              }
+              return item;
+            });
+            return `\`[${weights.join(", ")}]\``;
+          }
+          return `\`${JSON.stringify(val)}\``;
+        },
+        resultSummary: (val: unknown) => {
+          if (typeof val === "object" && val !== null) {
+            const obj = val as Record<string, unknown>;
+            const lines: string[] = [];
+
+            // Get current experiment data to look up variation index
+            const eventData = event?.data as Record<string, unknown>;
+            const currentExperiment = eventData?.object as Record<
+              string,
+              unknown
+            >;
+            const variations =
+              (currentExperiment?.variations as unknown[]) || [];
+
+            if (obj.status) {
+              lines.push(`- status: \`"${obj.status}"\``);
+            }
+
+            // Skip winner if empty
+            if (obj.winner && obj.winner !== "") {
+              // Look up variation index from variations array
+              const variationIndex = variations.findIndex(
+                (v: unknown) =>
+                  typeof v === "object" &&
+                  v !== null &&
+                  (v as Record<string, unknown>).variationId === obj.winner,
+              );
+              const displayIndex =
+                variationIndex >= 0 ? variationIndex : obj.winner;
+              lines.push(`- winner: \`${displayIndex}\``);
+            }
+
+            // Skip conclusions if empty
+            if (obj.conclusions && obj.conclusions !== "") {
+              lines.push(`- conclusions: "${obj.conclusions}"`);
+            }
+
+            if (obj.releasedVariationId) {
+              // Look up variation index from variations array
+              const variationIndex = variations.findIndex(
+                (v: unknown) =>
+                  typeof v === "object" &&
+                  v !== null &&
+                  (v as Record<string, unknown>).variationId ===
+                    obj.releasedVariationId,
+              );
+              const displayIndex =
+                variationIndex >= 0 ? variationIndex : obj.releasedVariationId;
+              lines.push(`- releasedVariationId: \`${displayIndex}\``);
+            }
+
+            if (obj.excludeFromPayload !== undefined) {
+              lines.push(`- excludeFromPayload: \`${obj.excludeFromPayload}\``);
+            }
+
+            return "\n" + lines.join("\n");
+          }
+          return `\`${JSON.stringify(val)}\``;
+        },
+        // Individual resultSummary property formatters (for hierarchical modifications)
+        status: (val: unknown) => `\`"${val}"\``,
+        conclusions: (val: unknown) => `\`"${val}"\``,
+        winner: (val: unknown) => {
+          if (typeof val === "string" && val !== "") {
+            // Get current experiment data to look up variation index
+            const eventData = event?.data as Record<string, unknown>;
+            const currentExperiment = eventData?.object as Record<
+              string,
+              unknown
+            >;
+            const variations =
+              (currentExperiment?.variations as unknown[]) || [];
+            const variationIndex = variations.findIndex(
+              (v: unknown) =>
+                typeof v === "object" &&
+                v !== null &&
+                (v as Record<string, unknown>).variationId === val,
+            );
+            return variationIndex >= 0 ? `\`${variationIndex}\`` : "none";
+          }
+          return "none";
+        },
+        releasedVariationId: (val: unknown) => {
+          if (typeof val === "string" && val !== "") {
+            // Get current experiment data to look up variation index
+            const eventData = event?.data as Record<string, unknown>;
+            const currentExperiment = eventData?.object as Record<
+              string,
+              unknown
+            >;
+            const variations =
+              (currentExperiment?.variations as unknown[]) || [];
+            const variationIndex = variations.findIndex(
+              (v: unknown) =>
+                typeof v === "object" &&
+                v !== null &&
+                (v as Record<string, unknown>).variationId === val,
+            );
+            return variationIndex >= 0 ? `\`${variationIndex}\`` : "none";
+          }
+          return "none";
+        },
+        excludeFromPayload: (val: unknown) => `\`${val}\``,
+      },
+    });
     changeBlocks = formattedDiff.blocks;
   }
 
@@ -1558,22 +2086,27 @@ const buildSlackMessageForExperimentUpdatedEvent = async (
     ];
   }
 
-  return {
-    text,
-    blocks: [
-      {
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text:
-            `The experiment *${experimentName}* has been updated ${isUnknownUser ? "automatically" : `by ${eventUser}`}.` +
-            getExperimentUrlFormatted(experimentId) +
-            getEventUrlFormatted(eventId),
+  return withExperimentDetailsBlock(
+    {
+      text,
+      blocks: [
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text:
+              `The experiment *${experimentName}* has been updated ${isUnknownUser ? "automatically" : `by ${eventUser}`}.` +
+              getExperimentUrlFormatted(experimentId) +
+              getEventUrlFormatted(eventId),
+          },
         },
-      },
-      ...changeBlocks,
-    ],
-  };
+        ...changeBlocks,
+      ],
+    },
+    eventId,
+    experiment,
+    renderContext,
+  );
 };
 
 const buildSlackMessageForWebhookTestEvent = (
@@ -1592,38 +2125,52 @@ const buildSlackMessageForWebhookTestEvent = (
 });
 
 const buildSlackMessageForExperimentDeletedEvent = async (
-  experimentName: string,
+  experiment: ExperimentDetailsSource & { id: string; name: string },
   eventId: string,
+  renderContext?: SlackMessageRenderContext,
 ): Promise<SlackMessage> => {
-  const eventUser = await getEventUserFormatted(eventId);
+  const { name: experimentName } = experiment;
+  const eventUser = await getEventUserFormatted(eventId, renderContext);
   const isUnknownUser = eventUser === "an unknown user";
   const text = `The experiment ${experimentName} has been deleted ${isUnknownUser ? "automatically" : `by ${eventUser}`}`;
 
-  return {
-    text,
-    blocks: [
-      {
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text:
-            `The experiment *${experimentName}* has been deleted ${isUnknownUser ? "automatically" : `by ${eventUser}`}.` +
-            getEventUrlFormatted(eventId),
+  return withExperimentDetailsBlock(
+    {
+      text,
+      blocks: [
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text:
+              `The experiment *${experimentName}* has been deleted ${isUnknownUser ? "automatically" : `by ${eventUser}`}.` +
+              getEventUrlFormatted(eventId),
+          },
         },
-      },
-    ],
-  };
+      ],
+    },
+    eventId,
+    experiment,
+    renderContext,
+  );
 };
 
-const buildSlackMessageForExperimentInfoSignificanceEvent = ({
-  metricName,
-  experimentName,
-  experimentId,
-  variationName,
-  statsEngine,
-  criticalValue,
-  winning,
-}: ExperimentInfoSignificancePayload): SlackMessage => {
+const buildSlackMessageForExperimentInfoSignificanceEvent = (
+  {
+    metricName,
+    experimentName,
+    experimentId,
+    variationName,
+    statsEngine,
+    criticalValue,
+    winning,
+    uplift,
+    ci,
+    metricRole,
+  }: ExperimentInfoSignificancePayload,
+  eventId: string,
+  renderContext?: SlackMessageRenderContext,
+): Promise<SlackMessage> => {
   const percentFormatter = (v: number) => {
     if (v > 0.99) {
       return ">99%";
@@ -1633,6 +2180,18 @@ const buildSlackMessageForExperimentInfoSignificanceEvent = ({
     }
     return formatNumber("#0.%", v * 100);
   };
+  const signedPercentFormatter = (v: number) =>
+    `${v > 0 ? "+" : ""}${formatNumber("#0.%", v * 100)}`;
+
+  const liftText =
+    typeof uplift === "number" ? ` by ${signedPercentFormatter(uplift)}` : "";
+  const ciText =
+    ci && ci.length === 2
+      ? `, CI ${signedPercentFormatter(ci[0])} to ${signedPercentFormatter(
+          ci[1],
+        )}`
+      : "";
+  const roleText = metricRole ? `${metricRole} metric ` : "";
 
   const text = ({
     metricName,
@@ -1644,41 +2203,58 @@ const buildSlackMessageForExperimentInfoSignificanceEvent = ({
     experimentName: string;
   }) => {
     if (statsEngine === "frequentist") {
-      return `In experiment ${experimentName}: metric ${metricName} for variation ${variationName} is ${
-        winning ? "beating" : "losing to"
-      } the baseline and has reached statistical significance (p-value = ${criticalValue.toFixed(
+      return `${variationName} ${winning ? "improved" : "degraded"} ${roleText}${metricName}${liftText}${ciText} in ${experimentName} and is statistically significant (p-value = ${criticalValue.toFixed(
         3,
       )}).`;
     }
-    return `In experiment ${experimentName}: metric ${metricName} for variation ${variationName} has ${
-      winning ? "reached a" : "dropped to a"
-    } ${percentFormatter(criticalValue)} chance to beat the baseline.`;
+    return `${variationName} ${
+      winning ? "is likely improving" : "is likely degrading"
+    } ${roleText}${metricName}${liftText}${ciText} in ${experimentName} (${percentFormatter(
+      criticalValue,
+    )} chance to beat baseline).`;
   };
 
-  return {
-    text: text({ metricName, experimentName, variationName }),
-    blocks: [
-      {
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text: text({
-            metricName: `*${metricName}*`,
-            experimentName: getExperimentUrlAndNameFormatted(
-              experimentId,
-              experimentName,
-            ),
-            variationName: `*${variationName}*`,
-          }),
+  return withExperimentDetailsBlock(
+    {
+      text: text({ metricName, experimentName, variationName }),
+      blocks: [
+        {
+          type: "header",
+          text: {
+            type: "plain_text",
+            text: winning
+              ? "Statistical significance reached"
+              : "Statistical significance reached: metric degraded",
+          },
         },
-      },
-    ],
-  };
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text: text({
+              metricName: `*${metricName}*`,
+              experimentName: getExperimentUrlAndNameFormatted(
+                experimentId,
+                experimentName,
+              ),
+              variationName: `*${variationName}*`,
+            }),
+          },
+        },
+        getExperimentResultsActionBlock(experimentId),
+      ],
+    },
+    eventId,
+    { experimentId, experimentName },
+    renderContext,
+  );
 };
 
-const buildSlackMessageForExperimentWarningEvent = (
+const buildSlackMessageForExperimentWarningEvent = async (
   data: ExperimentWarningNotificationPayload,
-): SlackMessage => {
+  eventId: string,
+  renderContext?: SlackMessageRenderContext,
+): Promise<SlackMessage> => {
   let invalidData: never;
 
   switch (data.type) {
@@ -1688,20 +2264,30 @@ const buildSlackMessageForExperimentWarningEvent = (
           data.success ? "succeeded" : "failed"
         }!`;
 
-      return {
-        text: makeText(data.experimentName),
-        blocks: [
-          {
-            type: "section",
-            text: {
-              type: "mrkdwn",
-              text:
-                makeText(`*${data.experimentName}*`) +
-                getExperimentUrlFormatted(data.experimentId),
+      return withExperimentDetailsBlock(
+        {
+          text: makeText(data.experimentName),
+          blocks: [
+            getExperimentWarningTitleBlock(
+              data.experimentId,
+              data.experimentName,
+              data.success ? "Auto-update restored" : "Auto-update failed",
+            ),
+            {
+              type: "section",
+              text: {
+                type: "mrkdwn",
+                text:
+                  makeText(`*${data.experimentName}*`) +
+                  getExperimentUrlFormatted(data.experimentId),
+              },
             },
-          },
-        ],
-      };
+          ],
+        },
+        eventId,
+        data,
+        renderContext,
+      );
     }
 
     case "multiple-exposures": {
@@ -1715,60 +2301,85 @@ const buildSlackMessageForExperimentWarningEvent = (
           data.percent,
         )}) saw multiple variations and were automatically removed from results.`;
 
-      return {
-        text: text(data.experimentName),
-        blocks: [
-          {
-            type: "section",
-            text: {
-              type: "mrkdwn",
-              text:
-                text(`*${data.experimentName}*`) +
-                getExperimentUrlFormatted(data.experimentId),
+      return withExperimentDetailsBlock(
+        {
+          text: text(data.experimentName),
+          blocks: [
+            getExperimentWarningTitleBlock(
+              data.experimentId,
+              data.experimentName,
+              "Multiple exposures",
+            ),
+            {
+              type: "section",
+              text: {
+                type: "mrkdwn",
+                text:
+                  text(`*${data.experimentName}*`) +
+                  getExperimentUrlFormatted(data.experimentId),
+              },
             },
-          },
-        ],
-      };
+          ],
+        },
+        eventId,
+        data,
+        renderContext,
+      );
     }
 
     case "srm": {
       const text = (experimentName: string) =>
-        `Traffic imbalance detected for experiment detected for experiment ${experimentName} : Sample Ratio Mismatch (SRM) p-value below ${data.threshold}.`;
+        `Traffic imbalance detected for experiment ${experimentName}: Sample Ratio Mismatch (SRM) p-value is below ${data.threshold}. Check assignment traffic before trusting the results.`;
 
-      return {
-        text: text(data.experimentName),
-        blocks: [
-          {
-            type: "section",
-            text: {
-              type: "mrkdwn",
-              text:
-                text(`*${data.experimentName}*`) +
-                getExperimentUrlFormatted(data.experimentId),
+      return withExperimentDetailsBlock(
+        {
+          text: text(data.experimentName),
+          blocks: [
+            getExperimentWarningTitleBlock(
+              data.experimentId,
+              data.experimentName,
+              "SRM",
+            ),
+            {
+              type: "section",
+              text: {
+                type: "mrkdwn",
+                text:
+                  text(`*${data.experimentName}*`) +
+                  getExperimentUrlFormatted(data.experimentId),
+              },
             },
-          },
-        ],
-      };
+          ],
+        },
+        eventId,
+        data,
+        renderContext,
+      );
     }
 
     case "no-data": {
       const text = (experimentName: string) =>
         `No data yet for experiment ${experimentName}. The most recent update ran successfully but returned no results. Make sure your experiment is tracking properly.`;
 
-      return {
-        text: text(data.experimentName),
-        blocks: [
-          {
-            type: "section",
-            text: {
-              type: "mrkdwn",
-              text:
-                text(`*${data.experimentName}*`) +
-                getExperimentUrlFormatted(data.experimentId),
+      return withExperimentDetailsBlock(
+        {
+          text: text(data.experimentName),
+          blocks: [
+            {
+              type: "section",
+              text: {
+                type: "mrkdwn",
+                text:
+                  text(`*${data.experimentName}*`) +
+                  getExperimentUrlFormatted(data.experimentId),
+              },
             },
-          },
-        ],
-      };
+          ],
+        },
+        eventId,
+        data,
+        renderContext,
+      );
     }
 
     case "underpowered": {
@@ -1800,20 +2411,25 @@ const buildSlackMessageForExperimentWarningEvent = (
       const text = (experimentName: string) =>
         `Scheduled ${action} for experiment ${experimentName} failed: ${data.reason}. ${tail}`;
 
-      return {
-        text: text(data.experimentName),
-        blocks: [
-          {
-            type: "section",
-            text: {
-              type: "mrkdwn",
-              text:
-                text(`*${data.experimentName}*`) +
-                getExperimentUrlFormatted(data.experimentId),
+      return withExperimentDetailsBlock(
+        {
+          text: text(data.experimentName),
+          blocks: [
+            {
+              type: "section",
+              text: {
+                type: "mrkdwn",
+                text:
+                  text(`*${data.experimentName}*`) +
+                  getExperimentUrlFormatted(data.experimentId),
+              },
             },
-          },
-        ],
-      };
+          ],
+        },
+        eventId,
+        data,
+        renderContext,
+      );
     }
 
     default:
@@ -1824,71 +2440,564 @@ const buildSlackMessageForExperimentWarningEvent = (
 
 const buildSlackMessageForExperimentShipEvent = (
   data: ExperimentDecisionNotificationPayload,
-): SlackMessage => {
+  eventId: string,
+  renderContext?: SlackMessageRenderContext,
+): Promise<SlackMessage> => {
   const text = (experimentName: string, description?: string) =>
-    `Experiment ${experimentName} has reached the "Ship now" status.${
-      description ? ` ${description}` : null
-    }`;
-  return {
-    text: text(data.experimentName, data.decisionDescription),
-    blocks: [
-      {
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text:
-            text(`*${data.experimentName}*`, data.decisionDescription) +
-            getExperimentUrlFormatted(data.experimentId),
+    `Decision Framework recommends shipping a variation for ${experimentName}.${description ? ` ${description}` : ""}`;
+  return withExperimentDetailsBlock(
+    {
+      text: text(data.experimentName, data.decisionDescription),
+      blocks: [
+        {
+          type: "header",
+          text: {
+            type: "plain_text",
+            text: "Decision recommended: ship",
+          },
         },
-      },
-    ],
-  };
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text:
+              text(`*${data.experimentName}*`, data.decisionDescription) +
+              getExperimentUrlFormatted(data.experimentId),
+          },
+        },
+        getExperimentResultsActionBlock(data.experimentId),
+      ],
+    },
+    eventId,
+    data,
+    renderContext,
+  );
 };
 
 const buildSlackMessageForExperimentRollbackEvent = (
   data: ExperimentDecisionNotificationPayload,
-): SlackMessage => {
+  eventId: string,
+  renderContext?: SlackMessageRenderContext,
+): Promise<SlackMessage> => {
   const text = (experimentName: string, description?: string) =>
-    `Experiment ${experimentName} has reached the "Roll back now" status.${
-      description ? ` ${description}` : null
-    }`;
-  return {
-    text: text(data.experimentName, data.decisionDescription),
-    blocks: [
-      {
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text:
-            text(`*${data.experimentName}*`, data.decisionDescription) +
-            getExperimentUrlFormatted(data.experimentId),
+    `Decision Framework recommends rolling back ${experimentName}.${description ? ` ${description}` : ""}`;
+  return withExperimentDetailsBlock(
+    {
+      text: text(data.experimentName, data.decisionDescription),
+      blocks: [
+        {
+          type: "header",
+          text: {
+            type: "plain_text",
+            text: "Decision recommended: roll back",
+          },
         },
-      },
-    ],
-  };
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text:
+              text(`*${data.experimentName}*`, data.decisionDescription) +
+              getExperimentUrlFormatted(data.experimentId),
+          },
+        },
+        getExperimentResultsActionBlock(data.experimentId),
+      ],
+    },
+    eventId,
+    data,
+    renderContext,
+  );
 };
 
 const buildSlackMessageForExperimentReviewEvent = (
   data: ExperimentDecisionNotificationPayload,
-): SlackMessage => {
+  eventId: string,
+  renderContext?: SlackMessageRenderContext,
+): Promise<SlackMessage> => {
   const text = (experimentName: string, description?: string) =>
-    `Experiment ${experimentName} has reached the "Ready for review" status.${
-      description ? ` ${description}` : null
-    }`;
-  return {
-    text: text(data.experimentName, data.decisionDescription),
-    blocks: [
-      {
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text:
-            text(`*${data.experimentName}*`, data.decisionDescription) +
-            getExperimentUrlFormatted(data.experimentId),
+    `Decision Framework says ${experimentName} is ready for review.${description ? ` ${description}` : ""}`;
+  return withExperimentDetailsBlock(
+    {
+      text: text(data.experimentName, data.decisionDescription),
+      blocks: [
+        {
+          type: "header",
+          text: {
+            type: "plain_text",
+            text: "Decision needed: review results",
+          },
         },
-      },
-    ],
-  };
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text:
+              text(`*${data.experimentName}*`, data.decisionDescription) +
+              getExperimentUrlFormatted(data.experimentId),
+          },
+        },
+        getExperimentResultsActionBlock(data.experimentId),
+      ],
+    },
+    eventId,
+    data,
+    renderContext,
+  );
+};
+
+const buildSlackMessageForExperimentStartedEvent = async (
+  data: ExperimentStartedNotificationPayload,
+  eventId: string,
+  renderContext?: SlackMessageRenderContext,
+): Promise<SlackMessage> => {
+  const eventUser = await getEventUserFormatted(eventId, renderContext);
+  const isUnknownUser = eventUser === "an unknown user";
+  const phaseText = data.phaseName ? `\n*Phase:* ${data.phaseName}` : "";
+  const text = `Experiment ${data.experimentName} has started running.`;
+
+  return withExperimentDetailsBlock(
+    {
+      text,
+      blocks: [
+        getExperimentWarningTitleBlock(
+          data.experimentId,
+          data.experimentName,
+          "Started",
+        ),
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text:
+              `${getExperimentUrlAndNameFormatted(
+                data.experimentId,
+                data.experimentName,
+              )} started running ${
+                isUnknownUser
+                  ? "automatically"
+                  : `after ${eventUser} started it`
+              }.${phaseText}\n*Variations:* ${data.variationCount}` +
+              getEventUrlFormatted(eventId),
+          },
+        },
+        getExperimentResultsActionBlock(data.experimentId),
+      ],
+    },
+    eventId,
+    data,
+    renderContext,
+  );
+};
+
+const buildSlackMessageForExperimentStoppedEvent = async (
+  data: ExperimentStoppedNotificationPayload,
+  eventId: string,
+  renderContext?: SlackMessageRenderContext,
+): Promise<SlackMessage> => {
+  const eventUser = await getEventUserFormatted(eventId, renderContext);
+  const isUnknownUser = eventUser === "an unknown user";
+  const action =
+    data.type === "shipped"
+      ? "stopped and shipped a variation"
+      : "stopped and rolled back";
+  const resultLabel = (() => {
+    switch (data.results) {
+      case "won":
+        return "Winning variation";
+      case "lost":
+        return "Losing variation";
+      case "dnf":
+        return "Did not finish";
+      case "inconclusive":
+        return "No clear winner";
+    }
+  })();
+  const rolloutText = data.enableTemporaryRollout
+    ? "\nA temporary rollout is enabled."
+    : "";
+  const variationText = data.releasedVariationName
+    ? `\n*Released variation:* ${data.releasedVariationName}`
+    : "";
+  const reasonText = data.reason ? `\n*Reason:* ${data.reason}` : "";
+  const text = `Experiment ${data.experimentName} ${action}.`;
+
+  return withExperimentDetailsBlock(
+    {
+      text,
+      blocks: [
+        getExperimentWarningTitleBlock(
+          data.experimentId,
+          data.experimentName,
+          data.type === "shipped" ? "Shipped" : "Rolled back",
+        ),
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text:
+              `${getExperimentUrlAndNameFormatted(
+                data.experimentId,
+                data.experimentName,
+              )} ${action} ${
+                isUnknownUser ? "automatically" : `by ${eventUser}`
+              }.\n*Result:* ${resultLabel}${variationText}${rolloutText}${reasonText}` +
+              getEventUrlFormatted(eventId),
+          },
+        },
+        getExperimentResultsActionBlock(data.experimentId),
+      ],
+    },
+    eventId,
+    data,
+    renderContext,
+  );
+};
+
+const buildSlackMessageForExperimentGuardrailFailedEvent = (
+  data: ExperimentGuardrailFailedNotificationPayload,
+  eventId: string,
+  renderContext?: SlackMessageRenderContext,
+): Promise<SlackMessage> => {
+  const metricLines = data.failedMetrics
+    .slice(0, 5)
+    .map((metric) => `• *${metric.name}* on ${metric.variationName}`)
+    .join("\n");
+  const overflowText =
+    data.failedMetrics.length > 5
+      ? `\n• ${data.failedMetrics.length - 5} more guardrails`
+      : "";
+  const text = `Guardrail failure detected for experiment ${data.experimentName}.`;
+
+  return withExperimentDetailsBlock(
+    {
+      text,
+      blocks: [
+        getExperimentWarningTitleBlock(
+          data.experimentId,
+          data.experimentName,
+          "Guardrail failed",
+        ),
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text:
+              `Guardrail failure detected for experiment ${getExperimentUrlAndNameFormatted(
+                data.experimentId,
+                data.experimentName,
+              )}. Investigate before continuing rollout.\n${metricLines}${overflowText}` +
+              getExperimentUrlFormatted(data.experimentId),
+          },
+        },
+        getExperimentDiagnosticsActionBlock(data.experimentId),
+      ],
+    },
+    eventId,
+    data,
+    renderContext,
+  );
+};
+
+const buildSlackMessageForExperimentNoDataEvent = (
+  data: ExperimentNoDataNotificationPayload,
+  eventId: string,
+  renderContext?: SlackMessageRenderContext,
+): Promise<SlackMessage> => {
+  const text = `Experiment ${data.experimentName} results updated with no data.`;
+
+  return withExperimentDetailsBlock(
+    {
+      text,
+      blocks: [
+        {
+          type: "header",
+          text: {
+            type: "plain_text",
+            text: "No experiment data returned",
+          },
+        },
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text:
+              `Experiment ${getExperimentUrlAndNameFormatted(
+                data.experimentId,
+                data.experimentName,
+              )} results updated successfully, but no data was returned.\n• Check exposure tracking\n• Check metric configuration\n• Check the datasource query setup` +
+              getExperimentUrlFormatted(data.experimentId),
+          },
+        },
+        getExperimentDiagnosticsActionBlock(data.experimentId),
+      ],
+    },
+    eventId,
+    data,
+    renderContext,
+  );
+};
+
+const buildSlackMessageForExperimentQueryFailedEvent = (
+  data: ExperimentQueryFailedNotificationPayload,
+  eventId: string,
+  renderContext?: SlackMessageRenderContext,
+): Promise<SlackMessage> => {
+  const trimmedError = data.errorMessage
+    ? data.errorMessage.slice(0, 500)
+    : undefined;
+  const errorText = trimmedError ? `\n\`\`\`${trimmedError}\`\`\`` : "";
+  const text = `Experiment ${data.experimentName} results update failed.`;
+
+  return withExperimentDetailsBlock(
+    {
+      text,
+      blocks: [
+        {
+          type: "header",
+          text: {
+            type: "plain_text",
+            text: "Experiment results update failed",
+          },
+        },
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text:
+              `Experiment ${getExperimentUrlAndNameFormatted(
+                data.experimentId,
+                data.experimentName,
+              )} results failed to update because of a query error. Investigate the datasource query before the next refresh.${errorText}` +
+              getExperimentUrlFormatted(data.experimentId),
+          },
+        },
+        getExperimentDiagnosticsActionBlock(data.experimentId),
+      ],
+    },
+    eventId,
+    data,
+    renderContext,
+  );
+};
+
+const buildSlackMessageForExperimentStatusChangedEvent = (
+  data: ExperimentStatusChangedNotificationPayload,
+  eventId: string,
+  renderContext?: SlackMessageRenderContext,
+): Promise<SlackMessage> => {
+  const text = `Experiment ${data.experimentName} changed status from ${data.previousStatus} to ${data.currentStatus}.`;
+
+  return withExperimentDetailsBlock(
+    {
+      text,
+      blocks: [
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text:
+              `${getExperimentUrlAndNameFormatted(
+                data.experimentId,
+                data.experimentName,
+              )} changed status from *${data.previousStatus}* to *${data.currentStatus}*.` +
+              getEventUrlFormatted(eventId),
+          },
+        },
+        getExperimentResultsActionBlock(data.experimentId),
+      ],
+    },
+    eventId,
+    data,
+    renderContext,
+  );
+};
+
+const buildSlackMessageForExperimentEndingSoonEvent = (
+  data: ExperimentEndingSoonNotificationPayload,
+  eventId: string,
+  renderContext?: SlackMessageRenderContext,
+): Promise<SlackMessage> => {
+  const text = `Experiment ${data.experimentName} is scheduled to end in ${data.daysRemaining} days.`;
+
+  return withExperimentDetailsBlock(
+    {
+      text,
+      blocks: [
+        getExperimentWarningTitleBlock(
+          data.experimentId,
+          data.experimentName,
+          "Ending soon",
+        ),
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text:
+              `${getExperimentUrlAndNameFormatted(
+                data.experimentId,
+                data.experimentName,
+              )} is scheduled to end in *${data.daysRemaining} days* (${data.endsAt}). Review results and prepare a launch, rollback, or extension decision.` +
+              getEventUrlFormatted(eventId),
+          },
+        },
+        getExperimentResultsActionBlock(data.experimentId),
+      ],
+    },
+    eventId,
+    data,
+    renderContext,
+  );
+};
+
+const buildSlackMessageForExperimentStaleEvent = (
+  data: ExperimentStaleNotificationPayload,
+  eventId: string,
+  renderContext?: SlackMessageRenderContext,
+): Promise<SlackMessage> => {
+  const text = `Experiment ${data.experimentName} may be stale after ${data.daysRunning} days running.`;
+
+  return withExperimentDetailsBlock(
+    {
+      text,
+      blocks: [
+        getExperimentWarningTitleBlock(
+          data.experimentId,
+          data.experimentName,
+          "Stale experiment",
+        ),
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text:
+              `${getExperimentUrlAndNameFormatted(
+                data.experimentId,
+                data.experimentName,
+              )} has been running for *${data.daysRunning} days*.\n${data.reason}` +
+              getEventUrlFormatted(eventId),
+          },
+        },
+        getExperimentResultsActionBlock(data.experimentId),
+      ],
+    },
+    eventId,
+    data,
+    renderContext,
+  );
+};
+
+const buildSlackMessageForExperimentMetricRegressionEvent = (
+  data: ExperimentMetricRegressionNotificationPayload,
+  eventId: string,
+  renderContext?: SlackMessageRenderContext,
+): Promise<SlackMessage> => {
+  const signedPercentFormatter = (v: number) =>
+    `${v > 0 ? "+" : ""}${formatNumber("#0.%", v * 100)}`;
+  const liftText =
+    typeof data.uplift === "number"
+      ? ` by ${signedPercentFormatter(data.uplift)}`
+      : "";
+  const ciText = data.ci
+    ? `, CI ${signedPercentFormatter(data.ci[0])} to ${signedPercentFormatter(
+        data.ci[1],
+      )}`
+    : "";
+  const roleText = data.metricRole ? `${data.metricRole} metric ` : "";
+  const text = `Metric regression detected in experiment ${data.experimentName}: ${data.variationName} degraded ${data.metricName}${liftText}.`;
+
+  return withExperimentDetailsBlock(
+    {
+      text,
+      blocks: [
+        getExperimentWarningTitleBlock(
+          data.experimentId,
+          data.experimentName,
+          "Metric regression",
+        ),
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text:
+              `*${data.variationName}* degraded ${roleText}*${data.metricName}*${liftText}${ciText}. Investigate before continuing rollout.` +
+              getEventUrlFormatted(eventId),
+          },
+        },
+        getExperimentDiagnosticsActionBlock(data.experimentId),
+      ],
+    },
+    eventId,
+    data,
+    renderContext,
+  );
+};
+
+const buildSlackMessageForExperimentBanditChangedEvent = (
+  data: ExperimentBanditChangedNotificationPayload,
+  eventId: string,
+  renderContext?: SlackMessageRenderContext,
+): Promise<SlackMessage> => {
+  const formatWeights = (weights: number[]) =>
+    weights.map((w) => formatNumber("#0.%", w * 100)).join(" / ");
+  const text = `Bandit weights changed for experiment ${data.experimentName}.`;
+
+  return withExperimentDetailsBlock(
+    {
+      text,
+      blocks: [
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text:
+              `Bandit weights changed for ${getExperimentUrlAndNameFormatted(
+                data.experimentId,
+                data.experimentName,
+              )}.\n*Previous:* ${formatWeights(
+                data.currentWeights,
+              )}\n*New:* ${formatWeights(data.updatedWeights)}` +
+              getEventUrlFormatted(eventId),
+          },
+        },
+        getExperimentResultsActionBlock(data.experimentId),
+      ],
+    },
+    eventId,
+    data,
+    renderContext,
+  );
+};
+
+const buildSlackMessageForExperimentHoldoutEvent = (
+  data: ExperimentHoldoutNotificationPayload,
+  eventId: string,
+  renderContext?: SlackMessageRenderContext,
+): Promise<SlackMessage> => {
+  const action = data.type === "holdout-created" ? "created" : "updated";
+  const text = `Holdout ${data.experimentName} was ${action}.`;
+
+  return withExperimentDetailsBlock(
+    {
+      text,
+      blocks: [
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text:
+              `Holdout ${getExperimentUrlAndNameFormatted(
+                data.experimentId,
+                data.experimentName,
+              )} was *${action}*.` + getEventUrlFormatted(eventId),
+          },
+        },
+      ],
+    },
+    eventId,
+    data,
+    renderContext,
+  );
 };
 
 // endregion Event-specific messages -> Experiment
@@ -1899,6 +3008,127 @@ export type SlackMessage = {
   text: string;
   blocks: KnownBlock[];
 };
+
+// region Coalesced (digest) messages
+
+const COALESCED_MAX_EVENTS = 5;
+
+const truncatePlain = (text: string, max: number): string =>
+  text.length > max ? `${text.slice(0, max - 1)}…` : text;
+
+const getObjectLabelForEvent = (event: EventInterface): string => {
+  const data = event.data as NotificationEvent | LegacyNotificationEvent;
+  const obj = (() => {
+    if (!data) return undefined;
+    if ("data" in data && data.data && typeof data.data === "object") {
+      const inner = data.data as { object?: unknown; current?: unknown };
+      return inner.object ?? inner.current;
+    }
+    return undefined;
+  })();
+
+  if (obj && typeof obj === "object") {
+    const named = obj as { name?: unknown; id?: unknown };
+    if (typeof named.name === "string" && named.name.trim().length > 0) {
+      return named.name;
+    }
+    if (typeof named.id === "string") return named.id;
+  }
+  return event.objectId ?? event.object ?? "this object";
+};
+
+/**
+ * Combine an ordered list of already-rendered per-event Slack messages into one
+ * digest. Extracted from buildCoalescedSlackMessage so it can be unit tested
+ * without the per-event renderers (which do their own DB lookups).
+ */
+export const composeCoalescedSlackMessage = (
+  rendered: Array<{ event: EventInterface; message: SlackMessage }>,
+): SlackMessage | null => {
+  if (rendered.length === 0) return null;
+  if (rendered.length === 1) return rendered[0].message;
+
+  const objectLabel = getObjectLabelForEvent(rendered[0].event);
+  const headerText = `*${rendered.length} updates on ${objectLabel}*`;
+
+  const blocks: KnownBlock[] = [
+    {
+      type: "context",
+      elements: [
+        {
+          type: "mrkdwn",
+          text: headerText,
+        },
+      ],
+    },
+  ];
+
+  const visible = rendered.slice(0, COALESCED_MAX_EVENTS);
+  visible.forEach(({ message }, index) => {
+    if (index > 0) blocks.push({ type: "divider" });
+    blocks.push(...message.blocks);
+  });
+
+  const hiddenCount = rendered.length - visible.length;
+  if (hiddenCount > 0) {
+    blocks.push({
+      type: "context",
+      elements: [
+        {
+          type: "mrkdwn",
+          text: `_+${hiddenCount} more change${hiddenCount === 1 ? "" : "s"} not shown_`,
+        },
+      ],
+    });
+  }
+
+  const text = `${rendered.length} updates on ${objectLabel}: ${truncatePlain(
+    rendered
+      .map(({ message }) => message.text)
+      .filter(Boolean)
+      .join(" • "),
+    500,
+  )}`;
+
+  return { text, blocks };
+};
+
+/**
+ * Build one digest message from multiple events on the same object within the
+ * coalescing window. Events that render to `null` (unsupported types) are
+ * skipped; a lone remaining event is returned as-is so coalescing is invisible
+ * for non-bursty objects.
+ */
+export const buildCoalescedSlackMessage = async (
+  events: EventInterface[],
+): Promise<SlackMessage | null> => {
+  if (events.length === 0) return null;
+
+  const rendered: Array<{ event: EventInterface; message: SlackMessage }> = [];
+  for (const event of events) {
+    try {
+      const message = await (event.version
+        ? getSlackMessageForNotificationEvent(
+            event.data as NotificationEvent,
+            event.id,
+          )
+        : getSlackMessageForLegacyNotificationEvent(
+            event.data as LegacyNotificationEvent,
+            event.id,
+          ));
+      if (message) rendered.push({ event, message });
+    } catch (e) {
+      logger.error(
+        e,
+        `buildCoalescedSlackMessage: failed to render event ${event.id}`,
+      );
+    }
+  }
+
+  return composeCoalescedSlackMessage(rendered);
+};
+
+// endregion Coalesced (digest) messages
 
 /**
  * Sends a Slack message.
@@ -1937,6 +3167,112 @@ export const sendSlackMessage = async (
     logger.error(e);
     return false;
   }
+};
+
+const SLACK_API_URL = "https://slack.com/api";
+const DIRECT_MESSAGE_EVENT_NAMES = new Set<string>([
+  "experiment.decision.ship",
+  "experiment.decision.rollback",
+  "experiment.decision.review",
+  "experiment.endingSoon",
+  "experiment.health.guardrailFailed",
+  "experiment.health.noData",
+  "experiment.health.queryFailed",
+  "experiment.metric.regression",
+]);
+
+const getExperimentIdFromEvent = (event: EventInterface): string | null => {
+  if (event.object === "experiment" && event.objectId) return event.objectId;
+  const data = event.data as NotificationEvent | undefined;
+  const object = data?.data?.object;
+  if (object && typeof object === "object" && "experimentId" in object) {
+    const experimentId = (object as { experimentId?: unknown }).experimentId;
+    return typeof experimentId === "string" ? experimentId : null;
+  }
+  return null;
+};
+
+const slackApiPost = async <T extends Record<string, unknown>>({
+  token,
+  path,
+  body,
+}: {
+  token: string;
+  path: string;
+  body: Record<string, unknown>;
+}): Promise<T | null> => {
+  const { stringBody, responseWithoutBody } = await cancellableFetch(
+    `${SLACK_API_URL}/${path}`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    },
+    {
+      maxTimeMs: 15000,
+      maxContentSize: 1000,
+    },
+  );
+  if (!responseWithoutBody.ok) return null;
+
+  return JSON.parse(stringBody) as T;
+};
+
+export const maybeSendSlackDirectMessageForEvent = async ({
+  event,
+  eventWebHook,
+}: {
+  event: EventInterface;
+  eventWebHook: EventWebHookInterface;
+}) => {
+  if (!DIRECT_MESSAGE_EVENT_NAMES.has(event.event)) return;
+
+  const experimentId = getExperimentIdFromEvent(event);
+  if (!experimentId) return;
+
+  const token = await getSlackBotAccessTokenForWebhook({
+    eventWebHookId: eventWebHook.id,
+    organizationId: event.organizationId,
+  });
+  if (!token) return;
+
+  const experiment = await getExperimentByIdForOrganization(
+    event.organizationId,
+    experimentId,
+  );
+  const ownerEmail = experiment?.owner?.includes("@")
+    ? experiment.owner
+    : undefined;
+  if (!ownerEmail) return;
+
+  const lookup = await slackApiPost<{
+    ok?: boolean;
+    user?: { id?: string };
+  }>({
+    token,
+    path: "users.lookupByEmail",
+    body: { email: ownerEmail },
+  });
+  const slackUserId = lookup?.ok ? lookup.user?.id : undefined;
+  if (!slackUserId) return;
+
+  const slackMessage =
+    event.version &&
+    (await getSlackMessageForNotificationEvent(event.data, event.id));
+  if (!slackMessage) return;
+
+  await slackApiPost({
+    token,
+    path: "chat.postMessage",
+    body: {
+      channel: slackUserId,
+      text: slackMessage.text,
+      blocks: slackMessage.blocks,
+    },
+  });
 };
 
 // endregion Slack API

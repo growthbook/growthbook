@@ -13,6 +13,7 @@ import {
   EventWebHookMethod,
   isEventWebhookWildcard,
   getWildcardPatternsForEvent,
+  NotificationEventNameOrWildcard,
 } from "shared/validators";
 import { EventWebHookInterface } from "shared/types/event-webhook";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
@@ -38,6 +39,21 @@ const eventWebHookSchema = new mongoose.Schema({
     type: Map,
     of: String,
     required: false,
+  },
+  slack: {
+    appId: String,
+    teamId: String,
+    teamName: String,
+    enterpriseId: String,
+    enterpriseName: String,
+    channelName: String,
+    channelId: String,
+    configurationUrl: String,
+    botUserId: String,
+    authedUserId: String,
+    botAccessToken: String,
+    scope: String,
+    isEnterpriseInstall: Boolean,
   },
   method: {
     type: String,
@@ -96,6 +112,18 @@ const eventWebHookSchema = new mongoose.Schema({
     required: false,
   },
   environments: {
+    type: [String],
+    required: false,
+  },
+  experiments: {
+    type: [String],
+    required: false,
+  },
+  metrics: {
+    type: [String],
+    required: false,
+  },
+  features: {
     type: [String],
     required: false,
   },
@@ -166,6 +194,17 @@ const eventWebHookSchema = new mongoose.Schema({
     type: String,
     required: false,
   },
+  coalesceWindowMs: {
+    type: Number,
+    required: false,
+    min: 0,
+  },
+  // Free-form object (validated by slackEventWebHookOptions) so new toggles
+  // don't require a schema change.
+  slackOptions: {
+    type: Object,
+    required: false,
+  },
 });
 
 eventWebHookSchema.index({ organizationId: 1 });
@@ -179,6 +218,9 @@ type EventWebHookDocument = mongoose.Document & EventWebHookInterface;
  */
 const toInterface = (doc: EventWebHookDocument): EventWebHookInterface => {
   const payload = omit(doc.toJSON<EventWebHookDocument>(), ["__v", "_id"]);
+  if (payload.slack && "botAccessToken" in payload.slack) {
+    delete (payload.slack as Record<string, unknown>).botAccessToken;
+  }
 
   // Add defaults values
   const defaults = {
@@ -190,6 +232,9 @@ const toInterface = (doc: EventWebHookDocument): EventWebHookInterface => {
     ...(payload.tags ? {} : { tags: [] }),
     ...(payload.projects ? {} : { projects: [] }),
     ...(payload.environments ? {} : { environments: [] }),
+    ...(payload.experiments ? {} : { experiments: [] }),
+    ...(payload.metrics ? {} : { metrics: [] }),
+    ...(payload.features ? {} : { features: [] }),
   };
 
   if (Object.keys(defaults).length)
@@ -222,13 +267,19 @@ type CreateEventWebHookOptions = {
   url: string;
   organizationId: string;
   enabled: boolean;
-  events: NotificationEventName[];
+  events: NotificationEventNameOrWildcard[];
   projects: string[];
+  experiments?: string[];
+  metrics?: string[];
+  features?: string[];
   tags: string[];
   environments: string[];
   payloadType: EventWebHookPayloadType;
   method: EventWebHookMethod;
   headers: Record<string, string>;
+  slack?: EventWebHookInterface["slack"];
+  coalesceWindowMs?: number;
+  slackOptions?: EventWebHookInterface["slackOptions"];
 };
 
 /**
@@ -243,11 +294,17 @@ export const createEventWebHook = async ({
   enabled,
   events,
   projects,
+  experiments = [],
+  metrics = [],
+  features = [],
   tags,
   environments,
   payloadType,
   method,
   headers,
+  slack,
+  coalesceWindowMs,
+  slackOptions,
 }: CreateEventWebHookOptions): Promise<EventWebHookInterface> => {
   const now = new Date();
   const signingKey = "ewhk_" + md5(randomUUID()).substr(0, 32);
@@ -263,14 +320,20 @@ export const createEventWebHook = async ({
     url,
     signingKey,
     projects,
+    experiments,
+    metrics,
+    features,
     tags,
     environments,
     payloadType,
     method,
     headers,
+    slack,
     lastRunAt: null,
     lastState: "none",
     lastResponseBody: null,
+    ...(coalesceWindowMs !== undefined ? { coalesceWindowMs } : {}),
+    ...(slackOptions !== undefined ? { slackOptions } : {}),
   });
 
   return toInterface(doc);
@@ -335,13 +398,19 @@ export type UpdateEventWebHookAttributes = {
   name?: string;
   url?: string;
   enabled?: boolean;
-  events?: NotificationEventName[];
+  events?: NotificationEventNameOrWildcard[];
   tags?: string[];
   environments?: string[];
   projects?: string[];
+  experiments?: string[];
+  metrics?: string[];
+  features?: string[];
   payloadType?: EventWebHookPayloadType;
   method?: EventWebHookMethod;
   headers?: Record<string, string>;
+  slack?: EventWebHookInterface["slack"];
+  coalesceWindowMs?: number;
+  slackOptions?: EventWebHookInterface["slackOptions"];
 };
 
 /**
@@ -414,6 +483,160 @@ export const getAllEventWebHooks = async (
   return docs.map(toInterface);
 };
 
+export const getSlackBotAccessTokenForWebhook = async ({
+  eventWebHookId,
+  organizationId,
+}: {
+  eventWebHookId: string;
+  organizationId: string;
+}): Promise<string | null> => {
+  const doc = await EventWebHookModel.findOne({
+    id: eventWebHookId,
+    organizationId,
+    payloadType: "slack",
+  }).lean();
+  const slack = doc?.slack as
+    | { botAccessToken?: string; teamId?: string }
+    | undefined;
+  if (slack?.botAccessToken) return slack.botAccessToken;
+
+  // The bot token is workspace-level, so fall back to any same-team doc's
+  // token (e.g. the workspace connection doc, or a sibling channel refreshed
+  // by a more recent reconnect).
+  if (!slack?.teamId) return null;
+  const teamDoc = await EventWebHookModel.findOne({
+    organizationId,
+    payloadType: "slack",
+    "slack.teamId": slack.teamId,
+    "slack.botAccessToken": { $exists: true, $nin: [null, ""] },
+  }).lean();
+  const teamSlack = teamDoc?.slack as { botAccessToken?: string } | undefined;
+  return teamSlack?.botAccessToken || null;
+};
+
+// The org's workspace-level Slack connection for a team: the channel-less doc
+// created by a workspace install (channel docs are separate, one per channel).
+export const findSlackWorkspaceEventWebhook = async ({
+  organizationId,
+  teamId,
+}: {
+  organizationId: string;
+  teamId: string;
+}): Promise<EventWebHookInterface | null> => {
+  const doc = await EventWebHookModel.findOne({
+    organizationId,
+    payloadType: "slack",
+    "slack.teamId": teamId,
+    $or: [
+      { "slack.channelId": { $exists: false } },
+      { "slack.channelId": { $in: [null, ""] } },
+    ],
+  });
+  return doc ? toInterface(doc) : null;
+};
+
+// Push a freshly-issued bot token and/or scope string onto every same-team doc
+// in the org. Run after a workspace (re)install so channel docs — which no
+// longer get their own OAuth exchange — pick up the new credentials (and their
+// settings-page reconnect banner, which reads slack.scope, clears).
+export const propagateSlackTeamCredentials = async ({
+  organizationId,
+  teamId,
+  botAccessToken,
+  scope,
+}: {
+  organizationId: string;
+  teamId: string;
+  botAccessToken?: string;
+  scope?: string;
+}): Promise<void> => {
+  const set: Record<string, unknown> = {
+    ...(botAccessToken ? { "slack.botAccessToken": botAccessToken } : {}),
+    ...(scope ? { "slack.scope": scope } : {}),
+  };
+  if (!Object.keys(set).length) return;
+  await EventWebHookModel.updateMany(
+    { organizationId, payloadType: "slack", "slack.teamId": teamId },
+    { $set: set },
+  );
+};
+
+// Toggle a workspace-wide Slack option (conversational assistant, link
+// unfurling). Written to every same-team doc so the flag reads consistently no
+// matter which doc resolves an event (workspace connection or a legacy channel
+// doc). Dotted $set leaves the bot token and all other slackOptions untouched.
+export const setSlackWorkspaceFlag = async ({
+  organizationId,
+  teamId,
+  field,
+  enabled,
+}: {
+  organizationId: string;
+  teamId: string;
+  field: "assistantEnabled" | "unfurlEnabled";
+  enabled: boolean;
+}): Promise<void> => {
+  await EventWebHookModel.updateMany(
+    { organizationId, payloadType: "slack", "slack.teamId": teamId },
+    { $set: { [`slackOptions.${field}`]: enabled } },
+  );
+};
+
+// Dotted $set so only slack.channelName is touched (bot token and other
+// metadata left intact).
+export const updateSlackChannelName = async ({
+  eventWebHookId,
+  organizationId,
+  channelName,
+}: {
+  eventWebHookId: string;
+  organizationId: string;
+  channelName: string;
+}): Promise<void> => {
+  await EventWebHookModel.updateOne(
+    { id: eventWebHookId, organizationId, payloadType: "slack" },
+    { $set: { "slack.channelName": channelName } },
+  );
+};
+
+// Reconnect an existing Slack install: refresh the url (when provided — a
+// workspace reconnect has none) and slack metadata in one write. Dotted $set
+// keeps slack.botAccessToken intact — a whole-object `$set: { slack }` would
+// drop it (not part of the public metadata type) — and any new bot token is set
+// in the same write, so the token is never missing mid-reconnect nor lost when
+// the OAuth response omits one. `enabled` lets a workspace reconnect force the
+// channel-less doc out of the event fan-out.
+export const reconnectSlackEventWebhook = async ({
+  eventWebHookId,
+  organizationId,
+  url,
+  slack,
+  botAccessToken,
+  enabled,
+}: {
+  eventWebHookId: string;
+  organizationId: string;
+  url?: string;
+  slack: NonNullable<EventWebHookInterface["slack"]>;
+  botAccessToken?: string;
+  enabled?: boolean;
+}): Promise<void> => {
+  const set: Record<string, unknown> = {
+    ...(url ? { url } : {}),
+    ...(enabled !== undefined ? { enabled } : {}),
+    dateUpdated: new Date(),
+  };
+  for (const [key, value] of Object.entries(slack)) {
+    if (value !== undefined) set[`slack.${key}`] = value;
+  }
+  if (botAccessToken) set["slack.botAccessToken"] = botAccessToken;
+
+  await EventWebHookModel.updateOne(
+    { id: eventWebHookId, organizationId, payloadType: "slack" },
+    { $set: set },
+  );
+};
+
 const filterOptional = <T>(want: T[] = [], has: T[]) => {
   if (!want.length) return true;
   return !!intersection(want, has).length;
@@ -432,12 +655,27 @@ export const getAllEventWebHooksForEvent = async ({
   enabled,
   tags,
   projects,
+  experimentIds,
+  featureIds,
+  metricIds,
 }: {
   organizationId: string;
   eventName: NotificationEventName;
   enabled: boolean;
   tags: string[];
   projects: string[];
+  // Experiments associated with this event's subject: an experiment event's own
+  // id, plus (for a feature event) the experiments that feature is linked to.
+  // The experiments filter is cross-subject and matches whichever the channel picks.
+  experimentIds?: string[];
+  // Features associated with this event's subject: a feature event's own id,
+  // plus (for an experiment event) the features that experiment is linked to.
+  // The feature filter is cross-subject and matches whichever the channel picks.
+  featureIds?: string[];
+  // Metrics associated with this event's subject (an experiment's goal/guardrail
+  // metrics, or a feature's safe-rollout/experiment metrics). The metric filter
+  // is cross-subject: it matches whichever of these the channel filters on.
+  metricIds?: string[];
 }): Promise<EventWebHookInterface[]> => {
   const allDocs = await EventWebHookModel.find({
     organizationId,
@@ -446,13 +684,47 @@ export const getAllEventWebHooksForEvent = async ({
   });
 
   const docs = allDocs.filter((doc) => {
+    // Universal filters — apply to every event.
     if (!filterOptional(doc.tags, tags)) return false;
     if (!filterOptional(doc.projects, projects)) return false;
+
+    // Experiments filter: cross-subject — matches an experiment event by its
+    // own id AND a feature event by the experiments it's linked to
+    // (`experimentIds` carries the right set per subject).
+    if (!filterOptional(doc.experiments, experimentIds || [])) return false;
+
+    // Features filter: cross-subject — matches a feature event by its own id
+    // AND an experiment event by the features it's linked to (`featureIds`
+    // carries the right set per subject). An experiment linked to none of the
+    // filtered features is dropped when a features filter is set.
+    if (!filterOptional(doc.features, featureIds || [])) return false;
+
+    // Cross-subject metric filter: applies to both experiment and feature
+    // events via the subject's associated metrics. A subject with no matching
+    // metric is dropped when a metric filter is set.
+    if (!filterOptional(doc.metrics, metricIds || [])) return false;
 
     return true;
   });
 
   return docs.map(toInterface);
+};
+
+// Cheap existence check: is any enabled webhook filtering by the given field?
+// Used to skip resolving a subject's cross-subject associations (a context build
+// + queries) on every event unless some channel actually filters by that
+// dimension — e.g. a feature's safe-rollout metrics, or the features a given
+// experiment is linked to.
+export const orgHasWebhookFilteringBy = async (
+  organizationId: string,
+  field: "metrics" | "features" | "experiments",
+): Promise<boolean> => {
+  const doc = await EventWebHookModel.exists({
+    organizationId,
+    enabled: true,
+    [`${field}.0`]: { $exists: true },
+  });
+  return !!doc;
 };
 
 export const sendEventWebhookTestEvent = async (

@@ -5,6 +5,8 @@ import {
   eventWebHookMethods,
   eventWebHookPayloadTypes,
   isEventWebhookWildcard,
+  EVENT_WEBHOOK_MAX_COALESCE_WINDOW_MS,
+  slackEventWebHookOptions,
 } from "shared/validators";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
@@ -18,6 +20,31 @@ const eventNameOrWildcard = z
       isEventWebhookWildcard(val),
     { message: "Must be a valid event name or wildcard pattern" },
   );
+
+const eventWebHookPayload = z
+  .object({
+    url: z.string().url(),
+    name: z.string().trim().min(2),
+    events: z.array(eventNameOrWildcard).min(1),
+    enabled: z.boolean(),
+    projects: z.array(z.string()),
+    experiments: z.array(z.string()).optional(),
+    metrics: z.array(z.string()).optional(),
+    features: z.array(z.string()).optional(),
+    tags: z.array(z.string()),
+    environments: z.array(z.string()),
+    payloadType: z.enum(eventWebHookPayloadTypes),
+    method: z.enum(eventWebHookMethods),
+    headers: z.object({}).catchall(z.string()),
+    coalesceWindowMs: z
+      .number()
+      .int()
+      .min(0)
+      .max(EVENT_WEBHOOK_MAX_COALESCE_WINDOW_MS)
+      .optional(),
+    slackOptions: slackEventWebHookOptions.optional(),
+  })
+  .strict();
 
 const router = express.Router();
 
@@ -36,20 +63,7 @@ router.get("/event-webhooks", eventWebHooksController.getEventWebHooks);
 router.post(
   "/event-webhooks",
   validateRequestMiddleware({
-    body: z
-      .object({
-        url: z.string().url(),
-        name: z.string().trim().min(2),
-        events: z.array(eventNameOrWildcard).min(1),
-        enabled: z.boolean(),
-        projects: z.array(z.string()),
-        tags: z.array(z.string()),
-        environments: z.array(z.string()),
-        payloadType: z.enum(eventWebHookPayloadTypes),
-        method: z.enum(eventWebHookMethods),
-        headers: z.object({}).catchall(z.string()),
-      })
-      .strict(),
+    body: eventWebHookPayload,
   }),
   eventWebHooksController.createEventWebHook,
 );
@@ -114,20 +128,11 @@ router.put(
         eventWebHookId: z.string(),
       })
       .strict(),
-    body: z
-      .object({
-        url: z.string().url(),
-        name: z.string().trim().min(2),
-        events: z.array(eventNameOrWildcard).min(1),
-        enabled: z.boolean(),
-        projects: z.array(z.string()),
-        tags: z.array(z.string()),
-        environments: z.array(z.string()),
-        payloadType: z.enum(eventWebHookPayloadTypes),
-        method: z.enum(eventWebHookMethods),
-        headers: z.object({}).catchall(z.string()),
-      })
-      .strict(),
+    body: eventWebHookPayload
+      .partial()
+      .refine((body) => Object.keys(body).length > 0, {
+        message: "At least one field is required",
+      }),
   }),
   eventWebHooksController.putEventWebHook,
 );
