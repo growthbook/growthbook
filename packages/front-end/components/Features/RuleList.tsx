@@ -172,12 +172,14 @@ export default function RuleList(props: RuleListProps) {
       ),
     ).then((results) => {
       if (cancelled) return;
+      // Only touch state when something succeeded. Skipping the update on an
+      // all-failure batch keeps `fetchedGroupDetails` referentially stable, so
+      // this effect doesn't re-run and hammer a failing endpoint. Failures stay
+      // uncached and retry when `referencedGroupIds` changes.
+      if (!results.some((r) => r.ok)) return;
       setFetchedGroupDetails((prev) => {
         const next = new Map(prev);
         for (const r of results) {
-          // Cache successes only. A failed fetch stays uncached so it retries
-          // when the effect re-runs, rather than pinning the group opaque for
-          // the page's lifetime.
           if (r.ok)
             next.set(r.id, { values: r.values, condition: r.condition });
         }
