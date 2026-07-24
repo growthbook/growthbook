@@ -10,17 +10,39 @@ import {
   ContextualBanditSnapshotInterface,
   ContextualBanditSnapshotSettings,
   LeafWeight,
+  Variation,
 } from "shared/validators";
-import { conditionFromLeafClauses } from "shared/experiments";
+import {
+  assertAtLeastTwoVariations,
+  conditionFromLeafClauses,
+  defaultAddedVariationValue,
+  diffVariations,
+  getRemovedVariationsInUse,
+  reconcileVariationWeights,
+  WeightReconcileMode,
+} from "shared/experiments";
+import {
+  generateVariationId,
+  resetReviewOnChange,
+  validateFeatureValue,
+} from "shared/util";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
+import { cloneDeep } from "lodash";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getRefLinkedFeatureInfo } from "back-end/src/services/experiments";
-import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
-import { getPayloadKeysForContextualBandit } from "back-end/src/services/contextualBanditChanges";
+import { refreshLinkedFeaturePayloads } from "back-end/src/services/contextualBanditChanges";
 import { computeContextualBanditStageAndSchedule } from "back-end/src/services/contextualBanditSchedule";
+import { getFeature } from "back-end/src/models/FeatureModel";
+import { getDraftRevision } from "back-end/src/services/features";
+import { updateRevision } from "back-end/src/models/FeatureRevisionModel";
+import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
+import {
+  PendingDraftFailure,
+  publishPendingFeatureDraftsForContextualBandit,
+} from "back-end/src/services/experiment-feature";
 import {
   ContextualBanditResultsQueryRunner,
   ContextualBanditSrmResult,
@@ -56,11 +78,6 @@ export async function getContextualBanditLinkedFeatureInfo(
   });
 }
 
-/**
- * Detaches a feature from a Contextual Bandit: removes it from `linkedFeatures`
- * and cancels any queued draft auto-publish. Mirrors `unlinkFeatureFromExperiment`
- * — the feature's `contextual-bandit-ref` rule is intentionally left in place.
- */
 export async function unlinkFeatureFromContextualBandit(
   context: ReqContext | ApiReqContext,
   cbId: string,
@@ -69,6 +86,326 @@ export async function unlinkFeatureFromContextualBandit(
   const cbModel = context.models.contextualBandits;
   await cbModel.removeLinkedFeature(cbId, featureId);
   await cbModel.removePendingFeatureDraft(cbId, featureId);
+}
+
+export async function executeContextualBanditVariationChange(
+  context: ReqContext | ApiReqContext,
+  cb: ContextualBanditInterface,
+  requestedVariations: Variation[],
+  newVariationValues?: Record<string, Record<string, string>>,
+): Promise<{
+  updated: ContextualBanditInterface;
+  featureDraftPublishFailures: PendingDraftFailure[];
+}> {
+  if (cb.status === "stopped") {
+    throw new Error(
+      "invalid_status: Cannot edit variations on a stopped contextual bandit",
+    );
+  }
+
+  const newVariations: Variation[] = requestedVariations.map((v) => ({
+    ...v,
+    id: v.id || generateVariationId(),
+    screenshots: v.screenshots ?? [],
+  }));
+
+  assertAtLeastTwoVariations(newVariations);
+
+  const diff = diffVariations(cb.variations, newVariations);
+
+  if (diff.removedIds.length > 0) {
+    const linkedInfo = await getContextualBanditLinkedFeatureInfo(context, cb);
+    const referencedVariationIds = new Set<string>();
+    linkedInfo.forEach((info) =>
+      info.values.forEach((value) =>
+        referencedVariationIds.add(value.variationId),
+      ),
+    );
+    const inUse = getRemovedVariationsInUse(
+      diff.removedIds,
+      referencedVariationIds,
+    );
+    if (inUse.length > 0) {
+      throw new Error(
+        `Cannot remove variation(s) still used by a linked feature: ${inUse.join(
+          ", ",
+        )}. Update the linked feature(s) first.`,
+      );
+    }
+  }
+
+  // Validate + authorize new-arm feature values BEFORE any persistence, so a bad
+  // value or a missing publish permission aborts cleanly with nothing committed.
+  if (diff.addedIds.length > 0) {
+    await validateAndAuthorizeAddedVariationValues(
+      context,
+      cb,
+      diff.addedIds,
+      newVariationValues,
+    );
+  }
+
+  const armSetChanged = diff.addedIds.length > 0 || diff.removedIds.length > 0;
+
+  let updated: ContextualBanditInterface;
+
+  if (armSetChanged) {
+    const mode: WeightReconcileMode =
+      !cb.stage || cb.stage === "explore" ? "uniform" : "redistribute";
+    const newVariationIds = newVariations.map((v) => v.id);
+
+    const newVariationWeights = reconcileVariationWeights(
+      cb.variationWeights ?? [],
+      newVariationIds,
+      mode,
+    );
+
+    const newLeafWeights: LeafWeight[] =
+      mode === "uniform"
+        ? []
+        : (cb.currentLeafWeights ?? []).map((lw) => ({
+            ...lw,
+            weights: reconcileVariationWeights(
+              lw.weights,
+              newVariationIds,
+              mode,
+            ),
+          }));
+
+    await context.models.contextualBandits.update(cb, {
+      variations: newVariations,
+      variationWeights: newVariationWeights,
+    });
+
+    updated = await context.models.contextualBandits.patchLeafWeights(
+      cb.id,
+      newLeafWeights,
+      { bumpVersion: true },
+    );
+  } else {
+    // Same arm set: weights stay valid (keyed by variationId). A reorder still
+    // shifts variation indices / the positional SDK arrays, so it must open a
+    // new epoch (bump banditVersion) to avoid conflating pre/post-reorder
+    // exposures; a pure metadata edit (names/keys) leaves assignment unchanged
+    // and skips the bump.
+    const orderChanged =
+      cb.variations.map((v) => v.id).join(",") !==
+      newVariations.map((v) => v.id).join(",");
+    updated = await context.models.contextualBandits.update(cb, {
+      variations: newVariations,
+    });
+    if (orderChanged) {
+      updated = await context.models.contextualBandits.patchLeafWeights(
+        cb.id,
+        [],
+        { bumpVersion: true },
+      );
+    }
+  }
+
+  let featureDraftPublishFailures: PendingDraftFailure[] = [];
+  let payloadAlreadyRefreshed = false;
+  if (diff.addedIds.length > 0) {
+    const applied = await addVariationValuesToLinkedFeatures(
+      context,
+      updated,
+      diff.addedIds,
+      newVariationValues,
+    );
+    updated = applied.cb;
+    featureDraftPublishFailures = applied.failures;
+    payloadAlreadyRefreshed = applied.refreshedPayload;
+  }
+
+  // Publishing the added-arm feature drafts already rebuilds the payload; only
+  // refresh here when it didn't (no adds, draft CB, or a failed/partial publish).
+  if (!payloadAlreadyRefreshed) {
+    await refreshLinkedFeaturePayloads(
+      context,
+      updated,
+      "contextualBandit.refresh",
+    );
+  }
+
+  return { updated, featureDraftPublishFailures };
+}
+
+/**
+ * Validate the value each linked feature will serve for the newly-added arms,
+ * and (for a running CB, which publishes immediately) require publish permission
+ * on those features. Throws before any persistence so the whole edit is aborted.
+ */
+async function validateAndAuthorizeAddedVariationValues(
+  context: ReqContext | ApiReqContext,
+  cb: ContextualBanditInterface,
+  addedIds: string[],
+  providedValues?: Record<string, Record<string, string>>,
+): Promise<void> {
+  const linkedInfo = await getContextualBanditLinkedFeatureInfo(context, cb);
+  for (const info of linkedInfo) {
+    const feature = info.feature;
+    const existing = new Set(info.values.map((v) => v.variationId));
+    const controlValue = info.values[0]?.value;
+
+    let hasNewValue = false;
+    for (const addedId of addedIds) {
+      if (existing.has(addedId)) continue;
+      hasNewValue = true;
+      // Throws on a type mismatch (e.g. non-numeric value on a number feature).
+      validateFeatureValue(
+        feature,
+        defaultAddedVariationValue(
+          providedValues?.[feature.id]?.[addedId],
+          controlValue,
+          feature.defaultValue,
+        ),
+        `Variation ${addedId}`,
+      );
+    }
+
+    if (!hasNewValue) continue;
+
+    // A running CB publishes the linked-feature draft immediately, so the editor
+    // must be allowed to publish it.
+    if (cb.status === "running") {
+      const envs = Object.keys(info.environmentStates ?? {});
+      const publishEnvs = envs.length > 0 ? envs : context.environments;
+      if (!context.permissions.canPublishFeature(feature, publishEnvs)) {
+        context.permissions.throwPermissionError();
+      }
+    }
+  }
+}
+
+export async function addVariationValuesToLinkedFeatures(
+  context: ReqContext | ApiReqContext,
+  cb: ContextualBanditInterface,
+  addedIds: string[],
+  providedValues?: Record<string, Record<string, string>>,
+): Promise<{
+  cb: ContextualBanditInterface;
+  failures: PendingDraftFailure[];
+  // True when publishing already rebuilt the SDK payload for every affected
+  // feature (so the caller can skip a redundant refresh).
+  refreshedPayload: boolean;
+}> {
+  const featureIds = cb.linkedFeatures ?? [];
+  if (addedIds.length === 0 || featureIds.length === 0)
+    return { cb, failures: [], refreshedPayload: false };
+
+  let stagedAny = false;
+
+  for (const featureId of featureIds) {
+    const feature = await getFeature(context, featureId);
+    if (!feature) continue;
+
+    const revision = await getDraftRevision(context, feature, feature.version);
+    const rules = cloneDeep(revision.rules ?? []);
+    const changedEnvironments = new Set<string>();
+    let changed = false;
+
+    for (const rule of rules) {
+      if (
+        rule.type !== "contextual-bandit-ref" ||
+        rule.contextualBanditId !== cb.id
+      ) {
+        continue;
+      }
+      const existing = new Set(rule.variations.map((v) => v.variationId));
+      const controlValue = rule.variations[0]?.value;
+      let ruleChanged = false;
+      for (const addedId of addedIds) {
+        if (existing.has(addedId)) continue;
+        const value = validateFeatureValue(
+          feature,
+          defaultAddedVariationValue(
+            providedValues?.[featureId]?.[addedId],
+            controlValue,
+            feature.defaultValue,
+          ),
+          `Variation ${addedId}`,
+        );
+        rule.variations.push({ variationId: addedId, value });
+        ruleChanged = true;
+      }
+      if (ruleChanged) {
+        changed = true;
+        (rule.allEnvironments
+          ? context.environments
+          : (rule.environments ?? [])
+        ).forEach((e) => changedEnvironments.add(e));
+      }
+    }
+
+    if (!changed) continue;
+
+    const resetReview = resetReviewOnChange({
+      feature,
+      changedEnvironments: [...changedEnvironments],
+      defaultValueChanged: false,
+      settings: context.org.settings,
+    });
+
+    const updatedRevision =
+      (await updateRevision(
+        context,
+        feature,
+        revision,
+        { rules },
+        {
+          user: context.auditUser,
+          action: "add contextual bandit variation value",
+          subject: `for "${cb.name}"`,
+          value: JSON.stringify({ addedVariationIds: addedIds }),
+        },
+        resetReview,
+      )) ?? revision;
+
+    await recordRevisionUpdate(
+      context,
+      feature,
+      updatedRevision,
+      "rule.update",
+      { environments: [...changedEnvironments] },
+    );
+
+    await context.models.contextualBandits.addPendingFeatureDraft(
+      cb.id,
+      feature.id,
+      updatedRevision.version,
+    );
+    stagedAny = true;
+  }
+
+  if (!stagedAny) return { cb, failures: [], refreshedPayload: false };
+
+  const refreshed =
+    (await context.models.contextualBandits.getById(cb.id)) ?? cb;
+  if (refreshed.status === "running") {
+    const result = await publishPendingFeatureDraftsForContextualBandit(
+      context,
+      refreshed,
+    );
+    if (result.failed.length > 0) {
+      context.logger.warn(
+        { contextualBanditId: cb.id, failed: result.failed },
+        "Linked-feature draft(s) for added contextual bandit variations could not be auto-published; the new variation will serve its default value until the feature is published",
+      );
+    }
+    const rereadCb =
+      (await context.models.contextualBandits.getById(cb.id)) ?? refreshed;
+    // Every added arm stages a draft on every linked feature, so a clean publish
+    // (nothing failed) rebuilt the payload for all of them — no extra refresh
+    // needed. A partial/failed publish leaves some payloads stale, so the caller
+    // must still refresh.
+    return {
+      cb: rereadCb,
+      failures: result.failed,
+      refreshedPayload:
+        result.published.length > 0 && result.failed.length === 0,
+    };
+  }
+  return { cb: refreshed, failures: [], refreshedPayload: false };
 }
 
 export type ContextualBanditResultsForUi = {
@@ -144,12 +481,6 @@ export async function runContextualBanditSnapshot(
   cb: ContextualBanditInterface,
   opts: {
     triggeredBy: "manual" | "scheduled";
-    /**
-     * When true, block until queries + analysis finish and return the resulting
-     * CBE id. Background jobs that own the run lifecycle set this (mirroring
-     * `updateExperimentResults`). Interactive/API callers leave it false so the
-     * request returns immediately with a "running" snapshot the caller can poll.
-     */
     wait?: boolean;
   },
 ): Promise<{ snapshotId: string; cbeId?: string }> {
@@ -192,6 +523,7 @@ export async function runContextualBanditSnapshot(
     frozenSettings: snapshotSettings,
     triggeredBy: opts.triggeredBy === "manual" ? "manual" : "schedule",
     weightsWereUpdated: false,
+    banditVersion: updatedCb.banditVersion,
   });
 
   const integration = getSourceIntegrationObject(context, ds, true);
@@ -277,31 +609,42 @@ export function leafWeightsFromContextualBanditResult(
   return leafWeights;
 }
 
-/** True when any leaf's updated weights differ from the current persisted leaf weights, keyed on the leaf's targeting condition. */
 export function contextualBanditWeightsWereUpdated(
   result: ContextualBanditResult,
   currentLeafWeights: LeafWeight[],
   variations: { id: string }[],
 ): boolean {
+  const newLeafWeights = leafWeightsFromContextualBanditResult(
+    result,
+    variations,
+  );
+
+  if (newLeafWeights.length === 0) {
+    return false;
+  }
+
+  if (newLeafWeights.length !== currentLeafWeights.length) {
+    return true;
+  }
+
   const currentByCondition = new Map(
     currentLeafWeights.map((lw) => [
       JSON.stringify(lw.condition),
-      lw.weights.map((p) => p.weight),
+      { leafId: lw.leafId, weights: lw.weights.map((p) => p.weight) },
     ]),
   );
 
-  return leafWeightsFromContextualBanditResult(result, variations).some(
-    (lw) => {
-      const current = currentByCondition.get(JSON.stringify(lw.condition));
-      if (!current) {
-        return true;
-      }
-      return (
-        JSON.stringify(current) !==
+  return newLeafWeights.some((lw) => {
+    const current = currentByCondition.get(JSON.stringify(lw.condition));
+    if (!current) {
+      return true;
+    }
+    return (
+      current.leafId !== lw.leafId ||
+      JSON.stringify(current.weights) !==
         JSON.stringify(lw.weights.map((p) => p.weight))
-      );
-    },
-  );
+    );
+  });
 }
 
 /** Persists one CB run's side effects: creates the CBE doc, patches parent CB leaf weights, refreshes SDK payload. */
@@ -319,14 +662,26 @@ export async function persistContextualBanditEvent(
 
   const currentLeafWeights = cb.currentLeafWeights ?? [];
   const inExploreStage = cb.stage === "explore";
-  const weightsWereUpdated = inExploreStage
+
+  const staleWeightEpoch =
+    cbs.banditVersion !== undefined && cbs.banditVersion !== cb.banditVersion;
+  if (staleWeightEpoch) {
+    context.logger.warn(
+      `Contextual bandit ${cb.id} snapshot ${cbs.id} ran against banditVersion ` +
+        `${cbs.banditVersion} but the CB is now at ${cb.banditVersion}; ` +
+        `discarding this run's weights (arm set changed mid-run).`,
+    );
+  }
+
+  const discardWeights = inExploreStage || staleWeightEpoch;
+  const weightsWereUpdated = discardWeights
     ? false
     : contextualBanditWeightsWereUpdated(
         result,
         currentLeafWeights,
         cb.variations,
       );
-  const leafWeights = inExploreStage
+  const leafWeights = discardWeights
     ? []
     : leafWeightsFromContextualBanditResult(result, cb.variations);
 
@@ -342,19 +697,12 @@ export async function persistContextualBanditEvent(
     ...(result.srm ? { degreesOfFreedom: result.srm.degreesOfFreedom } : {}),
   });
 
-  await context.models.contextualBandits.patchLeafWeights(cb.id, leafWeights);
+  await context.models.contextualBandits.patchLeafWeights(cb.id, leafWeights, {
+    bumpVersion: weightsWereUpdated,
+  });
 
-  const payloadKeys = getPayloadKeysForContextualBandit(context, cb);
-  if (payloadKeys.length > 0) {
-    queueSDKPayloadRefresh({
-      context,
-      payloadKeys,
-      auditContext: {
-        event: "contextualBandit.refresh",
-        model: "contextualBandit",
-        id: cb.id,
-      },
-    });
+  if (weightsWereUpdated) {
+    await refreshLinkedFeaturePayloads(context, cb, "contextualBandit.refresh");
   }
 
   return cbe;

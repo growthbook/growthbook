@@ -71,7 +71,7 @@ import { logger } from "back-end/src/util/logger";
 import { getApplicableEnvIds } from "./flattenRules";
 import { getCurrentEnabledState } from "./scheduleRules";
 
-function pairedWeightsToPositional(
+export function pairedWeightsToPositional(
   paired: VariationWeightPair[],
   variations: { id: string }[],
 ): number[] {
@@ -1067,12 +1067,13 @@ export function getFeatureDefinition({
             rule.seed = cb.seed;
           }
           rule.hashVersion = 2;
+          rule.disableStickyBucketing = true;
 
           if (cb.status === "stopped") {
             return null;
           }
 
-          rule.variations = cb.variations.map((v) => {
+          rule.contextualVariations = cb.variations.map((v) => {
             const variation = r.variations?.find(
               (rv) => rv.variationId === v.id,
             );
@@ -1094,13 +1095,7 @@ export function getFeatureDefinition({
             capabilities === undefined ||
             capabilities.includes("contextualBandits");
           if (cbCapable) {
-            rule.isContextualBandit = true;
-            rule.attributesRequired = cb.contextualAttributes;
-            rule.contexts = (cb.currentLeafWeights ?? []).map((lw) => ({
-              leafId: lw.leafId,
-              condition: lw.condition,
-              weights: pairedWeightsToPositional(lw.weights, cb.variations),
-            }));
+            rule.contextualBanditRef = cb.id;
           }
 
           rule.key = cb.trackingKey;

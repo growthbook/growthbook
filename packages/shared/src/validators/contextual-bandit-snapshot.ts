@@ -53,6 +53,7 @@ export const contextualBanditSnapshotValidator = baseSchema
     frozenSettings: contextualBanditSnapshotSettingsValidator.optional(),
     contextualBanditEventId: z.string().nullable().optional(),
     weightsWereUpdated: z.boolean().optional(),
+    banditVersion: z.number().int().nonnegative().optional(),
     triggeredBy: z.enum(["manual", "schedule"]).optional(),
     srm: z
       .object({

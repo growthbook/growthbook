@@ -46,8 +46,8 @@ export const STICKY_BUCKETING_RULE_KEYS = [
 export const PREREQUISITE_RULE_KEYS = ["parentConditions"] as const;
 
 export const CONTEXTUAL_BANDIT_RULE_KEYS = [
-  "isContextualBandit",
-  "attributesRequired",
+  "contextualBanditRef",
+  "contextualVariations",
 ] as const;
 
 export function getPayloadAllowedKeys(capabilities: SDKCapability[]): {

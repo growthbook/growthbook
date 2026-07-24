@@ -4,6 +4,8 @@ import {
   apiContextualBanditRefreshValidator,
   apiContextualBanditStartValidator,
   apiContextualBanditStopValidator,
+  apiContextualBanditUpdateVariationsValidator,
+  apiContextualBanditVariationsReturn,
   apiContextualBanditValidator,
   apiCreateContextualBanditBody,
   apiListContextualBanditsValidator,
@@ -40,6 +42,15 @@ export const refreshContextualBanditEndpoint = {
   summary: "Trigger a Contextual Bandit snapshot refresh",
 };
 
+export const updateVariationsContextualBanditEndpoint = {
+  pathFragment: "/:id/variations",
+  verb: "post" as const,
+  operationId: "updateContextualBanditVariations",
+  validator: apiContextualBanditUpdateVariationsValidator,
+  zodReturnObject: apiContextualBanditVariationsReturn,
+  summary: "Add or remove Contextual Bandit variations",
+};
+
 export const contextualBanditApiSpec = {
   modelSingular: "contextualBandit",
   modelPlural: "contextualBandits",
@@ -57,6 +68,7 @@ export const contextualBanditApiSpec = {
     startContextualBanditEndpoint,
     stopContextualBanditEndpoint,
     refreshContextualBanditEndpoint,
+    updateVariationsContextualBanditEndpoint,
   ],
   navAfterTag: "experiments",
 } satisfies OpenApiModelSpec;

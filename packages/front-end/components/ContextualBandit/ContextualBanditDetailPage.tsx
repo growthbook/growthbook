@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useMemo, useState } from "react";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { date } from "shared/dates";
@@ -8,11 +8,13 @@ import { LinkedFeatureInfo } from "shared/types/experiment";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import { contextualBanditStatusIndicatorData } from "@/services/contextualBandits";
+import { jsonToConds, useAttributeMap } from "@/services/features";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import Metadata from "@/ui/Metadata";
@@ -154,6 +156,36 @@ export default function ContextualBanditDetailPage({
     (!!cb.condition && cb.condition !== "{}") ||
     (cb.savedGroups?.length ?? 0) > 0 ||
     (cb.prerequisites?.length ?? 0) > 0;
+
+  const attributeMap = useAttributeMap(cb.project);
+  const conflictingAttributes = useMemo(() => {
+    const contextual = new Set(cb.contextualAttributes);
+    if (!contextual.size || !cb.condition || cb.condition === "{}") return [];
+
+    let globalAttributes: string[];
+    const conds = jsonToConds(cb.condition, attributeMap);
+    if (conds) {
+      const fields = new Set<string>();
+      conds.forEach((cond) =>
+        cond.forEach(({ field }) => {
+          if (field !== "$savedGroups" && field !== "$notSavedGroups") {
+            fields.add(field);
+          }
+        }),
+      );
+      globalAttributes = Array.from(fields);
+    } else {
+      try {
+        globalAttributes = Object.keys(JSON.parse(cb.condition)).filter(
+          (k) => !k.startsWith("$"),
+        );
+      } catch {
+        globalAttributes = [];
+      }
+    }
+
+    return globalAttributes.filter((a) => contextual.has(a));
+  }, [cb.condition, cb.contextualAttributes, attributeMap]);
 
   const formatExploratoryStage = (
     value?: number,
@@ -459,6 +491,23 @@ export default function ContextualBanditDetailPage({
                   </DetailSectionColumn>
                 )}
               </Grid>
+              {conflictingAttributes.length > 0 && (
+                <Callout status="warning" mt="4">
+                  <Flex direction="column" gap="2">
+                    <Text as="span">
+                      Your attribute targeting overlaps with the Bandit&apos;s
+                      contextual attributes. Overlapping targeting can create
+                      unreachable variations. Please review your targeting to
+                      avoid conflicts.
+                    </Text>
+                    <Flex align="center" gap="1" wrap="wrap">
+                      {conflictingAttributes.map((a) => (
+                        <AttributeBadge key={a} attributeId={a} />
+                      ))}
+                    </Flex>
+                  </Flex>
+                </Callout>
+              )}
             </OverviewSection>
 
             <OverviewSection

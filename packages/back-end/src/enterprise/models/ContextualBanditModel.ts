@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   apiContextualBanditLifecycleReturn,
   apiContextualBanditRefreshReturn,
+  apiContextualBanditVariationsReturn,
   apiCreateContextualBanditBody,
   apiUpdateContextualBanditBody,
   ApiContextualBanditInterface,
@@ -19,13 +20,18 @@ import {
   refreshContextualBanditEndpoint,
   startContextualBanditEndpoint,
   stopContextualBanditEndpoint,
+  updateVariationsContextualBanditEndpoint,
 } from "back-end/src/api/specs/contextual-bandit.spec";
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
 import {
   executeContextualBanditStart,
   executeContextualBanditStop,
 } from "back-end/src/services/contextualBanditChanges";
-import { runContextualBanditSnapshot } from "back-end/src/enterprise/services/contextualBandits";
+import {
+  executeContextualBanditVariationChange,
+  getContextualBanditLinkedFeatureInfo,
+  runContextualBanditSnapshot,
+} from "back-end/src/enterprise/services/contextualBandits";
 import { MakeModelClass } from "back-end/src/models/BaseModel";
 import { getCollection } from "back-end/src/util/mongo.util";
 
@@ -72,6 +78,15 @@ const BaseClass = MakeModelClass({
             req.context.org.settings?.environments?.map((e) => e.id) ?? [];
           if (!req.context.permissions.canRunContextualBandit(cb, envs)) {
             req.context.permissions.throwPermissionError();
+          }
+          const linkedFeatures = await getContextualBanditLinkedFeatureInfo(
+            req.context,
+            cb,
+          );
+          if (linkedFeatures.length === 0) {
+            throw new Error(
+              "Link at least one Feature Flag before starting this contextual bandit",
+            );
           }
           const { updated } = await executeContextualBanditStart(
             req.context,
@@ -123,6 +138,35 @@ const BaseClass = MakeModelClass({
           return runContextualBanditSnapshot(req.context, cb, {
             triggeredBy: "manual",
           });
+        },
+      }),
+      defineCustomApiHandler({
+        ...updateVariationsContextualBanditEndpoint,
+        reqHandler: async (
+          req,
+        ): Promise<z.infer<typeof apiContextualBanditVariationsReturn>> => {
+          const cb = await req.context.models.contextualBandits.getById(
+            req.params.id,
+          );
+          if (!cb) {
+            return req.context.throwNotFoundError();
+          }
+          if (!req.context.permissions.canUpdateContextualBandit(cb, cb)) {
+            req.context.permissions.throwPermissionError();
+          }
+          const { updated, featureDraftPublishFailures } =
+            await executeContextualBanditVariationChange(
+              req.context,
+              cb,
+              req.body.variations,
+              req.body.newVariationValues,
+            );
+          return {
+            contextualBandit: toApiContextualBandit(updated),
+            ...(featureDraftPublishFailures.length > 0
+              ? { featureDraftPublishFailures }
+              : {}),
+          };
         },
       }),
     ],
@@ -348,6 +392,9 @@ export class ContextualBanditModel extends BaseClass {
   public async patchLeafWeights(
     cbId: string,
     leafWeights: LeafWeight[],
+    options?: {
+      bumpVersion?: boolean;
+    },
   ): Promise<ContextualBanditInterface> {
     const existingCB = await this.getById(cbId);
     if (!existingCB) {
@@ -370,7 +417,7 @@ export class ContextualBanditModel extends BaseClass {
       },
       {
         $set: set,
-        $inc: { banditVersion: 1 },
+        ...(options?.bumpVersion ? { $inc: { banditVersion: 1 } } : {}),
       },
     );
     if (res.matchedCount === 0) {

@@ -1,5 +1,6 @@
 import {
   EvalContext,
+  ContextualBanditDefinition,
   FeatureDefinition,
   FeatureResult,
   Experiment,
@@ -15,6 +16,7 @@ import {
   FeatureApiResponse,
   Options,
   ClientOptions,
+  UserContext,
 } from "./types/growthbook";
 import { evalCondition } from "./mongrule";
 import { ConditionInterface } from "./types/mongrule";
@@ -22,6 +24,7 @@ import {
   chooseVariation,
   decrypt,
   getBucketRanges,
+  getEqualWeights,
   getQueryStringOverride,
   getUrlRegExp,
   hash,
@@ -100,7 +103,9 @@ function onExperimentViewed(
   }
   if (ctx.user.trackingCallback) {
     const cb = ctx.user.trackingCallback;
-    calls.push(safeCall(() => cb(experiment, result)));
+    calls.push(
+      safeCall(() => cb(experiment, result, getTrackingUserContext(ctx))),
+    );
   }
   if (ctx.global.eventLogger) {
     const cb = ctx.global.eventLogger;
@@ -307,6 +312,7 @@ export function evalFeature<V = unknown>(
               ctx.global.saveDeferredTrack({
                 experiment: t.experiment,
                 result: t.result,
+                user: getTrackingUserContext(ctx),
               });
             }
           });
@@ -314,7 +320,8 @@ export function evalFeature<V = unknown>(
 
         return getFeatureResult(ctx, id, rule.force as V, "force", rule.id);
       }
-      if (!rule.variations) {
+      const ruleVariations = rule.contextualVariations ?? rule.variations;
+      if (!ruleVariations) {
         process.env.NODE_ENV !== "production" &&
           ctx.global.log("Skip invalid rule", {
             id,
@@ -326,7 +333,7 @@ export function evalFeature<V = unknown>(
 
       // For experiment rules, run an experiment
       const exp: Experiment<V> = {
-        variations: rule.variations as [V, V, ...V[]],
+        variations: ruleVariations as [V, V, ...V[]],
         key: rule.key || id,
       };
       if ("coverage" in rule) exp.coverage = rule.coverage;
@@ -349,9 +356,15 @@ export function evalFeature<V = unknown>(
       if (rule.hashVersion) exp.hashVersion = rule.hashVersion;
       if (rule.filters) exp.filters = rule.filters;
       if (rule.condition) exp.condition = rule.condition;
+      if (rule.contextualBanditRef) {
+        buildContextualBanditExperiment(exp, rule.contextualBanditRef, id, ctx);
+      }
 
       // Only return a value if the user is part of the experiment
       const { result } = runExperiment(exp, id, ctx);
+      if (exp.contextualBandit && !(result.hashUsed && result.inExperiment)) {
+        delete exp.contextualBandit;
+      }
       ctx.global.onExperimentEval && ctx.global.onExperimentEval(exp, result);
       if (result.inExperiment && !result.passthrough) {
         return getFeatureResult(
@@ -761,6 +774,7 @@ export function runExperiment<T>(
     ctx.global.saveDeferredTrack({
       experiment,
       result,
+      user: getTrackingUserContext(ctx),
     });
   }
   const trackingCall = !trackingCalls.length
@@ -815,6 +829,77 @@ function getAttributes(ctx: EvalContext) {
   return {
     ...ctx.user.attributes,
     ...ctx.user.attributeOverrides,
+  };
+}
+
+function getTrackingUserContext(ctx: EvalContext): UserContext {
+  return { attributes: getAttributes(ctx) };
+}
+
+function getContextualBanditLeaf(
+  cbDefinition: ContextualBanditDefinition,
+  ctx: EvalContext,
+): { leafId: number; weights: number[] } | null {
+  for (const context of cbDefinition.contexts || []) {
+    if (conditionPasses((context.condition || {}) as ConditionInterface, ctx)) {
+      return { leafId: context.leafId, weights: context.weights };
+    }
+  }
+
+  return null;
+}
+
+const CONTEXTUAL_BANDIT_FALLBACK_LEAF_ID = -1;
+
+function buildContextualBanditExperiment<T>(
+  experiment: Experiment<T>,
+  contextualBanditRef: string,
+  id: string,
+  ctx: EvalContext,
+): void {
+  const cbDefinition = ctx.global.contextualBandits?.[contextualBanditRef];
+  if (!cbDefinition) {
+    process.env.NODE_ENV !== "production" &&
+      ctx.global.log(
+        "Contextual bandit ref not found in payload, using aggregate weights",
+        { id, contextualBanditRef },
+      );
+    return;
+  }
+
+  let leaf: { leafId: number; weights: number[] } | null = null;
+  if (cbDefinition.contexts && cbDefinition.contexts.length) {
+    try {
+      leaf = getContextualBanditLeaf(cbDefinition, ctx);
+    } catch (e) {
+      process.env.NODE_ENV !== "production" &&
+        ctx.global.log(
+          "Contextual bandit leaf selection threw, using fallback weights",
+          { id, contextualBanditRef, error: e },
+        );
+    }
+  }
+
+  if (leaf) {
+    experiment.weights = leaf.weights;
+    experiment.contextualBandit = {
+      leafId: leaf.leafId,
+      variationWeights: leaf.weights,
+      banditVersion: cbDefinition.banditVersion,
+    };
+    return;
+  }
+
+  process.env.NODE_ENV !== "production" &&
+    ctx.global.log(
+      "Contextual bandit: no matching leaf, using fallback weights",
+      { id, contextualBanditRef },
+    );
+  experiment.contextualBandit = {
+    leafId: CONTEXTUAL_BANDIT_FALLBACK_LEAF_ID,
+    variationWeights:
+      experiment.weights ?? getEqualWeights(experiment.variations.length),
+    banditVersion: cbDefinition.banditVersion,
   };
 }
 
@@ -910,6 +995,13 @@ export function getExperimentResult<T>(
   if (meta.name) res.name = meta.name;
   if (bucket !== undefined) res.bucket = bucket;
   if (meta.passthrough) res.passthrough = meta.passthrough;
+
+  const cb = experiment.contextualBandit;
+  if (cb && hashUsed && inExperiment) {
+    res.leafId = cb.leafId;
+    res.variationWeights = cb.variationWeights;
+    if (cb.banditVersion !== undefined) res.banditVersion = cb.banditVersion;
+  }
 
   return res;
 }
@@ -1128,7 +1220,7 @@ function deriveStickyBucketIdentifierAttributes(
     const feature = features[id];
     if (feature.rules) {
       for (const rule of feature.rules) {
-        if (rule.variations) {
+        if (rule.variations || rule.contextualVariations) {
           attributes.add(rule.hashAttribute || "id");
           if (rule.fallbackAttribute) {
             attributes.add(rule.fallbackAttribute);
@@ -1204,6 +1296,16 @@ export async function decryptPayload(
       console.error(e);
     }
     delete data.encryptedSavedGroups;
+  }
+  if (data.encryptedContextualBandits) {
+    try {
+      data.contextualBandits = JSON.parse(
+        await decrypt(data.encryptedContextualBandits, decryptionKey, subtle),
+      );
+    } catch (e) {
+      console.error(e);
+    }
+    delete data.encryptedContextualBandits;
   }
   return data;
 }
