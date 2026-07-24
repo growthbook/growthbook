@@ -933,8 +933,7 @@ export type ApiExperimentResults = z.infer<
 // ---------------------------------------------------------------------------
 
 // Snapshot-time effective metric settings, copied from
-// snapshot.settings.metricSettings[].computedSettings. Omitted entirely for
-// legacy snapshots that predate computedSettings.
+// snapshot.settings.metricSettings[].computedSettings.
 const apiBulkResultMetricEffectiveSettings = z.object({
   windowType: z.enum(["conversion", "lookback", ""]),
   windowValue: z.number(),
@@ -949,9 +948,8 @@ const apiBulkResultMetricEffectiveSettings = z.object({
   targetMDE: z.number().optional(),
 });
 
-// Metric role entry. No `overrides` field: the snapshot stores effective
-// values, not override provenance, and this is a new schema with no existing
-// consumers.
+// Metric role entry. We return a hefty effective settings object rather than
+// an overrides object because the snapshot only stores computed settings.
 const apiBulkResultMetric = z.object({
   metricId: z.string(),
   effectiveSettings: apiBulkResultMetricEffectiveSettings.optional(),
@@ -1015,7 +1013,6 @@ const apiBulkResultVariation = z.object({
   ),
 });
 
-// Corresponds to schemas/ExperimentBulkResult.yaml
 export const apiExperimentBulkResultValidator = namedSchema(
   "ExperimentBulkResult",
   z
@@ -1040,14 +1037,13 @@ export const apiExperimentBulkResultValidator = namedSchema(
       dimension: z.object({
         type: z.string(),
         id: z.string().optional(),
-        // `precomputed` is orthogonal to `type`; `type` is never "precomputed".
         precomputed: z.boolean(),
       }),
       settings: apiBulkResultSettings,
       queryIds: z.array(z.string()),
       results: z.array(
         z.object({
-          dimension: z.string(),
+          dimensionValue: z.string(),
           totalUsers: z.number(),
           checks: z.object({ srm: z.number() }),
           metrics: z.array(

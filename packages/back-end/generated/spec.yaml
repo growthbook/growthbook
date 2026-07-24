@@ -43357,7 +43357,7 @@ components:
           items:
             type: object
             properties:
-              dimension:
+              dimensionValue:
                 type: string
               totalUsers:
                 type: number
@@ -43467,7 +43467,7 @@ components:
                     - variations
                   additionalProperties: false
             required:
-              - dimension
+              - dimensionValue
               - totalUsers
               - checks
               - metrics

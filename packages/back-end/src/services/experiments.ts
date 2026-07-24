@@ -3489,7 +3489,7 @@ export function toExperimentSnapshotBulkResultsApiInterface(
       queryIds,
       results: (baseAnalysis.results || []).map((s) => {
         return {
-          dimension: s.name,
+          dimensionValue: s.name,
           totalUsers: s.variations.reduce((sum, v) => sum + v.users, 0),
           checks: {
             srm: s.srm,
