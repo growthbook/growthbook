@@ -59,17 +59,24 @@ export default function PValueColumn({
   pValueAdjustmentEnabled,
   ...otherProps
 }: Props) {
+  // Stable field names for programmatic value extraction
   let pValText = (
-    <>{stats?.pValue !== undefined ? pValueFormatter(stats.pValue) : ""}</>
+    <span data-field="p_value_raw">
+      {stats?.pValue !== undefined ? pValueFormatter(stats.pValue) : ""}
+    </span>
   );
   if (stats?.pValueAdjusted !== undefined && pValueCorrection) {
     pValText = showUnadjustedPValue ? (
       <>
-        <div>{pValueFormatter(stats.pValueAdjusted)}</div>
+        <div data-field="p_value_adjusted">
+          {pValueFormatter(stats.pValueAdjusted)}
+        </div>
         <div className="text-muted">(unadj.:&nbsp;{pValText})</div>
       </>
     ) : (
-      <>{pValueFormatter(stats.pValueAdjusted)}</>
+      <span data-field="p_value_adjusted">
+        {pValueFormatter(stats.pValueAdjusted)}
+      </span>
     );
   }
 
@@ -138,6 +145,10 @@ export default function PValueColumn({
       {...otherProps}
     >
       {renderContent()}
+      {/* Hidden significance flag (1/0) exposed for programmatic extraction */}
+      <span data-field="significant" style={{ display: "none" }}>
+        {rowResults?.significant ? "1" : "0"}
+      </span>
     </td>
   );
 }
