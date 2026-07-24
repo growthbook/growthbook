@@ -186,6 +186,42 @@ describe("isPureFeatureRevert", () => {
     ).toBe(true);
   });
 
+  // createRevision writes an entry for EVERY environment it is handed,
+  // defaulting absent ones to false — and the env list differs per caller. A
+  // whole-object comparison rejected those filled-in keys as edits, so a faithful
+  // revert never qualified.
+  it("accepts filled-in environment keys the target never recorded", () => {
+    expect(
+      isPureFeatureRevert({
+        feature,
+        draft: draft({
+          environmentsEnabled: { production: true, staging: false },
+        }),
+        // target only ever recorded production
+        target: {
+          ...target,
+          environmentsEnabled: { production: true },
+        } as unknown as FeatureRevisionInterface,
+      }),
+    ).toBe(true);
+  });
+
+  it("still rejects a filled-in key that disagrees with live", () => {
+    expect(
+      isPureFeatureRevert({
+        feature,
+        draft: draft({
+          // live production is enabled, and the target never recorded staging
+          environmentsEnabled: { production: true, staging: true },
+        }),
+        target: {
+          ...target,
+          environmentsEnabled: { production: true },
+        } as unknown as FeatureRevisionInterface,
+      }),
+    ).toBe(false);
+  });
+
   it("rejects an environment toggle that matches neither target nor live", () => {
     expect(
       isPureFeatureRevert({

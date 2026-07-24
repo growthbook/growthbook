@@ -1,20 +1,23 @@
 import { isEqual } from "lodash";
-import { FeatureInterface } from "shared/types/feature";
+import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { MergeResultChanges } from "shared/util";
 import { FeatureRevisionInterface } from "shared/validators";
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
+import { isPlausibleFeatureRule } from "back-end/src/util/flattenRules";
+import { upgradeFeatureRule } from "back-end/src/util/migrations";
 
 // Fields a feature publish writes that are plain content: restoring them puts
 // back a value that was already live, so revert authority covers them.
 // (Together with the side-effect fields below this must account for every field
 // in MergeResultChanges, or the omitted one becomes a way to smuggle a change
 // through revert authority.)
+// Compared field-by-field below. `rules` and `environmentsEnabled` need shape
+// normalization first (createRevision rewrites both when storing a draft), so
+// they're handled separately rather than by the generic comparison.
 const CONTENT_FIELDS = [
   "defaultValue",
-  "rules",
-  "environmentsEnabled",
   "prerequisites",
   "archived",
   "metadata",
@@ -31,7 +34,10 @@ type SideEffectField = "holdout";
 // smuggle a change through revert authority.
 type UnclassifiedMergeField = Exclude<
   keyof MergeResultChanges,
-  (typeof CONTENT_FIELDS)[number] | SideEffectField
+  | (typeof CONTENT_FIELDS)[number]
+  | SideEffectField
+  | "rules"
+  | "environmentsEnabled"
 >;
 const _allMergeFieldsClassified: UnclassifiedMergeField extends never
   ? true
@@ -76,20 +82,59 @@ export function isPureFeatureRevert({
   if (draft.rampActions?.length) return false;
   if (!isEqual(draft.holdout ?? null, feature.holdout ?? null)) return false;
 
-  const liveEnvironmentsEnabled = Object.fromEntries(
-    Object.entries(feature.environmentSettings ?? {}).map(([env, settings]) => [
-      env,
-      !!settings?.enabled,
-    ]),
-  );
+  if (!rulesOnlyRestore({ feature, draft, target })) return false;
+  if (!environmentsEnabledOnlyRestore({ feature, draft, target })) return false;
 
   return CONTENT_FIELDS.every((field) => {
     const proposed = draft[field];
     if (isEqual(proposed, target[field])) return true;
-    return isEqual(
-      proposed,
-      liveValueFor(field, feature, liveEnvironmentsEnabled),
-    );
+    return isEqual(proposed, liveValueFor(field, feature));
+  });
+}
+
+// `createRevision` stores rules through normalizeRulesInputToV2 (and upgrades
+// live rules when filling), so compare normalized shapes — otherwise a faithful
+// revert reads as impure purely because of a v1/v2 or pre-coverage difference.
+function rulesOnlyRestore({
+  feature,
+  draft,
+  target,
+}: {
+  feature: FeatureInterface;
+  draft: FeatureRevisionInterface;
+  target: FeatureRevisionInterface;
+}): boolean {
+  const normalize = (rules: unknown) =>
+    ((rules ?? []) as FeatureRule[])
+      .filter(isPlausibleFeatureRule)
+      .map((r) => upgradeFeatureRule(r));
+
+  const proposed = normalize(draft.rules);
+  return (
+    isEqual(proposed, normalize(target.rules)) ||
+    isEqual(proposed, normalize(feature.rules))
+  );
+}
+
+// `createRevision` writes an entry for every environment it was handed,
+// defaulting absent ones to false — and the env list differs per caller. Compare
+// per environment instead of whole-object, so those filled-in keys don't read as
+// edits.
+function environmentsEnabledOnlyRestore({
+  feature,
+  draft,
+  target,
+}: {
+  feature: FeatureInterface;
+  draft: FeatureRevisionInterface;
+  target: FeatureRevisionInterface;
+}): boolean {
+  const proposed = draft.environmentsEnabled ?? {};
+  const restored = target.environmentsEnabled ?? {};
+
+  return Object.entries(proposed).every(([env, enabled]) => {
+    if (env in restored) return enabled === restored[env];
+    return enabled === (feature.environmentSettings?.[env]?.enabled ?? false);
   });
 }
 
@@ -151,15 +196,10 @@ async function draftIsPureRevert({
 function liveValueFor(
   field: (typeof CONTENT_FIELDS)[number],
   feature: FeatureInterface,
-  liveEnvironmentsEnabled: Record<string, boolean>,
 ): unknown {
   switch (field) {
     case "defaultValue":
       return feature.defaultValue;
-    case "rules":
-      return feature.rules ?? [];
-    case "environmentsEnabled":
-      return liveEnvironmentsEnabled;
     case "prerequisites":
       return feature.prerequisites ?? [];
     case "archived":
