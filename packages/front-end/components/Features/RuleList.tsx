@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { FeatureInterface } from "shared/types/feature";
+import { SavedGroupWithoutValues } from "shared/types/saved-group";
 import { Flex } from "@radix-ui/themes";
 import {
   DndContext,
@@ -31,6 +32,7 @@ import { Environment } from "shared/types/organization";
 import { ruleFootprint } from "shared/util";
 import { buildRuleRampScheduleMap } from "@/services/rampScheduleHelpers";
 import { useAuth } from "@/services/auth";
+import useApi from "@/hooks/useApi";
 import { getRules, isRuleInactive } from "@/services/features";
 import {
   buildConflictBanners,
@@ -122,95 +124,90 @@ export default function RuleList(props: RuleListProps) {
   const { savedGroups } = useDefinitions();
   const [activeId, setActiveId] = useState<string | null>(null);
 
-  // Light defs from /organization/definitions (no condition/values). Heavy
-  // fields for groups this feature references are fetched below; until they
-  // arrive, conflict detection stays soft/opaque and upgrades once loaded.
+  // `/organization/definitions` drops saved-group `condition` (payload size),
+  // so pull conditions from the bulk `/saved-groups` list, which SWR caches and
+  // revalidates on focus/reconnect for us. ID-list `values` are stripped there
+  // too and are fetched lazily per referenced group below.
+  const { data: savedGroupsWithCondition } = useApi<{
+    savedGroups: SavedGroupWithoutValues[];
+  }>("/saved-groups");
+  const conditionById = useMemo<Map<string, string | undefined>>(() => {
+    const map = new Map<string, string | undefined>();
+    for (const g of savedGroupsWithCondition?.savedGroups ?? []) {
+      map.set(g.id, g.condition);
+    }
+    return map;
+  }, [savedGroupsWithCondition]);
+
+  // Conflict-detection defs. Condition groups get their `condition` from the
+  // bulk fetch above; ID-list `values` are fetched lazily below. Until either
+  // arrives, the group is opaque — conflict detection surfaces soft overlap on
+  // its attribute, then upgrades to precise conflicts once the data loads.
   const savedGroupDefs = useMemo<Map<string, SavedGroupForConflicts>>(() => {
     const map = new Map<string, SavedGroupForConflicts>();
     for (const g of savedGroups) {
-      map.set(g.id, { type: g.type, attributeKey: g.attributeKey });
+      map.set(g.id, {
+        type: g.type,
+        attributeKey: g.attributeKey,
+        condition: conditionById.get(g.id),
+      });
     }
     return map;
-  }, [savedGroups]);
+  }, [savedGroups, conditionById]);
 
-  // Saved group ids referenced by this feature's rules (any env).
-  const referencedGroupIds = useMemo<string[]>(() => {
+  // ID-list saved group ids referenced by this feature's rules (any env).
+  const referencedListGroupIds = useMemo<string[]>(() => {
     const ids = new Set<string>();
     for (const r of feature.rules ?? []) {
       for (const sg of r.savedGroups ?? []) {
         for (const id of sg.ids) {
-          if (savedGroupDefs.has(id)) ids.add(id);
+          if (savedGroupDefs.get(id)?.type === "list") ids.add(id);
         }
       }
     }
     return [...ids];
   }, [feature.rules, savedGroupDefs]);
 
-  // Lazily-fetched `values` / `condition`, keyed by saved group id.
-  const [fetchedGroupDetails, setFetchedGroupDetails] = useState<
-    Map<string, { values?: string[]; condition?: string }>
-  >(new Map());
-
-  // Ids we've already requested. Gating on a ref (not on `fetchedGroupDetails`)
-  // keeps this effect from depending on the state it writes — that self-
-  // reference is what let earlier versions loop. Setting state can no longer
-  // re-fire the effect, so a fetch fires at most once per id. A failed id is
-  // dropped from the set, so it retries the next time the effect reruns
-  // (referenced set changes, or a revalidate below) rather than being cached
-  // opaque or hammered in a loop.
-  const requestedGroupIds = useRef<Set<string>>(new Set());
-
-  // Bumped on reconnect / tab-visible to re-attempt ids that failed earlier.
-  // Successful ids stay in the ref, so only the still-missing ones re-fetch —
-  // this is the revalidate-on-focus/reconnect SWR gives free-standing hooks.
-  const [revalidateToken, setRevalidateToken] = useState(0);
-  useEffect(() => {
-    const revalidate = () => setRevalidateToken((t) => t + 1);
-    const onVisible = () => {
-      if (document.visibilityState === "visible") revalidate();
-    };
-    window.addEventListener("online", revalidate);
-    document.addEventListener("visibilitychange", onVisible);
-    return () => {
-      window.removeEventListener("online", revalidate);
-      document.removeEventListener("visibilitychange", onVisible);
-    };
-  }, []);
+  // Lazily-fetched ID-list values, keyed by saved group id.
+  const [listGroupValues, setListGroupValues] = useState<Map<string, string[]>>(
+    new Map(),
+  );
 
   useEffect(() => {
-    const toFetch = referencedGroupIds.filter(
-      (id) => !requestedGroupIds.current.has(id),
+    const toFetch = referencedListGroupIds.filter(
+      (id) => !listGroupValues.has(id),
     );
     if (!toFetch.length) return;
-    for (const id of toFetch) requestedGroupIds.current.add(id);
-    toFetch.forEach((id) =>
-      apiCall<{ savedGroup?: { values?: string[]; condition?: string } }>(
-        `/saved-groups/${id}`,
-      )
-        .then((res) => {
-          setFetchedGroupDetails((prev) =>
-            new Map(prev).set(id, {
-              values: res.savedGroup?.values,
-              condition: res.savedGroup?.condition,
-            }),
-          );
-        })
-        .catch(() => {
-          requestedGroupIds.current.delete(id);
-        }),
-    );
-  }, [referencedGroupIds, apiCall, revalidateToken]);
+    let cancelled = false;
+    Promise.all(
+      toFetch.map((id) =>
+        apiCall<{ savedGroup?: { values?: string[] } }>(`/saved-groups/${id}`)
+          .then((res) => ({ id, values: res.savedGroup?.values ?? [] }))
+          .catch(() => ({ id, values: [] as string[] })),
+      ),
+    ).then((results) => {
+      if (cancelled) return;
+      setListGroupValues((prev) => {
+        const next = new Map(prev);
+        for (const { id, values } of results) next.set(id, values);
+        return next;
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [referencedListGroupIds, listGroupValues, apiCall]);
 
   const savedGroupConflictMap = useMemo<
     Map<string, SavedGroupForConflicts>
   >(() => {
     const map = new Map<string, SavedGroupForConflicts>();
     for (const [id, def] of savedGroupDefs) {
-      const details = fetchedGroupDetails.get(id);
-      map.set(id, details ? { ...def, ...details } : def);
+      const values = listGroupValues.get(id);
+      map.set(id, values ? { ...def, values } : def);
     }
     return map;
-  }, [savedGroupDefs, fetchedGroupDetails]);
+  }, [savedGroupDefs, listGroupValues]);
 
   // allEnvsView: flat feature.rules narrowed by hiddenRuleIds.
   // single-env: project via getRules to honor env applicability + inheritance.
