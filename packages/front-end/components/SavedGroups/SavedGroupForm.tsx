@@ -183,7 +183,7 @@ const SavedGroupForm: FC<{
     savedGroups: SavedGroupWithoutValues[];
   }>("/saved-groups");
   const savedGroups = useMemo(
-    () => savedGroupsData?.savedGroups ?? [],
+    () => (savedGroupsData?.savedGroups ?? []).filter((sg) => !sg.archived),
     [savedGroupsData],
   );
   const savedGroupsLoaded = savedGroupsData !== undefined;
