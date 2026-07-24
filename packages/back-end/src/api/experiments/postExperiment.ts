@@ -1,5 +1,6 @@
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import {
+  ExperimentInterface,
   ExperimentInterfaceExcludingHoldouts,
   ExperimentTemplateInterface,
   postExperimentValidator,
@@ -17,6 +18,7 @@ import {
   validateVariationIds,
 } from "back-end/src/services/experiments";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
+import { validateScheduledStopPlan } from "back-end/src/services/experimentScheduling";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { assertExperimentPrecomputedUnitDimensionIdsAreValid } from "back-end/src/services/dimensions";
 import {
@@ -315,6 +317,19 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       req.organization,
       datasource,
     );
+
+    if (newExperiment.scheduledStopPlan) {
+      const hasScheduledEnd = !!(
+        newExperiment.statusUpdateSchedule?.stopAt ||
+        newExperiment.statusUpdateSchedule?.stopAfter
+      );
+      validateScheduledStopPlan(
+        req.context,
+        newExperiment as ExperimentInterface,
+        newExperiment.scheduledStopPlan,
+        hasScheduledEnd,
+      );
+    }
 
     const experiment = await createExperiment({
       data: newExperiment,

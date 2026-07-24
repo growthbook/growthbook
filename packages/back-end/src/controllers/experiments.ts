@@ -68,6 +68,7 @@ import {
   validateStatusUpdateSchedule,
 } from "back-end/src/services/experiments";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
+import { validateScheduledStopPlan } from "back-end/src/services/experimentScheduling";
 import {
   approveScheduledExperimentStart,
   startExperiment,
@@ -1778,7 +1779,11 @@ export async function postExperiment(
 
   if (data.statusUpdateSchedule) {
     const effectiveType = data.type ?? experiment.type ?? "standard";
-    validateStatusUpdateSchedule(effectiveType, data.statusUpdateSchedule);
+    validateStatusUpdateSchedule(
+      effectiveType,
+      data.statusUpdateSchedule,
+      experiment,
+    );
   }
 
   const keys: (keyof ExperimentInterface)[] = [
@@ -1809,6 +1814,7 @@ export async function postExperiment(
     "variations",
     "status",
     "statusUpdateSchedule",
+    "scheduledStopPlan",
     "results",
     "analysis",
     "winner",
@@ -1863,6 +1869,7 @@ export async function postExperiment(
       key === "lookbackOverride" ||
       key === "variations" ||
       key === "statusUpdateSchedule" ||
+      key === "scheduledStopPlan" ||
       key === "customFields" ||
       key === "customMetricSlices" ||
       key === "precomputedUnitDimensionIds"
@@ -1878,6 +1885,22 @@ export async function postExperiment(
   });
 
   normalizeStatusUpdateScheduleChanges(experiment, changes);
+
+  if (changes.scheduledStopPlan) {
+    const effectiveSchedule =
+      "statusUpdateSchedule" in changes
+        ? changes.statusUpdateSchedule
+        : experiment.statusUpdateSchedule;
+    const hasScheduledEnd = !!(
+      effectiveSchedule?.stopAt || effectiveSchedule?.stopAfter
+    );
+    validateScheduledStopPlan(
+      context,
+      { ...experiment, ...changes },
+      changes.scheduledStopPlan,
+      hasScheduledEnd,
+    );
+  }
 
   // Coerce lookbackOverride date value when type is "date"
   if (changes.lookbackOverride?.type === "date") {

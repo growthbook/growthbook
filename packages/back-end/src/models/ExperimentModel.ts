@@ -12,6 +12,10 @@ import { VisualChange } from "shared/types/visual-changeset";
 import {
   ExperimentInterfaceExcludingHoldouts,
   ExperimentStatus,
+  SCHEDULE_STOP_AFTER_UNITS,
+  SCHEDULED_STATUS_UPDATE_TYPES,
+  SCHEDULED_STOP_MODES,
+  SCHEDULED_STOP_FALLBACKS,
 } from "shared/validators";
 import {
   Changeset,
@@ -194,12 +198,24 @@ const experimentSchema = new mongoose.Schema({
     _id: false,
     startAt: Date,
     stopAt: Date,
+    stopAfter: {
+      _id: false,
+      value: Number,
+      unit: { type: String, enum: [...SCHEDULE_STOP_AFTER_UNITS] },
+    },
   },
   nextScheduledStatusUpdate: {
     _id: false,
-    type: { type: String },
+    type: { type: String, enum: [...SCHEDULED_STATUS_UPDATE_TYPES] },
     date: Date,
     failedAttempts: Number,
+  },
+  scheduledStopPlan: {
+    _id: false,
+    mode: { type: String, enum: [...SCHEDULED_STOP_MODES] },
+    tiebreakerMetricId: String,
+    fallback: { type: String, enum: [...SCHEDULED_STOP_FALLBACKS] },
+    fallbackVariationId: String,
   },
   results: String,
   analysis: String,
@@ -2106,6 +2122,9 @@ const getExperimentChanges = (
     "excludeFromPayload",
     "autoAssign",
     "phases",
+    // Schedule dates are emitted into experiment metadata (opt-in per SDK
+    // connection), so a schedule-only edit must invalidate the SDK payload.
+    "statusUpdateSchedule",
   ];
 
   return {

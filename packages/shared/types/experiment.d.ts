@@ -64,18 +64,21 @@ export type DecisionFrameworkExperimentRecommendationStatus =
       variations: DecisionFrameworkVariation[];
       powerReached: boolean;
       sequentialUsed: boolean;
+      scheduledEndPassed: boolean;
     }
   | {
       status: "rollback-now";
       variations: DecisionFrameworkVariation[];
       powerReached: boolean;
       sequentialUsed: boolean;
+      scheduledEndPassed: boolean;
     }
   | {
       status: "ready-for-review";
       variations: DecisionFrameworkVariation[];
       powerReached: boolean;
       sequentialUsed: boolean;
+      scheduledEndPassed: boolean;
     };
 
 export type ExperimentUnhealthyData = {
@@ -150,8 +153,12 @@ type NextScheduledStatusUpdateStringDates = Omit<
   date: string;
 };
 
-type StatusUpdateScheduleStringDates = Omit<StatusUpdateSchedule, "startAt"> & {
+type StatusUpdateScheduleStringDates = Omit<
+  StatusUpdateSchedule,
+  "startAt" | "stopAt"
+> & {
   startAt?: string;
+  stopAt?: string;
 };
 
 export type LegacyMetricOverride = MetricOverride & {
@@ -327,6 +334,7 @@ export type ExperimentDataForStatusStringDates = Omit<
     | "datasource"
     | "decisionFrameworkSettings"
     | "nextScheduledStatusUpdate"
+    | "statusUpdateSchedule"
   >,
   "type"
 > & {
@@ -353,6 +361,7 @@ export type ExperimentDataForStatus = Omit<
     | "datasource"
     | "decisionFrameworkSettings"
     | "nextScheduledStatusUpdate"
+    | "statusUpdateSchedule"
   >,
   "type"
 > & {

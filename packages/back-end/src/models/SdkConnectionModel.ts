@@ -72,6 +72,7 @@ const sdkConnectionSchema = new mongoose.Schema({
   includeCustomFieldsInMetadata: Boolean,
   allowedCustomFieldsInMetadata: [String],
   includeTagsInMetadata: Boolean,
+  includeExperimentScheduleInMetadata: Boolean,
   connected: Boolean,
   remoteEvalEnabled: Boolean,
   savedGroupReferencesEnabled: Boolean,
@@ -209,6 +210,7 @@ export const createSDKConnectionValidator = z
     includeCustomFieldsInMetadata: z.boolean().optional(),
     allowedCustomFieldsInMetadata: z.array(z.string()).optional(),
     includeTagsInMetadata: z.boolean().optional(),
+    includeExperimentScheduleInMetadata: z.boolean().optional(),
     proxyEnabled: z.boolean().optional(),
     proxyHost: z.string().optional(),
     remoteEvalEnabled: z.boolean().optional(),
@@ -318,6 +320,7 @@ export const editSDKConnectionValidator = z
     includeCustomFieldsInMetadata: z.boolean().optional(),
     allowedCustomFieldsInMetadata: z.array(z.string()).optional(),
     includeTagsInMetadata: z.boolean().optional(),
+    includeExperimentScheduleInMetadata: z.boolean().optional(),
     remoteEvalEnabled: z.boolean().optional(),
     savedGroupReferencesEnabled: z.boolean().optional(),
     eventTracker: z.string().optional(),
@@ -389,6 +392,7 @@ export async function editSDKConnection(
     "includeCustomFieldsInMetadata",
     "allowedCustomFieldsInMetadata",
     "includeTagsInMetadata",
+    "includeExperimentScheduleInMetadata",
     "savedGroupReferencesEnabled",
   ] as const;
   keysRequiringProxyUpdate.forEach((key) => {
@@ -644,6 +648,8 @@ export function toApiSDKConnectionInterface(
     includeCustomFieldsInMetadata: connection.includeCustomFieldsInMetadata,
     allowedCustomFieldsInMetadata: connection.allowedCustomFieldsInMetadata,
     includeTagsInMetadata: connection.includeTagsInMetadata,
+    includeExperimentScheduleInMetadata:
+      connection.includeExperimentScheduleInMetadata,
     key: connection.key,
     proxyEnabled: connection.proxy.enabled,
     proxyHost: connection.proxy.host,

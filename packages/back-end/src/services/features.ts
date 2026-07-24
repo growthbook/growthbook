@@ -162,6 +162,7 @@ export function generateFeaturesPayload({
   includeCustomFieldsInMetadata,
   allowedCustomFieldsInMetadata,
   includeTagsInMetadata,
+  includeExperimentScheduleInMetadata,
   projectsMap,
   capabilities,
   savedGroupReferencesEnabled,
@@ -192,6 +193,7 @@ export function generateFeaturesPayload({
   includeCustomFieldsInMetadata?: boolean;
   allowedCustomFieldsInMetadata?: string[];
   includeTagsInMetadata?: boolean;
+  includeExperimentScheduleInMetadata?: boolean;
   projectsMap?: Map<string, ProjectInterface>;
   capabilities?: SDKCapability[];
   savedGroupReferencesEnabled?: boolean;
@@ -244,6 +246,7 @@ export function generateFeaturesPayload({
         includeCustomFieldsInMetadata,
         allowedCustomFieldsInMetadata,
         includeTagsInMetadata,
+        includeExperimentScheduleInMetadata,
       },
       projectsMap,
       payloadProjects,
@@ -355,6 +358,7 @@ export function generateAutoExperimentsPayload({
   includeCustomFieldsInMetadata,
   allowedCustomFieldsInMetadata,
   includeTagsInMetadata,
+  includeExperimentScheduleInMetadata,
   projectsMap,
   capabilities,
   savedGroupReferencesEnabled,
@@ -372,6 +376,7 @@ export function generateAutoExperimentsPayload({
   includeCustomFieldsInMetadata?: boolean;
   allowedCustomFieldsInMetadata?: string[];
   includeTagsInMetadata?: boolean;
+  includeExperimentScheduleInMetadata?: boolean;
   projectsMap?: Map<string, ProjectInterface>;
   capabilities?: SDKCapability[];
   savedGroupReferencesEnabled?: boolean;
@@ -528,12 +533,18 @@ export function generateAutoExperimentsPayload({
       }
 
       const metadata = buildPayloadMetadata<ExperimentMetadata>(
-        { project: e.project, customFields: e.customFields, tags: e.tags },
+        {
+          project: e.project,
+          customFields: e.customFields,
+          tags: e.tags,
+          statusUpdateSchedule: e.statusUpdateSchedule,
+        },
         {
           includeProjectIdInMetadata,
           includeCustomFieldsInMetadata,
           allowedCustomFieldsInMetadata,
           includeTagsInMetadata,
+          includeExperimentScheduleInMetadata,
         },
         projectsMap,
       );
@@ -959,6 +970,8 @@ export async function refreshSDKPayloadCache({
             allowedCustomFieldsInMetadata:
               connection.allowedCustomFieldsInMetadata,
             includeTagsInMetadata: connection.includeTagsInMetadata,
+            includeExperimentScheduleInMetadata:
+              connection.includeExperimentScheduleInMetadata,
           },
           data: { ...rawData, holdoutsMap, constantMap: constantMapByEnv[env] },
         });
@@ -1189,6 +1202,7 @@ export type FeatureDefinitionArgs = {
   includeCustomFieldsInMetadata?: boolean;
   allowedCustomFieldsInMetadata?: string[];
   includeTagsInMetadata?: boolean;
+  includeExperimentScheduleInMetadata?: boolean;
   hashSecureAttributes?: boolean;
   savedGroupReferencesEnabled?: boolean;
 };
@@ -1235,6 +1249,7 @@ export type ConnectionPayloadOptions = {
   includeCustomFieldsInMetadata?: boolean;
   allowedCustomFieldsInMetadata?: string[];
   includeTagsInMetadata?: boolean;
+  includeExperimentScheduleInMetadata?: boolean;
 };
 
 // Full input for building one connection's SDK payload
@@ -1282,6 +1297,7 @@ export async function buildSDKPayloadForConnection(
     includeCustomFieldsInMetadata,
     allowedCustomFieldsInMetadata,
     includeTagsInMetadata,
+    includeExperimentScheduleInMetadata,
   } = connection;
 
   if (projects === null) {
@@ -1386,6 +1402,7 @@ export async function buildSDKPayloadForConnection(
     includeCustomFieldsInMetadata,
     allowedCustomFieldsInMetadata,
     includeTagsInMetadata,
+    includeExperimentScheduleInMetadata,
     projectsMap,
     payloadProjects: projectList,
     cbMap,
@@ -1416,6 +1433,7 @@ export async function buildSDKPayloadForConnection(
     includeCustomFieldsInMetadata,
     allowedCustomFieldsInMetadata,
     includeTagsInMetadata,
+    includeExperimentScheduleInMetadata,
     projectsMap,
   });
 
@@ -1513,6 +1531,8 @@ export async function getFeatureDefinitions(
       includeCustomFieldsInMetadata: args.includeCustomFieldsInMetadata,
       allowedCustomFieldsInMetadata: args.allowedCustomFieldsInMetadata,
       includeTagsInMetadata: args.includeTagsInMetadata,
+      includeExperimentScheduleInMetadata:
+        args.includeExperimentScheduleInMetadata,
     },
     data: {
       features: allFeatures,

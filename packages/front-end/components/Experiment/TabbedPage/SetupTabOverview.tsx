@@ -114,6 +114,43 @@ export default function SetupTabOverview({
     !!experiment.statusUpdateSchedule?.startAt &&
     new Date(experiment.statusUpdateSchedule.startAt) < new Date();
 
+  // One-line summary of the draft schedule — start and/or end (absolute stopAt
+  // or a deferred relative stopAfter), so an end-only schedule still shows.
+  const schedule = experiment.statusUpdateSchedule;
+  const scheduleSummaryParts: string[] = [];
+  if (schedule?.startAt) {
+    scheduleSummaryParts.push(
+      `Start ${format(new Date(schedule.startAt), "MMM d, yyyy 'at' h:mm a (z)")}`,
+    );
+  }
+  if (schedule?.stopAt) {
+    scheduleSummaryParts.push(
+      `End ${format(new Date(schedule.stopAt), "MMM d, yyyy 'at' h:mm a (z)")}`,
+    );
+  } else if (schedule?.stopAfter) {
+    scheduleSummaryParts.push(
+      `End ${schedule.stopAfter.value} ${schedule.stopAfter.unit} after start`,
+    );
+  }
+  const scheduleSummary = scheduleSummaryParts.join(" · ");
+
+  // End-only summary for a running experiment (start is already in the past, and
+  // any relative stopAfter was resolved to a concrete stopAt at start).
+  const scheduledEndSummary = schedule?.stopAt
+    ? `Ends ${format(new Date(schedule.stopAt), "MMM d, yyyy 'at' h:mm a (z)")}`
+    : schedule?.stopAfter
+      ? `Ends ${schedule.stopAfter.value} ${schedule.stopAfter.unit} after start`
+      : null;
+
+  // Running experiments can add/edit an end date + end-of-experiment shipping
+  // automation mid-flight (start is already past).
+  const showEditRunningSchedule =
+    canEditSchedule &&
+    !isHoldout &&
+    !isBandit &&
+    experiment.status === "running" &&
+    !experiment.archived;
+
   const { hasCommercialFeature, organization } = useUser();
   const hasAISuggestions = hasCommercialFeature("ai-suggestions");
   const isDemoExperiment =
@@ -188,19 +225,28 @@ export default function SetupTabOverview({
                     {showScheduleIsInThePastWarning && (
                       <PiWarningFill color="var(--warning)" />
                     )}
-                    <Text weight="semibold">
-                      Target Start:{" "}
-                      {experiment.statusUpdateSchedule?.startAt
-                        ? format(
-                            new Date(experiment.statusUpdateSchedule.startAt),
-                            "MMM d, yyyy 'at' h:mm a (z)",
-                          )
-                        : ""}
-                    </Text>
+                    <Text weight="semibold">{scheduleSummary}</Text>
                     <PiPencilSimpleFill />
                   </Flex>
                 </Link>
               </Tooltip>
+            ) : null}
+            {showEditRunningSchedule ? (
+              <Link onClick={() => editSchedule()}>
+                <Flex align="center" gap="1">
+                  {experimentHasSchedule ? (
+                    <PiPencilSimpleFill />
+                  ) : (
+                    <PiPlus size="15" />
+                  )}
+                  <Text weight="semibold">
+                    {scheduledEndSummary ??
+                      (experimentHasSchedule
+                        ? "Edit Schedule"
+                        : "Add Schedule End")}
+                  </Text>
+                </Flex>
+              </Link>
             ) : null}
           </Flex>
         </Flex>

@@ -512,6 +512,61 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       );
     }
 
+    // Surface the experiment's scheduled start/end + what happens at the end,
+    // so a linked feature rule shows the automation at a glance (analogous to
+    // the simple-schedule "Starts …/Disables …" tag on forced rules). Only
+    // relevant while the schedule is still ahead of the experiment.
+    if (
+      linkedExperiment &&
+      linkedExperiment.status !== "stopped" &&
+      linkedExperiment.statusUpdateSchedule
+    ) {
+      const sched = linkedExperiment.statusUpdateSchedule;
+      const shipping = linkedExperiment.scheduledStopPlan;
+
+      if (linkedExperiment.status === "draft" && sched.startAt) {
+        ruleTags.push(
+          <Badge
+            key="exp-start"
+            color="violet"
+            variant="soft"
+            label={`Starts ${fmtScheduleDate(sched.startAt)}`}
+          />,
+        );
+      }
+
+      const endDescriptor = sched.stopAt
+        ? `on ${fmtScheduleDate(sched.stopAt)}`
+        : sched.stopAfter
+          ? `${sched.stopAfter.value} ${sched.stopAfter.unit} after start`
+          : null;
+      if (endDescriptor) {
+        const mode = shipping?.mode ?? "notify";
+        let action: string;
+        if (mode === "auto-ship") {
+          action = "Ships winner";
+        } else if (mode === "force-ship") {
+          const v = linkedExperiment.variations.find(
+            (x) => x.id === shipping?.fallbackVariationId,
+          );
+          action = `Ships ${v?.name || "a variation"}`;
+        } else if (mode === "stop") {
+          action = "Stops";
+        } else {
+          // notify is soft — the experiment keeps running past the date.
+          action = "Notifies";
+        }
+        ruleTags.push(
+          <Badge
+            key="exp-end"
+            color="violet"
+            variant="soft"
+            label={`${action} ${endDescriptor}`}
+          />,
+        );
+      }
+    }
+
     if (
       rampSchedule &&
       !rampControlsLocked &&

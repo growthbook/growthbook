@@ -35,6 +35,7 @@
 | **[experiment.deleted](#experimentdeleted)** | Triggered when an experiment is deleted |
 | **[experiment.warning](#experimentwarning)** | Triggered when a warning condition is detected on an experiment |
 | **[experiment.info.significance](#experimentinfosignificance)** | Triggered when a goal or guardrail metric reaches significance in an experiment (e.g. either above 95% or below 5% chance to win). Be careful using this without Sequential Testing as it can lead to peeking problems. |
+| **[experiment.info.scheduled-status-update](#experimentinfoscheduled-status-update)** | Triggered when a scheduled start or stop is automatically applied to an experiment, including the auto-ship outcome for a scheduled end. |
 | **[experiment.decision.ship](#experimentdecisionship)** | Triggered when an experiment is ready to ship a variation. |
 | **[experiment.decision.rollback](#experimentdecisionrollback)** | Triggered when an experiment should be rolled back to the control. |
 | **[experiment.decision.review](#experimentdecisionreview)** | Triggered when an experiment has reached the desired power point, but the results may be ambiguous. |
@@ -2007,11 +2008,22 @@ Triggered when an experiment is created
             defaultDashboardId?: string | undefined;
             templateId?: string | undefined;
             statusUpdateSchedule?: ({
-                /** ISO datetime when the experiment should start. Must be in the future. Setting or clearing this field invalidates any existing staged start (`nextScheduledStatusUpdate`); call POST /experiments/{id}/start to stage the new schedule. */
-                startAt: string;
+                startAt?: string | undefined;
+                stopAt?: string | undefined;
+                /** Relative end offset. Deferred: resolved to a concrete `stopAt` at the experiment's actual start (or off `dateStarted` when already running). */
+                stopAfter?: {
+                    value: number;
+                    unit: "hours" | "days";
+                } | undefined;
+            } | null) | undefined;
+            scheduledStopPlan?: ({
+                mode: "notify" | "auto-ship" | "force-ship" | "stop";
+                tiebreakerMetricId?: string | undefined;
+                fallback: "notify" | "force-ship";
+                fallbackVariationId?: string | undefined;
             } | null) | undefined;
             nextScheduledStatusUpdate?: ({
-                type: "start";
+                type: "start" | "stop";
                 date: string;
             } | null) | undefined;
         };
@@ -2265,11 +2277,22 @@ Triggered when an experiment is updated
             defaultDashboardId?: string | undefined;
             templateId?: string | undefined;
             statusUpdateSchedule?: ({
-                /** ISO datetime when the experiment should start. Must be in the future. Setting or clearing this field invalidates any existing staged start (`nextScheduledStatusUpdate`); call POST /experiments/{id}/start to stage the new schedule. */
-                startAt: string;
+                startAt?: string | undefined;
+                stopAt?: string | undefined;
+                /** Relative end offset. Deferred: resolved to a concrete `stopAt` at the experiment's actual start (or off `dateStarted` when already running). */
+                stopAfter?: {
+                    value: number;
+                    unit: "hours" | "days";
+                } | undefined;
+            } | null) | undefined;
+            scheduledStopPlan?: ({
+                mode: "notify" | "auto-ship" | "force-ship" | "stop";
+                tiebreakerMetricId?: string | undefined;
+                fallback: "notify" | "force-ship";
+                fallbackVariationId?: string | undefined;
             } | null) | undefined;
             nextScheduledStatusUpdate?: ({
-                type: "start";
+                type: "start" | "stop";
                 date: string;
             } | null) | undefined;
         };
@@ -2483,11 +2506,22 @@ Triggered when an experiment is updated
             defaultDashboardId?: string | undefined;
             templateId?: string | undefined;
             statusUpdateSchedule?: ({
-                /** ISO datetime when the experiment should start. Must be in the future. Setting or clearing this field invalidates any existing staged start (`nextScheduledStatusUpdate`); call POST /experiments/{id}/start to stage the new schedule. */
-                startAt: string;
+                startAt?: string | undefined;
+                stopAt?: string | undefined;
+                /** Relative end offset. Deferred: resolved to a concrete `stopAt` at the experiment's actual start (or off `dateStarted` when already running). */
+                stopAfter?: {
+                    value: number;
+                    unit: "hours" | "days";
+                } | undefined;
+            } | null) | undefined;
+            scheduledStopPlan?: ({
+                mode: "notify" | "auto-ship" | "force-ship" | "stop";
+                tiebreakerMetricId?: string | undefined;
+                fallback: "notify" | "force-ship";
+                fallbackVariationId?: string | undefined;
             } | null) | undefined;
             nextScheduledStatusUpdate?: ({
-                type: "start";
+                type: "start" | "stop";
                 date: string;
             } | null) | undefined;
         };
@@ -2746,11 +2780,22 @@ Triggered when an experiment is deleted
             defaultDashboardId?: string | undefined;
             templateId?: string | undefined;
             statusUpdateSchedule?: ({
-                /** ISO datetime when the experiment should start. Must be in the future. Setting or clearing this field invalidates any existing staged start (`nextScheduledStatusUpdate`); call POST /experiments/{id}/start to stage the new schedule. */
-                startAt: string;
+                startAt?: string | undefined;
+                stopAt?: string | undefined;
+                /** Relative end offset. Deferred: resolved to a concrete `stopAt` at the experiment's actual start (or off `dateStarted` when already running). */
+                stopAfter?: {
+                    value: number;
+                    unit: "hours" | "days";
+                } | undefined;
+            } | null) | undefined;
+            scheduledStopPlan?: ({
+                mode: "notify" | "auto-ship" | "force-ship" | "stop";
+                tiebreakerMetricId?: string | undefined;
+                fallback: "notify" | "force-ship";
+                fallbackVariationId?: string | undefined;
             } | null) | undefined;
             nextScheduledStatusUpdate?: ({
-                type: "start";
+                type: "start" | "stop";
                 date: string;
             } | null) | undefined;
         };
@@ -2905,6 +2950,57 @@ Triggered when a goal or guardrail metric reaches significance in an experiment 
 </details>
 
 
+### experiment.info.scheduled-status-update
+
+Triggered when a scheduled start or stop is automatically applied to an experiment, including the auto-ship outcome for a scheduled end.
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "experiment.info.scheduled-status-update";
+    object: "experiment";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            experimentId: string;
+            experimentName: string;
+            action: "started" | "stopped" | "kept-running";
+            shipped?: boolean | undefined;
+            shippedVariationId?: string | undefined;
+            shippedVariationName?: string | undefined;
+            forced?: boolean | undefined;
+            recommendedVariationId?: string | undefined;
+            recommendedVariationName?: string | undefined;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
 ### experiment.decision.ship
 
 Triggered when an experiment is ready to ship a variation.
@@ -2923,6 +3019,7 @@ Triggered when an experiment is ready to ship a variation.
             experimentName: string;
             experimentId: string;
             decisionDescription?: string | undefined;
+            source: "scheduled-end" | "analysis";
         };
     };
     user: {
@@ -2968,6 +3065,7 @@ Triggered when an experiment should be rolled back to the control.
             experimentName: string;
             experimentId: string;
             decisionDescription?: string | undefined;
+            source: "scheduled-end" | "analysis";
         };
     };
     user: {
@@ -3013,6 +3111,7 @@ Triggered when an experiment has reached the desired power point, but the result
             experimentName: string;
             experimentId: string;
             decisionDescription?: string | undefined;
+            source: "scheduled-end" | "analysis";
         };
     };
     user: {

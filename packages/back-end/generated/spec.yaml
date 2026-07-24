@@ -702,6 +702,9 @@ tags:
   - name: ScheduleRule_model
     x-displayName: Schedule Rule
     description: <SchemaDefinition schemaRef="#/components/schemas/ScheduleRule" />
+  - name: ScheduledStopPlan_model
+    x-displayName: Scheduled Stop Plan
+    description: <SchemaDefinition schemaRef="#/components/schemas/ScheduledStopPlan" />
   - name: SdkConnection_model
     x-displayName: Sdk Connection
     description: <SchemaDefinition schemaRef="#/components/schemas/SdkConnection" />
@@ -13577,22 +13580,48 @@ paths:
                     type: string
                 statusUpdateSchedule:
                   description: >-
-                    Schedule a future start for a draft experiment. Only
-                    `startAt` is currently supported.
+                    Scheduled start/end for an experiment. All fields optional;
+                    the end may be an absolute `stopAt` or a deferred relative
+                    `stopAfter`, but not both.
                   type: object
                   properties:
                     startAt:
-                      format: date-time
                       description: >-
                         ISO datetime when the experiment should start. Must be
                         in the future. Setting or clearing this field
                         invalidates any existing staged start
                         (`nextScheduledStatusUpdate`); call POST
                         /experiments/{id}/start to stage the new schedule.
+                      format: date-time
                       type: string
-                  required:
-                    - startAt
+                    stopAt:
+                      description: >-
+                        ISO datetime when the experiment should stop. Resolved
+                        from `stopAfter` at start when a relative end was set.
+                      format: date-time
+                      type: string
+                    stopAfter:
+                      description: >-
+                        Relative end offset. Deferred: resolved to a concrete
+                        `stopAt` at the experiment's actual start (or off
+                        `dateStarted` when already running).
+                      type: object
+                      properties:
+                        value:
+                          type: integer
+                          exclusiveMinimum: 0
+                        unit:
+                          type: string
+                          enum:
+                            - hours
+                            - days
+                      required:
+                        - value
+                        - unit
+                      additionalProperties: false
                   additionalProperties: false
+                scheduledStopPlan:
+                  $ref: '#/components/schemas/ScheduledStopPlan'
                 ignoreWarnings:
                   description: >-
                     Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
@@ -14231,23 +14260,51 @@ paths:
                 statusUpdateSchedule:
                   anyOf:
                     - description: >-
-                        Schedule a future start for a draft experiment. Set to
-                        `null` to remove the schedule. Provide `{ startAt }` to
-                        set or update it. Only `startAt` is currently supported.
+                        Scheduled start/end. Set to `null` to remove. Provide
+                        any of `startAt`, `stopAt`, or `stopAfter` (a deferred
+                        relative end resolved at start).
                       type: object
                       properties:
                         startAt:
-                          format: date-time
                           description: >-
                             ISO datetime when the experiment should start. Must
                             be in the future. Setting or clearing this field
                             invalidates any existing staged start
                             (`nextScheduledStatusUpdate`); call POST
                             /experiments/{id}/start to stage the new schedule.
+                          format: date-time
                           type: string
-                      required:
-                        - startAt
+                        stopAt:
+                          description: >-
+                            ISO datetime when the experiment should stop.
+                            Resolved from `stopAfter` at start when a relative
+                            end was set.
+                          format: date-time
+                          type: string
+                        stopAfter:
+                          description: >-
+                            Relative end offset. Deferred: resolved to a
+                            concrete `stopAt` at the experiment's actual start
+                            (or off `dateStarted` when already running).
+                          type: object
+                          properties:
+                            value:
+                              type: integer
+                              exclusiveMinimum: 0
+                            unit:
+                              type: string
+                              enum:
+                                - hours
+                                - days
+                          required:
+                            - value
+                            - unit
+                          additionalProperties: false
                       additionalProperties: false
+                    - type: 'null'
+                scheduledStopPlan:
+                  anyOf:
+                    - $ref: '#/components/schemas/ScheduledStopPlan'
                     - type: 'null'
                 precomputedUnitDimensionIds:
                   maxItems: 3
@@ -14669,6 +14726,110 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"results":"won","releasedVariationId":"var_treatment","winnerVariationId":"var_treatment","enableTemporaryRollout":true,"analysis":"Reached desired sample size with statistically significant positive lift; shipping treatment"}'
+  /v1/experiments/{id}/schedule:
+    put:
+      operationId: putExperimentSchedule
+      summary: Set an experiment's schedule and shipping automation
+      description: >-
+        Full-replace of the experiment's scheduled start/end and
+        end-of-experiment shipping automation. The body is the complete desired
+        state: any omitted field is cleared (omit `startAt` to remove a
+        scheduled start; send an empty body to clear the whole schedule).
+        Provide either `stopAt` or `stopAfter`, not both; a relative `stopAfter`
+        resolves to a concrete stop when the experiment starts. The scheduled
+        end must be in the future: a `stopAt` (or a `stopAfter` that resolves)
+        in the past is rejected — including one whose end date has already
+        passed and been acted on, so changing the plan after a soft end requires
+        committing to a new end date. Auto-ship shipping requires the Decision
+        Framework.
+      tags:
+        - experiments
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                startAt:
+                  description: >-
+                    ISO datetime when the experiment should start; must be in
+                    the future. Omit to clear a scheduled start. Staging still
+                    happens via POST /experiments/{id}/start.
+                  format: date-time
+                  type: string
+                stopAt:
+                  description: Absolute ISO datetime to stop the experiment.
+                  format: date-time
+                  type: string
+                stopAfter:
+                  description: >-
+                    Deferred relative end, resolved to a concrete stop at the
+                    experiment's actual start (or now, if already running).
+                  type: object
+                  properties:
+                    value:
+                      type: integer
+                      exclusiveMinimum: 0
+                    unit:
+                      type: string
+                      enum:
+                        - hours
+                        - days
+                  required:
+                    - value
+                    - unit
+                  additionalProperties: false
+                scheduledStopPlan:
+                  $ref: '#/components/schemas/ScheduledStopPlan'
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  experiment:
+                    $ref: '#/components/schemas/ExperimentWithEnhancedStatus'
+                  warnings:
+                    type: array
+                    items:
+                      type: string
+                required:
+                  - experiment
+                additionalProperties: false
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Resource is not in a valid status for this operation
+                properties:
+                  message:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - invalid_status
+                  details:
+                    $ref: '#/components/schemas/ApiErrorInvalidStatusDetails'
+                required:
+                  - message
+                  - code
+                  - details
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X PUT
+            'https://api.growthbook.io/api/v1/experiments/exp_abc123/schedule' \
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"startAt":"2026-08-01T00:00:00Z","stopAfter":{"value":14,"unit":"days"},"scheduledStopPlan":{"mode":"auto-ship","tiebreakerMetricId":"met_revenue","fallback":"force-ship","fallbackVariationId":"var_treatment"}}'
   /v1/experiments/{id}/modify-temporary-rollout:
     post:
       operationId: postExperimentModifyTemporaryRollout
@@ -17906,6 +18067,8 @@ paths:
                     type: string
                 includeTagsInMetadata:
                   type: boolean
+                includeExperimentScheduleInMetadata:
+                  type: boolean
                 proxyEnabled:
                   type: boolean
                 proxyHost:
@@ -18018,6 +18181,8 @@ paths:
                   items:
                     type: string
                 includeTagsInMetadata:
+                  type: boolean
+                includeExperimentScheduleInMetadata:
                   type: boolean
                 proxyEnabled:
                   type: boolean
@@ -51027,21 +51192,49 @@ components:
         statusUpdateSchedule:
           anyOf:
             - description: >-
-                Schedule a future start for a draft experiment. Only `startAt`
-                is currently supported.
+                Scheduled start/end for an experiment. All fields optional; the
+                end may be an absolute `stopAt` or a deferred relative
+                `stopAfter`, but not both.
               type: object
               properties:
                 startAt:
-                  format: date-time
                   description: >-
                     ISO datetime when the experiment should start. Must be in
                     the future. Setting or clearing this field invalidates any
                     existing staged start (`nextScheduledStatusUpdate`); call
                     POST /experiments/{id}/start to stage the new schedule.
+                  format: date-time
                   type: string
-              required:
-                - startAt
+                stopAt:
+                  description: >-
+                    ISO datetime when the experiment should stop. Resolved from
+                    `stopAfter` at start when a relative end was set.
+                  format: date-time
+                  type: string
+                stopAfter:
+                  description: >-
+                    Relative end offset. Deferred: resolved to a concrete
+                    `stopAt` at the experiment's actual start (or off
+                    `dateStarted` when already running).
+                  type: object
+                  properties:
+                    value:
+                      type: integer
+                      exclusiveMinimum: 0
+                    unit:
+                      type: string
+                      enum:
+                        - hours
+                        - days
+                  required:
+                    - value
+                    - unit
+                  additionalProperties: false
               additionalProperties: false
+            - type: 'null'
+        scheduledStopPlan:
+          anyOf:
+            - $ref: '#/components/schemas/ScheduledStopPlan'
             - type: 'null'
         nextScheduledStatusUpdate:
           anyOf:
@@ -51049,7 +51242,9 @@ components:
               properties:
                 type:
                   type: string
-                  const: start
+                  enum:
+                    - start
+                    - stop
                 date:
                   format: date-time
                   type: string
@@ -51315,6 +51510,39 @@ components:
       required:
         - metricId
         - overrides
+      additionalProperties: false
+    ScheduledStopPlan:
+      description: >-
+        What happens at the scheduled end date. `notify` keeps the experiment
+        running and just notifies (soft). `auto-ship` (requires the Decision
+        Framework) ships the winning variation and stops; multi-winner ties
+        break on `tiebreakerMetricId` (higher lift); with no clear winner,
+        `fallback` either keeps running (`notify`) or ships
+        `fallbackVariationId`. `force-ship` stops and rolls out
+        `fallbackVariationId`. `stop` is a hard deadline that stops with no
+        rollout. For `force-ship` and `stop`, the Decision Framework verdict
+        (won/lost/inconclusive) is recorded as metadata when available.
+      type: object
+      properties:
+        mode:
+          type: string
+          enum:
+            - notify
+            - auto-ship
+            - force-ship
+            - stop
+        tiebreakerMetricId:
+          type: string
+        fallback:
+          type: string
+          enum:
+            - notify
+            - force-ship
+        fallbackVariationId:
+          type: string
+      required:
+        - mode
+        - fallback
       additionalProperties: false
     ExperimentResults:
       type: object
@@ -51739,22 +51967,50 @@ components:
             statusUpdateSchedule:
               anyOf:
                 - description: >-
-                    Schedule a future start for a draft experiment. Only
-                    `startAt` is currently supported.
+                    Scheduled start/end for an experiment. All fields optional;
+                    the end may be an absolute `stopAt` or a deferred relative
+                    `stopAfter`, but not both.
                   type: object
                   properties:
                     startAt:
-                      format: date-time
                       description: >-
                         ISO datetime when the experiment should start. Must be
                         in the future. Setting or clearing this field
                         invalidates any existing staged start
                         (`nextScheduledStatusUpdate`); call POST
                         /experiments/{id}/start to stage the new schedule.
+                      format: date-time
                       type: string
-                  required:
-                    - startAt
+                    stopAt:
+                      description: >-
+                        ISO datetime when the experiment should stop. Resolved
+                        from `stopAfter` at start when a relative end was set.
+                      format: date-time
+                      type: string
+                    stopAfter:
+                      description: >-
+                        Relative end offset. Deferred: resolved to a concrete
+                        `stopAt` at the experiment's actual start (or off
+                        `dateStarted` when already running).
+                      type: object
+                      properties:
+                        value:
+                          type: integer
+                          exclusiveMinimum: 0
+                        unit:
+                          type: string
+                          enum:
+                            - hours
+                            - days
+                      required:
+                        - value
+                        - unit
+                      additionalProperties: false
                   additionalProperties: false
+                - type: 'null'
+            scheduledStopPlan:
+              anyOf:
+                - $ref: '#/components/schemas/ScheduledStopPlan'
                 - type: 'null'
             nextScheduledStatusUpdate:
               anyOf:
@@ -51762,7 +52018,9 @@ components:
                   properties:
                     type:
                       type: string
-                      const: start
+                      enum:
+                        - start
+                        - stop
                     date:
                       format: date-time
                       type: string
@@ -52513,6 +52771,8 @@ components:
           items:
             type: string
         includeTagsInMetadata:
+          type: boolean
+        includeExperimentScheduleInMetadata:
           type: boolean
         key:
           type: string
@@ -64973,6 +65233,7 @@ x-tagGroups:
       - SavedGroupRevisionRef_model
       - SavedGroupRevisionReview_model
       - ScheduleRule_model
+      - ScheduledStopPlan_model
       - SdkConnection_model
       - Segment_model
       - Settings_model

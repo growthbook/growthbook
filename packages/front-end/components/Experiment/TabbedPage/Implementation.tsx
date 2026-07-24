@@ -82,6 +82,12 @@ export default function Implementation({
   const phases = experiment.phases || [];
   const { apiCall } = useAuth();
 
+  // Only a pending scheduled START should lock down editing (the experiment is
+  // about to launch). A scheduled STOP (an end date on a running experiment)
+  // must not block normal mid-flight traffic/targeting/variation edits.
+  const pendingScheduledStart =
+    experiment.nextScheduledStatusUpdate?.type === "start";
+
   const permissionsUtil = usePermissionsUtil();
 
   const canEditExperiment =
@@ -161,18 +167,10 @@ export default function Implementation({
         {showTrafficFunnel ? (
           <TrafficAllocationFunnel
             experiment={experiment}
-            editTraffic={
-              experiment.nextScheduledStatusUpdate ? null : editTraffic
-            }
-            editTargeting={
-              experiment.nextScheduledStatusUpdate ? null : editTargeting
-            }
-            editNamespace={
-              experiment.nextScheduledStatusUpdate ? null : editNamespace
-            }
-            addVariation={
-              experiment.nextScheduledStatusUpdate ? null : addVariation
-            }
+            editTraffic={pendingScheduledStart ? null : editTraffic}
+            editTargeting={pendingScheduledStart ? null : editTargeting}
+            editNamespace={pendingScheduledStart ? null : editNamespace}
+            addVariation={pendingScheduledStart ? null : addVariation}
             setEditVariationIndex={setEditMetadataIndex}
             canEditExperiment={canEditExperiment}
             safeToEdit={safeToEdit}
@@ -182,12 +180,8 @@ export default function Implementation({
         ) : (
           <TrafficAndTargeting
             experiment={experiment}
-            editTraffic={
-              experiment.nextScheduledStatusUpdate ? null : editTraffic
-            }
-            editTargeting={
-              experiment.nextScheduledStatusUpdate ? null : editTargeting
-            }
+            editTraffic={pendingScheduledStart ? null : editTraffic}
+            editTargeting={pendingScheduledStart ? null : editTargeting}
             phaseIndex={phases.length - 1}
           />
         )}
@@ -317,12 +311,12 @@ export default function Implementation({
           experiment={experiment}
           mutate={mutate}
           envs={envs}
-          canEdit={!!editTargeting && !experiment.nextScheduledStatusUpdate}
+          canEdit={!!editTargeting && !pendingScheduledStart}
         />
         <DecisionMakingSettings
           experiment={experiment}
           mutate={mutate}
-          canEdit={!!editTargeting && !experiment.nextScheduledStatusUpdate}
+          canEdit={!!editTargeting && !pendingScheduledStart}
         />
       </div>
     </>

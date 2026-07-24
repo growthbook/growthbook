@@ -1,5 +1,5 @@
 import { getLatestPhaseVariations, getAllVariations } from "shared/experiments";
-import { getValidDate } from "shared/dates";
+import { getValidDate, resolveScheduledStop } from "shared/dates";
 import {
   ExperimentInterface,
   LinkedFeatureInfo,
@@ -430,10 +430,34 @@ export async function executeExperimentStart(
     changes.phases = startExperimentTarget.phases;
   }
 
+  // Starting consumes any staged start. Resolve the scheduled end now that we
+  // know the real start time: an absolute stopAt is used directly; a deferred
+  // relative stopAfter is resolved to a concrete stopAt (start + offset) and
+  // written back. If there's a future stop, stage it so the 1-minute job stops
+  // (and applies shipping) at the cutoff; otherwise clear the staged update.
+  const startedAt = new Date();
+  const sched = experiment.statusUpdateSchedule;
+  const { stopAt, stagedStop: nextScheduledStatusUpdate } =
+    resolveScheduledStop({
+      stopAt: sched?.stopAt,
+      stopAfter: sched?.stopAfter,
+      base: startedAt,
+      active: true,
+      now: startedAt,
+    });
+  // Persist the resolved concrete stop and drop the now-consumed relative
+  // offset, so the stored schedule reflects the actual end going forward.
+  if (sched?.stopAfter) {
+    changes.statusUpdateSchedule = {
+      ...(sched.startAt ? { startAt: sched.startAt } : {}),
+      ...(stopAt ? { stopAt } : {}),
+    };
+  }
+
   const updated = await updateExperiment({
     context,
     experiment,
-    changes: { nextScheduledStatusUpdate: null, ...changes },
+    changes: { ...changes, nextScheduledStatusUpdate },
   });
   return { updated, publishResult };
 }

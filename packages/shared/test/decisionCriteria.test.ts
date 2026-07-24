@@ -2,14 +2,29 @@ import {
   ExperimentAnalysisSummaryResultsStatus,
   ExperimentAnalysisSummaryVariationStatus,
   DecisionCriteriaRule,
+  ExperimentResultStatusData,
 } from "shared/types/experiment";
 import {
   getDecisionFrameworkStatus,
   evaluateDecisionRuleOnVariation,
   getVariationDecisions,
   getEarlyStoppingVariationDecisions,
+  resolveScheduledShipDecision,
 } from "../src/enterprise/decision-criteria/decisionCriteria";
 import { PRESET_DECISION_CRITERIA } from "../src/enterprise/decision-criteria/constants";
+
+function shipNow(variationIds: string[]): ExperimentResultStatusData {
+  return {
+    status: "ship-now",
+    variations: variationIds.map((variationId) => ({
+      variationId,
+      decidingRule: null,
+    })),
+    powerReached: true,
+    sequentialUsed: false,
+    scheduledEndPassed: false,
+  };
+}
 
 function setMetricsOnResultsStatus({
   resultsStatus,
@@ -93,6 +108,7 @@ describe("default decision tree is correct", () => {
       ],
       sequentialUsed: false,
       powerReached: false,
+      scheduledEndPassed: false,
       tooltip: "A test variation is ready to ship.",
     });
 
@@ -117,6 +133,7 @@ describe("default decision tree is correct", () => {
       ],
       sequentialUsed: false,
       powerReached: false,
+      scheduledEndPassed: false,
       tooltip: "The test variation(s) should be rolled back.",
     });
 
@@ -141,6 +158,7 @@ describe("default decision tree is correct", () => {
       ],
       sequentialUsed: false,
       powerReached: false,
+      scheduledEndPassed: false,
       tooltip: "A test variation is ready to ship.",
     });
 
@@ -162,6 +180,7 @@ describe("default decision tree is correct", () => {
       ],
       sequentialUsed: false,
       powerReached: false,
+      scheduledEndPassed: false,
       tooltip: "The test variation(s) should be rolled back.",
     });
 
@@ -186,6 +205,57 @@ describe("default decision tree is correct", () => {
     expect(somewhatNegDecision).toEqual(undefined);
   });
 
+  it("renders underpowered decisions when scheduledEndPassed is set", () => {
+    // winning stat sig triggers a rec despite missing power, but the
+    // returned powerReached stays honest
+    const shipDecision = getDecisionFrameworkStatus({
+      resultsStatus: setMetricsOnResultsStatus({
+        resultsStatus,
+        goalMetrics: { "1": { status: "won", superStatSigStatus: "neutral" } },
+      }),
+      decisionCriteria: PRESET_DECISION_CRITERIA,
+      goalMetrics: ["1"],
+      guardrailMetrics: [],
+      daysNeeded: undefined,
+      scheduledEndPassed: true,
+    });
+    expect(shipDecision).toEqual({
+      status: "ship-now",
+      variations: [
+        { variationId: "1", decidingRule: PRESET_DECISION_CRITERIA.rules[0] },
+      ],
+      sequentialUsed: false,
+      powerReached: false,
+      scheduledEndPassed: true,
+      tooltip:
+        "A test variation is ready to ship. The scheduled end date has passed and a recommendation can be made.",
+    });
+
+    // neutral falls through to the default action (review)
+    const reviewDecision = getDecisionFrameworkStatus({
+      resultsStatus: setMetricsOnResultsStatus({
+        resultsStatus,
+        goalMetrics: {
+          "1": { status: "neutral", superStatSigStatus: "neutral" },
+        },
+      }),
+      decisionCriteria: PRESET_DECISION_CRITERIA,
+      goalMetrics: ["1"],
+      guardrailMetrics: [],
+      daysNeeded: undefined,
+      scheduledEndPassed: true,
+    });
+    expect(reviewDecision).toEqual({
+      status: "ready-for-review",
+      variations: [{ variationId: "1", decidingRule: null }],
+      sequentialUsed: false,
+      powerReached: false,
+      scheduledEndPassed: true,
+      tooltip:
+        "A test variation is ready to be reviewed. The scheduled end date has passed and there is no clear ship or rollback recommendation.",
+    });
+  });
+
   it("returns the correct powered decisions", () => {
     const daysNeeded = 0;
 
@@ -207,6 +277,7 @@ describe("default decision tree is correct", () => {
       ],
       sequentialUsed: false,
       powerReached: true,
+      scheduledEndPassed: false,
       tooltip: "A test variation is ready to ship.",
     });
 
@@ -228,6 +299,7 @@ describe("default decision tree is correct", () => {
       variations: [{ variationId: "1", decidingRule: null }],
       sequentialUsed: false,
       powerReached: true,
+      scheduledEndPassed: false,
       tooltip: "A test variation is ready to be reviewed.",
     });
 
@@ -249,6 +321,7 @@ describe("default decision tree is correct", () => {
       ],
       sequentialUsed: false,
       powerReached: true,
+      scheduledEndPassed: false,
       tooltip: "The test variation(s) should be rolled back.",
     });
 
@@ -270,6 +343,7 @@ describe("default decision tree is correct", () => {
       ],
       sequentialUsed: false,
       powerReached: true,
+      scheduledEndPassed: false,
       tooltip: "The test variation(s) should be rolled back.",
     });
 
@@ -299,6 +373,7 @@ describe("default decision tree is correct", () => {
       ],
       sequentialUsed: false,
       powerReached: true,
+      scheduledEndPassed: false,
       tooltip: "The test variation(s) should be rolled back.",
     });
 
@@ -325,6 +400,7 @@ describe("default decision tree is correct", () => {
       variations: [{ variationId: "2", decidingRule: null }],
       sequentialUsed: false,
       powerReached: true,
+      scheduledEndPassed: false,
       tooltip: "A test variation is ready to be reviewed.",
     });
   });
@@ -1084,6 +1160,7 @@ describe("getDecisionFrameworkStatus Handles Super Stat Sig Correctly", () => {
       ],
       sequentialUsed: false,
       powerReached: false,
+      scheduledEndPassed: false,
       tooltip: "A test variation is ready to ship.",
     });
   });
@@ -1158,6 +1235,7 @@ describe("getDecisionFrameworkStatus Handles Super Stat Sig Correctly", () => {
       ],
       sequentialUsed: false,
       powerReached: false,
+      scheduledEndPassed: false,
       tooltip: "A test variation is ready to ship.",
     });
   });
@@ -1186,5 +1264,48 @@ describe("getDecisionFrameworkStatus Handles Super Stat Sig Correctly", () => {
     });
 
     expect(decision).toEqual(undefined);
+  });
+});
+
+describe("resolveScheduledShipDecision", () => {
+  it("ships a single clear winner", () => {
+    expect(
+      resolveScheduledShipDecision({ resultStatus: shipNow(["1"]) }),
+    ).toEqual({ action: "ship", variationId: "1" });
+  });
+
+  it("has no winner when status is not ship-now", () => {
+    expect(
+      resolveScheduledShipDecision({
+        resultStatus: { status: "rollback-now" } as ExperimentResultStatusData,
+      }),
+    ).toEqual({ action: "no-winner" });
+    expect(resolveScheduledShipDecision({ resultStatus: undefined })).toEqual({
+      action: "no-winner",
+    });
+  });
+
+  it("has no winner on a multi-winner tie without a tiebreaker", () => {
+    expect(
+      resolveScheduledShipDecision({ resultStatus: shipNow(["1", "2"]) }),
+    ).toEqual({ action: "no-winner" });
+  });
+
+  it("breaks a tie by highest lift on the tiebreaker metric", () => {
+    expect(
+      resolveScheduledShipDecision({
+        resultStatus: shipNow(["1", "2", "3"]),
+        tiebreakerLiftByVariationId: { "1": 0.02, "2": 0.05, "3": 0.01 },
+      }),
+    ).toEqual({ action: "ship", variationId: "2" });
+  });
+
+  it("ignores winners missing a tiebreaker lift, no winner if none have it", () => {
+    expect(
+      resolveScheduledShipDecision({
+        resultStatus: shipNow(["1", "2"]),
+        tiebreakerLiftByVariationId: { "3": 0.9 },
+      }),
+    ).toEqual({ action: "no-winner" });
   });
 });

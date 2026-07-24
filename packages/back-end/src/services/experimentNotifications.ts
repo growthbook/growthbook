@@ -170,6 +170,51 @@ export const notifyScheduledStatusUpdateFailed = ({
     },
   });
 
+// Emitted when the scheduled-status-update job applies a start/stop. Not
+// memoized — each scheduled transition fires once. Flows to org webhooks/Slack
+// like other experiment events.
+export const notifyScheduledStatusUpdateApplied = ({
+  context,
+  experiment,
+  action,
+  shipped,
+  shippedVariationId,
+  forced,
+  recommendedVariationId,
+}: {
+  context: Context;
+  experiment: ExperimentInterface;
+  action: "started" | "stopped" | "kept-running";
+  shipped?: boolean;
+  shippedVariationId?: string;
+  forced?: boolean;
+  recommendedVariationId?: string;
+}) => {
+  const variationName = (id?: string) =>
+    id ? experiment.variations.find((v) => v.id === id)?.name : undefined;
+  const shippedVariationName = variationName(shippedVariationId);
+  const recommendedVariationName = variationName(recommendedVariationId);
+
+  return dispatchEvent({
+    context,
+    experiment,
+    event: "info.scheduled-status-update",
+    data: {
+      object: {
+        experimentId: experiment.id,
+        experimentName: experiment.name,
+        action,
+        ...(shipped !== undefined ? { shipped } : {}),
+        ...(shippedVariationId ? { shippedVariationId } : {}),
+        ...(shippedVariationName ? { shippedVariationName } : {}),
+        ...(forced !== undefined ? { forced } : {}),
+        ...(recommendedVariationId ? { recommendedVariationId } : {}),
+        ...(recommendedVariationName ? { recommendedVariationName } : {}),
+      },
+    },
+  });
+};
+
 export const notifyMultipleExposures = async ({
   context,
   experiment,
@@ -578,11 +623,13 @@ export const notifyDecision = async ({
   experiment,
   currentStatus,
   lastStatus,
+  source,
 }: {
   context: Context;
   experiment: ExperimentInterface;
   currentStatus: ExperimentResultStatusData;
   lastStatus?: ExperimentResultStatusData;
+  source: "scheduled-end" | "analysis";
 }) => {
   if (
     currentStatus.status === "ship-now" ||
@@ -610,6 +657,7 @@ export const notifyDecision = async ({
             experimentId: experiment.id,
             experimentName: experiment.name,
             decisionDescription: currentStatus.tooltip,
+            source,
           },
         },
       });
@@ -645,6 +693,50 @@ async function getDecisionCriteria(
 
   return decisionCriteria;
 }
+
+// The scheduled end passing can itself flip the EDF status to decisive
+// (getExperimentResultStatus forces a decision once the end date is past), and
+// no snapshot update happens at that moment — the snapshot-driven
+// notifyDecision would see identical before/after statuses and never fire.
+// Detect the flip by comparing the status with and without the schedule.
+export const notifyScheduledEndDecision = async ({
+  context,
+  experiment,
+}: {
+  context: Context;
+  experiment: ExperimentInterface;
+}) => {
+  const healthSettings = getHealthSettings(
+    context.org.settings,
+    orgHasPremiumFeature(context.org, "decision-framework"),
+  );
+  const decisionCriteria = await getDecisionCriteria(
+    context,
+    experiment.decisionFrameworkSettings?.decisionCriteriaId ??
+      context.org.settings?.defaultDecisionCriteriaId,
+  );
+
+  const currentStatus = getExperimentResultStatus({
+    experimentData: experiment,
+    healthSettings,
+    decisionCriteria,
+  });
+  if (!currentStatus) return false;
+
+  const lastStatus = getExperimentResultStatus({
+    experimentData: { ...experiment, statusUpdateSchedule: null },
+    healthSettings,
+    decisionCriteria,
+  });
+
+  return notifyDecision({
+    context,
+    experiment,
+    currentStatus,
+    lastStatus,
+    source: "scheduled-end",
+  });
+};
 
 export const notifyExperimentChange = async ({
   context,
@@ -737,6 +829,7 @@ export const notifyExperimentChange = async ({
       experiment,
       lastStatus,
       currentStatus,
+      source: "analysis",
     });
     if (triggeredDecision) {
       notificationsTriggered.push("decision");

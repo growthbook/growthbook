@@ -17,6 +17,7 @@ import {
   validateVariationIds,
 } from "back-end/src/services/experiments";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
+import { validateScheduledStopPlan } from "back-end/src/services/experimentScheduling";
 import {
   startExperiment,
   validateExperimentChange,
@@ -304,7 +305,11 @@ export const updateExperiment = createApiRequestHandler(
 
   if (req.body.statusUpdateSchedule) {
     const effectiveType = req.body.type ?? experiment.type ?? "standard";
-    validateStatusUpdateSchedule(effectiveType, req.body.statusUpdateSchedule);
+    validateStatusUpdateSchedule(
+      effectiveType,
+      req.body.statusUpdateSchedule,
+      experiment,
+    );
   }
 
   const resolvedOwner = await resolveOwnerToUserId(req.body.owner, req.context);
@@ -320,6 +325,25 @@ export const updateExperiment = createApiRequestHandler(
 
   normalizeStatusUpdateScheduleChanges(experiment, changes);
 
+  // Run the same scheduled-stop-plan validation as PUT /schedule so this body
+  // path can't set an invalid config (e.g. a force-ship fallbackVariationId that
+  // doesn't match a variation). Validate against the post-update schedule + variations.
+  if (changes.scheduledStopPlan) {
+    const effectiveSchedule =
+      "statusUpdateSchedule" in changes
+        ? changes.statusUpdateSchedule
+        : experiment.statusUpdateSchedule;
+    const hasScheduledEnd = !!(
+      effectiveSchedule?.stopAt || effectiveSchedule?.stopAfter
+    );
+    validateScheduledStopPlan(
+      req.context,
+      { ...experiment, ...changes },
+      changes.scheduledStopPlan,
+      hasScheduledEnd,
+    );
+  }
+
   const isStartingFromDraft =
     experiment.status === "draft" && changes.status === "running";
 
@@ -329,6 +353,19 @@ export const updateExperiment = createApiRequestHandler(
   let changesForUpdate = changes;
 
   if (isStartingFromDraft) {
+    // Persist the non-status changes (including any new statusUpdateSchedule)
+    // BEFORE starting, so startExperiment -> executeExperimentStart resolves a
+    // relative stopAfter off the real start time using the freshly-saved
+    // schedule (rather than the stale pre-start draft).
+    const remainingChanges = { ...changes };
+    delete remainingChanges.status;
+    if (Object.keys(remainingChanges).length > 0) {
+      await updateExperimentToDb({
+        context: req.context,
+        experiment,
+        changes: remainingChanges,
+      });
+    }
     // Route draft->running transitions through the dedicated lifecycle method
     // so ramp lockdown, checklist, and pending-draft publish behavior stays
     // consistent across all entry points.
@@ -339,8 +376,9 @@ export const updateExperiment = createApiRequestHandler(
       skipChecklist: true,
     });
     experimentForUpdate = updated;
-    const { status: _ignoredStatus, ...remainingChanges } = changes;
-    changesForUpdate = remainingChanges;
+    // All non-status changes were already persisted above; startExperiment
+    // handled the transition (and resolved the schedule), so nothing remains.
+    changesForUpdate = {};
   }
 
   const updatedExperiment =

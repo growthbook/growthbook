@@ -17,6 +17,7 @@ import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator
 import DecisionCriteriaSelectorModal from "@/components/DecisionCriteria/DecisionCriteriaSelectorModal";
 import DecisionCriteriaModal from "@/components/DecisionCriteria/DecisionCriteriaModal";
 import TargetMDEModal from "@/components/Experiment/TabbedPage/TargetMDEModal";
+import EditScheduleModal from "@/components/Experiment/EditScheduleModal";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Frame from "@/ui/Frame";
@@ -65,6 +66,7 @@ export default function DecisionMakingSettings({
 
   const [targetMDEModal, setTargetMDEModal] = useState(false);
   const [decisionCriteriaModal, setDecisionCriteriaModal] = useState(false);
+  const [editScheduleModal, setEditScheduleModal] = useState(false);
 
   const canEditDecisionSettings =
     canEdit && permissionsUtil.canUpdateExperiment(experiment, {});
@@ -110,6 +112,40 @@ export default function DecisionMakingSettings({
     return null;
   }
 
+  // Summarize the end-of-experiment scheduled-stop plan.
+  const plan = experiment.scheduledStopPlan;
+  const shippingVariationName = (id?: string) =>
+    experiment.variations.find((v) => v.id === id)?.name ?? "a variation";
+  let endSummary: string;
+  const endDetails: string[] = [];
+  const tiebreakerName = () => {
+    if (!plan?.tiebreakerMetricId) return null;
+    const metric =
+      ssrPolyfills?.getExperimentMetricById?.(plan.tiebreakerMetricId) ||
+      getExperimentMetricById(plan.tiebreakerMetricId);
+    return metric?.name ?? plan.tiebreakerMetricId;
+  };
+  if (plan?.mode === "auto-ship") {
+    endSummary = "Ship the winning variation";
+    const tb = tiebreakerName();
+    if (tb) endDetails.push(`Tiebreaker: ${tb}`);
+    endDetails.push(
+      plan.fallback === "force-ship"
+        ? `No clear winner: ship ${shippingVariationName(plan.fallbackVariationId)}`
+        : "No clear winner: keep running",
+    );
+  } else if (plan?.mode === "force-ship") {
+    endSummary = `Ship ${shippingVariationName(plan.fallbackVariationId)}`;
+    const tb = tiebreakerName();
+    if (tb) endDetails.push(`Verdict tiebreaker: ${tb}`);
+  } else if (plan?.mode === "stop") {
+    endSummary = "Stop the experiment (no rollout)";
+    const tb = tiebreakerName();
+    if (tb) endDetails.push(`Verdict tiebreaker: ${tb}`);
+  } else {
+    endSummary = "Notify only — keep running";
+  }
+
   return (
     <>
       {decisionCriteriaModal &&
@@ -145,6 +181,13 @@ export default function DecisionMakingSettings({
           onClose={() => setTargetMDEModal(false)}
         />
       ) : null}
+      {editScheduleModal && mutate ? (
+        <EditScheduleModal
+          experiment={experiment}
+          mutate={mutate}
+          close={() => setEditScheduleModal(false)}
+        />
+      ) : null}
 
       <Frame>
         <Flex direction="column" gap="1" mb="5">
@@ -152,8 +195,8 @@ export default function DecisionMakingSettings({
             Decision-making Settings
           </Heading>
           <Text color="text-mid">
-            Define criteria to encourage quick and precise rollouts for winning
-            variations.
+            Define the criteria and end-of-experiment automation that drive
+            quick, precise rollouts for winning variations.
           </Text>
         </Flex>
 
@@ -207,6 +250,32 @@ export default function DecisionMakingSettings({
                 {canEditDecisionSettings && !isPublic ? "View/Edit" : "View"}
               </Link>
             </Box>
+          </Box>
+          <Box>
+            <Text color="text-high" weight="semibold" mb="1">
+              End of Experiment
+            </Text>
+            <Box>
+              <Text as="div" color="text-mid">
+                {endSummary}
+              </Text>
+              {endDetails.map((detail, i) => (
+                <Text as="div" color="text-mid" key={`end-${i}`}>
+                  {detail}
+                </Text>
+              ))}
+            </Box>
+            {canEditDecisionSettings && mutate && !isPublic ? (
+              <Box mt="1">
+                <Link
+                  onClick={() => {
+                    setEditScheduleModal(true);
+                  }}
+                >
+                  View/Edit
+                </Link>
+              </Box>
+            ) : null}
           </Box>
         </Grid>
       </Frame>

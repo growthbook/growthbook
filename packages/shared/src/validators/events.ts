@@ -40,7 +40,10 @@ import {
 } from "./feature-revision-notifications";
 
 import { experimentWarningNotificationPayload } from "./experiment-warnings";
-import { experimentInfoSignificance } from "./experiment-info";
+import {
+  experimentInfoSignificance,
+  experimentInfoScheduledStatusUpdate,
+} from "./experiment-info";
 import { experimentDecisionNotificationPayload } from "./experiment-decision";
 import { userLoginInterface } from "./users";
 import { apiSavedGroupValidator } from "./saved-group";
@@ -271,6 +274,10 @@ export const notificationEvents = {
     "info.significance": {
       schema: experimentInfoSignificance,
       description: `Triggered when a goal or guardrail metric reaches significance in an experiment (e.g. either above 95% or below 5% chance to win). Be careful using this without Sequential Testing as it can lead to peeking problems.`,
+    },
+    "info.scheduled-status-update": {
+      schema: experimentInfoScheduledStatusUpdate,
+      description: `Triggered when a scheduled start or stop is automatically applied to an experiment, including the auto-ship outcome for a scheduled end.`,
     },
     "decision.ship": {
       schema: experimentDecisionNotificationPayload,

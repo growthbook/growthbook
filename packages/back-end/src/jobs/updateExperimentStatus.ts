@@ -7,8 +7,13 @@ import {
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
 import { executeExperimentStart } from "back-end/src/services/experimentChanges/changeExperimentStatus";
+import { applyScheduledExperimentStop } from "back-end/src/services/experimentScheduling";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
-import { notifyScheduledStatusUpdateFailed } from "back-end/src/services/experimentNotifications";
+import {
+  notifyScheduledEndDecision,
+  notifyScheduledStatusUpdateApplied,
+  notifyScheduledStatusUpdateFailed,
+} from "back-end/src/services/experimentNotifications";
 
 type UpdateSingleExperimentStatusJob = Job<{
   experimentId: string;
@@ -19,12 +24,10 @@ const QUEUE_EXPERIMENT_STATUS_UPDATES = "queueScheduledExperimentStatusUpdates";
 
 const UPDATE_SINGLE_EXPERIMENT_STATUS = "updateSingleExperimentStatus";
 
-// Caps retries of a scheduled status transition. The QUEUE_* job runs every
-// minute, so without a cap a persistently-failing experiment (e.g. a linked
-// feature draft with a merge conflict) would re-queue forever. Each failure
-// increments `nextScheduledStatusUpdate.failedAttempts`; once the count hits
-// this cap the job clears `nextScheduledStatusUpdate` and emits a terminal
-// `experiment.warning` event so the user can re-schedule manually.
+// The QUEUE_* job runs every minute, so without a cap a persistently-failing
+// experiment would re-queue forever. Past this many failed attempts, the job
+// clears `nextScheduledStatusUpdate` and emits a terminal `experiment.warning`
+// instead of retrying.
 const SCHEDULED_STATUS_UPDATE_MAX_ATTEMPTS = 5;
 
 export default async function (agenda: Agenda) {
@@ -78,15 +81,10 @@ const updateSingleExperimentStatus = async (
   const experiment = await getExperimentById(context, experimentId);
   if (!experiment) return;
 
-  if (
-    experiment.archived ||
-    experiment.status === "stopped" ||
-    experiment.status === "running"
-  ) {
+  if (experiment.archived || experiment.status === "stopped") {
     logger.info(
       `Skipping status update: Experiment ${experiment.id} is ${experiment.archived ? "archived" : experiment.status}`,
     );
-    // Clear the scheduled update so it doesn't get re-processed
     await updateExperiment({
       context,
       experiment,
@@ -140,9 +138,84 @@ const updateSingleExperimentStatus = async (
           },
           details: auditDetailsUpdate(experimentBefore, updated),
         });
+        await notifyScheduledStatusUpdateApplied({
+          context,
+          experiment,
+          action: "started",
+        });
         break;
       }
-      // TODO(schedule-status-updates): handle "stop" once stopAt is supported
+      case "stop": {
+        if (experiment.status !== "running") {
+          logger.info(
+            `Skipping stop: Experiment ${experiment.id} is not running (status=${experiment.status}).`,
+          );
+          await updateExperiment({
+            context,
+            experiment,
+            changes: { nextScheduledStatusUpdate: null },
+          });
+          return;
+        }
+
+        // A stop refreshes the SDK payload as a side effect.
+        const outcome = await applyScheduledExperimentStop({
+          context,
+          experiment,
+        });
+
+        // The scheduled end passing can flip the EDF status to decisive
+        // without a snapshot update. Compute the decision from the PRE-stop
+        // experiment (post-stop it's no longer "running", so scheduledEndPassed
+        // would be false) and fire the decision.* event for every outcome,
+        // ordered before the scheduled-status-update event.
+        await notifyScheduledEndDecision({ context, experiment });
+
+        // Re-load: stopExperiment may have already mutated the experiment, and
+        // the notification below needs fresh state either way.
+        const latest =
+          (await getExperimentById(context, experiment.id)) ?? experiment;
+        if (latest.nextScheduledStatusUpdate) {
+          await updateExperiment({
+            context,
+            experiment: latest,
+            changes: { nextScheduledStatusUpdate: null },
+          });
+        }
+
+        if (outcome.kind === "kept-running") {
+          await notifyScheduledStatusUpdateApplied({
+            context,
+            experiment: latest,
+            action: "kept-running",
+            recommendedVariationId: outcome.recommendedVariationId ?? undefined,
+          });
+        } else {
+          // The scheduled stop actually changed the experiment (status flipped
+          // to stopped, plus winner/results/releasedVariationId). Record it as
+          // a system `experiment.status` audit entry so the Compare Events
+          // timeline shows the diff, mirroring the scheduled-start path above.
+          // Kept-running makes no change, so it emits no audit entry.
+          await context.auditLog({
+            event: "experiment.status",
+            entity: {
+              object: "experiment",
+              id: experiment.id,
+            },
+            details: auditDetailsUpdate(experiment, latest),
+          });
+          await notifyScheduledStatusUpdateApplied({
+            context,
+            experiment: latest,
+            action: "stopped",
+            shipped: outcome.kind === "shipped",
+            shippedVariationId:
+              outcome.kind === "shipped" ? outcome.variationId : undefined,
+            forced: outcome.kind === "shipped" ? outcome.forced : undefined,
+          });
+        }
+        break;
+      }
       default:
         logger.info(
           `Skipping status update: Experiment ${experiment.id} has unsupported scheduled type ${scheduled.type}`,
@@ -172,10 +245,9 @@ const updateSingleExperimentStatus = async (
       );
     }
 
-    // Persist the new attempt count (or clear the schedule once we've hit
-    // the cap). Wrapped because if executeExperimentStart already wrote to
-    // the experiment we may hit a stale-revision error here, and a failure
-    // to record state must not mask the original error in the logs.
+    // Wrapped: executeExperimentStart may have already written to the
+    // experiment, so this can hit a stale-revision error that must not mask
+    // the original failure being logged above.
     try {
       await updateExperiment({
         context,

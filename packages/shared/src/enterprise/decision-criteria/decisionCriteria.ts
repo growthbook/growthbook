@@ -18,6 +18,7 @@ import {
   SafeRolloutInterface,
   SafeRolloutSnapshotInterface,
 } from "shared/types/safe-rollout";
+import { SnapshotVariation } from "shared/types/experiment-snapshot";
 import { OrganizationSettings } from "shared/types/organization";
 import {
   DEFAULT_DECISION_FRAMEWORK_ENABLED,
@@ -28,7 +29,7 @@ import {
   DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
   DEFAULT_SRM_THRESHOLD,
 } from "../../constants";
-import { daysBetween } from "../../dates";
+import { daysBetween, getValidDate } from "../../dates";
 import { getMultipleExposureHealthData, getSRMHealthData } from "../../health";
 import {
   PRESET_DECISION_CRITERIA,
@@ -266,23 +267,43 @@ export function getDecisionFrameworkStatus({
   goalMetrics,
   guardrailMetrics,
   daysNeeded,
+  scheduledEndPassed,
 }: {
   resultsStatus: ExperimentAnalysisSummaryResultsStatus;
   decisionCriteria: DecisionCriteriaData;
   goalMetrics: string[];
   guardrailMetrics: string[];
   daysNeeded?: number;
+  // For experiments that are over regardless of power (e.g. a scheduled end
+  // date has passed). The returned `powerReached` stays honest.
+  scheduledEndPassed?: boolean;
 }): ExperimentResultStatusData | undefined {
   const powerReached = daysNeeded === 0;
   const sequentialTesting = resultsStatus?.settings?.sequentialTesting;
 
   // Rendering a decision with regular stat sig metrics is only valid
   // if you have reached your needed power or if you used sequential testing
-  const decisionReady = powerReached || sequentialTesting;
+  const decisionReady =
+    powerReached || sequentialTesting || !!scheduledEndPassed;
 
-  const rollbackTooltip = `The test variation(s) should be rolled back.`;
-  const shipTooltip = `A test variation is ready to ship.`;
-  const reviewTooltip = `A test variation is ready to be reviewed.`;
+  // When the decision is driven solely by the scheduled end passing (not by
+  // reaching power), explain that in the tooltip.
+  const scheduledEndDrivesDecision = !!scheduledEndPassed && !powerReached;
+  const rollbackTooltip = `The test variation(s) should be rolled back.${
+    scheduledEndDrivesDecision
+      ? " The scheduled end date has passed and a recommendation can be made."
+      : ""
+  }`;
+  const shipTooltip = `A test variation is ready to ship.${
+    scheduledEndDrivesDecision
+      ? " The scheduled end date has passed and a recommendation can be made."
+      : ""
+  }`;
+  const reviewTooltip = `A test variation is ready to be reviewed.${
+    scheduledEndDrivesDecision
+      ? " The scheduled end date has passed and there is no clear ship or rollback recommendation."
+      : ""
+  }`;
 
   if (decisionReady) {
     const variationDecisions = getVariationDecisions({
@@ -290,7 +311,7 @@ export function getDecisionFrameworkStatus({
       decisionCriteria,
       goalMetrics,
       guardrailMetrics,
-      powerReached,
+      powerReached: powerReached || !!scheduledEndPassed,
     });
 
     const allRollbackNow =
@@ -302,6 +323,7 @@ export function getDecisionFrameworkStatus({
         variations: variationDecisions.map(({ variation }) => variation),
         sequentialUsed: sequentialTesting,
         powerReached: powerReached,
+        scheduledEndPassed: !!scheduledEndPassed,
         tooltip: rollbackTooltip,
       };
     }
@@ -315,13 +337,14 @@ export function getDecisionFrameworkStatus({
         variations: shipVariations.map(({ variation }) => variation),
         sequentialUsed: sequentialTesting,
         powerReached: powerReached,
+        scheduledEndPassed: !!scheduledEndPassed,
         tooltip: shipTooltip,
       };
     }
 
     // only return ready for review if power is reached, not for premature
     // sequential results
-    if (powerReached) {
+    if (powerReached || scheduledEndPassed) {
       const reviewVariations = variationDecisions.filter(
         (d) => d.decisionCriteriaAction === "review",
       );
@@ -331,6 +354,7 @@ export function getDecisionFrameworkStatus({
           variations: reviewVariations.map(({ variation }) => variation),
           sequentialUsed: sequentialTesting,
           powerReached: powerReached,
+          scheduledEndPassed: !!scheduledEndPassed,
           tooltip: reviewTooltip,
         };
       }
@@ -360,6 +384,7 @@ export function getDecisionFrameworkStatus({
         ),
         sequentialUsed: sequentialTesting,
         powerReached: powerReached,
+        scheduledEndPassed: false,
         tooltip: rollbackTooltip,
       };
     }
@@ -390,6 +415,7 @@ export function getDecisionFrameworkStatus({
         variations: shipVariations.map(({ variation }) => variation),
         sequentialUsed: sequentialTesting,
         powerReached: powerReached,
+        scheduledEndPassed: false,
         tooltip: shipTooltip,
       };
     }
@@ -443,6 +469,14 @@ export function getExperimentResultStatus({
       ? healthSummary.power.additionalDaysNeeded
       : undefined;
 
+  // Past its scheduled end, the experiment is over regardless of power, so
+  // render a decision even if the target MDE hasn't been reached.
+  const scheduledStopAt = experimentData.statusUpdateSchedule?.stopAt;
+  const scheduledEndPassed =
+    experimentData.status === "running" &&
+    !!scheduledStopAt &&
+    getValidDate(scheduledStopAt) <= new Date();
+
   // Fully skip decision framework if there are no goal metrics
   // TODO @dmf-experiment: Add front-end information about this
   let decisionStatus: ExperimentResultStatusData | undefined = undefined;
@@ -453,6 +487,7 @@ export function getExperimentResultStatus({
       goalMetrics: experimentData.goalMetrics,
       guardrailMetrics: experimentData.guardrailMetrics,
       daysNeeded,
+      scheduledEndPassed,
     });
   }
 
@@ -689,6 +724,7 @@ export function getSafeRolloutResultStatus({
       variations: decisionStatus.variations,
       sequentialUsed: true,
       powerReached: false,
+      scheduledEndPassed: false,
     };
   }
 
@@ -712,6 +748,7 @@ export function getSafeRolloutResultStatus({
       ],
       sequentialUsed: true,
       powerReached: false,
+      scheduledEndPassed: false,
     };
   }
 }
@@ -724,4 +761,77 @@ export function getPresetDecisionCriteriaForOrg(
     : PRESET_DECISION_CRITERIAS.find(
         (dc) => dc.id === settings.defaultDecisionCriteriaId,
       );
+}
+
+// Pure mapping of a snapshot dimension's variations to their tiebreaker-metric
+// relative lift, keyed by the snapshot's own variation ids (index-aligned with
+// the analysis results). Callers own loading the snapshot/metric.
+export function buildTiebreakerLiftMap({
+  variations,
+  snapshotVariationIds,
+  metricId,
+  inverse,
+}: {
+  variations: SnapshotVariation[];
+  snapshotVariationIds: string[];
+  metricId: string;
+  inverse?: boolean;
+}): Record<string, number> | null {
+  // For a lower-is-better (inverse) metric, flip the sign so that "highest
+  // lift" selects the best variation, not the worst. `expected` is the raw
+  // relative lift and is not direction-adjusted.
+  const sign = inverse ? -1 : 1;
+  const map: Record<string, number> = {};
+  variations.forEach((dv, i) => {
+    const id = snapshotVariationIds[i];
+    const expected = dv?.metrics?.[metricId]?.expected;
+    if (id && typeof expected === "number") map[id] = expected * sign;
+  });
+  return Object.keys(map).length > 0 ? map : null;
+}
+
+export type ScheduledShipDecision =
+  | { action: "ship"; variationId: string }
+  | { action: "no-winner" };
+
+/**
+ * Resolve the auto-ship decision at an experiment's scheduled end, given the
+ * decision-framework result status.
+ *  - A single ship-now winner ships directly.
+ *  - Multiple ship-now winners are an ambiguous tie: if a tiebreaker metric's
+ *    relative lift is provided per variation, ship the one with the highest
+ *    lift; otherwise there's no clear winner.
+ *  - Anything else (rollback / review / inconclusive) has no clear winner.
+ * The caller owns the fallback (notify vs force-ship a chosen variation).
+ */
+export function resolveScheduledShipDecision({
+  resultStatus,
+  tiebreakerLiftByVariationId,
+}: {
+  resultStatus: ExperimentResultStatusData | undefined;
+  tiebreakerLiftByVariationId?: Record<string, number> | null;
+}): ScheduledShipDecision {
+  if (resultStatus?.status !== "ship-now") return { action: "no-winner" };
+
+  const variations = resultStatus.variations;
+  if (variations.length === 1) {
+    return { action: "ship", variationId: variations[0].variationId };
+  }
+  if (variations.length === 0) return { action: "no-winner" };
+
+  // Ambiguous multi-winner tie — break by highest lift on the tiebreaker metric.
+  if (!tiebreakerLiftByVariationId) return { action: "no-winner" };
+  let winner: string | null = null;
+  let bestLift = -Infinity;
+  for (const v of variations) {
+    const lift = tiebreakerLiftByVariationId[v.variationId];
+    if ((lift ?? null) === null) continue;
+    if (lift > bestLift) {
+      bestLift = lift;
+      winner = v.variationId;
+    }
+  }
+  return winner !== null
+    ? { action: "ship", variationId: winner }
+    : { action: "no-winner" };
 }
