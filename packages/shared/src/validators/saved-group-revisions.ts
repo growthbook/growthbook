@@ -3,6 +3,9 @@ import {
   paginationQueryFields,
   skipPaginationQueryField,
   apiPaginationFieldsValidator,
+  ignoreWarningsBodyField,
+  bypassApprovalPublishBodyField,
+  publishBypassedGatesField,
 } from "./shared";
 import { apiSavedGroupValidator } from "./saved-group";
 import {
@@ -333,21 +336,19 @@ export const postSavedGroupRevisionPublishValidator = {
   operationId: "postSavedGroupRevisionPublish",
   summary: "Publish a draft revision",
   description:
-    "Publishes a draft revision, making it the live state of the saved group. Blocked if the org requires approvals and the revision is not approved (callers with the bypass-approval permission may still publish).",
+    "Publishes a draft revision, making it the live state of the saved group. Blocked if the org requires approvals and the revision is not approved (callers with the bypass-approval permission may still publish). Under `requireRebaseBeforePublish`, a draft whose base has moved since it was created is blocked until rebased — a caller with the bypass-approval permission can force-merge instead by passing `ignoreWarnings: true` (the permission alone does not silently skip the rebase). When blocked, the 422 lists every applicable gate and how to clear each (see the response docs).",
   tags: ["saved-group-revisions"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z
     .object({
-      mergeNow: z
-        .boolean()
-        .optional()
-        .describe(
-          "When the org enforces same-base merges and the saved group changed since this revision was created, set to true to force-merge the stale revision instead of rebasing first. This only takes effect for callers with bypass-approval permission; otherwise it is ignored and the revision must be rebased.",
-        ),
+      bypassApproval: bypassApprovalPublishBodyField,
+      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
-  responseSchema: revisionResponse,
+  responseSchema: revisionResponse.extend({
+    bypassedGates: publishBypassedGatesField,
+  }),
 };
 
 export const postSavedGroupRevisionRevertValidator = {

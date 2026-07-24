@@ -1026,6 +1026,92 @@ describe("Detecting Feature Changes", () => {
       },
     ]);
   });
+
+  it("invalidates targeting projects and fans out all-projects via allProjectIds", () => {
+    const feature = cloneDeep(baseFeature);
+    const base = cloneDeep(baseFeature);
+    const envs = ["dev", "production", "test"];
+    const norm = (keys: { environment: string; project: string }[]) =>
+      keys.map((k) => `${k.environment}:${k.project}`).sort();
+
+    // Adding a targeting project invalidates that project's caches too
+    expect(
+      norm(
+        getSDKPayloadKeysByDiff(
+          feature,
+          { ...base, targetingProjects: ["p2"] },
+          envs,
+        ),
+      ),
+    ).toEqual(
+      norm([
+        { environment: "dev", project: "" },
+        { environment: "dev", project: "p2" },
+        { environment: "production", project: "" },
+        { environment: "production", project: "p2" },
+      ]),
+    );
+
+    // targetingAllProjects enumerates every org project — but only when
+    // allProjectIds is supplied (the invalidation-fan-out fix)
+    const allProjectIds = ["p1", "p2"];
+    expect(
+      norm(
+        getSDKPayloadKeysByDiff(
+          feature,
+          { ...base, targetingAllProjects: true },
+          envs,
+          allProjectIds,
+        ),
+      ),
+    ).toEqual(
+      norm([
+        { environment: "dev", project: "" },
+        { environment: "dev", project: "p1" },
+        { environment: "dev", project: "p2" },
+        { environment: "production", project: "" },
+        { environment: "production", project: "p1" },
+        { environment: "production", project: "p2" },
+      ]),
+    );
+
+    // Without allProjectIds the all-projects fan-out can't happen (regression guard)
+    expect(
+      norm(
+        getSDKPayloadKeysByDiff(
+          feature,
+          { ...base, targetingAllProjects: true },
+          envs,
+        ),
+      ),
+    ).toEqual(
+      norm([
+        { environment: "dev", project: "" },
+        { environment: "production", project: "" },
+      ]),
+    );
+
+    // getAffectedSDKPayloadKeys enumerates for an all-projects feature too
+    expect(
+      norm(
+        getAffectedSDKPayloadKeys(
+          [{ ...base, targetingAllProjects: true }],
+          envs,
+          undefined,
+          allProjectIds,
+        ),
+      ),
+    ).toEqual(
+      norm([
+        { environment: "dev", project: "" },
+        { environment: "dev", project: "p1" },
+        { environment: "dev", project: "p2" },
+        { environment: "production", project: "" },
+        { environment: "production", project: "p1" },
+        { environment: "production", project: "p2" },
+      ]),
+    );
+  });
 });
 
 describe("Changes are ignored when archived or disabled", () => {
@@ -1175,7 +1261,10 @@ describe("SDK Payloads", () => {
     ];
 
     const constantMap = new Map([
-      ["cfg", { type: "json" as const, value: JSON.stringify({ a: 1, b: 2 }) }],
+      [
+        "constant:cfg",
+        { type: "json" as const, value: JSON.stringify({ a: 1, b: 2 }) },
+      ],
     ]);
 
     const def = getFeatureDefinition({
@@ -1211,7 +1300,7 @@ describe("SDK Payloads", () => {
 
     const constantMap = new Map([
       [
-        "base",
+        "constant:base",
         { type: "json" as const, value: JSON.stringify({ a: 1, b: 2 }) },
       ],
     ]);
@@ -1229,6 +1318,121 @@ describe("SDK Payloads", () => {
     // The default's constant resolves to { a: 1, b: 2 } and forms the merge
     // base; the sparse field `b` is applied last and wins (b: 99, not 2).
     expect(def?.rules).toEqual([{ force: { a: 1, b: 99 } }]);
+  });
+
+  it("applies an environment-scoped config flavor (scopedOverrides) per environment", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "json";
+    feature.baseConfig = "base";
+    feature.defaultValue = JSON.stringify({ $extends: ["@config:base"] });
+
+    // Base config { beanType: jelly } with a `dev`-scoped flavor that patches
+    // beanType → fava. The flavor is a child config (its own value carries the
+    // parent `@config:base` ref, which the resolver excludes to avoid a loop).
+    const constantMap = new Map([
+      [
+        "config:base",
+        {
+          type: "json" as const,
+          value: JSON.stringify({ beanType: "jelly" }),
+          scopedOverrides: [{ config: "base_dev", environments: ["dev"] }],
+        },
+      ],
+      [
+        "config:base_dev",
+        {
+          type: "json" as const,
+          value: JSON.stringify({
+            $extends: ["@config:base"],
+            beanType: "fava",
+          }),
+        },
+      ],
+    ]);
+
+    // dev: the flavor patch is deep-merged onto the base → beanType: fava.
+    const devDef = getFeatureDefinition({
+      feature,
+      environment: "dev",
+      groupMap,
+      experimentMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      constantMap,
+    });
+    expect(devDef?.defaultValue).toEqual({ beanType: "fava" });
+
+    // production: no matching flavor → the base value.
+    const prodDef = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      constantMap,
+    });
+    expect(prodDef?.defaultValue).toEqual({ beanType: "jelly" });
+  });
+
+  it("applies the env flavor ON TOP of a composition mixin (flavor wins)", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "json";
+    feature.baseConfig = "base";
+    feature.defaultValue = JSON.stringify({ $extends: ["@config:base"] });
+
+    // `base` composes a `mixin` (which supplies beanType: jelly) and has no own
+    // beanType. A `dev` flavor patches beanType → fava. The mixin is a base layer
+    // (applied before `base`), and the flavor applies after `base` — so at every
+    // env the mixin resolves first and the flavor lands on top for dev.
+    const constantMap = new Map([
+      [
+        "config:mixin",
+        { type: "json" as const, value: JSON.stringify({ beanType: "jelly" }) },
+      ],
+      [
+        "config:base",
+        {
+          type: "json" as const,
+          value: JSON.stringify({ $extends: ["@config:mixin"] }),
+          scopedOverrides: [{ config: "base_dev", environments: ["dev"] }],
+        },
+      ],
+      [
+        "config:base_dev",
+        {
+          type: "json" as const,
+          value: JSON.stringify({
+            $extends: ["@config:base"],
+            beanType: "fava",
+          }),
+        },
+      ],
+    ]);
+
+    const devDef = getFeatureDefinition({
+      feature,
+      environment: "dev",
+      groupMap,
+      experimentMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      constantMap,
+    });
+    // dev: the flavor's beanType wins over the mixin's.
+    expect(devDef?.defaultValue).toEqual({ beanType: "fava" });
+
+    const prodDef = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      constantMap,
+    });
+    // production: no flavor → the mixin's value.
+    expect(prodDef?.defaultValue).toEqual({ beanType: "jelly" });
   });
 
   it("spreads constants in both the default and a sparse patch, patch winning", () => {
@@ -1253,8 +1457,8 @@ describe("SDK Payloads", () => {
     ];
 
     const constantMap = new Map([
-      ["config-snippet", { type: "json" as const, value: '{"x":1}' }],
-      ["my-json", { type: "json" as const, value: '{"y":2}' }],
+      ["constant:config-snippet", { type: "json" as const, value: '{"x":1}' }],
+      ["constant:my-json", { type: "json" as const, value: '{"y":2}' }],
     ]);
 
     const def = getFeatureDefinition({
@@ -1271,6 +1475,349 @@ describe("SDK Payloads", () => {
     expect(def?.rules).toEqual([
       { force: { versions: [1, 2], ref: 3, x: 1, y: 2 } },
     ]);
+  });
+
+  it("deep-merges a sparse rule onto a config-backed feature default", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "json";
+    feature.baseConfig = "base";
+    // Config-backed default that also layers `extra` on top of the config.
+    feature.defaultValue = JSON.stringify({
+      $extends: ["@config:base"],
+      extra: { x: 1 },
+    });
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "force",
+        id: "sparse-force",
+        description: "",
+        enabled: true,
+        // Patches one leaf of `extra`; a shallow merge would drop `extra.x`.
+        value: JSON.stringify({ extra: { y: 2 } }),
+        sparse: true,
+      },
+    ];
+
+    const constantMap = new Map([
+      [
+        "config:base",
+        {
+          type: "json" as const,
+          source: "config" as const,
+          value: '{"cfg":1}',
+        },
+      ],
+    ]);
+
+    const def = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      constantMap,
+    });
+
+    // Deep: config field `cfg` and the default's `extra.x` both survive.
+    expect(def?.rules).toEqual([{ force: { cfg: 1, extra: { x: 1, y: 2 } } }]);
+  });
+
+  it("resolves a config-backed sparse rule against the config it re-points to", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "json";
+    feature.baseConfig = "base";
+    feature.defaultValue = JSON.stringify({
+      $extends: ["@config:base"],
+      cfg: 999,
+    });
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "force",
+        id: "sparse-repoint",
+        description: "",
+        enabled: true,
+        // Re-points to a DESCENDANT config; its fields must be delivered
+        // (matches the config-backing editor preview), not dropped.
+        value: JSON.stringify({ $extends: ["@config:child"], p: 1 }),
+        sparse: true,
+      },
+    ];
+
+    const constantMap = new Map([
+      [
+        "config:base",
+        {
+          type: "json" as const,
+          source: "config" as const,
+          value: '{"cfg":1}',
+        },
+      ],
+      [
+        "config:child",
+        {
+          type: "json" as const,
+          source: "config" as const,
+          value: '{"cfg":2,"childOnly":"c"}',
+        },
+      ],
+    ]);
+
+    const def = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      constantMap,
+    });
+
+    // Serves the re-pointed child config's values + the rule's own field.
+    expect(def?.rules).toEqual([{ force: { cfg: 2, childOnly: "c", p: 1 } }]);
+  });
+
+  it("injects baseConfig under a pure-patch default and rules (no $extends stored)", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "json";
+    // First-class config-backing: `baseConfig` is authoritative and the stored
+    // default/rule values are pure override patches with no `@config:` directive.
+    feature.baseConfig = "base";
+    feature.defaultValue = JSON.stringify({ extra: { x: 1 } });
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "force",
+        id: "sparse-force",
+        description: "",
+        enabled: true,
+        value: JSON.stringify({ extra: { y: 2 } }),
+        sparse: true,
+      },
+    ];
+
+    const constantMap = new Map([
+      [
+        "config:base",
+        {
+          type: "json" as const,
+          source: "config" as const,
+          value: '{"cfg":1}',
+        },
+      ],
+    ]);
+
+    const def = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      constantMap,
+    });
+
+    // The default gets the base config flattened beneath its patch...
+    expect(def?.defaultValue).toEqual({ cfg: 1, extra: { x: 1 } });
+    // ...and the sparse rule deep-merges onto that same resolved base.
+    expect(def?.rules).toEqual([{ force: { cfg: 1, extra: { x: 1, y: 2 } } }]);
+  });
+
+  it("strips a stray @config: on a NON-config flag (no baseConfig)", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "json";
+    // No baseConfig => not config-designed. A stray inline @config: (e.g. from a
+    // permissive v1 write) must NOT resolve the config.
+    feature.defaultValue = JSON.stringify({
+      $extends: ["@config:base"],
+      foo: 1,
+    });
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "force",
+        id: "f",
+        description: "",
+        enabled: true,
+        value: JSON.stringify({ $extends: ["@config:base"], bar: 2 }),
+      },
+    ];
+
+    const constantMap = new Map([
+      [
+        "config:base",
+        {
+          type: "json" as const,
+          source: "config" as const,
+          value: '{"cfg":1}',
+        },
+      ],
+    ]);
+
+    const def = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      constantMap,
+    });
+
+    // `cfg` never appears — the config ref is stripped, only own keys remain.
+    expect(def?.defaultValue).toEqual({ foo: 1 });
+    expect(def?.rules).toEqual([{ force: { bar: 2 } }]);
+  });
+
+  it("ships non-object rule values on a config-backed feature as-is", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "json";
+    feature.baseConfig = "base";
+    feature.defaultValue = JSON.stringify({ $extends: ["@config:base"] });
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "force",
+        id: "array-force",
+        description: "",
+        enabled: true,
+        value: JSON.stringify([1, 2, 3]),
+      },
+      {
+        type: "force",
+        id: "string-force",
+        description: "",
+        enabled: true,
+        value: JSON.stringify("plain"),
+      },
+      {
+        type: "force",
+        id: "object-force",
+        description: "",
+        enabled: true,
+        value: JSON.stringify({ x: 2 }),
+      },
+    ];
+
+    const constantMap = new Map([
+      [
+        "config:base",
+        {
+          type: "json" as const,
+          source: "config" as const,
+          value: '{"cfg":1}',
+        },
+      ],
+    ]);
+
+    const def = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      constantMap,
+    });
+
+    // Arrays/scalars replace outright — no config base underneath; plain
+    // objects still get the default config flattened beneath them.
+    expect(def?.rules).toEqual([
+      { force: [1, 2, 3] },
+      { force: "plain" },
+      { force: { cfg: 1, x: 2 } },
+    ]);
+  });
+
+  it("routes safe-rollout values through config flattening", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "json";
+    feature.baseConfig = "base";
+    feature.defaultValue = JSON.stringify({ $extends: ["@config:base"] });
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "safe-rollout",
+        id: "sr-released",
+        description: "",
+        enabled: true,
+        controlValue: JSON.stringify({ x: 1 }),
+        variationValue: JSON.stringify({ x: 2 }),
+        safeRolloutId: "sr_1",
+        status: "released",
+        hashAttribute: "id",
+        seed: "seed",
+        trackingKey: "sr-key",
+      },
+      {
+        type: "safe-rollout",
+        id: "sr-rolled-back",
+        description: "",
+        enabled: true,
+        controlValue: JSON.stringify({ x: 1 }),
+        variationValue: JSON.stringify({ x: 2 }),
+        safeRolloutId: "sr_2",
+        status: "rolled-back",
+        hashAttribute: "id",
+        seed: "seed",
+        trackingKey: "sr-key-2",
+      },
+    ];
+
+    const constantMap = new Map([
+      [
+        "config:base",
+        {
+          type: "json" as const,
+          source: "config" as const,
+          value: '{"cfg":1}',
+        },
+      ],
+    ]);
+
+    const def = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      constantMap,
+    });
+
+    // Released forces the variation, rolled-back forces the control — both
+    // flattened onto the backing config like every other rule value.
+    expect(def?.rules).toEqual([
+      { force: { cfg: 1, x: 2 } },
+      { force: { cfg: 1, x: 1 } },
+    ]);
+  });
+
+  it("resolves a backtick-escaped ref in a sparse rule exactly once (full payload)", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "json";
+    feature.defaultValue = JSON.stringify({ msg: "" });
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "force",
+        id: "sparse-escaped",
+        description: "",
+        enabled: true,
+        sparse: true,
+        value: JSON.stringify({ msg: "`{{ @const:x }}`" }),
+      },
+    ];
+
+    const payload = generateFeaturesPayload({
+      features: [feature],
+      environment: "production",
+      groupMap: new Map(),
+      experimentMap: new Map(),
+      capabilities: ["looseUnmarshalling"],
+      constants: [makeConstant({ key: "x", type: "string", value: "real" })],
+    });
+
+    // The escape renders as a literal placeholder; a second resolution pass
+    // would wrongly substitute the constant's value.
+    expect(payload.feature.rules?.[0]).toEqual({
+      force: { msg: "{{ @const:x }}" },
+    });
   });
 
   // A JSON feature with a single non-sparse force rule whose value is `ruleValue`.
@@ -1558,7 +2105,9 @@ describe("SDK Payloads", () => {
       experimentMap,
       safeRolloutMap,
       capabilities: ["looseUnmarshalling"],
-      constantMap: new Map([["name", { type: "string", value: "world" }]]),
+      constantMap: new Map([
+        ["constant:name", { type: "string", value: "world" }],
+      ]),
     });
     expect(def?.rules).toEqual([{ force: { greeting: "hi world" } }]);
   });
@@ -1585,7 +2134,10 @@ describe("SDK Payloads", () => {
       safeRolloutMap,
       capabilities: ["looseUnmarshalling"],
       constantMap: new Map([
-        ["cfg", { type: "json", value: JSON.stringify({ nested: [1, 2] }) }],
+        [
+          "constant:cfg",
+          { type: "json", value: JSON.stringify({ nested: [1, 2] }) },
+        ],
       ]),
     });
     expect(def?.rules).toEqual([{ force: { a: 0, nested: [1, 2], x: 1 } }]);
@@ -2351,8 +2903,10 @@ describe("SDK Payloads", () => {
       rules: [expect.objectContaining({ id: "rule_1", key: "meta-exp-key" })],
     });
 
-    // With metadataOptions: experiment-ref rule gets ExperimentMetadata from the
-    // experiment (proj_exp / exp-tag / bob), NOT from the feature
+    // With metadataOptions: experiment-ref rule gets tags/customFields from the
+    // experiment (exp-tag / bob). Projects come from the set the rule is served
+    // to — here the feature's delivery set (proj_feature), since the rule is
+    // unscoped — NOT the experiment's own project.
     const defWithMeta = getFeatureDefinition({
       feature,
       environment: "production",
@@ -2374,24 +2928,160 @@ describe("SDK Payloads", () => {
       expect.objectContaining({
         id: "rule_1",
         metadata: {
-          projects: ["exp-project"],
           tags: ["exp-tag"],
           customFields: { owner: "bob" },
         },
       }),
     );
+    // An unscoped rule omits projects entirely (absent = all), and never carries
+    // the experiment's own project
+    expect(defWithMeta?.rules?.[0]?.metadata).not.toHaveProperty("projects");
 
-    // Confirm experiment metadata differs from what feature metadata would be
-    expect(defWithMeta?.rules?.[0]?.metadata).not.toEqual({
-      projects: ["feature-project"],
-      tags: ["feature-tag"],
-      customFields: { owner: "alice" },
+    // A scoped experiment-ref rule emits its own scope (∩ delivery)
+    const featureScopedExpRule = cloneDeep(feature);
+    featureScopedExpRule.targetingProjects = ["proj_exp"]; // delivers to both
+    (
+      featureScopedExpRule.environmentSettings["production"]
+        .rules[0] as unknown as { projects: string[] }
+    ).projects = ["proj_exp"];
+    const defScopedExpRule = getFeatureDefinition({
+      feature: featureScopedExpRule,
+      environment: "production",
+      groupMap,
+      experimentMap: expMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      includeRuleIds: true,
+      metadataOptions: { includeProjectIdInMetadata: true },
+      projectsMap,
     });
+    expect(defScopedExpRule?.rules?.[0]?.metadata?.projects).toEqual([
+      "exp-project",
+    ]);
 
     // allowedCustomFieldsInMetadata filters keys — region is excluded
     expect(defWithMeta?.rules?.[0]?.metadata?.customFields).not.toHaveProperty(
       "region",
     );
+
+    // Feature-level metadata advertises the governance project by default
+    expect(defWithMeta?.metadata).toEqual({
+      projects: ["feature-project"],
+      tags: ["feature-tag"],
+      customFields: { owner: "alice" },
+    });
+
+    // Targeting projects fold into metadata.projects (as public ids), so the
+    // payload lists every project the feature is delivered to
+    const featureWithTargeting = cloneDeep(feature);
+    featureWithTargeting.targetingProjects = ["proj_exp"];
+    const defWithTargeting = getFeatureDefinition({
+      feature: featureWithTargeting,
+      environment: "production",
+      groupMap,
+      experimentMap: expMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      includeRuleIds: true,
+      metadataOptions: { includeProjectIdInMetadata: true },
+      projectsMap,
+    });
+    expect(defWithTargeting?.metadata?.projects).toEqual([
+      "feature-project",
+      "exp-project",
+    ]);
+
+    // targetingAllProjects omits the projects list (absent = all), rather than
+    // enumerating every org project
+    const featureAllProjects = cloneDeep(feature);
+    featureAllProjects.targetingAllProjects = true;
+    const defAllProjects = getFeatureDefinition({
+      feature: featureAllProjects,
+      environment: "production",
+      groupMap,
+      experimentMap: expMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      includeRuleIds: true,
+      metadataOptions: { includeProjectIdInMetadata: true },
+      projectsMap,
+    });
+    expect(defAllProjects?.metadata?.projects).toBeUndefined();
+  });
+
+  it("Emits a rule's explicit project scope, omitting when the rule targets all", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.project = "proj_feature";
+    feature.targetingProjects = ["proj_exp"]; // delivers to both projects
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "force",
+        value: "true",
+        id: "scoped",
+        enabled: true,
+        description: "",
+        projects: ["proj_exp"],
+      },
+      {
+        type: "force",
+        value: "true",
+        id: "unscoped",
+        enabled: true,
+        description: "",
+      },
+      {
+        type: "force",
+        value: "true",
+        id: "allprojects",
+        enabled: true,
+        description: "",
+        allProjects: true,
+      },
+      // Scoped partly outside the feature's delivery set — scrubbed to delivery.
+      {
+        type: "force",
+        value: "true",
+        id: "partly-dead",
+        enabled: true,
+        description: "",
+        projects: ["proj_exp", "proj_other"],
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ] as any;
+
+    const projectsMap = new Map([
+      [
+        "proj_feature",
+        { id: "proj_feature", publicId: "feature-project", name: "F" },
+      ],
+      ["proj_exp", { id: "proj_exp", publicId: "exp-project", name: "E" }],
+      // A third org project the feature does not deliver to
+      [
+        "proj_other",
+        { id: "proj_other", publicId: "other-project", name: "O" },
+      ],
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ] as any);
+
+    const def = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap: new Map(),
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      includeRuleIds: true,
+      metadataOptions: { includeProjectIdInMetadata: true },
+      projectsMap,
+    });
+    const byId = (id: string) => def?.rules?.find((r) => r.id === id);
+
+    // Specific scope → its own projects, scrubbed to the delivery set
+    expect(byId("scoped")?.metadata?.projects).toEqual(["exp-project"]);
+    expect(byId("partly-dead")?.metadata?.projects).toEqual(["exp-project"]);
+    // All-projects / unscoped rules omit projects entirely (absent = all)
+    expect(byId("unscoped")?.metadata).toBeUndefined();
+    expect(byId("allprojects")?.metadata).toBeUndefined();
   });
 
   it("Gets Feature Definitions", () => {

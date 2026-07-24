@@ -114,6 +114,7 @@ export const resolvers: Record<
   secureAttributeSalt: genDefaultResolver("secureAttributeSalt"),
   killswitchConfirmation: genDefaultResolver("killswitchConfirmation"),
   requireReviews: genDefaultResolver("requireReviews"),
+  targetingReviewMode: genDefaultResolver("targetingReviewMode"),
   featureKeyExample: genDefaultResolver("featureKeyExample"),
   featureRegexValidator: genDefaultResolver("featureRegexValidator"),
   banditScheduleValue: genDefaultResolver("banditScheduleValue"),

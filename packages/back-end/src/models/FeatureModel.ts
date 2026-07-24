@@ -10,6 +10,7 @@ import {
   liveRevisionFromFeature,
   PermissionError,
   stemRuleId,
+  resolveTargetingProjectIds,
 } from "shared/util";
 import {
   SafeRolloutInterface,
@@ -50,6 +51,11 @@ import {
   synthesizeRuleId,
 } from "back-end/src/services/features";
 import {
+  assertConfigBackedDefaultHasNoOverrides,
+  assertConfigBackedFeatureValuesValid,
+  configCheckedRuleValues,
+} from "back-end/src/services/configValidation";
+import {
   appendRampEvent,
   assertFeatureNotLockedByRamp,
   computeNextProcessAt,
@@ -73,6 +79,7 @@ import {
   isPlausibleFeatureRule,
   V1RulesByEnv,
 } from "back-end/src/util/flattenRules";
+import { overlayDocsById } from "back-end/src/util/scanOverlay.util";
 import { ReqContext } from "back-end/types/request";
 import {
   applyEnvironmentInheritance,
@@ -91,6 +98,7 @@ import {
 import { getEnvironments } from "back-end/src/util/organization.util";
 import { ApiReqContext } from "back-end/types/api";
 import { deriveLiveFeatureEventEnvironments } from "back-end/src/events/eventEnvironments";
+import { emitOrDeferBulkPublishEvent } from "back-end/src/events/bulkPublishCorrelation";
 import { determineNextSafeRolloutSnapshotAttempt } from "back-end/src/enterprise/saferollouts/safeRolloutUtils";
 import {
   createVercelExperimentationItemFromFeature,
@@ -137,11 +145,14 @@ const featureSchema = new mongoose.Schema({
   nextScheduledUpdate: Date,
   owner: String,
   project: String,
+  targetingAllProjects: Boolean,
+  targetingProjects: [String],
   dateCreated: Date,
   dateUpdated: Date,
   version: Number,
   valueType: String,
   defaultValue: String,
+  baseConfig: String,
   environments: [String],
   tags: [String],
   // `rules` and `environmentSettings` are declared Mixed intentionally —
@@ -172,6 +183,7 @@ const featureSchema = new mongoose.Schema({
 
 featureSchema.index({ id: 1, organization: 1 }, { unique: true });
 featureSchema.index({ organization: 1, project: 1 });
+featureSchema.index({ organization: 1, targetingProjects: 1 });
 
 type FeatureDocument = mongoose.Document & LegacyFeatureInterface;
 
@@ -463,10 +475,8 @@ export async function getAllFeatures(
   }: { projects?: string[]; includeArchived?: boolean } = {},
 ): Promise<FeatureInterface[]> {
   const q: FilterQuery<FeatureDocument> = { organization: context.org.id };
-  if (projects && projects.length === 1) {
-    q.project = projects[0];
-  } else if (projects && projects.length > 1) {
-    q.project = { $in: projects };
+  if (projects && projects.length) {
+    Object.assign(q, targetingScopedProjectClause(projects));
   }
 
   if (!includeArchived) {
@@ -478,23 +488,26 @@ export async function getAllFeatures(
   );
 
   return features.filter((feature) =>
-    context.permissions.canReadSingleProjectResource(feature.project),
+    context.permissions.canReadTargetingScopedResource(feature),
   );
 }
 
 /**
- * Lightweight sibling of {@link getAllFeatures} for the stale-detection and
- * dependents graph. Skips Mongoose hydration via `.lean()` and projects out
- * heavy fields the graph does not read. Same migration + permission filter as
- * `getAllFeatures`, so results are interchangeable for any caller that only
- * needs the dependency graph.
+ * Lightweight sibling of {@link getAllFeatures} for whole-collection scans that
+ * read a feature's behavior (rules, environment settings, values, links) but
+ * never its editor/authoring fields: the stale-detection/dependents graph and
+ * the `@const:`/`@config:` reference scanners. Skips Mongoose hydration via
+ * `.lean()` and projects out the editor fields (they can be large). Same
+ * migration + permission filter as `getAllFeatures`, so results are otherwise
+ * interchangeable.
  *
  * NOTE: the return type is `FeatureInterface[]`, but the projected-out fields
  * (`description` / `jsonSchema` / `customFields` / legacy `draft`) will be
- * absent at runtime. Only use this for graph/stale callers that don't read
- * those fields — reach for `getAllFeatures` if you need a complete feature.
+ * absent at runtime — and so will `legacyDraft`, which the v0 migration
+ * synthesizes from the projected-out `draft`. Reach for `getAllFeatures` if you
+ * need a complete feature.
  */
-export async function getAllFeaturesForStaleGraph(
+export async function getAllFeaturesWithoutEditorFields(
   context: ReqContext | ApiReqContext,
   { includeArchived = false }: { includeArchived?: boolean } = {},
 ): Promise<FeatureInterface[]> {
@@ -514,9 +527,32 @@ export async function getAllFeaturesForStaleGraph(
     ),
   );
 
-  return features.filter((feature) =>
-    context.permissions.canReadSingleProjectResource(feature.project),
+  // Bulk-publish overlay: substitute the batch's proposed feature states so
+  // cross-entity validators evaluate the hypothetical end-state, not live
+  // docs. Applied before the permission filter and re-filtered on archived so
+  // proposed docs obey the same visibility rules as loaded ones.
+  let merged = overlayDocsById(features, context.featureScanOverlay);
+  if (merged !== features && !includeArchived) {
+    merged = merged.filter((feature) => !feature.archived);
+  }
+
+  return merged.filter((feature) =>
+    context.permissions.canReadTargetingScopedResource(feature),
   );
+}
+
+// Mongo pre-filter mirroring canReadTargetingScopedResource (project,
+// targetingProjects, or all-projects flag), so targeting-only features survive.
+function targetingScopedProjectClause(
+  projects: string[],
+): FilterQuery<FeatureDocument> {
+  return {
+    $or: [
+      { project: { $in: projects } },
+      { targetingProjects: { $in: projects } },
+      { targetingAllProjects: true },
+    ],
+  };
 }
 
 function featureListQuery(
@@ -524,13 +560,15 @@ function featureListQuery(
   opts: { project?: string; projectIds?: string[]; includeArchived?: boolean },
 ): FilterQuery<FeatureDocument> {
   const { project, projectIds, includeArchived = false } = opts;
+  const scopeClause =
+    project != null
+      ? targetingScopedProjectClause([project])
+      : projectIds != null
+        ? targetingScopedProjectClause(projectIds)
+        : {};
   return {
     organization: orgId,
-    ...(project != null
-      ? { project }
-      : projectIds != null
-        ? { project: { $in: projectIds } }
-        : {}),
+    ...scopeClause,
     ...(includeArchived ? {} : { archived: { $ne: true } }),
   };
 }
@@ -564,7 +602,7 @@ export async function getFeaturesPage(
   return docs
     .map((m) => toInterface(m, context))
     .filter((feature) =>
-      context.permissions.canReadSingleProjectResource(feature.project),
+      context.permissions.canReadTargetingScopedResource(feature),
     );
 }
 
@@ -608,7 +646,7 @@ export async function getFeature(
   });
   if (!feature) return null;
 
-  return context.permissions.canReadSingleProjectResource(feature.project)
+  return context.permissions.canReadTargetingScopedResource(feature)
     ? toInterface(feature, context)
     : null;
 }
@@ -649,7 +687,7 @@ export async function getFeaturesByIds(
   ).map((m) => toInterface(m, context));
 
   return features.filter((feature) =>
-    context.permissions.canReadSingleProjectResource(feature.project),
+    context.permissions.canReadTargetingScopedResource(feature),
   );
 }
 
@@ -694,6 +732,21 @@ export async function createFeature(
       featureToCreate.rules = dedupedRules;
     }
   }
+
+  // A config-backed feature's default AND rule values must conform to the
+  // backing config's effective schema. Enforced at this shared create choke
+  // point so every entry point is covered — not just the v2 REST handlers.
+  // Legacy/internal create paths (v1 POST, internal postFeatures) reach here
+  // without their own net, and creation writes a published revision directly
+  // (no publish-time re-check), so an unchecked create would ship a
+  // schema-violating value on version 1. The flat top-level `rules` is canonical
+  // here: callers populate it (buildFeatureUpdate then strips the legacy
+  // env-settings copies), so it holds every rule regardless of entry point.
+  // No-op for non-json / non-config features and when skipSchemaValidation is set.
+  await assertConfigBackedFeatureValuesValid(context, featureToCreate, {
+    defaultValue: featureToCreate.defaultValue,
+    rules: featureToCreate.rules as FeatureRule[] | undefined,
+  });
 
   // Run any custom hooks for this feature
   await runValidateFeatureHooks({
@@ -757,6 +810,16 @@ export async function deleteFeature(
  * @param projectId
  * @param organization
  */
+export async function projectHasFeatures(
+  context: ReqContext | ApiReqContext,
+  projectId: string,
+): Promise<boolean> {
+  return !!(await FeatureModel.exists({
+    organization: context.org.id,
+    project: projectId,
+  }));
+}
+
 export async function deleteAllFeaturesForAProject({
   projectId,
   context,
@@ -799,6 +862,9 @@ export const createFeatureEvent = async <
     const safeRolloutMap =
       await eventData.context.models.safeRollout.getAllPayloadSafeRollouts();
 
+    // Resolve targetingAllProjects into concrete ids so webhooks route by delivery scope.
+    const allProjectIds = await eventData.context.getAllProjectIds();
+
     const currentApiFeature = getApiFeatureObj({
       feature: eventData.data.object,
       organization: eventData.context.org,
@@ -815,7 +881,7 @@ export const createFeatureEvent = async <
         data: {
           object: currentApiFeature,
         },
-        projects: [currentApiFeature.project],
+        projects: resolveTargetingProjectIds(currentApiFeature, allProjectIds),
         tags: currentApiFeature.tags,
         environments: deriveLiveFeatureEventEnvironments({
           current: currentApiFeature,
@@ -868,7 +934,10 @@ export const createFeatureEvent = async <
         changes,
       },
       projects: Array.from(
-        new Set([previousApiFeature.project, currentApiFeature.project]),
+        new Set([
+          ...resolveTargetingProjectIds(previousApiFeature, allProjectIds),
+          ...resolveTargetingProjectIds(currentApiFeature, allProjectIds),
+        ]),
       ),
       tags: Array.from(
         new Set([...previousApiFeature.tags, ...currentApiFeature.tags]),
@@ -942,11 +1011,14 @@ async function onFeatureCreate(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
 ) {
+  const allProjectIds = await context.getAllProjectIds();
   queueSDKPayloadRefresh({
     context,
     payloadKeys: getAffectedSDKPayloadKeys(
       [feature],
       getEnvironmentIdsFromOrg(context.org),
+      undefined,
+      allProjectIds,
     ),
     auditContext: {
       event: "created",
@@ -968,11 +1040,14 @@ async function onFeatureDelete(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
 ) {
+  const allProjectIds = await context.getAllProjectIds();
   queueSDKPayloadRefresh({
     context,
     payloadKeys: getAffectedSDKPayloadKeys(
       [feature],
       getEnvironmentIdsFromOrg(context.org),
+      undefined,
+      allProjectIds,
     ),
     auditContext: {
       event: "deleted",
@@ -996,12 +1071,14 @@ export async function onFeatureUpdate(
   updatedFeature: FeatureInterface,
   skipRefreshForProject?: string,
 ) {
+  const allProjectIds = await context.getAllProjectIds();
   queueSDKPayloadRefresh({
     context,
     payloadKeys: getSDKPayloadKeysByDiff(
       feature,
       updatedFeature,
       getEnvironmentIdsFromOrg(context.org),
+      allProjectIds,
     ),
     skipRefreshForProject,
     auditContext: {
@@ -1018,8 +1095,11 @@ export async function onFeatureUpdate(
       omit(updatedFeature, ["dateUpdated"]),
     )
   ) {
-    // Event-based webhooks
-    await logFeatureUpdatedEvent(context, feature, updatedFeature);
+    // Event-based webhooks. During a bulk-publish commit the emission defers
+    // to the post-commit flush (dropped entirely if the commit compensates).
+    await emitOrDeferBulkPublishEvent(context, () =>
+      logFeatureUpdatedEvent(context, feature, updatedFeature),
+    );
   }
 
   if (context.org.isVercelIntegration)
@@ -1060,11 +1140,18 @@ export async function updateFeature(
     });
   }
 
-  await runValidateFeatureHooks({
-    context,
-    feature: projected,
-    original: feature,
-  });
+  // While a bulk-publish commit is applying, validation hooks already ran as
+  // plan gates against the release end-state; re-running them here would judge
+  // the mid-commit mix — and would veto compensation restores. Gated on
+  // `bulkPublishApplying` (not the correlation token) so genuine post-commit
+  // writes — ramp activation etc., NOT covered by the plan gates — still run.
+  if (!context.bulkPublishApplying) {
+    await runValidateFeatureHooks({
+      context,
+      feature: projected,
+      original: feature,
+    });
+  }
 
   // Hygiene: when persisting a new top-level v2 `rules` array, also force-scrub
   // any legacy `environmentSettings.{env}.rules` from the doc. The JIT read
@@ -1445,6 +1532,58 @@ export async function removeProjectFromFeatures(
       logger.error(e, "Error refreshing SDK Payload on feature update");
     });
   });
+
+  // Also drop the deleted project from any feature's secondary targeting list.
+  const targetingQuery = {
+    organization: context.org.id,
+    targetingProjects: project,
+  };
+  const targetingDocs = await FeatureModel.find(targetingQuery);
+  const targetingFeatures = (targetingDocs || []).map((m) =>
+    toInterface(m, context),
+  );
+
+  await FeatureModel.updateMany(targetingQuery, {
+    $pull: { targetingProjects: project },
+  });
+
+  targetingFeatures.forEach((feature) => {
+    const updatedFeature = {
+      ...feature,
+      targetingProjects: (feature.targetingProjects ?? []).filter(
+        (p) => p !== project,
+      ),
+    };
+
+    onFeatureUpdate(context, feature, updatedFeature, project).catch((e) => {
+      logger.error(e, "Error refreshing SDK Payload on feature update");
+    });
+  });
+
+  // Also drop the deleted project from any rule-level scope. [deletedProject] → []
+  // (leak-safe: never "all"; allProjects stays false). Per-doc: rules is Mixed.
+  const ruleScopeQuery = {
+    organization: context.org.id,
+    "rules.projects": project,
+  };
+  const ruleScopedDocs = await FeatureModel.find(ruleScopeQuery);
+  for (const doc of ruleScopedDocs || []) {
+    const feature = toInterface(doc, context);
+    const updatedRules = (feature.rules ?? []).map((rule) =>
+      rule && Array.isArray(rule.projects) && rule.projects.includes(project)
+        ? { ...rule, projects: rule.projects.filter((p) => p !== project) }
+        : rule,
+    );
+    await FeatureModel.updateOne(
+      { organization: context.org.id, id: feature.id },
+      { $set: { rules: updatedRules } },
+    );
+
+    const updatedFeature = { ...feature, rules: updatedRules };
+    onFeatureUpdate(context, feature, updatedFeature, project).catch((e) => {
+      logger.error(e, "Error refreshing SDK Payload on feature update");
+    });
+  }
 }
 
 export async function setDefaultValue(
@@ -1455,6 +1594,10 @@ export async function setDefaultValue(
   user: EventUser,
   requireReview: boolean,
 ) {
+  // Fail early on the internal draft-edit path (the REST default-value endpoint
+  // enforces the same lock at its handler); publish re-checks regardless.
+  assertConfigBackedDefaultHasNoOverrides(feature, defaultValue);
+
   return updateRevision(
     context,
     feature,
@@ -1485,53 +1628,66 @@ export async function setJsonSchema(
   });
 }
 
+/**
+ * The status the publish-time sync will write per safe rollout: the revision
+ * rule's status, plus "stopped" for live safe-rollout rules the revision
+ * removes; empty when the revision carries no rules. Exported so the bulk
+ * publisher's compensation snapshots predict exactly what
+ * updateSafeRolloutStatuses writes.
+ */
+export function computeSafeRolloutStatusMap(
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+): Record<string, "running" | "rolled-back" | "released" | "stopped"> {
+  if (!revision.rules || revision.rules.length === 0) return {};
+  const map: Record<
+    string,
+    "running" | "rolled-back" | "released" | "stopped"
+  > = Object.fromEntries(
+    revision.rules
+      .filter((rule): rule is SafeRolloutRule => rule?.type === "safe-rollout")
+      .map((rule) => [rule.safeRolloutId, rule.status]),
+  );
+  // Stop safe rollouts whose rule was removed in this revision.
+  for (const rule of feature.rules ?? []) {
+    if (rule?.type === "safe-rollout" && !map[rule.safeRolloutId]) {
+      map[rule.safeRolloutId] = "stopped";
+    }
+  }
+  return map;
+}
+
 const updateSafeRolloutStatuses = async (
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,
 ) => {
-  if (!revision.rules || revision.rules.length === 0) return;
+  const statusMap = computeSafeRolloutStatusMap(feature, revision);
+  const ids = Object.keys(statusMap);
+  if (!ids.length) return;
 
-  const safeRolloutStatusesMap: Record<
-    string,
-    { status: "running" | "rolled-back" | "released" | "stopped" }
-  > = Object.fromEntries(
-    revision.rules
-      .filter((rule): rule is SafeRolloutRule => rule?.type === "safe-rollout")
-      .map((rule) => [rule.safeRolloutId, { status: rule.status }]),
-  );
-  // Stop safe rollouts whose rule was removed in this revision.
-  (feature.rules ?? []).forEach((rule) => {
-    if (
-      rule?.type === "safe-rollout" &&
-      !safeRolloutStatusesMap[rule.safeRolloutId]
-    ) {
-      safeRolloutStatusesMap[rule.safeRolloutId] = { status: "stopped" };
-    }
-  });
+  const safeRollouts = await context.models.safeRollout.getByIds(ids);
 
-  const safeRollouts = await context.models.safeRollout.getByIds(
-    Object.keys(safeRolloutStatusesMap),
-  );
-
-  safeRollouts.forEach((safeRollout) => {
-    // sync the status of the safe rollout to the status of the revision
-    const safeRolloutUpdates: UpdateProps<SafeRolloutInterface> = {
-      status: safeRolloutStatusesMap[safeRollout.id].status,
-    };
-    if (!safeRollout.startedAt && safeRolloutUpdates.status === "running") {
-      safeRolloutUpdates["startedAt"] = new Date();
-      const { nextSnapshot, nextRampUp } =
-        determineNextSafeRolloutSnapshotAttempt(safeRollout, context.org);
-      safeRolloutUpdates["nextSnapshotAttempt"] = nextSnapshot;
-      safeRolloutUpdates["rampUpSchedule"] = {
-        ...safeRollout.rampUpSchedule,
-        nextUpdate: nextRampUp,
+  await Promise.all(
+    safeRollouts.map(async (safeRollout) => {
+      // sync the status of the safe rollout to the status of the revision
+      const safeRolloutUpdates: UpdateProps<SafeRolloutInterface> = {
+        status: statusMap[safeRollout.id],
       };
-    }
+      if (!safeRollout.startedAt && safeRolloutUpdates.status === "running") {
+        safeRolloutUpdates["startedAt"] = new Date();
+        const { nextSnapshot, nextRampUp } =
+          determineNextSafeRolloutSnapshotAttempt(safeRollout, context.org);
+        safeRolloutUpdates["nextSnapshotAttempt"] = nextSnapshot;
+        safeRolloutUpdates["rampUpSchedule"] = {
+          ...safeRollout.rampUpSchedule,
+          nextUpdate: nextRampUp,
+        };
+      }
 
-    context.models.safeRollout.update(safeRollout, safeRolloutUpdates);
-  });
+      await context.models.safeRollout.update(safeRollout, safeRolloutUpdates);
+    }),
+  );
 };
 
 // Pure computation of the feature-doc changes a revision merge will produce; no writes
@@ -1607,11 +1763,16 @@ export function computeRevisionMergeChanges(
     if (m.description !== undefined) changes.description = m.description;
     if (m.owner !== undefined) changes.owner = m.owner;
     if (m.project !== undefined) changes.project = m.project;
+    if (m.targetingAllProjects !== undefined)
+      changes.targetingAllProjects = m.targetingAllProjects;
+    if (m.targetingProjects !== undefined)
+      changes.targetingProjects = m.targetingProjects;
     if (m.tags !== undefined) changes.tags = m.tags;
     if (m.neverStale !== undefined) changes.neverStale = m.neverStale;
     if (m.customFields !== undefined)
       changes.customFields = m.customFields as Record<string, unknown>;
     if (m.jsonSchema !== undefined) changes.jsonSchema = m.jsonSchema;
+    if (m.baseConfig !== undefined) changes.baseConfig = m.baseConfig;
     hasChanges = true;
   }
 
@@ -1646,6 +1807,29 @@ export async function applyRevisionChanges(
     result,
   );
 
+  // removeProjectFromFeatures only scrubs live features, so a revision staged
+  // before a project deletion can still carry the dead id — drop it on publish
+  // rather than restoring it into the live feature.
+  const rulesHaveProjectScope = (changes.rules ?? []).some((r) =>
+    Array.isArray((r as { projects?: string[] }).projects),
+  );
+  if (changes.targetingProjects || rulesHaveProjectScope) {
+    const validProjectIds = new Set(await context.getAllProjectIds());
+    if (changes.targetingProjects) {
+      changes.targetingProjects = changes.targetingProjects.filter((p) =>
+        validProjectIds.has(p),
+      );
+    }
+    if (rulesHaveProjectScope) {
+      changes.rules = changes.rules?.map((r) => {
+        const projects = (r as { projects?: string[] }).projects;
+        return Array.isArray(projects)
+          ? { ...r, projects: projects.filter((p) => validProjectIds.has(p)) }
+          : r;
+      });
+    }
+  }
+
   if (!hasChanges) {
     return await updateFeature(context, feature, changes);
   }
@@ -1667,6 +1851,102 @@ export async function applyRevisionChanges(
   return await updateFeature(context, feature, changes);
 }
 
+// Refuse to remove/change a feature's holdout while an experiment in the current
+// draft rules for this feature is linked to the holdout.
+export async function assertNoLinkedHoldoutExperiments(
+  context: ReqContext | ApiReqContext,
+  holdoutId: string,
+  // The feature's post-publish rules (revision's merged rules)
+  rules: FeatureRule[],
+) {
+  const experimentIds = rules
+    .filter((rule) => rule.type === "experiment-ref")
+    .map((rule) => rule.experimentId);
+
+  const experiments = await Promise.all(
+    experimentIds.map((eid) => getExperimentById(context, eid)),
+  );
+  const stillInHoldout = experiments
+    .filter(
+      (exp): exp is NonNullable<typeof exp> =>
+        !!exp && exp.holdoutId === holdoutId,
+    )
+    .map((exp) => `"${exp.name}"`);
+  if (stillInHoldout.length) {
+    const plural = stillInHoldout.length > 1;
+    throw new Error(
+      `Cannot remove the holdout while experiment${plural ? "s" : ""} ${stillInHoldout.join(
+        ", ",
+      )} ${plural ? "are" : "is"} in the rules for this feature and in the holdout. ` +
+        `Remove the experiment rule from this feature first or in the same draft.`,
+    );
+  }
+}
+
+// Use POST-publish rule set for `rules` so we can check for holdout compatibility
+// on the draft revision and make sure the holdout change is allowed.
+
+// Read-only so a rejection doesn't happen mid-publish and strand features.
+export async function assertHoldoutChangeAllowed(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  newHoldout: { id: string; value: string } | null,
+  rules: FeatureRule[],
+  // `isRevert` skips the guard — a rollback restores a previously-valid holdout
+  // state (the caller reverts the transiently-blocking rules moments later), so
+  // this create-time check would wrongly refuse it.
+  { isRevert }: { isRevert?: boolean } = {},
+) {
+  if (isRevert) return;
+
+  const prevHoldoutId = feature.holdout?.id;
+  const newHoldoutId = newHoldout?.id;
+
+  // No change.
+  if (newHoldoutId === prevHoldoutId) return;
+
+  // Leaving the current holdout (removal, or a change to a different one):
+  // refuse while any experiment in the rules for this feature still belongs to it. The user detaches
+  // the experiment side first rather than us silently unlinking it.
+  if (prevHoldoutId) {
+    await assertNoLinkedHoldoutExperiments(context, prevHoldoutId, rules);
+  }
+
+  // Pure removal: nothing further to validate.
+  if (newHoldout === null) return;
+
+  // Adding or changing to a holdout: the feature's post-publish rules must not
+  // carry running experiments in a different holdout, bandits, or safe rollouts.
+  const currentExperimentIds = (rules ?? [])
+    .filter((rule) => rule.type === "experiment-ref")
+    .map((rule) => rule.experimentId);
+  const experimentResults = await Promise.all(
+    currentExperimentIds.map((id) => getExperimentById(context, id)),
+  );
+  // Filter out deleted experiments (null/undefined) before checking status
+  const experiments = experimentResults.filter(
+    (exp): exp is NonNullable<typeof exp> => exp !== null && exp !== undefined,
+  );
+  const hasNonDraftExperimentsInDifferentHoldout = experiments.some(
+    (exp) => exp.status !== "draft" && exp.holdoutId !== newHoldoutId,
+  );
+  const hasBandits = experiments.some(
+    (exp) => exp.type === "multi-armed-bandit",
+  );
+  const hasSafeRollouts = (rules ?? []).some(
+    (rule) => rule?.type === "safe-rollout",
+  );
+  if (
+    hasNonDraftExperimentsInDifferentHoldout ||
+    hasBandits ||
+    hasSafeRollouts
+  ) {
+    throw new Error(
+      "Cannot change holdout when there are running linked experiments in different holdouts, safe rollout rules, or multi-armed bandit rules",
+    );
+  }
+}
+
 // Run HoldoutModel / Experiment side-effects when a feature's holdout
 // membership changes at publish. Called from `publishRevision` when
 // `result.holdout` is defined, so all publish paths (direct, approval,
@@ -1676,36 +1956,39 @@ export async function applyHoldoutSideEffects(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   newHoldout: { id: string; value: string } | null,
+  // `isRevert` skips the guard — see assertHoldoutChangeAllowed. `skipGuard` is
+  // set by callers that already ran assertHoldoutChangeAllowed BEFORE mutating
+  // the feature, so the guard isn't re-run against the stale live rules here.
+  { isRevert, skipGuard }: { isRevert?: boolean; skipGuard?: boolean } = {},
 ) {
   const prevHoldoutId = feature.holdout?.id;
   const newHoldoutId = newHoldout?.id;
 
   if (newHoldoutId === prevHoldoutId) return;
 
-  // Guard: cannot change holdout when there are running experiments, bandits, or safe rollouts
-  if (newHoldout !== null) {
-    const experiments = await Promise.all(
-      (feature.linkedExperiments ?? []).map((id) =>
-        getExperimentById(context, id),
-      ),
+  if (!skipGuard) {
+    await assertHoldoutChangeAllowed(
+      context,
+      feature,
+      newHoldout,
+      feature.rules ?? [],
+      { isRevert },
     );
-    const hasNonDraftExperiments = experiments.some(
-      (exp) => exp?.status !== "draft",
-    );
-    const hasBandits = experiments.some(
-      (exp) => exp?.type === "multi-armed-bandit",
-    );
-    const hasSafeRollouts = (feature.rules ?? []).some(
-      (rule) => rule?.type === "safe-rollout",
-    );
-    if (hasNonDraftExperiments || hasBandits || hasSafeRollouts) {
-      throw new Error(
-        "Cannot change holdout when there are running linked experiments, safe rollout rules, or multi-armed bandit rules",
-      );
-    }
   }
 
-  // Remove feature from the old holdout
+  // Resolve the new holdout BEFORE removing from the old one, so a missing
+  // holdout fails with no membership mutated (no partial transition).
+  const holdoutObj = newHoldoutId
+    ? await context.models.holdout.getById(newHoldoutId)
+    : null;
+  if (newHoldoutId && !holdoutObj) {
+    throw new Error("Holdout not found");
+  }
+
+  // Remove feature from the old holdout. The guard (assertHoldoutChangeAllowed)
+  // has already refused this move if any linked experiment still belongs to the
+  // old holdout, so there's nothing to cascade here — the experiment side is
+  // detached explicitly by the user first.
   if (prevHoldoutId) {
     await context.models.holdout.removeFeatureFromHoldout(
       prevHoldoutId,
@@ -1713,23 +1996,26 @@ export async function applyHoldoutSideEffects(
     );
   }
 
-  // Link feature (and its experiments) to the new holdout
-  if (newHoldoutId) {
-    const holdoutObj = await context.models.holdout.getById(newHoldoutId);
-    if (!holdoutObj) {
-      throw new Error("Holdout not found");
-    }
+  // Link feature (and experiments in its rules) to the new holdout.
+  if (newHoldoutId && holdoutObj) {
+    const ruleExperimentIds = Array.from(
+      new Set(
+        (feature.rules ?? [])
+          .filter((rule) => rule.type === "experiment-ref")
+          .map((rule) => rule.experimentId),
+      ),
+    );
 
     await context.models.holdout.updateById(newHoldoutId, {
       linkedFeatures: {
         [feature.id]: { id: feature.id, dateAdded: new Date() },
         ...holdoutObj.linkedFeatures,
       },
-      ...(feature.linkedExperiments?.length
+      ...(ruleExperimentIds.length
         ? {
             linkedExperiments: {
               ...Object.fromEntries(
-                feature.linkedExperiments.map((experimentId) => [
+                ruleExperimentIds.map((experimentId) => [
                   experimentId,
                   { id: experimentId, dateAdded: new Date() },
                 ]),
@@ -1740,9 +2026,9 @@ export async function applyHoldoutSideEffects(
         : {}),
     });
 
-    if (feature.linkedExperiments?.length) {
+    if (ruleExperimentIds.length) {
       const linkedExperiments = await Promise.all(
-        feature.linkedExperiments.map((eid) => getExperimentById(context, eid)),
+        ruleExperimentIds.map((eid) => getExperimentById(context, eid)),
       );
       await Promise.all(
         linkedExperiments.map(async (exp) => {
@@ -1758,20 +2044,105 @@ export async function applyHoldoutSideEffects(
   }
 }
 
-// Apply deferred ramp create/update actions stored on a revision.
-// - `create` actions are called BEFORE feature write so schedule creation
-//   failures abort publish.
-// - `update` actions are called AFTER publish succeeds (best-effort).
-// Returns only newly created schedule IDs (for rollback on failure).
+// Phase-shaped ramp-action surface for the bulk publisher: creates run BEFORE
+// the feature write (a failure gates the publish; ids returned for rollback),
+// updates/detaches/cleanup run after a known-good publish as best-effort.
+export async function applyRampCreateActionsForRevision(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+  result: MergeResultChanges,
+): Promise<string[]> {
+  const createActions = (revision.rampActions ?? []).filter(
+    (a) => a.mode === "create",
+  );
+  if (!createActions.length) return [];
+  const createdIds: string[] = [];
+  try {
+    return await createRampSchedulesForRevision(
+      context,
+      feature,
+      revision,
+      result,
+      createActions,
+      createdIds,
+    );
+  } catch (e) {
+    // A mid-loop throw would otherwise orphan the schedules already created —
+    // invisible to compensation (their ids die with the throw). Best-effort
+    // delete them here; the original error still gates the publish.
+    await rollbackCreatedRampSchedules(context, createdIds);
+    throw e;
+  }
+}
+
+/**
+ * Delete ramp schedules a failed publish created. Returns the ids it could NOT
+ * delete so the caller can surface them as a reversal failure — a swallowed
+ * delete would leave an armed `pending` schedule behind while the item reports
+ * a clean rollback (it activates if that revision is ever re-published).
+ */
+export async function rollbackCreatedRampSchedules(
+  context: ReqContext | ApiReqContext,
+  scheduleIds: string[],
+): Promise<string[]> {
+  const failed: string[] = [];
+  for (const id of scheduleIds) {
+    try {
+      await context.models.rampSchedules.deleteById(id);
+    } catch (deleteErr) {
+      failed.push(id);
+      logger.error(
+        deleteErr,
+        `Failed to delete orphaned ramp schedule ${id} during publish rollback`,
+      );
+    }
+  }
+  return failed;
+}
+
+export async function finalizeRampActionsAfterPublish(
+  context: ReqContext | ApiReqContext,
+  featureBefore: FeatureInterface,
+  featureAfter: FeatureInterface,
+  revision: FeatureRevisionInterface,
+  result: MergeResultChanges,
+): Promise<void> {
+  const updateActions = (revision.rampActions ?? []).filter(
+    (a) => a.mode === "update",
+  );
+  if (updateActions.length) {
+    try {
+      await createRampSchedulesForRevision(
+        context,
+        featureAfter,
+        revision,
+        result,
+        updateActions,
+      );
+    } catch (err) {
+      logger.error(
+        err,
+        "Failed to apply deferred ramp update actions after publish",
+      );
+    }
+  }
+  if (revision.rampActions?.length) {
+    await applyDetachRampActions(context, revision.rampActions);
+  }
+  await cleanupOrphanedRampSchedules(context, featureBefore, featureAfter);
+}
+
 async function createRampSchedulesForRevision(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   revision: { version: number },
   result: MergeResultChanges,
   actions: RevisionRampAction[],
+  // Written to as each schedule is created, so a caller keeps the partial set
+  // if a later action throws (the return value would be lost with the throw).
+  createdIds: string[] = [],
 ): Promise<string[]> {
-  const createdIds: string[] = [];
-
   for (const action of actions) {
     if (action.mode !== "create" && action.mode !== "update") continue;
 
@@ -2385,20 +2756,23 @@ async function cleanupOrphanedRampSchedules(
   }
 }
 
-// Best-effort early hook run; updateFeature / markRevisionAsPublished re-run hooks authoritatively
-export async function prevalidatePublishRevision({
-  context,
-  feature,
-  revision,
-  result,
-  comment,
-}: {
-  context: ReqContext | ApiReqContext;
-  feature: FeatureInterface;
-  revision: FeatureRevisionInterface;
-  result: MergeResultChanges;
-  comment?: string;
-}) {
+// Compute the feature as it will look post-publish, plus the exact
+// default/rules subset the config-backed value net must re-check. Shared by
+// prevalidatePublishRevision (the throwing choke point) and the REST publish
+// handler (which runs the same net non-throwing as publish gates). Only values
+// THIS publish changes are checked — a pre-existing violation must not block
+// status-only publishes (kill switches, safe-rollout rollbacks, ramp advances).
+// A baseConfig change re-checks everything (new backing schema).
+export function computeProposedFeatureForValidation(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+  result: MergeResultChanges,
+): {
+  proposedFeature: FeatureInterface;
+  defaultToCheck: string | undefined;
+  rulesToCheck: FeatureRule[];
+} {
   const { changes, removeHoldout } = computeRevisionMergeChanges(
     context,
     feature,
@@ -2414,6 +2788,63 @@ export async function prevalidatePublishRevision({
     dateUpdated: new Date(),
   };
   proposedFeature.linkedExperiments = getLinkedExperiments(proposedFeature);
+  const backingChanged =
+    changes.baseConfig !== undefined &&
+    (changes.baseConfig ?? null) !== (feature.baseConfig ?? null);
+  const liveRuleById = new Map((feature.rules ?? []).map((r) => [r.id, r]));
+  const rulesToCheck = backingChanged
+    ? (proposedFeature.rules ?? [])
+    : (changes.rules ?? []).filter((r) => {
+        const live = liveRuleById.get(r.id);
+        return (
+          !live ||
+          !isEqual(configCheckedRuleValues(live), configCheckedRuleValues(r))
+        );
+      });
+  const defaultToCheck =
+    backingChanged ||
+    (changes.defaultValue !== undefined &&
+      changes.defaultValue !== feature.defaultValue)
+      ? proposedFeature.defaultValue
+      : undefined;
+  return { proposedFeature, defaultToCheck, rulesToCheck };
+}
+
+// Best-effort early hook run; updateFeature / markRevisionAsPublished re-run hooks authoritatively.
+// `skipValidation` skips the config-backed value net AND the custom validation
+// hooks — used by the REST publish handler, which has already run both
+// non-throwing and surfaced their results as publish gates, so re-running them
+// here would double-execute the sandboxed hooks and re-throw what the handler
+// already reported. The proposed feature is still computed (callers may rely on
+// the side-effect-free work). Auto-publish/scheduled paths never set it and keep
+// the throwing behavior.
+export async function prevalidatePublishRevision({
+  context,
+  feature,
+  revision,
+  result,
+  comment,
+  skipValidation,
+}: {
+  context: ReqContext | ApiReqContext;
+  feature: FeatureInterface;
+  revision: FeatureRevisionInterface;
+  result: MergeResultChanges;
+  comment?: string;
+  skipValidation?: boolean;
+}) {
+  const { proposedFeature, defaultToCheck, rulesToCheck } =
+    computeProposedFeatureForValidation(context, feature, revision, result);
+  if (skipValidation) return;
+  // Re-validate config-backed values going live: save-time validation can be
+  // stale (a config's schema/invariants may tighten between draft and publish),
+  // and auto-publish paths don't pass through a REST handler's own net.
+  if (defaultToCheck !== undefined || rulesToCheck.length) {
+    await assertConfigBackedFeatureValuesValid(context, proposedFeature, {
+      defaultValue: defaultToCheck,
+      rules: rulesToCheck,
+    });
+  }
   await runValidateFeatureHooks({
     context,
     feature: proposedFeature,
@@ -2437,6 +2868,7 @@ export async function publishRevision({
   result,
   comment,
   bypassLockdown,
+  skipPrevalidateValidation,
 }: {
   context: ReqContext | ApiReqContext;
   feature: FeatureInterface;
@@ -2444,6 +2876,12 @@ export async function publishRevision({
   result: MergeResultChanges;
   comment?: string;
   bypassLockdown?: boolean;
+  // Set only by the REST publish handler, which has already run the config-backed
+  // value net and the custom validation hooks non-throwing and surfaced their
+  // outcomes as publish gates. Skips the re-run in prevalidatePublishRevision so
+  // the sandboxed hooks don't double-execute and the gated failures aren't
+  // re-thrown. Auto-publish/scheduled paths leave it unset and keep throwing.
+  skipPrevalidateValidation?: boolean;
 }) {
   if (revision.status === "published" || revision.status === "discarded") {
     throw new Error("Can only publish a draft revision");
@@ -2474,7 +2912,22 @@ export async function publishRevision({
     revision,
     result,
     comment,
+    skipValidation: skipPrevalidateValidation,
   });
+
+  // Guard the holdout change BEFORE any mutation. applyRevisionChanges (below)
+  // advances feature.version and writes feature.holdout; if the holdout guard
+  // ran only afterward and threw, the feature would be left pointing at this
+  // still-draft revision. Check the revision's merged rules (post-publish state)
+  // so a bundled experiment-ref for an already-running experiment is caught.
+  if (result.holdout !== undefined) {
+    await assertHoldoutChangeAllowed(
+      context,
+      feature,
+      result.holdout,
+      result.rules ?? feature.rules ?? [],
+    );
+  }
 
   // Create ramp schedules BEFORE writing the feature so that a schedule
   // creation failure gates the publish (atomicity: no published feature without
@@ -2507,7 +2960,17 @@ export async function publishRevision({
     );
 
     if (result.holdout !== undefined) {
-      await applyHoldoutSideEffects(context, feature, result.holdout);
+      // Guard already ran above (before any mutation) — skip the re-check.
+      // Pass the POST-publish rules: side effects enroll the experiments in
+      // the feature's rules, and a draft can add the holdout and the
+      // experiment-ref rule together — the pre-publish rules would miss it
+      // (the deferred half of the eager-link-at-rule-add flow).
+      await applyHoldoutSideEffects(
+        context,
+        { ...feature, rules: result.rules ?? feature.rules },
+        result.holdout,
+        { skipGuard: true },
+      );
     }
 
     await markRevisionAsPublished(
@@ -2536,6 +2999,8 @@ export async function publishRevision({
         );
       }
     }
+
+    // TODO(holdouts): undo holdout side effects if the publish failed
     throw err;
   }
 
@@ -2600,7 +3065,7 @@ export async function createAndPublishRevision({
   // triggering approval and creating dangling per-env settings.
   const orgEnvironments = getEnvironmentIdsFromOrg(org);
   const orgEnvObjects = getEnvironments(org);
-  const applicableEnvIds = getApplicableEnvIds(orgEnvObjects, feature.project);
+  const applicableEnvIds = getApplicableEnvIds(orgEnvObjects, feature);
   const applicableEnvSet = new Set(applicableEnvIds);
   const allEnvironments = orgEnvironments.filter((e) =>
     applicableEnvSet.has(e),
@@ -2741,7 +3206,7 @@ export async function getFeatureMetaInfoById(
 
   const query: Record<string, unknown> = { organization: context.org.id };
   if (project) {
-    query.project = project;
+    Object.assign(query, targetingScopedProjectClause([project]));
   }
   if (ids?.length) {
     query.id = { $in: ids };
@@ -2750,6 +3215,8 @@ export async function getFeatureMetaInfoById(
   const projection: Record<string, number> = {
     id: 1,
     project: 1,
+    targetingAllProjects: 1,
+    targetingProjects: 1,
     archived: 1,
     description: 1,
     dateCreated: 1,
@@ -2766,15 +3233,17 @@ export async function getFeatureMetaInfoById(
     "rules.prerequisites": 1,
     "rules.savedGroups": 1,
     environmentSettings: 1,
+    // `baseConfig` drives the list's "Config · <name>" type display; the full
+    // (potentially large) default value is fetched only when the caller asks for
+    // it — the list itself never parses it.
+    baseConfig: 1,
+    ...(includeDefaultValue ? { defaultValue: 1 } : {}),
   };
-  if (includeDefaultValue) {
-    projection.defaultValue = 1;
-  }
 
   const features = await FeatureModel.find(query, projection);
 
   return features
-    .filter((f) => context.permissions.canReadSingleProjectResource(f.project))
+    .filter((f) => context.permissions.canReadTargetingScopedResource(f))
     .map((f) => {
       const doc = f as unknown as Record<string, unknown>;
       const rules = doc.rules as
@@ -2796,6 +3265,10 @@ export async function getFeatureMetaInfoById(
         (r) => (r.savedGroups?.length ?? 0) > 0,
       );
 
+      // The list shows "Config · <name>" from the flag's first-class `baseConfig`
+      // (authoritative), not by parsing the default value.
+      const configBackingKey = f.baseConfig ?? null;
+
       return {
         id: f.id,
         project: f.project,
@@ -2811,6 +3284,7 @@ export async function getFeatureMetaInfoById(
         neverStale: f.neverStale,
         hasPrerequisites,
         hasSavedGroups,
+        configBackingKey,
         revision: f.revision as FeatureMetaInfo["revision"],
         ...(includeDefaultValue && { defaultValue: f.defaultValue ?? "" }),
       };
@@ -2828,6 +3302,8 @@ export async function getFeatureMetaInfoByIds(
     {
       id: 1,
       project: 1,
+      targetingAllProjects: 1,
+      targetingProjects: 1,
       archived: 1,
       description: 1,
       dateCreated: 1,
@@ -2844,7 +3320,7 @@ export async function getFeatureMetaInfoByIds(
   );
 
   return features
-    .filter((f) => context.permissions.canReadSingleProjectResource(f.project))
+    .filter((f) => context.permissions.canReadTargetingScopedResource(f))
     .map((f) => ({
       id: f.id,
       project: f.project,

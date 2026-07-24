@@ -44,7 +44,9 @@ export type Language =
   | "dart"
   | "csharp"
   | "java"
-  | "elixir";
+  | "elixir"
+  | "protobuf"
+  | "rust";
 
 const LanguageDisplay: Record<string, string> = {
   sh: "Terminal",

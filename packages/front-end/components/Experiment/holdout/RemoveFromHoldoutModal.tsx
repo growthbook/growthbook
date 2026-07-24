@@ -17,6 +17,8 @@ export default function RemoveFromHoldoutModal({
 }: Props) {
   const { apiCall } = useAuth();
 
+  // TODO(holdouts): allow removing from holdout if the experiment is not linked to a feature
+  // in the live feature revision
   const experimentIsDraft = experiment.status === "draft";
   const experimentHasLinkedChanges =
     experiment.hasURLRedirects ||

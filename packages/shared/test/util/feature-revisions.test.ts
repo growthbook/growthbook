@@ -6,6 +6,7 @@ import {
   checkIfRevisionNeedsReview,
   fillRevisionFromFeature,
   getDraftAffectedEnvironments,
+  getEffectiveRevisionHoldout,
   getReviewSetting,
   getFeatureAutopublishOnApproval,
   mergeResultHasChanges,
@@ -13,6 +14,7 @@ import {
   RevisionFields,
   draftDiffersFromLive,
   liveRevisionFromFeature,
+  reconcileMergeBaselines,
 } from "../../src/util";
 
 // ---------------------------------------------------------------------------
@@ -483,6 +485,43 @@ describe("autoMerge with new envelopes", () => {
       }
     });
 
+    // Regression: when the base revision snapshot drifts from the live feature
+    // model (e.g. a legacy v1 REST write updated the feature doc but not the
+    // revision), a draft toggle that happens to match the stale base value must
+    // still register as a change to publish. Anchoring to `live` (feature model)
+    // instead of `base` is what makes this surface instead of "No changes".
+    it("detects an env toggle even when the base snapshot drifted to match it", () => {
+      const driftedBase: RevisionFields = {
+        version: 5,
+        defaultValue: "false",
+        rules: {},
+        environmentsEnabled: { production: true }, // stale snapshot
+      };
+      const liveFeatureModel: RevisionFields = {
+        version: 5,
+        defaultValue: "false",
+        rules: {},
+        environmentsEnabled: { production: false }, // what's actually live
+      };
+      const revision: RevisionFields = {
+        version: 6,
+        defaultValue: "false",
+        rules: {},
+        environmentsEnabled: { production: true }, // draft wants it on
+      };
+      const result = autoMerge(
+        liveFeatureModel,
+        driftedBase,
+        revision,
+        ["production"],
+        {},
+      );
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.result.environmentsEnabled).toEqual({ production: true });
+      }
+    });
+
     it("includes metadata changes", () => {
       const revision: RevisionFields = {
         version: 4,
@@ -572,6 +611,50 @@ describe("autoMerge with new envelopes", () => {
         {},
       );
       expect(result.success).toBe(true);
+    });
+
+    // Drift-safety (diverged): the draft never moved an env (revVal === base),
+    // but the live feature model has since moved it (e.g. ops flipped a kill
+    // switch after the draft forked). Publishing must KEEP the live value and
+    // emit no env delta — never revert live from a stale draft snapshot. This is
+    // the diverged counterpart to the non-diverged fix, and it intentionally
+    // does NOT anchor to the draft, so a stale base can't re-enable a killed env.
+    it("keeps the live value when the draft did not touch an env that live moved", () => {
+      const liveMoved: RevisionFields = {
+        ...live,
+        environmentsEnabled: { production: false }, // live killed it post-fork
+      };
+      const revision: RevisionFields = {
+        version: 4,
+        defaultValue: "false",
+        rules: {},
+        environmentsEnabled: { production: true }, // unchanged from base (true)
+      };
+      const result = autoMerge(liveMoved, base, revision, ["production"], {});
+      expect(result.success).toBe(true);
+      if (result.success) {
+        // No env entry → computeRevisionMergeChanges leaves live (false) intact.
+        expect(result.result.environmentsEnabled).toBeUndefined();
+        expect(result.conflicts).toHaveLength(0);
+      }
+    });
+
+    it("emits no env delta when the draft already matches the live feature model", () => {
+      const liveMoved: RevisionFields = {
+        ...live,
+        environmentsEnabled: { production: false },
+      };
+      const revision: RevisionFields = {
+        version: 4,
+        defaultValue: "false",
+        rules: {},
+        environmentsEnabled: { production: false }, // same as live
+      };
+      const result = autoMerge(liveMoved, base, revision, ["production"], {});
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.result.environmentsEnabled).toBeUndefined();
+      }
     });
 
     it("applies non-conflicting metadata change", () => {
@@ -711,6 +794,7 @@ describe("mergeRevision with new envelopes", () => {
         tags: ["tag-x"],
         neverStale: true,
         valueType: "string",
+        baseConfig: "purchase-flow",
       },
     });
     const merged = mergeRevision(baseFeature, revision, []);
@@ -720,6 +804,7 @@ describe("mergeRevision with new envelopes", () => {
     expect(merged.tags).toEqual(["tag-x"]);
     expect(merged.neverStale).toBe(true);
     expect(merged.valueType).toBe("string");
+    expect(merged.baseConfig).toBe("purchase-flow");
   });
 
   it("does not override feature fields if envelope is not present in revision", () => {
@@ -816,6 +901,67 @@ describe("backward compatibility — old revisions without envelopes", () => {
 // ---------------------------------------------------------------------------
 // fillRevisionFromFeature
 // ---------------------------------------------------------------------------
+
+describe("reconcileMergeBaselines", () => {
+  // The core "keep in unison" property: even when a raw live revision snapshot
+  // disagrees with the feature document on an env (drift), the reconciled `live`
+  // baseline must reflect the feature model — otherwise raw-snapshot callers
+  // (auto-publish, safe rollout, experiments) diff against a stale value.
+  it("sources the live baseline env state from the feature model, not the raw snapshot", () => {
+    // baseFeature: production enabled=true, staging enabled=false.
+    const staleLive = makeRevision({
+      version: 3,
+      environmentsEnabled: { production: false, staging: false }, // drifted
+    });
+    const base = makeRevision({
+      version: 3,
+      environmentsEnabled: { production: false, staging: false },
+    });
+
+    const reconciled = reconcileMergeBaselines(baseFeature, staleLive, base);
+
+    // Feature model wins for the live baseline.
+    expect(reconciled.live.environmentsEnabled?.production).toBe(true);
+    expect(reconciled.live.environmentsEnabled?.staging).toBe(false);
+  });
+
+  it("feeds autoMerge a delta when the draft matches a stale base but differs from the feature model", () => {
+    // baseFeature has staging disabled. The stale snapshots claim it's already
+    // enabled, and the draft also enables it — so without reconciliation the
+    // draft === base and the toggle is swallowed.
+    const staleLive = makeRevision({
+      version: 3,
+      environmentsEnabled: { staging: true }, // drifted: model says false
+    });
+    const staleBase = makeRevision({
+      version: 3,
+      environmentsEnabled: { staging: true },
+    });
+    const revision = makeRevision({
+      version: 4,
+      environmentsEnabled: { staging: true },
+    });
+
+    const { live, base } = reconcileMergeBaselines(
+      baseFeature,
+      staleLive,
+      staleBase,
+    );
+    const result = autoMerge(
+      live,
+      base,
+      revision,
+      ["production", "staging"],
+      {},
+    );
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      // Without reconciliation this would be swallowed (draft === stale base).
+      expect(result.result.environmentsEnabled).toEqual({ staging: true });
+    }
+  });
+});
 
 describe("fillRevisionFromFeature", () => {
   it("backfills environmentsEnabled for environments not present in revision", () => {
@@ -997,6 +1143,41 @@ describe("fillRevisionFromFeature", () => {
   });
 });
 
+describe("getEffectiveRevisionHoldout", () => {
+  const featureHoldout = { id: "h-1", value: "feature-value" };
+
+  it("carries the feature's holdout forward when the revision predates the field", () => {
+    const feature: FeatureInterface = {
+      ...baseFeature,
+      holdout: featureHoldout,
+    };
+    expect(getEffectiveRevisionHoldout({}, feature)).toEqual(featureHoldout);
+  });
+
+  it("returns null for an explicit removal even when the feature has a holdout", () => {
+    const feature: FeatureInterface = {
+      ...baseFeature,
+      holdout: featureHoldout,
+    };
+    expect(getEffectiveRevisionHoldout({ holdout: null }, feature)).toBeNull();
+  });
+
+  it("prefers the revision's holdout over the feature's", () => {
+    const revisionHoldout = { id: "h-2", value: "revision-value" };
+    const feature: FeatureInterface = {
+      ...baseFeature,
+      holdout: featureHoldout,
+    };
+    expect(
+      getEffectiveRevisionHoldout({ holdout: revisionHoldout }, feature),
+    ).toEqual(revisionHoldout);
+  });
+
+  it("returns null when neither the revision nor the feature has a holdout", () => {
+    expect(getEffectiveRevisionHoldout({}, baseFeature)).toBeNull();
+  });
+});
+
 // ---------------------------------------------------------------------------
 // draftDiffersFromLive
 // ---------------------------------------------------------------------------
@@ -1043,6 +1224,19 @@ describe("draftDiffersFromLive", () => {
     const draft: RevisionFields = {
       ...liveRevision,
       environmentsEnabled: { production: false, staging: false },
+    };
+    expect(
+      draftDiffersFromLive(draft, liveRevision, feature, [
+        "production",
+        "staging",
+      ]),
+    ).toBe(true);
+  });
+
+  it("returns true when baseConfig (Config mode) differs", () => {
+    const draft: RevisionFields = {
+      ...liveRevision,
+      metadata: { baseConfig: "purchase-flow" },
     };
     expect(
       draftDiffersFromLive(draft, liveRevision, feature, [

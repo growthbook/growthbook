@@ -2,8 +2,8 @@ import {
   countries,
   getCountryFlagEmojiFromCountryCode,
 } from "country-codes-flags-phone-codes";
+import MultiSelectField, { MultiSelectFieldProps } from "@/ui/MultiSelectField";
 import SelectField, { SelectFieldProps } from "./SelectField";
-import MultiSelectField, { MultiSelectFieldProps } from "./MultiSelectField";
 
 export const ALL_COUNTRY_CODES = countries.map((country) => country.code);
 
@@ -35,6 +35,7 @@ export default function CountrySelector(props: CountrySelectorProps) {
   if (props.selectAmount === "single") {
     return (
       <SelectField
+        size="legacy"
         options={options}
         formatOptionLabel={formatOptionLabel}
         {...props}
@@ -43,6 +44,7 @@ export default function CountrySelector(props: CountrySelectorProps) {
   } else {
     return (
       <MultiSelectField
+        size="legacy"
         options={options}
         formatOptionLabel={formatOptionLabel}
         {...props}

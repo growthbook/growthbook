@@ -27,6 +27,7 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import {
   OrganizationSettings,
   RequireReview,
+  TargetingReviewRule,
   Environment,
   SDKAttributeSchema,
 } from "shared/types/organization";
@@ -194,11 +195,16 @@ export function mergeRevision(
     if (m.description !== undefined) newFeature.description = m.description;
     if (m.owner !== undefined) newFeature.owner = m.owner;
     if (m.project !== undefined) newFeature.project = m.project;
+    if (m.targetingAllProjects !== undefined)
+      newFeature.targetingAllProjects = m.targetingAllProjects;
+    if (m.targetingProjects !== undefined)
+      newFeature.targetingProjects = m.targetingProjects;
     if (m.tags !== undefined) newFeature.tags = m.tags;
     if (m.neverStale !== undefined) newFeature.neverStale = m.neverStale;
     if (m.customFields !== undefined)
       newFeature.customFields = m.customFields as Record<string, unknown>;
     if (m.jsonSchema !== undefined) newFeature.jsonSchema = m.jsonSchema;
+    if (m.baseConfig !== undefined) newFeature.baseConfig = m.baseConfig;
     // Use draft valueType for preview so rule/defaultValue validation is accurate
     if (m.valueType !== undefined) newFeature.valueType = m.valueType;
   }
@@ -1071,6 +1077,19 @@ export type RevisionFields = Pick<
   | "rampActions"
 >;
 
+// Resolves the holdout a revision will publish under. Revisions store holdout
+// sparsely: `undefined` (legacy revisions that predate the field) means
+// carry-forward from the live feature, while an explicit `null` means the
+// draft removes the holdout.
+export function getEffectiveRevisionHoldout(
+  revision: Pick<RevisionFields, "holdout">,
+  feature: FeatureInterface,
+): Exclude<RevisionFields["holdout"], undefined> {
+  return revision.holdout !== undefined
+    ? revision.holdout
+    : (feature.holdout ?? null);
+}
+
 // Per-field backfill for old/sparse revisions before passing to autoMerge.
 // Fields not listed here are left as-is; sparse absence is meaningful for those.
 const revisionFieldFillers: Partial<{
@@ -1089,11 +1108,16 @@ const revisionFieldFillers: Partial<{
     ),
     ...(current ?? {}),
   }),
-  // Backfill valueType for old revisions that predate this field.
-  metadata: (feature, current) =>
-    current?.valueType != null
-      ? current
-      : { ...current, valueType: feature.valueType },
+  // Backfill valueType + baseConfig for old revisions that predate these fields,
+  // so a legacy draft doesn't false-diff against the live baseline.
+  metadata: (feature, current) => {
+    let next = current;
+    if (next?.valueType === undefined)
+      next = { ...next, valueType: feature.valueType };
+    if (next?.baseConfig === undefined)
+      next = { ...next, baseConfig: feature.baseConfig ?? null };
+    return next;
+  },
   // Backfill envelope fields for legacy revisions that predate them. Without
   // this, revisionHasGlobalChange compares e.g. "false" !== undefined for
   // defaultValue and returns "all", bypassing env-scoped review checks even
@@ -1104,9 +1128,8 @@ const revisionFieldFillers: Partial<{
   // Backfill holdout from feature so that removing a holdout is detected as a change.
   // Without this, comparing draft.holdout (null) vs base.holdout (undefined → null)
   // would show no change when the feature actually has a holdout.
-  // Note: we check for undefined explicitly because null is a valid value (means removal).
   holdout: (feature, current) =>
-    current !== undefined ? current : (feature.holdout ?? null),
+    getEffectiveRevisionHoldout({ holdout: current }, feature),
 };
 
 // Backfills stale/missing fields on a revision before passing to autoMerge.
@@ -1155,6 +1178,7 @@ export function liveRevisionFromFeature(
       tags: feature.tags ?? [],
       jsonSchema: feature.jsonSchema,
       valueType: feature.valueType,
+      baseConfig: feature.baseConfig ?? null,
       ...(liveRevision.metadata ?? {}),
     },
   };
@@ -1184,6 +1208,22 @@ export function buildEffectiveDraft(
     ...("holdout" in draftRevision && {
       holdout: draftRevision.holdout,
     }),
+  };
+}
+
+// Reconciles a raw (live, base) revision pair against the live feature document
+// so every autoMerge caller compares against the same feature-model-anchored
+// baseline. Passing raw revision snapshots straight into autoMerge lets drift
+// between a snapshot and feature.environmentSettings/rules (e.g. from the legacy
+// v1/v2 write bridge) hide or invent changes, and leaves callers out of unison.
+export function reconcileMergeBaselines(
+  feature: FeatureInterface,
+  live: RevisionFields,
+  base: RevisionFields,
+): { live: RevisionFields; base: RevisionFields } {
+  return {
+    live: liveRevisionFromFeature(live, feature),
+    base: fillRevisionFromFeature(base, feature),
   };
 }
 
@@ -1479,9 +1519,14 @@ export function normalizeMetadataValue(
   k: keyof RevisionMetadata,
   v: RevisionMetadata[keyof RevisionMetadata],
 ): unknown {
-  if (k === "tags") return (v as string[] | null | undefined) ?? [];
+  if (k === "tags" || k === "targetingProjects")
+    return (v as string[] | null | undefined) ?? [];
+  if (k === "targetingAllProjects") return !!v;
   if (k === "description" || k === "owner" || k === "project")
     return (v as string | null | undefined) ?? "";
+  // Normalize unset/undefined to null so a non-config snapshot doesn't diff
+  // against an explicit null.
+  if (k === "baseConfig") return (v as string | null | undefined) ?? null;
   return v;
 }
 
@@ -1765,11 +1810,17 @@ export function autoMerge(
       result.rules = revRules;
     }
 
-    // environmentsEnabled
+    // environmentsEnabled — anchor to the live feature model, not the base
+    // snapshot. `base` and `live` share a version here, so they should match;
+    // when they drift (e.g. a legacy v1 REST write that updated the feature doc
+    // but not the revision), a stale base value that equals the draft would
+    // otherwise swallow a real toggle and report "no changes to publish".
+    // `live` is feature-model-sourced (liveRevisionFromFeature), matching
+    // draftDiffersFromLive so the dashboard and REST publish gates stay in unison.
     if (revision.environmentsEnabled) {
       for (const env of Object.keys(revision.environmentsEnabled)) {
         const revVal = revision.environmentsEnabled[env];
-        if (revVal !== base.environmentsEnabled?.[env]) {
+        if (revVal !== live.environmentsEnabled?.[env]) {
           result.environmentsEnabled = result.environmentsEnabled || {};
           result.environmentsEnabled[env] = revVal;
         }
@@ -2573,6 +2624,40 @@ export type ResetReviewOnChange = {
   defaultValueChanged: boolean;
   settings?: OrganizationSettings;
 };
+// Strict/loose review mode for one targeting project. Most-specific-wins; default strict.
+export function getTargetingReviewMode(
+  rules: TargetingReviewRule[] | undefined,
+  projectId: string,
+): "strict" | "loose" {
+  if (!rules?.length) return "strict";
+  const specific = rules.find((r) => r.projects.includes(projectId));
+  if (specific) return specific.mode;
+  const all = rules.find((r) => r.projects.length === 0);
+  return all ? all.mode : "strict";
+}
+
+// The projects an all-projects feature can be governed by: only those named in
+// a requireReviews rule can add a requirement beyond the primary. Lets us skip
+// enumerating every org project just to intersect it back down.
+function candidateReviewProjects(requireReviews: RequireReview[]): string[] {
+  return Array.from(new Set(requireReviews.flatMap((r) => r.projects))).filter(
+    Boolean,
+  );
+}
+
+// Projects whose review rules govern a change: primary + strict-mode targeting
+// projects (pass current+staged union so de-scoping is governed too).
+export function getGoverningReviewProjects(
+  primary: string | undefined,
+  targetingProjects: string[],
+  targetingReviewMode: TargetingReviewRule[] | undefined,
+): string[] {
+  const strict = targetingProjects.filter(
+    (p) => getTargetingReviewMode(targetingReviewMode, p) === "strict",
+  );
+  return Array.from(new Set([primary ?? "", ...strict]));
+}
+
 export function getReviewSetting(
   requireReviewSettings: RequireReview[],
   // Any project-scoped entity (features, and constants which mirror the feature
@@ -2628,15 +2713,19 @@ export function featureRequiresReview(
   ) {
     return !!requiresReviewSettings;
   }
-  const reviewSetting = getReviewSetting(requiresReviewSettings, feature);
-
-  if (!reviewSetting || !reviewSetting.requireReviewOn) {
-    return false;
-  }
-  if (defaultValueChanged) {
-    return true;
-  }
-  return checkEnvironmentsMatch(changedEnvironments, reviewSetting);
+  const targetingProjects = feature.targetingAllProjects
+    ? candidateReviewProjects(requiresReviewSettings)
+    : (feature.targetingProjects ?? []);
+  return getGoverningReviewProjects(
+    feature.project,
+    targetingProjects,
+    settings?.targetingReviewMode,
+  ).some((project) => {
+    const reviewSetting = getReviewSetting(requiresReviewSettings, { project });
+    if (!reviewSetting?.requireReviewOn) return false;
+    if (defaultValueChanged) return true;
+    return checkEnvironmentsMatch(changedEnvironments, reviewSetting);
+  });
 }
 
 // Constants are a drop-in for feature config and borrow the exact same
@@ -2726,6 +2815,79 @@ export function constantResetReviewOnChange(
   return (
     changedEnvironments.length > 0 &&
     checkEnvironmentsMatch(changedEnvironments, reviewSetting)
+  );
+}
+
+// Configs borrow the same `requireReviews` model as features/constants, with one
+// wrinkle: an env/project override "flavor" applies only to its scoped
+// environments, so a flavor's value change should require review only when one of
+// those environments is in the matched rule's scope — not unconditionally the way
+// a base config's value change (which applies to every environment, like a
+// feature's defaultValue) does. `flavorEnvironments` is the flavor's environment
+// scope (`scopedConfig.environments`) or null for a base config; an empty array is
+// a catch-all flavor and is treated as all-environments. These re-express a
+// flavor's value change as an environment change and defer to the constant
+// helpers (the single source of truth for the rule matching).
+function toEnvScopedChange(
+  change: {
+    valueChanged: boolean;
+    changedEnvironments: string[];
+    metadataOnly: boolean;
+  },
+  flavorEnvironments: string[] | null,
+): {
+  valueChanged: boolean;
+  changedEnvironments: string[];
+  metadataOnly: boolean;
+} {
+  if (
+    flavorEnvironments !== null &&
+    change.valueChanged &&
+    flavorEnvironments.length > 0
+  ) {
+    return {
+      valueChanged: false,
+      changedEnvironments: flavorEnvironments,
+      metadataOnly: change.metadataOnly,
+    };
+  }
+  return change;
+}
+
+export function configRequiresReview(
+  config: { project?: string },
+  change: {
+    valueChanged: boolean;
+    changedEnvironments: string[];
+    metadataOnly: boolean;
+  },
+  flavorEnvironments: string[] | null,
+  settings?: OrganizationSettings,
+): boolean {
+  return constantRequiresReview(
+    config,
+    toEnvScopedChange(change, flavorEnvironments),
+    settings,
+  );
+}
+
+export function configResetReviewOnChange(
+  config: { project?: string },
+  change: { valueChanged: boolean; changedEnvironments: string[] },
+  flavorEnvironments: string[] | null,
+  settings?: OrganizationSettings,
+): boolean {
+  const scoped = toEnvScopedChange(
+    { ...change, metadataOnly: false },
+    flavorEnvironments,
+  );
+  return constantResetReviewOnChange(
+    config,
+    {
+      valueChanged: scoped.valueChanged,
+      changedEnvironments: scoped.changedEnvironments,
+    },
+    settings,
   );
 }
 
@@ -2987,8 +3149,26 @@ export function checkIfRevisionNeedsReview({
   // Boolean format: true = all changes require review, false/undefined = none do.
   if (!Array.isArray(requireReviews)) return !!requireReviews;
 
-  const reviewSetting = getReviewSetting(requireReviews, feature);
-  if (!reviewSetting?.requireReviewOn) return false;
+  // Govern by primary + strict-mode targeting over the current+staged union (so
+  // adding and removing a project are both governed). All-projects (live or
+  // staged) uses the requireReviews-named projects instead of an explicit list.
+  const usesAllProjects =
+    !!feature.targetingAllProjects || !!revision.metadata?.targetingAllProjects;
+  const stagedTargeting =
+    revision.metadata?.targetingProjects ?? feature.targetingProjects ?? [];
+  const targetingUnion = usesAllProjects
+    ? candidateReviewProjects(requireReviews)
+    : Array.from(
+        new Set([...(feature.targetingProjects ?? []), ...stagedTargeting]),
+      );
+  const reviewSettings = getGoverningReviewProjects(
+    feature.project,
+    targetingUnion,
+    settings?.targetingReviewMode,
+  )
+    .map((project) => getReviewSetting(requireReviews, { project }))
+    .filter((rs): rs is RequireReview => !!rs?.requireReviewOn);
+  if (!reviewSettings.length) return false;
 
   const affected = getDraftAffectedEnvironments(
     revision,
@@ -2997,71 +3177,169 @@ export function checkIfRevisionNeedsReview({
     liveRampScheduleEnvs,
   );
 
-  if (affected === "all") {
-    // Metadata-only changes respect the featureRequireMetadataReview gate;
-    // all other global changes (prerequisites, archived, holdout, defaultValue) always require review.
-    if (!revisionHasMetadataOnlyGlobalChange(revision, baseRevision))
-      return true;
-    return reviewSetting.featureRequireMetadataReview !== false;
-  }
-  if (affected.length === 0) return false;
-
-  // Env-specific changes split into rules/values vs kill switches.
-  // Rules/values always require approval; kill switches only when
-  // `featureRequireEnvironmentReview` is true (default when unset).
-  // Project rules per-env to account for `allEnvironments` / `environments` scopes.
-  const revRulesAll = naiveFlattenV1Rules(revision.rules);
-  const baseRulesAll = naiveFlattenV1Rules(baseRevision.rules);
-  const envsWithRuleChanges = affected.filter((env) => {
-    const revRules = getRulesForEnvironment(revRulesAll, env).map(
-      normalizeRuleForDiff,
-    );
-    const baseRules = getRulesForEnvironment(baseRulesAll, env).map(
-      normalizeRuleForDiff,
-    );
-    return !isEqual(revRules, baseRules);
-  });
-  const envKillSwitchChanges = affected.filter(
-    (env) =>
-      revision.environmentsEnabled?.[env] !== undefined &&
-      revision.environmentsEnabled[env] !==
-        (baseRevision.environmentsEnabled?.[env] ?? false),
-  );
-
-  const gatedEnvs = reviewSetting.environments;
-
-  // Rules/values always gate
-  if (envsWithRuleChanges.length > 0) {
-    if (gatedEnvs.length === 0) return true;
-    if (envsWithRuleChanges.some((env) => gatedEnvs.includes(env))) return true;
-  }
-
-  // Kill switch changes only gate when featureRequireEnvironmentReview is enabled
-  if (
-    envKillSwitchChanges.length > 0 &&
-    reviewSetting.featureRequireEnvironmentReview !== false
-  ) {
-    if (gatedEnvs.length === 0) return true;
-    if (envKillSwitchChanges.some((env) => gatedEnvs.includes(env)))
-      return true;
-  }
-
-  // Ramp actions (create/update/detach) change how the feature is rolled out
-  // across environments. They are treated like rule changes and always require
-  // approval when any of the targeted environments are gated.
-  if ((revision.rampActions ?? []).length > 0) {
-    const rampEnvs = affected.filter(
+  // Classify the change once; it's independent of which review rule is evaluated.
+  const metadataOnlyGlobal =
+    affected === "all"
+      ? revisionHasMetadataOnlyGlobalChange(revision, baseRevision)
+      : false;
+  let envsWithRuleChanges: string[] = [];
+  let envKillSwitchChanges: string[] = [];
+  if (affected !== "all") {
+    // Env-specific changes split into rules/values vs kill switches.
+    // Rules/values always require approval; kill switches only when
+    // `featureRequireEnvironmentReview` is true (default when unset).
+    // Project rules per-env to account for `allEnvironments`/`environments` scopes.
+    const revRulesAll = naiveFlattenV1Rules(revision.rules);
+    const baseRulesAll = naiveFlattenV1Rules(baseRevision.rules);
+    envsWithRuleChanges = affected.filter((env) => {
+      const revRules = getRulesForEnvironment(revRulesAll, env).map(
+        normalizeRuleForDiff,
+      );
+      const baseRules = getRulesForEnvironment(baseRulesAll, env).map(
+        normalizeRuleForDiff,
+      );
+      return !isEqual(revRules, baseRules);
+    });
+    envKillSwitchChanges = affected.filter(
       (env) =>
-        !envsWithRuleChanges.includes(env) &&
-        !envKillSwitchChanges.includes(env),
+        revision.environmentsEnabled?.[env] !== undefined &&
+        revision.environmentsEnabled[env] !==
+          (baseRevision.environmentsEnabled?.[env] ?? false),
     );
-    if (rampEnvs.length > 0) {
-      if (gatedEnvs.length === 0) return true;
-      if (rampEnvs.some((env) => gatedEnvs.includes(env))) return true;
-    }
   }
 
-  return false;
+  const needsReviewForSetting = (reviewSetting: RequireReview): boolean => {
+    if (affected === "all") {
+      // Metadata-only changes respect the featureRequireMetadataReview gate; all
+      // other global changes (prerequisites, archived, holdout, defaultValue)
+      // always require review.
+      if (!metadataOnlyGlobal) return true;
+      return reviewSetting.featureRequireMetadataReview !== false;
+    }
+    if (affected.length === 0) return false;
+
+    const gatedEnvs = reviewSetting.environments;
+
+    // Rules/values always gate
+    if (envsWithRuleChanges.length > 0) {
+      if (gatedEnvs.length === 0) return true;
+      if (envsWithRuleChanges.some((env) => gatedEnvs.includes(env)))
+        return true;
+    }
+
+    // Kill switch changes only gate when featureRequireEnvironmentReview is enabled
+    if (
+      envKillSwitchChanges.length > 0 &&
+      reviewSetting.featureRequireEnvironmentReview !== false
+    ) {
+      if (gatedEnvs.length === 0) return true;
+      if (envKillSwitchChanges.some((env) => gatedEnvs.includes(env)))
+        return true;
+    }
+
+    // Ramp actions (create/update/detach) change how the feature is rolled out
+    // across environments. They are treated like rule changes and always require
+    // approval when any of the targeted environments are gated.
+    if ((revision.rampActions ?? []).length > 0) {
+      const rampEnvs = affected.filter(
+        (env) =>
+          !envsWithRuleChanges.includes(env) &&
+          !envKillSwitchChanges.includes(env),
+      );
+      if (rampEnvs.length > 0) {
+        if (gatedEnvs.length === 0) return true;
+        if (rampEnvs.some((env) => gatedEnvs.includes(env))) return true;
+      }
+    }
+
+    return false;
+  };
+
+  return reviewSettings.some(needsReviewForSetting);
+}
+
+// Entity pairing a single governance `project` with a secondary targeting scope.
+export type TargetingScopedEntity = {
+  project?: string;
+  targetingAllProjects?: boolean;
+  targetingProjects?: string[];
+};
+
+// Project ids an entity targets (primary + targeting, deduped); null = all projects.
+export function getTargetingProjectIds(
+  entity: TargetingScopedEntity,
+): string[] | null {
+  if (entity.targetingAllProjects) return null;
+  return Array.from(
+    new Set([entity.project ?? "", ...(entity.targetingProjects ?? [])]),
+  );
+}
+
+export function entityTargetsProject(
+  entity: TargetingScopedEntity,
+  projectId: string,
+): boolean {
+  if (entity.targetingAllProjects) return true;
+  if ((entity.project ?? "") === projectId) return true;
+  return (entity.targetingProjects ?? []).includes(projectId);
+}
+
+// Concrete project ids an entity delivers to, resolving "all projects" against
+// the org's full project list. Used where a discrete id set is required.
+export function resolveTargetingProjectIds(
+  entity: TargetingScopedEntity,
+  allProjectIds: string[],
+): string[] {
+  const ids = getTargetingProjectIds(entity);
+  if (ids === null) return allProjectIds;
+  return ids.filter((id) => !!id);
+}
+
+// Write-time normalization: drop blanks/dupes/the primary from the list; clear it when targeting all projects.
+export function normalizeTargetingProjects(entity: TargetingScopedEntity): {
+  targetingAllProjects: boolean;
+  targetingProjects: string[];
+} {
+  if (entity.targetingAllProjects) {
+    return { targetingAllProjects: true, targetingProjects: [] };
+  }
+  const primary = entity.project ?? "";
+  const targetingProjects = Array.from(
+    new Set((entity.targetingProjects ?? []).filter((p) => p && p !== primary)),
+  );
+  return { targetingAllProjects: false, targetingProjects };
+}
+
+// Normalize targeting fields in a partial update in place, resolving the primary
+// against the update's project when changing (else current) so it's stripped correctly.
+export function normalizeTargetingInUpdates(
+  updates: TargetingScopedEntity,
+  current: TargetingScopedEntity,
+): void {
+  const hasAll = "targetingAllProjects" in updates;
+  const hasList = "targetingProjects" in updates;
+  if (!hasAll && !hasList) return;
+  const norm = normalizeTargetingProjects({
+    project: "project" in updates ? updates.project : current.project,
+    targetingAllProjects: hasAll
+      ? updates.targetingAllProjects
+      : current.targetingAllProjects,
+    targetingProjects: hasList
+      ? updates.targetingProjects
+      : current.targetingProjects,
+  });
+  if (hasAll) updates.targetingAllProjects = norm.targetingAllProjects;
+  if (hasList) updates.targetingProjects = norm.targetingProjects;
+  // Keep the invariant that all-projects implies no explicit list: a partial
+  // update turning all-projects on (without also sending the list) must clear
+  // any stale stored list rather than leave it behind.
+  if (
+    norm.targetingAllProjects &&
+    !hasList &&
+    (current.targetingProjects?.length ?? 0) > 0
+  ) {
+    updates.targetingProjects = [];
+  }
 }
 
 export function filterProjectsByEnvironment(
@@ -3106,7 +3384,12 @@ export function featureHasEnvironment(
   feature: FeatureInterface,
   environment: Environment,
 ): boolean {
-  const featureProjects = feature.project ? [feature.project] : [];
+  // Allowed envs = union across every project the feature delivers to (all when targeting all projects).
+  if (feature.targetingAllProjects) return true;
+  const featureProjects = [
+    feature.project,
+    ...(feature.targetingProjects ?? []),
+  ].filter((p): p is string => !!p);
   if (featureProjects.length === 0) return true;
   const filteredProjects = filterProjectsByEnvironment(
     featureProjects,
@@ -3168,11 +3451,49 @@ export function getDisallowedProjects(
   );
 }
 
-export function simpleToJSONSchema(simple: SimpleSchema): string {
-  const getValue = (
-    value: string,
-    field: SchemaField,
-  ): string | number | boolean => {
+// Codify a single SimpleSchema field into its JSON Schema subschema (type +
+// description + default + enum + min/max constraints + nullability). This is the
+// per-field half of `simpleToJSONSchema`, exported so editors can faithfully
+// seed a raw JSON Schema from simple-mode preferences. `nullable` is baked into
+// the subschema here (widening the type to include `"null"`); `required` is a
+// composition concern the parent object handles.
+export function simpleSchemaFieldToJSONSchema(
+  field: SchemaField,
+): Record<string, unknown> {
+  // A raw per-field schema (config-only) supersedes the simple type. Emit it
+  // directly so object/array/nullable/advanced fields compile faithfully (the
+  // simple-type path below can't represent them). Layer on the simple-mode
+  // description/default only when the raw schema omits them.
+  if (field.jsonSchema !== undefined) {
+    try {
+      const raw = JSON.parse(field.jsonSchema);
+      if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+        const merged = { ...(raw as Record<string, unknown>) };
+        if (field.description && merged.description === undefined) {
+          merged.description = field.description;
+        }
+        if (field.default && merged.default === undefined) {
+          merged.default = field.default;
+        }
+        // A bare nullable preset (e.g. {"type":["object","null"]}) is reduced by
+        // normalizeField to a raw schema + the `nullable` flag, so re-apply the
+        // flag here — otherwise the compiled schema drops `null` and rejects a
+        // legitimate null value (and every export re-emits it non-nullable).
+        if (
+          field.nullable &&
+          typeof merged.type === "string" &&
+          merged.type !== "null"
+        ) {
+          merged.type = [merged.type, "null"];
+        }
+        return merged;
+      }
+    } catch {
+      // Malformed raw schema — fall back to the simple-type compilation.
+    }
+  }
+
+  const getValue = (value: string): string | number | boolean => {
     const type = field.type;
     // Validation
     if (field.type !== "boolean") {
@@ -3180,23 +3501,23 @@ export function simpleToJSONSchema(simple: SimpleSchema): string {
         throw new Error(`Value '${value}' not in enum for field ${field.key}`);
       }
       if (field.type === "string" && !field.enum.length) {
-        if (value.length < field.min) {
+        if (field.min !== undefined && value.length < field.min) {
           throw new Error(
             `Value '${value}' is shorter than min length for field ${field.key}`,
           );
         }
-        if (value.length > field.max) {
+        if (field.max !== undefined && value.length > field.max) {
           throw new Error(
             `Value '${value}' is longer than max length for field ${field.key}`,
           );
         }
       } else if (!field.enum.length) {
-        if (parseFloat(value) < field.min) {
+        if (field.min !== undefined && parseFloat(value) < field.min) {
           throw new Error(
             `Value '${value}' is less than min value for field ${field.key}`,
           );
         }
-        if (parseFloat(value) > field.max) {
+        if (field.max !== undefined && parseFloat(value) > field.max) {
           throw new Error(
             `Value '${value}' is greater than max value for field ${field.key}`,
           );
@@ -3216,41 +3537,62 @@ export function simpleToJSONSchema(simple: SimpleSchema): string {
     else return value !== "false";
   };
 
-  const fields = simple.fields.map((f) => {
-    const schema: Record<string, unknown> = {
-      type: ["float", "integer"].includes(f.type) ? "number" : f.type,
-    };
+  const baseType = ["float", "integer"].includes(field.type)
+    ? "number"
+    : field.type;
+  const schema: Record<string, unknown> = {
+    // A nullable field widens the type to a `T | null` union.
+    type: field.nullable ? [baseType, "null"] : baseType,
+  };
 
-    if (f.description) schema.description = f.description;
+  if (field.description) schema.description = field.description;
 
-    if (f.default) schema.default = getValue(f.default, f);
+  if (field.default) schema.default = getValue(field.default);
 
-    if (f.type !== "boolean" && f.enum.length) {
-      schema.enum = f.enum.map((v) => getValue(v, f));
-    }
-    if (!schema.enum) {
-      if (f.type === "string") {
-        schema.minLength = f.min;
-        schema.maxLength = f.max;
-        if (f.max < f.min || f.min < 0) {
-          throw new Error(`Invalid min or max for field ${f.key}`);
-        }
-      } else if (f.type === "float" || f.type === "integer") {
-        schema.minimum = f.min;
-        schema.maximum = f.max;
+  if (field.type !== "boolean" && field.enum.length) {
+    // A nullable enum must also admit null — the type union allows it, so the
+    // enum has to list it too or null would fail validation.
+    schema.enum = [
+      ...field.enum.map((v) => getValue(v)),
+      ...(field.nullable ? [null] : []),
+    ];
+  }
+  // Integer markers apply with or without an enum — dropping them on an enum
+  // field would re-import `{type:"number", enum:[1,2]}` as a float.
+  if (field.type === "integer") {
+    schema.multipleOf = 1;
+    schema.format = "number";
+  }
+  if (!schema.enum) {
+    // Bounds are optional — emit only when set.
+    const { min, max } = field;
+    if (field.type === "string") {
+      if (min !== undefined) schema.minLength = min;
+      if (max !== undefined) schema.maxLength = max;
+      if (
+        (min !== undefined && min < 0) ||
+        (min !== undefined && max !== undefined && max < min)
+      ) {
+        throw new Error(`Invalid min or max for field ${field.key}`);
+      }
+    } else if (field.type === "float" || field.type === "integer") {
+      if (min !== undefined) schema.minimum = min;
+      if (max !== undefined) schema.maximum = max;
 
-        if (f.type === "integer") {
-          schema.multipleOf = 1;
-          schema.format = "number";
-        }
-
-        if (f.max < f.min) {
-          throw new Error(`Invalid min or max for field ${f.key}`);
-        }
+      if (min !== undefined && max !== undefined && max < min) {
+        throw new Error(`Invalid min or max for field ${field.key}`);
       }
     }
-    return { key: f.key, required: f.required, schema };
-  });
+  }
+  return schema;
+}
+
+export function simpleToJSONSchema(simple: SimpleSchema): string {
+  const fields = simple.fields.map((f) => ({
+    key: f.key,
+    required: f.required,
+    schema: simpleSchemaFieldToJSONSchema(f),
+  }));
   if (fields.length === 0) {
     throw new Error("Schema must have at least 1 field");
   }
@@ -3270,7 +3612,7 @@ export function simpleToJSONSchema(simple: SimpleSchema): string {
           },
           {} as Record<string, unknown>,
         ),
-        additionalProperties: false,
+        additionalProperties: simple.additionalProperties ?? false,
       });
     case "object[]":
       if (fields.some((f) => !f.key)) {
@@ -3288,7 +3630,7 @@ export function simpleToJSONSchema(simple: SimpleSchema): string {
             },
             {} as Record<string, unknown>,
           ),
-          additionalProperties: false,
+          additionalProperties: simple.additionalProperties ?? false,
         },
       });
     case "primitive[]":

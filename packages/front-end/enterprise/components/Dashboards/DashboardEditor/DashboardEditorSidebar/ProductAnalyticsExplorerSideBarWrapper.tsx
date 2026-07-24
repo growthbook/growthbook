@@ -5,6 +5,7 @@ import {
   MetricExplorationBlockInterface,
   FactTableExplorationBlockInterface,
   DataSourceExplorationBlockInterface,
+  FunnelExplorationBlockInterface,
   getEffectiveExplorationConfig,
   restoreBlockLocalDateControls,
 } from "shared/enterprise";
@@ -26,12 +27,14 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
     | MetricExplorationBlockInterface
     | FactTableExplorationBlockInterface
     | DataSourceExplorationBlockInterface
+    | FunnelExplorationBlockInterface
   >;
   setBlock: React.Dispatch<
     DashboardBlockInterfaceOrData<
       | MetricExplorationBlockInterface
       | FactTableExplorationBlockInterface
       | DataSourceExplorationBlockInterface
+      | FunnelExplorationBlockInterface
     >
   >;
   dashboardGlobalControls?: DashboardInterface["globalControls"];
@@ -99,9 +102,11 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
       : nextDraftConfig;
     const shouldInvalidateResults =
       needsFetch && invalidateStaleResults && Boolean(explorerAnalysisId);
+    const comparisonChanged =
+      needsUpdate && !isEqual(block.comparison, nextComparison);
     if (
       (needsUpdate && !isEqual(block.config, nextConfig)) ||
-      !isEqual(block.comparison, nextComparison) ||
+      comparisonChanged ||
       shouldInvalidateResults
     ) {
       setBlock({
@@ -118,7 +123,8 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
       } as
         | MetricExplorationBlockInterface
         | FactTableExplorationBlockInterface
-        | DataSourceExplorationBlockInterface);
+        | DataSourceExplorationBlockInterface
+        | FunnelExplorationBlockInterface);
     }
   }, [
     needsFetch,

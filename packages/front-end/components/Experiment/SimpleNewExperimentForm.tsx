@@ -3,12 +3,12 @@ import { useForm } from "react-hook-form";
 import { useRouter } from "next/router";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import {
-  DataSourceInterfaceWithParams,
-  DataSourceSettings,
-} from "shared/types/datasource";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { getEqualWeights } from "shared/experiments";
-import { isProjectListValidForProject } from "shared/util";
+import {
+  getManagedWarehouseExposureQueryIdForAttribute,
+  isProjectListValidForProject,
+} from "shared/util";
 import { Flex } from "@radix-ui/themes";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
@@ -89,14 +89,15 @@ export function getAutoDatasourceId({
 
 // Auto-select an experiment assignment query only when the choice is unambiguous.
 export function getAutoExposureQueryId({
-  dsSettings,
+  datasource,
   hashAttribute,
   templateExposureQueryId,
 }: {
-  dsSettings?: DataSourceSettings;
+  datasource?: DataSourceInterfaceWithParams;
   hashAttribute: string;
   templateExposureQueryId?: string;
 }): string {
+  const dsSettings = datasource?.settings;
   const exposureQueries = dsSettings?.queries?.exposure || [];
 
   if (templateExposureQueryId) {
@@ -107,6 +108,17 @@ export function getAutoExposureQueryId({
   }
 
   if (exposureQueries.length === 1) return exposureQueries[0].id;
+
+  // Managed warehouses don't populate userIdType.attributes links, so the generic
+  // lookup below can't resolve the assignment query. Map the hash attribute to its
+  // exposure query directly instead.
+  if (datasource?.type === "growthbook_clickhouse") {
+    return getManagedWarehouseExposureQueryIdForAttribute({
+      settings: datasource.settings,
+      attribute: hashAttribute,
+    });
+  }
+
   if (exposureQueries.length > 1) {
     // A hash attribute can be linked to multiple identifier types, each with
     // its own query. Only auto-select when exactly one query is linked across
@@ -146,7 +158,8 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
     mutateTemplates: refreshTemplates,
   } = useTemplates();
   const { experimentsMap, holdoutsMap } = useHoldouts();
-  const { demoDataSourceId } = useDemoDataSourceProject();
+  const { demoDataSourceId, projectId: demoProjectId } =
+    useDemoDataSourceProject();
   const { data: sdkConnectionsData, isLoading: sdkConnectionsLoading } =
     useSDKConnections();
 
@@ -176,6 +189,8 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
   });
 
   const selectedProject = form.watch("project") ?? "";
+  const creatingInDemoProject =
+    !!demoProjectId && selectedProject === demoProjectId;
 
   // Re-scope the live options to the selected project
   const attributeSchema = useAttributeSchema(false, selectedProject);
@@ -277,7 +292,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
   ).some((t) => t.attributes?.includes(watchedHashAttribute));
   const wouldAutoSelectExposureQuery =
     getAutoExposureQueryId({
-      dsSettings: autoDatasource?.settings,
+      datasource: autoDatasource ?? undefined,
       hashAttribute: watchedHashAttribute,
       templateExposureQueryId: watchedTemplate?.exposureQueryId,
     }) !== "";
@@ -349,17 +364,18 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
     );
     const hashVersion = hasSDKWithNoBucketingV2 ? 1 : 2;
 
-    const datasource = getAutoDatasourceId({
+    const datasourceId = getAutoDatasourceId({
       datasources,
       demoDataSourceId,
       defaultDataSource: settings.defaultDataSource,
       project,
       templateDatasource: data.datasource || "",
     });
+    const selectedDatasource = datasourceId
+      ? getDatasourceById(datasourceId)
+      : null;
     const exposureQueryId = getAutoExposureQueryId({
-      dsSettings: datasource
-        ? getDatasourceById(datasource)?.settings
-        : undefined,
+      datasource: selectedDatasource ?? undefined,
       hashAttribute: hashAttribute || "",
       templateExposureQueryId: data.exposureQueryId || "",
     });
@@ -373,7 +389,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
       hypothesis: rawValue.hypothesis || "",
       hashAttribute,
       hashVersion,
-      datasource,
+      datasource: datasourceId,
       exposureQueryId,
       templateId: rawValue.templateId || "",
       holdoutId: rawValue.holdoutId || undefined,
@@ -445,6 +461,11 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
           >
             Other experiment configuration steps now live on the experiment
             overview page.
+          </Callout>
+        )}
+        {creatingInDemoProject && (
+          <Callout status="warning">
+            You are creating an experiment in the Sample Data Project.
           </Callout>
         )}
         <SDKCapabilityWarning

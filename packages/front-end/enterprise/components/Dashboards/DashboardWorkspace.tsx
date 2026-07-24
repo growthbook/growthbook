@@ -6,7 +6,6 @@ import {
   DashboardBlockInterface,
   DashboardBlockType,
   CREATE_BLOCK_TYPE,
-  dashboardBlockHasIds,
   getBlockData,
   getInitialConfigByBlockType,
   DASHBOARD_GRID_COLS,
@@ -38,6 +37,7 @@ import { useExploreData } from "@/enterprise/components/ProductAnalytics/useExpl
 import DashboardEditor, {
   DASHBOARD_TOPBAR_HEIGHT,
   GENERAL_DASHBOARD_BLOCK_TYPES,
+  getGridKeyForBlock,
   isBlockTypeAllowed,
 } from "./DashboardEditor";
 import { SubmitDashboard, UpdateDashboardArgs } from "./DashboardsTab";
@@ -326,7 +326,8 @@ export default function DashboardWorkspace({
     const isExplorationBlock =
       bType === "metric-exploration" ||
       bType === "fact-table-exploration" ||
-      bType === "data-source-exploration";
+      bType === "data-source-exploration" ||
+      bType === "funnel-exploration";
     // TypeScript can't correlate block type with its config in a discriminated union
     const createBlock = CREATE_BLOCK_TYPE[bType] as (args: {
       experiment: ExperimentInterfaceStringDates;
@@ -585,9 +586,8 @@ export default function DashboardWorkspace({
                     return;
                   const byId = new Map(layouts.map((l) => [l.i, l] as const));
                   let changed = false;
-                  const next = blocks.map((b) => {
-                    if (!dashboardBlockHasIds(b)) return b;
-                    const l = byId.get(b.id);
+                  const next = blocks.map((b, index) => {
+                    const l = byId.get(getGridKeyForBlock(b, index));
                     if (!l) return b;
                     const w = Math.min(l.w, DASHBOARD_GRID_COLS);
                     const h = Math.max(1, l.h);

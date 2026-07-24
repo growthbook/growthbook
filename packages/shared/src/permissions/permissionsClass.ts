@@ -29,11 +29,16 @@ import { IdeaInterface } from "shared/types/idea";
 import { ArchetypeInterface } from "shared/types/archetype";
 import { SavedGroupInterface } from "shared/types/saved-group";
 import { ConstantInterface } from "shared/types/constant";
+import { ConfigInterface } from "shared/types/config";
 import { CustomHookInterface } from "../validators/custom-hooks";
 import { ContextualBanditInterface } from "../validators/contextual-bandit";
 import { EventForwarderConfigInterface } from "../validators/event-forwarder-config";
 import { HoldoutInterface } from "../validators/holdout";
-import { PermissionError } from "../util/";
+import {
+  PermissionError,
+  getTargetingProjectIds,
+  TargetingScopedEntity,
+} from "../util/";
 import { READ_ONLY_PERMISSIONS } from "./permissions.constants";
 
 type NotificationEvent = {
@@ -954,6 +959,8 @@ export class Permissions {
   public canReviewFeatureDrafts = (
     feature: Pick<FeatureInterface, "project">,
   ): boolean => {
+    // Reviewer eligibility follows the primary project only. Targeting projects
+    // affect whether a review is required, never who may approve.
     return this.checkProjectFilterPermission(
       { projects: feature.project ? [feature.project] : [] },
       "canReview",
@@ -1400,6 +1407,35 @@ export class Permissions {
     );
   };
 
+  public canCreateConfig = (
+    config: Pick<ConfigInterface, "project">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: config.project ? [config.project] : [] },
+      "manageConfigs",
+    );
+  };
+
+  public canUpdateConfig = (
+    existing: Pick<ConfigInterface, "project">,
+    updated: Pick<ConfigInterface, "project">,
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      { projects: existing.project ? [existing.project] : [] },
+      "project" in updated ? { projects: [updated.project || ""] } : {},
+      "manageConfigs",
+    );
+  };
+
+  public canDeleteConfig = (
+    config: Pick<ConfigInterface, "project">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: config.project ? [config.project] : [] },
+      "manageConfigs",
+    );
+  };
+
   public canBypassSavedGroupSizeLimit = (projects?: string[]): boolean => {
     return this.checkProjectFilterPermission(
       { projects },
@@ -1510,6 +1546,12 @@ export class Permissions {
     return this.canUpdateFeature(feature, {});
   };
 
+  public canManageExperimentCustomHooks = (
+    experiment: Pick<ExperimentInterface, "project">,
+  ): boolean => {
+    return this.canUpdateExperiment(experiment, {});
+  };
+
   public canCreateEventForwarderConfig = (
     config: Pick<EventForwarderConfigInterface, "projects">,
   ): boolean => {
@@ -1584,6 +1626,17 @@ export class Permissions {
 
     // Otherwise, check if they have read access for atleast 1 of the resource's projects
     return projects.some((p) => this.hasPermission("readData", p));
+  };
+
+  // Targeting-scoped READ: readable via the governance project OR any targeting
+  // project (or all). Widens read/discovery only; governance/write keys on `project`.
+  public canReadTargetingScopedResource = (
+    entity: TargetingScopedEntity,
+  ): boolean => {
+    // null (all projects) maps to the empty-array "all" convention.
+    return this.canReadMultiProjectResource(
+      getTargetingProjectIds(entity) ?? [],
+    );
   };
 
   public canManageCustomRoles = (): boolean => {

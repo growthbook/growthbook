@@ -36,7 +36,7 @@ const designImageSchema = z.object({
 
 const bodySchema = z
   .object({
-    prompt: z.string().min(1).max(2000),
+    prompt: z.string().min(1).max(8000),
     variationId: z.string(),
     visualChangesetId: z.string(),
     // CSS selector of the element the user picked as the injection point.

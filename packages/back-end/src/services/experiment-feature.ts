@@ -8,6 +8,7 @@ import {
   liveRevisionFromFeature,
   MatchingRule,
   mergeResultHasChanges,
+  reconcileMergeBaselines,
   resetReviewOnChange,
   checkIfRevisionNeedsReview,
 } from "shared/util";
@@ -45,6 +46,7 @@ import {
   getLiveAndBaseRevisionsForFeature,
   getLiveRevisionForFeature,
 } from "back-end/src/services/features";
+import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
 
 export type ExperimentFeatureUpdatePlan = {
   feature: FeatureInterface;
@@ -163,6 +165,27 @@ export async function updateExperimentRefVariations({
   user: EventUser;
   orgSettings?: OrganizationSettings;
 }): Promise<FeatureRevisionInterface> {
+  // Experiment-served values must satisfy the backing Config's schema +
+  // invariants, the same as a direct feature publish — enforced here at
+  // variation-save time. Covers standard experiments and multi-armed bandits
+  // (a MAB is an experiment whose linked-feature rule is an ordinary
+  // experiment-ref). Respects skipSchemaValidation / blockPublishOnSchemaError /
+  // ignoreWarnings via the shared validator; a no-op unless the feature is
+  // config-backed JSON.
+  const seenRuleIds = new Set<string>();
+  const rulesToValidate: FeatureRule[] = [];
+  for (const { rule } of matchingRules) {
+    if (seenRuleIds.has(rule.id)) continue;
+    seenRuleIds.add(rule.id);
+    rulesToValidate.push({
+      ...rule,
+      variations: updatedVariationValues,
+    } as ExperimentRefRule);
+  }
+  await assertConfigBackedFeatureValuesValid(context, feature, {
+    rules: rulesToValidate,
+  });
+
   const changedEnvironments = matchingRules.map((m) => m.environmentId);
   const resetReview = resetReviewOnChange({
     feature,
@@ -739,7 +762,18 @@ export async function publishPendingFeatureDraftsForContextualBandit(
       feature,
       revision,
     });
-    const mergeResult = autoMerge(live, base, revision, orgEnvIds, {});
+    const { live: mergeLive, base: mergeBase } = reconcileMergeBaselines(
+      feature,
+      live,
+      base,
+    );
+    const mergeResult = autoMerge(
+      mergeLive,
+      mergeBase,
+      revision,
+      orgEnvIds,
+      {},
+    );
     if (!mergeResult.success) {
       logger.warn(
         {

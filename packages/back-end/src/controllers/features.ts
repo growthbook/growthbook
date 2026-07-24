@@ -27,10 +27,14 @@ import {
   mergeRevision,
   liveRevisionFromFeature,
   fillRevisionFromFeature,
+  reconcileMergeBaselines,
   getReviewSetting,
+  normalizeTargetingProjects,
+  normalizeTargetingInUpdates,
   namespacesToMap,
   pruneOrphanedRampActions,
   assertSchemaMatchesValueType,
+  getEffectiveRevisionHoldout,
 } from "shared/util";
 import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
 import {
@@ -90,7 +94,7 @@ import {
   deleteFeature,
   editFeatureRule,
   getAllFeatures,
-  getAllFeaturesForStaleGraph,
+  getAllFeaturesWithoutEditorFields,
   getFeature,
   getFeaturesByIds,
   getFeatureMetaInfoById,
@@ -109,6 +113,7 @@ import { generateId } from "back-end/src/util/uuid";
 import {
   addIdsToFlatRules,
   addIdsToRules,
+  assertFeatureDeletable,
   evaluateAllFeatures,
   evaluateFeature,
   FeatureDefinitionSDKPayload,
@@ -122,6 +127,13 @@ import {
   assertCanAutoPublish,
   revisionRequiresReview,
 } from "back-end/src/services/features";
+import {
+  linkExperimentToHoldout,
+  resolveHoldoutExperimentToLink,
+} from "back-end/src/services/holdouts";
+import { assertFeatureArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
+import { getResolvableValues } from "back-end/src/services/resolvableValues";
+import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import {
   moveFlatRule,
@@ -208,7 +220,10 @@ import { getAllCodeRefsForFeature } from "back-end/src/models/FeatureCodeRefs";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { getGrowthbookDatasource } from "back-end/src/models/DataSourceModel";
 import { getChangesToStartExperiment } from "back-end/src/services/experiments";
-import { approveScheduledExperimentStart } from "back-end/src/services/experimentChanges/changeExperimentStatus";
+import {
+  approveScheduledExperimentStart,
+  validateExperimentChange,
+} from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import {
   formatPendingDraftFailureMessage,
   PendingDraftPublishResult,
@@ -739,6 +754,11 @@ export async function postFeatures(
   if (otherProps.project) {
     await context.models.projects.ensureProjectsExist([otherProps.project]);
   }
+  const createTargetingProjects = (otherProps as Partial<FeatureInterface>)
+    .targetingProjects;
+  if (createTargetingProjects?.length) {
+    await context.models.projects.ensureProjectsExist(createTargetingProjects);
+  }
 
   await validateCustomFieldsForSection({
     customFieldValues: customFields,
@@ -775,6 +795,7 @@ export async function postFeatures(
     holdout: holdout?.id ? holdout : undefined,
     jsonSchema: initialJsonSchema,
   };
+  Object.assign(feature, normalizeTargetingProjects(feature));
 
   const allEnvironments = getEnvironments(org);
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
@@ -2130,6 +2151,22 @@ export async function postFeaturePublish(
     }
   }
 
+  for (const { experiment, changes } of experimentsToUpdate) {
+    await validateExperimentChange({ context, experiment, changes });
+  }
+
+  for (const experiment of experimentsToApproveSchedule) {
+    const startAt = experiment.statusUpdateSchedule?.startAt
+      ? getValidDate(experiment.statusUpdateSchedule.startAt)
+      : null;
+    if (!startAt) continue;
+    await validateExperimentChange({
+      context,
+      experiment,
+      changes: { nextScheduledStatusUpdate: { type: "start", date: startAt } },
+    });
+  }
+
   const updatedFeature = await publishRevision({
     context,
     feature,
@@ -2385,6 +2422,20 @@ export async function postFeatureRevert(
     }
     if (m.project !== undefined && m.project !== (feature.project ?? "")) {
       metadataChanges.project = m.project;
+      hasMetadataChanges = true;
+    }
+    if (
+      m.targetingAllProjects !== undefined &&
+      m.targetingAllProjects !== (feature.targetingAllProjects ?? false)
+    ) {
+      metadataChanges.targetingAllProjects = m.targetingAllProjects;
+      hasMetadataChanges = true;
+    }
+    if (
+      m.targetingProjects !== undefined &&
+      !isEqual(m.targetingProjects, feature.targetingProjects ?? [])
+    ) {
+      metadataChanges.targetingProjects = m.targetingProjects;
       hasMetadataChanges = true;
     }
     if (m.tags !== undefined && !isEqual(m.tags, feature.tags ?? [])) {
@@ -2890,45 +2941,31 @@ export async function postFeatureRule(
     rule.safeRolloutId = generateId("sr_");
   }
 
+  const revision = await getDraftRevision(context, feature, parseInt(version));
+
+  const effectiveHoldout = getEffectiveRevisionHoldout(revision, feature);
+
   // Add holdout to existing experiment and experiment to holdout linkedExperiments
   // if the experiment is not running and has no linked implementations for
   // experiment-ref rules (writes deferred until after custom-hook prevalidation)
   let holdoutExperimentToLink: ExperimentInterface | null = null;
-  if (rule.type === "experiment-ref" && feature.holdout?.id) {
+  if (rule.type === "experiment-ref") {
     const experiment = await getExperimentById(context, rule.experimentId);
-
-    if (experiment?.status !== "draft") {
-      throw new Error(
-        `Cannot add experiment rule: this feature uses a holdout, so the experiment must be in "draft" status (currently "${experiment?.status ?? "unknown"}").`,
-      );
+    // With a holdout in play the experiment must exist; without one, a missing
+    // experiment is left for downstream validation (preserves prior behavior).
+    if (effectiveHoldout?.id && !experiment) {
+      throw new Error(`Could not find experiment "${rule.experimentId}"`);
     }
-    const expHasLinkedChanges =
-      (experiment.linkedFeatures?.length ?? 0) > 0 ||
-      experiment.hasURLRedirects ||
-      experiment.hasVisualChangesets;
-    if (expHasLinkedChanges) {
-      throw new Error(
-        `Cannot add experiment rule: this feature uses a holdout, but the experiment already has linked features, URL redirects, or visual changesets. Unlink them first.`,
-      );
-    }
-    if (experiment.holdoutId && experiment.holdoutId !== feature.holdout.id) {
-      const featureHoldout = await context.models.holdout.getById(
-        feature.holdout.id,
-      );
-      const expHoldout = experiment.holdoutId
-        ? await context.models.holdout.getById(experiment.holdoutId)
-        : null;
-      throw new Error(
-        `Cannot add experiment rule: experiment belongs to holdout "${expHoldout?.name || experiment.holdoutId}" but this feature uses holdout "${featureHoldout?.name || feature.holdout.id}".`,
-      );
-    }
-
-    if (!experiment.holdoutId) {
-      holdoutExperimentToLink = experiment;
+    if (experiment) {
+      holdoutExperimentToLink = await resolveHoldoutExperimentToLink({
+        context,
+        feature,
+        experiment,
+        effectiveHoldout,
+      });
     }
   }
 
-  const revision = await getDraftRevision(context, feature, parseInt(version));
   const resetReview = resetReviewOnChange({
     feature,
     changedEnvironments: selectedEnvironments,
@@ -3021,6 +3058,15 @@ export async function postFeatureRule(
           allEnvironments: true,
         } as FeatureRule)
       : stampRuleForEnvs(rule, selectedEnvironments);
+  // Mirror the env-scope invariant for project scope: an all-projects rule
+  // carries no explicit list, so cleanup can't later empty it into "all".
+  if (stampedRule.allProjects === true) {
+    delete (stampedRule as { projects?: string[] }).projects;
+  }
+  const ruleScopeProjects = (stampedRule as { projects?: string[] }).projects;
+  if (ruleScopeProjects?.length) {
+    await context.models.projects.ensureProjectsExist(ruleScopeProjects);
+  }
   const ruleAdditionChanges = {
     rules: [...existingRules, stampedRule],
   };
@@ -3037,6 +3083,14 @@ export async function postFeatureRule(
     );
     combinedChanges.rampActions = [...filtered, rampActionsUpdate];
   }
+
+  // A config-backed rule value must satisfy the backing Config's schema +
+  // invariants, the same as a REST publish. Validate only the newly added rule
+  // so a pre-existing violation elsewhere can't block this edit. No-op unless
+  // the feature is config-backed JSON.
+  await assertConfigBackedFeatureValuesValid(context, feature, {
+    rules: [stampedRule],
+  });
 
   // Run custom hooks before the side-effect writes below so a rejection doesn't orphan them
   await prevalidateRevisionUpdate(
@@ -3074,24 +3128,19 @@ export async function postFeatureRule(
     }
   }
 
-  if (holdoutExperimentToLink && feature.holdout?.id) {
-    await updateExperiment({
-      context,
-      experiment: holdoutExperimentToLink,
-      changes: {
-        holdoutId: feature.holdout.id,
-      },
-    });
-    const holdout = await context.models.holdout.getById(feature.holdout.id);
-    await context.models.holdout.updateById(feature.holdout.id, {
-      linkedExperiments: {
-        ...holdout?.linkedExperiments,
-        [holdoutExperimentToLink.id]: {
-          id: holdoutExperimentToLink.id,
-          dateAdded: new Date(),
-        },
-      },
-    });
+  // TODO(holdouts): remove code below (which makes this endpoint consistent with API routes)
+  // and instead only link when the holdout and experiment go live
+  if (holdoutExperimentToLink && effectiveHoldout?.id) {
+    // Link now only when the validated holdout is already live. A draft-only
+    // holdout defers to publish — applyHoldoutSideEffects enrolls the
+    // experiments in the merged rules when the holdout change lands.
+    if (feature.holdout?.id === effectiveHoldout.id) {
+      await linkExperimentToHoldout(
+        context,
+        holdoutExperimentToLink,
+        effectiveHoldout.id,
+      );
+    }
   }
 
   const auditSubject =
@@ -3420,13 +3469,33 @@ export async function postFeatureExperimentRefRule(
     context.permissions.throwPermissionError();
   }
 
+  // Experiment/MAB-served values must satisfy the backing Config's schema +
+  // invariants, the same as a REST publish. No-op unless the feature is
+  // config-backed JSON.
+  await assertConfigBackedFeatureValuesValid(context, feature, {
+    rules: [scopedRule],
+  });
+
   // autoPublish always starts from live so the merge stays clean.
   const targetVersion = autoPublish
     ? feature.version
     : forceNewDraft
       ? feature.version
       : (draftVersion ?? feature.version);
+
   const revision = await getDraftRevision(context, feature, targetVersion);
+
+  // If posting to a different revision, use the holdout from that revision
+  // to check compatibility
+  const effectiveHoldout = getEffectiveRevisionHoldout(revision, feature);
+
+  const holdoutExperimentToLink = await resolveHoldoutExperimentToLink({
+    context,
+    feature,
+    experiment,
+    effectiveHoldout,
+    allowExistingLinkToThisFeature: true,
+  });
 
   // One-way: any rule-footprint env that's currently off flips on. We never
   // turn envs off here.
@@ -3503,7 +3572,18 @@ export async function postFeatureExperimentRefRule(
       revision: updatedRevision,
     });
     const orgEnvIds = environments;
-    const mergeResult = autoMerge(live, base, updatedRevision, orgEnvIds, {});
+    const { live: mergeLive, base: mergeBase } = reconcileMergeBaselines(
+      feature,
+      live,
+      base,
+    );
+    const mergeResult = autoMerge(
+      mergeLive,
+      mergeBase,
+      updatedRevision,
+      orgEnvIds,
+      {},
+    );
     if (!mergeResult.success) {
       throw new Error(
         `Unable to auto-publish: please resolve conflicts on draft #${updatedRevision.version} before publishing.`,
@@ -3545,6 +3625,21 @@ export async function postFeatureExperimentRefRule(
     feature.id,
     experiment,
   );
+
+  // TODO(holdouts): remove code below (which makes this endpoint consistent with API routes)
+  // and instead only link when the holdout and experiment go live
+  if (holdoutExperimentToLink && effectiveHoldout?.id) {
+    // Link now only when the validated holdout is already live. A draft-only
+    // holdout defers to publish — applyHoldoutSideEffects enrolls the
+    // experiments in the merged rules when the holdout change lands.
+    if (feature.holdout?.id === effectiveHoldout.id) {
+      await linkExperimentToHoldout(
+        context,
+        holdoutExperimentToLink,
+        effectiveHoldout.id,
+      );
+    }
+  }
 
   res.status(200).json({
     status: 200,
@@ -3634,6 +3729,13 @@ export async function postFeatureContextualBanditRefRule(
     context.permissions.throwPermissionError();
   }
 
+  // Contextual-bandit-served values must satisfy the backing Config's schema +
+  // invariants, the same as a REST publish. No-op unless the feature is
+  // config-backed JSON.
+  await assertConfigBackedFeatureValuesValid(context, feature, {
+    rules: [scopedRule],
+  });
+
   const targetVersion = autoPublish
     ? feature.version
     : forceNewDraft
@@ -3710,7 +3812,18 @@ export async function postFeatureContextualBanditRefRule(
       revision: updatedRevision,
     });
     const orgEnvIds = environments;
-    const mergeResult = autoMerge(live, base, updatedRevision, orgEnvIds, {});
+    const { live: mergeLive, base: mergeBase } = reconcileMergeBaselines(
+      feature,
+      live,
+      base,
+    );
+    const mergeResult = autoMerge(
+      mergeLive,
+      mergeBase,
+      updatedRevision,
+      orgEnvIds,
+      {},
+    );
     if (!mergeResult.success) {
       throw new Error(
         `Unable to auto-publish: please resolve conflicts on draft #${updatedRevision.version} before publishing.`,
@@ -4366,20 +4479,40 @@ export async function putFeatureRule(
     // "clear" removes any pending ramp action for this rule without adding a new one
   }
 
-  // Drop stale `environments` when merge produces `allEnvironments: true`.
+  // Drop stale `environments`/`projects` when merge produces an all-* scope.
   const { rules: nextRules } = updateRuleById(existingRules, ruleId, (e) => {
-    const merged = {
+    let merged = {
       ...e,
       ...(rule as Partial<FeatureRule>),
     } as FeatureRule;
     if (merged.allEnvironments === true) {
-      return {
+      merged = {
         ...omit(merged, ["environments"]),
         allEnvironments: true,
       } as FeatureRule;
     }
+    if (merged.allProjects === true) {
+      merged = omit(merged, ["projects"]) as FeatureRule;
+    }
     return merged;
   });
+
+  // A config-backed rule value (incl. running-experiment / bandit variations
+  // edited from the feature) must satisfy the backing Config's schema +
+  // invariants, the same as a REST publish. Validate only the edited rule so a
+  // pre-existing violation elsewhere can't block this edit. No-op unless the
+  // feature is config-backed JSON.
+  const ruleToValidate = nextRules.find((r) => r.id === ruleId);
+  if (ruleToValidate) {
+    const ruleScopeProjects = (ruleToValidate as { projects?: string[] })
+      .projects;
+    if (ruleScopeProjects?.length) {
+      await context.models.projects.ensureProjectsExist(ruleScopeProjects);
+    }
+    await assertConfigBackedFeatureValuesValid(context, feature, {
+      rules: [ruleToValidate],
+    });
+  }
 
   const combinedChanges: Record<string, unknown> = { rules: nextRules };
   if (rampSchedulePayload?.mode === "clear") {
@@ -4947,8 +5080,13 @@ export async function putFeature(
   if (updates.project && feature.project !== updates.project) {
     await context.models.projects.ensureProjectsExist([updates.project]);
   }
+  if (updates.targetingProjects?.length) {
+    await context.models.projects.ensureProjectsExist(
+      updates.targetingProjects,
+    );
+  }
 
-  // Changing the project can affect SDK payload visibility; require publish permission in both old and new project
+  // Changing the project can affect SDK payload targeting; require publish permission in both old and new project
   if ("project" in updates) {
     if (
       !context.permissions.canPublishFeature(
@@ -4968,6 +5106,8 @@ export async function putFeature(
     "tags",
     "description",
     "project",
+    "targetingAllProjects",
+    "targetingProjects",
     "owner",
     "customFields",
     "holdout",
@@ -5002,6 +5142,8 @@ export async function putFeature(
     "tags",
     "description",
     "project",
+    "targetingAllProjects",
+    "targetingProjects",
     "owner",
     "customFields",
   ];
@@ -5010,6 +5152,7 @@ export async function putFeature(
       metadataKeys.includes(k as keyof FeatureInterface),
     ),
   ) as Partial<FeatureInterface>;
+  normalizeTargetingInUpdates(metadataUpdates, feature);
   const holdoutUpdate = "holdout" in updates ? updates.holdout : undefined;
 
   if (Object.keys(metadataUpdates).length > 0 || holdoutUpdate !== undefined) {
@@ -5027,6 +5170,12 @@ export async function putFeature(
         }),
         ...(metadataUpdates.project !== undefined && {
           project: metadataUpdates.project,
+        }),
+        ...(metadataUpdates.targetingAllProjects !== undefined && {
+          targetingAllProjects: metadataUpdates.targetingAllProjects,
+        }),
+        ...(metadataUpdates.targetingProjects !== undefined && {
+          targetingProjects: metadataUpdates.targetingProjects,
         }),
         ...(metadataUpdates.tags !== undefined && {
           tags: metadataUpdates.tags,
@@ -5051,6 +5200,8 @@ export async function putFeature(
         tags: "tags",
         owner: "owner",
         project: "project",
+        targetingAllProjects: "Targeting Projects",
+        targetingProjects: "Targeting Projects",
         customFields: "custom fields",
         holdout: "holdout",
       };
@@ -5135,6 +5286,9 @@ export async function deleteFeatureById(
     if (!context.permissions.canDeleteFeature(feature)) {
       context.permissions.throwPermissionError();
     }
+    // Reference integrity: deleting a feature that other live features gate on
+    // as a prerequisite dangles their gate and drops them from the SDK payload.
+    await assertFeatureDeletable(context, feature.id);
     if (feature.holdout?.id) {
       try {
         await context.models.holdout.removeFeatureFromHoldout(
@@ -5211,7 +5365,7 @@ export async function postFeatureEvaluate(
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const safeRolloutMap =
     await context.models.safeRollout.getAllPayloadSafeRollouts();
-  const constants = await context.models.constants.getAll();
+  const constants = await getResolvableValues(context);
   const results = evaluateFeature({
     feature,
     revision,
@@ -5348,6 +5502,13 @@ export async function postFeatureArchive(
 
   if (autoPublish) {
     await assertCanAutoPublish(context, feature, draft);
+    // Soft-warn (bypassable by ignoreWarnings) when auto-publishing an archive of
+    // a feature that live features/experiments still gate on as a prerequisite.
+    // Mirrors the postFeatureRevisionPublish choke point; only the archive
+    // transition is guarded.
+    if (newArchivedState === true && !feature.archived) {
+      await assertFeatureArchiveDependentsGuard(context, feature);
+    }
     const updatedFeature = await publishRevision({
       context,
       feature,
@@ -6699,7 +6860,7 @@ export async function getFeaturesStaleStates(
     : undefined;
 
   const [allFeatures, allExperiments, draftRevisions] = await Promise.all([
-    getAllFeaturesForStaleGraph(context),
+    getAllFeaturesWithoutEditorFields(context),
     getAllExperimentsForStaleGraph(context),
     getRevisionsByStatus(context as ReqContext, [...ACTIVE_DRAFT_STATUSES], {
       sparse: true,
@@ -6815,7 +6976,7 @@ export async function getFeaturesDependents(
   const allEnvIds = getEnvironments(context.org).map((e) => e.id);
 
   const [allFeatures, allExperiments] = await Promise.all([
-    getAllFeaturesForStaleGraph(context, { includeArchived: true }),
+    getAllFeaturesWithoutEditorFields(context, { includeArchived: true }),
     getAllExperimentsForStaleGraph(context, { includeArchived: true }),
   ]);
 

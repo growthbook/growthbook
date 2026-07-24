@@ -25,14 +25,15 @@ import {
 } from "back-end/src/services/organizations";
 import {
   createExperiment,
-  deleteExperimentByIdForOrganization,
   getAllExperiments,
   getExperimentById,
   getExperimentsByIds,
   hasArchivedExperiments,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
+import { deleteHoldoutAndExperiment } from "back-end/src/services/holdouts";
 import {
+  assertNoLinkedHoldoutExperiments,
   getFeature,
   getFeaturesByIds,
   removeHoldoutFromFeature,
@@ -45,6 +46,8 @@ import {
   validateVariationIds,
 } from "back-end/src/services/experiments";
 import { auditDetailsCreate } from "back-end/src/services/audit";
+import { SoftWarningError } from "back-end/src/util/errors";
+import { validateExperimentChange } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { PrivateApiErrorResponse } from "back-end/types/api";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/holdouts";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
@@ -288,6 +291,7 @@ export const createHoldout = async (
       holdout: holdout,
     });
   } catch (e) {
+    if (e instanceof SoftWarningError) throw e;
     res.status(400).json({
       status: 400,
       message: e.message,
@@ -505,14 +509,12 @@ export const editStatus = async (
     if (phases[1]) {
       phases[1].dateEnded = new Date();
     }
-    // set the status to stopped for the experiment
+    Object.assign(changes, { phases, status: "stopped" });
+    await validateExperimentChange({ context, experiment, changes });
     await updateExperiment({
       context,
       experiment,
-      changes: {
-        phases,
-        status: "stopped",
-      },
+      changes,
     });
     // Clear next scheduled status update
     await context.models.holdout.update(holdout, {
@@ -539,6 +541,7 @@ export const editStatus = async (
       experiment,
     );
     Object.assign(changes, additionalChanges);
+    await validateExperimentChange({ context, experiment, changes });
     await updateExperiment({
       context,
       experiment,
@@ -606,10 +609,12 @@ export const editStatus = async (
         analysisStartDate: undefined,
       });
     }
+    Object.assign(changes, { phases, status: "running" });
+    await validateExperimentChange({ context, experiment, changes });
     await updateExperiment({
       context,
       experiment,
-      changes: { phases, status: "running" },
+      changes,
     });
 
     queueSDKPayloadRefresh({
@@ -627,10 +632,12 @@ export const editStatus = async (
   } else if (req.body.status === "draft") {
     // set the status to draft for the experiment
     phases[0].dateEnded = undefined;
+    Object.assign(changes, { phases: [phases[0]], status: "draft" });
+    await validateExperimentChange({ context, experiment, changes });
     await updateExperiment({
       context,
       experiment,
-      changes: { phases: [phases[0]], status: "draft" },
+      changes,
     });
     await context.models.holdout.update(holdout, {
       analysisStartDate: undefined,
@@ -691,45 +698,7 @@ export const deleteHoldout = async (
     context.permissions.throwPermissionError();
   }
 
-  await deleteExperimentByIdForOrganization(context, experiment);
-
-  // Remove holdout from linked features and linked experiments
-  const linkedFeatureIds = Object.keys(holdout.linkedFeatures);
-  const linkedExperimentIds = Object.keys(holdout.linkedExperiments);
-  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
-  const linkedExperiments = await getExperimentsByIds(
-    context,
-    linkedExperimentIds,
-  );
-
-  // Remove holdout links from linked features and experiments
-  await Promise.all(
-    linkedFeatures.map((f) => removeHoldoutFromFeature(context, f)),
-  );
-  await Promise.all(
-    linkedExperiments.map((e) =>
-      updateExperiment({
-        context,
-        experiment: e,
-        changes: { holdoutId: "" },
-      }),
-    ),
-  );
-
-  await context.models.holdout.delete(holdout);
-
-  queueSDKPayloadRefresh({
-    context,
-    payloadKeys: getAffectedSDKPayloadKeys(
-      holdout,
-      getEnvironmentIdsFromOrg(context.org),
-    ),
-    auditContext: {
-      event: "deleted",
-      model: "holdout",
-      id: holdout.id,
-    },
-  });
+  await deleteHoldoutAndExperiment(context, holdout, experiment);
 
   return res.status(200).json({ status: 200 });
 };
@@ -768,6 +737,12 @@ export const deleteHoldoutFeature = async (
   ) {
     context.permissions.throwPermissionError();
   }
+
+  // Same invariant as the revision-based removal path: don't strip the holdout
+  // off a feature while a linked experiment still belongs to it, or the
+  // experiment would be left held-out with no feature gating it. Detach the
+  // experiment (remove its rule, or remove it from the holdout) first.
+  await assertNoLinkedHoldoutExperiments(context, holdout.id, feature.rules);
 
   await removeHoldoutFromFeature(context, feature);
 

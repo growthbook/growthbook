@@ -29,6 +29,9 @@ import {
 import RuleEnvironmentScopeField, {
   type EnvScopeProps,
 } from "@/components/Features/RuleModal/EnvironmentScopeField";
+import RuleProjectScopeField, {
+  type ProjectScopeProps,
+} from "@/components/Features/RuleModal/ProjectScopeField";
 import Callout from "@/ui/Callout";
 
 export default function SafeRolloutFields({
@@ -44,6 +47,7 @@ export default function SafeRolloutFields({
   setScheduleToggleEnabled,
   scheduleToggleEnabled,
   envScope,
+  projectScope,
   onRuleCyclicChange,
 }: {
   feature: FeatureInterface;
@@ -58,6 +62,7 @@ export default function SafeRolloutFields({
   mode: "create" | "edit" | "duplicate";
   isDraft: boolean;
   envScope: EnvScopeProps;
+  projectScope: ProjectScopeProps;
   onRuleCyclicChange?: (result: RuleCyclicResult) => void;
 }) {
   const form = useFormContext();
@@ -158,6 +163,7 @@ export default function SafeRolloutFields({
     return (
       <>
         <SelectField
+          size="legacy"
           withRadixThemedPortal
           disabled={disableFields}
           label="Sample based on attribute"
@@ -219,6 +225,7 @@ export default function SafeRolloutFields({
         <div className="bg-highlight rounded p-3 mb-4">
           <div className="mb-3 pb-1">
             <SelectField
+              size="legacy"
               label="Data source"
               className="portal-overflow-ellipsis"
               options={datasources.map((d) => {
@@ -250,6 +257,7 @@ export default function SafeRolloutFields({
           </div>
           <div className="pb-1">
             <SelectField
+              size="legacy"
               label="Experiment assignment table"
               className="portal-overflow-ellipsis"
               options={exposureQueries.map((q) => ({
@@ -457,6 +465,7 @@ export default function SafeRolloutFields({
         placeholder="Short human-readable description of the safe rollout"
       />
       <RuleEnvironmentScopeField {...envScope} mt="2" mb="7" />
+      <RuleProjectScopeField {...projectScope} mb="7" />
       {renderVariationFieldSelector()}
       {renderDataAndMetrics()}
       <ScheduleInputs

@@ -70,6 +70,7 @@ import {
   BanditResult,
   ExperimentAnalysisSummary,
   ExperimentAnalysisSummaryResultsStatus,
+  ApiVariationInput,
   GoalMetricResult,
   SafeRolloutInterface,
   postExperimentValidator,
@@ -2113,15 +2114,21 @@ export function fillEmptyVariationKeys(
   }
 }
 
-export function validateVariationIds(variations: Variation[]) {
+export function validateVariationIds(
+  variations: Partial<Pick<ApiVariationInput, "id" | "variationId" | "key">>[],
+) {
   variations.forEach((variation, i) => {
     if (!variation.id) {
-      variation.id = uniqid("var_");
+      variation.id = variation.variationId || uniqid("var_");
     }
     if (!variation.key) {
       variation.key = i + "";
     }
   });
+  const ids = variations.map((v) => v.id);
+  if (ids.length !== new Set(ids).size) {
+    throw new Error("Variation IDs must be unique.");
+  }
   const keys = variations.map((v) => v.key);
   if (keys.length !== new Set(keys).size) {
     throw new Error("Variation keys must be unique");
@@ -4459,7 +4466,10 @@ export function postExperimentApiPayloadToInterface(
   organization: OrganizationInterface,
   datasource: DataSourceInterface | null,
 ): Omit<ExperimentInterface, "dateCreated" | "dateUpdated" | "id"> {
-  const variationIds = payload.variations.map(() => generateVariationId());
+  const variationIds = payload.variations.map(
+    (variation) =>
+      variation.id || variation.variationId || generateVariationId(),
+  );
 
   const toPhaseVariations = (variationIds: string[]) =>
     variationIds.map((id) => ({ id, status: "active" as const }));

@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import uniqid from "uniqid";
 import omit from "lodash/omit";
 import {
   checkIfRevisionNeedsReview,
@@ -46,7 +47,10 @@ import { getEnvironments } from "back-end/src/util/organization.util";
 import { logger } from "back-end/src/util/logger";
 import { syncFeatureExperimentLinkages } from "back-end/src/util/featureExperimentSync";
 import { syncFeatureContextualBanditLinkages } from "back-end/src/util/featureContextualBanditSync";
-import { createWithVersionRetry } from "back-end/src/util/mongo.util";
+import {
+  createWithVersionRetry,
+  isDuplicateKeyErrorForIndex,
+} from "back-end/src/util/mongo.util";
 import { runValidateFeatureRevisionHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import {
   migrateRampScheduleEndCondition,
@@ -54,6 +58,17 @@ import {
 } from "./RampScheduleModel";
 
 export type ReviewSubmittedType = "Comment" | "Approved" | "Requested Changes";
+
+/** Shared prefix for every feature revision id (minted and legacy-tuple). */
+export const FEATURE_REVISION_ID_PREFIX = "frev_";
+
+/**
+ * Whether an id is a feature revision id (vs a generic `rev_…` revision id) —
+ * the shape check the REST publish handler uses to route to the right model.
+ */
+export function isFeatureRevisionId(id: string): boolean {
+  return id.startsWith(FEATURE_REVISION_ID_PREFIX);
+}
 
 // Read-time migration: old docs stored contributors as EventUser objects;
 // new docs store plain user-ID strings. Normalize to string[] so callers
@@ -75,6 +90,12 @@ function migrateContributors(raw: unknown[] | undefined): string[] | undefined {
 }
 
 const featureRevisionSchema = new mongoose.Schema({
+  // Minted (`frev_<uniqid>`) and stored at creation for new docs. Legacy docs
+  // instead expose a computed tuple form (`frev_<version>_<featureId>`, see
+  // featureRevisionId), persisted opportunistically on publish writes —
+  // deterministic, so their identity never changes as it materializes. The
+  // two shapes cannot collide (uniqid suffixes contain no underscores).
+  id: String,
   organization: String,
   featureId: String,
   createdBy: {},
@@ -121,6 +142,8 @@ const featureRevisionSchema = new mongoose.Schema({
   scheduledPublishBypassApproval: Boolean,
   scheduledPublishAttempts: Number,
   scheduledPublishLastError: String,
+  scheduledPublishNextAttemptAt: Date,
+  scheduledPublishGaveUpAt: Date,
   log: [
     {
       _id: false,
@@ -139,6 +162,16 @@ const PUBLISH_LOCK_OTHERS_INDEX = "uniqueArmedPublishLockOthers";
 featureRevisionSchema.index(
   { organization: 1, featureId: 1, version: 1 },
   { unique: true },
+);
+// Non-unique + partial (id-bearing docs only): a lookup-speed index for the
+// by-id resolver. Nothing relies on the DB enforcing id-uniqueness — minted
+// ids come from uniqid and the real identity guarantee is the (organization,
+// featureId, version) triplet above. A unique index would risk a build-time
+// collision on legacy `id: null` docs and is heavier to build, for a guard
+// uniqid makes moot. Legacy docs (no stored id) resolve via the tuple decode.
+featureRevisionSchema.index(
+  { organization: 1, id: 1 },
+  { partialFilterExpression: { id: { $exists: true } } },
 );
 featureRevisionSchema.index({ organization: 1, status: 1 });
 // Sparse: only scheduled revisions carry scheduledPublishAt, so the cross-org
@@ -161,6 +194,13 @@ featureRevisionSchema.index(
 
 type FeatureRevisionDocument = mongoose.Document & FeatureRevisionInterface;
 
+// Mint a fresh id for new docs at creation (bulk writes like insertMany skip
+// save middleware — those docs are legacy-shaped and the computed tuple id
+// covers them).
+featureRevisionSchema.pre("save", function () {
+  if (!this.id) this.id = uniqid(FEATURE_REVISION_ID_PREFIX);
+});
+
 const FeatureRevisionModel = mongoose.model<FeatureRevisionInterface>(
   "FeatureRevision",
   featureRevisionSchema,
@@ -170,7 +210,10 @@ const FeatureRevisionModel = mongoose.model<FeatureRevisionInterface>(
 // to apply env applicability filtering and rule-env inheritance expansion.
 export type RevisionFeatureContext = Pick<
   FeatureInterface,
-  "project" | "environmentSettings"
+  | "project"
+  | "environmentSettings"
+  | "targetingProjects"
+  | "targetingAllProjects"
 >;
 
 /**
@@ -190,6 +233,12 @@ export function buildFeatureRevisionInterface(
   feature?: RevisionFeatureContext,
 ): FeatureRevisionInterface {
   const revision = { ...raw };
+
+  // Computed identity — a pure projection of the immutable natural key, so
+  // every revision has it regardless of what's on disk.
+  if (!revision.id) {
+    revision.id = featureRevisionId(revision.featureId, revision.version);
+  }
 
   // These fields are new, so backfill them for old revisions
   if (revision.publishedBy && !revision.publishedBy.type) {
@@ -212,7 +261,9 @@ export function buildFeatureRevisionInterface(
   }
 
   const orgEnvs = getEnvironments(context.org);
-  const applicableEnvs = getApplicableEnvIds(orgEnvs, feature?.project);
+  // Union of the feature's primary + targeting projects, so a rule authored in
+  // an environment reachable only via a targeting project isn't scrubbed here.
+  const applicableEnvs = getApplicableEnvIds(orgEnvs, feature);
   const applicableSet = new Set(applicableEnvs);
   // Mirrors `migrateRawFeatureToV2`'s v2 inheritance gating: a child env with
   // an explicit `environmentSettings` entry is treated as customized and does
@@ -282,6 +333,42 @@ export function buildFeatureRevisionInterface(
   );
 
   return revision;
+}
+
+/**
+ * The LEGACY-doc revision id: a deterministic projection of the immutable
+ * natural key (version-first so parsing is unambiguous even though feature
+ * ids may contain underscores). Remains valid forever for old docs and
+ * resolves by decoding back onto the (organization, featureId, version) index.
+ */
+export function featureRevisionId(featureId: string, version: number): string {
+  return `${FEATURE_REVISION_ID_PREFIX}${version}_${featureId}`;
+}
+
+/**
+ * Decode a tuple-shaped (legacy) feature revision id; null when the shape
+ * doesn't match — including for minted `frev_<uniqid>` ids, whose suffixes
+ * contain no underscores and therefore never parse as tuples. Resolve those
+ * via findFeatureRevisionCoordinatesByRevisionId instead.
+ */
+export function parseFeatureRevisionId(
+  id: string,
+): { featureId: string; version: number } | null {
+  const match = id.match(/^frev_(\d+)_(.+)$/);
+  if (!match) return null;
+  return { featureId: match[2], version: parseInt(match[1], 10) };
+}
+
+/** Resolve a stored (minted) revision id to its lookup coordinates. */
+export async function findFeatureRevisionCoordinatesByRevisionId(
+  organization: string,
+  revisionId: string,
+): Promise<{ featureId: string; version: number } | null> {
+  const doc = await FeatureRevisionModel.findOne(
+    { organization, id: revisionId },
+    { featureId: 1, version: 1 },
+  ).lean();
+  return doc ? { featureId: doc.featureId, version: doc.version } : null;
 }
 
 // Mongoose wrapper over `buildFeatureRevisionInterface`.
@@ -788,11 +875,14 @@ export async function createInitialRevision(
       description: feature.description,
       owner: feature.owner,
       project: feature.project,
+      targetingAllProjects: feature.targetingAllProjects,
+      targetingProjects: feature.targetingProjects,
       tags: feature.tags,
       neverStale: feature.neverStale,
       customFields: feature.customFields,
       jsonSchema: feature.jsonSchema,
       valueType: feature.valueType,
+      baseConfig: feature.baseConfig ?? null,
     },
   });
 
@@ -889,11 +979,14 @@ export async function createRevision({
     description: feature.description,
     owner: feature.owner,
     project: feature.project,
+    targetingAllProjects: feature.targetingAllProjects,
+    targetingProjects: feature.targetingProjects,
     tags: feature.tags,
     neverStale: feature.neverStale,
     customFields: feature.customFields,
     jsonSchema: feature.jsonSchema,
     valueType: feature.valueType,
+    baseConfig: feature.baseConfig ?? null,
   };
   // Always store a complete snapshot. Partial changes (e.g. { neverStale: true })
   // are merged on top so other metadata fields aren't silently dropped.
@@ -1255,6 +1348,9 @@ export function computeRevisionPublishChanges(
     datePublished: new Date(),
     dateUpdated: new Date(),
     comment: revision.comment ? revision.comment : comment,
+    // Opportunistic disk sync of the computed tuple id for legacy docs
+    // (deterministic — see the schema comment); no-op for minted docs.
+    ...(revision.id ? { id: revision.id } : {}),
   };
 }
 
@@ -1312,6 +1408,149 @@ export async function markRevisionAsPublished(
       logger.error(e, "Error creating revisionlog");
     });
 
+  await dispatchRevisionPublishedHook(context, revision);
+}
+
+/**
+ * Bulk-publish claim: a guarded, side-effect-free publish transition. Guards
+ * on the plan-time baseline (status + dateUpdated), so any outside change
+ * since planning aborts before any live write. Hooks already ran at plan
+ * time; the revision log entry and published-hook dispatch are deferred to
+ * emitFeatureRevisionPublishedSideEffects.
+ */
+export async function claimFeatureRevisionAsPublished(
+  revision: FeatureRevisionInterface,
+  user: EventUser,
+  expected: { status: string; dateUpdated: Date },
+  comment?: string,
+): Promise<{ claimed: boolean; claimStamp: Date | null }> {
+  const changes = computeRevisionPublishChanges(revision, user, comment);
+  const outcome = await casUpdate(
+    {
+      organization: revision.organization,
+      featureId: revision.featureId,
+      version: revision.version,
+    },
+    // dateCreated rides along so the fallback below is actually fetched
+    // (casUpdate projects guardFields only); it's immutable, so guarding on
+    // it is a no-op for the write filter.
+    ["status", "dateUpdated", "dateCreated"],
+    (current) => {
+      if (
+        current.status !== expected.status ||
+        (current.dateUpdated ?? current.dateCreated)?.getTime() !==
+          expected.dateUpdated.getTime()
+      ) {
+        return null;
+      }
+      return {
+        $set: { ...changes, autoPublishOnApproval: false },
+        $unset: { ...SCHEDULED_PUBLISH_UNSET, autoPublishEnabledBy: 1 },
+      };
+    },
+  );
+  // The claim's datePublished is its fingerprint: compensation restores the
+  // revision only while the doc still carries THIS claim's stamp, so a
+  // concurrent legitimate publish (which re-stamps its own datePublished)
+  // can't be reverted by our rollback.
+  return {
+    claimed: outcome === "applied",
+    claimStamp: outcome === "applied" ? (changes.datePublished ?? null) : null,
+  };
+}
+
+/**
+ * Compensation for a failed bulk publish: put a claimed revision back to its
+ * pre-claim state (status, publish stamps, schedule, arming). Guarded on the
+ * claimed "published" status so it can't clobber an unrelated later change.
+ */
+// Returns whether the revision was actually reopened. It is NOT when the
+// claimStamp fingerprint no longer matches (a concurrent legitimate publish
+// re-stamped it) — the revision stays published under that other publish, and
+// the caller must treat this no-op as a failed release so the item is reported
+// stuck-published rather than a clean rollback.
+export async function restoreFeatureRevisionAfterFailedBulkPublish(
+  original: FeatureRevisionInterface,
+  claimStamp: Date | null,
+): Promise<boolean> {
+  const filter = {
+    organization: original.organization,
+    featureId: original.featureId,
+    version: original.version,
+    status: "published" as const,
+    // The claim's fingerprint: a concurrent legitimate publish re-stamps
+    // datePublished, making this rollback a no-op instead of reverting it.
+    ...(claimStamp ? { datePublished: claimStamp } : {}),
+  };
+  const update = (withLockOthers: boolean) => ({
+    $set: {
+      status: original.status,
+      publishedBy: original.publishedBy ?? null,
+      datePublished: original.datePublished ?? null,
+      comment: original.comment ?? null,
+      ...(original.dateUpdated ? { dateUpdated: original.dateUpdated } : {}),
+      autoPublishOnApproval: !!original.autoPublishOnApproval,
+      ...(original.autoPublishEnabledBy
+        ? { autoPublishEnabledBy: original.autoPublishEnabledBy }
+        : {}),
+      ...(original.scheduledPublishAt
+        ? {
+            scheduledPublishAt: original.scheduledPublishAt,
+            scheduledPublishLockEdits: original.scheduledPublishLockEdits,
+            scheduledPublishLockOthers:
+              withLockOthers && original.scheduledPublishLockOthers,
+            scheduledPublishBypassApproval:
+              original.scheduledPublishBypassApproval,
+          }
+        : {}),
+      ...(original.scheduledPublishAttempts !== undefined
+        ? {
+            scheduledPublishAttempts: original.scheduledPublishAttempts,
+            scheduledPublishLastError:
+              original.scheduledPublishLastError ?? null,
+            scheduledPublishNextAttemptAt:
+              original.scheduledPublishNextAttemptAt ?? null,
+            scheduledPublishGaveUpAt: original.scheduledPublishGaveUpAt ?? null,
+          }
+        : {}),
+    },
+  });
+  try {
+    const res = await FeatureRevisionModel.updateOne(filter, update(true));
+    return res.matchedCount > 0;
+  } catch (e) {
+    // A sibling draft armed a lock-others schedule while we held the claim
+    // (the claim's $unset freed the partial-index slot). Restore without the
+    // lock rather than stranding the revision as published.
+    if (!isPublishLockIndexConflict(e)) throw e;
+    const res = await FeatureRevisionModel.updateOne(filter, update(false));
+    return res.matchedCount > 0;
+  }
+}
+
+/**
+ * The side effects claimFeatureRevisionAsPublished deferred: the revision log
+ * entry and the published-hook dispatch. Run by the bulk publisher only after
+ * the whole commit succeeded.
+ */
+export async function emitFeatureRevisionPublishedSideEffects(
+  context: ReqContext | ApiReqContext,
+  revision: FeatureRevisionInterface,
+  user: EventUser,
+): Promise<void> {
+  const action = revision.status === "published" ? "re-publish" : "publish";
+  context.models.featureRevisionLogs
+    .create({
+      featureId: revision.featureId,
+      version: revision.version,
+      action,
+      subject: "",
+      user,
+      value: JSON.stringify({}),
+    })
+    .catch((e) => {
+      logger.error(e, "Error creating revisionlog");
+    });
   await dispatchRevisionPublishedHook(context, revision);
 }
 
@@ -1463,6 +1702,8 @@ export async function setAutoPublishOnApproval(
 const SCHEDULED_PUBLISH_FAILURE_UNSET = {
   scheduledPublishAttempts: 1,
   scheduledPublishLastError: 1,
+  scheduledPublishNextAttemptAt: 1,
+  scheduledPublishGaveUpAt: 1,
 } as const;
 
 // Schedule fields cleared together on cancel or when leaving the review cycle.
@@ -1642,6 +1883,60 @@ export async function recordScheduledPublishFailure(
   return doc?.scheduledPublishAttempts ?? 0;
 }
 
+// Delay the next poller retry of a failing scheduled publish (backoff). The
+// due-but-failing revision is skipped until this time so doomed retries space
+// out instead of firing every tick. Raw write, like the failure recorder.
+export async function setScheduledPublishNextAttempt(
+  revision: Pick<
+    FeatureRevisionInterface,
+    "organization" | "featureId" | "version"
+  >,
+  nextAttemptAt: Date,
+): Promise<void> {
+  await FeatureRevisionModel.updateOne(
+    {
+      organization: revision.organization,
+      featureId: revision.featureId,
+      version: revision.version,
+    },
+    { $set: { scheduledPublishNextAttemptAt: nextAttemptAt } },
+  );
+}
+
+// Give up on a failing scheduled publish: clear the schedule (so the poller
+// stops selecting it), disarm auto-publish, and stamp scheduledPublishGaveUpAt
+// so the UI can flag the abandoned schedule. The draft is left open with
+// scheduledPublishLastError preserved for context. Raw write (no dateUpdated
+// bump) like the failure recorder — the revision.publishFailed webhook is the
+// user-facing signal.
+export async function parkScheduledPublish(
+  revision: Pick<
+    FeatureRevisionInterface,
+    "organization" | "featureId" | "version"
+  >,
+): Promise<void> {
+  await FeatureRevisionModel.updateOne(
+    {
+      organization: revision.organization,
+      featureId: revision.featureId,
+      version: revision.version,
+    },
+    {
+      $set: {
+        scheduledPublishGaveUpAt: new Date(),
+        autoPublishOnApproval: false,
+      },
+      $unset: {
+        scheduledPublishAt: 1,
+        scheduledPublishLockEdits: 1,
+        scheduledPublishLockOthers: 1,
+        scheduledPublishBypassApproval: 1,
+        scheduledPublishNextAttemptAt: 1,
+      },
+    },
+  );
+}
+
 // Cross-org poller query for the Agenda job: every armed revision whose date has
 // arrived and is still in an active review cycle. Org-agnostic by design (context
 // is resolved per-org downstream).
@@ -1715,14 +2010,7 @@ async function assertNoConflictingPublishLock(
 // True for the duplicate-key error from the lock-others partial unique index —
 // i.e. a concurrent arming request won the race for this feature's lock.
 function isPublishLockIndexConflict(e: unknown): boolean {
-  return (
-    !!e &&
-    typeof e === "object" &&
-    (e as { code?: number }).code === 11000 &&
-    String((e as { message?: string }).message ?? "").includes(
-      PUBLISH_LOCK_OTHERS_INDEX,
-    )
-  );
+  return isDuplicateKeyErrorForIndex(e, PUBLISH_LOCK_OTHERS_INDEX);
 }
 
 // Cancel pending schedules across a feature's revisions (e.g. on archive).

@@ -74,7 +74,9 @@ export default function RevisionDescription({
       <Flex
         align="center"
         gap="2"
+        wrap="wrap"
         px="4"
+        py="2"
         style={{ borderBottom: "1px solid var(--gray-a4)", minHeight: 40 }}
       >
         <Flex align="center" gap="2">
@@ -97,7 +99,13 @@ export default function RevisionDescription({
         </Flex>
         {label}
         {editorMeta && (
-          <Flex align="center" gap="1" ml="auto">
+          <Flex
+            align="center"
+            gap="1"
+            wrap="wrap"
+            ml={{ initial: "0", sm: "auto" }}
+            style={{ minWidth: 0 }}
+          >
             {editorMeta}
           </Flex>
         )}

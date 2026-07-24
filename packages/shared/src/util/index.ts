@@ -29,6 +29,9 @@ export * from "./strings";
 export * from "./units-query-settings";
 export * from "./event-forwarder-destination";
 export * from "./features";
+export * from "./configs";
+export * from "./deep-merge";
+export * from "./config-schema";
 export * from "./managedWarehouse";
 export * from "./saved-groups";
 export * from "./metric-time-series";
@@ -385,6 +388,57 @@ export function getRulesForEnvironment(
     (r): r is FeatureRule =>
       r != null && typeof r === "object" && ruleAppliesToEnv(r, environment),
   );
+}
+
+// A rule's own project scope: explicit list, or null = all projects. Empty array
+// means "no project" (leak-safe — never "all"); allProjects/legacy-absent → null.
+export function ruleProjectScope(rule: FeatureRule): string[] | null {
+  if (rule == null || typeof rule !== "object") return [];
+  if (rule.allProjects === true) return null;
+  // allProjects === false is explicit scoping — an absent/empty list means no
+  // project, never "all". Only the legacy state (no scope fields) falls back to all.
+  if (rule.allProjects !== false && rule.projects == null) return null;
+  return Array.isArray(rule.projects) ? rule.projects : [];
+}
+
+// Whether a rule is served into an SDK payload: true only where its own scope,
+// the feature's delivery set (null = all), and the served set ([] = all) overlap.
+export function ruleServedToConnection(
+  rule: FeatureRule,
+  deliveryProjects: string[] | null,
+  servedProjects: string[],
+): boolean {
+  const scopes: (string[] | null)[] = [
+    ruleProjectScope(rule),
+    deliveryProjects,
+    servedProjects.length ? servedProjects : null,
+  ];
+  const concrete = scopes.filter((s): s is string[] => s !== null);
+  if (!concrete.length) return true;
+  return (
+    concrete.reduce((acc, s) => {
+      const set = new Set(s);
+      return acc.filter((x) => set.has(x));
+    }).length > 0
+  );
+}
+
+// Compare rule lists ignoring project-scope encoding (ruleProjectScope
+// canonicalizes the several "all"/"none" forms) and undefined keys, so an
+// idempotent API round-trip isn't mistaken for a change.
+export function rulesEqualIgnoringScopeEncoding(
+  a: FeatureRule[],
+  b: FeatureRule[],
+): boolean {
+  const canon = (rules: FeatureRule[]) =>
+    rules.map((r) => {
+      const { projects: _p, allProjects: _ap, ...rest } = r;
+      const defined = Object.fromEntries(
+        Object.entries(rest).filter(([, v]) => v !== undefined),
+      );
+      return { ...defined, canonicalProjectScope: ruleProjectScope(r) };
+    });
+  return isEqual(canon(a), canon(b));
 }
 
 // Footprint of a rule, intersected with `applicableEnvs`. Must match

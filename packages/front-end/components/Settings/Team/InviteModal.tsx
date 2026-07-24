@@ -8,7 +8,7 @@ import { getDefaultRole } from "shared/permissions";
 import track from "@/services/track";
 import Modal from "@/components/Modal";
 import { useAuth } from "@/services/auth";
-import StringArrayField from "@/components/Forms/StringArrayField";
+import StringArrayField from "@/ui/StringArrayField";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useUser } from "@/services/UserContext";
 import { isCloud } from "@/services/env";
@@ -241,6 +241,7 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
       ) : (
         <>
           <StringArrayField
+            size="legacy"
             required
             label="Email Address"
             value={form.watch("email")}
@@ -263,6 +264,7 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
             value={form.watch("roleInfo")}
             setValue={(value) => form.setValue("roleInfo", value)}
             showUpgradeModal={() => setShowUpgradeModal(true)}
+            isNewAssignment
           />
         </>
       )}

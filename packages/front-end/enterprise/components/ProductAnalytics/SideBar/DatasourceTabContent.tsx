@@ -94,6 +94,7 @@ export default function DatasourceTabContent() {
                   Value type
                 </Text>
                 <SelectField
+                  size="legacy"
                   value={v.valueType}
                   onChange={(val) =>
                     updateValueInDataset(idx, {
@@ -103,7 +104,11 @@ export default function DatasourceTabContent() {
                         getValueTypeLabel(
                           val as "count" | "unit_count" | "sum",
                         ),
-                        draftExploreState.dataset.values,
+                        // Tab content only renders when the dataset is
+                        // "data_source"; narrow defensively.
+                        draftExploreState.dataset.type === "data_source"
+                          ? draftExploreState.dataset.values
+                          : [],
                       ),
                     } as DataSourceValue)
                   }
@@ -121,6 +126,7 @@ export default function DatasourceTabContent() {
                       Value column
                     </Text>
                     <SelectField
+                      size="legacy"
                       value={v.valueColumn ?? ""}
                       onChange={(val) =>
                         updateValueInDataset(idx, {

@@ -1,9 +1,16 @@
-import { validateFeatureValue } from "shared/util";
+import {
+  validateFeatureValue,
+  getConfigBackingPatch,
+  getConfigBackingKey,
+  normalizeTargetingInUpdates,
+  rulesEqualIgnoringScopeEncoding,
+} from "shared/util";
 import { isEqual } from "lodash";
 import { updateFeatureV2Validator } from "shared/validators";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { BadRequestError } from "back-end/src/util/errors";
 import {
   resolveOwnerEmail,
   resolveOwnerToUserId,
@@ -19,10 +26,12 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import {
   addIdsToFlatRules,
+  assertFeatureValuesValid,
   getApiFeatureObjV2,
   getNextScheduledUpdate,
   getSavedGroupMap,
 } from "back-end/src/services/features";
+import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
 import { getEnabledEnvironments } from "back-end/src/util/features";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
@@ -34,8 +43,16 @@ import { validateEnvKeys } from "./postFeature";
 import { validateCustomFields, validateRuleAttributes } from "./validations";
 import { canBypassReviewChecks } from "./reviewBypass";
 import {
+  assertConfigSchemaCompat,
   assertValidHoldout,
   assertValidProjectId,
+  assertValidProjectIds,
+  assertValidRuleProjectIds,
+  assertValidRuleConfigKeys,
+  assertValidBaseConfig,
+  assertValidDefaultValueConfig,
+  assertNoRawConfigExtends,
+  composeConfigBacking,
   extractRevisionMetadata,
   mapV2ApiRuleToFeatureRule,
 } from "./v2Shared";
@@ -53,6 +70,8 @@ export const updateFeatureV2 = createApiRequestHandler(
     archived,
     description,
     project,
+    targetingAllProjects,
+    targetingProjects,
     tags,
     customFields,
   } = req.body;
@@ -69,7 +88,7 @@ export const updateFeatureV2 = createApiRequestHandler(
   if (
     req.context.org.settings?.requireProjectForFeatures &&
     feature.project &&
-    (effectiveProject == null || effectiveProject === "")
+    (effectiveProject ?? "") === ""
   ) {
     throw new Error("Must specify a project");
   }
@@ -90,6 +109,7 @@ export const updateFeatureV2 = createApiRequestHandler(
   }
 
   await assertValidProjectId(project, req.context);
+  await assertValidProjectIds(targetingProjects, req.context);
 
   const projectChanged = project !== undefined && project !== feature.project;
   const customFieldsChanged = shouldValidateCustomFieldsOnUpdate({
@@ -109,9 +129,89 @@ export const updateFeatureV2 = createApiRequestHandler(
     validateEnvKeys(orgEnvs, Object.keys(req.body.environments ?? {}));
   }
 
+  const jsonSchema =
+    feature.valueType !== "boolean" && (req.body.jsonSchema ?? null) !== null
+      ? parseApiJsonSchema(
+          req.organization,
+          req.body.jsonSchema,
+          feature.valueType,
+        )
+      : null;
+
+  // Validate values against the EFFECTIVE schema — the inbound `jsonSchema` when
+  // one is sent, else the flag's current schema — so a request that relaxes or
+  // tightens the schema is judged against the schema it's also setting.
+  const effectiveFeature = {
+    ...feature,
+    ...(jsonSchema !== null ? { jsonSchema } : {}),
+  };
+
   let defaultValue: string | undefined;
   if (req.body.defaultValue != null) {
-    defaultValue = validateFeatureValue(feature, req.body.defaultValue);
+    // Always normalize (parse / dirty-json fixup), but only enforce the schema
+    // when not explicitly skipped.
+    defaultValue = validateFeatureValue(
+      req.context.skipSchemaValidation
+        ? { ...effectiveFeature, jsonSchema: undefined }
+        : effectiveFeature,
+      req.body.defaultValue,
+      "Default value",
+    );
+  }
+
+  // The backing config is fixed at creation — reject any attempt to change it
+  // (a no-op resend of the same value is allowed). Matches the UI, which only
+  // sets baseConfig when the feature is created.
+  if (
+    req.body.baseConfig !== undefined &&
+    (req.body.baseConfig ?? null) !== (feature.baseConfig ?? null)
+  ) {
+    throw new BadRequestError(
+      `The backing config cannot be changed after creation (existing: ${
+        feature.baseConfig ? `"${feature.baseConfig}"` : "none"
+      }, provided: ${
+        req.body.baseConfig ? `"${req.body.baseConfig}"` : "none"
+      }).`,
+    );
+  }
+
+  // Config backing via dedicated fields. `baseConfig` (Config mode) and
+  // `defaultValueConfig` (the default's optional descendant extension) are set
+  // through fields, never a raw `@config:` in the value.
+  const effectiveBaseConfig =
+    req.body.baseConfig !== undefined
+      ? (req.body.baseConfig ?? null)
+      : (feature.baseConfig ?? null);
+  if (req.body.defaultValue != null) {
+    assertNoRawConfigExtends(req.body.defaultValue, "defaultValue");
+  }
+  await assertValidBaseConfig(
+    req.context,
+    effectiveBaseConfig,
+    feature.valueType,
+    effectiveProject,
+  );
+  await assertValidDefaultValueConfig(
+    req.context,
+    effectiveBaseConfig,
+    req.body.defaultValueConfig,
+    effectiveProject,
+  );
+
+  // Recompose the stored default when its value or its extension changes: a
+  // `defaultValueConfig` descendant becomes the value's own `$extends`; a bare
+  // `baseConfig` leaves it a pure patch the compiler resolves. Editing only the
+  // value keeps the existing extension; editing only the extension re-points the
+  // existing patch.
+  const dvcProvided = req.body.defaultValueConfig !== undefined;
+  let storedDefault: string | undefined;
+  if (defaultValue != null || dvcProvided) {
+    const patch = getConfigBackingPatch(defaultValue ?? feature.defaultValue);
+    const dvc = dvcProvided
+      ? (req.body.defaultValueConfig ?? null)
+      : getConfigBackingKey(feature.defaultValue);
+    storedDefault =
+      dvc !== null ? composeConfigBacking(dvc, patch, "Default value") : patch;
   }
 
   const prerequisites =
@@ -124,14 +224,13 @@ export const updateFeatureV2 = createApiRequestHandler(
 
   await assertValidHoldout(req.body.holdout, req.context);
 
-  const jsonSchema =
-    feature.valueType !== "boolean" && req.body.jsonSchema != null
-      ? parseApiJsonSchema(
-          req.organization,
-          req.body.jsonSchema,
-          feature.valueType,
-        )
-      : null;
+  // Block a config-backed default value coexisting with an enabled JSON schema
+  // (either inbound or already on the flag), using the effective post-update
+  // values.
+  assertConfigSchemaCompat({
+    jsonSchemaEnabled: (jsonSchema ?? feature.jsonSchema)?.enabled,
+    baseConfig: effectiveBaseConfig,
+  });
 
   let inboundFlatRules: FeatureRule[] | null = null;
   if (req.body.rules != null) {
@@ -148,8 +247,39 @@ export const updateFeatureV2 = createApiRequestHandler(
     inboundFlatRules = req.body.rules.map((rule) =>
       mapV2ApiRuleToFeatureRule(rule, feature),
     );
+    await assertValidRuleProjectIds(inboundFlatRules, req.context);
+    // Request-supplied config keys must exist, be live, and belong to the
+    // default config's family — same gate as the revision rule endpoints.
+    await assertValidRuleConfigKeys(
+      req.context,
+      req.body.rules.flatMap((rule) => [
+        "config" in rule ? (rule as { config?: string | null }).config : null,
+        ...(rule.type === "experiment-ref"
+          ? rule.variations.map((v) => v.config)
+          : []),
+      ]),
+      defaultValue ?? feature.defaultValue,
+      effectiveBaseConfig,
+      effectiveProject,
+    );
     addIdsToFlatRules(inboundFlatRules, feature.id);
+    // `mapV2ApiRuleToFeatureRule` doesn't validate values; enforce the schema
+    // here (against the effective schema, opt-out via ?skipSchemaValidation).
+    assertFeatureValuesValid(req.context, effectiveFeature, {
+      rules: inboundFlatRules,
+    });
   }
+
+  // Config-backed values (default + rules) validate against the backing config's
+  // schema + invariants, using the effective post-update baseConfig.
+  await assertConfigBackedFeatureValuesValid(
+    req.context,
+    { valueType: feature.valueType, baseConfig: effectiveBaseConfig },
+    {
+      defaultValue: storedDefault ?? feature.defaultValue,
+      rules: inboundFlatRules ?? feature.rules,
+    },
+  );
 
   const changedEnvEnabled: Record<string, boolean> = {};
   if (req.body.environments) {
@@ -168,12 +298,18 @@ export const updateFeatureV2 = createApiRequestHandler(
     ...(archived != null ? { archived } : {}),
     ...(description != null ? { description } : {}),
     ...(project != null ? { project } : {}),
+    ...(targetingAllProjects != null ? { targetingAllProjects } : {}),
+    ...(targetingProjects != null ? { targetingProjects } : {}),
     ...(tags != null ? { tags } : {}),
-    ...(defaultValue != null ? { defaultValue } : {}),
+    ...(storedDefault !== undefined ? { defaultValue: storedDefault } : {}),
+    ...(req.body.baseConfig !== undefined
+      ? { baseConfig: req.body.baseConfig ?? null }
+      : {}),
     ...(prerequisites != null ? { prerequisites } : {}),
     ...(jsonSchema != null ? { jsonSchema } : {}),
     ...(customFields != null ? { customFields } : {}),
   };
+  normalizeTargetingInUpdates(updates, feature);
 
   if (
     updates.defaultValue != null ||
@@ -234,7 +370,7 @@ export const updateFeatureV2 = createApiRequestHandler(
   const hasRuleChanges =
     defaultValueChanged ||
     (inboundFlatRules != null &&
-      !isEqual(inboundFlatRules, feature.rules ?? []));
+      !rulesEqualIgnoringScopeEncoding(inboundFlatRules, feature.rules ?? []));
   const hasEnvEnabledChanges = Object.keys(changedEnvEnabled).length > 0;
   const hasMetadataChanges = Object.keys(metadataChanges).length > 0;
   const hasPrereqChanges = newPrerequisites !== null;

@@ -94,6 +94,7 @@ describe("experiments API", () => {
         canUpdateExperiment: () => true,
         canAddComment: () => true,
       },
+      hasPremiumFeature: () => false,
       getUsersByIds: jest.fn().mockResolvedValue([]),
     });
   });
@@ -572,6 +573,89 @@ describe("experiments API", () => {
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty("experiment");
       expect(createExperiment).toHaveBeenCalled();
+    });
+
+    it("preserves id and variationId values when creating an experiment", async () => {
+      (getDataSourceById as jest.Mock).mockResolvedValue({
+        id: "ds_123",
+        type: "postgres",
+        settings: {
+          queries: { exposure: [{ id: "user_id", name: "User ID" }] },
+        },
+      });
+      (getExperimentByTrackingKey as jest.Mock).mockResolvedValue(null);
+      (createExperiment as jest.Mock).mockResolvedValue(experiment);
+
+      const res = await request(app)
+        .post("/api/v1/experiments")
+        .send({
+          trackingKey: "exp_custom_variation_ids",
+          name: "Custom variation IDs",
+          datasourceId: "ds_123",
+          assignmentQueryId: "user_id",
+          variations: [
+            {
+              id: "control",
+              variationId: "ignored",
+              key: "control",
+              name: "Control",
+            },
+            {
+              variationId: "treatment",
+              key: "treatment",
+              name: "Treatment",
+            },
+          ],
+        })
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      const createCall = (createExperiment as jest.Mock).mock.calls[0][0];
+      expect(createCall.data.variations.map((v) => v.id)).toEqual([
+        "control",
+        "treatment",
+      ]);
+      expect(createCall.data.phases[0].variations).toEqual([
+        { id: "control", status: "active" },
+        { id: "treatment", status: "active" },
+      ]);
+    });
+
+    it("rejects duplicate user-specified variation ids", async () => {
+      (getDataSourceById as jest.Mock).mockResolvedValue({
+        id: "ds_123",
+        type: "postgres",
+        settings: {
+          queries: { exposure: [{ id: "user_id", name: "User ID" }] },
+        },
+      });
+      (getExperimentByTrackingKey as jest.Mock).mockResolvedValue(null);
+
+      const res = await request(app)
+        .post("/api/v1/experiments")
+        .send({
+          trackingKey: "exp_duplicate_variation_ids",
+          name: "Duplicate variation IDs",
+          datasourceId: "ds_123",
+          assignmentQueryId: "user_id",
+          variations: [
+            {
+              id: "duplicate",
+              key: "control",
+              name: "Control",
+            },
+            {
+              variationId: "duplicate",
+              key: "treatment",
+              name: "Treatment",
+            },
+          ],
+        })
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toBe("Variation IDs must be unique.");
+      expect(createExperiment).not.toHaveBeenCalled();
     });
 
     it("rejects create when required custom fields are missing", async () => {

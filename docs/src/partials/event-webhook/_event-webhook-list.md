@@ -29,6 +29,7 @@
 | **[feature.revision.rebased](#featurerevisionrebased)** | Triggered when a draft revision is rebased onto the latest published version |
 | **[feature.revision.published](#featurerevisionpublished)** | Triggered when a draft revision is published. Overlaps with `feature.updated` but provides revision-specific context (base version, comment, author). |
 | **[feature.revision.reverted](#featurerevisionreverted)** | Triggered when a feature is reverted to a previous published revision |
+| **[feature.revision.publishFailed](#featurerevisionpublishFailed)** | Triggered when a deferred publish (scheduled publish or auto-publish-on-approval) is given up on after failing — terminally, or after exhausting retries. The draft is left open for a human to resolve. |
 | **[experiment.created](#experimentcreated)** | Triggered when an experiment is created |
 | **[experiment.updated](#experimentupdated)** | Triggered when an experiment is updated |
 | **[experiment.deleted](#experimentdeleted)** | Triggered when an experiment is deleted |
@@ -51,6 +52,7 @@
 | **[savedGroup.revision.published](#savedGrouprevisionpublished)** | Triggered when a draft revision is published. Overlaps with `savedGroup.updated` but provides revision-specific context. |
 | **[savedGroup.revision.reverted](#savedGrouprevisionreverted)** | Triggered when a saved group is reverted to a previous published revision |
 | **[savedGroup.revision.reopened](#savedGrouprevisionreopened)** | Triggered when a discarded revision is reopened |
+| **[savedGroup.revision.publishFailed](#savedGrouprevisionpublishFailed)** | Triggered when a deferred publish (scheduled publish or auto-publish-on-approval) is given up on after failing — terminally, or after exhausting retries. The draft is left open for a human to resolve. |
 | **[constant.created](#constantcreated)** | Triggered when a constant is created |
 | **[constant.updated](#constantupdated)** | Triggered when a constant is updated |
 | **[constant.deleted](#constantdeleted)** | Triggered when a constant is deleted |
@@ -65,6 +67,22 @@
 | **[constant.revision.published](#constantrevisionpublished)** | Triggered when a draft revision is published. Overlaps with `constant.updated` but provides revision-specific context. |
 | **[constant.revision.reverted](#constantrevisionreverted)** | Triggered when a constant is reverted to a previous published revision |
 | **[constant.revision.reopened](#constantrevisionreopened)** | Triggered when a discarded revision is reopened |
+| **[constant.revision.publishFailed](#constantrevisionpublishFailed)** | Triggered when a deferred publish (scheduled publish or auto-publish-on-approval) is given up on after failing — terminally, or after exhausting retries. The draft is left open for a human to resolve. |
+| **[config.created](#configcreated)** | Triggered when a config is created |
+| **[config.updated](#configupdated)** | Triggered when a config is updated |
+| **[config.deleted](#configdeleted)** | Triggered when a config is deleted |
+| **[config.revision.created](#configrevisioncreated)** | Triggered when a new draft revision is created for a config |
+| **[config.revision.updated](#configrevisionupdated)** | Triggered when a draft revision's proposed changes are modified (value, schema, archive, or metadata). The `change` field indicates the kind of mutation. |
+| **[config.revision.reviewRequested](#configrevisionreviewRequested)** | Triggered when a draft revision is submitted for review |
+| **[config.revision.approved](#configrevisionapproved)** | Triggered when a draft revision is approved by a reviewer |
+| **[config.revision.changesRequested](#configrevisionchangesRequested)** | Triggered when a reviewer requests changes on a draft revision |
+| **[config.revision.commented](#configrevisioncommented)** | Triggered when a comment is added to a draft revision |
+| **[config.revision.discarded](#configrevisiondiscarded)** | Triggered when a draft revision is discarded |
+| **[config.revision.rebased](#configrevisionrebased)** | Triggered when a draft revision is rebased onto the latest live state |
+| **[config.revision.published](#configrevisionpublished)** | Triggered when a draft revision is published. Overlaps with `config.updated` but provides revision-specific context. |
+| **[config.revision.reverted](#configrevisionreverted)** | Triggered when a config is reverted to a previous published revision |
+| **[config.revision.reopened](#configrevisionreopened)** | Triggered when a discarded revision is reopened |
+| **[config.revision.publishFailed](#configrevisionpublishFailed)** | Triggered when a deferred publish (scheduled publish or auto-publish-on-approval) is given up on after failing — terminally, or after exhausting retries. The draft is left open for a human to resolve. |
 | **[user.login](#userlogin)** | Triggered when a user logs in |
   
 ### feature.created
@@ -936,6 +954,7 @@ Triggered when a new draft revision is created for a feature
     created: number;
     data: {
         object: {
+            id?: string | undefined;
             /** The feature this revision belongs to */
             featureId: string;
             baseVersion: number;
@@ -1003,6 +1022,7 @@ Triggered when a draft revision is modified (rules, default value, toggles, prer
     created: number;
     data: {
         object: {
+            id?: string | undefined;
             /** The feature this revision belongs to */
             featureId: string;
             baseVersion: number;
@@ -1072,6 +1092,7 @@ Triggered when a draft revision is submitted for review
     created: number;
     data: {
         object: {
+            id?: string | undefined;
             /** The feature this revision belongs to */
             featureId: string;
             baseVersion: number;
@@ -1140,6 +1161,7 @@ Triggered when a draft revision is approved by a reviewer
     created: number;
     data: {
         object: {
+            id?: string | undefined;
             /** The feature this revision belongs to */
             featureId: string;
             baseVersion: number;
@@ -1213,6 +1235,7 @@ Triggered when a reviewer requests changes on a draft revision
     created: number;
     data: {
         object: {
+            id?: string | undefined;
             /** The feature this revision belongs to */
             featureId: string;
             baseVersion: number;
@@ -1286,6 +1309,7 @@ Triggered when a comment is added to a draft revision
     created: number;
     data: {
         object: {
+            id?: string | undefined;
             /** The feature this revision belongs to */
             featureId: string;
             baseVersion: number;
@@ -1359,6 +1383,7 @@ Triggered when a draft revision is discarded
     created: number;
     data: {
         object: {
+            id?: string | undefined;
             /** The feature this revision belongs to */
             featureId: string;
             baseVersion: number;
@@ -1426,6 +1451,7 @@ Triggered when a discarded draft revision is reopened as a draft
     created: number;
     data: {
         object: {
+            id?: string | undefined;
             /** The feature this revision belongs to */
             featureId: string;
             baseVersion: number;
@@ -1493,6 +1519,7 @@ Triggered when a draft revision is rebased onto the latest published version
     created: number;
     data: {
         object: {
+            id?: string | undefined;
             /** The feature this revision belongs to */
             featureId: string;
             baseVersion: number;
@@ -1560,6 +1587,7 @@ Triggered when a draft revision is published. Overlaps with `feature.updated` bu
     created: number;
     data: {
         object: {
+            id?: string | undefined;
             /** The feature this revision belongs to */
             featureId: string;
             baseVersion: number;
@@ -1585,6 +1613,7 @@ Triggered when a draft revision is published. Overlaps with `feature.updated` bu
                 condition: string;
             }[] | undefined;
             metadata?: {} | undefined;
+            bulkPublishId?: string | undefined;
         };
     };
     user: {
@@ -1627,6 +1656,7 @@ Triggered when a feature is reverted to a previous published revision
     created: number;
     data: {
         object: {
+            id?: string | undefined;
             /** The feature this revision belongs to */
             featureId: string;
             baseVersion: number;
@@ -1653,6 +1683,79 @@ Triggered when a feature is reverted to a previous published revision
             }[] | undefined;
             metadata?: {} | undefined;
             revertedToVersion: number;
+            bulkPublishId?: string | undefined;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### feature.revision.publishFailed
+
+Triggered when a deferred publish (scheduled publish or auto-publish-on-approval) is given up on after failing — terminally, or after exhausting retries. The draft is left open for a human to resolve.
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.revision.publishFailed";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id?: string | undefined;
+            /** The feature this revision belongs to */
+            featureId: string;
+            baseVersion: number;
+            version: number;
+            comment: string;
+            date: string;
+            status: string;
+            createdBy?: string | undefined;
+            publishedBy?: string | undefined;
+            /** The default value at the time this revision was created */
+            defaultValue?: string | undefined;
+            rules: Record<string, any[]>;
+            definitions?: Record<string, string> | undefined;
+            environmentsEnabled?: Record<string, boolean> | undefined;
+            envPrerequisites?: Record<string, {
+                /** Feature ID */
+                id: string;
+                condition: string;
+            }[]> | undefined;
+            prerequisites?: {
+                /** Feature ID */
+                id: string;
+                condition: string;
+            }[] | undefined;
+            metadata?: {} | undefined;
+            bulkPublishId?: string | undefined;
+            failureReason: string;
+            terminal: boolean;
+            attempts: number;
         };
     };
     user: {
@@ -4169,6 +4272,7 @@ Triggered when a draft revision is published. Overlaps with `savedGroup.updated`
                 op: string;
                 path: string;
             }[];
+            bulkPublishId?: string | undefined;
         };
     };
     user: {
@@ -4285,6 +4389,7 @@ Triggered when a saved group is reverted to a previous published revision
                 path: string;
             }[];
             revertedToVersion?: number | undefined;
+            bulkPublishId?: string | undefined;
         };
     };
     user: {
@@ -4400,6 +4505,125 @@ Triggered when a discarded revision is reopened
                 op: string;
                 path: string;
             }[];
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### savedGroup.revision.publishFailed
+
+Triggered when a deferred publish (scheduled publish or auto-publish-on-approval) is given up on after failing — terminally, or after exhausting retries. The draft is left open for a human to resolve.
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "savedGroup.revision.publishFailed";
+    object: "savedGroup";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseSavedGroup: {
+                id: string;
+                type: "condition" | "list";
+                dateCreated: string;
+                dateUpdated: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** When type = 'condition', this is the JSON-encoded condition for the group */
+                condition?: string | undefined;
+                /** When type = 'list', this is the attribute key the group is based on */
+                attributeKey?: string | undefined;
+                /** When type = 'list', this is the list of values for the attribute key */
+                values?: string[] | undefined;
+                description?: string | undefined;
+                projects?: string[] | undefined;
+                archived?: boolean | undefined;
+                useEmptyListGroup?: boolean | undefined;
+            };
+            proposedSavedGroup: {
+                id: string;
+                type: "condition" | "list";
+                dateCreated: string;
+                dateUpdated: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** When type = 'condition', this is the JSON-encoded condition for the group */
+                condition?: string | undefined;
+                /** When type = 'list', this is the attribute key the group is based on */
+                attributeKey?: string | undefined;
+                /** When type = 'list', this is the list of values for the attribute key */
+                values?: string[] | undefined;
+                description?: string | undefined;
+                projects?: string[] | undefined;
+                archived?: boolean | undefined;
+                useEmptyListGroup?: boolean | undefined;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+            bulkPublishId?: string | undefined;
+            failureReason: string;
+            terminal: boolean;
+            attempts: number;
         };
     };
     user: {
@@ -5659,6 +5883,7 @@ Triggered when a draft revision is published. Overlaps with `constant.updated` b
                 op: string;
                 path: string;
             }[];
+            bulkPublishId?: string | undefined;
         };
     };
     user: {
@@ -5775,6 +6000,7 @@ Triggered when a constant is reverted to a previous published revision
                 path: string;
             }[];
             revertedToVersion?: number | undefined;
+            bulkPublishId?: string | undefined;
         };
     };
     user: {
@@ -5890,6 +6116,3108 @@ Triggered when a discarded revision is reopened
                 op: string;
                 path: string;
             }[];
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### constant.revision.publishFailed
+
+Triggered when a deferred publish (scheduled publish or auto-publish-on-approval) is given up on after failing — terminally, or after exhausting retries. The draft is left open for a human to resolve.
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "constant.revision.publishFailed";
+    object: "constant";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseConstant: {
+                id: string;
+                /** Stable reference handle; used as `@const:key` in values */
+                key: string;
+                name: string;
+                type: "string" | "json";
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
+                value?: string | undefined;
+                /** Per-environment value overrides (environment id → value). Falls back to `value` when an environment is absent. */
+                environmentValues?: Record<string, string> | undefined;
+                description?: string | undefined;
+                /** The project this constant belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedConstant: {
+                id: string;
+                /** Stable reference handle; used as `@const:key` in values */
+                key: string;
+                name: string;
+                type: "string" | "json";
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
+                value?: string | undefined;
+                /** Per-environment value overrides (environment id → value). Falls back to `value` when an environment is absent. */
+                environmentValues?: Record<string, string> | undefined;
+                description?: string | undefined;
+                /** The project this constant belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+            bulkPublishId?: string | undefined;
+            failureReason: string;
+            terminal: boolean;
+            attempts: number;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### config.created
+
+Triggered when a config is created
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "config.created";
+    object: "config";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            /** Stable reference handle; used as `@config:key` in values */
+            key: string;
+            name: string;
+            /** The userId of the owner (or raw owner name/email for legacy records) */
+            owner?: string | undefined;
+            ownerEmail?: string | undefined;
+            /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
+            parent?: string | undefined;
+            /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
+            extends?: string[] | undefined;
+            /** This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here. */
+            value?: Record<string, unknown> | undefined;
+            /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
+            scopedOverrides?: {
+                /** The `key` of the flavor config (a child config) whose value patches this config when the scope matches. */
+                config: string;
+                /** Environment ids this entry applies to. Empty/omitted = any environment. */
+                environments?: string[] | undefined;
+                /** Project ids this entry applies to. Empty/omitted = any project. */
+                projects?: string[] | undefined;
+            }[] | undefined;
+            /** Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config's `scopedOverrides`, never by setting this directly. */
+            scopedConfig?: {
+                /** The base config this one is a scoped override of. */
+                parent: string;
+                /** Environments this override applies to (empty/absent = every environment). */
+                environments?: string[] | undefined;
+                /** Projects this override applies to (empty/absent = every project). */
+                projects?: string[] | undefined;
+            } | undefined;
+            description?: string | undefined;
+            /** The project this config belongs to (empty = all projects) */
+            project?: string | undefined;
+            archived?: boolean | undefined;
+            /** This config's own field definitions as a JSON Schema document (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
+            schema?: {
+                type: "json-schema";
+                /** A JSON Schema document (an object). */
+                value: Record<string, unknown>;
+            } | undefined;
+            /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
+            extensible?: boolean | undefined;
+            /** Cross-field validation rules (relational checks JSON Schema can't express, e.g. implications or comparing two fields), evaluated against the resolved value at publish. */
+            invariants?: {
+                /** Unique name for the rule. */
+                name: string;
+                /** A mongo condition (mongrule) boolean expression over the config's fields. */
+                rule: Record<string, unknown>;
+                /** Human-readable error shown when the rule is violated. */
+                message: string;
+            }[] | undefined;
+            /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
+            locked?: boolean | undefined;
+            /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
+            experimentGuard?: boolean | undefined;
+            /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
+            lockedRevision?: {
+                id: string;
+                version: number;
+            } | undefined;
+            /** Id of the user who locked the config (when `locked`). */
+            lockedBy?: string | undefined;
+            /** When the config was locked (when `locked`). */
+            dateLocked?: string | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### config.updated
+
+Triggered when a config is updated
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "config.updated";
+    object: "config";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            /** Stable reference handle; used as `@config:key` in values */
+            key: string;
+            name: string;
+            /** The userId of the owner (or raw owner name/email for legacy records) */
+            owner?: string | undefined;
+            ownerEmail?: string | undefined;
+            /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
+            parent?: string | undefined;
+            /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
+            extends?: string[] | undefined;
+            /** This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here. */
+            value?: Record<string, unknown> | undefined;
+            /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
+            scopedOverrides?: {
+                /** The `key` of the flavor config (a child config) whose value patches this config when the scope matches. */
+                config: string;
+                /** Environment ids this entry applies to. Empty/omitted = any environment. */
+                environments?: string[] | undefined;
+                /** Project ids this entry applies to. Empty/omitted = any project. */
+                projects?: string[] | undefined;
+            }[] | undefined;
+            /** Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config's `scopedOverrides`, never by setting this directly. */
+            scopedConfig?: {
+                /** The base config this one is a scoped override of. */
+                parent: string;
+                /** Environments this override applies to (empty/absent = every environment). */
+                environments?: string[] | undefined;
+                /** Projects this override applies to (empty/absent = every project). */
+                projects?: string[] | undefined;
+            } | undefined;
+            description?: string | undefined;
+            /** The project this config belongs to (empty = all projects) */
+            project?: string | undefined;
+            archived?: boolean | undefined;
+            /** This config's own field definitions as a JSON Schema document (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
+            schema?: {
+                type: "json-schema";
+                /** A JSON Schema document (an object). */
+                value: Record<string, unknown>;
+            } | undefined;
+            /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
+            extensible?: boolean | undefined;
+            /** Cross-field validation rules (relational checks JSON Schema can't express, e.g. implications or comparing two fields), evaluated against the resolved value at publish. */
+            invariants?: {
+                /** Unique name for the rule. */
+                name: string;
+                /** A mongo condition (mongrule) boolean expression over the config's fields. */
+                rule: Record<string, unknown>;
+                /** Human-readable error shown when the rule is violated. */
+                message: string;
+            }[] | undefined;
+            /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
+            locked?: boolean | undefined;
+            /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
+            experimentGuard?: boolean | undefined;
+            /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
+            lockedRevision?: {
+                id: string;
+                version: number;
+            } | undefined;
+            /** Id of the user who locked the config (when `locked`). */
+            lockedBy?: string | undefined;
+            /** When the config was locked (when `locked`). */
+            dateLocked?: string | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+        };
+        previous_attributes: {
+            id?: string | undefined;
+            /** Stable reference handle; used as `@config:key` in values */
+            key?: string | undefined;
+            name?: string | undefined;
+            /** The userId of the owner (or raw owner name/email for legacy records) */
+            owner?: string | undefined;
+            ownerEmail?: string | undefined;
+            /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
+            parent?: string | undefined;
+            /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
+            extends?: string[] | undefined;
+            /** This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here. */
+            value?: Record<string, unknown> | undefined;
+            /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
+            scopedOverrides?: {
+                /** The `key` of the flavor config (a child config) whose value patches this config when the scope matches. */
+                config: string;
+                /** Environment ids this entry applies to. Empty/omitted = any environment. */
+                environments?: string[] | undefined;
+                /** Project ids this entry applies to. Empty/omitted = any project. */
+                projects?: string[] | undefined;
+            }[] | undefined;
+            /** Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config's `scopedOverrides`, never by setting this directly. */
+            scopedConfig?: {
+                /** The base config this one is a scoped override of. */
+                parent: string;
+                /** Environments this override applies to (empty/absent = every environment). */
+                environments?: string[] | undefined;
+                /** Projects this override applies to (empty/absent = every project). */
+                projects?: string[] | undefined;
+            } | undefined;
+            description?: string | undefined;
+            /** The project this config belongs to (empty = all projects) */
+            project?: string | undefined;
+            archived?: boolean | undefined;
+            /** This config's own field definitions as a JSON Schema document (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
+            schema?: {
+                type: "json-schema";
+                /** A JSON Schema document (an object). */
+                value: Record<string, unknown>;
+            } | undefined;
+            /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
+            extensible?: boolean | undefined;
+            /** Cross-field validation rules (relational checks JSON Schema can't express, e.g. implications or comparing two fields), evaluated against the resolved value at publish. */
+            invariants?: {
+                /** Unique name for the rule. */
+                name: string;
+                /** A mongo condition (mongrule) boolean expression over the config's fields. */
+                rule: Record<string, unknown>;
+                /** Human-readable error shown when the rule is violated. */
+                message: string;
+            }[] | undefined;
+            /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
+            locked?: boolean | undefined;
+            /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
+            experimentGuard?: boolean | undefined;
+            /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
+            lockedRevision?: {
+                id: string;
+                version: number;
+            } | undefined;
+            /** Id of the user who locked the config (when `locked`). */
+            lockedBy?: string | undefined;
+            /** When the config was locked (when `locked`). */
+            dateLocked?: string | undefined;
+            dateCreated?: string | undefined;
+            dateUpdated?: string | undefined;
+        };
+        changes?: {
+            added: Record<string, unknown>;
+            removed: Record<string, unknown>;
+            modified: Record<string, unknown>;
+        } | undefined;
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### config.deleted
+
+Triggered when a config is deleted
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "config.deleted";
+    object: "config";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            /** Stable reference handle; used as `@config:key` in values */
+            key: string;
+            name: string;
+            /** The userId of the owner (or raw owner name/email for legacy records) */
+            owner?: string | undefined;
+            ownerEmail?: string | undefined;
+            /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
+            parent?: string | undefined;
+            /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
+            extends?: string[] | undefined;
+            /** This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here. */
+            value?: Record<string, unknown> | undefined;
+            /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
+            scopedOverrides?: {
+                /** The `key` of the flavor config (a child config) whose value patches this config when the scope matches. */
+                config: string;
+                /** Environment ids this entry applies to. Empty/omitted = any environment. */
+                environments?: string[] | undefined;
+                /** Project ids this entry applies to. Empty/omitted = any project. */
+                projects?: string[] | undefined;
+            }[] | undefined;
+            /** Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config's `scopedOverrides`, never by setting this directly. */
+            scopedConfig?: {
+                /** The base config this one is a scoped override of. */
+                parent: string;
+                /** Environments this override applies to (empty/absent = every environment). */
+                environments?: string[] | undefined;
+                /** Projects this override applies to (empty/absent = every project). */
+                projects?: string[] | undefined;
+            } | undefined;
+            description?: string | undefined;
+            /** The project this config belongs to (empty = all projects) */
+            project?: string | undefined;
+            archived?: boolean | undefined;
+            /** This config's own field definitions as a JSON Schema document (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
+            schema?: {
+                type: "json-schema";
+                /** A JSON Schema document (an object). */
+                value: Record<string, unknown>;
+            } | undefined;
+            /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
+            extensible?: boolean | undefined;
+            /** Cross-field validation rules (relational checks JSON Schema can't express, e.g. implications or comparing two fields), evaluated against the resolved value at publish. */
+            invariants?: {
+                /** Unique name for the rule. */
+                name: string;
+                /** A mongo condition (mongrule) boolean expression over the config's fields. */
+                rule: Record<string, unknown>;
+                /** Human-readable error shown when the rule is violated. */
+                message: string;
+            }[] | undefined;
+            /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
+            locked?: boolean | undefined;
+            /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
+            experimentGuard?: boolean | undefined;
+            /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
+            lockedRevision?: {
+                id: string;
+                version: number;
+            } | undefined;
+            /** Id of the user who locked the config (when `locked`). */
+            lockedBy?: string | undefined;
+            /** When the config was locked (when `locked`). */
+            dateLocked?: string | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### config.revision.created
+
+Triggered when a new draft revision is created for a config
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "config.revision.created";
+    object: "config";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseConfig: {
+                id: string;
+                /** Stable reference handle; used as `@config:key` in values */
+                key: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
+                parent?: string | undefined;
+                /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
+                extends?: string[] | undefined;
+                /** This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here. */
+                value?: Record<string, unknown> | undefined;
+                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
+                scopedOverrides?: {
+                    /** The `key` of the flavor config (a child config) whose value patches this config when the scope matches. */
+                    config: string;
+                    /** Environment ids this entry applies to. Empty/omitted = any environment. */
+                    environments?: string[] | undefined;
+                    /** Project ids this entry applies to. Empty/omitted = any project. */
+                    projects?: string[] | undefined;
+                }[] | undefined;
+                /** Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config's `scopedOverrides`, never by setting this directly. */
+                scopedConfig?: {
+                    /** The base config this one is a scoped override of. */
+                    parent: string;
+                    /** Environments this override applies to (empty/absent = every environment). */
+                    environments?: string[] | undefined;
+                    /** Projects this override applies to (empty/absent = every project). */
+                    projects?: string[] | undefined;
+                } | undefined;
+                description?: string | undefined;
+                /** The project this config belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                /** This config's own field definitions as a JSON Schema document (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
+                schema?: {
+                    type: "json-schema";
+                    /** A JSON Schema document (an object). */
+                    value: Record<string, unknown>;
+                } | undefined;
+                /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
+                extensible?: boolean | undefined;
+                /** Cross-field validation rules (relational checks JSON Schema can't express, e.g. implications or comparing two fields), evaluated against the resolved value at publish. */
+                invariants?: {
+                    /** Unique name for the rule. */
+                    name: string;
+                    /** A mongo condition (mongrule) boolean expression over the config's fields. */
+                    rule: Record<string, unknown>;
+                    /** Human-readable error shown when the rule is violated. */
+                    message: string;
+                }[] | undefined;
+                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
+                locked?: boolean | undefined;
+                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
+                experimentGuard?: boolean | undefined;
+                /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
+                lockedRevision?: {
+                    id: string;
+                    version: number;
+                } | undefined;
+                /** Id of the user who locked the config (when `locked`). */
+                lockedBy?: string | undefined;
+                /** When the config was locked (when `locked`). */
+                dateLocked?: string | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedConfig: {
+                id: string;
+                /** Stable reference handle; used as `@config:key` in values */
+                key: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
+                parent?: string | undefined;
+                /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
+                extends?: string[] | undefined;
+                /** This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here. */
+                value?: Record<string, unknown> | undefined;
+                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
+                scopedOverrides?: {
+                    /** The `key` of the flavor config (a child config) whose value patches this config when the scope matches. */
+                    config: string;
+                    /** Environment ids this entry applies to. Empty/omitted = any environment. */
+                    environments?: string[] | undefined;
+                    /** Project ids this entry applies to. Empty/omitted = any project. */
+                    projects?: string[] | undefined;
+                }[] | undefined;
+                /** Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config's `scopedOverrides`, never by setting this directly. */
+                scopedConfig?: {
+                    /** The base config this one is a scoped override of. */
+                    parent: string;
+                    /** Environments this override applies to (empty/absent = every environment). */
+                    environments?: string[] | undefined;
+                    /** Projects this override applies to (empty/absent = every project). */
+                    projects?: string[] | undefined;
+                } | undefined;
+                description?: string | undefined;
+                /** The project this config belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                /** This config's own field definitions as a JSON Schema document (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
+                schema?: {
+                    type: "json-schema";
+                    /** A JSON Schema document (an object). */
+                    value: Record<string, unknown>;
+                } | undefined;
+                /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
+                extensible?: boolean | undefined;
+                /** Cross-field validation rules (relational checks JSON Schema can't express, e.g. implications or comparing two fields), evaluated against the resolved value at publish. */
+                invariants?: {
+                    /** Unique name for the rule. */
+                    name: string;
+                    /** A mongo condition (mongrule) boolean expression over the config's fields. */
+                    rule: Record<string, unknown>;
+                    /** Human-readable error shown when the rule is violated. */
+                    message: string;
+                }[] | undefined;
+                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
+                locked?: boolean | undefined;
+                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
+                experimentGuard?: boolean | undefined;
+                /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
+                lockedRevision?: {
+                    id: string;
+                    version: number;
+                } | undefined;
+                /** Id of the user who locked the config (when `locked`). */
+                lockedBy?: string | undefined;
+                /** When the config was locked (when `locked`). */
+                dateLocked?: string | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### config.revision.updated
+
+Triggered when a draft revision's proposed changes are modified (value, schema, archive, or metadata). The `change` field indicates the kind of mutation.
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "config.revision.updated";
+    object: "config";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseConfig: {
+                id: string;
+                /** Stable reference handle; used as `@config:key` in values */
+                key: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
+                parent?: string | undefined;
+                /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
+                extends?: string[] | undefined;
+                /** This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here. */
+                value?: Record<string, unknown> | undefined;
+                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
+                scopedOverrides?: {
+                    /** The `key` of the flavor config (a child config) whose value patches this config when the scope matches. */
+                    config: string;
+                    /** Environment ids this entry applies to. Empty/omitted = any environment. */
+                    environments?: string[] | undefined;
+                    /** Project ids this entry applies to. Empty/omitted = any project. */
+                    projects?: string[] | undefined;
+                }[] | undefined;
+                /** Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config's `scopedOverrides`, never by setting this directly. */
+                scopedConfig?: {
+                    /** The base config this one is a scoped override of. */
+                    parent: string;
+                    /** Environments this override applies to (empty/absent = every environment). */
+                    environments?: string[] | undefined;
+                    /** Projects this override applies to (empty/absent = every project). */
+                    projects?: string[] | undefined;
+                } | undefined;
+                description?: string | undefined;
+                /** The project this config belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                /** This config's own field definitions as a JSON Schema document (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
+                schema?: {
+                    type: "json-schema";
+                    /** A JSON Schema document (an object). */
+                    value: Record<string, unknown>;
+                } | undefined;
+                /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
+                extensible?: boolean | undefined;
+                /** Cross-field validation rules (relational checks JSON Schema can't express, e.g. implications or comparing two fields), evaluated against the resolved value at publish. */
+                invariants?: {
+                    /** Unique name for the rule. */
+                    name: string;
+                    /** A mongo condition (mongrule) boolean expression over the config's fields. */
+                    rule: Record<string, unknown>;
+                    /** Human-readable error shown when the rule is violated. */
+                    message: string;
+                }[] | undefined;
+                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
+                locked?: boolean | undefined;
+                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
+                experimentGuard?: boolean | undefined;
+                /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
+                lockedRevision?: {
+                    id: string;
+                    version: number;
+                } | undefined;
+                /** Id of the user who locked the config (when `locked`). */
+                lockedBy?: string | undefined;
+                /** When the config was locked (when `locked`). */
+                dateLocked?: string | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedConfig: {
+                id: string;
+                /** Stable reference handle; used as `@config:key` in values */
+                key: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
+                parent?: string | undefined;
+                /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
+                extends?: string[] | undefined;
+                /** This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here. */
+                value?: Record<string, unknown> | undefined;
+                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
+                scopedOverrides?: {
+                    /** The `key` of the flavor config (a child config) whose value patches this config when the scope matches. */
+                    config: string;
+                    /** Environment ids this entry applies to. Empty/omitted = any environment. */
+                    environments?: string[] | undefined;
+                    /** Project ids this entry applies to. Empty/omitted = any project. */
+                    projects?: string[] | undefined;
+                }[] | undefined;
+                /** Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config's `scopedOverrides`, never by setting this directly. */
+                scopedConfig?: {
+                    /** The base config this one is a scoped override of. */
+                    parent: string;
+                    /** Environments this override applies to (empty/absent = every environment). */
+                    environments?: string[] | undefined;
+                    /** Projects this override applies to (empty/absent = every project). */
+                    projects?: string[] | undefined;
+                } | undefined;
+                description?: string | undefined;
+                /** The project this config belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                /** This config's own field definitions as a JSON Schema document (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
+                schema?: {
+                    type: "json-schema";
+                    /** A JSON Schema document (an object). */
+                    value: Record<string, unknown>;
+                } | undefined;
+                /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
+                extensible?: boolean | undefined;
+                /** Cross-field validation rules (relational checks JSON Schema can't express, e.g. implications or comparing two fields), evaluated against the resolved value at publish. */
+                invariants?: {
+                    /** Unique name for the rule. */
+                    name: string;
+                    /** A mongo condition (mongrule) boolean expression over the config's fields. */
+                    rule: Record<string, unknown>;
+                    /** Human-readable error shown when the rule is violated. */
+                    message: string;
+                }[] | undefined;
+                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
+                locked?: boolean | undefined;
+                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
+                experimentGuard?: boolean | undefined;
+                /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
+                lockedRevision?: {
+                    id: string;
+                    version: number;
+                } | undefined;
+                /** Id of the user who locked the config (when `locked`). */
+                lockedBy?: string | undefined;
+                /** When the config was locked (when `locked`). */
+                dateLocked?: string | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+            change: "metadata" | "value" | "schema" | "archive";
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### config.revision.reviewRequested
+
+Triggered when a draft revision is submitted for review
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "config.revision.reviewRequested";
+    object: "config";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseConfig: {
+                id: string;
+                /** Stable reference handle; used as `@config:key` in values */
+                key: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
+                parent?: string | undefined;
+                /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
+                extends?: string[] | undefined;
+                /** This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here. */
+                value?: Record<string, unknown> | undefined;
+                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
+                scopedOverrides?: {
+                    /** The `key` of the flavor config (a child config) whose value patches this config when the scope matches. */
+                    config: string;
+                    /** Environment ids this entry applies to. Empty/omitted = any environment. */
+                    environments?: string[] | undefined;
+                    /** Project ids this entry applies to. Empty/omitted = any project. */
+                    projects?: string[] | undefined;
+                }[] | undefined;
+                /** Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config's `scopedOverrides`, never by setting this directly. */
+                scopedConfig?: {
+                    /** The base config this one is a scoped override of. */
+                    parent: string;
+                    /** Environments this override applies to (empty/absent = every environment). */
+                    environments?: string[] | undefined;
+                    /** Projects this override applies to (empty/absent = every project). */
+                    projects?: string[] | undefined;
+                } | undefined;
+                description?: string | undefined;
+                /** The project this config belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                /** This config's own field definitions as a JSON Schema document (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
+                schema?: {
+                    type: "json-schema";
+                    /** A JSON Schema document (an object). */
+                    value: Record<string, unknown>;
+                } | undefined;
+                /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
+                extensible?: boolean | undefined;
+                /** Cross-field validation rules (relational checks JSON Schema can't express, e.g. implications or comparing two fields), evaluated against the resolved value at publish. */
+                invariants?: {
+                    /** Unique name for the rule. */
+                    name: string;
+                    /** A mongo condition (mongrule) boolean expression over the config's fields. */
+                    rule: Record<string, unknown>;
+                    /** Human-readable error shown when the rule is violated. */
+                    message: string;
+                }[] | undefined;
+                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
+                locked?: boolean | undefined;
+                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
+                experimentGuard?: boolean | undefined;
+                /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
+                lockedRevision?: {
+                    id: string;
+                    version: number;
+                } | undefined;
+                /** Id of the user who locked the config (when `locked`). */
+                lockedBy?: string | undefined;
+                /** When the config was locked (when `locked`). */
+                dateLocked?: string | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedConfig: {
+                id: string;
+                /** Stable reference handle; used as `@config:key` in values */
+                key: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
+                parent?: string | undefined;
+                /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
+                extends?: string[] | undefined;
+                /** This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here. */
+                value?: Record<string, unknown> | undefined;
+                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
+                scopedOverrides?: {
+                    /** The `key` of the flavor config (a child config) whose value patches this config when the scope matches. */
+                    config: string;
+                    /** Environment ids this entry applies to. Empty/omitted = any environment. */
+                    environments?: string[] | undefined;
+                    /** Project ids this entry applies to. Empty/omitted = any project. */
+                    projects?: string[] | undefined;
+                }[] | undefined;
+                /** Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config's `scopedOverrides`, never by setting this directly. */
+                scopedConfig?: {
+                    /** The base config this one is a scoped override of. */
+                    parent: string;
+                    /** Environments this override applies to (empty/absent = every environment). */
+                    environments?: string[] | undefined;
+                    /** Projects this override applies to (empty/absent = every project). */
+                    projects?: string[] | undefined;
+                } | undefined;
+                description?: string | undefined;
+                /** The project this config belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                /** This config's own field definitions as a JSON Schema document (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
+                schema?: {
+                    type: "json-schema";
+                    /** A JSON Schema document (an object). */
+                    value: Record<string, unknown>;
+                } | undefined;
+                /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
+                extensible?: boolean | undefined;
+                /** Cross-field validation rules (relational checks JSON Schema can't express, e.g. implications or comparing two fields), evaluated against the resolved value at publish. */
+                invariants?: {
+                    /** Unique name for the rule. */
+                    name: string;
+                    /** A mongo condition (mongrule) boolean expression over the config's fields. */
+                    rule: Record<string, unknown>;
+                    /** Human-readable error shown when the rule is violated. */
+                    message: string;
+                }[] | undefined;
+                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
+                locked?: boolean | undefined;
+                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
+                experimentGuard?: boolean | undefined;
+                /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
+                lockedRevision?: {
+                    id: string;
+                    version: number;
+                } | undefined;
+                /** Id of the user who locked the config (when `locked`). */
+                lockedBy?: string | undefined;
+                /** When the config was locked (when `locked`). */
+                dateLocked?: string | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### config.revision.approved
+
+Triggered when a draft revision is approved by a reviewer
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "config.revision.approved";
+    object: "config";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseConfig: {
+                id: string;
+                /** Stable reference handle; used as `@config:key` in values */
+                key: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
+                parent?: string | undefined;
+                /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
+                extends?: string[] | undefined;
+                /** This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here. */
+                value?: Record<string, unknown> | undefined;
+                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
+                scopedOverrides?: {
+                    /** The `key` of the flavor config (a child config) whose value patches this config when the scope matches. */
+                    config: string;
+                    /** Environment ids this entry applies to. Empty/omitted = any environment. */
+                    environments?: string[] | undefined;
+                    /** Project ids this entry applies to. Empty/omitted = any project. */
+                    projects?: string[] | undefined;
+                }[] | undefined;
+                /** Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config's `scopedOverrides`, never by setting this directly. */
+                scopedConfig?: {
+                    /** The base config this one is a scoped override of. */
+                    parent: string;
+                    /** Environments this override applies to (empty/absent = every environment). */
+                    environments?: string[] | undefined;
+                    /** Projects this override applies to (empty/absent = every project). */
+                    projects?: string[] | undefined;
+                } | undefined;
+                description?: string | undefined;
+                /** The project this config belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                /** This config's own field definitions as a JSON Schema document (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
+                schema?: {
+                    type: "json-schema";
+                    /** A JSON Schema document (an object). */
+                    value: Record<string, unknown>;
+                } | undefined;
+                /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
+                extensible?: boolean | undefined;
+                /** Cross-field validation rules (relational checks JSON Schema can't express, e.g. implications or comparing two fields), evaluated against the resolved value at publish. */
+                invariants?: {
+                    /** Unique name for the rule. */
+                    name: string;
+                    /** A mongo condition (mongrule) boolean expression over the config's fields. */
+                    rule: Record<string, unknown>;
+                    /** Human-readable error shown when the rule is violated. */
+                    message: string;
+                }[] | undefined;
+                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
+                locked?: boolean | undefined;
+                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
+                experimentGuard?: boolean | undefined;
+                /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
+                lockedRevision?: {
+                    id: string;
+                    version: number;
+                } | undefined;
+                /** Id of the user who locked the config (when `locked`). */
+                lockedBy?: string | undefined;
+                /** When the config was locked (when `locked`). */
+                dateLocked?: string | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedConfig: {
+                id: string;
+                /** Stable reference handle; used as `@config:key` in values */
+                key: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
+                parent?: string | undefined;
+                /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
+                extends?: string[] | undefined;
+                /** This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here. */
+                value?: Record<string, unknown> | undefined;
+                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
+                scopedOverrides?: {
+                    /** The `key` of the flavor config (a child config) whose value patches this config when the scope matches. */
+                    config: string;
+                    /** Environment ids this entry applies to. Empty/omitted = any environment. */
+                    environments?: string[] | undefined;
+                    /** Project ids this entry applies to. Empty/omitted = any project. */
+                    projects?: string[] | undefined;
+                }[] | undefined;
+                /** Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config's `scopedOverrides`, never by setting this directly. */
+                scopedConfig?: {
+                    /** The base config this one is a scoped override of. */
+                    parent: string;
+                    /** Environments this override applies to (empty/absent = every environment). */
+                    environments?: string[] | undefined;
+                    /** Projects this override applies to (empty/absent = every project). */
+                    projects?: string[] | undefined;
+                } | undefined;
+                description?: string | undefined;
+                /** The project this config belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                /** This config's own field definitions as a JSON Schema document (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
+                schema?: {
+                    type: "json-schema";
+                    /** A JSON Schema document (an object). */
+                    value: Record<string, unknown>;
+                } | undefined;
+                /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
+                extensible?: boolean | undefined;
+                /** Cross-field validation rules (relational checks JSON Schema can't express, e.g. implications or comparing two fields), evaluated against the resolved value at publish. */
+                invariants?: {
+                    /** Unique name for the rule. */
+                    name: string;
+                    /** A mongo condition (mongrule) boolean expression over the config's fields. */
+                    rule: Record<string, unknown>;
+                    /** Human-readable error shown when the rule is violated. */
+                    message: string;
+                }[] | undefined;
+                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
+                locked?: boolean | undefined;
+                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
+                experimentGuard?: boolean | undefined;
+                /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
+                lockedRevision?: {
+                    id: string;
+                    version: number;
+                } | undefined;
+                /** Id of the user who locked the config (when `locked`). */
+                lockedBy?: string | undefined;
+                /** When the config was locked (when `locked`). */
+                dateLocked?: string | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+            reviewer: {
+                id?: string | undefined;
+                name?: string | undefined;
+                email?: string | undefined;
+            };
+            reviewComment: string | null;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### config.revision.changesRequested
+
+Triggered when a reviewer requests changes on a draft revision
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "config.revision.changesRequested";
+    object: "config";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseConfig: {
+                id: string;
+                /** Stable reference handle; used as `@config:key` in values */
+                key: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
+                parent?: string | undefined;
+                /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
+                extends?: string[] | undefined;
+                /** This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here. */
+                value?: Record<string, unknown> | undefined;
+                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
+                scopedOverrides?: {
+                    /** The `key` of the flavor config (a child config) whose value patches this config when the scope matches. */
+                    config: string;
+                    /** Environment ids this entry applies to. Empty/omitted = any environment. */
+                    environments?: string[] | undefined;
+                    /** Project ids this entry applies to. Empty/omitted = any project. */
+                    projects?: string[] | undefined;
+                }[] | undefined;
+                /** Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config's `scopedOverrides`, never by setting this directly. */
+                scopedConfig?: {
+                    /** The base config this one is a scoped override of. */
+                    parent: string;
+                    /** Environments this override applies to (empty/absent = every environment). */
+                    environments?: string[] | undefined;
+                    /** Projects this override applies to (empty/absent = every project). */
+                    projects?: string[] | undefined;
+                } | undefined;
+                description?: string | undefined;
+                /** The project this config belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                /** This config's own field definitions as a JSON Schema document (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
+                schema?: {
+                    type: "json-schema";
+                    /** A JSON Schema document (an object). */
+                    value: Record<string, unknown>;
+                } | undefined;
+                /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
+                extensible?: boolean | undefined;
+                /** Cross-field validation rules (relational checks JSON Schema can't express, e.g. implications or comparing two fields), evaluated against the resolved value at publish. */
+                invariants?: {
+                    /** Unique name for the rule. */
+                    name: string;
+                    /** A mongo condition (mongrule) boolean expression over the config's fields. */
+                    rule: Record<string, unknown>;
+                    /** Human-readable error shown when the rule is violated. */
+                    message: string;
+                }[] | undefined;
+                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
+                locked?: boolean | undefined;
+                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
+                experimentGuard?: boolean | undefined;
+                /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
+                lockedRevision?: {
+                    id: string;
+                    version: number;
+                } | undefined;
+                /** Id of the user who locked the config (when `locked`). */
+                lockedBy?: string | undefined;
+                /** When the config was locked (when `locked`). */
+                dateLocked?: string | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedConfig: {
+                id: string;
+                /** Stable reference handle; used as `@config:key` in values */
+                key: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
+                parent?: string | undefined;
+                /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
+                extends?: string[] | undefined;
+                /** This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here. */
+                value?: Record<string, unknown> | undefined;
+                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
+                scopedOverrides?: {
+                    /** The `key` of the flavor config (a child config) whose value patches this config when the scope matches. */
+                    config: string;
+                    /** Environment ids this entry applies to. Empty/omitted = any environment. */
+                    environments?: string[] | undefined;
+                    /** Project ids this entry applies to. Empty/omitted = any project. */
+                    projects?: string[] | undefined;
+                }[] | undefined;
+                /** Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config's `scopedOverrides`, never by setting this directly. */
+                scopedConfig?: {
+                    /** The base config this one is a scoped override of. */
+                    parent: string;
+                    /** Environments this override applies to (empty/absent = every environment). */
+                    environments?: string[] | undefined;
+                    /** Projects this override applies to (empty/absent = every project). */
+                    projects?: string[] | undefined;
+                } | undefined;
+                description?: string | undefined;
+                /** The project this config belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                /** This config's own field definitions as a JSON Schema document (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
+                schema?: {
+                    type: "json-schema";
+                    /** A JSON Schema document (an object). */
+                    value: Record<string, unknown>;
+                } | undefined;
+                /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
+                extensible?: boolean | undefined;
+                /** Cross-field validation rules (relational checks JSON Schema can't express, e.g. implications or comparing two fields), evaluated against the resolved value at publish. */
+                invariants?: {
+                    /** Unique name for the rule. */
+                    name: string;
+                    /** A mongo condition (mongrule) boolean expression over the config's fields. */
+                    rule: Record<string, unknown>;
+                    /** Human-readable error shown when the rule is violated. */
+                    message: string;
+                }[] | undefined;
+                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
+                locked?: boolean | undefined;
+                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
+                experimentGuard?: boolean | undefined;
+                /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
+                lockedRevision?: {
+                    id: string;
+                    version: number;
+                } | undefined;
+                /** Id of the user who locked the config (when `locked`). */
+                lockedBy?: string | undefined;
+                /** When the config was locked (when `locked`). */
+                dateLocked?: string | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+            reviewer: {
+                id?: string | undefined;
+                name?: string | undefined;
+                email?: string | undefined;
+            };
+            reviewComment: string | null;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### config.revision.commented
+
+Triggered when a comment is added to a draft revision
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "config.revision.commented";
+    object: "config";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseConfig: {
+                id: string;
+                /** Stable reference handle; used as `@config:key` in values */
+                key: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
+                parent?: string | undefined;
+                /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
+                extends?: string[] | undefined;
+                /** This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here. */
+                value?: Record<string, unknown> | undefined;
+                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
+                scopedOverrides?: {
+                    /** The `key` of the flavor config (a child config) whose value patches this config when the scope matches. */
+                    config: string;
+                    /** Environment ids this entry applies to. Empty/omitted = any environment. */
+                    environments?: string[] | undefined;
+                    /** Project ids this entry applies to. Empty/omitted = any project. */
+                    projects?: string[] | undefined;
+                }[] | undefined;
+                /** Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config's `scopedOverrides`, never by setting this directly. */
+                scopedConfig?: {
+                    /** The base config this one is a scoped override of. */
+                    parent: string;
+                    /** Environments this override applies to (empty/absent = every environment). */
+                    environments?: string[] | undefined;
+                    /** Projects this override applies to (empty/absent = every project). */
+                    projects?: string[] | undefined;
+                } | undefined;
+                description?: string | undefined;
+                /** The project this config belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                /** This config's own field definitions as a JSON Schema document (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
+                schema?: {
+                    type: "json-schema";
+                    /** A JSON Schema document (an object). */
+                    value: Record<string, unknown>;
+                } | undefined;
+                /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
+                extensible?: boolean | undefined;
+                /** Cross-field validation rules (relational checks JSON Schema can't express, e.g. implications or comparing two fields), evaluated against the resolved value at publish. */
+                invariants?: {
+                    /** Unique name for the rule. */
+                    name: string;
+                    /** A mongo condition (mongrule) boolean expression over the config's fields. */
+                    rule: Record<string, unknown>;
+                    /** Human-readable error shown when the rule is violated. */
+                    message: string;
+                }[] | undefined;
+                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
+                locked?: boolean | undefined;
+                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
+                experimentGuard?: boolean | undefined;
+                /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
+                lockedRevision?: {
+                    id: string;
+                    version: number;
+                } | undefined;
+                /** Id of the user who locked the config (when `locked`). */
+                lockedBy?: string | undefined;
+                /** When the config was locked (when `locked`). */
+                dateLocked?: string | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedConfig: {
+                id: string;
+                /** Stable reference handle; used as `@config:key` in values */
+                key: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
+                parent?: string | undefined;
+                /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
+                extends?: string[] | undefined;
+                /** This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here. */
+                value?: Record<string, unknown> | undefined;
+                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
+                scopedOverrides?: {
+                    /** The `key` of the flavor config (a child config) whose value patches this config when the scope matches. */
+                    config: string;
+                    /** Environment ids this entry applies to. Empty/omitted = any environment. */
+                    environments?: string[] | undefined;
+                    /** Project ids this entry applies to. Empty/omitted = any project. */
+                    projects?: string[] | undefined;
+                }[] | undefined;
+                /** Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config's `scopedOverrides`, never by setting this directly. */
+                scopedConfig?: {
+                    /** The base config this one is a scoped override of. */
+                    parent: string;
+                    /** Environments this override applies to (empty/absent = every environment). */
+                    environments?: string[] | undefined;
+                    /** Projects this override applies to (empty/absent = every project). */
+                    projects?: string[] | undefined;
+                } | undefined;
+                description?: string | undefined;
+                /** The project this config belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                /** This config's own field definitions as a JSON Schema document (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
+                schema?: {
+                    type: "json-schema";
+                    /** A JSON Schema document (an object). */
+                    value: Record<string, unknown>;
+                } | undefined;
+                /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
+                extensible?: boolean | undefined;
+                /** Cross-field validation rules (relational checks JSON Schema can't express, e.g. implications or comparing two fields), evaluated against the resolved value at publish. */
+                invariants?: {
+                    /** Unique name for the rule. */
+                    name: string;
+                    /** A mongo condition (mongrule) boolean expression over the config's fields. */
+                    rule: Record<string, unknown>;
+                    /** Human-readable error shown when the rule is violated. */
+                    message: string;
+                }[] | undefined;
+                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
+                locked?: boolean | undefined;
+                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
+                experimentGuard?: boolean | undefined;
+                /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
+                lockedRevision?: {
+                    id: string;
+                    version: number;
+                } | undefined;
+                /** Id of the user who locked the config (when `locked`). */
+                lockedBy?: string | undefined;
+                /** When the config was locked (when `locked`). */
+                dateLocked?: string | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+            reviewer: {
+                id?: string | undefined;
+                name?: string | undefined;
+                email?: string | undefined;
+            };
+            reviewComment: string;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### config.revision.discarded
+
+Triggered when a draft revision is discarded
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "config.revision.discarded";
+    object: "config";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseConfig: {
+                id: string;
+                /** Stable reference handle; used as `@config:key` in values */
+                key: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
+                parent?: string | undefined;
+                /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
+                extends?: string[] | undefined;
+                /** This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here. */
+                value?: Record<string, unknown> | undefined;
+                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
+                scopedOverrides?: {
+                    /** The `key` of the flavor config (a child config) whose value patches this config when the scope matches. */
+                    config: string;
+                    /** Environment ids this entry applies to. Empty/omitted = any environment. */
+                    environments?: string[] | undefined;
+                    /** Project ids this entry applies to. Empty/omitted = any project. */
+                    projects?: string[] | undefined;
+                }[] | undefined;
+                /** Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config's `scopedOverrides`, never by setting this directly. */
+                scopedConfig?: {
+                    /** The base config this one is a scoped override of. */
+                    parent: string;
+                    /** Environments this override applies to (empty/absent = every environment). */
+                    environments?: string[] | undefined;
+                    /** Projects this override applies to (empty/absent = every project). */
+                    projects?: string[] | undefined;
+                } | undefined;
+                description?: string | undefined;
+                /** The project this config belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                /** This config's own field definitions as a JSON Schema document (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
+                schema?: {
+                    type: "json-schema";
+                    /** A JSON Schema document (an object). */
+                    value: Record<string, unknown>;
+                } | undefined;
+                /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
+                extensible?: boolean | undefined;
+                /** Cross-field validation rules (relational checks JSON Schema can't express, e.g. implications or comparing two fields), evaluated against the resolved value at publish. */
+                invariants?: {
+                    /** Unique name for the rule. */
+                    name: string;
+                    /** A mongo condition (mongrule) boolean expression over the config's fields. */
+                    rule: Record<string, unknown>;
+                    /** Human-readable error shown when the rule is violated. */
+                    message: string;
+                }[] | undefined;
+                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
+                locked?: boolean | undefined;
+                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
+                experimentGuard?: boolean | undefined;
+                /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
+                lockedRevision?: {
+                    id: string;
+                    version: number;
+                } | undefined;
+                /** Id of the user who locked the config (when `locked`). */
+                lockedBy?: string | undefined;
+                /** When the config was locked (when `locked`). */
+                dateLocked?: string | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedConfig: {
+                id: string;
+                /** Stable reference handle; used as `@config:key` in values */
+                key: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
+                parent?: string | undefined;
+                /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
+                extends?: string[] | undefined;
+                /** This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here. */
+                value?: Record<string, unknown> | undefined;
+                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
+                scopedOverrides?: {
+                    /** The `key` of the flavor config (a child config) whose value patches this config when the scope matches. */
+                    config: string;
+                    /** Environment ids this entry applies to. Empty/omitted = any environment. */
+                    environments?: string[] | undefined;
+                    /** Project ids this entry applies to. Empty/omitted = any project. */
+                    projects?: string[] | undefined;
+                }[] | undefined;
+                /** Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config's `scopedOverrides`, never by setting this directly. */
+                scopedConfig?: {
+                    /** The base config this one is a scoped override of. */
+                    parent: string;
+                    /** Environments this override applies to (empty/absent = every environment). */
+                    environments?: string[] | undefined;
+                    /** Projects this override applies to (empty/absent = every project). */
+                    projects?: string[] | undefined;
+                } | undefined;
+                description?: string | undefined;
+                /** The project this config belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                /** This config's own field definitions as a JSON Schema document (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
+                schema?: {
+                    type: "json-schema";
+                    /** A JSON Schema document (an object). */
+                    value: Record<string, unknown>;
+                } | undefined;
+                /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
+                extensible?: boolean | undefined;
+                /** Cross-field validation rules (relational checks JSON Schema can't express, e.g. implications or comparing two fields), evaluated against the resolved value at publish. */
+                invariants?: {
+                    /** Unique name for the rule. */
+                    name: string;
+                    /** A mongo condition (mongrule) boolean expression over the config's fields. */
+                    rule: Record<string, unknown>;
+                    /** Human-readable error shown when the rule is violated. */
+                    message: string;
+                }[] | undefined;
+                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
+                locked?: boolean | undefined;
+                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
+                experimentGuard?: boolean | undefined;
+                /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
+                lockedRevision?: {
+                    id: string;
+                    version: number;
+                } | undefined;
+                /** Id of the user who locked the config (when `locked`). */
+                lockedBy?: string | undefined;
+                /** When the config was locked (when `locked`). */
+                dateLocked?: string | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### config.revision.rebased
+
+Triggered when a draft revision is rebased onto the latest live state
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "config.revision.rebased";
+    object: "config";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseConfig: {
+                id: string;
+                /** Stable reference handle; used as `@config:key` in values */
+                key: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
+                parent?: string | undefined;
+                /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
+                extends?: string[] | undefined;
+                /** This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here. */
+                value?: Record<string, unknown> | undefined;
+                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
+                scopedOverrides?: {
+                    /** The `key` of the flavor config (a child config) whose value patches this config when the scope matches. */
+                    config: string;
+                    /** Environment ids this entry applies to. Empty/omitted = any environment. */
+                    environments?: string[] | undefined;
+                    /** Project ids this entry applies to. Empty/omitted = any project. */
+                    projects?: string[] | undefined;
+                }[] | undefined;
+                /** Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config's `scopedOverrides`, never by setting this directly. */
+                scopedConfig?: {
+                    /** The base config this one is a scoped override of. */
+                    parent: string;
+                    /** Environments this override applies to (empty/absent = every environment). */
+                    environments?: string[] | undefined;
+                    /** Projects this override applies to (empty/absent = every project). */
+                    projects?: string[] | undefined;
+                } | undefined;
+                description?: string | undefined;
+                /** The project this config belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                /** This config's own field definitions as a JSON Schema document (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
+                schema?: {
+                    type: "json-schema";
+                    /** A JSON Schema document (an object). */
+                    value: Record<string, unknown>;
+                } | undefined;
+                /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
+                extensible?: boolean | undefined;
+                /** Cross-field validation rules (relational checks JSON Schema can't express, e.g. implications or comparing two fields), evaluated against the resolved value at publish. */
+                invariants?: {
+                    /** Unique name for the rule. */
+                    name: string;
+                    /** A mongo condition (mongrule) boolean expression over the config's fields. */
+                    rule: Record<string, unknown>;
+                    /** Human-readable error shown when the rule is violated. */
+                    message: string;
+                }[] | undefined;
+                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
+                locked?: boolean | undefined;
+                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
+                experimentGuard?: boolean | undefined;
+                /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
+                lockedRevision?: {
+                    id: string;
+                    version: number;
+                } | undefined;
+                /** Id of the user who locked the config (when `locked`). */
+                lockedBy?: string | undefined;
+                /** When the config was locked (when `locked`). */
+                dateLocked?: string | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedConfig: {
+                id: string;
+                /** Stable reference handle; used as `@config:key` in values */
+                key: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
+                parent?: string | undefined;
+                /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
+                extends?: string[] | undefined;
+                /** This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here. */
+                value?: Record<string, unknown> | undefined;
+                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
+                scopedOverrides?: {
+                    /** The `key` of the flavor config (a child config) whose value patches this config when the scope matches. */
+                    config: string;
+                    /** Environment ids this entry applies to. Empty/omitted = any environment. */
+                    environments?: string[] | undefined;
+                    /** Project ids this entry applies to. Empty/omitted = any project. */
+                    projects?: string[] | undefined;
+                }[] | undefined;
+                /** Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config's `scopedOverrides`, never by setting this directly. */
+                scopedConfig?: {
+                    /** The base config this one is a scoped override of. */
+                    parent: string;
+                    /** Environments this override applies to (empty/absent = every environment). */
+                    environments?: string[] | undefined;
+                    /** Projects this override applies to (empty/absent = every project). */
+                    projects?: string[] | undefined;
+                } | undefined;
+                description?: string | undefined;
+                /** The project this config belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                /** This config's own field definitions as a JSON Schema document (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
+                schema?: {
+                    type: "json-schema";
+                    /** A JSON Schema document (an object). */
+                    value: Record<string, unknown>;
+                } | undefined;
+                /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
+                extensible?: boolean | undefined;
+                /** Cross-field validation rules (relational checks JSON Schema can't express, e.g. implications or comparing two fields), evaluated against the resolved value at publish. */
+                invariants?: {
+                    /** Unique name for the rule. */
+                    name: string;
+                    /** A mongo condition (mongrule) boolean expression over the config's fields. */
+                    rule: Record<string, unknown>;
+                    /** Human-readable error shown when the rule is violated. */
+                    message: string;
+                }[] | undefined;
+                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
+                locked?: boolean | undefined;
+                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
+                experimentGuard?: boolean | undefined;
+                /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
+                lockedRevision?: {
+                    id: string;
+                    version: number;
+                } | undefined;
+                /** Id of the user who locked the config (when `locked`). */
+                lockedBy?: string | undefined;
+                /** When the config was locked (when `locked`). */
+                dateLocked?: string | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### config.revision.published
+
+Triggered when a draft revision is published. Overlaps with `config.updated` but provides revision-specific context.
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "config.revision.published";
+    object: "config";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseConfig: {
+                id: string;
+                /** Stable reference handle; used as `@config:key` in values */
+                key: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
+                parent?: string | undefined;
+                /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
+                extends?: string[] | undefined;
+                /** This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here. */
+                value?: Record<string, unknown> | undefined;
+                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
+                scopedOverrides?: {
+                    /** The `key` of the flavor config (a child config) whose value patches this config when the scope matches. */
+                    config: string;
+                    /** Environment ids this entry applies to. Empty/omitted = any environment. */
+                    environments?: string[] | undefined;
+                    /** Project ids this entry applies to. Empty/omitted = any project. */
+                    projects?: string[] | undefined;
+                }[] | undefined;
+                /** Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config's `scopedOverrides`, never by setting this directly. */
+                scopedConfig?: {
+                    /** The base config this one is a scoped override of. */
+                    parent: string;
+                    /** Environments this override applies to (empty/absent = every environment). */
+                    environments?: string[] | undefined;
+                    /** Projects this override applies to (empty/absent = every project). */
+                    projects?: string[] | undefined;
+                } | undefined;
+                description?: string | undefined;
+                /** The project this config belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                /** This config's own field definitions as a JSON Schema document (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
+                schema?: {
+                    type: "json-schema";
+                    /** A JSON Schema document (an object). */
+                    value: Record<string, unknown>;
+                } | undefined;
+                /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
+                extensible?: boolean | undefined;
+                /** Cross-field validation rules (relational checks JSON Schema can't express, e.g. implications or comparing two fields), evaluated against the resolved value at publish. */
+                invariants?: {
+                    /** Unique name for the rule. */
+                    name: string;
+                    /** A mongo condition (mongrule) boolean expression over the config's fields. */
+                    rule: Record<string, unknown>;
+                    /** Human-readable error shown when the rule is violated. */
+                    message: string;
+                }[] | undefined;
+                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
+                locked?: boolean | undefined;
+                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
+                experimentGuard?: boolean | undefined;
+                /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
+                lockedRevision?: {
+                    id: string;
+                    version: number;
+                } | undefined;
+                /** Id of the user who locked the config (when `locked`). */
+                lockedBy?: string | undefined;
+                /** When the config was locked (when `locked`). */
+                dateLocked?: string | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedConfig: {
+                id: string;
+                /** Stable reference handle; used as `@config:key` in values */
+                key: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
+                parent?: string | undefined;
+                /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
+                extends?: string[] | undefined;
+                /** This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here. */
+                value?: Record<string, unknown> | undefined;
+                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
+                scopedOverrides?: {
+                    /** The `key` of the flavor config (a child config) whose value patches this config when the scope matches. */
+                    config: string;
+                    /** Environment ids this entry applies to. Empty/omitted = any environment. */
+                    environments?: string[] | undefined;
+                    /** Project ids this entry applies to. Empty/omitted = any project. */
+                    projects?: string[] | undefined;
+                }[] | undefined;
+                /** Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config's `scopedOverrides`, never by setting this directly. */
+                scopedConfig?: {
+                    /** The base config this one is a scoped override of. */
+                    parent: string;
+                    /** Environments this override applies to (empty/absent = every environment). */
+                    environments?: string[] | undefined;
+                    /** Projects this override applies to (empty/absent = every project). */
+                    projects?: string[] | undefined;
+                } | undefined;
+                description?: string | undefined;
+                /** The project this config belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                /** This config's own field definitions as a JSON Schema document (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
+                schema?: {
+                    type: "json-schema";
+                    /** A JSON Schema document (an object). */
+                    value: Record<string, unknown>;
+                } | undefined;
+                /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
+                extensible?: boolean | undefined;
+                /** Cross-field validation rules (relational checks JSON Schema can't express, e.g. implications or comparing two fields), evaluated against the resolved value at publish. */
+                invariants?: {
+                    /** Unique name for the rule. */
+                    name: string;
+                    /** A mongo condition (mongrule) boolean expression over the config's fields. */
+                    rule: Record<string, unknown>;
+                    /** Human-readable error shown when the rule is violated. */
+                    message: string;
+                }[] | undefined;
+                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
+                locked?: boolean | undefined;
+                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
+                experimentGuard?: boolean | undefined;
+                /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
+                lockedRevision?: {
+                    id: string;
+                    version: number;
+                } | undefined;
+                /** Id of the user who locked the config (when `locked`). */
+                lockedBy?: string | undefined;
+                /** When the config was locked (when `locked`). */
+                dateLocked?: string | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+            bulkPublishId?: string | undefined;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### config.revision.reverted
+
+Triggered when a config is reverted to a previous published revision
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "config.revision.reverted";
+    object: "config";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseConfig: {
+                id: string;
+                /** Stable reference handle; used as `@config:key` in values */
+                key: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
+                parent?: string | undefined;
+                /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
+                extends?: string[] | undefined;
+                /** This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here. */
+                value?: Record<string, unknown> | undefined;
+                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
+                scopedOverrides?: {
+                    /** The `key` of the flavor config (a child config) whose value patches this config when the scope matches. */
+                    config: string;
+                    /** Environment ids this entry applies to. Empty/omitted = any environment. */
+                    environments?: string[] | undefined;
+                    /** Project ids this entry applies to. Empty/omitted = any project. */
+                    projects?: string[] | undefined;
+                }[] | undefined;
+                /** Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config's `scopedOverrides`, never by setting this directly. */
+                scopedConfig?: {
+                    /** The base config this one is a scoped override of. */
+                    parent: string;
+                    /** Environments this override applies to (empty/absent = every environment). */
+                    environments?: string[] | undefined;
+                    /** Projects this override applies to (empty/absent = every project). */
+                    projects?: string[] | undefined;
+                } | undefined;
+                description?: string | undefined;
+                /** The project this config belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                /** This config's own field definitions as a JSON Schema document (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
+                schema?: {
+                    type: "json-schema";
+                    /** A JSON Schema document (an object). */
+                    value: Record<string, unknown>;
+                } | undefined;
+                /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
+                extensible?: boolean | undefined;
+                /** Cross-field validation rules (relational checks JSON Schema can't express, e.g. implications or comparing two fields), evaluated against the resolved value at publish. */
+                invariants?: {
+                    /** Unique name for the rule. */
+                    name: string;
+                    /** A mongo condition (mongrule) boolean expression over the config's fields. */
+                    rule: Record<string, unknown>;
+                    /** Human-readable error shown when the rule is violated. */
+                    message: string;
+                }[] | undefined;
+                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
+                locked?: boolean | undefined;
+                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
+                experimentGuard?: boolean | undefined;
+                /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
+                lockedRevision?: {
+                    id: string;
+                    version: number;
+                } | undefined;
+                /** Id of the user who locked the config (when `locked`). */
+                lockedBy?: string | undefined;
+                /** When the config was locked (when `locked`). */
+                dateLocked?: string | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedConfig: {
+                id: string;
+                /** Stable reference handle; used as `@config:key` in values */
+                key: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
+                parent?: string | undefined;
+                /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
+                extends?: string[] | undefined;
+                /** This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here. */
+                value?: Record<string, unknown> | undefined;
+                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
+                scopedOverrides?: {
+                    /** The `key` of the flavor config (a child config) whose value patches this config when the scope matches. */
+                    config: string;
+                    /** Environment ids this entry applies to. Empty/omitted = any environment. */
+                    environments?: string[] | undefined;
+                    /** Project ids this entry applies to. Empty/omitted = any project. */
+                    projects?: string[] | undefined;
+                }[] | undefined;
+                /** Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config's `scopedOverrides`, never by setting this directly. */
+                scopedConfig?: {
+                    /** The base config this one is a scoped override of. */
+                    parent: string;
+                    /** Environments this override applies to (empty/absent = every environment). */
+                    environments?: string[] | undefined;
+                    /** Projects this override applies to (empty/absent = every project). */
+                    projects?: string[] | undefined;
+                } | undefined;
+                description?: string | undefined;
+                /** The project this config belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                /** This config's own field definitions as a JSON Schema document (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
+                schema?: {
+                    type: "json-schema";
+                    /** A JSON Schema document (an object). */
+                    value: Record<string, unknown>;
+                } | undefined;
+                /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
+                extensible?: boolean | undefined;
+                /** Cross-field validation rules (relational checks JSON Schema can't express, e.g. implications or comparing two fields), evaluated against the resolved value at publish. */
+                invariants?: {
+                    /** Unique name for the rule. */
+                    name: string;
+                    /** A mongo condition (mongrule) boolean expression over the config's fields. */
+                    rule: Record<string, unknown>;
+                    /** Human-readable error shown when the rule is violated. */
+                    message: string;
+                }[] | undefined;
+                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
+                locked?: boolean | undefined;
+                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
+                experimentGuard?: boolean | undefined;
+                /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
+                lockedRevision?: {
+                    id: string;
+                    version: number;
+                } | undefined;
+                /** Id of the user who locked the config (when `locked`). */
+                lockedBy?: string | undefined;
+                /** When the config was locked (when `locked`). */
+                dateLocked?: string | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+            revertedToVersion?: number | undefined;
+            bulkPublishId?: string | undefined;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### config.revision.reopened
+
+Triggered when a discarded revision is reopened
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "config.revision.reopened";
+    object: "config";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseConfig: {
+                id: string;
+                /** Stable reference handle; used as `@config:key` in values */
+                key: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
+                parent?: string | undefined;
+                /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
+                extends?: string[] | undefined;
+                /** This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here. */
+                value?: Record<string, unknown> | undefined;
+                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
+                scopedOverrides?: {
+                    /** The `key` of the flavor config (a child config) whose value patches this config when the scope matches. */
+                    config: string;
+                    /** Environment ids this entry applies to. Empty/omitted = any environment. */
+                    environments?: string[] | undefined;
+                    /** Project ids this entry applies to. Empty/omitted = any project. */
+                    projects?: string[] | undefined;
+                }[] | undefined;
+                /** Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config's `scopedOverrides`, never by setting this directly. */
+                scopedConfig?: {
+                    /** The base config this one is a scoped override of. */
+                    parent: string;
+                    /** Environments this override applies to (empty/absent = every environment). */
+                    environments?: string[] | undefined;
+                    /** Projects this override applies to (empty/absent = every project). */
+                    projects?: string[] | undefined;
+                } | undefined;
+                description?: string | undefined;
+                /** The project this config belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                /** This config's own field definitions as a JSON Schema document (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
+                schema?: {
+                    type: "json-schema";
+                    /** A JSON Schema document (an object). */
+                    value: Record<string, unknown>;
+                } | undefined;
+                /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
+                extensible?: boolean | undefined;
+                /** Cross-field validation rules (relational checks JSON Schema can't express, e.g. implications or comparing two fields), evaluated against the resolved value at publish. */
+                invariants?: {
+                    /** Unique name for the rule. */
+                    name: string;
+                    /** A mongo condition (mongrule) boolean expression over the config's fields. */
+                    rule: Record<string, unknown>;
+                    /** Human-readable error shown when the rule is violated. */
+                    message: string;
+                }[] | undefined;
+                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
+                locked?: boolean | undefined;
+                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
+                experimentGuard?: boolean | undefined;
+                /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
+                lockedRevision?: {
+                    id: string;
+                    version: number;
+                } | undefined;
+                /** Id of the user who locked the config (when `locked`). */
+                lockedBy?: string | undefined;
+                /** When the config was locked (when `locked`). */
+                dateLocked?: string | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedConfig: {
+                id: string;
+                /** Stable reference handle; used as `@config:key` in values */
+                key: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
+                parent?: string | undefined;
+                /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
+                extends?: string[] | undefined;
+                /** This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here. */
+                value?: Record<string, unknown> | undefined;
+                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
+                scopedOverrides?: {
+                    /** The `key` of the flavor config (a child config) whose value patches this config when the scope matches. */
+                    config: string;
+                    /** Environment ids this entry applies to. Empty/omitted = any environment. */
+                    environments?: string[] | undefined;
+                    /** Project ids this entry applies to. Empty/omitted = any project. */
+                    projects?: string[] | undefined;
+                }[] | undefined;
+                /** Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config's `scopedOverrides`, never by setting this directly. */
+                scopedConfig?: {
+                    /** The base config this one is a scoped override of. */
+                    parent: string;
+                    /** Environments this override applies to (empty/absent = every environment). */
+                    environments?: string[] | undefined;
+                    /** Projects this override applies to (empty/absent = every project). */
+                    projects?: string[] | undefined;
+                } | undefined;
+                description?: string | undefined;
+                /** The project this config belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                /** This config's own field definitions as a JSON Schema document (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
+                schema?: {
+                    type: "json-schema";
+                    /** A JSON Schema document (an object). */
+                    value: Record<string, unknown>;
+                } | undefined;
+                /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
+                extensible?: boolean | undefined;
+                /** Cross-field validation rules (relational checks JSON Schema can't express, e.g. implications or comparing two fields), evaluated against the resolved value at publish. */
+                invariants?: {
+                    /** Unique name for the rule. */
+                    name: string;
+                    /** A mongo condition (mongrule) boolean expression over the config's fields. */
+                    rule: Record<string, unknown>;
+                    /** Human-readable error shown when the rule is violated. */
+                    message: string;
+                }[] | undefined;
+                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
+                locked?: boolean | undefined;
+                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
+                experimentGuard?: boolean | undefined;
+                /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
+                lockedRevision?: {
+                    id: string;
+                    version: number;
+                } | undefined;
+                /** Id of the user who locked the config (when `locked`). */
+                lockedBy?: string | undefined;
+                /** When the config was locked (when `locked`). */
+                dateLocked?: string | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### config.revision.publishFailed
+
+Triggered when a deferred publish (scheduled publish or auto-publish-on-approval) is given up on after failing — terminally, or after exhausting retries. The draft is left open for a human to resolve.
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "config.revision.publishFailed";
+    object: "config";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseConfig: {
+                id: string;
+                /** Stable reference handle; used as `@config:key` in values */
+                key: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
+                parent?: string | undefined;
+                /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
+                extends?: string[] | undefined;
+                /** This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here. */
+                value?: Record<string, unknown> | undefined;
+                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
+                scopedOverrides?: {
+                    /** The `key` of the flavor config (a child config) whose value patches this config when the scope matches. */
+                    config: string;
+                    /** Environment ids this entry applies to. Empty/omitted = any environment. */
+                    environments?: string[] | undefined;
+                    /** Project ids this entry applies to. Empty/omitted = any project. */
+                    projects?: string[] | undefined;
+                }[] | undefined;
+                /** Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config's `scopedOverrides`, never by setting this directly. */
+                scopedConfig?: {
+                    /** The base config this one is a scoped override of. */
+                    parent: string;
+                    /** Environments this override applies to (empty/absent = every environment). */
+                    environments?: string[] | undefined;
+                    /** Projects this override applies to (empty/absent = every project). */
+                    projects?: string[] | undefined;
+                } | undefined;
+                description?: string | undefined;
+                /** The project this config belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                /** This config's own field definitions as a JSON Schema document (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
+                schema?: {
+                    type: "json-schema";
+                    /** A JSON Schema document (an object). */
+                    value: Record<string, unknown>;
+                } | undefined;
+                /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
+                extensible?: boolean | undefined;
+                /** Cross-field validation rules (relational checks JSON Schema can't express, e.g. implications or comparing two fields), evaluated against the resolved value at publish. */
+                invariants?: {
+                    /** Unique name for the rule. */
+                    name: string;
+                    /** A mongo condition (mongrule) boolean expression over the config's fields. */
+                    rule: Record<string, unknown>;
+                    /** Human-readable error shown when the rule is violated. */
+                    message: string;
+                }[] | undefined;
+                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
+                locked?: boolean | undefined;
+                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
+                experimentGuard?: boolean | undefined;
+                /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
+                lockedRevision?: {
+                    id: string;
+                    version: number;
+                } | undefined;
+                /** Id of the user who locked the config (when `locked`). */
+                lockedBy?: string | undefined;
+                /** When the config was locked (when `locked`). */
+                dateLocked?: string | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedConfig: {
+                id: string;
+                /** Stable reference handle; used as `@config:key` in values */
+                key: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The `key` of the config this one inherits from (lineage parent — the primary spine). Synthesized into `$extends` at resolution time and never stored in `value`. */
+                parent?: string | undefined;
+                /** Additional composition bases (config `key`s) layered on top of `parent`, in precedence order (later overrides earlier; all override `parent`; this config's own keys win last). Like `parent`, set via this field — never via a `@config:` entry in `value`. */
+                extends?: string[] | undefined;
+                /** This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here. */
+                value?: Record<string, unknown> | undefined;
+                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
+                scopedOverrides?: {
+                    /** The `key` of the flavor config (a child config) whose value patches this config when the scope matches. */
+                    config: string;
+                    /** Environment ids this entry applies to. Empty/omitted = any environment. */
+                    environments?: string[] | undefined;
+                    /** Project ids this entry applies to. Empty/omitted = any project. */
+                    projects?: string[] | undefined;
+                }[] | undefined;
+                /** Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config's `scopedOverrides`, never by setting this directly. */
+                scopedConfig?: {
+                    /** The base config this one is a scoped override of. */
+                    parent: string;
+                    /** Environments this override applies to (empty/absent = every environment). */
+                    environments?: string[] | undefined;
+                    /** Projects this override applies to (empty/absent = every project). */
+                    projects?: string[] | undefined;
+                } | undefined;
+                description?: string | undefined;
+                /** The project this config belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                /** This config's own field definitions as a JSON Schema document (its contribution to the family's effective schema). Inherited fields are owned by ancestors and are not repeated here. */
+                schema?: {
+                    type: "json-schema";
+                    /** A JSON Schema document (an object). */
+                    value: Record<string, unknown>;
+                } | undefined;
+                /** Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default. */
+                extensible?: boolean | undefined;
+                /** Cross-field validation rules (relational checks JSON Schema can't express, e.g. implications or comparing two fields), evaluated against the resolved value at publish. */
+                invariants?: {
+                    /** Unique name for the rule. */
+                    name: string;
+                    /** A mongo condition (mongrule) boolean expression over the config's fields. */
+                    rule: Record<string, unknown>;
+                    /** Human-readable error shown when the rule is violated. */
+                    message: string;
+                }[] | undefined;
+                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited. */
+                locked?: boolean | undefined;
+                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`. */
+                experimentGuard?: boolean | undefined;
+                /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
+                lockedRevision?: {
+                    id: string;
+                    version: number;
+                } | undefined;
+                /** Id of the user who locked the config (when `locked`). */
+                lockedBy?: string | undefined;
+                /** When the config was locked (when `locked`). */
+                dateLocked?: string | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+            bulkPublishId?: string | undefined;
+            failureReason: string;
+            terminal: boolean;
+            attempts: number;
         };
     };
     user: {
