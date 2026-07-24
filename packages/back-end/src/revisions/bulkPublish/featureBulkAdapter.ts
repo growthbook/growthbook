@@ -28,6 +28,7 @@ import {
   hasPublishLockingScheduledSibling,
   restoreFeatureRevisionAfterFailedBulkPublish,
 } from "back-end/src/models/FeatureRevisionModel";
+import { isArchiveTransition } from "back-end/src/revisions/archiveTransition";
 import { getMergeResultPublishEnvs } from "back-end/src/services/features";
 import {
   collectFeaturePublishGates,
@@ -208,8 +209,10 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     // of service and is what lets it then be deleted freely), so bulk publish
     // enforces it too. Unarchiving is covered by the publish check above.
     if (
-      plan.mergeResult?.archived === true &&
-      !feature.archived &&
+      isArchiveTransition({
+        proposed: plan.mergeResult?.archived,
+        current: feature.archived,
+      }) &&
       !callerContext.permissions.canDeleteFeature(feature)
     ) {
       gates.push(

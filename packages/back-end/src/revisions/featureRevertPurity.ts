@@ -7,6 +7,7 @@ import type { ApiReqContext } from "back-end/types/api";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { isPlausibleFeatureRule } from "back-end/src/util/flattenRules";
 import { upgradeFeatureRule } from "back-end/src/util/migrations";
+import { isArchiveTransition } from "back-end/src/revisions/archiveTransition";
 
 // Plain content: restoring these puts back a value that was already live.
 // `rules` and `environmentsEnabled` are handled separately — createRevision
@@ -143,8 +144,10 @@ export async function assertCanPublishFeatureRevision({
   // is what lets it then be deleted freely. Unarchiving is an ordinary payload
   // change, covered by the publish check below.
   if (
-    mergeChanges?.archived === true &&
-    !feature.archived &&
+    isArchiveTransition({
+      proposed: mergeChanges?.archived,
+      current: feature.archived,
+    }) &&
     !context.permissions.canDeleteFeature(feature)
   ) {
     context.permissions.throwPermissionError();

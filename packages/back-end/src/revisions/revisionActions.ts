@@ -27,6 +27,10 @@ import {
   getErrorMessage,
 } from "back-end/src/util/errors";
 import { isPureRevertRevision } from "back-end/src/revisions/revertPurity";
+import {
+  isArchiveTransition,
+  proposedArchivedValue,
+} from "back-end/src/revisions/archiveTransition";
 import { decideScheduledPublishOutcome } from "back-end/src/revisions/publishFailurePolicy";
 import { logger } from "back-end/src/util/logger";
 
@@ -46,6 +50,23 @@ export async function assertCanPublishRevision(
 ): Promise<void> {
   const adapter = getAdapter(revision.target.type);
   const snapshot = entity as Record<string, unknown>;
+
+  // Archiving is delete-class wherever the transition lands. Note this needs the
+  // entity's delete atom from the permission table — adapter.canDelete gates
+  // deleting a revision document (bypassApprovalChecks), not the entity.
+  if (
+    isArchiveTransition({
+      proposed: proposedArchivedValue(revision.target.proposedChanges),
+      current: snapshot.archived as boolean | undefined,
+    }) &&
+    !context.permissions.canRevisionAction(
+      revision.target.type,
+      "delete",
+      snapshot,
+    )
+  ) {
+    context.permissions.throwPermissionError();
+  }
 
   if ((adapter.canPublishRevision ?? adapter.canUpdate)(context, snapshot)) {
     return;
