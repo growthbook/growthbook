@@ -518,6 +518,7 @@ const SavedGroupForm: FC<{
           );
         }
         mutateDefinitions({});
+        await mutate?.();
       })}
       error={errorMessage}
     >
