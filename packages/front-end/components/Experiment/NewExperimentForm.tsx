@@ -34,6 +34,7 @@ import { getExposureQuery } from "@/services/datasources";
 import {
   filterCustomFieldsForSectionAndProject,
   useCustomFields,
+  applyCustomFieldDefaults,
 } from "@/hooks/useCustomFields";
 import {
   generateVariationId,
@@ -671,6 +672,14 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         templateAsExperiment.skipPartialData = "loose";
       }
 
+      if (customFields) {
+        templateAsExperiment.customFields = applyCustomFieldDefaults(
+          customFields,
+          templateAsExperiment.customFields || {},
+          true,
+        );
+      }
+
       form.reset(templateAsExperiment, {
         keepDefaultValues: true,
       });
@@ -886,6 +895,16 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
                       const templateAsExperiment =
                         convertTemplateToExperiment(template);
+
+                      if (customFields) {
+                        templateAsExperiment.customFields =
+                          applyCustomFieldDefaults(
+                            customFields,
+                            templateAsExperiment.customFields || {},
+                            true,
+                          );
+                      }
+
                       form.reset(templateAsExperiment, {
                         keepDefaultValues: true,
                       });
