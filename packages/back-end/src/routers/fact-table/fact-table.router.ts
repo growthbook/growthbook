@@ -1,12 +1,14 @@
 import express from "express";
 import { z } from "zod";
 import {
+  createVirtualColumnPropsValidator,
   createFactFilterPropsValidator,
   createFactTablePropsValidator,
   updateFactFilterPropsValidator,
   updateColumnPropsValidator,
   updateFactTablePropsValidator,
   testFactFilterPropsValidator,
+  testVirtualColumnPropsValidator,
 } from "shared/validators";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
@@ -113,6 +115,15 @@ router.post(
   factTableController.postColumnTopValues,
 );
 
+router.post(
+  "/fact-tables/:id/virtual-column",
+  validateRequestMiddleware({
+    params: factTableParams,
+    body: createVirtualColumnPropsValidator,
+  }),
+  factTableController.postVirtualColumn,
+);
+
 router.put(
   "/fact-tables/:id/column/:column",
   validateRequestMiddleware({
@@ -120,6 +131,23 @@ router.put(
     body: updateColumnPropsValidator,
   }),
   factTableController.putColumn,
+);
+
+router.delete(
+  "/fact-tables/:id/column/:column",
+  validateRequestMiddleware({
+    params: columnParams,
+  }),
+  factTableController.deleteColumn,
+);
+
+router.post(
+  "/fact-tables/:id/test-virtual-column",
+  validateRequestMiddleware({
+    params: factTableParams,
+    body: testVirtualColumnPropsValidator,
+  }),
+  factTableController.postVirtualColumnTest,
 );
 
 router.post(

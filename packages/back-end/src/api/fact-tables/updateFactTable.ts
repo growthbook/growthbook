@@ -1,3 +1,4 @@
+import { omit } from "lodash";
 import { updateFactTableValidator } from "shared/validators";
 import {
   ColumnInterface,
@@ -96,7 +97,9 @@ export const updateFactTable = createApiRequestHandler(
     await upsertColumns({
       context: req.context,
       factTable,
-      columns: data.columns,
+      // Strip server/UI-managed fields: the API cannot change a column's
+      // origin (isVirtual) or a virtual column's expression (sql).
+      columns: data.columns.map((col) => omit(col, ["isVirtual", "sql"])),
     });
     columnsUpserted = true;
     delete data.columns;

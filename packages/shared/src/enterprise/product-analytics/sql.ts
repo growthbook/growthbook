@@ -392,6 +392,7 @@ function generateRowFilterSQL(
         stringMatch: helpers.stringMatch,
         jsonExtract: helpers.jsonExtract,
         evalBoolean: helpers.evalBoolean,
+        identifierQuote: helpers.identifierQuote,
       });
       return sql;
     })
@@ -439,6 +440,8 @@ function generateDimensionExpression(
         dimension.column || "",
         factTable,
         helpers.jsonExtract,
+        "",
+        helpers.identifierQuote,
       );
       return `CASE 
         WHEN ${columnExpr} IN (SELECT value FROM ${topCTE}) THEN ${columnExpr}
@@ -450,6 +453,8 @@ function generateDimensionExpression(
         dimension.column,
         factTable,
         helpers.jsonExtract,
+        "",
+        helpers.identifierQuote,
       );
       const valueList = dimension.values
         .map((v) => `'${helpers.escapeStringLiteral(v)}'`)
@@ -544,7 +549,15 @@ function getEventValueExpr(
       "day",
     );
   } else {
-    rawValue = columnRef.column;
+    // Expand virtual (computed) columns into their SQL expression, and resolve
+    // JSON columns. A plain column just returns its own name here.
+    rawValue = getColumnExpression(
+      columnRef.column,
+      factTable,
+      helpers.jsonExtract,
+      "",
+      helpers.identifierQuote,
+    );
   }
 
   if (cap) {
@@ -805,6 +818,8 @@ function generateDynamicDimensionCTE(
     dimension.column || "",
     factTableGroup.factTable,
     helpers.jsonExtract,
+    "",
+    helpers.identifierQuote,
   );
 
   return {

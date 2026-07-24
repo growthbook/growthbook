@@ -20,6 +20,7 @@ import Code from "@/components/SyntaxHighlighting/Code";
 import ColumnList from "@/components/FactTables/ColumnList";
 import AggregatedFactTablesCard from "@/components/FactTables/AggregatedFactTablesCard";
 import FactFilterList from "@/components/FactTables/FactFilterList";
+import VirtualColumnList from "@/components/FactTables/VirtualColumnList";
 import EditProjectsForm from "@/components/Projects/EditProjectsForm";
 import PageHead from "@/components/Layout/PageHead";
 import EditTagsForm from "@/components/Tags/EditTagsForm";
@@ -147,6 +148,9 @@ export default function FactTablePage() {
 
   const numMetrics = metrics.length;
   const numFilters = factTable.filters.length;
+  const numVirtualColumns = factTable.columns.filter(
+    (c) => c.isVirtual && !c.deleted,
+  ).length;
 
   return (
     <div className="pagecontents container-fluid">
@@ -561,6 +565,15 @@ export default function FactTablePage() {
               radius="full"
             />
           </TabsTrigger>
+          <TabsTrigger value="virtual-columns">
+            Virtual Columns{" "}
+            <Badge
+              label={numVirtualColumns + ""}
+              color="violet"
+              ml="1"
+              radius="full"
+            />
+          </TabsTrigger>
         </TabsList>
 
         <Box pt="4">
@@ -588,6 +601,22 @@ export default function FactTablePage() {
             </Text>
             <div className="appbox p-3 flex-1">
               <FactFilterList factTable={factTable} />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="virtual-columns">
+            <h3>Virtual Columns</h3>
+            <Text as="div" mb="2" color="text-mid">
+              Virtual Columns let you define computed columns from your existing
+              fact table columns — arithmetic on numbers, concatenation on
+              strings, date math, or any SQL expression. Once created, a virtual
+              column works like any other column: use it in metrics, row
+              filters, and slices. The expression is added to the generated SQL
+              for you, so there&apos;s no need to edit the fact table&apos;s SQL
+              query.
+            </Text>
+            <div className="appbox p-3 flex-1">
+              <VirtualColumnList factTable={factTable} />
             </div>
           </TabsContent>
         </Box>

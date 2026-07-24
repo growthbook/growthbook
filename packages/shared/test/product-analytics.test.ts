@@ -984,4 +984,106 @@ describe("productAnalytics", () => {
     );
     expect(sql).not.toContain("APPROX_PERCENTILE(m0, 0.9)");
   });
+
+  it("inlines virtual column expressions instead of referencing them by name", () => {
+    const baseColumn = {
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      description: "",
+      numberFormat: "" as const,
+      alwaysInlineFilter: false,
+      deleted: false,
+      autoSlices: [],
+      isAutoSliceColumn: false,
+    };
+    const virtualFactTableMap = new Map<string, FactTableInterface>([
+      [
+        "orders",
+        {
+          ...factTableMap.get("orders")!,
+          sql: "SELECT user_id, anonymous_id, timestamp, amount, qty FROM orders",
+          columns: [
+            {
+              ...baseColumn,
+              column: "amount",
+              datatype: "number",
+              name: "amount",
+            },
+            { ...baseColumn, column: "qty", datatype: "number", name: "qty" },
+            {
+              ...baseColumn,
+              column: "user_id",
+              datatype: "string",
+              name: "user_id",
+            },
+            {
+              ...baseColumn,
+              column: "anonymous_id",
+              datatype: "string",
+              name: "anonymous_id",
+            },
+            {
+              ...baseColumn,
+              column: "timestamp",
+              datatype: "date",
+              name: "timestamp",
+            },
+            // Virtual (computed) column: not a real column in the warehouse.
+            {
+              ...baseColumn,
+              column: "revenue_vc",
+              datatype: "number",
+              name: "revenue_vc",
+              isVirtual: true,
+              sql: "amount * qty",
+            },
+          ],
+        },
+      ],
+    ]);
+
+    const config: ExplorationConfig = {
+      type: "fact_table",
+      datasource: "ds_1",
+      chartType: "line",
+      showAs: "total",
+      dateRange: {
+        predefined: "last7Days",
+        startDate: null,
+        endDate: null,
+        lookbackValue: null,
+        lookbackUnit: null,
+      },
+      dimensions: [
+        { dimensionType: "date", column: null, dateGranularity: "day" },
+      ],
+      dataset: {
+        type: "fact_table",
+        factTableId: "orders",
+        values: [
+          {
+            name: "revenue",
+            type: "fact_table",
+            rowFilters: [],
+            valueType: "sum",
+            unit: null,
+            valueColumn: "revenue_vc",
+          },
+        ],
+      },
+    };
+
+    const { sql } = generateProductAnalyticsSQL(
+      config,
+      virtualFactTableMap,
+      metricMap,
+      helpers,
+      datasource,
+    );
+
+    // The virtual column must be expanded into its SQL expression, never
+    // emitted as a bare identifier the warehouse cannot resolve.
+    expect(sql).toContain("(amount * qty) AS m0");
+    expect(sql).not.toContain("revenue_vc AS m0");
+  });
 });

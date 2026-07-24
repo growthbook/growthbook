@@ -80,6 +80,9 @@ export function selectColumnsForTopValues({
     (col) =>
       col.datatype === "string" &&
       !col.deleted &&
+      // Virtual columns aren't real columns in the SQL, so a top-values query
+      // keyed on their name would be invalid.
+      !col.isVirtual &&
       canInlineFilterColumn(factTableLike, col.column),
   );
 
@@ -296,6 +299,13 @@ export async function runRefreshColumnsQuery(
 
   // Update existing column
   columns.forEach((col) => {
+    // Virtual columns are user-defined expressions that never appear in the
+    // fact table's output schema, so they must be preserved by the refresh
+    // rather than marked deleted. Their validity is recomputed below.
+    if (col.isVirtual) {
+      return;
+    }
+
     const type = typeMap.get(col.column);
     const jsonFields = jsonMap.get(col.column);
 

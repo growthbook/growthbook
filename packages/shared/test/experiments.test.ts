@@ -10,6 +10,8 @@ import {
   canInlineFilterColumn,
   getAggregateFilters,
   getColumnExpression,
+  expandVirtualColumnsInSql,
+  sqlReferencesColumn,
   getSelectedColumnDatatype,
   adjustPValuesBenjaminiHochberg,
   adjustPValuesHolmBonferroni,
@@ -1765,5 +1767,267 @@ describe("getIntersectionBaseMetricIds", () => {
         ["m_b", "m_a?dim:x=y", "m_a"],
       ),
     ).toEqual(["m_b", "m_a"]);
+  });
+});
+
+describe("Virtual Columns", () => {
+  const jsonExtract = (jsonCol: string, path: string, isNumeric: boolean) =>
+    `${jsonCol}:'${path}'${isNumeric ? "::float" : ""}`;
+
+  function col(
+    partial: Partial<ColumnInterface> & { column: string },
+  ): ColumnInterface {
+    return {
+      name: partial.column,
+      description: "",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      datatype: "number",
+      numberFormat: "",
+      deleted: false,
+      ...partial,
+    };
+  }
+
+  describe("getColumnExpression (virtual)", () => {
+    const factTable = {
+      columns: [
+        col({ column: "price", datatype: "number" }),
+        col({ column: "quantity", datatype: "number" }),
+        col({
+          column: "vc_total",
+          isVirtual: true,
+          sql: "price * quantity",
+          datatype: "number",
+        }),
+      ],
+    };
+
+    it("inlines the expression wrapped in parens", () => {
+      expect(getColumnExpression("vc_total", factTable, jsonExtract)).toBe(
+        "(price * quantity)",
+      );
+    });
+
+    it("qualifies referenced columns with the alias", () => {
+      expect(getColumnExpression("vc_total", factTable, jsonExtract, "m")).toBe(
+        "(m.price * m.quantity)",
+      );
+    });
+
+    it("does not rewrite column names inside string literals", () => {
+      const withLiteral = {
+        columns: [
+          col({ column: "status", datatype: "string" }),
+          col({ column: "price", datatype: "number" }),
+          col({
+            column: "flagged_vc",
+            isVirtual: true,
+            sql: "CASE WHEN status = 'price' THEN price ELSE 0 END",
+            datatype: "number",
+          }),
+        ],
+      };
+      expect(
+        getColumnExpression("flagged_vc", withLiteral, jsonExtract, "m"),
+      ).toBe("(CASE WHEN m.status = 'price' THEN m.price ELSE 0 END)");
+    });
+
+    it("recursively inlines a virtual column that references another", () => {
+      const chained = {
+        columns: [
+          col({ column: "price", datatype: "number" }),
+          col({ column: "cost", datatype: "number" }),
+          col({
+            column: "margin_vc",
+            isVirtual: true,
+            sql: "price - cost",
+            datatype: "number",
+          }),
+          col({
+            column: "margin_pct_vc",
+            isVirtual: true,
+            sql: "margin_vc / price",
+            datatype: "number",
+          }),
+        ],
+      };
+      expect(
+        getColumnExpression("margin_pct_vc", chained, jsonExtract, "m"),
+      ).toBe("((m.price - m.cost) / m.price)");
+    });
+
+    it("does not re-qualify already-qualified column names", () => {
+      const alreadyQualified = {
+        columns: [
+          col({ column: "price", datatype: "number" }),
+          col({ column: "quantity", datatype: "number" }),
+          col({
+            column: "vc_total",
+            isVirtual: true,
+            sql: "m.price * m.quantity",
+            datatype: "number",
+          }),
+        ],
+      };
+      expect(
+        getColumnExpression("vc_total", alreadyQualified, jsonExtract, "m"),
+      ).toBe("(m.price * m.quantity)");
+    });
+  });
+
+  describe("expandVirtualColumnsInSql", () => {
+    const factTable = {
+      columns: [
+        col({ column: "amount", datatype: "number" }),
+        col({ column: "qty", datatype: "number" }),
+        col({
+          column: "revenue_vc",
+          isVirtual: true,
+          sql: "amount * qty",
+          datatype: "number",
+        }),
+      ],
+    };
+
+    it("expands a virtual column reference in a raw fragment (no alias)", () => {
+      expect(expandVirtualColumnsInSql("revenue_vc > 100", factTable)).toBe(
+        "(amount * qty) > 100",
+      );
+    });
+
+    it("leaves fragments without virtual columns unchanged", () => {
+      expect(expandVirtualColumnsInSql("amount > 100", factTable)).toBe(
+        "amount > 100",
+      );
+    });
+
+    it("does not expand a virtual column name inside a string literal", () => {
+      expect(expandVirtualColumnsInSql("label = 'revenue_vc'", factTable)).toBe(
+        "label = 'revenue_vc'",
+      );
+    });
+  });
+
+  describe("sqlReferencesColumn", () => {
+    it("detects a bare identifier reference", () => {
+      expect(sqlReferencesColumn("margin_vc / price", "margin_vc")).toBe(true);
+    });
+
+    it("does not match a name inside a string literal", () => {
+      expect(sqlReferencesColumn("status = 'margin_vc'", "margin_vc")).toBe(
+        false,
+      );
+    });
+
+    it("does not match a partial identifier", () => {
+      expect(sqlReferencesColumn("gross_margin_vc + 1", "margin_vc")).toBe(
+        false,
+      );
+    });
+
+    it("does not match an already-qualified identifier", () => {
+      expect(sqlReferencesColumn("m.price", "price")).toBe(false);
+    });
+
+    it("matches a double-quoted identifier in the default dialect", () => {
+      expect(sqlReferencesColumn('"margin_vc" / 2', "margin_vc")).toBe(true);
+    });
+
+    it("treats a double-quoted span as a string literal in a backtick dialect", () => {
+      expect(sqlReferencesColumn('label = "margin_vc"', "margin_vc", "`")).toBe(
+        false,
+      );
+    });
+
+    it("matches a backtick-quoted identifier in a backtick dialect", () => {
+      expect(sqlReferencesColumn("`margin_vc` / 2", "margin_vc", "`")).toBe(
+        true,
+      );
+    });
+
+    it("does not match a name inside a line comment", () => {
+      expect(sqlReferencesColumn("price -- margin_vc\n + 1", "margin_vc")).toBe(
+        false,
+      );
+    });
+
+    it("does not match a name inside a block comment", () => {
+      expect(
+        sqlReferencesColumn("price /* margin_vc */ + 1", "margin_vc"),
+      ).toBe(false);
+    });
+
+    it("does not match a name inside a dollar-quoted string", () => {
+      expect(sqlReferencesColumn("$$margin_vc$$", "margin_vc")).toBe(false);
+      expect(sqlReferencesColumn("$tag$margin_vc$tag$", "margin_vc")).toBe(
+        false,
+      );
+    });
+
+    it("still matches around a lone dollar sign with no closing delimiter", () => {
+      expect(sqlReferencesColumn("margin_vc + $1", "margin_vc")).toBe(true);
+    });
+  });
+
+  describe("dialect-aware quoted-identifier expansion", () => {
+    const chained = (ref: string) => ({
+      columns: [
+        col({ column: "price", datatype: "number" }),
+        col({ column: "cost", datatype: "number" }),
+        col({
+          column: "margin_vc",
+          isVirtual: true,
+          sql: "price - cost",
+          datatype: "number",
+        }),
+        col({
+          column: "margin_pct_vc",
+          isVirtual: true,
+          sql: ref,
+          datatype: "number",
+        }),
+      ],
+    });
+
+    it("expands a nested virtual column referenced via a double-quoted identifier", () => {
+      expect(
+        getColumnExpression(
+          "margin_pct_vc",
+          chained('"margin_vc" / price'),
+          jsonExtract,
+          "m",
+        ),
+      ).toBe("((m.price - m.cost) / m.price)");
+    });
+
+    it("expands a nested virtual column referenced via a backtick identifier (backtick dialect)", () => {
+      expect(
+        getColumnExpression(
+          "margin_pct_vc",
+          chained("`margin_vc` / price"),
+          jsonExtract,
+          "m",
+          "`",
+        ),
+      ).toBe("((m.price - m.cost) / m.price)");
+    });
+
+    it("re-quotes a real column referenced via a quoted identifier", () => {
+      const ft = {
+        columns: [
+          col({ column: "price", datatype: "number" }),
+          col({
+            column: "doubled_vc",
+            isVirtual: true,
+            sql: '"price" * 2',
+            datatype: "number",
+          }),
+        ],
+      };
+      expect(getColumnExpression("doubled_vc", ft, jsonExtract, "m")).toBe(
+        '(m."price" * 2)',
+      );
+    });
   });
 });

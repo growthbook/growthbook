@@ -1,6 +1,6 @@
 import { AES, enc } from "crypto-js";
 import { isReadOnlySQL } from "shared/sql";
-import { TemplateVariables } from "shared/types/sql";
+import { SqlIdentifierQuote, TemplateVariables } from "shared/types/sql";
 import {
   FeatureEvalDiagnosticsQueryResponseRows,
   QueryResponseColumnData,
@@ -33,6 +33,7 @@ import Mixpanel from "back-end/src/integrations/Mixpanel";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import Mysql from "back-end/src/integrations/Mysql";
 import Mssql from "back-end/src/integrations/Mssql";
+import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
@@ -143,6 +144,20 @@ export function getSourceIntegrationObject(
   }
 
   return obj;
+}
+
+// The identifier-quote character (`"` or backtick) for an integration's SQL
+// dialect. This is the authoritative source — each dialect declares its own
+// `identifierQuote` — used off the query path (virtual-column dependency scans,
+// test-query building) to expand/detect quoted column identifiers correctly.
+// Non-SQL sources (e.g. Mixpanel) cannot back a fact table, so the standard
+// double quote is a safe fallback.
+export function getIntegrationIdentifierQuote(
+  integration: SourceIntegrationInterface,
+): SqlIdentifierQuote {
+  return integration instanceof SqlIntegration
+    ? integration.getSqlDialect().identifierQuote
+    : '"';
 }
 
 export async function testDataSourceConnection(

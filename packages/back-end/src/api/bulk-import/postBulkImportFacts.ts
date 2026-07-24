@@ -21,7 +21,10 @@ import {
   needsColumnRefresh,
   columnsNeedDetection,
 } from "back-end/src/api/fact-tables/updateFactTable";
-import { columnsHaveAutoSlices } from "back-end/src/util/factTable";
+import {
+  columnsHaveAutoSlices,
+  validateVirtualColumnProps,
+} from "back-end/src/util/factTable";
 import { resolveOwnerToUserId } from "back-end/src/services/owner";
 
 export const postBulkImportFacts = createApiRequestHandler(
@@ -96,6 +99,31 @@ export const postBulkImportFacts = createApiRequestHandler(
       }
 
       const existing = factTableMap.get(id);
+
+      // Enforce virtual-column rules on any incoming columns. Bulk import can
+      // create and preserve virtual (computed) columns — used to sync them
+      // from version control — but must not create an invalid one or flip an
+      // existing column's origin (a SQL-detected column becoming virtual or
+      // vice versa).
+      if (data.columns) {
+        for (const col of data.columns) {
+          const existingCol = existing?.columns.find(
+            (c) => c.column === col.column,
+          );
+          if (
+            existingCol &&
+            Boolean(col.isVirtual) !== Boolean(existingCol.isVirtual)
+          ) {
+            throw new Error(
+              `Cannot change whether column "${col.column}" is a virtual column`,
+            );
+          }
+          if (col.isVirtual) {
+            validateVirtualColumnProps(col);
+          }
+        }
+      }
+
       // Update existing fact table
       if (existing) {
         if (!req.context.permissions.canUpdateFactTable(existing, data)) {

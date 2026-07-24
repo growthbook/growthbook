@@ -7,6 +7,7 @@ const mysqlEscapeStringLiteral = (value: string) =>
 
 export const mysqlDialect: SqlDialect = {
   ...baseDialect,
+  identifierQuote: "`",
   formatDialect: "mysql",
   dateDiff: (startCol: string, endCol: string) =>
     `DATEDIFF(${endCol}, ${startCol})`,

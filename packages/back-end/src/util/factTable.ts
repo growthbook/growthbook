@@ -47,6 +47,35 @@ export function stripIncompatibleFields(
   return next;
 }
 
+// A virtual column's id must be a plain identifier ending in `_vc`, so it is
+// visually distinct from SQL-detected columns and safe to inline into
+// generated SQL.
+export const VIRTUAL_COLUMN_ID_REGEX = /^[a-zA-Z0-9_]+_vc$/;
+
+/**
+ * Shared validation for virtual-column input, used by the internal route, the
+ * public REST API, and bulk import so every write path enforces the same
+ * rules: a `_vc` identifier, a non-empty SQL expression, and an explicit data
+ * type (the refresh job cannot auto-detect a virtual column's type).
+ */
+export function validateVirtualColumnProps(data: {
+  column: string;
+  sql?: string;
+  datatype?: string;
+}): void {
+  if (!data.column.match(VIRTUAL_COLUMN_ID_REGEX)) {
+    throw new Error(
+      "Virtual column ids must contain only letters, numbers, and underscores and end with '_vc'",
+    );
+  }
+  if (!data.sql || !data.sql.trim()) {
+    throw new Error("Virtual columns require a SQL expression");
+  }
+  if (!data.datatype) {
+    throw new Error("Virtual columns require a data type");
+  }
+}
+
 /**
  * Auto-slice columns default to an empty slice list until the refresh job
  * populates it. Boolean columns always use `["true", "false"]`; any other
