@@ -66,9 +66,15 @@ type MyType = z.infer<typeof mySchema>;
 
 ## Code Quality Commands
 
-- **Lint**: `pnpm lint` (auto-fixes issues)
+- **Lint**: `pnpm lint` (auto-fixes lint issues)
 - **Type check**: `pnpm type-check` (all packages)
-- **Format**: `pnpm pretty` (Prettier formatting)
+- **Format**: `pnpm pretty` (writes), `pnpm pretty:check` (verifies)
+- **Everything CI runs**: `pnpm ci`
+
+Linting and formatting are separate gates. ESLint no longer runs Prettier, so a
+clean `pnpm lint` says nothing about formatting. CI fails on `pretty:check`
+independently. Run `pnpm ci` before pushing, or let the pre-commit hook handle
+both.
 
 ## Key Principles
 

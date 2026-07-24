@@ -22,9 +22,10 @@ pnpm build:app        # Build back-end + front-end
 pnpm build            # Full build (deps + app)
 
 # Code quality
-pnpm lint             # ESLint with auto-fix
+pnpm lint             # ESLint with auto-fix. Does NOT format; run pretty too
 pnpm type-check       # TypeScript check all packages
-pnpm pretty           # Prettier formatting
+pnpm pretty           # Prettier formatting (writes)
+pnpm pretty:check     # Prettier check only. CI gates on this separately from lint
 
 # Single-package type-check
 pnpm --filter front-end type-check
