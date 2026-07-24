@@ -13,7 +13,7 @@ import {
   NotFoundError,
 } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
-import { configPublishEnvironments } from "back-end/src/revisions/revisionPublishEnvironments";
+import { assertCanPublishRevision } from "back-end/src/revisions/revisionActions";
 import {
   evaluatePublishGates,
   PublishBlockedError,
@@ -54,17 +54,9 @@ export const postConfigRevisionPublish = createApiRequestHandler(
 
   const adapter = getAdapter("config");
 
-  // Publish authority on the live entity (project-move manage checked below).
-  if (
-    !req.context.permissions.canRevisionAction(
-      "config",
-      "publish",
-      config,
-      configPublishEnvironments(req.context, config),
-    )
-  ) {
-    req.context.permissions.throwPermissionError();
-  }
+  // Publish authority on the live entity, or revert authority for a pure revert
+  // (project-move manage checked below).
+  await assertCanPublishRevision(req.context, revision, config);
 
   if (revision.status === "merged" || revision.status === "discarded") {
     throw new BadRequestError(

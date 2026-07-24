@@ -12,7 +12,7 @@ import {
   NotFoundError,
 } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
-import { constantPublishEnvironments } from "back-end/src/revisions/revisionPublishEnvironments";
+import { assertCanPublishRevision } from "back-end/src/revisions/revisionActions";
 import {
   evaluatePublishGates,
   PublishBlockedError,
@@ -45,17 +45,9 @@ export const postConstantRevisionPublish = createApiRequestHandler(
 
   const adapter = getAdapter("constant");
 
-  // Publish authority on the live entity (project-move manage checked below).
-  if (
-    !req.context.permissions.canRevisionAction(
-      "constant",
-      "publish",
-      constant,
-      constantPublishEnvironments(req.context),
-    )
-  ) {
-    req.context.permissions.throwPermissionError();
-  }
+  // Publish authority on the live entity, or revert authority for a pure revert
+  // (project-move manage checked below).
+  await assertCanPublishRevision(req.context, revision, constant);
 
   if (revision.status === "merged" || revision.status === "discarded") {
     throw new BadRequestError(

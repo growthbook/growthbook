@@ -12,6 +12,7 @@ import {
   NotFoundError,
 } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
+import { assertCanPublishRevision } from "back-end/src/revisions/revisionActions";
 import {
   evaluatePublishGates,
   PublishBlockedError,
@@ -52,17 +53,9 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
 
   const adapter = getAdapter("saved-group");
 
-  // Re-check edit permission against the LIVE entity (not just the snapshot).
-  // Publish authority on the live entity (project-move manage checked below).
-  if (
-    !req.context.permissions.canRevisionAction(
-      "saved-group",
-      "publish",
-      savedGroup,
-    )
-  ) {
-    req.context.permissions.throwPermissionError();
-  }
+  // Publish authority on the LIVE entity (not just the snapshot), or revert
+  // authority for a pure revert (project-move manage checked below).
+  await assertCanPublishRevision(req.context, revision, savedGroup);
 
   // Per-revision approval gate: saved-group adapter has a metadata-only
   // shortcut, so honour `isApprovalRequiredForRevision` when available.

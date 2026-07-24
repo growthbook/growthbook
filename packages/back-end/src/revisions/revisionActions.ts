@@ -26,11 +26,39 @@ import {
   isTerminalPublishError,
   getErrorMessage,
 } from "back-end/src/util/errors";
+import { isPureRevertRevision } from "back-end/src/revisions/revertPurity";
 import { decideScheduledPublishOutcome } from "back-end/src/revisions/publishFailurePolicy";
 import { logger } from "back-end/src/util/logger";
 
 // Actions the generic revision controller dispatches to adapter hooks.
 export type RevisionActionKind = "draft" | "review" | "revert" | "publish";
+
+/**
+ * Gate a publish: normal publish authority, or revert authority for a revision
+ * that only restores a previously-published state.
+ *
+ * Purity is checked ONLY on the revert fallback — a caller who can already
+ * publish arbitrary state gains nothing from it, so their path is unchanged (and
+ * pays no extra revision load).
+ */
+export async function assertCanPublishRevision(
+  context: Context,
+  revision: Revision,
+  // Any entity object — only its project ownership is read, via the adapter.
+  entity: object,
+): Promise<void> {
+  const adapter = getAdapter(revision.target.type);
+  const snapshot = entity as Record<string, unknown>;
+
+  if ((adapter.canPublishRevision ?? adapter.canUpdate)(context, snapshot)) {
+    return;
+  }
+
+  const canRevert = (adapter.canRevert ?? adapter.canUpdate)(context, snapshot);
+  if (canRevert && (await isPureRevertRevision(context, revision))) return;
+
+  context.permissions.throwPermissionError();
+}
 
 export async function approveRevision(
   context: Context,
@@ -101,14 +129,7 @@ export async function publishRevision(
 ): Promise<Revision> {
   const adapter = getAdapter(revision.target.type);
 
-  // Publish authority may be narrower than update (e.g. environment-scoped);
-  // honor the adapter override when present, like the schedule controller does.
-  const canPublish = adapter.canPublishRevision
-    ? adapter.canPublishRevision(context, entity)
-    : adapter.canUpdate(context, entity);
-  if (!canPublish) {
-    context.permissions.throwPermissionError();
-  }
+  await assertCanPublishRevision(context, revision, entity);
 
   if (revision.status === "merged" || revision.status === "discarded") {
     throw new BadRequestError(
