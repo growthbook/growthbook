@@ -408,6 +408,12 @@ export default function RuleModal({
   const defaultValues = {
     ...defaultRuleValues,
     ...convertRuleToFormValues(rule),
+    // A duplicated rollout must bucket independently of its original, so start
+    // from an empty seed and let the back end stamp the new rule's id. The Seed
+    // field stays editable for anyone who wants to reuse the original's cohort.
+    // Safe-rollout duplicates are excluded — they opt in via their own
+    // "Same seed" checkbox.
+    ...(mode === "duplicate" && rule?.type === "rollout" ? { seed: "" } : {}),
     // Pre-set the ID for new rollout rules so ramp creation can reference it
     // without a second round-trip. Back-end preserves a truthy id from the client.
     ...(mode === "create" && !rule ? { id: pregenRuleId } : {}),
@@ -1233,18 +1239,12 @@ export default function RuleModal({
         delete (values as any).seed;
         delete (values as { hashVersion?: number }).hashVersion;
       } else if (values.type === "rollout") {
-        // A duplicate must bucket independently of its original, so drop the
-        // seed and let the back end stamp the new rule's id. Opt in to the same
-        // cohort with `sameSeed` (mirrors the safe-rollout branch above).
-        if (
-          mode === "duplicate" &&
-          !(values as { sameSeed?: boolean }).sameSeed
-        ) {
+        // An empty seed means "stamp this rule's own id" (the default for
+        // duplicates) — omit it rather than submitting "".
+        if (!values.seed) {
           // eslint-disable-next-line
           delete (values as any).seed;
         }
-        // eslint-disable-next-line
-        delete (values as any).sameSeed;
       }
       if (
         values.scheduleRules &&
