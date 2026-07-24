@@ -2136,8 +2136,9 @@ export function validateAndFixCondition(
   applySuggestion: (suggestion: string) => void,
   throwOnSuggestion: boolean = true,
   groupMap?: GroupMap,
+  skipSavedGroupCycleCheck: boolean = false,
 ): ValidateConditionReturn {
-  const res = validateCondition(condition, groupMap);
+  const res = validateCondition(condition, groupMap, skipSavedGroupCycleCheck);
   if (res.success) return res;
   if (res.suggestedValue) {
     applySuggestion(res.suggestedValue);
