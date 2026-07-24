@@ -3,6 +3,7 @@ import { IssuerMetadata } from "openid-client";
 export interface SSOConnectionInterface {
   id?: string;
   dateCreated?: Date;
+  dateUpdated?: Date;
   organization?: string;
   emailDomains?: string[];
   additionalScope?: string;
@@ -21,6 +22,9 @@ export interface SSOConnectionInterface {
   tenantId?: string;
   baseURL?: string;
   audience?: string;
+  // Managed by the org's own admins rather than vetted by GrowthBook; logins
+  // are restricted to the org's members, invites, and approved email domains
+  selfServeManaged?: boolean;
 }
 
 export type RedirectResponse = { redirectURI: string; confirm?: boolean };

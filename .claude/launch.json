@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "growthbook-dev",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["dev:apps"],
+      "port": 3001
+    }
+  ]
+}

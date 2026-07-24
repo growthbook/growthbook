@@ -268,6 +268,13 @@ export const navlinks: SidebarLinkProps[] = [
         filter: ({ permissionsUtils }) => permissionsUtils.canManageTeam(),
       },
       {
+        name: "SSO",
+        href: "/settings/sso",
+        path: /^settings\/sso/,
+        filter: ({ permissionsUtils }) =>
+          permissionsUtils.canManageOrgSettings(),
+      },
+      {
         name: "Tags",
         href: "/settings/tags",
         path: /^settings\/tags/,
