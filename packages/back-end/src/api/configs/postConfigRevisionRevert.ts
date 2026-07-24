@@ -35,13 +35,24 @@ export const postConfigRevisionRevert = createApiRequestHandler(
   }
 
   const adapter = getAdapter("config");
+  const revertsBypassApproval =
+    !!req.organization.settings?.revertsBypassApproval;
+  const strategy =
+    req.body.strategy ?? (revertsBypassApproval ? "publish" : "draft");
+  const isPublish = strategy === "publish";
+
+  // Executing the revert needs revert authority. Proposing one as a draft is
+  // also open to anyone who can author drafts.
+  const canRevert = req.context.permissions.canRevisionAction(
+    "config",
+    "revert",
+    config,
+    configPublishEnvironments(req.context, config),
+  );
   if (
-    !req.context.permissions.canRevisionAction(
-      "config",
-      "revert",
-      config,
-      configPublishEnvironments(req.context, config),
-    )
+    !canRevert &&
+    (isPublish ||
+      !req.context.permissions.canRevisionAction("config", "draft", config))
   ) {
     req.context.permissions.throwPermissionError();
   }
@@ -112,11 +123,6 @@ export const postConfigRevisionRevert = createApiRequestHandler(
   // Resolve the strategy up front so validation matches: publish uses the
   // bypassable publish-time check; a draft uses the write-time check (it can be
   // staged for later review even if it won't pass publish).
-  const revertsBypassApproval =
-    !!req.organization.settings?.revertsBypassApproval;
-  const strategy =
-    req.body.strategy ?? (revertsBypassApproval ? "publish" : "draft");
-  const isPublish = strategy === "publish";
 
   // A publish-strategy revert advances live state, so block it while locked
   // (before any merge). A draft-strategy revert only stages a draft, so it's fine.

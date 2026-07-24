@@ -1,5 +1,6 @@
 import { isEqual } from "lodash";
 import { FeatureInterface } from "shared/types/feature";
+import { MergeResultChanges } from "shared/util";
 import { FeatureRevisionInterface } from "shared/validators";
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
@@ -18,6 +19,24 @@ const CONTENT_FIELDS = [
   "archived",
   "metadata",
 ] as const;
+
+// Fields a publish writes whose effect reaches beyond this feature, so they can
+// never be "restored" under revert authority — only left untouched. Enforced
+// explicitly in isPureFeatureRevert; named here for the exhaustiveness check.
+type SideEffectField = "holdout";
+
+// Compile-time exhaustiveness: every field a publish can write must be
+// classified as content or side effect. Adding one to MergeResultChanges without
+// classifying it here fails the build rather than silently becoming a way to
+// smuggle a change through revert authority.
+type UnclassifiedMergeField = Exclude<
+  keyof MergeResultChanges,
+  (typeof CONTENT_FIELDS)[number] | SideEffectField
+>;
+const _allMergeFieldsClassified: UnclassifiedMergeField extends never
+  ? true
+  : never = true;
+void _allMergeFieldsClassified;
 
 /**
  * Whether a feature draft restores `target`'s content and changes nothing else.

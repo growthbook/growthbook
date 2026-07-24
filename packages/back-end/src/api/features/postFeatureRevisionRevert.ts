@@ -149,7 +149,9 @@ export async function revertFeatureRevision(
   ) {
     if (
       isPublish &&
-      !context.permissions.canRevertFeature(feature, allEnabledEnvs)
+      // No env list: creating a draft publishes nothing, so this only asks
+      // whether they hold revert authority in the feature's project.
+      !context.permissions.canRevertFeature(feature, [])
     ) {
       context.permissions.throwPermissionError();
     }
@@ -250,7 +252,12 @@ export async function revertFeatureRevision(
   const defaultComment = `Revert to revision #${targetRevision.version}`;
 
   if (!isPublish) {
-    if (!context.permissions.canManageFeatureDrafts(feature)) {
+    // Proposing a revert as a draft is open to draft authors, and also to anyone
+    // with revert authority even if they have no general draft access.
+    if (
+      !context.permissions.canManageFeatureDrafts(feature) &&
+      !context.permissions.canRevertFeature(feature, allEnabledEnvs)
+    ) {
       context.permissions.throwPermissionError();
     }
 

@@ -2434,7 +2434,7 @@ export async function postFeatureRevert(
       hasMetadataChanges = true;
     }
     if (hasMetadataChanges) {
-      if (!context.permissions.canPublishFeature(feature, allEnabledEnvs)) {
+      if (!context.permissions.canRevertFeature(feature, allEnabledEnvs)) {
         context.permissions.throwPermissionError();
       }
       mergeChanges.metadata = metadataChanges;
@@ -2585,7 +2585,14 @@ export async function postFeatureRevertDraft(
     );
   }
 
-  if (!context.permissions.canManageFeatureDrafts(feature)) {
+  // Proposing a revert as a draft is open to draft authors, and also to anyone
+  // with revert authority even if they have no general draft access.
+  if (
+    !context.permissions.canManageFeatureDrafts(feature) &&
+    // No env list: creating a draft publishes nothing, so this only asks
+    // whether they hold revert authority in the feature's project.
+    !context.permissions.canRevertFeature(feature, [])
+  ) {
     context.permissions.throwPermissionError();
   }
 

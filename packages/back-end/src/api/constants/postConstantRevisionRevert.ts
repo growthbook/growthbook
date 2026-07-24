@@ -31,13 +31,24 @@ export const postConstantRevisionRevert = createApiRequestHandler(
   }
 
   const adapter = getAdapter("constant");
+  const revertsBypassApproval =
+    !!req.organization.settings?.revertsBypassApproval;
+  const strategy =
+    req.body.strategy ?? (revertsBypassApproval ? "publish" : "draft");
+  const isPublish = strategy === "publish";
+
+  // Executing the revert needs revert authority. Proposing one as a draft is
+  // also open to anyone who can author drafts.
+  const canRevert = req.context.permissions.canRevisionAction(
+    "constant",
+    "revert",
+    constant,
+    constantPublishEnvironments(req.context),
+  );
   if (
-    !req.context.permissions.canRevisionAction(
-      "constant",
-      "revert",
-      constant,
-      constantPublishEnvironments(req.context),
-    )
+    !canRevert &&
+    (isPublish ||
+      !req.context.permissions.canRevisionAction("constant", "draft", constant))
   ) {
     req.context.permissions.throwPermissionError();
   }
@@ -82,12 +93,6 @@ export const postConstantRevisionRevert = createApiRequestHandler(
       `Revision #${req.params.version} matches the current constant — nothing to revert.`,
     );
   }
-
-  const revertsBypassApproval =
-    !!req.organization.settings?.revertsBypassApproval;
-  const strategy =
-    req.body.strategy ?? (revertsBypassApproval ? "publish" : "draft");
-  const isPublish = strategy === "publish";
 
   // Reverting to a historically-archived state re-archives the constant; enforce
   // the same soft referenced-constant warning as the archive endpoint (bypassable

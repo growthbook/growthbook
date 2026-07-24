@@ -29,12 +29,27 @@ export const postSavedGroupRevisionRevert = createApiRequestHandler(
   }
 
   const adapter = getAdapter("saved-group");
+  const revertsBypassApproval =
+    !!req.organization.settings?.revertsBypassApproval;
+  const strategy =
+    req.body.strategy ?? (revertsBypassApproval ? "publish" : "draft");
+  const isPublish = strategy === "publish";
+
+  // Executing the revert needs revert authority. Proposing one as a draft is
+  // also open to anyone who can author drafts.
+  const canRevert = req.context.permissions.canRevisionAction(
+    "saved-group",
+    "revert",
+    savedGroup,
+  );
   if (
-    !req.context.permissions.canRevisionAction(
-      "saved-group",
-      "revert",
-      savedGroup,
-    )
+    !canRevert &&
+    (isPublish ||
+      !req.context.permissions.canRevisionAction(
+        "saved-group",
+        "draft",
+        savedGroup,
+      ))
   ) {
     req.context.permissions.throwPermissionError();
   }
@@ -91,11 +106,6 @@ export const postSavedGroupRevisionRevert = createApiRequestHandler(
 
   // When the org enables "reverts bypass approval", reverts don't require
   // approval, so they publish by default (callers can still pass "draft").
-  const revertsBypassApproval =
-    !!req.organization.settings?.revertsBypassApproval;
-  const strategy =
-    req.body.strategy ?? (revertsBypassApproval ? "publish" : "draft");
-  const isPublish = strategy === "publish";
 
   const patchOps: JsonPatchOperation[] = Object.entries(fieldsToUpdate).map(
     ([key, value]) => ({
