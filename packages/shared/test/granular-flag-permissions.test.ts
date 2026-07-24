@@ -2,12 +2,27 @@ import {
   ALL_PERMISSIONS,
   DEPRECATED_POLICIES,
   ENV_SCOPED_PERMISSIONS,
+  MODEL_FAMILY,
   POLICY_PERMISSION_MAP,
+  Policy,
   REVISION_PERMISSIONS,
   RevisionAction,
+  RevisionModel,
   permissionsFromRole,
   roleSupportsEnvLimitFromRole,
 } from "../src/permissions";
+
+// Does a role built from these policies alone hold the atom for (model, action)?
+// Atom-level: environment narrowing is a separate, per-role concern.
+function grants(
+  policies: Policy[],
+  model: RevisionModel,
+  action: RevisionAction,
+): boolean {
+  const perms = permissionsFromRole({ policies });
+  const { permission } = REVISION_PERMISSIONS[MODEL_FAMILY[model]][action];
+  return perms[permission] === true;
+}
 
 describe("granular flag permissions", () => {
   describe("permissionsFromRole", () => {
@@ -159,6 +174,74 @@ describe("granular flag permissions", () => {
       expect(REVISION_PERMISSIONS.flags.revert.scope).toBe("environment");
       expect(REVISION_PERMISSIONS.savedGroups.publish.scope).toBe("project");
       expect(REVISION_PERMISSIONS.savedGroups.revert.scope).toBe("project");
+    });
+  });
+
+  // Guard against silently dropping access when the Flags merge remapped the
+  // legacy policies. Each row is what the policy set could do BEFORE the merge,
+  // when a config/constant/saved-group publish or revert was gated by the same
+  // manage* atom as an edit, and a feature publish/revert needed
+  // manageFeatures + publishFeatures. Post-merge grants must be a superset.
+  describe("pre-merge access is preserved", () => {
+    const BASELINE: {
+      policies: Policy[];
+      model: RevisionModel;
+      actions: RevisionAction[];
+    }[] = [
+      {
+        policies: ["FeaturesFullAccess"],
+        model: "feature",
+        actions: ["manage", "delete", "draft", "review"],
+      },
+      {
+        policies: ["FeaturesBypassApprovals"],
+        model: "feature",
+        actions: ["manage", "delete", "draft", "review"],
+      },
+      {
+        // Legacy feature publish/revert required BOTH policies.
+        policies: ["FeaturesFullAccess", "SDKPayloadPublish"],
+        model: "feature",
+        actions: ["manage", "delete", "draft", "review", "publish", "revert"],
+      },
+      {
+        policies: ["ConfigsFullAccess"],
+        model: "config",
+        actions: ["manage", "delete", "draft", "review", "publish", "revert"],
+      },
+      {
+        policies: ["ConstantsFullAccess"],
+        model: "constant",
+        actions: ["manage", "delete", "draft", "review", "publish", "revert"],
+      },
+      {
+        policies: ["SavedGroupsFullAccess"],
+        model: "saved-group",
+        actions: ["manage", "delete", "draft", "review", "publish", "revert"],
+      },
+      {
+        policies: ["SavedGroupsBypassSizeLimit"],
+        model: "saved-group",
+        actions: ["manage", "delete", "draft", "review", "publish", "revert"],
+      },
+    ];
+
+    BASELINE.forEach(({ policies, model, actions }) => {
+      it(`[${policies.join(" + ")}] keeps ${model} ${actions.join("/")}`, () => {
+        actions.forEach((action) => {
+          expect({ action, granted: grants(policies, model, action) }).toEqual({
+            action,
+            granted: true,
+          });
+        });
+      });
+    });
+
+    it("still lets a feature-edit-only legacy role not publish or revert", () => {
+      // FeaturesFullAccess never carried production write on its own; the
+      // deprecated shims must not hand it one.
+      expect(grants(["FeaturesFullAccess"], "feature", "publish")).toBe(false);
+      expect(grants(["FeaturesFullAccess"], "feature", "revert")).toBe(false);
     });
   });
 });

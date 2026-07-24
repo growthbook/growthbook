@@ -65,6 +65,13 @@ Deprecated (resolvable, hidden from POLICY_DISPLAY_GROUPS; mapped to new atoms t
 - `FeaturesBypassApprovals` → above + bypassApprovalChecks (preserves old bypass, incl. cross-resource since bypass stayed a single shared atom)
 - `ConfigsFullAccess` / `ConstantsFullAccess` → readData, manageFlags, deleteFlags, manageFlagDrafts, reviewFlags
 
+## Review fixes (regressions found in self-review)
+
+- **F1 (fixed):** `ConfigsFullAccess`/`ConstantsFullAccess` were remapped without `publishFlags`/`revertFlags`, but pre-merge a config/constant publish **and** revert were gated by the same `manage*` atom as an edit. Any existing custom role on those policies lost config/constant publish+revert outright. Both atoms restored.
+- **F2 (fixed):** feature revert pre-merge required `manageFeatures` + `publishFeatures`, so a `FeaturesFullAccess` + `SDKPayloadPublish` role could revert; post-merge `SDKPayloadPublish` granted only `publishFlags`. Added `revertFlags` to `SDKPayloadPublish` — revert accompanies publish, since restoring an already-published state is a strictly narrower live write than publishing new state.
+- **Deliberately NOT changed:** the deprecated `FeaturesFullAccess`/`FeaturesBypassApprovals` shims do **not** gain `revertFlags`. Their only job is to reproduce legacy access, and legacy feature-edit-only carried no production write. The "everyone with write access can revert" rule is expressed in the live policies instead (`FlagsFullAccess`, `SDKPayloadPublish`), so no legacy edit-only role silently gains a production lever.
+- **Guard:** `pre-merge access is preserved` in `granular-flag-permissions.test.ts` encodes the pre-merge capability matrix per legacy policy set; it fails if a remap ever drops an action again (it reproduces both F1 and F2).
+
 ## Behavior changes to release-note
 
 1. **Merge escalation (by design):** a custom role that granted Configs/Constants access but _not_ Features now also manages Features (they're one family). Per the "configs express through features anyway" decision.

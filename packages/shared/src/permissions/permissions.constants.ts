@@ -149,7 +149,14 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   SegmentsFullAccess: ["readData", "createSegments", "runQueries"],
   IdeasFullAccess: ["readData", "createIdeas"],
   PresentationsFullAccess: ["readData", "createPresentations"],
-  SDKPayloadPublish: ["readData", "publishFlags", "runExperiments"],
+  // Revert accompanies publish: rolling back to an already-published state is a
+  // strictly narrower live write than publishing arbitrary new state.
+  SDKPayloadPublish: [
+    "readData",
+    "publishFlags",
+    "revertFlags",
+    "runExperiments",
+  ],
   SDKConnectionsFullAccess: [
     "readData",
     "manageSDKConnections",
@@ -159,13 +166,17 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   AttributesFullAccess: ["readData", "manageTargetingAttributes"],
   EnvironmentsFullAccess: ["readData", "manageEnvironments"],
   NamespacesFullAccess: ["readData", "manageNamespaces"],
-  // Deprecated: merged into the Flags family (see note above).
+  // Deprecated: merged into the Flags family (see note above). These granted
+  // publish + revert pre-merge (a constant/config publish was gated by the same
+  // manage* atom as an edit), so they must keep publishFlags/revertFlags.
   ConstantsFullAccess: [
     "readData",
     "manageFlags",
     "deleteFlags",
     "manageFlagDrafts",
     "reviewFlags",
+    "publishFlags",
+    "revertFlags",
   ],
   ConfigsFullAccess: [
     "readData",
@@ -173,6 +184,8 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
     "deleteFlags",
     "manageFlagDrafts",
     "reviewFlags",
+    "publishFlags",
+    "revertFlags",
   ],
   SavedGroupsFullAccess: [
     "readData",
