@@ -1890,8 +1890,9 @@ export function inheritStoredRolloutSeeds(
     if (r?.type !== "rollout" || !r.id) return;
     const prior = priorById.get(r.id);
     if (prior?.type !== "rollout") return;
-    // `!r.seed` (not `=== undefined`) to match addIdsToFlatRules and the read
-    // pin, so an empty-string seed can't slip past inheritance and get stamped.
+    // Seed uses `!r.seed` to match addIdsToFlatRules and the read pin, so an
+    // empty string counts as unset; hashVersion is numeric, so only `undefined`
+    // does.
     if (!r.seed && prior.seed) {
       r.seed = prior.seed;
     }

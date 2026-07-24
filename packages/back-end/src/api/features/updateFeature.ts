@@ -22,12 +22,12 @@ import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel"
 import { BadRequestError } from "back-end/src/util/errors";
 import {
   addIdsToFlatRules,
-  inheritStoredRolloutSeeds,
   addIdsToRules,
   fromApiEnvSettingsRulesToFeatureEnvSettingsRules,
   getApiFeatureObj,
   getNextScheduledUpdate,
   getSavedGroupMap,
+  inheritStoredRolloutSeeds,
   updateInterfaceEnvSettingsFromApiEnvSettings,
 } from "back-end/src/services/features";
 import { getEnabledEnvironments } from "back-end/src/util/features";

@@ -112,9 +112,9 @@ import { generateId } from "back-end/src/util/uuid";
 import {
   addIdsToFlatRules,
   addIdsToRules,
+  inheritStoredRolloutSeeds,
   assertFeatureDeletable,
   evaluateAllFeatures,
-  inheritStoredRolloutSeeds,
   evaluateFeature,
   FeatureDefinitionSDKPayload,
   generateRuleId,
@@ -4324,11 +4324,9 @@ export async function putFeatureRule(
 
   if (!existingRule) throw new Error("Unknown rule");
 
-  // A rollout can arrive without a seed: an edit that omitted it, or a force
-  // rule the UI promoted by dropping coverage below 100%. Inherit the stored
-  // (read-time-pinned) seed so an existing rollout is never re-bucketed; a
-  // promoted rule has no rollout history, so it seeds off its own id and stacks
-  // independently. Guarantee the id first so the stamp can't mint a new one.
+  // An existing rollout inherits its stored (read-time-pinned) seed so it's
+  // never re-bucketed; a force rule the UI promoted by dropping coverage has no
+  // rollout history, so it seeds off its own id. Id first, so nothing mints one.
   const inboundRule = rule as FeatureRule;
   if (!inboundRule.id) inboundRule.id = ruleId;
   inheritStoredRolloutSeeds([inboundRule], existingRules);

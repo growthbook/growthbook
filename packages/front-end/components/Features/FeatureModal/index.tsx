@@ -148,7 +148,7 @@ const genFormDefaultValues = ({
         // flag; the back end stamps each rule's own id on create.
         rules: (featureToDuplicate.rules ?? []).map((r) =>
           r?.type === "rollout" ? omit(r, ["seed"]) : r,
-        ) as FeatureInterface["rules"],
+        ),
         customFields: customFieldValues,
         holdout: featureToDuplicate.holdout?.id
           ? featureToDuplicate.holdout

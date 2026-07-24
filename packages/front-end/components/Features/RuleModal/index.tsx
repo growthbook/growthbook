@@ -408,11 +408,9 @@ export default function RuleModal({
   const defaultValues = {
     ...defaultRuleValues,
     ...convertRuleToFormValues(rule),
-    // A duplicated rollout must bucket independently of its original, so start
-    // from an empty seed and let the back end stamp the new rule's id. The Seed
-    // field stays editable for anyone who wants to reuse the original's cohort.
-    // Safe-rollout duplicates are excluded — they opt in via their own
-    // "Same seed" checkbox.
+    // A duplicated rollout starts seedless so it buckets independently; the Seed
+    // field stays editable to reuse the original's cohort. Safe-rollout has its
+    // own "Same seed" checkbox, so it's excluded here.
     ...(mode === "duplicate" && rule?.type === "rollout" ? { seed: "" } : {}),
     // Pre-set the ID for new rollout rules so ramp creation can reference it
     // without a second round-trip. Back-end preserves a truthy id from the client.

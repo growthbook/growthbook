@@ -26,11 +26,11 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import {
   addIdsToFlatRules,
-  inheritStoredRolloutSeeds,
   assertFeatureValuesValid,
   getApiFeatureObjV2,
   getNextScheduledUpdate,
   getSavedGroupMap,
+  inheritStoredRolloutSeeds,
 } from "back-end/src/services/features";
 import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
 import { getEnabledEnvironments } from "back-end/src/util/features";
