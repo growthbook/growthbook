@@ -1232,6 +1232,19 @@ export default function RuleModal({
         // eslint-disable-next-line
         delete (values as any).seed;
         delete (values as { hashVersion?: number }).hashVersion;
+      } else if (values.type === "rollout") {
+        // A duplicate must bucket independently of its original, so drop the
+        // seed and let the back end stamp the new rule's id. Opt in to the same
+        // cohort with `sameSeed` (mirrors the safe-rollout branch above).
+        if (
+          mode === "duplicate" &&
+          !(values as { sameSeed?: boolean }).sameSeed
+        ) {
+          // eslint-disable-next-line
+          delete (values as any).seed;
+        }
+        // eslint-disable-next-line
+        delete (values as any).sameSeed;
       }
       if (
         values.scheduleRules &&

@@ -114,6 +114,7 @@ import {
   addIdsToRules,
   assertFeatureDeletable,
   evaluateAllFeatures,
+  inheritStoredRolloutSeeds,
   evaluateFeature,
   FeatureDefinitionSDKPayload,
   generateRuleId,
@@ -4322,6 +4323,16 @@ export async function putFeatureRule(
   }
 
   if (!existingRule) throw new Error("Unknown rule");
+
+  // A rollout can arrive without a seed: an edit that omitted it, or a force
+  // rule the UI promoted by dropping coverage below 100%. Inherit the stored
+  // (read-time-pinned) seed so an existing rollout is never re-bucketed; a
+  // promoted rule has no rollout history, so it seeds off its own id and stacks
+  // independently. Guarantee the id first so the stamp can't mint a new one.
+  const inboundRule = rule as FeatureRule;
+  if (!inboundRule.id) inboundRule.id = ruleId;
+  inheritStoredRolloutSeeds([inboundRule], existingRules);
+  addIdsToFlatRules([inboundRule], feature.id);
 
   // Audit/review scope is the rule's own env scope.
   const ruleChangedEnvs: string[] =

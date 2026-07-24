@@ -3774,6 +3774,30 @@ describe("inheritStoredRolloutSeeds", () => {
     expect(inbound[0]).not.toHaveProperty("seed");
   });
 
+  // force → rollout promotion: the stored rule shares the id but is a force
+  // rule, so there's no cohort to preserve. Inheritance must skip it, leaving
+  // the backfill to seed it off its own id for independent stacking.
+  it("skips inheritance when the stored rule is a force rule (promotion)", () => {
+    const inbound = [inboundRollout()];
+    const storedForce = {
+      id: "fr_legacy",
+      type: "force",
+      value: "true",
+    } as unknown as FeatureInterface["rules"][number];
+
+    inheritStoredRolloutSeeds(inbound, [storedForce]);
+    expect((inbound[0] as { seed?: string }).seed).toBeUndefined();
+
+    addIdsToFlatRules(inbound as FeatureInterface["rules"], "feat_1");
+    expect((inbound[0] as { seed?: string }).seed).toBe("fr_legacy");
+  });
+
+  it("treats an empty-string seed as absent and inherits the stored seed", () => {
+    const inbound = [inboundRollout({ seed: "" })];
+    inheritStoredRolloutSeeds(inbound, [storedRollout()]);
+    expect((inbound[0] as { seed?: string }).seed).toBe("feat_1");
+  });
+
   // The regression Anna reported: a client echoes a legacy rule by id but omits
   // the seed. With inheritance it settles on the stored (feature-id) seed; the
   // backfill must NOT then stamp the rule id.

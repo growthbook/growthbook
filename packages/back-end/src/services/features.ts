@@ -1890,7 +1890,9 @@ export function inheritStoredRolloutSeeds(
     if (r?.type !== "rollout" || !r.id) return;
     const prior = priorById.get(r.id);
     if (prior?.type !== "rollout") return;
-    if (r.seed === undefined && prior.seed !== undefined) {
+    // `!r.seed` (not `=== undefined`) to match addIdsToFlatRules and the read
+    // pin, so an empty-string seed can't slip past inheritance and get stamped.
+    if (!r.seed && prior.seed) {
       r.seed = prior.seed;
     }
     if (r.hashVersion === undefined && prior.hashVersion !== undefined) {
