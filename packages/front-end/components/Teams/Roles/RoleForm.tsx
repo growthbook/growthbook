@@ -192,15 +192,6 @@ export default function RoleForm({
     });
   };
 
-  // Atoms already in effect via a selected policy — shown checked and locked in
-  // every drill-down that lists them, since they can't be removed individually.
-  const grantedByPolicy = new Set<Permission>();
-  currentValue.policies.forEach((policy) =>
-    (POLICY_PERMISSION_MAP[policy] || []).forEach((permission) =>
-      grantedByPolicy.add(permission),
-    ),
-  );
-
   return (
     <FormProvider {...form}>
       <Frame mt="2">
@@ -330,17 +321,19 @@ export default function RoleForm({
                                   const meta =
                                     GRANULAR_PERMISSION_METADATA[atom];
                                   if (!meta) return null;
-                                  const locked = grantedByPolicy.has(atom);
                                   return (
                                     <Checkbox
                                       key={atom}
                                       id={`${policy}-${atom}-checkbox`}
+                                      // Selecting the policy grants all of its
+                                      // atoms, so they read as checked and
+                                      // locked; otherwise they're composable.
                                       value={
-                                        locked ||
+                                        checked ||
                                         currentPermissions.includes(atom)
                                       }
                                       setValue={() => togglePermission(atom)}
-                                      disabled={status === "viewing" || locked}
+                                      disabled={status === "viewing" || checked}
                                       label={meta.displayName}
                                       description={meta.description}
                                     />
