@@ -20,7 +20,18 @@ export default function RuleProjectScopeBadges({
   ...marginProps
 }: Props) {
   const { getProjectById } = useDefinitions();
-  const name = (id: string) => getProjectById(id)?.name ?? id;
+  // Show resolvable project names; collapse any deleted (unresolvable) ids into
+  // a single "N deleted project(s)" rather than dumping raw ids.
+  const renderProjects = (ids: string[]) => {
+    const names = ids
+      .map((id) => getProjectById(id)?.name)
+      .filter((n): n is string => !!n);
+    const deleted = ids.length - names.length;
+    if (deleted > 0) {
+      names.push(`${deleted} deleted project${deleted > 1 ? "s" : ""}`);
+    }
+    return names.join(", ");
+  };
 
   const deliverySet =
     deliveryProjectIds === null ? null : new Set(deliveryProjectIds);
@@ -57,7 +68,7 @@ export default function RuleProjectScopeBadges({
       <Text as="span" weight="medium">
         Projects:
       </Text>{" "}
-      {reachable.map(name).join(", ")}
+      {renderProjects(reachable)}
       {unavailable.length > 0 && (
         <Tooltip
           body="These Projects aren't available for this feature, so the rule won't apply there"
@@ -70,7 +81,7 @@ export default function RuleProjectScopeBadges({
               marginLeft: 6,
             }}
           >
-            {unavailable.map(name).join(", ")}
+            {renderProjects(unavailable)}
           </span>
         </Tooltip>
       )}

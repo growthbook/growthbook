@@ -1807,6 +1807,30 @@ export async function applyRevisionChanges(
     result,
   );
 
+  // A revision staged before a project was deleted can carry the now-dead id
+  // in its targeting or rule scope. removeProjectFromFeatures only scrubs live
+  // features, not pending revisions, so drop dead ids here as they're published
+  // rather than restoring them into the live feature.
+  const rulesHaveProjectScope = (changes.rules ?? []).some((r) =>
+    Array.isArray((r as { projects?: string[] }).projects),
+  );
+  if (changes.targetingProjects || rulesHaveProjectScope) {
+    const validProjectIds = new Set(await context.getAllProjectIds());
+    if (changes.targetingProjects) {
+      changes.targetingProjects = changes.targetingProjects.filter((p) =>
+        validProjectIds.has(p),
+      );
+    }
+    if (rulesHaveProjectScope) {
+      changes.rules = changes.rules?.map((r) => {
+        const projects = (r as { projects?: string[] }).projects;
+        return Array.isArray(projects)
+          ? { ...r, projects: projects.filter((p) => validProjectIds.has(p)) }
+          : r;
+      });
+    }
+  }
+
   if (!hasChanges) {
     return await updateFeature(context, feature, changes);
   }
