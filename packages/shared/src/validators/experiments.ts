@@ -1040,7 +1040,6 @@ export const apiExperimentBulkResultValidator = namedSchema(
         precomputed: z.boolean(),
       }),
       settings: apiBulkResultSettings,
-      queryIds: z.array(z.string()),
       results: z.array(
         z.object({
           dimensionValue: z.string(),

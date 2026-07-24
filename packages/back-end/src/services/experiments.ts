@@ -3415,8 +3415,6 @@ export function toExperimentSnapshotBulkResultsApiInterface(
       : null),
   };
 
-  const queryIds = snapshot.queries.map((q) => q.query);
-
   const items: ApiExperimentBulkResult[] = [];
 
   for (const [dimensionId, analyses] of analysesByDimension) {

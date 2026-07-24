@@ -43348,10 +43348,6 @@ components:
             - secondaryMetrics
             - guardrails
           additionalProperties: false
-        queryIds:
-          type: array
-          items:
-            type: string
         results:
           type: array
           items:
@@ -43483,7 +43479,6 @@ components:
         - dateEnd
         - dimension
         - settings
-        - queryIds
         - results
       additionalProperties: false
     VisualChangeset:
