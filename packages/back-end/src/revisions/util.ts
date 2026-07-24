@@ -142,6 +142,33 @@ export function buildMergeDesiredState<T extends Record<string, unknown>>(
 }
 
 /**
+ * Whether a merge changes the entity's project ownership. Covers both the
+ * scalar `project` field (features / configs / constants) and the `projects[]`
+ * array (saved groups), and treats a cleared field — a move to the global
+ * "no project" scope — as a change.
+ *
+ * Publishing an ownership change must additionally re-check manage permission
+ * on the destination project(s): the publish-authority check only covers the
+ * live (source) entity, so without this a publish-only role could launder an
+ * entity into a project it can't otherwise touch. Keying off an actual
+ * ownership change means an ordinary publish (no move) isn't blocked.
+ */
+export function ownershipChanged(
+  entity: Record<string, unknown>,
+  proposedEntity: Record<string, unknown>,
+): boolean {
+  if (entity.project !== proposedEntity.project) return true;
+  const before = entity.projects;
+  const after = proposedEntity.projects;
+  if (Array.isArray(before) || Array.isArray(after)) {
+    const norm = (v: unknown) =>
+      JSON.stringify([...((v as string[] | undefined) ?? [])].sort());
+    return norm(before) !== norm(after);
+  }
+  return false;
+}
+
+/**
  * Convert a plain partial-update object into an array of JSON Patch `replace` operations.
  * Undefined/null values are skipped since they represent "no change".
  */

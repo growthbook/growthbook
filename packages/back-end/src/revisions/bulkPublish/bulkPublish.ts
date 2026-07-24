@@ -17,6 +17,7 @@ import {
   PublishGate,
   PublishGateClearance,
 } from "back-end/src/revisions/publishGates";
+import { ownershipChanged } from "back-end/src/revisions/util";
 import {
   bulkPublishTargetTypes,
   getBulkAdapter,
@@ -34,22 +35,6 @@ import type {
 } from "back-end/src/revisions/bulkPublish/types";
 
 export const MAX_BULK_PUBLISH_ITEMS = 50;
-
-// Whether a merge changes the entity's project ownership (project / projects[]).
-function ownershipChanged(
-  entity: Record<string, unknown>,
-  proposedEntity: Record<string, unknown>,
-): boolean {
-  if (entity.project !== proposedEntity.project) return true;
-  const before = entity.projects;
-  const after = proposedEntity.projects;
-  if (Array.isArray(before) || Array.isArray(after)) {
-    const norm = (v: unknown) =>
-      JSON.stringify([...((v as string[] | undefined) ?? [])].sort());
-    return norm(before) !== norm(after);
-  }
-  return false;
-}
 
 function tag(ref: BulkPublishItemRef, gates: PublishGate[]): BulkPublishGate[] {
   return gates.map((gate) => ({
