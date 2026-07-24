@@ -37,6 +37,13 @@ const aggregatedFactTable = z
     // Hash of the fact table definition; detects FT drift, acted on only via a forced restate.
     factTableSettingsHash: z.string().nullable(),
 
+    // Sub-hashes of the fact table definition, stored so a hash mismatch can be
+    // classified as "sql text only, output schema unchanged" (skip restate) vs
+    // an actual schema/filter/eventName change (restate). Absent on legacy docs
+    // that predate the split; drift detection falls back to the full hash.
+    factTableNonSqlSettingsHash: z.string().nullable().optional(),
+    factTableColumnsFingerprint: z.string().nullable().optional(),
+
     metricState: z.array(aggregatedFactTableMetricStateValidator),
 
     // Execution lock (mirrors IncrementalRefreshModel).

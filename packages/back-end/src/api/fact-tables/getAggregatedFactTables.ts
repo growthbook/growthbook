@@ -27,14 +27,20 @@ export const getAggregatedFactTables = createApiRequestHandler(
   // the next run will be forced to restate. Read-only; no warehouse query.
   const factMetrics = await req.context.models.factMetrics.getAll();
   const metrics = getAggregatedFactTableMetrics({ factMetrics, factTable });
-  const { factTableSettingsHash, metricState } =
-    buildAggregatedFactTableSchemaState({ factTable, metrics });
+  const {
+    factTableSettingsHash,
+    factTableNonSqlSettingsHash,
+    factTableColumnsFingerprint,
+    metricState,
+  } = buildAggregatedFactTableSchemaState({ factTable, metrics });
 
   const aggregatedFactTables = idTypes.map((idType) => {
     const status = buildAggregatedFactTableStatus({
       idType,
       doc: byIdType.get(idType),
       factTableSettingsHash,
+      factTableNonSqlSettingsHash,
+      factTableColumnsFingerprint,
       metricState,
     });
     return {

@@ -340,6 +340,80 @@ export function getFactTableSettingsHashForAggregatedFactTable(
   });
 }
 
+// Hash of only the non-SQL parts of the fact-table definition. Paired with
+// `getFactTableColumnsFingerprint` to distinguish a SQL-text-only change (safe
+// to skip a restate when the output schema is unchanged) from a filter or
+// eventName change (always restate).
+export function getFactTableNonSqlSettingsHashForAggregatedFactTable(
+  factTable: FactTableInterface,
+): string {
+  return hashObject({
+    eventName: factTable.eventName,
+    filters: (factTable.filters ?? [])
+      .map((f) => ({ id: f.id, value: f.value }))
+      .sort((a, b) => a.id.localeCompare(b.id)),
+  });
+}
+
+// Fingerprint of the fact-table SQL's output schema (column name + datatype),
+// derived from `factTable.columns` — the set GrowthBook already refreshes from
+// the warehouse whenever the SQL changes. Stored on the registry so a SQL-text
+// change can be classified as schema-compatible without a warehouse round-trip.
+// Returns null when columns haven't been (or couldn't be) resolved, so the
+// drift check falls back to the conservative full-hash compare.
+export function getFactTableColumnsFingerprint(
+  factTable: FactTableInterface,
+): string | null {
+  if (factTable.columnsError) return null;
+  if (factTable.columnRefreshPending) return null;
+  const live = (factTable.columns ?? []).filter((c) => !c.deleted);
+  if (!live.length) return null;
+  return hashObject(
+    live
+      .map((c) => ({ column: c.column, datatype: c.datatype }))
+      .sort((a, b) => a.column.localeCompare(b.column)),
+  );
+}
+
+export type AggregatedFactTableSchemaState = {
+  factTableSettingsHash: string;
+  factTableNonSqlSettingsHash: string;
+  factTableColumnsFingerprint: string | null;
+  metricState: AggregatedFactTableMetricStateInterface[];
+};
+
+// True when the fact-table definition change is SQL-text-only with an unchanged
+// output-column set and unchanged eventName/filters — the case where the
+// materialized aggregated data is still schema-compatible. Requires both
+// current and stored sub-fingerprints; returns false when either side is
+// missing (legacy registry doc, or columns unresolved) so callers fall back to
+// the conservative full-hash compare.
+export function isSqlOnlySchemaCompatibleFactTableChange({
+  registry,
+  factTableNonSqlSettingsHash,
+  factTableColumnsFingerprint,
+}: {
+  registry: Pick<
+    AggregatedFactTableInterface,
+    "factTableNonSqlSettingsHash" | "factTableColumnsFingerprint"
+  >;
+  factTableNonSqlSettingsHash: string | undefined;
+  factTableColumnsFingerprint: string | null | undefined;
+}): boolean {
+  if (
+    factTableNonSqlSettingsHash === undefined ||
+    factTableColumnsFingerprint == null ||
+    registry.factTableNonSqlSettingsHash == null ||
+    registry.factTableColumnsFingerprint == null
+  ) {
+    return false;
+  }
+  return (
+    factTableNonSqlSettingsHash === registry.factTableNonSqlSettingsHash &&
+    factTableColumnsFingerprint === registry.factTableColumnsFingerprint
+  );
+}
+
 // Builds the schema state the nightly job persists on the registry: the
 // fact-table definition hash plus per-metric state (settings hash + the
 // columns each metric/slice materializes). `metrics` must already be the
@@ -350,12 +424,12 @@ export function buildAggregatedFactTableSchemaState({
 }: {
   factTable: FactTableInterface;
   metrics: FactMetricInterface[];
-}): {
-  factTableSettingsHash: string;
-  metricState: AggregatedFactTableMetricStateInterface[];
-} {
+}): AggregatedFactTableSchemaState {
   const factTableSettingsHash =
     getFactTableSettingsHashForAggregatedFactTable(factTable);
+  const factTableNonSqlSettingsHash =
+    getFactTableNonSqlSettingsHashForAggregatedFactTable(factTable);
+  const factTableColumnsFingerprint = getFactTableColumnsFingerprint(factTable);
 
   const metricState: AggregatedFactTableMetricStateInterface[] = metrics.map(
     (metric) => ({
@@ -377,7 +451,12 @@ export function buildAggregatedFactTableSchemaState({
     }),
   );
 
-  return { factTableSettingsHash, metricState };
+  return {
+    factTableSettingsHash,
+    factTableNonSqlSettingsHash,
+    factTableColumnsFingerprint,
+    metricState,
+  };
 }
 
 // True when the materialized table is missing a column the current metric set
@@ -387,16 +466,32 @@ export function buildAggregatedFactTableSchemaState({
 // avoid a needless restate. Re-adding such a metric still drifts, because the
 // reduced metric set was persisted to the registry on the tolerating run, so
 // the metric reads as a new addition. Comparisons are order-independent.
+//
+// Fact-table SQL text changes are tolerated when the output-column fingerprint
+// and the non-SQL parts (eventName, filters) are unchanged. The aggregation
+// query only depends on the FT SQL through the columns it projects, so an
+// identical column set means the materialized schema is unchanged. This elides
+// restates on formatting/codegen churn; a SQL edit that changes row values but
+// not the column set will also be tolerated — force a restate from the UI for
+// that case.
 export function detectAggregatedFactTableSchemaDrift({
   registry,
   factTableSettingsHash,
+  factTableNonSqlSettingsHash,
+  factTableColumnsFingerprint,
   metricState,
 }: {
   registry: Pick<
     AggregatedFactTableInterface,
-    "tableFullName" | "factTableSettingsHash" | "metricState"
+    | "tableFullName"
+    | "factTableSettingsHash"
+    | "factTableNonSqlSettingsHash"
+    | "factTableColumnsFingerprint"
+    | "metricState"
   >;
   factTableSettingsHash: string;
+  factTableNonSqlSettingsHash?: string;
+  factTableColumnsFingerprint?: string | null;
   metricState: AggregatedFactTableMetricStateInterface[];
 }): { drift: boolean; reason?: string } {
   // Defensive: a materialized table with no recorded metric state can't be
@@ -406,7 +501,19 @@ export function detectAggregatedFactTableSchemaDrift({
   }
 
   if (factTableSettingsHash !== registry.factTableSettingsHash) {
-    return { drift: true, reason: "fact table definition changed" };
+    // The full definition hash changed. Before flagging drift, check whether
+    // this is a SQL-text-only change that left the output schema untouched.
+    // Tolerate: fall through to the metric-state check. The next successful
+    // run persists the new full hash, so this fires once per SQL edit.
+    if (
+      !isSqlOnlySchemaCompatibleFactTableChange({
+        registry,
+        factTableNonSqlSettingsHash,
+        factTableColumnsFingerprint,
+      })
+    ) {
+      return { drift: true, reason: "fact table definition changed" };
+    }
   }
 
   const prevById = new Map(registry.metricState.map((m) => [m.metricId, m]));
@@ -445,16 +552,22 @@ export type AggregatedFactTableRestateReason =
 export function getAggregatedFactTableRestateReason({
   registry,
   factTableSettingsHash,
+  factTableNonSqlSettingsHash,
+  factTableColumnsFingerprint,
   metricState,
 }: {
   registry: Pick<
     AggregatedFactTableInterface,
     | "tableFullName"
     | "factTableSettingsHash"
+    | "factTableNonSqlSettingsHash"
+    | "factTableColumnsFingerprint"
     | "metricState"
     | "inFlightExecutionId"
   >;
   factTableSettingsHash: string;
+  factTableNonSqlSettingsHash?: string;
+  factTableColumnsFingerprint?: string | null;
   metricState: AggregatedFactTableMetricStateInterface[];
 }): AggregatedFactTableRestateReason {
   if (!registry.tableFullName) return null;
@@ -465,6 +578,8 @@ export function getAggregatedFactTableRestateReason({
     detectAggregatedFactTableSchemaDrift({
       registry,
       factTableSettingsHash,
+      factTableNonSqlSettingsHash,
+      factTableColumnsFingerprint,
       metricState,
     }).drift
   ) {

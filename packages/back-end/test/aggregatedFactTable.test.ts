@@ -1,8 +1,11 @@
 import { getAutoSliceMetrics, isSliceMetric } from "shared/experiments";
+import { ColumnInterface } from "shared/types/fact-table";
 import {
   buildAggregatedFactTableSchemaState,
   detectAggregatedFactTableSchemaDrift,
   getAggregatedFactTableRestateReason,
+  getFactTableColumnsFingerprint,
+  getFactTableNonSqlSettingsHashForAggregatedFactTable,
   getMetricSettingsHashForAggregatedFactTable,
   getFactTableSettingsHashForAggregatedFactTable,
 } from "back-end/src/enterprise/services/data-pipeline";
@@ -198,6 +201,102 @@ describe("getFactTableSettingsHashForAggregatedFactTable", () => {
     expect(getFactTableSettingsHashForAggregatedFactTable(a)).not.toEqual(
       getFactTableSettingsHashForAggregatedFactTable(b),
     );
+  });
+});
+
+const col = (
+  column: string,
+  datatype: ColumnInterface["datatype"],
+  overrides: Partial<ColumnInterface> = {},
+): ColumnInterface => ({
+  column,
+  name: column,
+  datatype,
+  description: "",
+  numberFormat: "",
+  deleted: false,
+  dateCreated: new Date(),
+  dateUpdated: new Date(),
+  ...overrides,
+});
+
+describe("getFactTableNonSqlSettingsHashForAggregatedFactTable", () => {
+  it("ignores sql text", () => {
+    const a = factTableFactory.build({ sql: "SELECT * FROM events" });
+    const b = factTableFactory.build({ sql: "SELECT  *  FROM  events" });
+    expect(getFactTableNonSqlSettingsHashForAggregatedFactTable(a)).toEqual(
+      getFactTableNonSqlSettingsHashForAggregatedFactTable(b),
+    );
+  });
+
+  it("changes when filters or eventName change", () => {
+    const a = factTableFactory.build({ eventName: "purchase" });
+    const b = factTableFactory.build({ eventName: "signup" });
+    expect(getFactTableNonSqlSettingsHashForAggregatedFactTable(a)).not.toEqual(
+      getFactTableNonSqlSettingsHashForAggregatedFactTable(b),
+    );
+  });
+});
+
+describe("getFactTableColumnsFingerprint", () => {
+  it("is stable across column order and ignores deleted columns", () => {
+    const a = factTableFactory.build({
+      columns: [col("user_id", "string"), col("value", "number")],
+    });
+    const b = factTableFactory.build({
+      columns: [
+        col("value", "number"),
+        col("user_id", "string"),
+        col("dropped", "number", { deleted: true }),
+      ],
+    });
+    const fpA = getFactTableColumnsFingerprint(a);
+    expect(fpA).not.toBeNull();
+    expect(fpA).toEqual(getFactTableColumnsFingerprint(b));
+  });
+
+  it("changes when a column is added, removed, or retyped", () => {
+    const base = factTableFactory.build({
+      columns: [col("user_id", "string"), col("value", "number")],
+    });
+    const added = factTableFactory.build({
+      columns: [
+        col("user_id", "string"),
+        col("value", "number"),
+        col("extra", "number"),
+      ],
+    });
+    const retyped = factTableFactory.build({
+      columns: [col("user_id", "string"), col("value", "string")],
+    });
+    expect(getFactTableColumnsFingerprint(base)).not.toEqual(
+      getFactTableColumnsFingerprint(added),
+    );
+    expect(getFactTableColumnsFingerprint(base)).not.toEqual(
+      getFactTableColumnsFingerprint(retyped),
+    );
+  });
+
+  it("returns null when columns are unresolved (empty, error, or refresh pending)", () => {
+    expect(
+      getFactTableColumnsFingerprint(factTableFactory.build({ columns: [] })),
+    ).toBeNull();
+    expect(
+      getFactTableColumnsFingerprint(
+        factTableFactory.build({
+          columns: [col("a", "string")],
+          columnsError: "boom",
+        }),
+      ),
+    ).toBeNull();
+    expect(
+      getFactTableColumnsFingerprint(
+        factTableFactory.build({
+          columns: [col("a", "string")],
+          columnRefreshPending: true,
+        }),
+      ),
+    ).toBeNull();
   });
 });
 
@@ -696,6 +795,118 @@ describe("detectAggregatedFactTableSchemaDrift", () => {
         metricState: next.metricState,
       }).drift,
     ).toBe(true);
+  });
+
+  describe("SQL-text-only schema-compat gate", () => {
+    const columns = [
+      col("user_id", "string"),
+      col("timestamp", "date"),
+      col("value", "number"),
+    ];
+    const ftV1 = factTableFactory.build({
+      id: FT_ID,
+      sql: "SELECT user_id, timestamp, value FROM events",
+      eventName: "purchase",
+      columns,
+    });
+    // Same output columns, different SQL text (whitespace / semantically-equal
+    // regex tweak).
+    const ftV2SameSchema = factTableFactory.build({
+      id: FT_ID,
+      sql: "SELECT   user_id, timestamp, value   FROM events",
+      eventName: "purchase",
+      columns,
+    });
+    const ftV2NewColumn = factTableFactory.build({
+      id: FT_ID,
+      sql: "SELECT user_id, timestamp, value, extra FROM events",
+      eventName: "purchase",
+      columns: [...columns, col("extra", "number")],
+    });
+    const ftV2EventNameChanged = factTableFactory.build({
+      id: FT_ID,
+      sql: "SELECT   user_id, timestamp, value   FROM events",
+      eventName: "signup",
+      columns,
+    });
+
+    it("tolerates a SQL-text change when output columns and non-SQL parts are unchanged", () => {
+      const prev = buildState([metricA], ftV1);
+      const next = buildState([metricA], ftV2SameSchema);
+      // Full hash differs (sql text changed) but sub-fingerprints match.
+      expect(next.factTableSettingsHash).not.toEqual(
+        prev.factTableSettingsHash,
+      );
+      expect(
+        detectAggregatedFactTableSchemaDrift({
+          registry: { tableFullName: "t", ...prev },
+          ...next,
+        }).drift,
+      ).toBe(false);
+    });
+
+    it("still drifts when the registry has no stored sub-fingerprints (legacy doc)", () => {
+      const prev = buildState([metricA], ftV1);
+      const next = buildState([metricA], ftV2SameSchema);
+      expect(
+        detectAggregatedFactTableSchemaDrift({
+          registry: {
+            tableFullName: "t",
+            factTableSettingsHash: prev.factTableSettingsHash,
+            metricState: prev.metricState,
+            // no factTableNonSqlSettingsHash / factTableColumnsFingerprint
+          },
+          ...next,
+        }).drift,
+      ).toBe(true);
+    });
+
+    it("still drifts when the current columns fingerprint is unresolved", () => {
+      const prev = buildState([metricA], ftV1);
+      const next = buildState([metricA], ftV2SameSchema);
+      expect(
+        detectAggregatedFactTableSchemaDrift({
+          registry: { tableFullName: "t", ...prev },
+          ...next,
+          factTableColumnsFingerprint: null,
+        }).drift,
+      ).toBe(true);
+    });
+
+    it("still drifts when the SQL change alters the output column set", () => {
+      const prev = buildState([metricA], ftV1);
+      const next = buildState([metricA], ftV2NewColumn);
+      expect(
+        detectAggregatedFactTableSchemaDrift({
+          registry: { tableFullName: "t", ...prev },
+          ...next,
+        }).drift,
+      ).toBe(true);
+    });
+
+    it("still drifts when eventName or filters changed alongside the SQL", () => {
+      const prev = buildState([metricA], ftV1);
+      const next = buildState([metricA], ftV2EventNameChanged);
+      expect(
+        detectAggregatedFactTableSchemaDrift({
+          registry: { tableFullName: "t", ...prev },
+          ...next,
+        }).drift,
+      ).toBe(true);
+    });
+
+    it("continues to check per-metric drift after tolerating a SQL-text change", () => {
+      const prev = buildState([metricA], ftV1);
+      // SQL text changed (schema-compat) AND a metric was added → the metric
+      // addition should still be caught.
+      const next = buildState([metricA, metricB], ftV2SameSchema);
+      expect(
+        detectAggregatedFactTableSchemaDrift({
+          registry: { tableFullName: "t", ...prev },
+          ...next,
+        }).drift,
+      ).toBe(true);
+    });
   });
 
   it("detects a changed slice set", () => {
