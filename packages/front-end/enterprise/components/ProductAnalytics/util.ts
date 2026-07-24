@@ -518,6 +518,48 @@ export function getCommonColumns(
     .map((c) => ({ column: c.column, name: c.name }));
 }
 
+/** Cached distinct values for a group-by column (same source as row-filter topValues). */
+export function getDimensionColumnTopValues(
+  dataset: ExplorationDataset | null,
+  column: string | null,
+  getFactTableById: (id: string) => FactTableDefinition | null,
+  getFactMetricById: (id: string) => FactMetricInterface | null,
+): string[] {
+  if (!dataset || !column) return [];
+
+  const factTables: FactTableDefinition[] = [];
+  if (dataset.type === "fact_table") {
+    const ft = getFactTableById(dataset.factTableId || "");
+    if (ft) factTables.push(ft);
+  } else if (dataset.type === "metric") {
+    for (const value of dataset.values) {
+      const factMetric = getFactMetricById(value.metricId);
+      const ft = factMetric
+        ? getFactTableById(factMetric.numerator.factTableId)
+        : null;
+      if (ft) factTables.push(ft);
+    }
+  } else if (dataset.type === "funnel") {
+    const ft = dataset.steps[0]?.factTable
+      ? getFactTableById(dataset.steps[0].factTable)
+      : null;
+    if (ft) factTables.push(ft);
+  }
+
+  const seen = new Set<string>();
+  const values: string[] = [];
+  for (const ft of factTables) {
+    const col = ft.columns.find((c) => c.column === column);
+    col?.topValues?.forEach((v) => {
+      if (v && !seen.has(v)) {
+        seen.add(v);
+        values.push(v);
+      }
+    });
+  }
+  return values;
+}
+
 export function getMaxDimensions(dataset: ExplorationDataset): number {
   // Phase 1 funnels are capped at a single dimension.
   if (dataset.type === "funnel") return 1;

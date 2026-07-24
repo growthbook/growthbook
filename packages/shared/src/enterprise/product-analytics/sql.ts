@@ -93,6 +93,8 @@ interface MetricData {
 interface DimensionData {
   alias: string;
   valueExpr: string;
+  /** When set, rows CTE filters to these values (no "other" bucket). */
+  filterExpr?: string;
 }
 interface CTE {
   name: string;
@@ -105,6 +107,65 @@ interface DateRange {
 
 function assertNever(value: never): never {
   throw new Error(`Unexpected value: ${value}`);
+}
+
+/** Pinned dynamic values only when both a column and a non-empty values list are set. */
+function getPinnedDynamicDimension(
+  dimension: ProductAnalyticsDynamicDimension,
+): { column: string; values: string[] } | null {
+  if (!dimension.column || !dimension.values?.length) return null;
+  return { column: dimension.column, values: dimension.values };
+}
+
+function buildPinnedDimensionFilter(
+  column: string,
+  values: string[],
+  factTable: Pick<FactTableInterface, "columns">,
+  helpers: SqlDialect,
+): string {
+  const columnExpr = getColumnExpression(
+    column,
+    factTable,
+    helpers.jsonExtract,
+  );
+  const valueList = values
+    .map((v) => `'${helpers.escapeStringLiteral(v)}'`)
+    .join(", ");
+  return `${columnExpr} IN (${valueList})`;
+}
+
+function buildDimensionsForFactTableGroup(
+  dimensions: ProductAnalyticsDimension[],
+  factTableGroup: FactTableGroup,
+  helpers: SqlDialect,
+  dateRange: DateRange,
+): DimensionData[] {
+  return dimensions.map((d, i) => {
+    const valueExpr = generateDimensionExpression(
+      d,
+      i,
+      factTableGroup,
+      helpers,
+      dateRange,
+    );
+    let filterExpr: string | undefined;
+    if (d.dimensionType === "dynamic") {
+      const pinned = getPinnedDynamicDimension(d);
+      if (pinned) {
+        filterExpr = buildPinnedDimensionFilter(
+          pinned.column,
+          pinned.values,
+          factTableGroup.factTable,
+          helpers,
+        );
+      }
+    }
+    return {
+      alias: `dimension${i}`,
+      valueExpr,
+      filterExpr,
+    };
+  });
 }
 
 function getMetricAliases(index: number) {
@@ -434,12 +495,17 @@ function generateDimensionExpression(
       )}`;
     }
     case "dynamic": {
-      const topCTE = `_dimension${dimensionIndex}_top`;
       const columnExpr = getColumnExpression(
         dimension.column || "",
         factTable,
         helpers.jsonExtract,
       );
+      // Explicit values: use the raw column; caller filters to the value list
+      // so non-matching rows are excluded (no "other" bucket).
+      if (getPinnedDynamicDimension(dimension)) {
+        return columnExpr;
+      }
+      const topCTE = `_dimension${dimensionIndex}_top`;
       return `CASE 
         WHEN ${columnExpr} IN (SELECT value FROM ${topCTE}) THEN ${columnExpr}
         ELSE 'other'
@@ -929,6 +995,10 @@ function generateFactTableRowsCTE(
     selectCols.push(`${metricData.eventValueExpr} AS ${metricData.alias}`);
   });
 
+  const filterClauses = dimensions
+    .map((d) => d.filterExpr)
+    .filter((f): f is string => !!f);
+
   return {
     name: `_factTable${factTableGroup.index}_rows`,
     sql: `
@@ -936,6 +1006,7 @@ function generateFactTableRowsCTE(
       ${selectCols.join(",\n  ")}
     FROM ${sourceCTE.name}
     ${percentileCapsCTE ? `CROSS JOIN ${percentileCapsCTE.name}` : ""}
+    ${filterClauses.length ? `WHERE ${filterClauses.join(" AND ")}` : ""}
   `,
   };
 }
@@ -1313,6 +1384,18 @@ export function buildFunnelSql(
         dateRange,
       )
     : null;
+  const pinned =
+    dimension?.dimensionType === "dynamic"
+      ? getPinnedDynamicDimension(dimension)
+      : null;
+  const pinnedDimensionFilter = pinned
+    ? buildPinnedDimensionFilter(
+        pinned.column,
+        pinned.values,
+        initialFactTable,
+        dialect,
+      )
+    : null;
   const ctes: CTE[] = [];
 
   // 1a. Per-fact-table "raw" CTE — wraps the fact table SQL with the date
@@ -1337,12 +1420,15 @@ export function buildFunnelSql(
   // 1b. Optional dynamic-dimension top-N CTE. Built before the events CTE
   // so the inlined dimensionExpr (which references _dimension0_top) is
   // resolvable.
-  if (dimension?.dimensionType === "dynamic") {
+  if (
+    dimension?.dimensionType === "dynamic" &&
+    !getPinnedDynamicDimension(dimension)
+  ) {
     const initialRawCte = ctes[0];
     ctes.push(
       generateDynamicDimensionCTE(
         initialFactTableGroup,
-        dimension as ProductAnalyticsDynamicDimension,
+        dimension,
         0,
         initialRawCte,
         dialect,
@@ -1395,6 +1481,11 @@ export function buildFunnelSql(
         SELECT
           ${selectCols.join(",\n          ")}
         FROM __funnel_ft${group.index}_raw
+        ${
+          pinnedDimensionFilter && group.stepIndexes.includes(1)
+            ? `WHERE ${pinnedDimensionFilter}`
+            : ""
+        }
       `,
     });
   });
@@ -1628,20 +1719,11 @@ export function generateProductAnalyticsSQL(
     allMetrics.filter((m) => m.rollupCountExpr).map((m) => m.alias),
   );
 
-  // Get all dimensions
-  const allDimensions: DimensionData[] = [];
-  config.dimensions.forEach((d, i) => {
-    allDimensions.push({
-      alias: `dimension${i}`,
-      valueExpr: generateDimensionExpression(
-        d,
-        i,
-        factTableGroups[0],
-        dialect,
-        dateRange,
-      ),
-    });
-  });
+  // Dimension aliases for rollups / final select (expressions are applied per fact table below)
+  const dimensionAliases: DimensionData[] = config.dimensions.map((_, i) => ({
+    alias: `dimension${i}`,
+    valueExpr: "",
+  }));
 
   const ctes: CTE[] = [];
 
@@ -1659,7 +1741,10 @@ export function generateProductAnalyticsSQL(
     // If this is the first fact table and there are dynamic dimensions, add CTEs
     if (i === 0) {
       config.dimensions.forEach((dimension, dimensionIndex) => {
-        if (dimension.dimensionType === "dynamic") {
+        if (
+          dimension.dimensionType === "dynamic" &&
+          !getPinnedDynamicDimension(dimension)
+        ) {
           const dynamicDimensionCTE = generateDynamicDimensionCTE(
             factTableGroup,
             dimension,
@@ -1680,12 +1765,20 @@ export function generateProductAnalyticsSQL(
     );
     if (percentileCapsCTE) ctes.push(percentileCapsCTE);
 
+    // Resolve dimension expressions/filters against this fact table's schema
+    const dimensionsForGroup = buildDimensionsForFactTableGroup(
+      config.dimensions,
+      factTableGroup,
+      dialect,
+      dateRange,
+    );
+
     // Add the fact table rows CTE
     const factTableRowsCTE = generateFactTableRowsCTE(
       factTableGroup,
       factTableCTE,
       percentileCapsCTE,
-      allDimensions,
+      dimensionsForGroup,
       dialect,
     );
     ctes.push(factTableRowsCTE);
@@ -1714,7 +1807,7 @@ export function generateProductAnalyticsSQL(
       const unitAggregationCTE = generateUnitAggregationCTE(
         factTableGroup,
         factTableRowsCTE,
-        allDimensions,
+        dimensionAliases,
         unitIndex,
         metrics,
       );
@@ -1724,7 +1817,7 @@ export function generateProductAnalyticsSQL(
       const unitRollupCTE = generateUnitAggregationRollupCTE(
         factTableGroup,
         unitAggregationCTE,
-        allDimensions,
+        dimensionAliases,
         unitIndex,
         metrics,
         allMetricsAliases,
@@ -1740,7 +1833,7 @@ export function generateProductAnalyticsSQL(
       const eventRollupCTE = generateEventRollupCTE(
         factTableGroup,
         factTableRowsCTE,
-        allDimensions,
+        dimensionAliases,
         eventMetrics,
         allMetricsAliases,
         aliasesWithDenominator,
@@ -1767,7 +1860,7 @@ export function generateProductAnalyticsSQL(
     `
   WITH 
     ${ctes.map((c) => `${c.name} AS (\n${c.sql}\n)`).join(",\n  ")}
-  ${generateFinalSelect(finalSelectSource, allDimensions, allMetrics, needsReaggregation)}
+  ${generateFinalSelect(finalSelectSource, dimensionAliases, allMetrics, needsReaggregation)}
   `,
     dialect.formatDialect,
   );

@@ -2,17 +2,31 @@ import { Flex } from "@radix-ui/themes";
 import { PiCaretDown, PiCaretRight, PiPlus, PiX } from "react-icons/pi";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Collapsible from "react-collapsible";
+import { ProductAnalyticsDynamicDimension } from "shared/validators";
 import Button from "@/ui/Button";
-import { getMaxDimensions } from "@/enterprise/components/ProductAnalytics/util";
+import {
+  getDimensionColumnTopValues,
+  getMaxDimensions,
+} from "@/enterprise/components/ProductAnalytics/util";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import SelectField from "@/components/Forms/SelectField";
 import Field from "@/components/Forms/Field";
+import MultiSelectField from "@/ui/MultiSelectField";
+import { useDefinitions } from "@/services/DefinitionsContext";
+
+type DynamicDimensionUpdate = Partial<
+  Pick<ProductAnalyticsDynamicDimension, "column" | "maxValues" | "values">
+>;
+
+/** Hard cap for explicitly pinned dimension values (independent of maxValues). */
+const MAX_PINNED_DIMENSION_VALUES = 20;
 
 export default function GroupBySection() {
   const { draftExploreState, setDraftExploreState, commonColumns } =
     useExplorerContext();
+  const { getFactTableById, getFactMetricById } = useDefinitions();
   const [advancedSettingsOpen, setAdvancedSettingsOpen] = useState(
     Array(draftExploreState.dimensions.length).fill(false),
   );
@@ -55,6 +69,25 @@ export default function GroupBySection() {
       .map((col) => ({ label: col.name || col.column, value: col.column }));
   };
 
+  const getValueOptionsForDimension = (
+    dim: ProductAnalyticsDynamicDimension,
+  ) => {
+    const topValues = getDimensionColumnTopValues(
+      draftExploreState.dataset,
+      dim.column,
+      getFactTableById,
+      getFactMetricById,
+    );
+    const options = topValues.map((v) => ({ label: v, value: v }));
+    // Keep selected values that aren't in the cached list (e.g. creatable)
+    dim.values?.forEach((v) => {
+      if (v && !options.some((o) => o.value === v)) {
+        options.push({ label: v, value: v });
+      }
+    });
+    return options;
+  };
+
   const handleAddDimension = () => {
     setAdvancedSettingsOpen((prev) => [...prev, false]); // New dimension defaults to collapsed
     setDraftExploreState((prev) => ({
@@ -72,7 +105,7 @@ export default function GroupBySection() {
 
   const handleUpdateDimension = (
     index: number,
-    dimension: { column: string | null; maxValues: number },
+    dimension: DynamicDimensionUpdate,
   ) => {
     setDraftExploreState((prev) => ({
       ...prev,
@@ -109,7 +142,10 @@ export default function GroupBySection() {
 
     const dim = draftExploreState.dimensions[index];
     if (dim && dim.dimensionType === "dynamic") {
-      handleUpdateDimension(index, { column: dim.column, maxValues: parsed });
+      handleUpdateDimension(index, {
+        column: dim.column,
+        maxValues: parsed,
+      });
     }
     setLocalMaxValues((prev) => {
       const next = { ...prev };
@@ -157,6 +193,10 @@ export default function GroupBySection() {
       {draftExploreState.dimensions.map((dim, i) => {
         if (dim.dimensionType === "date") return null; // Skip date dimension as it's usually handled separately or fixed
         if (dim.dimensionType !== "dynamic") return null; // Skip static and slice dimensions for now
+        const selectedValues = dim.values ?? [];
+        const hasPinnedValues = selectedValues.length > 0;
+        const atMaxPinnedSelections =
+          selectedValues.length >= MAX_PINNED_DIMENSION_VALUES;
         return (
           <Flex
             key={i}
@@ -171,13 +211,13 @@ export default function GroupBySection() {
           >
             <Flex direction="row" gap="2" align="center">
               <SelectField
-                size="legacy"
                 containerStyle={{ flex: 1, minWidth: 0 }}
                 value={dim.column || ""}
                 onChange={(val) =>
                   handleUpdateDimension(i, {
                     column: val,
                     maxValues: dim.maxValues,
+                    values: undefined,
                   })
                 }
                 options={getColumnOptionsForDimension(i)}
@@ -228,45 +268,86 @@ export default function GroupBySection() {
                 <Text size="small" weight="semibold">
                   Max values
                 </Text>
-                <Field
-                  size="legacy"
-                  type="number"
-                  min="1"
-                  max="20"
-                  value={
-                    localMaxValues[i] !== undefined &&
-                    localMaxValues[i] !== null
-                      ? localMaxValues[i]!
-                      : dim.maxValues.toString()
+                <Tooltip
+                  enabled={hasPinnedValues}
+                  content="Max values only applies when Values is empty. Clear Values to show the top results by volume."
+                >
+                  <div>
+                    <Field
+                      type="number"
+                      min="1"
+                      max="20"
+                      disabled={hasPinnedValues}
+                      value={
+                        localMaxValues[i] !== undefined &&
+                        localMaxValues[i] !== null
+                          ? localMaxValues[i]!
+                          : dim.maxValues.toString()
+                      }
+                      onFocus={() => {
+                        latestMaxValuesRef.current[i] =
+                          dim.maxValues.toString();
+                      }}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        latestMaxValuesRef.current[i] = v;
+                        setLocalMaxValues((prev) => ({ ...prev, [i]: v }));
+                      }}
+                      onBlur={() => {
+                        if (skipBlurCommitRef.current) {
+                          skipBlurCommitRef.current = false;
+                          return;
+                        }
+                        const toCommit =
+                          latestMaxValuesRef.current[i] ??
+                          dim.maxValues.toString();
+                        commitMaxValues(i, toCommit);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          const toCommit =
+                            latestMaxValuesRef.current[i] ??
+                            dim.maxValues.toString();
+                          commitMaxValues(i, toCommit);
+                          skipBlurCommitRef.current = true;
+                          (e.target as HTMLInputElement).blur();
+                        }
+                      }}
+                    />
+                  </div>
+                </Tooltip>
+              </Flex>
+              <Flex direction="column" gap="2" mt="2">
+                <Text size="small" weight="semibold">
+                  Values
+                </Text>
+                <Text size="small" color="text-low">
+                  Leave empty to show the top values by volume. Selecting values
+                  shows only those.
+                </Text>
+                <MultiSelectField
+                  value={selectedValues}
+                  onChange={(vals) =>
+                    handleUpdateDimension(i, {
+                      values:
+                        vals.length > MAX_PINNED_DIMENSION_VALUES
+                          ? vals.slice(0, MAX_PINNED_DIMENSION_VALUES)
+                          : vals.length > 0
+                            ? vals
+                            : undefined,
+                    })
                   }
-                  onFocus={() => {
-                    latestMaxValuesRef.current[i] = dim.maxValues.toString();
-                  }}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    latestMaxValuesRef.current[i] = v;
-                    setLocalMaxValues((prev) => ({ ...prev, [i]: v }));
-                  }}
-                  onBlur={() => {
-                    if (skipBlurCommitRef.current) {
-                      skipBlurCommitRef.current = false;
-                      return;
-                    }
-                    const toCommit =
-                      latestMaxValuesRef.current[i] ?? dim.maxValues.toString();
-                    commitMaxValues(i, toCommit);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      const toCommit =
-                        latestMaxValuesRef.current[i] ??
-                        dim.maxValues.toString();
-                      commitMaxValues(i, toCommit);
-                      skipBlurCommitRef.current = true;
-                      (e.target as HTMLInputElement).blur();
-                    }
-                  }}
+                  options={getValueOptionsForDimension(dim)}
+                  placeholder="Select values..."
+                  creatable
+                  sort={false}
+                  disabled={!dim.column}
+                  isOptionDisabled={(option) =>
+                    atMaxPinnedSelections &&
+                    "value" in option &&
+                    !selectedValues.includes(option.value)
+                  }
                 />
               </Flex>
             </Collapsible>

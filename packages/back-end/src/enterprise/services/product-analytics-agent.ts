@@ -70,6 +70,7 @@ If the user asks for data that spans both a fact table and a metric (different e
 <dimension_rules>
 Only use dimensionType 'dynamic'. Never use 'static' or 'slice'.
 'dynamic' shows the top N values for a column — set maxValues (1–20, default 5).
+Optional values: string[] — when set, only those values are included (no "other" bucket); at most 20 values. Max values is ignored while values are set. Use getColumnValues before picking specific values. Prefer omitting values (top-N by volume) unless the user asks for specific ones.
 Use dateGranularity 'auto' by default for date dimensions; only use a specific granularity (hour/day/week/month/year) when the user requests it.
 Maximum 2 total dimensions (including the date dimension for timeseries). If dataset has more than 1 value, max 1 dimension.
 bigNumber charts (only when explicitly requested): 0 dimensions and exactly 1 value.
@@ -222,7 +223,7 @@ function buildConfigSchemaSummary(): string {
     '  lookbackUnit: "hour" | "day" | "week" | "month"',
     "dimensions: array of dimension objects:",
     "  date: { dimensionType: 'date', column: null, dateGranularity: 'auto'|'hour'|'day'|'week'|'month'|'year' }",
-    "  dynamic: { dimensionType: 'dynamic', column: string, maxValues: number (1-20) }",
+    "  dynamic: { dimensionType: 'dynamic', column: string, maxValues: number (1-20), values?: string[] }",
     'dataset for type="metric": { type: "metric", values: [{ type: "metric", name, metricId, unit, denominatorUnit, rowFilters }] }',
     'dataset for type="fact_table": { type: "fact_table", factTableId, values: [{ type: "fact_table", name, valueType: "unit_count"|"count"|"sum", valueColumn, unit, rowFilters }] }',
     'rowFilters: [{ operator: "="|"!="|"in"|"not_in"|"contains"|"not_contains"|"starts_with"|"ends_with"|"is_null"|"not_null", column: string, values: string[] }]',

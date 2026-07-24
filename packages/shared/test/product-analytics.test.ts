@@ -1,6 +1,9 @@
 import { generateProductAnalyticsSQL } from "shared/enterprise";
 import { format, createLikeStringMatchFn } from "shared/sql";
-import { ExplorationConfig } from "shared/validators";
+import {
+  ExplorationConfig,
+  explorationConfigValidator,
+} from "shared/validators";
 import { SqlDialect } from "shared/types/sql";
 import {
   FactMetricInterface,
@@ -983,5 +986,431 @@ describe("productAnalytics", () => {
       /CAST\s*\(\s*KLL_POINT\s*\(\s*KLL_MERGE\s*\(\s*m0\s*\),\s*0\.9\s*\)\s+AS\s+FLOAT\s*\)\s+AS\s+m0_numerator/,
     );
     expect(sql).not.toContain("APPROX_PERCENTILE(m0, 0.9)");
+  });
+
+  it("uses explicit dynamic dimension values instead of a top-N CTE", () => {
+    const baseDataset: ExplorationConfig["dataset"] = {
+      type: "fact_table",
+      factTableId: "orders",
+      values: [
+        {
+          name: "purchasers",
+          type: "fact_table",
+          rowFilters: [],
+          valueType: "unit_count",
+          unit: "user_id",
+          valueColumn: null,
+        },
+      ],
+    };
+
+    const withPinnedValues: ExplorationConfig = {
+      type: "fact_table",
+      datasource: "ds_1",
+      chartType: "bar",
+      showAs: "total",
+      dateRange: {
+        predefined: "last7Days",
+        startDate: null,
+        endDate: null,
+        lookbackValue: null,
+        lookbackUnit: null,
+      },
+      dimensions: [
+        {
+          dimensionType: "dynamic",
+          column: "user_id",
+          maxValues: 5,
+          values: ["alice", "bob"],
+        },
+      ],
+      dataset: baseDataset,
+    };
+
+    const { sql: pinnedSql } = generateProductAnalyticsSQL(
+      withPinnedValues,
+      factTableMap,
+      metricMap,
+      helpers,
+      datasource,
+    );
+
+    expect(pinnedSql).toContain("IN ('alice', 'bob')");
+    expect(pinnedSql).not.toContain("_dimension0_top");
+    expect(pinnedSql).not.toMatch(/ELSE\s+'other'/i);
+    expect(pinnedSql).toMatch(
+      /WHERE[\s\S]*user_id\s+IN\s*\(\s*'alice'\s*,\s*'bob'\s*\)/i,
+    );
+
+    const withTopN: ExplorationConfig = {
+      ...withPinnedValues,
+      dimensions: [
+        {
+          dimensionType: "dynamic",
+          column: "user_id",
+          maxValues: 5,
+        },
+      ],
+    };
+
+    const { sql: topNSql } = generateProductAnalyticsSQL(
+      withTopN,
+      factTableMap,
+      metricMap,
+      helpers,
+      datasource,
+    );
+
+    expect(topNSql).toContain("_dimension0_top");
+    expect(topNSql).toMatch(
+      /IN\s*\(\s*SELECT\s+value\s+FROM\s+_dimension0_top\s*\)/i,
+    );
+  });
+
+  it("ignores pinned values when the dynamic dimension column is missing", () => {
+    const config: ExplorationConfig = {
+      type: "fact_table",
+      datasource: "ds_1",
+      chartType: "bar",
+      showAs: "total",
+      dateRange: {
+        predefined: "last7Days",
+        startDate: null,
+        endDate: null,
+        lookbackValue: null,
+        lookbackUnit: null,
+      },
+      dimensions: [
+        {
+          dimensionType: "dynamic",
+          column: null,
+          maxValues: 5,
+          values: ["alice", "bob"],
+        },
+      ],
+      dataset: {
+        type: "fact_table",
+        factTableId: "orders",
+        values: [
+          {
+            name: "purchasers",
+            type: "fact_table",
+            rowFilters: [],
+            valueType: "unit_count",
+            unit: "user_id",
+            valueColumn: null,
+          },
+        ],
+      },
+    };
+
+    const { sql } = generateProductAnalyticsSQL(
+      config,
+      factTableMap,
+      metricMap,
+      helpers,
+      datasource,
+    );
+
+    // Must not emit a bare IN (...) with an empty column expression
+    expect(sql).not.toMatch(/(?:^|[^\w.])IN\s*\(\s*'alice'\s*,\s*'bob'\s*\)/i);
+    expect(sql).toContain("_dimension0_top");
+  });
+
+  it("rejects pinned values without a column in explorationConfigValidator", () => {
+    const result = explorationConfigValidator.safeParse({
+      type: "fact_table",
+      datasource: "ds_1",
+      chartType: "bar",
+      dimensions: [
+        {
+          dimensionType: "dynamic",
+          column: null,
+          maxValues: 5,
+          values: ["alice", "bob"],
+        },
+      ],
+      dateRange: {
+        predefined: "last7Days",
+        startDate: null,
+        endDate: null,
+        lookbackValue: null,
+        lookbackUnit: null,
+      },
+      dataset: {
+        type: "fact_table",
+        factTableId: "orders",
+        values: [
+          {
+            name: "purchasers",
+            type: "fact_table",
+            rowFilters: [],
+            valueType: "unit_count",
+            unit: "user_id",
+            valueColumn: null,
+          },
+        ],
+      },
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.some((i) => i.path.includes("column"))).toBe(
+        true,
+      );
+    }
+  });
+
+  it("rejects more than 20 pinned dimension values", () => {
+    const result = explorationConfigValidator.safeParse({
+      type: "fact_table",
+      datasource: "ds_1",
+      chartType: "bar",
+      dimensions: [
+        {
+          dimensionType: "dynamic",
+          column: "user_id",
+          maxValues: 5,
+          values: Array.from({ length: 21 }, (_, i) => `v${i}`),
+        },
+      ],
+      dateRange: {
+        predefined: "last7Days",
+        startDate: null,
+        endDate: null,
+        lookbackValue: null,
+        lookbackUnit: null,
+      },
+      dataset: {
+        type: "fact_table",
+        factTableId: "orders",
+        values: [
+          {
+            name: "purchasers",
+            type: "fact_table",
+            rowFilters: [],
+            valueType: "unit_count",
+            unit: "user_id",
+            valueColumn: null,
+          },
+        ],
+      },
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.some((i) => i.path.includes("values"))).toBe(
+        true,
+      );
+    }
+  });
+
+  it("builds pinned dimension filters per fact table schema", () => {
+    const multiFactTableMap = new Map<string, FactTableInterface>([
+      [
+        "orders",
+        {
+          ...factTableMap.get("orders")!,
+          columns: [
+            ...factTableMap.get("orders")!.columns,
+            {
+              column: "meta",
+              datatype: "json",
+              dateCreated: new Date(),
+              dateUpdated: new Date(),
+              name: "meta",
+              description: "",
+              numberFormat: "",
+              alwaysInlineFilter: false,
+              deleted: false,
+              autoSlices: [],
+              isAutoSliceColumn: false,
+              jsonFields: {
+                country: { datatype: "string" },
+              },
+            },
+          ],
+          sql: "SELECT user_id, anonymous_id, timestamp, revenue, meta FROM orders",
+        },
+      ],
+      [
+        "sessions",
+        {
+          ...factTableMap.get("orders")!,
+          id: "sessions",
+          name: "Sessions",
+          sql: "SELECT user_id, anonymous_id, timestamp, meta FROM sessions",
+          columns: [
+            {
+              column: "user_id",
+              datatype: "string",
+              dateCreated: new Date(),
+              dateUpdated: new Date(),
+              name: "user_id",
+              description: "",
+              numberFormat: "",
+              alwaysInlineFilter: false,
+              deleted: false,
+              autoSlices: [],
+              isAutoSliceColumn: false,
+            },
+            {
+              column: "anonymous_id",
+              datatype: "string",
+              dateCreated: new Date(),
+              dateUpdated: new Date(),
+              name: "anonymous_id",
+              description: "",
+              numberFormat: "",
+              alwaysInlineFilter: false,
+              deleted: false,
+              autoSlices: [],
+              isAutoSliceColumn: false,
+            },
+            {
+              column: "timestamp",
+              datatype: "date",
+              dateCreated: new Date(),
+              dateUpdated: new Date(),
+              name: "timestamp",
+              description: "",
+              numberFormat: "",
+              alwaysInlineFilter: false,
+              deleted: false,
+              autoSlices: [],
+              isAutoSliceColumn: false,
+            },
+            // Same logical path name, but stored as a plain string column —
+            // getColumnExpression must not use jsonExtract here.
+            {
+              column: "meta.country",
+              datatype: "string",
+              dateCreated: new Date(),
+              dateUpdated: new Date(),
+              name: "meta.country",
+              description: "",
+              numberFormat: "",
+              alwaysInlineFilter: false,
+              deleted: false,
+              autoSlices: [],
+              isAutoSliceColumn: false,
+            },
+          ],
+        },
+      ],
+    ]);
+
+    const multiMetricMap = new Map<string, FactMetricInterface>([
+      [
+        "orders_count",
+        {
+          id: "orders_count",
+          name: "Orders",
+          metricType: "proportion",
+          numerator: {
+            factTableId: "orders",
+            column: "$$distinctUsers",
+            aggregation: "sum",
+          },
+          denominator: null,
+          cappingSettings: { type: "", value: 0 },
+          windowSettings: {
+            type: "",
+            delayValue: 0,
+            delayUnit: "days",
+            windowValue: 0,
+            windowUnit: "days",
+          },
+          quantileSettings: null,
+        } as FactMetricInterface,
+      ],
+      [
+        "sessions_count",
+        {
+          id: "sessions_count",
+          name: "Sessions",
+          metricType: "proportion",
+          numerator: {
+            factTableId: "sessions",
+            column: "$$distinctUsers",
+            aggregation: "sum",
+          },
+          denominator: null,
+          cappingSettings: { type: "", value: 0 },
+          windowSettings: {
+            type: "",
+            delayValue: 0,
+            delayUnit: "days",
+            windowValue: 0,
+            windowUnit: "days",
+          },
+          quantileSettings: null,
+        } as FactMetricInterface,
+      ],
+    ]);
+
+    const config: ExplorationConfig = {
+      type: "metric",
+      datasource: "ds_1",
+      chartType: "bar",
+      showAs: "total",
+      dateRange: {
+        predefined: "last7Days",
+        startDate: null,
+        endDate: null,
+        lookbackValue: null,
+        lookbackUnit: null,
+      },
+      dimensions: [
+        {
+          dimensionType: "dynamic",
+          column: "meta.country",
+          maxValues: 5,
+          values: ["US", "CA"],
+        },
+      ],
+      dataset: {
+        type: "metric",
+        values: [
+          {
+            name: "Orders",
+            type: "metric",
+            metricId: "orders_count",
+            rowFilters: [],
+            unit: "user_id",
+            denominatorUnit: null,
+          },
+          {
+            name: "Sessions",
+            type: "metric",
+            metricId: "sessions_count",
+            rowFilters: [],
+            unit: "user_id",
+            denominatorUnit: null,
+          },
+        ],
+      },
+    };
+
+    const { sql } = generateProductAnalyticsSQL(
+      config,
+      multiFactTableMap,
+      multiMetricMap,
+      helpers,
+      datasource,
+    );
+
+    // orders: meta is JSON → jsonExtract expression
+    expect(sql).toMatch(
+      /_factTable0_rows AS \([\s\S]*?meta:'country'::text\s+IN\s*\(\s*'US'\s*,\s*'CA'\s*\)/,
+    );
+    // sessions: meta.country is a plain string column → bare identifier
+    expect(sql).toMatch(
+      /_factTable1_rows AS \([\s\S]*?"?meta\.country"?\s+IN\s*\(\s*'US'\s*,\s*'CA'\s*\)/,
+    );
+    // Must not apply the JSON extract filter to the second fact table
+    expect(sql).not.toMatch(
+      /_factTable1_rows AS \([\s\S]*?meta:'country'::text\s+IN/,
+    );
   });
 });

@@ -33652,6 +33652,11 @@ paths:
                                                 - type: 'null'
                                             maxValues:
                                               type: number
+                                            values:
+                                              maxItems: 20
+                                              type: array
+                                              items:
+                                                type: string
                                           required:
                                             - dimensionType
                                             - column
@@ -34006,6 +34011,11 @@ paths:
                                                 - type: 'null'
                                             maxValues:
                                               type: number
+                                            values:
+                                              maxItems: 20
+                                              type: array
+                                              items:
+                                                type: string
                                           required:
                                             - dimensionType
                                             - column
@@ -34369,6 +34379,11 @@ paths:
                                                 - type: 'null'
                                             maxValues:
                                               type: number
+                                            values:
+                                              maxItems: 20
+                                              type: array
+                                              items:
+                                                type: string
                                           required:
                                             - dimensionType
                                             - column
@@ -36066,6 +36081,11 @@ paths:
                                                 - type: 'null'
                                             maxValues:
                                               type: number
+                                            values:
+                                              maxItems: 20
+                                              type: array
+                                              items:
+                                                type: string
                                           required:
                                             - dimensionType
                                             - column
@@ -36429,6 +36449,11 @@ paths:
                                                 - type: 'null'
                                             maxValues:
                                               type: number
+                                            values:
+                                              maxItems: 20
+                                              type: array
+                                              items:
+                                                type: string
                                           required:
                                             - dimensionType
                                             - column
@@ -36801,6 +36826,11 @@ paths:
                                                 - type: 'null'
                                             maxValues:
                                               type: number
+                                            values:
+                                              maxItems: 20
+                                              type: array
+                                              items:
+                                                type: string
                                           required:
                                             - dimensionType
                                             - column
@@ -37190,6 +37220,11 @@ paths:
                                                 - type: 'null'
                                             maxValues:
                                               type: number
+                                            values:
+                                              maxItems: 20
+                                              type: array
+                                              items:
+                                                type: string
                                           required:
                                             - dimensionType
                                             - column
@@ -38919,6 +38954,11 @@ paths:
                                             - type: 'null'
                                         maxValues:
                                           type: number
+                                        values:
+                                          maxItems: 20
+                                          type: array
+                                          items:
+                                            type: string
                                       required:
                                         - dimensionType
                                         - column
@@ -39273,6 +39313,11 @@ paths:
                                             - type: 'null'
                                         maxValues:
                                           type: number
+                                        values:
+                                          maxItems: 20
+                                          type: array
+                                          items:
+                                            type: string
                                       required:
                                         - dimensionType
                                         - column
@@ -39636,6 +39681,11 @@ paths:
                                             - type: 'null'
                                         maxValues:
                                           type: number
+                                        values:
+                                          maxItems: 20
+                                          type: array
+                                          items:
+                                            type: string
                                       required:
                                         - dimensionType
                                         - column
@@ -42249,6 +42299,11 @@ paths:
                               - type: 'null'
                           maxValues:
                             type: number
+                          values:
+                            maxItems: 20
+                            type: array
+                            items:
+                              type: string
                         required:
                           - dimensionType
                           - column
@@ -42602,6 +42657,11 @@ paths:
                                             - type: 'null'
                                         maxValues:
                                           type: number
+                                        values:
+                                          maxItems: 20
+                                          type: array
+                                          items:
+                                            type: string
                                       required:
                                         - dimensionType
                                         - column
@@ -42908,6 +42968,11 @@ paths:
                               - type: 'null'
                           maxValues:
                             type: number
+                          values:
+                            maxItems: 20
+                            type: array
+                            items:
+                              type: string
                         required:
                           - dimensionType
                           - column
@@ -43270,6 +43335,11 @@ paths:
                                             - type: 'null'
                                         maxValues:
                                           type: number
+                                        values:
+                                          maxItems: 20
+                                          type: array
+                                          items:
+                                            type: string
                                       required:
                                         - dimensionType
                                         - column
@@ -43585,6 +43655,11 @@ paths:
                               - type: 'null'
                           maxValues:
                             type: number
+                          values:
+                            maxItems: 20
+                            type: array
+                            items:
+                              type: string
                         required:
                           - dimensionType
                           - column
@@ -43964,6 +44039,11 @@ paths:
                                             - type: 'null'
                                         maxValues:
                                           type: number
+                                        values:
+                                          maxItems: 20
+                                          type: array
+                                          items:
+                                            type: string
                                       required:
                                         - dimensionType
                                         - column
@@ -44296,6 +44376,11 @@ paths:
                               - type: 'null'
                           maxValues:
                             type: number
+                          values:
+                            maxItems: 20
+                            type: array
+                            items:
+                              type: string
                         required:
                           - dimensionType
                           - column
@@ -44670,6 +44755,11 @@ paths:
                                             - type: 'null'
                                         maxValues:
                                           type: number
+                                        values:
+                                          maxItems: 20
+                                          type: array
+                                          items:
+                                            type: string
                                       required:
                                         - dimensionType
                                         - column
@@ -58537,6 +58627,11 @@ components:
                                     - type: 'null'
                                 maxValues:
                                   type: number
+                                values:
+                                  maxItems: 20
+                                  type: array
+                                  items:
+                                    type: string
                               required:
                                 - dimensionType
                                 - column
@@ -58900,6 +58995,11 @@ components:
                                     - type: 'null'
                                 maxValues:
                                   type: number
+                                values:
+                                  maxItems: 20
+                                  type: array
+                                  items:
+                                    type: string
                               required:
                                 - dimensionType
                                 - column
@@ -59272,6 +59372,11 @@ components:
                                     - type: 'null'
                                 maxValues:
                                   type: number
+                                values:
+                                  maxItems: 20
+                                  type: array
+                                  items:
+                                    type: string
                               required:
                                 - dimensionType
                                 - column
@@ -59661,6 +59766,11 @@ components:
                                     - type: 'null'
                                 maxValues:
                                   type: number
+                                values:
+                                  maxItems: 20
+                                  type: array
+                                  items:
+                                    type: string
                               required:
                                 - dimensionType
                                 - column
@@ -61597,6 +61707,11 @@ components:
                               - type: 'null'
                           maxValues:
                             type: number
+                          values:
+                            maxItems: 20
+                            type: array
+                            items:
+                              type: string
                         required:
                           - dimensionType
                           - column
@@ -61853,6 +61968,11 @@ components:
                               - type: 'null'
                           maxValues:
                             type: number
+                          values:
+                            maxItems: 20
+                            type: array
+                            items:
+                              type: string
                         required:
                           - dimensionType
                           - column
@@ -62118,6 +62238,11 @@ components:
                               - type: 'null'
                           maxValues:
                             type: number
+                          values:
+                            maxItems: 20
+                            type: array
+                            items:
+                              type: string
                         required:
                           - dimensionType
                           - column
@@ -62400,6 +62525,11 @@ components:
                               - type: 'null'
                           maxValues:
                             type: number
+                          values:
+                            maxItems: 20
+                            type: array
+                            items:
+                              type: string
                         required:
                           - dimensionType
                           - column

@@ -150,6 +150,8 @@ export const dynamicDimensionValidator = z.object({
   dimensionType: z.literal("dynamic"),
   column: z.string().nullable(),
   maxValues: z.number(),
+  // When non-empty (and column is set), only these values are included — no "other"
+  values: z.array(z.string()).max(20).optional(),
 });
 
 export const staticDimensionValidator = z.object({
@@ -332,12 +334,28 @@ export type BaseExplorationConfig = z.infer<
   typeof baseExplorationConfigValidator
 >;
 
-export const explorationConfigValidator = z.discriminatedUnion("type", [
-  metricExplorationConfigValidator,
-  factTableExplorationConfigValidator,
-  dataSourceExplorationConfigValidator,
-  funnelExplorationConfigValidator,
-]);
+export const explorationConfigValidator = z
+  .discriminatedUnion("type", [
+    metricExplorationConfigValidator,
+    factTableExplorationConfigValidator,
+    dataSourceExplorationConfigValidator,
+    funnelExplorationConfigValidator,
+  ])
+  .superRefine((config, ctx) => {
+    config.dimensions.forEach((d, i) => {
+      if (
+        d.dimensionType === "dynamic" &&
+        d.values?.length &&
+        (d.column === null || d.column === "")
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "A column is required when dimension values are set",
+          path: ["dimensions", i, "column"],
+        });
+      }
+    });
+  });
 export type ExplorationConfig = z.infer<typeof explorationConfigValidator>;
 
 export type MetricExplorationConfig = z.infer<

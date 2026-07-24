@@ -2018,11 +2018,6 @@
       "count": 2
     }
   },
-  "packages/front-end/enterprise/components/ProductAnalytics/SideBar/GroupBySection.tsx": {
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
   "packages/front-end/enterprise/components/ProductAnalytics/SideBar/MetricTabContent.tsx": {
     "no-restricted-syntax": {
       "count": 1
