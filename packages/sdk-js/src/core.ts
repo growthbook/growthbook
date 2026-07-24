@@ -15,6 +15,7 @@ import {
   FeatureApiResponse,
   Options,
   ClientOptions,
+  UserContext,
 } from "./types/growthbook";
 import { evalCondition } from "./mongrule";
 import { ConditionInterface } from "./types/mongrule";
@@ -100,7 +101,9 @@ function onExperimentViewed(
   }
   if (ctx.user.trackingCallback) {
     const cb = ctx.user.trackingCallback;
-    calls.push(safeCall(() => cb(experiment, result)));
+    calls.push(
+      safeCall(() => cb(experiment, result, getTrackingUserContext(ctx))),
+    );
   }
   if (ctx.global.eventLogger) {
     const cb = ctx.global.eventLogger;
@@ -307,6 +310,7 @@ export function evalFeature<V = unknown>(
               ctx.global.saveDeferredTrack({
                 experiment: t.experiment,
                 result: t.result,
+                user: getTrackingUserContext(ctx, true),
               });
             }
           });
@@ -761,6 +765,7 @@ export function runExperiment<T>(
     ctx.global.saveDeferredTrack({
       experiment,
       result,
+      user: getTrackingUserContext(ctx, true),
     });
   }
   const trackingCall = !trackingCalls.length
@@ -815,6 +820,13 @@ function getAttributes(ctx: EvalContext) {
   return {
     ...ctx.user.attributes,
     ...ctx.user.attributeOverrides,
+  };
+}
+
+function getTrackingUserContext(ctx: EvalContext, deep = false): UserContext {
+  const attributes = getAttributes(ctx);
+  return {
+    attributes: deep ? JSON.parse(JSON.stringify(attributes)) : attributes,
   };
 }
 
