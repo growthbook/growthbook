@@ -1462,6 +1462,12 @@ export function buildFunnelSql(
       const colName = `step${stepN}_ts`;
       if (group.stepIndexes.includes(stepN)) {
         const filters = generateRowFilterSQL(step.rowFilters, ft, dialect);
+        // Gate step 1 alone on the pinned dimension value — applying it as a
+        // blanket WHERE on the whole CTE would also drop rows for later steps
+        // that share this fact table but have a different dimension value.
+        if (stepN === 1 && pinnedDimensionFilter) {
+          filters.push(pinnedDimensionFilter);
+        }
         const filterClause = filters.length
           ? `(${filters.join(" AND ")})`
           : "TRUE";
@@ -1481,11 +1487,6 @@ export function buildFunnelSql(
         SELECT
           ${selectCols.join(",\n          ")}
         FROM __funnel_ft${group.index}_raw
-        ${
-          pinnedDimensionFilter && group.stepIndexes.includes(1)
-            ? `WHERE ${pinnedDimensionFilter}`
-            : ""
-        }
       `,
     });
   });
