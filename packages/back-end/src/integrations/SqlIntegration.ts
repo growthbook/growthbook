@@ -92,6 +92,8 @@ import {
   InsertAggregatedFactTableDataQueryParams,
   AggregatedFactTableMaxTimestampQueryParams,
   DropAggregatedFactTableQueryParams,
+  CreateAggregatedFactTableStagingQueryParams,
+  InsertAggregatedFactTableStagingDataQueryParams,
   PipelineIntegration,
   ResolvedExposureQuery,
 } from "shared/types/integrations";
@@ -139,6 +141,10 @@ import { getDimensionSlicesQuery as getDimensionSlicesQueryFromSql } from "back-
 import { getDimensionValuePerUnit } from "back-end/src/integrations/sql/fact-metrics/dimension-value-per-unit";
 import { getDropMetricSourceCovariateTableQuery } from "back-end/src/integrations/sql/queries/drop-metric-source-covariate-table-query";
 import { getCreateAggregatedFactTableQuery } from "back-end/src/integrations/sql/queries/create-aggregated-fact-table-query";
+import {
+  getCreateAggregatedFactTableStagingQuery,
+  getInsertAggregatedFactTableStagingDataQuery,
+} from "back-end/src/integrations/sql/queries/aggregated-fact-table-staging-query";
 import { getInsertAggregatedFactTableDataQuery } from "back-end/src/integrations/sql/queries/insert-aggregated-fact-table-data-query";
 import { getAggregatedFactTableMaxTimestampQuery } from "back-end/src/integrations/sql/queries/aggregated-fact-table-max-timestamp-query";
 import { getDropAggregatedFactTableQuery } from "back-end/src/integrations/sql/queries/drop-aggregated-fact-table-query";
@@ -1903,6 +1909,25 @@ export default abstract class SqlIntegration
     params: DropAggregatedFactTableQueryParams,
   ): string {
     return getDropAggregatedFactTableQuery(this.getSqlDialect(), params);
+  }
+
+  getCreateAggregatedFactTableStagingQuery(
+    params: CreateAggregatedFactTableStagingQueryParams,
+  ): string {
+    return getCreateAggregatedFactTableStagingQuery(
+      this.getSqlDialect(),
+      params,
+      this.createTablePartitions.bind(this),
+    );
+  }
+
+  getInsertAggregatedFactTableStagingDataQuery(
+    params: InsertAggregatedFactTableStagingDataQueryParams,
+  ): string {
+    return getInsertAggregatedFactTableStagingDataQuery(
+      this.getSqlDialect(),
+      params,
+    );
   }
 
   getCreateMetricSourceCovariateTableQuery(

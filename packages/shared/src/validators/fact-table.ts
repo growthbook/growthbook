@@ -109,6 +109,12 @@ export const aggregatedFactTableSettingsValidator = z
     // per-stage write budget on wide fact tables. Unset = no chunking (a single
     // full-window INSERT).
     restateChunkDays: z.number().int().min(1).max(7).optional(),
+    // When set and ≥2 idTypes are restating together, materialize the fact-table
+    // SQL once to a short-lived staging table (all idType columns + per-metric
+    // value columns), then run each per-idType GROUP BY over the staging table
+    // instead of re-scanning the source. Cuts restate scan cost from N× to ~1×.
+    // Opt-in; incremental mode is unaffected.
+    useSharedStagingRestate: z.boolean().optional(),
   })
   .strict();
 

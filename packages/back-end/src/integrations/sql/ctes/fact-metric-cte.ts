@@ -33,6 +33,7 @@ export function getFactMetricCTE(
     exclusiveEndDateFilter,
     phase,
     customFields,
+    projectIdTypes,
   }: {
     metricsWithIndices: { metric: FactMetricInterface; index: number }[];
     factTable: FactTableInterface;
@@ -47,6 +48,11 @@ export function getFactMetricCTE(
     exclusiveStartDateFilter?: boolean;
     exclusiveEndDateFilter?: boolean;
     castIdToString?: boolean;
+    // When set, project every listed native idType column instead of only
+    // `baseIdType`. Used by the shared-staging restate to materialize one
+    // event-grain table that all per-idType GROUP BYs can read. Each listed
+    // idType must be native to `factTable.userIdTypes` (no id-join support).
+    projectIdTypes?: string[];
   },
 ): string {
   // Determine if a join is required to match up id types
@@ -194,10 +200,24 @@ export function getFactMetricCTE(
     }
   }
 
+  const idProjection = projectIdTypes?.length
+    ? projectIdTypes
+        .map((t) => {
+          if (!userIdTypes.includes(t)) {
+            throw new Error(
+              `projectIdTypes: id type "${t}" is not native to fact table "${factTable.id}"`,
+            );
+          }
+          const col = `m.${t}`;
+          return `${castIdToString ? dialect.castToString(col) : col} as ${t}`;
+        })
+        .join(",\n        ")
+    : `${castIdToString ? dialect.castToString(userIdCol) : userIdCol} as ${baseIdType}`;
+
   return compileSqlTemplate(
     `-- Fact Table (${factTable.name})
       SELECT
-        ${castIdToString ? dialect.castToString(userIdCol) : userIdCol} as ${baseIdType},
+        ${idProjection},
         ${timestampDateTimeColumn} as timestamp,
         ${metricCols.join(",\n")}
       FROM(

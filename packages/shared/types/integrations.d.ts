@@ -494,6 +494,29 @@ export interface InsertAggregatedFactTableDataQueryParams {
   // of a chunked restate so chunks tile [windowStart, now) half-open; null for
   // incremental, the final restate chunk, and unchunked restates (open to "now").
   windowEndDate: Date | null;
+  // When set, read pre-projected event rows (all idType cols + m{i}_value cols)
+  // from this staging table instead of wrapping the fact-table SQL. Used by
+  // shared-staging restates so N per-idType inserts share one source scan.
+  sourceTableFullName?: string;
+}
+
+export interface CreateAggregatedFactTableStagingQueryParams {
+  stagingTableFullName: string;
+  factTable: FactTableInterface;
+  // All enabled idTypes to project as string columns.
+  idTypes: string[];
+  metrics: FactMetricInterface[];
+  // Auto-drop safeguard so an orphaned staging table doesn't linger.
+  expirationHours: number;
+}
+
+export interface InsertAggregatedFactTableStagingDataQueryParams {
+  stagingTableFullName: string;
+  factTable: FactTableInterface;
+  idTypes: string[];
+  metrics: FactMetricInterface[];
+  windowStartDate: Date;
+  windowEndDate: Date | null;
 }
 
 export interface AggregatedFactTableMaxTimestampQueryParams {

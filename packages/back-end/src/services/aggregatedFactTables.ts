@@ -19,8 +19,10 @@ import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { logger } from "back-end/src/util/logger";
 import { getMostRecentUpdateOccurrence } from "back-end/src/util/factTable";
 import {
+  AGGREGATED_FACT_TABLE_STAGING_PREFIX,
   AggregatedFactTableQueryRunner,
   AggregatedFactTableRunMode,
+  AggregatedFactTableSharedStaging,
 } from "back-end/src/queryRunners/AggregatedFactTableQueryRunner";
 import {
   AggregatedFactTableRestateReason,
@@ -308,6 +310,8 @@ export function toAggregatedTableRunApiInterface(
 
 export type AggregatedFactTableUpdateOutcome =
   | { status: "started"; runId: string }
+  // awaitResults:true only — the runner ran to a terminal state.
+  | { status: "completed"; runId: string }
   | { status: "failed"; runId: string; error: string }
   | { status: "skipped"; reason: AggregatedTableRefreshSkipReason };
 
@@ -317,10 +321,7 @@ export function toAggregatedTableRefreshTriggerResult(
 ) {
   return {
     idType,
-    runId:
-      outcome.status === "started" || outcome.status === "failed"
-        ? outcome.runId
-        : null,
+    runId: outcome.status === "skipped" ? null : outcome.runId,
     status: outcome.status,
     reason: outcome.status === "skipped" ? outcome.reason : null,
     error: outcome.status === "failed" ? outcome.error : null,
@@ -335,7 +336,19 @@ export async function runAggregatedFactTableUpdate(
     forceRestate,
     // true (nightly worker): block until queries finish. false (manual UI trigger): return after creating the run and finish in the background.
     awaitResults = false,
-  }: { forceRestate: boolean; awaitResults?: boolean },
+    // When set, this idType's lock is already held under this executionId (the
+    // shared-staging coordinator acquires all N locks up front). Skips the
+    // acquire step and reuses this executionId for all writes.
+    preAcquiredExecutionId,
+    // Shared-staging restate coordination (opt-in, restate mode only). Passed
+    // through to the runner unchanged.
+    sharedStaging,
+  }: {
+    forceRestate: boolean;
+    awaitResults?: boolean;
+    preAcquiredExecutionId?: string;
+    sharedStaging?: AggregatedFactTableSharedStaging;
+  },
 ): Promise<AggregatedFactTableUpdateOutcome> {
   const datasource = await getDataSourceById(context, factTable.datasource);
   if (!datasource) {
@@ -373,16 +386,18 @@ export async function runAggregatedFactTableUpdate(
     idType,
   };
 
-  const executionId = uniqid("aftexec_");
-  const locked = await context.models.aggregatedFactTables.acquireLock(
-    key,
-    executionId,
-  );
-  if (!locked) {
-    logger.debug(
-      `Aggregated fact table update for ${factTable.id}/${idType} already in progress; skipping`,
+  const executionId = preAcquiredExecutionId ?? uniqid("aftexec_");
+  if (!preAcquiredExecutionId) {
+    const locked = await context.models.aggregatedFactTables.acquireLock(
+      key,
+      executionId,
     );
-    return { status: "skipped", reason: "already-in-progress" };
+    if (!locked) {
+      logger.debug(
+        `Aggregated fact table update for ${factTable.id}/${idType} already in progress; skipping`,
+      );
+      return { status: "skipped", reason: "already-in-progress" };
+    }
   }
 
   const registry = await context.models.aggregatedFactTables.getByKey(key);
@@ -486,29 +501,290 @@ export async function runAggregatedFactTableUpdate(
       metricState,
       lookbackWindowDays:
         factTable.aggregatedFactTableSettings?.lookbackWindow ?? 60,
+      sharedStaging: mode === "restate" ? sharedStaging : undefined,
     });
   } catch (e) {
     const error = await handleFailure(e);
     return { status: "failed", runId: run.id, error };
   }
 
-  const waitForCompletion = async () => {
-    try {
-      await runner.waitForResults();
-      executionLogger.logUpdateCompleted(context, { status: "success" });
-      logger.debug(
-        `Updated aggregated fact table ${factTable.id}/${idType} (${mode})`,
-      );
-    } catch (e) {
-      await handleFailure(e);
-    }
-  };
+  const waitForCompletion =
+    async (): Promise<AggregatedFactTableUpdateOutcome> => {
+      try {
+        await runner.waitForResults();
+        executionLogger.logUpdateCompleted(context, { status: "success" });
+        logger.debug(
+          `Updated aggregated fact table ${factTable.id}/${idType} (${mode})`,
+        );
+        return { status: "completed", runId: run.id };
+      } catch (e) {
+        const error = await handleFailure(e);
+        return { status: "failed", runId: run.id, error };
+      }
+    };
 
   if (awaitResults) {
-    await waitForCompletion();
-  } else {
-    void waitForCompletion();
+    return waitForCompletion();
+  }
+  void waitForCompletion();
+  return { status: "started", runId: run.id };
+}
+
+// Acquire the per-idType lock for every listed idType, or none. Returns the
+// per-idType executionIds on success; on any failure, releases the locks it
+// took and returns null so the caller can fall back to the per-idType path.
+export async function acquireAllAggregatedFactTableLocks(
+  context: ReqContext,
+  datasourceId: string,
+  factTableId: string,
+  idTypes: string[],
+): Promise<Map<string, string> | null> {
+  const acquired = new Map<string, string>();
+  for (const idType of idTypes) {
+    const executionId = uniqid("aftexec_");
+    const locked = await context.models.aggregatedFactTables.acquireLock(
+      { datasourceId, factTableId, idType },
+      executionId,
+    );
+    if (!locked) {
+      for (const [heldIdType, heldExec] of acquired) {
+        await context.models.aggregatedFactTables
+          .releaseLock(
+            { datasourceId, factTableId, idType: heldIdType },
+            heldExec,
+          )
+          .catch((e) =>
+            logger.error(
+              e,
+              `Failed to release aggregated fact table lock for ${factTableId}/${heldIdType} during all-or-nothing rollback`,
+            ),
+          );
+      }
+      return null;
+    }
+    acquired.set(idType, executionId);
+  }
+  return acquired;
+}
+
+/**
+ * Coordinates a full-set update for a fact table with `useSharedStagingRestate`
+ * enabled. Determines which idTypes need to restate; when ≥2 do, materializes
+ * the fact-table CTE once to a short-lived staging table (all idType columns +
+ * per-metric value columns) and each per-idType restate reads its GROUP BY from
+ * there instead of re-scanning the source. idTypes that resolve to
+ * `incremental` (or a lone restate) run on the standard per-idType path.
+ *
+ * Restate-only. Any lock or preflight failure falls back to the per-idType
+ * path so the flag never blocks a run that would otherwise proceed.
+ */
+export async function runAggregatedFactTableSharedStagingUpdate(
+  context: ReqContext,
+  factTable: FactTableInterface,
+  {
+    forceRestate,
+    awaitResults = true,
+  }: { forceRestate: boolean; awaitResults?: boolean },
+): Promise<Map<string, AggregatedFactTableUpdateOutcome>> {
+  const idTypes = factTable.aggregatedFactTableSettings?.idTypes ?? [];
+  const outcomes = new Map<string, AggregatedFactTableUpdateOutcome>();
+
+  const runPerIdTypeFallback = async () => {
+    for (const idType of idTypes) {
+      if (outcomes.has(idType)) continue;
+      outcomes.set(
+        idType,
+        await runAggregatedFactTableUpdate(context, factTable, idType, {
+          forceRestate,
+          awaitResults,
+        }),
+      );
+    }
+    return outcomes;
+  };
+
+  if (
+    !factTable.aggregatedFactTableSettings?.useSharedStagingRestate ||
+    idTypes.length < 2
+  ) {
+    return runPerIdTypeFallback();
   }
 
-  return { status: "started", runId: run.id };
+  const datasource = await getDataSourceById(context, factTable.datasource);
+  if (!datasource) return runPerIdTypeFallback();
+  const pipelineSettings = datasource.settings.pipelineSettings;
+  const integration = getSourceIntegrationObject(context, datasource, true);
+  if (!pipelineSettings?.writeDataset || !integration.generateTablePath) {
+    return runPerIdTypeFallback();
+  }
+
+  const factMetrics = await context.models.factMetrics.getAll();
+  const metrics = getAggregatedFactTableMetrics({ factMetrics, factTable });
+  if (!metrics.length) return runPerIdTypeFallback();
+
+  const { factTableSettingsHash, metricState } =
+    buildAggregatedFactTableSchemaState({ factTable, metrics });
+
+  // Acquire every idType's lock up front so no per-idType run can interleave
+  // and re-scan the source while the shared staging build is in flight.
+  const executionIds = await acquireAllAggregatedFactTableLocks(
+    context,
+    datasource.id,
+    factTable.id,
+    idTypes,
+  );
+  if (!executionIds) {
+    logger.info(
+      `Shared-staging restate for ${factTable.id}: could not acquire all ${idTypes.length} idType locks; falling back to per-idType`,
+    );
+    return runPerIdTypeFallback();
+  }
+
+  // executionIds not yet handed to a runner. A handed-off runner owns its lock
+  // (releases it on success or in handleFailure); the finally below releases
+  // any that never got handed off if this coordinator throws.
+  const unhanded = new Map(executionIds);
+  const releaseUnhanded = async () => {
+    for (const [idType, executionId] of unhanded) {
+      await context.models.aggregatedFactTables
+        .releaseLock(
+          { datasourceId: datasource.id, factTableId: factTable.id, idType },
+          executionId,
+        )
+        .catch((e) =>
+          logger.error(
+            e,
+            `Failed to release unhanded aggregated fact table lock for ${factTable.id}/${idType}`,
+          ),
+        );
+    }
+    unhanded.clear();
+  };
+
+  try {
+    // Partition by resolved mode. Incrementals never touch staging.
+    const restateIdTypes: string[] = [];
+    const incrementalIdTypes: string[] = [];
+    for (const idType of idTypes) {
+      const registry = await context.models.aggregatedFactTables.getByKey({
+        datasourceId: datasource.id,
+        factTableId: factTable.id,
+        idType,
+      });
+      const restateReason = registry
+        ? getAggregatedFactTableRestateReason({
+            registry,
+            factTableSettingsHash,
+            metricState,
+          })
+        : null;
+      const mode: AggregatedFactTableRunMode =
+        forceRestate || !registry?.tableFullName || restateReason !== null
+          ? "restate"
+          : "incremental";
+      (mode === "restate" ? restateIdTypes : incrementalIdTypes).push(idType);
+    }
+
+    if (restateIdTypes.length < 2) {
+      // No shared-scan benefit; release everything and fall back.
+      await releaseUnhanded();
+      return runPerIdTypeFallback();
+    }
+
+    const sharedExecutionId = uniqid("aftshared_");
+    const stagingTableFullName = integration.generateTablePath(
+      `${AGGREGATED_FACT_TABLE_STAGING_PREFIX}_${factTable.id}_${sharedExecutionId}`,
+      pipelineSettings.writeDataset,
+      pipelineSettings.writeDatabase,
+      true,
+    );
+
+    logger.info(
+      {
+        event: "aggregated_fact_table_shared_staging_started",
+        organization: context.org.id,
+        factTableId: factTable.id,
+        restateIdTypes,
+        incrementalIdTypes,
+        stagingTableFullName,
+      },
+      "Aggregated fact table shared-staging restate started",
+    );
+
+    // First restating idType's runner builds the staging table (staging queries
+    // are prepended so they show up in that idType's run history), then reads its
+    // own restate from it. Remaining restating idTypes wait for that runner to
+    // complete, then read staging concurrently. The last idType drops staging
+    // after its coverage query; the partition-expiration set at CREATE guarantees
+    // eventual cleanup regardless.
+    const [firstRestateIdType, ...restRestateIdTypes] = restateIdTypes;
+    const staging = (
+      buildStaging: boolean,
+      dropStagingOnComplete: boolean,
+    ): AggregatedFactTableSharedStaging => ({
+      stagingTableFullName,
+      // Only restating idTypes read staging, so only their columns are projected.
+      allIdTypes: restateIdTypes,
+      buildStaging,
+      dropStagingOnComplete,
+    });
+
+    unhanded.delete(firstRestateIdType);
+    outcomes.set(
+      firstRestateIdType,
+      await runAggregatedFactTableUpdate(
+        context,
+        factTable,
+        firstRestateIdType,
+        {
+          forceRestate,
+          awaitResults: true,
+          preAcquiredExecutionId: executionIds.get(firstRestateIdType),
+          sharedStaging: staging(true, restRestateIdTypes.length === 0),
+        },
+      ),
+    );
+
+    // With awaitResults:true the outcome is terminal ("completed" or "failed");
+    // only proceed to read staging when the build actually completed.
+    const stagingBuilt =
+      outcomes.get(firstRestateIdType)?.status === "completed";
+    if (!stagingBuilt) {
+      logger.warn(
+        `Shared-staging restate for ${factTable.id}: staging build failed; remaining idTypes fall back to raw restate`,
+      );
+    }
+
+    await Promise.all(
+      restRestateIdTypes.map(async (idType, i) => {
+        const isLast = i === restRestateIdTypes.length - 1;
+        unhanded.delete(idType);
+        outcomes.set(
+          idType,
+          await runAggregatedFactTableUpdate(context, factTable, idType, {
+            forceRestate,
+            awaitResults,
+            preAcquiredExecutionId: executionIds.get(idType),
+            sharedStaging: stagingBuilt ? staging(false, isLast) : undefined,
+          }),
+        );
+      }),
+    );
+
+    for (const idType of incrementalIdTypes) {
+      unhanded.delete(idType);
+      outcomes.set(
+        idType,
+        await runAggregatedFactTableUpdate(context, factTable, idType, {
+          forceRestate: false,
+          awaitResults,
+          preAcquiredExecutionId: executionIds.get(idType),
+        }),
+      );
+    }
+
+    return outcomes;
+  } finally {
+    await releaseUnhanded();
+  }
 }

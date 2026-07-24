@@ -5,17 +5,27 @@ import {
 } from "back-end/src/models/FactTableModel";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { getAgendaInstance } from "back-end/src/services/queueing";
-import { runAggregatedFactTableUpdate } from "back-end/src/services/aggregatedFactTables";
+import {
+  runAggregatedFactTableSharedStagingUpdate,
+  runAggregatedFactTableUpdate,
+} from "back-end/src/services/aggregatedFactTables";
 import { logger } from "back-end/src/util/logger";
 import { getMostRecentUpdateOccurrence } from "back-end/src/util/factTable";
 
 const QUEUE_AGGREGATED_FACT_TABLE_UPDATES = "queueAggregatedFactTableUpdates";
 const UPDATE_SINGLE_AGGREGATED_FACT_TABLE = "updateSingleAggregatedFactTable";
+const UPDATE_AGGREGATED_FACT_TABLE_SET = "updateAggregatedFactTableSet";
 
 type UpdateSingleAggregatedFactTableJob = Job<{
   organization: string;
   factTableId: string;
   idType: string;
+  forceRestate?: boolean;
+}>;
+
+type UpdateAggregatedFactTableSetJob = Job<{
+  organization: string;
+  factTableId: string;
   forceRestate?: boolean;
 }>;
 
@@ -26,6 +36,8 @@ export default async function (agenda: Agenda) {
     UPDATE_SINGLE_AGGREGATED_FACT_TABLE,
     updateSingleAggregatedFactTable,
   );
+
+  agenda.define(UPDATE_AGGREGATED_FACT_TABLE_SET, updateAggregatedFactTableSet);
 
   await startUpdateJob();
 
@@ -88,6 +100,39 @@ async function pollAggregatedFactTables() {
 
     const context = await getContext(factTable.organization);
     if (!context) continue;
+
+    // With shared-staging enabled, enqueue one job per fact table so a single
+    // coordinator can materialize the source once and fan out per-idType reads.
+    // Still claim every idType's slot so the once-per-day gate holds.
+    if (settings.useSharedStagingRestate && settings.idTypes.length >= 2) {
+      let anyClaimed = false;
+      for (const idType of settings.idTypes) {
+        try {
+          const claimed =
+            await context.models.aggregatedFactTables.claimScheduledSlot(
+              {
+                datasourceId: factTable.datasource,
+                factTableId: factTable.id,
+                idType,
+              },
+              fireTime,
+            );
+          anyClaimed = anyClaimed || claimed;
+        } catch (e) {
+          logger.error(
+            e,
+            `Failed to claim aggregated fact table slot for ${factTable.id}/${idType}`,
+          );
+        }
+      }
+      if (anyClaimed) {
+        await queueAggregatedFactTableSetUpdate({
+          organization: factTable.organization,
+          factTableId: factTable.id,
+        });
+      }
+      continue;
+    }
 
     for (const idType of settings.idTypes) {
       const key = {
@@ -169,5 +214,43 @@ const updateSingleAggregatedFactTable = async (
 
   await runAggregatedFactTableUpdate(context, factTable, idType, {
     forceRestate: !!forceRestate,
+  });
+};
+
+export async function queueAggregatedFactTableSetUpdate({
+  organization,
+  factTableId,
+  forceRestate,
+}: {
+  organization: string;
+  factTableId: string;
+  forceRestate?: boolean;
+}) {
+  const agenda = getAgendaInstance();
+  const job = agenda.create(UPDATE_AGGREGATED_FACT_TABLE_SET, {
+    organization,
+    factTableId,
+    forceRestate: forceRestate ?? false,
+  });
+  job.unique({ organization, factTableId });
+  job.schedule(new Date());
+  await job.save();
+}
+
+const updateAggregatedFactTableSet = async (
+  job: UpdateAggregatedFactTableSetJob,
+) => {
+  const { organization, factTableId, forceRestate } = job.attrs.data ?? {};
+  if (!organization || !factTableId) return;
+
+  const context = await getContextForAgendaJobByOrgId(organization);
+  if (!context.hasPremiumFeature("pipeline-mode")) return;
+
+  const factTable = await getFactTable(context, factTableId);
+  if (!factTable?.aggregatedFactTableSettings?.idTypes?.length) return;
+
+  await runAggregatedFactTableSharedStagingUpdate(context, factTable, {
+    forceRestate: !!forceRestate,
+    awaitResults: true,
   });
 };
