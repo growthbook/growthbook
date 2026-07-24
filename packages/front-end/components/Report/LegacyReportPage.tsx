@@ -255,7 +255,7 @@ export default function LegacyReportPage({
                 }}
               />
             )}
-          <h1 className="mb-0 mt-2">
+          <h1 className="mb-0 mt-2" style={{ overflowWrap: "anywhere" }}>
             {report.title}{" "}
             {canUpdateReport &&
               (userId === report?.userId || !report?.userId) && (

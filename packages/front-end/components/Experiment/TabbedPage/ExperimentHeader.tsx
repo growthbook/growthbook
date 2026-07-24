@@ -810,10 +810,17 @@ export default function ExperimentHeader({
         }
       >
         <Flex direction="row" align="start" justify="between" gap="5">
-          <Flex align="center" gap="2">
-            <Heading as="h1" size="2x-large" color="text-high" weight="medium">
-              {experiment.name}
-            </Heading>
+          <Flex align="center" gap="2" style={{ minWidth: 0 }}>
+            <div style={{ overflowWrap: "anywhere" }}>
+              <Heading
+                as="h1"
+                size="2x-large"
+                color="text-high"
+                weight="medium"
+              >
+                {experiment.name}
+              </Heading>
+            </div>
             <Box style={{ userSelect: "none" }}>
               <ExperimentStatusIndicator experimentData={experiment} />
             </Box>
