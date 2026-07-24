@@ -7153,6 +7153,11 @@ paths:
                             type: number
                           hashAttribute:
                             type: string
+                          seed:
+                            description: >-
+                              Optional seed for the hash function; defaults to
+                              the rule id
+                            type: string
                           hashVersion:
                             anyOf:
                               - type: number
@@ -7852,6 +7857,11 @@ paths:
                           coverage:
                             type: number
                           hashAttribute:
+                            type: string
+                          seed:
+                            description: >-
+                              Optional seed for the hash function; defaults to
+                              the rule id
                             type: string
                           hashVersion:
                             anyOf:

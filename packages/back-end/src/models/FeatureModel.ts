@@ -42,7 +42,6 @@ import { ResourceEvents } from "shared/types/events/base-types";
 import { DiffResult } from "shared/types/events/diff";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import {
-  generateRuleId,
   addIdsToFlatRules,
   getApiFeatureObj,
   getNextScheduledUpdate,
@@ -69,6 +68,7 @@ import {
 } from "back-end/src/services/rampSchedule";
 import {
   applyNonRuleFeatureUpgrades,
+  pinLegacyRolloutSeeds,
   upgradeFeatureRule,
   upgradeV0Feature,
 } from "back-end/src/util/migrations";
@@ -345,6 +345,7 @@ export function migrateRawFeatureToV2(
       envOrder: orgEnvs.map((e) => e.id),
       applicableEnvs,
     });
+    v2.rules = pinLegacyRolloutSeeds(v2.rules, v2.id);
     v2.environmentSettings = scrubEnvRules(inheritedSettings) as Record<
       string,
       FeatureEnvironment
@@ -378,6 +379,7 @@ export function migrateRawFeatureToV2(
     }
     return expandRuleEnvsForInheritance(upgraded, childrenByAncestor);
   });
+  v2.rules = pinLegacyRolloutSeeds(v2.rules, v2.id);
   v2.environmentSettings = scrubEnvRules(inheritedEnvSettings) as Record<
     string,
     FeatureEnvironment
@@ -1366,12 +1368,7 @@ export async function addFeatureRule(
   user: EventUser,
   resetReview: boolean,
 ) {
-  if (!rule.id) {
-    rule.id = generateRuleId();
-  }
-  if (rule.type === "rollout" && !rule.seed) {
-    rule.seed = rule.id;
-  }
+  addIdsToFlatRules([rule], feature.id);
 
   const applicableEnvs = getEnvironmentIdsFromOrg(context.org);
   const isAllEnvs =
@@ -1712,10 +1709,8 @@ export function computeRevisionMergeChanges(
 
   if (result.rules !== undefined) {
     changes.rules = result.rules;
-    // Ensure every rollout rule that's being published has a seed — required
-    // for ramp-monitored payload stability. Rules created before the
-    // seed-backfill was introduced (or attached to a ramp for the first time)
-    // get seed = rule.id here so they match the SDK's featureId fallback.
+    // Stamp seeds/ids on new rules being published. Legacy rules were pinned on
+    // read, so this never re-seeds (and re-buckets) an existing rollout.
     addIdsToFlatRules(changes.rules, feature.id);
     hasChanges = true;
   }

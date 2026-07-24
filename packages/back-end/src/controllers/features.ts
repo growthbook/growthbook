@@ -113,6 +113,7 @@ import { generateId } from "back-end/src/util/uuid";
 import {
   addIdsToFlatRules,
   addIdsToRules,
+  inheritStoredRolloutSeeds,
   assertFeatureDeletable,
   evaluateAllFeatures,
   evaluateFeature,
@@ -2973,15 +2974,8 @@ export async function postFeatureRule(
     settings: org?.settings,
   });
 
-  // Assign rule ID if not present
-  if (!rule.id) {
-    rule.id = generateRuleId();
-  }
-  // Rollout rules always carry an explicit seed (= rule.id when user didn't set
-  // one) so monitored and non-monitored steps bucket users identically.
-  if (rule.type === "rollout" && !rule.seed) {
-    rule.seed = rule.id;
-  }
+  // Stamp id + rollout seed via the shared chokepoint (safe-rollout seed set above).
+  addIdsToFlatRules([rule], feature.id);
   let rampActionsUpdate:
     | RevisionRampCreateAction
     | RevisionRampDetachAction
@@ -4343,6 +4337,14 @@ export async function putFeatureRule(
   }
 
   if (!existingRule) throw new Error("Unknown rule");
+
+  // An existing rollout inherits its stored (read-time-pinned) seed so it's
+  // never re-bucketed; a force rule the UI promoted by dropping coverage has no
+  // rollout history, so it seeds off its own id. Id first, so nothing mints one.
+  const inboundRule = rule as FeatureRule;
+  if (!inboundRule.id) inboundRule.id = ruleId;
+  inheritStoredRolloutSeeds([inboundRule], existingRules);
+  addIdsToFlatRules([inboundRule], feature.id);
 
   // Audit/review scope is the rule's own env scope.
   const ruleChangedEnvs: string[] =
