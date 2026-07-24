@@ -487,6 +487,20 @@ export default function FeaturesHeader({
               />
             )}
 
+            {(feature.targetingAllProjects ||
+              (feature.targetingProjects?.length ?? 0) > 0) && (
+              <Metadata
+                label="Targeting Projects"
+                value={
+                  feature.targetingAllProjects
+                    ? "All Projects"
+                    : (feature.targetingProjects ?? [])
+                        .map((id) => getProjectById(id)?.name || id)
+                        .join(", ")
+                }
+              />
+            )}
+
             <Box>
               <Text weight="medium">Feature Key: </Text>
               {feature.id || "-"}

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { validateFeatureValue } from "shared/util";
+import { validateFeatureValue, normalizeTargetingProjects } from "shared/util";
 import { postFeatureValidator } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -26,6 +26,8 @@ import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
 import { validateCustomFields } from "./validations";
 import {
   assertValidProjectId,
+  assertValidProjectIds,
+  assertValidRuleProjectIds,
   validateEnvRulesScheduleRules,
   assertValidBaseConfig,
   assertConfigSchemaCompat,
@@ -89,6 +91,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   }
 
   await assertValidProjectId(req.body.project, req.context);
+  await assertValidProjectIds(req.body.targetingProjects, req.context);
 
   await validateCustomFields(
     req.body.customFields,
@@ -109,6 +112,11 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
     owner: await resolveOwnerForCreate(req.body.owner, req.context),
     description: req.body.description || "",
     project: req.body.project || "",
+    ...normalizeTargetingProjects({
+      project: req.body.project || "",
+      targetingAllProjects: req.body.targetingAllProjects,
+      targetingProjects: req.body.targetingProjects,
+    }),
     dateCreated: new Date(),
     dateUpdated: new Date(),
     organization: req.context.org.id,
@@ -140,6 +148,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
     orgEnvs,
     req.body.environments ?? {},
   );
+  await assertValidRuleProjectIds(feature.rules, req.context);
 
   const jsonSchema = parseApiJsonSchema(
     req.context.org,

@@ -1271,6 +1271,7 @@ export const FUNNEL_SUPPORTED_DATASOURCE_TYPES: readonly DataSourceType[] = [
   "athena",
   "presto",
   "databricks",
+  "redshift",
 ];
 
 export function isFunnelSupportedDatasourceType(type: DataSourceType): boolean {

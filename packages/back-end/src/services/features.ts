@@ -33,6 +33,7 @@ import {
   getConfigBackingKey,
   getConfigBackingPatch,
   stripConfigExtends,
+  entityTargetsProject,
 } from "shared/util";
 import {
   getConnectionSDKCapabilities,
@@ -136,6 +137,7 @@ import {
 import { triggerWebhookJobs } from "back-end/src/jobs/updateAllJobs";
 import {
   createRevision,
+  featureRevisionId,
   getRevision,
   normalizeRulesInputToV2,
 } from "back-end/src/models/FeatureRevisionModel";
@@ -170,6 +172,7 @@ export function generateFeaturesPayload({
   cbMap,
   includeDraftExperimentRefs,
   rampMonitoredRuleMap,
+  payloadProjects,
 }: {
   features: FeatureInterface[];
   experimentMap: Map<string, ExperimentInterface>;
@@ -199,6 +202,7 @@ export function generateFeaturesPayload({
   cbMap?: Map<string, ContextualBanditInterface>;
   includeDraftExperimentRefs?: boolean;
   rampMonitoredRuleMap?: Map<string, RampMonitoredRuleInfo>;
+  payloadProjects?: string[];
 }): Record<string, FeatureDefinition> {
   const defs: Record<string, FeatureDefinition> = {};
   const newFeatures = reduceFeaturesWithPrerequisites(
@@ -242,6 +246,7 @@ export function generateFeaturesPayload({
         includeTagsInMetadata,
       },
       projectsMap,
+      payloadProjects,
       cbMap,
       constantMap: constantMap ?? undefined,
       onConstantCycle: (key) => {
@@ -700,6 +705,18 @@ export function queueSDKPayloadRefresh(data: {
   treatEmptyProjectAsGlobal?: boolean;
   auditContext?: { event: string; model: string; id?: string };
 }) {
+  // Bulk-publish side-effect buffer: while a multi-entity commit is applying,
+  // collect the affected keys instead of refreshing per write — the publisher
+  // flushes one deduped refresh (at most one rebuild per SDK connection) after
+  // the whole commit lands, or none if it compensated. Buffered calls drop the
+  // narrowing options (skipRefreshForProject, explicit sdkConnections) but
+  // carry treatEmptyProjectAsGlobal so global-entity keys keep their reach.
+  const buffer = data.context.sdkPayloadRefreshBuffer;
+  if (buffer && !buffer.closed) {
+    buffer.keys.push(...data.payloadKeys);
+    buffer.treatEmptyProjectAsGlobal ||= !!data.treatEmptyProjectAsGlobal;
+    return;
+  }
   // Capture stack trace at the entry point to include the original caller
   const rawStack = new Error().stack || "";
   const stackTrace = rawStack.replace(/^Error.*?\n/, "");
@@ -721,7 +738,9 @@ export async function getFeaturesDependingOnAsPrerequisite(
   context: ReqContext | ApiReqContext,
   featureId: string,
 ): Promise<string[]> {
-  const scanContext = getContextForAgendaJobByOrgObject(context.org);
+  const scanContext =
+    context.scanContextOverride ??
+    getContextForAgendaJobByOrgObject(context.org);
   // Candidates are live features only — an archived dependent isn't served, so
   // it can't be outaged. The target being deleted is usually archived (delete
   // requires it), so it needn't be in this list: getDependentFeatures matches
@@ -1277,7 +1296,9 @@ export async function buildSDKPayloadForConnection(
   const projectList = projects && projects.length > 0 ? projects : [];
   const filteredFeatures =
     projectList.length > 0
-      ? data.features.filter((f) => projectList.includes(f.project || ""))
+      ? data.features.filter((f) =>
+          projectList.some((p) => entityTargetsProject(f, p)),
+        )
       : data.features;
   const filteredExperimentMap =
     projectList.length > 0
@@ -1366,6 +1387,7 @@ export async function buildSDKPayloadForConnection(
     allowedCustomFieldsInMetadata,
     includeTagsInMetadata,
     projectsMap,
+    payloadProjects: projectList,
     cbMap,
     rampMonitoredRuleMap: data.rampMonitoredRuleMap,
   });
@@ -2060,7 +2082,7 @@ export function toApiRevision(
   return revisionToApiInterface(
     rev,
     getEnvironments(ctx.org),
-    feature?.project,
+    feature ?? undefined,
   );
 }
 
@@ -2070,9 +2092,13 @@ export function toApiRevision(
 export function revisionToApiInterface(
   rev: FeatureRevisionInterface,
   orgEnvs: Environment[],
-  featureProject?: string,
+  feature?: {
+    project?: string;
+    targetingProjects?: string[];
+    targetingAllProjects?: boolean;
+  },
 ): z.infer<typeof apiFeatureRevisionValidator> {
-  const applicableEnvs = getApplicableEnvIds(orgEnvs, featureProject);
+  const applicableEnvs = getApplicableEnvIds(orgEnvs, feature);
   const rules = bucketRulesByEnv(
     Array.isArray(rev.rules) ? rev.rules : undefined,
     applicableEnvs,
@@ -2080,6 +2106,7 @@ export function revisionToApiInterface(
   );
 
   return {
+    id: rev.id ?? featureRevisionId(rev.featureId, rev.version),
     featureId: rev.featureId,
     baseVersion: rev.baseVersion,
     version: rev.version,
@@ -2171,6 +2198,8 @@ export function normalizeRuleForApiV2(rule: FeatureRule): ApiFeatureRuleV2 {
     ...base,
     allEnvironments: rule.allEnvironments ?? true,
     ...(rule.environments !== undefined && { environments: rule.environments }),
+    allProjects: rule.allProjects ?? true,
+    ...(rule.projects !== undefined && { projects: rule.projects }),
   };
 
   // Split config-backing out of the raw value into a discrete `config` field so
@@ -2226,6 +2255,7 @@ export function revisionToApiInterfaceV2(
   const revDefault = decomposeConfigValue(rev.defaultValue);
 
   return {
+    id: rev.id ?? featureRevisionId(rev.featureId, rev.version),
     featureId: rev.featureId,
     baseVersion: rev.baseVersion,
     version: rev.version,
@@ -2420,9 +2450,15 @@ export function getApiFeatureObjV2({
     prerequisites: (feature?.prerequisites || []).map((p) => p.id),
     owner: feature.owner || "",
     project: feature.project || "",
+    targetingAllProjects: feature.targetingAllProjects ?? false,
+    targetingProjects: feature.targetingProjects ?? [],
     tags: feature.tags || [],
     valueType: feature.valueType,
     revision: {
+      // Conditional: event snapshots and legacy docs may lack a version.
+      ...(typeof feature.version === "number"
+        ? { id: revision?.id ?? featureRevisionId(feature.id, feature.version) }
+        : {}),
       comment: revision?.comment || "",
       date: revision?.dateCreated.toISOString() || "",
       createdBy: eventUserToApiEventUser(revision?.createdBy),
@@ -2522,7 +2558,7 @@ export function getApiFeatureObj({
   // `applicableEnvs` scopes `allEnvironments: true` rules; seeding with
   // `environments` keeps every org env present in the response.
   const orgEnvs = getEnvironments(organization);
-  const applicableEnvs = getApplicableEnvIds(orgEnvs, feature.project);
+  const applicableEnvs = getApplicableEnvIds(orgEnvs, feature);
   const featureRulesByEnv = bucketRulesByEnv(
     feature.rules,
     applicableEnvs,
@@ -2621,6 +2657,7 @@ export function getApiFeatureObj({
           ? "SYSTEM"
           : rev?.publishedBy?.name;
     return {
+      id: rev.id ?? featureRevisionId(rev.featureId, rev.version),
       featureId: rev.featureId,
       baseVersion: rev.baseVersion,
       version: rev.version,
@@ -2665,9 +2702,15 @@ export function getApiFeatureObj({
     prerequisites: (feature?.prerequisites || []).map((p) => p.id),
     owner: feature.owner || "",
     project: feature.project || "",
+    targetingAllProjects: feature.targetingAllProjects ?? false,
+    targetingProjects: feature.targetingProjects ?? [],
     tags: feature.tags || [],
     valueType: feature.valueType,
     revision: {
+      // Conditional: event snapshots and legacy docs may lack a version.
+      ...(typeof feature.version === "number"
+        ? { id: revision?.id ?? featureRevisionId(feature.id, feature.version) }
+        : {}),
       comment: revision?.comment || "",
       date: revision?.dateCreated.toISOString() || "",
       createdBy: createdBy || "",
@@ -3033,10 +3076,23 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
       feature.project,
     );
 
+    // Preserve rule-level project scope on the round-trip (mirrors
+    // resolveProjectScopeFromInput). Absent scope stays unscoped (all).
+    const scoped = r as { allProjects?: boolean; projects?: string[] };
+    const projectScope: { allProjects?: boolean; projects?: string[] } =
+      scoped.allProjects === true
+        ? { allProjects: true }
+        : scoped.allProjects === false
+          ? { allProjects: false, projects: scoped.projects ?? [] }
+          : Array.isArray(scoped.projects)
+            ? { allProjects: false, projects: scoped.projects }
+            : {};
+
     switch (r.type) {
       case "experiment-ref": {
         const experimentRefRule: ExperimentRefRule = {
           // missing id will be filled in by addIdsToRules
+          ...projectScope,
           id: r.id ?? "",
           allEnvironments: false,
           type: r.type,
@@ -3066,6 +3122,7 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
         }
         const experimentRule: ExperimentRule = {
           // missing id will be filled in by addIdsToRules
+          ...projectScope,
           id: r.id ?? "",
           allEnvironments: false,
           type: r.type,
@@ -3084,6 +3141,7 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
       case "force": {
         const forceRule: ForceRule = {
           // missing id will be filled in by addIdsToRules
+          ...projectScope,
           id: r.id ?? "",
           allEnvironments: false,
           type: r.type,
@@ -3104,6 +3162,7 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
       case "rollout": {
         const rolloutRule: RolloutRule = {
           // missing id will be filled in by addIdsToRules
+          ...projectScope,
           id: r.id ?? "",
           allEnvironments: false,
           type: r.type,

@@ -8,6 +8,7 @@ import {
   getSnapshotAnalysis,
   isDefined,
   autoMerge,
+  reconcileMergeBaselines,
   includeExperimentInPayload,
 } from "shared/util";
 import {
@@ -4302,7 +4303,18 @@ export async function postExperimentFeatureValues(
         revision: updatedRevision,
       });
       // Auto publish permission check is in validateExperimentFeatureUpdates
-      const mergeResult = autoMerge(live, base, updatedRevision, orgEnvIds, {});
+      const { live: mergeLive, base: mergeBase } = reconcileMergeBaselines(
+        feature,
+        live,
+        base,
+      );
+      const mergeResult = autoMerge(
+        mergeLive,
+        mergeBase,
+        updatedRevision,
+        orgEnvIds,
+        {},
+      );
 
       // This should never happen since we only allow auto-publising new revisions, but guard against it just in case
       if (!mergeResult.success) {

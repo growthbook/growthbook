@@ -398,7 +398,7 @@ export default function ExplorerMainSection({
                         loading ? undefined : (
                           <Button
                             color="inherit"
-                            size="sm"
+                            size="xs"
                             variant="solid"
                             disabled={
                               !hasSubmittablePayload(draftExploreState) ||

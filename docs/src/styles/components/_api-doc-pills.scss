@@ -99,3 +99,4 @@ li[data-item-id^="tag/"][data-item-id$="-v2"] > label::after,
 @include beta-tag("constant-revisions");
 @include beta-tag("configs");
 @include beta-tag("config-revisions");
+@include beta-tag("releases");

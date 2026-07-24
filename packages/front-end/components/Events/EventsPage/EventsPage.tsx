@@ -14,7 +14,7 @@ import Pagination from "@/components/Pagination";
 import { EventsTableRow } from "@/components/Events/EventsPage/EventsTableRow";
 import SelectField from "@/components/Forms/SelectField";
 import { notificationEventNames } from "@/components/EventWebHooks/utils";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import Button from "@/ui/Button";
 import DatePicker from "@/components/DatePicker";
 import Link from "@/ui/Link";
@@ -221,6 +221,7 @@ export const EventsPageContainer = () => {
     <>
       <div>
         <MultiSelectField
+          size="legacy"
           value={eventType}
           placeholder="Filter event type"
           sort={false}
@@ -268,6 +269,7 @@ export const EventsPageContainer = () => {
       <div className="flex-grow-1"></div>
       <div>
         <SelectField
+          size="legacy"
           containerClassName="ml-2 d-flex align-items-center mb-0"
           labelClassName="mr-2 mb-0"
           label="Show"

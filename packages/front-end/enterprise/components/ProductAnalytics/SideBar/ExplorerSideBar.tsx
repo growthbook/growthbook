@@ -399,6 +399,7 @@ export default function ExplorerSideBar({
             Fact Table
           </Text>
           <SelectField
+            size="legacy"
             value={factTableDataset.factTableId ?? ""}
             disabled={
               !permissionsUtil.canRunFactQueries({ projects: [project] }) &&

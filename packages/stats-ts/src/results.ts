@@ -65,6 +65,8 @@ export type Context = Record<string, unknown>;
 
 export interface ContextualBanditResponse {
   context: Context;
+  /** Id of the regression-tree leaf this context is routed to. */
+  leafId: number;
   sampleSizePerVariation: number[] | null;
   variationMeans: number[] | null;
   variationVariances: number[] | null;
@@ -86,10 +88,20 @@ export interface ContextualBanditContextSummary {
   error: string | null;
 }
 
-/** JSON-serializable mapping from observed context attribute values to tree leaf id. */
+/** `in` lists an attribute's allowed levels; `not in` lists excluded levels. */
+export type LeafConditionOperator = "in" | "not in";
+
+/** One per-attribute targeting clause of a regression-tree leaf's condition. */
+export interface ContextualLeafClause {
+  attribute: string;
+  levels: string[];
+  operator: LeafConditionOperator;
+}
+
+/** One regression-tree leaf's targeting condition (AND of per-attribute clauses). */
 export interface ContextualLeafMapEntry {
-  context: Record<string, string>;
   leafId: number;
+  context: ContextualLeafClause[];
 }
 
 /** Container for per-context bandit results. */

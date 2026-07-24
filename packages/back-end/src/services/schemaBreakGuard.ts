@@ -529,7 +529,9 @@ export async function constantSchemaBreakViolations(
   // unchanged.
   proposedArchived?: boolean,
 ): Promise<string[]> {
-  const scanContext = getContextForAgendaJobByOrgObject(context.org);
+  const scanContext =
+    context.scanContextOverride ??
+    getContextForAgendaJobByOrgObject(context.org);
   const [resolvables, features] = await Promise.all([
     getResolvableValues(scanContext),
     getAllFeaturesWithoutEditorFields(scanContext),
@@ -668,7 +670,9 @@ export async function evaluateConfigOwnSchemaBreakConflicts(
   context: Context,
   proposed: ProposedConfig,
 ): Promise<string[]> {
-  const scanContext = getContextForAgendaJobByOrgObject(context.org);
+  const scanContext =
+    context.scanContextOverride ??
+    getContextForAgendaJobByOrgObject(context.org);
   const resolvables = await getResolvableValues(scanContext);
   const allConfigs = await scanContext.models.configs.getAllForReconcile();
   return collectConfigOwnBreaks({
@@ -814,7 +818,9 @@ export async function configArchiveSchemaBreakViolations(
   config: Pick<ConfigInterface, "key" | "project">,
   proposedArchived: boolean,
 ): Promise<string[]> {
-  const scanContext = getContextForAgendaJobByOrgObject(context.org);
+  const scanContext =
+    context.scanContextOverride ??
+    getContextForAgendaJobByOrgObject(context.org);
   const [resolvables, features] = await Promise.all([
     getResolvableValues(scanContext),
     getAllFeaturesWithoutEditorFields(scanContext),

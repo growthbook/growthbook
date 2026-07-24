@@ -871,6 +871,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     <label>Select Template</label>
                   </PremiumTooltip>
                   <SelectField
+                    size="legacy"
                     value={form.watch("templateId") ?? ""}
                     onChange={(t) => {
                       if (t === "") {
@@ -919,6 +920,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               <div className="form-group">
                 <label>Project</label>
                 <SelectField
+                  size="legacy"
                   value={form.watch("project") ?? ""}
                   onChange={(p) => {
                     form.setValue("project", p);
@@ -943,6 +945,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             </>
 
             <Field
+              size="legacy"
               label={isBandit ? "Bandit Name" : "Experiment Name"}
               required
               minLength={2}
@@ -980,6 +983,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 }, used to track impressions and analyze results`}
               </Text>
               <Field
+                size="legacy"
                 {...trackingKeyFieldHandlers}
                 onChange={(e) => {
                   trackingKeyFieldHandlers.onChange(e);
@@ -1004,6 +1008,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             )}
             {!isBandit && (
               <Field
+                size="legacy"
                 label="Hypothesis"
                 textarea
                 minRows={2}
@@ -1022,6 +1027,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             )}
             {includeDescription && (
               <Field
+                size="legacy"
                 label="Description"
                 textarea
                 minRows={2}
@@ -1194,6 +1200,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             {!isNewExperiment && (
               <>
                 <SelectField
+                  size="legacy"
                   label="Status"
                   options={[
                     { label: "draft", value: "draft" },
@@ -1374,6 +1381,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                         determine which variation to assign
                       </Text>
                       <SelectField
+                        size="legacy"
                         withRadixThemedPortal
                         options={attributeSchema
                           .filter((s) => !hasHashAttributes || s.hashAttribute)
@@ -1493,6 +1501,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             <div style={{ minHeight: 350 }}>
               {(!isImport || fromFeature) && (
                 <SelectField
+                  size="legacy"
                   label="Data Source"
                   labelClassName="font-weight-bold"
                   value={form.watch("datasource") ?? ""}
@@ -1513,6 +1522,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               )}
               {datasource?.properties?.exposureQueries && (
                 <SelectField
+                  size="legacy"
                   label={
                     <>
                       Experiment Assignment Table{" "}

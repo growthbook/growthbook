@@ -35,6 +35,7 @@ export default function SharedConnectionSettings({
       >
         <div className="rounded px-3 pt-3 pb-1 bg-highlight">
           <Field
+            size="legacy"
             name="maxConcurrentQueries"
             type="number"
             label={
@@ -56,6 +57,7 @@ export default function SharedConnectionSettings({
             min={0}
           />
           <Field
+            size="legacy"
             name="queryCacheTTLMins"
             type="number"
             label={

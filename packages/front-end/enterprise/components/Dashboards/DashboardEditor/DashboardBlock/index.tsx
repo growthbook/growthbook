@@ -465,6 +465,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
         )}
         {canEditTitle && editTitle && setBlock ? (
           <Field
+            size="legacy"
             autoFocus
             defaultValue={block.title || getDefaultValueForTitle(block.type)}
             placeholder="Title"

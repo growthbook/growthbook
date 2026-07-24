@@ -27,6 +27,7 @@ export * from "./queries";
 export * from "./safe-rollout";
 export * from "./ramp-schedule";
 export * from "./ramp-schedule-notifications";
+export * from "./releases";
 export * from "./feature-revision-notifications";
 export * from "./saved-group";
 export * from "./saved-group-revisions";

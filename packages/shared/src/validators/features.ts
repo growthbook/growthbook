@@ -98,6 +98,15 @@ export const baseRule = z
     allEnvironments: z.boolean(),
     // Env list when `allEnvironments` is false.
     environments: z.array(z.string()).optional(),
+    // Wildcard project scope. When true (or when both fields are absent, the
+    // legacy/default state), the rule applies to every project the feature is
+    // delivered to. When false, the rule is limited to `projects`. An explicit
+    // boolean (mirroring `allEnvironments`) is required so project-deletion
+    // cleanup can empty `projects` to "nothing" without it flipping to "all".
+    allProjects: z.boolean().optional(),
+    // Project list when `allProjects` is false. `[]` means the rule applies to
+    // no project (leak-safe), NOT all projects.
+    projects: z.array(z.string()).optional(),
     enabled: z.boolean().optional(),
     scheduleRules: z.array(scheduleRule).optional(),
     savedGroups: z.array(savedGroupTargeting).optional(),
@@ -453,6 +462,9 @@ const revisionMetadataSchema = z.object({
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   owner: ownerField.optional(),
   project: z.string().optional(),
+  // Staged form of the feature's secondary-targeting scope (see featureInterface).
+  targetingAllProjects: z.boolean().optional(),
+  targetingProjects: z.array(z.string()).optional(),
   tags: z.array(z.string()).optional(),
   neverStale: z.boolean().optional(),
   customFields: z.record(z.string(), z.any()).optional(),
@@ -619,6 +631,13 @@ export function reviewerKeyForEventUser(
 
 const featureRevisionInterface = minimalFeatureRevisionInterface
   .extend({
+    // Stable identity, dual-shaped: new docs store a minted "frev_<uniqid>";
+    // legacy docs get the computed tuple "frev_<version>_<featureId>" filled
+    // in-memory on read (and persisted opportunistically on publish writes).
+    // Tuple ids resolve by decoding onto the (organization, featureId,
+    // version) unique index; minted ids by the partial (organization, id)
+    // unique index.
+    id: z.string().optional(),
     featureId: z.string(),
     organization: z.string(),
     baseVersion: z.number(),
@@ -723,6 +742,11 @@ export const featureInterface = z
     nextScheduledUpdate: z.union([z.date(), z.null()]).optional(),
     owner: ownerField,
     project: z.string().optional(),
+    // Secondary projects for read/discovery + SDK payload scoping beyond the
+    // governance `project`; `targetingAllProjects` overrides the list (targeted
+    // everywhere). Governance/approvals stay with `project`.
+    targetingAllProjects: z.boolean().optional(),
+    targetingProjects: z.array(z.string()).optional(),
     dateCreated: z.date(),
     dateUpdated: z.date(),
     valueType: z.enum(featureValueType),
@@ -840,6 +864,18 @@ export const apiFeatureBaseRuleValidator = namedSchema(
             id: z.string().describe("Feature ID of the prerequisite"),
             condition: z.string(),
           }),
+        )
+        .optional(),
+      allProjects: z
+        .boolean()
+        .describe(
+          "When true (the default) the rule applies to every project the feature is delivered to. When false the rule is limited to `projects`.",
+        )
+        .optional(),
+      projects: z
+        .array(z.string())
+        .describe(
+          "Project IDs this rule is scoped to when `allProjects` is false. An empty array scopes the rule to no project.",
         )
         .optional(),
     })
@@ -1198,6 +1234,11 @@ export const apiFeatureRevisionValidator = namedSchema(
   "FeatureRevisionV1",
   z
     .object({
+      id: z
+        .string()
+        .describe(
+          "Stable revision id. Newer revisions carry opaque ids; older ones a derived `frev_<version>_<featureId>` form. Both work wherever revision ids are accepted.",
+        ),
       featureId: z.string().describe("The feature this revision belongs to"),
       baseVersion: z.coerce.number().int(),
       version: z.coerce.number().int(),
@@ -1263,6 +1304,8 @@ export const apiFeatureValidator = namedSchema(
       owner: ownerField,
       ownerEmail: ownerEmailField,
       project: z.string(),
+      targetingAllProjects: z.boolean().optional(),
+      targetingProjects: z.array(z.string()).optional(),
       valueType: z.enum(["boolean", "string", "number", "json"]),
       defaultValue: z.string(),
       baseConfig: z
@@ -1286,6 +1329,10 @@ export const apiFeatureValidator = namedSchema(
         .describe("Feature IDs. Each feature must evaluate to `true`")
         .optional(),
       revision: z.object({
+        id: z
+          .string()
+          .describe("Stable id of the feature's live revision.")
+          .optional(),
         version: z.coerce.number().int(),
         comment: z.string(),
         date: z.string().meta({ format: "date-time" }),
@@ -1335,7 +1382,25 @@ const postSparseRuleField = z
   )
   .optional();
 
+// Rule-level project scope, shared across the v1 write rule schemas so a v1
+// GET → PUT round-trip preserves it (non-strict Zod would otherwise strip it).
+const postFeatureRuleProjectScopeShape = {
+  allProjects: z
+    .boolean()
+    .describe(
+      "When true (default), the rule applies to every project the feature is delivered to. When false, `projects` scopes it.",
+    )
+    .optional(),
+  projects: z
+    .array(z.string())
+    .describe(
+      "Project IDs this rule is scoped to when `allProjects` is false. An empty array scopes the rule to no project.",
+    )
+    .optional(),
+};
+
 const postFeatureForceRule = z.object({
+  ...postFeatureRuleProjectScopeShape,
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   condition: z.string().describe("Applied to everyone by default.").optional(),
   savedGroupTargeting: z.array(postFeatureSavedGroupTargeting).optional(),
@@ -1349,6 +1414,7 @@ const postFeatureForceRule = z.object({
 });
 
 const postFeatureRolloutRule = z.object({
+  ...postFeatureRuleProjectScopeShape,
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   condition: z.string().describe("Applied to everyone by default.").optional(),
   savedGroupTargeting: z.array(postFeatureSavedGroupTargeting).optional(),
@@ -1375,6 +1441,7 @@ const postFeatureRolloutRule = z.object({
 });
 
 const postFeatureExperimentRefRule = z.object({
+  ...postFeatureRuleProjectScopeShape,
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   id: z.string().optional(),
   enabled: z.boolean().describe("Enabled by default").optional(),
@@ -1394,6 +1461,7 @@ const postFeatureExperimentRefRule = z.object({
 });
 
 const postFeatureExperimentRule = z.object({
+  ...postFeatureRuleProjectScopeShape,
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   condition: z.string(),
   id: z.string().optional(),
@@ -1499,6 +1567,18 @@ const postFeatureBody = z
       .optional(),
     owner: requiredUnlessPatOwnerInputField,
     project: z.string().describe("An associated project ID").optional(),
+    targetingAllProjects: z
+      .boolean()
+      .describe(
+        "Make this feature discoverable in — and served to — every project, beyond its primary `project`. Governance/approvals stay with `project`.",
+      )
+      .optional(),
+    targetingProjects: z
+      .array(z.string())
+      .describe(
+        "Secondary project IDs this feature is targeted in and served to, beyond its primary `project`. Governance/approvals stay with `project`.",
+      )
+      .optional(),
     valueType: z
       .enum(["boolean", "string", "number", "json"])
       .describe("The data type of the feature payload. Boolean by default."),
@@ -1546,6 +1626,18 @@ const updateFeatureBody = z
       .optional(),
     archived: z.boolean().optional(),
     project: z.string().describe("An associated project ID").optional(),
+    targetingAllProjects: z
+      .boolean()
+      .describe(
+        "Make this feature discoverable in — and served to — every project, beyond its primary `project`. Governance/approvals stay with `project`.",
+      )
+      .optional(),
+    targetingProjects: z
+      .array(z.string())
+      .describe(
+        "Secondary project IDs this feature is targeted in and served to, beyond its primary `project`. Governance/approvals stay with `project`.",
+      )
+      .optional(),
     owner: ownerInputField.optional(),
     defaultValue: z.string().optional(),
     baseConfig: z
