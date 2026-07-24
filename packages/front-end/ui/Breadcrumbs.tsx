@@ -29,7 +29,7 @@ export default function Breadcrumbs({ items }: { items: BreadcrumbItem[] }) {
               )}
               <span
                 title={item.display}
-                className={!isLast ? styles.ancestor : undefined}
+                className={!isLast ? styles.ancestor : styles.current}
               >
                 {item.href ? (
                   <Link
