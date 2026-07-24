@@ -41,6 +41,7 @@ import useApi from "@/hooks/useApi";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
 import Callout from "@/ui/Callout";
+import VariationLabel from "@/ui/VariationLabel";
 import StatusColumn from "./StatusColumn";
 
 export type ResultsTableProps = {
@@ -495,29 +496,17 @@ export default function ResultsTable({
                           key={j}
                         >
                           <td
-                            className={`variation with-variation-label variation${v.index} py-4`}
+                            className="py-4"
                             style={{
                               width: 220 * tableCellScale,
                             }}
                           >
                             {!compactResults ? (
-                              <div className="d-flex align-items-center">
-                                <span
-                                  className="label ml-1"
-                                  style={{ width: 20, height: 20 }}
-                                >
-                                  {v.index}
-                                </span>
-                                <span
-                                  className="d-inline-block text-ellipsis"
-                                  title={v.name}
-                                  style={{
-                                    width: 165 * tableCellScale,
-                                  }}
-                                >
-                                  {v.name}
-                                </span>
-                              </div>
+                              <VariationLabel
+                                number={v.index}
+                                name={v.name}
+                                size="medium"
+                              />
                             ) : (
                               renderLabelColumn({
                                 label: row.label,

@@ -1009,7 +1009,7 @@ export default function ResultsTable({
                                       "Metric & Variation Names",
                                     ) && (
                                       <td
-                                        className={`variation with-variation-label variation${v.index} position-relative`}
+                                        className={`variation variation${v.index} position-relative`}
                                         style={{
                                           width: 220 * tableCellScale,
                                         }}
