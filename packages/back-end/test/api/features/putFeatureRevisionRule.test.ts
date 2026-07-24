@@ -4,10 +4,8 @@ import { applyPatch } from "back-end/src/api/features/putFeatureRevisionRule";
 import { addIdsToFlatRules } from "back-end/src/services/features";
 
 // `applyPatch` re-infers force-vs-rollout from the effective coverage, so a
-// coverage patch can turn a force rule into a rollout. That converted rule has
-// no seed, so the handler stamps it — otherwise it would persist seedless, get
-// pinned to the feature id on read, and overlap any sibling rollout in hash
-// space instead of bucketing independently.
+// coverage patch converts a force rule into a seedless rollout — which the
+// handler must stamp, or it loses independent bucketing.
 describe("applyPatch — force/rollout seed stamping", () => {
   const force = {
     id: "fr_1",
@@ -18,6 +16,8 @@ describe("applyPatch — force/rollout seed stamping", () => {
   } as unknown as FeatureRule;
 
   const patch = (p: Record<string, unknown>) => p as unknown as RulePatchInput;
+  const stamp = (r: unknown) => addIdsToFlatRules([r as FeatureRule], "feat_1");
+  const seedOf = (r: unknown) => (r as { seed?: string }).seed;
 
   it("converts force → rollout with no seed, then stamps the rule id", () => {
     const converted = applyPatch(
@@ -25,11 +25,11 @@ describe("applyPatch — force/rollout seed stamping", () => {
       patch({ coverage: 0.5, hashAttribute: "id" }),
     );
     expect(converted.type).toBe("rollout");
-    expect((converted as { seed?: string }).seed).toBeUndefined();
+    expect(seedOf(converted)).toBeUndefined();
 
-    addIdsToFlatRules([converted as FeatureRule], "feat_1");
-    expect((converted as { seed?: string }).seed).toBe("fr_1");
-    expect((converted as { seed?: string }).seed).not.toBe("feat_1");
+    stamp(converted);
+    expect(seedOf(converted)).toBe("fr_1");
+    expect(seedOf(converted)).not.toBe("feat_1");
   });
 
   it("leaves a rollout's existing (read-time-pinned) seed untouched", () => {
@@ -42,8 +42,8 @@ describe("applyPatch — force/rollout seed stamping", () => {
     } as unknown as FeatureRule;
 
     const updated = applyPatch(legacy, patch({ coverage: 0.25 }));
-    addIdsToFlatRules([updated as FeatureRule], "feat_1");
-    expect((updated as { seed?: string }).seed).toBe("feat_1");
+    stamp(updated);
+    expect(seedOf(updated)).toBe("feat_1");
   });
 
   it("honors an explicit seed in the patch", () => {
@@ -51,7 +51,7 @@ describe("applyPatch — force/rollout seed stamping", () => {
       force,
       patch({ coverage: 0.5, hashAttribute: "id", seed: "custom" }),
     );
-    addIdsToFlatRules([converted as FeatureRule], "feat_1");
-    expect((converted as { seed?: string }).seed).toBe("custom");
+    stamp(converted);
+    expect(seedOf(converted)).toBe("custom");
   });
 });
