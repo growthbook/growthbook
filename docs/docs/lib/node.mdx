@@ -237,10 +237,11 @@ Then, configure the polyfill and enable streaming during init:
 
 ```js
 const { setPolyfills } = require("@growthbook/growthbook");
+const { EventSource } = require("eventsource");
 
 // Configure GrowthBook to use the eventsource library
 setPolyfills({
-  EventSource: require("eventsource"),
+  EventSource: EventSource,
 });
 
 const gbClient = new GrowthBookClient({

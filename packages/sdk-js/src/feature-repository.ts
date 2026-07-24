@@ -65,12 +65,29 @@ export const helpers: Helpers = {
     );
   },
   eventSourceCall: ({ host, clientKey, headers }) => {
-    if (headers) {
-      return new polyfills.EventSource(`${host}/sub/${clientKey}`, {
-        headers,
+    const url = `${host}/sub/${clientKey}`;
+    if (!headers) {
+      return new polyfills.EventSource(url);
+    }
+
+    // EventSource polyfills handles specifying headers differently
+    if (
+      Symbol.for("eventsource.supports-fetch-override") in polyfills.EventSource
+    ) {
+      // `eventsource` >= 4.1.0
+      return new polyfills.EventSource(url, {
+        fetch: (esUrl: string, init: { headers?: Record<string, string> }) =>
+          polyfills.fetch(esUrl, {
+            ...init,
+            headers: { ...(init.headers || {}), ...headers },
+          }),
       });
     }
-    return new polyfills.EventSource(`${host}/sub/${clientKey}`);
+
+    // Other polyfills, best-guess
+    return new polyfills.EventSource(url, {
+      headers,
+    });
   },
   startIdleListener: () => {
     let idleTimeout: number | undefined;
