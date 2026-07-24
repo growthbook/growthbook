@@ -115,6 +115,7 @@ For fact_table values:
 <row_filter_rules>
 rowFilters shape: { operator, column, values }
 Common operators: "=", "!=", "in", "not_in", "contains", "not_contains", "starts_with", "ends_with", "is_null", "not_null".
+For date columns only, "between" and "not_between" take exactly two values (a lower and an upper bound); "!=" is not offered for date columns.
 CRITICAL — never guess column values for filters. Always call getColumnValues first. Pass a searchTerm for partial matches (e.g. 'US' to find 'United States').
 getColumnValues only works on string-typed columns.
 </row_filter_rules>

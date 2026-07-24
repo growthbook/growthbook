@@ -114,6 +114,7 @@ export function getMetricCTE(
       stringMatch: dialect.stringMatch,
       jsonExtract: dialect.jsonExtract,
       evalBoolean: dialect.evalBoolean,
+      castToTimestamp: dialect.castToTimestamp,
       sliceInfo,
     }).forEach((filterSQL) => {
       where.push(filterSQL);

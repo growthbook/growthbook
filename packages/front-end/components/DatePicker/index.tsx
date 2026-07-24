@@ -502,10 +502,18 @@ export default function DatePicker({
               ) : isRange ? (
                 <DayPicker
                   mode="range"
-                  selected={{
-                    from: getValidDate(date),
-                    to: getValidDate(date2),
-                  }}
+                  selected={
+                    // While a range is mid-selection only `date` is set; fall
+                    // back to an open-ended range rather than getValidDate's
+                    // "today" default so the calendar doesn't highlight
+                    // start→today. Nothing selected when there is no start yet.
+                    date
+                      ? {
+                          from: getValidDate(date),
+                          to: date2 ? getValidDate(date2) : undefined,
+                        }
+                      : undefined
+                  }
                   onSelect={(daterange: DateRange | undefined) => {
                     if (!daterange) return;
                     const from = daterange.from;

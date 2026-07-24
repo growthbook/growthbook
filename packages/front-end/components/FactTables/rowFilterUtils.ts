@@ -1,8 +1,76 @@
+import { isValidRowFilterDateValue } from "shared/experiments";
 import { FactTableInterface, RowFilter } from "shared/types/fact-table";
 
 export const NUMBER_PATTERN = "^-?(\\d+|\\d*\\.\\d+)$";
 
 export const numberRegex = new RegExp(NUMBER_PATTERN);
+
+/**
+ * Date operators that compare against a whole calendar day rather than a
+ * precise instant. Equality on a date means "on this day", and range bounds are
+ * day-level, so these use a date-only picker (no time-of-day). The ordering
+ * operators (`< <= > >=`) are cutoffs where a specific time can matter, so they
+ * keep the datetime picker.
+ */
+export function isDateOnlyOperator(operator: string): boolean {
+  return (
+    operator === "=" || operator === "between" || operator === "not_between"
+  );
+}
+
+/**
+ * Reshape a stored date value between date-only (`yyyy-MM-dd`) and datetime
+ * (`yyyy-MM-dd'T'HH:mm`) form when the operator changes which one applies.
+ * Purely string-based (no `Date` parsing) so there is no timezone shift: to
+ * date-only we keep the `yyyy-MM-dd` prefix; to datetime we append midnight when
+ * the value has no time component.
+ */
+export function reshapeDateValueForOperator(
+  value: string,
+  dateOnly: boolean,
+): string {
+  if (!value) return value;
+  const datePart = value.slice(0, 10);
+  if (dateOnly) return datePart;
+  return value.length > 10 ? value : `${datePart}T00:00`;
+}
+
+/** Date operators that select a range (rendered with a date range picker). */
+export function isDateRangeOperator(operator: string): boolean {
+  return operator === "between" || operator === "not_between";
+}
+
+/**
+ * Drop date values the SQL layer (`getRowFilterSQL`) would reject, using the
+ * same strict validator rather than the browser's permissive `new Date()`.
+ * Run when a filter's column becomes a date column so the UI never shows an
+ * "active" filter whose value the query silently omits.
+ */
+export function cleanupDateColumnValues(values: string[]): string[] {
+  return values.filter((v) => isValidRowFilterDateValue(v));
+}
+
+/**
+ * Keep the stored date values in the format the new operator expects when it
+ * changes which picker applies (e.g. `>` → `=` drops the time; `=` → `>` gives
+ * the datetime picker a parseable value rather than shifting the day). No-op
+ * for non-date columns or switches that stay on the same side of the
+ * date-only/datetime boundary.
+ */
+export function reshapeDateValuesOnOperatorChange(
+  values: string[],
+  fromOperator: string,
+  toOperator: string,
+  isDateColumn: boolean,
+): string[] {
+  if (!isDateColumn) return values;
+  if (isDateOnlyOperator(toOperator) === isDateOnlyOperator(fromOperator)) {
+    return values;
+  }
+  return values.map((v) =>
+    reshapeDateValueForOperator(v, isDateOnlyOperator(toOperator)),
+  );
+}
 
 export function getAllowedOperators(datatype: string): RowFilter["operator"][] {
   if (datatype === "boolean") {
@@ -18,6 +86,19 @@ export function getAllowedOperators(datatype: string): RowFilter["operator"][] {
       ">=",
       "in",
       "not_in",
+      "is_null",
+      "not_null",
+    ];
+  }
+  if (datatype === "date") {
+    return [
+      "=",
+      "<",
+      "<=",
+      ">",
+      ">=",
+      "between",
+      "not_between",
       "is_null",
       "not_null",
     ];
@@ -46,6 +127,8 @@ export const operatorLabelMap: Record<RowFilter["operator"], string> = {
   "<=": "<=",
   ">": ">",
   ">=": ">=",
+  between: "between",
+  not_between: "not between",
   in: "in",
   not_in: "not in",
   is_true: "is true",

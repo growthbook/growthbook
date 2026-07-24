@@ -163,6 +163,7 @@ export function getColumnRefWhereClause({
   stringMatch,
   jsonExtract,
   evalBoolean,
+  castToTimestamp,
   showSourceComment = false,
   sliceInfo,
 }: {
@@ -172,6 +173,7 @@ export function getColumnRefWhereClause({
   stringMatch: StringMatchFn;
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string;
   evalBoolean: (col: string, value: boolean) => string;
+  castToTimestamp?: (column: string) => string;
   showSourceComment?: boolean;
   sliceInfo?: SliceMetricInfo;
 }): string[] {
@@ -236,6 +238,7 @@ export function getColumnRefWhereClause({
       escapeStringLiteral,
       stringMatch,
       evalBoolean,
+      castToTimestamp,
       showSourceComment,
     });
     if (filterSQL) {
@@ -246,6 +249,56 @@ export function getColumnRefWhereClause({
   return [...where];
 }
 
+/**
+ * Normalize a stored `date`-column row-filter value into a timestamp literal
+ * body the warehouse dialects can cast. The date picker stores a UTC ISO
+ * instant (e.g. `2024-01-01T17:00:00.000Z`); this reshapes it to
+ * `2024-01-01 17:00:00`. Date-only values (`2024-01-01`) and manually-typed
+ * `2024-01-01 09:00:00` values pass through unchanged. The value is already
+ * UTC — this only adjusts the text, it does not shift the instant.
+ */
+export function normalizeRowFilterDateValue(value: string): string {
+  return value
+    .trim()
+    .replace("T", " ")
+    .replace(/\.\d+/, "")
+    .replace(/Z$/, "")
+    .trim();
+}
+
+/**
+ * Whether a `date`-column row-filter value is safe to cast to a timestamp.
+ * Row filters can come from saved metrics or API callers (not just the date
+ * picker), so we validate before emitting `CAST(<value> AS TIMESTAMP)` — an
+ * unparseable literal like `foo` would fail the warehouse query. Accepts
+ * `YYYY-MM-DD` optionally followed by a time (space or `T` separator, optional
+ * seconds / fractional seconds / trailing `Z`) that is also a real calendar date.
+ */
+export function isValidRowFilterDateValue(value: string): boolean {
+  const trimmed = value.trim();
+  const match = trimmed.match(
+    /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?Z?)?$/,
+  );
+  if (!match) {
+    return false;
+  }
+  const [, year, month, day, hour = "0", minute = "0", second = "0"] = match;
+  // `new Date(...)` silently normalizes out-of-range components (e.g. Feb 30
+  // becomes Mar 1-2) instead of rejecting them, so confirm the parsed value
+  // round-trips to the same components before trusting it.
+  const date = new Date(
+    Date.UTC(+year, +month - 1, +day, +hour, +minute, +second),
+  );
+  return (
+    date.getUTCFullYear() === +year &&
+    date.getUTCMonth() === +month - 1 &&
+    date.getUTCDate() === +day &&
+    date.getUTCHours() === +hour &&
+    date.getUTCMinutes() === +minute &&
+    date.getUTCSeconds() === +second
+  );
+}
+
 export function getRowFilterSQL({
   rowFilter,
   factTable,
@@ -253,6 +306,7 @@ export function getRowFilterSQL({
   escapeStringLiteral,
   stringMatch,
   evalBoolean,
+  castToTimestamp,
   showSourceComment = false,
 }: {
   rowFilter: RowFilter;
@@ -261,6 +315,10 @@ export function getRowFilterSQL({
   escapeStringLiteral: (s: string) => string;
   stringMatch: StringMatchFn;
   evalBoolean: (col: string, value: boolean) => string;
+  // Casts an expression to the dialect's TIMESTAMP type. When provided, `date`
+  // columns compared with </<=/>/>=/=/!=/in/not_in cast both the column and the
+  // value literal so the comparison is temporal (UTC) rather than lexicographic.
+  castToTimestamp?: (column: string) => string;
   showSourceComment?: boolean;
 }): string | null {
   // Some operators do not require a column
@@ -328,20 +386,43 @@ export function getRowFilterSQL({
   if (!rowFilter.values?.length) {
     return null;
   }
-  const escapedValues = [
-    ...new Set(
-      rowFilter.values.map((v) => {
-        // Number, don't wrap in quotes
-        if (columnType === "number" && v.match(/^-?(\d+|\d*\.\d+)$/)) {
-          return v;
-        }
+  // Date columns compare as UTC timestamps (temporal) rather than as quoted
+  // strings (lexicographic), when the dialect provides a timestamp cast.
+  const castDates = columnType === "date" && !!castToTimestamp;
 
-        return "'" + escapeStringLiteral(v) + "'";
-      }),
-    ),
-  ];
+  // Unparseable values can't be cast to a timestamp (e.g. CAST('foo' AS
+  // TIMESTAMP) fails), so drop invalid values for date comparisons; if none
+  // remain, the filter is a no-op. This guards saved/API filters too, not just
+  // the date picker.
+  const filterValues = castDates
+    ? rowFilter.values.filter((v) => isValidRowFilterDateValue(v))
+    : rowFilter.values;
+  if (!filterValues.length) {
+    return null;
+  }
+
+  const escapeValue = (v: string): string => {
+    // Number, don't wrap in quotes
+    if (columnType === "number" && v.match(/^-?(\d+|\d*\.\d+)$/)) {
+      return v;
+    }
+
+    if (castDates && castToTimestamp) {
+      return castToTimestamp(
+        "'" + escapeStringLiteral(normalizeRowFilterDateValue(v)) + "'",
+      );
+    }
+
+    return "'" + escapeStringLiteral(v) + "'";
+  };
+
+  const escapedValues = [...new Set(filterValues.map(escapeValue))];
 
   const firstEscapedValue = escapedValues[0];
+
+  // For date comparisons, cast the column so both sides are timestamps
+  const comparisonColumn =
+    castDates && castToTimestamp ? castToTimestamp(columnExpr) : columnExpr;
 
   // Convert single-value in/not_in to =/!=
   if (escapedValues.length === 1) {
@@ -360,11 +441,40 @@ export function getRowFilterSQL({
     case "<=":
     case ">":
     case ">=":
-      return `(${columnExpr} ${operator} ${firstEscapedValue})`;
+      return `(${comparisonColumn} ${operator} ${firstEscapedValue})`;
+    case "between":
+    case "not_between": {
+      // A range has a lower and an upper bound, but a user can leave one side
+      // empty. Rather than silently dropping the whole filter (which would look
+      // active in the UI while matching nothing), degrade a single-bound range
+      // to the equivalent open-ended comparison. Read the bounds positionally
+      // from `rowFilter.values` — `filterValues` collapses empties and loses
+      // which side was set.
+      const boundUsable = (v: string | undefined): v is string =>
+        !!v?.trim() && (!castDates || isValidRowFilterDateValue(v));
+      const lower = rowFilter.values[0];
+      const upper = rowFilter.values[1];
+      const hasLower = boundUsable(lower);
+      const hasUpper = boundUsable(upper);
+      const negated = operator === "not_between";
+
+      if (hasLower && hasUpper) {
+        return `(${comparisonColumn} ${negated ? "NOT " : ""}BETWEEN ${escapeValue(lower)} AND ${escapeValue(upper)})`;
+      }
+      if (hasLower) {
+        // between [lower, ∞) → >=  ;  not_between → <
+        return `(${comparisonColumn} ${negated ? "<" : ">="} ${escapeValue(lower)})`;
+      }
+      if (hasUpper) {
+        // between (-∞, upper] → <=  ;  not_between → >
+        return `(${comparisonColumn} ${negated ? ">" : "<="} ${escapeValue(upper)})`;
+      }
+      return null;
+    }
     case "in":
-      return `(${columnExpr} IN (\n  ${escapedValues.join(",\n  ")}\n))`;
+      return `(${comparisonColumn} IN (\n  ${escapedValues.join(",\n  ")}\n))`;
     case "not_in":
-      return `(${columnExpr} NOT IN (\n  ${escapedValues.join(",\n  ")}\n))`;
+      return `(${comparisonColumn} NOT IN (\n  ${escapedValues.join(",\n  ")}\n))`;
     case "starts_with":
     case "ends_with":
     case "contains":

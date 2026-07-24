@@ -19,7 +19,10 @@ import {
   numberRegex,
   getColumnInfo,
   getAttributeFieldsExposedAsColumns,
+  cleanupDateColumnValues,
+  reshapeDateValuesOnOperatorChange,
 } from "@/components/FactTables/rowFilterUtils";
+import { DateColumnFilterInput } from "@/components/FactTables/DateColumnFilterInput";
 
 const NUMBER_PARTIAL_PATTERN = /^-?\.?$|^-?\d*\.?\d*$/;
 
@@ -39,7 +42,6 @@ export function factTableToColumnSource(
   const columns: SingleValue[] = [];
   const hiddenAttributeFields = getAttributeFieldsExposedAsColumns(factTable);
   factTable.columns.forEach((col) => {
-    if (col.datatype === "date") return;
     if (factTable.userIdTypes?.includes(col.column)) return;
     if (col.deleted) return;
 
@@ -70,9 +72,10 @@ export function columnTypesToColumnSource(
     "string" | "number" | "date" | "boolean" | "other"
   >,
 ): FilterColumnSource {
-  const columns = Object.entries(columnTypes)
-    .filter(([, datatype]) => datatype !== "date")
-    .map(([col]) => ({ label: col, value: col }));
+  const columns = Object.entries(columnTypes).map(([col]) => ({
+    label: col,
+    value: col,
+  }));
 
   return {
     columns,
@@ -162,6 +165,7 @@ export function ExplorerFilterRow({
   }
 
   let inputType: "text" | "number" = "text";
+  let isDateColumn = false;
   let displayOperator = filter.operator;
 
   if (operatorInputRequired) {
@@ -171,6 +175,10 @@ export function ExplorerFilterRow({
 
     if (datatype === "number") {
       inputType = "number";
+    }
+
+    if (datatype === "date") {
+      isDateColumn = true;
     }
 
     if (topValues) {
@@ -221,7 +229,7 @@ export function ExplorerFilterRow({
 
   const columnSelect = (
     <SelectField
-      size="legacy"
+      size="small"
       value={
         filter.operator === "sql_expr"
           ? "$$sql_expr"
@@ -249,6 +257,10 @@ export function ExplorerFilterRow({
             newValues = newValues.filter((v) => numberRegex.test(v));
           }
 
+          if (datatype === "date") {
+            newValues = cleanupDateColumnValues(newValues);
+          }
+
           onUpdate({
             operator: newOperator,
             column: v,
@@ -266,7 +278,7 @@ export function ExplorerFilterRow({
 
   const operatorSelect = operatorInputRequired && firstSelectCompleted && (
     <SelectField
-      size="legacy"
+      size="small"
       value={displayOperator}
       onChange={(v: RowFilter["operator"]) => {
         let newValues = filter.values || [];
@@ -276,6 +288,12 @@ export function ExplorerFilterRow({
         ) {
           newValues = newValues.filter((val) => val !== "");
         }
+        newValues = reshapeDateValuesOnOperatorChange(
+          newValues,
+          filter.operator,
+          v,
+          isDateColumn,
+        );
         onUpdate({ operator: v, values: newValues });
       }}
       options={operatorOptions}
@@ -287,9 +305,15 @@ export function ExplorerFilterRow({
 
   const valueInput = valueInputRequired && firstSelectCompleted && (
     <>
-      {multiValueInput && useValueOptions ? (
+      {isDateColumn ? (
+        <DateColumnFilterInput
+          operator={filter.operator}
+          values={filter.values}
+          onChange={(values) => onUpdate({ values })}
+        />
+      ) : multiValueInput && useValueOptions ? (
         <MultiSelectField
-          size="legacy"
+          size="small"
           value={filter.values || []}
           onChange={(v) => onUpdate({ values: v })}
           options={valueOptions}
@@ -302,7 +326,7 @@ export function ExplorerFilterRow({
         />
       ) : multiValueInput ? (
         <StringArrayField
-          size="legacy"
+          size="small"
           value={filter.values || []}
           onChange={(v) => onUpdate({ values: v })}
           delimiters={["Enter", "Tab"]}
@@ -312,7 +336,7 @@ export function ExplorerFilterRow({
         />
       ) : useValueOptions ? (
         <SelectField
-          size="legacy"
+          size="small"
           value={filter.values?.[0] || ""}
           onChange={(v) => onUpdate({ values: [v] })}
           options={valueOptions}
@@ -325,7 +349,7 @@ export function ExplorerFilterRow({
         />
       ) : (
         <Field
-          size="legacy"
+          size="md"
           value={filter.values?.[0] || ""}
           onChange={(e) => {
             const v = e.target.value;

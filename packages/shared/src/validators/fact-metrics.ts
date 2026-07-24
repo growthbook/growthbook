@@ -15,6 +15,8 @@ const apiRowFilterValidator = z.object({
     "<",
     ">=",
     "<=",
+    "between",
+    "not_between",
     "in",
     "not_in",
     "is_null",
@@ -31,7 +33,7 @@ const apiRowFilterValidator = z.object({
   values: z
     .array(z.string())
     .describe(
-      "Not required for is_null, not_null, is_true, is_false operators.",
+      "Not required for is_null, not_null, is_true, is_false operators. The between and not_between operators require exactly two values (a lower and upper bound).",
     )
     .optional(),
   column: z
