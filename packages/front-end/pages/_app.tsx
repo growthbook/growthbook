@@ -45,6 +45,7 @@ import { FeatureStaleStatesProvider } from "@/hooks/useFeatureStaleStates";
 import { CommandPaletteLauncher } from "@/components/CommandPalette/CommandPalette";
 import AgentLauncher from "@/components/Agent/AgentLauncher";
 import { AgentPanelProvider } from "@/components/Agent/AgentPanelContext";
+import { BackgroundRefreshErrorProvider } from "@/services/BackgroundRefreshError";
 import Callout from "@/ui/Callout";
 
 // Make useLayoutEffect isomorphic (for SSR)
@@ -202,48 +203,50 @@ function App({
                   ) : (
                     <PageHeadProvider>
                       <AuthProvider>
-                        <ProtectedPage
-                          organizationRequired={organizationRequired}
-                        >
-                          {organizationRequired ? (
-                            <GetStartedProvider>
-                              <DefinitionsProvider>
-                                <FeatureStaleStatesProvider>
-                                  <AgentPanelProvider>
-                                    {liteLayout ? <LayoutLite /> : <Layout />}
-                                    <CommandPaletteLauncher />
-                                    <AgentLauncher />
-                                    <main className={`main ${parts[0]}`}>
-                                      <OrgSuspendedBannerContainer />
-                                      <OrganizationMessagesContainer />
-                                      <DemoDataSourceGlobalBannerContainer />
-                                      <OrgPageContent>
-                                        <GuidedGetStartedBar />
-                                        <DefinitionsGuard>
-                                          <Component
-                                            {...{
-                                              ...pageProps,
-                                              envReady: ready,
-                                            }}
-                                          />
-                                        </DefinitionsGuard>
-                                      </OrgPageContent>
-                                    </main>
-                                  </AgentPanelProvider>
-                                </FeatureStaleStatesProvider>
-                              </DefinitionsProvider>
-                            </GetStartedProvider>
-                          ) : (
-                            <div>
-                              <TopNavLite />
-                              <main className="container">
-                                <Component
-                                  {...{ ...pageProps, envReady: ready }}
-                                />
-                              </main>
-                            </div>
-                          )}
-                        </ProtectedPage>
+                        <BackgroundRefreshErrorProvider>
+                          <ProtectedPage
+                            organizationRequired={organizationRequired}
+                          >
+                            {organizationRequired ? (
+                              <GetStartedProvider>
+                                <DefinitionsProvider>
+                                  <FeatureStaleStatesProvider>
+                                    <AgentPanelProvider>
+                                      {liteLayout ? <LayoutLite /> : <Layout />}
+                                      <CommandPaletteLauncher />
+                                      <AgentLauncher />
+                                      <main className={`main ${parts[0]}`}>
+                                        <OrgSuspendedBannerContainer />
+                                        <OrganizationMessagesContainer />
+                                        <DemoDataSourceGlobalBannerContainer />
+                                        <OrgPageContent>
+                                          <GuidedGetStartedBar />
+                                          <DefinitionsGuard>
+                                            <Component
+                                              {...{
+                                                ...pageProps,
+                                                envReady: ready,
+                                              }}
+                                            />
+                                          </DefinitionsGuard>
+                                        </OrgPageContent>
+                                      </main>
+                                    </AgentPanelProvider>
+                                  </FeatureStaleStatesProvider>
+                                </DefinitionsProvider>
+                              </GetStartedProvider>
+                            ) : (
+                              <div>
+                                <TopNavLite />
+                                <main className="container">
+                                  <Component
+                                    {...{ ...pageProps, envReady: ready }}
+                                  />
+                                </main>
+                              </div>
+                            )}
+                          </ProtectedPage>
+                        </BackgroundRefreshErrorProvider>
                       </AuthProvider>
                     </PageHeadProvider>
                   )}

@@ -36,6 +36,7 @@ import StepperStories from "@/ui/Stepper.stories";
 import SwitchStories from "@/ui/Switch.stories";
 import TableStories from "@/ui/Table.stories";
 import TabsStories from "@/ui/Tabs.stories";
+import ToastStories from "@/ui/Toast.stories";
 import ProgressBarStories from "@/ui/ProgressBar.stories";
 import VariationLabelStories from "@/ui/VariationLabel.stories";
 import VariationNumberStories from "@/ui/VariationNumber.stories";
@@ -120,6 +121,17 @@ export default function DesignSystemPage() {
     { name: "Switch", Stories: SwitchStories },
     { name: "Table", Stories: TableStories },
     { name: "Tabs", Stories: TabsStories },
+    {
+      name: "Toast",
+      description: (
+        <>
+          A small, fixed-position toast that floats in the bottom-right corner.
+          Used app-wide to surface background data-refresh failures without
+          wiping the page&rsquo;s stale content.
+        </>
+      ),
+      Stories: ToastStories,
+    },
     { name: "Modal", Stories: ModalStories },
   ] satisfies StoryEntry[];
 
