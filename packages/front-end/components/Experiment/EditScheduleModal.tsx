@@ -71,7 +71,7 @@ export default function EditScheduleModal({
   // toggle enabled — matches the back-end apply-time gate.
   const hasDecisionFrameworkFeature =
     hasCommercialFeature("decision-framework");
-  const autoShipAvailable =
+  const decisionFrameworkAvailable =
     hasDecisionFrameworkFeature &&
     (decisionFrameworkEnabled ?? DEFAULT_DECISION_FRAMEWORK_ENABLED);
   const autoShipDisabledReason = !hasDecisionFrameworkFeature
@@ -202,13 +202,15 @@ export default function EditScheduleModal({
           </Text>
           <SelectField
             label=""
-            value={autoShipAvailable ? form.watch("tiebreakerMetricId") : ""}
+            value={
+              decisionFrameworkAvailable ? form.watch("tiebreakerMetricId") : ""
+            }
             options={metricOptions}
             initialOption="None"
-            disabled={!autoShipAvailable}
+            disabled={!decisionFrameworkAvailable}
             onChange={(v) => form.setValue("tiebreakerMetricId", v)}
           />
-          {!autoShipAvailable && (
+          {!decisionFrameworkAvailable && (
             <Text as="div" color="text-mid" size="small" mt="1">
               Enable the Decision Framework in your organization settings to
               record a verdict.
@@ -261,7 +263,10 @@ export default function EditScheduleModal({
           <Helpertext status="info" size="sm">
             The experiment keeps running past the end date — you&apos;ll be
             notified
-            {autoShipAvailable ? ", with a recommendation to review" : ""}.
+            {decisionFrameworkAvailable
+              ? ", with a recommendation to review"
+              : ""}
+            .
           </Helpertext>
         );
       case "auto-ship":
@@ -373,7 +378,7 @@ export default function EditScheduleModal({
                 // only when the framework is available (the field is disabled and
                 // shows "None" otherwise — don't silently re-persist a stale id).
                 tiebreakerMetricId:
-                  autoShipAvailable &&
+                  decisionFrameworkAvailable &&
                   data.mode !== "notify" &&
                   data.tiebreakerMetricId
                     ? data.tiebreakerMetricId
@@ -406,9 +411,9 @@ export default function EditScheduleModal({
       >
         <Flex direction="column" gap="4">
           <Flex direction="column" gap="1">
-            <Flex align="center" gap="3" py="1" style={{ minHeight: 42 }}>
+            <Flex align="baseline" gap="3" py="1" style={{ minHeight: 42 }}>
               <Box style={{ width: LABEL_COL_WIDTH }}>
-                <Text as="label" weight="medium" mb="0">
+                <Text as="label" color="text-high" weight="medium" mb="0">
                   Start
                 </Text>
               </Box>
@@ -449,9 +454,9 @@ export default function EditScheduleModal({
 
             <Separator size="4" my="3" />
 
-            <Flex align="center" gap="3" py="1" style={{ minHeight: 42 }}>
+            <Flex align="baseline" gap="3" py="1" style={{ minHeight: 42 }}>
               <Box style={{ width: LABEL_COL_WIDTH }}>
-                <Text as="label" weight="medium" mb="0">
+                <Text as="label" color="text-high" weight="medium" mb="0">
                   End
                 </Text>
               </Box>
@@ -583,13 +588,13 @@ export default function EditScheduleModal({
                   isOptionDisabled={(o) =>
                     "value" in o &&
                     o.value === "auto-ship" &&
-                    !autoShipAvailable
+                    !decisionFrameworkAvailable
                   }
                   containerStyles={{
                     option: (base) => ({ ...base, opacity: 1 }),
                   }}
                   formatOptionLabel={(o) => {
-                    if (o.value !== "auto-ship" || autoShipAvailable) {
+                    if (o.value !== "auto-ship" || decisionFrameworkAvailable) {
                       return <>{o.label}</>;
                     }
                     return (
@@ -676,13 +681,13 @@ export default function EditScheduleModal({
               {mode === "force-ship" && (
                 <Flex direction="column" gap="3">
                   {renderVariationPicker("Variation to ship")}
-                  {hasDecisionFrameworkFeature && renderVerdictSection()}
+                  {decisionFrameworkAvailable && renderVerdictSection()}
                 </Flex>
               )}
 
               {mode === "stop" && (
                 <Flex direction="column" gap="3">
-                  {hasDecisionFrameworkFeature && renderVerdictSection()}
+                  {decisionFrameworkAvailable && renderVerdictSection()}
                 </Flex>
               )}
             </>
