@@ -318,9 +318,6 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       datasource,
     );
 
-    // Same scheduled-stop-plan validation as PUT /schedule so create can't
-    // persist an invalid config. Note variation ids are generated here, so a
-    // force-ship fallbackVariationId can't match yet — that's rejected by design.
     if (newExperiment.scheduledStopPlan) {
       const hasScheduledEnd = !!(
         newExperiment.statusUpdateSchedule?.stopAt ||
