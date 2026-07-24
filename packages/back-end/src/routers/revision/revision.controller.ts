@@ -34,10 +34,9 @@ import {
   RevisionActionKind,
 } from "back-end/src/revisions/revisionActions";
 
-// Model-agnostic dispatch for the generic revision controller: route to the
-// entity's adapter hook (falling back to canUpdate). Used here because this
-// controller only has a type string + snapshot; model-specific callers use
-// context.permissions.canRevisionAction directly instead.
+// Model-agnostic dispatch: this controller only has a type string + snapshot, so
+// it routes through the adapter hook. Model-specific callers use
+// context.permissions.canRevisionAction directly.
 function canDoRevisionAction(
   type: RevisionTargetType,
   action: RevisionActionKind,

@@ -2589,8 +2589,8 @@ export async function postFeatureRevertDraft(
   // with revert authority even if they have no general draft access.
   if (
     !context.permissions.canManageFeatureDrafts(feature) &&
-    // No env list: creating a draft publishes nothing, so this only asks
-    // whether they hold revert authority in the feature's project.
+    // No env list: a draft publishes nothing, so this only asks for revert
+    // authority in the feature's project.
     !context.permissions.canRevertFeature(feature, [])
   ) {
     context.permissions.throwPermissionError();

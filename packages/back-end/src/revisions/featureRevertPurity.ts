@@ -8,14 +8,9 @@ import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { isPlausibleFeatureRule } from "back-end/src/util/flattenRules";
 import { upgradeFeatureRule } from "back-end/src/util/migrations";
 
-// Fields a feature publish writes that are plain content: restoring them puts
-// back a value that was already live, so revert authority covers them.
-// (Together with the side-effect fields below this must account for every field
-// in MergeResultChanges, or the omitted one becomes a way to smuggle a change
-// through revert authority.)
-// Compared field-by-field below. `rules` and `environmentsEnabled` need shape
-// normalization first (createRevision rewrites both when storing a draft), so
-// they're handled separately rather than by the generic comparison.
+// Plain content: restoring these puts back a value that was already live.
+// `rules` and `environmentsEnabled` are handled separately — createRevision
+// rewrites both when storing a draft, so they need normalizing first.
 const CONTENT_FIELDS = [
   "defaultValue",
   "prerequisites",
@@ -23,15 +18,12 @@ const CONTENT_FIELDS = [
   "metadata",
 ] as const;
 
-// Fields a publish writes whose effect reaches beyond this feature, so they can
-// never be "restored" under revert authority — only left untouched. Enforced
-// explicitly in isPureFeatureRevert; named here for the exhaustiveness check.
+// Effects reaching beyond this feature: never restorable, only left untouched.
+// Enforced in isPureFeatureRevert; named here for the exhaustiveness check.
 type SideEffectField = "holdout";
 
-// Compile-time exhaustiveness: every field a publish can write must be
-// classified as content or side effect. Adding one to MergeResultChanges without
-// classifying it here fails the build rather than silently becoming a way to
-// smuggle a change through revert authority.
+// Every publishable field must be classified as content or side effect: adding
+// one to MergeResultChanges without deciding which fails the build.
 type UnclassifiedMergeField = Exclude<
   keyof MergeResultChanges,
   | (typeof CONTENT_FIELDS)[number]
@@ -46,25 +38,15 @@ void _allMergeFieldsClassified;
 
 /**
  * Whether a feature draft restores `target`'s content and changes nothing else.
+ * Only consulted on the revert fallback, never for callers who can publish.
  *
- * Only consulted when the caller is relying on revert authority rather than
- * publish authority. Each content field must either
- *   - equal the target revision's value (a restoration), or
- *   - equal the live feature's current value (a no-op for that field).
+ * Each content field must equal the target's value (a restoration) or live's (a
+ * no-op). The no-op branch covers sparse legacy targets, whose unrecorded
+ * envelopes `createRevision` fills from the live feature.
  *
- * The no-op branch is what makes sparse legacy targets work: `createRevision`
- * fills unset envelopes (prerequisites, environmentsEnabled, archived, metadata)
- * from the live feature, so a revert to a sparse revision legitimately carries
- * live values for the fields that revision never recorded. Anything else
- * — an edited value, or live drifting after the draft was created — reads as
- * impure and falls back to needing publish authority.
- *
- * Actions and side effects reaching beyond the feature document are held to a
- * stricter rule — they must be a no-op, even when the target revision recorded a
- * different value, because "restoring" them still fires the side effect:
- *   - `rampActions` executes ramp-schedule create/detach at publish time.
- *   - `holdout` changes holdout membership, not just a field on this feature.
- * A revert that would move either one needs full publish authority.
+ * `rampActions` and `holdout` must be no-ops even when the target recorded
+ * something different — "restoring" them still fires a side effect beyond this
+ * feature (ramp-schedule create/detach, holdout membership).
  */
 export function isPureFeatureRevert({
   feature,
@@ -139,12 +121,9 @@ function environmentsEnabledOnlyRestore({
 }
 
 /**
- * Gate a feature publish: normal publish authority for the environments the
- * merge touches, or revert authority for a draft that only restores a
- * previously-published revision.
- *
- * Purity is checked ONLY on the revert fallback, so callers who can already
- * publish are unaffected and pay no extra revision load.
+ * Publish authority for the environments the merge touches, or revert authority
+ * for a draft that only restores a previously-published revision. The purity
+ * check runs only on the fallback, so publishers pay no extra load.
  */
 export async function assertCanPublishFeatureRevision({
   context,

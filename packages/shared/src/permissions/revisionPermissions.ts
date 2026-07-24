@@ -2,10 +2,9 @@ import { Permission } from "shared/types/organization";
 
 /**
  * Single source of truth for the per-action permission atoms of revisioned
- * "flag-like" entities. To give a new entity finer-grained permissions: add its
- * atoms to the scope arrays in permissions.constants.ts, map its model to a
- * family in MODEL_FAMILY, and gate its checks with
- * `context.permissions.canRevisionAction(model, action, obj, envs?)`.
+ * "flag-like" entities. To add one: define its atoms in the scope arrays in
+ * permissions.constants.ts, map its model to a family in MODEL_FAMILY, and gate
+ * with `context.permissions.canRevisionAction(model, action, obj, envs?)`.
  */
 
 export type RevisionAction =

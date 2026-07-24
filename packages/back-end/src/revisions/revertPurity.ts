@@ -4,22 +4,12 @@ import type { Context } from "back-end/src/models/BaseModel";
 import { applyPatchToSnapshot } from "back-end/src/revisions/util";
 
 /**
- * Whether a revision restores a previously-published state and nothing else.
+ * Whether a revision restores a previously-published state and nothing else —
+ * the narrower write that revert authority covers. Only consulted on the revert
+ * fallback, never for callers who can already publish.
  *
- * Only consulted when the caller is relying on revert authority instead of
- * publish authority: a pure revert can only put back values that were already
- * live, so it is a strictly narrower write than publishing arbitrary new state.
- * Callers with publish authority never reach this check.
- *
- * The test is on CONTENT, not on a marker the edit paths have to remember to
- * clear — every value the revision proposes must equal the corresponding value
- * in the target revision's published state. That fails closed: any edit (now or
- * from an edit path added later) changes a proposed value, the comparison stops
- * matching, and the revision falls back to needing publish authority.
- *
- * Note this deliberately does NOT compare against the live entity. Live may have
- * drifted since the revert was drafted, and restoring a drifted field is exactly
- * what a revert is for.
+ * Compared against the target revision, not live: live may have drifted since
+ * the revert was drafted, and restoring a drifted field is the point.
  */
 export async function isPureRevertRevision(
   context: Context,
@@ -46,9 +36,8 @@ export async function isPureRevertRevision(
 
 /**
  * Every proposed change must set a field to the value it holds in `targetState`.
- * Default-deny: an empty change set, an op that isn't a plain value set, a
- * non-top-level path, or any value that differs all read as "not a pure
- * restoration".
+ * Default-deny: empty change sets, non-value ops, nested paths, and differing
+ * values are all "not a pure restoration".
  */
 export function proposedChangesOnlyRestore(
   proposedChanges: unknown,

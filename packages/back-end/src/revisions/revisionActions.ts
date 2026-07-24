@@ -34,12 +34,9 @@ import { logger } from "back-end/src/util/logger";
 export type RevisionActionKind = "draft" | "review" | "revert" | "publish";
 
 /**
- * Gate a publish: normal publish authority, or revert authority for a revision
- * that only restores a previously-published state.
- *
- * Purity is checked ONLY on the revert fallback — a caller who can already
- * publish arbitrary state gains nothing from it, so their path is unchanged (and
- * pays no extra revision load).
+ * Publish authority, or revert authority for a revision that only restores a
+ * previously-published state. Purity is checked only on the fallback, so
+ * publishers are unaffected and pay no extra revision load.
  */
 export async function assertCanPublishRevision(
   context: Context,
