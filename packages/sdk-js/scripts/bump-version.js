@@ -90,20 +90,11 @@ fs.writeFileSync(
   JSON.stringify(frontendPackageJson, null, 2) + "\n",
 );
 
-// Update override in top-level package.json
-console.log("Updating override in top-level package.json");
-const topLevelPackageJson = require("../../../package.json");
-if (!topLevelPackageJson.pnpm) {
-  topLevelPackageJson.pnpm = {};
-}
-if (!topLevelPackageJson.pnpm.overrides) {
-  topLevelPackageJson.pnpm.overrides = {};
-}
-topLevelPackageJson.pnpm.overrides["@growthbook/growthbook"] = newVersion;
-fs.writeFileSync(
-  path.resolve(__dirname, "../../../package.json"),
-  JSON.stringify(topLevelPackageJson, null, 2) + "\n",
-);
+// The pnpm overrides in the top-level package.json are intentionally NOT
+// updated here. They pin "@growthbook/growthbook" and
+// "@growthbook/growthbook-react" to "workspace:*" so the whole monorepo uses
+// the local SDK build. Writing a version number here would switch the app back
+// to the published npm package.
 
 // Add entry to beginning of packages/shared/src/sdk-versioning/sdk-versions/javascript.json
 console.log(
