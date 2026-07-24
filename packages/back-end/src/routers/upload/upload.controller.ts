@@ -27,6 +27,10 @@ import { getOrgScopedPath } from "back-end/src/routers/upload/upload.util";
 
 const SIGNED_IMAGE_EXPIRY_MINUTES = 15;
 
+function setNoStoreCacheHeader(res: Response) {
+  res.setHeader("Cache-Control", "no-store");
+}
+
 const mimetypes: Record<string, string> = {
   "image/png": "png",
   "image/jpeg": "jpeg",
@@ -121,6 +125,8 @@ export async function getSignedImageToken(
   req: AuthRequest<{ path: string }>,
   res: Response<SignedImageUrlResponse>,
 ) {
+  setNoStoreCacheHeader(res);
+
   const context = getContextFromReq(req);
   const org = context.org;
 
@@ -206,6 +212,8 @@ export async function getSignedPublicImageToken(
   req: Request<{ path: string }>,
   res: Response<SignedImageUrlResponse | { status: number; message: string }>,
 ) {
+  setNoStoreCacheHeader(res);
+
   // Get the shareUid and shareType from query parameters
   const shareUid = req.query.shareUid as string | undefined;
   const shareType = req.query.shareType as "experiment" | "report" | undefined;
