@@ -37,7 +37,7 @@ describe("parseExperimentSearchString", () => {
     expect(
       parseExperimentSearchString("has:feature,redirects,visualChange"),
     ).toEqual({
-      types: ["feature", "redirect", "visualChange"],
+      implementationTypes: ["feature", "redirect", "visualChange"],
     });
   });
 
@@ -99,16 +99,16 @@ describe("normalizeExperimentFilters", () => {
       results: undefined,
       statuses: ["running"],
       tags: ["a", "b"],
-      types: undefined,
+      implementationTypes: undefined,
       search: undefined,
     });
   });
 
   it("normalizes structured type tokens", () => {
     const result = normalizeExperimentFilters({
-      filters: { types: ["features", "redirects"] },
+      filters: { implementationTypes: ["features", "redirects"] },
     });
-    expect(result.types).toEqual(["feature", "redirect"]);
+    expect(result.implementationTypes).toEqual(["feature", "redirect"]);
   });
 });
 
@@ -204,7 +204,7 @@ describe("filterExperiments", () => {
     ).toHaveLength(1);
   });
 
-  it("filters by experiment type via has/types", () => {
+  it("filters by implementation type via has/implementationTypes", () => {
     const experiments = [
       makeExperiment({ id: "feat", linkedFeatures: ["feat_1"] }),
       makeExperiment({ id: "redir", hasURLRedirects: true }),
@@ -212,7 +212,7 @@ describe("filterExperiments", () => {
     ];
     const result = filterExperiments({
       experiments,
-      filters: { types: ["feature"] },
+      filters: { implementationTypes: ["feature"] },
       resolvers,
     });
     expect(result.map((e) => e.id)).toEqual(["feat"]);

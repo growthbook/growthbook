@@ -13051,6 +13051,36 @@ paths:
               - draft
               - running
               - stopped
+        - $ref: '#/components/parameters/q'
+        - $ref: '#/components/parameters/owner'
+        - $ref: '#/components/parameters/result'
+        - $ref: '#/components/parameters/tag'
+        - $ref: '#/components/parameters/implementationType'
+        - $ref: '#/components/parameters/metricId'
+        - $ref: '#/components/parameters/bandits'
+        - name: archived
+          in: query
+          description: >-
+            Filter by archived status. Set to `true` to return only archived
+            experiments, `false` to exclude them. If omitted, both archived and
+            non-archived experiments are returned.
+          schema:
+            description: >-
+              Filter by archived status. Set to `true` to return only archived
+              experiments, `false` to exclude them. If omitted, both archived
+              and non-archived experiments are returned.
+            anyOf:
+              - type: string
+                const: 'true'
+              - type: string
+                const: 'false'
+              - type: string
+                const: '0'
+              - type: string
+                const: '1'
+              - type: boolean
+        - $ref: '#/components/parameters/sortBy'
+        - $ref: '#/components/parameters/sortOrder'
       responses:
         '200':
           description: Successful response
@@ -16621,7 +16651,12 @@ paths:
           schema:
             description: Filter by comma-separated statuses (draft, running, stopped)
             type: string
-        - $ref: '#/components/parameters/result'
+        - name: result
+          in: query
+          description: Filter by comma-separated results (won, lost, inconclusive, dnf)
+          schema:
+            description: Filter by comma-separated results (won, lost, inconclusive, dnf)
+            type: string
         - $ref: '#/components/parameters/tag'
         - $ref: '#/components/parameters/type'
         - $ref: '#/components/parameters/bandits'
@@ -46488,6 +46523,121 @@ components:
           confusion, consider using `trackingKey` instead, which is functionally
           identical. You cannot use both params at the same time.
         type: string
+    q:
+      name: q
+      in: query
+      description: >-
+        Raw experiment search/filter string (same syntax as the app's experiment
+        list filters, e.g. `status:running tag:checkout`). Negation (`!`) and
+        operators (`~`, `^`, `>`, `<`, `=`) are not supported and return a 400
+      schema:
+        description: >-
+          Raw experiment search/filter string (same syntax as the app's
+          experiment list filters, e.g. `status:running tag:checkout`). Negation
+          (`!`) and operators (`~`, `^`, `>`, `<`, `=`) are not supported and
+          return a 400
+        type: string
+    owner:
+      name: owner
+      in: query
+      description: Filter by comma-separated owner ids, names, or emails
+      schema:
+        description: Filter by comma-separated owner ids, names, or emails
+        type: string
+    result:
+      name: result
+      in: query
+      description: >-
+        Filter by comma-separated results (won, lost, inconclusive, dnf).
+        Matches the experiment's recorded result — set when an experiment is
+        stopped and retained if it's later restarted, so running experiments can
+        match too
+      schema:
+        description: >-
+          Filter by comma-separated results (won, lost, inconclusive, dnf).
+          Matches the experiment's recorded result — set when an experiment is
+          stopped and retained if it's later restarted, so running experiments
+          can match too
+        type: array
+        items:
+          type: string
+          enum:
+            - dnf
+            - won
+            - lost
+            - inconclusive
+      explode: false
+    tag:
+      name: tag
+      in: query
+      description: Filter by comma-separated tags
+      schema:
+        description: Filter by comma-separated tags
+        type: string
+    implementationType:
+      name: implementationType
+      in: query
+      description: >-
+        Filter by comma-separated implementation types (feature, visualChange,
+        redirect) — the kinds of changes linked to the experiment. To filter
+        standard experiments vs bandits, use `bandits` instead
+      schema:
+        description: >-
+          Filter by comma-separated implementation types (feature, visualChange,
+          redirect) — the kinds of changes linked to the experiment. To filter
+          standard experiments vs bandits, use `bandits` instead
+        type: array
+        items:
+          type: string
+          enum:
+            - feature
+            - visualChange
+            - redirect
+      explode: false
+    metricId:
+      name: metricId
+      in: query
+      description: >-
+        Filter by comma-separated metric ids. Matches experiments that use a
+        metric as a goal, secondary, or guardrail metric
+      schema:
+        description: >-
+          Filter by comma-separated metric ids. Matches experiments that use a
+          metric as a goal, secondary, or guardrail metric
+        type: string
+    bandits:
+      name: bandits
+      in: query
+      description: When true, return only multi-armed bandits; when false, exclude them
+      schema:
+        description: When true, return only multi-armed bandits; when false, exclude them
+        type: string
+        enum:
+          - 'true'
+          - 'false'
+    sortBy:
+      name: sortBy
+      in: query
+      description: Field to sort the results by
+      schema:
+        default: dateCreated
+        description: Field to sort the results by
+        type: string
+        enum:
+          - dateCreated
+          - dateUpdated
+          - name
+    sortOrder:
+      name: sortOrder
+      in: query
+      description: Sort direction (used with `sortBy`)
+      schema:
+        default: asc
+        description: Sort direction (used with `sortBy`)
+        type: string
+        enum:
+          - asc
+          - desc
     phase:
       name: phase
       in: query
@@ -46523,41 +46673,6 @@ components:
       schema:
         description: The event id
         type: string
-    q:
-      name: q
-      in: query
-      description: >-
-        Raw experiment search/filter string (same syntax as the app's experiment
-        list filters, e.g. `status:running tag:checkout`). Negation (`!`) and
-        operators (`~`, `^`, `>`, `<`, `=`) are not supported and return a 400
-      schema:
-        description: >-
-          Raw experiment search/filter string (same syntax as the app's
-          experiment list filters, e.g. `status:running tag:checkout`). Negation
-          (`!`) and operators (`~`, `^`, `>`, `<`, `=`) are not supported and
-          return a 400
-        type: string
-    owner:
-      name: owner
-      in: query
-      description: Filter by comma-separated owner ids, names, or emails
-      schema:
-        description: Filter by comma-separated owner ids, names, or emails
-        type: string
-    result:
-      name: result
-      in: query
-      description: Filter by comma-separated results (won, lost, inconclusive, dnf)
-      schema:
-        description: Filter by comma-separated results (won, lost, inconclusive, dnf)
-        type: string
-    tag:
-      name: tag
-      in: query
-      description: Filter by comma-separated tags
-      schema:
-        description: Filter by comma-separated tags
-        type: string
     type:
       name: type
       in: query
@@ -46569,16 +46684,6 @@ components:
           Filter by comma-separated experiment types (feature, visualChange,
           redirect)
         type: string
-    bandits:
-      name: bandits
-      in: query
-      description: When true, return only multi-armed bandits; when false, exclude them
-      schema:
-        description: When true, return only multi-armed bandits; when false, exclude them
-        type: string
-        enum:
-          - 'true'
-          - 'false'
     startDate:
       name: startDate
       in: query

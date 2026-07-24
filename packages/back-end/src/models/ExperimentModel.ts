@@ -386,6 +386,9 @@ const experimentSchema = new mongoose.Schema({
 experimentSchema.index({ organization: 1, datasource: 1 });
 experimentSchema.index({ organization: 1, project: 1 });
 experimentSchema.index({ organization: 1, trackingKey: 1 });
+experimentSchema.index({ organization: 1, dateCreated: 1 });
+experimentSchema.index({ organization: 1, dateUpdated: 1 });
+experimentSchema.index({ organization: 1, name: 1 });
 experimentSchema.index(
   { "nextScheduledStatusUpdate.date": 1 },
   { sparse: true },
@@ -483,6 +486,7 @@ export async function getAllExperiments(
   {
     project,
     includeArchived = false,
+    archived,
     type,
     datasourceId,
     trackingKey,
@@ -492,6 +496,9 @@ export async function getAllExperiments(
   }: {
     project?: string;
     includeArchived?: boolean;
+    // Tri-state archived filter: true = archived only, false = exclude
+    // archived, undefined = fall back to `includeArchived`.
+    archived?: boolean;
     type?: ExperimentType;
     datasourceId?: string;
     trackingKey?: string;
@@ -519,7 +526,9 @@ export async function getAllExperiments(
     query.trackingKey = trackingKey;
   }
 
-  if (!includeArchived) {
+  if (archived !== undefined) {
+    query.archived = archived ? true : { $ne: true };
+  } else if (!includeArchived) {
     query.archived = { $ne: true };
   }
 
