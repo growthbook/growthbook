@@ -2900,9 +2900,18 @@ export async function toExperimentApiInterface(
 
 // Round to 20 decimal places to avoid returning subnormal floats (e.g. 2.7e-313)
 // that break many real-world JSON parsers.
-function safeFloat(n: number | undefined, fallback = 0): number {
-  if (n == null || !isFinite(n)) return fallback;
+export function safeFloatOrNull(n: number | undefined): number | null {
+  if (n === undefined || !Number.isFinite(n)) return null;
   return parseFloat(n.toFixed(20));
+}
+
+export function buildExperimentBulkResultId(
+  snapshotId: string,
+  dimensionId: string,
+): string {
+  return dimensionId
+    ? `${snapshotId}:dimension:${encodeURIComponent(dimensionId)}`
+    : `${snapshotId}:overall`;
 }
 
 // Resolve a snapshot/analysis dimension id into an API-friendly descriptor.
@@ -3003,21 +3012,6 @@ function getDifferenceTypeVariants(
   return [baseAnalysis, ...variants];
 }
 
-// Settings for difference-type variants of the base analysis that don't exist
-// on the snapshot yet (in any status), used to compute them on demand. Existing
-// error-status analyses are not recomputed to avoid re-running persistent
-// failures on every request.
-export function getMissingDifferenceTypeVariantSettings(
-  analyses: ExperimentSnapshotAnalysis[],
-  baseAnalysis: ExperimentSnapshotAnalysis,
-): ExperimentSnapshotAnalysisSettings[] {
-  return API_RESULT_DIFFERENCE_TYPES.filter(
-    (differenceType) => differenceType !== baseAnalysis.settings.differenceType,
-  )
-    .map((differenceType) => ({ ...baseAnalysis.settings, differenceType }))
-    .filter((settings) => !analyses.some((a) => isEqual(a.settings, settings)));
-}
-
 // Precomputed dimension ids that have at least one analysis on the snapshot.
 export function getPrecomputedDimensionIdsInAnalyses(
   snapshot: ExperimentSnapshotInterface,
@@ -3039,24 +3033,26 @@ export function getPrecomputedDimensionIdsInAnalyses(
 
 // Maps a single per-variation SnapshotMetric into an API analysis entry for a
 // given stats engine + difference type.
-function toApiResultAnalysis(
+export function toApiResultAnalysis(
   engine: StatsEngine,
   differenceType: DifferenceType,
   data: SnapshotMetric | undefined,
 ) {
+  const effect = safeFloatOrNull(data?.expected);
   return {
     engine,
     differenceType,
-    numerator: safeFloat(data?.value),
-    denominator: safeFloat(data?.denominator ?? data?.users),
-    mean: safeFloat(data?.stats?.mean),
-    stddev: safeFloat(data?.stats?.stddev),
-    percentChange: safeFloat(data?.expected),
-    ciLow: safeFloat(data?.ci?.[0]),
-    ciHigh: safeFloat(data?.ci?.[1]),
-    pValue: safeFloat(data?.pValue),
-    risk: safeFloat(data?.risk?.[1]),
-    chanceToBeatControl: safeFloat(data?.chanceToWin),
+    numerator: safeFloatOrNull(data?.value),
+    denominator: safeFloatOrNull(data?.denominator ?? data?.users),
+    mean: safeFloatOrNull(data?.stats?.mean),
+    stddev: safeFloatOrNull(data?.stats?.stddev),
+    effect,
+    ...(differenceType === "relative" ? { percentChange: effect } : null),
+    ciLow: safeFloatOrNull(data?.ci?.[0]),
+    ciHigh: safeFloatOrNull(data?.ci?.[1]),
+    pValue: safeFloatOrNull(data?.pValue),
+    risk: safeFloatOrNull(data?.risk?.[1]),
+    chanceToBeatControl: safeFloatOrNull(data?.chanceToWin),
   };
 }
 
@@ -3065,23 +3061,10 @@ export function toSnapshotApiInterface(
   snapshot: ExperimentSnapshotInterface,
   metricsById: Map<string, ExperimentMetricInterface>,
 ): ApiExperimentResults {
-  const dimension = !snapshot.dimension
-    ? {
-        type: "none",
-      }
-    : snapshot.dimension.match(/^exp:/)
-      ? {
-          type: "experiment",
-          id: snapshot.dimension.substring(4),
-        }
-      : snapshot.dimension.match(/^pre:/)
-        ? {
-            type: snapshot.dimension.substring(4),
-          }
-        : {
-            type: "user",
-            id: snapshot.dimension,
-          };
+  const dimension = parseApiResultDimension(
+    snapshot.dimension ?? "",
+    snapshot.settings.precomputedUnitDimensionIds ?? [],
+  );
 
   const phase = experiment.phases[snapshot.phase];
 
@@ -3112,9 +3095,14 @@ export function toSnapshotApiInterface(
 
   return {
     id: snapshot.id,
+    snapshotId: snapshot.id,
     dateUpdated: snapshot.dateCreated.toISOString(),
+    dateCreated: snapshot.dateCreated.toISOString(),
     experimentId: snapshot.experiment,
     phase: snapshot.phase + "",
+    type: snapshot.type ?? "standard",
+    ...(snapshot.triggeredBy ? { triggeredBy: snapshot.triggeredBy } : null),
+    ...(snapshot.report ? { reportId: snapshot.report } : null),
     dimension: dimension,
     dateStart: phase?.dateStarted?.toISOString() || "",
     dateEnd:
@@ -3190,7 +3178,7 @@ export function toSnapshotApiInterface(
 // dimensions that have analyses on the snapshot become additional items using
 // the same selection rule. Ad-hoc setting variants (different baseline,
 // engine, the internal covariate-as-response helper, etc.) are never included.
-export function toExperimentSnapshotResultsApiInterface(
+export function toExperimentSnapshotBulkResultsApiInterface(
   experiment: ExperimentInterface,
   snapshot: ExperimentSnapshotInterface,
   metricsById: Map<string, ExperimentMetricInterface>,
@@ -3298,7 +3286,7 @@ export function toExperimentSnapshotResultsApiInterface(
     );
 
     items.push({
-      id: snapshot.id,
+      id: buildExperimentBulkResultId(snapshot.id, dimensionId),
       snapshotId: snapshot.id,
       dateUpdated: snapshot.dateCreated.toISOString(),
       dateCreated: snapshot.dateCreated.toISOString(),

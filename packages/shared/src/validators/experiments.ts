@@ -865,20 +865,22 @@ export const apiExperimentResultsValidator = namedSchema(
   "ExperimentResults",
   z
     .object({
-      id: z.string(),
-      // Present when this item is part of an all-analyses response; items from
-      // the same snapshot run share this id.
-      snapshotId: z.string().optional(),
+      id: z
+        .string()
+        .describe(
+          "Unique result item id. Bulk result ids are derived from the snapshot and analysis dimension.",
+        ),
+      // Items expanded from the same snapshot run share this id.
+      snapshotId: z.string(),
       dateUpdated: z.string(),
-      // When the snapshot was generated (all-analyses response only).
-      dateCreated: z.string().optional(),
+      // When the snapshot was generated.
+      dateCreated: z.string(),
       experimentId: z.string(),
       phase: z.string(),
-      // Snapshot type; only populated by the all-analyses response.
-      type: z.enum(["standard", "exploratory", "report"]).optional(),
-      // What triggered the snapshot run (all-analyses response only).
+      type: z.enum(["standard", "exploratory", "report"]),
+      // What triggered the snapshot run, when recorded.
       triggeredBy: z.string().optional(),
-      // Report id when type === "report" (all-analyses response only).
+      // Report id when type === "report".
       reportId: z.string().optional(),
       dateStart: z.string(),
       dateEnd: z.string(),
@@ -886,7 +888,7 @@ export const apiExperimentResultsValidator = namedSchema(
         type: z.string(),
         id: z.string().optional(),
         // `precomputed` is orthogonal to `type`; `type` is never "precomputed".
-        precomputed: z.boolean().optional(),
+        precomputed: z.boolean(),
       }),
       settings: apiExperimentAnalysisSettingsValidator,
       queryIds: z.array(z.string()),
@@ -909,19 +911,37 @@ export const apiExperimentResultsValidator = namedSchema(
                   analyses: z.array(
                     z.object({
                       engine: z.enum(["bayesian", "frequentist"]),
-                      differenceType: z
-                        .enum(["relative", "absolute", "scaled"])
+                      differenceType: z.enum([
+                        "relative",
+                        "absolute",
+                        "scaled",
+                      ]),
+                      numerator: z.coerce.number().nullable(),
+                      denominator: z.coerce.number().nullable(),
+                      mean: z.coerce.number().nullable(),
+                      stddev: z.coerce.number().nullable(),
+                      effect: z.coerce
+                        .number()
+                        .nullable()
+                        .describe(
+                          "The estimated effect expressed according to differenceType.",
+                        ),
+                      percentChange: z.coerce
+                        .number()
+                        .nullable()
+                        .optional()
+                        .describe(
+                          "Deprecated. The relative effect, returned only when differenceType is relative. Use effect instead.",
+                        )
+                        .meta({ deprecated: true }),
+                      ciLow: z.coerce.number().nullable(),
+                      ciHigh: z.coerce.number().nullable(),
+                      pValue: z.coerce.number().nullable().optional(),
+                      risk: z.coerce.number().nullable().optional(),
+                      chanceToBeatControl: z.coerce
+                        .number()
+                        .nullable()
                         .optional(),
-                      numerator: z.coerce.number(),
-                      denominator: z.coerce.number(),
-                      mean: z.coerce.number(),
-                      stddev: z.coerce.number(),
-                      percentChange: z.coerce.number(),
-                      ciLow: z.coerce.number(),
-                      ciHigh: z.coerce.number(),
-                      pValue: z.coerce.number().optional(),
-                      risk: z.coerce.number().optional(),
-                      chanceToBeatControl: z.coerce.number().optional(),
                     }),
                   ),
                 }),
@@ -1948,11 +1968,12 @@ export const getExperimentBulkResultsValidator = {
     }),
     apiPaginationFieldsValidator,
   ),
-  summary: "Get all analyses for an experiment",
+  summary: "Get bulk results for an experiment",
   description: [
     "Returns every snapshot for an experiment generated within a date window, as a flat list of result items that reuse the `ExperimentResults` shape.",
     "",
-    "Each snapshot expands into one item per dimension. Items from the same snapshot share `snapshotId`, and each difference type (relative, absolute, scaled) computed for the run is folded into each variation's `analyses` array. Only the snapshot's default analysis and its difference-type variants are returned; ad-hoc analyses with other settings (e.g. a different baseline or stats engine) are excluded.",
+    "Each snapshot expands into one item per dimension. Items from the same snapshot share `snapshotId`, and each stored difference type (relative, absolute, scaled) is folded into each variation's `analyses` array. Missing difference-type variants are not computed by this endpoint. Only the snapshot's default analysis and its stored difference-type variants are returned; ad-hoc analyses with other settings (e.g. a different baseline or stats engine) are excluded.",
+    "Each item has a unique `id` derived from its `snapshotId` and raw analysis dimension id.",
     "",
     "Snapshot type and dimension breakdown are independent, explicit signals:",
     "- `type` is one of `standard`, `exploratory`, or `report`; report snapshots also include `reportId`.",
@@ -1963,7 +1984,7 @@ export const getExperimentBulkResultsValidator = {
     "- `count` is the number of snapshots included on this page; a single snapshot may contribute multiple `results` items.",
     "- `hasMore` and `nextOffset` advance over snapshots, not over returned result items.",
   ].join("\n"),
-  operationId: "getExperimentAllAnalyses",
+  operationId: "getExperimentBulkResults",
   tags: ["experiments"],
   method: "get" as const,
   path: "/experiments/:id/bulk-results",

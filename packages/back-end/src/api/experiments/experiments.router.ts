@@ -2,7 +2,7 @@ import { OpenApiRoute } from "back-end/src/util/handler";
 import { postVisualChangesets } from "back-end/src/api/visual-changesets/postVisualChangesets";
 import { listVisualChangesets } from "back-end/src/api/visual-changesets/listVisualChangesets";
 import { getExperimentResults } from "./getExperimentResults";
-import { getExperimentAllAnalyses } from "./getExperimentAllAnalyses";
+import { getExperimentBulkResults } from "./getExperimentBulkResults";
 import { listExperimentResults } from "./listExperimentResults";
 import { getExperiment } from "./getExperiment";
 import { listExperiments } from "./listExperiments";
@@ -28,7 +28,7 @@ export const experimentsRoutes: OpenApiRoute[] = [
   getExperiment,
   getExperimentStartChecklist,
   getExperimentResults,
-  getExperimentAllAnalyses,
+  getExperimentBulkResults,
   updateExperiment,
   postExperimentStart,
   postExperimentStartChecklistManualComplete,

@@ -1,6 +1,7 @@
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
+  SnapshotMetric,
 } from "shared/types/experiment-snapshot";
 import { ExperimentInterface } from "shared/types/experiment";
 import { analyzeExperimentResults } from "back-end/src/services/stats";
@@ -10,8 +11,13 @@ import {
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { getQueryMap } from "back-end/src/queryRunners/QueryRunner";
 import {
+  buildExperimentBulkResultId,
   createSnapshotAnalysesBatched,
   createSnapshotAnalysis,
+  safeFloatOrNull,
+  toApiResultAnalysis,
+  toExperimentSnapshotBulkResultsApiInterface,
+  toSnapshotApiInterface,
 } from "back-end/src/services/experiments";
 
 jest.mock("back-end/src/services/stats", () => ({
@@ -103,6 +109,10 @@ function makeExperiment(): ExperimentInterface {
   return {
     id: "exp_1",
     organization: "org_1",
+    trackingKey: "experiment-key",
+    goalMetrics: [],
+    secondaryMetrics: [],
+    guardrailMetrics: [],
     phases: [
       {
         name: "Main",
@@ -118,6 +128,98 @@ function makeExperiment(): ExperimentInterface {
     ],
   } as ExperimentInterface;
 }
+
+describe("safeFloatOrNull", () => {
+  it("preserves finite values, including zero", () => {
+    expect(safeFloatOrNull(0)).toBe(0);
+    expect(safeFloatOrNull(1.25)).toBe(1.25);
+  });
+
+  it("returns null for missing and non-finite values", () => {
+    expect(safeFloatOrNull(undefined)).toBeNull();
+    expect(safeFloatOrNull(Infinity)).toBeNull();
+    expect(safeFloatOrNull(-Infinity)).toBeNull();
+    expect(safeFloatOrNull(NaN)).toBeNull();
+  });
+});
+
+describe("buildExperimentBulkResultId", () => {
+  it("builds stable ids for overall and dimension result items", () => {
+    expect(buildExperimentBulkResultId("snp_1", "")).toBe("snp_1:overall");
+    expect(buildExperimentBulkResultId("snp_1", "precomputed:country")).toBe(
+      "snp_1:dimension:precomputed%3Acountry",
+    );
+  });
+});
+
+describe("toApiResultAnalysis", () => {
+  const data: SnapshotMetric = {
+    value: 10,
+    cr: 1,
+    users: 10,
+    expected: 0.25,
+  };
+
+  it("returns effect and deprecated percentChange for relative analyses", () => {
+    expect(toApiResultAnalysis("bayesian", "relative", data)).toEqual(
+      expect.objectContaining({
+        effect: 0.25,
+        percentChange: 0.25,
+      }),
+    );
+  });
+
+  it("returns effect without percentChange for non-relative analyses", () => {
+    const result = toApiResultAnalysis("bayesian", "absolute", data);
+
+    expect(result.effect).toBe(0.25);
+    expect(result).not.toHaveProperty("percentChange");
+  });
+});
+
+describe("toSnapshotApiInterface", () => {
+  it("returns the snapshot metadata required by ExperimentResults", () => {
+    const snapshot = makeSnapshot();
+
+    expect(
+      toSnapshotApiInterface(makeExperiment(), snapshot, new Map()),
+    ).toEqual(
+      expect.objectContaining({
+        snapshotId: snapshot.id,
+        dateCreated: snapshot.dateCreated.toISOString(),
+        type: "standard",
+        dimension: {
+          type: "none",
+          precomputed: false,
+        },
+      }),
+    );
+  });
+});
+
+describe("toExperimentSnapshotBulkResultsApiInterface", () => {
+  it("uses a unique dimension result id while preserving snapshotId", () => {
+    const snapshot = makeSnapshot();
+    snapshot.analyses = [
+      {
+        analysisKey: "analysis_1",
+        settings: makeAnalysisSettings(),
+        dateCreated: snapshot.dateCreated,
+        status: "success",
+        results: [],
+      },
+    ];
+
+    const [result] = toExperimentSnapshotBulkResultsApiInterface(
+      makeExperiment(),
+      snapshot,
+      new Map(),
+    );
+
+    expect(result.id).toBe("snp_1:dimension:precomputed%3Acountry");
+    expect(result.snapshotId).toBe(snapshot.id);
+  });
+});
 
 describe("createSnapshotAnalysesBatched", () => {
   beforeEach(() => {

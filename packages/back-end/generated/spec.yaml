@@ -12667,19 +12667,23 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/experiments/{id}/bulk-results:
     get:
-      operationId: getExperimentAllAnalyses
-      summary: Get all analyses for an experiment
+      operationId: getExperimentBulkResults
+      summary: Get bulk results for an experiment
       description: >-
         Returns every snapshot for an experiment generated within a date window,
         as a flat list of result items that reuse the `ExperimentResults` shape.
 
 
         Each snapshot expands into one item per dimension. Items from the same
-        snapshot share `snapshotId`, and each difference type (relative,
-        absolute, scaled) computed for the run is folded into each variation's
-        `analyses` array. Only the snapshot's default analysis and its
-        difference-type variants are returned; ad-hoc analyses with other
-        settings (e.g. a different baseline or stats engine) are excluded.
+        snapshot share `snapshotId`, and each stored difference type (relative,
+        absolute, scaled) is folded into each variation's `analyses` array.
+        Missing difference-type variants are not computed by this endpoint. Only
+        the snapshot's default analysis and its stored difference-type variants
+        are returned; ad-hoc analyses with other settings (e.g. a different
+        baseline or stats engine) are excluded.
+
+        Each item has a unique `id` derived from its `snapshotId` and raw
+        analysis dimension id.
 
 
         Snapshot type and dimension breakdown are independent, explicit signals:
@@ -42498,6 +42502,9 @@ components:
       type: object
       properties:
         id:
+          description: >-
+            Unique result item id. Bulk result ids are derived from the snapshot
+            and analysis dimension.
           type: string
         snapshotId:
           type: string
@@ -42534,6 +42541,7 @@ components:
               type: boolean
           required:
             - type
+            - precomputed
           additionalProperties: false
         settings:
           $ref: '#/components/schemas/ExperimentAnalysisSettings'
@@ -42595,32 +42603,65 @@ components:
                                     - absolute
                                     - scaled
                                 numerator:
-                                  type: number
+                                  anyOf:
+                                    - type: number
+                                    - type: 'null'
                                 denominator:
-                                  type: number
+                                  anyOf:
+                                    - type: number
+                                    - type: 'null'
                                 mean:
-                                  type: number
+                                  anyOf:
+                                    - type: number
+                                    - type: 'null'
                                 stddev:
-                                  type: number
+                                  anyOf:
+                                    - type: number
+                                    - type: 'null'
+                                effect:
+                                  description: >-
+                                    The estimated effect expressed according to
+                                    differenceType.
+                                  anyOf:
+                                    - type: number
+                                    - type: 'null'
                                 percentChange:
-                                  type: number
+                                  description: >-
+                                    Deprecated. The relative effect, returned
+                                    only when differenceType is relative. Use
+                                    effect instead.
+                                  deprecated: true
+                                  anyOf:
+                                    - type: number
+                                    - type: 'null'
                                 ciLow:
-                                  type: number
+                                  anyOf:
+                                    - type: number
+                                    - type: 'null'
                                 ciHigh:
-                                  type: number
+                                  anyOf:
+                                    - type: number
+                                    - type: 'null'
                                 pValue:
-                                  type: number
+                                  anyOf:
+                                    - type: number
+                                    - type: 'null'
                                 risk:
-                                  type: number
+                                  anyOf:
+                                    - type: number
+                                    - type: 'null'
                                 chanceToBeatControl:
-                                  type: number
+                                  anyOf:
+                                    - type: number
+                                    - type: 'null'
                               required:
                                 - engine
+                                - differenceType
                                 - numerator
                                 - denominator
                                 - mean
                                 - stddev
-                                - percentChange
+                                - effect
                                 - ciLow
                                 - ciHigh
                               additionalProperties: false
@@ -42640,9 +42681,12 @@ components:
             additionalProperties: false
       required:
         - id
+        - snapshotId
         - dateUpdated
+        - dateCreated
         - experimentId
         - phase
+        - type
         - dateStart
         - dateEnd
         - dimension
