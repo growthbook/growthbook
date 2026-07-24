@@ -23,13 +23,19 @@ type ExplorationConfig =
 
 type Dimension = z.infer<typeof dimensionValidator>;
 
-// A row filter references `columnName` when it targets the column directly or
-// via a raw `sql_expr`. `saved_filter` operators point at a fact-table filter
-// whose own SQL is scanned separately, so they are not resolved here.
+// A saved filter, by id and raw SQL, so `saved_filter` row filters can be
+// resolved to the SQL they reference.
+type SavedFilter = { id: string; value: string };
+
+// A row filter references `columnName` when it targets the column directly, via
+// a raw `sql_expr`, or via a `saved_filter` whose resolved SQL references it.
+// Resolving `saved_filter` here (against the fact table's own filters) keeps
+// this scan self-contained rather than relying on a separate filter scan.
 function rowFilterReferencesColumn(
   rowFilter: RowFilter,
   columnName: string,
   identifierQuote: SqlIdentifierQuote,
+  filters: SavedFilter[],
 ): boolean {
   if (rowFilter.column === columnName) return true;
   if (
@@ -39,6 +45,15 @@ function rowFilterReferencesColumn(
   ) {
     return true;
   }
+  if (rowFilter.operator === "saved_filter" && rowFilter.values?.[0]) {
+    const filter = filters.find((f) => f.id === rowFilter.values?.[0]);
+    if (
+      filter &&
+      sqlReferencesColumn(filter.value, columnName, identifierQuote)
+    ) {
+      return true;
+    }
+  }
   return false;
 }
 
@@ -46,6 +61,7 @@ function dimensionReferencesColumn(
   dimension: Dimension,
   columnName: string,
   identifierQuote: SqlIdentifierQuote,
+  filters: SavedFilter[],
 ): boolean {
   switch (dimension.dimensionType) {
     case "date":
@@ -55,7 +71,7 @@ function dimensionReferencesColumn(
     case "slice":
       return dimension.slices.some((slice) =>
         slice.filters.some((f) =>
-          rowFilterReferencesColumn(f, columnName, identifierQuote),
+          rowFilterReferencesColumn(f, columnName, identifierQuote, filters),
         ),
       );
     default:
@@ -67,14 +83,16 @@ function dimensionReferencesColumn(
  * Whether an exploration/dashboard-block config references `columnName` on the
  * fact table `factTableId`. Used to block deletion of a virtual column that a
  * saved exploration or dashboard block still depends on — those surfaces
- * persist `valueColumn`, dimension, and row-filter references that resolve
- * through the same query-time chokepoint as metrics.
+ * persist `valueColumn`, dimension, and row-filter references (including
+ * `saved_filter` references, resolved against `filters`) that resolve through
+ * the same query-time chokepoint as metrics.
  */
 export function explorationConfigReferencesColumn(
   config: ExplorationConfig,
   factTableId: string,
   columnName: string,
   identifierQuote: SqlIdentifierQuote,
+  filters: SavedFilter[],
 ): boolean {
   if (config.type === "fact_table") {
     if (config.dataset.factTableId !== factTableId) return false;
@@ -83,13 +101,13 @@ export function explorationConfigReferencesColumn(
       (value) =>
         value.valueColumn === columnName ||
         value.rowFilters.some((f) =>
-          rowFilterReferencesColumn(f, columnName, identifierQuote),
+          rowFilterReferencesColumn(f, columnName, identifierQuote, filters),
         ),
     );
     if (valueReferences) return true;
 
     return config.dimensions.some((d) =>
-      dimensionReferencesColumn(d, columnName, identifierQuote),
+      dimensionReferencesColumn(d, columnName, identifierQuote, filters),
     );
   }
 
@@ -98,7 +116,7 @@ export function explorationConfigReferencesColumn(
       (step) =>
         step.factTable === factTableId &&
         step.rowFilters.some((f) =>
-          rowFilterReferencesColumn(f, columnName, identifierQuote),
+          rowFilterReferencesColumn(f, columnName, identifierQuote, filters),
         ),
     );
     if (stepMatches) return true;
@@ -111,7 +129,7 @@ export function explorationConfigReferencesColumn(
     if (!usesFactTable) return false;
 
     return config.dimensions.some((d) =>
-      dimensionReferencesColumn(d, columnName, identifierQuote),
+      dimensionReferencesColumn(d, columnName, identifierQuote, filters),
     );
   }
 

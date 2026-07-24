@@ -644,16 +644,9 @@ export async function createColumn(
     );
   }
 
-  const column: ColumnInterface = {
-    ...data,
-    name: data.name ?? data.column,
-    description: data.description ?? "",
-    numberFormat: data.numberFormat ?? "",
-    datatype: data.datatype,
-    deleted: false,
-    dateCreated: new Date(),
-    dateUpdated: new Date(),
-  };
+  // Build/normalize the column the same way every other write path does
+  // (defaults, jsonFields normalization, datatype "" = auto-detect pending).
+  const column = buildColumnInterface(data);
 
   const columns = [...factTable.columns, column];
 
@@ -716,7 +709,7 @@ function columnRefReferencesColumn(
 // best-effort delete guard.
 async function getDependentExplorationsAndDashboards(
   context: ReqContext | ApiReqContext,
-  factTableId: string,
+  factTable: FactTableInterface,
   columnName: string,
   identifierQuote: SqlIdentifierQuote,
 ): Promise<{
@@ -732,9 +725,10 @@ async function getDependentExplorationsAndDashboards(
     .filter((e) =>
       explorationConfigReferencesColumn(
         e.config,
-        factTableId,
+        factTable.id,
         columnName,
         identifierQuote,
+        factTable.filters,
       ),
     )
     .map((e) => ({ id: e.id }));
@@ -746,9 +740,10 @@ async function getDependentExplorationsAndDashboards(
           "config" in block &&
           explorationConfigReferencesColumn(
             block.config,
-            factTableId,
+            factTable.id,
             columnName,
             identifierQuote,
+            factTable.filters,
           ),
       ),
     )
@@ -816,7 +811,7 @@ export async function deleteColumn(
     dashboards: dependentDashboards,
   } = await getDependentExplorationsAndDashboards(
     context,
-    factTable.id,
+    factTable,
     columnName,
     identifierQuote,
   );

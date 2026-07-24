@@ -6,8 +6,7 @@ import {
 } from "shared/types/fact-table";
 import { useForm } from "react-hook-form";
 import { useEffect, useRef, useState } from "react";
-import { PiPlay } from "react-icons/pi";
-import { FaAngleDown, FaAngleRight } from "react-icons/fa";
+import { PiPlay, PiCaretDown, PiCaretRight } from "react-icons/pi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
@@ -265,7 +264,7 @@ export default function VirtualColumnModal({
                   }}
                 >
                   {showExamples ? "Hide" : "Show"} examples{" "}
-                  {showExamples ? <FaAngleDown /> : <FaAngleRight />}
+                  {showExamples ? <PiCaretDown /> : <PiCaretRight />}
                 </a>
               </>
             }
