@@ -3,6 +3,11 @@ import type {
   UserScopedGrowthBook,
   GrowthBookClient,
 } from "../GrowthBookClient";
+import {
+  genUUID,
+  getOrCreateSessionReplayId,
+  touchSessionReplayId,
+} from "./session-replay-id";
 
 export type AutoAttributeSettings = {
   uuidCookieName?: string;
@@ -14,6 +19,14 @@ export type AutoAttributeSettings = {
   // host-only and a redirect to another subdomain mints a brand new id.
   uuidCookieDomain?: string;
 };
+
+const SESSION_REPLAY_TOUCH_THROTTLE_MS = 60 * 1000;
+const SESSION_REPLAY_ACTIVITY_EVENTS = [
+  "pointerdown",
+  "keydown",
+  "scroll",
+  "touchstart",
+] as const;
 
 function getBrowserDevice(ua: string): { browser: string; deviceType: string } {
   const browser = ua.match(/Edg/)
@@ -99,8 +112,11 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
     return {
       ...getDataLayerVariables(),
       [uuidKey]: _uuid,
+      session_replay_id: getOrCreateSessionReplayId(),
       ...getURLAttributes(url),
       pageTitle: document.title,
+      viewportWidth: window.innerWidth || 0,
+      viewportHeight: window.innerHeight || 0,
       ...getBrowserDevice(ua),
       ...getUtmAttributes(url),
     };
@@ -116,6 +132,21 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
     const attributes = getAutoAttributes(settings);
     attributes.url && gb.setURL(attributes.url);
     gb.updateAttributes(attributes);
+
+    let lastSessionReplayTouchAt = Date.now();
+    const sessionReplayActivityListener = () => {
+      const now = Date.now();
+      if (now - lastSessionReplayTouchAt < SESSION_REPLAY_TOUCH_THROTTLE_MS) {
+        return;
+      }
+      lastSessionReplayTouchAt = now;
+      touchSessionReplayId();
+    };
+    SESSION_REPLAY_ACTIVITY_EVENTS.forEach((eventName) => {
+      window.addEventListener(eventName, sessionReplayActivityListener, {
+        passive: true,
+      });
+    });
 
     // Poll for URL changes and update GrowthBook
     let currentUrl = attributes.url;
@@ -141,6 +172,9 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
       gb.onDestroy(() => {
         clearInterval(intervalTimer);
         document.removeEventListener("growthbookrefresh", refreshListener);
+        SESSION_REPLAY_ACTIVITY_EVENTS.forEach((eventName) => {
+          window.removeEventListener(eventName, sessionReplayActivityListener);
+        });
       });
     }
   };
@@ -166,21 +200,6 @@ function getCookie(name: string): string {
   const value = "; " + document.cookie;
   const parts = value.split(`; ${name}=`);
   return parts.length >= 2 ? parts[1].split(";")[0] : "";
-}
-
-// Use the browsers crypto.randomUUID if set to generate a UUID
-function genUUID(crypto?: Crypto) {
-  if (crypto && crypto.randomUUID) return crypto.randomUUID();
-  return ("" + 1e7 + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, (c) => {
-    const n =
-      crypto && crypto.getRandomValues
-        ? crypto.getRandomValues(new Uint8Array(1))[0]
-        : Math.floor(Math.random() * 256);
-    return (
-      (c as unknown as number) ^
-      (n & (15 >> ((c as unknown as number) / 4)))
-    ).toString(16);
-  });
 }
 
 function getUtmAttributes(url: URL | Location | undefined) {

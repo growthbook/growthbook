@@ -1,5 +1,6 @@
 import { GrowthBook, GrowthBookClient } from "../../src";
 import { autoAttributesPlugin } from "../../src/plugins/auto-attributes";
+import { SESSION_REPLAY_IDLE_TIMEOUT_MS } from "../../src/plugins/session-replay-id";
 
 declare global {
   interface Window {
@@ -52,6 +53,9 @@ describe("autoAttributesPlugin", () => {
     pageTitle: "",
     path: "/",
     query: "",
+    viewportWidth: expect.any(Number),
+    viewportHeight: expect.any(Number),
+    session_replay_id: expect.any(String),
   };
 
   beforeEach(() => {
@@ -62,6 +66,9 @@ describe("autoAttributesPlugin", () => {
     });
 
     deleteAllCookies();
+    if (typeof sessionStorage.clear === "function") {
+      sessionStorage.clear();
+    }
   });
 
   it("should set initial attributes", async () => {
@@ -83,6 +90,7 @@ describe("autoAttributesPlugin", () => {
 
     expect(gb.getAttributes()).toEqual({
       id: expect.any(String),
+      session_replay_id: expect.any(String),
       browser: "chrome",
       deviceType: "desktop",
       url: "http://localhost/test?hello=world",
@@ -90,7 +98,70 @@ describe("autoAttributesPlugin", () => {
       pageTitle: "Test Title",
       path: "/test",
       query: "?hello=world",
+      viewportWidth: expect.any(Number),
+      viewportHeight: expect.any(Number),
     });
+
+    gb.destroy();
+  });
+
+  it("stores session_replay_id in sessionStorage", () => {
+    const plugin = autoAttributesPlugin();
+    const gb = new GrowthBook({
+      plugins: [plugin],
+    });
+
+    const stored = JSON.parse(sessionStorage.getItem("gb_session") || "{}") as {
+      session_replay_id?: string;
+    };
+    expect(stored.session_replay_id).toBe(gb.getAttributes().session_replay_id);
+
+    gb.destroy();
+  });
+
+  it("keeps the session replay ID alive during SPA activity", () => {
+    const dateNowSpy = jest.spyOn(Date, "now").mockReturnValue(1000);
+    const plugin = autoAttributesPlugin();
+    const gb = new GrowthBook({
+      plugins: [plugin],
+    });
+    const sessionReplayId = gb.getAttributes().session_replay_id;
+
+    dateNowSpy.mockReturnValue(1000 + SESSION_REPLAY_IDLE_TIMEOUT_MS - 1000);
+    window.dispatchEvent(new Event("pointerdown"));
+    dateNowSpy.mockReturnValue(1000 + SESSION_REPLAY_IDLE_TIMEOUT_MS + 1000);
+    document.dispatchEvent(new Event("growthbookrefresh"));
+
+    expect(gb.getAttributes().session_replay_id).toBe(sessionReplayId);
+
+    gb.destroy();
+    dateNowSpy.mockRestore();
+  });
+
+  it("preserves customer session_id while owning session_replay_id", () => {
+    sessionStorage.setItem(
+      "gb_session",
+      JSON.stringify({
+        session_replay_id: "internal-replay-id",
+        lastTouchedAt: Date.now(),
+      }),
+    );
+
+    const plugin = autoAttributesPlugin();
+    const gb = new GrowthBook({
+      attributes: {
+        session_id: "customer-session-id",
+        session_replay_id: "user-supplied-replay-id",
+      },
+      plugins: [plugin],
+    });
+
+    expect(gb.getAttributes()).toEqual(
+      expect.objectContaining({
+        session_id: "customer-session-id",
+        session_replay_id: "internal-replay-id",
+      }),
+    );
 
     gb.destroy();
   });
@@ -150,6 +221,7 @@ describe("autoAttributesPlugin", () => {
       "http://localhost/?utm_source=google&utm_medium=cpc&utm_unknown=foo",
     );
 
+    const originalSessionStorage = window.sessionStorage;
     // Mock sessionStorage
     const sessionStorage = {
       getItem: jest.fn(),
@@ -159,7 +231,6 @@ describe("autoAttributesPlugin", () => {
       value: sessionStorage,
       writable: true,
     });
-    const originalSessionStorage = window.sessionStorage;
     window.sessionStorage =
       sessionStorage as unknown as typeof window.sessionStorage;
 
@@ -189,9 +260,14 @@ describe("autoAttributesPlugin", () => {
       JSON.stringify({ utmSource: "google", utmMedium: "cpc" }),
     );
 
-    sessionStorage.getItem.mockReturnValueOnce(
-      JSON.stringify({ utmSource: "google", utmMedium: "cpc" }),
-    );
+    // getAutoAttributes() calls getOrCreateSessionId() before getUtmAttributes(), so
+    // the session storage read for "gb_session" happens first. Chain two Once values:
+    // call 1 (gb_session) → null (generate new session), call 2 (utm_params) → UTM data.
+    sessionStorage.getItem
+      .mockReturnValueOnce(null)
+      .mockReturnValueOnce(
+        JSON.stringify({ utmSource: "google", utmMedium: "cpc" }),
+      );
 
     // UTM should still be picked up on a new GrowthBook instance with a different URL
     setWindowURL("http://localhost/");
