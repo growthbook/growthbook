@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { FeatureInterface } from "shared/types/feature";
 import { Flex } from "@radix-ui/themes";
 import {
@@ -151,45 +151,37 @@ export default function RuleList(props: RuleListProps) {
     Map<string, { values?: string[]; condition?: string }>
   >(new Map());
 
+  // Ids we've already requested. Gating on a ref (not on `fetchedGroupDetails`)
+  // keeps this effect from depending on the state it writes — that self-
+  // reference is what let earlier versions loop. Setting state can no longer
+  // re-fire the effect, so a fetch fires at most once per id. A failed id is
+  // dropped from the set, so it retries the next time `referencedGroupIds`
+  // changes rather than being cached opaque or hammered in a loop.
+  const requestedGroupIds = useRef<Set<string>>(new Set());
+
   useEffect(() => {
     const toFetch = referencedGroupIds.filter(
-      (id) => !fetchedGroupDetails.has(id),
+      (id) => !requestedGroupIds.current.has(id),
     );
     if (!toFetch.length) return;
-    let cancelled = false;
-    Promise.all(
-      toFetch.map((id) =>
-        apiCall<{ savedGroup?: { values?: string[]; condition?: string } }>(
-          `/saved-groups/${id}`,
-        )
-          .then((res) => ({
-            id,
-            ok: true as const,
-            values: res.savedGroup?.values,
-            condition: res.savedGroup?.condition,
-          }))
-          .catch(() => ({ id, ok: false as const })),
-      ),
-    ).then((results) => {
-      if (cancelled) return;
-      // Only touch state when something succeeded. Skipping the update on an
-      // all-failure batch keeps `fetchedGroupDetails` referentially stable, so
-      // this effect doesn't re-run and hammer a failing endpoint. Failures stay
-      // uncached and retry when `referencedGroupIds` changes.
-      if (!results.some((r) => r.ok)) return;
-      setFetchedGroupDetails((prev) => {
-        const next = new Map(prev);
-        for (const r of results) {
-          if (r.ok)
-            next.set(r.id, { values: r.values, condition: r.condition });
-        }
-        return next;
-      });
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [referencedGroupIds, fetchedGroupDetails, apiCall]);
+    for (const id of toFetch) requestedGroupIds.current.add(id);
+    toFetch.forEach((id) =>
+      apiCall<{ savedGroup?: { values?: string[]; condition?: string } }>(
+        `/saved-groups/${id}`,
+      )
+        .then((res) => {
+          setFetchedGroupDetails((prev) =>
+            new Map(prev).set(id, {
+              values: res.savedGroup?.values,
+              condition: res.savedGroup?.condition,
+            }),
+          );
+        })
+        .catch(() => {
+          requestedGroupIds.current.delete(id);
+        }),
+    );
+  }, [referencedGroupIds, apiCall]);
 
   const savedGroupConflictMap = useMemo<
     Map<string, SavedGroupForConflicts>
