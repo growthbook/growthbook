@@ -4,6 +4,7 @@ import { Role } from "shared/types/organization";
 import RoleForm from "@/components/Teams/Roles/RoleForm";
 import RoleFormWrapper from "@/components/Teams/Roles/RoleFormWrapper";
 import { useUser } from "@/services/UserContext";
+import Heading from "@/ui/Heading";
 
 const CustomRolePage: FC = () => {
   const { roles } = useUser();
@@ -25,7 +26,9 @@ const CustomRolePage: FC = () => {
       breadcrumb={`${rid}`}
     >
       <>
-        <h1 className="pb-3">{rid}</h1>
+        <Heading as="h1" size="large" mb="3">
+          {rid}
+        </Heading>
         <RoleForm role={role} action={edit ? "editing" : "viewing"} />
       </>
     </RoleFormWrapper>

@@ -11,7 +11,7 @@ import { Permission, Role } from "shared/types/organization";
 import router from "next/router";
 import { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiCaretDownBold, PiCaretRightBold } from "react-icons/pi";
+import { PiMinusBold, PiPlusBold } from "react-icons/pi";
 import Field from "@/components/Forms/Field";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
@@ -152,14 +152,25 @@ export default function RoleForm({
     }
   });
 
+  // A policy and its individual atoms are two ways to grant the same thing, so
+  // only one is ever active: selecting the policy drops its atoms from
+  // permissions[] (they render locked instead), and clearing the policy leaves
+  // the atoms free to compose.
   const togglePolicy = (policy: Policy) => {
     const current = form.getValues("policies");
+    const selecting = !current.includes(policy);
     form.setValue(
       "policies",
-      current.includes(policy)
-        ? current.filter((p) => p !== policy)
-        : [...current, policy],
+      selecting ? [...current, policy] : current.filter((p) => p !== policy),
     );
+    if (selecting) {
+      const covered = new Set<Permission>(POLICY_PERMISSION_MAP[policy] || []);
+      const perms = form.getValues("permissions");
+      const remaining = perms.filter((p) => !covered.has(p));
+      if (remaining.length !== perms.length) {
+        form.setValue("permissions", remaining);
+      }
+    }
   };
 
   const togglePermission = (permission: Permission) => {
@@ -181,11 +192,20 @@ export default function RoleForm({
     });
   };
 
+  // Atoms already in effect via a selected policy — shown checked and locked in
+  // every drill-down that lists them, since they can't be removed individually.
+  const grantedByPolicy = new Set<Permission>();
+  currentValue.policies.forEach((policy) =>
+    (POLICY_PERMISSION_MAP[policy] || []).forEach((permission) =>
+      grantedByPolicy.add(permission),
+    ),
+  );
+
   return (
     <FormProvider {...form}>
       <Frame mt="2">
         <Field
-          size="legacy"
+          size="md"
           label="Name"
           required
           autoFocus
@@ -193,7 +213,6 @@ export default function RoleForm({
           maxLength={40}
           currentLength={currentValue.id.length}
           placeholder="Name your Custom Role"
-          labelClassName="font-weight-bold"
           {...form.register("id")}
           helpText={
             status === "creating" ? (
@@ -207,23 +226,21 @@ export default function RoleForm({
           }
         />
         <Field
-          size="legacy"
+          size="md"
           label="Description"
           disabled={status === "viewing"}
           currentLength={currentValue.description.length}
           placeholder="Briefly describe what this role will permit users to do"
           maxLength={100}
-          labelClassName="font-weight-bold"
           {...form.register("description")}
         />
         <Field
-          size="legacy"
+          size="md"
           label="Display Name"
           disabled={status === "viewing"}
           currentLength={currentValue.displayName?.length || 0}
           placeholder="Optional: User-friendly name to display in the UI (e.g., 'Project Admin')"
           maxLength={64}
-          labelClassName="font-weight-bold"
           {...form.register("displayName")}
           helpText="Optional. If not provided, the role ID will be used for display."
         />
@@ -252,8 +269,10 @@ export default function RoleForm({
                 <Flex direction="column" gap="3">
                   {policies.map((policy) => {
                     const policyData = POLICY_METADATA_MAP[policy];
-                    const currentPolicies = form.watch("policies");
-                    const currentPermissions = form.watch("permissions");
+                    const {
+                      policies: currentPolicies,
+                      permissions: currentPermissions,
+                    } = currentValue;
 
                     const checked = currentPolicies.includes(policy);
                     // Fine-grained atoms this policy bundles that can be granted
@@ -261,12 +280,23 @@ export default function RoleForm({
                     const granularAtoms = (
                       POLICY_PERMISSION_MAP[policy] || []
                     ).filter((p) => GRANULAR_PERMISSION_METADATA[p]);
+                    const composedCount = granularAtoms.filter((a) =>
+                      currentPermissions.includes(a),
+                    ).length;
+                    // Indeterminate while composing atoms: the policy itself
+                    // isn't granted (it also carries readData, which has no
+                    // atom row), so it must not read as fully checked.
+                    const policyValue: boolean | "indeterminate" = checked
+                      ? true
+                      : composedCount > 0
+                        ? "indeterminate"
+                        : false;
                     const expanded = expandedPolicies.has(policy);
                     return (
                       <Box key={policy}>
                         <Checkbox
                           id={`${policy}-checkbox`}
-                          value={checked}
+                          value={policyValue}
                           setValue={() => togglePolicy(policy)}
                           disabled={status === "viewing"}
                           weight="bold"
@@ -276,24 +306,22 @@ export default function RoleForm({
                         {policyData.warning ? (
                           // Informational, not a validation error — so it sits
                           // beside the checkbox rather than tinting it.
-                          <Box ml="6" mt="1">
+                          <Box ml="5" mt="1">
                             <HelperText status="warning" size="sm">
                               {policyData.warning}
                             </HelperText>
                           </Box>
                         ) : null}
                         {granularAtoms.length ? (
-                          <Box ml="6" mt="1">
+                          <Box ml="5" mt="1">
                             <Link onClick={() => toggleExpanded(policy)}>
                               <Flex align="center" gap="1">
-                                {expanded ? (
-                                  <PiCaretDownBold />
-                                ) : (
-                                  <PiCaretRightBold />
-                                )}
+                                {expanded ? <PiMinusBold /> : <PiPlusBold />}
                                 {expanded
                                   ? "Hide individual permissions"
-                                  : "Grant individual permissions instead"}
+                                  : checked
+                                    ? "View individual permissions"
+                                    : "Choose individual permissions"}
                               </Flex>
                             </Link>
                             {expanded ? (
@@ -302,13 +330,22 @@ export default function RoleForm({
                                   const meta =
                                     GRANULAR_PERMISSION_METADATA[atom];
                                   if (!meta) return null;
+                                  const locked = grantedByPolicy.has(atom);
                                   return (
                                     <Checkbox
                                       key={atom}
                                       id={`${policy}-${atom}-checkbox`}
-                                      value={currentPermissions.includes(atom)}
+                                      value={
+                                        locked ||
+                                        currentPermissions.includes(atom)
+                                      }
                                       setValue={() => togglePermission(atom)}
-                                      disabled={status === "viewing"}
+                                      disabled={status === "viewing" || locked}
+                                      disabledMessage={
+                                        locked
+                                          ? "Granted by a selected policy. Clear the policy to choose individual permissions."
+                                          : undefined
+                                      }
                                       label={meta.displayName}
                                       description={meta.description}
                                     />
@@ -347,7 +384,6 @@ export default function RoleForm({
             <Box flexGrow="1">
               {saveMsg && (
                 <TempMessage
-                  className="mb-0 py-2"
                   close={() => {
                     setSaveMsg(false);
                   }}
