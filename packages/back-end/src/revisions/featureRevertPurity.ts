@@ -5,9 +5,11 @@ import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 
-// Every field a feature publish can write to the live feature
-// (mirrors MergeResultChanges) — each one must be accounted for below, or it
-// becomes a way to smuggle a change through revert authority.
+// Fields a feature publish writes that are plain content: restoring them puts
+// back a value that was already live, so revert authority covers them.
+// (Together with the side-effect fields below this must account for every field
+// in MergeResultChanges, or the omitted one becomes a way to smuggle a change
+// through revert authority.)
 const CONTENT_FIELDS = [
   "defaultValue",
   "rules",
@@ -15,7 +17,6 @@ const CONTENT_FIELDS = [
   "prerequisites",
   "archived",
   "metadata",
-  "holdout",
 ] as const;
 
 /**
@@ -27,15 +28,18 @@ const CONTENT_FIELDS = [
  *   - equal the live feature's current value (a no-op for that field).
  *
  * The no-op branch is what makes sparse legacy targets work: `createRevision`
- * fills unset envelopes (prerequisites, environmentsEnabled, archived, metadata,
- * holdout) from the live feature, so a revert to a sparse revision legitimately
- * carries live values for the fields that revision never recorded. Anything else
+ * fills unset envelopes (prerequisites, environmentsEnabled, archived, metadata)
+ * from the live feature, so a revert to a sparse revision legitimately carries
+ * live values for the fields that revision never recorded. Anything else
  * — an edited value, or live drifting after the draft was created — reads as
  * impure and falls back to needing publish authority.
  *
- * `rampActions` must be absent: those execute ramp-schedule create/detach at
- * publish time, so they are side effects rather than a restoration and can never
- * ride along on revert authority.
+ * Actions and side effects reaching beyond the feature document are held to a
+ * stricter rule — they must be a no-op, even when the target revision recorded a
+ * different value, because "restoring" them still fires the side effect:
+ *   - `rampActions` executes ramp-schedule create/detach at publish time.
+ *   - `holdout` changes holdout membership, not just a field on this feature.
+ * A revert that would move either one needs full publish authority.
  */
 export function isPureFeatureRevert({
   feature,
@@ -48,7 +52,10 @@ export function isPureFeatureRevert({
 }): boolean {
   if (draft.revertedFromVersion === undefined) return false;
   if (draft.revertedFromVersion !== target.version) return false;
+
+  // Side effects must be no-ops — see the note above.
   if (draft.rampActions?.length) return false;
+  if (!isEqual(draft.holdout ?? null, feature.holdout ?? null)) return false;
 
   const liveEnvironmentsEnabled = Object.fromEntries(
     Object.entries(feature.environmentSettings ?? {}).map(([env, settings]) => [
@@ -138,8 +145,6 @@ function liveValueFor(
       return feature.prerequisites ?? [];
     case "archived":
       return feature.archived ?? false;
-    case "holdout":
-      return feature.holdout;
     case "metadata":
       // The metadata envelope mirrors the live feature's own fields.
       return {

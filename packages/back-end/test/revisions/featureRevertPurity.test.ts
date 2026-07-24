@@ -111,7 +111,7 @@ describe("isPureFeatureRevert", () => {
     ).toBe(false);
   });
 
-  it("rejects a holdout change (not a restoration)", () => {
+  it("rejects a holdout change (membership side effect)", () => {
     expect(
       isPureFeatureRevert({
         feature,
@@ -121,6 +121,39 @@ describe("isPureFeatureRevert", () => {
         target,
       }),
     ).toBe(false);
+  });
+
+  it("rejects even RESTORING the target's holdout — the side effect still fires", () => {
+    const withHoldout = {
+      ...feature,
+      holdout: { id: "h-live", value: "on" },
+    } as unknown as FeatureInterface;
+    const targetWithHoldout = {
+      ...target,
+      holdout: { id: "h-old", value: "off" },
+    } as unknown as FeatureRevisionInterface;
+
+    expect(
+      isPureFeatureRevert({
+        feature: withHoldout,
+        // A faithful revert would put back the target's holdout...
+        draft: draft({
+          holdout: { id: "h-old", value: "off" },
+        } as unknown as Partial<FeatureRevisionInterface>),
+        target: targetWithHoldout,
+      }),
+    ).toBe(false);
+
+    // ...while leaving it untouched stays publishable under revert authority.
+    expect(
+      isPureFeatureRevert({
+        feature: withHoldout,
+        draft: draft({
+          holdout: { id: "h-live", value: "on" },
+        } as unknown as Partial<FeatureRevisionInterface>),
+        target: targetWithHoldout,
+      }),
+    ).toBe(true);
   });
 
   it("rejects a draft with no revert provenance", () => {
