@@ -3484,7 +3484,6 @@ export function toExperimentSnapshotBulkResultsApiInterface(
           ? { pValueThreshold: baseAnalysis.settings.pValueThreshold }
           : null),
       },
-      queryIds,
       results: (baseAnalysis.results || []).map((s) => {
         return {
           dimensionValue: s.name,
