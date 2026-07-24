@@ -20,6 +20,7 @@ import { ExperimentInterface } from "shared/types/experiment";
 import { CreateProps } from "shared/types/base-model";
 import { getLatestPhaseVariations } from "shared/experiments";
 import {
+  addIdsToFlatRules,
   assertFeatureValuesValid,
   toApiRevision,
 } from "back-end/src/services/features";
@@ -228,6 +229,10 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
     }
 
     const rule = buildRuleFromInput(ruleInput, uuidv4());
+
+    // Seed a new rollout off its own rule id so stacked rollouts hash
+    // independently (same chokepoint the v2 add endpoint uses).
+    addIdsToFlatRules([rule], feature.id);
 
     // Enforce the feature's JSON schema on the new rule's values (no-op for
     // config-backed values). Opt out with ?skipSchemaValidation=true.

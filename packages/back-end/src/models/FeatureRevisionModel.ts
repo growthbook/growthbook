@@ -37,7 +37,10 @@ import {
   narrowRuleToApplicableEnvs,
   V1RulesByEnv,
 } from "back-end/src/util/flattenRules";
-import { upgradeFeatureRule } from "back-end/src/util/migrations";
+import {
+  pinLegacyRolloutSeeds,
+  upgradeFeatureRule,
+} from "back-end/src/util/migrations";
 import {
   applyEnvironmentInheritance,
   buildInheritedChildrenByAncestor,
@@ -305,6 +308,12 @@ export function buildFeatureRevisionInterface(
       applicableEnvs,
     });
   }
+
+  // Pin legacy seedless rollout rules to the feature id — see migrations.ts.
+  revision.rules = pinLegacyRolloutSeeds(
+    revision.rules as FeatureRule[],
+    revision.featureId,
+  );
 
   // JIT migration: normalize legacy ramp action shapes on read:
   //   - endCondition → cutoffDate
