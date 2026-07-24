@@ -48,7 +48,8 @@ async function setArchivedState(
     throw new NotFoundError(`Unable to locate the constant: ${key}`);
   }
 
-  if (!context.permissions.canUpdateConstant(constant, constant)) {
+  // Archive is delete-class — see the note in the feature archive controller.
+  if (!context.permissions.canDeleteConstant(constant)) {
     context.permissions.throwPermissionError();
   }
 

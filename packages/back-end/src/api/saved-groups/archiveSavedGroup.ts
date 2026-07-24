@@ -50,7 +50,8 @@ async function setArchivedState(
     throw new Error(`Unable to locate the saved-group: ${id}`);
   }
 
-  if (!context.permissions.canUpdateSavedGroup(savedGroup, savedGroup)) {
+  // Archive is delete-class — see the note in the feature archive controller.
+  if (!context.permissions.canDeleteSavedGroup(savedGroup)) {
     context.permissions.throwPermissionError();
   }
 

@@ -52,7 +52,8 @@ async function setArchivedState(
     throw new NotFoundError(`Unable to locate the config: ${key}`);
   }
 
-  if (!context.permissions.canUpdateConfig(config, config)) {
+  // Archive is delete-class — see the note in the feature archive controller.
+  if (!context.permissions.canDeleteConfig(config)) {
     context.permissions.throwPermissionError();
   }
 

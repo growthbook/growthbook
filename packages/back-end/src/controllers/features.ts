@@ -5355,7 +5355,10 @@ export async function postFeatureArchive(
     throw new Error("Could not find feature");
   }
 
-  if (!context.permissions.canManageFeatureDrafts(feature)) {
+  // Archive is delete-class, not draft-class: an archived flag stops being
+  // served, and being archived is what lets it then be deleted freely (see
+  // deleteFeature). Gating it lower would make archive a route to delete.
+  if (!context.permissions.canDeleteFeature(feature)) {
     context.permissions.throwPermissionError();
   }
 
