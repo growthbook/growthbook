@@ -45,15 +45,29 @@ Environments and projects are both ways to organize feature flags, but they serv
 
 In practice, you use both together: a feature flag in the "Mobile App" project might be enabled in the dev environment for testing but disabled in production until launch.
 
-|                 | Environments                                 | Projects                                                          |
-| --------------- | -------------------------------------------- | ----------------------------------------------------------------- |
-| **Purpose**     | Control _where_ a flag is active             | Organize _who_ works on what                                      |
-| **Scope**       | One flag, different settings per environment | Flags, metrics, data sources, and experiments per team            |
-| **SDK impact**  | Each SDK connection maps to one environment  | SDK connections can be scoped to a project to reduce payload size |
-| **Permissions** | N/A                                          | Users can have different permission levels per project            |
-| **Example**     | `dev`, `staging`, `production`               | "Mobile App", "Growth", "API"                                     |
+|                 | Environments                                 | Projects                                                                                                                                                                       |
+| --------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Purpose**     | Control _where_ a flag is active             | Organize _who_ works on what                                                                                                                                                   |
+| **Scope**       | One flag, different settings per environment | Flags, metrics, data sources, and experiments per team                                                                                                                         |
+| **SDK impact**  | Each SDK connection maps to one environment  | SDK connections can be scoped to a project to reduce payload size.<br /><br />**Note:** features and rules can also target projects to scope _delivery_ (advanced — see below) |
+| **Permissions** | N/A                                          | Users can have different permission levels per project                                                                                                                         |
+| **Example**     | `dev`, `staging`, `production`               | "Mobile App", "Growth", "API"                                                                                                                                                  |
 
 Learn more about [how to use projects](/using/growthbook-best-practices#projects).
+
+:::note Which axis should I use?
+For most teams, **environments** are the way to control _where_ a flag is active, and projects are mainly for organization and permissions. Projects can _also_ scope delivery — targeting a feature or rule to specific projects — but that's an advanced pattern for cross-project delivery, covered next. Reach for environments first.
+:::
+
+### Delivering a feature to multiple projects
+
+A feature's **project** is its primary owner. To deliver the same feature into other projects without duplicating it, open the feature and use **Targeting Projects** to add projects (or target all projects). The feature is then included in the SDK payload for any connection scoped to its primary project _or_ one of its Targeting Projects, and appears when you filter the features list by those projects.
+
+**Ownership and permissions stay with the primary project.** Who can edit and publish the feature is always keyed on its primary project alone. Adding or removing a Targeting Project is just a normal edit of the feature — it neither requires nor grants any permission in that project, so a user who can't edit or publish in a project can still deliver a feature into it.
+
+**Approvals are the exception.** By default, if a Targeting Project has approval requirements of its own, the feature must satisfy them before publishing — so surfacing a feature into a governed project honors that project's review policy. An org-level setting, **Apply approval requirements from Targeting Projects** (in the Approval Flows section of your organization settings), turns this off so only the primary project's approval requirements apply. Either way, only the **primary project's** reviewers can approve; Targeting Projects can raise the review bar but never change who is allowed to review.
+
+Individual **rules** can be scoped further: beneath a rule's environment scope, **Project targeting** limits that rule to specific projects within the feature's delivery set — for example, running a rule only in the projects where it's relevant. A rule left unscoped applies to every project the feature reaches. A rule scoped to a project the feature doesn't deliver to won't take effect, and the rule editor flags it.
 
 ## Environment Inheritance
 

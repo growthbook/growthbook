@@ -1103,6 +1103,7 @@ const apiVariationInput = z.object({
     )
     .optional(),
 });
+export type ApiVariationInput = z.infer<typeof apiVariationInput>;
 
 // Phase for input payloads
 const apiPhaseInput = z.object({

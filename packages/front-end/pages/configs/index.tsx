@@ -321,7 +321,7 @@ export default function ConfigsPage(): React.ReactElement {
                       <TableColumnHeader style={{ width: "25%" }}>
                         Description
                       </TableColumnHeader>
-                      <TableColumnHeader>Projects</TableColumnHeader>
+                      <TableColumnHeader>Project</TableColumnHeader>
                       <TableColumnHeader style={{ textAlign: "center" }}>
                         Draft Status
                       </TableColumnHeader>

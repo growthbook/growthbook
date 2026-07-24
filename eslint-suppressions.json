@@ -1503,11 +1503,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Settings/DatabricksForm.tsx": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Settings/EditDataSource/DataSourceExperimentProperties/DataSourceEditExperimentEventPropertiesModal.tsx": {
     "no-restricted-imports": {
       "count": 1

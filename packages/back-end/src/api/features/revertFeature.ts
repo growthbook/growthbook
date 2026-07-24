@@ -156,6 +156,20 @@ export async function revertFeatureCore(
       metadataChanges.project = m.project;
       hasMetaChange = true;
     }
+    if (
+      m.targetingAllProjects !== undefined &&
+      m.targetingAllProjects !== (feature.targetingAllProjects ?? false)
+    ) {
+      metadataChanges.targetingAllProjects = m.targetingAllProjects;
+      hasMetaChange = true;
+    }
+    if (
+      m.targetingProjects !== undefined &&
+      !isEqual(m.targetingProjects, feature.targetingProjects ?? [])
+    ) {
+      metadataChanges.targetingProjects = m.targetingProjects;
+      hasMetaChange = true;
+    }
     if (m.tags !== undefined && !isEqual(m.tags, feature.tags)) {
       metadataChanges.tags = m.tags;
       hasMetaChange = true;

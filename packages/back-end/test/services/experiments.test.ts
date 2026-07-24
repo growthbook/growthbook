@@ -19,9 +19,35 @@ import {
   putMetricApiPayloadToMetricInterface,
   updateExperimentApiPayloadToInterface,
   validateStatusUpdateSchedule,
+  validateVariationIds,
 } from "back-end/src/services/experiments";
 
 describe("experiments utils", () => {
+  describe("validateVariationIds", () => {
+    it("resolves variationId aliases while preferring explicit ids", () => {
+      const variations = [
+        { id: "control", variationId: "ignored", key: "0" },
+        { variationId: "treatment", key: "1" },
+        { key: "2" },
+      ];
+
+      validateVariationIds(variations);
+
+      expect(variations[0].id).toBe("control");
+      expect(variations[1].id).toBe("treatment");
+      expect(variations[2].id).toMatch(/^var_/);
+    });
+
+    it("rejects duplicate resolved variation ids", () => {
+      expect(() =>
+        validateVariationIds([
+          { id: "duplicate", key: "0" },
+          { variationId: "duplicate", key: "1" },
+        ]),
+      ).toThrow("Variation IDs must be unique.");
+    });
+  });
+
   describe("postMetricApiPayloadIsValid", () => {
     it("should return a successful result when providing the minimum number of fields", () => {
       const input: z.infer<typeof postMetricValidator.bodySchema> = {
@@ -1498,6 +1524,40 @@ describe("putMetricApiPayloadToMetricInterface", () => {
         decisionFrameworkMetricOverrides: [{ id: "met_1", targetMDE: 0.1 }],
       });
       expect(out.postStratificationEnabled).toBe(false);
+    });
+
+    it("postExperimentApiPayloadToInterface preserves variation ids and traffic splits", () => {
+      const payload: z.infer<typeof postExperimentValidator.bodySchema> = {
+        trackingKey: "track_ids",
+        name: "Experiment with custom variation ids",
+        assignmentQueryId: "exp_query_1",
+        variations: [
+          { id: "control", key: "0", name: "Control" },
+          { variationId: "treatment", key: "1", name: "Treatment" },
+        ],
+        phases: [
+          {
+            name: "Main",
+            dateStarted: "2026-07-23T00:00:00.000Z",
+            trafficSplit: [
+              { variationId: "treatment", weight: 0.25 },
+              { variationId: "control", weight: 0.75 },
+            ],
+          },
+        ],
+      };
+
+      const out = postExperimentApiPayloadToInterface(payload, org, datasource);
+
+      expect(out.variations.map((variation) => variation.id)).toEqual([
+        "control",
+        "treatment",
+      ]);
+      expect(out.phases[0].variations).toEqual([
+        { id: "control", status: "active" },
+        { id: "treatment", status: "active" },
+      ]);
+      expect(out.phases[0].variationWeights).toEqual([0.75, 0.25]);
     });
 
     it("updateExperimentApiPayloadToInterface sets exposureQueryId from assignmentQueryId", () => {
