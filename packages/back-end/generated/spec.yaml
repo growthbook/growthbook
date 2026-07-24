@@ -14450,7 +14450,7 @@ paths:
           schema:
             description: Filter to a single experiment phase index.
             type: string
-        - $ref: '#/components/parameters/type'
+        - $ref: '#/components/parameters/snapshotType'
       responses:
         '200':
           description: Successful response
@@ -16719,16 +16719,7 @@ paths:
             type: string
         - $ref: '#/components/parameters/result'
         - $ref: '#/components/parameters/tag'
-        - name: type
-          in: query
-          description: >-
-            Filter by comma-separated experiment types (feature, visualChange,
-            redirect)
-          schema:
-            description: >-
-              Filter by comma-separated experiment types (feature, visualChange,
-              redirect)
-            type: string
+        - $ref: '#/components/parameters/type'
         - $ref: '#/components/parameters/bandits'
         - $ref: '#/components/parameters/startDate'
         - $ref: '#/components/parameters/endDate'
@@ -46626,8 +46617,8 @@ components:
           date-time). Defaults to now.
         format: date-time
         type: string
-    type:
-      name: type
+    snapshotType:
+      name: snapshotType
       in: query
       description: Filter to a single snapshot type. By default all types are returned.
       schema:
@@ -46694,6 +46685,17 @@ components:
       description: Filter by comma-separated tags
       schema:
         description: Filter by comma-separated tags
+        type: string
+    type:
+      name: type
+      in: query
+      description: >-
+        Filter by comma-separated experiment types (feature, visualChange,
+        redirect)
+      schema:
+        description: >-
+          Filter by comma-separated experiment types (feature, visualChange,
+          redirect)
         type: string
     bandits:
       name: bandits

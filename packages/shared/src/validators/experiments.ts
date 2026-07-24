@@ -2066,7 +2066,7 @@ export const getExperimentBulkResultsValidator = {
         .string()
         .describe("Filter to a single experiment phase index.")
         .optional(),
-      type: z
+      snapshotType: z
         .enum(["standard", "exploratory", "report"])
         .describe(
           "Filter to a single snapshot type. By default all types are returned.",

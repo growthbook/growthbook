@@ -41,7 +41,7 @@ export const getExperimentBulkResults = createApiRequestHandler(
     dateStart,
     dateEnd,
     phase,
-    type: req.query.type,
+    type: req.query.snapshotType,
     limit,
     offset,
   });
