@@ -1,6 +1,8 @@
 import type { FeatureInterface, FeatureRule } from "shared/types/feature";
+import type { ReqContext } from "back-end/types/organization";
 import {
   ApiRuleV2Input,
+  assertValidRuleProjectIds,
   composeConfigBacking,
   extractRevisionMetadata,
   mapV2ApiRuleToFeatureRule,
@@ -405,5 +407,31 @@ describe("extractRevisionMetadata", () => {
     expect(remaining).toEqual(updates);
     // Returned `remaining` is a fresh object, not the same reference.
     expect(remaining).not.toBe(updates);
+  });
+});
+
+describe("assertValidRuleProjectIds", () => {
+  const context = {
+    getProjects: async () => [{ id: "p1" }, { id: "p2" }],
+  } as unknown as ReqContext;
+  const rule = (projects?: string[]) =>
+    ({ id: "r", type: "force", projects }) as unknown as FeatureRule;
+
+  it("resolves when every rule project exists", async () => {
+    await expect(
+      assertValidRuleProjectIds([rule(["p1"]), rule(["p2"])], context),
+    ).resolves.toBeUndefined();
+  });
+
+  it("resolves for rules with no project scope", async () => {
+    await expect(
+      assertValidRuleProjectIds([rule(), rule([])], context),
+    ).resolves.toBeUndefined();
+  });
+
+  it("throws when a rule references a non-existent project", async () => {
+    await expect(
+      assertValidRuleProjectIds([rule(["p1"]), rule(["ghost"])], context),
+    ).rejects.toThrow(/rule project ids.*ghost/);
   });
 });

@@ -11,6 +11,7 @@ import {
   parsePlainJSONObject,
 } from "shared/util";
 import type { ApiReqContext } from "back-end/types/api";
+import type { ReqContext } from "back-end/types/request";
 import { BadRequestError } from "back-end/src/util/errors";
 import type { ApiFeatureEnvSettings } from "./postFeature";
 
@@ -220,6 +221,24 @@ export function resolveScopeFromInput(
   return { allEnvironments: true, environments: undefined };
 }
 
+// Project-scope resolution mirroring resolveScopeFromInput. Default allProjects:true;
+// allProjects:false keeps an explicit projects list (empty = scoped to nothing, leak-safe).
+export function resolveProjectScopeFromInput(
+  allProjects: boolean | undefined,
+  projects: string[] | undefined,
+): { allProjects: boolean; projects: string[] | undefined } {
+  if (allProjects === true) {
+    return { allProjects: true, projects: undefined };
+  }
+  if (allProjects === false) {
+    return { allProjects: false, projects: projects ?? [] };
+  }
+  if (Array.isArray(projects)) {
+    return { allProjects: false, projects };
+  }
+  return { allProjects: true, projects: undefined };
+}
+
 // Convert a v2 API rule input to the internal `FeatureRule` shape. New rules
 // leave `id` blank; `addIdsToFlatRules` fills it in downstream.
 //
@@ -232,9 +251,12 @@ export function mapV2ApiRuleToFeatureRule(
   r: ApiRuleV2Input,
   existingFeature?: FeatureInterface,
 ): FeatureRule {
-  const { allEnvironments, environments, ...ruleInput } = r;
+  const { allEnvironments, environments, allProjects, projects, ...ruleInput } =
+    r;
   const { allEnvironments: resolvedAllEnvs, environments: resolvedEnvs } =
     resolveScopeFromInput(allEnvironments, environments);
+  const { allProjects: resolvedAllProjects, projects: resolvedProjects } =
+    resolveProjectScopeFromInput(allProjects, projects);
   const baseRule = {
     id: ruleInput.id ?? "",
     description: ruleInput.description ?? "",
@@ -246,6 +268,8 @@ export function mapV2ApiRuleToFeatureRule(
     })),
     allEnvironments: resolvedAllEnvs,
     environments: resolvedEnvs,
+    allProjects: resolvedAllProjects,
+    projects: resolvedProjects,
   };
 
   if (ruleInput.type === "experiment-ref") {
@@ -330,6 +354,8 @@ const METADATA_FIELDS = [
   "owner",
   "description",
   "project",
+  "targetingAllProjects",
+  "targetingProjects",
   "tags",
   "customFields",
   "jsonSchema",
@@ -362,6 +388,33 @@ export async function assertValidProjectId(
   if (!projects.some((p) => p.id === projectId)) {
     throw new Error(`Project id ${projectId} is not a valid project.`);
   }
+}
+
+// Validate that every targeting project id exists (mirrors the primary-project check).
+export async function assertValidProjectIds(
+  projectIds: string[] | undefined,
+  context: ReqContext | ApiReqContext,
+  label = "targeting",
+): Promise<void> {
+  if (!projectIds?.length) return;
+  const valid = new Set((await context.getProjects()).map((p) => p.id));
+  const missing = projectIds.filter((id) => id && !valid.has(id));
+  if (missing.length) {
+    throw new Error(
+      `The following ${label} project ids are not valid: ${missing.join(", ")}`,
+    );
+  }
+}
+
+// Validate every rule-level project scope id across a set of rules.
+export async function assertValidRuleProjectIds(
+  rules: { projects?: string[] }[] | undefined,
+  context: ReqContext | ApiReqContext,
+): Promise<void> {
+  const ids = Array.from(
+    new Set((rules ?? []).flatMap((r) => r.projects ?? [])),
+  );
+  await assertValidProjectIds(ids, context, "rule");
 }
 
 // `null` (explicit removal) and `undefined` (no change) are both no-ops.
