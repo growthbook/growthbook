@@ -10,6 +10,7 @@ import {
   dataSourceExplorationConfigValidator,
   funnelExplorationConfigValidator,
   explorationDateRangeValidator,
+  comparisonModeValidator,
   dateGranularity,
   ExplorationDateRange,
 } from "../../validators/product-analytics";
@@ -253,12 +254,16 @@ export type MetricExperimentsBlockInterface = z.infer<
 // resolveCompletedExperimentsFilters so a future dashboard-wide filter bar can
 // override them (see resolveBlockComparison for the same pattern).
 // Period comparison for a dashboard block. `enabled` turns the comparison on;
-// `previousTimeFrame` is only persisted for fixed windows (custom date ranges) —
-// predefined/rolling primaries re-derive (and roll) the previous period on each
-// refresh. Kept as a structured object so a future dashboard-wide compare toggle
-// can resolve to the same shape (see resolveBlockComparison).
+// `mode` names how the previous period is derived and `previousTimeFrame` holds
+// the frozen window that only `mode: "custom"` uses — every other mode
+// re-derives (and rolls) on each refresh. `mode` is optional so comparisons
+// saved before named modes existed still resolve: a persisted window meant
+// "custom", its absence meant "previousPeriod" (see resolveComparisonMode).
+// Kept as a structured object so a dashboard-wide compare toggle resolves to
+// the same shape (see resolveBlockComparison).
 export const blockComparisonValidator = z.object({
   enabled: z.boolean(),
+  mode: comparisonModeValidator.optional(),
   previousTimeFrame: explorationDateRangeValidator.optional(),
 });
 export type BlockComparison = z.infer<typeof blockComparisonValidator>;

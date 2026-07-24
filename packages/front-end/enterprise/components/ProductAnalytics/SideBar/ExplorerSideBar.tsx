@@ -65,6 +65,7 @@ export default function ExplorerSideBar({
     setDraftExploreState,
     exploration,
     compareEnabled,
+    comparisonMode,
     setCompareEnabled,
     comparisonExploration,
     loading,
@@ -111,11 +112,7 @@ export default function ExplorerSideBar({
     dataset?.type === "funnel"
       ? hasFunnelInputs
       : (dataset?.values?.length ?? 0) > 0;
-  const showComparisonDateControls =
-    compareEnabled &&
-    draftExploreState.dateRange.predefined === "customDateRange" &&
-    Boolean(draftExploreState.dateRange.startDate) &&
-    Boolean(draftExploreState.dateRange.endDate);
+  const showComparisonDateControls = compareEnabled;
   const isTimeSeriesChart = ["line", "area", "timeseries-table"].includes(
     draftExploreState.chartType,
   );
@@ -136,6 +133,7 @@ export default function ExplorerSideBar({
           exploration={exploration}
           compareEnabled={compareEnabled}
           previousTimeFrame={draftExploreState.previousTimeFrame ?? null}
+          comparisonMode={comparisonMode}
           comparisonExplorationId={comparisonExploration?.id ?? null}
           trackingSource={trackingSource}
         />

@@ -9,6 +9,8 @@ import {
   getEffectiveExplorationConfig,
   getExplorationDateControlFingerprint,
   resolveBlockComparison,
+  resolveComparisonMode,
+  getComparisonAlignmentStrategy,
   computeExplorationComparisonPayload,
 } from "shared/enterprise";
 import { isEqual } from "lodash";
@@ -62,6 +64,9 @@ export default function ProductAnalyticsExplorerBlock({
   // a separate entity produced on refresh; fetch it when present.
   const comparison = resolveBlockComparison(block);
   const compareEnabled = !!comparison?.enabled;
+  const comparisonMode = comparison
+    ? resolveComparisonMode(comparison)
+    : "previousPeriod";
   const { data: comparisonData } = useApi<{
     status: number;
     exploration: ProductAnalyticsExploration;
@@ -122,6 +127,7 @@ export default function ProductAnalyticsExplorerBlock({
       submittedConfig,
       submittedPreviousTimeFrame,
       (id) => getFactMetricById(id) ?? null,
+      getComparisonAlignmentStrategy(comparisonMode),
     );
   }, [
     compareEnabled,
@@ -129,6 +135,7 @@ export default function ProductAnalyticsExplorerBlock({
     rawComparisonExploration,
     submittedConfig,
     submittedPreviousTimeFrame,
+    comparisonMode,
     getFactMetricById,
   ]);
 
@@ -190,6 +197,7 @@ export default function ProductAnalyticsExplorerBlock({
           comparisonExploration={comparisonExploration}
           compareEnabled={compareEnabled}
           submittedPreviousTimeFrame={submittedPreviousTimeFrame}
+          submittedComparisonMode={compareEnabled ? comparisonMode : null}
           serverBigNumberTrends={comparisonPayload?.bigNumberTrends ?? null}
           error={data?.exploration.error || error?.message || null}
           loading={isLoading}

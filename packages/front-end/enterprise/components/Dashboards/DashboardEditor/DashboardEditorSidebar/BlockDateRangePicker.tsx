@@ -1,18 +1,26 @@
-import { ReactNode, useEffect } from "react";
+import { ReactNode } from "react";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import { format } from "date-fns";
 import {
+  comparisonMode as comparisonModes,
   dateRangePredefined,
   lookbackUnit,
+  ComparisonMode,
   ExplorationDateRange,
 } from "shared/validators";
-import { calculateProductAnalyticsDateRange } from "shared/enterprise";
+import {
+  calculateProductAnalyticsDateRange,
+  getInclusiveUtcCalendarDayCount,
+  getPrimaryUtcDayBounds,
+  resolveComparisonPreviousTimeFrame,
+} from "shared/enterprise";
 import { getValidDateOffsetByUTC } from "shared/dates";
 import { Select, SelectItem } from "@/ui/Select";
 import Field from "@/components/Forms/Field";
 import Text from "@/ui/Text";
 import DatePicker from "@/components/DatePicker";
-import { getPreviousWindow } from "@/enterprise/components/Dashboards/DashboardEditor/DashboardBlock/completedExperimentsData";
+import { formatCollapsedDateRange } from "@/enterprise/components/ProductAnalytics/comparison-chart";
+import { COMPARISON_MODE_LABELS } from "@/enterprise/components/ProductAnalytics/dateRangeLabels";
 
 export const PREDEFINED_LABELS: Record<
   (typeof dateRangePredefined)[number],
@@ -25,33 +33,6 @@ export const PREDEFINED_LABELS: Record<
   customLookback: "Custom Lookback",
   customDateRange: "Custom Date Range",
 };
-
-// Format a UTC instant as its UTC calendar day ("yyyy-MM-dd"). These strings
-// are parsed back as UTC days everywhere downstream (getValidDateOffsetByUTC,
-// calculateProductAnalyticsDateRange), so local-time formatting would shift the
-// seeded range by a day for users west of UTC.
-function formatUTCDay(d: Date): string {
-  return d.toISOString().slice(0, 10);
-}
-
-// The equal-length window immediately before the current custom range, used as
-// the default "Prior" value until the user overrides it. Mirrors the span-shift
-// the data layer applies when no explicit previous window is stored. Because
-// getPreviousWindow ends 1ms before the current start (which is 00:00:00 UTC
-// for a custom range), the seeded prior end lands on the calendar day before
-// the current start day — the two ranges never overlap once the prior end is
-// expanded back to end-of-day.
-function defaultPriorRange(
-  current: ExplorationDateRange,
-): ExplorationDateRange {
-  const { startDate, endDate } = calculateProductAnalyticsDateRange(current);
-  const prev = getPreviousWindow({ startDate, endDate });
-  return {
-    predefined: "customDateRange",
-    startDate: formatUTCDay(prev.startDate),
-    endDate: formatUTCDay(prev.endDate),
-  };
-}
 
 // Combined "yyyy-MM-dd - yyyy-MM-dd" range field bound to an ExplorationDateRange.
 function CustomRangeField({
@@ -111,20 +92,24 @@ function LabeledRow({
  * (ProductAnalytics DateRangePicker), bound to a value/onChange instead of the
  * ExplorerContext. Used by the "Completed Experiments" dashboard blocks.
  *
- * When comparison is on and the range is a Custom Date Range, it also shows the
- * "Prior / vs / Current" fields, driven by the block's comparison
- * previousTimeFrame.
+ * When comparison is on it also shows a "Compare to" mode selector, and for the
+ * `custom` mode the "Prior / vs / Current" fields driven by the block's
+ * comparison previousTimeFrame.
  */
 export default function BlockDateRangePicker({
   value,
   onChange,
   comparisonEnabled = false,
+  comparisonMode = "previousPeriod",
+  onComparisonModeChange,
   previousTimeFrame,
   onPreviousTimeFrameChange,
 }: {
   value: ExplorationDateRange;
   onChange: (dateRange: ExplorationDateRange) => void;
   comparisonEnabled?: boolean;
+  comparisonMode?: ComparisonMode;
+  onComparisonModeChange?: (mode: ComparisonMode) => void;
   previousTimeFrame?: ExplorationDateRange;
   onPreviousTimeFrameChange?: (dr: ExplorationDateRange) => void;
 }) {
@@ -164,24 +149,34 @@ export default function BlockDateRangePicker({
     </Select>
   );
 
-  const showCompareCustom =
-    comparisonEnabled && value.predefined === "customDateRange";
-
-  // Persist the Prior range we display instead of only showing a generated
-  // default, so the data hook reads the same stored value and the displayed and
-  // calculated previous windows can't diverge.
-  useEffect(() => {
-    if (showCompareCustom && !previousTimeFrame && onPreviousTimeFrameChange) {
-      onPreviousTimeFrameChange(defaultPriorRange(value));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    showCompareCustom,
+  const resolvedPrevious = resolveComparisonPreviousTimeFrame(value, {
+    mode: comparisonMode,
     previousTimeFrame,
-    value.predefined,
-    value.startDate,
-    value.endDate,
-  ]);
+  });
+  const showCompareCustom = comparisonEnabled && comparisonMode === "custom";
+  const yearModesOverlap =
+    getInclusiveUtcCalendarDayCount(
+      getPrimaryUtcDayBounds(value).startDate,
+      getPrimaryUtcDayBounds(value).endDate,
+    ) > 366;
+
+  const modeSelect = (
+    <Select
+      size="small"
+      value={comparisonMode}
+      setValue={(v) => onComparisonModeChange?.(v as ComparisonMode)}
+    >
+      {comparisonModes.map((mode) => (
+        <SelectItem
+          key={mode}
+          value={mode}
+          disabled={yearModesOverlap && mode === "previousYear"}
+        >
+          {COMPARISON_MODE_LABELS[mode]}
+        </SelectItem>
+      ))}
+    </Select>
+  );
 
   return (
     <Flex direction="column" gap="2" width="100%">
@@ -223,27 +218,53 @@ export default function BlockDateRangePicker({
         </Flex>
       )}
 
-      {value.predefined === "customDateRange" &&
-        (showCompareCustom ? (
-          <Flex direction="column" gap="1" width="100%">
+      {comparisonEnabled && (
+        <LabeledRow label="Compare to">{modeSelect}</LabeledRow>
+      )}
+
+      {showCompareCustom ? (
+        <Flex direction="column" gap="1" width="100%">
+          <LabeledRow label="Prior">
+            <CustomRangeField
+              value={resolvedPrevious}
+              onChange={(dr) => onPreviousTimeFrameChange?.(dr)}
+            />
+          </LabeledRow>
+          <LabeledRow label="">
+            <Text size="small" weight="semibold">
+              vs
+            </Text>
+          </LabeledRow>
+          <LabeledRow label="Current">
+            {value.predefined === "customDateRange" ? (
+              <CustomRangeField value={value} onChange={onChange} />
+            ) : (
+              <Text size="small" color="text-low">
+                {formatCollapsedDateRange(
+                  calculateProductAnalyticsDateRange(value).startDate,
+                  calculateProductAnalyticsDateRange(value).endDate,
+                )}
+              </Text>
+            )}
+          </LabeledRow>
+        </Flex>
+      ) : (
+        <>
+          {comparisonEnabled && (
             <LabeledRow label="Prior">
-              <CustomRangeField
-                value={previousTimeFrame ?? defaultPriorRange(value)}
-                onChange={(dr) => onPreviousTimeFrameChange?.(dr)}
-              />
-            </LabeledRow>
-            <LabeledRow label="">
-              <Text size="small" weight="semibold">
-                vs
+              <Text size="small" color="text-low">
+                {formatCollapsedDateRange(
+                  getValidDateOffsetByUTC(resolvedPrevious.startDate as string),
+                  getValidDateOffsetByUTC(resolvedPrevious.endDate as string),
+                )}
               </Text>
             </LabeledRow>
-            <LabeledRow label="Current">
-              <CustomRangeField value={value} onChange={onChange} />
-            </LabeledRow>
-          </Flex>
-        ) : (
-          <CustomRangeField value={value} onChange={onChange} />
-        ))}
+          )}
+          {value.predefined === "customDateRange" && (
+            <CustomRangeField value={value} onChange={onChange} />
+          )}
+        </>
+      )}
     </Flex>
   );
 }

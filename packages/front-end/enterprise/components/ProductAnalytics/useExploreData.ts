@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import type {
+  ComparisonMode,
   ExplorationConfig,
   ExplorationDateRange,
   ProductAnalyticsExploration,
@@ -25,6 +26,7 @@ export function useExploreData() {
       options?: {
         cache?: CacheOption;
         previousTimeFrame?: ExplorationDateRange | null;
+        comparisonMode?: ComparisonMode | null;
       },
     ): Promise<{
       data: ProductAnalyticsExploration | null;
@@ -42,9 +44,13 @@ export function useExploreData() {
       const body: {
         config: ExplorationConfig;
         previousTimeFrame?: ExplorationDateRange;
+        comparisonMode?: ComparisonMode;
       } = { config };
       if (options?.previousTimeFrame) {
         body.previousTimeFrame = options.previousTimeFrame;
+        if (options.comparisonMode) {
+          body.comparisonMode = options.comparisonMode;
+        }
       }
 
       try {

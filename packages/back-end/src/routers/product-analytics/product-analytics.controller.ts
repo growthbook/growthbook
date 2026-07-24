@@ -9,7 +9,11 @@ import {
   type AIChatFeedbackEntry,
   type AIChatFeedbackRating,
 } from "shared/validators";
-import { computeExplorationComparisonPayload } from "shared/enterprise";
+import {
+  buildComparisonExplorationConfig,
+  computeExplorationComparisonPayload,
+  getComparisonAlignmentStrategy,
+} from "shared/enterprise";
 import { QueryInterface } from "shared/types/query";
 import type { FactMetricInterface } from "shared/types/fact-table";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
@@ -83,7 +87,7 @@ export const postProductAnalyticsRun = async (
 ) => {
   const context = getContextFromReq(req);
   const cacheOpts = { cache: req.query.cache };
-  const { config, previousTimeFrame } = req.body;
+  const { config, previousTimeFrame, comparisonMode } = req.body;
 
   async function resolveQuery(
     exploration: ProductAnalyticsExploration | null,
@@ -106,10 +110,10 @@ export const postProductAnalyticsRun = async (
     });
   }
 
-  const comparisonConfig: ExplorationConfig = {
-    ...config,
-    dateRange: previousTimeFrame,
-  };
+  const comparisonConfig: ExplorationConfig = buildComparisonExplorationConfig(
+    config,
+    previousTimeFrame,
+  );
 
   // allSettled (not all): a comparison failure (timeout, upstream schema
   // change, transient warehouse issue) must not fail the whole request and
@@ -154,6 +158,7 @@ export const postProductAnalyticsRun = async (
     config,
     previousTimeFrame,
     getFactMetricById,
+    getComparisonAlignmentStrategy(comparisonMode ?? "previousPeriod"),
   );
 
   return res.status(200).json({

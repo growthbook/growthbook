@@ -4,9 +4,12 @@ import type {
   ProductAnalyticsExploration,
   ProductAnalyticsResultRow,
 } from "shared/validators";
+import { comparisonMode } from "shared/validators";
 import {
   buildAlignedComparisonRowLookup,
   buildComparisonDateRange,
+  buildComparisonDateRangeForMode,
+  buildComparisonExplorationConfig,
   buildFixedSpanComparisonOptions,
   buildFixedSpanRangeEndingBeforeAnchor,
   buildFixedSpanRangeStartingAtAnchor,
@@ -16,12 +19,16 @@ import {
   densifyComparisonExplorationTimeseries,
   enumerateProductAnalyticsDateBuckets,
   explorerDimensionDateToUtcYyyyMmDd,
+  getComparisonAlignmentStrategy,
+  getComparisonShiftDays,
   getDateGranularity,
   getInclusiveUtcCalendarDayCount,
   isUtcYyyyMmDdWithinInclusiveRange,
   productAnalyticsDateDimensionBucketMergeKey,
   resolveBlockComparison,
+  resolveComparisonMode,
   resolveComparisonPreviousTimeFrame,
+  resolveLegacyExplorerComparisonMode,
 } from "shared/enterprise";
 import type { FactMetricInterface } from "shared/types/fact-table";
 
@@ -61,6 +68,20 @@ const ratioMetric = {
 } as unknown as FactMetricInterface;
 
 const getFactMetricById = (id: string) => (id === "m1" ? meanMetric : null);
+
+const customRange = (
+  startDate: string,
+  endDate: string,
+): ExplorationDateRange => ({
+  predefined: "customDateRange",
+  lookbackValue: null,
+  lookbackUnit: null,
+  startDate,
+  endDate,
+});
+
+const utcWeekday = (yyyyMmDd: string) =>
+  new Date(`${yyyyMmDd}T00:00:00.000Z`).getUTCDay();
 
 describe("buildComparisonDateRange", () => {
   afterEach(() => {
@@ -229,6 +250,294 @@ describe("resolveComparisonPreviousTimeFrame", () => {
     });
     expect(out).toEqual(fixed);
   });
+
+  it("re-derives for a named mode even when a stale window is persisted", () => {
+    jest.useFakeTimers({ doNotFake: ["nextTick", "setImmediate"] });
+    jest.setSystemTime(new Date("2024-06-15T12:00:00.000Z"));
+    const out = resolveComparisonPreviousTimeFrame(predefined, {
+      mode: "previousPeriod",
+      previousTimeFrame: customRange("2020-01-01", "2020-01-31"),
+    });
+    expect(out.startDate).toBe("2024-05-31");
+    expect(out.endDate).toBe("2024-06-07");
+  });
+
+  it("derives (and rolls) a previousYear window", () => {
+    jest.useFakeTimers({ doNotFake: ["nextTick", "setImmediate"] });
+    jest.setSystemTime(new Date("2024-06-15T12:00:00.000Z"));
+    const out = resolveComparisonPreviousTimeFrame(predefined, {
+      mode: "previousYear",
+    });
+    expect(out.startDate).toBe("2023-06-08");
+    expect(out.endDate).toBe("2023-06-15");
+  });
+});
+
+describe("resolveComparisonMode", () => {
+  it("defaults to previousPeriod when nothing is persisted", () => {
+    expect(resolveComparisonMode({})).toBe("previousPeriod");
+  });
+
+  it("reads a legacy persisted window as a custom mode", () => {
+    expect(
+      resolveComparisonMode({
+        previousTimeFrame: customRange("2024-01-01", "2024-01-31"),
+      }),
+    ).toBe("custom");
+  });
+
+  it("prefers an explicit mode over a persisted window", () => {
+    expect(
+      resolveComparisonMode({
+        mode: "previousYear",
+        previousTimeFrame: customRange("2024-01-01", "2024-01-31"),
+      }),
+    ).toBe("previousYear");
+  });
+});
+
+describe("resolveLegacyExplorerComparisonMode", () => {
+  it("treats a custom primary as a hand-picked window", () => {
+    expect(
+      resolveLegacyExplorerComparisonMode(
+        customRange("2024-01-01", "2024-01-31"),
+      ),
+    ).toBe("custom");
+  });
+
+  it("treats rolling presets as previousPeriod", () => {
+    for (const preset of ["today", "last7Days", "last30Days"] as const) {
+      expect(
+        resolveLegacyExplorerComparisonMode({
+          predefined: preset,
+          lookbackValue: null,
+          lookbackUnit: null,
+          startDate: null,
+          endDate: null,
+        }),
+      ).toBe("previousPeriod");
+    }
+  });
+});
+
+describe("getComparisonShiftDays", () => {
+  it("shifts previousPeriod by the primary's own span", () => {
+    expect(getComparisonShiftDays("previousPeriod", 1)).toBe(1);
+    expect(getComparisonShiftDays("previousPeriod", 7)).toBe(7);
+    expect(getComparisonShiftDays("previousPeriod", 30)).toBe(30);
+  });
+
+  it("rounds the weekday-matching shift up to whole weeks", () => {
+    expect(getComparisonShiftDays("previousPeriodMatchDayOfWeek", 7)).toBe(7);
+    // Rounding down to 7 would land the previous end on the primary's start day.
+    expect(getComparisonShiftDays("previousPeriodMatchDayOfWeek", 8)).toBe(14);
+    expect(getComparisonShiftDays("previousPeriodMatchDayOfWeek", 30)).toBe(35);
+    expect(getComparisonShiftDays("previousPeriodMatchDayOfWeek", 1)).toBe(7);
+  });
+
+  it("uses a fixed 52 weeks for the weekday-matching year mode", () => {
+    for (const span of [1, 7, 8, 30]) {
+      expect(getComparisonShiftDays("previousYearMatchDayOfWeek", span)).toBe(
+        364,
+      );
+    }
+  });
+});
+
+describe("buildComparisonDateRangeForMode", () => {
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it("keeps a whole-week primary contiguous and weekday-aligned", () => {
+    // Mon 2024-06-03 → Sun 2024-06-09.
+    const out = buildComparisonDateRangeForMode(
+      customRange("2024-06-03", "2024-06-09"),
+      "previousPeriodMatchDayOfWeek",
+    );
+    expect(out.startDate).toBe("2024-05-27");
+    expect(out.endDate).toBe("2024-06-02");
+    expect(utcWeekday("2024-05-27")).toBe(utcWeekday("2024-06-03"));
+  });
+
+  it("prefers a gap over an overlap for a non-week-multiple primary", () => {
+    const primary = customRange("2024-06-01", "2024-06-10");
+    const out = buildComparisonDateRangeForMode(
+      primary,
+      "previousPeriodMatchDayOfWeek",
+    );
+    expect(out.startDate).toBe("2024-05-18");
+    expect(out.endDate).toBe("2024-05-27");
+    expect(utcWeekday("2024-05-18")).toBe(utcWeekday("2024-06-01"));
+    // Equal length, same weekday, and strictly before the primary.
+    expect(
+      getInclusiveUtcCalendarDayCount(
+        out.startDate as string,
+        out.endDate as string,
+      ),
+    ).toBe(10);
+    expect(out.endDate! < primary.startDate!).toBe(true);
+  });
+
+  it("weekday-aligns a rolling preset across its partial current day", () => {
+    jest.useFakeTimers({ doNotFake: ["nextTick", "setImmediate"] });
+    jest.setSystemTime(new Date("2024-06-15T12:00:00.000Z"));
+    const out = buildComparisonDateRangeForMode(
+      {
+        predefined: "last7Days",
+        lookbackValue: null,
+        lookbackUnit: null,
+        startDate: null,
+        endDate: null,
+      },
+      "previousPeriodMatchDayOfWeek",
+    );
+    // last7Days touches 8 UTC days, so the shift is 14, not 7.
+    expect(out.startDate).toBe("2024-05-25");
+    expect(out.endDate).toBe("2024-06-01");
+    expect(utcWeekday("2024-05-25")).toBe(utcWeekday("2024-06-08"));
+  });
+
+  it("maps previousYear to the same calendar dates", () => {
+    const out = buildComparisonDateRangeForMode(
+      customRange("2024-03-01", "2024-03-31"),
+      "previousYear",
+    );
+    expect(out.startDate).toBe("2023-03-01");
+    expect(out.endDate).toBe("2023-03-31");
+  });
+
+  it("clamps a leap day back to Feb 28, shortening the window by a day", () => {
+    const out = buildComparisonDateRangeForMode(
+      customRange("2024-02-01", "2024-02-29"),
+      "previousYear",
+    );
+    expect(out.startDate).toBe("2023-02-01");
+    expect(out.endDate).toBe("2023-02-28");
+    expect(
+      getInclusiveUtcCalendarDayCount(
+        out.startDate as string,
+        out.endDate as string,
+      ),
+    ).toBe(28);
+    expect(getInclusiveUtcCalendarDayCount("2024-02-01", "2024-02-29")).toBe(
+      29,
+    );
+  });
+
+  it("clamps a single leap day primary", () => {
+    const out = buildComparisonDateRangeForMode(
+      customRange("2024-02-29", "2024-02-29"),
+      "previousYear",
+    );
+    expect(out.startDate).toBe("2023-02-28");
+    expect(out.endDate).toBe("2023-02-28");
+  });
+
+  it("overlaps the primary when previousYear spans more than a year", () => {
+    // Documented trade-off: "same calendar dates" wins over avoiding overlap,
+    // so callers disable this mode in the UI for long ranges.
+    const primary = customRange("2023-01-01", "2024-02-04");
+    const out = buildComparisonDateRangeForMode(primary, "previousYear");
+    expect(out.startDate).toBe("2022-01-01");
+    expect(out.endDate).toBe("2023-02-04");
+    expect(out.endDate! >= primary.startDate!).toBe(true);
+  });
+
+  it("shifts previousYearMatchDayOfWeek exactly 52 weeks", () => {
+    const out = buildComparisonDateRangeForMode(
+      customRange("2024-06-03", "2024-06-09"),
+      "previousYearMatchDayOfWeek",
+    );
+    expect(out.startDate).toBe("2023-06-05");
+    expect(out.endDate).toBe("2023-06-11");
+    expect(utcWeekday("2023-06-05")).toBe(utcWeekday("2024-06-03"));
+  });
+
+  it("keeps the 52-week shift exact across a leap boundary", () => {
+    const out = buildComparisonDateRangeForMode(
+      customRange("2024-03-04", "2024-03-10"),
+      "previousYearMatchDayOfWeek",
+    );
+    expect(out.startDate).toBe("2023-03-06");
+    expect(utcWeekday("2023-03-06")).toBe(utcWeekday("2024-03-04"));
+    expect(
+      (new Date("2024-03-04T00:00:00.000Z").getTime() -
+        new Date("2023-03-06T00:00:00.000Z").getTime()) /
+        86_400_000,
+    ).toBe(364);
+  });
+
+  it("returns an explicit custom window verbatim", () => {
+    const fixed = customRange("2020-05-01", "2020-05-31");
+    expect(
+      buildComparisonDateRangeForMode(
+        customRange("2024-06-01", "2024-06-30"),
+        "custom",
+        fixed,
+      ),
+    ).toEqual(fixed);
+  });
+
+  it("falls back to previousPeriod for a custom mode with no window yet", () => {
+    const out = buildComparisonDateRangeForMode(
+      customRange("2024-06-01", "2024-06-10"),
+      "custom",
+      null,
+    );
+    expect(out.startDate).toBe("2024-05-22");
+    expect(out.endDate).toBe("2024-05-31");
+  });
+
+  it("emits a fully-bounded customDateRange and preserves lookback for every derived mode", () => {
+    jest.useFakeTimers({ doNotFake: ["nextTick", "setImmediate"] });
+    jest.setSystemTime(new Date("2024-06-15T12:00:00.000Z"));
+    const primary: ExplorationDateRange = {
+      predefined: "customLookback",
+      lookbackValue: 45,
+      lookbackUnit: "day",
+      startDate: null,
+      endDate: null,
+    };
+    for (const mode of comparisonMode) {
+      if (mode === "custom") continue;
+      const out = buildComparisonDateRangeForMode(primary, mode);
+      expect(out.predefined).toBe("customDateRange");
+      expect(out.startDate).toBeTruthy();
+      expect(out.endDate).toBeTruthy();
+      expect(out.lookbackValue).toBe(45);
+      expect(out.lookbackUnit).toBe("day");
+    }
+  });
+});
+
+describe("getComparisonAlignmentStrategy", () => {
+  it("pairs only exact-calendar modes by calendar date", () => {
+    expect(getComparisonAlignmentStrategy("previousYear")).toBe(
+      "calendarYearOverYear",
+    );
+    expect(getComparisonAlignmentStrategy("custom")).toBe(
+      "calendarYearOverYear",
+    );
+  });
+
+  it("pairs shifted modes chronologically", () => {
+    expect(getComparisonAlignmentStrategy("previousPeriod")).toBe(
+      "chronological",
+    );
+    expect(getComparisonAlignmentStrategy("previousPeriodMatchDayOfWeek")).toBe(
+      "chronological",
+    );
+    expect(getComparisonAlignmentStrategy("previousYearMatchDayOfWeek")).toBe(
+      "chronological",
+    );
+  });
+
+  it("covers every mode", () => {
+    for (const mode of comparisonMode) {
+      expect(getComparisonAlignmentStrategy(mode)).toBeDefined();
+    }
+  });
 });
 
 describe("resolveBlockComparison", () => {
@@ -396,6 +705,106 @@ describe("createComparisonAlignmentResolver", () => {
       true,
     );
     expect(resolver("2099-12-31")).toBeUndefined();
+  });
+
+  // A 364-day shift lands the calendar-year probe *inside* the comparison
+  // window but on the wrong bucket, which is why the strategy is mode-derived
+  // rather than always calendar-first.
+  const shiftedPrimary = ["2024-06-13", "2024-06-14", "2024-06-15"];
+  const shiftedComparison = ["2023-06-15", "2023-06-16", "2023-06-17"];
+
+  it("pairs a 52-week-shifted window by rank under chronological", () => {
+    const resolver = createComparisonAlignmentResolver(
+      shiftedPrimary,
+      shiftedComparison,
+      true,
+      "chronological",
+    );
+    expect(resolver("2024-06-13")).toBe("2023-06-15");
+    expect(resolver("2024-06-14")).toBe("2023-06-16");
+    expect(resolver("2024-06-15")).toBe("2023-06-17");
+  });
+
+  it("mispairs a 52-week-shifted window under calendarYearOverYear", () => {
+    const resolver = createComparisonAlignmentResolver(
+      shiftedPrimary,
+      shiftedComparison,
+      true,
+      "calendarYearOverYear",
+    );
+    // 2023-06-15 is in-window, so the calendar probe wins and silently skews
+    // the last bucket by two days.
+    expect(resolver("2024-06-15")).toBe("2023-06-15");
+  });
+
+  it("maps Feb 28 and Feb 29 to the same previousYear bucket", () => {
+    const resolver = createComparisonAlignmentResolver(
+      ["2024-02-28", "2024-02-29"],
+      ["2023-02-27", "2023-02-28"],
+      true,
+      "calendarYearOverYear",
+    );
+    expect(resolver("2024-02-28")).toBe("2023-02-28");
+    expect(resolver("2024-02-29")).toBe("2023-02-28");
+  });
+});
+
+describe("buildComparisonExplorationConfig", () => {
+  const dateConfig = (
+    dateGranularity: "auto" | "week",
+    dateRange: ExplorationDateRange,
+  ): ExplorationConfig => ({
+    type: "metric",
+    datasource: "ds",
+    dimensions: [{ dimensionType: "date", column: "d", dateGranularity }],
+    chartType: "line",
+    dateRange,
+    dataset: { type: "metric", values: [] },
+  });
+
+  // 64 inclusive days resolves to "month"; the leap-shortened 63-day previous
+  // window resolves to "day" on its own.
+  const primaryRange = customRange("2024-01-01", "2024-03-04");
+  const previousYearRange = customRange("2023-01-01", "2023-03-04");
+
+  it("pins an auto granularity to the primary's resolved value", () => {
+    expect(
+      getDateGranularity(
+        "auto",
+        calculateProductAnalyticsDateRange(previousYearRange),
+      ),
+    ).toBe("day");
+
+    const out = buildComparisonExplorationConfig(
+      dateConfig("auto", primaryRange),
+      previousYearRange,
+    );
+    expect(out.dimensions[0]).toMatchObject({ dateGranularity: "month" });
+    expect(out.dateRange).toEqual(previousYearRange);
+  });
+
+  it("leaves an explicit granularity untouched", () => {
+    const out = buildComparisonExplorationConfig(
+      dateConfig("week", primaryRange),
+      previousYearRange,
+    );
+    expect(out.dimensions[0]).toMatchObject({ dateGranularity: "week" });
+  });
+
+  it("only swaps the date range when the first dimension is not a date", () => {
+    const config: ExplorationConfig = {
+      type: "metric",
+      datasource: "ds",
+      dimensions: [
+        { dimensionType: "dynamic", column: "browser", maxValues: 5 },
+      ],
+      chartType: "bar",
+      dateRange: primaryRange,
+      dataset: { type: "metric", values: [] },
+    };
+    const out = buildComparisonExplorationConfig(config, previousYearRange);
+    expect(out.dimensions).toEqual(config.dimensions);
+    expect(out.dateRange).toEqual(previousYearRange);
   });
 });
 

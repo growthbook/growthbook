@@ -3,8 +3,19 @@ import { Box, Flex, Separator } from "@radix-ui/themes";
 import { format } from "date-fns";
 import { PiCalendarBlank, PiCaretDown } from "react-icons/pi";
 import { getValidDateOffsetByUTC } from "shared/dates";
-import { dateGranularity, lookbackUnit } from "shared/validators";
-import type { ExplorationDateRange } from "shared/validators";
+import {
+  comparisonMode as comparisonModes,
+  dateGranularity,
+  lookbackUnit,
+} from "shared/validators";
+import type { ComparisonMode, ExplorationDateRange } from "shared/validators";
+import {
+  getInclusiveUtcCalendarDayCount,
+  getPrimaryUtcDayBounds,
+  resolveComparisonMode,
+  resolveComparisonPreviousTimeFrame,
+} from "shared/enterprise";
+import type { BlockComparison } from "shared/enterprise";
 import DatePicker from "@/components/DatePicker";
 import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -12,10 +23,13 @@ import { Popover } from "@/ui/Popover";
 import { Select, SelectItem } from "@/ui/Select";
 import RadioGroup from "@/ui/RadioGroup";
 import Button from "@/ui/Button";
+import Switch from "@/ui/Switch";
 import Text from "@/ui/Text";
 import { ControlledGranularitySelector } from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/GranularitySelector";
 import { useMergedDateRangeUpdates } from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/useMergedDateRangeUpdates";
+import { formatCollapsedDateRange } from "@/enterprise/components/ProductAnalytics/comparison-chart";
 import {
+  COMPARISON_MODE_LABELS,
   DATE_RANGE_PREDEFINED_LABELS,
   LOOKBACK_UNIT_LABELS,
   formatExplorationDateRange,
@@ -106,12 +120,16 @@ export default function DashboardDateControlsDropdown({
   granularity = "auto",
   onChange,
   onGranularityChange,
+  comparison = null,
+  onComparisonChange,
   disabled,
 }: {
   value: ExplorationDateRange | null;
   granularity?: (typeof dateGranularity)[number];
   onChange: (dateRange: ExplorationDateRange | null) => void;
   onGranularityChange: (granularity: (typeof dateGranularity)[number]) => void;
+  comparison?: BlockComparison | null;
+  onComparisonChange?: (comparison: BlockComparison | undefined) => void;
   disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
@@ -235,6 +253,66 @@ export default function DashboardDateControlsDropdown({
         />
       </Box>
     ) : null;
+  const compareEnabled = !!comparison?.enabled;
+  const comparisonMode = comparison
+    ? resolveComparisonMode(comparison)
+    : "previousPeriod";
+  const resolvedPrevious = resolveComparisonPreviousTimeFrame(
+    activeDateRange,
+    comparison ?? {},
+  );
+  const primaryBounds = getPrimaryUtcDayBounds(activeDateRange);
+  const yearModeOverlaps =
+    getInclusiveUtcCalendarDayCount(
+      primaryBounds.startDate,
+      primaryBounds.endDate,
+    ) > 366;
+
+  const previousWindowSummary = (
+    <Box pl="5" mt="-3">
+      <Text size="small" color="text-low">
+        {formatCollapsedDateRange(
+          getValidDateOffsetByUTC(resolvedPrevious.startDate as string),
+          getValidDateOffsetByUTC(resolvedPrevious.endDate as string),
+        )}
+      </Text>
+    </Box>
+  );
+
+  const customPreviousControls = (
+    <Box pl="5" mt="-3" style={{ width: "100%", minWidth: 0 }}>
+      <DatePicker
+        containerClassName="mb-0"
+        compact
+        disabled={disabled}
+        inputWidth={260}
+        date={getValidDateOffsetByUTC(resolvedPrevious.startDate as string)}
+        date2={getValidDateOffsetByUTC(resolvedPrevious.endDate as string)}
+        setDate={(date) =>
+          onComparisonChange?.({
+            enabled: true,
+            mode: "custom",
+            previousTimeFrame: {
+              ...resolvedPrevious,
+              startDate: date ? format(date, "yyyy-MM-dd") : null,
+            },
+          })
+        }
+        setDate2={(date) =>
+          onComparisonChange?.({
+            enabled: true,
+            mode: "custom",
+            previousTimeFrame: {
+              ...resolvedPrevious,
+              endDate: date ? format(date, "yyyy-MM-dd") : null,
+            },
+          })
+        }
+        precision="date"
+      />
+    </Box>
+  );
+
   const content = (
     <Flex direction="column" gap="1" width="100%">
       <RadioGroup
@@ -263,6 +341,61 @@ export default function DashboardDateControlsDropdown({
           },
         ]}
       />
+
+      {onComparisonChange && (
+        <>
+          <Separator size="4" my="2" />
+
+          <Flex direction="column" gap="1" width="100%">
+            <Box pl="5">
+              <Switch
+                label="Compare to a previous period"
+                value={compareEnabled}
+                disabled={disabled || !value}
+                onChange={(checked) =>
+                  onComparisonChange(
+                    checked
+                      ? { enabled: true, mode: "previousPeriod" }
+                      : undefined,
+                  )
+                }
+              />
+            </Box>
+            {compareEnabled && (
+              <Box pl="5" mt="1">
+                <RadioGroup
+                  disabled={disabled}
+                  value={comparisonMode}
+                  setValue={(mode) =>
+                    onComparisonChange({
+                      enabled: true,
+                      mode: mode as ComparisonMode,
+                      ...(mode === "custom"
+                        ? { previousTimeFrame: resolvedPrevious }
+                        : {}),
+                    })
+                  }
+                  gap="2"
+                  labelSize="2"
+                  width="100%"
+                  options={comparisonModes.map((mode) => ({
+                    value: mode,
+                    label: COMPARISON_MODE_LABELS[mode],
+                    disabled: yearModeOverlaps && mode === "previousYear",
+                    disabledReason:
+                      "The comparison window would overlap the selected range",
+                    renderOnSelect:
+                      mode === "custom"
+                        ? customPreviousControls
+                        : previousWindowSummary,
+                    renderOutsideItem: true,
+                  }))}
+                />
+              </Box>
+            )}
+          </Flex>
+        </>
+      )}
 
       <Separator size="4" my="2" />
 

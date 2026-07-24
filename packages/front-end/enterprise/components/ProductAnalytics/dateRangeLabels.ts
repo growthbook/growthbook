@@ -1,5 +1,15 @@
 import { dateRangePredefined, lookbackUnit } from "shared/validators";
-import type { ExplorationDateRange } from "shared/validators";
+import type { ComparisonMode, ExplorationDateRange } from "shared/validators";
+
+// Sentence case per .agents/guides/ui-copy-style.md — these are select/radio
+// labels, not headings.
+export const COMPARISON_MODE_LABELS: Record<ComparisonMode, string> = {
+  previousPeriod: "Previous period",
+  previousPeriodMatchDayOfWeek: "Previous period (match day of week)",
+  previousYear: "Previous year",
+  previousYearMatchDayOfWeek: "Previous year (match day of week)",
+  custom: "Custom",
+};
 
 export const DATE_RANGE_PREDEFINED_LABELS: Record<
   (typeof dateRangePredefined)[number],

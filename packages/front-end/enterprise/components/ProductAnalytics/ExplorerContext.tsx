@@ -15,13 +15,14 @@ import {
   DatasetType,
   ProductAnalyticsExploration,
   ExplorationDateRange,
+  type ComparisonMode,
   type ProductAnalyticsRunComparisonPayload,
 } from "shared/validators";
 import { QueryInterface } from "shared/types/query";
 import {
-  buildComparisonDateRange,
-  buildContiguousPreviousCustomDateRange,
+  buildComparisonDateRangeForMode,
   computeExplorationComparisonPayload,
+  resolveLegacyExplorerComparisonMode,
 } from "shared/enterprise";
 import { isEqual } from "lodash";
 import { isManagedWarehouseUnavailable } from "shared/util";
@@ -50,19 +51,6 @@ import { useExploreData, CacheOption } from "./useExploreData";
 
 const MAX_TRACKED_ERROR_LENGTH = 500;
 
-function customPrimaryBoundsKey(
-  dateRange: ExplorationConfig["dateRange"],
-): string | null {
-  if (
-    dateRange.predefined !== "customDateRange" ||
-    !dateRange.startDate ||
-    !dateRange.endDate
-  ) {
-    return null;
-  }
-  return `${dateRange.startDate}|${dateRange.endDate}`;
-}
-
 type SetDraftStateAction =
   | ExplorerDraftConfig
   | ((prevState: ExplorerDraftConfig) => ExplorerDraftConfig);
@@ -84,6 +72,8 @@ export interface ExplorerContextValue {
   trackingSource: string | undefined;
 
   compareEnabled: boolean;
+  comparisonMode: ComparisonMode;
+  submittedComparisonMode: ComparisonMode | null;
   submittedPreviousTimeFrame: ExplorationDateRange | null;
   comparisonExploration: ProductAnalyticsExploration | null;
   comparisonQuery: QueryInterface | null;
@@ -92,6 +82,7 @@ export interface ExplorerContextValue {
     "bigNumberTrends" | "tableTrendsByRow" | "previousPeriod"
   > | null;
   setCompareEnabled: (value: boolean) => void;
+  setComparisonMode: (mode: ComparisonMode) => void;
 
   // ─── Modifiers ─────────────────────────────────────────────────────────
   setDraftExploreState: (action: SetDraftStateAction) => void;
@@ -139,6 +130,7 @@ interface ExplorerProviderProps {
     exploration: ProductAnalyticsExploration,
     comparisonExploration: ProductAnalyticsExploration | null,
     previousTimeFrame: ExplorationDateRange | null,
+    comparisonMode: ComparisonMode | null,
   ) => void;
   trackingSource?: string;
 }
@@ -217,19 +209,6 @@ export function ExplorerProvider({
   const [comparisonComputed, setComparisonComputed] =
     useState<ExplorerContextValue["comparisonComputed"]>(null);
 
-  const normalizedInitialDateRange = useMemo(() => {
-    const withUnits = fillMissingUnits(
-      initialConfig,
-      getFactTableById,
-      getFactMetricById,
-    );
-    return clearInapplicableShowAs(withUnits, getFactMetricById).dateRange;
-  }, [initialConfig, getFactTableById, getFactMetricById]);
-
-  const lastCustomPrimaryBoundsRef = useRef<string | null>(
-    customPrimaryBoundsKey(normalizedInitialDateRange),
-  );
-
   const hasEverFetchedRef = useRef(hasExistingResults);
   const skipNextAutoSubmitRef = useRef(false);
   const submitRequestIdRef = useRef(0);
@@ -238,6 +217,10 @@ export function ExplorerProvider({
   const draftExploreState: ExplorerDraftConfig = explorerState.draftState;
 
   const compareEnabled = draftExploreState.previousTimeFrame != null;
+
+  const comparisonMode: ComparisonMode =
+    draftExploreState.comparisonMode ??
+    resolveLegacyExplorerComparisonMode(draftExploreState.dateRange);
 
   const setDraftExploreState = useCallback(
     (newStateOrUpdater: SetDraftStateAction) => {
@@ -324,35 +307,21 @@ export function ExplorerProvider({
 
   const submittedPreviousTimeFrame =
     submittedExploreState?.previousTimeFrame ?? null;
+  const submittedComparisonMode = submittedExploreState?.previousTimeFrame
+    ? (submittedExploreState.comparisonMode ??
+      resolveLegacyExplorerComparisonMode(submittedExploreState.dateRange))
+    : null;
 
+  // Keep the derived window in step with the primary range. `custom` is the one
+  // mode the user owns outright, so it is never overwritten here.
   useEffect(() => {
     if (draftExploreState.previousTimeFrame == null) return;
+    if (comparisonMode === "custom") return;
 
-    const dr = draftExploreState.dateRange;
-    const customKey = customPrimaryBoundsKey(dr);
-
-    if (customKey !== null) {
-      // Seed a sensible default prior only the first time we enter a custom
-      // range with none set for it yet. We intentionally don't keep the prior
-      // locked to the current range afterward — once seeded, the user can freely
-      // adjust it, and changing the current range won't overwrite their choice.
-      if (lastCustomPrimaryBoundsRef.current === null) {
-        setDraftExploreState((prev) => ({
-          ...prev,
-          previousTimeFrame: buildContiguousPreviousCustomDateRange(
-            dr.startDate as string,
-            dr.endDate as string,
-            dr.lookbackValue ?? null,
-            dr.lookbackUnit ?? null,
-          ),
-        }));
-      }
-      lastCustomPrimaryBoundsRef.current = customKey;
-      return;
-    }
-
-    lastCustomPrimaryBoundsRef.current = null;
-    const aligned = buildComparisonDateRange(dr);
+    const aligned = buildComparisonDateRangeForMode(
+      draftExploreState.dateRange,
+      comparisonMode,
+    );
     if (!isEqual(draftExploreState.previousTimeFrame, aligned)) {
       setDraftExploreState((prev) => ({
         ...prev,
@@ -362,6 +331,7 @@ export function ExplorerProvider({
   }, [
     draftExploreState.dateRange,
     draftExploreState.previousTimeFrame,
+    comparisonMode,
     setDraftExploreState,
   ]);
 
@@ -370,17 +340,38 @@ export function ExplorerProvider({
       if (value) {
         setDraftExploreState((prev) => ({
           ...prev,
-          previousTimeFrame: buildComparisonDateRange(prev.dateRange),
+          comparisonMode: "previousPeriod",
+          previousTimeFrame: buildComparisonDateRangeForMode(
+            prev.dateRange,
+            "previousPeriod",
+          ),
         }));
       } else {
         setDraftExploreState((prev) => {
-          const { previousTimeFrame: _, ...rest } = prev;
+          const { previousTimeFrame: _, comparisonMode: __, ...rest } = prev;
           return rest;
         });
         setComparisonExploration(null);
         setComparisonQuery(null);
         setComparisonComputed(null);
       }
+    },
+    [setDraftExploreState],
+  );
+
+  const setComparisonMode = useCallback(
+    (mode: ComparisonMode) => {
+      setDraftExploreState((prev) => ({
+        ...prev,
+        comparisonMode: mode,
+        // Seeding `custom` from the window already on screen keeps the manual
+        // field from jumping the moment it becomes editable.
+        previousTimeFrame: buildComparisonDateRangeForMode(
+          prev.dateRange,
+          mode,
+          prev.previousTimeFrame ?? null,
+        ),
+      }));
     },
     [setDraftExploreState],
   );
@@ -402,12 +393,17 @@ export function ExplorerProvider({
     return compareConfig(baselineConfig, cleanedDraftExploreState, {
       lastPreviousTimeFrame: submittedPreviousTimeFrame,
       newPreviousTimeFrame: draftExploreState.previousTimeFrame ?? null,
+      lastComparisonMode: submittedComparisonMode,
+      newComparisonMode: compareEnabled ? comparisonMode : null,
     });
   }, [
     baselineConfig,
     cleanedDraftExploreState,
     submittedPreviousTimeFrame,
     draftExploreState.previousTimeFrame,
+    submittedComparisonMode,
+    compareEnabled,
+    comparisonMode,
   ]);
 
   const isSubmittable = useMemo(() => {
@@ -425,18 +421,25 @@ export function ExplorerProvider({
       const sourceConfig = options?.config ?? draftExploreState;
       const configToSubmit = cleanConfigForSubmission(sourceConfig);
       const previousForRequest = sourceConfig.previousTimeFrame ?? null;
+      const modeForRequest = previousForRequest
+        ? (sourceConfig.comparisonMode ??
+          resolveLegacyExplorerComparisonMode(sourceConfig.dateRange))
+        : null;
       if (!isSubmittableConfig(configToSubmit)) return;
 
       if (managedWarehouseUnavailable) {
         return;
       }
 
-      // When comparison is first enabled, the prior-period query has never
-      // been computed. A "required" fetch would return null for it (cache-only)
-      // and the comparison would silently stay empty until a page refresh, so
-      // run it like a first load instead.
+      // When comparison is first enabled — or switched to a mode whose window
+      // has never been computed — the prior-period query doesn't exist yet. A
+      // "required" fetch would return null for it (cache-only) and the
+      // comparison would silently stay empty until a page refresh, so run it
+      // like a first load instead.
       const enablingComparison =
-        previousForRequest != null && submittedPreviousTimeFrame == null;
+        previousForRequest != null &&
+        (submittedPreviousTimeFrame == null ||
+          modeForRequest !== submittedComparisonMode);
 
       let cache: CacheOption;
       if (options?.cache) {
@@ -470,7 +473,10 @@ export function ExplorerProvider({
       } = await fetchData(configToSubmit, {
         cache,
         ...(previousForRequest
-          ? { previousTimeFrame: previousForRequest }
+          ? {
+              previousTimeFrame: previousForRequest,
+              comparisonMode: modeForRequest,
+            }
           : {}),
       });
 
@@ -483,9 +489,14 @@ export function ExplorerProvider({
         return;
       }
 
-      const submittedConfig: ExplorerDraftConfig = previousForRequest
-        ? { ...configToSubmit, previousTimeFrame: previousForRequest }
-        : configToSubmit;
+      const submittedConfig: ExplorerDraftConfig =
+        previousForRequest && modeForRequest
+          ? {
+              ...configToSubmit,
+              previousTimeFrame: previousForRequest,
+              comparisonMode: modeForRequest,
+            }
+          : configToSubmit;
 
       // Apply a terminal (success or error) result: update state, fire the
       // completion callback, and emit analytics. Shared by the synchronous
@@ -522,7 +533,12 @@ export function ExplorerProvider({
         setComparisonQuery(resultComparisonQuery);
         setComparisonComputed(resultComparisonComputed);
         if (result && !resultError) {
-          onRunComplete?.(result, resultComparison, previousForRequest);
+          onRunComplete?.(
+            result,
+            resultComparison,
+            previousForRequest,
+            modeForRequest,
+          );
         }
         if (trackingSource) {
           const datasourceType =
@@ -689,6 +705,7 @@ export function ExplorerProvider({
     [
       draftExploreState,
       submittedPreviousTimeFrame,
+      submittedComparisonMode,
       setSubmittedExploreState,
       fetchData,
       fetchExplorationById,
@@ -770,6 +787,7 @@ export function ExplorerProvider({
           ? {
               ...cleanedDraftExploreState,
               previousTimeFrame: draftExploreState.previousTimeFrame,
+              comparisonMode,
             }
           : cleanedDraftExploreState;
       setSubmittedExploreState(submittedConfig);
@@ -781,6 +799,7 @@ export function ExplorerProvider({
     baselineConfig,
     cleanedDraftExploreState,
     draftExploreState.previousTimeFrame,
+    comparisonMode,
     setSubmittedExploreState,
     isSubmittable,
     managedWarehouseUnavailable,
@@ -964,7 +983,6 @@ export function ExplorerProvider({
 
   const clearAllDatasets = useCallback(
     (newDatasourceId?: string) => {
-      lastCustomPrimaryBoundsRef.current = null;
       setComparisonExploration(null);
       setComparisonQuery(null);
       setComparisonComputed(null);
@@ -1054,11 +1072,14 @@ export function ExplorerProvider({
       registerFunnelAnalyzeCollapseHandler,
       collapseFunnelStepsForAnalyze,
       compareEnabled,
+      comparisonMode,
+      submittedComparisonMode,
       submittedPreviousTimeFrame,
       comparisonExploration,
       comparisonQuery,
       comparisonComputed,
       setCompareEnabled,
+      setComparisonMode,
     }),
     [
       addValueToDataset,
@@ -1066,6 +1087,9 @@ export function ExplorerProvider({
       clearAllDatasets,
       commonColumns,
       compareEnabled,
+      comparisonMode,
+      submittedComparisonMode,
+      setComparisonMode,
       comparisonComputed,
       comparisonExploration,
       comparisonQuery,

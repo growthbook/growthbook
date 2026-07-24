@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import { PiArrowDown, PiArrowUp } from "react-icons/pi";
 import { Flex } from "@radix-ui/themes";
 import type {
+  ComparisonMode,
   ExplorationConfig,
   ProductAnalyticsExploration,
 } from "shared/validators";
@@ -21,6 +22,7 @@ export default function ExplorerDataTable({
   query = null,
   compareEnabled = false,
   comparisonExploration = null,
+  comparisonMode = null,
   serverTableTrendsByRow = null,
 }: {
   exploration: ProductAnalyticsExploration | null;
@@ -32,6 +34,7 @@ export default function ExplorerDataTable({
   query?: QueryInterface | null;
   compareEnabled?: boolean;
   comparisonExploration?: ProductAnalyticsExploration | null;
+  comparisonMode?: ComparisonMode | null;
   serverTableTrendsByRow?: Record<string, number | null>[] | null;
 }) {
   const {
@@ -47,6 +50,7 @@ export default function ExplorerDataTable({
   } = useExplorationTableData(exploration, submittedExploreState, {
     compareEnabled,
     comparisonExploration,
+    comparisonMode,
     serverTableTrendsByRow,
   });
 

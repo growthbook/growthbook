@@ -5,14 +5,16 @@ import {
   FactTableExplorationBlockInterface,
   DataSourceExplorationBlockInterface,
   FunnelExplorationBlockInterface,
-  buildComparisonDateRange,
   dashboardBlockHasIds,
   getEffectiveExplorationConfig,
   getExplorationDateControlFingerprint,
+  resolveComparisonMode,
+  resolveComparisonPreviousTimeFrame,
   restoreBlockLocalDateControls,
 } from "shared/enterprise";
 import { isEqual } from "lodash";
 import type {
+  ComparisonMode,
   ExplorationDateRange,
   ProductAnalyticsExploration,
 } from "shared/validators";
@@ -104,21 +106,29 @@ export default function ProductAnalyticsExplorerSettings({
     );
   }
 
-  const initialConfig: ExplorerDraftConfig = block.comparison?.enabled
-    ? {
-        ...effectiveInitialConfig,
-        previousTimeFrame:
-          block.comparison.previousTimeFrame ??
-          buildComparisonDateRange(effectiveInitialConfig.dateRange),
-      }
-    : effectiveInitialConfig;
+  const blockComparisonMode = block.comparison
+    ? resolveComparisonMode(block.comparison)
+    : null;
+  const initialConfig: ExplorerDraftConfig =
+    block.comparison?.enabled && blockComparisonMode
+      ? {
+          ...effectiveInitialConfig,
+          comparisonMode: blockComparisonMode,
+          previousTimeFrame: resolveComparisonPreviousTimeFrame(
+            effectiveInitialConfig.dateRange,
+            block.comparison,
+          ),
+        }
+      : effectiveInitialConfig;
   const initialSubmittedConfig: ExplorerDraftConfig | undefined = exploration
-    ? block.comparison?.enabled
+    ? block.comparison?.enabled && blockComparisonMode
       ? {
           ...exploration.config,
-          previousTimeFrame:
-            block.comparison.previousTimeFrame ??
-            buildComparisonDateRange(exploration.config.dateRange),
+          comparisonMode: blockComparisonMode,
+          previousTimeFrame: resolveComparisonPreviousTimeFrame(
+            exploration.config.dateRange,
+            block.comparison,
+          ),
         }
       : exploration.config
     : undefined;
@@ -127,6 +137,7 @@ export default function ProductAnalyticsExplorerSettings({
     block.globalControlSettings?.dateRange === true,
     JSON.stringify(dashboardGlobalControls ?? null),
     hasStaleDashboardDateResults,
+    blockComparisonMode ?? "",
   ].join(":");
 
   return (
@@ -140,13 +151,14 @@ export default function ProductAnalyticsExplorerSettings({
         exploration,
         comparisonExploration,
         previousTimeFrame: ExplorationDateRange | null,
+        comparisonMode: ComparisonMode | null,
       ) => {
         const comparison =
-          previousTimeFrame != null
+          previousTimeFrame != null && comparisonMode != null
             ? {
                 enabled: true,
-                ...(exploration.config.dateRange.predefined ===
-                  "customDateRange" && { previousTimeFrame }),
+                mode: comparisonMode,
+                ...(comparisonMode === "custom" && { previousTimeFrame }),
               }
             : undefined;
         const nextConfig = usesDashboardDateRange

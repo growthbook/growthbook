@@ -3,6 +3,7 @@ import { Flex } from "@radix-ui/themes";
 import {
   DashboardBlockInterfaceOrData,
   ExperimentsWinRateBlockInterface,
+  resolveComparisonMode,
 } from "shared/enterprise";
 import Switch from "@/ui/Switch";
 import CompletedExperimentsFilterFields from "./CompletedExperimentsFilterFields";
@@ -27,6 +28,21 @@ export default function ExperimentsWinRateSettings({
         onChange={(patch) => setBlock({ ...block, ...patch })}
         availableProjects={projects}
         comparisonEnabled={!!block.comparison?.enabled}
+        comparisonMode={
+          block.comparison
+            ? resolveComparisonMode(block.comparison)
+            : "previousPeriod"
+        }
+        onComparisonModeChange={(mode) =>
+          setBlock({
+            ...block,
+            comparison: {
+              ...(block.comparison ?? {}),
+              enabled: true,
+              mode,
+            },
+          })
+        }
         previousTimeFrame={block.comparison?.previousTimeFrame}
         onPreviousTimeFrameChange={(previousTimeFrame) =>
           setBlock({
@@ -34,6 +50,7 @@ export default function ExperimentsWinRateSettings({
             comparison: {
               ...(block.comparison ?? {}),
               enabled: true,
+              mode: "custom",
               previousTimeFrame,
             },
           })

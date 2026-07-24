@@ -151,6 +151,7 @@ function DashboardsTab({
     (update: {
       blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
       globalControls?: DashboardInterface["globalControls"];
+      comparison?: DashboardInterface["comparison"];
     }) => {
       setTemporaryDashboard((prev) => {
         if (!prev) return prev;
@@ -160,6 +161,7 @@ function DashboardsTab({
           ...(update.globalControls !== undefined
             ? { globalControls: update.globalControls }
             : {}),
+          ...("comparison" in update ? { comparison: update.comparison } : {}),
         } as DashboardInterface;
       });
     },

@@ -37,6 +37,10 @@ interface Props {
     globalControls: DashboardInterface["globalControls"],
     blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[],
   ) => Promise<void>;
+  dashboardComparison?: DashboardInterface["comparison"];
+  onDashboardComparisonChange?: (
+    comparison: DashboardInterface["comparison"],
+  ) => Promise<void>;
   updateTemporaryDashboardResults?: (
     globalControls?: DashboardInterface["globalControls"],
     blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[],
@@ -49,6 +53,8 @@ export default function DashboardGlobalControlsBar({
   globalControls,
   canEdit,
   onGlobalControlsChange,
+  dashboardComparison,
+  onDashboardComparisonChange,
   updateTemporaryDashboardResults,
   setNeedsUpdate,
 }: Props) {
@@ -162,6 +168,15 @@ export default function DashboardGlobalControlsBar({
               dateGranularity: granularity,
             });
           }}
+          comparison={dashboardComparison ?? null}
+          onComparisonChange={
+            onDashboardComparisonChange
+              ? (comparison) => {
+                  setNeedsUpdate(true);
+                  void onDashboardComparisonChange(comparison);
+                }
+              : undefined
+          }
         />
       </Flex>
     </Flex>

@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { ExplorationDateRange } from "shared/validators";
+import { ComparisonMode, ExplorationDateRange } from "shared/validators";
 import MultiSelectField from "@/ui/MultiSelectField";
 import Text from "@/ui/Text";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -28,9 +28,11 @@ interface Props {
   // Optional content rendered between the Date Range and Projects fields
   // (e.g. Team Velocity's Date Granularity control).
   afterDateRange?: ReactNode;
-  // Comparison support: when enabled and the range is a Custom Date Range, the
-  // picker shows the Prior / Current fields backed by previousTimeFrame.
+  // Comparison support: when enabled the picker shows a "Compare to" mode
+  // selector, plus the Prior / Current fields for the `custom` mode.
   comparisonEnabled?: boolean;
+  comparisonMode?: ComparisonMode;
+  onComparisonModeChange?: (mode: ComparisonMode) => void;
   previousTimeFrame?: ExplorationDateRange;
   onPreviousTimeFrameChange?: (dr: ExplorationDateRange) => void;
 }
@@ -44,6 +46,8 @@ export default function CompletedExperimentsFilterFields({
   dateRangeAccessory,
   afterDateRange,
   comparisonEnabled,
+  comparisonMode,
+  onComparisonModeChange,
   previousTimeFrame,
   onPreviousTimeFrameChange,
 }: Props) {
@@ -67,6 +71,8 @@ export default function CompletedExperimentsFilterFields({
           value={value.dateRange}
           onChange={(dateRange) => onChange({ dateRange })}
           comparisonEnabled={comparisonEnabled}
+          comparisonMode={comparisonMode}
+          onComparisonModeChange={onComparisonModeChange}
           previousTimeFrame={previousTimeFrame}
           onPreviousTimeFrameChange={onPreviousTimeFrameChange}
         />

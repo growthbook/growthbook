@@ -14,6 +14,7 @@ import {
   blockUsesDashboardDateControl,
   getEffectiveExplorationConfig,
   resolveBlockComparison,
+  resolveComparisonMode,
   resolveComparisonPreviousTimeFrame,
 } from "shared/enterprise";
 import { LayoutItem } from "react-grid-layout";
@@ -61,6 +62,7 @@ interface Props {
   updateTemporaryDashboard?: (update: {
     blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
     globalControls?: DashboardInterface["globalControls"];
+    comparison?: DashboardInterface["comparison"];
   }) => void;
 }
 export default function DashboardWorkspace({
@@ -130,6 +132,9 @@ export default function DashboardWorkspace({
   const [globalControls, setGlobalControls] = useState<
     DashboardInterface["globalControls"]
   >(dashboard.globalControls);
+  const [dashboardComparison, setDashboardComparison] = useState<
+    DashboardInterface["comparison"]
+  >(dashboard.comparison);
   const { fetchData: fetchExplorationData } = useExploreData();
   const updateTemporaryDashboardResults = async (
     controls: DashboardInterface["globalControls"] = globalControls,
@@ -148,6 +153,7 @@ export default function DashboardWorkspace({
           previousTimeFrame: comparison
             ? resolveComparisonPreviousTimeFrame(config.dateRange, comparison)
             : null,
+          comparisonMode: comparison ? resolveComparisonMode(comparison) : null,
         });
         if (!result.data) {
           throw new Error(result.error ?? "Failed to update dashboard block");
@@ -237,6 +243,22 @@ export default function DashboardWorkspace({
     submit,
     updateTemporaryDashboard,
   ]);
+
+  const setDashboardComparisonAndSubmit = useMemo(() => {
+    return async (comparison: DashboardInterface["comparison"]) => {
+      setHasMadeChanges(true);
+      setDashboardComparison(comparison);
+      if (dashboardFirstSave) {
+        updateTemporaryDashboard?.({ comparison });
+      } else {
+        await submit({
+          method: "PUT",
+          dashboardId: dashboard.id,
+          data: { comparison },
+        });
+      }
+    };
+  }, [dashboard.id, dashboardFirstSave, submit, updateTemporaryDashboard]);
 
   const [editSidebarExpanded, setEditSidebarExpanded] = useState(true);
   const [editSidebarDirty, setEditSidebarDirty] = useState(false);
@@ -621,6 +643,8 @@ export default function DashboardWorkspace({
               }}
               mutate={mutate}
               onGlobalControlsChange={setGlobalControlsAndSubmit}
+              dashboardComparison={dashboardComparison}
+              onDashboardComparisonChange={setDashboardComparisonAndSubmit}
               updateTemporaryDashboardResults={
                 dashboardFirstSave ? updateTemporaryDashboardResults : undefined
               }

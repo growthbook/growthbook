@@ -21,11 +21,7 @@ export default function Toolbar() {
   } = useExplorerContext();
   const isFunnel = draftExploreState.dataset?.type === "funnel";
 
-  const showComparisonDateControls =
-    compareEnabled &&
-    draftExploreState.dateRange.predefined === "customDateRange" &&
-    Boolean(draftExploreState.dateRange.startDate) &&
-    Boolean(draftExploreState.dateRange.endDate);
+  const showComparisonDateControls = compareEnabled;
 
   return (
     <Flex direction="column" gap="3">

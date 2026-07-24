@@ -32752,6 +32752,14 @@ paths:
                                 properties:
                                   enabled:
                                     type: boolean
+                                  mode:
+                                    type: string
+                                    enum:
+                                      - previousPeriod
+                                      - previousPeriodMatchDayOfWeek
+                                      - previousYear
+                                      - previousYearMatchDayOfWeek
+                                      - custom
                                   previousTimeFrame:
                                     type: object
                                     properties:
@@ -32884,6 +32892,14 @@ paths:
                                 properties:
                                   enabled:
                                     type: boolean
+                                  mode:
+                                    type: string
+                                    enum:
+                                      - previousPeriod
+                                      - previousPeriodMatchDayOfWeek
+                                      - previousYear
+                                      - previousYearMatchDayOfWeek
+                                      - custom
                                   previousTimeFrame:
                                     type: object
                                     properties:
@@ -33016,6 +33032,14 @@ paths:
                                 properties:
                                   enabled:
                                     type: boolean
+                                  mode:
+                                    type: string
+                                    enum:
+                                      - previousPeriod
+                                      - previousPeriodMatchDayOfWeek
+                                      - previousYear
+                                      - previousYearMatchDayOfWeek
+                                      - custom
                                   previousTimeFrame:
                                     type: object
                                     properties:
@@ -33428,6 +33452,14 @@ paths:
                                 properties:
                                   enabled:
                                     type: boolean
+                                  mode:
+                                    type: string
+                                    enum:
+                                      - previousPeriod
+                                      - previousPeriodMatchDayOfWeek
+                                      - previousYear
+                                      - previousYearMatchDayOfWeek
+                                      - custom
                                   previousTimeFrame:
                                     type: object
                                     properties:
@@ -33561,6 +33593,14 @@ paths:
                                 properties:
                                   enabled:
                                     type: boolean
+                                  mode:
+                                    type: string
+                                    enum:
+                                      - previousPeriod
+                                      - previousPeriodMatchDayOfWeek
+                                      - previousYear
+                                      - previousYearMatchDayOfWeek
+                                      - custom
                                   previousTimeFrame:
                                     type: object
                                     properties:
@@ -33915,6 +33955,14 @@ paths:
                                 properties:
                                   enabled:
                                     type: boolean
+                                  mode:
+                                    type: string
+                                    enum:
+                                      - previousPeriod
+                                      - previousPeriodMatchDayOfWeek
+                                      - previousYear
+                                      - previousYearMatchDayOfWeek
+                                      - custom
                                   previousTimeFrame:
                                     type: object
                                     properties:
@@ -34278,6 +34326,14 @@ paths:
                                 properties:
                                   enabled:
                                     type: boolean
+                                  mode:
+                                    type: string
+                                    enum:
+                                      - previousPeriod
+                                      - previousPeriodMatchDayOfWeek
+                                      - previousYear
+                                      - previousYearMatchDayOfWeek
+                                      - custom
                                   previousTimeFrame:
                                     type: object
                                     properties:
@@ -34678,6 +34734,14 @@ paths:
                                 properties:
                                   enabled:
                                     type: boolean
+                                  mode:
+                                    type: string
+                                    enum:
+                                      - previousPeriod
+                                      - previousPeriodMatchDayOfWeek
+                                      - previousYear
+                                      - previousYearMatchDayOfWeek
+                                      - custom
                                   previousTimeFrame:
                                     type: object
                                     properties:
@@ -35249,6 +35313,14 @@ paths:
                                 properties:
                                   enabled:
                                     type: boolean
+                                  mode:
+                                    type: string
+                                    enum:
+                                      - previousPeriod
+                                      - previousPeriodMatchDayOfWeek
+                                      - previousYear
+                                      - previousYearMatchDayOfWeek
+                                      - custom
                                   previousTimeFrame:
                                     type: object
                                     properties:
@@ -35390,6 +35462,14 @@ paths:
                                 properties:
                                   enabled:
                                     type: boolean
+                                  mode:
+                                    type: string
+                                    enum:
+                                      - previousPeriod
+                                      - previousPeriodMatchDayOfWeek
+                                      - previousYear
+                                      - previousYearMatchDayOfWeek
+                                      - custom
                                   previousTimeFrame:
                                     type: object
                                     properties:
@@ -35531,6 +35611,14 @@ paths:
                                 properties:
                                   enabled:
                                     type: boolean
+                                  mode:
+                                    type: string
+                                    enum:
+                                      - previousPeriod
+                                      - previousPeriodMatchDayOfWeek
+                                      - previousYear
+                                      - previousYearMatchDayOfWeek
+                                      - custom
                                   previousTimeFrame:
                                     type: object
                                     properties:
@@ -35975,6 +36063,14 @@ paths:
                                 properties:
                                   enabled:
                                     type: boolean
+                                  mode:
+                                    type: string
+                                    enum:
+                                      - previousPeriod
+                                      - previousPeriodMatchDayOfWeek
+                                      - previousYear
+                                      - previousYearMatchDayOfWeek
+                                      - custom
                                   previousTimeFrame:
                                     type: object
                                     properties:
@@ -36338,6 +36434,14 @@ paths:
                                 properties:
                                   enabled:
                                     type: boolean
+                                  mode:
+                                    type: string
+                                    enum:
+                                      - previousPeriod
+                                      - previousPeriodMatchDayOfWeek
+                                      - previousYear
+                                      - previousYearMatchDayOfWeek
+                                      - custom
                                   previousTimeFrame:
                                     type: object
                                     properties:
@@ -36710,6 +36814,14 @@ paths:
                                 properties:
                                   enabled:
                                     type: boolean
+                                  mode:
+                                    type: string
+                                    enum:
+                                      - previousPeriod
+                                      - previousPeriodMatchDayOfWeek
+                                      - previousYear
+                                      - previousYearMatchDayOfWeek
+                                      - custom
                                   previousTimeFrame:
                                     type: object
                                     properties:
@@ -37099,6 +37211,14 @@ paths:
                                 properties:
                                   enabled:
                                     type: boolean
+                                  mode:
+                                    type: string
+                                    enum:
+                                      - previousPeriod
+                                      - previousPeriodMatchDayOfWeek
+                                      - previousYear
+                                      - previousYearMatchDayOfWeek
+                                      - custom
                                   previousTimeFrame:
                                     type: object
                                     properties:
@@ -38019,6 +38139,14 @@ paths:
                             properties:
                               enabled:
                                 type: boolean
+                              mode:
+                                type: string
+                                enum:
+                                  - previousPeriod
+                                  - previousPeriodMatchDayOfWeek
+                                  - previousYear
+                                  - previousYearMatchDayOfWeek
+                                  - custom
                               previousTimeFrame:
                                 type: object
                                 properties:
@@ -38151,6 +38279,14 @@ paths:
                             properties:
                               enabled:
                                 type: boolean
+                              mode:
+                                type: string
+                                enum:
+                                  - previousPeriod
+                                  - previousPeriodMatchDayOfWeek
+                                  - previousYear
+                                  - previousYearMatchDayOfWeek
+                                  - custom
                               previousTimeFrame:
                                 type: object
                                 properties:
@@ -38283,6 +38419,14 @@ paths:
                             properties:
                               enabled:
                                 type: boolean
+                              mode:
+                                type: string
+                                enum:
+                                  - previousPeriod
+                                  - previousPeriodMatchDayOfWeek
+                                  - previousYear
+                                  - previousYearMatchDayOfWeek
+                                  - custom
                               previousTimeFrame:
                                 type: object
                                 properties:
@@ -38695,6 +38839,14 @@ paths:
                             properties:
                               enabled:
                                 type: boolean
+                              mode:
+                                type: string
+                                enum:
+                                  - previousPeriod
+                                  - previousPeriodMatchDayOfWeek
+                                  - previousYear
+                                  - previousYearMatchDayOfWeek
+                                  - custom
                               previousTimeFrame:
                                 type: object
                                 properties:
@@ -38828,6 +38980,14 @@ paths:
                             properties:
                               enabled:
                                 type: boolean
+                              mode:
+                                type: string
+                                enum:
+                                  - previousPeriod
+                                  - previousPeriodMatchDayOfWeek
+                                  - previousYear
+                                  - previousYearMatchDayOfWeek
+                                  - custom
                               previousTimeFrame:
                                 type: object
                                 properties:
@@ -39182,6 +39342,14 @@ paths:
                             properties:
                               enabled:
                                 type: boolean
+                              mode:
+                                type: string
+                                enum:
+                                  - previousPeriod
+                                  - previousPeriodMatchDayOfWeek
+                                  - previousYear
+                                  - previousYearMatchDayOfWeek
+                                  - custom
                               previousTimeFrame:
                                 type: object
                                 properties:
@@ -39545,6 +39713,14 @@ paths:
                             properties:
                               enabled:
                                 type: boolean
+                              mode:
+                                type: string
+                                enum:
+                                  - previousPeriod
+                                  - previousPeriodMatchDayOfWeek
+                                  - previousYear
+                                  - previousYearMatchDayOfWeek
+                                  - custom
                               previousTimeFrame:
                                 type: object
                                 properties:
@@ -57012,6 +57188,14 @@ components:
           properties:
             enabled:
               type: boolean
+            mode:
+              type: string
+              enum:
+                - previousPeriod
+                - previousPeriodMatchDayOfWeek
+                - previousYear
+                - previousYearMatchDayOfWeek
+                - custom
             previousTimeFrame:
               type: object
               properties:
@@ -57149,6 +57333,14 @@ components:
                     properties:
                       enabled:
                         type: boolean
+                      mode:
+                        type: string
+                        enum:
+                          - previousPeriod
+                          - previousPeriodMatchDayOfWeek
+                          - previousYear
+                          - previousYearMatchDayOfWeek
+                          - custom
                       previousTimeFrame:
                         type: object
                         properties:
@@ -57720,6 +57912,14 @@ components:
                     properties:
                       enabled:
                         type: boolean
+                      mode:
+                        type: string
+                        enum:
+                          - previousPeriod
+                          - previousPeriodMatchDayOfWeek
+                          - previousYear
+                          - previousYearMatchDayOfWeek
+                          - custom
                       previousTimeFrame:
                         type: object
                         properties:
@@ -57861,6 +58061,14 @@ components:
                     properties:
                       enabled:
                         type: boolean
+                      mode:
+                        type: string
+                        enum:
+                          - previousPeriod
+                          - previousPeriodMatchDayOfWeek
+                          - previousYear
+                          - previousYearMatchDayOfWeek
+                          - custom
                       previousTimeFrame:
                         type: object
                         properties:
@@ -58002,6 +58210,14 @@ components:
                     properties:
                       enabled:
                         type: boolean
+                      mode:
+                        type: string
+                        enum:
+                          - previousPeriod
+                          - previousPeriodMatchDayOfWeek
+                          - previousYear
+                          - previousYearMatchDayOfWeek
+                          - custom
                       previousTimeFrame:
                         type: object
                         properties:
@@ -58446,6 +58662,14 @@ components:
                     properties:
                       enabled:
                         type: boolean
+                      mode:
+                        type: string
+                        enum:
+                          - previousPeriod
+                          - previousPeriodMatchDayOfWeek
+                          - previousYear
+                          - previousYearMatchDayOfWeek
+                          - custom
                       previousTimeFrame:
                         type: object
                         properties:
@@ -58809,6 +59033,14 @@ components:
                     properties:
                       enabled:
                         type: boolean
+                      mode:
+                        type: string
+                        enum:
+                          - previousPeriod
+                          - previousPeriodMatchDayOfWeek
+                          - previousYear
+                          - previousYearMatchDayOfWeek
+                          - custom
                       previousTimeFrame:
                         type: object
                         properties:
@@ -59181,6 +59413,14 @@ components:
                     properties:
                       enabled:
                         type: boolean
+                      mode:
+                        type: string
+                        enum:
+                          - previousPeriod
+                          - previousPeriodMatchDayOfWeek
+                          - previousYear
+                          - previousYearMatchDayOfWeek
+                          - custom
                       previousTimeFrame:
                         type: object
                         properties:
@@ -59570,6 +59810,14 @@ components:
                     properties:
                       enabled:
                         type: boolean
+                      mode:
+                        type: string
+                        enum:
+                          - previousPeriod
+                          - previousPeriodMatchDayOfWeek
+                          - previousYear
+                          - previousYearMatchDayOfWeek
+                          - custom
                       previousTimeFrame:
                         type: object
                         properties:

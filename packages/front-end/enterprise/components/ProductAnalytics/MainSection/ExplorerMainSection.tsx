@@ -30,6 +30,7 @@ export default function ExplorerMainSection() {
     comparisonExploration,
     comparisonComputed,
     submittedPreviousTimeFrame,
+    submittedComparisonMode,
   } = useExplorerContext();
 
   const showChartSection = shouldChartSectionShow({
@@ -85,6 +86,7 @@ export default function ExplorerMainSection() {
                     compareEnabled={compareEnabled}
                     comparisonExploration={comparisonExploration}
                     submittedPreviousTimeFrame={submittedPreviousTimeFrame}
+                    submittedComparisonMode={submittedComparisonMode}
                     serverBigNumberTrends={
                       comparisonComputed?.bigNumberTrends ?? null
                     }
@@ -128,6 +130,7 @@ export default function ExplorerMainSection() {
                 query={query}
                 compareEnabled={compareEnabled}
                 comparisonExploration={comparisonExploration}
+                comparisonMode={submittedComparisonMode}
                 serverTableTrendsByRow={
                   comparisonComputed?.tableTrendsByRow ?? null
                 }

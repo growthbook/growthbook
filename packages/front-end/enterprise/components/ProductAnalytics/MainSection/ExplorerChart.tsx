@@ -3,6 +3,7 @@ import { Box, Flex } from "@radix-ui/themes";
 import EChartsReact from "echarts-for-react";
 import * as echarts from "echarts/core";
 import type {
+  ComparisonMode,
   ExplorationConfig,
   ProductAnalyticsExploration,
   ProductAnalyticsRunComparisonPayload,
@@ -10,6 +11,7 @@ import type {
 import { isManagedWarehousePendingQueryError } from "shared/util";
 import {
   calculateProductAnalyticsDateRange,
+  getComparisonAlignmentStrategy,
   getDateGranularity,
 } from "shared/enterprise";
 import {
@@ -107,6 +109,7 @@ export default function ExplorerChart({
   loading,
   animate = true,
   submittedPreviousTimeFrame = null,
+  submittedComparisonMode = null,
   serverBigNumberTrends = null,
 }: {
   exploration: ProductAnalyticsExploration | null;
@@ -118,6 +121,7 @@ export default function ExplorerChart({
   /** When false, ECharts entry animations are disabled (e.g. for already-seen charts). */
   animate?: boolean;
   submittedPreviousTimeFrame?: ExplorationConfig["dateRange"] | null;
+  submittedComparisonMode?: ComparisonMode | null;
   serverBigNumberTrends?:
     | ProductAnalyticsRunComparisonPayload["bigNumberTrends"]
     | null;
@@ -347,10 +351,15 @@ export default function ExplorerChart({
       : "xAxisIndex";
     const needsDualCompareAxis = compareOverlayActive && isBarType;
 
+    const comparisonAlignment = getComparisonAlignmentStrategy(
+      submittedComparisonMode ?? "previousPeriod",
+    );
+
     const comparisonPeriodLabels = compareOverlayActive
       ? getComparisonPeriodLabels(
           submittedExploreState.dateRange,
           submittedPreviousTimeFrame ?? undefined,
+          submittedComparisonMode ?? "previousPeriod",
         )
       : null;
 
@@ -363,6 +372,7 @@ export default function ExplorerChart({
             renderOpts,
             sortedSeriesKeys,
             firstDimensionIsDate,
+            comparisonAlignment,
           })
         : null;
     const alignedComparisonDataForCurrent =
@@ -620,6 +630,7 @@ export default function ExplorerChart({
       sortedXValues,
       seriesConfigsLength: seriesConfigs.length,
       formatNumber,
+      comparisonAlignment,
     });
 
     return {
@@ -688,6 +699,7 @@ export default function ExplorerChart({
     compareEnabled,
     submittedExploreState,
     submittedPreviousTimeFrame,
+    submittedComparisonMode,
     renderOpts,
     textColor,
     gridLineColor,
@@ -706,6 +718,7 @@ export default function ExplorerChart({
     const labels = getComparisonPeriodLabels(
       submittedExploreState.dateRange,
       submittedPreviousTimeFrame ?? undefined,
+      submittedComparisonMode ?? "previousPeriod",
     );
     const items = buildCompareChartLegendModel(series, labels);
     if (!items.length) return null;
@@ -715,6 +728,7 @@ export default function ExplorerChart({
     chartConfig,
     submittedExploreState.dateRange,
     submittedPreviousTimeFrame,
+    submittedComparisonMode,
   ]);
 
   // Series toggled off via the custom compare legend. Reset whenever the legend

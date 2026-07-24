@@ -1,5 +1,5 @@
-import subYears from "date-fns/subYears";
 import type {
+  ComparisonMode,
   ExplorationConfig,
   ExplorationDateRange,
   ProductAnalyticsExploration,
@@ -149,86 +149,201 @@ export function buildContiguousPreviousCustomDateRange(
 }
 
 /**
- * Builds a `dateRange` for the comparison (previous) period submitted as
- * `customDateRange` with fixed bounds. For a primary `customDateRange`, the
- * default is the contiguous UTC calendar window of equal inclusive length
- * immediately before the primary range.
+ * Inclusive UTC calendar-day bounds of a primary range. Rolling presets resolve
+ * to instants and are truncated to the days they touch, so `last7Days` spans 8
+ * inclusive days (7 whole days plus the partial current one).
  */
-export function buildComparisonDateRange(
+export function getPrimaryUtcDayBounds(
   dateRange: ExplorationConfig["dateRange"],
-): ExplorationConfig["dateRange"] {
-  const lookbackValue = dateRange.lookbackValue ?? null;
-  const lookbackUnit = dateRange.lookbackUnit ?? null;
-
+): FixedSpanDateBounds {
   if (
     dateRange.predefined === "customDateRange" &&
     dateRange.startDate &&
     dateRange.endDate
   ) {
-    return buildContiguousPreviousCustomDateRange(
-      dateRange.startDate,
-      dateRange.endDate,
-      lookbackValue,
-      lookbackUnit,
+    return { startDate: dateRange.startDate, endDate: dateRange.endDate };
+  }
+  const { startDate, endDate } = calculateProductAnalyticsDateRange(dateRange);
+  return {
+    startDate: dateToYyyyMmDdUtc(startDate),
+    endDate: dateToYyyyMmDdUtc(endDate),
+  };
+}
+
+/** Same-length window starting `shiftDays` UTC days before the primary start. */
+function shiftFixedSpanRangeBack(
+  primaryStartYyyyMmDd: string,
+  spanInclusiveDays: number,
+  shiftDays: number,
+): FixedSpanDateBounds {
+  return buildFixedSpanRangeStartingAtAnchor(
+    addUtcCalendarDays(primaryStartYyyyMmDd, -shiftDays),
+    spanInclusiveDays,
+  );
+}
+
+/**
+ * Whole-day shift for the day-delta modes.
+ *
+ * The weekday-matching variant rounds the span *up* to whole weeks rather than
+ * to the nearest week: rounding down would place the previous end on the
+ * primary's own start day, double-counting it across both series. A gap is
+ * safe; an overlap corrupts the numbers.
+ */
+export function getComparisonShiftDays(
+  mode: Exclude<ComparisonMode, "custom" | "previousYear">,
+  spanInclusiveDays: number,
+): number {
+  switch (mode) {
+    case "previousPeriod":
+      return spanInclusiveDays;
+    case "previousPeriodMatchDayOfWeek":
+      return Math.max(7, Math.ceil(spanInclusiveDays / 7) * 7);
+    case "previousYearMatchDayOfWeek":
+      return 364;
+    default: {
+      const exhaustiveCheck: never = mode;
+      return exhaustiveCheck;
+    }
+  }
+}
+
+/**
+ * Subtract whole calendar years in UTC, clamping to the target month's last day
+ * (only Feb 29 needs it). Done by hand because date-fns `subYears` operates in
+ * local time and would clamp to the wrong UTC day in negative-offset zones.
+ */
+function subUtcCalendarYears(yyyyMmDd: string, years: number): string {
+  const [y, m, d] = yyyyMmDd.split("-").map(Number);
+  if (!y || !m || !d) return yyyyMmDd;
+  const targetYear = y - years;
+  const lastDayOfMonth = new Date(Date.UTC(targetYear, m, 0)).getUTCDate();
+  return dateToYyyyMmDdUtc(
+    new Date(Date.UTC(targetYear, m - 1, Math.min(d, lastDayOfMonth))),
+  );
+}
+
+/** Same calendar dates one year back, clamping Feb 29 to Feb 28. */
+export function buildPreviousYearUtcDayBounds(
+  primaryStartYyyyMmDd: string,
+  primaryEndYyyyMmDd: string,
+): FixedSpanDateBounds {
+  return {
+    startDate: subUtcCalendarYears(primaryStartYyyyMmDd, 1),
+    endDate: subUtcCalendarYears(primaryEndYyyyMmDd, 1),
+  };
+}
+
+/**
+ * Builds the comparison (previous) period for `mode`, submitted as a
+ * `customDateRange` with fixed bounds.
+ *
+ * Every mode reduces to a shift applied to the primary's inclusive UTC day
+ * bounds. The day-delta modes anchor at `primaryStart - shift`, so they can
+ * never overlap the primary. `previousYear` deliberately can: preserving "the
+ * same calendar dates" matters more than avoiding overlap, and clamping would
+ * silently misreport a primary spanning more than a year. Callers guard that
+ * case in the UI instead.
+ */
+export function buildComparisonDateRangeForMode(
+  dateRange: ExplorationConfig["dateRange"],
+  mode: ComparisonMode,
+  explicitPreviousTimeFrame?: ExplorationDateRange | null,
+): ExplorationConfig["dateRange"] {
+  const lookbackValue = dateRange.lookbackValue ?? null;
+  const lookbackUnit = dateRange.lookbackUnit ?? null;
+
+  if (mode === "custom") {
+    // A `custom` mode with no window yet (e.g. just switched to it) must still
+    // produce a valid range rather than null bounds.
+    return (
+      explicitPreviousTimeFrame ??
+      buildComparisonDateRangeForMode(dateRange, "previousPeriod")
     );
   }
 
-  if (dateRange.predefined === "today") {
-    const now = new Date();
-    const yesterdayStart = new Date(now);
-    yesterdayStart.setUTCDate(yesterdayStart.getUTCDate() - 1);
-    yesterdayStart.setUTCHours(0, 0, 0, 0);
-    const y = dateToYyyyMmDdUtc(yesterdayStart);
-    return {
-      predefined: "customDateRange",
-      lookbackValue,
-      lookbackUnit,
-      startDate: y,
-      endDate: y,
-    };
-  }
+  const primary = getPrimaryUtcDayBounds(dateRange);
+  const spanInclusiveDays = getInclusiveUtcCalendarDayCount(
+    primary.startDate,
+    primary.endDate,
+  );
 
-  const { startDate, endDate } = calculateProductAnalyticsDateRange(dateRange);
-  const spanMs = endDate.getTime() - startDate.getTime();
-  const prevStart = new Date(startDate.getTime() - spanMs);
-  const prevEnd = new Date(endDate.getTime() - spanMs);
-
-  const primaryStartDay = dateToYyyyMmDdUtc(startDate);
-  let prevStartStr = dateToYyyyMmDdUtc(prevStart);
-  let prevEndStr = dateToYyyyMmDdUtc(prevEnd);
-  // Rolling presets use sub-day instants, but comparison is submitted as
-  // `customDateRange` and expanded to full UTC calendar days. When the shifted
-  // previous end truncates to the same UTC day as the primary start, the
-  // expanded window would overlap the primary; end one UTC day earlier and
-  // shift the start back by the same amount to preserve inclusive day count.
-  if (prevEndStr === primaryStartDay) {
-    prevEndStr = addUtcCalendarDays(primaryStartDay, -1);
-    prevStartStr = addUtcCalendarDays(prevStartStr, -1);
-  }
+  const { startDate, endDate } =
+    mode === "previousYear"
+      ? buildPreviousYearUtcDayBounds(primary.startDate, primary.endDate)
+      : shiftFixedSpanRangeBack(
+          primary.startDate,
+          spanInclusiveDays,
+          getComparisonShiftDays(mode, spanInclusiveDays),
+        );
 
   return {
     predefined: "customDateRange",
     lookbackValue,
     lookbackUnit,
-    startDate: prevStartStr,
-    endDate: prevEndStr,
+    startDate,
+    endDate,
   };
 }
 
 /**
- * Resolves the previous-period date range to run for a comparison. An explicit
- * `previousTimeFrame` (a fixed/custom window) is used as-is; otherwise the
- * window is derived from the primary range via {@link buildComparisonDateRange}.
- * Since derivation resolves relative to "now", predefined primaries roll
- * forward each time this is called while custom windows stay fixed — this is
- * the single seam dashboards re-run on refresh so both periods stay current.
+ * The contiguous prior window — equivalent to the `previousPeriod` mode.
+ */
+export function buildComparisonDateRange(
+  dateRange: ExplorationConfig["dateRange"],
+): ExplorationConfig["dateRange"] {
+  return buildComparisonDateRangeForMode(dateRange, "previousPeriod");
+}
+
+/**
+ * A comparison saved before named modes existed carries no `mode`: a persisted
+ * `previousTimeFrame` meant "frozen window", its absence meant "re-derive".
+ */
+export function resolveComparisonMode(comparison: {
+  mode?: ComparisonMode | null;
+  previousTimeFrame?: ExplorationDateRange | null;
+}): ComparisonMode {
+  if ((comparison.mode ?? null) !== null) {
+    return comparison.mode as ComparisonMode;
+  }
+  return (comparison.previousTimeFrame ?? null) !== null
+    ? "custom"
+    : "previousPeriod";
+}
+
+/**
+ * Legacy explorer state (and shared URLs) carry no mode. Unlike persisted
+ * blocks, the explorer materializes the derived window into `previousTimeFrame`
+ * even for rolling presets, so its presence does not imply a hand-picked
+ * window — only a custom primary's prior window was ever editable.
+ */
+export function resolveLegacyExplorerComparisonMode(
+  dateRange: ExplorationConfig["dateRange"],
+): ComparisonMode {
+  return dateRange.predefined === "customDateRange"
+    ? "custom"
+    : "previousPeriod";
+}
+
+/**
+ * Resolves the previous-period date range to run for a comparison. `custom`
+ * uses the explicit `previousTimeFrame` as-is; every other mode re-derives from
+ * the primary range. Since derivation resolves relative to "now", predefined
+ * primaries roll forward each time this is called while custom windows stay
+ * fixed — this is the single seam dashboards re-run on refresh so both periods
+ * stay current.
  */
 export function resolveComparisonPreviousTimeFrame(
   primaryDateRange: ExplorationConfig["dateRange"],
-  comparison: { previousTimeFrame?: ExplorationDateRange | null },
+  comparison: {
+    mode?: ComparisonMode | null;
+    previousTimeFrame?: ExplorationDateRange | null;
+  },
 ): ExplorationConfig["dateRange"] {
-  return (
-    comparison.previousTimeFrame ?? buildComparisonDateRange(primaryDateRange)
+  return buildComparisonDateRangeForMode(
+    primaryDateRange,
+    resolveComparisonMode(comparison),
+    comparison.previousTimeFrame ?? null,
   );
 }
 
@@ -247,14 +362,89 @@ export function explorerDimensionDateToUtcYyyyMmDd(key: string): string | null {
 }
 
 /**
+ * The exploration config to run for the comparison leg.
+ *
+ * Pins an `"auto"` date granularity to the value the primary leg resolved to.
+ * `previousYear` windows can be a day shorter than the primary (leap years), so
+ * a primary sitting on a `getDateGranularity` threshold would otherwise bucket
+ * the two legs differently and make the result sets unmergeable.
+ */
+export function buildComparisonExplorationConfig(
+  primaryConfig: ExplorationConfig,
+  previousTimeFrame: ExplorationDateRange,
+): ExplorationConfig {
+  const dims = primaryConfig.dimensions ?? [];
+  const firstDim = dims[0];
+
+  if (firstDim?.dimensionType !== "date") {
+    return { ...primaryConfig, dateRange: previousTimeFrame };
+  }
+
+  const pinnedGranularity =
+    firstDim.dateGranularity === "auto"
+      ? getDateGranularity(
+          "auto",
+          calculateProductAnalyticsDateRange(primaryConfig.dateRange),
+        )
+      : firstDim.dateGranularity;
+
+  return {
+    ...primaryConfig,
+    dateRange: previousTimeFrame,
+    dimensions: [
+      { ...firstDim, dateGranularity: pinnedGranularity },
+      ...dims.slice(1),
+    ],
+  };
+}
+
+export const comparisonAlignmentStrategy = [
+  "calendarYearOverYear",
+  "chronological",
+] as const;
+export type ComparisonAlignmentStrategy =
+  (typeof comparisonAlignmentStrategy)[number];
+
+/**
+ * How a mode's two windows should be paired bucket-for-bucket.
+ *
+ * Only `previousYear` lands on the same calendar dates. The weekday-matching
+ * year mode shifts 364 days, so a calendar-year probe would resolve to a day
+ * that *is* inside the comparison window but one off from the correct bucket —
+ * silently shifting every point in the overlay. Those modes must pair by
+ * chronological rank instead.
+ *
+ * `custom` keeps the calendar match that shipped before named modes existed —
+ * a hand-picked window is most often a YoY range.
+ */
+export function getComparisonAlignmentStrategy(
+  mode: ComparisonMode,
+): ComparisonAlignmentStrategy {
+  switch (mode) {
+    case "previousYear":
+    case "custom":
+      return "calendarYearOverYear";
+    case "previousPeriod":
+    case "previousPeriodMatchDayOfWeek":
+    case "previousYearMatchDayOfWeek":
+      return "chronological";
+    default: {
+      const exhaustiveCheck: never = mode;
+      return exhaustiveCheck;
+    }
+  }
+}
+
+/**
  * Maps each current-period primary-dimension key to the comparison-period key
- * used for overlay / table pairing: YoY calendar match when present, else
- * chronological rank within the two windows.
+ * used for overlay / table pairing: under `calendarYearOverYear`, a YoY calendar
+ * match when present, else chronological rank within the two windows.
  */
 export function createComparisonAlignmentResolver(
   sortedXValues: string[],
   comparisonXValues: readonly string[],
   firstDimensionIsDate: boolean,
+  strategy: ComparisonAlignmentStrategy = "calendarYearOverYear",
 ): (currentKey: string) => string | undefined {
   if (!firstDimensionIsDate) {
     return (currentKey) => currentKey;
@@ -276,14 +466,15 @@ export function createComparisonAlignmentResolver(
     rankByCurrentX.set(x, i);
   });
   return (currentKey: string) => {
-    const currentNorm = explorerDimensionDateToUtcYyyyMmDd(currentKey);
-    if (currentNorm) {
-      const shiftedNorm = subYears(new Date(`${currentNorm}T00:00:00.000Z`), 1)
-        .toISOString()
-        .slice(0, 10);
-      const calendarMatch = comparisonNormToOriginal.get(shiftedNorm);
-      if (calendarMatch !== undefined) {
-        return calendarMatch;
+    if (strategy === "calendarYearOverYear") {
+      const currentNorm = explorerDimensionDateToUtcYyyyMmDd(currentKey);
+      if (currentNorm) {
+        const calendarMatch = comparisonNormToOriginal.get(
+          subUtcCalendarYears(currentNorm, 1),
+        );
+        if (calendarMatch !== undefined) {
+          return calendarMatch;
+        }
       }
     }
     const rank = rankByCurrentX.get(currentKey);
@@ -316,6 +507,7 @@ export function buildAlignedComparisonRowLookup(
   primaryRows: ProductAnalyticsResultRow[],
   comparisonRows: ProductAnalyticsResultRow[],
   firstDimensionIsDate: boolean,
+  strategy: ComparisonAlignmentStrategy = "calendarYearOverYear",
 ): (currentDims: (string | null)[]) => ProductAnalyticsResultRow | null {
   if (!firstDimensionIsDate) {
     const byKey = new Map<string, ProductAnalyticsResultRow>();
@@ -334,6 +526,7 @@ export function buildAlignedComparisonRowLookup(
     sortedXValues,
     comparisonXValues,
     true,
+    strategy,
   );
   const rowByCompTuple = new Map<string, ProductAnalyticsResultRow>();
   for (const r of comparisonRows) {
@@ -527,7 +720,13 @@ export function densifyComparisonExplorationTimeseries(params: {
   const dateGranularity =
     dateDim.dimensionType === "date" ? dateDim.dateGranularity : "auto";
   const dr = calculateProductAnalyticsDateRange(previousTimeFrame);
-  const resolved = getDateGranularity(dateGranularity, dr);
+  // Buckets span the previous window but are sized from the primary's, so an
+  // unequal-length comparison (leap-year `previousYear`) can't resolve "auto" to
+  // a different granularity than the leg it's being merged with.
+  const resolved = getDateGranularity(
+    dateGranularity,
+    calculateProductAnalyticsDateRange(submittedConfig.dateRange),
+  );
   const bucketStrings = enumerateProductAnalyticsDateBuckets({
     resolvedGranularity: resolved,
     rangeStart: dr.startDate,
@@ -654,6 +853,7 @@ export function computeExplorationComparisonPayload(
   submittedConfig: ExplorationConfig,
   previousTimeFrame: ExplorationDateRange,
   getFactMetricById: (id: string) => FactMetricInterface | null,
+  alignment: ComparisonAlignmentStrategy = "calendarYearOverYear",
 ): ProductAnalyticsRunComparisonPayload {
   const previousPeriod = dateRangeToPeriodStrings(previousTimeFrame);
 
@@ -767,6 +967,7 @@ export function computeExplorationComparisonPayload(
     sortedRows,
     cmpSorted,
     isTimeseries,
+    alignment,
   );
 
   const tableTrendsByRow = sortedRows.map((row) => {

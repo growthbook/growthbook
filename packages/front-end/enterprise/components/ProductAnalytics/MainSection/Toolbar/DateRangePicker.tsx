@@ -1,15 +1,26 @@
 import React, { ReactNode, useState, useRef, useEffect } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { format } from "date-fns";
-import { dateRangePredefined, lookbackUnit } from "shared/validators";
-import type { ExplorationDateRange } from "shared/validators";
+import {
+  comparisonMode as comparisonModes,
+  dateRangePredefined,
+  lookbackUnit,
+} from "shared/validators";
+import type { ComparisonMode, ExplorationDateRange } from "shared/validators";
+import {
+  calculateProductAnalyticsDateRange,
+  getInclusiveUtcCalendarDayCount,
+  getPrimaryUtcDayBounds,
+} from "shared/enterprise";
 import { getValidDateOffsetByUTC } from "shared/dates";
 import { Select, SelectItem } from "@/ui/Select";
 import Text from "@/ui/Text";
 import Field from "@/components/Forms/Field";
 import DatePicker from "@/components/DatePicker";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
+import { formatCollapsedDateRange } from "@/enterprise/components/ProductAnalytics/comparison-chart";
 import {
+  COMPARISON_MODE_LABELS,
   DATE_RANGE_PREDEFINED_LABELS,
   LOOKBACK_UNIT_LABELS,
 } from "@/enterprise/components/ProductAnalytics/dateRangeLabels";
@@ -381,6 +392,81 @@ function ExplorerCurrentCustomRangeField({
   );
 }
 
+/**
+ * Whether `previousYear` would overlap the primary range. Guarded rather than
+ * clamped so the mode keeps its "same calendar dates" meaning.
+ */
+function yearModesWouldOverlap(dr: ExplorationDateRange): boolean {
+  const bounds = getPrimaryUtcDayBounds(dr);
+  return (
+    getInclusiveUtcCalendarDayCount(bounds.startDate, bounds.endDate) > 366
+  );
+}
+
+/** "Compare to" dropdown naming how the prior period is derived. */
+function ComparisonModeSelect({
+  disabled,
+  fullWidth = false,
+}: {
+  disabled?: boolean;
+  fullWidth?: boolean;
+}) {
+  const { draftExploreState, comparisonMode, setComparisonMode } =
+    useExplorerContext();
+  const overlaps = yearModesWouldOverlap(draftExploreState.dateRange);
+
+  return (
+    <Select
+      size="small"
+      style={fullWidth ? { width: "100%" } : undefined}
+      value={comparisonMode}
+      disabled={disabled}
+      setValue={(v) => setComparisonMode(v as ComparisonMode)}
+    >
+      {comparisonModes.map((mode) => (
+        <SelectItem
+          key={mode}
+          value={mode}
+          disabled={overlaps && mode === "previousYear"}
+        >
+          {COMPARISON_MODE_LABELS[mode]}
+        </SelectItem>
+      ))}
+    </Select>
+  );
+}
+
+/**
+ * The "Current" period: editable for a custom range, otherwise the concrete
+ * window the selected preset resolves to right now.
+ */
+function ExplorerCurrentRangeField({
+  shouldWrap = false,
+  fullWidth = false,
+}: {
+  shouldWrap?: boolean;
+  fullWidth?: boolean;
+}) {
+  const { draftExploreState } = useExplorerContext();
+  const dr = draftExploreState.dateRange;
+
+  if (dr.predefined === "customDateRange") {
+    return (
+      <ExplorerCurrentCustomRangeField
+        shouldWrap={shouldWrap}
+        fullWidth={fullWidth}
+      />
+    );
+  }
+
+  const resolved = calculateProductAnalyticsDateRange(dr);
+  return (
+    <Text size="small" color="text-low">
+      {formatCollapsedDateRange(resolved.startDate, resolved.endDate)}
+    </Text>
+  );
+}
+
 function ComparisonPreviousRangePicker({
   shouldWrap = false,
   label,
@@ -392,22 +478,48 @@ function ComparisonPreviousRangePicker({
   /** Render as a single full-width range field (no label) that fills its cell. */
   fullWidth?: boolean;
 }) {
-  const { draftExploreState, setDraftExploreState, compareEnabled } =
-    useExplorerContext();
+  const {
+    draftExploreState,
+    setDraftExploreState,
+    compareEnabled,
+    comparisonMode,
+  } = useExplorerContext();
 
   const previousTimeFrame = draftExploreState.previousTimeFrame;
-  const dr = draftExploreState.dateRange;
 
   if (
     !compareEnabled ||
-    dr.predefined !== "customDateRange" ||
-    !dr.startDate ||
-    !dr.endDate ||
     !previousTimeFrame ||
     !previousTimeFrame.startDate ||
     !previousTimeFrame.endDate
   ) {
     return null;
+  }
+
+  // Derived modes own their window, so show it rather than letting it be edited
+  // out of sync with the mode that produced it.
+  if (comparisonMode !== "custom") {
+    const resolved = (
+      <Text size="small" color="text-low">
+        {formatCollapsedDateRange(
+          getValidDateOffsetByUTC(previousTimeFrame.startDate),
+          getValidDateOffsetByUTC(previousTimeFrame.endDate),
+        )}
+      </Text>
+    );
+    if (fullWidth) {
+      return (
+        <Box width="100%" style={{ minWidth: 0 }}>
+          {resolved}
+        </Box>
+      );
+    }
+    return (
+      <Flex align="center" gap="2" style={{ minWidth: 0 }}>
+        {label && <MicroLabel>{label}</MicroLabel>}
+        {resolved}
+      </Flex>
+    );
   }
 
   const picker = (
@@ -551,6 +663,7 @@ export function ComparisonDateControls({
     return (
       <Flex direction="column" gap="2" width="100%" style={{ minWidth: 0 }}>
         <ExplorerDateRangePresetSelect fullWidth />
+        {labeledRow("Compare to", <ComparisonModeSelect fullWidth />)}
         <Flex direction="column" gap="1" width="100%" style={{ minWidth: 0 }}>
           {labeledRow("Prior", <ComparisonPreviousRangePicker fullWidth />)}
           {labeledRow(
@@ -559,7 +672,7 @@ export function ComparisonDateControls({
               vs
             </Text>,
           )}
-          {labeledRow("Current", <ExplorerCurrentCustomRangeField fullWidth />)}
+          {labeledRow("Current", <ExplorerCurrentRangeField fullWidth />)}
         </Flex>
         {groupBySlot}
       </Flex>
@@ -570,11 +683,12 @@ export function ComparisonDateControls({
       <ExplorerDateRangePresetSelect />
       <Flex align="center" gap="2">
         <CompareFieldLabel>Current</CompareFieldLabel>
-        <ExplorerCurrentCustomRangeField />
+        <ExplorerCurrentRangeField />
       </Flex>
       <Text size="small" color="text-low" weight="medium">
         vs
       </Text>
+      <ComparisonModeSelect />
       <Flex align="center" gap="2">
         <CompareFieldLabel>Prior</CompareFieldLabel>
         <ComparisonPreviousRangePicker />

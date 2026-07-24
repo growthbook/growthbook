@@ -414,6 +414,10 @@ interface Props {
     globalControls: DashboardInterface["globalControls"],
     blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[],
   ) => Promise<void>;
+  dashboardComparison?: DashboardInterface["comparison"];
+  onDashboardComparisonChange?: (
+    comparison: DashboardInterface["comparison"],
+  ) => Promise<void>;
   updateTemporaryDashboardResults?: (
     globalControls?: DashboardInterface["globalControls"],
     blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[],
@@ -445,6 +449,8 @@ function DashboardEditor({
   setBlock,
   mutate,
   onGlobalControlsChange,
+  dashboardComparison,
+  onDashboardComparisonChange,
   updateTemporaryDashboardResults,
   switchToExperimentView,
   isGeneralDashboard = false,
@@ -822,6 +828,8 @@ function DashboardEditor({
             globalControls={globalControls}
             canEdit={canEdit}
             onGlobalControlsChange={onGlobalControlsChange}
+            dashboardComparison={dashboardComparison}
+            onDashboardComparisonChange={onDashboardComparisonChange}
             updateTemporaryDashboardResults={updateTemporaryDashboardResults}
             setNeedsUpdate={setNeedsUpdate}
           />
