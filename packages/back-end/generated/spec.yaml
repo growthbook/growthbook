@@ -16719,7 +16719,16 @@ paths:
             type: string
         - $ref: '#/components/parameters/result'
         - $ref: '#/components/parameters/tag'
-        - $ref: '#/components/parameters/type'
+        - name: type
+          in: query
+          description: >-
+            Filter by comma-separated experiment types (feature, visualChange,
+            redirect)
+          schema:
+            description: >-
+              Filter by comma-separated experiment types (feature, visualChange,
+              redirect)
+            type: string
         - $ref: '#/components/parameters/bandits'
         - $ref: '#/components/parameters/startDate'
         - $ref: '#/components/parameters/endDate'
@@ -46685,17 +46694,6 @@ components:
       description: Filter by comma-separated tags
       schema:
         description: Filter by comma-separated tags
-        type: string
-    type:
-      name: type
-      in: query
-      description: >-
-        Filter by comma-separated experiment types (feature, visualChange,
-        redirect)
-      schema:
-        description: >-
-          Filter by comma-separated experiment types (feature, visualChange,
-          redirect)
         type: string
     bandits:
       name: bandits
