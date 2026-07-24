@@ -155,9 +155,27 @@ export default function RuleList(props: RuleListProps) {
   // keeps this effect from depending on the state it writes — that self-
   // reference is what let earlier versions loop. Setting state can no longer
   // re-fire the effect, so a fetch fires at most once per id. A failed id is
-  // dropped from the set, so it retries the next time `referencedGroupIds`
-  // changes rather than being cached opaque or hammered in a loop.
+  // dropped from the set, so it retries the next time the effect reruns
+  // (referenced set changes, or a revalidate below) rather than being cached
+  // opaque or hammered in a loop.
   const requestedGroupIds = useRef<Set<string>>(new Set());
+
+  // Bumped on reconnect / tab-visible to re-attempt ids that failed earlier.
+  // Successful ids stay in the ref, so only the still-missing ones re-fetch —
+  // this is the revalidate-on-focus/reconnect SWR gives free-standing hooks.
+  const [revalidateToken, setRevalidateToken] = useState(0);
+  useEffect(() => {
+    const revalidate = () => setRevalidateToken((t) => t + 1);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") revalidate();
+    };
+    window.addEventListener("online", revalidate);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.removeEventListener("online", revalidate);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, []);
 
   useEffect(() => {
     const toFetch = referencedGroupIds.filter(
@@ -181,7 +199,7 @@ export default function RuleList(props: RuleListProps) {
           requestedGroupIds.current.delete(id);
         }),
     );
-  }, [referencedGroupIds, apiCall]);
+  }, [referencedGroupIds, apiCall, revalidateToken]);
 
   const savedGroupConflictMap = useMemo<
     Map<string, SavedGroupForConflicts>
