@@ -377,6 +377,28 @@ export function validateCappingSettingsOrdering(
 }
 
 /**
+ * Zero handling must be consistent across tails: a metric ignores zeros on both
+ * the upper and lower tail, or on neither. Only enforced when both tails are
+ * actually capping — an inactive tail's `ignoreZeros` is irrelevant.
+ */
+export function validateCappingSettingsIgnoreZerosConsistency(
+  upper: CappingSettingsTailInput | null | undefined,
+  lower?: CappingSettingsTailInput | null | undefined,
+): void {
+  const tails = getCappingTailState(upper, lower);
+  const upperActive = tails.upperPercentileCapped || tails.upperAbsoluteCapped;
+  const lowerActive = tails.lowerPercentileCapped || tails.lowerAbsoluteCapped;
+  if (!upperActive || !lowerActive) return;
+
+  // Normalize null/undefined/false to false so only an explicit true differs.
+  if (!!upper?.ignoreZeros !== !!lower?.ignoreZeros) {
+    throw new Error(
+      "Ignore zeros must be enabled on both capping tails or on neither.",
+    );
+  }
+}
+
+/**
  * Ratio metrics only support percentile capping.
  */
 export function validateCappingSettingsMetricTypeCompatibility(

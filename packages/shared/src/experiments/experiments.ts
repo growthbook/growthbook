@@ -413,29 +413,6 @@ export function getAggregateFilters({
   return filters;
 }
 
-/**
- * For `$$distinctUsers` with aggregate user filters, each user's contribution is 1 when their
- * aggregated value matches the filter(s) and NULL otherwise. Used in experiment SQL so capping
- * applies to the same per-user expression as the uncapped path.
- */
-export function wrapValueColumnWithAggregateUserFilter(
-  columnExpr: string,
-  columnRef: Pick<
-    ColumnRef,
-    "aggregateFilter" | "aggregateFilterColumn" | "column"
-  > | null,
-): string {
-  const filters = getAggregateFilters({
-    columnRef,
-    column: columnExpr,
-    ignoreInvalid: true,
-  });
-  if (!filters.length) {
-    return columnExpr;
-  }
-  return `(CASE WHEN ${filters.join(" AND ")} THEN 1 ELSE NULL END)`;
-}
-
 export function getFactTableTemplateVariables(
   factTable: FactTableInterface,
 ): TemplateVariables {
@@ -568,14 +545,16 @@ export function needsPercentileCapSubquery(metric: ExperimentMetricInterface) {
   );
 }
 
-function isAbsoluteCappedMetric(metric: ExperimentMetricDefinition) {
+export function isAbsoluteCappedMetric(metric: ExperimentMetricDefinition) {
   return (
     getCappingTailState(metric.cappingSettings).upperAbsoluteCapped &&
     isCappableMetricType(metric)
   );
 }
 
-function isLowerAbsoluteCappedMetric(metric: ExperimentMetricDefinition) {
+export function isLowerAbsoluteCappedMetric(
+  metric: ExperimentMetricDefinition,
+) {
   return (
     getCappingTailState(undefined, getLowerCappingSettings(metric))
       .lowerAbsoluteCapped && isCappableMetricType(metric)
@@ -588,28 +567,6 @@ export function hasActiveCappingTails(metric: ExperimentMetricDefinition) {
     getCappingTailState(metric.cappingSettings, getLowerCappingSettings(metric))
       .anyCap && isCappableMetricType(metric)
   );
-}
-
-/** Short label for tooltip / metadata when capping is enabled. */
-export function formatMetricCappingSummary(metric: ExperimentMetricDefinition) {
-  const cs = metric.cappingSettings;
-  const lower = getLowerCappingSettings(metric);
-  const parts: string[] = [];
-  if (isUpperPercentileCappedMetric(metric)) {
-    parts.push(
-      `Upper: ${100 * (cs.value as number)}%${cs.ignoreZeros ? " (ignore zeros)" : ""}`,
-    );
-  } else if (isAbsoluteCappedMetric(metric)) {
-    parts.push(`Upper: ${cs.value}`);
-  }
-  if (isLowerPercentileCappedMetric(metric)) {
-    parts.push(
-      `Lower: ${100 * (lower?.value as number)}%${lower?.ignoreZeros ? " (ignore zeros)" : ""}`,
-    );
-  } else if (isLowerAbsoluteCappedMetric(metric)) {
-    parts.push(`Lower: ${lower?.value}`);
-  }
-  return parts.join("; ");
 }
 
 export function isSliceMetric(metric: ExperimentMetricDefinition) {

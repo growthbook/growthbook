@@ -13,6 +13,7 @@ import {
   factMetricValidator,
   ApiFactMetric,
   validateCappingSettingsOrdering,
+  validateCappingSettingsIgnoreZerosConsistency,
   validateCappingSettingsMetricTypeCompatibility,
 } from "shared/validators";
 import {
@@ -369,6 +370,11 @@ export class FactMetricModel extends BaseClass {
     const existingMetric = previousData || null;
 
     validateCappingSettingsOrdering(
+      data.cappingSettings,
+      data.lowerCappingSettings,
+    );
+
+    validateCappingSettingsIgnoreZerosConsistency(
       data.cappingSettings,
       data.lowerCappingSettings,
     );

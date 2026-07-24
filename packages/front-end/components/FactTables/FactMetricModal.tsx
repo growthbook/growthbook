@@ -10,6 +10,7 @@ import {
 import { isProjectListValidForProject } from "shared/util";
 import {
   getCappingTailState,
+  validateCappingSettingsIgnoreZerosConsistency,
   validateCappingSettingsOrdering,
 } from "shared/validators";
 import {
@@ -1574,6 +1575,10 @@ export default function FactMetricModal({
 
           if (tails.anyCap) {
             validateCappingSettingsOrdering(
+              values.cappingSettings,
+              values.lowerCappingSettings,
+            );
+            validateCappingSettingsIgnoreZerosConsistency(
               values.cappingSettings,
               values.lowerCappingSettings,
             );

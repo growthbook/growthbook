@@ -1,10 +1,14 @@
 import { Flex, Tooltip } from "@radix-ui/themes";
 import { MdSwapCalls } from "react-icons/md";
 import {
-  formatMetricCappingSummary,
+  ExperimentMetricDefinition,
   getLowerCappingSettings,
   hasActiveCappingTails,
+  isAbsoluteCappedMetric,
   isFactMetric,
+  isLowerAbsoluteCappedMetric,
+  isLowerPercentileCappedMetric,
+  isUpperPercentileCappedMetric,
   quantileMetricType,
 } from "shared/experiments";
 import { getCappingTailState, LookbackOverride } from "shared/validators";
@@ -19,6 +23,28 @@ import {
   isNullUndefinedOrEmpty,
 } from "@/services/utils";
 import { ExperimentTableRow } from "@/services/experiments";
+
+/** Short label for tooltip / metadata when capping is enabled. */
+function formatMetricCappingSummary(metric: ExperimentMetricDefinition) {
+  const cs = metric.cappingSettings;
+  const lower = getLowerCappingSettings(metric);
+  const parts: string[] = [];
+  if (isUpperPercentileCappedMetric(metric)) {
+    parts.push(
+      `Upper: ${100 * (cs.value as number)}%${cs.ignoreZeros ? " (ignore zeros)" : ""}`,
+    );
+  } else if (isAbsoluteCappedMetric(metric)) {
+    parts.push(`Upper: ${cs.value}`);
+  }
+  if (isLowerPercentileCappedMetric(metric)) {
+    parts.push(
+      `Lower: ${100 * (lower?.value as number)}%${lower?.ignoreZeros ? " (ignore zeros)" : ""}`,
+    );
+  } else if (isLowerAbsoluteCappedMetric(metric)) {
+    parts.push(`Lower: ${lower?.value}`);
+  }
+  return parts.join("; ");
+}
 
 export function MetricDrilldownMetadata({
   statsEngine,
