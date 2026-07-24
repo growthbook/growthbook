@@ -17,6 +17,34 @@ export const LOG_LEVEL = process.env.LOG_LEVEL;
 export const IS_CLOUD = stringToBoolean(process.env.IS_CLOUD);
 export const IS_MULTI_ORG = stringToBoolean(process.env.IS_MULTI_ORG);
 
+/** Enable GrowthBook OAuth 2.1 Authorization Server endpoints (MCP / CLI login). Default off. */
+export const OAUTH_AS_ENABLED = stringToBoolean(process.env.OAUTH_AS_ENABLED);
+
+/**
+ * Issuer identifier for the OAuth AS (RFC 8414). Falls back to API_HOST, then
+ * to the request-derived host at runtime. Set explicitly to override
+ * (e.g. https://api.growthbook.io). Must be byte-stable — clients compare it.
+ */
+export const OAUTH_ISSUER = (
+  process.env.OAUTH_ISSUER ||
+  process.env.API_HOST ||
+  ""
+).replace(/\/+$/, "");
+
+/** Access token lifetime in seconds (default 1 hour). */
+export const OAUTH_ACCESS_TOKEN_TTL_SECONDS = parseEnvInt(
+  process.env.OAUTH_ACCESS_TOKEN_TTL_SECONDS,
+  60 * 60,
+  { name: "OAUTH_ACCESS_TOKEN_TTL_SECONDS", min: 60 },
+);
+
+/** Refresh token lifetime in seconds (default 30 days). */
+export const OAUTH_REFRESH_TOKEN_TTL_SECONDS = parseEnvInt(
+  process.env.OAUTH_REFRESH_TOKEN_TTL_SECONDS,
+  30 * 24 * 60 * 60,
+  { name: "OAUTH_REFRESH_TOKEN_TTL_SECONDS", min: 60 },
+);
+
 export const DISABLE_TELEMETRY = process.env.DISABLE_TELEMETRY;
 export const INGESTOR_HOST = process.env.INGESTOR_HOST || "";
 

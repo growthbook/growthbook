@@ -13,6 +13,10 @@ import {
 } from "back-end/src/util/mongo.util";
 import { findAllOrganizations } from "back-end/src/models/OrganizationModel";
 import { COLLECTION_NAME as API_KEY_COLLECTION } from "back-end/src/models/ApiKeyModel";
+import {
+  hashToken,
+  OAUTH_ACCESS_TOKEN_PREFIX,
+} from "back-end/src/util/oauth-token.util";
 
 /**
  * Verifies if the provided API key is for a user in the organization.
@@ -97,13 +101,25 @@ export async function dangerousLookupOrganizationByApiKey(
     }
   }
 
+  // OAuth access tokens are stored hashed under a distinguishing prefix.
+  // Hash-then-lookup only for that prefix so classic keys stay plaintext.
+  const lookupKey = key.startsWith(OAUTH_ACCESS_TOKEN_PREFIX)
+    ? hashToken(key)
+    : key;
+
   const doc = await getCollection<ApiKeyInterface>(API_KEY_COLLECTION).findOne({
-    key,
+    key: lookupKey,
   });
 
   if (!doc || !doc.organization) {
     throw new Error("Invalid API key");
   }
 
-  return migrateApiKey(removeMongooseFields(doc));
+  const migrated = migrateApiKey(removeMongooseFields(doc));
+
+  if (migrated.expiresAt && migrated.expiresAt.getTime() <= Date.now()) {
+    throw new Error("This API key has expired");
+  }
+
+  return migrated;
 }

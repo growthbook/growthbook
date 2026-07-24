@@ -58,6 +58,25 @@ export const apiKeySchema = createBaseSchemaWithPrimaryKey({
     .describe(
       "Timestamp of the most recent successful authentication. `null` means the key has never been used. `undefined` means the key predates usage tracking.",
     ),
+  expiresAt: z
+    .date()
+    .nullable()
+    .optional()
+    .describe(
+      "When set, the key is rejected after this time. Used by OAuth access tokens. Absent/null for classic API keys and PATs.",
+    ),
+  oauthClientId: z
+    .string()
+    .optional()
+    .describe(
+      "OAuth client that was issued this access token. Absent for classic API keys and PATs.",
+    ),
+  scopes: z
+    .array(z.string())
+    .optional()
+    .describe(
+      "OAuth scopes granted at issuance. Stored for audit; Phase 1 tokens act as the full user (PAT-equivalent).",
+    ),
 });
 
 export const secretApiKey = apiKeySchema

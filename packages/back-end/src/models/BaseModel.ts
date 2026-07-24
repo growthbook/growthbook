@@ -229,6 +229,8 @@ export interface ModelConfig<
     fields: Partial<Record<IndexableFieldPath<z.infer<T>>, 1 | -1>>;
     unique?: boolean;
     sparse?: boolean;
+    // TTL: seconds after the indexed Date field before Mongo deletes the doc (0 = at that time).
+    expireAfterSeconds?: number;
     // Explicit index name (required for partial indexes so they can be matched
     // for removal and so dup-key errors can be identified).
     name?: string;
@@ -1409,6 +1411,9 @@ export abstract class BaseModel<
             unique: !!index.unique,
             sparse: !!index.sparse,
             ...(index.name ? { name: index.name } : {}),
+            ...(index.expireAfterSeconds !== undefined
+              ? { expireAfterSeconds: index.expireAfterSeconds }
+              : {}),
             ...(index.partialFilterExpression
               ? { partialFilterExpression: index.partialFilterExpression }
               : {}),
