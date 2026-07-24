@@ -11,7 +11,9 @@ import {
   isManagedWarehouse,
   isManagedWarehouseAwaitingJsonMigration,
   isManagedWarehouseAwaitingProvisioning,
+  isManagedWarehouseJsonSyntaxError,
   isManagedWarehouseMigrating,
+  ManagedWarehouseJsonSyntaxError,
   ManagedWarehousePendingError,
 } from "shared/util";
 import { SqlDialect } from "shared/types/sql";
@@ -124,9 +126,25 @@ export default class ClickHouse extends SqlIntegration {
         ),
       },
     });
-    const results = await client.query({ query: sql, format: "JSON" });
     // eslint-disable-next-line
-    const data: ResponseJSON<Record<string, any>[]> = await results.json();
+    let data: ResponseJSON<Record<string, any>[]>;
+    try {
+      const results = await client.query({ query: sql, format: "JSON" });
+      data = await results.json();
+    } catch (e) {
+      // Post-JSON-migration, legacy JSONExtract* calls against `attributes`/
+      // `properties` throw ClickHouse's "illegal type: JSON" error. Surface a
+      // stable code so the UI can show migration guidance instead of raw SQL.
+      if (
+        isManagedWarehouse(this.datasource) &&
+        isManagedWarehouseJsonSyntaxError(
+          e instanceof Error ? e.message : String(e),
+        )
+      ) {
+        throw new ManagedWarehouseJsonSyntaxError();
+      }
+      throw e;
+    }
     const rows = data.data ? data.data : [];
     if (isManagedWarehouse(this.datasource)) {
       normalizeManagedWarehouseDatetimes(rows, data.meta);
