@@ -37,6 +37,7 @@ const EXPLORER_TYPE_LABELS: Record<DatasetType, string> = {
   metric: "Metric",
   fact_table: "Fact Table",
   data_source: "Data Source",
+  sql: "SQL",
   funnel: "Funnel",
 };
 
@@ -73,7 +74,13 @@ function deriveConfigError(
   return null;
 }
 
-function ExplorerContent() {
+export function ExplorerContent({
+  hideDataSourceSelector = false,
+  sidebarHeaderActions,
+}: {
+  hideDataSourceSelector?: boolean;
+  sidebarHeaderActions?: React.ReactNode;
+}) {
   const { managedWarehouseUnavailable } = useExplorerContext();
 
   return (
@@ -92,7 +99,9 @@ function ExplorerContent() {
           minSize={65}
           style={{ display: "flex", flexDirection: "column" }}
         >
-          <ExplorerMainSection />
+          <ExplorerMainSection
+            showDataSourceSelector={!hideDataSourceSelector}
+          />
         </Panel>
 
         {/* Resize Handle */}
@@ -126,7 +135,7 @@ function ExplorerContent() {
               `calc(100vh - 160px)` — the latter left ~88px dead space at
               the bottom and caused unnecessary scrolling. */}
           <ShadowedScrollArea height="100%">
-            <ExplorerSideBar />
+            <ExplorerSideBar headerActions={sidebarHeaderActions} />
           </ShadowedScrollArea>
         </Panel>
       </PanelGroup>

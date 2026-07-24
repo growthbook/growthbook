@@ -21,7 +21,7 @@ import {
   updateXAxisConfig,
   normalizeDimensionsForChartType,
 } from "@/services/dataVizConfigUtilities";
-import { AreaWithHeader } from "@/components/SchemaBrowser/SqlExplorerModal";
+import AreaWithHeader from "@/components/SchemaBrowser/AreaWithHeader";
 import DataVizFilterPanel from "./DataVizFilterPanel";
 import DataVizDimensionPanel from "./DataVizDimensionPanel";
 import DisplaySettingsPanel from "./DisplaySettingsPanel/DisplaySettingsPanel";

@@ -41,6 +41,7 @@ const GENERAL_DASHBOARD_BLOCK_TYPES: DashboardBlockType[] = [
   "experiments-status",
   "fact-table-exploration",
   "data-source-exploration",
+  "sql-exploration",
   "funnel-exploration",
   "sql-explorer",
   "metric-explorer",
@@ -93,7 +94,9 @@ interface Props {
   dashboardGlobalControls?: DashboardInterface["globalControls"];
   open: boolean;
   cancel: () => void;
-  submit: () => void;
+  submit: (
+    blockOverride?: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+  ) => void;
   blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
   stagedBlock:
     | DashboardBlockInterfaceOrData<DashboardBlockInterface>

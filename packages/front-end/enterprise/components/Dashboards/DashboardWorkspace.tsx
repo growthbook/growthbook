@@ -327,6 +327,7 @@ export default function DashboardWorkspace({
       bType === "metric-exploration" ||
       bType === "fact-table-exploration" ||
       bType === "data-source-exploration" ||
+      bType === "sql-exploration" ||
       bType === "funnel-exploration";
     // TypeScript can't correlate block type with its config in a discriminated union
     const createBlock = CREATE_BLOCK_TYPE[bType] as (args: {
@@ -672,20 +673,22 @@ export default function DashboardWorkspace({
               dashboardGlobalControls={globalControls}
               open={editSidebarExpanded}
               cancel={clearEditingState}
-              submit={() => {
-                if (isDefined(addBlockIndex) && isDefined(stagedAddBlock)) {
+              submit={(blockOverride) => {
+                const blockToSubmit =
+                  blockOverride ?? stagedAddBlock ?? stagedEditBlock;
+                if (isDefined(addBlockIndex) && isDefined(blockToSubmit)) {
                   setBlocksAndSubmit([
                     ...blocks.slice(0, addBlockIndex),
-                    stagedAddBlock,
+                    blockToSubmit,
                     ...blocks.slice(addBlockIndex),
                   ]);
                 } else if (
                   isDefined(editingBlockIndex) &&
-                  isDefined(stagedEditBlock)
+                  isDefined(blockToSubmit)
                 ) {
                   setBlocksAndSubmit([
                     ...blocks.slice(0, editingBlockIndex),
-                    stagedEditBlock,
+                    blockToSubmit,
                     ...blocks.slice(editingBlockIndex + 1),
                   ]);
                 }

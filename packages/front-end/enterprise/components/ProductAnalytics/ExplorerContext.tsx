@@ -46,6 +46,7 @@ import {
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { SqlEditorProvider } from "@/enterprise/components/ProductAnalytics/SqlEditorContext";
 import { useExploreData, CacheOption } from "./useExploreData";
 
 const MAX_TRACKED_ERROR_LENGTH = 500;
@@ -134,6 +135,8 @@ interface ExplorerProviderProps {
   children: ReactNode;
   initialConfig: ExplorerDraftConfig;
   initialSubmittedConfig?: ExplorerDraftConfig;
+  initialExploration?: ProductAnalyticsExploration | null;
+  initialComparisonExploration?: ProductAnalyticsExploration | null;
   hasExistingResults?: boolean;
   onRunComplete?: (
     exploration: ProductAnalyticsExploration,
@@ -147,6 +150,8 @@ export function ExplorerProvider({
   children,
   initialConfig,
   initialSubmittedConfig,
+  initialExploration = null,
+  initialComparisonExploration = null,
   hasExistingResults = false,
   onRunComplete,
   trackingSource,
@@ -193,7 +198,7 @@ export function ExplorerProvider({
     return {
       draftState: normalizedInitial,
       submittedState: hasExistingResults ? normalizedSubmitted : null,
-      exploration: null,
+      exploration: initialExploration,
       error: null,
       query: null,
     };
@@ -210,7 +215,7 @@ export function ExplorerProvider({
     };
   }, []);
   const [comparisonExploration, setComparisonExploration] =
-    useState<ProductAnalyticsExploration | null>(null);
+    useState<ProductAnalyticsExploration | null>(initialComparisonExploration);
   const [comparisonQuery, setComparisonQuery] = useState<QueryInterface | null>(
     null,
   );
@@ -1096,7 +1101,26 @@ export function ExplorerProvider({
 
   return (
     <ExplorerContext.Provider value={value}>
-      {children}
+      {draftExploreState.dataset.type === "sql" ? (
+        <SqlEditorProvider
+          datasourceId={draftExploreState.datasource}
+          sql={draftExploreState.dataset.sql}
+          initialViewMode={
+            draftExploreState.dataset.sql.trim().length > 0 &&
+            draftExploreState.dataset.timestampColumn.length > 0 &&
+            draftExploreState.dataset.columnTypes[
+              draftExploreState.dataset.timestampColumn
+            ] === "date" &&
+            Object.keys(draftExploreState.dataset.columnTypes).length > 0
+              ? "chart"
+              : "sql"
+          }
+        >
+          {children}
+        </SqlEditorProvider>
+      ) : (
+        children
+      )}
     </ExplorerContext.Provider>
   );
 }

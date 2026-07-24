@@ -137,6 +137,7 @@ const BLOCK_COMPONENTS: {
   "metric-exploration": ProductAnalyticsExplorerBlock,
   "fact-table-exploration": ProductAnalyticsExplorerBlock,
   "data-source-exploration": ProductAnalyticsExplorerBlock,
+  "sql-exploration": ProductAnalyticsExplorerBlock,
   "funnel-exploration": ProductAnalyticsExplorerBlock,
 };
 
@@ -379,6 +380,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
     ((block.type === "metric-exploration" ||
       block.type === "fact-table-exploration" ||
       block.type === "data-source-exploration" ||
+      block.type === "sql-exploration" ||
       block.type === "funnel-exploration") &&
       !isSubmittableConfig(block.config));
 

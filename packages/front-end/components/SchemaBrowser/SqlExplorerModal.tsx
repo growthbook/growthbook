@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { FaPlay, FaExclamationTriangle } from "react-icons/fa";
 import {
@@ -13,23 +13,18 @@ import {
   SavedQuery,
   QueryExecutionResult,
 } from "shared/validators";
-import { computeAIUsageData, formatAIRateLimitRetryMessage } from "shared/ai";
+import { computeAIUsageData } from "shared/ai";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { getValidDate } from "shared/dates";
 import { isReadOnlySQL, SQL_ROW_LIMIT } from "shared/sql";
-import { BsThreeDotsVertical, BsStars } from "react-icons/bs";
-import { InformationSchemaInterfaceWithPaths } from "shared/types/integrations";
-import { FiChevronRight } from "react-icons/fi";
+import { BsThreeDotsVertical } from "react-icons/bs";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { isManagedWarehouseUnavailable } from "shared/util";
-import { useGrowthBook } from "@growthbook/growthbook-react";
-import { AppFeatures } from "shared/types/app-features";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
-import CodeTextArea, { AceCompletion } from "@/components/Forms/CodeTextArea";
-import { CursorData } from "@/components/Segments/SegmentForm";
+import CodeTextArea from "@/components/Forms/CodeTextArea";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 import Button from "@/ui/Button";
 import { SelectItem } from "@/ui/Select";
@@ -42,18 +37,13 @@ import {
   PanelResizeHandle,
 } from "@/components/ResizablePanels";
 import track from "@/services/track";
-import useOrgSettings, { useAISettings } from "@/hooks/useOrgSettings";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import { VisualizationAddIcon } from "@/components/Icons";
 import { requiresXAxes, requiresXAxis } from "@/services/dataVizTypeGuards";
 import {
   getXAxisConfig,
   setXAxisConfig,
 } from "@/services/dataVizConfigUtilities";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
-import { getAutoCompletions } from "@/services/sqlAutoComplete";
-import Field from "@/components/Forms/Field";
-import OptInModal from "@/components/License/OptInModal";
-import Badge from "@/ui/Badge";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import { SqlExplorerDataVisualization } from "@/components/DataViz/SqlExplorerDataVisualization";
 import Modal from "@/components/Modal";
@@ -61,7 +51,10 @@ import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { filterOptions } from "@/components/DataViz/DataVizFilter";
 import Text from "@/ui/Text";
+import AiSqlGenerator from "./AiSqlGenerator";
+import AreaWithHeader from "./AreaWithHeader";
 import SchemaBrowser from "./SchemaBrowser";
+import useSqlAutocomplete from "./useSqlAutocomplete";
 import styles from "./EditSqlModal.module.scss";
 
 export interface SqlExplorerModalInitial {
@@ -114,14 +107,6 @@ export default function SqlExplorerModal({
   const [tab, setTab] = useState(
     initial?.dataVizConfig?.length && !disableSave ? "visualization-0" : "sql",
   );
-  const [isAutocompleteEnabled, setIsAutocompleteEnabled] = useLocalStorage(
-    "sql-editor-autocomplete-enabled",
-    true,
-  );
-  const [autoCompletions, setAutoCompletions] = useState<AceCompletion[]>([]);
-  const [informationSchema, setInformationSchema] = useState<
-    InformationSchemaInterfaceWithPaths | undefined
-  >();
   const { getDatasourceById, datasources } = useDefinitions();
   const { defaultDataSource } = useOrgSettings();
 
@@ -181,19 +166,23 @@ export default function SqlExplorerModal({
   });
 
   const datasourceId = form.watch("datasourceId");
+  const {
+    autoCompletions,
+    cursorData,
+    isAutocompleteEnabled,
+    setCursorData,
+    setIsAutocompleteEnabled,
+  } = useSqlAutocomplete({
+    datasourceId,
+    source: "SqlExplorer",
+    skipManagedWarehouseUnavailable: true,
+  });
 
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
-  const hasAISuggestions = hasCommercialFeature("ai-suggestions");
-  const { aiEnabled, aiAgreedTo } = useAISettings();
   const [openAIBox, setOpenAIBox] = useState<boolean>(false);
-  const [aiInput, setAiInput] = useState("");
-  const [aiError, setAiError] = useState<string | null>(null);
-  const [aiAgreementModal, setAiAgreementModal] = useState<boolean>(false);
-  const gb = useGrowthBook<AppFeatures>();
   const aiSuggestionRef = useRef<string | undefined>(undefined);
   const permissionsUtil = usePermissionsUtil();
-  const [cursorData, setCursorData] = useState<null | CursorData>(null);
   const [formatError, setFormatError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState<boolean>(true);
 
@@ -605,85 +594,6 @@ export default function SqlExplorerModal({
       setFormatError(null);
     }
   };
-  const generateSQL = async () => {
-    if (!aiAgreedTo) {
-      setAiAgreementModal(true);
-      // This needs a timeout to avoid a flicker if this modal disappears before the AI agreement modal appears.
-      setTimeout(() => {
-        setShowModal(false);
-      }, 0);
-    } else {
-      if (aiEnabled) {
-        const aiTemperature =
-          gb?.getFeatureValue("ai-suggestions-temperature", 0.1) || 0.1;
-        track("ai-suggestion", { source: "sql-explorer", type: "suggest" });
-        setAiError(null);
-        setLoading(true);
-        apiCall(
-          `/saved-queries/generateSQL`,
-          {
-            method: "POST",
-            body: JSON.stringify({
-              input: aiInput,
-              datasourceId: form.watch("datasourceId"),
-              temperature: aiTemperature,
-            }),
-          },
-          (responseData) => {
-            if (responseData.status === 429) {
-              setAiError(
-                formatAIRateLimitRetryMessage(responseData.retryAfter),
-              );
-            } else if (responseData.message) {
-              setAiError(
-                "Error getting AI suggestion: " + responseData.message,
-              );
-              throw new Error(responseData.message);
-            } else {
-              setAiError("Error getting AI suggestion");
-            }
-            setLoading(false);
-          },
-        )
-          .then((res: { data: { sql: string; errors: string[] } }) => {
-            form.setValue("sql", res.data.sql);
-            aiSuggestionRef.current = res.data.sql;
-            if (res.data.errors && res.data.errors.length > 0) {
-              setAiError(res.data.errors.join(", "));
-            }
-            setDirty(true);
-          })
-          .catch(() => {
-            // Error handling is done by the apiCall errorHandler
-          })
-          .finally(() => {
-            setLoading(false);
-          });
-      } else {
-        setAiError("AI is disabled for your organization. Adjust in settings.");
-      }
-    }
-  };
-  const handleAIClick = () => {
-    if (!hasAISuggestions) {
-      throw new Error(
-        "AI suggestions are not enabled for your organization. Please contact your administrator.",
-      );
-    }
-    if (!aiAgreedTo) {
-      setAiAgreementModal(true);
-      // This needs a timeout to avoid a flicker if this modal disappears before the AI agreement modal appears.
-      setTimeout(() => {
-        setShowModal(false);
-      }, 0);
-    }
-    if (!aiEnabled) {
-      throw new Error(
-        "AI suggestions are disabled for your organization. Please contact your administrator.",
-      );
-    }
-    setOpenAIBox(!openAIBox);
-  };
 
   const getTruncatedTitle = (
     title: string,
@@ -707,723 +617,572 @@ export default function SqlExplorerModal({
 
   const dataVizConfig = form.watch("dataVizConfig") || [];
 
-  // Update autocompletions when cursor or schema changes
-  useEffect(() => {
-    const fetchCompletions = async () => {
-      if (!isAutocompleteEnabled) {
-        setAutoCompletions([]);
-        return;
-      }
-      try {
-        const completions = await getAutoCompletions(
-          cursorData,
-          informationSchema,
-          datasource?.type,
-          apiCall,
-          "SqlExplorer",
-        );
-        setAutoCompletions(completions);
-      } catch (error) {
-        console.error("Failed to fetch autocompletions:", error);
-        setAutoCompletions([]);
-      }
-    };
-
-    // // Debounce: wait 300ms after last change before fetching
-    const timeoutId = setTimeout(fetchCompletions, 200);
-
-    // // Cleanup: cancel if dependencies change again
-    return () => clearTimeout(timeoutId);
-  }, [
-    cursorData,
-    informationSchema,
-    datasource?.type,
-    apiCall,
-    isAutocompleteEnabled,
-  ]);
-
-  useEffect(() => {
-    const fetchSchema = async () => {
-      if (!isAutocompleteEnabled) {
-        setInformationSchema(undefined);
-        return;
-      }
-      const dsForSchema = getDatasourceById(datasourceId);
-      if (dsForSchema && isManagedWarehouseUnavailable(dsForSchema)) {
-        setInformationSchema(undefined);
-        return;
-      }
-      try {
-        const response = await apiCall<{
-          informationSchema: InformationSchemaInterfaceWithPaths;
-        }>(`/datasource/${datasourceId}/schema`);
-        setInformationSchema(response.informationSchema);
-      } catch (error) {
-        console.error("Failed to fetch schema:", error);
-        setInformationSchema(undefined);
-      }
-    };
-
-    fetchSchema();
-  }, [datasourceId, apiCall, isAutocompleteEnabled, getDatasourceById]);
-
   return (
-    <>
-      <Modal
-        bodyClassName="p-0"
-        borderlessHeader={true}
-        backgroundlessHeader={true}
-        close={close}
-        loading={loading}
-        closeCta="Close"
-        cta="Save & Close"
-        ctaEnabled={canSave}
-        hideCta={disableSave}
-        disabledMessage={
-          !hasCommercialFeature("saveSqlExplorerQueries")
-            ? "Upgrade to a Pro or Enterprise plan to save your queries."
-            : !hasPermission
-              ? "You don't have permission to save this query."
-              : dashboardId && !hasResults
-                ? "Run the query first before saving."
-                : undefined
-        }
-        header={header || `${id ? "Update" : "Create"} SQL Query`}
-        open={showModal}
-        showHeaderCloseButton={true}
-        size="max"
-        autoCloseOnSubmit={false}
-        submit={async () => await handleSubmit()}
-        trackingEventModalType="sql-explorer"
-        trackingEventModalSource={trackingEventModalSource}
-      >
-        {managedWarehousePendingEvents ? (
-          <Box px="4" py="4">
-            <ManagedWarehouseNoEventsCallout />
-          </Box>
-        ) : (
-          <Box
-            px="4"
-            pb="2"
-            style={{
-              // 95vh is the max height of the modal
-              // 125px is the height of the header and footer + 2px for the borders
-              height: "calc(95vh - 127px)",
-            }}
-          >
-            <Tabs
-              value={tab}
-              onValueChange={(newTab) => {
-                // If old tab is sql and switching to visualization, show the side panel
-                if (tab === "sql") {
-                  setSidePanel(true);
-                }
-                setTab(newTab);
-              }}
+    <AiSqlGenerator
+      datasourceId={datasourceId}
+      onAgreementModalOpenChange={(open) => setShowModal(!open)}
+      onLoadingChange={setLoading}
+      onOpenChange={setOpenAIBox}
+      onSqlGenerated={(sql) => {
+        form.setValue("sql", sql);
+        aiSuggestionRef.current = sql;
+        setDirty(true);
+      }}
+    >
+      {({ prompt, trigger }) => (
+        <Modal
+          bodyClassName="p-0"
+          borderlessHeader={true}
+          backgroundlessHeader={true}
+          close={close}
+          loading={loading}
+          closeCta="Close"
+          cta="Save & Close"
+          ctaEnabled={canSave}
+          hideCta={disableSave}
+          disabledMessage={
+            !hasCommercialFeature("saveSqlExplorerQueries")
+              ? "Upgrade to a Pro or Enterprise plan to save your queries."
+              : !hasPermission
+                ? "You don't have permission to save this query."
+                : dashboardId && !hasResults
+                  ? "Run the query first before saving."
+                  : undefined
+          }
+          header={header || `${id ? "Update" : "Create"} SQL Query`}
+          open={showModal}
+          showHeaderCloseButton={true}
+          size="max"
+          autoCloseOnSubmit={false}
+          submit={async () => await handleSubmit()}
+          trackingEventModalType="sql-explorer"
+          trackingEventModalSource={trackingEventModalSource}
+        >
+          {managedWarehousePendingEvents ? (
+            <Box px="4" py="4">
+              <ManagedWarehouseNoEventsCallout />
+            </Box>
+          ) : (
+            <Box
+              px="4"
+              pb="2"
               style={{
-                display: "flex",
-                flexDirection: "column",
-                height: "100%",
+                // 95vh is the max height of the modal
+                // 125px is the height of the header and footer + 2px for the borders
+                height: "calc(95vh - 127px)",
               }}
             >
-              {!disableSave ? (
-                <Flex
-                  align="center"
-                  mb="4"
-                  gap="3"
-                  style={{
-                    borderBottom: "1px solid var(--gray-a6)",
-                  }}
-                >
-                  <TabsList>
-                    <TabsTrigger value="sql">
-                      <Flex align="center" gap="2">
-                        {isEditingName ? (
-                          <Flex align="center" gap="2">
-                            <input
-                              type="text"
-                              value={tempName}
-                              placeholder="Enter a name..."
-                              onChange={(e) => setTempName(e.target.value)}
-                              autoFocus
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") {
+              <Tabs
+                value={tab}
+                onValueChange={(newTab) => {
+                  // If old tab is sql and switching to visualization, show the side panel
+                  if (tab === "sql") {
+                    setSidePanel(true);
+                  }
+                  setTab(newTab);
+                }}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  height: "100%",
+                }}
+              >
+                {!disableSave ? (
+                  <Flex
+                    align="center"
+                    mb="4"
+                    gap="3"
+                    style={{
+                      borderBottom: "1px solid var(--gray-a6)",
+                    }}
+                  >
+                    <TabsList>
+                      <TabsTrigger value="sql">
+                        <Flex align="center" gap="2">
+                          {isEditingName ? (
+                            <Flex align="center" gap="2">
+                              <input
+                                type="text"
+                                value={tempName}
+                                placeholder="Enter a name..."
+                                onChange={(e) => setTempName(e.target.value)}
+                                autoFocus
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    setDirty(true);
+                                    form.setValue("name", tempName);
+                                    setIsEditingName(false);
+                                  } else if (e.key === "Escape") {
+                                    setTempName(form.watch("name"));
+                                    setIsEditingName(false);
+                                  }
+                                }}
+                                style={{
+                                  border: "none",
+                                  outline: "none",
+                                }}
+                              />
+                              <Button
+                                variant="outline"
+                                size="xs"
+                                onClick={() => {
                                   setDirty(true);
                                   form.setValue("name", tempName);
                                   setIsEditingName(false);
-                                } else if (e.key === "Escape") {
+                                }}
+                              >
+                                <PiCheck />
+                              </Button>
+                              <Button
+                                color="red"
+                                variant="outline"
+                                size="xs"
+                                onClick={() => {
                                   setTempName(form.watch("name"));
                                   setIsEditingName(false);
-                                }
-                              }}
-                              style={{
-                                border: "none",
-                                outline: "none",
-                              }}
-                            />
-                            <Button
-                              variant="outline"
-                              size="xs"
-                              onClick={() => {
-                                setDirty(true);
-                                form.setValue("name", tempName);
-                                setIsEditingName(false);
-                              }}
-                            >
-                              <PiCheck />
-                            </Button>
-                            <Button
-                              color="red"
-                              variant="outline"
-                              size="xs"
-                              onClick={() => {
-                                setTempName(form.watch("name"));
-                                setIsEditingName(false);
-                              }}
-                            >
-                              <PiX />
-                            </Button>
-                          </Flex>
-                        ) : (
-                          <>
-                            <PiFileSql size={20} />
-                            {form.watch("name") || "Untitled Query..."}
-                            {!readOnlyMode && tab === "sql" ? (
-                              <Box
-                                px="2"
-                                title="Edit Name"
-                                onClick={() => {
-                                  setTempName(form.watch("name"));
-                                  setIsEditingName(true);
                                 }}
                               >
-                                <PiPencilSimpleFill color="var(--accent-11)" />
-                              </Box>
-                            ) : null}
-                          </>
-                        )}
-                      </Flex>
-                    </TabsTrigger>
-                    {dataVizConfig.map((config, index) => (
-                      <TabsTrigger
-                        value={`visualization-${index}`}
-                        key={index}
-                        style={{ paddingRight: "0px" }}
-                      >
-                        <Flex align="center" gap="2">
-                          <span
-                            title={config.title || `Visualization ${index + 1}`}
-                          >
-                            {getTruncatedTitle(
-                              config.title || `Visualization ${index + 1}`,
-                              dataVizConfig.length,
-                            )}
-                          </span>
-                          {!readOnlyMode && tab === `visualization-${index}` ? (
-                            <DropdownMenu
-                              trigger={
-                                <button className="btn btn-link pr-0">
-                                  <BsThreeDotsVertical color="var(--text-color-main" />
-                                </button>
-                              }
-                            >
-                              <Tooltip
-                                body="You can only add up to 10 visualizations to a query."
-                                shouldDisplay={dataVizConfig.length >= 10}
-                              >
-                                <DropdownMenuItem
+                                <PiX />
+                              </Button>
+                            </Flex>
+                          ) : (
+                            <>
+                              <PiFileSql size={20} />
+                              {form.watch("name") || "Untitled Query..."}
+                              {!readOnlyMode && tab === "sql" ? (
+                                <Box
+                                  px="2"
+                                  title="Edit Name"
                                   onClick={() => {
-                                    setDirty(true);
-                                    const newDataVizConfig = [
-                                      ...dataVizConfig,
-                                      {
-                                        ...config,
-                                        id: undefined, // Generate a new ID once the request hits the backend
-                                        title: `${
-                                          config.title ||
-                                          `Visualization ${index + 1}`
-                                        } (Copy)`,
-                                      },
-                                    ];
-                                    form.setValue(
-                                      "dataVizConfig",
-                                      newDataVizConfig,
-                                    );
-                                    setTab(
-                                      `visualization-${dataVizConfig.length}`,
-                                    );
+                                    setTempName(form.watch("name"));
+                                    setIsEditingName(true);
                                   }}
-                                  disabled={dataVizConfig.length >= 10}
                                 >
-                                  Duplicate
-                                </DropdownMenuItem>
-                              </Tooltip>
-                              <DropdownMenuItem
-                                color="red"
-                                onClick={() => {
-                                  setDirty(true);
-                                  const currentConfig = [...dataVizConfig];
-                                  currentConfig.splice(index, 1);
-                                  form.setValue("dataVizConfig", currentConfig);
-                                  setTab(
-                                    index < dataVizConfig.length - 1
-                                      ? `visualization-${index}`
-                                      : index > 0
-                                        ? `visualization-${index - 1}`
-                                        : "sql",
-                                  );
-                                }}
-                              >
-                                Delete
-                              </DropdownMenuItem>
-                            </DropdownMenu>
-                          ) : null}
+                                  <PiPencilSimpleFill color="var(--accent-11)" />
+                                </Box>
+                              ) : null}
+                            </>
+                          )}
                         </Flex>
                       </TabsTrigger>
-                    ))}
-                  </TabsList>
-                  {!readOnlyMode ? (
-                    <Tooltip
-                      shouldDisplay={dataVizConfig.length >= 10}
-                      body="You can only add up to 10 visualizations to a query."
-                    >
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setDirty(true);
-                          const currentConfig = [...dataVizConfig];
-                          form.setValue("dataVizConfig", [
-                            ...currentConfig,
-                            { chartType: "bar" },
-                          ]);
-                          setTab(`visualization-${currentConfig.length}`);
-                          setSidePanel(true);
-                        }}
-                        title={
-                          dataVizConfig.length >= 10 ? "" : "Add Visualization"
-                        }
-                        disabled={
-                          !form.watch("results").results ||
-                          form.watch("results").results.length === 0 ||
-                          dataVizConfig.length >= 10
-                        }
-                      >
-                        <VisualizationAddIcon />{" "}
-                        {!dataVizConfig.length ? (
-                          <span className="ml-1">Add Visualization</span>
-                        ) : (
-                          ""
-                        )}
-                      </Button>
-                    </Tooltip>
-                  ) : null}
-                  <div className="ml-auto" />
-                  {!readOnlyMode ? (
-                    <Button
-                      variant="outline"
-                      size="xs"
-                      onClick={() => setSidePanel(!showSidePanel)}
-                    >
-                      <PiCaretDoubleRight
-                        style={{
-                          transform: showSidePanel
-                            ? "rotate(0deg)"
-                            : "rotate(180deg)",
-                          transition: "transform 0.5s ease",
-                        }}
-                      />
-                    </Button>
-                  ) : null}
-                </Flex>
-              ) : null}
-              <TabsContent value="sql" style={{ flex: 1, overflow: "hidden" }}>
-                <PanelGroup direction="horizontal">
-                  <Panel
-                    id="main"
-                    order={1}
-                    defaultSize={showSidePanel ? 70 : 100}
-                  >
-                    <PanelGroup direction="vertical">
-                      <Panel
-                        id="sql-editor"
-                        order={1}
-                        defaultSize={
-                          form.watch("results").sql
-                            ? openAIBox
-                              ? 50
-                              : 30
-                            : 100
-                        }
-                        minSize={7}
-                      >
-                        <AreaWithHeader
-                          header={
-                            <Flex align="center" justify="between">
-                              <Flex gap="4" align="center">
-                                <Box>
-                                  <Text weight="semibold" color="text-mid">
-                                    SQL
-                                  </Text>
-                                </Box>
-                                {!readOnlyMode && (
-                                  <Tooltip
-                                    body={
-                                      aiEnabled ? (
-                                        ""
-                                      ) : (
-                                        <>
-                                          Org admins can enable AI powered SQL
-                                          generation in{" "}
-                                          <strong>General Settings</strong>.
-                                        </>
-                                      )
-                                    }
+                      {dataVizConfig.map((config, index) => (
+                        <TabsTrigger
+                          value={`visualization-${index}`}
+                          key={index}
+                          style={{ paddingRight: "0px" }}
+                        >
+                          <Flex align="center" gap="2">
+                            <span
+                              title={
+                                config.title || `Visualization ${index + 1}`
+                              }
+                            >
+                              {getTruncatedTitle(
+                                config.title || `Visualization ${index + 1}`,
+                                dataVizConfig.length,
+                              )}
+                            </span>
+                            {!readOnlyMode &&
+                            tab === `visualization-${index}` ? (
+                              <DropdownMenu
+                                trigger={
+                                  <button className="btn btn-link pr-0">
+                                    <BsThreeDotsVertical color="var(--text-color-main" />
+                                  </button>
+                                }
+                              >
+                                <Tooltip
+                                  body="You can only add up to 10 visualizations to a query."
+                                  shouldDisplay={dataVizConfig.length >= 10}
+                                >
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      setDirty(true);
+                                      const newDataVizConfig = [
+                                        ...dataVizConfig,
+                                        {
+                                          ...config,
+                                          id: undefined, // Generate a new ID once the request hits the backend
+                                          title: `${
+                                            config.title ||
+                                            `Visualization ${index + 1}`
+                                          } (Copy)`,
+                                        },
+                                      ];
+                                      form.setValue(
+                                        "dataVizConfig",
+                                        newDataVizConfig,
+                                      );
+                                      setTab(
+                                        `visualization-${dataVizConfig.length}`,
+                                      );
+                                    }}
+                                    disabled={dataVizConfig.length >= 10}
                                   >
+                                    Duplicate
+                                  </DropdownMenuItem>
+                                </Tooltip>
+                                <DropdownMenuItem
+                                  color="red"
+                                  onClick={() => {
+                                    setDirty(true);
+                                    const currentConfig = [...dataVizConfig];
+                                    currentConfig.splice(index, 1);
+                                    form.setValue(
+                                      "dataVizConfig",
+                                      currentConfig,
+                                    );
+                                    setTab(
+                                      index < dataVizConfig.length - 1
+                                        ? `visualization-${index}`
+                                        : index > 0
+                                          ? `visualization-${index - 1}`
+                                          : "sql",
+                                    );
+                                  }}
+                                >
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenu>
+                            ) : null}
+                          </Flex>
+                        </TabsTrigger>
+                      ))}
+                    </TabsList>
+                    {!readOnlyMode ? (
+                      <Tooltip
+                        shouldDisplay={dataVizConfig.length >= 10}
+                        body="You can only add up to 10 visualizations to a query."
+                      >
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setDirty(true);
+                            const currentConfig = [...dataVizConfig];
+                            form.setValue("dataVizConfig", [
+                              ...currentConfig,
+                              { chartType: "bar" },
+                            ]);
+                            setTab(`visualization-${currentConfig.length}`);
+                            setSidePanel(true);
+                          }}
+                          title={
+                            dataVizConfig.length >= 10
+                              ? ""
+                              : "Add Visualization"
+                          }
+                          disabled={
+                            !form.watch("results").results ||
+                            form.watch("results").results.length === 0 ||
+                            dataVizConfig.length >= 10
+                          }
+                        >
+                          <VisualizationAddIcon />{" "}
+                          {!dataVizConfig.length ? (
+                            <span className="ml-1">Add Visualization</span>
+                          ) : (
+                            ""
+                          )}
+                        </Button>
+                      </Tooltip>
+                    ) : null}
+                    <div className="ml-auto" />
+                    {!readOnlyMode ? (
+                      <Button
+                        variant="outline"
+                        size="xs"
+                        onClick={() => setSidePanel(!showSidePanel)}
+                      >
+                        <PiCaretDoubleRight
+                          style={{
+                            transform: showSidePanel
+                              ? "rotate(0deg)"
+                              : "rotate(180deg)",
+                            transition: "transform 0.5s ease",
+                          }}
+                        />
+                      </Button>
+                    ) : null}
+                  </Flex>
+                ) : null}
+                <TabsContent
+                  value="sql"
+                  style={{ flex: 1, overflow: "hidden" }}
+                >
+                  <PanelGroup direction="horizontal">
+                    <Panel
+                      id="main"
+                      order={1}
+                      defaultSize={showSidePanel ? 70 : 100}
+                    >
+                      <PanelGroup direction="vertical">
+                        <Panel
+                          id="sql-editor"
+                          order={1}
+                          defaultSize={
+                            form.watch("results").sql
+                              ? openAIBox
+                                ? 50
+                                : 30
+                              : 100
+                          }
+                          minSize={7}
+                        >
+                          <AreaWithHeader
+                            header={
+                              <Flex align="center" justify="between">
+                                <Flex gap="4" align="center">
+                                  <Box>
+                                    <Text weight="semibold" color="text-mid">
+                                      SQL
+                                    </Text>
+                                  </Box>
+                                  {!readOnlyMode && trigger}
+                                </Flex>
+                                {!readOnlyMode ? (
+                                  <Flex gap="3" align="center">
+                                    <Tooltip body="The SQL Explorer automatically applies a 1000 row limit to ensure optimal performance.">
+                                      <Box pl="5">
+                                        <input
+                                          type="checkbox"
+                                          className="form-check-input"
+                                          id={`limit-toggle`}
+                                          checked={true}
+                                          disabled={true}
+                                        />
+                                        <Text
+                                          size="small"
+                                          weight="regular"
+                                          color="text-low"
+                                        >
+                                          Limit to {SQL_ROW_LIMIT} rows
+                                        </Text>
+                                      </Box>
+                                    </Tooltip>
+                                    {formatError && (
+                                      <Tooltip body={formatError}>
+                                        <span>
+                                          <FaExclamationTriangle className="text-danger" />
+                                        </span>
+                                      </Tooltip>
+                                    )}
                                     <Button
                                       size="xs"
                                       variant="ghost"
-                                      onClick={handleAIClick}
-                                    >
-                                      <BsStars /> Text to SQL{" "}
-                                      <Badge
-                                        label="BETA"
-                                        color="amber"
-                                        variant="solid"
-                                        style={{
-                                          margin: "0 4px",
-                                          paddingTop: "1px",
-                                          backgroundColor: "var(--slate-12)",
-                                          color: "var(--gray-1)",
-                                        }}
-                                      />
-                                      <FiChevronRight
-                                        style={{
-                                          transform: openAIBox
-                                            ? "rotate(90deg)"
-                                            : "none",
-                                        }}
-                                      />
-                                    </Button>
-                                  </Tooltip>
-                                )}
-                              </Flex>
-                              {!readOnlyMode ? (
-                                <Flex gap="3" align="center">
-                                  <Tooltip body="The SQL Explorer automatically applies a 1000 row limit to ensure optimal performance.">
-                                    <Box pl="5">
-                                      <input
-                                        type="checkbox"
-                                        className="form-check-input"
-                                        id={`limit-toggle`}
-                                        checked={true}
-                                        disabled={true}
-                                      />
-                                      <Text
-                                        size="small"
-                                        weight="regular"
-                                        color="text-low"
-                                      >
-                                        Limit to {SQL_ROW_LIMIT} rows
-                                      </Text>
-                                    </Box>
-                                  </Tooltip>
-                                  {formatError && (
-                                    <Tooltip body={formatError}>
-                                      <span>
-                                        <FaExclamationTriangle className="text-danger" />
-                                      </span>
-                                    </Tooltip>
-                                  )}
-                                  <Button
-                                    size="xs"
-                                    variant="ghost"
-                                    onClick={handleFormatClick}
-                                    disabled={!form.watch("sql") || !canFormat}
-                                  >
-                                    Format
-                                  </Button>
-                                  <Tooltip
-                                    body="Select a Data Source to run your query"
-                                    shouldDisplay={!form.watch("datasourceId")}
-                                  >
-                                    <Button
-                                      size="xs"
-                                      onClick={handleQuery}
+                                      onClick={handleFormatClick}
                                       disabled={
-                                        !form.watch("sql") ||
+                                        !form.watch("sql") || !canFormat
+                                      }
+                                    >
+                                      Format
+                                    </Button>
+                                    <Tooltip
+                                      body="Select a Data Source to run your query"
+                                      shouldDisplay={
                                         !form.watch("datasourceId")
                                       }
-                                      loading={isRunningQuery}
-                                      icon={<FaPlay />}
                                     >
-                                      Run
-                                    </Button>
-                                  </Tooltip>
-                                  <DropdownMenu
-                                    trigger={
-                                      <IconButton
-                                        variant="ghost"
-                                        color="gray"
-                                        radius="full"
-                                        size="3"
+                                      <Button
+                                        size="xs"
+                                        onClick={handleQuery}
+                                        disabled={
+                                          !form.watch("sql") ||
+                                          !form.watch("datasourceId")
+                                        }
+                                        loading={isRunningQuery}
+                                        icon={<FaPlay />}
                                       >
-                                        <BsThreeDotsVertical size={16} />
-                                      </IconButton>
-                                    }
-                                  >
-                                    <DropdownMenuItem
-                                      onClick={() => {
-                                        setIsAutocompleteEnabled(
-                                          !isAutocompleteEnabled,
-                                        );
-                                      }}
+                                        Run
+                                      </Button>
+                                    </Tooltip>
+                                    <DropdownMenu
+                                      trigger={
+                                        <IconButton
+                                          variant="ghost"
+                                          color="gray"
+                                          radius="full"
+                                          size="3"
+                                        >
+                                          <BsThreeDotsVertical size={16} />
+                                        </IconButton>
+                                      }
                                     >
-                                      {isAutocompleteEnabled
-                                        ? "Disable Autocomplete"
-                                        : "Enable Autocomplete"}
-                                    </DropdownMenuItem>
-                                  </DropdownMenu>
-                                </Flex>
-                              ) : null}
-                            </Flex>
-                          }
-                        >
-                          {openAIBox && (
-                            <Flex>
-                              <Box width="100%" px="4" py="3" pb="4">
-                                <Box pb="3">
-                                  <label>
-                                    Natural language to SQL{" "}
-                                    <Tooltip body="Use text to describe what you would like to generate. The AI is aware of your table structure, but may still hallucinate, particularly with dates." />
-                                  </label>
-                                  <Field
-                                    size="legacy"
-                                    textarea={true}
-                                    value={aiInput}
-                                    placeholder="Make a request, e.g. 'Show me the top 10 users by revenue in the last month.'"
-                                    onChange={(e) => {
-                                      setAiInput(e.target.value);
-                                    }}
-                                  />
-                                </Box>
-                                <Flex align="center" justify="start" gap="4">
-                                  <Button
-                                    onClick={generateSQL}
-                                    disabled={loading || !aiInput}
-                                  >
-                                    <BsStars />{" "}
-                                    {loading ? "Generating..." : "Generate SQL"}
-                                  </Button>
-                                  <Box className="text-muted"></Box>
-                                </Flex>
-                                {aiError && (
-                                  <Box
-                                    className="text-danger"
-                                    style={{ padding: "8px" }}
-                                  >
-                                    {aiError}
-                                  </Box>
-                                )}
-                              </Box>
-                            </Flex>
-                          )}
-                          <CodeTextArea
-                            wrapperClassName={styles["sql-editor-wrapper"]}
-                            required
-                            language="sql"
-                            value={form.watch("sql")}
-                            setValue={(v) => {
-                              if (formatError) {
-                                setFormatError(null);
-                              }
-                              form.setValue("sql", v);
-                              setDirty(true);
-                            }}
-                            helpText={""}
-                            fullHeight
-                            setCursorData={setCursorData}
-                            onCtrlEnter={handleQuery}
-                            disabled={readOnlyMode}
-                            completions={autoCompletions}
-                          />
-                        </AreaWithHeader>
-                      </Panel>
-                      {form.watch("results").sql && (
-                        <>
-                          <PanelResizeHandle />
-                          <Panel
-                            id="query-results"
-                            order={2}
-                            defaultSize={
-                              form.watch("results").results
-                                ? openAIBox
-                                  ? 50
-                                  : 70
-                                : 0
+                                      <DropdownMenuItem
+                                        onClick={() => {
+                                          setIsAutocompleteEnabled(
+                                            !isAutocompleteEnabled,
+                                          );
+                                        }}
+                                      >
+                                        {isAutocompleteEnabled
+                                          ? "Disable Autocomplete"
+                                          : "Enable Autocomplete"}
+                                      </DropdownMenuItem>
+                                    </DropdownMenu>
+                                  </Flex>
+                                ) : null}
+                              </Flex>
                             }
-                            minSize={10}
                           >
-                            <DisplayTestQueryResults
-                              duration={form.watch("results").duration || 0}
-                              results={form.watch("results").results || []}
-                              sql={form.watch("results").sql || ""}
-                              error={form.watch("results").error || ""}
-                              allowDownload={true}
-                              showSampleHeader={false}
+                            {prompt}
+                            <CodeTextArea
+                              wrapperClassName={styles["sql-editor-wrapper"]}
+                              required
+                              language="sql"
+                              value={form.watch("sql")}
+                              setValue={(v) => {
+                                if (formatError) {
+                                  setFormatError(null);
+                                }
+                                form.setValue("sql", v);
+                                setDirty(true);
+                              }}
+                              helpText={""}
+                              fullHeight
+                              setCursorData={setCursorData}
+                              onCtrlEnter={handleQuery}
+                              disabled={readOnlyMode}
+                              completions={autoCompletions}
                             />
-                          </Panel>
-                        </>
-                      )}
-                    </PanelGroup>
-                  </Panel>
-
-                  {showSidePanel && !readOnlyMode ? (
-                    <>
-                      <PanelResizeHandle />
-                      <Panel
-                        id="sidebar"
-                        order={2}
-                        defaultSize={30}
-                        minSize={20}
-                        maxSize={80}
-                      >
-                        <AreaWithHeader
-                          header={
-                            <Flex align="center" gap="1">
-                              <Text weight="semibold" color="text-mid">
-                                Data Sources
-                              </Text>
-                            </Flex>
-                          }
-                        >
-                          <Flex direction="column" height="100%" px="4" py="5">
-                            <Tooltip
-                              body="You cannot change the Data Source from this view."
-                              shouldDisplay={lockDatasource}
+                          </AreaWithHeader>
+                        </Panel>
+                        {form.watch("results").sql && (
+                          <>
+                            <PanelResizeHandle />
+                            <Panel
+                              id="query-results"
+                              order={2}
+                              defaultSize={
+                                form.watch("results").results
+                                  ? openAIBox
+                                    ? 50
+                                    : 70
+                                  : 0
+                              }
+                              minSize={10}
                             >
-                              <SelectField
-                                size="legacy"
-                                className="mb-2"
-                                disabled={lockDatasource}
-                                value={form.watch("datasourceId")}
-                                onChange={(value) => {
-                                  setDirty(true);
-                                  form.setValue("datasourceId", value);
-                                }}
-                                options={validDatasources.map((d) => ({
-                                  value: d.id,
-                                  label: `${d.name}${
-                                    d.description ? ` — ${d.description}` : ""
-                                  }`,
-                                }))}
-                                placeholder="Select a Data Source..."
-                              >
-                                {validDatasources.map((d) => (
-                                  <SelectItem key={d.id} value={d.id}>
-                                    {d.name}
-                                    {d.description ? ` — ${d.description}` : ""}
-                                  </SelectItem>
-                                ))}
-                              </SelectField>
-                            </Tooltip>
-                            {supportsSchemaBrowser && (
-                              <SchemaBrowser
-                                updateSqlInput={(sql: string) => {
-                                  form.setValue("sql", sql);
-                                }}
-                                datasource={datasource}
-                                cursorData={cursorData || undefined}
+                              <DisplayTestQueryResults
+                                duration={form.watch("results").duration || 0}
+                                results={form.watch("results").results || []}
+                                sql={form.watch("results").sql || ""}
+                                error={form.watch("results").error || ""}
+                                allowDownload={true}
+                                showSampleHeader={false}
                               />
-                            )}
-                          </Flex>
-                        </AreaWithHeader>
-                      </Panel>
-                    </>
-                  ) : null}
-                </PanelGroup>
-              </TabsContent>
+                            </Panel>
+                          </>
+                        )}
+                      </PanelGroup>
+                    </Panel>
 
-              {dataVizConfig.map((config, index) => (
-                <TabsContent
-                  key={index}
-                  value={`visualization-${index}`}
-                  style={{ flex: 1, overflow: "hidden" }}
-                >
-                  {!form.watch("results").results ||
-                  form.watch("results").results.length === 0 ? (
-                    <Flex justify="center" align="center" height="100%">
-                      <Text align="center">
-                        No results to visualize.
-                        <br />
-                        Ensure your query has results to add a visualization.
-                      </Text>
-                    </Flex>
-                  ) : (
-                    <SqlExplorerDataVisualization
-                      rows={form.watch("results").results}
-                      dataVizConfig={config}
-                      onDataVizConfigChange={(updatedConfig) => {
-                        const newDataVizConfig = [...dataVizConfig];
-                        newDataVizConfig[index] = updatedConfig;
-                        setDirty(true);
-                        form.setValue("dataVizConfig", newDataVizConfig);
-                      }}
-                      showPanel={showSidePanel && !readOnlyMode}
-                    />
-                  )}
+                    {showSidePanel && !readOnlyMode ? (
+                      <>
+                        <PanelResizeHandle />
+                        <Panel
+                          id="sidebar"
+                          order={2}
+                          defaultSize={30}
+                          minSize={20}
+                          maxSize={80}
+                        >
+                          <AreaWithHeader
+                            header={
+                              <Flex align="center" gap="1">
+                                <Text weight="semibold" color="text-mid">
+                                  Data Sources
+                                </Text>
+                              </Flex>
+                            }
+                          >
+                            <Flex
+                              direction="column"
+                              height="100%"
+                              px="4"
+                              py="5"
+                            >
+                              <Tooltip
+                                body="You cannot change the Data Source from this view."
+                                shouldDisplay={lockDatasource}
+                              >
+                                <SelectField
+                                  className="mb-2"
+                                  disabled={lockDatasource}
+                                  value={form.watch("datasourceId")}
+                                  onChange={(value) => {
+                                    setDirty(true);
+                                    form.setValue("datasourceId", value);
+                                  }}
+                                  options={validDatasources.map((d) => ({
+                                    value: d.id,
+                                    label: `${d.name}${
+                                      d.description ? ` — ${d.description}` : ""
+                                    }`,
+                                  }))}
+                                  placeholder="Select a Data Source..."
+                                >
+                                  {validDatasources.map((d) => (
+                                    <SelectItem key={d.id} value={d.id}>
+                                      {d.name}
+                                      {d.description
+                                        ? ` — ${d.description}`
+                                        : ""}
+                                    </SelectItem>
+                                  ))}
+                                </SelectField>
+                              </Tooltip>
+                              {supportsSchemaBrowser && (
+                                <SchemaBrowser
+                                  updateSqlInput={(sql: string) => {
+                                    form.setValue("sql", sql);
+                                  }}
+                                  datasource={datasource}
+                                  cursorData={cursorData || undefined}
+                                />
+                              )}
+                            </Flex>
+                          </AreaWithHeader>
+                        </Panel>
+                      </>
+                    ) : null}
+                  </PanelGroup>
                 </TabsContent>
-              ))}
-            </Tabs>
-          </Box>
-        )}
-      </Modal>
-      {aiAgreementModal && (
-        <OptInModal
-          agreement="ai"
-          onClose={() => {
-            setShowModal(true);
-            setAiAgreementModal(false);
-          }}
-        />
-      )}
-    </>
-  );
-}
 
-// TODO: Find a better name
-export function AreaWithHeader({
-  backgroundColor = "var(--color-panel-translucent)",
-  children,
-  header,
-  headerStyles = {
-    paddingLeft: "12px",
-    paddingRight: "12px",
-    paddingTop: "12px",
-    paddingBottom: "12px",
-    borderBottom: "1px solid var(--gray-a3)",
-  },
-}: {
-  backgroundColor?: string;
-  children: React.ReactNode;
-  header: React.ReactNode;
-  headerStyles?: React.CSSProperties;
-}) {
-  return (
-    <Flex
-      direction="column"
-      height="100%"
-      style={{
-        border: "1px solid var(--gray-a3)",
-        borderRadius: "var(--radius-4)",
-        overflow: "hidden",
-        backgroundColor,
-      }}
-    >
-      <Box style={headerStyles}>{header}</Box>
-      <Box flexGrow="1" style={{ overflowY: "auto" }}>
-        {children}
-      </Box>
-    </Flex>
+                {dataVizConfig.map((config, index) => (
+                  <TabsContent
+                    key={index}
+                    value={`visualization-${index}`}
+                    style={{ flex: 1, overflow: "hidden" }}
+                  >
+                    {!form.watch("results").results ||
+                    form.watch("results").results.length === 0 ? (
+                      <Flex justify="center" align="center" height="100%">
+                        <Text align="center">
+                          No results to visualize.
+                          <br />
+                          Ensure your query has results to add a visualization.
+                        </Text>
+                      </Flex>
+                    ) : (
+                      <SqlExplorerDataVisualization
+                        rows={form.watch("results").results}
+                        dataVizConfig={config}
+                        onDataVizConfigChange={(updatedConfig) => {
+                          const newDataVizConfig = [...dataVizConfig];
+                          newDataVizConfig[index] = updatedConfig;
+                          setDirty(true);
+                          form.setValue("dataVizConfig", newDataVizConfig);
+                        }}
+                        showPanel={showSidePanel && !readOnlyMode}
+                      />
+                    )}
+                  </TabsContent>
+                ))}
+              </Tabs>
+            </Box>
+          )}
+        </Modal>
+      )}
+    </AiSqlGenerator>
   );
 }

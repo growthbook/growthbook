@@ -8,6 +8,7 @@ import {
   PiCaretRight,
   PiChartBar,
   PiDatabase,
+  PiFileSqlLight,
   PiTable,
 } from "react-icons/pi";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
@@ -278,12 +279,7 @@ export default function EmptyState() {
                       Visualize metrics and explore your data.
                       {!chatDisabled && " Or, use Ask AI to get started."}
                     </Text>
-                    <Flex
-                      gap="3"
-                      justify="start"
-                      wrap="wrap"
-                      style={{ maxWidth: 720 }}
-                    >
+                    <Flex gap="3" justify="start" wrap="wrap">
                       <LinkButton
                         href="/product-analytics/explore/metrics"
                         variant="outline"
@@ -307,6 +303,14 @@ export default function EmptyState() {
                         disabled={!canRunFactQueries}
                       >
                         Data Source explorer
+                      </LinkButton>
+                      <LinkButton
+                        href="/product-analytics/explore/sql"
+                        variant="outline"
+                        icon={<PiFileSqlLight size={16} />}
+                        disabled={!canRunFactQueries}
+                      >
+                        Custom SQL explorer
                       </LinkButton>
                     </Flex>
                   </Flex>

@@ -19,7 +19,12 @@ const metricValueValidator = baseValueValidator.extend({
 });
 export type MetricValue = z.infer<typeof metricValueValidator>;
 
-export type DatasetType = "metric" | "fact_table" | "data_source" | "funnel";
+export type DatasetType =
+  | "metric"
+  | "fact_table"
+  | "data_source"
+  | "funnel"
+  | "sql";
 
 const metricDatasetValidator = z
   .object({
@@ -70,6 +75,28 @@ const dataSourceDatasetValidator = z
   })
   .strict();
 
+// SQL
+const sqlValueValidator = baseValueValidator.extend({
+  type: z.literal("sql"),
+  valueType: z.enum(valueType),
+  valueColumn: z.string().nullable(),
+  unit: z.string().nullable(),
+});
+export type SqlValue = z.infer<typeof sqlValueValidator>;
+
+const columnType = ["string", "number", "date", "boolean", "other"] as const;
+
+const sqlDatasetColumnTypeValidator = z.record(z.string(), z.enum(columnType));
+
+const sqlDatasetValidator = z
+  .object({
+    type: z.literal("sql"),
+    sql: z.string(),
+    timestampColumn: z.string(),
+    columnTypes: sqlDatasetColumnTypeValidator,
+    values: z.array(sqlValueValidator),
+  })
+  .strict();
 // Funnels
 export const conversionWindowValidator = z.object({
   unit: z.enum(["weeks", "days", "hours", "minutes"]),
@@ -121,6 +148,7 @@ export const explorationDatasetValidator = z.discriminatedUnion("type", [
   metricDatasetValidator,
   factTableDatasetValidator,
   dataSourceDatasetValidator,
+  sqlDatasetValidator,
   funnelDatasetValidator,
 ]);
 
@@ -128,6 +156,7 @@ const _valueValidator = z.discriminatedUnion("type", [
   metricValueValidator,
   factTableValueValidator,
   dataSourceValueValidator,
+  sqlValueValidator,
 ]);
 export type ProductAnalyticsValue = z.infer<typeof _valueValidator>;
 
@@ -244,6 +273,11 @@ export const dataSourceExplorationConfigValidator =
     dataset: dataSourceDatasetValidator,
   });
 
+export const sqlExplorationConfigValidator =
+  baseExplorationConfigValidator.extend({
+    type: z.literal("sql"),
+    dataset: sqlDatasetValidator,
+  });
 export const funnelExplorationConfigValidator =
   baseExplorationConfigValidator.extend({
     type: z.literal("funnel"),
@@ -252,7 +286,6 @@ export const funnelExplorationConfigValidator =
 
 // For SQL datasets, we need to know the column types
 // This is the shape of the response from the warehouse / API
-const columnType = ["string", "number", "date", "boolean", "other"] as const;
 export const sqlDatasetColumnResponseRowValidator = z.object({
   column: z.string(),
   type: z.enum(columnType),
@@ -303,6 +336,7 @@ export const productAnalyticsExplorationValidator = z.object({
     metricExplorationConfigValidator,
     factTableExplorationConfigValidator,
     dataSourceExplorationConfigValidator,
+    sqlExplorationConfigValidator,
     funnelExplorationConfigValidator,
   ]),
   result: productAnalyticsResultValidator,
@@ -336,6 +370,7 @@ export const explorationConfigValidator = z.discriminatedUnion("type", [
   metricExplorationConfigValidator,
   factTableExplorationConfigValidator,
   dataSourceExplorationConfigValidator,
+  sqlExplorationConfigValidator,
   funnelExplorationConfigValidator,
 ]);
 export type ExplorationConfig = z.infer<typeof explorationConfigValidator>;
@@ -349,6 +384,9 @@ export type FactTableExplorationConfig = z.infer<
 export type DataSourceExplorationConfig = z.infer<
   typeof dataSourceExplorationConfigValidator
 >;
+export type SqlExplorationConfig = z.infer<
+  typeof sqlExplorationConfigValidator
+>;
 export type FunnelExplorationConfig = z.infer<
   typeof funnelExplorationConfigValidator
 >;
@@ -356,6 +394,7 @@ export type FunnelExplorationConfig = z.infer<
 export type MetricDataset = z.infer<typeof metricDatasetValidator>;
 export type FactTableDataset = z.infer<typeof factTableDatasetValidator>;
 export type DataSourceDataset = z.infer<typeof dataSourceDatasetValidator>;
+export type SqlDataset = z.infer<typeof sqlDatasetValidator>;
 export type ExplorationDataset = z.infer<typeof explorationDatasetValidator>;
 export type ProductAnalyticsFunnelStepResult = z.infer<
   typeof productAnalyticsFunnelStepResultValidator
@@ -433,6 +472,11 @@ export const apiFactTableExplorationValidator =
 export const apiDataSourceExplorationValidator =
   apiExplorationBaseValidator.safeExtend({
     config: dataSourceExplorationConfigValidator,
+  });
+
+export const apiSqlExplorationValidator =
+  apiExplorationBaseValidator.safeExtend({
+    config: sqlExplorationConfigValidator,
   });
 
 export const apiFunnelExplorationValidator =

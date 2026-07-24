@@ -8,6 +8,7 @@ import {
   metricExplorationConfigValidator,
   factTableExplorationConfigValidator,
   dataSourceExplorationConfigValidator,
+  sqlExplorationConfigValidator,
   funnelExplorationConfigValidator,
   explorationDateRangeValidator,
   dateGranularity,
@@ -75,6 +76,7 @@ export const DEFAULT_BLOCK_SIZE_BY_TYPE: Record<
   "metric-exploration": { w: DASHBOARD_GRID_COLS, h: 8, minW: 8, minH: 4 },
   "fact-table-exploration": { w: DASHBOARD_GRID_COLS, h: 8, minW: 8, minH: 4 },
   "data-source-exploration": { w: DASHBOARD_GRID_COLS, h: 8, minW: 8, minH: 4 },
+  "sql-exploration": { w: DASHBOARD_GRID_COLS, h: 8, minW: 8, minH: 4 },
   "funnel-exploration": { w: DASHBOARD_GRID_COLS, h: 8, minW: 8, minH: 4 },
 };
 
@@ -515,6 +517,12 @@ const dataSourceExplorationBlockInterface = baseBlockInterface.extend({
   config: dataSourceExplorationConfigValidator,
 });
 
+const sqlExplorationBlockInterface = baseBlockInterface.extend({
+  type: z.literal("sql-exploration"),
+  ...explorationBlockCommon,
+  config: sqlExplorationConfigValidator,
+});
+
 const funnelExplorationBlockInterface = baseBlockInterface.extend({
   type: z.literal("funnel-exploration"),
   ...explorationBlockCommon,
@@ -546,6 +554,9 @@ export type FactTableExplorationBlockInterface = z.infer<
 export type DataSourceExplorationBlockInterface = z.infer<
   typeof dataSourceExplorationBlockInterface
 >;
+export type SqlExplorationBlockInterface = z.infer<
+  typeof sqlExplorationBlockInterface
+>;
 export type FunnelExplorationBlockInterface = z.infer<
   typeof funnelExplorationBlockInterface
 >;
@@ -565,6 +576,7 @@ const standardAndApiCommonBlocks = [
   metricExplorationBlockInterface,
   factTableExplorationBlockInterface,
   dataSourceExplorationBlockInterface,
+  sqlExplorationBlockInterface,
   funnelExplorationBlockInterface,
 ];
 
@@ -620,6 +632,7 @@ export const createDashboardBlockInterface = z.discriminatedUnion("type", [
   metricExplorationBlockInterface.omit(createOmits),
   factTableExplorationBlockInterface.omit(createOmits),
   dataSourceExplorationBlockInterface.omit(createOmits),
+  sqlExplorationBlockInterface.omit(createOmits),
   funnelExplorationBlockInterface.omit(createOmits),
 ]);
 export const apiCreateDashboardBlockInterface = z.discriminatedUnion("type", [
@@ -702,6 +715,10 @@ export const dashboardBlockPartial = z.discriminatedUnion("type", [
     .partial()
     .required({ type: true }),
   dataSourceExplorationBlockInterface
+    .omit(createOmits)
+    .partial()
+    .required({ type: true }),
+  sqlExplorationBlockInterface
     .omit(createOmits)
     .partial()
     .required({ type: true }),

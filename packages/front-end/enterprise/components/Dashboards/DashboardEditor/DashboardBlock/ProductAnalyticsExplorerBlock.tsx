@@ -4,12 +4,14 @@ import {
   MetricExplorationBlockInterface,
   FactTableExplorationBlockInterface,
   DataSourceExplorationBlockInterface,
+  SqlExplorationBlockInterface,
   FunnelExplorationBlockInterface,
   blockUsesDashboardDateControl,
   getEffectiveExplorationConfig,
   getExplorationDateControlFingerprint,
   resolveBlockComparison,
   computeExplorationComparisonPayload,
+  DashboardBlockInterfaceOrData,
 } from "shared/enterprise";
 import { isEqual } from "lodash";
 import { ProductAnalyticsExploration } from "shared/validators";
@@ -42,8 +44,29 @@ export default function ProductAnalyticsExplorerBlock({
   | MetricExplorationBlockInterface
   | FactTableExplorationBlockInterface
   | DataSourceExplorationBlockInterface
+  | SqlExplorationBlockInterface
   | FunnelExplorationBlockInterface
 >) {
+  return (
+    <ProductAnalyticsExplorerVisualization
+      block={block}
+      dashboardGlobalControls={dashboardGlobalControls}
+    />
+  );
+}
+
+export function ProductAnalyticsExplorerVisualization({
+  block,
+  dashboardGlobalControls,
+}: {
+  block: DashboardBlockInterfaceOrData<
+    | MetricExplorationBlockInterface
+    | FactTableExplorationBlockInterface
+    | DataSourceExplorationBlockInterface
+    | SqlExplorationBlockInterface
+  >;
+  dashboardGlobalControls?: BlockProps<SqlExplorationBlockInterface>["dashboardGlobalControls"];
+}) {
   const { getFactMetricById } = useDefinitions();
   const { data, error, isLoading } = useApi<{
     status: number;
@@ -74,6 +97,9 @@ export default function ProductAnalyticsExplorerBlock({
   // The resolved previous window lives on the comparison exploration's config.
   const submittedPreviousTimeFrame =
     rawComparisonExploration?.config?.dateRange ?? null;
+  const dateControlledBlock = blockUsesDashboardDateControl(block)
+    ? block
+    : null;
 
   // Dashboard blocks fetch the saved primary + previous explorations directly,
   // bypassing POST /product-analytics/run — where the live Explorer builds its
@@ -84,12 +110,17 @@ export default function ProductAnalyticsExplorerBlock({
   // big-number / table trends are computed identically.
   const submittedConfig = useMemo(
     () =>
-      block.config && dashboardGlobalControls
-        ? getEffectiveExplorationConfig(block, {
+      block.config && dashboardGlobalControls && dateControlledBlock
+        ? getEffectiveExplorationConfig(dateControlledBlock, {
             globalControls: dashboardGlobalControls,
           })
         : (block.config ?? data?.exploration?.config ?? null),
-    [block, dashboardGlobalControls, data?.exploration?.config],
+    [
+      block.config,
+      dashboardGlobalControls,
+      data?.exploration?.config,
+      dateControlledBlock,
+    ],
   );
   const submittedExplorationConfig = data?.exploration?.config;
   // A block only tracks the dashboard date control when it hasn't opted out.

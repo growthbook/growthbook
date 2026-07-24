@@ -2028,6 +2028,11 @@
       "count": 1
     }
   },
+  "packages/front-end/enterprise/components/ProductAnalytics/SqlEditorContext.tsx": {
+    "prettier/prettier": {
+      "count": 1
+    }
+  },
   "packages/front-end/enterprise/components/feature-promos/ExperimentTemplatePromoCard.tsx": {
     "no-restricted-imports": {
       "count": 1

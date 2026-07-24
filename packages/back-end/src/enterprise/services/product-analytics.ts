@@ -9,6 +9,7 @@ import {
   encodeExplorationConfig,
   isFunnelSupportedDatasourceType,
 } from "shared/enterprise";
+import { isReadOnlySQL } from "shared/sql";
 import {
   FactMetricInterface,
   FactTableInterface,
@@ -138,6 +139,22 @@ export async function runProductAnalyticsExploration(
     }
   } else if (dataset.type === "data_source") {
     // Nothing to fetch or verify
+  } else if (dataset.type === "sql") {
+    if (!dataset.sql.trim()) {
+      throw new BadRequestError("SQL query is required");
+    }
+    if (!isReadOnlySQL(dataset.sql)) {
+      throw new BadRequestError("Only SELECT queries are allowed");
+    }
+    if (!dataset.timestampColumn) {
+      throw new BadRequestError("Timestamp column is required");
+    }
+    if (!dataset.columnTypes[dataset.timestampColumn]) {
+      throw new BadRequestError("Timestamp column must exist in query results");
+    }
+    if (dataset.columnTypes[dataset.timestampColumn] !== "date") {
+      throw new BadRequestError("Timestamp column must be a date or timestamp");
+    }
   } else if (dataset.type === "funnel") {
     if (dataset.steps.length < 2) {
       throw new BadRequestError("Funnels require at least two steps");
@@ -267,6 +284,7 @@ const DATASET_TYPE_PATH: Record<ExplorationConfig["dataset"]["type"], string> =
     metric: "metrics",
     fact_table: "fact-table",
     data_source: "data-source",
+    sql: "sql",
     funnel: "funnel",
   };
 

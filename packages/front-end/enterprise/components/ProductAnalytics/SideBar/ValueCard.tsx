@@ -73,14 +73,15 @@ export default function ValueCard({
       return factTableToColumnSource(factTable);
     }
     if (
-      dataset?.type === "data_source" &&
-      dataset.columnTypes &&
-      Object.keys(dataset.columnTypes).length > 0
+      (draftExploreState.dataset.type === "data_source" ||
+        draftExploreState.dataset.type === "sql") &&
+      draftExploreState.dataset.columnTypes &&
+      Object.keys(draftExploreState.dataset.columnTypes).length > 0
     ) {
-      return columnTypesToColumnSource(dataset.columnTypes);
+      return columnTypesToColumnSource(draftExploreState.dataset.columnTypes);
     }
     return null;
-  }, [factTable, dataset]);
+  }, [factTable, draftExploreState.dataset]);
 
   // Funnels manage their own step UI; ValueCard isn't mounted from
   // FunnelTabContent. Returning null here keeps the hook order stable in
@@ -121,10 +122,17 @@ export default function ValueCard({
 
   let supportsUnitSelection = false;
 
-  if (dataset.type === "fact_table" || dataset.type === "data_source") {
-    supportsUnitSelection = dataset.values[index].valueType === "unit_count";
-  } else if (dataset.type === "metric") {
-    const factMetric = getFactMetricById(dataset.values[index].metricId ?? "");
+  if (
+    draftExploreState.dataset.type === "fact_table" ||
+    draftExploreState.dataset.type === "data_source" ||
+    draftExploreState.dataset.type === "sql"
+  ) {
+    supportsUnitSelection =
+      draftExploreState.dataset.values[index].valueType === "unit_count";
+  } else if (draftExploreState.dataset.type === "metric") {
+    const factMetric = getFactMetricById(
+      draftExploreState.dataset.values[index].metricId ?? "",
+    );
     if (
       factMetric?.metricType === "mean" ||
       factMetric?.metricType === "proportion" ||

@@ -24,6 +24,7 @@ import {
   FactTableDataset,
   ExplorationConfig,
   DataSourceDataset,
+  SqlDataset,
   ProductAnalyticsResult,
   ProductAnalyticsResultRow,
   FunnelDataset,
@@ -117,7 +118,10 @@ function getMetricAliases(index: number) {
 
 // Helpers to convert to internal types
 function getMetricsAndUnitsFromValues(
-  values: FactTableDataset["values"] | DataSourceDataset["values"],
+  values:
+    | FactTableDataset["values"]
+    | DataSourceDataset["values"]
+    | SqlDataset["values"],
 ): { metrics: MetricWithMetadata[]; units: string[] } {
   const units = new Set<string>();
 
@@ -182,6 +186,19 @@ function getFactTableGroups({
         },
       ];
     }
+    case "sql":
+      return [
+        {
+          index: 0,
+          factTable: createStubFactTable(
+            config.dataset.sql,
+            config.dataset.timestampColumn,
+            config.dataset.columnTypes,
+            datasourceSettings,
+          ),
+          ...getMetricsAndUnitsFromValues(config.dataset.values),
+        },
+      ];
     case "fact_table":
       return (() => {
         if (!config.dataset.factTableId) {

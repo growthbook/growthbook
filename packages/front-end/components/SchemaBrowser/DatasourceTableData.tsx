@@ -17,7 +17,7 @@ import useApi from "@/hooks/useApi";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Field from "@/components/Forms/Field";
-import { AreaWithHeader } from "./SqlExplorerModal";
+import AreaWithHeader from "./AreaWithHeader";
 
 type Props = {
   datasource: DataSourceInterfaceWithParams;

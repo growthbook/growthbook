@@ -8,6 +8,7 @@ import type {
   MetricValue,
   FactTableValue,
   DataSourceValue,
+  SqlValue,
   ProductAnalyticsValue,
   DatasetType,
   ExplorationDataset,
@@ -348,6 +349,15 @@ export function createEmptyValue(type: DatasetType): ProductAnalyticsValue {
         valueColumn: null,
         unit: null,
       } as DataSourceValue;
+    case "sql":
+      return {
+        ...base,
+        name: "Count",
+        type: "sql",
+        valueType: "count",
+        valueColumn: null,
+        unit: null,
+      } as SqlValue;
     case "funnel":
       // The funnel sidebar manages steps directly; nothing in the codebase
       // should ask for a "value" on a funnel dataset.
@@ -438,6 +448,14 @@ export function createEmptyDataset(type: DatasetType): ExplorationDataset {
       timestampColumn: "",
       columnTypes: {},
     };
+  } else if (type === "sql") {
+    return {
+      type,
+      values: [],
+      sql: "",
+      timestampColumn: "",
+      columnTypes: {},
+    };
   } else if (type === "funnel") {
     return {
       type,
@@ -495,7 +513,7 @@ export function getCommonColumns(
         columns = columns.filter((c) => valueColumnNames.has(c.column));
       }
     }
-  } else if (dataset.type === "data_source") {
+  } else if (dataset.type === "data_source" || dataset.type === "sql") {
     columns = Object.entries(dataset.columnTypes).map(([name, datatype]) => ({
       column: name,
       name,
@@ -725,6 +743,18 @@ export function removeIncompleteInputs(
         })
         .map(cleanRowFilters),
     };
+  } else if (dataset.type === "sql") {
+    return {
+      ...dataset,
+      values: dataset.values
+        .filter((v) => {
+          if (v.valueType === "count" || v.valueType === "unit_count") {
+            return true;
+          }
+          return !!v.valueColumn;
+        })
+        .map(cleanRowFilters),
+    };
   } else if (dataset.type === "funnel") {
     return {
       ...dataset,
@@ -885,7 +915,7 @@ export function isSubmittableConfig(
     if (!Array.isArray(cleanedConfig.dataset.values)) return false;
     if (cleanedConfig.dataset.values.length === 0) return false;
     if (
-      cleanedConfig.dataset.type == "fact_table" &&
+      cleanedConfig.dataset.type === "fact_table" &&
       cleanedConfig.dataset.factTableId === null
     )
       return false;
@@ -895,6 +925,14 @@ export function isSubmittableConfig(
     )
       return false;
   }
+
+  if (
+    cleanedConfig.dataset.type === "sql" &&
+    (!cleanedConfig.dataset.sql.trim() ||
+      !cleanedConfig.dataset.timestampColumn ||
+      Object.keys(cleanedConfig.dataset.columnTypes).length === 0)
+  )
+    return false;
 
   if (
     cleanedConfig.dateRange.predefined === "customDateRange" &&
