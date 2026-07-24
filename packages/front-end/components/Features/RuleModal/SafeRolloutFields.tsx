@@ -29,6 +29,9 @@ import {
 import RuleEnvironmentScopeField, {
   type EnvScopeProps,
 } from "@/components/Features/RuleModal/EnvironmentScopeField";
+import RuleProjectScopeField, {
+  type ProjectScopeProps,
+} from "@/components/Features/RuleModal/ProjectScopeField";
 import Callout from "@/ui/Callout";
 
 export default function SafeRolloutFields({
@@ -44,6 +47,7 @@ export default function SafeRolloutFields({
   setScheduleToggleEnabled,
   scheduleToggleEnabled,
   envScope,
+  projectScope,
   onRuleCyclicChange,
 }: {
   feature: FeatureInterface;
@@ -58,6 +62,7 @@ export default function SafeRolloutFields({
   mode: "create" | "edit" | "duplicate";
   isDraft: boolean;
   envScope: EnvScopeProps;
+  projectScope: ProjectScopeProps;
   onRuleCyclicChange?: (result: RuleCyclicResult) => void;
 }) {
   const form = useFormContext();
@@ -460,6 +465,7 @@ export default function SafeRolloutFields({
         placeholder="Short human-readable description of the safe rollout"
       />
       <RuleEnvironmentScopeField {...envScope} mt="2" mb="7" />
+      <RuleProjectScopeField {...projectScope} mb="7" />
       {renderVariationFieldSelector()}
       {renderDataAndMetrics()}
       <ScheduleInputs

@@ -21,6 +21,8 @@ import {
 
 type WindowContext = Context & {
   uuidCookieName?: string;
+  uuidCookieDomain?: string;
+  eventTransport?: string;
   uuidKey?: string;
   uuid?: string;
   persistUuidOnLoad?: boolean;
@@ -100,6 +102,9 @@ if (windowContext.antiFlicker || dataContext.antiFlicker) {
   setAntiFlicker();
 }
 
+const uuidCookieDomain =
+  windowContext.uuidCookieDomain || dataContext.uuidCookieDomain;
+
 // Create sticky bucket service
 let stickyBucketService: StickyBucketService | undefined = undefined;
 if (
@@ -112,6 +117,10 @@ if (
       dataContext.stickyBucketPrefix ||
       undefined,
     jsCookie: Cookies,
+    // Sticky assignments must follow the shared identity across subdomains
+    ...(uuidCookieDomain
+      ? { cookieAttributes: { expires: 180, domain: uuidCookieDomain } }
+      : {}),
   });
 } else if (
   windowContext.useStickyBucketService === "localStorage" ||
@@ -130,6 +139,7 @@ const plugins: Plugin[] = [
   autoAttributesPlugin({
     uuid,
     uuidCookieName: windowContext.uuidCookieName || dataContext.uuidCookieName,
+    uuidCookieDomain,
     uuidKey: windowContext.uuidKey || dataContext.uuidKey,
     uuidAutoPersist: !uuid && dataContext.noAutoCookies == null,
   }),
@@ -143,9 +153,17 @@ if (tracking !== "none") {
     .map((t) => t.trim());
 
   if (trackers.includes("growthbook")) {
+    const eventTransport =
+      windowContext.eventTransport || dataContext.eventTransport;
     plugins.push(
       growthbookTrackingPlugin({
         ingestorHost: dataContext.eventIngestorHost,
+        transport:
+          eventTransport === "auto" ||
+          eventTransport === "beacon" ||
+          eventTransport === "fetch"
+            ? eventTransport
+            : undefined,
       }),
     );
   }
