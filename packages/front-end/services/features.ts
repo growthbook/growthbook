@@ -303,9 +303,6 @@ export function useFeatureSearch({
           const s = staleStates?.[item.id];
           const envEntries = Object.values(s?.envResults ?? {});
           if (envEntries.some((e) => e.stale)) has.push("stale-env");
-          if (envEntries.some((e) => e.reason === "temp-rollout")) {
-            has.push("temp-rollout", "tempRollout");
-          }
         }
         const meta = item as FeatureInterface & {
           hasPrerequisites?: boolean;
