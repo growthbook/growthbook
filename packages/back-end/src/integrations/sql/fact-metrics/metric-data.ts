@@ -3,7 +3,8 @@ import {
   ExperimentMetricInterface,
   isFactMetric,
   isFunnelMetric,
-  isPercentileCappedMetric,
+  isUpperPercentileCappedMetric,
+  isLowerPercentileCappedMetric,
   isRatioMetric,
   isRegressionAdjusted,
   quantileMetricType,
@@ -76,7 +77,8 @@ export function getMetricData(
     settings.attributionModel === "experimentDuration" ||
     settings.attributionModel === "lookbackOverride";
 
-  const isPercentileCapped = isPercentileCappedMetric(metric);
+  const isUpperPercentileCapped = isUpperPercentileCappedMetric(metric);
+  const isLowerPercentileCapped = isLowerPercentileCappedMetric(metric);
   const computeUncappedMetric = eligibleForUncappedMetric(metric);
 
   const numeratorSourceIndex =
@@ -94,6 +96,7 @@ export function getMetricData(
     metric,
     capTablePrefix: `cap${numeratorAlias}`,
     capValueCol: `${alias}_value_cap`,
+    lowerCapValueCol: `${alias}_value_cap_lower`,
     columnRef: metric.numerator,
   });
   const capCoalesceDenominator = capCoalesceValue(dialect, {
@@ -101,6 +104,7 @@ export function getMetricData(
     metric,
     capTablePrefix: `cap${denominatorAlias}`,
     capValueCol: `${alias}_denominator_cap`,
+    lowerCapValueCol: `${alias}_denominator_cap_lower`,
     columnRef: metric.denominator,
   });
   const capCoalesceCovariate = capCoalesceValue(dialect, {
@@ -108,6 +112,7 @@ export function getMetricData(
     metric,
     capTablePrefix: `cap${numeratorAlias}`,
     capValueCol: `${alias}_value_cap`,
+    lowerCapValueCol: `${alias}_value_cap_lower`,
     columnRef: metric.numerator,
   });
   const capCoalesceDenominatorCovariate = capCoalesceValue(dialect, {
@@ -115,6 +120,7 @@ export function getMetricData(
     metric,
     capTablePrefix: `cap${denominatorAlias}`,
     capValueCol: `${alias}_denominator_cap`,
+    lowerCapValueCol: `${alias}_denominator_cap_lower`,
     columnRef: metric.denominator,
   });
   const uncappedMetric = {
@@ -129,6 +135,7 @@ export function getMetricData(
     metric: uncappedMetric,
     capTablePrefix: `cap${numeratorAlias}`,
     capValueCol: `${alias}_value_cap`,
+    lowerCapValueCol: `${alias}_value_cap_lower`,
     columnRef: metric.numerator,
   });
   const uncappedCoalesceDenominator = capCoalesceValue(dialect, {
@@ -136,6 +143,7 @@ export function getMetricData(
     metric: uncappedMetric,
     capTablePrefix: `cap${denominatorAlias}`,
     capValueCol: `${alias}_denominator_cap`,
+    lowerCapValueCol: `${alias}_denominator_cap_lower`,
     columnRef: metric.denominator,
   });
   const uncappedCoalesceCovariate = capCoalesceValue(dialect, {
@@ -143,6 +151,7 @@ export function getMetricData(
     metric: uncappedMetric,
     capTablePrefix: `cap${numeratorAlias}`,
     capValueCol: `${alias}_value_cap`,
+    lowerCapValueCol: `${alias}_value_cap_lower`,
     columnRef: metric.numerator,
   });
   const uncappedCoalesceDenominatorCovariate = capCoalesceValue(dialect, {
@@ -150,6 +159,7 @@ export function getMetricData(
     metric: uncappedMetric,
     capTablePrefix: `cap${denominatorAlias}`,
     capValueCol: `${alias}_denominator_cap`,
+    lowerCapValueCol: `${alias}_denominator_cap_lower`,
     columnRef: metric.denominator,
   });
 
@@ -235,7 +245,8 @@ export function getMetricData(
     regressionAdjusted,
     regressionAdjustmentHours,
     overrideConversionWindows,
-    isPercentileCapped,
+    isUpperPercentileCapped,
+    isLowerPercentileCapped,
     computeUncappedMetric,
     numeratorSourceIndex,
     denominatorSourceIndex,

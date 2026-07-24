@@ -26229,6 +26229,33 @@ paths:
                         If true and capping is `percentile`, zeros will be
                         ignored when calculating the percentile.
                       type: boolean
+                    lowerCappingSettings:
+                      description: >-
+                        Independent lower-tail (negative-value) capping
+                        settings. Configured separately from the upper tail, so
+                        the type can differ.
+                      type: object
+                      properties:
+                        type:
+                          type: string
+                          enum:
+                            - none
+                            - absolute
+                            - percentile
+                        value:
+                          description: >-
+                            When type is absolute, this is the lower bound. When
+                            type is percentile, this is the lower percentile
+                            (from 0.0 to 1.0).
+                          type: number
+                        ignoreZeros:
+                          description: >-
+                            If true and capping is `percentile`, zeros will be
+                            ignored when calculating the percentile.
+                          type: boolean
+                      required:
+                        - type
+                      additionalProperties: false
                   required:
                     - type
                   additionalProperties: false
@@ -26760,6 +26787,33 @@ paths:
                         If true and capping is `percentile`, zeros will be
                         ignored when calculating the percentile.
                       type: boolean
+                    lowerCappingSettings:
+                      description: >-
+                        Independent lower-tail (negative-value) capping
+                        settings. Configured separately from the upper tail, so
+                        the type can differ.
+                      type: object
+                      properties:
+                        type:
+                          type: string
+                          enum:
+                            - none
+                            - absolute
+                            - percentile
+                        value:
+                          description: >-
+                            When type is absolute, this is the lower bound. When
+                            type is percentile, this is the lower percentile
+                            (from 0.0 to 1.0).
+                          type: number
+                        ignoreZeros:
+                          description: >-
+                            If true and capping is `percentile`, zeros will be
+                            ignored when calculating the percentile.
+                          type: boolean
+                      required:
+                        - type
+                      additionalProperties: false
                   required:
                     - type
                   additionalProperties: false
@@ -55207,6 +55261,32 @@ components:
                 If true and capping is `percentile`, zeros will be ignored when
                 calculating the percentile.
               type: boolean
+            lowerCappingSettings:
+              description: >-
+                Independent lower-tail (negative-value) capping settings.
+                Configured separately from the upper tail, so the type can
+                differ.
+              type: object
+              properties:
+                type:
+                  type: string
+                  enum:
+                    - none
+                    - absolute
+                    - percentile
+                value:
+                  description: >-
+                    When type is absolute, this is the lower bound. When type is
+                    percentile, this is the lower percentile (from 0.0 to 1.0).
+                  type: number
+                ignoreZeros:
+                  description: >-
+                    If true and capping is `percentile`, zeros will be ignored
+                    when calculating the percentile.
+                  type: boolean
+              required:
+                - type
+              additionalProperties: false
           required:
             - type
           additionalProperties: false

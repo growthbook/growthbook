@@ -1,3 +1,7 @@
+import {
+  isLowerPercentileCappedMetric,
+  isUpperPercentileCappedMetric,
+} from "shared/experiments";
 import type {
   DimensionColumnData,
   FactMetricData,
@@ -42,6 +46,39 @@ export function getExperimentFactMetricStatisticsCTE(
           .map((data) => {
             //TODO test numerator suffix capping
             const numeratorSuffix = `${data.numeratorSourceIndex === 0 ? "" : data.numeratorSourceIndex}`;
+            const denominatorCapSuffix = `${
+              data.denominatorSourceIndex === 0
+                ? ""
+                : data.denominatorSourceIndex
+            }`;
+            const numeratorUpperPct = isUpperPercentileCappedMetric(
+              data.metric,
+            );
+            const numeratorLowerPct = isLowerPercentileCappedMetric(
+              data.metric,
+            );
+            const numeratorPercentileCapCols = [
+              numeratorUpperPct
+                ? `
+                    , MAX(COALESCE(cap${numeratorSuffix}.${data.alias}_value_cap, 0)) as ${data.alias}_main_cap_value`
+                : "",
+              numeratorLowerPct
+                ? `
+                    , MAX(COALESCE(cap${numeratorSuffix}.${data.alias}_value_cap_lower, 0)) as ${data.alias}_main_cap_value_lower`
+                : "",
+            ].join("");
+            const ratioDenominatorPercentileCapCols = data.ratioMetric
+              ? [
+                  numeratorUpperPct
+                    ? `
+                    , MAX(COALESCE(cap${denominatorCapSuffix}.${data.alias}_denominator_cap, 0)) as ${data.alias}_denominator_cap_value`
+                    : "",
+                  numeratorLowerPct
+                    ? `
+                    , MAX(COALESCE(cap${denominatorCapSuffix}.${data.alias}_denominator_cap_lower, 0)) as ${data.alias}_denominator_cap_value_lower`
+                    : "",
+                ].join("")
+              : "";
             return `
            , ${dialect.castToString(`'${data.id}'`)} as ${data.alias}_id
             ${
@@ -49,16 +86,9 @@ export function getExperimentFactMetricStatisticsCTE(
                 ? `
                 , SUM(${data.uncappedCoalesceMetric}) AS ${data.alias}_main_sum_uncapped 
                 , SUM(POWER(${data.uncappedCoalesceMetric}, 2)) AS ${data.alias}_main_sum_squares_uncapped
-                ${
-                  data.isPercentileCapped
-                    ? `
-                    , MAX(COALESCE(cap${numeratorSuffix}.${data.alias}_value_cap, 0)) as ${data.alias}_main_cap_value 
-                    `
-                    : ""
-                }
                 `
                 : ""
-            }
+            }${numeratorPercentileCapCols}
             , SUM(${data.capCoalesceMetric}) AS ${data.alias}_main_sum
             , SUM(POWER(${data.capCoalesceMetric}, 2)) AS ${
               data.alias
@@ -110,16 +140,9 @@ export function getExperimentFactMetricStatisticsCTE(
                     , SUM(${data.uncappedCoalesceDenominator}) AS ${data.alias}_denominator_sum_uncapped 
                     , SUM(POWER(${data.uncappedCoalesceDenominator}, 2)) AS ${data.alias}_denominator_sum_squares_uncapped
                     , SUM(${data.uncappedCoalesceMetric} * ${data.uncappedCoalesceDenominator}) AS ${data.alias}_main_denominator_sum_product_uncapped                    
-                    ${
-                      data.isPercentileCapped
-                        ? `
-                    , MAX(COALESCE(cap${data.denominatorSourceIndex === 0 ? "" : data.denominatorSourceIndex}.${data.alias}_denominator_cap, 0)) as ${data.alias}_denominator_cap_value
-                    `
-                        : ""
-                    }
                     `
                     : ""
-                }
+                }${ratioDenominatorPercentileCapCols}
                 , SUM(${data.capCoalesceDenominator}) AS 
                   ${data.alias}_denominator_sum
                 , SUM(POWER(${data.capCoalesceDenominator}, 2)) AS 

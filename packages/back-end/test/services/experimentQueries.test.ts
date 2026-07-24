@@ -58,6 +58,51 @@ describe("experimentQueries", () => {
           }),
         ).toBe(6);
       });
+
+      it("should return 6 columns for mean metric with lower-tail percentile capping only", () => {
+        const metric = factMetricFactory.build({
+          metricType: "mean",
+          numerator: { factTableId: "ft_1" },
+          cappingSettings: {
+            type: "", // no upper cap
+            value: 0,
+          },
+          lowerCappingSettings: {
+            type: "percentile",
+            value: 0.05, // lower cap at 5th percentile
+          },
+        });
+        // 1 + 2 base + 1 lower cap col + 2 uncapped = 6
+        expect(
+          maxColumnsNeededForMetric({
+            metric,
+            regressionAdjusted: false,
+            isBandit: false,
+          }),
+        ).toBe(6);
+      });
+
+      it("should return 7 columns when both upper and lower percentile capping are set", () => {
+        const metric = factMetricFactory.build({
+          metricType: "mean",
+          numerator: { factTableId: "ft_1" },
+          cappingSettings: {
+            type: "percentile",
+            value: 0.99,
+          },
+          lowerCappingSettings: {
+            type: "percentile",
+            value: 0.01,
+          },
+        });
+        expect(
+          maxColumnsNeededForMetric({
+            metric,
+            regressionAdjusted: false,
+            isBandit: false,
+          }),
+        ).toBe(7);
+      });
     });
 
     describe("slice metrics vs regular metrics", () => {

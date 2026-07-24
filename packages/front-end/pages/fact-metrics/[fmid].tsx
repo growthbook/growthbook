@@ -15,6 +15,7 @@ import {
 } from "shared/experiments";
 import { createLikeStringMatchFn } from "shared/sql";
 import { formatAIRateLimitRetryMessage } from "shared/ai";
+import { getCappingTailState } from "shared/validators";
 
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
@@ -47,7 +48,6 @@ import {
 } from "@/services/metrics";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import Tooltip from "@/ui/Tooltip";
-import { capitalizeFirstLetter } from "@/services/utils";
 import MetricName from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import MetricPriorRightRailSectionGroup from "@/components/Metrics/MetricPriorRightRailSectionGroup";
@@ -280,6 +280,15 @@ export default function FactMetricPage() {
         : `SUM(${factMetric.numerator.aggregateFilterColumn})`,
     ignoreInvalid: true,
   });
+
+  const cap = factMetric.cappingSettings;
+  const lowerCap = factMetric.lowerCappingSettings;
+  const capTails = getCappingTailState(cap, lowerCap);
+  const hasUpperPercentileCap = capTails.upperPercentileCapped;
+  const hasLowerPercentileCap = capTails.lowerPercentileCapped;
+  const hasUpperAbsoluteCap = capTails.upperAbsoluteCapped;
+  const hasLowerAbsoluteCap = capTails.lowerAbsoluteCapped;
+  const lowerPercentileIgnoresZeros = lowerCap?.ignoreZeros ?? false;
 
   const numeratorData: DataListItem[] = [
     {
@@ -924,33 +933,57 @@ export default function FactMetricPage() {
                       <span className="font-weight-bold">Inverse</span>
                     </li>
                   )}
-                  {factMetric.cappingSettings.type &&
-                    !!factMetric.cappingSettings.value && (
-                      <>
+                  {hasUpperPercentileCap ||
+                  hasLowerPercentileCap ||
+                  hasUpperAbsoluteCap ||
+                  hasLowerAbsoluteCap ? (
+                    <>
+                      <li className="mb-2">
+                        <span className="uppercase-title lg">Capping</span>
+                      </li>
+                      {/* Upper tail is always shown above the lower tail. */}
+                      {hasUpperPercentileCap ? (
                         <li className="mb-2">
-                          <span className="uppercase-title lg">
-                            {capitalizeFirstLetter(
-                              factMetric.cappingSettings.type,
-                            )}
-                            {" capping"}
+                          <span className="text-gray">
+                            Percentile (ceiling):{" "}
+                          </span>
+                          <span className="font-weight-bold">{cap.value}</span>{" "}
+                          {`(${100 * (cap.value ?? 0)}%${
+                            cap.ignoreZeros ? ", ignore zeros" : ""
+                          })`}
+                        </li>
+                      ) : hasUpperAbsoluteCap ? (
+                        <li className="mb-2">
+                          <span className="text-gray">
+                            Maximum user value:{" "}
+                          </span>
+                          <span className="font-weight-bold">{cap.value}</span>
+                        </li>
+                      ) : null}
+                      {hasLowerPercentileCap ? (
+                        <li className="mb-2">
+                          <span className="text-gray">
+                            Percentile (floor):{" "}
+                          </span>
+                          <span className="font-weight-bold">
+                            {lowerCap?.value}
+                          </span>{" "}
+                          {`(${100 * (lowerCap?.value ?? 0)}%${
+                            lowerPercentileIgnoresZeros ? ", ignore zeros" : ""
+                          })`}
+                        </li>
+                      ) : hasLowerAbsoluteCap ? (
+                        <li className="mb-2">
+                          <span className="text-gray">
+                            Minimum user value:{" "}
+                          </span>
+                          <span className="font-weight-bold">
+                            {lowerCap?.value}
                           </span>
                         </li>
-                        <li>
-                          <span className="font-weight-bold">
-                            {factMetric.cappingSettings.value}
-                          </span>{" "}
-                          {factMetric.cappingSettings.type === "percentile"
-                            ? `(${
-                                100 * factMetric.cappingSettings.value
-                              } pctile${
-                                factMetric.cappingSettings.ignoreZeros
-                                  ? ", ignoring zeros"
-                                  : ""
-                              })`
-                            : ""}{" "}
-                        </li>
-                      </>
-                    )}
+                      ) : null}
+                    </>
+                  ) : null}
                 </ul>
               </RightRailSectionGroup>
 

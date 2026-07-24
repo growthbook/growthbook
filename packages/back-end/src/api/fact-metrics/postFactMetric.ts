@@ -8,7 +8,10 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
-import { postFactMetricValidator } from "shared/validators";
+import {
+  getCappingTailState,
+  postFactMetricValidator,
+} from "shared/validators";
 import {
   CreateFactMetricProps,
   FactTableInterface,
@@ -150,6 +153,26 @@ export async function getCreateMetricPropsFromBody(
     data.cappingSettings.type = cappingSettings.type;
     data.cappingSettings.value = cappingSettings.value || 0;
     data.cappingSettings.ignoreZeros = cappingSettings.ignoreZeros || false;
+  }
+
+  // Independent lower-tail capping (own type/value/ignoreZeros).
+  const lowerCappingSettings = cappingSettings?.lowerCappingSettings;
+  if (lowerCappingSettings) {
+    const lowerType =
+      lowerCappingSettings.type === "none" ? "" : lowerCappingSettings.type;
+    const lowerTails = getCappingTailState(undefined, {
+      type: lowerType,
+      value: lowerCappingSettings.value,
+    });
+    if (lowerTails.lowerPercentileCapped || lowerTails.lowerAbsoluteCapped) {
+      data.lowerCappingSettings = {
+        type: lowerType,
+        value: lowerCappingSettings.value ?? 0,
+        ignoreZeros: lowerTails.lowerPercentileCapped
+          ? lowerCappingSettings.ignoreZeros || false
+          : false,
+      };
+    }
   }
 
   if (windowSettings?.type && windowSettings?.type !== "none") {

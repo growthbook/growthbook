@@ -227,6 +227,229 @@ export const cappingSettingsValidator = z
   })
   .strict();
 
+/**
+ * Minimal shape for evaluating whether a single capping tail is active
+ * (API, DB, forms). Upper and lower tails are configured independently, each
+ * with its own settings object of this shape.
+ */
+export type CappingSettingsTailInput = {
+  type?: "" | "none" | "absolute" | "percentile" | null;
+  value?: number | null;
+  ignoreZeros?: boolean | null;
+};
+
+export type CappingTailState = {
+  upperPercentileCapped: boolean;
+  upperAbsoluteCapped: boolean;
+  lowerPercentileCapped: boolean;
+  lowerAbsoluteCapped: boolean;
+  anyCap: boolean;
+  usesPercentile: boolean;
+};
+
+function normalizeCappingTypeForTails(
+  type: CappingSettingsTailInput["type"],
+): "" | "absolute" | "percentile" {
+  if (type == null || type === "" || type === "none") return "";
+  return type;
+}
+
+/**
+ * Upper tail activation for a capping settings object.
+ * Percentile: `value` ∈ (0,1). Absolute: `value` > 0.
+ */
+function getUpperTailFlags(cs: CappingSettingsTailInput | null | undefined): {
+  upperPercentileCapped: boolean;
+  upperAbsoluteCapped: boolean;
+} {
+  const type = normalizeCappingTypeForTails(cs?.type);
+  const value = cs?.value;
+  return {
+    upperPercentileCapped:
+      type === "percentile" && value != null && value > 0 && value < 1,
+    upperAbsoluteCapped: type === "absolute" && value != null && value > 0,
+  };
+}
+
+/**
+ * Lower tail activation for a capping settings object.
+ * Percentile: `value` ∈ (0,1). Absolute: finite `value` (incl. 0, may be negative).
+ */
+function getLowerTailFlags(cs: CappingSettingsTailInput | null | undefined): {
+  lowerPercentileCapped: boolean;
+  lowerAbsoluteCapped: boolean;
+} {
+  const type = normalizeCappingTypeForTails(cs?.type);
+  const value = cs?.value;
+  return {
+    lowerPercentileCapped:
+      type === "percentile" && value != null && value > 0 && value < 1,
+    lowerAbsoluteCapped:
+      type === "absolute" && value != null && Number.isFinite(value),
+  };
+}
+
+/**
+ * Per-tail activation for fact-metric style capping. Upper and lower tails are
+ * independent settings objects, each with its own `type`/`value`/`ignoreZeros`,
+ * so mixed configurations (e.g. absolute lower + percentile upper) are allowed.
+ */
+export function getCappingTailState(
+  upper: CappingSettingsTailInput | null | undefined,
+  lower?: CappingSettingsTailInput | null | undefined,
+): CappingTailState {
+  const { upperPercentileCapped, upperAbsoluteCapped } =
+    getUpperTailFlags(upper);
+  const { lowerPercentileCapped, lowerAbsoluteCapped } =
+    getLowerTailFlags(lower);
+  const anyCap =
+    upperPercentileCapped ||
+    upperAbsoluteCapped ||
+    lowerPercentileCapped ||
+    lowerAbsoluteCapped;
+  const usesPercentile = upperPercentileCapped || lowerPercentileCapped;
+
+  return {
+    upperPercentileCapped,
+    upperAbsoluteCapped,
+    lowerPercentileCapped,
+    lowerAbsoluteCapped,
+    anyCap,
+    usesPercentile,
+  };
+}
+
+/**
+ * Cross-object ordering validation for the upper and lower capping tails.
+ * When both tails share a type, require lower value < upper value (and, for
+ * percentiles, both strictly within (0,1)). Mixed types have no ordering
+ * constraint (e.g. absolute-0 lower + percentile upper is valid).
+ */
+export function validateCappingSettingsOrdering(
+  upper: CappingSettingsTailInput | null | undefined,
+  lower?: CappingSettingsTailInput | null | undefined,
+): void {
+  const upperType = normalizeCappingTypeForTails(upper?.type);
+  const lowerType = normalizeCappingTypeForTails(lower?.type);
+  const upperValue = upper?.value;
+  const lowerValue = lower?.value;
+
+  // Percentile lower cap must be strictly within (0, 1) when set.
+  if (
+    lowerType === "percentile" &&
+    lowerValue != null &&
+    lowerValue !== 0 &&
+    (lowerValue <= 0 || lowerValue >= 1 || !Number.isFinite(lowerValue))
+  ) {
+    throw new Error(
+      "Percentile lower cap must be greater than 0 and less than 1. Use 0 or omit for no lower cap.",
+    );
+  }
+
+  // When both tails are absolute, the lower floor must be below the upper cap.
+  if (
+    upperType === "absolute" &&
+    lowerType === "absolute" &&
+    upperValue != null &&
+    lowerValue != null &&
+    upperValue > 0 &&
+    lowerValue >= upperValue
+  ) {
+    throw new Error(
+      "Lower tail value must be less than upper tail value when both are absolute.",
+    );
+  }
+
+  // When both tails are percentiles, the lower percentile must be below the upper.
+  if (
+    upperType === "percentile" &&
+    lowerType === "percentile" &&
+    upperValue != null &&
+    lowerValue != null &&
+    upperValue > 0 &&
+    upperValue < 1 &&
+    lowerValue > 0 &&
+    lowerValue < 1 &&
+    lowerValue >= upperValue
+  ) {
+    throw new Error("Lower percentile must be less than upper percentile.");
+  }
+}
+
+/**
+ * `ignoreZeros` only applies to percentile capping, so consistency is
+ * enforced only when both tails use percentile capping.
+ */
+export function validateCappingSettingsIgnoreZerosConsistency(
+  upper: CappingSettingsTailInput | null | undefined,
+  lower?: CappingSettingsTailInput | null | undefined,
+): void {
+  const tails = getCappingTailState(upper, lower);
+  if (!tails.upperPercentileCapped || !tails.lowerPercentileCapped) return;
+
+  // Normalize null/undefined/false to false so only an explicit true differs.
+  if (!!upper?.ignoreZeros !== !!lower?.ignoreZeros) {
+    throw new Error(
+      "Ignore zeros must be enabled on both percentile capping tails or on neither.",
+    );
+  }
+}
+
+/**
+ * A capping tail with a selected type must have a usable value.
+ */
+export function validateCappingSettingsValueEntered(
+  tail: CappingSettingsTailInput | null | undefined,
+  isLower: boolean,
+): void {
+  const type = normalizeCappingTypeForTails(tail?.type);
+  if (type === "") return;
+
+  const value = tail?.value;
+  const tailLabel = isLower ? '"Cap low values"' : '"Cap high values"';
+
+  if (type === "percentile") {
+    if (value == null || !Number.isFinite(value) || value <= 0 || value >= 1) {
+      throw new Error(
+        `Enter a percentile between 0 and 1, or set ${tailLabel} to No.`,
+      );
+    }
+    return;
+  }
+
+  // Absolute: the lower floor may be 0 or negative, so any finite value is
+  // valid; the upper ceiling must be greater than 0.
+  if (isLower) {
+    if (value == null || !Number.isFinite(value)) {
+      throw new Error(`Enter a minimum user value, or set ${tailLabel} to No.`);
+    }
+    return;
+  }
+  if (value == null || !Number.isFinite(value) || value <= 0) {
+    throw new Error(
+      `Enter a maximum user value greater than 0, or set ${tailLabel} to No.`,
+    );
+  }
+}
+
+/**
+ * Ratio metrics only support percentile capping.
+ */
+export function validateCappingSettingsMetricTypeCompatibility(
+  metricType: string,
+  upper: CappingSettingsTailInput | null | undefined,
+  lower?: CappingSettingsTailInput | null | undefined,
+): void {
+  if (metricType !== "ratio") return;
+
+  const upperType = normalizeCappingTypeForTails(upper?.type);
+  const lowerType = normalizeCappingTypeForTails(lower?.type);
+
+  if (upperType === "absolute" || lowerType === "absolute") {
+    throw new Error("Ratio metrics support only percentile capping.");
+  }
+}
+
 export const legacyWindowSettingsValidator = z.object({
   type: windowTypeValidator.optional(),
   delayHours: z.coerce.number().optional(),
@@ -293,6 +516,10 @@ export const factMetricValidator = z
     denominator: columnRefValidator.nullable(),
 
     cappingSettings: cappingSettingsValidator,
+    // Optional independent lower-tail (negative-value winsorization) capping.
+    // Has its own type/value/ignoreZeros so it can differ from the upper tail
+    // (e.g. absolute-0 floor + percentile upper cap).
+    lowerCappingSettings: cappingSettingsValidator.optional().nullable(),
     windowSettings: windowSettingsValidator,
     priorSettings: priorSettingsValidator,
 

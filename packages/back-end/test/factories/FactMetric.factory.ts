@@ -37,6 +37,7 @@ export const factMetricFactory = Factory.define<FactMetricInterface>(
       value: params.cappingSettings?.value ?? 1000,
       ignoreZeros: params.cappingSettings?.ignoreZeros ?? false,
     },
+    lowerCappingSettings: params.lowerCappingSettings ?? null,
     windowSettings: {
       type: params.windowSettings?.type ?? "",
       delayValue: params.windowSettings?.delayValue ?? 1,
