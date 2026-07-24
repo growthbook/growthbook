@@ -192,6 +192,7 @@ export default function IdLists({ groups, mutate }: Props) {
             current={savedGroupForm}
             type="list"
             approvalFlowRequired={approvalFlowRequired}
+            mutate={mutate}
           />
         )}
         <Flex align="center" justify="between" mb="1">

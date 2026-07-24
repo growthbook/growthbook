@@ -171,6 +171,7 @@ export default function ConditionGroups({ groups, mutate }: Props) {
             current={savedGroupForm}
             type="condition"
             approvalFlowRequired={approvalFlowRequired}
+            mutate={mutate}
           />
         )}
         <Flex align="center" justify="between" mb="1">

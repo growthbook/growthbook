@@ -4,6 +4,7 @@ import {
   UpdateSavedGroupProps,
   SavedGroupInterface,
   SavedGroupType,
+  SavedGroupWithoutValues,
 } from "shared/types/saved-group";
 import {
   Revision,
@@ -21,6 +22,7 @@ import { PiPlus } from "react-icons/pi";
 import clsx from "clsx";
 import { Flex, Text } from "@radix-ui/themes";
 import { useIncrementer } from "@/hooks/useIncrementer";
+import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { useAttributeSchema } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -172,7 +174,18 @@ const SavedGroupForm: FC<{
     (currentRevision?.status === "discarded" ||
       currentRevision?.status === "merged");
 
-  const { mutateDefinitions, savedGroups, project } = useDefinitions();
+  const { mutateDefinitions, project } = useDefinitions();
+
+  // /organization/definitions drops `condition` to keep the payload small, so
+  // cycle detection needs the condition-bearing /saved-groups list instead.
+  const { data: savedGroupsData } = useApi<{
+    savedGroups: SavedGroupWithoutValues[];
+  }>("/saved-groups");
+  const savedGroups = useMemo(
+    () => savedGroupsData?.savedGroups ?? [],
+    [savedGroupsData],
+  );
+  const savedGroupsLoaded = savedGroupsData !== undefined;
 
   const [errorMessage, setErrorMessage] = useState("");
   const [showDescription, setShowDescription] = useState(false);
@@ -372,6 +385,11 @@ const SavedGroupForm: FC<{
             },
             true,
             groupMap,
+            // /saved-groups loads async and starts out empty, which would
+            // make every $savedGroups reference look unknown; skip the
+            // client-side cycle check until it arrives (the backend still
+            // validates on submit).
+            !savedGroupsLoaded,
           );
           if (conditionRes.empty) {
             throw new Error("Condition cannot be empty");
@@ -500,6 +518,7 @@ const SavedGroupForm: FC<{
           );
         }
         mutateDefinitions({});
+        await mutate?.();
       })}
       error={errorMessage}
     >

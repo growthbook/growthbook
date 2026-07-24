@@ -20,12 +20,20 @@ import HelperText from "@/ui/HelperText";
 
 export default function SavedGroupsPage() {
   const router = useRouter();
-  const {
-    mutateDefinitions,
-    savedGroups,
-    _savedGroupsIncludingArchived: allSavedGroups,
-    error,
-  } = useDefinitions();
+  const { mutateDefinitions } = useDefinitions();
+
+  const { data, error, mutate } = useApi<{
+    savedGroups: SavedGroupWithoutValues[];
+  }>("/saved-groups");
+  const allSavedGroups = useMemo(() => data?.savedGroups ?? [], [data]);
+  const savedGroups = useMemo(
+    () => allSavedGroups.filter((g) => !g.archived),
+    [allSavedGroups],
+  );
+
+  const mutateGroups = async () => {
+    await Promise.all([mutate(), mutateDefinitions()]);
+  };
 
   const { refreshOrganization } = useUser();
 
@@ -123,7 +131,7 @@ export default function SavedGroupsPage() {
     permissionsUtil,
   ]);
 
-  if (!savedGroups) return <LoadingOverlay />;
+  if (!data && !error) return <LoadingOverlay />;
 
   return (
     <div className="p-3 container-fluid pagecontents">
@@ -199,14 +207,11 @@ export default function SavedGroupsPage() {
             <TabsContent value="conditionGroups">
               {/* Pass the archived-inclusive list so the `is:archived` facet can
                   surface archived groups (the list hides them by default). */}
-              <ConditionGroups
-                groups={allSavedGroups}
-                mutate={mutateDefinitions}
-              />
+              <ConditionGroups groups={allSavedGroups} mutate={mutateGroups} />
             </TabsContent>
 
             <TabsContent value="idLists">
-              <IdLists groups={allSavedGroups} mutate={mutateDefinitions} />
+              <IdLists groups={allSavedGroups} mutate={mutateGroups} />
             </TabsContent>
 
             <TabsContent value="drafts">

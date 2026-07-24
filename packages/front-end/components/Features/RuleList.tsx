@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { FeatureInterface } from "shared/types/feature";
+import { SavedGroupWithoutValues } from "shared/types/saved-group";
 import { Flex } from "@radix-ui/themes";
 import {
   DndContext,
@@ -31,6 +32,7 @@ import { Environment } from "shared/types/organization";
 import { getTargetingProjectIds, ruleProjectScope } from "shared/util";
 import { buildRuleRampScheduleMap } from "@/services/rampScheduleHelpers";
 import { useAuth } from "@/services/auth";
+import useApi from "@/hooks/useApi";
 import { getRules, isRuleInactive } from "@/services/features";
 import {
   buildConflictBanners,
@@ -124,23 +126,36 @@ export default function RuleList(props: RuleListProps) {
   const { savedGroups, getProjectById } = useDefinitions();
   const [activeId, setActiveId] = useState<string | null>(null);
 
-  // Saved group definitions for conflict detection. Condition groups carry
-  // their `condition` in the definitions payload, but ID-list `values` are
-  // stripped from it (for size), so we fetch those lazily below. Until they
-  // arrive, a list group is opaque — conflict detection still surfaces soft
-  // overlap on its attribute, then upgrades to precise conflicts once values
-  // load and this map (and the memos below) recompute.
+  // `/organization/definitions` drops saved-group `condition` (payload size),
+  // so pull conditions from the bulk `/saved-groups` list, which SWR caches and
+  // revalidates on focus/reconnect for us. ID-list `values` are stripped there
+  // too and are fetched lazily per referenced group below.
+  const { data: savedGroupsWithCondition } = useApi<{
+    savedGroups: SavedGroupWithoutValues[];
+  }>("/saved-groups");
+  const conditionById = useMemo<Map<string, string | undefined>>(() => {
+    const map = new Map<string, string | undefined>();
+    for (const g of savedGroupsWithCondition?.savedGroups ?? []) {
+      map.set(g.id, g.condition);
+    }
+    return map;
+  }, [savedGroupsWithCondition]);
+
+  // Conflict-detection defs. Condition groups get their `condition` from the
+  // bulk fetch above; ID-list `values` are fetched lazily below. Until either
+  // arrives, the group is opaque — conflict detection surfaces soft overlap on
+  // its attribute, then upgrades to precise conflicts once the data loads.
   const savedGroupDefs = useMemo<Map<string, SavedGroupForConflicts>>(() => {
     const map = new Map<string, SavedGroupForConflicts>();
     for (const g of savedGroups) {
       map.set(g.id, {
         type: g.type,
         attributeKey: g.attributeKey,
-        condition: g.condition,
+        condition: conditionById.get(g.id),
       });
     }
     return map;
-  }, [savedGroups]);
+  }, [savedGroups, conditionById]);
 
   // ID-list saved group ids referenced by this feature's rules (any env).
   const referencedListGroupIds = useMemo<string[]>(() => {
