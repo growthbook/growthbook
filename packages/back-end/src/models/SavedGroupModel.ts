@@ -82,6 +82,7 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
 
   public static migrateSavedGroup(
     legacyDoc: LegacySavedGroupInterface,
+    { conditionOmitted = false }: { conditionOmitted?: boolean } = {},
   ): SavedGroupInterface {
     // Add `type` field to legacy groups
     const { source, type, ...otherFields } = legacyDoc;
@@ -90,10 +91,14 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
       type: type || (source === "runtime" ? "condition" : "list"),
     };
 
-    // Migrate legacy runtime groups to use a condition
+    // Migrate legacy runtime groups to use a condition.
+    // A legacy runtime group is only distinguishable from one that has since
+    // been given a real condition by whether `condition` is set, so when the
+    // read projected `condition` away we can't tell and must not guess.
     if (
       group.type === "condition" &&
       !group.condition &&
+      !conditionOmitted &&
       source === "runtime" &&
       group.attributeKey
     ) {
@@ -109,8 +114,13 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
     return group;
   }
 
-  protected migrate(legacyDoc: LegacySavedGroupInterface): SavedGroupInterface {
-    return SavedGroupModel.migrateSavedGroup(legacyDoc);
+  protected migrate(
+    legacyDoc: LegacySavedGroupInterface,
+    omittedFields?: ReadonlySet<string>,
+  ): SavedGroupInterface {
+    return SavedGroupModel.migrateSavedGroup(legacyDoc, {
+      conditionOmitted: omittedFields?.has("condition") ?? false,
+    });
   }
 
   protected async customValidation(
@@ -197,9 +207,14 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
   }
 
   /**
-   * For `/organization/definitions`: drops both `values` and `condition`.
-   * Condition groups can carry multi-MB payloads, and definitions load on
-   * every page — fetch full fields per-group via `getById` instead.
+   * For `/organization/definitions`. Drops both `values` and `condition`, which
+   * together are most of the payload, and definitions is refetched after every
+   * mutation. Consumers that need a condition use `GET /saved-groups`, and
+   * per-group `values` come from `getById`.
+   *
+   * Projecting `condition` away also stops `migrateSavedGroup` from backfilling
+   * one for legacy runtime groups, so a `type: "condition"` group here can have
+   * no `condition` at all. Absent means "not fetched", never "empty".
    */
   public async getAllForDefinitions(): Promise<SavedGroupForDefinitions[]> {
     const groups = await this._find(

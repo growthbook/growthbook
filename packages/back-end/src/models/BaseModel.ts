@@ -398,7 +398,15 @@ export abstract class BaseModel<
     }
     return filtered;
   }
-  protected migrate(legacyDoc: unknown): z.infer<T> {
+  /**
+   * `omittedFields` lists fields a projection excluded from the read, so a
+   * migration can tell "not fetched" from "never set" and skip backfilling a
+   * field it cannot see. Overrides that ignore it are fine.
+   */
+  protected migrate(
+    legacyDoc: unknown,
+    omittedFields?: ReadonlySet<string>,
+  ): z.infer<T> {
     return legacyDoc as z.infer<T>;
   }
   protected toApiInterface(doc: z.infer<T>): z.infer<ApiT> {
@@ -883,8 +891,18 @@ export abstract class BaseModel<
 
     if (!rawDocs.length) return [];
 
+    const omittedFields = projection
+      ? new Set(
+          Object.entries(projection)
+            .filter(([, include]) => include === 0)
+            .map(([field]) => field),
+        )
+      : undefined;
+
     const migrated = rawDocs.map((d) =>
-      this._stripLegacyNullFields(this.migrate(this._removeMongooseFields(d))),
+      this._stripLegacyNullFields(
+        this.migrate(this._removeMongooseFields(d), omittedFields),
+      ),
     );
     const filtered = bypassReadPermissionChecks
       ? migrated
