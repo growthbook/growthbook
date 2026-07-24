@@ -14,6 +14,9 @@
   &.permanentDot {
     background: var(--gray-6);
   }
+  &.tempRolloutDot {
+    background: var(--orange-9);
+  }
 }
 
 .listTrigger {
@@ -43,5 +46,12 @@
   white-space: nowrap;
   &:hover {
     background-color: var(--green-6) !important;
+  }
+}
+.tempRolloutBadge {
+  cursor: pointer;
+  white-space: nowrap;
+  &:hover {
+    background-color: var(--orange-6) !important;
   }
 }

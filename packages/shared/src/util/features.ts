@@ -708,6 +708,7 @@ export type StaleFeatureReason =
   | "has-dependents"
   | "toggled-off"
   | "active-experiment"
+  | "temp-rollout"
   | "has-rules";
 
 export type EnvStaleResult = {
@@ -874,19 +875,31 @@ function buildEnvResults(
     }
 
     // Walk rules in order; an unconditional catcher shadows everything after it.
-    let hasActiveExperiment = false;
+    // A stopped experiment that's still in the payload is a temporary rollout — a
+    // distinct non-stale signal so engineers can find features ready for cleanup.
+    // Prefer a live running experiment over a temp rollout when both are
+    // reachable: the running experiment is the dominant signal, so we record
+    // any temp rollout we encounter but keep scanning for a running one.
+    let activeExperimentReason: "active-experiment" | "temp-rollout" | null =
+      null;
     for (const rule of rules) {
       if (isUnconditionalCatcher(rule)) break;
       if (isExperimentRefRule(rule)) {
         const exp = experimentMap.get(rule.experimentId);
         if (exp && includeExperimentInPayload(exp)) {
-          hasActiveExperiment = true;
-          break;
+          if (exp.status === "stopped") {
+            if (!activeExperimentReason) {
+              activeExperimentReason = "temp-rollout";
+            }
+          } else {
+            activeExperimentReason = "active-experiment";
+            break;
+          }
         }
       }
     }
-    if (hasActiveExperiment) {
-      envResults[envId] = { stale: false, reason: "active-experiment" };
+    if (activeExperimentReason) {
+      envResults[envId] = { stale: false, reason: activeExperimentReason };
       continue;
     }
 

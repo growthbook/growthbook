@@ -223,7 +223,7 @@ export function useFeatureSearch({
     {
       stale: boolean;
       neverStale: boolean;
-      envResults?: Record<string, { stale: boolean }>;
+      envResults?: Record<string, { stale: boolean; reason?: string }>;
     }
   >;
   rampStates?: Record<string, unknown>;
@@ -301,10 +301,11 @@ export function useFeatureSearch({
         if (draftStates?.[item.id]) has.push("draft", "drafts");
         if (!item.neverStale) {
           const s = staleStates?.[item.id];
-          const hasSomeStaleEnvs = Object.values(s?.envResults ?? {}).some(
-            (e) => e.stale,
-          );
-          if (hasSomeStaleEnvs) has.push("stale-env");
+          const envEntries = Object.values(s?.envResults ?? {});
+          if (envEntries.some((e) => e.stale)) has.push("stale-env");
+          if (envEntries.some((e) => e.reason === "temp-rollout")) {
+            has.push("temp-rollout", "tempRollout");
+          }
         }
         const meta = item as FeatureInterface & {
           hasPrerequisites?: boolean;

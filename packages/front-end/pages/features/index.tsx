@@ -222,7 +222,10 @@ export default function FeaturesPage() {
   const hasStaleFilter = syntaxFilters.some(
     (f) =>
       (f.field === "is" && f.values.includes("stale")) ||
-      (f.field === "has" && f.values.includes("stale-env")),
+      (f.field === "has" &&
+        (f.values.includes("stale-env") ||
+          f.values.includes("temp-rollout") ||
+          f.values.includes("tempRollout"))),
   );
   const hasRampFilter = syntaxFilters.some(
     (f) => f.field === "has" && f.values.includes("ramp-schedule"),
