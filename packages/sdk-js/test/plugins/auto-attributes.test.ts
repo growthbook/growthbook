@@ -1,5 +1,6 @@
 import { GrowthBook, GrowthBookClient } from "../../src";
 import { autoAttributesPlugin } from "../../src/plugins/auto-attributes";
+import { SESSION_REPLAY_IDLE_TIMEOUT_MS } from "../../src/plugins/session-replay-id";
 
 declare global {
   interface Window {
@@ -116,6 +117,25 @@ describe("autoAttributesPlugin", () => {
     expect(stored.session_replay_id).toBe(gb.getAttributes().session_replay_id);
 
     gb.destroy();
+  });
+
+  it("keeps the session replay ID alive during SPA activity", () => {
+    const dateNowSpy = jest.spyOn(Date, "now").mockReturnValue(1000);
+    const plugin = autoAttributesPlugin();
+    const gb = new GrowthBook({
+      plugins: [plugin],
+    });
+    const sessionReplayId = gb.getAttributes().session_replay_id;
+
+    dateNowSpy.mockReturnValue(1000 + SESSION_REPLAY_IDLE_TIMEOUT_MS - 1000);
+    window.dispatchEvent(new Event("pointerdown"));
+    dateNowSpy.mockReturnValue(1000 + SESSION_REPLAY_IDLE_TIMEOUT_MS + 1000);
+    document.dispatchEvent(new Event("growthbookrefresh"));
+
+    expect(gb.getAttributes().session_replay_id).toBe(sessionReplayId);
+
+    gb.destroy();
+    dateNowSpy.mockRestore();
   });
 
   it("preserves customer session_id while owning session_replay_id", () => {

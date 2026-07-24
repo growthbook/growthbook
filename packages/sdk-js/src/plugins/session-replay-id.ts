@@ -34,18 +34,29 @@ function normalizeStoredSessionReplayState(
 }
 
 function readStoredSessionReplayState(): StoredSessionReplayState | null {
+  let stored: StoredSessionReplayState | null = null;
   try {
     const raw = sessionStorage.getItem(SESSION_STORAGE_KEY);
-    if (!raw) return inMemorySessionReplayFallback;
-    return normalizeStoredSessionReplayState(JSON.parse(raw));
+    stored = raw ? normalizeStoredSessionReplayState(JSON.parse(raw)) : null;
   } catch {
     return inMemorySessionReplayFallback;
   }
+
+  if (!inMemorySessionReplayFallback) return stored;
+  if (!stored) return inMemorySessionReplayFallback;
+
+  if (stored.lastTouchedAt >= inMemorySessionReplayFallback.lastTouchedAt) {
+    inMemorySessionReplayFallback = null;
+    return stored;
+  }
+
+  return inMemorySessionReplayFallback;
 }
 
 function persistSessionReplayState(state: StoredSessionReplayState): void {
   try {
     sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(state));
+    inMemorySessionReplayFallback = null;
   } catch {
     inMemorySessionReplayFallback = state;
   }
@@ -67,6 +78,17 @@ export function getOrCreateSessionReplayId(forceNew = false): string {
   };
   persistSessionReplayState(fresh);
   return fresh.session_replay_id;
+}
+
+export function touchSessionReplayId(): void {
+  const now = Date.now();
+  const stored = readStoredSessionReplayState();
+
+  if (!stored || now - stored.lastTouchedAt >= SESSION_REPLAY_IDLE_TIMEOUT_MS) {
+    return;
+  }
+
+  persistSessionReplayState({ ...stored, lastTouchedAt: now });
 }
 
 // Use the browser's crypto.randomUUID if set to generate a UUID.

@@ -3,7 +3,11 @@ import type {
   UserScopedGrowthBook,
   GrowthBookClient,
 } from "../GrowthBookClient";
-import { genUUID, getOrCreateSessionReplayId } from "./session-replay-id";
+import {
+  genUUID,
+  getOrCreateSessionReplayId,
+  touchSessionReplayId,
+} from "./session-replay-id";
 
 export type AutoAttributeSettings = {
   uuidCookieName?: string;
@@ -11,6 +15,14 @@ export type AutoAttributeSettings = {
   uuid?: string;
   uuidAutoPersist?: boolean;
 };
+
+const SESSION_REPLAY_TOUCH_THROTTLE_MS = 60 * 1000;
+const SESSION_REPLAY_ACTIVITY_EVENTS = [
+  "pointerdown",
+  "keydown",
+  "scroll",
+  "touchstart",
+] as const;
 
 function getBrowserDevice(ua: string): { browser: string; deviceType: string } {
   const browser = ua.match(/Edg/)
@@ -104,6 +116,21 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
     attributes.url && gb.setURL(attributes.url);
     gb.updateAttributes(attributes);
 
+    let lastSessionReplayTouchAt = Date.now();
+    const sessionReplayActivityListener = () => {
+      const now = Date.now();
+      if (now - lastSessionReplayTouchAt < SESSION_REPLAY_TOUCH_THROTTLE_MS) {
+        return;
+      }
+      lastSessionReplayTouchAt = now;
+      touchSessionReplayId();
+    };
+    SESSION_REPLAY_ACTIVITY_EVENTS.forEach((eventName) => {
+      window.addEventListener(eventName, sessionReplayActivityListener, {
+        passive: true,
+      });
+    });
+
     // Poll for URL changes and update GrowthBook
     let currentUrl = attributes.url;
     const intervalTimer = setInterval(() => {
@@ -128,6 +155,9 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
       gb.onDestroy(() => {
         clearInterval(intervalTimer);
         document.removeEventListener("growthbookrefresh", refreshListener);
+        SESSION_REPLAY_ACTIVITY_EVENTS.forEach((eventName) => {
+          window.removeEventListener(eventName, sessionReplayActivityListener);
+        });
       });
     }
   };
