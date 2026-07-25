@@ -8,6 +8,7 @@ import {
 } from "shared/enterprise";
 import { dateNoYear } from "shared/dates";
 import { useAuth } from "@/services/auth";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import Text from "@/ui/Text";
@@ -24,8 +25,14 @@ import { useRevisionDiff, RevisionDiffConfig } from "./useRevisionDiff";
 import { RevisionDiff } from "./RevisionDiff";
 
 // Entities the revert flow supports carry an `archived` flag (optional) that is
-// handled separately from the generic revertable fields.
-type RevertableEntity = { id: string; archived?: boolean };
+// handled separately from the generic revertable fields, plus the project
+// ownership the permission check reads (scalar or array, depending on entity).
+type RevertableEntity = {
+  id: string;
+  archived?: boolean;
+  project?: string;
+  projects?: string[];
+};
 
 export interface Props<T extends RevertableEntity> {
   // The live entity (the revert target's "before" state).
@@ -81,6 +88,7 @@ export default function RevertModal<T extends RevertableEntity>({
 }: Props<T>) {
   const { apiCall } = useAuth();
   const { getUserDisplay } = useUser();
+  const permissionsUtil = usePermissionsUtil();
 
   // Revision-number map (stored version, else position by creation date) so
   // the dropdown and revert title read like the rest of the page.
@@ -127,8 +135,17 @@ export default function RevertModal<T extends RevertableEntity>({
   // Archive drift: only offer to flip `archived` when it differs from live.
   const targetArchived = !!targetState.archived;
   const liveArchived = !!liveEntity.archived;
-  const archiveDrifts = targetArchived !== liveArchived;
-  const willUnarchive = archiveDrifts && liveArchived && !targetArchived;
+  const willUnarchive = liveArchived && !targetArchived;
+  // Re-archiving takes the entity out of service, so the server gates it on the
+  // delete atom even inside a revert — revert authority covers restoring the
+  // values, not the elevation. Don't offer the opt-in without it.
+  const canReArchive = permissionsUtil.canRevisionAction(
+    revision.target.type,
+    "delete",
+    liveEntity,
+  );
+  const archiveDrifts =
+    targetArchived !== liveArchived && (willUnarchive || canReArchive);
   // Default the opt-in to the recovery direction (un-archive), opt-in for the
   // more disruptive re-archive direction.
   const [includeArchive, setIncludeArchive] = useState<boolean>(

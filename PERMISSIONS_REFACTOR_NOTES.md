@@ -178,10 +178,12 @@ didn't have it.
    delete-class gate on the archive transition, restoration-vs-elevation being the
    line: revert covers restoring the values, not the elevation.
 
-   Known FE edge left open: the revert modals gate on revert authority only, so a
-   revert-only role reverting to an _archived_ revision still sees an enabled
-   submit and gets the 403. Narrow (only reverts whose target was archived) and
-   safe-direction; worth a follow-up.
+   The UI follows: the feature revert modal only offers publish-now when the
+   viewer can land the archive (staging a revert draft is unaffected), and the
+   generic modal drops its "Also archive" opt-in without the delete atom — so the
+   revert still goes through, minus the elevation. Only the archive direction is
+   gated; reverting to an _unarchived_ state needs revert authority alone, on both
+   the server and the client.
 
 7. **The generic bulk adapter had no archive gate.** `featureBulkAdapter` enforced
    the delete atom on an archive transition; the adapter every _other_ entity

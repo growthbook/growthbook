@@ -138,9 +138,18 @@ export default function RevertModal({
   const canCreateDraft =
     permissionsUtil.canManageFeatureDrafts(feature) || canRevert;
 
+  // Restoring an archived state takes the flag out of service, so publishing it
+  // carries the delete-class gate too (staging it as a draft doesn't). Matches
+  // the server: revert authority covers the restoration, not the elevation.
+  const revertWouldArchive =
+    targetRevisionForAction.archived === true && !feature.archived;
+  const canLandRevert =
+    canRevert &&
+    (!revertWouldArchive || permissionsUtil.canDeleteFeature(feature));
+
   const canAutoPublish = effectiveApprovalsRequired
-    ? canRevert && canBypassApprovals
-    : canRevert;
+    ? canLandRevert && canBypassApprovals
+    : canLandRevert;
   const gatedEnvSet: "all" | "none" = effectiveApprovalsRequired
     ? "all"
     : "none";
