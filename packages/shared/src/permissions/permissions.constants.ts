@@ -372,7 +372,7 @@ export const POLICY_METADATA_MAP: Record<
   FlagsBypassApprovals: {
     displayName: "Bypass draft approvals",
     description:
-      "Publish without the required draft review, force-merge an out-of-date draft, and discard other users' drafts. Applies to Feature Flags, Configs, and Constants. Does not bypass schema validation, custom hooks, or Config locks.",
+      "Publish without the required draft review, force-merge an out-of-date draft, and unlock a locked Config. Applies to Feature Flags, Configs, and Constants. Does not bypass schema validation or custom hooks.",
   },
   FeaturesFullAccess: {
     displayName: "Features Full Access",
@@ -489,7 +489,7 @@ export const POLICY_METADATA_MAP: Record<
   SavedGroupsBypassApprovals: {
     displayName: "Bypass draft approvals",
     description:
-      "Publish without the required draft review, force-merge an out-of-date draft, and discard other users' drafts",
+      "Publish without the required draft review, and force-merge an out-of-date draft",
   },
   BypassSavedGroupSizeLimit: {
     displayName: "Bypass size limit",
