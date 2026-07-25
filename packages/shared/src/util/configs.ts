@@ -46,6 +46,29 @@ export function isScopedConfig(config: {
   return (config.scopedConfig ?? null) !== null;
 }
 
+// The environments an env-scoped Config publish/revert may affect: a flavor
+// targets its scoped environments, while a base Config's value applies to all.
+// Conservative approximation (the entity's flavor scope, not the per-revision
+// diff). Shared by the revision adapter, the REST endpoints and the front-end so
+// every surface env-scopes publish authority identically — an env-limited role
+// must not be offered a publish the server will refuse.
+export function configPublishEnvironments(
+  config: { scopedConfig?: { environments?: string[] } | null },
+  allEnvironmentIds: string[],
+): string[] {
+  const flavorEnvs = config.scopedConfig?.environments;
+  return flavorEnvs?.length ? flavorEnvs : allEnvironmentIds;
+}
+
+// A Constant's base value and per-environment overrides can touch any
+// environment, so without the per-revision diff we conservatively require
+// authority across all of them. The seam where a narrower footprint would go.
+export function constantPublishEnvironments(
+  allEnvironmentIds: string[],
+): string[] {
+  return allEnvironmentIds;
+}
+
 // Every base config key for a config, in precedence order: the `parent` spine
 // first, then each `extends` mixin in array order. Deduped, order-preserving.
 // These become the `@config:` `$extends` entries — later overrides earlier, and

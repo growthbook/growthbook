@@ -313,6 +313,12 @@ export const putConstant = async (
     fieldsToUpdate.project = project;
   }
   if (hasChanged(archived, comparisonBase.archived)) {
+    // Flipping archived is delete-class in either direction, matching the REST
+    // archive endpoint — it takes the Constant out of service, and being
+    // archived is what allows deleting it.
+    if (!context.permissions.canDeleteConstant(existing)) {
+      context.permissions.throwPermissionError();
+    }
     fieldsToUpdate.archived = archived;
   }
 

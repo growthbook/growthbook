@@ -6,13 +6,18 @@ import {
   applyTopLevelPatchOps,
   getConstantRevisionChange,
 } from "shared/enterprise";
-import { constantRequiresReview, getReviewSetting } from "shared/util";
+import {
+  constantRequiresReview,
+  constantPublishEnvironments,
+  getReviewSetting,
+} from "shared/util";
 import { REVIEW_REQUESTED_STATUSES } from "shared/validators";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { useEnvironments } from "@/services/features";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -111,6 +116,9 @@ export default function ConstantDetailPage(): React.ReactElement {
   const { projects, mutateDefinitions } = useDefinitions();
   const { organization, hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
+  const publishEnvironments = constantPublishEnvironments(
+    useEnvironments().map((e) => e.id),
+  );
 
   const [editInfoOpen, setEditInfoOpen] = useState(false);
   const [editValueOpen, setEditValueOpen] = useState(false);
@@ -555,6 +563,7 @@ export default function ConstantDetailPage(): React.ReactElement {
               "constant",
               "revert",
               constant,
+              publishEnvironments,
             )}
             canCommentOnEntity={permissionsUtil.canAddComment(
               constant.project ? [constant.project] : [],
@@ -573,6 +582,7 @@ export default function ConstantDetailPage(): React.ReactElement {
               "constant",
               "publish",
               constant,
+              publishEnvironments,
             )}
             canBypassApproval={canBypassApproval}
             selectRevision={selectRevision}

@@ -28,6 +28,8 @@ import {
   resolveConfigChain,
   selectScopedOverride,
   findScopedOverrideStructuralErrors,
+  configPublishEnvironments,
+  constantPublishEnvironments,
   computeConfigReconciliationPreview,
   isConfigLocked,
   ConfigChainNode,
@@ -2263,5 +2265,40 @@ describe("findScopedOverrideStructuralErrors", () => {
         "base",
       ),
     ).toEqual([]);
+  });
+});
+
+describe("publish environment footprints", () => {
+  const allEnvs = ["dev", "staging", "production"];
+
+  it("scopes a flavor's publish to the environments it targets", () => {
+    expect(
+      configPublishEnvironments(
+        { scopedConfig: { environments: ["production"] } },
+        allEnvs,
+      ),
+    ).toEqual(["production"]);
+  });
+
+  it("treats a base config as all-environments", () => {
+    expect(configPublishEnvironments({}, allEnvs)).toEqual(allEnvs);
+    expect(configPublishEnvironments({ scopedConfig: null }, allEnvs)).toEqual(
+      allEnvs,
+    );
+  });
+
+  // An empty list would otherwise skip the env limit entirely, granting an
+  // env-limited role publish authority it doesn't hold.
+  it("falls back to all environments when a flavor targets none", () => {
+    expect(
+      configPublishEnvironments(
+        { scopedConfig: { environments: [] } },
+        allEnvs,
+      ),
+    ).toEqual(allEnvs);
+  });
+
+  it("requires authority across every environment for constants", () => {
+    expect(constantPublishEnvironments(allEnvs)).toEqual(allEnvs);
   });
 });

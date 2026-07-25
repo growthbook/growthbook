@@ -706,6 +706,12 @@ export const putSavedGroup = async (
     fieldsToUpdate.projects = projects;
   }
   if (hasChanged(archived, comparisonBase.archived)) {
+    // Flipping archived is delete-class in either direction, matching the REST
+    // archive endpoint — it takes the group out of service, and being archived
+    // is what allows deleting it.
+    if (!context.permissions.canDeleteSavedGroup(savedGroup)) {
+      context.permissions.throwPermissionError();
+    }
     fieldsToUpdate.archived = archived;
   }
 

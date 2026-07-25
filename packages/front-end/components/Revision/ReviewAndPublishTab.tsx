@@ -525,8 +525,8 @@ function ReviewAndPublishRevision<T>({
   const canReviewOrEdit = canReviewEntity ?? canEditEntity;
   const canDraftOrEdit = canManageDraftsEntity ?? canEditEntity;
   const canPublishOrEdit = canPublishEntity ?? canEditEntity;
-  // The CTA's specific action is already encoded in state.ctaEnabled, so this
-  // only needs to establish that the caller has some authority here.
+  // Whether the viewer holds any authority at all — for the overflow menu and
+  // the no-permission notice. Each individual action gates on its own atom.
   const hasAnyAuthority =
     canDraftOrEdit || canReviewOrEdit || canRevertOrEdit || canPublishOrEdit;
   const canReview = isPendingReview && !isAuthor && canReviewOrEdit;
@@ -1210,7 +1210,7 @@ function ReviewAndPublishRevision<T>({
                 variant="soft"
                 onClick={doSubmit}
                 loading={submitting}
-                disabled={!state.ctaEnabled || !hasAnyAuthority}
+                disabled={!state.ctaEnabled || !canDraftOrEdit}
                 style={{ width: "100%" }}
               >
                 {state.ctaLabel}

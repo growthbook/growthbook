@@ -25,6 +25,7 @@ import {
   evaluateInvariants,
   invariantRuleFields,
   isScopedConfig,
+  configPublishEnvironments,
   SchemaProjection,
 } from "shared/util";
 import {
@@ -103,6 +104,7 @@ import ConfigLockModal from "@/components/Configs/ConfigLockModal";
 import ConfigRevertModal from "@/components/Configs/ConfigRevertModal";
 import { ConstantRevisionContext } from "@/components/Constants/useConstantDraftTarget";
 import ConfigModal from "@/components/Configs/ConfigModal";
+import { useEnvironments } from "@/services/features";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import LineageTree from "@/components/Configs/LineageTree";
 import ConfigFeatureReferences from "@/components/Configs/ConfigFeatureReferences";
@@ -278,6 +280,7 @@ export default function ConfigDetailPage(): React.ReactElement {
   } = useDefinitions();
   const { organization, hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
+  const allEnvironmentIds = useEnvironments().map((e) => e.id);
 
   const [editInfoOpen, setEditInfoOpen] = useState(false);
   const [confirmRevert, setConfirmRevert] = useState(false);
@@ -2099,6 +2102,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                   "config",
                   "revert",
                   config,
+                  configPublishEnvironments(config, allEnvironmentIds),
                 )}
                 canCommentOnEntity={permissionsUtil.canAddComment(
                   config.project ? [config.project] : [],
@@ -2117,6 +2121,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                   "config",
                   "publish",
                   config,
+                  configPublishEnvironments(config, allEnvironmentIds),
                 )}
                 canBypassApproval={canBypassApproval}
                 publishBlockedReason={

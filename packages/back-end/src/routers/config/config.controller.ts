@@ -742,6 +742,12 @@ export const putConfig = async (
     fieldsToUpdate.project = project;
   }
   if (hasChanged(archived, comparisonBase.archived)) {
+    // Flipping archived is delete-class in either direction, matching the REST
+    // archive endpoint — it takes the Config out of service, and being archived
+    // is what allows deleting it.
+    if (!context.permissions.canDeleteConfig(existing)) {
+      context.permissions.throwPermissionError();
+    }
     fieldsToUpdate.archived = archived;
   }
   // `schema` (config field definitions) is a content change like `value`.
