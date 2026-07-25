@@ -129,7 +129,10 @@ import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import { assertCanPublishFeatureRevision } from "back-end/src/revisions/featureRevertPurity";
-import { canLandArchivedState } from "back-end/src/revisions/archiveTransition";
+import {
+  canLandArchivedState,
+  isArchiveTransition,
+} from "back-end/src/revisions/archiveTransition";
 import {
   moveFlatRule,
   stampRuleForEnvs,
@@ -2397,6 +2400,18 @@ export async function postFeatureRevert(
     revision.archived !== (feature.archived ?? false)
   ) {
     if (!context.permissions.canRevertFeature(feature, allEnabledEnvs)) {
+      context.permissions.throwPermissionError();
+    }
+    // Restoring an archived state still takes the flag out of service, so it
+    // carries the same delete-class gate as archiving it any other way. Revert
+    // authority covers the restoration, not the elevation.
+    if (
+      isArchiveTransition({
+        proposed: revision.archived,
+        current: feature.archived,
+      }) &&
+      !context.permissions.canDeleteFeature(feature)
+    ) {
       context.permissions.throwPermissionError();
     }
     mergeChanges.archived = revision.archived;

@@ -277,6 +277,19 @@ export default function EditSavedGroupPage() {
     ? permissionsUtil.canUpdateSavedGroup(savedGroup, savedGroup)
     : false;
 
+  // Archiving is delete-class server-side — it takes the group out of service,
+  // and being archived is what allows deleting it. Unarchiving returns it to
+  // service, so it's an ordinary publish. Either way the write also passes the
+  // update gate, so require both: the menu shouldn't offer a call the server
+  // refuses.
+  const isArchivedInView = !!displayedSavedGroup?.archived;
+  const canToggleArchive =
+    canUpdate &&
+    !!savedGroup &&
+    (isArchivedInView
+      ? permissionsUtil.canRevisionAction("saved-group", "publish", savedGroup)
+      : permissionsUtil.canDeleteSavedGroup(savedGroup));
+
   const canAdminPublish =
     !!approvalRequired &&
     !!savedGroup?.id &&
@@ -962,36 +975,16 @@ export default function EditSavedGroupPage() {
               </DropdownMenuGroup>
               <DropdownMenuSeparator />
               <DropdownMenuGroup>
-                {/* Archiving is delete-class server-side — it takes the group
-                    out of service, and being archived is what allows deleting
-                    it. Unarchiving returns it to service, so it's an ordinary
-                    publish. */}
-                {(displayedSavedGroup?.archived
-                  ? permissionsUtil.canRevisionAction(
-                      "saved-group",
-                      "publish",
-                      savedGroup,
-                    )
-                  : permissionsUtil.canDeleteSavedGroup(savedGroup)) &&
-                  (displayedSavedGroup?.archived ? (
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setDropdownOpen(false);
-                        setShowArchiveModal(true);
-                      }}
-                    >
-                      Unarchive
-                    </DropdownMenuItem>
-                  ) : (
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setDropdownOpen(false);
-                        setShowArchiveModal(true);
-                      }}
-                    >
-                      Archive
-                    </DropdownMenuItem>
-                  ))}
+                {canToggleArchive && (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setDropdownOpen(false);
+                      setShowArchiveModal(true);
+                    }}
+                  >
+                    {isArchivedInView ? "Unarchive" : "Archive"}
+                  </DropdownMenuItem>
+                )}
                 {/* Delete is gated on the LIVE archive state, not the
                     displayed/draft state — the server enforces the same
                     rule, and we want users to publish the archive before

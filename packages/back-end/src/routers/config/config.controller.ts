@@ -745,8 +745,10 @@ export const putConfig = async (
   }
   if (hasChanged(archived, comparisonBase.archived)) {
     // Same gate as the REST archive endpoints: archiving is delete-class,
-    // unarchiving is an ordinary publish.
+    // unarchiving is an ordinary publish. Compared against the LIVE state, so a
+    // caller writing back a full object doesn't get gated for a no-op.
     if (
+      !!archived !== !!existing.archived &&
       !canLandArchivedState({
         permissions: context.permissions,
         model: "config",

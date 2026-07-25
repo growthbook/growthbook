@@ -98,6 +98,14 @@ export const postConstantRevisionRevert = createApiRequestHandler(
   // the same soft referenced-constant warning as the archive endpoint (bypassable
   // by ignoreWarnings). Only the archive transition is guarded. Mirrors the config twin.
   if (isPublish && fieldsToUpdate.archived === true && !constant.archived) {
+    // Taking the Constant out of service carries the same delete-class gate as
+    // archiving it any other way — revert authority covers the restoration, not
+    // the elevation.
+    if (
+      !req.context.permissions.canRevisionAction("constant", "delete", constant)
+    ) {
+      req.context.permissions.throwPermissionError();
+    }
     await assertConstantArchiveDependentsGuard(
       req.context,
       { id: constant.id, key: constant.key, project: constant.project },

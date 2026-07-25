@@ -112,7 +112,7 @@ Staging is draft-class; landing the change is not. Archive follows that split:
 the revision-archive endpoints stage under the draft atom, and the delete atom is
 enforced wherever the transition lands — the feature archive endpoint's
 auto-publish branch (which publishes directly), `assertCanPublishFeatureRevision`,
-the bulk publisher, `assertCanPublishRevision` for the engine entities, the REST
+both bulk adapters, `assertCanPublishRevision` for the engine entities, the REST
 archive endpoints, and the entity `PUT`. The predicates behind the rule are
 `isArchiveTransition` / `proposedArchivedValue` / `canLandArchivedState`.
 
@@ -126,6 +126,11 @@ without lowering it; whether the delete atom should also stand in for staging (t
 way revert authority stands in for proposing a revert draft) is an open call —
 see "Open questions".
 
+Because both gates run, **the UI has to check both**. It didn't: every archive
+menu item gated on the landing atom alone, so a publish-only role was offered
+Unarchive and got a permission error from the staging gate. All four entity
+surfaces now require staging **and** landing authority.
+
 Note the engine's `adapter.canDelete` is **not** the delete atom — it gates
 deleting a revision _document_ (the entity's bypass-approval atom). Entity delete
 comes from the permission table.
@@ -133,7 +138,10 @@ comes from the permission table.
 ## Full-branch audit — what it found
 
 A whole-diff pass over the 227 changed files, aimed at the rewiring risk: gates
-that were merged, split, or repointed. Three real gaps, all fixed:
+that were merged, split, or repointed. Seven gaps, all fixed. The first three came
+from the diff itself; the rest came from re-auditing the fixes — worth noting that
+ratio, since each fix moved a rule and moving a rule exposed the next path that
+didn't have it.
 
 1. **The entity `PUT` was never repointed** (Configs, Constants, Saved Groups).
    It can archive and it can publish, and it still gated everything on the one
@@ -149,14 +157,39 @@ that were merged, split, or repointed. Three real gaps, all fixed:
    the server then refused. The footprint helpers moved to
    `shared/util/configs.ts` (`configPublishEnvironments` /
    `constantPublishEnvironments`) so both sides scope identically.
-3. **"Request Review" was enabled for any authority**, though the endpoint behind
-   it requires draft authority — so publish-only, review-only and revert-only
-   roles were offered a button that 403s. The publish CTA beside it already got
-   this right; the fix was to match it.
+3. **"Request Review" was enabled without draft authority**, though the endpoint
+   behind it requires it — so publish-only, review-only and revert-only roles were
+   offered a button that 403s. The generic tab gated it on "any authority"; the
+   feature page checked nothing at all. The publish CTA beside it already got this
+   right; the fix was to match it on both surfaces.
 
-Also settled while verifying: unarchive is now publish-class on **all four**
-entities, not just features. The engine entities shared one `setArchivedState`
-helper that gated both directions on delete, which contradicted release-note #2.
+4. **Unarchive was only publish-class on features.** The engine entities shared
+   one `setArchivedState` helper gating both directions on delete, contradicting
+   release-note #2. Now uniform across all four.
+5. **The archive menu items checked only the landing atom**, so a publish-only
+   role was offered Unarchive and got a staging-gate error. All four surfaces now
+   check both gates — see "Gating layers".
+6. **Reverting to an archived state bypassed the archive gate.** A draft-based
+   revert that archives runs through `assertCanPublishFeatureRevision` and needs
+   the delete atom; the **direct** revert paths (feature controller + v2 REST, and
+   the three engine-entity revert endpoints, which call `applyChanges` straight
+   past `assertCanPublishRevision`) gated only on revert authority. So revert
+   authority alone could take a flag out of service. All six now apply the
+   delete-class gate on the archive transition, restoration-vs-elevation being the
+   line: revert covers restoring the values, not the elevation.
+
+   Known FE edge left open: the revert modals gate on revert authority only, so a
+   revert-only role reverting to an _archived_ revision still sees an enabled
+   submit and gets the 403. Narrow (only reverts whose target was archived) and
+   safe-direction; worth a follow-up.
+
+7. **The generic bulk adapter had no archive gate.** `featureBulkAdapter` enforced
+   the delete atom on an archive transition; the adapter every _other_ entity
+   shares only asked for publish authority, so a multi-entity publish could archive
+   a Config, Constant or Saved Group without it. Same shape as the bypass leak the
+   previous audit found — the multi-entity path keeps missing per-entity rules, so
+   it's worth checking first whenever a rule is added. Covered by the predicate
+   tests only; there is no bulk-adapter test harness to extend.
 
 Checked and found correct (no change needed): the internal direct-revert
 controller's per-field env gating; discard staying author-or-draft; the
@@ -236,11 +269,12 @@ Notes that the grid can't carry:
 - **Deleting a live flag via REST** additionally needs env-scoped publish authority
   _and_ the org's REST-bypass setting; the internal path requires archiving first.
   So the Deleter column is ✓ only for already-archived flags.
-- **Staging vs landing.** A draft author can stage `archived: true` in a draft; it
-  just won't publish. Only the landing column is shown above — and because the
-  staging gate still runs, the archive/unarchive rows need the landing atom
-  **plus** draft authority (manage, for the engine entities' `PUT`). Marked
-  `+drafts` rather than ✓.
+- **Staging vs landing.** A draft author can stage `archived: true` through the
+  feature revision-archive endpoint; it just won't publish. Only the landing
+  column is shown above — and because the staging gate still runs on the archive
+  paths themselves, those rows need the landing atom **plus** draft authority
+  (manage, for the engine entities' `PUT`, which gates the flip in either
+  direction whether it stages or lands). Marked `+drafts` rather than ✓.
 - **Env scoping.** Publish and revert are per-environment for Flags, so an
   env-limited Publisher/Reverter is ✓ only within its environments — and a revert
   spanning an environment they lack is ✗ in full, not partially applied.

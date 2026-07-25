@@ -18,6 +18,7 @@ import {
   PublishGateClearance,
 } from "back-end/src/revisions/publishGates";
 import { ownershipChanged } from "back-end/src/revisions/util";
+import { displayEntityName } from "back-end/src/revisions/entityNames";
 import {
   bulkPublishTargetTypes,
   getBulkAdapter,
@@ -30,7 +31,6 @@ import type {
   BulkPublishItemResult,
   BulkPublishPlan,
   BulkPublishResult,
-  BulkPublishTargetType,
   PlannedItemPublish,
 } from "back-end/src/revisions/bulkPublish/types";
 
@@ -43,23 +43,6 @@ function tag(ref: BulkPublishItemRef, gates: PublishGate[]): BulkPublishGate[] {
     entityId: ref.entityId,
     version: ref.version,
   }));
-}
-
-// User-facing entity noun per the copy glossary: first-class resources are
-// Title Case.
-function displayEntityName(entityType: BulkPublishTargetType): string {
-  switch (entityType) {
-    case "feature":
-      return "Feature Flag";
-    case "saved-group":
-      return "Saved Group";
-    case "config":
-      return "Config";
-    case "constant":
-      return "Constant";
-    default:
-      return entityType;
-  }
 }
 
 // The caller-facing identifier for messages — never the internal id.

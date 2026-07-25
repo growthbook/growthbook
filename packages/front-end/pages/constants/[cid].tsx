@@ -309,7 +309,10 @@ export default function ConstantDetailPage(): React.ReactElement {
   // Archiving is delete-class server-side — it takes the Constant out of service,
   // and being archived is what allows deleting it. Unarchiving returns it to
   // service, so it's an ordinary publish.
+  // The write also passes the ordinary update gate, so require both — otherwise
+  // the menu offers a call the server refuses.
   const canArchiveNow =
+    canEditNow &&
     (constant.archived
       ? permissionsUtil.canRevisionAction(
           "constant",
@@ -317,8 +320,7 @@ export default function ConstantDetailPage(): React.ReactElement {
           constant,
           publishEnvironments,
         )
-      : permissionsUtil.canDeleteConstant(constant)) &&
-    (!selectedRevision || isDraft);
+      : permissionsUtil.canDeleteConstant(constant));
 
   // Whether the user can bypass approval for this constant (its project, or the
   // global "" project when unscoped) — enables the "publish now" option.

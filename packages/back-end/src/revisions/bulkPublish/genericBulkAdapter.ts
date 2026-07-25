@@ -9,7 +9,12 @@ import {
   type EntityRevisionAdapter,
   filterUpdatableChanges,
 } from "back-end/src/revisions/EntityRevisionAdapter";
-import type { PublishGate } from "back-end/src/revisions/publishGates";
+import {
+  makeBlockingGate,
+  type PublishGate,
+} from "back-end/src/revisions/publishGates";
+import { isArchiveTransition } from "back-end/src/revisions/archiveTransition";
+import { displayEntityName } from "back-end/src/revisions/entityNames";
 import { buildMergeDesiredState } from "back-end/src/revisions/util";
 import { collectRevisionGovernanceGates } from "back-end/src/revisions/governanceGates";
 import { ownedRestoreValues } from "back-end/src/revisions/bulkPublish/ownedRestore";
@@ -146,6 +151,32 @@ export function makeGenericBulkAdapter(
         entity,
         revision: raw,
       });
+
+      // Archiving is delete-class wherever the merge lands, so bulk publish
+      // enforces it too — `canPublish` above only asks for publish authority.
+      // Unarchiving is covered by that check. Mirrors featureBulkAdapter.
+      if (
+        isArchiveTransition({
+          proposed: desiredState.archived as boolean | undefined,
+          current: (entity as { archived?: boolean }).archived,
+        }) &&
+        !callerContext.permissions.canRevisionAction(
+          targetType,
+          "delete",
+          entity as { project?: string; projects?: string[] },
+        )
+      ) {
+        gates.push(
+          makeBlockingGate({
+            type: "permission-denied",
+            messages: [
+              `You do not have permission to archive this ${displayEntityName(
+                targetType,
+              )}.`,
+            ],
+          }),
+        );
+      }
 
       // Entity-level guards + schema validation, evaluated against the
       // multi-entity end-state: the overlay context is both the read context

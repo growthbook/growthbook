@@ -149,6 +149,18 @@ export const postSavedGroupRevisionRevert = createApiRequestHandler(
     // Reverting to a historically-archived state re-archives the group; soft-warn
     // (bypassably) if it still has live dependents. Only the archive transition.
     if (fieldsToUpdate.archived === true && !savedGroup.archived) {
+      // Taking the group out of service carries the same delete-class gate as
+      // archiving it any other way — revert authority covers the restoration,
+      // not the elevation.
+      if (
+        !req.context.permissions.canRevisionAction(
+          "saved-group",
+          "delete",
+          savedGroup,
+        )
+      ) {
+        req.context.permissions.throwPermissionError();
+      }
       await assertSavedGroupArchiveDependentsGuard(
         req.context,
         { id: savedGroup.id },

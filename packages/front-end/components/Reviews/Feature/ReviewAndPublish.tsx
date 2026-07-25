@@ -2679,7 +2679,13 @@ export default function ReviewAndPublish({
                       variant="soft"
                       onClick={doSubmit}
                       loading={submitting}
-                      disabled={!state.ctaEnabled}
+                      // Requesting review is a draft action, and the endpoint
+                      // gates on draft authority — so a publish- or review-only
+                      // role must not be offered it.
+                      disabled={
+                        !state.ctaEnabled ||
+                        !permissionsUtil.canManageFeatureDrafts(feature)
+                      }
                       style={{ width: "100%" }}
                     >
                       {state.ctaLabel}

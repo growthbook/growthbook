@@ -203,7 +203,11 @@ export default function FeaturesHeader({
   const canDelete = permissionsUtil.canDeleteFeature(feature);
   // Archiving takes the flag out of service, so it carries delete authority;
   // unarchiving returns it to service, an ordinary publish in its environments.
-  const canToggleArchive = isArchived ? canPublish : canDelete;
+  // Both directions stage a revision first, so the draft gate applies too —
+  // requiring both keeps the menu item from offering a call the server refuses.
+  const canToggleArchive =
+    permissionsUtil.canManageFeatureDrafts(feature) &&
+    (isArchived ? canPublish : canDelete);
 
   // Tab chip + tooltip count revisions at "request review" or beyond; drafts
   // still being edited don't need reviewer/publisher attention.

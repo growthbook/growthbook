@@ -34,6 +34,7 @@ import {
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import { getEnvironments } from "back-end/src/services/organizations";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
+import { isArchiveTransition } from "back-end/src/revisions/archiveTransition";
 import { canUseRestApiBypassSetting } from "./reviewBypass";
 
 export async function revertFeatureRevision(
@@ -163,11 +164,22 @@ export async function revertFeatureRevision(
     targetRevision.archived !== undefined &&
     targetRevision.archived !== (feature.archived ?? false)
   ) {
-    if (
-      isPublish &&
-      !context.permissions.canRevertFeature(feature, allEnabledEnvs)
-    ) {
-      context.permissions.throwPermissionError();
+    if (isPublish) {
+      if (!context.permissions.canRevertFeature(feature, allEnabledEnvs)) {
+        context.permissions.throwPermissionError();
+      }
+      // Restoring an archived state still takes the flag out of service, so it
+      // carries the same delete-class gate as archiving it any other way.
+      // Revert authority covers the restoration, not the elevation.
+      if (
+        isArchiveTransition({
+          proposed: targetRevision.archived,
+          current: feature.archived,
+        }) &&
+        !context.permissions.canDeleteFeature(feature)
+      ) {
+        context.permissions.throwPermissionError();
+      }
     }
     changes.archived = targetRevision.archived;
   }

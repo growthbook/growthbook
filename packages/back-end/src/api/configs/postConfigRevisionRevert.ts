@@ -23,6 +23,7 @@ import {
 } from "back-end/src/services/configValidation";
 import { assertConfigNotLocked } from "back-end/src/services/configLock";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
+import { isArchiveTransition } from "back-end/src/revisions/archiveTransition";
 import { loadRevisionByVersion } from "./validations";
 import { toApiConfigRevision } from "./toApiConfigRevision";
 
@@ -214,6 +215,20 @@ export const postConfigRevisionRevert = createApiRequestHandler(
       type: "created",
     });
     return { revision: await toApiConfigRevision(draft, req.context) };
+  }
+
+  // Restoring an archived state still takes the Config out of service, so it
+  // carries the same delete-class gate as archiving it any other way. Revert
+  // authority covers the restoration, not the elevation.
+  if (
+    isArchiveTransition({
+      proposed:
+        "archived" in fieldsToUpdate ? !!fieldsToUpdate.archived : undefined,
+      current: config.archived,
+    }) &&
+    !req.context.permissions.canRevisionAction("config", "delete", config)
+  ) {
+    req.context.permissions.throwPermissionError();
   }
 
   // Experiment guard (direct publish → armed:false): a revert-to-publish

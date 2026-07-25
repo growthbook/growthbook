@@ -874,7 +874,10 @@ export default function ConfigDetailPage(): React.ReactElement {
   // Archiving is delete-class server-side — it takes the Config out of service,
   // and being archived is what allows deleting it. Unarchiving returns it to
   // service, so it's an ordinary publish.
+  // The write also passes the ordinary update gate, so require both — otherwise
+  // the menu offers a call the server refuses.
   const canArchiveNow =
+    canEditNow &&
     (config.archived
       ? permissionsUtil.canRevisionAction(
           "config",
@@ -882,9 +885,7 @@ export default function ConfigDetailPage(): React.ReactElement {
           config,
           configPublishEnvironments(config, allEnvironmentIds),
         )
-      : permissionsUtil.canDeleteConfig(config)) &&
-    !isLocked &&
-    (!selectedRevision || isDraft);
+      : permissionsUtil.canDeleteConfig(config));
   // Inline editing works in a live context too — saving auto-creates a draft
   // (saveValue's writeQuery falls back to ?forceCreateRevision=1). Kept in lockstep
   // with canEditNow so locked/discarded contexts expose no edit controls.

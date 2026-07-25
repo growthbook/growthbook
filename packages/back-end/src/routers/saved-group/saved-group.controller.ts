@@ -708,8 +708,10 @@ export const putSavedGroup = async (
   }
   if (hasChanged(archived, comparisonBase.archived)) {
     // Same gate as the REST archive endpoint: archiving is delete-class,
-    // unarchiving is an ordinary publish.
+    // unarchiving is an ordinary publish. Compared against the LIVE state, so a
+    // caller writing back a full object doesn't get gated for a no-op.
     if (
+      !!archived !== !!savedGroup.archived &&
       !canLandArchivedState({
         permissions: context.permissions,
         model: "saved-group",
