@@ -68,7 +68,7 @@ export async function loadRevisionByVersion(
     revision.target.type !== "constant" ||
     revision.target.id !== constantId
   ) {
-    throw new NotFoundError("Could not find constant revision");
+    throw new NotFoundError("Could not find Constant revision");
   }
   return revision;
 }

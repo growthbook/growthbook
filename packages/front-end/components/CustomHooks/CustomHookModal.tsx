@@ -237,7 +237,7 @@ export const hookTypes: Record<
     availableArguments: {
       config: {
         description:
-          "The config being validated: schema fields, staged value (parsed JSON object), lineage, isHookTarget (is this the config the hook is pinned to, vs a descendant), and scopedConfig (present only for an environment/project override — its base and the environments/projects it applies to)",
+          "The Config being validated: schema fields, staged value (parsed JSON object), lineage, isHookTarget (is this the Config the hook is pinned to, vs a descendant), and scopedConfig (present only for an environment/project override — its base and the environments/projects it applies to)",
         testValue: stringify(dummyConfig),
       },
     },
@@ -248,7 +248,7 @@ export const hookTypes: Record<
     availableArguments: {
       config: {
         description:
-          "The config's changed content: schema fields, value (parsed JSON object), lineage, isHookTarget (is this the config the hook is pinned to, vs a descendant), and scopedConfig (present only for an environment/project override — its base and the environments/projects it applies to)",
+          "The Config's changed content: schema fields, value (parsed JSON object), lineage, isHookTarget (is this the Config the hook is pinned to, vs a descendant), and scopedConfig (present only for an environment/project override — its base and the environments/projects it applies to)",
         testValue: stringify(dummyConfig),
       },
       revision: {

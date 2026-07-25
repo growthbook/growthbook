@@ -9,7 +9,7 @@ export const lockConfig = createApiRequestHandler(lockConfigValidator)(async (
 ) => {
   const config = await req.context.models.configs.getByKey(req.params.key);
   if (!config) {
-    throw new NotFoundError(`Unable to locate the config: ${req.params.key}`);
+    throw new NotFoundError(`Unable to locate the Config: ${req.params.key}`);
   }
 
   // Locking only needs normal publish/edit authority (the asymmetry: unlocking

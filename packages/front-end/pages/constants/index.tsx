@@ -223,7 +223,7 @@ export default function ConstantsPage(): React.ReactElement {
 
         {!hasConstants ? (
           <EmptyState
-            title="Reusable values for your configs"
+            title="Reusable values for your Configs"
             description="Define a value once and reference it from feature flags with {{ @const:key }}. Change it in one place and every consumer updates."
             leftButton={
               <LinkButton
@@ -397,8 +397,8 @@ export default function ConstantsPage(): React.ReactElement {
                       <TableRow>
                         <TableCell colSpan={7} style={{ textAlign: "center" }}>
                           {isFiltered
-                            ? "No constants match the current filter."
-                            : "No constants found."}
+                            ? "No Constants match the current filter."
+                            : "No Constants found."}
                         </TableCell>
                       </TableRow>
                     )}

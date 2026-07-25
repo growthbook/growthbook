@@ -483,7 +483,7 @@ export const postConfig = async (
   // stay editable/deletable after a license lapses (err permissive).
   if (!context.hasPremiumFeature("feature-configs")) {
     throw new PlanDoesNotAllowError(
-      "Creating configs requires a plan that includes feature configs.",
+      "Creating Configs requires a plan that includes Configs.",
     );
   }
 

@@ -354,8 +354,8 @@ export function collectDependentConfigBreaks({
         (env) => introducedFor(cfgKey, env, project, additionalProperties),
         (v, env) =>
           env === null
-            ? `config "${cfgKey}": ${v}`
-            : `config "${cfgKey}" [${env}]: ${v}`,
+            ? `Config "${cfgKey}": ${v}`
+            : `Config "${cfgKey}" [${env}]: ${v}`,
       ),
     );
   }
@@ -597,7 +597,7 @@ export async function assertConstantSchemaBreakGuard(
     assertArmedSchemaBreakAcknowledged(
       violations,
       revision,
-      "Publishing this constant would newly break dependent config or feature value(s)",
+      "Publishing this Constant would newly break dependent Config or feature value(s)",
     );
     return;
   }
@@ -606,7 +606,7 @@ export async function assertConstantSchemaBreakGuard(
     context,
     violations,
     { constantKey: constant.key },
-    "Breaks a dependent config or feature value:",
+    "Breaks a dependent Config or feature value:",
   );
 }
 
@@ -635,7 +635,7 @@ export async function captureConstantSchemaBreakAcknowledgment(
 
   // Same class split as the direct fire, honoring blockPublishOnSchemaError.
   const body =
-    "Scheduling this publish would break a dependent config or feature value:\n" +
+    "Scheduling this publish would break a dependent Config or feature value:\n" +
     violations.join("\n");
   if (context.org.settings?.blockPublishOnSchemaError !== false) {
     if (!context.skipSchemaValidation) {
@@ -793,7 +793,7 @@ export async function assertConfigSchemaBreakGuard(
     assertArmedSchemaBreakAcknowledged(
       violations,
       revision,
-      "Publishing this config would newly break its own resolved value",
+      "Publishing this Config would newly break its own resolved value",
     );
     return;
   }
@@ -802,7 +802,7 @@ export async function assertConfigSchemaBreakGuard(
     context,
     violations,
     { configKey: proposed.key },
-    "Invalid config value:",
+    "Invalid Config value:",
   );
 }
 
@@ -875,7 +875,7 @@ export async function assertConfigArchiveSchemaBreakGuard(
     assertArmedSchemaBreakAcknowledged(
       violations,
       revision,
-      `${action} this config would newly break dependent config or feature value(s)`,
+      `${action} this Config would newly break dependent Config or feature value(s)`,
     );
     return;
   }
@@ -884,7 +884,7 @@ export async function assertConfigArchiveSchemaBreakGuard(
     context,
     violations,
     { configKey: config.key },
-    `${action} this config breaks a dependent config or feature value:`,
+    `${action} this Config breaks a dependent Config or feature value:`,
   );
 }
 
@@ -920,7 +920,7 @@ export async function captureConfigSchemaBreakAcknowledgment(
 
   // Same class split as the direct fire, honoring blockPublishOnSchemaError.
   const body =
-    "Scheduling this publish would produce an invalid config or dependent value:\n" +
+    "Scheduling this publish would produce an invalid Config or dependent value:\n" +
     violations.join("\n");
   if (context.org.settings?.blockPublishOnSchemaError === false) {
     if (!context.ignoreWarnings) {

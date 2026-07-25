@@ -219,7 +219,7 @@ export default function ConstantModal({
           <MarkdownInput
             value={form.watch("description")}
             setValue={(v) => form.setValue("description", v)}
-            placeholder="Add notes about this constant (markdown supported)"
+            placeholder="Add notes about this Constant (markdown supported)"
             showButtons={false}
             hidePreview={false}
           />

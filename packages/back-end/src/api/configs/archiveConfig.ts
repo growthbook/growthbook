@@ -49,7 +49,7 @@ async function setArchivedState(
   const { context } = req;
   const config = await context.models.configs.getByKey(key);
   if (!config) {
-    throw new NotFoundError(`Unable to locate the config: ${key}`);
+    throw new NotFoundError(`Unable to locate the Config: ${key}`);
   }
 
   // Archive is delete-class — see the note in the feature archive controller.
@@ -90,7 +90,7 @@ async function setArchivedState(
     ...collectArchiveApprovalGate({
       approvalRequired,
       archived,
-      noun: "config",
+      noun: "Config",
       createDraftPath: `/configs-revisions/${config.key}`,
     }),
   ];
@@ -127,7 +127,7 @@ async function setArchivedState(
   assertConfigNotLocked(config);
   if (approvalRequired && !canBypass) {
     throw new BadRequestError(
-      "This organization requires approvals for this config. " +
+      "This organization requires approvals for this Config. " +
         `Use \`POST /configs-revisions/${config.key}\` to ${
           archived ? "archive" : "unarchive"
         } it through a draft, or use a role/token with the bypass permission.`,

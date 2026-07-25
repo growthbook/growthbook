@@ -45,7 +45,7 @@ async function setArchivedState(
   const { context } = req;
   const constant = await context.models.constants.getByKey(key);
   if (!constant) {
-    throw new NotFoundError(`Unable to locate the constant: ${key}`);
+    throw new NotFoundError(`Unable to locate the Constant: ${key}`);
   }
 
   // Archive is delete-class — see the note in the feature archive controller.
@@ -81,7 +81,7 @@ async function setArchivedState(
   const gates: PublishGate[] = collectArchiveApprovalGate({
     approvalRequired,
     archived,
-    noun: "constant",
+    noun: "Constant",
     createDraftPath: `/constants-revisions/${constant.key}`,
   });
   // Soft guards (experiment / locked-dependent / schema-break / archive-dependents)
@@ -117,7 +117,7 @@ async function setArchivedState(
   // Approval backstop behind the gate above.
   if (approvalRequired && !canBypass) {
     throw new BadRequestError(
-      "This organization requires approvals for this constant. " +
+      "This organization requires approvals for this Constant. " +
         `Use \`POST /constants-revisions/${constant.key}\` to ${
           archived ? "archive" : "unarchive"
         } it through a draft, or use a role/token with the bypass permission.`,

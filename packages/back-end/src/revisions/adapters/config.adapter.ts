@@ -508,7 +508,7 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
         type: "experiment-guard",
         severity: "warning",
         messages: [
-          `Publishing this config rewrites the live value served to a running experiment (${describeConfigConflictKeys(
+          `Publishing this Config rewrites the live value served to a running experiment (${describeConfigConflictKeys(
             experimentConflicts,
           )}).`,
         ],
@@ -541,7 +541,7 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
         type: "dependent-config-locked",
         severity: "warning",
         messages: [
-          `Publishing this config changes the resolved value of locked config(s): ${lockConflicts.join(
+          `Publishing this Config changes the resolved value of locked Config(s): ${lockConflicts.join(
             ", ",
           )}.`,
         ],
@@ -587,7 +587,7 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
       gates.push({
         type: "schema-validation",
         severity: "warning",
-        messages: ["Invalid config value:", ...schemaBreaks],
+        messages: ["Invalid Config value:", ...schemaBreaks],
         ...schemaFailureGateOverride(
           context.org.settings?.blockPublishOnSchemaError !== false,
         ),
@@ -669,7 +669,7 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
           makeBlockingGate({
             type: "reference-cycle",
             messages: [
-              `This config references ${cyclic.join(
+              `This Config references ${cyclic.join(
                 ", ",
               )}, which would create a reference cycle.`,
             ],
@@ -712,7 +712,7 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
           messages: [
             `${
               proposedArchived ? "Archiving" : "Unarchiving"
-            } this config breaks a dependent config or feature value:`,
+            } this Config breaks a dependent Config or feature value:`,
             ...archiveBreaks,
           ],
           ...schemaFailureGateOverride(

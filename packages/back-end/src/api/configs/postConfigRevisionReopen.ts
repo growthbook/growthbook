@@ -10,7 +10,7 @@ export const postConfigRevisionReopen = createApiRequestHandler(
 )(async (req) => {
   const config = await req.context.models.configs.getByKey(req.params.key);
   if (!config) {
-    throw new NotFoundError("Could not find config");
+    throw new NotFoundError("Could not find Config");
   }
 
   const revision = await loadRevisionByVersion(

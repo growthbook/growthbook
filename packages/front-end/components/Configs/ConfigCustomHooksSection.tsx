@@ -116,7 +116,7 @@ export default function ConfigCustomHooksSection({
   const disableReason = !hasAccess
     ? "Custom Hooks require an Enterprise plan."
     : !canManage
-      ? "You don't have permission to manage hooks for this config."
+      ? "You don't have permission to manage hooks for this Config."
       : "";
 
   if (isCloud()) return null;
@@ -143,7 +143,7 @@ export default function ConfigCustomHooksSection({
       </Heading>
       <Box mb="3">
         <Text as="p" size="small" color="text-low" fontStyle="italic">
-          Run sandboxed JavaScript validation before this config is published.
+          Run sandboxed JavaScript validation before this Config is published.
         </Text>
       </Box>
 
@@ -191,8 +191,8 @@ export default function ConfigCustomHooksSection({
                 </Heading>
               </Flex>
               <Text as="p" size="small" color="text-low" mb="3">
-                Inherited from an ancestor config (scoped to descendants). These
-                run on this config&apos;s changes but are managed from the
+                Inherited from an ancestor Config (scoped to descendants). These
+                run on this Config&apos;s changes but are managed from the
                 parent.
               </Text>
               <HooksTable
@@ -266,7 +266,7 @@ function HooksTable({
   canManage: boolean;
   setModalData: (hook: CustomHookInterface) => void;
   mutate: () => void;
-  // Show a linked "Parent config" column instead of "Scope" (for inherited hooks).
+  // Show a linked "Parent Config" column instead of "Scope" (for inherited hooks).
   showSource?: boolean;
 }) {
   const { apiCall } = useAuth();
@@ -316,7 +316,7 @@ function HooksTable({
           <TableRow>
             <TableColumnHeader>Name</TableColumnHeader>
             {showSource && (
-              <TableColumnHeader width="260px">Parent config</TableColumnHeader>
+              <TableColumnHeader width="260px">Parent Config</TableColumnHeader>
             )}
             <TableColumnHeader width="200px">Type</TableColumnHeader>
             {!showSource && (

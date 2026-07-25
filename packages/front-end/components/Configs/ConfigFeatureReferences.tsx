@@ -94,7 +94,7 @@ export default function ConfigFeatureReferences({
       <span
         style={{ fontSize: "var(--font-size-1)", color: "var(--slate-10)" }}
       >
-        No features reference this config family.
+        No features reference this Config family.
       </span>
     );
   }

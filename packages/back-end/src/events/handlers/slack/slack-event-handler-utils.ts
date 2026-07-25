@@ -954,7 +954,7 @@ const buildSlackMessageForConstantCreatedEvent = async (
   eventId: string,
 ): Promise<SlackMessage> => {
   const eventUser = await getEventUserFormatted(eventId);
-  const text = `The constant ${constant.name} has been created by ${eventUser}.`;
+  const text = `The Constant ${constant.name} has been created by ${eventUser}.`;
   return {
     text,
     blocks: [
@@ -963,7 +963,7 @@ const buildSlackMessageForConstantCreatedEvent = async (
         text: {
           type: "mrkdwn",
           text:
-            `The constant *${constant.name}* has been created by ${eventUser}.` +
+            `The Constant *${constant.name}* has been created by ${eventUser}.` +
             getConstantUrlFormatted(constant.key) +
             getEventUrlFormatted(eventId),
         },
@@ -998,7 +998,7 @@ const buildSlackMessageForConstantUpdatedEvent = async (
   }
 
   const isUnknownUser = eventUser === "an unknown user";
-  const text = `The constant ${constant.name} has been updated ${isUnknownUser ? "automatically" : `by ${eventUser}`}`;
+  const text = `The Constant ${constant.name} has been updated ${isUnknownUser ? "automatically" : `by ${eventUser}`}`;
 
   if (changeBlocks.length === 0) {
     changeBlocks = [
@@ -1017,7 +1017,7 @@ const buildSlackMessageForConstantUpdatedEvent = async (
         text: {
           type: "mrkdwn",
           text:
-            `The constant *${constant.name}* has been updated ${isUnknownUser ? "automatically" : `by ${eventUser}`}.` +
+            `The Constant *${constant.name}* has been updated ${isUnknownUser ? "automatically" : `by ${eventUser}`}.` +
             getConstantUrlFormatted(constant.key) +
             getEventUrlFormatted(eventId),
         },
@@ -1032,7 +1032,7 @@ const buildSlackMessageForConstantDeletedEvent = async (
   eventId: string,
 ): Promise<SlackMessage> => {
   const eventUser = await getEventUserFormatted(eventId);
-  const text = `The constant ${constant.name} has been deleted by ${eventUser}.`;
+  const text = `The Constant ${constant.name} has been deleted by ${eventUser}.`;
   return {
     text,
     blocks: [
@@ -1041,7 +1041,7 @@ const buildSlackMessageForConstantDeletedEvent = async (
         text: {
           type: "mrkdwn",
           text:
-            `The constant *${constant.name}* has been deleted by ${eventUser}.` +
+            `The Constant *${constant.name}* has been deleted by ${eventUser}.` +
             getEventUrlFormatted(eventId),
         },
       },
@@ -1074,40 +1074,40 @@ const buildSlackMessageForConstantRevisionEvent = (
   let text: string;
   switch (eventType) {
     case "constant.revision.created":
-      text = `Draft revision ${version} created for constant ${name}`;
+      text = `Draft revision ${version} created for Constant ${name}`;
       break;
     case "constant.revision.updated":
-      text = `Draft revision ${version} of constant ${name} was updated${data.change ? ` (${data.change})` : ""}`;
+      text = `Draft revision ${version} of Constant ${name} was updated${data.change ? ` (${data.change})` : ""}`;
       break;
     case "constant.revision.reviewRequested":
-      text = `Review requested for revision ${version} of constant ${name}`;
+      text = `Review requested for revision ${version} of Constant ${name}`;
       break;
     case "constant.revision.approved":
-      text = `Revision ${version} of constant ${name} approved by ${reviewerName}${commentSuffix}`;
+      text = `Revision ${version} of Constant ${name} approved by ${reviewerName}${commentSuffix}`;
       break;
     case "constant.revision.changesRequested":
-      text = `Changes requested on revision ${version} of constant ${name} by ${reviewerName}${commentSuffix}`;
+      text = `Changes requested on revision ${version} of Constant ${name} by ${reviewerName}${commentSuffix}`;
       break;
     case "constant.revision.commented":
-      text = `Comment on revision ${version} of constant ${name} by ${reviewerName}${commentSuffix}`;
+      text = `Comment on revision ${version} of Constant ${name} by ${reviewerName}${commentSuffix}`;
       break;
     case "constant.revision.discarded":
-      text = `Draft revision ${version} of constant ${name} was discarded`;
+      text = `Draft revision ${version} of Constant ${name} was discarded`;
       break;
     case "constant.revision.rebased":
-      text = `Draft revision ${version} of constant ${name} was rebased`;
+      text = `Draft revision ${version} of Constant ${name} was rebased`;
       break;
     case "constant.revision.published":
-      text = `Revision ${version} of constant ${name} was published`;
+      text = `Revision ${version} of Constant ${name} was published`;
       break;
     case "constant.revision.reverted":
       text = `Constant ${name} was reverted${data.revertedToVersion ? ` to revision v${data.revertedToVersion}` : ""}`;
       break;
     case "constant.revision.reopened":
-      text = `Draft revision ${version} of constant ${name} was reopened`;
+      text = `Draft revision ${version} of Constant ${name} was reopened`;
       break;
     case "constant.revision.publishFailed":
-      text = `Scheduled publish of revision ${version} for constant ${name} failed${formatPublishFailedSuffix(data)}`;
+      text = `Scheduled publish of revision ${version} for Constant ${name} failed${formatPublishFailedSuffix(data)}`;
       break;
     default:
       text = `Constant ${name} revision ${version}: ${eventType}`;
@@ -1143,7 +1143,7 @@ const buildSlackMessageForConfigCreatedEvent = async (
   eventId: string,
 ): Promise<SlackMessage> => {
   const eventUser = await getEventUserFormatted(eventId);
-  const text = `The config ${config.name} has been created by ${eventUser}.`;
+  const text = `The Config ${config.name} has been created by ${eventUser}.`;
   return {
     text,
     blocks: [
@@ -1152,7 +1152,7 @@ const buildSlackMessageForConfigCreatedEvent = async (
         text: {
           type: "mrkdwn",
           text:
-            `The config *${config.name}* has been created by ${eventUser}.` +
+            `The Config *${config.name}* has been created by ${eventUser}.` +
             getConfigUrlFormatted(config.key) +
             getEventUrlFormatted(eventId),
         },
@@ -1187,7 +1187,7 @@ const buildSlackMessageForConfigUpdatedEvent = async (
   }
 
   const isUnknownUser = eventUser === "an unknown user";
-  const text = `The config ${config.name} has been updated ${isUnknownUser ? "automatically" : `by ${eventUser}`}`;
+  const text = `The Config ${config.name} has been updated ${isUnknownUser ? "automatically" : `by ${eventUser}`}`;
 
   if (changeBlocks.length === 0) {
     changeBlocks = [
@@ -1206,7 +1206,7 @@ const buildSlackMessageForConfigUpdatedEvent = async (
         text: {
           type: "mrkdwn",
           text:
-            `The config *${config.name}* has been updated ${isUnknownUser ? "automatically" : `by ${eventUser}`}.` +
+            `The Config *${config.name}* has been updated ${isUnknownUser ? "automatically" : `by ${eventUser}`}.` +
             getConfigUrlFormatted(config.key) +
             getEventUrlFormatted(eventId),
         },
@@ -1221,7 +1221,7 @@ const buildSlackMessageForConfigDeletedEvent = async (
   eventId: string,
 ): Promise<SlackMessage> => {
   const eventUser = await getEventUserFormatted(eventId);
-  const text = `The config ${config.name} has been deleted by ${eventUser}.`;
+  const text = `The Config ${config.name} has been deleted by ${eventUser}.`;
   return {
     text,
     blocks: [
@@ -1230,7 +1230,7 @@ const buildSlackMessageForConfigDeletedEvent = async (
         text: {
           type: "mrkdwn",
           text:
-            `The config *${config.name}* has been deleted by ${eventUser}.` +
+            `The Config *${config.name}* has been deleted by ${eventUser}.` +
             getEventUrlFormatted(eventId),
         },
       },
@@ -1263,40 +1263,40 @@ const buildSlackMessageForConfigRevisionEvent = (
   let text: string;
   switch (eventType) {
     case "config.revision.created":
-      text = `Draft revision ${version} created for config ${name}`;
+      text = `Draft revision ${version} created for Config ${name}`;
       break;
     case "config.revision.updated":
-      text = `Draft revision ${version} of config ${name} was updated${data.change ? ` (${data.change})` : ""}`;
+      text = `Draft revision ${version} of Config ${name} was updated${data.change ? ` (${data.change})` : ""}`;
       break;
     case "config.revision.reviewRequested":
-      text = `Review requested for revision ${version} of config ${name}`;
+      text = `Review requested for revision ${version} of Config ${name}`;
       break;
     case "config.revision.approved":
-      text = `Revision ${version} of config ${name} approved by ${reviewerName}${commentSuffix}`;
+      text = `Revision ${version} of Config ${name} approved by ${reviewerName}${commentSuffix}`;
       break;
     case "config.revision.changesRequested":
-      text = `Changes requested on revision ${version} of config ${name} by ${reviewerName}${commentSuffix}`;
+      text = `Changes requested on revision ${version} of Config ${name} by ${reviewerName}${commentSuffix}`;
       break;
     case "config.revision.commented":
-      text = `Comment on revision ${version} of config ${name} by ${reviewerName}${commentSuffix}`;
+      text = `Comment on revision ${version} of Config ${name} by ${reviewerName}${commentSuffix}`;
       break;
     case "config.revision.discarded":
-      text = `Draft revision ${version} of config ${name} was discarded`;
+      text = `Draft revision ${version} of Config ${name} was discarded`;
       break;
     case "config.revision.rebased":
-      text = `Draft revision ${version} of config ${name} was rebased`;
+      text = `Draft revision ${version} of Config ${name} was rebased`;
       break;
     case "config.revision.published":
-      text = `Revision ${version} of config ${name} was published`;
+      text = `Revision ${version} of Config ${name} was published`;
       break;
     case "config.revision.reverted":
       text = `Config ${name} was reverted${data.revertedToVersion ? ` to revision v${data.revertedToVersion}` : ""}`;
       break;
     case "config.revision.reopened":
-      text = `Draft revision ${version} of config ${name} was reopened`;
+      text = `Draft revision ${version} of Config ${name} was reopened`;
       break;
     case "config.revision.publishFailed":
-      text = `Scheduled publish of revision ${version} for config ${name} failed${formatPublishFailedSuffix(data)}`;
+      text = `Scheduled publish of revision ${version} for Config ${name} failed${formatPublishFailedSuffix(data)}`;
       break;
     default:
       text = `Config ${name} revision ${version}: ${eventType}`;

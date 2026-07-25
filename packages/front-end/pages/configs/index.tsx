@@ -242,7 +242,7 @@ export default function ConfigsPage(): React.ReactElement {
           {hasConfigs && canAdd && addButton}
         </Flex>
         <Text as="p" mb="3" color="text-mid">
-          Strongly-typed configuration objects with a base config and
+          Strongly-typed configuration objects with a base Config and
           field-level overrides, composed and delivered through your feature
           flags.
         </Text>
@@ -250,7 +250,7 @@ export default function ConfigsPage(): React.ReactElement {
         {!hasConfigs ? (
           <EmptyState
             title="Typed, composable configuration"
-            description="Define a base config with a field schema, then create override configs that inherit and override specific fields."
+            description="Define a base Config with a field schema, then create override Configs that inherit and override specific fields."
             leftButton={
               <LinkButton
                 href="https://docs.growthbook.io/features/configs"
@@ -439,8 +439,8 @@ export default function ConfigsPage(): React.ReactElement {
                       <TableRow>
                         <TableCell colSpan={6} style={{ textAlign: "center" }}>
                           {isFiltered
-                            ? "No configs match the current filter."
-                            : "No configs found."}
+                            ? "No Configs match the current filter."
+                            : "No Configs found."}
                         </TableCell>
                       </TableRow>
                     )}

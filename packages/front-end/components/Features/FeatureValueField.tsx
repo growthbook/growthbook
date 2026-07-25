@@ -460,7 +460,7 @@ export default function FeatureValueField({
           >
             <Flex align="center" gap="2">
               <Text as="label" weight="medium" mb="0">
-                Based on config:
+                Based on Config:
               </Text>
               {disabled ? (
                 <Text>{selectedConfigLabel}</Text>
@@ -528,7 +528,7 @@ export default function FeatureValueField({
                         Additional overrides
                       </Text>
                       <Text as="p" size="small" color="text-low" mb="0">
-                        Nested objects deep-merge onto the config; arrays and
+                        Nested objects deep-merge onto the Config; arrays and
                         scalars replace.
                       </Text>
                     </Box>

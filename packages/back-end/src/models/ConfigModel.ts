@@ -116,7 +116,7 @@ export class ConfigModel extends BaseClass {
     const cyclic = await this.findReferenceCycle(doc);
     if (cyclic.length) {
       throw new BadRequestError(
-        `This config references ${cyclic.join(", ")}, which would create a reference cycle.`,
+        `This Config references ${cyclic.join(", ")}, which would create a reference cycle.`,
       );
     }
   }
@@ -224,7 +224,7 @@ export class ConfigModel extends BaseClass {
       // Structural checks against the raw fields (getConfigBaseKeys already dedups
       // for resolution, so inspect the raw `extends` for duplicates/overlap).
       if (extendsList.includes(doc.key) || doc.parent === doc.key) {
-        throw new BadRequestError("A config cannot extend itself.");
+        throw new BadRequestError("A Config cannot extend itself.");
       }
       if (doc.parent && extendsList.includes(doc.parent)) {
         throw new BadRequestError(
@@ -248,7 +248,7 @@ export class ConfigModel extends BaseClass {
       const missing = baseKeys.filter((k) => !byKey.has(k));
       if (missing.length) {
         throw new BadRequestError(
-          `Unknown config(s) in lineage: ${missing.join(", ")}.`,
+          `Unknown Config(s) in lineage: ${missing.join(", ")}.`,
         );
       }
 
@@ -266,7 +266,7 @@ export class ConfigModel extends BaseClass {
       );
       if (unreadable.length) {
         throw new BadRequestError(
-          `Cannot compose config(s) you don't have access to: ${unreadable.join(
+          `Cannot compose Config(s) you don't have access to: ${unreadable.join(
             ", ",
           )}.`,
         );
@@ -303,7 +303,7 @@ export class ConfigModel extends BaseClass {
       const archivedMixins = extendsList.filter((k) => byKey.get(k)?.archived);
       if (archivedMixins.length) {
         throw new BadRequestError(
-          `Cannot extend archived config(s): ${archivedMixins.join(", ")}. ` +
+          `Cannot extend archived Config(s): ${archivedMixins.join(", ")}. ` +
             `Unarchive them or remove them from "extends".`,
         );
       }
@@ -315,9 +315,9 @@ export class ConfigModel extends BaseClass {
         .map((c) => `"${c.key}" (declared by ${c.owners.join(" and ")})`)
         .join(", ");
       throw new BadRequestError(
-        `This config's bases declare the same field on separate branches, so ` +
+        `This Config's bases declare the same field on separate branches, so ` +
           `there is no single owner: ${detail}. Each effective field must be ` +
-          `owned by exactly one config — remove the duplicate declaration from ` +
+          `owned by exactly one Config — remove the duplicate declaration from ` +
           `one of the bases or drop one of the conflicting bases.`,
       );
     }

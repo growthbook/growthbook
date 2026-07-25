@@ -36,7 +36,7 @@ function assertNoSiblingConflictsInSubtree(
         .map((c) => `"${c.key}" (declared by ${c.owners.join(" and ")})`)
         .join(", ");
       throw new BadRequestError(
-        `This change makes config "${key}" inherit the same field from two ` +
+        `This change makes Config "${key}" inherit the same field from two ` +
           `separate branches, with no single owner: ${detail}. Remove the ` +
           `duplicate declaration from one branch before publishing.`,
       );
@@ -143,7 +143,7 @@ export async function assertConfigSchemaChangeSafeForDescendants(
   const lines = impacts.map(formatImpactLine);
   const message =
     `This change removes, retypes, or takes over fields that ` +
-    `${impacts.length} descendant config(s) still use:\n` +
+    `${impacts.length} descendant Config(s) still use:\n` +
     lines.join("\n");
   if (opts?.deferred) {
     throw new TerminalPublishError(message);
@@ -176,7 +176,7 @@ export async function collectConfigSchemaChangeImpactGates(
       type: "schema-change-impact",
       severity: "warning",
       messages: [
-        `This change removes, retypes, or takes over fields that ${impacts.length} descendant config(s) still use:`,
+        `This change removes, retypes, or takes over fields that ${impacts.length} descendant Config(s) still use:`,
         ...impacts.map(formatImpactLine),
       ],
       override: "ignoreWarnings",

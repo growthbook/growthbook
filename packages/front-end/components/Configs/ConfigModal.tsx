@@ -142,7 +142,7 @@ export default function ConfigModal({
     <ModalStandard
       open={true}
       trackingEventModalType="config-modal"
-      header={editing ? "Edit info" : "New config"}
+      header={editing ? "Edit info" : "New Config"}
       size="lg"
       close={close}
       cta={editing ? "Save" : "Create"}
@@ -193,7 +193,7 @@ export default function ConfigModal({
       {!editing && (
         <Callout status="info" mb="3">
           Configs are referenced from a feature flag — define the fields and
-          values here, then reference the config from a flag to deliver it to
+          values here, then reference the Config from a flag to deliver it to
           your SDKs.
         </Callout>
       )}
@@ -235,7 +235,7 @@ export default function ConfigModal({
           <MarkdownInput
             value={form.watch("description")}
             setValue={(v) => form.setValue("description", v)}
-            placeholder="Add notes about this config (markdown supported)"
+            placeholder="Add notes about this Config (markdown supported)"
             showButtons={false}
             hidePreview={false}
           />
@@ -257,11 +257,11 @@ export default function ConfigModal({
 
       {!editing && (
         <SelectField
-          label="Parent config (optional)"
+          label="Parent Config (optional)"
           value={form.watch("parent")}
           onChange={(v) => form.setValue("parent", v)}
           options={parentOptions}
-          initialOption="None (base config)"
+          initialOption="None (base Config)"
           sort={false}
           formatOptionLabel={(option, meta) => {
             const { value, label } = option;
@@ -317,7 +317,7 @@ export default function ConfigModal({
             label="Allow extra fields in extensions"
             description={
               <Text weight="regular" color="text-high">
-                Child configs and feature flag rules can add keys beyond this
+                Child Configs and feature flag rules can add keys beyond this
                 Config&apos;s schema.
               </Text>
             }

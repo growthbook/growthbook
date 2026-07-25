@@ -1812,7 +1812,7 @@ describe("ancestor collision messages", () => {
       {
         code: "redundant-declaration",
         path: "a",
-        message: expect.stringContaining('re-declares ancestor config "base"'),
+        message: expect.stringContaining('re-declares ancestor Config "base"'),
       },
     ]);
   });

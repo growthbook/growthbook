@@ -697,7 +697,7 @@ export function formatAncestorFieldConflictMessage(
     .map((c) => `"${c.key}" (owned by "${c.owner}")`)
     .join(", ");
   return (
-    `This schema re-declares field(s) an ancestor config already defines, ` +
+    `This schema re-declares field(s) an ancestor Config already defines, ` +
     `with a different definition: ${detail}. A descendant may override a ` +
     `field's value but not its schema — remove the re-declaration or make ` +
     `it identical to the ancestor's definition.`
@@ -711,9 +711,9 @@ export function ancestorCollisionWarnings(
     code: "redundant-declaration",
     path: c.key,
     message:
-      `Field "${c.key}" re-declares ancestor config "${c.owner}"'s ` +
+      `Field "${c.key}" re-declares ancestor Config "${c.owner}"'s ` +
       `definition and was removed — the ancestor owns the field's schema ` +
-      `("base wins"); this config still inherits it.`,
+      `("base wins"); this Config still inherits it.`,
   }));
 }
 

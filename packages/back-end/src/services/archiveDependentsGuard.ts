@@ -47,7 +47,7 @@ export type ArchiveDependents = {
   ids: string[];
   // Live feature-flag dependents — surfaced only for configs (elevated message).
   featureFlagCount: number;
-  // Count-only human parts, e.g. ["3 feature(s)", "2 config(s)"] — never names
+  // Count-only human parts, e.g. ["3 feature(s)", "2 Config(s)"] — never names
   // cross-project resources (the scan is org-wide, so ids could disclose
   // resources in unreadable projects).
   parts: string[];
@@ -126,7 +126,7 @@ export async function collectConstantArchiveDependents(
     featureFlagCount: refs.features.length,
     parts: pluralParts([
       [refs.features.length, "feature(s)"],
-      [refs.constants.length, "other constant(s)/config(s)"],
+      [refs.constants.length, "other Constant(s)/Config(s)"],
     ]),
   };
 }
@@ -273,7 +273,7 @@ function archiveMessage(
   { elevated }: { elevated: boolean },
 ): string {
   if (elevated && dependents.featureFlagCount > 0) {
-    return `This config is consumed by ${dependents.featureFlagCount} live feature flag(s) — archiving it will break them.`;
+    return `This Config is consumed by ${dependents.featureFlagCount} live feature flag(s) — archiving it will break them.`;
   }
   return `Archiving this ${noun} affects ${dependents.parts.join(", ")}.`;
 }
@@ -374,7 +374,7 @@ export async function assertConfigArchiveDependentsGuard(
     assertArmedArchiveAcknowledged(
       dependents,
       revision,
-      "Archiving this config would newly break dependent config, feature, or experiment(s)",
+      "Archiving this Config would newly break dependent Config, feature, or experiment(s)",
     );
     return;
   }
@@ -403,7 +403,7 @@ export async function captureConfigArchiveDependentsAcknowledgment(
     context,
     dependents,
     config.project,
-    `Scheduling this config archive affects ${dependents.parts.join(", ")}.`,
+    `Scheduling this Config archive affects ${dependents.parts.join(", ")}.`,
   );
 }
 
@@ -421,7 +421,7 @@ export async function assertConstantArchiveDependentsGuard(
     assertArmedArchiveAcknowledged(
       dependents,
       revision,
-      "Archiving this constant would newly break dependent feature or constant/config(s)",
+      "Archiving this Constant would newly break dependent feature or Constant/Config(s)",
     );
     return;
   }
@@ -446,7 +446,7 @@ export async function captureConstantArchiveDependentsAcknowledgment(
     context,
     dependents,
     constant.project,
-    `Scheduling this constant archive affects ${dependents.parts.join(", ")}.`,
+    `Scheduling this Constant archive affects ${dependents.parts.join(", ")}.`,
   );
 }
 

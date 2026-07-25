@@ -433,7 +433,7 @@ export default function ConstantDetailPage(): React.ReactElement {
             <ReferencesLink
               total={totalReferences}
               onShow={() => setShowReferencesModal(true)}
-              emptyTooltip="No features or constants currently reference this constant."
+              emptyTooltip="No features or Constants currently reference this Constant."
             />
           </Flex>
         </Flex>
@@ -602,7 +602,7 @@ export default function ConstantDetailPage(): React.ReactElement {
           closeCta="Close"
         >
           <Text as="p" mb="3">
-            This constant is referenced by the following features and constants
+            This Constant is referenced by the following features and Constants
             via <code>@const:{constant.key}</code>.
           </Text>
           <ConstantReferencesList
@@ -735,7 +735,7 @@ export default function ConstantDetailPage(): React.ReactElement {
       {confirmDelete && (
         <ConfirmDialog
           title={`Delete "${constant.name}"?`}
-          content="This permanently deletes the constant. This cannot be undone."
+          content="This permanently deletes the Constant. This cannot be undone."
           yesText="Delete"
           onConfirm={async () => {
             await apiCall(`/constants/${constant.id}`, { method: "DELETE" });

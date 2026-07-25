@@ -27,7 +27,7 @@ export const updateConstant = createApiRequestHandler(updateConstantValidator)(
 
     const constant = await req.context.models.constants.getByKey(key);
     if (!constant) {
-      throw new NotFoundError(`Unable to locate the constant: ${key}`);
+      throw new NotFoundError(`Unable to locate the Constant: ${key}`);
     }
 
     if (
@@ -129,7 +129,7 @@ export const updateConstant = createApiRequestHandler(updateConstantValidator)(
     if (approvalRequired) {
       if (!bypassApproval) {
         throw new BadRequestError(
-          "This organization requires approvals for this constant. " +
+          "This organization requires approvals for this Constant. " +
             `Use \`POST /constants-revisions/${constant.key}\` to open a draft, ` +
             'or pass `{ "bypassApproval": true }` if you have the bypass permission.',
         );

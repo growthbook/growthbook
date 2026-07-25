@@ -21,7 +21,7 @@ export const postConfigRevisionRebase = createApiRequestHandler(
 )(async (req) => {
   const config = await req.context.models.configs.getByKey(req.params.key);
   if (!config) {
-    throw new NotFoundError("Could not find config");
+    throw new NotFoundError("Could not find Config");
   }
 
   const revision = await loadRevisionByVersion(
@@ -82,7 +82,7 @@ export const postConfigRevisionRebase = createApiRequestHandler(
     if (!conflictFields.has(field)) {
       if (op.op !== "replace" && op.op !== "add") {
         throw new BadRequestError(
-          `Unsupported patch op "${op.op}" in config revision rebase`,
+          `Unsupported patch op "${op.op}" in Config revision rebase`,
         );
       }
       if (!isEqual(op.value, liveSnapshot[field])) {

@@ -50,7 +50,7 @@ export const postConfig = createApiRequestHandler(postConfigValidator)(async (
   // can still manage existing configs.
   if (!req.context.hasPremiumFeature("feature-configs")) {
     throw new PlanDoesNotAllowError(
-      "Creating configs requires a plan that includes feature configs.",
+      "Creating Configs requires a plan that includes Configs.",
     );
   }
 

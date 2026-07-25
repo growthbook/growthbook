@@ -34,7 +34,7 @@ export const postConstantRevisionPublish = createApiRequestHandler(
 )(async (req) => {
   const constant = await req.context.models.constants.getByKey(req.params.key);
   if (!constant) {
-    throw new NotFoundError("Could not find constant");
+    throw new NotFoundError("Could not find Constant");
   }
 
   const revision = await loadRevisionByVersion(
@@ -114,7 +114,7 @@ export const postConstantRevisionPublish = createApiRequestHandler(
     throw new BadRequestError(
       `This revision requires approval before publishing (status: "${revision.status}"). ` +
         "Enable 'REST API always bypasses approval requirements' in organization settings, " +
-        "or use a role/token that grants bypassApprovalChecks on this constant's project.",
+        "or use a role/token that grants bypassApprovalChecks on this Constant's project.",
     );
   }
 
@@ -170,7 +170,7 @@ export const postConstantRevisionPublish = createApiRequestHandler(
       }
       if (diverged && !canBypass) {
         throw new ConflictError(
-          "This revision was created against an older version of the constant. " +
+          "This revision was created against an older version of the Constant. " +
             'Rebase the revision first, or pass `"ignoreWarnings": true` to force-merge (requires the bypass-approval permission).',
         );
       }

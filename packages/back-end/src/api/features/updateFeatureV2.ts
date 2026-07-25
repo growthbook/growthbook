@@ -160,7 +160,7 @@ export const updateFeatureV2 = createApiRequestHandler(
     (req.body.baseConfig ?? null) !== (feature.baseConfig ?? null)
   ) {
     throw new BadRequestError(
-      `The backing config cannot be changed after creation (existing: ${
+      `The backing Config cannot be changed after creation (existing: ${
         feature.baseConfig ? `"${feature.baseConfig}"` : "none"
       }, provided: ${
         req.body.baseConfig ? `"${req.body.baseConfig}"` : "none"

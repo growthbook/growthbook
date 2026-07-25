@@ -226,10 +226,10 @@ function ConfigExportMenu({ payloads }: { payloads: ConfigExportPayloads }) {
       }
     >
       <DropdownMenuGroup label="Value">
-        {item("Config", "This config's own value", payloads.ownValue)}
+        {item("Config", "This Config's own value", payloads.ownValue)}
         {item(
-          "Resolved config",
-          "Inheritance + constants resolved",
+          "Resolved Config",
+          "Inheritance + Constants resolved",
           payloads.resolvedValue,
         )}
       </DropdownMenuGroup>
@@ -1286,8 +1286,8 @@ export default function ConfigDetailPage(): React.ReactElement {
               value=""
               placeholder={
                 composeOptions.length
-                  ? "Select a config to extend with…"
-                  : "No other configs available"
+                  ? "Select a Config to extend with…"
+                  : "No other Configs available"
               }
               options={composeOptions}
               autoFocus
@@ -1311,7 +1311,7 @@ export default function ConfigDetailPage(): React.ReactElement {
       <Box mt="2" py="1">
         <Link size="2" weight="medium" onClick={() => setComposeAdding(true)}>
           <PiPlusBold style={{ marginRight: 3, verticalAlign: "middle" }} />
-          Add config mixin
+          Add Config mixin
         </Link>
         {composeError && (
           <HelperText status="error" size="sm" mt="1">
@@ -1406,7 +1406,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                         <PiPlusBold
                           style={{ marginRight: 3, verticalAlign: "middle" }}
                         />
-                        Add override config
+                        Add override Config
                       </Link>
                     ) : (
                       <PremiumTooltip commercialFeature="feature-configs">
@@ -1414,7 +1414,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                           <PiPlusBold
                             style={{ marginRight: 3, verticalAlign: "middle" }}
                           />
-                          Add override config
+                          Add override Config
                         </Link>
                       </PremiumTooltip>
                     )}
@@ -1567,7 +1567,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                             disabled={!canBypassApproval}
                             tooltip={
                               !canBypassApproval
-                                ? "You don't have permission to unlock this config."
+                                ? "You don't have permission to unlock this Config."
                                 : undefined
                             }
                             onClick={() => {
@@ -1808,8 +1808,8 @@ export default function ConfigDetailPage(): React.ReactElement {
                           <Callout status="warning" mt="3">
                             These staged changes leave{" "}
                             {draftDescendantImpact.length === 1
-                              ? "a descendant config"
-                              : `${draftDescendantImpact.length} descendant configs`}{" "}
+                              ? "a descendant Config"
+                              : `${draftDescendantImpact.length} descendant Configs`}{" "}
                             with overrides of removed or retyped fields:{" "}
                             {draftDescendantImpact
                               .map((n) => {
@@ -1830,8 +1830,8 @@ export default function ConfigDetailPage(): React.ReactElement {
                         {familyInvariantViolations.length > 0 && (
                           <Callout status="warning" mt="3">
                             {familyInvariantViolations.length === 1
-                              ? "A config in this family violates its validation rules"
-                              : `${familyInvariantViolations.length} configs in this family violate their validation rules`}{" "}
+                              ? "A Config in this family violates its validation rules"
+                              : `${familyInvariantViolations.length} Configs in this family violate their validation rules`}{" "}
                             against the values shown here:{" "}
                             {familyInvariantViolations
                               .map(
@@ -2281,7 +2281,7 @@ export default function ConfigDetailPage(): React.ReactElement {
       {confirmDelete && (
         <ConfirmDialog
           title={`Delete "${config.name}"?`}
-          content="This permanently deletes the config. This cannot be undone."
+          content="This permanently deletes the Config. This cannot be undone."
           yesText="Delete"
           onConfirm={async () => {
             // After deleting, land on the nearest config still in this lineage

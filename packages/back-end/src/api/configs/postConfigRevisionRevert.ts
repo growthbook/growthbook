@@ -31,7 +31,7 @@ export const postConfigRevisionRevert = createApiRequestHandler(
 )(async (req) => {
   const config = await req.context.models.configs.getByKey(req.params.key);
   if (!config) {
-    throw new NotFoundError("Could not find config");
+    throw new NotFoundError("Could not find Config");
   }
 
   const adapter = getAdapter("config");
@@ -116,7 +116,7 @@ export const postConfigRevisionRevert = createApiRequestHandler(
 
   if (Object.keys(fieldsToUpdate).length === 0) {
     throw new BadRequestError(
-      `Revision #${req.params.version} matches the current config — nothing to revert.`,
+      `Revision #${req.params.version} matches the current Config — nothing to revert.`,
     );
   }
 

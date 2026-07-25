@@ -7,7 +7,7 @@ export const unlockConfig = createApiRequestHandler(unlockConfigValidator)(
   async (req) => {
     const config = await req.context.models.configs.getByKey(req.params.key);
     if (!config) {
-      throw new NotFoundError(`Unable to locate the config: ${req.params.key}`);
+      throw new NotFoundError(`Unable to locate the Config: ${req.params.key}`);
     }
 
     // Unlocking is the gated action: it requires the elevated bypassApprovalChecks

@@ -401,7 +401,7 @@ export async function assertConfigValueValidForPublish(
     // with the rest of the publish flow.
     if (context.ignoreWarnings) return;
     throw new SoftWarningError(
-      "Publishing config value(s) that don't match the schema:\n" +
+      "Publishing Config value(s) that don't match the schema:\n" +
         errors.join("\n"),
       errors,
     );
@@ -435,7 +435,7 @@ export async function assertConfigValueValidForCreate(
   if (context.org.settings?.blockPublishOnSchemaError === false) {
     if (context.ignoreWarnings) return;
     throw new SoftWarningError(
-      "Creating a config whose value doesn't satisfy the schema:\n" +
+      "Creating a Config whose value doesn't satisfy the schema:\n" +
         errors.join("\n"),
       errors,
     );
@@ -454,7 +454,7 @@ export async function assertConfigInvariantsValid(
   if (context.org.settings?.blockPublishOnSchemaError === false) {
     if (context.ignoreWarnings) return;
     throw new SoftWarningError(
-      "Publishing config value(s) that violate a validation rule:\n" +
+      "Publishing Config value(s) that violate a validation rule:\n" +
         errors.join("\n"),
       errors,
     );
@@ -493,8 +493,8 @@ export function assertConfigBackedDefaultHasNoOverrides(
   const hasOverride = patch ? Object.keys(patch).length > 0 : patchStr !== "";
   if (hasOverride) {
     throw new BadRequestError(
-      "A config-backed feature's default value can't carry its own overrides — it must be exactly a config. " +
-        "Put shared values in the config, or point the default at a descendant config (defaultValueConfig) for feature-specific values.",
+      "A config-backed feature's default value can't carry its own overrides — it must be exactly a Config. " +
+        "Put shared values in the Config, or point the default at a descendant Config (defaultValueConfig) for feature-specific values.",
     );
   }
 }
@@ -714,7 +714,7 @@ export async function assertConfigBackedFeatureValuesValid(
   if (context.org.settings?.blockPublishOnSchemaError === false) {
     if (context.ignoreWarnings) return;
     throw new SoftWarningError(
-      "Config-backed value(s) don't conform to the config's schema:\n" +
+      "Config-backed value(s) don't conform to the Config's schema:\n" +
         errors.join("\n"),
       errors,
     );

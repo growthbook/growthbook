@@ -306,7 +306,7 @@ export default function FeatureModal({
 
         // A "config" flag must actually pick a base config.
         if (configType && !baseConfigKey) {
-          throw new Error("Select a base config for this config flag");
+          throw new Error("Select a base Config for this Config flag");
         }
 
         // When duplicating, skip JSON schema validation since the value is
@@ -443,9 +443,9 @@ export default function FeatureModal({
           configType &&
           eligibleBaseConfigs.length === 0 && (
             <Callout status="info" mb="3">
-              No configs available in this project yet.{" "}
+              No Configs available in this project yet.{" "}
               <Link href="/configs" target="_blank">
-                Create a config
+                Create a Config
               </Link>{" "}
               to back this flag.
             </Callout>
@@ -457,7 +457,7 @@ export default function FeatureModal({
             <SelectField
               label="Config"
               value={baseConfigKey ?? ""}
-              placeholder="Choose a config..."
+              placeholder="Choose a Config..."
               options={baseConfigOptions}
               formatOptionLabel={(option, meta) => {
                 const depth = (option as { depth?: number }).depth ?? 0;
@@ -499,7 +499,7 @@ export default function FeatureModal({
               required
               helpText={
                 <>
-                  The config that backs this flag. The default value and any
+                  The Config that backs this flag. The default value and any
                   rules override it with a patch.{" "}
                   <strong>Cannot be changed later!</strong>
                 </>
@@ -515,7 +515,7 @@ export default function FeatureModal({
         {!featureToDuplicate && valueType && !showDefaultValue && (
           <Box mb="5">
             <Link onClick={() => setShowDefaultValue(true)}>
-              {configType ? "+ Choose default config" : "+ Set default value"}
+              {configType ? "+ Choose default Config" : "+ Set default value"}
             </Link>
           </Box>
         )}

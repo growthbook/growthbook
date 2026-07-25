@@ -67,7 +67,7 @@ export async function resolveConfigLockTarget(
   );
   if (!live || (live.version ?? null) === null) {
     throw new BadRequestError(
-      "Could not determine the config's live revision to lock.",
+      "Could not determine the Config's live revision to lock.",
     );
   }
   return { revisionId: live.id, version: live.version as number };

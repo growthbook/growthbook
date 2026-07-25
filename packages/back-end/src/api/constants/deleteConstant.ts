@@ -11,7 +11,7 @@ export const deleteConstant = createApiRequestHandler(deleteConstantValidator)(
     );
     if (!constant) {
       throw new NotFoundError(
-        `Unable to delete - could not find constant with key ${req.params.key}`,
+        `Unable to delete - could not find Constant with key ${req.params.key}`,
       );
     }
 
@@ -25,8 +25,8 @@ export const deleteConstant = createApiRequestHandler(deleteConstantValidator)(
     // require archiving first.
     if (!constant.archived && !canUseRestApiBypassSetting(req)) {
       throw new BadRequestError(
-        "Cannot delete a live constant via the REST API when 'REST API always bypasses approval requirements' is disabled. " +
-          "Archive the constant first, or enable the bypass setting in organization settings.",
+        "Cannot delete a live Constant via the REST API when 'REST API always bypasses approval requirements' is disabled. " +
+          "Archive the Constant first, or enable the bypass setting in organization settings.",
       );
     }
 

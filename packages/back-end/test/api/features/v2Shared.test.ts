@@ -79,16 +79,16 @@ describe("composeConfigBacking", () => {
 
   it("rejects a scalar or array value when a config is supplied (would silently drop the backing)", () => {
     expect(() => composeConfigBacking("pricing", "42", "Rule value")).toThrow(
-      /must be a JSON object when backed by a config/,
+      /must be a JSON object when backed by a Config/,
     );
     expect(() =>
       composeConfigBacking("pricing", '"hello"', "Variation value"),
     ).toThrow(/Variation value must be a JSON object/);
     expect(() =>
       composeConfigBacking("pricing", "[1,2]", "Rule value"),
-    ).toThrow(/must be a JSON object when backed by a config/);
+    ).toThrow(/must be a JSON object when backed by a Config/);
     expect(() => composeConfigBacking("pricing", "true", "Rule value")).toThrow(
-      /must be a JSON object when backed by a config/,
+      /must be a JSON object when backed by a Config/,
     );
   });
 

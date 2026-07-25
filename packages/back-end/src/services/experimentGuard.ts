@@ -57,11 +57,11 @@ function experimentGuardConflictKey(
 // Human-readable rendering of composite conflict keys for warning messages.
 function describeConfigConflictKey(key: string): string {
   const sep = key.indexOf("|");
-  if (sep === -1) return `config "${key}"`;
+  if (sep === -1) return `Config "${key}"`;
   const configKey = key.slice(0, sep);
   const subject = key.slice(sep + 1);
   const noun = subject.startsWith("cb:") ? "bandit" : "experiment";
-  return `config "${configKey}" serving ${noun} ${subject.slice(subject.indexOf(":") + 1)}`;
+  return `Config "${configKey}" serving ${noun} ${subject.slice(subject.indexOf(":") + 1)}`;
 }
 
 export function describeConfigConflictKeys(keys: string[]): string {
@@ -389,7 +389,7 @@ export async function assertConfigExperimentGuard(
   const keyList = describeConfigConflictKeys(decision.conflictKeys);
   if (decision.action === "block-immediate") {
     throw new SoftWarningError(
-      `Publishing this config rewrites the live value served to a running experiment (${keyList}). Re-submit with ignoreWarnings to proceed.`,
+      `Publishing this Config rewrites the live value served to a running experiment (${keyList}). Re-submit with ignoreWarnings to proceed.`,
       decision.conflictKeys,
     );
   }
@@ -603,7 +603,7 @@ export async function assertConstantExperimentGuard(
   const keyList = describeConstantConflictKeys(decision.conflictKeys);
   if (decision.action === "block-immediate") {
     throw new SoftWarningError(
-      `Publishing this constant rewrites the live value served to a running experiment (${keyList}). Re-submit with ignoreWarnings to proceed.`,
+      `Publishing this Constant rewrites the live value served to a running experiment (${keyList}). Re-submit with ignoreWarnings to proceed.`,
       decision.conflictKeys,
     );
   }

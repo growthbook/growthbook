@@ -32,7 +32,7 @@ export const putConfigRevisionValue = createApiRequestHandler(
 )(async (req) => {
   const config = await req.context.models.configs.getByKey(req.params.key);
   if (!config) {
-    throw new NotFoundError("Could not find config");
+    throw new NotFoundError("Could not find Config");
   }
 
   if (!req.context.permissions.canRevisionAction("config", "draft", config)) {

@@ -13,7 +13,7 @@ export const deleteConfig = createApiRequestHandler(deleteConfigValidator)(
     const config = await req.context.models.configs.getByKey(req.params.key);
     if (!config) {
       throw new NotFoundError(
-        `Unable to delete - could not find config with key ${req.params.key}`,
+        `Unable to delete - could not find Config with key ${req.params.key}`,
       );
     }
 
@@ -27,8 +27,8 @@ export const deleteConfig = createApiRequestHandler(deleteConfigValidator)(
     // backing), so require archiving first unless the org opted into bypass.
     if (!config.archived && !canUseRestApiBypassSetting(req)) {
       throw new BadRequestError(
-        "Cannot delete a live config via the REST API when 'REST API always bypasses approval requirements' is disabled. " +
-          "Archive the config first (POST /configs/{key}/archive), or enable the bypass setting in organization settings.",
+        "Cannot delete a live Config via the REST API when 'REST API always bypasses approval requirements' is disabled. " +
+          "Archive the Config first (POST /configs/{key}/archive), or enable the bypass setting in organization settings.",
       );
     }
 

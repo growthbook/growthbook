@@ -180,3 +180,16 @@ just means writing them twice. All three are known-stale as of this branch:
 3. **Release notes.** The five behavior changes above, led by the two
    restrictions — a self-hosted admin whose manage-only role is about to lose
    archive won't find that in a branch file.
+4. **REST API reference copy for Constant/Config.** `Constant` and `Config` are
+   now Title Case named resources in the copy glossary
+   (`.agents/guides/ui-copy-style.md`), and the UI copy plus back-end
+   error/validation messages have been swept to match. The OpenAPI surface was
+   left alone: ~120 `.describe()`/`summary` strings across
+   `packages/shared/src/validators/{config,constant,config-revisions,constant-revisions}.ts`
+   and the tag descriptions in `packages/back-end/src/scripts/generate-openapi.ts`
+   still say "config"/"constant" lowercase. It is a separate surface with real
+   judgment calls (structural jargon like "flavor config", "child config",
+   "root config", "mixin config keys" vs. the resource itself), and changing it
+   requires regenerating the checked-in `packages/back-end/generated/spec.yaml`
+   (needs `stats-ts` built first). Do it as its own change so the spec diff is
+   reviewable on its own.

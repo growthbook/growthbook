@@ -67,7 +67,7 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
 
     const config = await req.context.models.configs.getByKey(key);
     if (!config) {
-      throw new NotFoundError(`Unable to locate the config: ${key}`);
+      throw new NotFoundError(`Unable to locate the Config: ${key}`);
     }
 
     if (
@@ -450,7 +450,7 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
     if (approvalRequired) {
       if (!bypassApproval) {
         throw new BadRequestError(
-          "This organization requires approvals for this config. " +
+          "This organization requires approvals for this Config. " +
             `Use \`POST /configs-revisions/${config.key}\` to open a draft, ` +
             'or pass `{ "bypassApproval": true }` if you have the bypass permission.',
         );

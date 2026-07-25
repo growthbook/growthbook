@@ -285,7 +285,7 @@ export default function InsertConstantButton({
       ml="1"
       mt="2"
     >
-      <Tooltip content="Insert constant">
+      <Tooltip content="Insert Constant">
         <Flex align="center" justify="center">
           {glyph}
         </Flex>
@@ -323,7 +323,7 @@ export default function InsertConstantButton({
       ) : (
         <DropdownMenuItem disabled onClick={() => undefined}>
           <Text size="small" color="text-low">
-            No available constants
+            No available Constants
           </Text>
         </DropdownMenuItem>
       )}

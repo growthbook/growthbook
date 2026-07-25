@@ -46,7 +46,7 @@ function tag(ref: BulkPublishItemRef, gates: PublishGate[]): BulkPublishGate[] {
 }
 
 // User-facing entity noun per the copy glossary: first-class resources are
-// Title Case; configs/constants are lowercase common nouns.
+// Title Case.
 function displayEntityName(entityType: BulkPublishTargetType): string {
   switch (entityType) {
     case "feature":
@@ -54,9 +54,9 @@ function displayEntityName(entityType: BulkPublishTargetType): string {
     case "saved-group":
       return "Saved Group";
     case "config":
-      return "config";
+      return "Config";
     case "constant":
-      return "constant";
+      return "Constant";
     default:
       return entityType;
   }

@@ -397,7 +397,7 @@ function OverrideRow({
             {showMerged && (
               <Box mt="1">
                 <Text as="p" size="small" color="text-low" mb="0">
-                  Nested objects deep-merge onto the config; arrays and scalars
+                  Nested objects deep-merge onto the Config; arrays and scalars
                   replace.
                 </Text>
                 <Text size="small" color="text-low">

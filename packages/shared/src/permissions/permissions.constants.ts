@@ -357,12 +357,12 @@ export const POLICY_METADATA_MAP: Record<
   FlagsFullAccess: {
     displayName: "Feature Flags Full Access",
     description:
-      "Create, edit, delete, draft, review, publish, and revert Feature Flags, constants, and configs",
+      "Create, edit, delete, draft, review, publish, and revert Feature Flags, Constants, and Configs",
   },
   FlagsBypassApprovals: {
     displayName: "Bypass Draft Approvals",
     description:
-      "Add-on to Feature Flags Full Access: publish without the required review, force-merge an out-of-date draft, and discard other users' drafts. Does not bypass schema validation, custom hooks, or config locks.",
+      "Add-on to Feature Flags Full Access: publish without the required review, force-merge an out-of-date draft, and discard other users' drafts. Does not bypass schema validation, custom hooks, or Config locks.",
   },
   FeaturesFullAccess: {
     displayName: "Features Full Access",
@@ -379,11 +379,11 @@ export const POLICY_METADATA_MAP: Record<
   },
   ConstantsFullAccess: {
     displayName: "Constants Full Access",
-    description: "Create, edit, and delete constants",
+    description: "Create, edit, and delete Constants",
   },
   ConfigsFullAccess: {
     displayName: "Configs Full Access",
-    description: "Create, edit, and delete configs",
+    description: "Create, edit, and delete Configs",
   },
   ExperimentsFullAccess: {
     displayName: "Experiments Full Access",
@@ -598,11 +598,11 @@ export const GRANULAR_PERMISSION_METADATA: Partial<
 > = {
   manageFlags: {
     displayName: "Create & edit",
-    description: "Create and edit Feature Flags, constants, and configs",
+    description: "Create and edit Feature Flags, Constants, and Configs",
   },
   deleteFlags: {
     displayName: "Delete",
-    description: "Delete Feature Flags, constants, and configs",
+    description: "Delete Feature Flags, Constants, and Configs",
   },
   manageFlagDrafts: {
     displayName: "Manage drafts",

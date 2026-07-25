@@ -21,7 +21,7 @@ export const postConstantRevisionRebase = createApiRequestHandler(
 )(async (req) => {
   const constant = await req.context.models.constants.getByKey(req.params.key);
   if (!constant) {
-    throw new NotFoundError("Could not find constant");
+    throw new NotFoundError("Could not find Constant");
   }
 
   const revision = await loadRevisionByVersion(
@@ -80,7 +80,7 @@ export const postConstantRevisionRebase = createApiRequestHandler(
     if (!conflictFields.has(field)) {
       if (op.op !== "replace" && op.op !== "add") {
         throw new Error(
-          `Unsupported patch op "${op.op}" in constant revision rebase`,
+          `Unsupported patch op "${op.op}" in Constant revision rebase`,
         );
       }
       if (!isEqual(op.value, liveSnapshot[field])) {

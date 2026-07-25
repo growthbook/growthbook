@@ -43,7 +43,7 @@ export const postConfigRevisionPublish = createApiRequestHandler(
 )(async (req) => {
   const config = await req.context.models.configs.getByKey(req.params.key);
   if (!config) {
-    throw new NotFoundError("Could not find config");
+    throw new NotFoundError("Could not find Config");
   }
 
   const revision = await loadRevisionByVersion(
@@ -144,7 +144,7 @@ export const postConfigRevisionPublish = createApiRequestHandler(
     throw new BadRequestError(
       `This revision requires approval before publishing (status: "${revision.status}"). ` +
         "Enable 'REST API always bypasses approval requirements' in organization settings, " +
-        "or use a role/token that grants bypassApprovalChecks on this config's project.",
+        "or use a role/token that grants bypassApprovalChecks on this Config's project.",
     );
   }
 
@@ -200,7 +200,7 @@ export const postConfigRevisionPublish = createApiRequestHandler(
       }
       if (diverged && !canBypass) {
         throw new ConflictError(
-          "This revision was created against an older version of the config. " +
+          "This revision was created against an older version of the Config. " +
             'Rebase the revision first, or pass `"ignoreWarnings": true` to force-merge (requires the bypass-approval permission).',
         );
       }

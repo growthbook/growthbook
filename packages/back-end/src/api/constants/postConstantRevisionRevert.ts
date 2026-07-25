@@ -27,7 +27,7 @@ export const postConstantRevisionRevert = createApiRequestHandler(
 )(async (req) => {
   const constant = await req.context.models.constants.getByKey(req.params.key);
   if (!constant) {
-    throw new NotFoundError("Could not find constant");
+    throw new NotFoundError("Could not find Constant");
   }
 
   const adapter = getAdapter("constant");
@@ -90,7 +90,7 @@ export const postConstantRevisionRevert = createApiRequestHandler(
 
   if (Object.keys(fieldsToUpdate).length === 0) {
     throw new BadRequestError(
-      `Revision #${req.params.version} matches the current constant — nothing to revert.`,
+      `Revision #${req.params.version} matches the current Constant — nothing to revert.`,
     );
   }
 

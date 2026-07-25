@@ -401,7 +401,7 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
         type: "experiment-guard",
         severity: "warning",
         messages: [
-          `Publishing this constant rewrites the live value served to a running experiment (${describeConstantConflictKeys(
+          `Publishing this Constant rewrites the live value served to a running experiment (${describeConstantConflictKeys(
             experimentConflicts,
           )}).`,
         ],
@@ -434,7 +434,7 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
         type: "dependent-config-locked",
         severity: "warning",
         messages: [
-          `Publishing this constant changes the resolved value of locked config(s): ${lockConflicts.join(
+          `Publishing this Constant changes the resolved value of locked Config(s): ${lockConflicts.join(
             ", ",
           )}.`,
         ],
@@ -481,7 +481,7 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
         type: "schema-validation",
         severity: "warning",
         messages: [
-          "Breaks a dependent config or feature value:",
+          "Breaks a dependent Config or feature value:",
           ...schemaBreaks,
         ],
         ...schemaFailureGateOverride(

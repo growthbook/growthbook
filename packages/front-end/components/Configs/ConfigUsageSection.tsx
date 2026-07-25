@@ -79,7 +79,7 @@ export default function ConfigUsageSection({
         Usage
       </Heading>
       <Text as="p" size="medium" color="text-low" mb="4">
-        Feature rules and default values that override this config&apos;s keys.
+        Feature rules and default values that override this Config&apos;s keys.
       </Text>
 
       <Tabs value={groupBy} onValueChange={setGroupBy}>

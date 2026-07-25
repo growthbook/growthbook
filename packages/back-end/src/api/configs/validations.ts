@@ -85,7 +85,7 @@ export async function loadRevisionByVersion(
     revision.target.type !== "config" ||
     revision.target.id !== configId
   ) {
-    throw new NotFoundError("Could not find config revision");
+    throw new NotFoundError("Could not find Config revision");
   }
   return revision;
 }
