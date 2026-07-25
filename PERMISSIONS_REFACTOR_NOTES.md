@@ -111,3 +111,23 @@ the permission table.
   publish-only, revert-only or edit-no-delete end to end, including the editor's
   preset/atom mutual exclusion. This is the main untested surface.
 - Delete this file before merge.
+
+## Docs — deliberately deferred
+
+Held until the permission model stops moving; doing these while the ground shifts
+just means writing them twice. All three are known-stale as of this branch:
+
+1. **`.agents/guides/permissions.md` is factually wrong.** Still documents the
+   pre-merge atoms — `canReview` and `manageFeatures`/`manageFeatureDrafts` (L22-23),
+   `publishFeatures` (L33), and a `permissions.manageFeatures` example (L349). Both
+   `AGENTS.md` and `.claude/rules/permissions.md` point agents at it, so the next
+   agent touching permissions gets stale names and never learns
+   `canRevisionAction` exists. Needs: the atom table, the model→family mapping, the
+   single check shape, and the staging-vs-landing rule.
+2. **`docs/docs/account/user-permissions.mdx` is customer-facing and stale.**
+   Policy renames, the new `Flags Full Access` / `Flags Bypass Approvals`,
+   `SDK Payload Publish` moving into the Feature Flagging group, and the
+   grant-individual-permissions capability, which isn't documented at all.
+3. **Release notes.** The five behavior changes above, led by the two
+   restrictions — a self-hosted admin whose manage-only role is about to lose
+   archive won't find that in a branch file.
