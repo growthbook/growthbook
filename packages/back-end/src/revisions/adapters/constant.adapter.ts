@@ -1,4 +1,5 @@
 import { ConstantInterface } from "shared/types/constant";
+import { bypassApprovalPermission } from "shared/permissions";
 import {
   Revision,
   getConstantRevisionChange,
@@ -71,7 +72,7 @@ function canBypassApprovalForConstant(
   context: Context,
   snapshot: ConstantInterface,
 ): boolean {
-  return context.permissions.canBypassApprovalChecks({
+  return context.permissions.canBypassFlagApprovalChecks({
     project: snapshot.project || "",
   });
 }
@@ -486,6 +487,7 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
         ],
         ...schemaFailureGateOverride(
           context.org.settings?.blockPublishOnSchemaError !== false,
+          bypassApprovalPermission("constant"),
         ),
         resolution: null,
       });

@@ -5263,7 +5263,12 @@ describe("PermissionsUtilClass.canByPassApprovalChecks", () => {
       projects: {},
     });
 
-    expect(permissions.canBypassApprovalChecks({ project: "" })).toEqual(false);
+    expect(permissions.canBypassFlagApprovalChecks({ project: "" })).toEqual(
+      false,
+    );
+    expect(
+      permissions.canBypassSavedGroupApprovalChecks({ project: "" }),
+    ).toEqual(false);
   });
 
   it("User with admin role able to bypassApprovalCheck", async () => {
@@ -5276,7 +5281,12 @@ describe("PermissionsUtilClass.canByPassApprovalChecks", () => {
       projects: {},
     });
 
-    expect(permissions.canBypassApprovalChecks({ project: "" })).toEqual(true);
+    expect(permissions.canBypassFlagApprovalChecks({ project: "" })).toEqual(
+      true,
+    );
+    expect(
+      permissions.canBypassSavedGroupApprovalChecks({ project: "" }),
+    ).toEqual(true);
   });
 
   it("User with project admin role able to bypassApprovalCheck for features in their project", async () => {
@@ -5295,9 +5305,13 @@ describe("PermissionsUtilClass.canByPassApprovalChecks", () => {
       },
     });
 
-    expect(permissions.canBypassApprovalChecks({ project: "abc123" })).toEqual(
-      true,
-    );
+    expect(
+      permissions.canBypassFlagApprovalChecks({ project: "abc123" }),
+    ).toEqual(true);
+    // Project Admin held the single pre-split atom, which covered saved groups.
+    expect(
+      permissions.canBypassSavedGroupApprovalChecks({ project: "abc123" }),
+    ).toEqual(true);
   });
 
   it("User with project admin role unable to bypassApprovalCheck for features outside their project", async () => {
@@ -5317,7 +5331,12 @@ describe("PermissionsUtilClass.canByPassApprovalChecks", () => {
     });
 
     expect(
-      permissions.canBypassApprovalChecks({ project: "other_project" }),
+      permissions.canBypassFlagApprovalChecks({ project: "other_project" }),
+    ).toEqual(false);
+    expect(
+      permissions.canBypassSavedGroupApprovalChecks({
+        project: "other_project",
+      }),
     ).toEqual(false);
   });
 });

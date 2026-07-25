@@ -653,7 +653,7 @@ export default function ReviewAndPublish({
     );
   }, [revision, baseRevision, liveRevision, envIds, strategies, feature]);
 
-  const canAdminPublish = permissionsUtil.canBypassApprovalChecks(feature);
+  const canAdminPublish = permissionsUtil.canBypassFlagApprovalChecks(feature);
   const featureLockedByRamp =
     rampSchedules?.some(
       (rs) => rs.lockdownConfig?.mode === "locked" && rs.status === "running",

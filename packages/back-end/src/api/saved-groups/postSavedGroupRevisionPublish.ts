@@ -124,7 +124,7 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
     throw new BadRequestError(
       `This revision requires approval before publishing (status: "${revision.status}"). ` +
         "Enable 'REST API always bypasses approval requirements' in organization settings, " +
-        "or use a role/token that grants bypassApprovalChecks on this saved group's projects.",
+        "or use a role/token that grants bypassApprovalSavedGroups on this saved group's projects.",
     );
   }
 

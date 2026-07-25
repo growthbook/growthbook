@@ -902,7 +902,7 @@ export const putConfig = async (
 
   // Block publishing past a locked config's pinned revision (creating/editing
   // drafts stays allowed). Guard before creating or claiming a merge so a blocked
-  // publish leaves nothing behind. Unlock (bypassApprovalChecks) to publish.
+  // publish leaves nothing behind. Unlock (bypassApprovalFlags) to publish.
   const willPublish =
     wantsMerge && (!approvalRequired || bypassApproval || autoPublish);
   if (willPublish) {
@@ -1105,7 +1105,7 @@ export const deleteConfig = async (
   }
   // A locked config is frozen at its published revision; deleting it would
   // destroy that pinned revision. Refuse, matching the REST delete endpoint
-  // (lock removal is separately gated behind bypassApprovalChecks).
+  // (lock removal is separately gated behind bypassApprovalFlags).
   assertConfigNotLocked(existing);
   // Require the config to be archived first (mirrors constants): archive is
   // reversible and flows through approvals; delete isn't.
@@ -1159,7 +1159,7 @@ export const lockConfig = async (
 };
 
 // Clear the lock so changes can be published again. Requires the elevated
-// bypassApprovalChecks permission — the same trust that skips the review queue.
+// bypassApprovalFlags permission — the same trust that skips the review queue.
 export const unlockConfig = async (
   req: AuthRequest<null, { id: string }>,
   res: Response<{ status: 200; config: ConfigInterface }>,
@@ -1170,7 +1170,7 @@ export const unlockConfig = async (
     return context.throwNotFoundError("Config not found");
   }
   if (
-    !context.permissions.canBypassApprovalChecks({
+    !context.permissions.canBypassFlagApprovalChecks({
       project: config.project || "",
     })
   ) {
@@ -1190,7 +1190,7 @@ export const unlockConfig = async (
 
 // Toggle the per-config experiment guard. Asymmetric like lock/unlock: turning it
 // ON needs only edit authority, turning it OFF (removing a protection) needs the
-// elevated bypassApprovalChecks. The flag lives outside the revision merge
+// elevated bypassApprovalFlags. The flag lives outside the revision merge
 // allowlist, so it's written directly after the auth check.
 export const setConfigExperimentGuard = async (
   req: AuthRequest<{ enabled: boolean }, { id: string }>,
@@ -1208,7 +1208,7 @@ export const setConfigExperimentGuard = async (
       context.permissions.throwPermissionError();
     }
   } else if (
-    !context.permissions.canBypassApprovalChecks({
+    !context.permissions.canBypassFlagApprovalChecks({
       project: config.project || "",
     })
   ) {

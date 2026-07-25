@@ -90,13 +90,19 @@ describe("granular flag permissions", () => {
         ]),
       );
       // Full access alone does not grant approval bypass
-      expect(p).not.toContain("bypassApprovalChecks");
+      expect(p).not.toContain("bypassApprovalFlags");
     });
 
-    it("FlagsBypassApprovals adds bypassApprovalChecks", () => {
-      expect(POLICY_PERMISSION_MAP.FlagsBypassApprovals).toContain(
-        "bypassApprovalChecks",
-      );
+    it("FlagsBypassApprovals adds only the flags bypass atom", () => {
+      const p = POLICY_PERMISSION_MAP.FlagsBypassApprovals;
+      expect(p).toContain("bypassApprovalFlags");
+      expect(p).not.toContain("bypassApprovalSavedGroups");
+    });
+
+    it("SavedGroupsBypassApprovals adds only the saved-group bypass atom", () => {
+      const p = POLICY_PERMISSION_MAP.SavedGroupsBypassApprovals;
+      expect(p).toContain("bypassApprovalSavedGroups");
+      expect(p).not.toContain("bypassApprovalFlags");
     });
 
     it("deprecated Configs/Constants policies resolve to the merged Flags atoms", () => {
@@ -141,6 +147,7 @@ describe("granular flag permissions", () => {
       "review",
       "publish",
       "revert",
+      "bypass",
     ];
 
     it("defines every action for every family, mapped to a real atom", () => {
@@ -175,13 +182,25 @@ describe("granular flag permissions", () => {
       expect(REVISION_PERMISSIONS.savedGroups.publish.scope).toBe("project");
       expect(REVISION_PERMISSIONS.savedGroups.revert.scope).toBe("project");
     });
+
+    it("gives each family its own project-scoped bypass atom", () => {
+      expect(REVISION_PERMISSIONS.flags.bypass).toEqual({
+        permission: "bypassApprovalFlags",
+        scope: "project",
+      });
+      expect(REVISION_PERMISSIONS.savedGroups.bypass).toEqual({
+        permission: "bypassApprovalSavedGroups",
+        scope: "project",
+      });
+    });
   });
 
   // Guard against silently dropping access when the Flags merge remapped the
   // legacy policies. Each row is what the policy set could do BEFORE the merge,
   // when a config/constant/saved-group publish or revert was gated by the same
-  // manage* atom as an edit, and a feature publish/revert needed
-  // manageFeatures + publishFeatures. Post-merge grants must be a superset.
+  // manage* atom as an edit, a feature publish/revert needed
+  // manageFeatures + publishFeatures, and one shared bypassApprovalChecks atom
+  // covered every family. Post-merge grants must be a superset.
   describe("pre-merge access is preserved", () => {
     const BASELINE: {
       policies: Policy[];
@@ -196,7 +215,15 @@ describe("granular flag permissions", () => {
       {
         policies: ["FeaturesBypassApprovals"],
         model: "feature",
-        actions: ["manage", "delete", "draft", "review"],
+        actions: ["manage", "delete", "draft", "review", "bypass"],
+      },
+      {
+        // The pre-split bypass atom was shared, so this policy covered saved
+        // groups too. Splitting it must keep BOTH halves or a stored role
+        // silently loses its saved-group bypass.
+        policies: ["FeaturesBypassApprovals"],
+        model: "saved-group",
+        actions: ["bypass"],
       },
       {
         // Legacy feature publish/revert required BOTH policies.

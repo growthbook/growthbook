@@ -78,7 +78,7 @@ export async function schedulePublish(
   // that permission — a requested bypass from a non-admin is silently ignored.
   const bypassApproval =
     !!req.body.bypassApproval &&
-    req.context.permissions.canBypassApprovalChecks(feature);
+    req.context.permissions.canBypassFlagApprovalChecks(feature);
 
   // Committing a schedule on a draft is the no-approval path (fires without a
   // review cycle). Only allow it when the change doesn't require review, failing
@@ -93,7 +93,7 @@ export async function schedulePublish(
     );
     if (
       requiresReview &&
-      !req.context.permissions.canBypassApprovalChecks(feature)
+      !req.context.permissions.canBypassFlagApprovalChecks(feature)
     ) {
       throw new BadRequestError(
         "This change requires approval — request review to schedule its publish.",

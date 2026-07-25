@@ -1,4 +1,5 @@
 import { getConfigParentKey } from "shared/util";
+import type { RevisionModel } from "shared/permissions";
 import { Revision } from "shared/enterprise";
 import type { Context } from "back-end/src/models/BaseModel";
 import { ReqContext } from "back-end/types/request";
@@ -257,10 +258,17 @@ export async function collectSavedGroupArchiveDependents(
 // Uniform enforcement primitives (shared across every entity).
 // ---------------------------------------------------------------------------
 
-function isOverridden(context: Context, project: string | undefined): boolean {
+function isOverridden(
+  context: Context,
+  project: string | undefined,
+  // The archived entity's family, so the bypass check reads its own atom.
+  model: RevisionModel,
+): boolean {
   return (
     context.ignoreWarnings ||
-    context.permissions.canBypassApprovalChecks({ project: project || "" })
+    context.permissions.canRevisionAction(model, "bypass", {
+      project: project || "",
+    })
   );
 }
 
@@ -295,11 +303,12 @@ function resolveDirectArchiveDependents(
   context: Context,
   dependents: ArchiveDependents,
   project: string | undefined,
+  model: RevisionModel,
   logKey: Record<string, unknown>,
   message: string,
 ): void {
   if (!dependents.ids.length) return;
-  if (isOverridden(context, project)) {
+  if (isOverridden(context, project, model)) {
     logger.info(
       { ...logKey, userId: context.userId, dependents: dependents.ids },
       "Archive-dependents guard overridden on a direct publish",
@@ -339,10 +348,11 @@ function captureArchiveDependentsAcknowledgment(
   context: Context,
   dependents: ArchiveDependents,
   project: string | undefined,
+  model: RevisionModel,
   message: string,
 ): string[] | undefined {
   if (!dependents.ids.length) return undefined;
-  if (!isOverridden(context, project)) {
+  if (!isOverridden(context, project, model)) {
     throw new SoftWarningError(
       `${message} Re-submit with ignoreWarnings to acknowledge and schedule.`,
       dependents.parts,
@@ -382,6 +392,7 @@ export async function assertConfigArchiveDependentsGuard(
     context,
     dependents,
     config.project,
+    "config",
     { configKey: config.key },
     archiveMessage("config", dependents, { elevated: true }),
   );
@@ -403,6 +414,7 @@ export async function captureConfigArchiveDependentsAcknowledgment(
     context,
     dependents,
     config.project,
+    "config",
     `Scheduling this Config archive affects ${dependents.parts.join(", ")}.`,
   );
 }
@@ -429,6 +441,7 @@ export async function assertConstantArchiveDependentsGuard(
     context,
     dependents,
     constant.project,
+    "constant",
     { constantKey: constant.key },
     archiveMessage("constant", dependents, { elevated: false }),
   );
@@ -446,6 +459,7 @@ export async function captureConstantArchiveDependentsAcknowledgment(
     context,
     dependents,
     constant.project,
+    "constant",
     `Scheduling this Constant archive affects ${dependents.parts.join(", ")}.`,
   );
 }
@@ -462,6 +476,7 @@ export async function assertFeatureArchiveDependentsGuard(
     context,
     dependents,
     feature.project,
+    "feature",
     { featureId: feature.id },
     archiveMessage("feature flag", dependents, { elevated: false }),
   );
@@ -489,6 +504,7 @@ export async function assertSavedGroupArchiveDependentsGuard(
     context,
     dependents,
     undefined,
+    "saved-group",
     { savedGroupId: savedGroup.id },
     archiveMessage("Saved Group", dependents, { elevated: false }),
   );
@@ -506,6 +522,7 @@ export async function captureSavedGroupArchiveDependentsAcknowledgment(
     context,
     dependents,
     undefined,
+    "saved-group",
     `Scheduling this Saved Group archive affects ${dependents.parts.join(
       ", ",
     )}.`,

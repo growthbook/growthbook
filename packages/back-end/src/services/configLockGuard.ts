@@ -93,7 +93,7 @@ export async function assertConfigLockGuard(
 
   const synchronousOverride =
     context.ignoreWarnings ||
-    context.permissions.canBypassApprovalChecks({
+    context.permissions.canBypassFlagApprovalChecks({
       project: resolvable.project || "",
     });
 
@@ -149,7 +149,7 @@ export async function captureConfigLockAcknowledgment(
   const sortedKeys = [...conflictKeys].sort();
   const override =
     context.ignoreWarnings ||
-    context.permissions.canBypassApprovalChecks({
+    context.permissions.canBypassFlagApprovalChecks({
       project: resolvable.project || "",
     });
   if (!override) {

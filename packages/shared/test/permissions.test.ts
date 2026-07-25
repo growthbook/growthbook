@@ -44,7 +44,8 @@ describe("Role permissions", () => {
   it("has correct permissions for noaccess", () => {
     const p = getPermissions("noaccess");
     expect(p.canAddComment(projects)).toBe(false);
-    expect(p.canBypassApprovalChecks(projectResource)).toBe(false);
+    expect(p.canBypassFlagApprovalChecks(projectResource)).toBe(false);
+    expect(p.canBypassSavedGroupApprovalChecks(projectResource)).toBe(false);
     expect(p.canCreateAndUpdateTag()).toBe(false);
     expect(p.canCreateApiKey()).toBe(false);
     expect(p.canCreateArchetype(projectsResource)).toBe(false);
@@ -159,7 +160,8 @@ describe("Role permissions", () => {
   it("has correct permissions for readonly", () => {
     const p = getPermissions("readonly");
     expect(p.canAddComment(projects)).toBe(false);
-    expect(p.canBypassApprovalChecks(projectResource)).toBe(false);
+    expect(p.canBypassFlagApprovalChecks(projectResource)).toBe(false);
+    expect(p.canBypassSavedGroupApprovalChecks(projectResource)).toBe(false);
     expect(p.canCreateAndUpdateTag()).toBe(false);
     expect(p.canCreateApiKey()).toBe(false);
     expect(p.canCreateArchetype(projectsResource)).toBe(false);
@@ -275,7 +277,8 @@ describe("Role permissions", () => {
   it("has correct permissions for visualEditor", () => {
     const p = getPermissions("visualEditor");
     expect(p.canAddComment(projects)).toBe(false);
-    expect(p.canBypassApprovalChecks(projectResource)).toBe(false);
+    expect(p.canBypassFlagApprovalChecks(projectResource)).toBe(false);
+    expect(p.canBypassSavedGroupApprovalChecks(projectResource)).toBe(false);
     expect(p.canCreateAndUpdateTag()).toBe(false);
     expect(p.canCreateApiKey()).toBe(false);
     expect(p.canCreateArchetype(projectsResource)).toBe(false);
@@ -391,7 +394,8 @@ describe("Role permissions", () => {
   it("has correct permissions for collaborator", () => {
     const p = getPermissions("collaborator");
     expect(p.canAddComment(projects)).toBe(true);
-    expect(p.canBypassApprovalChecks(projectResource)).toBe(false);
+    expect(p.canBypassFlagApprovalChecks(projectResource)).toBe(false);
+    expect(p.canBypassSavedGroupApprovalChecks(projectResource)).toBe(false);
     expect(p.canCreateAndUpdateTag()).toBe(false);
     expect(p.canCreateApiKey()).toBe(false);
     expect(p.canCreateArchetype(projectsResource)).toBe(false);
@@ -507,7 +511,8 @@ describe("Role permissions", () => {
   it("has correct permissions for engineer", () => {
     const p = getPermissions("engineer");
     expect(p.canAddComment(projects)).toBe(true);
-    expect(p.canBypassApprovalChecks(projectResource)).toBe(false);
+    expect(p.canBypassFlagApprovalChecks(projectResource)).toBe(false);
+    expect(p.canBypassSavedGroupApprovalChecks(projectResource)).toBe(false);
     expect(p.canCreateAndUpdateTag()).toBe(true);
     expect(p.canCreateApiKey()).toBe(false);
     expect(p.canCreateArchetype(projectsResource)).toBe(true);
@@ -623,7 +628,8 @@ describe("Role permissions", () => {
   it("has correct permissions for analyst", () => {
     const p = getPermissions("analyst");
     expect(p.canAddComment(projects)).toBe(true);
-    expect(p.canBypassApprovalChecks(projectResource)).toBe(false);
+    expect(p.canBypassFlagApprovalChecks(projectResource)).toBe(false);
+    expect(p.canBypassSavedGroupApprovalChecks(projectResource)).toBe(false);
     expect(p.canCreateAndUpdateTag()).toBe(true);
     expect(p.canCreateApiKey()).toBe(false);
     expect(p.canCreateArchetype(projectsResource)).toBe(false);
@@ -739,7 +745,8 @@ describe("Role permissions", () => {
   it("has correct permissions for experimenter", () => {
     const p = getPermissions("experimenter");
     expect(p.canAddComment(projects)).toBe(true);
-    expect(p.canBypassApprovalChecks(projectResource)).toBe(false);
+    expect(p.canBypassFlagApprovalChecks(projectResource)).toBe(false);
+    expect(p.canBypassSavedGroupApprovalChecks(projectResource)).toBe(false);
     expect(p.canCreateAndUpdateTag()).toBe(true);
     expect(p.canCreateApiKey()).toBe(false);
     expect(p.canCreateArchetype(projectsResource)).toBe(true);
@@ -855,7 +862,8 @@ describe("Role permissions", () => {
   it("has correct permissions for admin", () => {
     const p = getPermissions("admin");
     expect(p.canAddComment(projects)).toBe(true);
-    expect(p.canBypassApprovalChecks(projectResource)).toBe(true);
+    expect(p.canBypassFlagApprovalChecks(projectResource)).toBe(true);
+    expect(p.canBypassSavedGroupApprovalChecks(projectResource)).toBe(true);
     expect(p.canCreateAndUpdateTag()).toBe(true);
     expect(p.canCreateApiKey()).toBe(true);
     expect(p.canCreateArchetype(projectsResource)).toBe(true);

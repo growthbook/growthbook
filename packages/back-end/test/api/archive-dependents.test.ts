@@ -27,7 +27,7 @@ const org = {
 } as unknown as OrganizationInterface;
 
 // Engineer can edit these entities but cannot bypass approval checks, so the
-// soft guard actually blocks (an admin would clear it via bypassApprovalChecks).
+// soft guard actually blocks (an admin would clear it via bypassApprovalFlags).
 // `ignoreWarnings` is baked onto the context's own request — context.ignoreWarnings
 // reads context.req, not the HTTP body the mock middleware discards.
 function engineer(opts: { ignoreWarnings?: boolean } = {}): ReqContextClass {

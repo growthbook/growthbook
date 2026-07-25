@@ -212,12 +212,12 @@ export async function revertFeatureCore(
   }
 
   // Bypass via restApiBypassesReviews (API keys/PATs only — JWT-backed REST
-  // calls should behave like dashboard actions), bypassApprovalChecks, or the
+  // calls should behave like dashboard actions), bypassApprovalFlags, or the
   // org-wide "reverts bypass approval" setting (publish perms already enforced
   // per-change above, so any publisher may revert without approval).
   const canBypass =
     canUseRestApiBypass ||
-    context.permissions.canBypassApprovalChecks(feature) ||
+    context.permissions.canBypassFlagApprovalChecks(feature) ||
     !!organization.settings?.revertsBypassApproval;
 
   if (!canBypass) {
@@ -243,7 +243,7 @@ export async function revertFeatureCore(
       throw new PermissionError(
         "This revert requires approval before changes can be published. " +
           "Enable 'REST API always bypasses approval requirements' in organization settings, " +
-          "or use a role/token that grants bypassApprovalChecks on this project.",
+          "or use a role/token that grants bypassApprovalFlags on this project.",
       );
     }
   }

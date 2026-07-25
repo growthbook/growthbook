@@ -3679,7 +3679,10 @@ export async function assertCanAutoPublish(
 ): Promise<void> {
   const requiresReview = await revisionRequiresReview(context, feature, draft);
 
-  if (requiresReview && !context.permissions.canBypassApprovalChecks(feature)) {
+  if (
+    requiresReview &&
+    !context.permissions.canBypassFlagApprovalChecks(feature)
+  ) {
     context.permissions.throwPermissionError();
   }
 }

@@ -122,7 +122,7 @@ export const updateSavedGroup = createApiRequestHandler(
       throw new BadRequestError(
         "This organization requires approvals on saved groups. " +
           `Use \`POST /saved-groups/${savedGroup.id}/revisions\` to open a draft, ` +
-          'or pass `{ "bypassApproval": true }` if you have the `bypassApprovalChecks` permission.',
+          'or pass `{ "bypassApproval": true }` if you have the `bypassApprovalSavedGroups` permission.',
       );
     }
     // Scope the bypass permission to the *existing* group's projects so a

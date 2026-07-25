@@ -56,7 +56,7 @@ export default function FeatureArchiveModal({
   // Only archiving is gated on dependents; unarchiving is always allowed.
   const needsDependentsAck = !isArchived && totalDependents > 0;
 
-  const isAdmin = permissionsUtil.canBypassApprovalChecks(feature);
+  const isAdmin = permissionsUtil.canBypassFlagApprovalChecks(feature);
 
   // Gated by requireReviewOn only, not by metadata or environment review flags
   const archiveGated: boolean = (() => {

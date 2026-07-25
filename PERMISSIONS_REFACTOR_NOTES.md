@@ -10,15 +10,15 @@ saved groups keep their own. Each lifecycle action is its own grantable atom, an
 custom roles can grant atoms directly (additive `permissions[]`) instead of only
 whole policies.
 
-| Action               | Flags atom                                 | Saved-group atom         | Scope                     |
-| -------------------- | ------------------------------------------ | ------------------------ | ------------------------- |
-| create + edit        | `manageFlags`                              | `manageSavedGroups`      | project                   |
-| delete (and archive) | `deleteFlags`                              | `deleteSavedGroups`      | project                   |
-| author drafts        | `manageFlagDrafts`                         | `manageSavedGroupDrafts` | project                   |
-| review               | `reviewFlags`                              | `reviewSavedGroups`      | project                   |
-| publish              | `publishFlags`                             | `publishSavedGroups`     | **environment** / project |
-| revert               | `revertFlags`                              | `revertSavedGroups`      | **environment** / project |
-| bypass approvals     | `bypassApprovalChecks` (shared, unchanged) | —                        | project                   |
+| Action               | Flags atom            | Saved-group atom            | Scope                     |
+| -------------------- | --------------------- | --------------------------- | ------------------------- |
+| create + edit        | `manageFlags`         | `manageSavedGroups`         | project                   |
+| delete (and archive) | `deleteFlags`         | `deleteSavedGroups`         | project                   |
+| author drafts        | `manageFlagDrafts`    | `manageSavedGroupDrafts`    | project                   |
+| review               | `reviewFlags`         | `reviewSavedGroups`         | project                   |
+| publish              | `publishFlags`        | `publishSavedGroups`        | **environment** / project |
+| revert               | `revertFlags`         | `revertSavedGroups`         | **environment** / project |
+| bypass approvals     | `bypassApprovalFlags` | `bypassApprovalSavedGroups` | project                   |
 
 Single source of truth: `REVISION_PERMISSIONS` in
 `shared/src/permissions/revisionPermissions.ts`. Every check goes through
@@ -46,6 +46,20 @@ Three are **escalations**, all deliberate:
    (previously an AND blocked it). Matches `SDKPayloadPublish`'s own description.
 5. **Decision B:** config/constant publish and revert are environment-scoped now,
    so an env-limited role is correctly limited on them (previously unlimited).
+
+One is a **model change** with no access impact:
+
+6. **Bypass-approval is per family.** The single shared `bypassApprovalChecks`
+   atom is split into `bypassApprovalFlags` and `bypassApprovalSavedGroups`, so a
+   role can bypass approvals for one family without the other — and each row now
+   lives in its resource's group in the editor, retiring the cross-entity
+   "Revisions and Approvals" group. This closes the branch's one deliberate
+   deviation from the design doc (bypass was left shared because the atom is the
+   `requiresPermission` literal threaded through the whole publish-gate system).
+   Nothing loses access: the deprecated `FeaturesBypassApprovals` grants **both**
+   atoms and the default Project Admin role gains `SavedGroupsBypassApprovals`,
+   because the pre-split atom covered saved groups too. New policy for new roles:
+   `SavedGroupsBypassApprovals`.
 
 Back-compat: deprecated policies (`FeaturesFullAccess`, `FeaturesBypassApprovals`,
 `ConfigsFullAccess`, `ConstantsFullAccess`) stay resolvable and hidden from the
@@ -96,14 +110,14 @@ the bulk publisher, and `assertCanPublishRevision` for the engine entities. The
 pure predicates behind that rule are `isArchiveTransition` / `proposedArchivedValue`.
 
 Note the engine's `adapter.canDelete` is **not** the delete atom — it gates
-deleting a revision _document_ (`bypassApprovalChecks`). Entity delete comes from
-the permission table.
+deleting a revision _document_ (the entity's bypass-approval atom). Entity delete
+comes from the permission table.
 
 ## Verification
 
 - All three packages type-check; every changed file lints at zero warnings.
-- back-end 201 suites / 5575 tests, shared 54 / 1912, front-end 50 / 774 — all pass.
-- OpenAPI regenerated: no diff (permission-enforcement code only).
+- back-end 201 suites / 5577 tests, shared 54 / 1919, front-end 50 / 774 — all pass.
+- OpenAPI regenerated: description-only diff from the bypass-atom rename.
 
 ## Still open
 
@@ -174,7 +188,8 @@ just means writing them twice. All three are known-stale as of this branch:
    `canRevisionAction` exists. Needs: the atom table, the model→family mapping, the
    single check shape, and the staging-vs-landing rule.
 2. **`docs/docs/account/user-permissions.mdx` is customer-facing and stale.**
-   Policy renames, the new `Flags Full Access` / `Flags Bypass Approvals`,
+   Policy renames, the new `Flags Full Access` / `Flags Bypass Approvals` /
+   `Saved Groups Bypass Approvals`,
    `SDK Payload Publish` moving into the Feature Flagging group, and the
    grant-individual-permissions capability, which isn't documented at all.
 3. **Release notes.** The five behavior changes above, led by the two

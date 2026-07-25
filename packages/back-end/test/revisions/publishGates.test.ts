@@ -10,14 +10,14 @@ import {
 } from "back-end/src/revisions/publishGates";
 
 describe("schemaFailureGateOverride (blockPublishOnSchemaError)", () => {
-  it("is validation-class in block mode (default)", () => {
-    expect(schemaFailureGateOverride(true)).toEqual({
+  it("is validation-class in block mode (default), naming the caller's atom", () => {
+    expect(schemaFailureGateOverride(true, "bypassApprovalFlags")).toEqual({
       override: "skipSchemaValidation",
-      requiresPermission: "bypassApprovalChecks",
+      requiresPermission: "bypassApprovalFlags",
     });
   });
   it("demotes to acknowledge-class in warn mode", () => {
-    expect(schemaFailureGateOverride(false)).toEqual({
+    expect(schemaFailureGateOverride(false, "bypassApprovalFlags")).toEqual({
       override: "ignoreWarnings",
       requiresPermission: null,
     });
@@ -31,7 +31,7 @@ const approvalGate: PublishGate = {
   severity: "blocker",
   messages: ['Requires approval before publishing (status: "draft").'],
   override: null,
-  requiresPermission: "bypassApprovalChecks",
+  requiresPermission: "bypassApprovalFlags",
   resolution: {
     action: "request-review",
     method: "POST",
@@ -45,7 +45,7 @@ const configLockedGate: PublishGate = {
   severity: "blocker",
   messages: ["Locked at revision v3."],
   override: null,
-  requiresPermission: "bypassApprovalChecks",
+  requiresPermission: "bypassApprovalFlags",
   resolution: {
     action: "unlock",
     method: "POST",
@@ -58,7 +58,7 @@ const staleBaseGate: PublishGate = {
   severity: "blocker",
   messages: ["This revision was created against an older version."],
   override: "ignoreWarnings",
-  requiresPermission: "bypassApprovalChecks",
+  requiresPermission: "bypassApprovalFlags",
   resolution: {
     action: "rebase",
     method: "POST",
@@ -84,7 +84,7 @@ const schemaBreakGate: PublishGate = {
     'config "pricing" field "tier" expects a string',
   ],
   override: "skipSchemaValidation",
-  requiresPermission: "bypassApprovalChecks",
+  requiresPermission: "bypassApprovalFlags",
   resolution: null,
 };
 
@@ -106,7 +106,7 @@ const customHookGate: PublishGate = {
   severity: "blocker",
   messages: ["A custom validation hook rejected this publish:"],
   override: "skipHooks",
-  requiresPermission: "bypassApprovalChecks",
+  requiresPermission: "bypassApprovalFlags",
   resolution: null,
 };
 const clearance = (
@@ -198,7 +198,7 @@ describe("unclearedGates", () => {
       seen.push(permission);
       return true;
     });
-    expect(seen).toEqual(["bypassApprovalChecks"]);
+    expect(seen).toEqual(["bypassApprovalFlags"]);
   });
 
   it("does not consult permissions for gates without requiresPermission", () => {
@@ -249,7 +249,7 @@ describe("classifyPublishGate", () => {
           approvalGate,
           clearance({ bypassApprovalPermission: true }),
         ),
-      ).toEqual({ outcome: "bypassed", via: "bypassApprovalChecks" });
+      ).toEqual({ outcome: "bypassed", via: "bypassApprovalPermission" });
     });
 
     it("is bypassed (and labeled) by the org REST setting, which wins over the permission", () => {
@@ -289,6 +289,32 @@ describe("classifyPublishGate", () => {
         ),
       ).toEqual({ outcome: "bypassed", via: "ignoreWarnings" });
     });
+
+    it("force-merges on either family's bypass atom", () => {
+      const savedGroupStaleBase: PublishGate = {
+        ...staleBaseGate,
+        requiresPermission: "bypassApprovalSavedGroups",
+      };
+      expect(
+        classifyPublishGate(
+          savedGroupStaleBase,
+          clearance({ ignoreWarnings: true, canForceMergeStaleBase: true }),
+        ),
+      ).toEqual({ outcome: "bypassed", via: "ignoreWarnings" });
+    });
+
+    it("does not force-merge on an unrelated permission", () => {
+      const otherPermissionStaleBase: PublishGate = {
+        ...staleBaseGate,
+        requiresPermission: "publishFlags",
+      };
+      expect(
+        classifyPublishGate(
+          otherPermissionStaleBase,
+          clearance({ ignoreWarnings: true, canForceMergeStaleBase: true }),
+        ),
+      ).toEqual({ outcome: "blocking" });
+    });
   });
 
   describe("soft guards", () => {
@@ -307,7 +333,7 @@ describe("classifyPublishGate", () => {
           experimentGuardGate,
           clearance({ bypassApprovalPermission: true }),
         ),
-      ).toEqual({ outcome: "bypassed", via: "bypassApprovalChecks" });
+      ).toEqual({ outcome: "bypassed", via: "bypassApprovalPermission" });
     });
 
     it("is NOT bypassed by the REST setting alone (permission-only, matching the collector)", () => {
@@ -446,7 +472,7 @@ describe("evaluatePublishGates", () => {
       {
         type: "approval-required",
         outcome: "bypassed",
-        via: "bypassApprovalChecks",
+        via: "bypassApprovalPermission",
       },
       { type: "stale-base", outcome: "bypassed", via: "ignoreWarnings" },
       { type: "experiment-guard", outcome: "bypassed", via: "ignoreWarnings" },
@@ -503,7 +529,7 @@ describe("PublishBlockedError", () => {
     expect(err.message).toContain("[stale-base]");
     expect(err.message).toContain('retry with "ignoreWarnings": true');
     expect(err.message).toContain(
-      "requires the bypassApprovalChecks permission",
+      "requires the bypassApprovalFlags permission",
     );
     expect(err.message).toContain("[experiment-guard]");
   });

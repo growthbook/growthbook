@@ -80,7 +80,7 @@ const ctx = {
     canUpdateFeature: jest.fn(() => true),
     canPublishFeature: jest.fn(() => true),
     canRevertFeature: jest.fn(() => true),
-    canBypassApprovalChecks: jest.fn(() => true),
+    canBypassFlagApprovalChecks: jest.fn(() => true),
     throwPermissionError: jest.fn(() => {
       throw new Error("forbidden");
     }),
@@ -207,7 +207,7 @@ describe("revertFeatureCore revision events", () => {
     const publishedRevision = { version: 6, status: "published" } as never;
     // First getRevision call resolves the target revision; the second is the
     // post-publish re-read. (The approval-check read in between is skipped
-    // because ctx mocks canBypassApprovalChecks to true — if that changes,
+    // because ctx mocks canBypassFlagApprovalChecks to true — if that changes,
     // queue a third value here.)
     mockGetRevision
       .mockResolvedValueOnce(targetRevision)

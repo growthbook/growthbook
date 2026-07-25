@@ -48,7 +48,7 @@ const SCHEMA_BREAK: ArmGuardId = "schema-break";
 // Resolve a direct (unarmed) publish's schema-break violations to an action,
 // honoring the org's `blockPublishOnSchemaError` setting:
 //  - block mode (default): validation-class. Cleared only by the privileged
-//    skipSchemaValidation (which requires bypassApprovalChecks); else a HARD
+//    skipSchemaValidation (which requires bypassApprovalFlags); else a HARD
 //    400, so the UI blocks and no ignoreWarnings escape exists.
 //  - warn mode (setting off): acknowledge-class. Anyone clears with an explicit
 //    ignoreWarnings ack; else a 422 soft warning. No permission-alone escape —
@@ -64,7 +64,7 @@ function resolveDirectSchemaBreak(
   if (!violations.length) return;
   const blocking = context.org.settings?.blockPublishOnSchemaError !== false;
   if (blocking) {
-    // `context.skipSchemaValidation` already requires bypassApprovalChecks.
+    // `context.skipSchemaValidation` already requires bypassApprovalFlags.
     if (context.skipSchemaValidation) {
       logger.info(
         { ...logKey, userId: context.userId, violations },
@@ -511,7 +511,7 @@ export function collectDependentFeatureBreaks({
 // Warn (never hard-block) when publishing a constant would make a dependent
 // config OR config-backed feature value violate its schema or invariants.
 // Bypassable soft warning on a direct publish (?ignoreWarnings=true or
-// bypassApprovalChecks).
+// bypassApprovalFlags).
 //
 // All schema-break violations a proposed constant value would introduce —
 // dependent configs (per env) and config-backed feature values, combined. Loads
@@ -641,7 +641,7 @@ export async function captureConstantSchemaBreakAcknowledgment(
     if (!context.skipSchemaValidation) {
       throw new BadRequestError(
         body +
-          "\nRe-submit with skipSchemaValidation (requires the bypassApprovalChecks permission) to schedule anyway.",
+          "\nRe-submit with skipSchemaValidation (requires the bypassApprovalFlags permission) to schedule anyway.",
       );
     }
   } else if (!context.ignoreWarnings) {
@@ -934,7 +934,7 @@ export async function captureConfigSchemaBreakAcknowledgment(
   if (!context.skipSchemaValidation) {
     throw new BadRequestError(
       body +
-        "\nRe-submit with skipSchemaValidation (requires the bypassApprovalChecks permission) to schedule anyway.",
+        "\nRe-submit with skipSchemaValidation (requires the bypassApprovalFlags permission) to schedule anyway.",
     );
   }
   return [...new Set(violations)].sort();

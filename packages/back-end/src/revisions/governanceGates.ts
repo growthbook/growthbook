@@ -1,3 +1,5 @@
+import { bypassApprovalPermission } from "shared/permissions";
+import type { RevisionModel } from "shared/permissions";
 import type { Revision, RevisionTargetType } from "shared/enterprise";
 import type { Context } from "back-end/src/models/BaseModel";
 import type { EntityRevisionAdapter } from "back-end/src/revisions/EntityRevisionAdapter";
@@ -32,6 +34,7 @@ export function collectRevisionGovernanceGates({
   const identifier =
     (entity as { key?: string }).key ?? (entity as { id: string }).id;
   const routeBase = `/${targetType}s-revisions/${identifier}/${revision.version}`;
+  const bypassPermission = bypassApprovalPermission(targetType);
 
   const approvalRequired = adapter.isApprovalRequiredForRevision
     ? adapter.isApprovalRequiredForRevision(context, revision)
@@ -43,7 +46,7 @@ export function collectRevisionGovernanceGates({
         messages: [
           `Requires approval before publishing (status: "${revision.status}").`,
         ],
-        requiresPermission: "bypassApprovalChecks",
+        requiresPermission: bypassPermission,
         resolution: {
           action: "request-review",
           method: "POST",
@@ -66,7 +69,7 @@ export function collectRevisionGovernanceGates({
         type: "stale-base",
         messages: ["This revision was created against an older version."],
         override: "ignoreWarnings",
-        requiresPermission: "bypassApprovalChecks",
+        requiresPermission: bypassPermission,
         resolution: {
           action: "rebase",
           method: "POST",
@@ -91,11 +94,14 @@ export function collectArchiveApprovalGate({
   archived,
   noun,
   createDraftPath,
+  model,
 }: {
   approvalRequired: boolean;
   archived: boolean;
   noun: string;
   createDraftPath: string;
+  /** The entity being archived, so the gate names its family's bypass atom. */
+  model: RevisionModel;
 }): PublishGate[] {
   if (!approvalRequired) return [];
   return [
@@ -106,7 +112,7 @@ export function collectArchiveApprovalGate({
           archived ? "archive" : "unarchive"
         } this ${noun}.`,
       ],
-      requiresPermission: "bypassApprovalChecks",
+      requiresPermission: bypassApprovalPermission(model),
       resolution: {
         action: "create-draft",
         method: "POST",

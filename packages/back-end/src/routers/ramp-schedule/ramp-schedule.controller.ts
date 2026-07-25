@@ -417,19 +417,19 @@ export const postRampScheduleAction = async (
         return res.status(409).json({
           status: 409,
           message:
-            "This step requires approval before advancing. Use approve-step first, or pass force: true to bypass (requires canBypassApprovalChecks).",
+            "This step requires approval before advancing. Use approve-step first, or pass force: true to bypass (requires bypassApprovalFlags).",
         });
       }
       if (approvalPending && forceAdvance) {
         const linkedFeature = await getFeature(context, schedule.entityId);
         if (
           !linkedFeature ||
-          !context.permissions.canBypassApprovalChecks(linkedFeature)
+          !context.permissions.canBypassFlagApprovalChecks(linkedFeature)
         ) {
           return res.status(403).json({
             status: 403,
             message:
-              "Permission denied: canBypassApprovalChecks required on the linked feature",
+              "Permission denied: bypassApprovalFlags required on the linked feature",
           });
         }
       }
@@ -457,17 +457,17 @@ export const postRampScheduleAction = async (
             fresh.stepApproval?.stepIndex !== fresh.currentStepIndex;
           if (freshApprovalPending && !forceAdvance) {
             throw new ConflictError(
-              "This step requires approval before advancing. Use approve-step first, or pass force: true to bypass (requires canBypassApprovalChecks).",
+              "This step requires approval before advancing. Use approve-step first, or pass force: true to bypass (requires bypassApprovalFlags).",
             );
           }
           if (freshApprovalPending && forceAdvance) {
             const linkedFeature = await getFeature(context, fresh.entityId);
             if (
               !linkedFeature ||
-              !context.permissions.canBypassApprovalChecks(linkedFeature)
+              !context.permissions.canBypassFlagApprovalChecks(linkedFeature)
             ) {
               throw new PermissionError(
-                "Permission denied: canBypassApprovalChecks required on the linked feature",
+                "Permission denied: bypassApprovalFlags required on the linked feature",
               );
             }
           }

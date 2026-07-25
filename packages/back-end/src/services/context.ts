@@ -462,7 +462,7 @@ export class ReqContextClass {
   // (no req) never skip — they must produce conforming data.
   //
   // Gated: turning off hard validation is only honored for callers with org-wide
-  // bypass authority (`bypassApprovalChecks` on all projects). A project-scoped
+  // bypass authority (`bypassApprovalFlags` on all projects). A project-scoped
   // writer can't silently ship non-conforming data — the flag is ignored and
   // validation still runs (a 4xx, the secure default). Schema validation is new,
   // so nothing depends on an ungated bypass.
@@ -473,12 +473,12 @@ export class ReqContextClass {
       this.bodyFlag("skipSchemaValidation") ||
       (typeof queryValue === "string" && stringToBoolean(queryValue));
     if (!requested) return false;
-    return this.permissions.canBypassApprovalChecks({ project: undefined });
+    return this.permissions.canBypassFlagApprovalChecks({ project: undefined });
   }
 
   // Force past a custom validation hook that rejected the change. Its own flag
   // (not skipSchemaValidation — a hook failure isn't a schema error), honored
-  // only for callers with org-wide bypass authority (the bypassApprovalChecks
+  // only for callers with org-wide bypass authority (the bypassApprovalFlags
   // permission on all projects); ignored otherwise.
   public get skipHooks(): boolean {
     if (!this.req) return false;
@@ -487,7 +487,7 @@ export class ReqContextClass {
       this.bodyFlag("skipHooks") ||
       (typeof queryValue === "string" && stringToBoolean(queryValue));
     if (!requested) return false;
-    return this.permissions.canBypassApprovalChecks({ project: undefined });
+    return this.permissions.canBypassFlagApprovalChecks({ project: undefined });
   }
 
   public throwBadRequestError(message: string): never {

@@ -185,7 +185,7 @@ export const postConfigRevisionRevert = createApiRequestHandler(
       throw new BadRequestError(
         "This revert requires approval before changes can be published. " +
           'Use `strategy: "draft"` to create a draft for review, ' +
-          "or use a role/token that grants bypassApprovalChecks.",
+          "or use a role/token that grants bypassApprovalFlags.",
       );
     }
   }

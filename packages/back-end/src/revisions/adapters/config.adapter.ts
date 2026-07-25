@@ -1,4 +1,5 @@
 import { ConfigInterface } from "shared/types/config";
+import { bypassApprovalPermission } from "shared/permissions";
 import {
   Revision,
   getConstantRevisionChange,
@@ -91,7 +92,7 @@ function canBypassApprovalForConfig(
   context: Context,
   snapshot: ConfigInterface,
 ): boolean {
-  return context.permissions.canBypassApprovalChecks({
+  return context.permissions.canBypassFlagApprovalChecks({
     project: snapshot.project || "",
   });
 }
@@ -590,6 +591,7 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
         messages: ["Invalid Config value:", ...schemaBreaks],
         ...schemaFailureGateOverride(
           context.org.settings?.blockPublishOnSchemaError !== false,
+          bypassApprovalPermission("config"),
         ),
         resolution: null,
       });
@@ -717,6 +719,7 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
           ],
           ...schemaFailureGateOverride(
             context.org.settings?.blockPublishOnSchemaError !== false,
+            bypassApprovalPermission("config"),
           ),
           resolution: null,
         });

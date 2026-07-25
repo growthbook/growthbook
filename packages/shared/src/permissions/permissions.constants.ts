@@ -32,6 +32,7 @@ export const POLICIES = [
   "EnvironmentsFullAccess",
   "NamespacesFullAccess",
   "SavedGroupsFullAccess",
+  "SavedGroupsBypassApprovals",
   "SavedGroupsBypassSizeLimit",
   "BypassSavedGroupSizeLimit",
   "GeneralSettingsFullAccess",
@@ -99,7 +100,7 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   // how the lifecycle behaves. Ticked alongside FlagsFullAccess rather than
   // repeating it. (The deprecated FeaturesBypassApprovals below stays a superset,
   // since stored roles rely on it granting access on its own.)
-  FlagsBypassApprovals: ["readData", "bypassApprovalChecks"],
+  FlagsBypassApprovals: ["readData", "bypassApprovalFlags"],
   ArchetypesFullAccess: ["readData", "manageArchetype"],
   // Deprecated: merged into the Flags family. Mapped to the equivalent Flags
   // atoms to preserve legacy access exactly; hidden from the role editor and
@@ -113,13 +114,16 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
     "reviewFlags",
     "manageArchetype",
   ],
+  // Grants BOTH bypass atoms: the single pre-split atom covered saved groups
+  // too, so dropping either one would quietly take access from a stored role.
   FeaturesBypassApprovals: [
     "readData",
     "manageFlags",
     "deleteFlags",
     "manageFlagDrafts",
     "reviewFlags",
-    "bypassApprovalChecks",
+    "bypassApprovalFlags",
+    "bypassApprovalSavedGroups",
   ],
   ExperimentsFullAccess: ["readData", "createAnalyses", "runQueries"],
   VisualEditorFullAccess: ["readData", "manageVisualChanges"],
@@ -203,6 +207,8 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
     "publishSavedGroups",
     "revertSavedGroups",
   ],
+  // The saved-group half of the bypass add-on, mirroring FlagsBypassApprovals.
+  SavedGroupsBypassApprovals: ["readData", "bypassApprovalSavedGroups"],
   BypassSavedGroupSizeLimit: ["readData", "bypassSavedGroupSizeLimit"],
   // Deprecated superset — see DEPRECATED_POLICIES.
   SavedGroupsBypassSizeLimit: [
@@ -258,17 +264,19 @@ export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
   },
   {
     name: "Feature Flags, Configs, and Constants",
-    policies: ["FlagsFullAccess", "ArchetypesFullAccess"],
+    policies: [
+      "FlagsFullAccess",
+      "FlagsBypassApprovals",
+      "ArchetypesFullAccess",
+    ],
   },
   {
     name: "Saved Groups",
-    policies: ["SavedGroupsFullAccess", "BypassSavedGroupSizeLimit"],
-  },
-  {
-    // Review governance applies across flags and Saved Groups alike, so it isn't
-    // a permission on either resource.
-    name: "Revisions and Approvals",
-    policies: ["FlagsBypassApprovals"],
+    policies: [
+      "SavedGroupsFullAccess",
+      "SavedGroupsBypassApprovals",
+      "BypassSavedGroupSizeLimit",
+    ],
   },
   {
     name: "Experiments",
@@ -364,7 +372,7 @@ export const POLICY_METADATA_MAP: Record<
   FlagsBypassApprovals: {
     displayName: "Bypass draft approvals",
     description:
-      "Publish without the required draft review, force-merge an out-of-date draft, and discard other users' drafts. Applies to Feature Flags, Configs, Constants, and Saved Groups. Does not bypass schema validation, custom hooks, or Config locks.",
+      "Publish without the required draft review, force-merge an out-of-date draft, and discard other users' drafts. Applies to Feature Flags, Configs, and Constants. Does not bypass schema validation, custom hooks, or Config locks.",
   },
   FeaturesFullAccess: {
     displayName: "Features Full Access",
@@ -477,6 +485,11 @@ export const POLICY_METADATA_MAP: Record<
   SavedGroupsFullAccess: {
     displayName: "Full access",
     description: "Create, edit, and delete saved groups",
+  },
+  SavedGroupsBypassApprovals: {
+    displayName: "Bypass draft approvals",
+    description:
+      "Publish without the required draft review, force-merge an out-of-date draft, and discard other users' drafts",
   },
   BypassSavedGroupSizeLimit: {
     displayName: "Bypass size limit",
@@ -622,13 +635,13 @@ export const GRANULAR_PERMISSION_METADATA: Partial<
     description:
       "Revert to a previously published revision (environment-scoped)",
   },
+  bypassApprovalFlags: {
+    displayName: "Bypass approvals",
+    description: "Publish without required approvals",
+  },
   manageArchetype: {
     displayName: "Manage archetypes",
     description: "Create, edit, and delete saved user archetypes",
-  },
-  bypassApprovalChecks: {
-    displayName: "Bypass approvals",
-    description: "Publish without required approvals",
   },
   manageSavedGroups: {
     displayName: "Create & edit",
@@ -653,6 +666,10 @@ export const GRANULAR_PERMISSION_METADATA: Partial<
   revertSavedGroups: {
     displayName: "Revert",
     description: "Revert a saved group to a previously published revision",
+  },
+  bypassApprovalSavedGroups: {
+    displayName: "Bypass approvals",
+    description: "Publish saved groups without required approvals",
   },
   bypassSavedGroupSizeLimit: {
     displayName: "Bypass size limit",
@@ -804,7 +821,10 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "DecisionCriteriaFullAccess",
       "HoldoutsFullAccess",
       "GeneralDashboardsFullAccess",
+      // Both halves of the bypass add-on: before the split a single atom
+      // covered saved groups too, and a Project Admin relied on it.
       "FlagsBypassApprovals",
+      "SavedGroupsBypassApprovals",
       "ProjectAdminAccess",
     ],
   },
@@ -838,11 +858,11 @@ export const ENV_SCOPED_PERMISSIONS = [
 export const PROJECT_SCOPED_PERMISSIONS = [
   "readData",
   "addComments",
-  "bypassApprovalChecks",
   "manageFlags",
   "deleteFlags",
   "manageFlagDrafts",
   "reviewFlags",
+  "bypassApprovalFlags",
   "manageArchetype",
   "manageProjects",
   "createProjects",
@@ -866,6 +886,7 @@ export const PROJECT_SCOPED_PERMISSIONS = [
   "reviewSavedGroups",
   "publishSavedGroups",
   "revertSavedGroups",
+  "bypassApprovalSavedGroups",
   "manageCustomFields",
   "manageTemplates",
   "manageExecReports",

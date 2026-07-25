@@ -147,13 +147,13 @@ export const postReleasePublishRevisionsValidator = {
         .boolean()
         .optional()
         .describe(
-          "Force past schema and invariant failures. Only honored with the `bypassApprovalChecks` permission; validation still runs and is reported.",
+          "Force past schema and invariant failures. Only honored with the `bypassApprovalFlags` permission; validation still runs and is reported.",
         ),
       skipHooks: z
         .boolean()
         .optional()
         .describe(
-          "Force past custom validation-hook rejections. Only honored with the `bypassApprovalChecks` permission.",
+          "Force past custom validation-hook rejections. Only honored with the `bypassApprovalFlags` permission.",
         ),
       comment: z
         .string()

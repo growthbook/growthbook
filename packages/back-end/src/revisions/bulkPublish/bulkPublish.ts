@@ -257,7 +257,7 @@ export async function planBulkPublish(
   // scope the single-entity paths enforce via the context's skipSchemaValidation
   // /skipHooks getters). A project-scoped bypass clears approval (per entity,
   // below) but never a validation failure.
-  const orgWideBypass = context.permissions.canBypassApprovalChecks({
+  const orgWideBypass = context.permissions.canBypassFlagApprovalChecks({
     project: undefined,
   });
 

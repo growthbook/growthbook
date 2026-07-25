@@ -123,7 +123,7 @@ describe("features API", () => {
     canPublishFeature: () => true,
     canUpdateFeature: () => true,
     canCreateFeature: () => true,
-    canBypassApprovalChecks: () => false,
+    canBypassFlagApprovalChecks: () => false,
     ...extra,
   });
 
@@ -670,7 +670,7 @@ describe("features API", () => {
     it("writes nextScheduledUpdate when scheduleRules are updated via API", async () => {
       defaultContext({
         permissions: defaultPermissions({
-          canBypassApprovalChecks: () => true,
+          canBypassFlagApprovalChecks: () => true,
         }),
         hasPremiumFeature: () => true,
         getProjects: async () => [{ id: "project_1" }],
@@ -853,13 +853,13 @@ describe("features API", () => {
       );
     });
 
-    it("role-based bypassApprovalChecks permission bypasses when restApiBypassesReviews=false", async () => {
-      // Tokens/roles that grant bypassApprovalChecks for the feature's project
+    it("role-based bypassApprovalFlags permission bypasses when restApiBypassesReviews=false", async () => {
+      // Tokens/roles that grant bypassApprovalFlags for the feature's project
       // can still publish through the REST API even when the org-level
       // restApiBypassesReviews setting is disabled.
       setupUpdateTest(
         { ...approvalRequiredSettings, restApiBypassesReviews: false },
-        { canBypassApprovalChecks: () => true },
+        { canBypassFlagApprovalChecks: () => true },
       );
       const response = await request(app)
         .post("/api/v1/features/myfeature")
@@ -874,7 +874,7 @@ describe("features API", () => {
     it("throws when approvals required and neither restApiBypassesReviews nor role permission allow bypass", async () => {
       setupUpdateTest(
         { ...approvalRequiredSettings, restApiBypassesReviews: false },
-        { canBypassApprovalChecks: () => false },
+        { canBypassFlagApprovalChecks: () => false },
       );
       (createAndPublishRevision as jest.Mock).mockRejectedValue(
         Object.assign(
@@ -990,7 +990,7 @@ describe("features API", () => {
           ],
           restApiBypassesReviews: false,
         },
-        { canBypassApprovalChecks: () => false },
+        { canBypassFlagApprovalChecks: () => false },
       );
 
       const response = await request(app)

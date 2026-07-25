@@ -34,7 +34,7 @@ export default function StaleDetectionModal({
   const enabling = !!feature.neverStale;
   const newNeverStale = !enabling;
 
-  const isAdmin = permissionsUtil.canBypassApprovalChecks(feature);
+  const isAdmin = permissionsUtil.canBypassFlagApprovalChecks(feature);
 
   const staleGated: boolean = (() => {
     const raw = settings?.requireReviews;

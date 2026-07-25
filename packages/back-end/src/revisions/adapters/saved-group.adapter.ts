@@ -55,7 +55,7 @@ function canBypassAcrossProjects(
 ): boolean {
   const projects = snapshot.projects?.length ? snapshot.projects : [""];
   return projects.every((project) =>
-    context.permissions.canBypassApprovalChecks({ project }),
+    context.permissions.canBypassSavedGroupApprovalChecks({ project }),
   );
 }
 

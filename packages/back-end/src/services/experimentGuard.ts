@@ -338,7 +338,7 @@ export async function evaluateConfigExperimentGuardConflicts(
 // Enforce the experiment guard for a config publish. `armed` = a deferred merge
 // (scheduled publish or auto-publish-on-approval), whose override is the arm-time
 // fingerprint on the revision; unarmed = a direct manual publish, which honors an
-// explicit synchronous override (`?ignoreWarnings=true` or bypassApprovalChecks).
+// explicit synchronous override (`?ignoreWarnings=true` or bypassApprovalFlags).
 // Throws SoftWarningError (422) for an un-acknowledged direct publish, or
 // TerminalPublishError for a deferred merge whose fingerprint has diverged.
 export async function assertConfigExperimentGuard(
@@ -357,7 +357,7 @@ export async function assertConfigExperimentGuard(
 
   const synchronousOverride =
     context.ignoreWarnings ||
-    context.permissions.canBypassApprovalChecks({
+    context.permissions.canBypassFlagApprovalChecks({
       project: config.project || "",
     });
 
@@ -438,7 +438,7 @@ export async function assertScopedOverridesExperimentGuard(
 // on the revision (compared at merge time), or undefined when there is nothing to
 // acknowledge (guard off / no live conflict / metadata-only revision). Throws
 // SoftWarningError when live conflicts exist and the armer did not acknowledge
-// them (?ignoreWarnings=true or bypassApprovalChecks) — arming must be an
+// them (?ignoreWarnings=true or bypassApprovalFlags) — arming must be an
 // explicit, recorded override. `proposedChanges` (the revision's staged ops, when
 // known) lets a metadata-only revision skip the guard, matching the merge-time
 // gate so a rename doesn't need acknowledgment to be scheduled.
@@ -466,7 +466,7 @@ export async function captureConfigExperimentGuardAcknowledgment(
   const sortedKeys = [...conflictKeys].sort();
   const override =
     context.ignoreWarnings ||
-    context.permissions.canBypassApprovalChecks({
+    context.permissions.canBypassFlagApprovalChecks({
       project: config.project || "",
     });
   if (!override) {
@@ -574,7 +574,7 @@ export async function assertConstantExperimentGuard(
 
   const synchronousOverride =
     context.ignoreWarnings ||
-    context.permissions.canBypassApprovalChecks({
+    context.permissions.canBypassFlagApprovalChecks({
       project: constant.project || "",
     });
 
@@ -641,7 +641,7 @@ export async function captureConstantExperimentGuardAcknowledgment(
   const sortedKeys = [...conflictKeys].sort();
   const override =
     context.ignoreWarnings ||
-    context.permissions.canBypassApprovalChecks({
+    context.permissions.canBypassFlagApprovalChecks({
       project: constant.project || "",
     });
   if (!override) {

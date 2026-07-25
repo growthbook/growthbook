@@ -104,9 +104,11 @@ const SavedGroupForm: FC<{
     (user?.role === "admin" ||
       (current.projects?.length
         ? current.projects.every((project) =>
-            permissionsUtil.canBypassApprovalChecks({ project: project || "" }),
+            permissionsUtil.canBypassSavedGroupApprovalChecks({
+              project: project || "",
+            }),
           )
-        : permissionsUtil.canBypassApprovalChecks({ project: "" })));
+        : permissionsUtil.canBypassSavedGroupApprovalChecks({ project: "" })));
 
   const canAutoPublish = !isApprovalFlowRequired || canAdminPublish;
 

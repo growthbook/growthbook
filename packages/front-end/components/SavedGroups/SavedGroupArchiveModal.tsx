@@ -44,9 +44,11 @@ export default function SavedGroupArchiveModal({
   const canBypass =
     savedGroup.projects && savedGroup.projects.length > 0
       ? savedGroup.projects.every((proj) =>
-          permissionsUtil.canBypassApprovalChecks({ project: proj || "" }),
+          permissionsUtil.canBypassSavedGroupApprovalChecks({
+            project: proj || "",
+          }),
         )
-      : permissionsUtil.canBypassApprovalChecks({ project: "" });
+      : permissionsUtil.canBypassSavedGroupApprovalChecks({ project: "" });
 
   const approvalRequired =
     settings.approvalFlows?.savedGroups?.[0]?.required ?? false;

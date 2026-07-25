@@ -53,7 +53,7 @@ function makeContext(overrides: {
   const permissions = {
     canReadMultiProjectResource: () => true,
     canUpdateSavedGroup: () => true,
-    canBypassApprovalChecks: () => true,
+    canBypassSavedGroupApprovalChecks: () => true,
     ...(overrides.permissions ?? {}),
   };
   return {
@@ -351,22 +351,28 @@ describe("savedGroupAdapter", () => {
     });
 
     it("canDelete with no projects checks bypass on the empty project", () => {
-      const canBypassApprovalChecks = jest.fn(() => true);
-      const ctx = makeContext({ permissions: { canBypassApprovalChecks } });
+      const canBypassSavedGroupApprovalChecks = jest.fn(() => true);
+      const ctx = makeContext({
+        permissions: { canBypassSavedGroupApprovalChecks },
+      });
       const groupNoProjects: SavedGroupInterface = {
         ...baseGroup,
         projects: undefined,
       };
       expect(savedGroupAdapter.canDelete(ctx, groupNoProjects)).toBe(true);
-      expect(canBypassApprovalChecks).toHaveBeenCalledWith({ project: "" });
+      expect(canBypassSavedGroupApprovalChecks).toHaveBeenCalledWith({
+        project: "",
+      });
     });
 
     it("canDelete with multiple projects requires bypass on every project", () => {
       const allowedProjects = new Set(["prj-1", "prj-2"]);
-      const canBypassApprovalChecks = jest.fn(
+      const canBypassSavedGroupApprovalChecks = jest.fn(
         ({ project }: { project: string }) => allowedProjects.has(project),
       );
-      const ctx = makeContext({ permissions: { canBypassApprovalChecks } });
+      const ctx = makeContext({
+        permissions: { canBypassSavedGroupApprovalChecks },
+      });
       const group: SavedGroupInterface = {
         ...baseGroup,
         projects: ["prj-1", "prj-2"],
@@ -377,16 +383,18 @@ describe("savedGroupAdapter", () => {
         ({ project }: { project: string }) => project !== "prj-2",
       );
       const ctx2 = makeContext({
-        permissions: { canBypassApprovalChecks: partialDeny },
+        permissions: { canBypassSavedGroupApprovalChecks: partialDeny },
       });
       expect(savedGroupAdapter.canDelete(ctx2, group)).toBe(false);
     });
 
     it("canBypassApproval mirrors canDelete logic", () => {
-      const canBypassApprovalChecks = jest.fn(
+      const canBypassSavedGroupApprovalChecks = jest.fn(
         ({ project }: { project: string }) => project === "prj-1",
       );
-      const ctx = makeContext({ permissions: { canBypassApprovalChecks } });
+      const ctx = makeContext({
+        permissions: { canBypassSavedGroupApprovalChecks },
+      });
       // Single allowed project
       expect(savedGroupAdapter.canBypassApproval(ctx, baseGroup)).toBe(true);
       // Multi-project — partial deny

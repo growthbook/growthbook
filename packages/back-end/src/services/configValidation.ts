@@ -20,6 +20,7 @@ import {
   SimpleSchema,
 } from "shared/types/feature";
 import { ConfigInterface } from "shared/types/config";
+import { bypassApprovalPermission } from "shared/permissions";
 import {
   buildConstantValueMap,
   resolveConstantRefs,
@@ -782,7 +783,7 @@ export async function collectConfigPublishHookGates({
     },
     revision,
   });
-  return hookResultsToGates(hookResults);
+  return hookResultsToGates(hookResults, bypassApprovalPermission("config"));
 }
 
 /**
@@ -830,6 +831,7 @@ export async function collectConfigPublishValueGates({
       ],
       ...schemaFailureGateOverride(
         context.org.settings?.blockPublishOnSchemaError !== false,
+        bypassApprovalPermission("config"),
       ),
       resolution: null,
     },

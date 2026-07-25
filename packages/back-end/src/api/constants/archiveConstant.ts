@@ -83,6 +83,7 @@ async function setArchivedState(
     archived,
     noun: "Constant",
     createDraftPath: `/constants-revisions/${constant.key}`,
+    model: "constant",
   });
   // Soft guards (experiment / locked-dependent / schema-break / archive-dependents)
   // for the archived flip. Archived refs are scrubbed at resolution, so the

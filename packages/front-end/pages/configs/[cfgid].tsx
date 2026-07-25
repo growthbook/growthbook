@@ -878,7 +878,7 @@ export default function ConfigDetailPage(): React.ReactElement {
   // (saveValue's writeQuery falls back to ?forceCreateRevision=1). Kept in lockstep
   // with canEditNow so locked/discarded contexts expose no edit controls.
   const canEditInline = canEditNow;
-  const canBypassApproval = permissionsUtil.canBypassApprovalChecks({
+  const canBypassApproval = permissionsUtil.canBypassFlagApprovalChecks({
     project: config.project || "",
   });
 

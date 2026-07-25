@@ -79,7 +79,7 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
     }
 
     // Experiment-guard toggle: a config-level setting (not a revision field),
-    // asymmetric like lock/unlock (OFF needs bypassApprovalChecks). Check the
+    // asymmetric like lock/unlock (OFF needs bypassApprovalFlags). Check the
     // permission now but DEFER the write (commitGuardToggle) until after the
     // value publish succeeds, so a failed publish can't leave it half-applied.
     const guardToggle =
@@ -89,7 +89,7 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
         : undefined;
     if (
       guardToggle === false &&
-      !req.context.permissions.canBypassApprovalChecks({
+      !req.context.permissions.canBypassFlagApprovalChecks({
         project: config.project || "",
       })
     ) {

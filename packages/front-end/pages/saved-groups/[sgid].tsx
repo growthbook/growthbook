@@ -283,9 +283,11 @@ export default function EditSavedGroupPage() {
     (user?.role === "admin" ||
       (savedGroup?.projects?.length
         ? savedGroup.projects.every((project) =>
-            permissionsUtil.canBypassApprovalChecks({ project: project || "" }),
+            permissionsUtil.canBypassSavedGroupApprovalChecks({
+              project: project || "",
+            }),
           )
-        : permissionsUtil.canBypassApprovalChecks({ project: "" })));
+        : permissionsUtil.canBypassSavedGroupApprovalChecks({ project: "" })));
 
   const canAutoPublish = !approvalRequired || canAdminPublish;
 

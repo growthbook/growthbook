@@ -1141,7 +1141,7 @@ export async function postFeatureScheduledPublish(
     );
     if (
       requiresReview &&
-      !context.permissions.canBypassApprovalChecks(feature)
+      !context.permissions.canBypassFlagApprovalChecks(feature)
     ) {
       throw new Error(
         "This change requires approval — request review to schedule its publish.",
@@ -1153,7 +1153,7 @@ export async function postFeatureScheduledPublish(
   // that permission — a requested bypass from a non-admin is silently ignored.
   const bypassApproval =
     !!req.body.bypassApproval &&
-    context.permissions.canBypassApprovalChecks(feature);
+    context.permissions.canBypassFlagApprovalChecks(feature);
 
   await setRevisionScheduledPublish(
     context,
@@ -1507,7 +1507,10 @@ export async function postFeatureApproveAndPublish(
   // Approving anchors approvedBaseVersion to the current live version, so model
   // that post-approval state (staleApproval=false; only raw divergence blocks).
   const adminOverride = !!req.body.adminOverride;
-  if (adminOverride && !context.permissions.canBypassApprovalChecks(feature)) {
+  if (
+    adminOverride &&
+    !context.permissions.canBypassFlagApprovalChecks(feature)
+  ) {
     context.permissions.throwPermissionError();
   }
   if (!adminOverride) {
@@ -1954,7 +1957,10 @@ export async function postFeaturePublish(
   // adminOverride skips review requirements AND the rebase-required governance
   // gate below, so it always demands the bypass permission — not just when
   // reviews are required.
-  if (adminOverride && !context.permissions.canBypassApprovalChecks(feature)) {
+  if (
+    adminOverride &&
+    !context.permissions.canBypassFlagApprovalChecks(feature)
+  ) {
     context.permissions.throwPermissionError();
   }
   if (JSON.stringify(mergeResult) !== mergeResultSerialized) {
@@ -2165,7 +2171,8 @@ export async function postFeaturePublish(
     result: mergeResult.result,
     comment,
     bypassLockdown:
-      !!adminOverride && context.permissions.canBypassApprovalChecks(feature),
+      !!adminOverride &&
+      context.permissions.canBypassFlagApprovalChecks(feature),
   });
 
   await req.audit({
@@ -2211,7 +2218,8 @@ export async function postFeaturePublish(
     // current feature stays live. Closing this gap fully would require cross-
     // collection transactions.
     const adminBypass =
-      !!adminOverride && context.permissions.canBypassApprovalChecks(feature);
+      !!adminOverride &&
+      context.permissions.canBypassFlagApprovalChecks(feature);
     const publishResult: PendingDraftPublishResult =
       await publishPendingFeatureDraftsForExperiment(
         context,
@@ -2499,7 +2507,7 @@ export async function postFeatureRevert(
   // org enables "reverts bypass approval", any publisher may publish a revert
   // without approval — publish perms were already enforced per-change above.
   const revertBypass =
-    context.permissions.canBypassApprovalChecks(feature) ||
+    context.permissions.canBypassFlagApprovalChecks(feature) ||
     !!org.settings?.revertsBypassApproval;
   if (!revertBypass) {
     await assertCanAutoPublish(context, feature, newRevision);
@@ -3558,7 +3566,7 @@ export async function postFeatureExperimentRefRule(
       revision: updatedRevision,
       result: mergeResult.result,
       comment: `Add experiment rule for "${experiment.name}"`,
-      bypassLockdown: context.permissions.canBypassApprovalChecks(feature),
+      bypassLockdown: context.permissions.canBypassFlagApprovalChecks(feature),
     });
     await req.audit({
       event: "feature.publish",
@@ -3780,7 +3788,7 @@ export async function postFeatureContextualBanditRefRule(
       revision: updatedRevision,
       result: mergeResult.result,
       comment: `Add contextual bandit rule for "${contextualBandit.name}"`,
-      bypassLockdown: context.permissions.canBypassApprovalChecks(feature),
+      bypassLockdown: context.permissions.canBypassFlagApprovalChecks(feature),
     });
     await req.audit({
       event: "feature.publish",
@@ -4022,7 +4030,7 @@ export async function postFeatureSchema(
       feature,
       revision: draft,
       result: { metadata: { jsonSchema } },
-      bypassLockdown: context.permissions.canBypassApprovalChecks(feature),
+      bypassLockdown: context.permissions.canBypassFlagApprovalChecks(feature),
     });
   }
   return res.status(200).json({ status: 200, draftVersion: draft.version });
@@ -4157,7 +4165,7 @@ export async function putSafeRolloutStatus(
       revision,
       result: mergeResult.result,
       comment: "auto-publish status change",
-      bypassLockdown: context.permissions.canBypassApprovalChecks(feature),
+      bypassLockdown: context.permissions.canBypassFlagApprovalChecks(feature),
     });
 
     await req.audit({
@@ -4670,7 +4678,7 @@ export async function postFeatureToggle(
       feature,
       revision,
       result: { environmentsEnabled: changes },
-      bypassLockdown: context.permissions.canBypassApprovalChecks(feature),
+      bypassLockdown: context.permissions.canBypassFlagApprovalChecks(feature),
     });
 
     await req.audit({
@@ -5131,7 +5139,8 @@ export async function putFeature(
         feature,
         revision: draft,
         result: envelopeChanges,
-        bypassLockdown: context.permissions.canBypassApprovalChecks(feature),
+        bypassLockdown:
+          context.permissions.canBypassFlagApprovalChecks(feature),
       });
     }
     // Keep the tag autocomplete table in sync (side-effect; revision already captures the values).
@@ -5423,7 +5432,7 @@ export async function postFeatureArchive(
       feature,
       revision: draft,
       result: archiveChanges,
-      bypassLockdown: context.permissions.canBypassApprovalChecks(feature),
+      bypassLockdown: context.permissions.canBypassFlagApprovalChecks(feature),
     });
     // Re-fetch so the payload reflects the post-publish status ("published").
     const publishedRevision =
@@ -6025,7 +6034,7 @@ export async function toggleStaleFFDetectionForFeature(
       feature,
       revision,
       result: { metadata: { neverStale } },
-      bypassLockdown: context.permissions.canBypassApprovalChecks(feature),
+      bypassLockdown: context.permissions.canBypassFlagApprovalChecks(feature),
     });
     return res
       .status(200)

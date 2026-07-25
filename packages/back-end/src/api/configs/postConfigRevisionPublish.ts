@@ -144,7 +144,7 @@ export const postConfigRevisionPublish = createApiRequestHandler(
     throw new BadRequestError(
       `This revision requires approval before publishing (status: "${revision.status}"). ` +
         "Enable 'REST API always bypasses approval requirements' in organization settings, " +
-        "or use a role/token that grants bypassApprovalChecks on this Config's project.",
+        "or use a role/token that grants bypassApprovalFlags on this Config's project.",
     );
   }
 

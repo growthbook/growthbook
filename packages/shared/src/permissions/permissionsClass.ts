@@ -998,13 +998,20 @@ export class Permissions {
     });
   };
 
-  public canBypassApprovalChecks = (
-    feature: Pick<FeatureInterface, "project">,
-  ): boolean => {
-    return this.checkProjectFilterPermission(
-      { projects: feature.project ? [feature.project] : [] },
-      "bypassApprovalChecks",
-    );
+  // Bypass the review requirement on a Feature Flag, Config or Constant. Saved
+  // groups have their own atom — see canBypassSavedGroupApprovalChecks.
+  public canBypassFlagApprovalChecks = (obj: {
+    project?: string;
+    projects?: string[];
+  }): boolean => {
+    return this.canRevisionAction("feature", "bypass", obj);
+  };
+
+  public canBypassSavedGroupApprovalChecks = (obj: {
+    project?: string;
+    projects?: string[];
+  }): boolean => {
+    return this.canRevisionAction("saved-group", "bypass", obj);
   };
 
   public canManageCustomFields = (): boolean => {

@@ -1075,7 +1075,7 @@ export async function assertScopedOverridesChangeAllowed(
   );
   if (!requiresReview) return;
   if (
-    context.permissions.canBypassApprovalChecks({
+    context.permissions.canBypassFlagApprovalChecks({
       project: config.project || "",
     })
   ) {

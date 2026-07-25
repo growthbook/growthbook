@@ -212,7 +212,7 @@ Same three-option branch as `flag-targeting`, **but with one critical asymmetry 
 >
 > **B. Org-wide bypass** — admin enables "REST API always bypasses approval requirements" in Settings → General → Approvals. This single setting authorizes _both_ archive and the final delete step.
 >
-> **C. Per-token bypass** — use a PAT with `bypassApprovalChecks` permission. **This authorizes archive but NOT delete.** The per-token permission is intentionally a review-workflow bypass only, not a destructive-action override. If your end goal is archive-only, this works. If you want to delete, you'll still need the org-wide setting from option B (or an admin to do the delete in the UI). Surface this asymmetry to the user _before_ they pick C — don't let them discover it at step 6.
+> **C. Per-token bypass** — use a PAT with `bypassApprovalFlags` permission. **This authorizes archive but NOT delete.** The per-token permission is intentionally a review-workflow bypass only, not a destructive-action override. If your end goal is archive-only, this works. If you want to delete, you'll still need the org-wide setting from option B (or an admin to do the delete in the UI). Surface this asymmetry to the user _before_ they pick C — don't let them discover it at step 6.
 
 For path A, request review on the draft and halt:
 
@@ -278,7 +278,7 @@ This goes through the same revision-and-publish flow as the archive — same app
   > - Ask an admin to enable the setting (Settings → General → Approvals), then re-run me to finish the delete.
   > - Delete manually in the GrowthBook UI at `/features/<flag-id>` (the archived flag is still listed there).
   >
-  > Per-token `bypassApprovalChecks` does **not** authorize this — it's intentionally a review-workflow bypass only, not a destructive-action override.
+  > Per-token `bypassApprovalFlags` does **not** authorize this — it's intentionally a review-workflow bypass only, not a destructive-action override.
 - Other 4xx → halt with the body.
 
 **Server-side cleanup.** Deletion removes the feature record, all its revisions, all revision logs, and unlinks any experiments that had this flag in their `linkedFeatures`. The experiments themselves are not deleted — they continue to exist with stale tracking keys. Surface this in step 7 so the user knows the experiments are still there.
@@ -301,9 +301,9 @@ Print a summary:
 
 - **Archive-before-delete is the canonical flow on live flags.** The back-end rejects DELETE on non-archived features unless `restApiBypassesReviews` is set org-wide. Even if the setting is on, prefer archive→verify→delete for the safety pause.
 - **Archive triggers a revision-and-publish.** Setting `archived: true` via `POST /v2/features/<id>` creates and publishes a revision server-side. The same failure modes that affect any v2 publish apply — approval-required (4a) and merge-conflict (4b).
-- **`bypassApprovalChecks` is asymmetric across archive and delete.**
-  - Archive: per-token `bypassApprovalChecks` works (`updateFeatureV2.ts` checks both org-wide and per-token).
-  - Delete: per-token `bypassApprovalChecks` does NOT work (`deleteFeature.ts` explicit comment: "review-workflow bypass, not destructive-action override").
+- **`bypassApprovalFlags` is asymmetric across archive and delete.**
+  - Archive: per-token `bypassApprovalFlags` works (`updateFeatureV2.ts` checks both org-wide and per-token).
+  - Delete: per-token `bypassApprovalFlags` does NOT work (`deleteFeature.ts` explicit comment: "review-workflow bypass, not destructive-action override").
   - Only org-wide `restApiBypassesReviews` authorizes both. Don't conflate them when surfacing approval options to the user.
 - **`neverStale: true` flags are deliberately permanent.** Halt if the user asks to clean one up; they need to explicitly remove that flag in the UI first.
 - **Active running experiments block cleanup.** A flag with an `experiment-ref` rule pointing at a `running` experiment cannot be cleaned up — stopping the experiment is a separate decision routed to `experiment-stop`.

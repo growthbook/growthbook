@@ -13,7 +13,8 @@ export type RevisionAction =
   | "draft" // author a revision: create / edit / discard / rebase / request review
   | "review" // approve / request changes
   | "publish" // publish a revision to the live entity
-  | "revert"; // restore a previously-published revision
+  | "revert" // restore a previously-published revision
+  | "bypass"; // publish without the required review, force-merge a stale base
 
 // Entities sharing one permission vocabulary. Features, constants and configs
 // are all "flags"; saved groups have their own atoms.
@@ -45,6 +46,9 @@ export const REVISION_PERMISSIONS: Record<
     review: { permission: "reviewFlags", scope: "project" },
     publish: { permission: "publishFlags", scope: "environment" },
     revert: { permission: "revertFlags", scope: "environment" },
+    // Bypass is project-scoped even though publish/revert are env-scoped: it
+    // relaxes the review requirement, which the org configures per project.
+    bypass: { permission: "bypassApprovalFlags", scope: "project" },
   },
   savedGroups: {
     manage: { permission: "manageSavedGroups", scope: "project" },
@@ -54,5 +58,22 @@ export const REVISION_PERMISSIONS: Record<
     // No environment concept, so publish/revert are project-scoped.
     publish: { permission: "publishSavedGroups", scope: "project" },
     revert: { permission: "revertSavedGroups", scope: "project" },
+    bypass: { permission: "bypassApprovalSavedGroups", scope: "project" },
   },
 };
+
+/**
+ * The bypass-approval atom for an entity's family. Use it wherever a permission
+ * has to be named as data rather than checked — the gate metadata a blocked
+ * publish reports back, for instance.
+ */
+export function bypassApprovalPermission(model: RevisionModel): Permission {
+  return REVISION_PERMISSIONS[MODEL_FAMILY[model]].bypass.permission;
+}
+
+/** Is this atom one of the per-family bypass-approval atoms? */
+export function isBypassApprovalPermission(permission: string): boolean {
+  return Object.values(REVISION_PERMISSIONS).some(
+    (family) => family.bypass.permission === permission,
+  );
+}

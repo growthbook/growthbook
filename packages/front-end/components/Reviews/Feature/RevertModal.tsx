@@ -133,7 +133,8 @@ export default function RevertModal({
   // authority alone is enough to propose one as a draft — so a revert-only role
   // can roll back without any edit or publish rights.
   const canRevert = permissionsUtil.canRevertFeature(feature, affectedEnvs);
-  const canBypassApprovals = permissionsUtil.canBypassApprovalChecks(feature);
+  const canBypassApprovals =
+    permissionsUtil.canBypassFlagApprovalChecks(feature);
   const canCreateDraft =
     permissionsUtil.canManageFeatureDrafts(feature) || canRevert;
 

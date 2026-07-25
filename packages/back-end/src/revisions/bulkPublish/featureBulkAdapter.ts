@@ -1,5 +1,6 @@
 import type { MergeResultChanges } from "shared/util";
 import { FeatureInterface } from "shared/types/feature";
+import { bypassApprovalPermission } from "shared/permissions";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import type { SafeRolloutInterface } from "shared/validators";
 import { logger } from "back-end/src/util/logger";
@@ -142,7 +143,7 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
   },
 
   canBypassApproval(context, entity) {
-    return context.permissions.canBypassApprovalChecks(
+    return context.permissions.canBypassFlagApprovalChecks(
       entity as unknown as FeatureInterface,
     );
   },
@@ -251,7 +252,7 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
         makeBlockingGate({
           type: "ramp-locked",
           messages: [getErrorMessage(e)],
-          requiresPermission: "bypassApprovalChecks",
+          requiresPermission: bypassApprovalPermission("feature"),
         }),
       );
     }
@@ -268,7 +269,7 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
           messages: [
             "Another draft of this Feature Flag has a scheduled publish that locks other drafts. Cancel that schedule first.",
           ],
-          requiresPermission: "bypassApprovalChecks",
+          requiresPermission: bypassApprovalPermission("feature"),
         }),
       );
     }

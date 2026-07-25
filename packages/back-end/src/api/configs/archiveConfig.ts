@@ -92,6 +92,7 @@ async function setArchivedState(
       archived,
       noun: "Config",
       createDraftPath: `/configs-revisions/${config.key}`,
+      model: "config",
     }),
   ];
   // Soft guards (experiment / locked-dependent / schema-break / archive-dependents)

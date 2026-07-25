@@ -32,16 +32,16 @@ export type BulkPublishItemRef = {
 /**
  * Request override flags — exactly the platform's three-class model
  * (publishOverrideBodyFields). There is deliberately no bypassApproval flag:
- * approval-required gates clear by caller authority (bypassApprovalChecks
- * permission or the org restApiBypassesReviews setting), reported via
- * bypassedGates.
+ * approval-required gates clear by caller authority (the entity's
+ * bypass-approval permission or the org restApiBypassesReviews setting),
+ * reported via bypassedGates.
  */
 export type BulkPublishFlags = {
   /** Acknowledge-class gates: guards, stale-base, warn-mode schema failures. */
   ignoreWarnings: boolean;
-  /** Validation-class gates; honored only with bypassApprovalChecks. */
+  /** Validation-class gates; honored only with bypassApprovalFlags. */
   skipSchemaValidation: boolean;
-  /** Custom-hook rejections; honored only with bypassApprovalChecks. */
+  /** Custom-hook rejections; honored only with bypassApprovalFlags. */
   skipHooks: boolean;
   /** The org REST-bypass setting applies to this caller (key/PAT, not JWT). */
   restApiBypassesReviews: boolean;

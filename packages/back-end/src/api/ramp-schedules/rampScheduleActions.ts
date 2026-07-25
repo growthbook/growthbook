@@ -678,7 +678,7 @@ export const apiAdvanceRampSchedule = createApiRequestHandler({
         .boolean()
         .optional()
         .describe(
-          "Bypass a pending approval gate on the current step. Requires admin-level (`canBypassApprovalChecks`) permission. When omitted or `false`, a 409 is returned if the step has an unsatisfied `holdConditions.requiresApproval` gate.",
+          "Bypass a pending approval gate on the current step. Requires admin-level (`bypassApprovalFlags`) permission. When omitted or `false`, a 409 is returned if the step has an unsatisfied `holdConditions.requiresApproval` gate.",
         ),
     })
     .optional(),
@@ -688,7 +688,7 @@ export const apiAdvanceRampSchedule = createApiRequestHandler({
   operationId: "apiAdvanceRampSchedule",
   summary: "Advance to the next step, overriding any holds",
   description:
-    'Moves the schedule to the next step, bypassing **all** hold conditions —\ninterval, min sample size, and monitoring signal holds. Accepts `running`\nor `paused` status; if paused, the schedule is implicitly resumed (timing\nanchors recalculated) before the step moves.\n\n**Approval gate**: if the current step has an unsatisfied\n`holdConditions.requiresApproval` gate, this endpoint returns **409** by\ndefault. Either call `/actions/approve-step` first (recommended), or pass\n`force: true` to override the approval gate. `force: true` requires\n`canBypassApprovalChecks` permission and is logged in the audit trail.\n\n**Two common uses:**\n- **Post-interval monitoring hold** (`decision: "hold"`, interval elapsed): the\n  step timer has completed but a signal or guardrail is flagging concern. Use\n  this after reviewing the `/status` health summary and deciding to accept the\n  risk and proceed.\n- **Hard override**: skip a step regardless of where it is in its interval or\n  hold conditions (CI gate, external deployment pipeline).\n\nWhen to use other actions instead:\n- **`/actions/resume`** — restores a paused schedule without moving the step.\n- **`/actions/approve-step`** — clears only the approval gate; other conditions\n  still resolve naturally.\n- **`/actions/rollback`** — preferred response when `decision: "rollback"` or\n  signals include `guardrail-failing`.\n',
+    'Moves the schedule to the next step, bypassing **all** hold conditions —\ninterval, min sample size, and monitoring signal holds. Accepts `running`\nor `paused` status; if paused, the schedule is implicitly resumed (timing\nanchors recalculated) before the step moves.\n\n**Approval gate**: if the current step has an unsatisfied\n`holdConditions.requiresApproval` gate, this endpoint returns **409** by\ndefault. Either call `/actions/approve-step` first (recommended), or pass\n`force: true` to override the approval gate. `force: true` requires\n`bypassApprovalFlags` permission and is logged in the audit trail.\n\n**Two common uses:**\n- **Post-interval monitoring hold** (`decision: "hold"`, interval elapsed): the\n  step timer has completed but a signal or guardrail is flagging concern. Use\n  this after reviewing the `/status` health summary and deciding to accept the\n  risk and proceed.\n- **Hard override**: skip a step regardless of where it is in its interval or\n  hold conditions (CI gate, external deployment pipeline).\n\nWhen to use other actions instead:\n- **`/actions/resume`** — restores a paused schedule without moving the step.\n- **`/actions/approve-step`** — clears only the approval gate; other conditions\n  still resolve naturally.\n- **`/actions/rollback`** — preferred response when `decision: "rollback"` or\n  signals include `guardrail-failing`.\n',
   tags: ["ramp-schedules"],
 })(async (req) => {
   const schedule = await req.context.models.rampSchedules.getById(
@@ -708,14 +708,17 @@ export const apiAdvanceRampSchedule = createApiRequestHandler({
 
   if (approvalPending && !force) {
     throw new ConflictError(
-      "This step requires approval before advancing. Call `/actions/approve-step` first, or pass `force: true` to bypass (requires canBypassApprovalChecks permission).",
+      "This step requires approval before advancing. Call `/actions/approve-step` first, or pass `force: true` to bypass (requires bypassApprovalFlags permission).",
     );
   }
   if (approvalPending && force) {
     const feature = await getFeature(req.context, schedule.entityId);
-    if (!feature || !req.context.permissions.canBypassApprovalChecks(feature)) {
+    if (
+      !feature ||
+      !req.context.permissions.canBypassFlagApprovalChecks(feature)
+    ) {
       throw new PermissionError(
-        "force: true requires canBypassApprovalChecks permission on the linked feature",
+        "force: true requires bypassApprovalFlags permission on the linked feature",
       );
     }
   }
@@ -745,17 +748,17 @@ export const apiAdvanceRampSchedule = createApiRequestHandler({
         fresh.stepApproval?.stepIndex !== fresh.currentStepIndex;
       if (freshApprovalPending && !force) {
         throw new ConflictError(
-          "This step requires approval before advancing. Call `/actions/approve-step` first, or pass `force: true` to bypass (requires canBypassApprovalChecks permission).",
+          "This step requires approval before advancing. Call `/actions/approve-step` first, or pass `force: true` to bypass (requires bypassApprovalFlags permission).",
         );
       }
       if (freshApprovalPending && force) {
         const linkedFeature = await getFeature(req.context, fresh.entityId);
         if (
           !linkedFeature ||
-          !req.context.permissions.canBypassApprovalChecks(linkedFeature)
+          !req.context.permissions.canBypassFlagApprovalChecks(linkedFeature)
         ) {
           throw new PermissionError(
-            "force: true requires canBypassApprovalChecks permission on the linked feature",
+            "force: true requires bypassApprovalFlags permission on the linked feature",
           );
         }
         bypassedApproval = true;

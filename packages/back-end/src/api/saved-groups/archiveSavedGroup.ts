@@ -84,6 +84,7 @@ async function setArchivedState(
       archived,
       noun: "Saved Group",
       createDraftPath: `/saved-groups/${savedGroup.id}/revisions`,
+      model: "saved-group",
     }),
     // Only the archive transition is guarded for dependents; unarchiving never
     // breaks a dependent.

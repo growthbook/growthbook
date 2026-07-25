@@ -53,7 +53,8 @@ export async function assertCanPublishRevision(
 
   // Archiving is delete-class wherever the transition lands. Note this needs the
   // entity's delete atom from the permission table — adapter.canDelete gates
-  // deleting a revision document (bypassApprovalChecks), not the entity.
+  // deleting a revision document (the entity's bypass-approval permission),
+  // not the entity.
   if (
     isArchiveTransition({
       proposed: proposedArchivedValue(revision.target.proposedChanges),
