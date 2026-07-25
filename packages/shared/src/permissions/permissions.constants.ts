@@ -349,7 +349,7 @@ export const POLICY_METADATA_MAP: Record<
       "Create, edit, delete, draft, review, publish, and revert Feature Flags, constants, and configs",
   },
   FlagsBypassApprovals: {
-    displayName: "Feature Flags Bypass Approvals",
+    displayName: "Bypass Draft Approvals",
     description:
       "Add-on to Feature Flags Full Access: publish without the required review, force-merge an out-of-date draft, and discard other users' drafts. Does not bypass schema validation, custom hooks, or config locks.",
   },
