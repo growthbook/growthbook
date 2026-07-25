@@ -5366,20 +5366,28 @@ export async function postFeatureArchive(
   // Use the explicitly requested state if provided; fall back to toggling.
   const newArchivedState = archivedParam ?? !feature.archived;
 
-  // The two directions carry different authority. Archiving is delete-class: it
-  // takes the flag out of service, and being archived is what lets it then be
-  // deleted freely (see deleteFeature), so a lower gate would make archive a
-  // route to delete. Unarchiving only puts it back into service, which is an
-  // ordinary SDK-payload change.
-  const archiveEnvs = filterEnvironmentsByFeature(
-    getEnvironments(context.org),
-    feature,
-  ).map((e) => e.id);
-  const canChangeArchivedState = newArchivedState
-    ? context.permissions.canDeleteFeature(feature)
-    : context.permissions.canPublishFeature(feature, archiveEnvs);
-  if (!canChangeArchivedState) {
+  // Staging the change is draft-class, matching every other draft edit.
+  if (!context.permissions.canManageFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
+  }
+
+  // Landing it is not. Archiving is delete-class: it takes the flag out of
+  // service, and being archived is what lets it then be deleted freely (see
+  // deleteFeature), so a lower gate would make archive a route to delete.
+  // Unarchiving only puts it back into service, an ordinary payload change.
+  // This branch publishes directly rather than through
+  // assertCanPublishFeatureRevision, so the check has to live here.
+  if (autoPublish) {
+    const archiveEnvs = filterEnvironmentsByFeature(
+      getEnvironments(context.org),
+      feature,
+    ).map((e) => e.id);
+    const canLand = newArchivedState
+      ? context.permissions.canDeleteFeature(feature)
+      : context.permissions.canPublishFeature(feature, archiveEnvs);
+    if (!canLand) {
+      context.permissions.throwPermissionError();
+    }
   }
   const archiveChanges = { archived: newArchivedState };
   const archiveComment = newArchivedState

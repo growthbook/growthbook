@@ -1,110 +1,113 @@
-# Granular Flag Permissions — implementation notes
+# Granular Flag Permissions — review notes
 
 Branch: `bryce/granular-flag-permissions`. Design doc: `~/Documents/feature-permissions-design.html`.
-Working artifact for review — delete before opening the real PR.
+Working artifact for review — delete before merge.
 
-## Decisions locked (Bryce)
+## What shipped
 
-- Merge **Features + Constants + Configs → one "Flags" permission family**. Saved Groups stays separate.
-- Uniform `resource × action` taxonomy, derived from one source-of-truth table.
-- New `Flags`/`SavedGroups` atom naming (option B). Back-compat via **shadowing**: deprecated policy ids stay resolvable (mapped to the exact legacy atoms) but are hidden from the picker. No JIT policy-name migration — Features→Flags is not access-equivalent (Flags adds publish), so renaming stored policies would silently escalate; shadowing preserves exact access instead.
-- Env-scoped publish/revert across **all** of Flags (decision B) — configs/constants included, using each adapter's existing changed-env computation. Saved Groups publish/revert = project-scoped (no env).
-- Additive `permissions[]` on custom roles alongside `policies[]`; effective = union. No deny.
-- Solve end-to-end incl. UI (drill-down grid). No backend-only path.
+Features, constants and configs are merged into one **Flags** permission family;
+saved groups keep their own. Each lifecycle action is its own grantable atom, and
+custom roles can grant atoms directly (additive `permissions[]`) instead of only
+whole policies.
 
-## Atom set (new)
+| Action               | Flags atom                                 | Saved-group atom         | Scope                     |
+| -------------------- | ------------------------------------------ | ------------------------ | ------------------------- |
+| create + edit        | `manageFlags`                              | `manageSavedGroups`      | project                   |
+| delete (and archive) | `deleteFlags`                              | `deleteSavedGroups`      | project                   |
+| author drafts        | `manageFlagDrafts`                         | `manageSavedGroupDrafts` | project                   |
+| review               | `reviewFlags`                              | `reviewSavedGroups`      | project                   |
+| publish              | `publishFlags`                             | `publishSavedGroups`     | **environment** / project |
+| revert               | `revertFlags`                              | `revertSavedGroups`      | **environment** / project |
+| bypass approvals     | `bypassApprovalChecks` (shared, unchanged) | —                        | project                   |
 
-### Flags (features + constants + configs)
-
-| atom                   | scope   | replaces                                                       |
-| ---------------------- | ------- | -------------------------------------------------------------- |
-| `manageFlags`          | project | manageFeatures / manageConfigs / manageConstants (create+edit) |
-| `deleteFlags`          | project | (new — split out)                                              |
-| `manageFlagDrafts`     | project | manageFeatureDrafts (+ config/constant draft, was manage\*)    |
-| `reviewFlags`          | project | canReview (+ config/constant review, was manage\*)             |
-| `publishFlags`         | **env** | publishFeatures (+ config/constant publish, was manage\*)      |
-| `revertFlags`          | **env** | (new — split out)                                              |
-| `bypassApprovalChecks` | project | **KEPT as single shared atom** (see deviation below)           |
-
-### Saved Groups
-
-| atom                        | scope   | replaces                |
-| --------------------------- | ------- | ----------------------- |
-| `manageSavedGroups`         | project | (keep name) create+edit |
-| `deleteSavedGroups`         | project | (new)                   |
-| `manageSavedGroupDrafts`    | project | (new)                   |
-| `reviewSavedGroups`         | project | (new)                   |
-| `publishSavedGroups`        | project | (new, no env)           |
-| `revertSavedGroups`         | project | (new, no env)           |
-| `bypassSavedGroupSizeLimit` | project | (keep)                  |
-
-(Saved-group approval bypass continues to use the shared `bypassApprovalChecks`.)
-
-## Deviation from design doc
-
-- **Bypass-approval NOT split per resource.** `bypassApprovalChecks` stays a single shared atom. Reason: it's the `requiresPermission` literal threaded through the entire publish-gate system (publishGates/governanceGates/adapters + ~14 gate sites + ~14 tests + ~20 API docs); splitting it is high-risk/low-value since bypass is an elevated cross-cutting capability. Consequence: the review/publish/delete/revert "coupling wart" is fixed, but saved groups still reach bypass via a flags-family policy (`FlagsBypassApprovals`). Revisit later if a customer needs per-resource bypass.
-
-Kept untouched: `manageArchetype`, `runExperiments`, everything else.
-
-## Policies
-
-New (shown in editor, "Feature Flagging" group):
-
-- `FlagsFullAccess` → readData, manageFlags, deleteFlags, manageFlagDrafts, reviewFlags, publishFlags, revertFlags, manageArchetype
-- `FlagsBypassApprovals` → FlagsFullAccess + bypassApprovalChecks
-
-Expanded in place (id kept):
-
-- `SavedGroupsFullAccess` → readData + all 6 saved-group action atoms
-- `SavedGroupsBypassSizeLimit` → SavedGroupsFullAccess + bypassSavedGroupSizeLimit
-- `SDKPayloadPublish` → readData, publishFlags, runExperiments (publishFeatures renamed)
-
-Deprecated (resolvable, hidden from POLICY_DISPLAY_GROUPS; mapped to new atoms to preserve exact access):
-
-- `FeaturesFullAccess` → readData, manageFlags, deleteFlags, manageFlagDrafts, reviewFlags, manageArchetype (note: no publish — matches old)
-- `FeaturesBypassApprovals` → above + bypassApprovalChecks (preserves old bypass, incl. cross-resource since bypass stayed a single shared atom)
-- `ConfigsFullAccess` / `ConstantsFullAccess` → readData, manageFlags, deleteFlags, manageFlagDrafts, reviewFlags
-
-## Review fixes (regressions found in self-review)
-
-- **F1 (fixed):** `ConfigsFullAccess`/`ConstantsFullAccess` were remapped without `publishFlags`/`revertFlags`, but pre-merge a config/constant publish **and** revert were gated by the same `manage*` atom as an edit. Any existing custom role on those policies lost config/constant publish+revert outright. Both atoms restored.
-- **F2 (fixed):** feature revert pre-merge required `manageFeatures` + `publishFeatures`, so a `FeaturesFullAccess` + `SDKPayloadPublish` role could revert; post-merge `SDKPayloadPublish` granted only `publishFlags`. Added `revertFlags` to `SDKPayloadPublish` — revert accompanies publish, since restoring an already-published state is a strictly narrower live write than publishing new state.
-- **Deliberately NOT changed:** the deprecated `FeaturesFullAccess`/`FeaturesBypassApprovals` shims do **not** gain `revertFlags`. Their only job is to reproduce legacy access, and legacy feature-edit-only carried no production write. The "everyone with write access can revert" rule is expressed in the live policies instead (`FlagsFullAccess`, `SDKPayloadPublish`), so no legacy edit-only role silently gains a production lever.
-- **Guard:** `pre-merge access is preserved` in `granular-flag-permissions.test.ts` encodes the pre-merge capability matrix per legacy policy set; it fails if a remap ever drops an action again (it reproduces both F1 and F2).
+Single source of truth: `REVISION_PERMISSIONS` in
+`shared/src/permissions/revisionPermissions.ts`. Every check goes through
+`context.permissions.canRevisionAction(model, action, obj, envs?)`.
 
 ## Behavior changes to release-note
 
-1. **Merge escalation (by design):** a custom role that granted Configs/Constants access but _not_ Features now also manages Features (they're one family). Per the "configs express through features anyway" decision.
-2. **Decouple escalation:** a role with publish but not manage can now publish/toggle (previously blocked by an AND). Aligns with the policy's stated intent.
-3. **Decision-B tightening (the one reduction):** env-limited roles become env-limited on config/constant publish too (were project-scoped/unlimited). Correct behavior; chosen handling = accept + release-note (not grandfathering).
+Two are **restrictions** — they can take access away from an existing custom role:
 
-## Enforcement surfaces
+1. **Archive now requires the delete atom** (was manage/drafts). A custom role with
+   manage but _not_ delete loses the ability to archive. Rationale: `deleteFeature`
+   tells callers to "archive the feature first" instead of enabling the REST
+   bypass, so archive was a route to delete — gating it lower let a caller reach
+   delete without ever passing a delete check.
+2. **Unarchive now requires publish authority** in the feature's environments
+   (was manage/drafts). It returns a flag to service, so it's an ordinary payload
+   change — but a manage-only role can no longer do it.
 
-- **Shared revision engine** (configs, constants, saved groups): add `canManageDrafts / canReview / canPublishRevision / canRevert` to `EntityRevisionAdapter` (default → `canUpdate`); each adapter maps to its atoms; publish/revert receive the revision's changed-env set.
-- **Bespoke `features.ts`**: repoint ~30 endpoint gates to specific atoms; decouple the AND-fusions.
+Three are **escalations**, all deliberate:
 
-## Layer checklist (status as of overnight pass)
+3. **Merge:** a role holding Configs/Constants access now also manages Features —
+   they are one family. Per the "a config only reaches users through a feature
+   that references it" decision.
+4. **Decouple:** a role with publish but not manage can now publish/toggle
+   (previously an AND blocked it). Matches `SDKPayloadPublish`'s own description.
+5. **Decision B:** config/constant publish and revert are environment-scoped now,
+   so an env-limited role is correctly limited on them (previously unlimited).
 
-- [x] L1 shared constants: atoms, scope arrays, policies (new + deprecated-shadow), metadata, display groups (renamed "Feature Flagging", Saved Groups moved in), DEFAULT_ROLES updated. `DEPRECATED_POLICIES` exported.
-- [~] L1 JIT policy migration — **not done, intentionally.** Migrating Features→Flags policy names is NOT access-equivalent (Flags adds publish), so instead deprecated policies are kept resolvable (mapped to exact legacy atoms) + hidden from the editor (shadow). Stored roles keep exact access with no migration.
-- [x] L2 permissionsClass: repointed create/edit→manageFlags, delete→deleteFlags(/deleteSavedGroups), drafts→manageFlagDrafts, review→reviewFlags, publish→publishFlags; added canRevertFeature + generic canManageFlagDrafts/canReviewFlag/canPublishFlag/canRevertFlag + saved-group equivalents. Existing method names preserved as the callable interface.
-- [x] L3 custom-role model/API: Role.permissions[], customRoleValidator accepts permissions, resolver union (permissionsFromRole), env-limit applicability (roleSupportsEnvLimitFromRole).
-- [x] L4 revision adapter hooks (canManageDrafts/canReview/canRevert added; canPublishRevision already existed) + config/constant/saved-group adapter impls; generic revision controller + revisionActions routed to action hooks; publish decoupled from manage (project-move-only recheck).
-- [x] L5 features.ts: decoupled draft/publish/toggle gates; revert → canRevertFeature.
-- [x] L6 front-end: RoleForm drill-down (expand a policy → grant individual atoms via permissions[]); GRANULAR_PERMISSION_METADATA.
-- [x] L7 (partial): fixed broken tests (policy-display-groups invariant, 3 back-end atom literals); added granular-flag-permissions.test.ts (resolver union, env-limit, policy mapping). All shared permission tests green (31).
+Back-compat: deprecated policies (`FeaturesFullAccess`, `FeaturesBypassApprovals`,
+`ConfigsFullAccess`, `ConstantsFullAccess`) stay resolvable and hidden from the
+editor, remapped onto the merged atoms. `shared/test/granular-flag-permissions.test.ts`
+pins the pre-merge capability matrix so a remap can't silently drop access.
 
-## Type-check / test status
+## Revert authority
 
-- `pnpm --filter shared|back-end|front-end type-check` — all green.
-- Shared permission jest suites — green.
+Revert is its own atom, and it authorizes the reversion itself — direct or
+draft-based. Proposing a revert as a draft needs either draft _or_ revert
+authority, so a revert-only responder isn't blocked on draft CRUD.
 
-## Remaining work (NOT done — for review/follow-up)
+A draft-based reversion only rides revert authority when the draft is a **pure
+revert**: every value it proposes must restore the target revision's value (or be
+a no-op against live). Checked on content at publish time, so it fails closed —
+any edit, now or from an edit path added later, changes a proposed value and the
+draft falls back to needing publish authority. Side effects that reach beyond the
+entity (`rampActions`, `holdout`) must be no-ops even when the target recorded
+something different, since "restoring" them still fires the effect.
 
-1. **External REST sweep — DONE.** Shared helper `callerCanRevisionAction(context, type, action, snapshot)` in `revisionActions.ts` (routes to the action hook, falls back to canUpdate). Swept config/constant/saved-group revision endpoints (32 files) + features REST (`src/api/features/*`): draft→"draft", submitReview→"review", publish endpoints→publish authority (+ secondary project-move recheck now move-conditional), revert endpoints→canRevert/canRevertFeature, `deleteFeature` REST→delete atom only (live-feature production safety still enforced by the archived/REST-bypass guard), `toggleFeature`→publish-only. Object CRUD (update/create), bypass, and size-limit checks left intact. Back-end type-check green.
-2. **OpenAPI regen — DONE, no diff.** Ran `pnpm --filter back-end generate-openapi`; spec unchanged (permission-enforcement code only, validators untouched; `bypassApprovalChecks` doc strings unaffected since the atom was kept).
-3. **Env footprint precision (decision B):** config/constant publish/revert currently use a conservative env footprint (config flavor scope; all-envs for constants/base configs) rather than the exact per-revision changed-env diff. Tighten against `proposedChanges`.
-4. **Archive semantics:** feature archive was swept into the draft-authoring decouple (now manageFlagDrafts-only). Confirm archive should be draft-authoring vs manage.
-5. **Broader test runs:** full back-end/front-end jest suites not run here; run before PR. Watch config/constant/saved-group revision-publish tests.
-6. **Manual QA:** create a review-only / publish-only / revert-only custom role via the editor and verify enforcement end to end.
-7. Delete this NOTES file before opening the real PR.
+The purity check runs _only_ on the revert fallback, so callers who can already
+publish are unaffected and pay no extra load.
+
+## Accepted boundaries
+
+- **Sparse legacy feature revisions.** A revert to a very old revision whose
+  envelopes were never recorded can read as impure and need publish authority.
+  Fails safe, self-healing as those revisions age out, and anyone with full flag
+  access can unblock it.
+- **Bulk publish does not honor revert authority.** `featureBulkAdapter.canPublish`
+  is synchronous and runs before gate collection, so multi-publish requires publish
+  authority; a revert-only role reverts per entity instead.
+- **Config lineage under revert.** Restoring `parent`/`extends`/`schema` reconciles
+  descendant configs — a cross-entity write. Still subject to the adapter's
+  schema-break and reconcilability guards, which this branch didn't weaken.
+- **`isRevert` validation-skipping is unchanged.** It still trusts `revertedFrom`
+  without consulting purity, so an edited config revert draft still skips those
+  validations. Pre-existing; scoped out deliberately because tightening it would
+  change behavior for callers who already have publish rights.
+
+## Gating layers
+
+Staging is draft-class; landing the change is not. Archive follows that split:
+the revision-archive endpoints stage under the draft atom, and the delete atom is
+enforced wherever the transition lands — the feature archive endpoint's
+auto-publish branch (which publishes directly), `assertCanPublishFeatureRevision`,
+the bulk publisher, and `assertCanPublishRevision` for the engine entities. The
+pure predicates behind that rule are `isArchiveTransition` / `proposedArchivedValue`.
+
+Note the engine's `adapter.canDelete` is **not** the delete atom — it gates
+deleting a revision _document_ (`bypassApprovalChecks`). Entity delete comes from
+the permission table.
+
+## Verification
+
+- All three packages type-check; every changed file lints at zero warnings.
+- back-end 201 suites / 5575 tests, shared 54 / 1912, front-end 50 / 774 — all pass.
+- OpenAPI regenerated: no diff (permission-enforcement code only).
+
+## Still open
+
+- **Manual QA of the new personas** — nothing has exercised review-only,
+  publish-only, revert-only or edit-no-delete end to end, including the editor's
+  preset/atom mutual exclusion. This is the main untested surface.
+- Delete this file before merge.
