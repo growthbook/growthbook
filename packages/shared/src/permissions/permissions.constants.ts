@@ -33,6 +33,7 @@ export const POLICIES = [
   "NamespacesFullAccess",
   "SavedGroupsFullAccess",
   "SavedGroupsBypassSizeLimit",
+  "BypassSavedGroupSizeLimit",
   "GeneralSettingsFullAccess",
   "NorthStarMetricFullAccess",
   "TeamManagementFullAccess",
@@ -65,6 +66,10 @@ export type Policy = (typeof POLICIES)[number];
 // from the role editor (excluded from POLICY_DISPLAY_GROUPS) and must not be
 // offered for new selection.
 export const DEPRECATED_POLICIES: Policy[] = [
+  // Superseded by BypassSavedGroupSizeLimit, which grants only the bypass atom.
+  // Stays resolvable as a superset: stored roles may rely on it for saved-group
+  // management on its own.
+  "SavedGroupsBypassSizeLimit",
   // Everything it granted is now expressed by the Feature Flags family plus
   // ExperimentsPublish, so it's hidden from the editor. Stays resolvable, since
   // stored roles rely on it for publish authority.
@@ -196,6 +201,8 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
     "publishSavedGroups",
     "revertSavedGroups",
   ],
+  BypassSavedGroupSizeLimit: ["readData", "bypassSavedGroupSizeLimit"],
+  // Deprecated superset — see DEPRECATED_POLICIES.
   SavedGroupsBypassSizeLimit: [
     "readData",
     "manageSavedGroups",
@@ -248,14 +255,18 @@ export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
     policies: ["ReadData", "Comments"],
   },
   {
-    name: "Feature Flagging",
-    policies: [
-      "FlagsFullAccess",
-      "FlagsBypassApprovals",
-      "SavedGroupsFullAccess",
-      "SavedGroupsBypassSizeLimit",
-      "ArchetypesFullAccess",
-    ],
+    name: "Feature Flags, Configs, and Constants",
+    policies: ["FlagsFullAccess", "ArchetypesFullAccess"],
+  },
+  {
+    name: "Saved Groups",
+    policies: ["SavedGroupsFullAccess", "BypassSavedGroupSizeLimit"],
+  },
+  {
+    // Review governance applies across flags and Saved Groups alike, so it isn't
+    // a permission on either resource.
+    name: "Revisions and Approvals",
+    policies: ["FlagsBypassApprovals"],
   },
   {
     name: "Experiments",
@@ -464,6 +475,11 @@ export const POLICY_METADATA_MAP: Record<
   SavedGroupsFullAccess: {
     displayName: "Saved Groups Full Access",
     description: "Create, edit, and delete saved groups",
+  },
+  BypassSavedGroupSizeLimit: {
+    displayName: "Bypass Size Limit",
+    description:
+      "Add-on to Saved Groups Full Access: exceed the organization's size limits for a Saved Group",
   },
   SavedGroupsBypassSizeLimit: {
     displayName: "Saved Groups Bypass Size Limit",
