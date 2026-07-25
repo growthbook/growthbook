@@ -346,14 +346,14 @@ export const POLICY_METADATA_MAP: Record<
     description: "Add comments to any resource",
   },
   FlagsFullAccess: {
-    displayName: "Flags Full Access",
+    displayName: "Feature Flags Full Access",
     description:
-      "Create, edit, delete, draft, review, publish, and revert feature flags, constants, and configs",
+      "Create, edit, delete, draft, review, publish, and revert Feature Flags, constants, and configs",
   },
   FlagsBypassApprovals: {
-    displayName: "Flags Bypass Approvals",
+    displayName: "Feature Flags Bypass Approvals",
     description:
-      "Bypass required approval checks when publishing feature flags, constants, and configs",
+      "Bypass required approval checks when publishing Feature Flags, constants, and configs",
   },
   FeaturesFullAccess: {
     displayName: "Features Full Access",
@@ -579,11 +579,11 @@ export const GRANULAR_PERMISSION_METADATA: Partial<
 > = {
   manageFlags: {
     displayName: "Create & edit",
-    description: "Create and edit feature flags, constants, and configs",
+    description: "Create and edit Feature Flags, constants, and configs",
   },
   deleteFlags: {
     displayName: "Delete",
-    description: "Delete feature flags, constants, and configs",
+    description: "Delete Feature Flags, constants, and configs",
   },
   manageFlagDrafts: {
     displayName: "Manage drafts",
