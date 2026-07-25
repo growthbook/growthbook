@@ -1,6 +1,16 @@
+import { ReactNode } from "react";
 import { BiShow } from "react-icons/bi";
 import Link from "@/ui/Link";
 import Tooltip from "@/ui/Tooltip";
+import LoadingSpinner from "@/components/LoadingSpinner";
+
+function DisabledLabel({ children }: { children: ReactNode }) {
+  return (
+    <span style={{ color: "var(--gray-10)", cursor: "not-allowed" }}>
+      {children}
+    </span>
+  );
+}
 
 // "{n} references" link that opens a references modal; renders a disabled,
 // tooltip-explained label when there are none.
@@ -8,17 +18,40 @@ export default function ReferencesLink({
   total,
   onShow,
   emptyTooltip,
+  status,
 }: {
   total: number;
   onShow: () => void;
   emptyTooltip: string;
+  // Omit when the count is known at render time. Callers whose reference data
+  // arrives asynchronously pass this, so a pending or failed fetch isn't drawn
+  // as "0 references" under a tooltip claiming nothing references the entity.
+  status?: "loading" | "error";
 }) {
+  if (status === "loading") {
+    return (
+      <DisabledLabel>
+        <LoadingSpinner /> Loading references…
+      </DisabledLabel>
+    );
+  }
+
+  if (status === "error") {
+    return (
+      <Tooltip content="Some data failed to load, so references can't be counted.">
+        <DisabledLabel>
+          <BiShow /> References unavailable
+        </DisabledLabel>
+      </Tooltip>
+    );
+  }
+
   if (total === 0) {
     return (
       <Tooltip content={emptyTooltip}>
-        <span style={{ color: "var(--gray-10)", cursor: "not-allowed" }}>
+        <DisabledLabel>
           <BiShow /> 0 references
-        </span>
+        </DisabledLabel>
       </Tooltip>
     );
   }
