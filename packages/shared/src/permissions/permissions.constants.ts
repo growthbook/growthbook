@@ -83,17 +83,11 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
     "revertFlags",
     "manageArchetype",
   ],
-  FlagsBypassApprovals: [
-    "readData",
-    "manageFlags",
-    "deleteFlags",
-    "manageFlagDrafts",
-    "reviewFlags",
-    "publishFlags",
-    "revertFlags",
-    "manageArchetype",
-    "bypassApprovalChecks",
-  ],
+  // An add-on, not a bundle: bypassing review isn't a lifecycle action, it changes
+  // how the lifecycle behaves. Ticked alongside FlagsFullAccess rather than
+  // repeating it. (The deprecated FeaturesBypassApprovals below stays a superset,
+  // since stored roles rely on it granting access on its own.)
+  FlagsBypassApprovals: ["readData", "bypassApprovalChecks"],
   ArchetypesFullAccess: ["readData", "manageArchetype"],
   // Deprecated: merged into the Flags family. Mapped to the equivalent Flags
   // atoms to preserve legacy access exactly; hidden from the role editor and
@@ -353,7 +347,7 @@ export const POLICY_METADATA_MAP: Record<
   FlagsBypassApprovals: {
     displayName: "Feature Flags Bypass Approvals",
     description:
-      "Bypass required approval checks when publishing Feature Flags, constants, and configs",
+      "Add-on to Feature Flags Full Access: publish without the required review, and override related review controls such as config locks and other users' drafts",
   },
   FeaturesFullAccess: {
     displayName: "Features Full Access",
