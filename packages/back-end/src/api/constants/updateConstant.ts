@@ -9,6 +9,7 @@ import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
+import { constantPublishEnvironments } from "back-end/src/revisions/revisionPublishEnvironments";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 import {
   buildPatchOps,
@@ -115,6 +116,20 @@ export const updateConstant = createApiRequestHandler(updateConstantValidator)(
     // Change-aware approval gate (a value change always requires review when the
     // project has requireReviews; metadata-only may be exempt) — mirrors the
     // internal PUT controller and the saved-group REST update.
+    // This endpoint always lands the change live (there's no draft mode), so it
+    // needs publish authority on top of edit — same rule as the internal PUT.
+    // Open a draft via POST /constants-revisions/:key without it.
+    if (
+      !req.context.permissions.canRevisionAction(
+        "constant",
+        "publish",
+        constant,
+        constantPublishEnvironments(req.context),
+      )
+    ) {
+      req.context.permissions.throwPermissionError();
+    }
+
     const adapter = getAdapter("constant");
     const patchOps = buildPatchOps(fieldsToUpdate as Record<string, unknown>);
     // The constant adapter reads `target.snapshot` (for the project + the

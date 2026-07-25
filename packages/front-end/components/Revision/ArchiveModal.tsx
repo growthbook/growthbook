@@ -32,6 +32,9 @@ export interface Props {
   approvalRequired: boolean;
   // Viewer can bypass approval (admin) — records a bypass instead of merging.
   canBypassApproval: boolean;
+  // Viewer holds the authority to land this flip (delete to archive, publish to
+  // unarchive). Without it they can only stage the change as a draft.
+  canLand: boolean;
   // References blocking: reference count + loading state. Archiving a
   // still-referenced entity is blocked (it would silently drop config from the
   // referencing items); unarchiving is always allowed.
@@ -84,6 +87,7 @@ export default function ArchiveModal({
   openRevisions,
   approvalRequired,
   canBypassApproval,
+  canLand,
   referenceCount,
   referencesLoading,
   referencesError = false,
@@ -102,14 +106,18 @@ export default function ArchiveModal({
 
   // Archive/unarchive always requires review when approval flows are enabled.
   const archiveGated = approvalRequired;
-  const canAutoPublish = canBypassApproval || !archiveGated;
+  // Landing needs the flip's own authority on top of the approval question;
+  // without it the modal can still stage the change as a draft.
+  const canAutoPublish = canLand && (canBypassApproval || !archiveGated);
 
   const activeDrafts = useMemo(
     () => openRevisions.filter(isDraftRevision),
     [openRevisions],
   );
 
-  const [mode, setMode] = useState<DraftMode>(archiveGated ? "new" : "publish");
+  const [mode, setMode] = useState<DraftMode>(
+    archiveGated || !canLand ? "new" : "publish",
+  );
   const [selectedDraftId, setSelectedDraftId] = useState<string | null>(
     activeDrafts[0]?.id ?? null,
   );

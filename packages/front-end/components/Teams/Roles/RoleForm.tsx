@@ -1,5 +1,6 @@
 import {
   GRANULAR_PERMISSION_METADATA,
+  POLICIES,
   POLICY_DISPLAY_GROUPS,
   POLICY_METADATA_MAP,
   POLICY_PERMISSION_MAP,
@@ -40,9 +41,20 @@ export default function RoleForm({
     action,
   );
 
-  const [expandedPolicies, setExpandedPolicies] = useState<Set<Policy>>(
-    new Set(),
-  );
+  // Open the drill-down for any policy the saved role composes atom-by-atom —
+  // those selections are otherwise invisible behind a collapsed row. A policy
+  // granted whole stays collapsed: its atoms are implied, not chosen.
+  const [expandedPolicies, setExpandedPolicies] = useState<Set<Policy>>(() => {
+    const saved = new Set(role.permissions || []);
+    if (!saved.size) return new Set();
+    return new Set(
+      POLICIES.filter(
+        (policy) =>
+          !role.policies?.includes(policy) &&
+          (POLICY_PERMISSION_MAP[policy] || []).some((atom) => saved.has(atom)),
+      ),
+    );
+  });
 
   const validateInputs = (input: {
     id: string;
@@ -313,9 +325,7 @@ export default function RoleForm({
                                 {expanded ? <PiMinusBold /> : <PiPlusBold />}
                                 {expanded
                                   ? "Hide individual permissions"
-                                  : checked
-                                    ? "View individual permissions"
-                                    : "Choose individual permissions"}
+                                  : "Select individual permissions"}
                               </Flex>
                             </Link>
                             {expanded ? (

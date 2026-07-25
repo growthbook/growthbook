@@ -110,6 +110,19 @@ export const updateSavedGroup = createApiRequestHandler(
   // metadata-only change (name/owner/description) in an org that exempts
   // metadata from review would be blocked here even though publishing the
   // same change via a revision would be allowed.
+  // This endpoint always lands the change live (there's no draft mode), so it
+  // needs publish authority on top of edit — same rule as the internal PUT.
+  // Open a draft via POST /saved-groups-revisions/:id without it.
+  if (
+    !req.context.permissions.canRevisionAction(
+      "saved-group",
+      "publish",
+      savedGroup,
+    )
+  ) {
+    req.context.permissions.throwPermissionError();
+  }
+
   const patchOps = buildPatchOps(fieldsToUpdate as Record<string, unknown>);
   const approvalRequired = adapter.isApprovalRequiredForRevision
     ? adapter.isApprovalRequiredForRevision(req.context, {

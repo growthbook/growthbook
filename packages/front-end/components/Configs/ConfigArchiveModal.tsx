@@ -5,6 +5,7 @@ import RevisionDraftSelectorForChanges from "@/components/Revision/RevisionDraft
 import { ConstantRevisionContext } from "@/components/Constants/useConstantDraftTarget";
 import { useConfigFamilyReferences } from "@/hooks/useConstantReferences";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Link from "@/ui/Link";
 
 // Thin wrapper around the entity-agnostic ArchiveModal for configs (mirrors
@@ -26,8 +27,14 @@ export default function ConfigArchiveModal({
   close: () => void;
 }) {
   const { mutateDefinitions } = useDefinitions();
-  const { openRevisions, allRevisions, approvalRequired, canBypassApproval } =
-    revisionCtx;
+  const {
+    openRevisions,
+    allRevisions,
+    approvalRequired,
+    canBypassApproval,
+    canPublish,
+  } = revisionCtx;
+  const permissionsUtil = usePermissionsUtil();
 
   const isArchived = !!config.archived;
   const { references, loading, error } = useConfigFamilyReferences(
@@ -53,6 +60,10 @@ export default function ConfigArchiveModal({
       openRevisions={openRevisions}
       approvalRequired={approvalRequired}
       canBypassApproval={canBypassApproval}
+      // Archiving is delete-class; unarchiving is an ordinary publish.
+      canLand={
+        isArchived ? canPublish : permissionsUtil.canDeleteConfig(config)
+      }
       referenceCount={features.length}
       referencesLoading={loading}
       referencesError={(error ?? null) !== null}

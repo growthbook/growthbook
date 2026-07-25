@@ -279,16 +279,16 @@ export default function EditSavedGroupPage() {
 
   // Archiving is delete-class server-side — it takes the group out of service,
   // and being archived is what allows deleting it. Unarchiving returns it to
-  // service, so it's an ordinary publish. Either way the write also passes the
-  // update gate, so require both: the menu shouldn't offer a call the server
-  // refuses.
+  // service, so it's an ordinary publish. Either authority is enough: the
+  // landing atom stands on its own for a pure archive, and an editor without it
+  // can still stage the flip as a draft.
   const isArchivedInView = !!displayedSavedGroup?.archived;
   const canToggleArchive =
-    canUpdate &&
     !!savedGroup &&
-    (isArchivedInView
+    ((isArchivedInView
       ? permissionsUtil.canRevisionAction("saved-group", "publish", savedGroup)
-      : permissionsUtil.canDeleteSavedGroup(savedGroup));
+      : permissionsUtil.canDeleteSavedGroup(savedGroup)) ||
+      canUpdate);
 
   const canAdminPublish =
     !!approvalRequired &&
@@ -302,7 +302,12 @@ export default function EditSavedGroupPage() {
           )
         : permissionsUtil.canBypassSavedGroupApprovalChecks({ project: "" })));
 
-  const canAutoPublish = !approvalRequired || canAdminPublish;
+  // Publishing is its own authority: an author without it edits through drafts
+  // and is never offered "publish now" — the server refuses that write.
+  const canAutoPublish =
+    !!savedGroup &&
+    permissionsUtil.canRevisionAction("saved-group", "publish", savedGroup) &&
+    (!approvalRequired || canAdminPublish);
 
   const { hasLargeSavedGroupFeature, unsupportedConnections, connections } =
     useLargeSavedGroupSupport();

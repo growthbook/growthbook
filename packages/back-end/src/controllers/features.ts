@@ -5391,29 +5391,28 @@ export async function postFeatureArchive(
   // Use the explicitly requested state if provided; fall back to toggling.
   const newArchivedState = archivedParam ?? !feature.archived;
 
-  // Staging the change is draft-class, matching every other draft edit.
-  if (!context.permissions.canManageFeatureDrafts(feature)) {
+  const archiveEnvs = filterEnvironmentsByFeature(
+    getEnvironments(context.org),
+    feature,
+  ).map((e) => e.id);
+  // This endpoint only ever changes `archived`, so it's a pure archive by
+  // construction — the landing authority stands on its own and doesn't need
+  // draft rights alongside it. Same shape as revert: holding the authority for
+  // an action is enough to stage it, not just to land it.
+  const canLand = canLandArchivedState({
+    permissions: context.permissions,
+    model: "feature",
+    entity: feature,
+    archived: newArchivedState,
+    environments: archiveEnvs,
+  });
+  if (!canLand && !context.permissions.canManageFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
-  // Landing it is not — see canLandArchivedState. This branch publishes directly
-  // rather than through assertCanPublishFeatureRevision, so the check lives here.
-  if (autoPublish) {
-    const archiveEnvs = filterEnvironmentsByFeature(
-      getEnvironments(context.org),
-      feature,
-    ).map((e) => e.id);
-    if (
-      !canLandArchivedState({
-        permissions: context.permissions,
-        model: "feature",
-        entity: feature,
-        archived: newArchivedState,
-        environments: archiveEnvs,
-      })
-    ) {
-      context.permissions.throwPermissionError();
-    }
+  // Draft authority stages it; only the landing authority publishes it.
+  if (autoPublish && !canLand) {
+    context.permissions.throwPermissionError();
   }
   const archiveChanges = { archived: newArchivedState };
   const archiveComment = newArchivedState

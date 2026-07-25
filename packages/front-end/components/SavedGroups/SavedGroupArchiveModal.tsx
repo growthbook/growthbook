@@ -62,6 +62,16 @@ export default function SavedGroupArchiveModal({
       openRevisions={openRevisions}
       approvalRequired={approvalRequired}
       canBypassApproval={canBypass}
+      // Archiving is delete-class; unarchiving is an ordinary publish.
+      canLand={
+        isArchived
+          ? permissionsUtil.canRevisionAction(
+              "saved-group",
+              "publish",
+              savedGroup,
+            )
+          : permissionsUtil.canDeleteSavedGroup(savedGroup)
+      }
       referenceCount={totalReferences}
       referencesLoading={loading}
       // The server is the source of truth: archiving a still-referenced Saved

@@ -664,7 +664,27 @@ export const putConfig = async (
     return context.throwNotFoundError("Config not found");
   }
 
+  // A request that touches nothing but `archived` is a pure archive/unarchive
+  // (what the archive modal sends), and rides its landing authority alone —
+  // a delete-only role can take a Config out of service without edit rights.
+  const archiveOnlyRequest =
+    typeof archived === "boolean" &&
+    Object.keys(req.body).every(
+      (k) => k === "archived" || k === "ignoreWarnings",
+    );
+  const canLandArchive =
+    archiveOnlyRequest &&
+    !!archived !== !!existing.archived &&
+    canLandArchivedState({
+      permissions: context.permissions,
+      model: "config",
+      entity: existing,
+      archived: !!archived,
+      environments: configPublishEnvironments(context, existing),
+    });
+
   if (
+    !canLandArchive &&
     !context.permissions.canUpdateConfig(existing, {
       project: project ?? existing.project,
     })
@@ -923,6 +943,19 @@ export const putConfig = async (
   const willPublish =
     wantsMerge && (!approvalRequired || bypassApproval || autoPublish);
   if (willPublish) {
+    // Landing a change live is publish-class, not edit-class. A pure archive
+    // carries its own landing authority (checked above), so it's exempt here.
+    if (
+      !canLandArchive &&
+      !context.permissions.canRevisionAction(
+        "config",
+        "publish",
+        existing,
+        configPublishEnvironments(context, existing),
+      )
+    ) {
+      context.permissions.throwPermissionError();
+    }
     assertConfigNotLocked(existing);
   }
 

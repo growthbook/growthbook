@@ -37,6 +37,8 @@ const EMPTY_REVISION_CTX: ConstantRevisionContext = {
   approvalRequired: false,
   metadataReviewRequired: false,
   canBypassApproval: false,
+  // Create has no revision flow — this context's draft routing is inert.
+  canPublish: true,
 };
 
 type FormValues = {

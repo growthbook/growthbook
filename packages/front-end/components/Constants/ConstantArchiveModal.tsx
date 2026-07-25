@@ -6,6 +6,7 @@ import { ConstantRevisionContext } from "@/components/Constants/useConstantDraft
 import ConstantReferencesList from "@/components/Constants/ConstantReferencesList";
 import { useConstantReferences } from "@/hooks/useConstantReferences";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 // Thin wrapper around the entity-agnostic ArchiveModal.
 export default function ConstantArchiveModal({
@@ -23,8 +24,14 @@ export default function ConstantArchiveModal({
 }) {
   const { mutateDefinitions } = useDefinitions();
 
-  const { openRevisions, allRevisions, approvalRequired, canBypassApproval } =
-    revisionCtx;
+  const {
+    openRevisions,
+    allRevisions,
+    approvalRequired,
+    canBypassApproval,
+    canPublish,
+  } = revisionCtx;
+  const permissionsUtil = usePermissionsUtil();
 
   const isArchived = !!constant.archived;
 
@@ -44,6 +51,10 @@ export default function ConstantArchiveModal({
       openRevisions={openRevisions}
       approvalRequired={approvalRequired}
       canBypassApproval={canBypassApproval}
+      // Archiving is delete-class; unarchiving is an ordinary publish.
+      canLand={
+        isArchived ? canPublish : permissionsUtil.canDeleteConstant(constant)
+      }
       referenceCount={totalReferences}
       referencesLoading={loading}
       referencesError={(error ?? null) !== null}

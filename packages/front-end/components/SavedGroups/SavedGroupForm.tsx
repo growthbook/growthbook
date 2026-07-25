@@ -110,7 +110,13 @@ const SavedGroupForm: FC<{
           )
         : permissionsUtil.canBypassSavedGroupApprovalChecks({ project: "" })));
 
-  const canAutoPublish = !isApprovalFlowRequired || canAdminPublish;
+  // Publishing is its own authority: an author without it edits through drafts
+  // and is never offered "publish now" — the server refuses that write. Only
+  // applies to edits; creating a group isn't a publish.
+  const canAutoPublish =
+    (!current.id ||
+      permissionsUtil.canRevisionAction("saved-group", "publish", current)) &&
+    (!isApprovalFlowRequired || canAdminPublish);
 
   // Metadata-only edit when the org's saved-group approval flow is on but
   // metadata review is off: skip the publish-now affordance in this form

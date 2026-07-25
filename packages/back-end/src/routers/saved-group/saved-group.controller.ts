@@ -599,8 +599,29 @@ export const putSavedGroup = async (
     throw new Error("Could not find saved group");
   }
 
+  // A request that touches nothing but `archived` is a pure archive/unarchive
+  // (what the archive modal sends), and rides its landing authority alone — a
+  // delete-only role can take a group out of service without edit rights.
+  const archiveOnlyRequest =
+    typeof req.body.archived === "boolean" &&
+    Object.keys(req.body).every(
+      (k) => k === "archived" || k === "ignoreWarnings",
+    );
+  const canLandArchive =
+    archiveOnlyRequest &&
+    !!req.body.archived !== !!savedGroup.archived &&
+    canLandArchivedState({
+      permissions: context.permissions,
+      model: "saved-group",
+      entity: savedGroup,
+      archived: !!req.body.archived,
+    });
+
   // Permission check always runs regardless of approval flow status
-  if (!context.permissions.canUpdateSavedGroup(savedGroup, { ...req.body })) {
+  if (
+    !canLandArchive &&
+    !context.permissions.canUpdateSavedGroup(savedGroup, { ...req.body })
+  ) {
     context.permissions.throwPermissionError();
   }
 
@@ -774,6 +795,19 @@ export const putSavedGroup = async (
   );
 
   const patchOps = buildPatchOps(fieldsToUpdate as Record<string, unknown>);
+
+  // Landing a change live is publish-class, not edit-class. Checked before the
+  // revision is created so a blocked publish leaves nothing behind. A pure
+  // archive carries its own landing authority (checked above), so it's exempt.
+  const willPublish =
+    wantsMerge && (!approvalRequired || bypassApproval || autoPublish);
+  if (
+    willPublish &&
+    !canLandArchive &&
+    !context.permissions.canRevisionAction("saved-group", "publish", savedGroup)
+  ) {
+    context.permissions.throwPermissionError();
+  }
 
   // When publishing or creating a fresh draft we force a new revision; an
   // implicit save while approval is required also forces one (wantsMerge but

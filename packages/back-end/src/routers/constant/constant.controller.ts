@@ -239,8 +239,28 @@ export const putConstant = async (
     return context.throwNotFoundError("Constant not found");
   }
 
+  // A request that touches nothing but `archived` is a pure archive/unarchive
+  // (what the archive modal sends), and rides its landing authority alone — a
+  // delete-only role can take a Constant out of service without edit rights.
+  const archiveOnlyRequest =
+    typeof archived === "boolean" &&
+    Object.keys(req.body).every(
+      (k) => k === "archived" || k === "ignoreWarnings",
+    );
+  const canLandArchive =
+    archiveOnlyRequest &&
+    !!archived !== !!existing.archived &&
+    canLandArchivedState({
+      permissions: context.permissions,
+      model: "constant",
+      entity: existing,
+      archived: !!archived,
+      environments: constantPublishEnvironments(context),
+    });
+
   // Permission check always runs regardless of approval flow status.
   if (
+    !canLandArchive &&
     !context.permissions.canUpdateConstant(existing, {
       project: project ?? existing.project,
     })
@@ -382,6 +402,24 @@ export const putConstant = async (
     getConstantRevisionChange(existing, patchOps),
     org.settings,
   );
+
+  // Landing a change live is publish-class, not edit-class. Checked before the
+  // revision is created so a blocked publish leaves nothing behind. A pure
+  // archive carries its own landing authority (checked above), so it's exempt.
+  const willPublish =
+    wantsMerge && (!approvalRequired || bypassApproval || autoPublish);
+  if (
+    willPublish &&
+    !canLandArchive &&
+    !context.permissions.canRevisionAction(
+      "constant",
+      "publish",
+      existing,
+      constantPublishEnvironments(context),
+    )
+  ) {
+    context.permissions.throwPermissionError();
+  }
 
   const forceCreate = wantsMerge || forceCreateRevision;
 

@@ -23,6 +23,10 @@ export type ConstantRevisionContext = {
   metadataReviewRequired: boolean;
   // Whether the current user can bypass approval for this constant.
   canBypassApproval: boolean;
+  // Whether they can land a change live at all. Publishing is its own authority,
+  // so an author without it edits through drafts and is never offered "publish
+  // now" — the server refuses that write.
+  canPublish: boolean;
 };
 
 // Owns the "new draft vs. add-to-existing vs. publish now" selection and turns
@@ -41,6 +45,7 @@ export function useConstantDraftTarget(
     approvalRequired,
     metadataReviewRequired,
     canBypassApproval,
+    canPublish,
   } = ctx;
 
   const [draftSelectedId, setDraftSelectedId] = useState<string | null>(() => {
@@ -63,7 +68,8 @@ export function useConstantDraftTarget(
   });
 
   const canAutoPublish =
-    !approvalRequired || canBypassApproval || autoBypassApproval;
+    canPublish &&
+    (!approvalRequired || canBypassApproval || autoBypassApproval);
 
   const buildQueryString = (): string => {
     const params = new URLSearchParams();

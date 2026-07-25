@@ -26,7 +26,7 @@ Single source of truth: `REVISION_PERMISSIONS` in
 
 ## Behavior changes to release-note
 
-Two are **restrictions** — they can take access away from an existing custom role:
+Three are **restrictions** — they can take access away from an existing custom role:
 
 1. **Archive now requires the delete atom** (was manage/drafts). A custom role with
    manage but _not_ delete loses the ability to archive. Rationale: `deleteFeature`
@@ -39,23 +39,34 @@ Two are **restrictions** — they can take access away from an existing custom r
 
 Both directions are enforced on **every** path that can land the flip: the REST
 archive/unarchive endpoints, the entity `PUT` (the dashboard's own archive modal),
-the feature archive endpoint's auto-publish branch, and revision publish. The
-single definition is `canLandArchivedState` in `revisions/archiveTransition.ts` —
-add a path, call that.
+the feature archive endpoint's auto-publish branch, both bulk adapters, revision
+publish, and the direct reverts. The single definition is `canLandArchivedState`
+in `revisions/archiveTransition.ts` — add a path, call that. Either atom is also
+sufficient _on its own_ for a pure archive, so neither restriction requires edit
+rights alongside it.
+
+3. **Landing a change live now requires publish authority** (was edit) — on the
+   internal entity `PUT` and on the REST `PUT /configs|constants|saved-groups/:key`,
+   which has no draft mode at all. Those paths merge straight to live, so saving
+   _is_ publishing; an editor without `publishFlags` / `publishSavedGroups` routes
+   through a draft instead, which is what the split means. In the UI this
+   surfaces as the "publish now" option disappearing rather than an error; over
+   REST it's a 403 pointing at the revisions endpoint. Inline value edits are
+   unaffected — they already always open a draft.
 
 Three are **escalations**, all deliberate:
 
-3. **Merge:** a role holding Configs/Constants access now also manages Features —
+4. **Merge:** a role holding Configs/Constants access now also manages Features —
    they are one family. Per the "a config only reaches users through a feature
    that references it" decision.
-4. **Decouple:** a role with publish but not manage can now publish/toggle
+5. **Decouple:** a role with publish but not manage can now publish/toggle
    (previously an AND blocked it). Matches `SDKPayloadPublish`'s own description.
-5. **Decision B:** config/constant publish and revert are environment-scoped now,
+6. **Decision B:** config/constant publish and revert are environment-scoped now,
    so an env-limited role is correctly limited on them (previously unlimited).
 
 One is a **model change** with no access impact:
 
-6. **Bypass-approval is per family.** The single shared `bypassApprovalChecks`
+7. **Bypass-approval is per family.** The single shared `bypassApprovalChecks`
    atom is split into `bypassApprovalFlags` and `bypassApprovalSavedGroups`, so a
    role can bypass approvals for one family without the other — and each row now
    lives in its resource's group in the editor, retiring the cross-entity
@@ -116,20 +127,18 @@ both bulk adapters, `assertCanPublishRevision` for the engine entities, the REST
 archive endpoints, and the entity `PUT`. The predicates behind the rule are
 `isArchiveTransition` / `proposedArchivedValue` / `canLandArchivedState`.
 
-**Landing is not sufficient on its own.** Every archive path also runs the
-staging gate first — draft authority for features, manage for the engine
-entities' `PUT` — so `deleteFlags` is effectively a **modifier**: it authorizes
-the elevation, it doesn't grant the action alone. Since deleting requires
-archiving first, a role holding _only_ `deleteFlags` can't delete anything. That
-follows from "archive and delete are the same elevation", which raised the floor
-without lowering it; whether the delete atom should also stand in for staging (the
-way revert authority stands in for proposing a revert draft) is an open call —
-see "Open questions".
+**`deleteFlags` is self-standing.** Holding it is enough to archive _and_ delete,
+with no edit or draft rights alongside — the same shape as revert, where the
+authority for an action is enough to stage it, not just to land it. Since
+deleting requires archiving first, any weaker rule would make the atom inert.
 
-Because both gates run, **the UI has to check both**. It didn't: every archive
-menu item gated on the landing atom alone, so a publish-only role was offered
-Unarchive and got a permission error from the staging gate. All four entity
-surfaces now require staging **and** landing authority.
+The standing-in is scoped to a **pure archive**: a request that changes nothing
+but `archived`. That's what the archive endpoints and the archive modal send, so
+the real flows qualify; a request bundling an archive with other edits still needs
+edit rights for those. Mixed changes are checked field-by-field as before.
+
+The UI matches: an archive menu item appears for anyone holding either the
+landing authority or edit rights, since either is now sufficient on its own.
 
 Note the engine's `adapter.canDelete` is **not** the delete atom — it gates
 deleting a revision _document_ (the entity's bypass-approval atom). Entity delete
@@ -212,21 +221,16 @@ only via additive grants (`manageExecReports` is policy-orphaned on `main` too).
   lint globs into it. Clear it with `git worktree remove` once that work is
   salvaged or abandoned.
 
-## Open questions
+## Resolved (were open questions)
 
-- **Should the delete atom stand in for staging?** Today archive needs delete
-  **and** draft/manage, which makes a delete-only role unable to delete anything
-  (delete requires archiving first). Revert set the opposite precedent: revert
-  authority alone suffices to propose a revert draft. Making delete behave the
-  same way would make the Deleter persona coherent; leaving it keeps the floor
-  higher. Not a blocker either way — it only affects roles that grant delete
-  without manage or drafts.
-- **Publish authority on the entity `PUT`.** For the engine entities that path
-  still lands live changes under the manage atom, so `publishFlags` is only
-  authoritative through the revision engine. Enforcing it there would be a real
-  behavior change (a manage-only role could no longer save a Config at all with
-  approvals off, since save _is_ publish on that path), so it wants a deliberate
-  decision rather than a quiet tightening. Not a regression — `main` was the same.
+- **The delete atom is self-standing.** It grants archive as well as delete, with
+  no edit or draft rights alongside, as long as the archive is pure — nothing but
+  `archived` changes. Anything less made the atom inert, since deleting requires
+  archiving first.
+- **Landing requires publish, on every write path.** The internal entity `PUT`
+  and the REST entity update both merge to live, so saving is publishing; edit
+  rights alone now stage a draft instead. `publishFlags` is authoritative
+  everywhere, not just inside the revision engine.
 
 ## Still open
 
@@ -259,8 +263,9 @@ testing, not test failures.
 | Propose revert as draft            |            ✗             |                 ✓                  |             ✗             |              ✗              |             ✓             |               ✓                |            ✗             |
 | Publish a **pure** revert draft    |            ✗             |                 ✗                  |             ✗             |              ✓              |             ✓             |               ✗                |            ✗             |
 | Publish an **edited** revert draft |            ✗             |                 ✗                  |             ✗             |              ✓              |             ✗             |               ✗                |            ✗             |
-| Archive (land it)                  |            ✗             |                 ✗                  |             ✗             |              ✗              |             ✗             |               ✗                |      ✗ (+drafts ✓)       |
-| Unarchive (land it)                |            ✗             |                 ✗                  |             ✗             |        ✗ (+drafts ✓)        |             ✗             |               ✗                |            ✗             |
+| Archive (land it)                  |            ✗             |                 ✗                  |             ✗             |              ✗              |             ✗             |               ✗                |            ✓             |
+| Unarchive (land it)                |            ✗             |                 ✗                  |             ✗             |              ✓              |             ✗             |               ✗                |            ✗             |
+| Stage an archive as a draft        |            ✗             |                 ✓                  |             ✗             |              ✗              |             ✗             |               ✓                |            ✓             |
 | Delete an archived flag            |            ✗             |                 ✗                  |             ✗             |              ✗              |             ✗             |               ✗                |            ✓             |
 | Delete a live flag (REST)          |            ✗             |                 ✗                  |             ✗             |              ✗              |             ✗             |               ✗                |            ✗             |
 

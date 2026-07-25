@@ -44,6 +44,7 @@ import {
 } from "back-end/src/services/constants";
 import { runValidateConfigHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
+import { configPublishEnvironments } from "back-end/src/revisions/revisionPublishEnvironments";
 import { resolveConfigSchemaSource } from "./validations";
 
 export const updateConfig = createApiRequestHandler(updateConfigValidator)(
@@ -435,6 +436,20 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
         req.context,
         proposedRoot,
       );
+    }
+
+    // This endpoint always lands the change live (there's no draft mode), so it
+    // needs publish authority on top of edit — same rule as the internal PUT.
+    // Open a draft via POST /configs-revisions/:key without it.
+    if (
+      !req.context.permissions.canRevisionAction(
+        "config",
+        "publish",
+        config,
+        configPublishEnvironments(req.context, config),
+      )
+    ) {
+      req.context.permissions.throwPermissionError();
     }
 
     // Change-aware approval gate: value/schema changes require review under
