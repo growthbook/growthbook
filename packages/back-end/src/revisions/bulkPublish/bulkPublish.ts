@@ -253,15 +253,17 @@ export async function planBulkPublish(
 
   const items: PlannedItemPublish[] = [];
 
-  // The privileged validation overrides require ORG-WIDE bypass authority (the
-  // scope the single-entity paths enforce via the context's skipSchemaValidation
-  // /skipHooks getters). A project-scoped bypass clears approval (per entity,
-  // below) but never a validation failure.
-  const orgWideBypass = context.permissions.canBypassFlagApprovalChecks({
-    project: undefined,
-  });
-
   for (const l of loaded) {
+    // The privileged validation overrides require ORG-WIDE bypass authority (the
+    // scope the single-entity paths enforce via the context's skipSchemaValidation
+    // /skipHooks getters). A project-scoped bypass clears approval (per entity,
+    // below) but never a validation failure. Resolved per item, because bypass is
+    // per family now — flags authority must not clear a Saved Group's validation.
+    const orgWideBypass = context.permissions.canRevisionAction(
+      l.ref.entityType,
+      "bypass",
+      { projects: [] },
+    );
     applyOverlaysExcluding(l);
     const gates = tag(
       l.ref,

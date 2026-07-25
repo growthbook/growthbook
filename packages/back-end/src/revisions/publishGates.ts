@@ -226,14 +226,14 @@ export type PublishGateClearance = {
   /**
    * The caller may skip validation-class gates (schema errors, invariants,
    * schema-break, hook failures) — i.e. they passed `skipSchemaValidation` AND
-   * hold the bypassApprovalFlags permission. Already resolves flag+permission
+   * hold the entity family's bypass-approval permission. Already resolves flag+permission
    * together (mirrors `context.skipSchemaValidation`), so a skipSchemaValidation
    * gate is bypassed iff this is true — the org REST-bypass setting never grants it.
    */
   skipSchemaValidation: boolean;
   /**
    * The caller may skip a custom validation-hook rejection — passed `skipHooks`
-   * AND holds the bypassApprovalFlags permission. Resolves flag+permission
+   * AND holds the entity family's bypass-approval permission. Resolves flag+permission
    * together (mirrors `context.skipHooks`).
    */
   skipHooks: boolean;

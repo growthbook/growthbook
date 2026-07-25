@@ -272,3 +272,35 @@ describe("granular flag permissions", () => {
     });
   });
 });
+
+// The bypass split means a model-agnostic caller must resolve the atom from the
+// entity's family, never hardcode one. Pins the mapping so a path that reaches
+// for the wrong family (flags authority clearing a Saved Group's validation, or
+// vice versa) is a test failure rather than a silent cross-family leak.
+describe("bypass is resolved per family", () => {
+  it("maps each model to its own bypass atom", () => {
+    const expected: Record<RevisionModel, string> = {
+      feature: "bypassApprovalFlags",
+      config: "bypassApprovalFlags",
+      constant: "bypassApprovalFlags",
+      "saved-group": "bypassApprovalSavedGroups",
+    };
+    for (const [model, atom] of Object.entries(expected)) {
+      expect(
+        REVISION_PERMISSIONS[MODEL_FAMILY[model as RevisionModel]].bypass
+          .permission,
+      ).toBe(atom);
+    }
+  });
+
+  it("keeps the two atoms distinct, so neither family's grant implies the other", () => {
+    const flags = permissionsFromRole({ policies: ["FlagsBypassApprovals"] });
+    const sg = permissionsFromRole({
+      policies: ["SavedGroupsBypassApprovals"],
+    });
+    expect(flags.bypassApprovalFlags).toBe(true);
+    expect(flags.bypassApprovalSavedGroups).toBeUndefined();
+    expect(sg.bypassApprovalSavedGroups).toBe(true);
+    expect(sg.bypassApprovalFlags).toBeUndefined();
+  });
+});
