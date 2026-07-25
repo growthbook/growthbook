@@ -355,21 +355,21 @@ export const POLICY_METADATA_MAP: Record<
     description: "Add comments to any resource",
   },
   FlagsFullAccess: {
-    displayName: "Feature Flags Full Access",
+    displayName: "Full access",
     description:
       "Create, edit, delete, draft, review, publish, and revert Feature Flags, Constants, and Configs",
   },
   FlagsBypassApprovals: {
-    displayName: "Bypass Draft Approvals",
+    displayName: "Bypass draft approvals",
     description:
-      "Add-on to Feature Flags Full Access: publish without the required review, force-merge an out-of-date draft, and discard other users' drafts. Does not bypass schema validation, custom hooks, or Config locks.",
+      "Publish without the required draft review, force-merge an out-of-date draft, and discard other users' drafts. Applies to Feature Flags, Configs, Constants, and Saved Groups. Does not bypass schema validation, custom hooks, or Config locks.",
   },
   FeaturesFullAccess: {
     displayName: "Features Full Access",
     description: "Create, edit, and delete feature flags",
   },
   ArchetypesFullAccess: {
-    displayName: "Archetypes Full Access",
+    displayName: "Archetypes",
     description:
       "Create, edit, and delete saved User Archetypes for feature flag debugging",
   },
@@ -473,13 +473,12 @@ export const POLICY_METADATA_MAP: Record<
     description: "Create, edit, and delete namespaces",
   },
   SavedGroupsFullAccess: {
-    displayName: "Saved Groups Full Access",
+    displayName: "Full access",
     description: "Create, edit, and delete saved groups",
   },
   BypassSavedGroupSizeLimit: {
-    displayName: "Bypass Size Limit",
-    description:
-      "Add-on to Saved Groups Full Access: exceed the organization's size limits for a Saved Group",
+    displayName: "Bypass size limit",
+    description: "Exceed the organization's size limits for a Saved Group",
   },
   SavedGroupsBypassSizeLimit: {
     displayName: "Saved Groups Bypass Size Limit",
