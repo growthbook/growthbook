@@ -600,15 +600,18 @@ export const postReview = async (
     });
   }
 
-  // Must have review permission for the underlying entity
-  if (
-    !canDoRevisionAction(
-      existingRevision.target.type,
-      "review",
-      context,
-      existingRevision.target.snapshot as Record<string, unknown>,
-    )
-  ) {
+  // Approving or requesting changes is a review verdict and needs review
+  // authority. A plain comment is participation, not judgement — the author is
+  // explicitly allowed to comment above — so draft authors and reviewers alike
+  // can post one.
+  const snapshot = existingRevision.target.snapshot as Record<string, unknown>;
+  const type = existingRevision.target.type;
+  const allowed =
+    decision === "comment"
+      ? canDoRevisionAction(type, "draft", context, snapshot) ||
+        canDoRevisionAction(type, "review", context, snapshot)
+      : canDoRevisionAction(type, "review", context, snapshot);
+  if (!allowed) {
     context.permissions.throwPermissionError();
   }
 
