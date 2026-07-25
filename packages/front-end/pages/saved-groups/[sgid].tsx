@@ -1053,6 +1053,21 @@ export default function EditSavedGroupPage() {
             canCommentOnEntity={permissionsUtil.canAddComment(
               savedGroup.projects ?? [],
             )}
+            canReviewEntity={permissionsUtil.canRevisionAction(
+              "saved-group",
+              "review",
+              savedGroup,
+            )}
+            canManageDraftsEntity={permissionsUtil.canRevisionAction(
+              "saved-group",
+              "draft",
+              savedGroup,
+            )}
+            canPublishEntity={permissionsUtil.canRevisionAction(
+              "saved-group",
+              "publish",
+              savedGroup,
+            )}
             canBypassApproval={!!canAdminPublish}
             selectRevision={selectFlow}
             onPublish={handlePublish}

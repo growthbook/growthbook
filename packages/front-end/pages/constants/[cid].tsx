@@ -559,6 +559,21 @@ export default function ConstantDetailPage(): React.ReactElement {
             canCommentOnEntity={permissionsUtil.canAddComment(
               constant.project ? [constant.project] : [],
             )}
+            canReviewEntity={permissionsUtil.canRevisionAction(
+              "constant",
+              "review",
+              constant,
+            )}
+            canManageDraftsEntity={permissionsUtil.canRevisionAction(
+              "constant",
+              "draft",
+              constant,
+            )}
+            canPublishEntity={permissionsUtil.canRevisionAction(
+              "constant",
+              "publish",
+              constant,
+            )}
             canBypassApproval={canBypassApproval}
             selectRevision={selectRevision}
             onPublish={handlePublish}

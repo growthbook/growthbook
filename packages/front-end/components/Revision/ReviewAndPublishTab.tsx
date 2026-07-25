@@ -151,6 +151,13 @@ export interface ReviewAndPublishTabProps<T> {
   // Commenting is participation, gated by addComments rather than by authority
   // over the entity. Defaults to canEditEntity for callers that don't pass it.
   canCommentOnEntity?: boolean;
+  // Reviewing and draft authoring are separate authorities too. Both default to
+  // canEditEntity for callers that don't distinguish them.
+  canReviewEntity?: boolean;
+  canManageDraftsEntity?: boolean;
+  // Publishing. The backend also narrows this per environment; this is the
+  // project-level approximation used to decide whether to offer the action.
+  canPublishEntity?: boolean;
   // The viewer can bypass the approval requirement (admin).
   canBypassApproval: boolean;
   // When set, publishing is blocked and this reason is shown (e.g. the entity is
@@ -199,6 +206,9 @@ function ReviewAndPublishRevision<T>({
   canEditEntity,
   canRevertEntity,
   canCommentOnEntity,
+  canReviewEntity,
+  canManageDraftsEntity,
+  canPublishEntity,
   canBypassApproval,
   publishBlockedReason,
   selectRevision,
@@ -512,7 +522,14 @@ function ReviewAndPublishRevision<T>({
     revision.status === "changes-requested";
   const canRevertOrEdit = canRevertEntity ?? canEditEntity;
   const canComment = canCommentOnEntity ?? canEditEntity;
-  const canReview = isPendingReview && !isAuthor && canEditEntity;
+  const canReviewOrEdit = canReviewEntity ?? canEditEntity;
+  const canDraftOrEdit = canManageDraftsEntity ?? canEditEntity;
+  const canPublishOrEdit = canPublishEntity ?? canEditEntity;
+  // The CTA's specific action is already encoded in state.ctaEnabled, so this
+  // only needs to establish that the caller has some authority here.
+  const hasAnyAuthority =
+    canDraftOrEdit || canReviewOrEdit || canRevertOrEdit || canPublishOrEdit;
+  const canReview = isPendingReview && !isAuthor && canReviewOrEdit;
   const approved = revision.status === "approved" || adminPublish;
 
   // ── Comments: posted as `comment`-decision reviews on the generic
@@ -670,8 +687,8 @@ function ReviewAndPublishRevision<T>({
     >[0]["status"],
     mergeSuccess,
     hasChanges,
-    hasReviewPermission: canEditEntity,
-    canManageDraft: canEditEntity,
+    hasReviewPermission: canReviewOrEdit,
+    canManageDraft: canDraftOrEdit,
     isReviewRequester: isAuthor,
     isContributor,
     isReviewer,
@@ -782,7 +799,7 @@ function ReviewAndPublishRevision<T>({
       {subTab === "overview" && (
         <RevisionDescription
           description={revision.comment}
-          canEdit={isActiveDraft && canEditEntity}
+          canEdit={isActiveDraft && canDraftOrEdit}
           onEdit={async (value) => {
             await apiCall(`/revision/${revision.id}/description`, {
               method: "PATCH",
@@ -864,7 +881,7 @@ function ReviewAndPublishRevision<T>({
               : undefined
           }
           onEditComment={
-            isActiveDraft && canEditEntity
+            isActiveDraft && canDraftOrEdit
               ? async (logId, comment) => {
                   await apiCall(`/revision/${revision.id}/comment/${logId}`, {
                     method: "PUT",
@@ -875,7 +892,7 @@ function ReviewAndPublishRevision<T>({
               : undefined
           }
           onDeleteComment={
-            isActiveDraft && canEditEntity
+            isActiveDraft && canDraftOrEdit
               ? async (logId) => {
                   await apiCall(`/revision/${revision.id}/comment/${logId}`, {
                     method: "DELETE",
@@ -888,7 +905,7 @@ function ReviewAndPublishRevision<T>({
 
         {/* Composer below the timeline — entries are chronological (newest
             at the bottom), so new comments appear right above it. */}
-        {isActiveDraft && canEditEntity && (
+        {isActiveDraft && canDraftOrEdit && (
           <Flex align="start" gap="3" mt="4">
             <Box flexShrink="0">
               <EventUser
@@ -999,7 +1016,7 @@ function ReviewAndPublishRevision<T>({
       </Flex>
 
       {isActiveDraft &&
-        (state.canRecallReview || state.canUndoReview || canEditEntity) && (
+        (state.canRecallReview || state.canUndoReview || hasAnyAuthority) && (
           <Box ml="auto" style={{ marginRight: -6 }}>
             <DropdownMenu
               trigger={
@@ -1093,7 +1110,7 @@ function ReviewAndPublishRevision<T>({
         {revision.status === "discarded" ? (
           <Button
             onClick={() => setConfirmReopen(true)}
-            disabled={!canEditEntity}
+            disabled={!canDraftOrEdit}
             style={{ width: "100%" }}
           >
             Reopen as draft
@@ -1124,7 +1141,7 @@ function ReviewAndPublishRevision<T>({
           </Button>
         ) : null}
 
-        {!canEditEntity && !canRevertOrEdit && (
+        {!hasAnyAuthority && !canComment && (
           <HelperText status="info" size="md" mt="5">
             You don&apos;t have permission to manage revisions for this entity.
           </HelperText>
@@ -1161,7 +1178,7 @@ function ReviewAndPublishRevision<T>({
                 allowPublishOnApprove={autopublishOnApproval}
                 autoPublishArmed={revisionAutoPublishArmed}
                 autoPublishScheduled={scheduledPending}
-                canReviewerPublish={canEditEntity}
+                canReviewerPublish={canPublishOrEdit}
                 publishBlocked={
                   !mergeSuccess ||
                   !hasChanges ||
@@ -1193,7 +1210,7 @@ function ReviewAndPublishRevision<T>({
                 variant="soft"
                 onClick={doSubmit}
                 loading={submitting}
-                disabled={!state.ctaEnabled || !canEditEntity}
+                disabled={!state.ctaEnabled || !hasAnyAuthority}
                 style={{ width: "100%" }}
               >
                 {state.ctaLabel}
@@ -1211,7 +1228,7 @@ function ReviewAndPublishRevision<T>({
                   governance={governance}
                   liveVersion={liveVersion}
                   baseVersion={liveVersion}
-                  canRebase={canEditEntity}
+                  canRebase={canDraftOrEdit}
                   updating={submitting}
                   onResolveConflicts={() => setShowFixConflicts(true)}
                   onUpdateFromLive={doRebase}
@@ -1233,7 +1250,7 @@ function ReviewAndPublishRevision<T>({
                 schedulePublishPath={`/revision/${revision.id}/schedule-publish`}
                 toggleAutoPublishPath={`/revision/${revision.id}/toggle-auto-publish`}
                 entityNoun={entityNoun}
-                canEdit={canEditEntity}
+                canEdit={canDraftOrEdit}
                 canBypassApproval={canBypassApproval}
                 requiresApproval={requiresApproval}
                 autopublishOnApproval={autopublishOnApproval}
@@ -1264,7 +1281,7 @@ function ReviewAndPublishRevision<T>({
                   onClick={
                     state.submitAction === "publish" &&
                     state.ctaEnabled &&
-                    canEditEntity
+                    canPublishOrEdit
                       ? doSubmit
                       : undefined
                   }
@@ -1272,7 +1289,7 @@ function ReviewAndPublishRevision<T>({
                   disabled={
                     state.submitAction !== "publish" ||
                     !state.ctaEnabled ||
-                    !canEditEntity
+                    !canPublishOrEdit
                   }
                   icon={state.ctaLocked ? <PiLockSimple /> : undefined}
                   style={{ width: "100%" }}

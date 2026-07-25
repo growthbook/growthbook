@@ -2103,6 +2103,21 @@ export default function ConfigDetailPage(): React.ReactElement {
                 canCommentOnEntity={permissionsUtil.canAddComment(
                   config.project ? [config.project] : [],
                 )}
+                canReviewEntity={permissionsUtil.canRevisionAction(
+                  "config",
+                  "review",
+                  config,
+                )}
+                canManageDraftsEntity={permissionsUtil.canRevisionAction(
+                  "config",
+                  "draft",
+                  config,
+                )}
+                canPublishEntity={permissionsUtil.canRevisionAction(
+                  "config",
+                  "publish",
+                  config,
+                )}
                 canBypassApproval={canBypassApproval}
                 publishBlockedReason={
                   config.lock
