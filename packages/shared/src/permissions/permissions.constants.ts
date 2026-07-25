@@ -252,9 +252,9 @@ export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
     policies: [
       "FlagsFullAccess",
       "FlagsBypassApprovals",
-      "ArchetypesFullAccess",
       "SavedGroupsFullAccess",
       "SavedGroupsBypassSizeLimit",
+      "ArchetypesFullAccess",
     ],
   },
   {
