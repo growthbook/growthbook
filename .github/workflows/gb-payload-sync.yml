@@ -1,0 +1,62 @@
+# name: Sync GrowthBook default payload
+# # Refreshes the bundled SDK payload snapshot (the back-end's offline default)
+# # and, when the GB_API_TOKEN secret is available, regenerates the AppFeatures
+# # types from the GrowthBook REST API. Opens/updates an automated PR when
+# # anything changed, so every refresh is reviewed and CI-checked (the
+# # type-check acts as a tripwire if a flag still referenced in code was
+# # removed from the account).
+# on:
+#   schedule:
+#     - cron: "0 9 * * *"
+#   workflow_dispatch:
+#
+# permissions:
+#   contents: write
+#   pull-requests: write
+#
+# jobs:
+#   sync:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - name: Checkout code
+#         uses: actions/checkout@v5
+#
+#       - name: Install pnpm
+#         uses: pnpm/action-setup@v4
+#
+#       - name: Setup Node
+#         uses: actions/setup-node@v5
+#         with:
+#           node-version: "24"
+#           cache: "pnpm"
+#
+#       - name: Install pnpm dependencies
+#         run: pnpm install
+#
+#       - name: Fetch payload + regenerate AppFeatures types
+#         env:
+#           GB_API_TOKEN: ${{ secrets.GB_API_TOKEN }}
+#         run: pnpm --filter back-end fetch-gb-payload
+#
+#       - name: Open or update the sync PR when changed
+#         env:
+#           GH_TOKEN: ${{ github.token }}
+#         run: |
+#           if git diff --quiet; then
+#             echo "Snapshot already up to date"
+#             exit 0
+#           fi
+#           git config user.name "github-actions[bot]"
+#           git config user.email "github-actions[bot]@users.noreply.github.com"
+#           BRANCH=automation/gb-payload-sync
+#           git checkout -B "$BRANCH"
+#           git add packages/back-end/src/generated/gb-default-payload.ts packages/shared/types/app-features.ts
+#           git commit -m "chore: sync bundled GrowthBook payload + AppFeatures types"
+#           git push -f origin "$BRANCH"
+#           if [ "$(gh pr list --head "$BRANCH" --state open --json number --jq length)" = "0" ]; then
+#             gh pr create --base main --head "$BRANCH" \
+#               --title "chore: sync bundled GrowthBook payload" \
+#               --body "Automated refresh of the bundled SDK payload snapshot (offline default for the back-end GrowthBook client) and the generated AppFeatures types. If CI type-check fails here, a flag still referenced in code was removed from the account — fix the code or restore the flag."
+#           else
+#             echo "Sync PR already open — branch updated"
+#           fi
