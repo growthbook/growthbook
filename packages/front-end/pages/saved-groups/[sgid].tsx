@@ -1041,6 +1041,11 @@ export default function EditSavedGroupPage() {
             // the server-side rule in the saved-group adapter).
             requiresApproval={selectedRevisionRequiresApproval}
             canEditEntity={permissionsUtil.canUpdateSavedGroup(savedGroup, {})}
+            canRevertEntity={permissionsUtil.canRevisionAction(
+              "saved-group",
+              "revert",
+              savedGroup,
+            )}
             canBypassApproval={!!canAdminPublish}
             selectRevision={selectFlow}
             onPublish={handlePublish}

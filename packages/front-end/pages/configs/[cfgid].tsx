@@ -2089,6 +2089,11 @@ export default function ConfigDetailPage(): React.ReactElement {
                 entityNoun="config"
                 requiresApproval={selectedRevisionRequiresApproval}
                 canEditEntity={canUpdate}
+                canRevertEntity={permissionsUtil.canRevisionAction(
+                  "config",
+                  "revert",
+                  config,
+                )}
                 canBypassApproval={canBypassApproval}
                 publishBlockedReason={
                   config.lock

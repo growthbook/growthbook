@@ -145,6 +145,9 @@ export interface ReviewAndPublishTabProps<T> {
   requiresApproval: boolean;
   // The viewer can edit the underlying entity (manage drafts / review).
   canEditEntity: boolean;
+  // Reverting is its own authority, so a revert-only role holds no edit rights.
+  // Defaults to canEditEntity for callers that don't distinguish them.
+  canRevertEntity?: boolean;
   // The viewer can bypass the approval requirement (admin).
   canBypassApproval: boolean;
   // When set, publishing is blocked and this reason is shown (e.g. the entity is
@@ -191,6 +194,7 @@ function ReviewAndPublishRevision<T>({
   entityNoun = "revision",
   requiresApproval,
   canEditEntity,
+  canRevertEntity,
   canBypassApproval,
   publishBlockedReason,
   selectRevision,
@@ -502,6 +506,7 @@ function ReviewAndPublishRevision<T>({
   const isPendingReview =
     revision.status === "pending-review" ||
     revision.status === "changes-requested";
+  const canRevertOrEdit = canRevertEntity ?? canEditEntity;
   const canReview = isPendingReview && !isAuthor && canEditEntity;
   const approved = revision.status === "approved" || adminPublish;
 
@@ -1096,7 +1101,7 @@ function ReviewAndPublishRevision<T>({
               onClick={() =>
                 previousPublishedRevision && onRevert(previousPublishedRevision)
               }
-              disabled={!canEditEntity || !previousPublishedRevision}
+              disabled={!canRevertOrEdit || !previousPublishedRevision}
               style={{ width: "100%" }}
             >
               Roll back
@@ -1107,23 +1112,26 @@ function ReviewAndPublishRevision<T>({
             color="red"
             variant="outline"
             onClick={() => onRevert(revision)}
-            disabled={!canEditEntity}
+            disabled={!canRevertOrEdit}
             style={{ width: "100%" }}
           >
             Revert to this revision
           </Button>
         ) : null}
 
-        {!canEditEntity && (
+        {!canEditEntity && !canRevertOrEdit && (
           <HelperText status="info" size="md" mt="5">
             You don&apos;t have permission to manage revisions for this entity.
           </HelperText>
         )}
-        {isLive && canEditEntity && onRevert && !previousPublishedRevision && (
-          <HelperText status="info" size="md" mt="5">
-            There is no previously published revision to roll back to.
-          </HelperText>
-        )}
+        {isLive &&
+          canRevertOrEdit &&
+          onRevert &&
+          !previousPublishedRevision && (
+            <HelperText status="info" size="md" mt="5">
+              There is no previously published revision to roll back to.
+            </HelperText>
+          )}
       </Box>
     </Box>
   );

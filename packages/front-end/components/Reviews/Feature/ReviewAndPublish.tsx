@@ -1216,7 +1216,15 @@ export default function ReviewAndPublish({
         ? revision
         : null;
     const canManageDrafts = permissionsUtil.canManageFeatureDrafts(feature);
-    const canRevert = canManageDrafts && !!revertTarget;
+    // Revert authority alone is enough to offer the action — a revert-only role
+    // holds no draft rights. The modal re-checks per environment.
+    const canRevert =
+      (canManageDrafts ||
+        permissionsUtil.canRevertFeature(
+          feature,
+          environments.map((e) => e.id),
+        )) &&
+      !!revertTarget;
     const isDiscarded = revision.status === "discarded";
     // Same page header as the draft path, but the summary line describes
     // the terminal state (merged/published, live, or discarded) instead of a

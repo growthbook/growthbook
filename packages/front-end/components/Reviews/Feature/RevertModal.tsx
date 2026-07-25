@@ -128,15 +128,18 @@ export default function RevertModal({
     environments,
   );
 
-  const canPublish = permissionsUtil.canPublishFeature(feature, affectedEnvs);
+  // Mirrors the two endpoints this modal calls. Reverting is its own authority:
+  // the direct revert is gated on revertFlags rather than publish, and revert
+  // authority alone is enough to propose one as a draft — so a revert-only role
+  // can roll back without any edit or publish rights.
+  const canRevert = permissionsUtil.canRevertFeature(feature, affectedEnvs);
   const canBypassApprovals = permissionsUtil.canBypassApprovalChecks(feature);
   const canCreateDraft =
-    permissionsUtil.canUpdateFeature(feature, {}) &&
-    permissionsUtil.canManageFeatureDrafts(feature);
+    permissionsUtil.canManageFeatureDrafts(feature) || canRevert;
 
   const canAutoPublish = effectiveApprovalsRequired
-    ? canBypassApprovals
-    : canPublish;
+    ? canRevert && canBypassApprovals
+    : canRevert;
   const gatedEnvSet: "all" | "none" = effectiveApprovalsRequired
     ? "all"
     : "none";
