@@ -249,7 +249,7 @@ export default function RoleForm({
               <Box key={group.name} mb="5">
                 <Text
                   as="div"
-                  size="small"
+                  size="medium"
                   weight="semibold"
                   color="text-mid"
                   textTransform="uppercase"
