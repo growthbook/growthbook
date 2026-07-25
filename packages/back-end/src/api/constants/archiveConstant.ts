@@ -21,6 +21,8 @@ import {
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
 import { collectArchiveApprovalGate } from "back-end/src/revisions/governanceGates";
+import { canLandArchivedState } from "back-end/src/revisions/archiveTransition";
+import { constantPublishEnvironments } from "back-end/src/revisions/revisionPublishEnvironments";
 import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
 
 async function buildResponse(
@@ -48,8 +50,17 @@ async function setArchivedState(
     throw new NotFoundError(`Unable to locate the Constant: ${key}`);
   }
 
-  // Archive is delete-class — see the note in the feature archive controller.
-  if (!context.permissions.canDeleteConstant(constant)) {
+  // Archiving is delete-class; unarchiving returns the Constant to service and
+  // is an ordinary publish.
+  if (
+    !canLandArchivedState({
+      permissions: context.permissions,
+      model: "constant",
+      entity: constant,
+      archived,
+      environments: constantPublishEnvironments(context),
+    })
+  ) {
     context.permissions.throwPermissionError();
   }
 

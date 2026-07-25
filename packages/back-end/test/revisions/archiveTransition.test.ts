@@ -1,4 +1,10 @@
+import type {
+  Permissions,
+  RevisionAction,
+  RevisionModel,
+} from "shared/permissions";
 import {
+  canLandArchivedState,
   isArchiveTransition,
   proposedArchivedValue,
 } from "back-end/src/revisions/archiveTransition";
@@ -86,5 +92,86 @@ describe("proposedArchivedValue", () => {
         op("replace", "/archived", true),
       ]),
     ).toBe(true);
+  });
+});
+
+describe("canLandArchivedState", () => {
+  // Records what was asked so each case can assert the atom AND the env
+  // footprint — the footprint is what makes an env-limited role correct.
+  function permissionsGranting(granted: {
+    delete?: boolean;
+    publish?: boolean;
+  }) {
+    const calls: Array<{ action: string; environments: string[] }> = [];
+    return {
+      calls,
+      permissions: {
+        canRevisionAction: (
+          _model: RevisionModel,
+          action: RevisionAction,
+          _entity: { project?: string; projects?: string[] },
+          environments: string[] = [],
+        ) => {
+          calls.push({ action, environments });
+          return action === "delete" ? !!granted.delete : !!granted.publish;
+        },
+      } as Pick<Permissions, "canRevisionAction">,
+    };
+  }
+
+  const entity = { project: "proj" };
+
+  it("asks for the delete atom when archiving", () => {
+    const { permissions, calls } = permissionsGranting({ delete: true });
+    expect(
+      canLandArchivedState({
+        permissions,
+        model: "config",
+        entity,
+        archived: true,
+        environments: ["production"],
+      }),
+    ).toBe(true);
+    expect(calls).toEqual([{ action: "delete", environments: [] }]);
+  });
+
+  it("asks for env-scoped publish when unarchiving", () => {
+    const { permissions, calls } = permissionsGranting({ publish: true });
+    expect(
+      canLandArchivedState({
+        permissions,
+        model: "config",
+        entity,
+        archived: false,
+        environments: ["production"],
+      }),
+    ).toBe(true);
+    expect(calls).toEqual([
+      { action: "publish", environments: ["production"] },
+    ]);
+  });
+
+  it("does not let publish authority stand in for archiving", () => {
+    const { permissions } = permissionsGranting({ publish: true });
+    expect(
+      canLandArchivedState({
+        permissions,
+        model: "feature",
+        entity,
+        archived: true,
+      }),
+    ).toBe(false);
+  });
+
+  it("does not let delete authority stand in for unarchiving", () => {
+    const { permissions } = permissionsGranting({ delete: true });
+    expect(
+      canLandArchivedState({
+        permissions,
+        model: "feature",
+        entity,
+        archived: false,
+      }),
+    ).toBe(false);
   });
 });

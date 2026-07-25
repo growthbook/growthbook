@@ -25,6 +25,8 @@ import {
   collectConfigLockGate,
 } from "back-end/src/services/configLock";
 import { collectArchiveApprovalGate } from "back-end/src/revisions/governanceGates";
+import { canLandArchivedState } from "back-end/src/revisions/archiveTransition";
+import { configPublishEnvironments } from "back-end/src/revisions/revisionPublishEnvironments";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 
 async function buildResponse(
@@ -52,8 +54,17 @@ async function setArchivedState(
     throw new NotFoundError(`Unable to locate the Config: ${key}`);
   }
 
-  // Archive is delete-class — see the note in the feature archive controller.
-  if (!context.permissions.canDeleteConfig(config)) {
+  // Archiving is delete-class; unarchiving returns the Config to service and is
+  // an ordinary publish.
+  if (
+    !canLandArchivedState({
+      permissions: context.permissions,
+      model: "config",
+      entity: config,
+      archived,
+      environments: configPublishEnvironments(context, config),
+    })
+  ) {
     context.permissions.throwPermissionError();
   }
 

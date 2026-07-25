@@ -129,6 +129,7 @@ import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import { assertCanPublishFeatureRevision } from "back-end/src/revisions/featureRevertPurity";
+import { canLandArchivedState } from "back-end/src/revisions/archiveTransition";
 import {
   moveFlatRule,
   stampRuleForEnvs,
@@ -5380,21 +5381,22 @@ export async function postFeatureArchive(
     context.permissions.throwPermissionError();
   }
 
-  // Landing it is not. Archiving is delete-class: it takes the flag out of
-  // service, and being archived is what lets it then be deleted freely (see
-  // deleteFeature), so a lower gate would make archive a route to delete.
-  // Unarchiving only puts it back into service, an ordinary payload change.
-  // This branch publishes directly rather than through
-  // assertCanPublishFeatureRevision, so the check has to live here.
+  // Landing it is not — see canLandArchivedState. This branch publishes directly
+  // rather than through assertCanPublishFeatureRevision, so the check lives here.
   if (autoPublish) {
     const archiveEnvs = filterEnvironmentsByFeature(
       getEnvironments(context.org),
       feature,
     ).map((e) => e.id);
-    const canLand = newArchivedState
-      ? context.permissions.canDeleteFeature(feature)
-      : context.permissions.canPublishFeature(feature, archiveEnvs);
-    if (!canLand) {
+    if (
+      !canLandArchivedState({
+        permissions: context.permissions,
+        model: "feature",
+        entity: feature,
+        archived: newArchivedState,
+        environments: archiveEnvs,
+      })
+    ) {
       context.permissions.throwPermissionError();
     }
   }

@@ -25,6 +25,8 @@ import {
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
 import { getAdapter } from "back-end/src/revisions";
+import { canLandArchivedState } from "back-end/src/revisions/archiveTransition";
+import { constantPublishEnvironments } from "back-end/src/revisions/revisionPublishEnvironments";
 import {
   ConstantReferences,
   loadConstantReferences,
@@ -313,10 +315,17 @@ export const putConstant = async (
     fieldsToUpdate.project = project;
   }
   if (hasChanged(archived, comparisonBase.archived)) {
-    // Flipping archived is delete-class in either direction, matching the REST
-    // archive endpoint — it takes the Constant out of service, and being
-    // archived is what allows deleting it.
-    if (!context.permissions.canDeleteConstant(existing)) {
+    // Same gate as the REST archive endpoints: archiving is delete-class,
+    // unarchiving is an ordinary publish.
+    if (
+      !canLandArchivedState({
+        permissions: context.permissions,
+        model: "constant",
+        entity: existing,
+        archived: !!archived,
+        environments: constantPublishEnvironments(context),
+      })
+    ) {
       context.permissions.throwPermissionError();
     }
     fieldsToUpdate.archived = archived;

@@ -871,10 +871,18 @@ export default function ConfigDetailPage(): React.ReactElement {
   // view (selectedRevision set + not a draft), so it stays non-editable.
   const isLocked = !!config.lock;
   const canEditNow = canUpdate && !isLocked && (!selectedRevision || isDraft);
-  // Archive (either direction) is gated on the delete atom server-side: it takes
-  // the config out of service, and being archived is what allows deleting it.
+  // Archiving is delete-class server-side — it takes the Config out of service,
+  // and being archived is what allows deleting it. Unarchiving returns it to
+  // service, so it's an ordinary publish.
   const canArchiveNow =
-    permissionsUtil.canDeleteConfig(config) &&
+    (config.archived
+      ? permissionsUtil.canRevisionAction(
+          "config",
+          "publish",
+          config,
+          configPublishEnvironments(config, allEnvironmentIds),
+        )
+      : permissionsUtil.canDeleteConfig(config)) &&
     !isLocked &&
     (!selectedRevision || isDraft);
   // Inline editing works in a live context too — saving auto-creates a draft

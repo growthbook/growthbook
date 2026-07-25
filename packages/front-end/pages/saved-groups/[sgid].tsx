@@ -962,10 +962,17 @@ export default function EditSavedGroupPage() {
               </DropdownMenuGroup>
               <DropdownMenuSeparator />
               <DropdownMenuGroup>
-                {/* Archive (either direction) is gated on the delete atom
-                    server-side: it takes the group out of service, and being
-                    archived is what allows deleting it. */}
-                {permissionsUtil.canDeleteSavedGroup(savedGroup) &&
+                {/* Archiving is delete-class server-side — it takes the group
+                    out of service, and being archived is what allows deleting
+                    it. Unarchiving returns it to service, so it's an ordinary
+                    publish. */}
+                {(displayedSavedGroup?.archived
+                  ? permissionsUtil.canRevisionAction(
+                      "saved-group",
+                      "publish",
+                      savedGroup,
+                    )
+                  : permissionsUtil.canDeleteSavedGroup(savedGroup)) &&
                   (displayedSavedGroup?.archived ? (
                     <DropdownMenuItem
                       onClick={() => {

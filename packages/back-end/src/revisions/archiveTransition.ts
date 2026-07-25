@@ -1,4 +1,5 @@
 import { normalizeProposedChanges } from "shared/enterprise";
+import type { Permissions, RevisionModel } from "shared/permissions";
 
 /**
  * Archiving is delete-class: it takes the entity out of service, and being
@@ -18,6 +19,30 @@ export function isArchiveTransition({
   current: boolean | undefined;
 }): boolean {
   return proposed === true && !current;
+}
+
+/**
+ * Authority to land an `archived` flip, in whichever direction. The one place
+ * the rule above turns into a permission check, so every archive path — REST,
+ * entity PUT, revision publish — asks the same question. `environments` is the
+ * publish footprint, only consulted for the unarchive direction.
+ */
+export function canLandArchivedState({
+  permissions,
+  model,
+  entity,
+  archived,
+  environments = [],
+}: {
+  permissions: Pick<Permissions, "canRevisionAction">;
+  model: RevisionModel;
+  entity: { project?: string; projects?: string[] };
+  archived: boolean;
+  environments?: string[];
+}): boolean {
+  return archived
+    ? permissions.canRevisionAction(model, "delete", entity)
+    : permissions.canRevisionAction(model, "publish", entity, environments);
 }
 
 /**

@@ -28,6 +28,7 @@ import {
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
 import { getAdapter } from "back-end/src/revisions";
+import { canLandArchivedState } from "back-end/src/revisions/archiveTransition";
 import {
   dispatchSavedGroupRevisionEvent,
   deriveChange,
@@ -706,10 +707,16 @@ export const putSavedGroup = async (
     fieldsToUpdate.projects = projects;
   }
   if (hasChanged(archived, comparisonBase.archived)) {
-    // Flipping archived is delete-class in either direction, matching the REST
-    // archive endpoint — it takes the group out of service, and being archived
-    // is what allows deleting it.
-    if (!context.permissions.canDeleteSavedGroup(savedGroup)) {
+    // Same gate as the REST archive endpoint: archiving is delete-class,
+    // unarchiving is an ordinary publish.
+    if (
+      !canLandArchivedState({
+        permissions: context.permissions,
+        model: "saved-group",
+        entity: savedGroup,
+        archived: !!archived,
+      })
+    ) {
       context.permissions.throwPermissionError();
     }
     fieldsToUpdate.archived = archived;

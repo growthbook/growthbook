@@ -306,10 +306,18 @@ export default function ConstantDetailPage(): React.ReactElement {
   // merged/discarded revision). On live it starts a new draft; on a draft it
   // updates it.
   const canEditNow = canUpdate && (!selectedRevision || isDraft);
-  // Archive (either direction) is gated on the delete atom server-side: it takes
-  // the constant out of service, and being archived is what allows deleting it.
+  // Archiving is delete-class server-side — it takes the Constant out of service,
+  // and being archived is what allows deleting it. Unarchiving returns it to
+  // service, so it's an ordinary publish.
   const canArchiveNow =
-    permissionsUtil.canDeleteConstant(constant) &&
+    (constant.archived
+      ? permissionsUtil.canRevisionAction(
+          "constant",
+          "publish",
+          constant,
+          publishEnvironments,
+        )
+      : permissionsUtil.canDeleteConstant(constant)) &&
     (!selectedRevision || isDraft);
 
   // Whether the user can bypass approval for this constant (its project, or the

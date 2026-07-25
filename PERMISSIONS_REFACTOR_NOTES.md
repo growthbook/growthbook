@@ -33,9 +33,15 @@ Two are **restrictions** — they can take access away from an existing custom r
    tells callers to "archive the feature first" instead of enabling the REST
    bypass, so archive was a route to delete — gating it lower let a caller reach
    delete without ever passing a delete check.
-2. **Unarchive now requires publish authority** in the feature's environments
+2. **Unarchive now requires publish authority** in the entity's environments
    (was manage/drafts). It returns a flag to service, so it's an ordinary payload
    change — but a manage-only role can no longer do it.
+
+Both directions are enforced on **every** path that can land the flip: the REST
+archive/unarchive endpoints, the entity `PUT` (the dashboard's own archive modal),
+the feature archive endpoint's auto-publish branch, and revision publish. The
+single definition is `canLandArchivedState` in `revisions/archiveTransition.ts` —
+add a path, call that.
 
 Three are **escalations**, all deliberate:
 
@@ -106,18 +112,86 @@ Staging is draft-class; landing the change is not. Archive follows that split:
 the revision-archive endpoints stage under the draft atom, and the delete atom is
 enforced wherever the transition lands — the feature archive endpoint's
 auto-publish branch (which publishes directly), `assertCanPublishFeatureRevision`,
-the bulk publisher, and `assertCanPublishRevision` for the engine entities. The
-pure predicates behind that rule are `isArchiveTransition` / `proposedArchivedValue`.
+the bulk publisher, `assertCanPublishRevision` for the engine entities, the REST
+archive endpoints, and the entity `PUT`. The predicates behind the rule are
+`isArchiveTransition` / `proposedArchivedValue` / `canLandArchivedState`.
+
+**Landing is not sufficient on its own.** Every archive path also runs the
+staging gate first — draft authority for features, manage for the engine
+entities' `PUT` — so `deleteFlags` is effectively a **modifier**: it authorizes
+the elevation, it doesn't grant the action alone. Since deleting requires
+archiving first, a role holding _only_ `deleteFlags` can't delete anything. That
+follows from "archive and delete are the same elevation", which raised the floor
+without lowering it; whether the delete atom should also stand in for staging (the
+way revert authority stands in for proposing a revert draft) is an open call —
+see "Open questions".
 
 Note the engine's `adapter.canDelete` is **not** the delete atom — it gates
 deleting a revision _document_ (the entity's bypass-approval atom). Entity delete
 comes from the permission table.
 
+## Full-branch audit — what it found
+
+A whole-diff pass over the 227 changed files, aimed at the rewiring risk: gates
+that were merged, split, or repointed. Three real gaps, all fixed:
+
+1. **The entity `PUT` was never repointed** (Configs, Constants, Saved Groups).
+   It can archive and it can publish, and it still gated everything on the one
+   manage atom — while the REST archive endpoints and revision publish had both
+   moved to the delete atom, and the UI had already been switched to hide archive
+   behind delete. So the branch's headline restriction was **client-side only on
+   the dashboard's own path**. Now gated by `canLandArchivedState`, and the same
+   predicate replaced the hand-rolled ternary in the feature archive controller so
+   the rule has one definition.
+2. **The front-end asked for env-scoped authority with no environment list.** An
+   empty list skips the env limit entirely (`envs.every` over nothing), so
+   Config/Constant publish and revert read as granted for an env-limited role and
+   the server then refused. The footprint helpers moved to
+   `shared/util/configs.ts` (`configPublishEnvironments` /
+   `constantPublishEnvironments`) so both sides scope identically.
+3. **"Request Review" was enabled for any authority**, though the endpoint behind
+   it requires draft authority — so publish-only, review-only and revert-only
+   roles were offered a button that 403s. The publish CTA beside it already got
+   this right; the fix was to match it.
+
+Also settled while verifying: unarchive is now publish-class on **all four**
+entities, not just features. The engine entities shared one `setArchivedState`
+helper that gated both directions on delete, which contradicted release-note #2.
+
+Checked and found correct (no change needed): the internal direct-revert
+controller's per-field env gating; discard staying author-or-draft; the
+per-family bypass split with no model-agnostic path hardcoding a family atom;
+role validation (`permissions[]` is a Zod enum over `ALL_PERMISSIONS`, behind
+`canManageCustomRoles` + the premium gate); the set of policies hidden from the
+editor matching `DEPRECATED_POLICIES` exactly; and no permission newly reachable
+only via additive grants (`manageExecReports` is policy-orphaned on `main` too).
+
 ## Verification
 
 - All three packages type-check; every changed file lints at zero warnings.
-- back-end 201 suites / 5577 tests, shared 54 / 1919, front-end 50 / 774 — all pass.
+- back-end 201 suites / 5581 tests, shared 54 / 1925, front-end 50 / 774 — all pass.
 - OpenAPI regenerated: description-only diff from the bypass-atom rename.
+- `pnpm lint` at the repo root currently fails on a **stale git worktree** at
+  `.claude/worktrees/reverent-colden-d80529` (registered, 158M, holds uncommitted
+  work from the copy sweep, based on `main`). Nothing to do with this branch —
+  lint globs into it. Clear it with `git worktree remove` once that work is
+  salvaged or abandoned.
+
+## Open questions
+
+- **Should the delete atom stand in for staging?** Today archive needs delete
+  **and** draft/manage, which makes a delete-only role unable to delete anything
+  (delete requires archiving first). Revert set the opposite precedent: revert
+  authority alone suffices to propose a revert draft. Making delete behave the
+  same way would make the Deleter persona coherent; leaving it keeps the floor
+  higher. Not a blocker either way — it only affects roles that grant delete
+  without manage or drafts.
+- **Publish authority on the entity `PUT`.** For the engine entities that path
+  still lands live changes under the manage atom, so `publishFlags` is only
+  authoritative through the revision engine. Enforcing it there would be a real
+  behavior change (a manage-only role could no longer save a Config at all with
+  approvals off, since save _is_ publish on that path), so it wants a deliberate
+  decision rather than a quiet tightening. Not a regression — `main` was the same.
 
 ## Still open
 
@@ -150,8 +224,8 @@ testing, not test failures.
 | Propose revert as draft            |            ✗             |                 ✓                  |             ✗             |              ✗              |             ✓             |               ✓                |            ✗             |
 | Publish a **pure** revert draft    |            ✗             |                 ✗                  |             ✗             |              ✓              |             ✓             |               ✗                |            ✗             |
 | Publish an **edited** revert draft |            ✗             |                 ✗                  |             ✗             |              ✓              |             ✗             |               ✗                |            ✗             |
-| Archive (land it)                  |            ✗             |                 ✗                  |             ✗             |              ✗              |             ✗             |               ✗                |            ✓             |
-| Unarchive (land it)                |            ✗             |                 ✗                  |             ✗             |              ✓              |             ✗             |               ✗                |            ✗             |
+| Archive (land it)                  |            ✗             |                 ✗                  |             ✗             |              ✗              |             ✗             |               ✗                |      ✗ (+drafts ✓)       |
+| Unarchive (land it)                |            ✗             |                 ✗                  |             ✗             |        ✗ (+drafts ✓)        |             ✗             |               ✗                |            ✗             |
 | Delete an archived flag            |            ✗             |                 ✗                  |             ✗             |              ✗              |             ✗             |               ✗                |            ✓             |
 | Delete a live flag (REST)          |            ✗             |                 ✗                  |             ✗             |              ✗              |             ✗             |               ✗                |            ✗             |
 
@@ -163,14 +237,18 @@ Notes that the grid can't carry:
   _and_ the org's REST-bypass setting; the internal path requires archiving first.
   So the Deleter column is ✓ only for already-archived flags.
 - **Staging vs landing.** A draft author can stage `archived: true` in a draft; it
-  just won't publish. Only the landing column is shown above.
+  just won't publish. Only the landing column is shown above — and because the
+  staging gate still runs, the archive/unarchive rows need the landing atom
+  **plus** draft authority (manage, for the engine entities' `PUT`). Marked
+  `+drafts` rather than ✓.
 - **Env scoping.** Publish and revert are per-environment for Flags, so an
   env-limited Publisher/Reverter is ✓ only within its environments — and a revert
   spanning an environment they lack is ✗ in full, not partially applied.
 - **Impure revert drafts** fall back to needing publish authority, which is why the
   Reverter column differs between the pure and edited rows.
 - **Saved groups** follow the same shape with their own atoms, except publish and
-  revert are project-scoped (no env dimension).
+  revert are project-scoped (no env dimension) — which also makes their unarchive
+  project-scoped.
 - **UI parity.** Every ✓ above should be reachable in the product, not just via
   REST — that's the specific thing the `canEditEntity` split was fixing, and the
   most likely place for a mismatch to remain.

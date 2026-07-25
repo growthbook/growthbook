@@ -16,6 +16,7 @@ import {
   buildPatchOps,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
+import { canLandArchivedState } from "back-end/src/revisions/archiveTransition";
 import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
 import {
   evaluatePublishGates,
@@ -50,8 +51,16 @@ async function setArchivedState(
     throw new Error(`Unable to locate the saved-group: ${id}`);
   }
 
-  // Archive is delete-class — see the note in the feature archive controller.
-  if (!context.permissions.canDeleteSavedGroup(savedGroup)) {
+  // Archiving is delete-class; unarchiving returns the group to service and is
+  // an ordinary publish (project-scoped — saved groups have no environments).
+  if (
+    !canLandArchivedState({
+      permissions: context.permissions,
+      model: "saved-group",
+      entity: savedGroup,
+      archived,
+    })
+  ) {
     context.permissions.throwPermissionError();
   }
 
