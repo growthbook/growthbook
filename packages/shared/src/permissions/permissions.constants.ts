@@ -25,6 +25,7 @@ export const POLICIES = [
   "SegmentsFullAccess",
   "IdeasFullAccess",
   "PresentationsFullAccess",
+  "ExperimentsPublish",
   "SDKPayloadPublish",
   "SDKConnectionsFullAccess",
   "AttributesFullAccess",
@@ -64,6 +65,10 @@ export type Policy = (typeof POLICIES)[number];
 // from the role editor (excluded from POLICY_DISPLAY_GROUPS) and must not be
 // offered for new selection.
 export const DEPRECATED_POLICIES: Policy[] = [
+  // Everything it granted is now expressed by the Feature Flags family plus
+  // ExperimentsPublish, so it's hidden from the editor. Stays resolvable, since
+  // stored roles rely on it for publish authority.
+  "SDKPayloadPublish",
   "FeaturesFullAccess",
   "FeaturesBypassApprovals",
   "ConfigsFullAccess",
@@ -143,8 +148,9 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   SegmentsFullAccess: ["readData", "createSegments", "runQueries"],
   IdeasFullAccess: ["readData", "createIdeas"],
   PresentationsFullAccess: ["readData", "createPresentations"],
-  // Revert accompanies publish: rolling back to an already-published state is a
-  // strictly narrower live write than publishing arbitrary new state.
+  ExperimentsPublish: ["readData", "runExperiments"],
+  // Deprecated. Revert accompanies publish: rolling back to an already-published
+  // state is a strictly narrower live write than publishing new state.
   SDKPayloadPublish: [
     "readData",
     "publishFlags",
@@ -246,9 +252,6 @@ export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
     policies: [
       "FlagsFullAccess",
       "FlagsBypassApprovals",
-      // Publish/revert are flag-family atoms, so this belongs next to the
-      // policies that grant editing rather than under SDK Configuration.
-      "SDKPayloadPublish",
       "ArchetypesFullAccess",
       "SavedGroupsFullAccess",
       "SavedGroupsBypassSizeLimit",
@@ -258,6 +261,7 @@ export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
     name: "Experiments",
     policies: [
       "ExperimentsFullAccess",
+      "ExperimentsPublish",
       "VisualEditorFullAccess",
       "SuperDeleteReports",
       "TemplatesFullAccess",
@@ -430,6 +434,11 @@ export const POLICY_METADATA_MAP: Record<
   PresentationsFullAccess: {
     displayName: "Presentations Full Access",
     description: "Create, edit, and delete presentations",
+  },
+  ExperimentsPublish: {
+    displayName: "Experiments Publish",
+    description:
+      "Start and stop experiments, which changes what is sent to SDKs.",
   },
   SDKPayloadPublish: {
     displayName: "SDK Payload Publish",
@@ -677,7 +686,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "VisualEditorFullAccess",
       "IdeasFullAccess",
       "PresentationsFullAccess",
-      "SDKPayloadPublish",
+      "ExperimentsPublish",
       "SDKConnectionsFullAccess",
       "AttributesFullAccess",
       "EnvironmentsFullAccess",
@@ -732,7 +741,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "SegmentsFullAccess",
       "IdeasFullAccess",
       "PresentationsFullAccess",
-      "SDKPayloadPublish",
+      "ExperimentsPublish",
       "SDKConnectionsFullAccess",
       "AttributesFullAccess",
       "EnvironmentsFullAccess",
@@ -766,7 +775,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "SegmentsFullAccess",
       "IdeasFullAccess",
       "PresentationsFullAccess",
-      "SDKPayloadPublish",
+      "ExperimentsPublish",
       "SDKConnectionsFullAccess",
       "AttributesFullAccess",
       "EnvironmentsFullAccess",
