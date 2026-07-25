@@ -34,10 +34,18 @@ export const putConfigRevisionMetadata = createApiRequestHandler(
   const { name, owner, description, project, parent, extensible } = req.body;
   const extendsKeys = req.body.extends;
 
-  // Editing draft metadata requires draft-authoring permission. Done BEFORE
-  // probing project existence so it can't be an existence oracle. A `project`
-  // move's destination-manage rights are re-checked at publish time.
+  // Both checks run BEFORE probing project existence, so this can't be used as
+  // an existence oracle for projects the caller has no access to.
   if (!req.context.permissions.canRevisionAction("config", "draft", config)) {
+    req.context.permissions.throwPermissionError();
+  }
+  // Staging a project move needs manage on the destination as well as draft
+  // rights on the source. Publish re-checks the destination when the move lands.
+  if (
+    typeof project !== "undefined" &&
+    project !== config.project &&
+    !req.context.permissions.canRevisionAction("config", "manage", { project })
+  ) {
     req.context.permissions.throwPermissionError();
   }
 

@@ -1,8 +1,10 @@
-import { PermissionError } from "shared/util";
+import { filterEnvironmentsByFeature, PermissionError } from "shared/util";
 import { deleteFeatureValidator } from "shared/validators";
 import type { ApiRequestLocals } from "back-end/types/api";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { deleteFeature, getFeature } from "back-end/src/models/FeatureModel";
+import { getEnvironments } from "back-end/src/util/organization.util";
+import { getEnabledEnvironments } from "back-end/src/util/features";
 import { assertFeatureDeletable } from "back-end/src/services/features";
 import { auditDetailsDelete } from "back-end/src/services/audit";
 import { canUseRestApiBypassSetting } from "./reviewBypass";
@@ -20,9 +22,26 @@ export async function deleteFeatureHandler(
     );
   }
 
-  // Delete is gated by the delete permission; live-feature safety is enforced below.
   if (!req.context.permissions.canDeleteFeature(feature)) {
     req.context.permissions.throwPermissionError();
+  }
+
+  // Deleting a LIVE feature drops it from the SDK payload in the environments
+  // it is enabled in, so it also needs publish authority there. An archived
+  // feature is already out of service, so the delete atom alone covers it.
+  if (!feature.archived) {
+    const environmentIds = filterEnvironmentsByFeature(
+      getEnvironments(req.context.org),
+      feature,
+    ).map((e) => e.id);
+    if (
+      !req.context.permissions.canPublishFeature(
+        feature,
+        Array.from(getEnabledEnvironments(feature, environmentIds)),
+      )
+    ) {
+      req.context.permissions.throwPermissionError();
+    }
   }
 
   // Deleting a live (non-archived) feature is a production-affecting action.

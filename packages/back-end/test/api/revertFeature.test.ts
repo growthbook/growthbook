@@ -79,6 +79,7 @@ const ctx = {
   permissions: {
     canUpdateFeature: jest.fn(() => true),
     canPublishFeature: jest.fn(() => true),
+    canRevertFeature: jest.fn(() => true),
     canBypassApprovalChecks: jest.fn(() => true),
     throwPermissionError: jest.fn(() => {
       throw new Error("forbidden");
