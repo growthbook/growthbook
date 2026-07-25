@@ -525,6 +525,12 @@ export default function ResultsTable({
   const noRows = rows.length === 0;
   const hasUnfilteredMetrics = (totalMetricsCount ?? 0) > 0;
 
+  // Render-complete signal for programmatic consumers (automated UI tests,
+  // snapshot diffing, scraping): the table is only populated after the snapshot
+  // fetch resolves. Derived (not state) so the attribute never briefly renders
+  // "false" before rows arrive.
+  const renderComplete = rows.length > 0;
+
   const changeTitle = getEffectLabel(differenceType);
 
   const hasGoalMetrics = rows.some((r) => r.resultGroup === "goal");
@@ -542,7 +548,16 @@ export default function ResultsTable({
         onClick: onRowClick_,
       }) => (
         <div className="position-relative">
-          <div ref={tableContainerRef} className="experiment-results-wrapper">
+          <div
+            ref={tableContainerRef}
+            // Render gate: programmatic consumers should read values only once
+            // this is "true".
+            data-render-complete={renderComplete ? "true" : "false"}
+            // Snapshot id backing the rendered values, so two captures can be
+            // confirmed to come from the same snapshot. Omitted when absent.
+            {...(snapshot?.id ? { "data-snapshot-id": snapshot.id } : {})}
+            className="experiment-results-wrapper"
+          >
             <div className="w-100" style={{ minWidth: 700 }}>
               <table id="main-results" className="experiment-results table-sm">
                 <thead>
@@ -802,6 +817,17 @@ export default function ResultsTable({
                         <>
                           {/* Render the main results tbody */}
                           <tbody
+                            // Stable metric identifier for programmatic row
+                            // alignment (rows can reorder, so positional matching
+                            // is unsafe).
+                            data-metric-id={row.metric.id}
+                            // Dimension-slice identifier on slice rows. Omitted
+                            // entirely when absent (rather than rendered as the
+                            // literal string "null") so getAttribute() === null
+                            // reliably means "not a slice row".
+                            {...(row.sliceId
+                              ? { "data-slice-id": row.sliceId }
+                              : {})}
                             className={clsx("results-group-row", {
                               "slice-row": row.isSliceRow,
                               [styles.clickableRow]: !!effectiveOnRowClick,
@@ -963,6 +989,11 @@ export default function ResultsTable({
                                       id,
                                       domain,
                                       ssrPolyfills,
+                                      // Variation index for programmatic
+                                      // alignment (kept on the error/empty row
+                                      // too, so the row aligns even when no
+                                      // value cells render).
+                                      dataVariation: v.index,
                                     });
                                   } else {
                                     return null;
@@ -982,6 +1013,9 @@ export default function ResultsTable({
 
                                 return (
                                   <tr
+                                    // Variation index for programmatic alignment
+                                    // of this row.
+                                    data-variation={v.index}
                                     className={clsx(
                                       "results-variation-row align-items-center",
                                       {
@@ -1054,6 +1088,11 @@ export default function ResultsTable({
                                             stats={baseline}
                                             users={baseline?.users || 0}
                                             className="value baseline"
+                                            // Mark this render as the baseline
+                                            // column; drives the baseline_ field
+                                            // name prefix so the baseline and
+                                            // treatment values are keyed distinctly.
+                                            cellRole="baseline"
                                             showRatio={!isBandit}
                                             displayCurrency={displayCurrency}
                                             getExperimentMetricById={
@@ -1430,6 +1469,7 @@ function drawEmptyRow({
   labelColSpan,
   renderGraph,
   renderLastColumn,
+  dataVariation,
 }: {
   key?: number | string;
   className?: string;
@@ -1445,9 +1485,20 @@ function drawEmptyRow({
   labelColSpan: number;
   renderGraph: boolean;
   renderLastColumn: boolean;
+  // Optional variation index for programmatic alignment.
+  dataVariation?: number;
 }) {
   return (
-    <tr key={key} style={{ height: rowHeight, ...style }} className={className}>
+    <tr
+      key={key}
+      style={{ height: rowHeight, ...style }}
+      className={className}
+      // Variation index for programmatic alignment (only set on variation
+      // error/empty rows).
+      {...(dataVariation !== undefined
+        ? { "data-variation": dataVariation }
+        : {})}
+    >
       {renderLabel && (
         <td colSpan={labelColSpan} className="position-relative">
           {label}
