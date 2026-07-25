@@ -2100,6 +2100,9 @@ export default function ConfigDetailPage(): React.ReactElement {
                   "revert",
                   config,
                 )}
+                canCommentOnEntity={permissionsUtil.canAddComment(
+                  config.project ? [config.project] : [],
+                )}
                 canBypassApproval={canBypassApproval}
                 publishBlockedReason={
                   config.lock

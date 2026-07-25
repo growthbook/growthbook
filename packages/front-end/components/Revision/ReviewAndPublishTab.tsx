@@ -148,6 +148,9 @@ export interface ReviewAndPublishTabProps<T> {
   // Reverting is its own authority, so a revert-only role holds no edit rights.
   // Defaults to canEditEntity for callers that don't distinguish them.
   canRevertEntity?: boolean;
+  // Commenting is participation, gated by addComments rather than by authority
+  // over the entity. Defaults to canEditEntity for callers that don't pass it.
+  canCommentOnEntity?: boolean;
   // The viewer can bypass the approval requirement (admin).
   canBypassApproval: boolean;
   // When set, publishing is blocked and this reason is shown (e.g. the entity is
@@ -195,6 +198,7 @@ function ReviewAndPublishRevision<T>({
   requiresApproval,
   canEditEntity,
   canRevertEntity,
+  canCommentOnEntity,
   canBypassApproval,
   publishBlockedReason,
   selectRevision,
@@ -507,6 +511,7 @@ function ReviewAndPublishRevision<T>({
     revision.status === "pending-review" ||
     revision.status === "changes-requested";
   const canRevertOrEdit = canRevertEntity ?? canEditEntity;
+  const canComment = canCommentOnEntity ?? canEditEntity;
   const canReview = isPendingReview && !isAuthor && canEditEntity;
   const approved = revision.status === "approved" || adminPublish;
 
@@ -537,9 +542,9 @@ function ReviewAndPublishRevision<T>({
   const diffComments = useMemo<DiffCommentsProps>(
     () => ({
       anchors: diffCommentAnchors,
-      onSubmitNew: isActiveDraft && canEditEntity ? submitComment : undefined,
+      onSubmitNew: isActiveDraft && canComment ? submitComment : undefined,
     }),
-    [diffCommentAnchors, isActiveDraft, canEditEntity, submitComment],
+    [diffCommentAnchors, isActiveDraft, canComment, submitComment],
   );
 
   // ── Lifecycle actions ──

@@ -1050,6 +1050,9 @@ export default function EditSavedGroupPage() {
               "revert",
               savedGroup,
             )}
+            canCommentOnEntity={permissionsUtil.canAddComment(
+              savedGroup.projects ?? [],
+            )}
             canBypassApproval={!!canAdminPublish}
             selectRevision={selectFlow}
             onPublish={handlePublish}

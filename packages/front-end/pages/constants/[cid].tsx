@@ -556,6 +556,9 @@ export default function ConstantDetailPage(): React.ReactElement {
               "revert",
               constant,
             )}
+            canCommentOnEntity={permissionsUtil.canAddComment(
+              constant.project ? [constant.project] : [],
+            )}
             canBypassApproval={canBypassApproval}
             selectRevision={selectRevision}
             onPublish={handlePublish}

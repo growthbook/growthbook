@@ -55,6 +55,24 @@ function canDoRevisionAction(
   return (fn ?? adapter.canUpdate)(context, snapshot);
 }
 
+// Commenting is participation, not authority over the entity: the addComments
+// atom is what gates it everywhere else (feature and experiment discussions), so
+// honour it here too, alongside draft and review authority.
+function canCommentOnRevision(
+  type: RevisionTargetType,
+  context: ReqContext,
+  snapshot: Record<string, unknown>,
+): boolean {
+  const projects =
+    (snapshot.projects as string[] | undefined) ??
+    (snapshot.project ? [snapshot.project as string] : []);
+  return (
+    context.permissions.canAddComment(projects) ||
+    canDoRevisionAction(type, "draft", context, snapshot) ||
+    canDoRevisionAction(type, "review", context, snapshot)
+  );
+}
+
 // Arm-time acknowledgment for a deferred publish, via the entity's adapter hook
 // (config uses it for the experiment guard; others have none). Throws when the
 // armer must acknowledge a condition first; returns keys to snapshot on the arm.
@@ -608,8 +626,7 @@ export const postReview = async (
   const type = existingRevision.target.type;
   const allowed =
     decision === "comment"
-      ? canDoRevisionAction(type, "draft", context, snapshot) ||
-        canDoRevisionAction(type, "review", context, snapshot)
+      ? canCommentOnRevision(type, context, snapshot)
       : canDoRevisionAction(type, "review", context, snapshot);
   if (!allowed) {
     context.permissions.throwPermissionError();
@@ -1649,12 +1666,11 @@ export const putComment = async (
     return res.status(404).json({ message: "Revision not found" });
   }
 
-  // Require draft-authoring permission (the model also enforces author-only),
-  // matching the other review-lifecycle endpoints.
+  // Editing or removing your own comment is comment-class; the model enforces
+  // author-only.
   if (
-    !canDoRevisionAction(
+    !canCommentOnRevision(
       existingRevision.target.type,
-      "draft",
       context,
       existingRevision.target.snapshot as Record<string, unknown>,
     )
@@ -1705,12 +1721,11 @@ export const deleteComment = async (
     return res.status(404).json({ message: "Revision not found" });
   }
 
-  // Require draft-authoring permission (the model also enforces author-only),
-  // matching the other review-lifecycle endpoints.
+  // Editing or removing your own comment is comment-class; the model enforces
+  // author-only.
   if (
-    !canDoRevisionAction(
+    !canCommentOnRevision(
       existingRevision.target.type,
-      "draft",
       context,
       existingRevision.target.snapshot as Record<string, unknown>,
     )
