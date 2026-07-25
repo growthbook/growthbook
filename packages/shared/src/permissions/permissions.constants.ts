@@ -373,7 +373,7 @@ export const POLICY_METADATA_MAP: Record<
   ArchetypesFullAccess: {
     displayName: "Archetypes",
     description:
-      "Create, edit, and delete saved User Archetypes for feature flag debugging",
+      "Create, edit, and delete saved User Archetypes for Feature Flag debugging",
   },
   FeaturesBypassApprovals: {
     displayName: "Features Bypass Approvals",
