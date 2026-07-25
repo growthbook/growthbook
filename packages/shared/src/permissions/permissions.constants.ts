@@ -347,7 +347,7 @@ export const POLICY_METADATA_MAP: Record<
   FlagsBypassApprovals: {
     displayName: "Feature Flags Bypass Approvals",
     description:
-      "Add-on to Feature Flags Full Access: publish without the required review, and override related review controls such as config locks and other users' drafts",
+      "Add-on to Feature Flags Full Access: publish without the required review, force-merge an out-of-date draft, and discard other users' drafts. Does not bypass schema validation, custom hooks, or config locks.",
   },
   FeaturesFullAccess: {
     displayName: "Features Full Access",

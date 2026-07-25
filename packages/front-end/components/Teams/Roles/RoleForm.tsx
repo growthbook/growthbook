@@ -268,9 +268,12 @@ export default function RoleForm({
                     const checked = currentPolicies.includes(policy);
                     // Fine-grained atoms this policy bundles that can be granted
                     // individually via the role's permissions[] (excludes readData).
-                    const granularAtoms = (
+                    // Only worth expanding when there's a composition choice:
+                    // a single-atom policy would just restate the row above it.
+                    const allAtoms = (
                       POLICY_PERMISSION_MAP[policy] || []
                     ).filter((p) => GRANULAR_PERMISSION_METADATA[p]);
+                    const granularAtoms = allAtoms.length > 1 ? allAtoms : [];
                     const composedCount = granularAtoms.filter((a) =>
                       currentPermissions.includes(a),
                     ).length;
