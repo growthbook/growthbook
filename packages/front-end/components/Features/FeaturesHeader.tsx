@@ -200,6 +200,10 @@ export default function FeaturesHeader({
   const enabledEnvs = getEnabledEnvironments(feature, environments);
   const canPublish = permissionsUtil.canPublishFeature(feature, enabledEnvs);
   const isArchived = feature.archived;
+  const canDelete = permissionsUtil.canDeleteFeature(feature);
+  // Archiving takes the flag out of service, so it carries delete authority;
+  // unarchiving returns it to service, an ordinary publish in its environments.
+  const canToggleArchive = isArchived ? canPublish : canDelete;
 
   // Tab chip + tooltip count revisions at "request review" or beyond; drafts
   // still being edited don't need reviewer/publisher attention.
@@ -363,45 +367,52 @@ export default function FeaturesHeader({
             </DropdownMenuItem>
           )}
         </DropdownMenuGroup>
-        {canEdit && canPublish && !isReadOnly && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuItem
-                onClick={() => {
-                  setDuplicateModal(true);
-                  setDropdownOpen(false);
-                }}
-              >
-                Duplicate
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => {
-                  setArchiveModal(true);
-                  setDropdownOpen(false);
-                }}
-              >
-                {isArchived ? "Unarchive" : "Archive"}
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-            {isArchived && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuGroup>
+        {((canEdit && canPublish) ||
+          canToggleArchive ||
+          (isArchived && canDelete)) &&
+          !isReadOnly && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                {canEdit && canPublish && (
                   <DropdownMenuItem
-                    color="red"
                     onClick={() => {
-                      setDeleteModal(true);
+                      setDuplicateModal(true);
                       setDropdownOpen(false);
                     }}
                   >
-                    Delete
+                    Duplicate
                   </DropdownMenuItem>
-                </DropdownMenuGroup>
-              </>
-            )}
-          </>
-        )}
+                )}
+                {canToggleArchive && (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setArchiveModal(true);
+                      setDropdownOpen(false);
+                    }}
+                  >
+                    {isArchived ? "Unarchive" : "Archive"}
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuGroup>
+              {isArchived && canDelete && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuGroup>
+                    <DropdownMenuItem
+                      color="red"
+                      onClick={() => {
+                        setDeleteModal(true);
+                        setDropdownOpen(false);
+                      }}
+                    >
+                      Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+                </>
+              )}
+            </>
+          )}
       </DropdownMenu>
     </Flex>
   );

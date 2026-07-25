@@ -868,6 +868,12 @@ export default function ConfigDetailPage(): React.ReactElement {
   // view (selectedRevision set + not a draft), so it stays non-editable.
   const isLocked = !!config.lock;
   const canEditNow = canUpdate && !isLocked && (!selectedRevision || isDraft);
+  // Archive (either direction) is gated on the delete atom server-side: it takes
+  // the config out of service, and being archived is what allows deleting it.
+  const canArchiveNow =
+    permissionsUtil.canDeleteConfig(config) &&
+    !isLocked &&
+    (!selectedRevision || isDraft);
   // Inline editing works in a live context too — saving auto-creates a draft
   // (saveValue's writeQuery falls back to ?forceCreateRevision=1). Kept in lockstep
   // with canEditNow so locked/discarded contexts expose no edit controls.
@@ -1611,11 +1617,11 @@ export default function ConfigDetailPage(): React.ReactElement {
                       </DropdownMenuGroup>
                     </>
                   )}
-                  {(canEditNow || canDeleteNow) && (
+                  {(canEditNow || canArchiveNow || canDeleteNow) && (
                     <>
                       <DropdownMenuSeparator />
                       <DropdownMenuGroup>
-                        {canEditNow && (
+                        {canArchiveNow && (
                           <DropdownMenuItem
                             onClick={() => {
                               setMenuOpen(false);

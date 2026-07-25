@@ -298,6 +298,11 @@ export default function ConstantDetailPage(): React.ReactElement {
   // merged/discarded revision). On live it starts a new draft; on a draft it
   // updates it.
   const canEditNow = canUpdate && (!selectedRevision || isDraft);
+  // Archive (either direction) is gated on the delete atom server-side: it takes
+  // the constant out of service, and being archived is what allows deleting it.
+  const canArchiveNow =
+    permissionsUtil.canDeleteConstant(constant) &&
+    (!selectedRevision || isDraft);
 
   // Whether the user can bypass approval for this constant (its project, or the
   // global "" project when unscoped) — enables the "publish now" option.
@@ -382,11 +387,11 @@ export default function ConstantDetailPage(): React.ReactElement {
                   Audit history
                 </DropdownMenuItem>
               </DropdownMenuGroup>
-              {(canEditNow || canDeleteNow) && (
+              {(canEditNow || canArchiveNow || canDeleteNow) && (
                 <>
                   <DropdownMenuSeparator />
                   <DropdownMenuGroup>
-                    {canEditNow && (
+                    {canArchiveNow && (
                       <DropdownMenuItem
                         onClick={() => {
                           setMenuOpen(false);

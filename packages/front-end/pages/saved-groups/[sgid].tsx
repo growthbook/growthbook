@@ -960,25 +960,29 @@ export default function EditSavedGroupPage() {
               </DropdownMenuGroup>
               <DropdownMenuSeparator />
               <DropdownMenuGroup>
-                {displayedSavedGroup?.archived ? (
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setDropdownOpen(false);
-                      setShowArchiveModal(true);
-                    }}
-                  >
-                    Unarchive
-                  </DropdownMenuItem>
-                ) : (
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setDropdownOpen(false);
-                      setShowArchiveModal(true);
-                    }}
-                  >
-                    Archive
-                  </DropdownMenuItem>
-                )}
+                {/* Archive (either direction) is gated on the delete atom
+                    server-side: it takes the group out of service, and being
+                    archived is what allows deleting it. */}
+                {permissionsUtil.canDeleteSavedGroup(savedGroup) &&
+                  (displayedSavedGroup?.archived ? (
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setDropdownOpen(false);
+                        setShowArchiveModal(true);
+                      }}
+                    >
+                      Unarchive
+                    </DropdownMenuItem>
+                  ) : (
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setDropdownOpen(false);
+                        setShowArchiveModal(true);
+                      }}
+                    >
+                      Archive
+                    </DropdownMenuItem>
+                  ))}
                 {/* Delete is gated on the LIVE archive state, not the
                     displayed/draft state — the server enforces the same
                     rule, and we want users to publish the archive before
