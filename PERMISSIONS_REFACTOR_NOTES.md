@@ -112,6 +112,55 @@ the permission table.
   preset/atom mutual exclusion. This is the main untested surface.
 - Delete this file before merge.
 
+## Expected behavior — the QA oracle
+
+Derived from the rules as implemented, so QA has something to check _against_
+rather than just observing. Each persona is a custom role holding **only** the
+atoms named (plus `readData`). Disagreements here are spec bugs to settle before
+testing, not test failures.
+
+| Action (Flags)                     | Collab.<br>`addComments` | Draft author<br>`manageFlagDrafts` | Reviewer<br>`reviewFlags` | Publisher<br>`publishFlags` | Reverter<br>`revertFlags` | Editor<br>`manageFlags`+drafts | Deleter<br>`deleteFlags` |
+| ---------------------------------- | :----------------------: | :--------------------------------: | :-----------------------: | :-------------------------: | :-----------------------: | :----------------------------: | :----------------------: |
+| Create flag                        |            ✗             |                 ✗                  |             ✗             |              ✗              |             ✗             |               ✓                |            ✗             |
+| Edit flag metadata                 |            ✗             |                 ✗                  |             ✗             |              ✗              |             ✗             |               ✓                |            ✗             |
+| Create / edit draft                |            ✗             |                 ✓                  |             ✗             |              ✗              |             ✗             |               ✓                |            ✗             |
+| Rebase / resolve conflicts         |            ✗             |                 ✓                  |             ✗             |              ✗              |             ✗             |               ✓                |            ✗             |
+| Discard draft (incl. others')      |            ✗             |                 ✓                  |             ✗             |              ✗              |             ✗             |               ✓                |            ✗             |
+| Request review                     |            ✗             |                 ✓                  |             ✗             |              ✗              |             ✗             |               ✓                |            ✗             |
+| Comment on a revision              |            ✓             |                 ✓                  |             ✓             |              ✗              |             ✗             |               ✓                |            ✗             |
+| Approve / request changes          |            ✗             |                 ✗                  |             ✓             |              ✗              |             ✗             |               ✗                |            ✗             |
+| Approve **and** publish            |            ✗             |                 ✗                  |             ✗             |              ✗              |             ✗             |               ✗                |            ✗             |
+| Publish a draft                    |            ✗             |                 ✗                  |             ✗             |              ✓              |             ✗             |               ✗                |            ✗             |
+| Toggle env / kill switch           |            ✗             |                 ✗                  |             ✗             |              ✓              |             ✗             |               ✗                |            ✗             |
+| Direct revert                      |            ✗             |                 ✗                  |             ✗             |              ✗              |             ✓             |               ✗                |            ✗             |
+| Propose revert as draft            |            ✗             |                 ✓                  |             ✗             |              ✗              |             ✓             |               ✓                |            ✗             |
+| Publish a **pure** revert draft    |            ✗             |                 ✗                  |             ✗             |              ✓              |             ✓             |               ✗                |            ✗             |
+| Publish an **edited** revert draft |            ✗             |                 ✗                  |             ✗             |              ✓              |             ✗             |               ✗                |            ✗             |
+| Archive (land it)                  |            ✗             |                 ✗                  |             ✗             |              ✗              |             ✗             |               ✗                |            ✓             |
+| Unarchive (land it)                |            ✗             |                 ✗                  |             ✗             |              ✓              |             ✗             |               ✗                |            ✗             |
+| Delete an archived flag            |            ✗             |                 ✗                  |             ✗             |              ✗              |             ✗             |               ✗                |            ✓             |
+| Delete a live flag (REST)          |            ✗             |                 ✗                  |             ✗             |              ✗              |             ✗             |               ✗                |            ✗             |
+
+Notes that the grid can't carry:
+
+- **Approve-and-publish needs review _and_ publish**, so no single-atom persona can
+  do it — that's intended, not a gap.
+- **Deleting a live flag via REST** additionally needs env-scoped publish authority
+  _and_ the org's REST-bypass setting; the internal path requires archiving first.
+  So the Deleter column is ✓ only for already-archived flags.
+- **Staging vs landing.** A draft author can stage `archived: true` in a draft; it
+  just won't publish. Only the landing column is shown above.
+- **Env scoping.** Publish and revert are per-environment for Flags, so an
+  env-limited Publisher/Reverter is ✓ only within its environments — and a revert
+  spanning an environment they lack is ✗ in full, not partially applied.
+- **Impure revert drafts** fall back to needing publish authority, which is why the
+  Reverter column differs between the pure and edited rows.
+- **Saved groups** follow the same shape with their own atoms, except publish and
+  revert are project-scoped (no env dimension).
+- **UI parity.** Every ✓ above should be reachable in the product, not just via
+  REST — that's the specific thing the `canEditEntity` split was fixing, and the
+  most likely place for a mismatch to remain.
+
 ## Docs — deliberately deferred
 
 Held until the permission model stops moving; doing these while the ground shifts
