@@ -1,3 +1,4 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { Request, Response } from "express";
 import { evaluateFeatures } from "@growthbook/proxy-eval";
 import { cloneDeep, isEqual, omit } from "lodash";
@@ -716,7 +717,15 @@ export async function postFeatures(
   } = req.body;
 
   if (
-    !context.permissions.canCreateFeature(req.body) ||
+    !context.permissions.canCreateFeature(
+      req.body,
+      Array.from(
+        getEnabledEnvironments(
+          req.body as FeatureInterface,
+          getEnvironmentIdsFromOrg(context.org),
+        ),
+      ),
+    ) ||
     !context.permissions.canManageFeatureDrafts({ project: otherProps.project })
   ) {
     context.permissions.throwPermissionError();
@@ -2410,7 +2419,7 @@ export async function postFeatureRevert(
         proposed: revision.archived,
         current: feature.archived,
       }) &&
-      !context.permissions.canDeleteFeature(feature)
+      !context.permissions.canDeleteFeature(feature, allEnabledEnvs)
     ) {
       context.permissions.throwPermissionError();
     }
@@ -3230,7 +3239,7 @@ export async function postFeatureSync(
 
   const data = req.body;
 
-  if (!context.permissions.canUpdateFeature(feature, {})) {
+  if (!context.permissions.canManageFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -4108,7 +4117,12 @@ export async function putSafeRolloutStatus(
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const environmentIds = environments.map((e) => e.id);
 
-  if (!context.permissions.canUpdateFeature(feature, {})) {
+  if (
+    !context.permissions.canPublishFeature(
+      feature,
+      getEnvironmentIdsFromOrg(context.org),
+    )
+  ) {
     context.permissions.throwPermissionError();
   }
   const requiresReview = checkIfRevisionNeedsReview({
@@ -4998,7 +5012,7 @@ export async function putFeature(
 
   const { targetDraftVersion, autoPublish, forceNewDraft, ...updates } =
     req.body;
-  if (!context.permissions.canUpdateFeature(feature, updates)) {
+  if (!context.permissions.canManageFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -5200,7 +5214,10 @@ export async function deleteFeatureById(
       throw new Error("Feature must be archived before it can be deleted");
     }
 
-    if (!context.permissions.canDeleteFeature(feature)) {
+    // Already archived (enforced above), so it is serving nothing anywhere.
+    if (
+      !context.permissions.canDeleteFeature(feature, NO_ENVIRONMENT_BINDING)
+    ) {
       context.permissions.throwPermissionError();
     }
     // Reference integrity: deleting a feature that other live features gate on
@@ -6020,7 +6037,7 @@ export async function toggleStaleFFDetectionForFeature(
     throw new Error("Could not find feature");
   }
 
-  if (!context.permissions.canUpdateFeature(feature, {})) {
+  if (!context.permissions.canManageFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -6117,7 +6134,7 @@ export async function postPrerequisite(
     throw new Error("Could not find feature");
   }
 
-  if (!context.permissions.canUpdateFeature(feature, {})) {
+  if (!context.permissions.canManageFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -6171,7 +6188,7 @@ export async function putPrerequisite(
     throw new Error("Could not find feature");
   }
 
-  if (!context.permissions.canUpdateFeature(feature, {})) {
+  if (!context.permissions.canManageFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -6224,7 +6241,7 @@ export async function deletePrerequisite(
     throw new Error("Could not find feature");
   }
 
-  if (!context.permissions.canUpdateFeature(feature, {})) {
+  if (!context.permissions.canManageFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 

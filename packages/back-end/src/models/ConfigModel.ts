@@ -1,11 +1,6 @@
-import { ConfigInterface, ConfigWithoutValue } from "shared/types/config";
-import { SimpleSchema } from "shared/types/feature";
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import {
-  ApiConfig,
-  configValidator,
-  getCyclicConstantRefs,
-} from "shared/validators";
-import {
+  configPublishEnvironments,
   getConfigBaseKeys,
   withConfigExtends,
   findBasePrecedenceInversions,
@@ -17,6 +12,13 @@ import {
   storedInvariantsToApi,
   isConfigLocked,
 } from "shared/util";
+import { ConfigInterface, ConfigWithoutValue } from "shared/types/config";
+import { SimpleSchema } from "shared/types/feature";
+import {
+  ApiConfig,
+  configValidator,
+  getCyclicConstantRefs,
+} from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
 import { isEqual, omit } from "lodash";
 import { BadRequestError } from "back-end/src/util/errors";
@@ -81,11 +83,19 @@ export class ConfigModel extends BaseClass {
     _updates: UpdateProps<ConfigInterface>,
     newDoc: ConfigInterface,
   ): boolean {
-    return this.context.permissions.canUpdateConfig(existing, newDoc);
+    return this.context.permissions.canRevisionAction(
+      "config",
+      "publish",
+      { projects: newDoc.project ? [newDoc.project] : [] },
+      configPublishEnvironments(newDoc),
+    );
   }
 
   protected canDelete(doc: ConfigInterface): boolean {
-    return this.context.permissions.canDeleteConfig(doc);
+    return this.context.permissions.canDeleteConfig(
+      doc,
+      NO_ENVIRONMENT_BINDING,
+    );
   }
 
   // Reject cyclic lineage. Every base (`parent` + `extends`) is synthesized into

@@ -1,3 +1,4 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { useForm, FormProvider } from "react-hook-form";
 import {
   FeatureEnvironment,
@@ -203,7 +204,7 @@ export default function FeatureModal({
 
   const projectOptions = useProjectOptions(
     (project) =>
-      permissionsUtil.canCreateFeature({ project }) &&
+      permissionsUtil.canCreateFeature({ project }, NO_ENVIRONMENT_BINDING) &&
       permissionsUtil.canManageFeatureDrafts({ project }),
     project ? [project] : [],
   );

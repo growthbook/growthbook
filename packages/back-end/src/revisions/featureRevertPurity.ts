@@ -148,7 +148,7 @@ export async function assertCanPublishFeatureRevision({
       proposed: mergeChanges?.archived,
       current: feature.archived,
     }) &&
-    !context.permissions.canDeleteFeature(feature)
+    !context.permissions.canDeleteFeature(feature, environments)
   ) {
     context.permissions.throwPermissionError();
   }

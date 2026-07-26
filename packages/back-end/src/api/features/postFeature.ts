@@ -2,6 +2,7 @@ import { z } from "zod";
 import { validateFeatureValue } from "shared/util";
 import { postFeatureValidator } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
+import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   resolveOwnerForCreate,
@@ -56,7 +57,17 @@ export const validateEnvKeys = (
 export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   req,
 ) => {
-  if (!req.context.permissions.canCreateFeature(req.body)) {
+  if (
+    !req.context.permissions.canCreateFeature(
+      req.body,
+      Array.from(
+        getEnabledEnvironments(
+          req.body as unknown as FeatureInterface,
+          getEnvironmentIdsFromOrg(req.context.org),
+        ),
+      ),
+    )
+  ) {
     req.context.permissions.throwPermissionError();
   }
 

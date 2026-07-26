@@ -6376,99 +6376,11 @@ describe("PermissionsUtilClass.canCreateFeature check", () => {
   });
 });
 
-describe("PermissionsUtilClass.canUpdateFeature check", () => {
-  const testOrg: OrganizationInterface = {
-    id: "org_sktwi1id9l7z9xkjb",
-    name: "Test Org",
-    ownerEmail: "test@test.com",
-    url: "https://test.com",
-    dateCreated: new Date(),
-    invites: [],
-    members: [
-      {
-        id: "base_user_123",
-        role: "readonly",
-        dateCreated: new Date(),
-        limitAccessByEnvironment: false,
-        environments: [],
-        projectRoles: [],
-        teams: [],
-      },
-    ],
-    settings: {
-      environments: [
-        { id: "development", description: "" },
-        { id: "staging", description: "" },
-        { id: "production", description: "" },
-      ],
-    },
-  };
-
-  it("canUpdateFeature returns true for user with global 'engineer' role when trying to update a feature in all projects", () => {
-    const permissions = new Permissions({
-      global: {
-        permissions: roleToPermissionMap("engineer", testOrg),
-        limitAccessByEnvironment: false,
-        environments: [],
-      },
-      projects: {},
-    });
-
-    expect(permissions.canUpdateFeature({}, { project: "abc123" })).toEqual(
-      true,
-    );
-  });
-
-  it("canUpdateFeature returns false for user with global 'analyst' role when trying to update a feature in a specific project and move it to all projects", () => {
-    const permissions = new Permissions({
-      global: {
-        permissions: roleToPermissionMap("analyst", testOrg),
-        limitAccessByEnvironment: false,
-        environments: [],
-      },
-      projects: {
-        ABC123: {
-          permissions: roleToPermissionMap("engineer", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-      },
-    });
-
-    expect(
-      permissions.canUpdateFeature({ project: "ABC123" }, { project: "" }),
-    ).toEqual(false);
-  });
-
-  it("canUpdateFeature returns true for user with global 'analyst' role when trying to move a feature from 1 project they have engineer permissions for to another project they have engineer permissions for", () => {
-    const permissions = new Permissions({
-      global: {
-        permissions: roleToPermissionMap("analyst", testOrg),
-        limitAccessByEnvironment: false,
-        environments: [],
-      },
-      projects: {
-        ABC123: {
-          permissions: roleToPermissionMap("engineer", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        DEF456: {
-          permissions: roleToPermissionMap("engineer", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-      },
-    });
-
-    expect(
-      permissions.canUpdateFeature(
-        { project: "ABC123" },
-        { project: "DEF456" },
-      ),
-    ).toEqual(true);
-  });
-});
+// The move-aware `canUpdateFeature` is gone: there is no edit verb. Authoring a
+// change is `manageFlagDrafts` (project-scoped, so a move has no second project
+// to check), and landing it — including into a different project — is
+// `publishFlags`, checked against both the source and destination at each
+// publish site. Those paths are covered by the publish tests.
 
 describe("PermissionsUtilClass.canDeleteFeature check", () => {
   const testOrg: OrganizationInterface = {

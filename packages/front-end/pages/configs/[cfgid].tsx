@@ -1,3 +1,4 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { ConstantInterface } from "shared/types/constant";
@@ -104,7 +105,6 @@ import ConfigLockModal from "@/components/Configs/ConfigLockModal";
 import ConfigRevertModal from "@/components/Configs/ConfigRevertModal";
 import { ConstantRevisionContext } from "@/components/Constants/useConstantDraftTarget";
 import ConfigModal from "@/components/Configs/ConfigModal";
-import { useEnvironments } from "@/services/features";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import LineageTree from "@/components/Configs/LineageTree";
 import ConfigFeatureReferences from "@/components/Configs/ConfigFeatureReferences";
@@ -280,7 +280,6 @@ export default function ConfigDetailPage(): React.ReactElement {
   } = useDefinitions();
   const { organization, hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
-  const allEnvironmentIds = useEnvironments().map((e) => e.id);
 
   const [editInfoOpen, setEditInfoOpen] = useState(false);
   const [confirmRevert, setConfirmRevert] = useState(false);
@@ -849,7 +848,12 @@ export default function ConfigDetailPage(): React.ReactElement {
     mutateDefinitions();
   };
 
-  const canUpdate = permissionsUtil.canUpdateConfig(config, config);
+  const canUpdate = permissionsUtil.canRevisionAction(
+    "config",
+    "draft",
+    config,
+    NO_ENVIRONMENT_BINDING,
+  );
   // Delete leaf-up: a config that others still derive from (parent-spine
   // children, composition mixins, or env/project overrides) can't be deleted
   // until those are gone. Mirrors the server's assertConfigDeletable so the UI
@@ -862,7 +866,10 @@ export default function ConfigDetailPage(): React.ReactElement {
         (n.extendsKeys ?? []).includes(config.key)),
   );
   const canDeleteNow =
-    permissionsUtil.canDeleteConfig(config) &&
+    permissionsUtil.canDeleteConfig(
+      config,
+      configPublishEnvironments(config),
+    ) &&
     !!config.archived &&
     !hasDescendants;
   // A locked config is frozen — no edit controls at all (unlock is a separate,
@@ -881,9 +888,12 @@ export default function ConfigDetailPage(): React.ReactElement {
         "config",
         "publish",
         config,
-        configPublishEnvironments(config, allEnvironmentIds),
+        configPublishEnvironments(config),
       )
-    : permissionsUtil.canDeleteConfig(config);
+    : permissionsUtil.canDeleteConfig(
+        config,
+        configPublishEnvironments(config),
+      );
   const canArchiveNow =
     (canLandArchive || canEditNow) &&
     !isLocked &&
@@ -907,7 +917,7 @@ export default function ConfigDetailPage(): React.ReactElement {
       "config",
       "publish",
       config,
-      configPublishEnvironments(config, allEnvironmentIds),
+      configPublishEnvironments(config),
     ),
   };
 
@@ -2119,7 +2129,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                   "config",
                   "revert",
                   config,
-                  configPublishEnvironments(config, allEnvironmentIds),
+                  configPublishEnvironments(config),
                 )}
                 canCommentOnEntity={permissionsUtil.canAddComment(
                   config.project ? [config.project] : [],
@@ -2138,7 +2148,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                   "config",
                   "publish",
                   config,
-                  configPublishEnvironments(config, allEnvironmentIds),
+                  configPublishEnvironments(config),
                 )}
                 canBypassApproval={canBypassApproval}
                 publishBlockedReason={

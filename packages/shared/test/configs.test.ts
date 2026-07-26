@@ -2271,34 +2271,32 @@ describe("findScopedOverrideStructuralErrors", () => {
 describe("publish environment footprints", () => {
   const allEnvs = ["dev", "staging", "production"];
 
-  it("scopes a flavor's publish to the environments it targets", () => {
+  it("scopes a flavor's publish to the environments it declares", () => {
     expect(
-      configPublishEnvironments(
-        { scopedConfig: { environments: ["production"] } },
-        allEnvs,
-      ),
+      configPublishEnvironments({
+        scopedConfig: { environments: ["production"] },
+      }),
     ).toEqual(["production"]);
   });
 
-  it("treats a base config as all-environments", () => {
-    expect(configPublishEnvironments({}, allEnvs)).toEqual(allEnvs);
-    expect(configPublishEnvironments({ scopedConfig: null }, allEnvs)).toEqual(
-      allEnvs,
-    );
-  });
-
-  // An empty list would otherwise skip the env limit entirely, granting an
-  // env-limited role publish authority it doesn't hold.
-  it("falls back to all environments when a flavor targets none", () => {
+  // A base Config declares no environments — its reach runs through whichever
+  // features consume it, down to individual rules, which a permission check
+  // can't compute. No binding means the env limit doesn't apply.
+  it("treats a base config as having no environment binding", () => {
+    expect(configPublishEnvironments({})).toEqual([]);
+    expect(configPublishEnvironments({ scopedConfig: null })).toEqual([]);
     expect(
-      configPublishEnvironments(
-        { scopedConfig: { environments: [] } },
-        allEnvs,
-      ),
-    ).toEqual(allEnvs);
+      configPublishEnvironments({ scopedConfig: { environments: [] } }),
+    ).toEqual([]);
   });
 
-  it("requires authority across every environment for constants", () => {
-    expect(constantPublishEnvironments(allEnvs)).toEqual(allEnvs);
+  it("binds a Constant only through the environments a change touches", () => {
+    expect(constantPublishEnvironments(["dev"])).toEqual(["dev"]);
+    expect(constantPublishEnvironments()).toEqual([]);
+    expect(constantPublishEnvironments([])).toEqual([]);
+  });
+
+  it("never widens to every environment implicitly", () => {
+    expect(configPublishEnvironments({})).not.toEqual(allEnvs);
   });
 });

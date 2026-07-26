@@ -1,3 +1,4 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { useFeature } from "@growthbook/growthbook-react";
@@ -618,7 +619,10 @@ export default function FeaturesPage() {
     // blocked by a non-creatable project. Otherwise the read-only sample-data
     // project would disable the button whenever it's the only project.
     if (
-      permissionsUtil.canCreateFeature({ project: "" }) &&
+      permissionsUtil.canCreateFeature(
+        { project: "" },
+        NO_ENVIRONMENT_BINDING,
+      ) &&
       permissionsUtil.canManageFeatureDrafts({ project: "" })
     ) {
       return true;
@@ -626,8 +630,10 @@ export default function FeaturesPage() {
     // Otherwise, allow if they can create in at least one specific project.
     return (projects ?? []).some(
       (p) =>
-        permissionsUtil.canCreateFeature({ project: p.id }) &&
-        permissionsUtil.canManageFeatureDrafts({ project: p.id }),
+        permissionsUtil.canCreateFeature(
+          { project: p.id },
+          NO_ENVIRONMENT_BINDING,
+        ) && permissionsUtil.canManageFeatureDrafts({ project: p.id }),
     );
   }, [project, projects, permissionsUtil]);
 

@@ -83,7 +83,12 @@ function canEditConstant(
   context: Context,
   snapshot: ConstantInterface,
 ): boolean {
-  return context.permissions.canUpdateConstant(snapshot, {});
+  return context.permissions.canRevisionAction(
+    "constant",
+    "publish",
+    { projects: snapshot.project ? [snapshot.project] : [] },
+    constantPublishEnvironments(context),
+  );
 }
 
 function constantProjects(snapshot: ConstantInterface): string[] {

@@ -200,7 +200,7 @@ export default function FeaturesHeader({
   const enabledEnvs = getEnabledEnvironments(feature, environments);
   const canPublish = permissionsUtil.canPublishFeature(feature, enabledEnvs);
   const isArchived = feature.archived;
-  const canDelete = permissionsUtil.canDeleteFeature(feature);
+  const canDelete = permissionsUtil.canDeleteFeature(feature, enabledEnvs);
   // Archiving takes the flag out of service, so it carries delete authority;
   // unarchiving returns it to service, an ordinary publish in its environments.
   // Either authority is enough: the landing atom stands on its own (the archive

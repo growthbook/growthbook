@@ -1,6 +1,9 @@
 import type { MergeResultChanges } from "shared/util";
 import { FeatureInterface } from "shared/types/feature";
-import { bypassApprovalPermission } from "shared/permissions";
+import {
+  bypassApprovalPermission,
+  NO_ENVIRONMENT_BINDING,
+} from "shared/permissions";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import type { SafeRolloutInterface } from "shared/validators";
 import { logger } from "back-end/src/util/logger";
@@ -136,9 +139,10 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
   },
 
   canUpdate(context, entity) {
-    return context.permissions.canUpdateFeature(
+    // Destination-project check on a publish that moves projects.
+    return context.permissions.canPublishFeature(
       entity as unknown as FeatureInterface,
-      {},
+      NO_ENVIRONMENT_BINDING,
     );
   },
 
@@ -214,7 +218,7 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
         proposed: plan.mergeResult?.archived,
         current: feature.archived,
       }) &&
-      !callerContext.permissions.canDeleteFeature(feature)
+      !callerContext.permissions.canDeleteFeature(feature, envsToCheck)
     ) {
       gates.push(
         makeBlockingGate({

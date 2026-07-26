@@ -341,13 +341,22 @@ describe("savedGroupAdapter", () => {
       expect(canReadMultiProjectResource).toHaveBeenCalledWith(["prj-1"]);
     });
 
-    it("canCreate / canUpdate both delegate to canUpdateSavedGroup", () => {
-      const canUpdateSavedGroup = jest.fn(() => true);
-      const ctx = makeContext({ permissions: { canUpdateSavedGroup } });
+    // Their only remaining consumers land a change on the live entity — the
+    // destination-project check on a publish that moves projects, and the bulk
+    // publisher's move guard — so both ask for publish authority.
+    it("canCreate / canUpdate both ask for saved-group publish authority", () => {
+      const canRevisionAction = jest.fn(() => true);
+      const ctx = makeContext({ permissions: { canRevisionAction } });
       expect(savedGroupAdapter.canCreate(ctx, baseGroup)).toBe(true);
       expect(savedGroupAdapter.canUpdate(ctx, baseGroup)).toBe(true);
-      expect(canUpdateSavedGroup).toHaveBeenCalledTimes(2);
-      expect(canUpdateSavedGroup).toHaveBeenNthCalledWith(1, baseGroup, {});
+      expect(canRevisionAction).toHaveBeenCalledTimes(2);
+      expect(canRevisionAction).toHaveBeenNthCalledWith(
+        1,
+        "saved-group",
+        "publish",
+        baseGroup,
+        [],
+      );
     });
 
     it("canDelete with no projects checks bypass on the empty project", () => {

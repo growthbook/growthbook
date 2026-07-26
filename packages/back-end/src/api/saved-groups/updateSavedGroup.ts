@@ -1,3 +1,4 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { isEqual } from "lodash";
 import { Revision } from "shared/enterprise";
 import { validateCondition } from "shared/util";
@@ -29,7 +30,12 @@ export const updateSavedGroup = createApiRequestHandler(
   }
 
   if (
-    !req.context.permissions.canUpdateSavedGroup(savedGroup, { ...req.body })
+    !req.context.permissions.canRevisionAction(
+      "saved-group",
+      "publish",
+      { projects: req.body.projects ?? savedGroup.projects ?? [] },
+      NO_ENVIRONMENT_BINDING,
+    )
   ) {
     req.context.permissions.throwPermissionError();
   }

@@ -35,7 +35,7 @@ describe("granular flag permissions", () => {
       expect(perms.deleteFlags).toBe(true);
       expect(perms.revertFlags).toBe(true);
       // Not granted by ReadData nor listed explicitly
-      expect(perms.manageFlags).toBeUndefined();
+      expect(perms.createFlags).toBeUndefined();
     });
 
     it("works with no additive permissions", () => {
@@ -50,7 +50,7 @@ describe("granular flag permissions", () => {
         permissions: ["reviewFlags"],
       });
       expect(perms.reviewFlags).toBe(true);
-      expect(perms.manageFlags).toBeUndefined();
+      expect(perms.createFlags).toBeUndefined();
       expect(perms.publishFlags).toBeUndefined();
       expect(perms.deleteFlags).toBeUndefined();
     });
@@ -66,13 +66,24 @@ describe("granular flag permissions", () => {
       ).toBe(true);
     });
 
+    // Drafting touches nothing live, so it's the flags atom that stays
+    // project-scoped — everything that reaches an environment is env-scoped.
     it("is false when neither policies nor permissions are env-scoped", () => {
+      expect(
+        roleSupportsEnvLimitFromRole({
+          policies: ["ReadData"],
+          permissions: ["manageFlagDrafts"],
+        }),
+      ).toBe(false);
+    });
+
+    it("is true for a delete-only role, since delete reaches environments", () => {
       expect(
         roleSupportsEnvLimitFromRole({
           policies: ["ReadData"],
           permissions: ["deleteFlags"],
         }),
-      ).toBe(false);
+      ).toBe(true);
     });
   });
 
@@ -81,7 +92,7 @@ describe("granular flag permissions", () => {
       const p = POLICY_PERMISSION_MAP.FlagsFullAccess;
       expect(p).toEqual(
         expect.arrayContaining([
-          "manageFlags",
+          "createFlags",
           "deleteFlags",
           "manageFlagDrafts",
           "reviewFlags",
@@ -113,7 +124,7 @@ describe("granular flag permissions", () => {
         const p = POLICY_PERMISSION_MAP[policy];
         expect(p).toEqual(
           expect.arrayContaining([
-            "manageFlags",
+            "createFlags",
             "deleteFlags",
             "manageFlagDrafts",
             "reviewFlags",
@@ -125,7 +136,7 @@ describe("granular flag permissions", () => {
     it("deprecated Features access preserves legacy scope (no publish)", () => {
       const p = POLICY_PERMISSION_MAP.FeaturesFullAccess;
       expect(p).toEqual(
-        expect.arrayContaining(["manageFlags", "deleteFlags", "reviewFlags"]),
+        expect.arrayContaining(["createFlags", "deleteFlags", "reviewFlags"]),
       );
       // Legacy Features Full Access never granted publish/revert directly
       expect(p).not.toContain("publishFlags");
@@ -141,7 +152,7 @@ describe("granular flag permissions", () => {
 
   describe("REVISION_PERMISSIONS matrix", () => {
     const ACTIONS: RevisionAction[] = [
-      "manage",
+      "create",
       "delete",
       "draft",
       "review",
@@ -210,12 +221,12 @@ describe("granular flag permissions", () => {
       {
         policies: ["FeaturesFullAccess"],
         model: "feature",
-        actions: ["manage", "delete", "draft", "review"],
+        actions: ["create", "delete", "draft", "review"],
       },
       {
         policies: ["FeaturesBypassApprovals"],
         model: "feature",
-        actions: ["manage", "delete", "draft", "review", "bypass"],
+        actions: ["create", "delete", "draft", "review", "bypass"],
       },
       {
         // The pre-split bypass atom was shared, so this policy covered saved
@@ -229,27 +240,27 @@ describe("granular flag permissions", () => {
         // Legacy feature publish/revert required BOTH policies.
         policies: ["FeaturesFullAccess", "SDKPayloadPublish"],
         model: "feature",
-        actions: ["manage", "delete", "draft", "review", "publish", "revert"],
+        actions: ["create", "delete", "draft", "review", "publish", "revert"],
       },
       {
         policies: ["ConfigsFullAccess"],
         model: "config",
-        actions: ["manage", "delete", "draft", "review", "publish", "revert"],
+        actions: ["create", "delete", "draft", "review", "publish", "revert"],
       },
       {
         policies: ["ConstantsFullAccess"],
         model: "constant",
-        actions: ["manage", "delete", "draft", "review", "publish", "revert"],
+        actions: ["create", "delete", "draft", "review", "publish", "revert"],
       },
       {
         policies: ["SavedGroupsFullAccess"],
         model: "saved-group",
-        actions: ["manage", "delete", "draft", "review", "publish", "revert"],
+        actions: ["create", "delete", "draft", "review", "publish", "revert"],
       },
       {
         policies: ["SavedGroupsBypassSizeLimit"],
         model: "saved-group",
-        actions: ["manage", "delete", "draft", "review", "publish", "revert"],
+        actions: ["create", "delete", "draft", "review", "publish", "revert"],
       },
     ];
 

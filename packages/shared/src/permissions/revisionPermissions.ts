@@ -4,15 +4,19 @@ import { Permission } from "shared/types/organization";
  * Single source of truth for the per-action permission atoms of revisioned
  * "flag-like" entities. To add one: define its atoms in the scope arrays in
  * permissions.constants.ts, map its model to a family in MODEL_FAMILY, and gate
- * with `context.permissions.canRevisionAction(model, action, obj, envs?)`.
+ * with `context.permissions.canRevisionAction(model, action, obj, envs)`.
+ *
+ * There is deliberately no "edit"/"manage" verb. Every content change is
+ * authored as a revision and then landed, so an edit is a draft plus a publish.
+ * What remains are the actions an org actually governs separately.
  */
 
 export type RevisionAction =
-  | "manage" // create + edit the object
-  | "delete"
+  | "create" // bring the entity into existence (no revision to draft against yet)
+  | "delete" // delete, and archive — both take it out of service
   | "draft" // author a revision: create / edit / discard / rebase / request review
   | "review" // approve / request changes
-  | "publish" // publish a revision to the live entity
+  | "publish" // write live state: publish a revision, land a direct write, toggle
   | "revert" // restore a previously-published revision
   | "bypass"; // publish without the required review, force-merge a stale base
 
@@ -39,23 +43,28 @@ export const REVISION_PERMISSIONS: Record<
   PermissionFamily,
   Record<RevisionAction, ActionPermission>
 > = {
+  // Everything that touches live state is env-scoped; the caller supplies the
+  // footprint. Drafting touches nothing live, and bypass only relaxes the review
+  // requirement on a publish that was already env-checked (and covers
+  // entity-level acts like unlocking a Config, which have no env at all).
   flags: {
-    manage: { permission: "manageFlags", scope: "project" },
-    delete: { permission: "deleteFlags", scope: "project" },
+    create: { permission: "createFlags", scope: "environment" },
+    delete: { permission: "deleteFlags", scope: "environment" },
     draft: { permission: "manageFlagDrafts", scope: "project" },
-    review: { permission: "reviewFlags", scope: "project" },
+    review: { permission: "reviewFlags", scope: "environment" },
     publish: { permission: "publishFlags", scope: "environment" },
     revert: { permission: "revertFlags", scope: "environment" },
-    // Bypass is project-scoped even though publish/revert are env-scoped: it
-    // relaxes the review requirement, which the org configures per project.
     bypass: { permission: "bypassApprovalFlags", scope: "project" },
   },
+  // Saved groups declare no environments anywhere in their schema — their reach
+  // is entirely consumer-derived — so every action is project-scoped and the
+  // footprint argument is ignored. Call sites still pass one, so they read
+  // identically to the flags family.
   savedGroups: {
-    manage: { permission: "manageSavedGroups", scope: "project" },
+    create: { permission: "createSavedGroups", scope: "project" },
     delete: { permission: "deleteSavedGroups", scope: "project" },
     draft: { permission: "manageSavedGroupDrafts", scope: "project" },
     review: { permission: "reviewSavedGroups", scope: "project" },
-    // No environment concept, so publish/revert are project-scoped.
     publish: { permission: "publishSavedGroups", scope: "project" },
     revert: { permission: "revertSavedGroups", scope: "project" },
     bypass: { permission: "bypassApprovalSavedGroups", scope: "project" },
@@ -77,3 +86,16 @@ export function isBypassApprovalPermission(permission: string): boolean {
     (family) => family.bypass.permission === permission,
   );
 }
+
+/**
+ * The footprint to pass when a change has NO intrinsic environment binding —
+ * a base Config, a Constant's base value, any Saved Group. Their reach is
+ * consumer-derived (down to individual rules), which can't be computed inside a
+ * permission check, so the env limit doesn't apply and the check falls back to
+ * project scope.
+ *
+ * Named rather than a bare `[]` so it reads as a decision: an empty footprint
+ * SKIPS the environment check, and passing one by accident silently widens
+ * access for env-limited roles.
+ */
+export const NO_ENVIRONMENT_BINDING: string[] = [];

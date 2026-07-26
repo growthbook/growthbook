@@ -72,9 +72,12 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
     }
 
     if (
-      !req.context.permissions.canUpdateConfig(config, {
-        project: project ?? config.project,
-      })
+      !req.context.permissions.canRevisionAction(
+        "config",
+        "publish",
+        { projects: [project ?? config.project ?? ""] },
+        configPublishEnvironments(req.context, config),
+      )
     ) {
       req.context.permissions.throwPermissionError();
     }

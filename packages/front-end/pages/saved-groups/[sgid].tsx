@@ -1,3 +1,4 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { SavedGroupInterface } from "shared/types/saved-group";
@@ -274,7 +275,12 @@ export default function EditSavedGroupPage() {
   const { user } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const canUpdate = savedGroup
-    ? permissionsUtil.canUpdateSavedGroup(savedGroup, savedGroup)
+    ? permissionsUtil.canRevisionAction(
+        "saved-group",
+        "draft",
+        savedGroup,
+        NO_ENVIRONMENT_BINDING,
+      )
     : false;
 
   // Archiving is delete-class server-side — it takes the group out of service,
@@ -1051,7 +1057,12 @@ export default function EditSavedGroupPage() {
             // the review dance when `requireMetadataReview` is off (matching
             // the server-side rule in the saved-group adapter).
             requiresApproval={selectedRevisionRequiresApproval}
-            canEditEntity={permissionsUtil.canUpdateSavedGroup(savedGroup, {})}
+            canEditEntity={permissionsUtil.canRevisionAction(
+              "saved-group",
+              "draft",
+              savedGroup,
+              NO_ENVIRONMENT_BINDING,
+            )}
             canRevertEntity={permissionsUtil.canRevisionAction(
               "saved-group",
               "revert",

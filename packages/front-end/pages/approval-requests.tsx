@@ -1,3 +1,4 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { FC, useCallback, useEffect, useMemo, useState } from "react";
 import { Box, Flex, TextField } from "@radix-ui/themes";
 import { useRouter } from "next/router";
@@ -369,9 +370,11 @@ const ApprovalRequests: FC = () => {
         });
       }
       if (row.entityType === "saved-group") {
-        return permissionsUtil.canUpdateSavedGroup(
+        return permissionsUtil.canRevisionAction(
+          "saved-group",
+          "draft",
           { projects: row.projects },
-          { projects: row.projects },
+          NO_ENVIRONMENT_BINDING,
         );
       }
       return false;

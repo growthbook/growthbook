@@ -145,7 +145,8 @@ export default function RevertModal({
     targetRevisionForAction.archived === true && !feature.archived;
   const canLandRevert =
     canRevert &&
-    (!revertWouldArchive || permissionsUtil.canDeleteFeature(feature));
+    (!revertWouldArchive ||
+      permissionsUtil.canDeleteFeature(feature, affectedEnvs));
 
   const canAutoPublish = effectiveApprovalsRequired
     ? canLandRevert && canBypassApprovals

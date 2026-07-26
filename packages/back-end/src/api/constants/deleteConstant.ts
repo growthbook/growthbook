@@ -1,3 +1,4 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { deleteConstantValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
@@ -15,7 +16,12 @@ export const deleteConstant = createApiRequestHandler(deleteConstantValidator)(
       );
     }
 
-    if (!req.context.permissions.canDeleteConstant(constant)) {
+    if (
+      !req.context.permissions.canDeleteConstant(
+        constant,
+        NO_ENVIRONMENT_BINDING,
+      )
+    ) {
       req.context.permissions.throwPermissionError();
     }
 

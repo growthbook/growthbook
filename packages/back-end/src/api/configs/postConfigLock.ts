@@ -1,4 +1,5 @@
 import { lockConfigValidator } from "shared/validators";
+import { configPublishEnvironments } from "back-end/src/revisions/revisionPublishEnvironments";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { NotFoundError } from "back-end/src/util/errors";
@@ -15,7 +16,14 @@ export const lockConfig = createApiRequestHandler(lockConfigValidator)(async (
   // Locking only needs normal publish/edit authority (the asymmetry: unlocking
   // is the gated action). Configs have no separate publish permission, so edit
   // authority is publish authority.
-  if (!req.context.permissions.canUpdateConfig(config, config)) {
+  if (
+    !req.context.permissions.canRevisionAction(
+      "config",
+      "publish",
+      config,
+      configPublishEnvironments(req.context, config),
+    )
+  ) {
     req.context.permissions.throwPermissionError();
   }
 

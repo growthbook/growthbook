@@ -1,3 +1,4 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { ConstantInterface } from "shared/types/constant";
@@ -297,11 +298,17 @@ export default function ConstantDetailPage(): React.ReactElement {
     if (res?.revision) await onRevisionCreated(res.revision);
   };
 
-  const canUpdate = permissionsUtil.canUpdateConstant(constant, constant);
+  const canUpdate = permissionsUtil.canRevisionAction(
+    "constant",
+    "draft",
+    constant,
+    NO_ENVIRONMENT_BINDING,
+  );
   // Delete is gated on the LIVE archive state (not the displayed/draft state):
   // the constant must be archived and published before it can be deleted.
   const canDeleteNow =
-    permissionsUtil.canDeleteConstant(constant) && !!constant.archived;
+    permissionsUtil.canDeleteConstant(constant, publishEnvironments) &&
+    !!constant.archived;
   // Editing is only meaningful on the live state or a draft (not when viewing a
   // merged/discarded revision). On live it starts a new draft; on a draft it
   // updates it.
@@ -318,7 +325,7 @@ export default function ConstantDetailPage(): React.ReactElement {
         constant,
         publishEnvironments,
       )
-    : permissionsUtil.canDeleteConstant(constant);
+    : permissionsUtil.canDeleteConstant(constant, publishEnvironments);
   const canArchiveNow =
     (canLandArchive || canEditNow) && (!selectedRevision || isDraft);
 
@@ -574,7 +581,12 @@ export default function ConstantDetailPage(): React.ReactElement {
             entityName={constant.name}
             entityNoun="constant"
             requiresApproval={selectedRevisionRequiresApproval}
-            canEditEntity={permissionsUtil.canUpdateConstant(constant, {})}
+            canEditEntity={permissionsUtil.canRevisionAction(
+              "constant",
+              "draft",
+              constant,
+              NO_ENVIRONMENT_BINDING,
+            )}
             canRevertEntity={permissionsUtil.canRevisionAction(
               "constant",
               "revert",

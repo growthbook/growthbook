@@ -1,3 +1,4 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { deleteConfigValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
@@ -17,7 +18,9 @@ export const deleteConfig = createApiRequestHandler(deleteConfigValidator)(
       );
     }
 
-    if (!req.context.permissions.canDeleteConfig(config)) {
+    if (
+      !req.context.permissions.canDeleteConfig(config, NO_ENVIRONMENT_BINDING)
+    ) {
       req.context.permissions.throwPermissionError();
     }
 

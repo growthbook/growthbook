@@ -731,9 +731,7 @@ export const deleteHoldoutFeature = async (
     });
   }
 
-  if (
-    !context.permissions.canUpdateFeature(feature, omit(feature, "holdout"))
-  ) {
+  if (!context.permissions.canManageFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 

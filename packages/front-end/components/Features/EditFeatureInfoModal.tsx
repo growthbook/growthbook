@@ -78,7 +78,7 @@ const EditFeatureInfoModal: FC<{
   });
 
   const permissionRequired = (project) =>
-    permissionsUtil.canUpdateFeature(feature, { project });
+    permissionsUtil.canManageFeatureDrafts({ project });
   const initialOption =
     permissionRequired("") && !requireProjectForFeatures ? "None" : "";
 

@@ -176,7 +176,7 @@ export async function revertFeatureRevision(
           proposed: targetRevision.archived,
           current: feature.archived,
         }) &&
-        !context.permissions.canDeleteFeature(feature)
+        !context.permissions.canDeleteFeature(feature, allEnabledEnvs)
       ) {
         context.permissions.throwPermissionError();
       }

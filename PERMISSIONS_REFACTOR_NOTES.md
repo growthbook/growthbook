@@ -327,3 +327,81 @@ just means writing them twice. All three are known-stale as of this branch:
    requires regenerating the checked-in `packages/back-end/generated/spec.yaml`
    (needs `stats-ts` built first). Do it as its own change so the spec diff is
    reviewable on its own.
+
+## `manage` dropped for action-oriented atoms
+
+`manageFlags` / `manageSavedGroups` are removed. Every content change is authored
+as a revision and then landed, so an "edit" is a draft plus a publish and there is
+no edit verb. What remains is what an org actually governs separately:
+
+| Atom                                                | Flags scope   | Saved Groups scope |
+| --------------------------------------------------- | ------------- | ------------------ |
+| `createFlags` / `createSavedGroups`                 | project + env | project            |
+| `manageFlagDrafts` / `manageSavedGroupDrafts`       | project       | project            |
+| `reviewFlags` / `reviewSavedGroups`                 | project + env | project            |
+| `publishFlags` / `publishSavedGroups`               | project + env | project            |
+| `revertFlags` / `revertSavedGroups`                 | project + env | project            |
+| `deleteFlags` / `deleteSavedGroups`                 | project + env | project            |
+| `bypassApprovalFlags` / `bypassApprovalSavedGroups` | project       | project            |
+
+**Footprints.** Env-scope only where the entity declares its own environments:
+features (`environmentSettings`), Config flavors (`scopedConfig.environments`),
+Constants (`environmentValues`). A base/child Config, a Constant's base value and
+every Saved Group reach environments only through consuming features — down to
+individual rules — which can't be computed inside a permission check, so they pass
+`NO_ENVIRONMENT_BINDING` and fall back to project scope. That constant is named
+rather than a bare `[]` because an empty footprint SKIPS the env check.
+
+Create never has a footprint for Configs/Constants/Saved Groups: nothing can
+reference an entity that doesn't exist yet. Features supply the envs enabled in
+the creation payload.
+
+**Accepted boundary:** an env-limited role can change a base Config, a Constant's
+base value, or a Saved Group, and that reaches every environment consuming it.
+Closing it needs a cached consumer footprint (the payload builder already computes
+exactly this per env via `filterUsedSavedGroups`). Config lock is the durable
+per-entity control in the meantime. Saved Groups can also be withheld wholesale
+since they're their own family — Configs/Constants can't, which is the known cost
+of the merge; the escape hatch is giving them their own family later.
+
+**Call-site mapping rule:** staging a draft → `draft`; landing, direct writes,
+entity settings (lock, experiment guard, scoped overrides) → `publish` with a real
+footprint; adjacent non-content objects that were project-scoped → keep exact
+behaviour with `NO_ENVIRONMENT_BINDING`. Per-decision: holdout → draft, ramp
+schedules + templates → draft (rampActions are a draft concern), custom hooks →
+publish-adjacent, experiment/bandit linked features → publish.
+
+**What the sweep changed, by class.** Draft-class (authoring): holdout, ramp
+schedules and templates, prerequisites, feature sync, `putFeature` staging, the
+entity `PUT` staging path, saved-group add/remove items, code refs, and the UI's
+"can edit" gates. Publish-class (landing live): the model-layer `canUpdate` hooks,
+entity settings (config lock, experiment guard, scoped overrides), REST entity
+updates, safe-rollout status, experiment and bandit linked features, and the
+adapters' `canCreate`/`canUpdate` — whose only remaining consumers are the
+destination-project check on a project-moving publish and the bulk publisher's
+move guard. Create-class: the four create endpoints, with features supplying the
+envs enabled in the creation payload.
+
+The old move-aware `canUpdateFeature(existing, updated)` is gone rather than
+repointed: authoring is project-scoped so a move has no second project to check,
+and landing into a different project is a publish checked against both source and
+destination at each publish site. Its dedicated test block was removed for the
+same reason.
+
+**Also update the two internal approve-and-publish handlers** (see above) — that
+was found during this pass and is not yet done.
+
+**Approve-and-publish on an armed revision.** When a revision is armed for
+auto-publish (`autoPublishOnApproval` + `autoPublishEnabledBy`), the publish was
+authorized by the armer and the approver is only the trigger — so approving needs
+`review` alone. REST already behaves this way: its only review endpoint is submit-
+review, gated on `review`, which then calls `maybeAutoPublishRevision` and fires
+under the armer's authority. The internal `postApproveAndPublish` /
+`postFeatureApproveAndPublish` handlers are the outliers — they demand publish
+unconditionally, so the same approver is denied the button while the plain Approve
+button publishes anyway. Bring them in line with REST:
+
+- armed → `review` only; approve, then let `maybeAutoPublishRevision` fire under
+  the armer (don't publish inline as the approver — that would fail the downstream
+  `assertCanPublishRevision` anyway)
+- unarmed → `review` **and** `publish`; the approver is electing the publish

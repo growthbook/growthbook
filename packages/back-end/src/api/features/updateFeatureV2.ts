@@ -76,7 +76,12 @@ export const updateFeatureV2 = createApiRequestHandler(
 
   const orgEnvs = getEnvironmentIdsFromOrg(req.context.org);
 
-  if (!req.context.permissions.canUpdateFeature(feature, req.body)) {
+  if (
+    !req.context.permissions.canPublishFeature(
+      feature,
+      Array.from(getEnabledEnvironments(feature, orgEnvs)),
+    )
+  ) {
     req.context.permissions.throwPermissionError();
   }
   if (

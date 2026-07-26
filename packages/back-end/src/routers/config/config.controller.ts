@@ -1,3 +1,4 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import type { Response } from "express";
 import { isEqual } from "lodash";
 import { z } from "zod";
@@ -685,9 +686,12 @@ export const putConfig = async (
 
   if (
     !canLandArchive &&
-    !context.permissions.canUpdateConfig(existing, {
-      project: project ?? existing.project,
-    })
+    !context.permissions.canRevisionAction(
+      "config",
+      "draft",
+      { projects: [project ?? existing.project ?? ""] },
+      NO_ENVIRONMENT_BINDING,
+    )
   ) {
     context.permissions.throwPermissionError();
   }
@@ -1150,7 +1154,7 @@ export const deleteConfig = async (
   }
   // Check delete permission before the (DB-scanning) dependency assertion, so a
   // reader without manage access gets a clean 403 rather than a dependency error.
-  if (!context.permissions.canDeleteConfig(existing)) {
+  if (!context.permissions.canDeleteConfig(existing, NO_ENVIRONMENT_BINDING)) {
     context.permissions.throwPermissionError();
   }
   // A locked config is frozen at its published revision; deleting it would
@@ -1181,7 +1185,14 @@ export const lockConfig = async (
   if (!config) {
     return context.throwNotFoundError("Config not found");
   }
-  if (!context.permissions.canUpdateConfig(config, config)) {
+  if (
+    !context.permissions.canRevisionAction(
+      "config",
+      "publish",
+      config,
+      configPublishEnvironments(context, config),
+    )
+  ) {
     context.permissions.throwPermissionError();
   }
 
@@ -1254,7 +1265,14 @@ export const setConfigExperimentGuard = async (
   const enabled = !!req.body?.enabled;
 
   if (enabled) {
-    if (!context.permissions.canUpdateConfig(config, config)) {
+    if (
+      !context.permissions.canRevisionAction(
+        "config",
+        "publish",
+        config,
+        configPublishEnvironments(context, config),
+      )
+    ) {
       context.permissions.throwPermissionError();
     }
   } else if (
@@ -1294,7 +1312,14 @@ export const setConfigScopedOverrides = async (
   if (!config) {
     return context.throwNotFoundError("Config not found");
   }
-  if (!context.permissions.canUpdateConfig(config, config)) {
+  if (
+    !context.permissions.canRevisionAction(
+      "config",
+      "publish",
+      config,
+      configPublishEnvironments(context, config),
+    )
+  ) {
     context.permissions.throwPermissionError();
   }
   // A locked config is frozen at its pinned revision; attaching/reordering a

@@ -1,5 +1,6 @@
 import { ConfigWithoutValue } from "shared/types/config";
 import { Revision } from "shared/enterprise";
+import { configPublishEnvironments } from "shared/util";
 import ArchiveModal from "@/components/Revision/ArchiveModal";
 import RevisionDraftSelectorForChanges from "@/components/Revision/RevisionDraftSelectorForChanges";
 import { ConstantRevisionContext } from "@/components/Constants/useConstantDraftTarget";
@@ -62,7 +63,12 @@ export default function ConfigArchiveModal({
       canBypassApproval={canBypassApproval}
       // Archiving is delete-class; unarchiving is an ordinary publish.
       canLand={
-        isArchived ? canPublish : permissionsUtil.canDeleteConfig(config)
+        isArchived
+          ? canPublish
+          : permissionsUtil.canDeleteConfig(
+              config,
+              configPublishEnvironments(config),
+            )
       }
       referenceCount={features.length}
       referencesLoading={loading}

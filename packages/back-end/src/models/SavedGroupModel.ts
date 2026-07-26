@@ -1,3 +1,4 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { isEqual, omit } from "lodash";
 import {
   SavedGroupInterface,
@@ -72,7 +73,12 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
     _updates: UpdateProps<SavedGroupInterface>,
     newDoc: SavedGroupInterface,
   ): boolean {
-    return this.context.permissions.canUpdateSavedGroup(existing, newDoc);
+    return this.context.permissions.canRevisionAction(
+      "saved-group",
+      "publish",
+      newDoc,
+      NO_ENVIRONMENT_BINDING,
+    );
   }
 
   protected canDelete(doc: SavedGroupInterface): boolean {

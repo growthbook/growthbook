@@ -41,7 +41,7 @@ export default function ContextualBanditLinkedFeatureFlag({
     permissionsUtil.canUpdateContextualBandit({ project: cb.project }, {});
 
   const canUpdateLinkedFeature =
-    canEditCb && permissionsUtil.canUpdateFeature(info.feature, {});
+    canEditCb && permissionsUtil.canManageFeatureDrafts(info.feature);
 
   const canEditFeatureDraft =
     canUpdateLinkedFeature &&

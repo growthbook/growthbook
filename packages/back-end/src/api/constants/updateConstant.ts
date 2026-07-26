@@ -32,9 +32,12 @@ export const updateConstant = createApiRequestHandler(updateConstantValidator)(
     }
 
     if (
-      !req.context.permissions.canUpdateConstant(constant, {
-        project: project ?? constant.project,
-      })
+      !req.context.permissions.canRevisionAction(
+        "constant",
+        "publish",
+        { projects: [project ?? constant.project ?? ""] },
+        constantPublishEnvironments(req.context),
+      )
     ) {
       req.context.permissions.throwPermissionError();
     }

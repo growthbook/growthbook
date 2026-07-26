@@ -1,3 +1,4 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { deleteContextualBanditLinkedFeatureValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
@@ -21,7 +22,10 @@ export const deleteContextualBanditLinkedFeature = createApiRequestHandler(
   // Also require feature-side edit rights — unlinking cancels a queued
   // autopublish that the feature team may be managing.
   const feature = await getFeature(req.context, req.params.featureId);
-  if (feature && !req.context.permissions.canUpdateFeature(feature, {})) {
+  if (
+    feature &&
+    !req.context.permissions.canPublishFeature(feature, NO_ENVIRONMENT_BINDING)
+  ) {
     req.context.permissions.throwPermissionError();
   }
 

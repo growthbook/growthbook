@@ -89,7 +89,7 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   // because it did on main and stored roles rely on it.)
   FlagsFullAccess: [
     "readData",
-    "manageFlags",
+    "createFlags",
     "deleteFlags",
     "manageFlagDrafts",
     "reviewFlags",
@@ -108,7 +108,7 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   // publish, so these omit publishFlags/revertFlags.)
   FeaturesFullAccess: [
     "readData",
-    "manageFlags",
+    "createFlags",
     "deleteFlags",
     "manageFlagDrafts",
     "reviewFlags",
@@ -118,7 +118,7 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   // too, so dropping either one would quietly take access from a stored role.
   FeaturesBypassApprovals: [
     "readData",
-    "manageFlags",
+    "createFlags",
     "deleteFlags",
     "manageFlagDrafts",
     "reviewFlags",
@@ -182,7 +182,7 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   // manage* atom as an edit), so they must keep publishFlags/revertFlags.
   ConstantsFullAccess: [
     "readData",
-    "manageFlags",
+    "createFlags",
     "deleteFlags",
     "manageFlagDrafts",
     "reviewFlags",
@@ -191,7 +191,7 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   ],
   ConfigsFullAccess: [
     "readData",
-    "manageFlags",
+    "createFlags",
     "deleteFlags",
     "manageFlagDrafts",
     "reviewFlags",
@@ -200,7 +200,7 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   ],
   SavedGroupsFullAccess: [
     "readData",
-    "manageSavedGroups",
+    "createSavedGroups",
     "deleteSavedGroups",
     "manageSavedGroupDrafts",
     "reviewSavedGroups",
@@ -213,7 +213,7 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   // Deprecated superset — see DEPRECATED_POLICIES.
   SavedGroupsBypassSizeLimit: [
     "readData",
-    "manageSavedGroups",
+    "createSavedGroups",
     "deleteSavedGroups",
     "manageSavedGroupDrafts",
     "reviewSavedGroups",
@@ -610,25 +610,29 @@ export const POLICY_METADATA_MAP: Record<
 export const GRANULAR_PERMISSION_METADATA: Partial<
   Record<Permission, { displayName: string; description: string }>
 > = {
-  manageFlags: {
-    displayName: "Create & edit",
-    description: "Create and edit Feature Flags, Constants, and Configs",
+  createFlags: {
+    displayName: "Create",
+    description:
+      "Create new Feature Flags, Constants, and Configs (environment-scoped)",
   },
   deleteFlags: {
-    displayName: "Delete",
-    description: "Delete Feature Flags, Constants, and Configs",
+    displayName: "Archive & delete",
+    description:
+      "Archive or delete Feature Flags, Constants, and Configs (environment-scoped)",
   },
   manageFlagDrafts: {
     displayName: "Manage drafts",
-    description: "Create, edit, and discard drafts and request review",
+    description:
+      "Create, edit, and discard drafts and request review. Drafts reach no one until published.",
   },
   reviewFlags: {
     displayName: "Review",
-    description: "Approve or request changes on revisions",
+    description: "Approve or request changes on revisions (environment-scoped)",
   },
   publishFlags: {
     displayName: "Publish",
-    description: "Publish revisions to environments (environment-scoped)",
+    description:
+      "Put changes in front of users: publish a revision, save directly, unarchive, or toggle an environment (environment-scoped)",
   },
   revertFlags: {
     displayName: "Revert",
@@ -643,9 +647,9 @@ export const GRANULAR_PERMISSION_METADATA: Partial<
     displayName: "Manage archetypes",
     description: "Create, edit, and delete saved user archetypes",
   },
-  manageSavedGroups: {
-    displayName: "Create & edit",
-    description: "Create and edit saved groups",
+  createSavedGroups: {
+    displayName: "Create",
+    description: "Create new Saved Groups",
   },
   deleteSavedGroups: {
     displayName: "Delete",
@@ -847,6 +851,12 @@ export const RESERVED_ROLE_IDS = [
 ];
 
 export const ENV_SCOPED_PERMISSIONS = [
+  // Everything in the flags family that touches live state. The caller supplies
+  // the footprint; NO_ENVIRONMENT_BINDING means the change has no intrinsic
+  // environment (a base Config, a Constant's base value).
+  "createFlags",
+  "deleteFlags",
+  "reviewFlags",
   "publishFlags",
   "revertFlags",
   "manageEnvironments",
@@ -858,10 +868,7 @@ export const ENV_SCOPED_PERMISSIONS = [
 export const PROJECT_SCOPED_PERMISSIONS = [
   "readData",
   "addComments",
-  "manageFlags",
-  "deleteFlags",
   "manageFlagDrafts",
-  "reviewFlags",
   "bypassApprovalFlags",
   "manageArchetype",
   "manageProjects",
@@ -880,7 +887,7 @@ export const PROJECT_SCOPED_PERMISSIONS = [
   "runSqlExplorerQueries",
   "manageTargetingAttributes",
   "manageVisualChanges",
-  "manageSavedGroups",
+  "createSavedGroups",
   "deleteSavedGroups",
   "manageSavedGroupDrafts",
   "reviewSavedGroups",

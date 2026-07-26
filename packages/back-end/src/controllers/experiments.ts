@@ -43,6 +43,7 @@ import {
 import { EventUserForResponseLocals } from "shared/types/events/event-types";
 import { CreateURLRedirectProps } from "shared/types/url-redirect";
 import isEqual from "lodash/isEqual";
+import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
   AuthRequest,
@@ -4242,7 +4243,10 @@ export async function postExperimentFeatureValues(
   // Check for permission to update each feature
   for (const feature of featureObjects) {
     if (
-      !context.permissions.canUpdateFeature(feature, {}) ||
+      !context.permissions.canPublishFeature(
+        feature,
+        getEnvironmentIdsFromOrg(context.org),
+      ) ||
       !context.permissions.canManageFeatureDrafts(feature)
     ) {
       context.permissions.throwPermissionError();
@@ -4375,7 +4379,13 @@ export async function deleteExperimentLinkedFeature(
   // Also require feature-side edit rights — unlinking cancels a queued
   // autopublish that the feature team may be managing.
   const feature = await getFeature(context, featureId);
-  if (feature && !context.permissions.canUpdateFeature(feature, {})) {
+  if (
+    feature &&
+    !context.permissions.canPublishFeature(
+      feature,
+      getEnvironmentIdsFromOrg(context.org),
+    )
+  ) {
     context.permissions.throwPermissionError();
   }
 

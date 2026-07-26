@@ -1,6 +1,7 @@
 import { validateFeatureValue } from "shared/util";
 import { postFeatureV2Validator } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
+import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   resolveOwnerEmail,
@@ -38,7 +39,17 @@ import {
 
 export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
   async (req) => {
-    if (!req.context.permissions.canCreateFeature(req.body)) {
+    if (
+      !req.context.permissions.canCreateFeature(
+        req.body,
+        Array.from(
+          getEnabledEnvironments(
+            req.body as unknown as FeatureInterface,
+            getEnvironmentIdsFromOrg(req.context.org),
+          ),
+        ),
+      )
+    ) {
       req.context.permissions.throwPermissionError();
     }
 

@@ -46,7 +46,7 @@ export default function LinkedFeatureFlag({
     !experiment.archived && permissionsUtil.canUpdateExperiment(experiment, {});
 
   const canUpdateLinkedFeature =
-    canEditExperiment && permissionsUtil.canUpdateFeature(info.feature, {});
+    canEditExperiment && permissionsUtil.canManageFeatureDrafts(info.feature);
 
   const canEditFeatureDraft =
     canUpdateLinkedFeature &&

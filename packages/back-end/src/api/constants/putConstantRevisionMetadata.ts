@@ -37,7 +37,7 @@ export const putConstantRevisionMetadata = createApiRequestHandler(
   if (
     typeof project !== "undefined" &&
     project !== constant.project &&
-    !req.context.permissions.canRevisionAction("constant", "manage", {
+    !req.context.permissions.canRevisionAction("constant", "draft", {
       project,
     })
   ) {

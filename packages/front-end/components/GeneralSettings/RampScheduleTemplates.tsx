@@ -1,3 +1,4 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import React, { useEffect, useMemo, useState } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiPlusBold, PiCaretDown, PiCaretUp } from "react-icons/pi";
@@ -420,15 +421,17 @@ export default function RampScheduleTemplates() {
 
   const hasFeature = hasCommercialFeature("ramp-schedules");
   const canCreate =
-    hasFeature && permissionsUtil.canCreateFeature({ project: undefined });
+    hasFeature &&
+    permissionsUtil.canManageFeatureDrafts({ project: undefined });
   const canUpdate =
     hasFeature &&
-    permissionsUtil.canUpdateFeature(
-      { project: undefined },
-      { project: undefined },
-    );
+    permissionsUtil.canManageFeatureDrafts({ project: undefined });
   const canDelete =
-    hasFeature && permissionsUtil.canDeleteFeature({ project: undefined });
+    hasFeature &&
+    permissionsUtil.canDeleteFeature(
+      { project: undefined },
+      NO_ENVIRONMENT_BINDING,
+    );
 
   const [editingTemplate, setEditingTemplate] = useState<
     RampScheduleTemplateInterface | null | false

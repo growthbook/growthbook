@@ -1,3 +1,4 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import escapeRegExp from "lodash/escapeRegExp";
 import mongoose from "mongoose";
 import { UpdateProps } from "shared/types/base-model";
@@ -386,7 +387,7 @@ export class RampScheduleModel extends BaseClass {
     );
   }
   protected canCreate(doc: RampScheduleInterface) {
-    return this.context.permissions.canCreateFeature({
+    return this.context.permissions.canManageFeatureDrafts({
       project: this.getProject(doc),
     });
   }
@@ -395,15 +396,15 @@ export class RampScheduleModel extends BaseClass {
     _updates: UpdateProps<RampScheduleInterface>,
     newDoc: RampScheduleInterface,
   ) {
-    return this.context.permissions.canUpdateFeature(
-      { project: this.getProject(existing) },
-      { project: this.getProject(newDoc) },
-    );
+    return this.context.permissions.canManageFeatureDrafts({
+      project: this.getProject(newDoc),
+    });
   }
   protected canDelete(existing: RampScheduleInterface) {
-    return this.context.permissions.canDeleteFeature({
-      project: this.getProject(existing),
-    });
+    return this.context.permissions.canDeleteFeature(
+      { project: this.getProject(existing) },
+      NO_ENVIRONMENT_BINDING,
+    );
   }
 
   protected migrate(legacyDoc: unknown): RampScheduleInterface {

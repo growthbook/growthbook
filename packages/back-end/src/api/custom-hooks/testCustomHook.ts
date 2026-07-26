@@ -1,3 +1,4 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { testCustomHookValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { runInSandbox } from "back-end/src/enterprise/sandbox/sandbox-pool";
@@ -17,7 +18,10 @@ export const testCustomHook = createApiRequestHandler(testCustomHookValidator)(
       const feature = await getFeature(req.context, entityId);
       if (
         !feature ||
-        !req.context.permissions.canManageFeatureCustomHooks(feature)
+        !req.context.permissions.canManageFeatureCustomHooks(
+          feature,
+          NO_ENVIRONMENT_BINDING,
+        )
       ) {
         req.context.permissions.throwPermissionError();
       }

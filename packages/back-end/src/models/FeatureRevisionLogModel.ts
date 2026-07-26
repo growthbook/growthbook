@@ -1,3 +1,4 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { FeatureInterface } from "shared/types/feature";
 import {
   FeatureRevisionLogInterface,
@@ -58,10 +59,7 @@ export class FeatureRevisionLogModel extends BaseClass {
     if (!feature) {
       throw new Error("Feature not found for FeatureRevisionLog");
     }
-    return (
-      this.context.permissions.canCreateFeature(feature) ||
-      this.context.permissions.canManageFeatureDrafts(feature)
-    );
+    return this.context.permissions.canManageFeatureDrafts(feature);
   }
 
   // Owner check shared by update / delete. Action membership is checked by
@@ -151,7 +149,12 @@ export class FeatureRevisionLogModel extends BaseClass {
 
   public async deleteAllByFeature(feature: FeatureInterface) {
     // We should keep the log unless the feature itself is deleted.
-    if (!this.context.permissions.canDeleteFeature(feature)) {
+    if (
+      !this.context.permissions.canDeleteFeature(
+        feature,
+        NO_ENVIRONMENT_BINDING,
+      )
+    ) {
       throw new Error("You do not have access to delete this resource");
     }
 

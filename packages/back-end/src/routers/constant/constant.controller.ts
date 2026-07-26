@@ -1,3 +1,4 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import type { Response } from "express";
 import { isEqual } from "lodash";
 import { z } from "zod";
@@ -261,9 +262,12 @@ export const putConstant = async (
   // Permission check always runs regardless of approval flow status.
   if (
     !canLandArchive &&
-    !context.permissions.canUpdateConstant(existing, {
-      project: project ?? existing.project,
-    })
+    !context.permissions.canRevisionAction(
+      "constant",
+      "draft",
+      { projects: [project ?? existing.project ?? ""] },
+      NO_ENVIRONMENT_BINDING,
+    )
   ) {
     context.permissions.throwPermissionError();
   }

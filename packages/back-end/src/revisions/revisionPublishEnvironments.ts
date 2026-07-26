@@ -5,19 +5,19 @@ import {
 } from "shared/util";
 import type { Context } from "back-end/src/models/BaseModel";
 
-function orgEnvironmentIds(context: Context): string[] {
-  return context.org.settings?.environments?.map((e) => e.id) ?? [];
-}
-
-// Context-bound wrappers around the shared footprint helpers, which the
-// front-end also calls so both sides env-scope publish authority the same way.
+// Back-end shims over the shared footprint helpers, kept so call sites read the
+// same as they did before the helpers stopped needing the org's env list. The
+// front end calls the shared versions directly, so both sides scope identically.
 export function configPublishEnvironments(
-  context: Context,
+  _context: Context,
   config: Pick<ConfigInterface, "scopedConfig">,
 ): string[] {
-  return configPublishEnvs(config, orgEnvironmentIds(context));
+  return configPublishEnvs(config);
 }
 
-export function constantPublishEnvironments(context: Context): string[] {
-  return constantPublishEnvs(orgEnvironmentIds(context));
+export function constantPublishEnvironments(
+  _context?: Context,
+  changedEnvironments?: string[],
+): string[] {
+  return constantPublishEnvs(changedEnvironments);
 }

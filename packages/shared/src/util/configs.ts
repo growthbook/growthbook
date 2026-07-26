@@ -1,5 +1,6 @@
 import { SimpleSchema, SchemaField } from "shared/types/feature";
 import { CONSTANT_EXTENDS_KEY } from "../constants";
+import { NO_ENVIRONMENT_BINDING } from "../permissions/revisionPermissions";
 import { parsePlainJSONObject } from "./features";
 import {
   collectInvalidConfigValueKeys,
@@ -46,27 +47,30 @@ export function isScopedConfig(config: {
   return (config.scopedConfig ?? null) !== null;
 }
 
-// The environments an env-scoped Config publish/revert may affect: a flavor
-// targets its scoped environments, while a base Config's value applies to all.
-// Conservative approximation (the entity's flavor scope, not the per-revision
-// diff). Shared by the revision adapter, the REST endpoints and the front-end so
-// every surface env-scopes publish authority identically — an env-limited role
-// must not be offered a publish the server will refuse.
-export function configPublishEnvironments(
-  config: { scopedConfig?: { environments?: string[] } | null },
-  allEnvironmentIds: string[],
-): string[] {
-  const flavorEnvs = config.scopedConfig?.environments;
-  return flavorEnvs?.length ? flavorEnvs : allEnvironmentIds;
+// The environments a Config change binds to. A flavor declares its own scope in
+// `scopedConfig.environments`, which is the one unambiguous binding a Config
+// has. A base or child Config declares none — its reach runs through whichever
+// features consume it, down to individual rules, which can't be computed inside
+// a permission check — so it binds to no environment and the check falls back to
+// project scope. Shared by the revision adapter, the REST endpoints and the
+// front end so every surface scopes identically.
+export function configPublishEnvironments(config: {
+  scopedConfig?: { environments?: string[] } | null;
+}): string[] {
+  return config.scopedConfig?.environments?.length
+    ? config.scopedConfig.environments
+    : NO_ENVIRONMENT_BINDING;
 }
 
-// A Constant's base value and per-environment overrides can touch any
-// environment, so without the per-revision diff we conservatively require
-// authority across all of them. The seam where a narrower footprint would go.
+// A Constant binds to an environment only through `environmentValues`. Pass the
+// per-environment keys a change touches; a base-value change binds to nothing,
+// for the same consumer-derived reason as a base Config.
 export function constantPublishEnvironments(
-  allEnvironmentIds: string[],
+  changedEnvironments?: string[],
 ): string[] {
-  return allEnvironmentIds;
+  return changedEnvironments?.length
+    ? changedEnvironments
+    : NO_ENVIRONMENT_BINDING;
 }
 
 // Every base config key for a config, in precedence order: the `parent` spine

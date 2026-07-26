@@ -1,3 +1,4 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import {
   ApiCustomHook,
   CustomHookInterface,
@@ -66,7 +67,10 @@ export class CustomHookModel extends BaseClass {
   protected canCreate(doc: CustomHookInterface): boolean {
     const feature = this.featureRef(doc);
     if (feature) {
-      return this.context.permissions.canManageFeatureCustomHooks(feature);
+      return this.context.permissions.canManageFeatureCustomHooks(
+        feature,
+        NO_ENVIRONMENT_BINDING,
+      );
     }
     const experiment = this.experimentRef(doc);
     if (experiment) {
@@ -102,7 +106,10 @@ export class CustomHookModel extends BaseClass {
     const canManage = (doc: CustomHookInterface): boolean => {
       const feature = this.featureRef(doc);
       if (feature) {
-        return this.context.permissions.canManageFeatureCustomHooks(feature);
+        return this.context.permissions.canManageFeatureCustomHooks(
+          feature,
+          NO_ENVIRONMENT_BINDING,
+        );
       }
       const experiment = this.experimentRef(doc);
       if (experiment) {
@@ -117,7 +124,10 @@ export class CustomHookModel extends BaseClass {
   protected canDelete(doc: CustomHookInterface): boolean {
     const feature = this.featureRef(doc);
     if (feature) {
-      return this.context.permissions.canManageFeatureCustomHooks(feature);
+      return this.context.permissions.canManageFeatureCustomHooks(
+        feature,
+        NO_ENVIRONMENT_BINDING,
+      );
     }
     const experiment = this.experimentRef(doc);
     if (experiment) {

@@ -1,3 +1,4 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { FC, useEffect, useMemo, useState } from "react";
 import {
   CreateSavedGroupProps,
@@ -260,23 +261,29 @@ const SavedGroupForm: FC<{
   const projectsOptions = useProjectOptions(
     (p) =>
       current.id
-        ? permissionsUtil.canUpdateSavedGroup(
-            { projects: current.projects || [] },
+        ? permissionsUtil.canRevisionAction(
+            "saved-group",
+            "draft",
             { projects: [p] },
+            NO_ENVIRONMENT_BINDING,
           )
         : permissionsUtil.canCreateSavedGroup({ projects: [p] }),
     selectedProjects,
   );
   const canCreateWithoutProject = current.id
-    ? permissionsUtil.canUpdateSavedGroup(
-        { projects: current.projects || [] },
+    ? permissionsUtil.canRevisionAction(
+        "saved-group",
+        "draft",
         { projects: [] },
+        NO_ENVIRONMENT_BINDING,
       )
     : permissionsUtil.canCreateSavedGroup({ projects: [] });
   const hasProjectPermission = current.id
-    ? permissionsUtil.canUpdateSavedGroup(
-        { projects: current.projects || [] },
+    ? permissionsUtil.canRevisionAction(
+        "saved-group",
+        "draft",
         { projects: selectedProjects },
+        NO_ENVIRONMENT_BINDING,
       )
     : permissionsUtil.canCreateSavedGroup({ projects: selectedProjects });
   const listAboveSizeLimit = savedGroupSizeLimit

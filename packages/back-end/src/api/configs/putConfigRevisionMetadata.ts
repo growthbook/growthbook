@@ -1,3 +1,4 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { isEqual } from "lodash";
 import { putConfigRevisionMetadataValidator } from "shared/validators";
 import {
@@ -44,7 +45,12 @@ export const putConfigRevisionMetadata = createApiRequestHandler(
   if (
     typeof project !== "undefined" &&
     project !== config.project &&
-    !req.context.permissions.canRevisionAction("config", "manage", { project })
+    !req.context.permissions.canRevisionAction(
+      "config",
+      "draft",
+      { project },
+      NO_ENVIRONMENT_BINDING,
+    )
   ) {
     req.context.permissions.throwPermissionError();
   }

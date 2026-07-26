@@ -9,6 +9,7 @@ import {
   savedGroupValidator,
   savedGroupUpdatableFieldsSchema,
 } from "shared/validators";
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import type { Context } from "back-end/src/models/BaseModel";
 import {
   EntityRevisionAdapter,
@@ -65,7 +66,12 @@ function canEditSavedGroup(
   context: Context,
   snapshot: SavedGroupInterface,
 ): boolean {
-  return context.permissions.canUpdateSavedGroup(snapshot, {});
+  return context.permissions.canRevisionAction(
+    "saved-group",
+    "publish",
+    snapshot,
+    NO_ENVIRONMENT_BINDING,
+  );
 }
 
 function isSavedGroupApprovalRequired(context: Context): boolean {

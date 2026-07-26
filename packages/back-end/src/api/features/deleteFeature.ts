@@ -1,3 +1,4 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { filterEnvironmentsByFeature, PermissionError } from "shared/util";
 import { deleteFeatureValidator } from "shared/validators";
 import type { ApiRequestLocals } from "back-end/types/api";
@@ -22,7 +23,9 @@ export async function deleteFeatureHandler(
     );
   }
 
-  if (!req.context.permissions.canDeleteFeature(feature)) {
+  if (
+    !req.context.permissions.canDeleteFeature(feature, NO_ENVIRONMENT_BINDING)
+  ) {
     req.context.permissions.throwPermissionError();
   }
 

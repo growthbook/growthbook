@@ -1,3 +1,4 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import type { Response } from "express";
 import { isEqual } from "lodash";
 import {
@@ -235,7 +236,14 @@ export const postSavedGroupAddItems = async (
     throw new Error("Could not find saved group");
   }
 
-  if (!context.permissions.canUpdateSavedGroup(savedGroup, savedGroup)) {
+  if (
+    !context.permissions.canRevisionAction(
+      "saved-group",
+      "draft",
+      savedGroup,
+      NO_ENVIRONMENT_BINDING,
+    )
+  ) {
     context.permissions.throwPermissionError();
   }
 
@@ -403,7 +411,14 @@ export const postSavedGroupRemoveItems = async (
     throw new Error("Could not find saved group");
   }
 
-  if (!context.permissions.canUpdateSavedGroup(savedGroup, savedGroup)) {
+  if (
+    !context.permissions.canRevisionAction(
+      "saved-group",
+      "draft",
+      savedGroup,
+      NO_ENVIRONMENT_BINDING,
+    )
+  ) {
     context.permissions.throwPermissionError();
   }
 
@@ -620,7 +635,12 @@ export const putSavedGroup = async (
   // Permission check always runs regardless of approval flow status
   if (
     !canLandArchive &&
-    !context.permissions.canUpdateSavedGroup(savedGroup, { ...req.body })
+    !context.permissions.canRevisionAction(
+      "saved-group",
+      "draft",
+      savedGroup,
+      NO_ENVIRONMENT_BINDING,
+    )
   ) {
     context.permissions.throwPermissionError();
   }

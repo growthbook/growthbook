@@ -38,6 +38,7 @@ import { PermissionError } from "../util/";
 import { READ_ONLY_PERMISSIONS } from "./permissions.constants";
 import {
   MODEL_FAMILY,
+  NO_ENVIRONMENT_BINDING,
   REVISION_PERMISSIONS,
   RevisionAction,
   RevisionModel,
@@ -379,44 +380,45 @@ export class Permissions {
       // read-only sample-data project) can't gate the CTA when it's the only
       // project.
       return (
-        this.canRevisionAction("feature", "manage", { projects: [] }) ||
+        this.canCreateFeature({ project: undefined }, NO_ENVIRONMENT_BINDING) ||
         allProjects.some((p) =>
-          this.canRevisionAction("feature", "manage", { projects: [p.id] }),
+          this.canCreateFeature({ project: p.id }, NO_ENVIRONMENT_BINDING),
         )
       );
     }
-    return this.canRevisionAction("feature", "manage", {
-      projects: project ? [project] : [],
-    });
+    return this.canCreateFeature({ project }, NO_ENVIRONMENT_BINDING);
   };
 
+  /**
+   * Creating a flag writes live state, so it takes the publish-class create
+   * atom with the environments the new flag is enabled in. Opening the create
+   * UI passes NO_ENVIRONMENT_BINDING — the payload doesn't exist yet, so the
+   * modal gate is "can they create anything here" and the endpoint re-checks
+   * against the real footprint on submit.
+   */
   public canCreateFeature = (
     feature: Pick<FeatureInterface, "project">,
+    environments: string[],
   ): boolean => {
-    return this.canRevisionAction("feature", "manage", {
-      projects: feature.project ? [feature.project] : [],
-    });
-  };
-
-  public canUpdateFeature = (
-    existing: Pick<FeatureInterface, "project">,
-    updated: Pick<FeatureInterface, "project">,
-  ): boolean => {
-    // Edit is move-aware (needs manage on both source and destination project),
-    // so it keeps the update-permission helper but sources the atom from the table.
-    return this.checkProjectFilterUpdatePermission(
-      { projects: existing.project ? [existing.project] : [] },
-      "project" in updated ? { projects: [updated.project || ""] } : {},
-      REVISION_PERMISSIONS.flags.manage.permission as ProjectScopedPermission,
+    return this.canRevisionAction(
+      "feature",
+      "create",
+      { projects: feature.project ? [feature.project] : [] },
+      environments,
     );
   };
 
+  /** Archiving and deleting both take the flag out of service in `environments`. */
   public canDeleteFeature = (
     feature: Pick<FeatureInterface, "project">,
+    environments: string[],
   ): boolean => {
-    return this.canRevisionAction("feature", "delete", {
-      projects: feature.project ? [feature.project] : [],
-    });
+    return this.canRevisionAction(
+      "feature",
+      "delete",
+      { projects: feature.project ? [feature.project] : [] },
+      environments,
+    );
   };
 
   // Revert a feature to a previously-published revision. Env-scoped: gate on the
@@ -990,6 +992,7 @@ export class Permissions {
     });
   };
 
+  /** Reviewing is gated on the environments the revision under review changes. */
   public canReviewFeatureDrafts = (
     feature: Pick<FeatureInterface, "project">,
   ): boolean => {
@@ -1395,18 +1398,11 @@ export class Permissions {
   public canCreateSavedGroup = (
     savedGroup: Pick<SavedGroupInterface, "projects">,
   ): boolean => {
-    return this.canRevisionAction("saved-group", "manage", savedGroup);
-  };
-
-  public canUpdateSavedGroup = (
-    existing: Pick<SavedGroupInterface, "projects">,
-    updates: Pick<SavedGroupInterface, "projects">,
-  ): boolean => {
-    return this.checkProjectFilterUpdatePermission(
-      existing,
-      updates,
-      REVISION_PERMISSIONS.savedGroups.manage
-        .permission as ProjectScopedPermission,
+    return this.canRevisionAction(
+      "saved-group",
+      "create",
+      savedGroup,
+      NO_ENVIRONMENT_BINDING,
     );
   };
 
@@ -1416,58 +1412,52 @@ export class Permissions {
     return this.canRevisionAction("saved-group", "delete", savedGroup);
   };
 
+  /** A brand-new Constant has no consumers yet, so it binds to no environment. */
   public canCreateConstant = (
     constant: Pick<ConstantInterface, "project">,
   ): boolean => {
-    return this.canRevisionAction("constant", "manage", {
-      projects: constant.project ? [constant.project] : [],
-    });
-  };
-
-  public canUpdateConstant = (
-    existing: Pick<ConstantInterface, "project">,
-    updated: Pick<ConstantInterface, "project">,
-  ): boolean => {
-    return this.checkProjectFilterUpdatePermission(
-      { projects: existing.project ? [existing.project] : [] },
-      "project" in updated ? { projects: [updated.project || ""] } : {},
-      REVISION_PERMISSIONS.flags.manage.permission as ProjectScopedPermission,
+    return this.canRevisionAction(
+      "constant",
+      "create",
+      { projects: constant.project ? [constant.project] : [] },
+      NO_ENVIRONMENT_BINDING,
     );
   };
 
   public canDeleteConstant = (
     constant: Pick<ConstantInterface, "project">,
+    environments: string[],
   ): boolean => {
-    return this.canRevisionAction("constant", "delete", {
-      projects: constant.project ? [constant.project] : [],
-    });
+    return this.canRevisionAction(
+      "constant",
+      "delete",
+      { projects: constant.project ? [constant.project] : [] },
+      environments,
+    );
   };
 
+  /** A brand-new Config has no consumers yet, so it binds to no environment. */
   public canCreateConfig = (
     config: Pick<ConfigInterface, "project">,
   ): boolean => {
-    return this.canRevisionAction("config", "manage", {
-      projects: config.project ? [config.project] : [],
-    });
-  };
-
-  public canUpdateConfig = (
-    existing: Pick<ConfigInterface, "project">,
-    updated: Pick<ConfigInterface, "project">,
-  ): boolean => {
-    return this.checkProjectFilterUpdatePermission(
-      { projects: existing.project ? [existing.project] : [] },
-      "project" in updated ? { projects: [updated.project || ""] } : {},
-      REVISION_PERMISSIONS.flags.manage.permission as ProjectScopedPermission,
+    return this.canRevisionAction(
+      "config",
+      "create",
+      { projects: config.project ? [config.project] : [] },
+      NO_ENVIRONMENT_BINDING,
     );
   };
 
   public canDeleteConfig = (
     config: Pick<ConfigInterface, "project">,
+    environments: string[],
   ): boolean => {
-    return this.canRevisionAction("config", "delete", {
-      projects: config.project ? [config.project] : [],
-    });
+    return this.canRevisionAction(
+      "config",
+      "delete",
+      { projects: config.project ? [config.project] : [] },
+      environments,
+    );
   };
 
   public canBypassSavedGroupSizeLimit = (projects?: string[]): boolean => {
@@ -1573,11 +1563,14 @@ export class Permissions {
     return this.checkProjectFilterPermission(customHook, "manageCustomHooks");
   };
 
-  // Alias for the feature-edit permission; its own method so we can add logic/resource types later.
+  // Custom hooks gate what may be published, so managing them is a governance
+  // change to live behaviour rather than draft content — publish-class, scoped to
+  // the environments the feature serves.
   public canManageFeatureCustomHooks = (
     feature: Pick<FeatureInterface, "project">,
+    environments: string[],
   ): boolean => {
-    return this.canUpdateFeature(feature, {});
+    return this.canPublishFeature(feature, environments);
   };
 
   public canManageExperimentCustomHooks = (

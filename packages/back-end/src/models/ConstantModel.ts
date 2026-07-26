@@ -1,3 +1,4 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { isEqual, omit } from "lodash";
 import { ConstantInterface, ConstantWithoutValue } from "shared/types/constant";
 import {
@@ -98,11 +99,19 @@ export class ConstantModel extends BaseClass {
     _updates: UpdateProps<ConstantInterface>,
     newDoc: ConstantInterface,
   ): boolean {
-    return this.context.permissions.canUpdateConstant(existing, newDoc);
+    return this.context.permissions.canRevisionAction(
+      "constant",
+      "publish",
+      { projects: newDoc.project ? [newDoc.project] : [] },
+      NO_ENVIRONMENT_BINDING,
+    );
   }
 
   protected canDelete(doc: ConstantInterface): boolean {
-    return this.context.permissions.canDeleteConstant(doc);
+    return this.context.permissions.canDeleteConstant(
+      doc,
+      NO_ENVIRONMENT_BINDING,
+    );
   }
 
   // Reject cyclic values at the model layer so every write is covered, including

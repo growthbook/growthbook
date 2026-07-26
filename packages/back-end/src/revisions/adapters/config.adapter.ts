@@ -97,8 +97,16 @@ function canBypassApprovalForConfig(
   });
 }
 
+// Every remaining consumer of canCreate/canUpdate lands a change on the live
+// entity — the destination-project check on a publish that moves projects, and
+// the bulk publisher's move guard — so both are publish-class.
 function canEditConfig(context: Context, snapshot: ConfigInterface): boolean {
-  return context.permissions.canUpdateConfig(snapshot, {});
+  return context.permissions.canRevisionAction(
+    "config",
+    "publish",
+    { projects: configProjects(snapshot) },
+    configPublishEnvironments(context, snapshot),
+  );
 }
 
 function configProjects(snapshot: ConfigInterface): string[] {

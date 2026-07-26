@@ -1,3 +1,4 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { OrganizationInterface } from "shared/types/organization";
 import {
   roleToPermissionMap,
@@ -56,7 +57,9 @@ describe("Role permissions", () => {
     expect(p.canCreateExperiment(projectResource)).toBe(false);
     expect(p.canCreateFactMetric(projectsResource)).toBe(false);
     expect(p.canCreateFactTable(projectsResource)).toBe(false);
-    expect(p.canCreateFeature(projectResource)).toBe(false);
+    expect(p.canCreateFeature(projectResource, NO_ENVIRONMENT_BINDING)).toBe(
+      false,
+    );
     expect(p.canCreateIdea(projectResource)).toBe(false);
     expect(p.canCreateMetric(projectsResource)).toBe(false);
     expect(p.canCreateNamespace()).toBe(false);
@@ -76,7 +79,9 @@ describe("Role permissions", () => {
     expect(p.canDeleteExperiment(projectResource)).toBe(false);
     expect(p.canDeleteFactMetric(projectsResource)).toBe(false);
     expect(p.canDeleteFactTable(projectsResource)).toBe(false);
-    expect(p.canDeleteFeature(projectResource)).toBe(false);
+    expect(p.canDeleteFeature(projectResource, NO_ENVIRONMENT_BINDING)).toBe(
+      false,
+    );
     expect(p.canDeleteIdea(projectResource)).toBe(false);
     expect(p.canDeleteMetric(projectsResource)).toBe(false);
     expect(p.canDeleteNamespace()).toBe(false);
@@ -114,7 +119,7 @@ describe("Role permissions", () => {
     expect(p.canUpdateExperiment(projectResource, updates)).toBe(false);
     expect(p.canUpdateFactMetric(projectsResource, updates)).toBe(false);
     expect(p.canUpdateFactTable(projectsResource, updates)).toBe(false);
-    expect(p.canUpdateFeature(projectResource, updates)).toBe(false);
+    expect(p.canManageFeatureDrafts(projectResource)).toBe(false);
     expect(p.canUpdateIdea(projectResource, updates)).toBe(false);
     expect(p.canUpdateMetric(projectsResource, updates)).toBe(false);
     expect(p.canUpdateNamespace()).toBe(false);
@@ -122,7 +127,14 @@ describe("Role permissions", () => {
     expect(p.canUpdateProject(project)).toBe(false);
     expect(p.canUpdateReport(projectResource)).toBe(false);
     expect(p.canUpdateSDKWebhook(sdkConnection)).toBe(false);
-    expect(p.canUpdateSavedGroup(projectsResource, updates)).toBe(false);
+    expect(
+      p.canRevisionAction(
+        "saved-group",
+        "draft",
+        projectsResource,
+        NO_ENVIRONMENT_BINDING,
+      ),
+    ).toBe(false);
     expect(p.canUpdateSegment(projectsResource, updates)).toBe(false);
     expect(p.canManageSomeProjects()).toBe(false);
     expect(p.canViewProjectsPage()).toBe(false);
@@ -172,7 +184,9 @@ describe("Role permissions", () => {
     expect(p.canCreateExperiment(projectResource)).toBe(false);
     expect(p.canCreateFactMetric(projectsResource)).toBe(false);
     expect(p.canCreateFactTable(projectsResource)).toBe(false);
-    expect(p.canCreateFeature(projectResource)).toBe(false);
+    expect(p.canCreateFeature(projectResource, NO_ENVIRONMENT_BINDING)).toBe(
+      false,
+    );
     expect(p.canCreateIdea(projectResource)).toBe(false);
     expect(p.canCreateMetric(projectsResource)).toBe(false);
     expect(p.canCreateNamespace()).toBe(false);
@@ -192,7 +206,9 @@ describe("Role permissions", () => {
     expect(p.canDeleteExperiment(projectResource)).toBe(false);
     expect(p.canDeleteFactMetric(projectsResource)).toBe(false);
     expect(p.canDeleteFactTable(projectsResource)).toBe(false);
-    expect(p.canDeleteFeature(projectResource)).toBe(false);
+    expect(p.canDeleteFeature(projectResource, NO_ENVIRONMENT_BINDING)).toBe(
+      false,
+    );
     expect(p.canDeleteIdea(projectResource)).toBe(false);
     expect(p.canDeleteMetric(projectsResource)).toBe(false);
     expect(p.canDeleteNamespace()).toBe(false);
@@ -231,7 +247,7 @@ describe("Role permissions", () => {
     expect(p.canUpdateExperiment(projectResource, updates)).toBe(false);
     expect(p.canUpdateFactMetric(projectsResource, updates)).toBe(false);
     expect(p.canUpdateFactTable(projectsResource, updates)).toBe(false);
-    expect(p.canUpdateFeature(projectResource, updates)).toBe(false);
+    expect(p.canManageFeatureDrafts(projectResource)).toBe(false);
     expect(p.canUpdateIdea(projectResource, updates)).toBe(false);
     expect(p.canUpdateMetric(projectsResource, updates)).toBe(false);
     expect(p.canUpdateNamespace()).toBe(false);
@@ -239,7 +255,14 @@ describe("Role permissions", () => {
     expect(p.canUpdateProject(project)).toBe(false);
     expect(p.canUpdateReport(projectResource)).toBe(false);
     expect(p.canUpdateSDKWebhook(sdkConnection)).toBe(false);
-    expect(p.canUpdateSavedGroup(projectsResource, updates)).toBe(false);
+    expect(
+      p.canRevisionAction(
+        "saved-group",
+        "draft",
+        projectsResource,
+        NO_ENVIRONMENT_BINDING,
+      ),
+    ).toBe(false);
     expect(p.canUpdateSegment(projectsResource, updates)).toBe(false);
     expect(p.canManageSomeProjects()).toBe(false);
     expect(p.canViewProjectsPage()).toBe(true);
@@ -289,7 +312,9 @@ describe("Role permissions", () => {
     expect(p.canCreateExperiment(projectResource)).toBe(false);
     expect(p.canCreateFactMetric(projectsResource)).toBe(false);
     expect(p.canCreateFactTable(projectsResource)).toBe(false);
-    expect(p.canCreateFeature(projectResource)).toBe(false);
+    expect(p.canCreateFeature(projectResource, NO_ENVIRONMENT_BINDING)).toBe(
+      false,
+    );
     expect(p.canCreateIdea(projectResource)).toBe(false);
     expect(p.canCreateMetric(projectsResource)).toBe(false);
     expect(p.canCreateNamespace()).toBe(false);
@@ -309,7 +334,9 @@ describe("Role permissions", () => {
     expect(p.canDeleteExperiment(projectResource)).toBe(false);
     expect(p.canDeleteFactMetric(projectsResource)).toBe(false);
     expect(p.canDeleteFactTable(projectsResource)).toBe(false);
-    expect(p.canDeleteFeature(projectResource)).toBe(false);
+    expect(p.canDeleteFeature(projectResource, NO_ENVIRONMENT_BINDING)).toBe(
+      false,
+    );
     expect(p.canDeleteIdea(projectResource)).toBe(false);
     expect(p.canDeleteMetric(projectsResource)).toBe(false);
     expect(p.canDeleteNamespace()).toBe(false);
@@ -348,7 +375,7 @@ describe("Role permissions", () => {
     expect(p.canUpdateExperiment(projectResource, updates)).toBe(false);
     expect(p.canUpdateFactMetric(projectsResource, updates)).toBe(false);
     expect(p.canUpdateFactTable(projectsResource, updates)).toBe(false);
-    expect(p.canUpdateFeature(projectResource, updates)).toBe(false);
+    expect(p.canManageFeatureDrafts(projectResource)).toBe(false);
     expect(p.canUpdateIdea(projectResource, updates)).toBe(false);
     expect(p.canUpdateMetric(projectsResource, updates)).toBe(false);
     expect(p.canUpdateNamespace()).toBe(false);
@@ -356,7 +383,14 @@ describe("Role permissions", () => {
     expect(p.canUpdateProject(project)).toBe(false);
     expect(p.canUpdateReport(projectResource)).toBe(false);
     expect(p.canUpdateSDKWebhook(sdkConnection)).toBe(false);
-    expect(p.canUpdateSavedGroup(projectsResource, updates)).toBe(false);
+    expect(
+      p.canRevisionAction(
+        "saved-group",
+        "draft",
+        projectsResource,
+        NO_ENVIRONMENT_BINDING,
+      ),
+    ).toBe(false);
     expect(p.canUpdateSegment(projectsResource, updates)).toBe(false);
     expect(p.canManageSomeProjects()).toBe(false);
     expect(p.canViewProjectsPage()).toBe(true);
@@ -406,7 +440,9 @@ describe("Role permissions", () => {
     expect(p.canCreateExperiment(projectResource)).toBe(false);
     expect(p.canCreateFactMetric(projectsResource)).toBe(false);
     expect(p.canCreateFactTable(projectsResource)).toBe(false);
-    expect(p.canCreateFeature(projectResource)).toBe(false);
+    expect(p.canCreateFeature(projectResource, NO_ENVIRONMENT_BINDING)).toBe(
+      false,
+    );
     expect(p.canCreateIdea(projectResource)).toBe(true);
     expect(p.canCreateMetric(projectsResource)).toBe(false);
     expect(p.canCreateNamespace()).toBe(false);
@@ -426,7 +462,9 @@ describe("Role permissions", () => {
     expect(p.canDeleteExperiment(projectResource)).toBe(false);
     expect(p.canDeleteFactMetric(projectsResource)).toBe(false);
     expect(p.canDeleteFactTable(projectsResource)).toBe(false);
-    expect(p.canDeleteFeature(projectResource)).toBe(false);
+    expect(p.canDeleteFeature(projectResource, NO_ENVIRONMENT_BINDING)).toBe(
+      false,
+    );
     expect(p.canDeleteIdea(projectResource)).toBe(true);
     expect(p.canDeleteMetric(projectsResource)).toBe(false);
     expect(p.canDeleteNamespace()).toBe(false);
@@ -465,7 +503,7 @@ describe("Role permissions", () => {
     expect(p.canUpdateExperiment(projectResource, updates)).toBe(false);
     expect(p.canUpdateFactMetric(projectsResource, updates)).toBe(false);
     expect(p.canUpdateFactTable(projectsResource, updates)).toBe(false);
-    expect(p.canUpdateFeature(projectResource, updates)).toBe(false);
+    expect(p.canManageFeatureDrafts(projectResource)).toBe(false);
     expect(p.canUpdateIdea(projectResource, updates)).toBe(true);
     expect(p.canUpdateMetric(projectsResource, updates)).toBe(false);
     expect(p.canUpdateNamespace()).toBe(false);
@@ -473,7 +511,14 @@ describe("Role permissions", () => {
     expect(p.canUpdateProject(project)).toBe(false);
     expect(p.canUpdateReport(projectResource)).toBe(false);
     expect(p.canUpdateSDKWebhook(sdkConnection)).toBe(false);
-    expect(p.canUpdateSavedGroup(projectsResource, updates)).toBe(false);
+    expect(
+      p.canRevisionAction(
+        "saved-group",
+        "draft",
+        projectsResource,
+        NO_ENVIRONMENT_BINDING,
+      ),
+    ).toBe(false);
     expect(p.canUpdateSegment(projectsResource, updates)).toBe(false);
     expect(p.canManageSomeProjects()).toBe(false);
     expect(p.canViewProjectsPage()).toBe(true);
@@ -523,7 +568,9 @@ describe("Role permissions", () => {
     expect(p.canCreateExperiment(projectResource)).toBe(false);
     expect(p.canCreateFactMetric(projectsResource)).toBe(false);
     expect(p.canCreateFactTable(projectsResource)).toBe(false);
-    expect(p.canCreateFeature(projectResource)).toBe(true);
+    expect(p.canCreateFeature(projectResource, NO_ENVIRONMENT_BINDING)).toBe(
+      true,
+    );
     expect(p.canCreateIdea(projectResource)).toBe(true);
     expect(p.canCreateMetric(projectsResource)).toBe(false);
     expect(p.canCreateNamespace()).toBe(true);
@@ -543,7 +590,9 @@ describe("Role permissions", () => {
     expect(p.canDeleteExperiment(projectResource)).toBe(false);
     expect(p.canDeleteFactMetric(projectsResource)).toBe(false);
     expect(p.canDeleteFactTable(projectsResource)).toBe(false);
-    expect(p.canDeleteFeature(projectResource)).toBe(true);
+    expect(p.canDeleteFeature(projectResource, NO_ENVIRONMENT_BINDING)).toBe(
+      true,
+    );
     expect(p.canDeleteIdea(projectResource)).toBe(true);
     expect(p.canDeleteMetric(projectsResource)).toBe(false);
     expect(p.canDeleteNamespace()).toBe(true);
@@ -582,7 +631,7 @@ describe("Role permissions", () => {
     expect(p.canUpdateExperiment(projectResource, updates)).toBe(false);
     expect(p.canUpdateFactMetric(projectsResource, updates)).toBe(false);
     expect(p.canUpdateFactTable(projectsResource, updates)).toBe(false);
-    expect(p.canUpdateFeature(projectResource, updates)).toBe(true);
+    expect(p.canManageFeatureDrafts(projectResource)).toBe(true);
     expect(p.canUpdateIdea(projectResource, updates)).toBe(true);
     expect(p.canUpdateMetric(projectsResource, updates)).toBe(false);
     expect(p.canUpdateNamespace()).toBe(true);
@@ -590,7 +639,14 @@ describe("Role permissions", () => {
     expect(p.canUpdateProject(project)).toBe(false);
     expect(p.canUpdateReport(projectResource)).toBe(false);
     expect(p.canUpdateSDKWebhook(sdkConnection)).toBe(true);
-    expect(p.canUpdateSavedGroup(projectsResource, updates)).toBe(true);
+    expect(
+      p.canRevisionAction(
+        "saved-group",
+        "draft",
+        projectsResource,
+        NO_ENVIRONMENT_BINDING,
+      ),
+    ).toBe(true);
     expect(p.canUpdateSegment(projectsResource, updates)).toBe(false);
     expect(p.canManageSomeProjects()).toBe(false);
     expect(p.canViewProjectsPage()).toBe(true);
@@ -640,7 +696,9 @@ describe("Role permissions", () => {
     expect(p.canCreateExperiment(projectResource)).toBe(true);
     expect(p.canCreateFactMetric(projectsResource)).toBe(true);
     expect(p.canCreateFactTable(projectsResource)).toBe(true);
-    expect(p.canCreateFeature(projectResource)).toBe(false);
+    expect(p.canCreateFeature(projectResource, NO_ENVIRONMENT_BINDING)).toBe(
+      false,
+    );
     expect(p.canCreateIdea(projectResource)).toBe(true);
     expect(p.canCreateMetric(projectsResource)).toBe(true);
     expect(p.canCreateNamespace()).toBe(false);
@@ -660,7 +718,9 @@ describe("Role permissions", () => {
     expect(p.canDeleteExperiment(projectResource)).toBe(true);
     expect(p.canDeleteFactMetric(projectsResource)).toBe(true);
     expect(p.canDeleteFactTable(projectsResource)).toBe(true);
-    expect(p.canDeleteFeature(projectResource)).toBe(false);
+    expect(p.canDeleteFeature(projectResource, NO_ENVIRONMENT_BINDING)).toBe(
+      false,
+    );
     expect(p.canDeleteIdea(projectResource)).toBe(true);
     expect(p.canDeleteMetric(projectsResource)).toBe(true);
     expect(p.canDeleteNamespace()).toBe(false);
@@ -699,7 +759,7 @@ describe("Role permissions", () => {
     expect(p.canUpdateExperiment(projectResource, updates)).toBe(true);
     expect(p.canUpdateFactMetric(projectsResource, updates)).toBe(true);
     expect(p.canUpdateFactTable(projectsResource, updates)).toBe(true);
-    expect(p.canUpdateFeature(projectResource, updates)).toBe(false);
+    expect(p.canManageFeatureDrafts(projectResource)).toBe(false);
     expect(p.canUpdateIdea(projectResource, updates)).toBe(true);
     expect(p.canUpdateMetric(projectsResource, updates)).toBe(true);
     expect(p.canUpdateNamespace()).toBe(false);
@@ -707,7 +767,14 @@ describe("Role permissions", () => {
     expect(p.canUpdateProject(project)).toBe(false);
     expect(p.canUpdateReport(projectResource)).toBe(true);
     expect(p.canUpdateSDKWebhook(sdkConnection)).toBe(false);
-    expect(p.canUpdateSavedGroup(projectsResource, updates)).toBe(false);
+    expect(
+      p.canRevisionAction(
+        "saved-group",
+        "draft",
+        projectsResource,
+        NO_ENVIRONMENT_BINDING,
+      ),
+    ).toBe(false);
     expect(p.canUpdateSegment(projectsResource, updates)).toBe(true);
     expect(p.canManageSomeProjects()).toBe(false);
     expect(p.canViewProjectsPage()).toBe(true);
@@ -757,7 +824,9 @@ describe("Role permissions", () => {
     expect(p.canCreateExperiment(projectResource)).toBe(true);
     expect(p.canCreateFactMetric(projectsResource)).toBe(true);
     expect(p.canCreateFactTable(projectsResource)).toBe(true);
-    expect(p.canCreateFeature(projectResource)).toBe(true);
+    expect(p.canCreateFeature(projectResource, NO_ENVIRONMENT_BINDING)).toBe(
+      true,
+    );
     expect(p.canCreateIdea(projectResource)).toBe(true);
     expect(p.canCreateMetric(projectsResource)).toBe(true);
     expect(p.canCreateNamespace()).toBe(true);
@@ -777,7 +846,9 @@ describe("Role permissions", () => {
     expect(p.canDeleteExperiment(projectResource)).toBe(true);
     expect(p.canDeleteFactMetric(projectsResource)).toBe(true);
     expect(p.canDeleteFactTable(projectsResource)).toBe(true);
-    expect(p.canDeleteFeature(projectResource)).toBe(true);
+    expect(p.canDeleteFeature(projectResource, NO_ENVIRONMENT_BINDING)).toBe(
+      true,
+    );
     expect(p.canDeleteIdea(projectResource)).toBe(true);
     expect(p.canDeleteMetric(projectsResource)).toBe(true);
     expect(p.canDeleteNamespace()).toBe(true);
@@ -816,7 +887,7 @@ describe("Role permissions", () => {
     expect(p.canUpdateExperiment(projectResource, updates)).toBe(true);
     expect(p.canUpdateFactMetric(projectsResource, updates)).toBe(true);
     expect(p.canUpdateFactTable(projectsResource, updates)).toBe(true);
-    expect(p.canUpdateFeature(projectResource, updates)).toBe(true);
+    expect(p.canManageFeatureDrafts(projectResource)).toBe(true);
     expect(p.canUpdateIdea(projectResource, updates)).toBe(true);
     expect(p.canUpdateMetric(projectsResource, updates)).toBe(true);
     expect(p.canUpdateNamespace()).toBe(true);
@@ -824,7 +895,14 @@ describe("Role permissions", () => {
     expect(p.canUpdateProject(project)).toBe(false);
     expect(p.canUpdateReport(projectResource)).toBe(true);
     expect(p.canUpdateSDKWebhook(sdkConnection)).toBe(true);
-    expect(p.canUpdateSavedGroup(projectsResource, updates)).toBe(true);
+    expect(
+      p.canRevisionAction(
+        "saved-group",
+        "draft",
+        projectsResource,
+        NO_ENVIRONMENT_BINDING,
+      ),
+    ).toBe(true);
     expect(p.canUpdateSegment(projectsResource, updates)).toBe(true);
     expect(p.canManageSomeProjects()).toBe(false);
     expect(p.canViewProjectsPage()).toBe(true);
@@ -874,7 +952,9 @@ describe("Role permissions", () => {
     expect(p.canCreateExperiment(projectResource)).toBe(true);
     expect(p.canCreateFactMetric(projectsResource)).toBe(true);
     expect(p.canCreateFactTable(projectsResource)).toBe(true);
-    expect(p.canCreateFeature(projectResource)).toBe(true);
+    expect(p.canCreateFeature(projectResource, NO_ENVIRONMENT_BINDING)).toBe(
+      true,
+    );
     expect(p.canCreateIdea(projectResource)).toBe(true);
     expect(p.canCreateMetric(projectsResource)).toBe(true);
     expect(p.canCreateNamespace()).toBe(true);
@@ -894,7 +974,9 @@ describe("Role permissions", () => {
     expect(p.canDeleteExperiment(projectResource)).toBe(true);
     expect(p.canDeleteFactMetric(projectsResource)).toBe(true);
     expect(p.canDeleteFactTable(projectsResource)).toBe(true);
-    expect(p.canDeleteFeature(projectResource)).toBe(true);
+    expect(p.canDeleteFeature(projectResource, NO_ENVIRONMENT_BINDING)).toBe(
+      true,
+    );
     expect(p.canDeleteIdea(projectResource)).toBe(true);
     expect(p.canDeleteMetric(projectsResource)).toBe(true);
     expect(p.canDeleteNamespace()).toBe(true);
@@ -933,7 +1015,7 @@ describe("Role permissions", () => {
     expect(p.canUpdateExperiment(projectResource, updates)).toBe(true);
     expect(p.canUpdateFactMetric(projectsResource, updates)).toBe(true);
     expect(p.canUpdateFactTable(projectsResource, updates)).toBe(true);
-    expect(p.canUpdateFeature(projectResource, updates)).toBe(true);
+    expect(p.canManageFeatureDrafts(projectResource)).toBe(true);
     expect(p.canUpdateIdea(projectResource, updates)).toBe(true);
     expect(p.canUpdateMetric(projectsResource, updates)).toBe(true);
     expect(p.canUpdateNamespace()).toBe(true);
@@ -941,7 +1023,14 @@ describe("Role permissions", () => {
     expect(p.canUpdateProject(project)).toBe(true);
     expect(p.canUpdateReport(projectResource)).toBe(true);
     expect(p.canUpdateSDKWebhook(sdkConnection)).toBe(true);
-    expect(p.canUpdateSavedGroup(projectsResource, updates)).toBe(true);
+    expect(
+      p.canRevisionAction(
+        "saved-group",
+        "draft",
+        projectsResource,
+        NO_ENVIRONMENT_BINDING,
+      ),
+    ).toBe(true);
     expect(p.canUpdateSegment(projectsResource, updates)).toBe(true);
     expect(p.canManageSomeProjects()).toBe(true);
     expect(p.canViewProjectsPage()).toBe(true);
@@ -1006,20 +1095,29 @@ describe("canManageFeatureCustomHooks", () => {
 
   it("lets admins manage feature hooks (they have manageFeatures)", () => {
     expect(
-      getPermissions("admin").canManageFeatureCustomHooks(featureResource),
+      getPermissions("admin").canManageFeatureCustomHooks(
+        featureResource,
+        NO_ENVIRONMENT_BINDING,
+      ),
     ).toBe(true);
   });
 
   it("lets feature editors manage feature hooks", () => {
     // engineer has manageFeatures
     expect(
-      getPermissions("engineer").canManageFeatureCustomHooks(featureResource),
+      getPermissions("engineer").canManageFeatureCustomHooks(
+        featureResource,
+        NO_ENVIRONMENT_BINDING,
+      ),
     ).toBe(true);
   });
 
   it("does not let users without feature edit access manage hooks", () => {
     expect(
-      getPermissions("readonly").canManageFeatureCustomHooks(featureResource),
+      getPermissions("readonly").canManageFeatureCustomHooks(
+        featureResource,
+        NO_ENVIRONMENT_BINDING,
+      ),
     ).toBe(false);
   });
 });

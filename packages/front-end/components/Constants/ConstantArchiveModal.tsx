@@ -1,3 +1,4 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { ConstantWithoutValue } from "shared/types/constant";
 import { Revision } from "shared/enterprise";
 import ArchiveModal from "@/components/Revision/ArchiveModal";
@@ -53,7 +54,9 @@ export default function ConstantArchiveModal({
       canBypassApproval={canBypassApproval}
       // Archiving is delete-class; unarchiving is an ordinary publish.
       canLand={
-        isArchived ? canPublish : permissionsUtil.canDeleteConstant(constant)
+        isArchived
+          ? canPublish
+          : permissionsUtil.canDeleteConstant(constant, NO_ENVIRONMENT_BINDING)
       }
       referenceCount={totalReferences}
       referencesLoading={loading}

@@ -2574,7 +2574,7 @@ export async function approveAndPublishStep(
   const feature = await getFeature(ctx, schedule.entityId);
   if (!feature) return { code: "feature_not_found" };
 
-  if (!ctx.permissions.canUpdateFeature(feature, feature)) {
+  if (!ctx.permissions.canManageFeatureDrafts(feature)) {
     return { code: "permission_denied", detail: "Cannot update this feature" };
   }
   if (!ctx.permissions.canReviewFeatureDrafts(feature)) {
@@ -2705,7 +2705,7 @@ export async function approveScheduleStart(
   const feature = await getFeature(ctx, schedule.entityId);
   if (!feature) return { code: "feature_not_found" };
 
-  if (!ctx.permissions.canUpdateFeature(feature, feature)) {
+  if (!ctx.permissions.canManageFeatureDrafts(feature)) {
     return { code: "permission_denied", detail: "Cannot update this feature" };
   }
   const allEnvironments = getEnvironments(ctx.org);
