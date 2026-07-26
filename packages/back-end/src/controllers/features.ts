@@ -79,6 +79,7 @@ import {
   PutFeatureRuleBody,
 } from "shared/types/feature-rule";
 import { getValidDate } from "shared/dates";
+import { isArmedForAutoPublish } from "back-end/src/revisions/approveAndPublish";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   getContextForAgendaJobByOrgId,
@@ -1504,13 +1505,23 @@ export async function postFeatureApproveAndPublish(
     result: mergeResult.result,
     environmentIds: featureEnvironmentIds,
   });
-  await assertCanPublishFeatureRevision({
-    context,
-    feature,
-    revision,
-    environments: envsToCheck,
-    mergeChanges: mergeResult.result,
-  });
+  // Approving needs review authority (enforced by the review path). The publish
+  // needs publish authority unless the revision is already armed — then it was
+  // authorized by whoever armed it and this approver is only the trigger, so the
+  // armed fire publishes under the armer instead of inline as them. Same rule the
+  // generic handler and REST submit-review already follow.
+  const armedApproval =
+    isArmedForAutoPublish(revision) &&
+    !context.permissions.canPublishFeature(feature, envsToCheck);
+  if (!armedApproval) {
+    await assertCanPublishFeatureRevision({
+      context,
+      feature,
+      revision,
+      environments: envsToCheck,
+      mergeChanges: mergeResult.result,
+    });
+  }
 
   // Mirror postFeaturePublish's adminOverride + rebase-governance gates BEFORE
   // committing the approval. postFeaturePublish runs them only after the
@@ -1575,6 +1586,18 @@ export async function postFeatureApproveAndPublish(
     comment,
     reviewer,
   );
+
+  if (armedApproval) {
+    // Publishes under the armer's context (or leaves it approved if that user no
+    // longer resolves), rather than as this approver.
+    const published = await maybeAutoPublishFeatureRevision(
+      context,
+      feature,
+      finalApproved,
+    );
+    res.status(200).json({ status: 200, version: published.version });
+    return;
+  }
 
   await postFeaturePublish(req, res);
 }

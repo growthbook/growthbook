@@ -388,8 +388,13 @@ and landing into a different project is a publish checked against both source an
 destination at each publish site. Its dedicated test block was removed for the
 same reason.
 
-**Also update the two internal approve-and-publish handlers** (see above) — that
-was found during this pass and is not yet done.
+**The two internal approve-and-publish handlers are fixed**: the rule lives in
+`planApproveAndPublish` (`revisions/approveAndPublish.ts`), unit-tested, and both
+the generic controller and `postFeatureApproveAndPublish` call it. On the armed
+path neither publishes inline — the generic one defers to
+`maybeAutoPublishRevision` and the feature one to
+`maybeAutoPublishFeatureRevision`, so the publish runs under the armer's context
+exactly as REST submit-review already did.
 
 **Approve-and-publish on an armed revision.** When a revision is armed for
 auto-publish (`autoPublishOnApproval` + `autoPublishEnabledBy`), the publish was
@@ -401,7 +406,8 @@ under the armer's authority. The internal `postApproveAndPublish` /
 unconditionally, so the same approver is denied the button while the plain Approve
 button publishes anyway. Bring them in line with REST:
 
-- armed → `review` only; approve, then let `maybeAutoPublishRevision` fire under
-  the armer (don't publish inline as the approver — that would fail the downstream
-  `assertCanPublishRevision` anyway)
+- armed → `review` only; approve, then let the auto-publish fire under the armer
+  (publishing inline as the approver would fail the downstream publish check)
 - unarmed → `review` **and** `publish`; the approver is electing the publish
+
+Done, with `planApproveAndPublish` unit-tested for all six combinations.

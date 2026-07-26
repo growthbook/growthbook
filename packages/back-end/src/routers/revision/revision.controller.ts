@@ -11,6 +11,10 @@ import {
   isUserBlockedFromApproving,
 } from "shared/enterprise";
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
+import {
+  isArmedForAutoPublish,
+  planApproveAndPublish,
+} from "back-end/src/revisions/approveAndPublish";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ReqContext } from "back-end/types/request";
 import { ApiErrorResponse } from "back-end/types/api";
@@ -1200,17 +1204,23 @@ export const postApproveAndPublish = async (
   // publishRevisionAction, leaving the revision stuck in "approved" with no
   // corresponding entity update. Mirrors postFeatureApproveAndPublish.
   const adapter = getAdapter(revision.target.type);
-  // Approve-and-publish needs both review and publish authority.
-  if (
-    !(adapter.canReview ?? adapter.canUpdate)(
+  // Approving needs review authority; the publish needs publish authority
+  // unless the revision is already armed — see planApproveAndPublish.
+  const plan = planApproveAndPublish({
+    armed: isArmedForAutoPublish(revision),
+    canReview: (adapter.canReview ?? adapter.canUpdate)(
       context,
       entity as Record<string, unknown>,
-    ) ||
-    !(adapter.canPublishRevision ?? adapter.canUpdate)(
+    ),
+    canPublish: (adapter.canPublishRevision ?? adapter.canUpdate)(
       context,
       entity as Record<string, unknown>,
-    )
-  ) {
+    ),
+  });
+  // Read before the throw: throwPermissionError isn't typed as `never`, so the
+  // discriminated union doesn't narrow past it.
+  const publishInline = plan.allowed && plan.publishInline;
+  if (!plan.allowed) {
     context.permissions.throwPermissionError();
   }
   const conflictResult = checkMergeConflicts(
@@ -1255,12 +1265,20 @@ export const postApproveAndPublish = async (
     comment ?? "",
   );
 
-  const merged = await publishRevisionAction(
-    context,
-    approved,
-    entity as Record<string, unknown>,
-    { bypass: false },
-  );
+  // An armed approver without publish authority doesn't publish as themselves —
+  // approving arms the fire, which runs under whoever enabled auto-publish.
+  const merged = publishInline
+    ? await publishRevisionAction(
+        context,
+        approved,
+        entity as Record<string, unknown>,
+        { bypass: false },
+      )
+    : await maybeAutoPublishRevision(
+        context,
+        approved,
+        entity as Record<string, unknown>,
+      );
 
   return res.status(200).json({ status: 200, revision: merged });
 };
