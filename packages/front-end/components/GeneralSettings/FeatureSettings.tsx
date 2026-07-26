@@ -170,6 +170,20 @@ export default function FeatureSettings() {
 
           <Box mb="6" width="100%">
             <Checkbox
+              id="toggle-requireDescriptionForFeatures"
+              label="Require Description for all Feature Flags"
+              description="If enabled, users will be required to provide a description when creating or updating a Feature Flag."
+              value={!!form.watch("requireDescriptionForFeatures")}
+              setValue={(value) =>
+                form.setValue("requireDescriptionForFeatures", value, {
+                  shouldDirty: true,
+                })
+              }
+            />
+          </Box>
+
+          <Box mb="6" width="100%">
+            <Checkbox
               id="toggle-defaultFeatureRulesInAllEnvs"
               label="Create rules in all environments by default"
               description="If enabled, new feature rules will be created in all environments by default."

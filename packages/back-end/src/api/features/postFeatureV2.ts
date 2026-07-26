@@ -68,6 +68,12 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
     ) {
       throw new Error("Must specify a project for new features");
     }
+    if (
+      req.context.org.settings?.requireDescriptionForFeatures &&
+      !req.body.description
+    ) {
+      throw new Error("Must specify a description for new features");
+    }
 
     await assertValidProjectId(req.body.project, req.context);
     await assertValidProjectIds(req.body.targetingProjects, req.context);

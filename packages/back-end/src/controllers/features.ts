@@ -751,6 +751,9 @@ export async function postFeatures(
   if (org.settings?.requireProjectForFeatures && !otherProps.project) {
     throw new Error("Must specify a project for new features");
   }
+  if (org.settings?.requireDescriptionForFeatures && !otherProps.description) {
+    throw new Error("Must specify a description for new features");
+  }
   // Validate projects - We can remove this validation when FeatureModel is migrated to BaseModel
   if (otherProps.project) {
     await context.models.projects.ensureProjectsExist([otherProps.project]);
@@ -5077,6 +5080,14 @@ export async function putFeature(
     updates.project === ""
   ) {
     throw new Error("Must specify a project");
+  }
+  // Block clearing description when the setting is enabled
+  if (
+    org.settings?.requireDescriptionForFeatures &&
+    "description" in updates &&
+    !updates.description
+  ) {
+    throw new Error("Must specify a description");
   }
   // Validate projects - We can remove this validation when FeatureModel is migrated to BaseModel
   if (updates.project && feature.project !== updates.project) {

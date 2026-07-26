@@ -51,6 +51,13 @@ export async function setRevisionMetadata(
   const { comment, title, ...metadataFields } = body;
 
   if (
+    context.org.settings?.requireDescriptionForFeatures &&
+    metadataFields.description !== undefined &&
+    !metadataFields.description
+  ) {
+    throw new BadRequestError("Must specify a description");
+  }
+  if (
     metadataFields.project !== undefined &&
     metadataFields.project !== feature.project
   ) {

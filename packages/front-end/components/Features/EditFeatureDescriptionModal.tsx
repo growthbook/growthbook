@@ -73,6 +73,9 @@ export default function EditFeatureDescriptionModal({
       size="lg"
       close={close}
       submit={form.handleSubmit(async ({ description }) => {
+        if (settings?.requireDescriptionForFeatures && !description) {
+          throw new Error("Description is required");
+        }
         const res = await apiCall<{ draftVersion?: number }>(
           `/feature/${feature.id}`,
           {
