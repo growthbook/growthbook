@@ -496,6 +496,46 @@ describe("getManagedWarehouseTypedAttributeColumns", () => {
     ]);
   });
 
+  it("forces string typing for numeric identifiers (exact-value join keys)", () => {
+    const schema: SDKAttributeSchema = [
+      { property: "company_id", datatype: "number", hashAttribute: true },
+      // Non-identifier numbers keep their numeric typing.
+      { property: "age", datatype: "number" },
+      // Reserved-name collision keeps this out of the identifier set, so its
+      // declared numeric type wins.
+      { property: "timestamp", datatype: "number", hashAttribute: true },
+    ];
+    expect(getManagedWarehouseTypedAttributeColumns(schema)).toEqual([
+      { property: "age", datatype: "number" },
+      { property: "company_id", datatype: "string" },
+      { property: "timestamp", datatype: "number" },
+    ]);
+  });
+
+  it("includes preserved legacy dimensions typed like their fact-table alias", () => {
+    const schema: SDKAttributeSchema = [
+      { property: "plan", datatype: "string" },
+    ];
+    expect(
+      getManagedWarehouseTypedAttributeColumns(
+        schema,
+        [],
+        [
+          { columnName: "score_col", sourceField: "score", datatype: "number" },
+          { columnName: "tier_col", sourceField: "tier", datatype: "string" },
+          // Schema entry wins over the migrated column's datatype.
+          { columnName: "plan_col", sourceField: "plan", datatype: "number" },
+          // SDK-extracted; excluded.
+          { columnName: "uid_col", sourceField: "user_id", datatype: "string" },
+        ],
+      ),
+    ).toEqual([
+      { property: "plan", datatype: "string" },
+      { property: "score", datatype: "number" },
+      { property: "tier", datatype: "string" },
+    ]);
+  });
+
   it("returns an empty list for an empty schema", () => {
     expect(getManagedWarehouseTypedAttributeColumns(undefined)).toEqual([]);
   });

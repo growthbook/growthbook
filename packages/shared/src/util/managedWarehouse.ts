@@ -338,22 +338,35 @@ export const MANAGED_WAREHOUSE_JSON_ERGONOMICS_VERSION = 1;
  * Attributes to expose as typed `attributes.<property>` ALIAS columns on the
  * per-org JSON tables: everything the SDK actually stores inside the
  * `attributes` JSON column — i.e. all non-archived attributes except the keys
- * the SDK extracts to dedicated top-level columns. Identifiers are included
- * (their top-level aliases only exist in fact-table SQL, not on the physical
- * tables that SQL Explorer queries). Dotted names can't collide with real
- * columns, so no reserved-name filtering is needed. Sorted for determinism.
+ * the SDK extracts to dedicated top-level columns. Identifiers and preserved
+ * legacy dimensions are included (their top-level aliases only exist in
+ * fact-table SQL, not on the physical tables that SQL Explorer queries).
+ * Dotted names can't collide with real columns, so no reserved-name filtering
+ * is needed. Sorted for determinism.
+ *
+ * Identifiers are always typed "string" regardless of declared datatype: they
+ * are exact-value join keys, and a Float64 ALIAS would silently lose precision
+ * on integer IDs above 2^53 while the fact-table SQL casts the same path to
+ * Nullable(String).
  */
 export function getManagedWarehouseTypedAttributeColumns(
   attributeSchema: SDKAttributeSchema | undefined,
   extraIdentifiers: string[] = [],
+  migratedColumns: MaterializedColumn[] = [],
 ): TypedAttributeColumn[] {
+  const identifiers = new Set(
+    getManagedWarehouseCustomIdentifiers(attributeSchema, extraIdentifiers),
+  );
   const out = new Map<string, TypedAttributeColumn>();
   for (const a of attributeSchema || []) {
     if (a.archived) continue;
     if (RESERVED_TOP_LEVEL_ATTRIBUTE_KEYS.has(a.property)) continue;
     out.set(a.property, {
       property: a.property,
-      datatype: a.datatype === "number" ? "number" : "string",
+      datatype:
+        a.datatype === "number" && !identifiers.has(a.property)
+          ? "number"
+          : "string",
     });
   }
   // Preserved legacy identifiers may be gone from the schema but still queried.
@@ -361,6 +374,17 @@ export function getManagedWarehouseTypedAttributeColumns(
     if (RESERVED_TOP_LEVEL_ATTRIBUTE_KEYS.has(property)) continue;
     if (!out.has(property)) {
       out.set(property, { property, datatype: "string" });
+    }
+  }
+  // Preserved legacy dimensions, typed like their fact-table alias
+  // (toFloat64OrNull for numbers, Nullable(String) otherwise).
+  for (const col of migratedColumns) {
+    if (RESERVED_TOP_LEVEL_ATTRIBUTE_KEYS.has(col.sourceField)) continue;
+    if (!out.has(col.sourceField)) {
+      out.set(col.sourceField, {
+        property: col.sourceField,
+        datatype: col.datatype === "number" ? "number" : "string",
+      });
     }
   }
   return [...out.values()].sort((a, b) =>

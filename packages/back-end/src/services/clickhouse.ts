@@ -262,6 +262,7 @@ export async function syncManagedWarehouseIdentifiers(
   const typedAttributeColumns = getManagedWarehouseTypedAttributeColumns(
     attributeSchema,
     extraIdentifiers,
+    migratedColumns,
   );
 
   // Update datasource settings (userIdTypes + exposure queries).
