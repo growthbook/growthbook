@@ -4,6 +4,43 @@ import { DatabricksConnectionParams } from "shared/types/integrations/databricks
 import { logger } from "back-end/src/util/logger";
 import { ENVIRONMENT } from "back-end/src/util/secrets";
 
+type ConnectionOptions = Parameters<DBSQLClient["connect"]>[0];
+
+export function buildDatabricksConnectionOptions(
+  conn: DatabricksConnectionParams,
+): ConnectionOptions {
+  const shared = {
+    host: conn.host,
+    port: conn.port || 443,
+    path: conn.path,
+    userAgentEntry: conn.clientId || "GrowthBook",
+  };
+
+  if (conn.authType === "oauth-m2m") {
+    if (!conn.oauthClientId || !conn.oauthClientSecret) {
+      throw new Error("Databricks OAuth requires both a client ID and secret.");
+    }
+
+    return {
+      ...shared,
+      authType: "databricks-oauth",
+      oauthClientId: conn.oauthClientId,
+      oauthClientSecret: conn.oauthClientSecret,
+    };
+  }
+
+  if (!conn.token) {
+    throw new Error(
+      "Databricks personal access token authentication requires a token.",
+    );
+  }
+
+  return {
+    ...shared,
+    token: conn.token,
+  };
+}
+
 export async function runDatabricksQuery<T>(
   conn: DatabricksConnectionParams,
   sql: string,
@@ -34,13 +71,7 @@ export async function runDatabricksQuery<T>(
             reject(error);
           }
         })
-        .connect({
-          token: conn.token,
-          host: conn.host,
-          port: conn.port || 443,
-          path: conn.path,
-          userAgentEntry: conn.clientId || "GrowthBook",
-        })
+        .connect(buildDatabricksConnectionOptions(conn))
         .then(async () => {
           const session = await client.openSession();
           const queryOperation = await session.executeStatement(sql, {

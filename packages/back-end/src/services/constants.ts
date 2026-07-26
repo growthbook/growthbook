@@ -64,6 +64,8 @@ export async function resolvableValueChanged(
     const payloadKeys = getAffectedSDKPayloadKeys(
       features,
       getEnvironmentIdsFromOrg(context.org),
+      undefined,
+      await context.getAllProjectIds(),
     );
     // No feature depends on this value — nothing to rebuild or notify.
     if (!payloadKeys.length) return;
