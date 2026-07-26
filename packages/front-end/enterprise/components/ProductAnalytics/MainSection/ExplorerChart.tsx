@@ -28,6 +28,7 @@ import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useDashboardCharts } from "@/enterprise/components/Dashboards/DashboardChartsContext";
 import BigValueChart from "@/components/SqlExplorer/BigValueChart";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import HelperText from "@/ui/HelperText";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
@@ -48,28 +49,14 @@ import {
 } from "@/enterprise/components/ProductAnalytics/comparison-chart";
 import ComparisonTrendLabel from "@/enterprise/components/ProductAnalytics/ComparisonTrendLabel";
 import ComparisonChartLegend from "@/enterprise/components/ProductAnalytics/ComparisonChartLegend";
+import {
+  CHART_COLORS,
+  COMPARISON_SERIES_COLORS,
+  getChartThemeColors,
+} from "@/enterprise/components/ProductAnalytics/chart-theme";
+import FunnelChart from "./FunnelChart";
 
 const CHART_ID = "explorer-chart";
-
-const CHART_COLORS = [
-  "#8b5cf6",
-  "#3b82f6",
-  "#06b6d4",
-  "#22c55e",
-  "#eab308",
-  "#f97316",
-  "#ef4444",
-  "#ec4899",
-  "#6b7280",
-];
-
-const COMPARISON_SERIES_COLORS = [
-  "#d97706",
-  "#a8a29e",
-  "#fbbf24",
-  "#9ca3af",
-  "#78716c",
-];
 
 // Simple number formatter
 function formatNumber(value: number): string {
@@ -136,10 +123,8 @@ export default function ExplorerChart({
     | null;
 }) {
   const { theme } = useAppearanceUITheme();
-  const textColor = theme === "dark" ? "#FFFFFF" : "#1F2D5C";
-  const tooltipBackgroundColor = theme === "dark" ? "#1c2339" : "#FFFFFF";
-  const gridLineColor =
-    theme === "dark" ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.06)";
+  const { textColor, tooltipBackgroundColor, gridLineColor } =
+    getChartThemeColors(theme);
   const chartsContext = useDashboardCharts();
   const { getFactMetricById } = useDefinitions();
 
@@ -238,9 +223,10 @@ export default function ExplorerChart({
       return null;
     }
     const row = exploration.result.rows[0];
+    if (submittedExploreState.dataset?.type === "funnel") return null;
     const valuesMeta = submittedExploreState.dataset?.values ?? [];
     return valuesMeta.map((v, metricIndex) => {
-      const cell = row?.values[metricIndex];
+      const cell = row?.values?.[metricIndex];
       const value = cell
         ? getEffectiveMetricValue(cell, {
             showAs: renderOpts.showAs,
@@ -279,7 +265,10 @@ export default function ExplorerChart({
       !submittedExploreState ||
       ["table", "timeseries-table", "bigNumber"].includes(
         submittedExploreState.chartType,
-      )
+      ) ||
+      // Funnels render through FunnelChart (early-returned below); this
+      // ECharts config builder doesn't know how to read `row.steps`.
+      submittedExploreState.dataset?.type === "funnel"
     )
       return null;
     const rows = exploration.result.rows;
@@ -762,7 +751,12 @@ export default function ExplorerChart({
 
   const hasEmptyData = useMemo(() => {
     if (!exploration?.result?.rows?.length) return true;
-    return exploration.result.rows.every((r) => r.values.length === 0);
+    // Funnels carry `steps` instead of `values`; treat a row as empty when
+    // neither array has entries (a result row should always be one or the
+    // other based on dataset.type).
+    return exploration.result.rows.every(
+      (r) => !(r.values?.length || r.steps?.length),
+    );
   }, [exploration?.result?.rows]);
 
   if (
@@ -773,6 +767,53 @@ export default function ExplorerChart({
     })
   )
     return null;
+
+  if (loading && !exploration) {
+    return (
+      <Flex
+        p="4"
+        style={{ flex: 1, minHeight: 0 }}
+        align="center"
+        justify="center"
+      >
+        <LoadingSpinner />
+      </Flex>
+    );
+  }
+
+  // Funnels have a wholly different visualization than metric/fact-table/
+  // data-source datasets. Render the funnel-specific chart and bypass the
+  // ECharts config we built above.
+  if (submittedExploreState?.dataset?.type === "funnel") {
+    return (
+      <Flex
+        direction="column"
+        position="relative"
+        style={{
+          border: "1px solid var(--gray-a3)",
+          borderRadius: "var(--radius-4)",
+          flex: 1,
+          minHeight: 0,
+        }}
+      >
+        {error ? (
+          <Box p="4">
+            {isManagedWarehousePendingQueryError(error) ? (
+              <ManagedWarehouseNoEventsCallout />
+            ) : (
+              <Callout status="error">{error}</Callout>
+            )}
+          </Box>
+        ) : (
+          <FunnelChart
+            exploration={exploration}
+            submittedExploreState={submittedExploreState}
+            animate={animate}
+          />
+        )}
+      </Flex>
+    );
+  }
 
   return (
     <Flex

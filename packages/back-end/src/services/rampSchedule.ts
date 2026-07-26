@@ -423,7 +423,15 @@ export function computeEffectivePatch(
 
   // Seed with startActions — the base-layer rule state (condition, savedGroups,
   // coverage, etc.) that all steps inherit from unless explicitly overridden.
-  for (const a of schedule.startActions ?? []) merge(a);
+  // `enabled` is deliberately dropped from the seed: the engine owns the rule's
+  // enabled state while a ramp is live, and a snapshot captured from a disabled
+  // rule would otherwise re-disable the rule on every forward publish. Full
+  // rollback (-1) applies the raw startActions instead of this function, so a
+  // captured enabled state is still honored there.
+  for (const a of schedule.startActions ?? []) {
+    const { enabled: _enabled, ...patch } = a.patch;
+    merge({ ...a, patch });
+  }
 
   const lastStepIdx = Math.min(stepIndex, schedule.steps.length - 1);
   for (let i = 0; i <= lastStepIdx; i++) {
@@ -2064,8 +2072,10 @@ export async function completeRollout(
 
   // Mirror advanceStep: if the schedule was never started (currentStepIndex < 0)
   // and it has actual ramp steps, inject enabled:true so the rule is not left
-  // permanently disabled after completion. Simple schedules (steps: []) handle
-  // enabling via startActions and don't need this injection.
+  // permanently disabled after completion. Zero-step schedules are excluded on
+  // purpose: their natural flow enables via applyRampStartActions in the same
+  // tick, and injecting here would add a redundant completion publish (the
+  // effective patch no longer carries `enabled` from the startActions seed).
   if (schedule.currentStepIndex < 0 && schedule.steps.length > 0) {
     // This crosses -1 → serving, so honor the start-approval gate. Skipped when
     // disableActiveTargets is set — that path disables (e.g. cutoff-driven
@@ -2436,7 +2446,7 @@ export async function dispatchRampEvent<T extends RampFeatureEvent>(
         // longer present) fall back to `target.environment`.
         const orgEnvIds = getApplicableEnvIds(
           getEnvironments(ctx.org),
-          feature.project,
+          feature,
         );
         const collected = new Set<string>();
         for (const target of schedule.targets) {

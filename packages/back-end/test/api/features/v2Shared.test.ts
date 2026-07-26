@@ -1,6 +1,9 @@
 import type { FeatureInterface, FeatureRule } from "shared/types/feature";
+import type { ReqContext } from "back-end/types/organization";
 import {
   ApiRuleV2Input,
+  assertValidRuleProjectIds,
+  composeConfigBacking,
   extractRevisionMetadata,
   mapV2ApiRuleToFeatureRule,
   resolveScopeFromInput,
@@ -57,7 +60,65 @@ describe("resolveScopeFromInput", () => {
   });
 });
 
+describe("composeConfigBacking", () => {
+  it("composes an object patch onto the config backing", () => {
+    expect(
+      composeConfigBacking("pricing", '{"discount":5}', "Rule value"),
+    ).toBe('{"$extends":["@config:pricing"],"discount":5}');
+  });
+
+  it("keeps a pure backing ref for an empty/whitespace patch", () => {
+    expect(composeConfigBacking("pricing", "", "Rule value")).toBe(
+      '{"$extends":["@config:pricing"]}',
+    );
+    expect(composeConfigBacking("pricing", "   ", "Rule value")).toBe(
+      '{"$extends":["@config:pricing"]}',
+    );
+    expect(composeConfigBacking("pricing", undefined, "Rule value")).toBe(
+      '{"$extends":["@config:pricing"]}',
+    );
+  });
+
+  it("rejects a scalar or array value when a config is supplied (would silently drop the backing)", () => {
+    expect(() => composeConfigBacking("pricing", "42", "Rule value")).toThrow(
+      /must be a JSON object when backed by a config/,
+    );
+    expect(() =>
+      composeConfigBacking("pricing", '"hello"', "Variation value"),
+    ).toThrow(/Variation value must be a JSON object/);
+    expect(() =>
+      composeConfigBacking("pricing", "[1,2]", "Rule value"),
+    ).toThrow(/must be a JSON object when backed by a config/);
+    expect(() => composeConfigBacking("pricing", "true", "Rule value")).toThrow(
+      /must be a JSON object when backed by a config/,
+    );
+  });
+
+  it("leaves a scalar value untouched when no config is supplied (detach)", () => {
+    expect(composeConfigBacking(null, "42", "Rule value")).toBe("42");
+  });
+});
+
 describe("mapV2ApiRuleToFeatureRule", () => {
+  it("rejects a config-backed variation whose value is a scalar", () => {
+    expect(() =>
+      mapV2ApiRuleToFeatureRule({
+        type: "experiment-ref",
+        experimentId: "exp_1",
+        variations: [{ variationId: "0", value: "42", config: "pricing" }],
+      } as ApiRuleV2Input),
+    ).toThrow(/Variation value must be a JSON object/);
+  });
+
+  it("composes a config-backed force value from an object patch", () => {
+    const out = mapV2ApiRuleToFeatureRule({
+      type: "force",
+      value: '{"discount":5}',
+      config: "pricing",
+    } as ApiRuleV2Input);
+    expect(out.value).toBe('{"$extends":["@config:pricing"],"discount":5}');
+  });
+
   describe("force rule", () => {
     it("maps minimal force input with default scope (allEnvironments:true)", () => {
       const out = mapV2ApiRuleToFeatureRule({
@@ -110,6 +171,37 @@ describe("mapV2ApiRuleToFeatureRule", () => {
         coverage: 0.5,
         hashAttribute: "userId",
       });
+    });
+
+    // GET→edit→PUT must persist id/seed/hashVersion verbatim (else re-bucketing).
+    it("preserves id, seed, and hashVersion on round-trip", () => {
+      const out = mapV2ApiRuleToFeatureRule({
+        id: "fr_explicit",
+        type: "rollout",
+        value: "v",
+        coverage: 0.5,
+        hashAttribute: "userId",
+        seed: "my-seed",
+        hashVersion: 2,
+      } as ApiRuleV2Input);
+      expect(out).toMatchObject({
+        id: "fr_explicit",
+        seed: "my-seed",
+        hashVersion: 2,
+        hashAttribute: "userId",
+      });
+    });
+
+    // Absent seed stays absent — the write-time backfill owns the default.
+    it("does not invent a seed when the caller omits one", () => {
+      const out = mapV2ApiRuleToFeatureRule({
+        type: "rollout",
+        value: "v",
+        coverage: 0.5,
+        hashAttribute: "userId",
+      } as ApiRuleV2Input);
+      expect(out).not.toHaveProperty("seed");
+      expect(out).not.toHaveProperty("hashVersion");
     });
   });
 
@@ -346,5 +438,31 @@ describe("extractRevisionMetadata", () => {
     expect(remaining).toEqual(updates);
     // Returned `remaining` is a fresh object, not the same reference.
     expect(remaining).not.toBe(updates);
+  });
+});
+
+describe("assertValidRuleProjectIds", () => {
+  const context = {
+    getProjects: async () => [{ id: "p1" }, { id: "p2" }],
+  } as unknown as ReqContext;
+  const rule = (projects?: string[]) =>
+    ({ id: "r", type: "force", projects }) as unknown as FeatureRule;
+
+  it("resolves when every rule project exists", async () => {
+    await expect(
+      assertValidRuleProjectIds([rule(["p1"]), rule(["p2"])], context),
+    ).resolves.toBeUndefined();
+  });
+
+  it("resolves for rules with no project scope", async () => {
+    await expect(
+      assertValidRuleProjectIds([rule(), rule([])], context),
+    ).resolves.toBeUndefined();
+  });
+
+  it("throws when a rule references a non-existent project", async () => {
+    await expect(
+      assertValidRuleProjectIds([rule(["p1"]), rule(["ghost"])], context),
+    ).rejects.toThrow(/rule project ids.*ghost/);
   });
 });

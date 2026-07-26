@@ -33,7 +33,10 @@ import {
 } from "back-end/src/services/configValidation";
 import { assertConfigNotLocked } from "back-end/src/services/configLock";
 import { assertConfigPublishGuards } from "back-end/src/services/publishGuards";
-import { assertScopedOverridesExperimentGuard } from "back-end/src/services/experimentGuard";
+import {
+  assertScopedOverridesExperimentGuard,
+  configChangeAffectsServedValue,
+} from "back-end/src/services/experimentGuard";
 import {
   assertScopedOverridesValid,
   assertScopedOverridesChangeAllowed,
@@ -91,6 +94,13 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
       })
     ) {
       req.context.permissions.throwPermissionError();
+    }
+    if (guardToggle !== undefined) {
+      // A locked config is frozen — its protections included. Unlock first
+      // (same permission as turning the guard off) to change the guard. A
+      // guard-only update short-circuits below, so the general lock gate on
+      // publishing changes never runs for it.
+      assertConfigNotLocked(config);
     }
     const commitGuardToggle = async (): Promise<Partial<ConfigInterface>> => {
       if (guardToggle === undefined) return {};
@@ -357,6 +367,26 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
     // update short-circuits above and is unaffected). Unlock to publish changes.
     assertConfigNotLocked(config);
 
+    // Deferred-publish guards (direct publish → armed:false). Gated on the
+    // served-value classification, not the conformance one below — a
+    // project-only move scrubs the ref for cross-project consumers, so it must
+    // clear the guards even though the value itself didn't change.
+    if (configChangeAffectsServedValue(Object.keys(fieldsToUpdate))) {
+      await assertConfigPublishGuards(
+        req.context,
+        config,
+        { armAcknowledgments: undefined },
+        { armed: false },
+        {
+          value: fieldsToUpdate.value ?? config.value,
+          schema: fieldsToUpdate.schema ?? config.schema,
+          parent: effectiveParent || undefined,
+          extends: effectiveExtends,
+          extensible: fieldsToUpdate.extensible ?? config.extensible,
+        },
+      );
+    }
+
     // Re-validate the value against the effective schema if anything affecting
     // conformance changed.
     if (
@@ -367,20 +397,6 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
       extendsChanged
     ) {
       const postValue = fieldsToUpdate.value ?? config.value;
-      // Deferred-publish guards (direct publish → armed:false).
-      await assertConfigPublishGuards(
-        req.context,
-        config,
-        { armAcknowledgments: undefined },
-        { armed: false },
-        {
-          value: postValue,
-          schema: fieldsToUpdate.schema ?? config.schema,
-          parent: effectiveParent || undefined,
-          extends: effectiveExtends,
-          extensible: fieldsToUpdate.extensible ?? config.extensible,
-        },
-      );
       // Direct REST update publishes live, so run the full publish gate
       // (schema + required fields + cross-field invariants + custom hooks),
       // matching every other config publish path. No `revision` arg: this is a

@@ -1,5 +1,4 @@
 import { putFeatureRevisionDefaultValueV2Validator } from "shared/validators";
-import { setConfigBacking } from "shared/util";
 import { toApiRevisionV2 } from "back-end/src/services/features";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -7,6 +6,7 @@ import { setRevisionDefaultValue } from "./putFeatureRevisionDefaultValue";
 import {
   assertValidDefaultValueConfig,
   assertNoRawConfigExtends,
+  composeConfigBacking,
 } from "./v2Shared";
 
 export const putFeatureRevisionDefaultValueV2 = createApiRequestHandler(
@@ -30,8 +30,13 @@ export const putFeatureRevisionDefaultValueV2 = createApiRequestHandler(
       req.context,
       feature.baseConfig,
       defaultValueConfig,
+      feature.project,
     );
-    composedDefaultValue = setConfigBacking(defaultValueConfig, defaultValue);
+    composedDefaultValue = composeConfigBacking(
+      defaultValueConfig,
+      defaultValue,
+      "Default value",
+    );
   }
 
   const { revision } = await setRevisionDefaultValue(

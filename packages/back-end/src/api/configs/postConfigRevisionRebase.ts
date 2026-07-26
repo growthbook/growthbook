@@ -53,11 +53,16 @@ export const postConfigRevisionRebase = createApiRequestHandler(
 
   const conflicts = mergeResult.conflicts || [];
   const strategies = req.body.conflictResolutions ?? {};
+  const customValues = req.body.customValues;
 
-  // Every conflicting field needs an explicit overwrite/discard strategy, else 400.
+  // Every conflicting field needs an explicit strategy, else 400.
   for (const conflict of conflicts) {
     const strategy = strategies[conflict.field];
-    if (strategy !== "overwrite" && strategy !== "discard") {
+    if (
+      strategy !== "overwrite" &&
+      strategy !== "discard" &&
+      strategy !== "union"
+    ) {
       throw new MergeConflictError(
         `Please resolve conflict for field: ${conflict.field}`,
         conflicts,
@@ -98,6 +103,45 @@ export const postConfigRevisionRebase = createApiRequestHandler(
           op: "replace",
           path: `/${field}`,
           value: conflict.proposedValue,
+        });
+      }
+    } else if (strategy === "union") {
+      // A caller-supplied resolution wins; otherwise dedup-concat the live and
+      // proposed arrays (for non-arrays, fall back to the draft's value —
+      // matching the internal and saved-group rebase handlers).
+      const custom = customValues?.[field];
+      let resolvedValue: unknown;
+      if (custom !== undefined) {
+        resolvedValue = custom;
+      } else if (
+        Array.isArray(conflict.liveValue) &&
+        Array.isArray(conflict.proposedValue)
+      ) {
+        const seen = new Set<string>();
+        const result: unknown[] = [];
+        for (const item of [
+          ...(conflict.liveValue as unknown[]),
+          ...(conflict.proposedValue as unknown[]),
+        ]) {
+          const key =
+            typeof item === "object" ? JSON.stringify(item) : String(item);
+          if (!seen.has(key)) {
+            seen.add(key);
+            result.push(item);
+          }
+        }
+        resolvedValue = result;
+      } else {
+        resolvedValue = conflict.proposedValue;
+      }
+      if (
+        (resolvedValue ?? null) !== null &&
+        !isEqual(resolvedValue, liveSnapshot[field])
+      ) {
+        newOps.push({
+          op: "replace",
+          path: `/${field}`,
+          value: resolvedValue,
         });
       }
     }

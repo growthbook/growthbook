@@ -143,14 +143,14 @@ export function ConditionRow({
         <Flex gap="3" align="start">
           {prefixSlot !== undefined && (
             <Box flexShrink="0" style={{ width: 35 }}>
-              <Flex align="center" style={{ height: 38 }}>
+              <Flex align="center" style={{ height: 36 }}>
                 {prefixSlot}
               </Flex>
             </Box>
           )}
           <Box style={{ flex: "1 1 0", minWidth: 0 }}>{attributeSlot}</Box>
-          {!!removeSlot && (
-            <Box flexShrink="0" pt="3">
+          {removeSlot != undefined && (
+            <Box flexShrink="0" className="field-row-action">
               {removeSlot}
             </Box>
           )}
@@ -179,7 +179,7 @@ export function ConditionRow({
     <Flex gap="3" align="start" className="gb-condition-row">
       {prefixSlot !== undefined && (
         <Box flexShrink="0" style={{ width: 35 }}>
-          <Flex align="center" style={{ height: 38 }}>
+          <Flex align="center" style={{ height: 36 }}>
             {prefixSlot}
           </Flex>
         </Box>
@@ -215,7 +215,7 @@ export function ConditionRow({
         </Box>
       </Flex>
       {removeSlot !== undefined && (
-        <Box flexShrink="0" pt="3">
+        <Box flexShrink="0" className="field-row-action">
           {removeSlot}
         </Box>
       )}

@@ -1,10 +1,158 @@
 @use "../colors";
 @import "../theme";
 
-.gb-multi-select__control,
-.gb-select__control {
-  border-color: var(--border-color-200) !important;
+.gb-multi-select__control {
+  border-color: var(--gray-a7) !important;
   background-color: var(--color-surface) !important;
+  border-radius: var(--radius-2) !important;
+  min-height: 36px !important;
+
+  &--is-disabled {
+    background-color: var(--gray-a2) !important;
+  }
+}
+
+.gb-multi-select__input {
+  font-size: var(--font-size-2) !important;
+}
+
+.gb-multi-select--small {
+  .gb-multi-select__control {
+    min-height: 32px !important;
+    border-radius: var(--radius-2) !important;
+  }
+  .gb-multi-select__value-container {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+  }
+  .gb-multi-select__multi-value__label {
+    padding-top: 1px !important;
+    padding-bottom: 1px !important;
+  }
+  .gb-multi-select__multi-value__remove {
+    padding-top: 1px !important;
+    padding-bottom: 1px !important;
+  }
+  .gb-multi-select__input {
+    font-size: var(--font-size-2) !important;
+  }
+}
+
+.gb-multi-select--medium {
+  .gb-multi-select__control {
+    min-height: 40px !important;
+    border-radius: var(--radius-3) !important;
+  }
+  .gb-multi-select__value-container {
+    padding-top: 4px !important;
+    padding-bottom: 4px !important;
+  }
+  .gb-multi-select__input {
+    font-size: var(--font-size-2) !important;
+  }
+  .gb-multi-select__multi-value__label {
+    font-size: var(--font-size-2) !important;
+  }
+}
+
+.gb-select__control {
+  border-color: var(--gray-a7) !important;
+  background-color: var(--color-surface) !important;
+  border-radius: var(--radius-2) !important;
+  min-height: 36px !important;
+
+  &--is-disabled {
+    background-color: var(--gray-a2) !important;
+  }
+}
+
+.gb-select__input {
+  font-size: var(--font-size-2) !important;
+}
+
+.gb-select-wrapper--x-small {
+  .gb-select__control {
+    min-height: 24px !important;
+    border-radius: var(--radius-2) !important;
+  }
+  .gb-select__value-container {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+  }
+  .gb-select__input-container {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+  }
+  .gb-select__indicators {
+    align-self: center;
+  }
+  .gb-select__indicator {
+    padding-top: 2px !important;
+    padding-bottom: 2px !important;
+  }
+  .gb-select__input {
+    font-size: var(--font-size-1) !important;
+  }
+  .gb-select__single-value {
+    font-size: var(--font-size-1) !important;
+  }
+}
+
+.gb-select-wrapper--small {
+  .gb-select__control {
+    min-height: 32px !important;
+    border-radius: var(--radius-2) !important;
+  }
+  .gb-select__value-container {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+  }
+  .gb-select__input {
+    font-size: var(--font-size-2) !important;
+  }
+}
+
+.gb-select-wrapper--medium {
+  .gb-select__control {
+    min-height: 40px !important;
+    border-radius: var(--radius-3) !important;
+  }
+  .gb-select__value-container {
+    padding-top: 4px !important;
+    padding-bottom: 4px !important;
+  }
+  .gb-select__input {
+    font-size: var(--font-size-3) !important;
+  }
+  .gb-select__single-value {
+    font-size: var(--font-size-2) !important;
+  }
+}
+
+.error {
+  .gb-multi-select__control,
+  .gb-select__control {
+    border-color: var(--red-8) !important;
+  }
+
+  .gb-multi-select__control--is-focused,
+  .gb-select__control--is-focused {
+    border-color: var(--violet-8) !important;
+  }
+}
+
+.warning {
+  .gb-multi-select__control,
+  .gb-select__control {
+    border-color: var(--amber-8) !important;
+  }
+
+  .gb-multi-select__control--is-focused,
+  .gb-select__control--is-focused {
+    border-color: var(--violet-8) !important;
+  }
 }
 
 .gb-multi-select__menu,
@@ -86,16 +234,65 @@
   // This one is dynamic. Style it in JS.
 }
 
+.gb-multi-select--small .gb-multi-select__multi-value {
+  height: 22px;
+  border-radius: var(--radius-1);
+}
+.gb-multi-select--legacy .gb-multi-select__multi-value,
+.gb-multi-select__multi-value {
+  height: 24px;
+  border-radius: var(--radius-1);
+}
+.gb-multi-select--medium .gb-multi-select__multi-value {
+  height: 26px;
+  border-radius: var(--radius-2);
+}
+
+.gb-multi-select__multi-value.multi-select-container {
+  visibility: visible !important;
+  opacity: 1 !important;
+  box-shadow: 0 3px 4px -1px rgba(0, 0, 0, 0.12) !important;
+  transition: box-shadow 0.15s ease;
+}
+
 .gb-multi-select__multi-value__remove,
 .gb-multi-select__multi-value__label {
   // This one is dynamic. Style it in JS.
-  font-weight: 600;
+  font-weight: 500;
+  font-size: var(--font-size-1) !important;
+}
+
+.gb-multi-select__multi-value__label {
+  cursor: inherit !important;
+}
+
+.gb-select__multi-value {
+  height: 24px;
+  border-radius: var(--radius-1);
+}
+.gb-select-wrapper--small .gb-select__multi-value {
+  height: 22px;
+  border-radius: var(--radius-1);
+}
+.gb-select-wrapper--medium .gb-select__multi-value {
+  height: 26px;
+  border-radius: var(--radius-2);
+}
+
+.gb-select__multi-value__remove,
+.gb-select__multi-value__label {
+  font-weight: 500;
+  font-size: var(--font-size-1) !important;
+}
+.gb-select-wrapper--medium .gb-select__multi-value__label {
+  font-size: var(--font-size-2) !important;
 }
 
 .gb-multi-select__multi-value__remove,
 .gb-select__multi-value__remove {
   opacity: 0.25;
   cursor: pointer;
+  flex-shrink: 0;
   transition:
     opacity 0.15s ease,
     background-color 0.15s ease;
@@ -157,7 +354,8 @@
 .gb-select__dropdown-indicator,
 .gb-multi-select__dropdown-indicator {
   padding: 4px !important;
-  margin-right: -4px;
+  margin-right: 0;
+  color: var(--gray-12) !important;
 }
 
 // Raw text / token mode toggle button inside creatable multiselect (StringArrayField)
@@ -198,12 +396,12 @@
 .gb-select__raw-text-control {
   display: flex;
   align-items: stretch;
-  min-height: 38px;
-  border: 1px solid var(--border-color-200) !important;
-  border-radius: 0.25rem;
+  min-height: 36px;
+  border: 1px solid var(--gray-a7) !important;
+  border-radius: var(--radius-3);
 
   &:focus-within {
-    border-color: var(--border-color-200);
+    border-color: var(--gray-a7);
     box-shadow: 0px 0px 0px 1px var(--violet-8);
   }
 
@@ -216,7 +414,7 @@
 
   .gb-select__raw-text-input {
     width: 100%;
-    min-height: 38px;
+    min-height: 36px;
     border: none !important;
     background: transparent !important;
     box-shadow: none !important;

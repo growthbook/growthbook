@@ -128,6 +128,16 @@ function typeTokenToNode(
       path,
       warnings,
     );
+    // `map[string]interface{}` / `any` are the permissive open-object
+    // construct — `{type:"object"}` captures them losslessly, so no warning.
+    // A TYPED value that can't be resolved genuinely loses its constraint.
+    if (!valueNode && mapMatch[1] !== "interface{}" && mapMatch[1] !== "any") {
+      warnings.push({
+        code: "unresolved-type",
+        path,
+        message: `${path}: map value type "${mapMatch[1]}" couldn't be resolved; values left untyped.`,
+      });
+    }
     return {
       type: "object",
       ...(valueNode ? { additionalProperties: valueNode } : {}),

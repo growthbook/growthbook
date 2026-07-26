@@ -430,6 +430,26 @@ async function findExperiments(
   );
 }
 
+export async function findVisualExperimentsByName(
+  context: ReqContext | ApiReqContext,
+  name: string,
+  limit: number,
+): Promise<ExperimentInterface[]> {
+  // Escape regex metacharacters so a user's literal text isn't treated as a
+  // pattern (and can't inject an expensive/malformed regex).
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return findExperiments(
+    context,
+    {
+      organization: context.org.id,
+      name: { $regex: escaped, $options: "i" },
+      hasVisualChangesets: true,
+    },
+    limit,
+    { dateUpdated: -1 },
+  );
+}
+
 export async function getExperimentById(
   context: ReqContext | ApiReqContext,
   id: string,
@@ -1337,6 +1357,20 @@ export async function deleteExperimentByIdForOrganization(
  * @param projectId
  * @param organization
  */
+export async function projectHasExperiments(
+  context: ReqContext | ApiReqContext,
+  projectId: string,
+): Promise<boolean> {
+  const experiment = await getCollection(COLLECTION).findOne(
+    {
+      organization: context.org.id,
+      project: projectId,
+    },
+    { projection: { _id: 1 } },
+  );
+  return !!experiment;
+}
+
 export async function deleteAllExperimentsForAProject({
   projectId,
   context,
@@ -2013,6 +2047,8 @@ export function getPayloadKeys(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
   linkedFeatures?: FeatureInterface[],
+  // Every org project id — only consulted for linked features that target all projects.
+  allProjectIds: string[] = [],
 ): SDKPayloadKey[] {
   // If experiment is not included in the SDK payload
   if (!includeExperimentInPayload(experiment, linkedFeatures)) {
@@ -2045,6 +2081,7 @@ export function getPayloadKeys(
         rule.type === "experiment-ref" &&
         rule.experimentId === experiment.id &&
         rule.enabled !== false,
+      allProjectIds,
     );
   }
 
@@ -2143,14 +2180,16 @@ const onExperimentUpdate = async ({
     if (featureIds.size > 0) {
       linkedFeatures = await getFeaturesByIds(context, [...featureIds]);
     }
+    const allProjectIds = await context.getAllProjectIds();
 
     const oldPayloadKeys = oldExperiment
-      ? getPayloadKeys(context, oldExperiment, linkedFeatures)
+      ? getPayloadKeys(context, oldExperiment, linkedFeatures, allProjectIds)
       : [];
     const newPayloadKeys = getPayloadKeys(
       context,
       newExperiment,
       linkedFeatures,
+      allProjectIds,
     );
     const payloadKeys = uniqWith(
       [...oldPayloadKeys, ...newPayloadKeys],
@@ -2202,7 +2241,13 @@ const onExperimentDelete = async (
     linkedFeatures = await getFeaturesByIds(context, featureIds);
   }
 
-  const payloadKeys = getPayloadKeys(context, experiment, linkedFeatures);
+  const allProjectIds = await context.getAllProjectIds();
+  const payloadKeys = getPayloadKeys(
+    context,
+    experiment,
+    linkedFeatures,
+    allProjectIds,
+  );
   queueSDKPayloadRefresh({
     context,
     payloadKeys,

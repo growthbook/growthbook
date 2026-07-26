@@ -38,6 +38,58 @@ describe("validateResolvableValue", () => {
     ).not.toThrow();
   });
 
+  it("rejects a @config: interpolation in a string constant (constants can't reference configs)", () => {
+    expect(() =>
+      validateResolvableValue({
+        type: "string",
+        value: "https://{{ @config:api-settings }}/v2",
+        refSource: "constant",
+      }),
+    ).toThrow(/cannot reference configs/);
+    // Per-environment values go through the same validator with a label.
+    expect(() =>
+      validateResolvableValue({
+        type: "string",
+        value: "{{@config:api-settings}}",
+        label: "production",
+        refSource: "constant",
+      }),
+    ).toThrow(/^production: .*cannot reference configs/);
+  });
+
+  it("still allows @const: interpolations and escaped/free-text @config mentions in string constants", () => {
+    expect(() =>
+      validateResolvableValue({
+        type: "string",
+        value: "https://{{ @const:api-host }}/v2",
+        refSource: "constant",
+      }),
+    ).not.toThrow();
+    // Backtick-escaped interpolation is literal text (matches the resolver).
+    expect(() =>
+      validateResolvableValue({
+        type: "string",
+        value: "see `{{ @config:api-settings }}` for details",
+        refSource: "constant",
+      }),
+    ).not.toThrow();
+    // A bare token outside {{ }} is free text the resolver never touches.
+    expect(() =>
+      validateResolvableValue({
+        type: "string",
+        value: "documented at @config:api-settings",
+        refSource: "constant",
+      }),
+    ).not.toThrow();
+    // Without refSource (feature values) interpolations stay permitted.
+    expect(() =>
+      validateResolvableValue({
+        type: "string",
+        value: "{{ @config:api-settings }}",
+      }),
+    ).not.toThrow();
+  });
+
   it("allows empty values for JSON values", () => {
     expect(() =>
       validateResolvableValue({ type: "json", value: "" }),

@@ -178,6 +178,8 @@ export type SingleVariationResult = {
 /** One contextual slice from gbstats; stored on snapshots as `contextualBanditSnapshot`. */
 export type ContextualBanditResponseSnapshot = {
   context: Record<string, unknown>;
+  /** Id of the regression-tree leaf this context is routed to. */
+  leafId?: number;
   sampleSizePerVariation?: number[] | null;
   /** Per-variation sample (data-only) means; not posterior means. */
   sampleMeans?: number[] | null;
@@ -189,10 +191,23 @@ export type ContextualBanditResponseSnapshot = {
   error?: string | null;
 };
 
-/** Maps observed context attribute values to a regression-tree leaf id. */
+/** `in` lists an attribute's allowed levels; `not in` lists excluded levels. */
+export type LeafConditionOperator = "in" | "not in";
+
+/** One per-attribute targeting clause of a regression-tree leaf's condition. */
+export type ContextualLeafClause = {
+  attribute: string;
+  levels: string[];
+  operator: LeafConditionOperator;
+};
+
+/**
+ * One regression-tree leaf's targeting condition: the AND of its per-attribute
+ * clauses. There is one entry per leaf (not per observed context).
+ */
 export type ContextualLeafMapEntry = {
-  context: Record<string, string>;
   leafId: number;
+  context: ContextualLeafClause[];
 };
 
 /** Aggregated per-leaf sample (data-only) statistics. */

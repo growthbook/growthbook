@@ -122,6 +122,7 @@ export const MembersTabView: FC = () => {
           <div className="col-auto">View roles and permissions for</div>
           <div className="col-auto">
             <SelectField
+              size="legacy"
               value={currentProject}
               onChange={(value) => setCurrentProject(value)}
               options={projects.map((p) => ({

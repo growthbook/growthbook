@@ -226,6 +226,7 @@ export default function IdLists({ groups, mutate }: Props) {
             <Flex align="center" justify="between" gap="3" mb="4">
               <Box style={{ width: "40%" }}>
                 <Field
+                  size="legacy"
                   placeholder="Search..."
                   type="search"
                   {...searchInputProps}

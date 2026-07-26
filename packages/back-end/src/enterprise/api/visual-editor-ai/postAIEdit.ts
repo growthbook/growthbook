@@ -140,7 +140,7 @@ const conversationTurnSchema = z.object({
 
 const bodySchema = z
   .object({
-    prompt: z.string().min(1).max(2000),
+    prompt: z.string().min(1).max(8000),
     elementContext: z.array(elementContextSchema).max(20).default([]),
     variationId: z.string(),
     visualChangesetId: z.string(),

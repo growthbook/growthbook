@@ -8,6 +8,7 @@ import {
   liveRevisionFromFeature,
   MatchingRule,
   mergeResultHasChanges,
+  reconcileMergeBaselines,
   resetReviewOnChange,
   checkIfRevisionNeedsReview,
 } from "shared/util";
@@ -761,7 +762,18 @@ export async function publishPendingFeatureDraftsForContextualBandit(
       feature,
       revision,
     });
-    const mergeResult = autoMerge(live, base, revision, orgEnvIds, {});
+    const { live: mergeLive, base: mergeBase } = reconcileMergeBaselines(
+      feature,
+      live,
+      base,
+    );
+    const mergeResult = autoMerge(
+      mergeLive,
+      mergeBase,
+      revision,
+      orgEnvIds,
+      {},
+    );
     if (!mergeResult.success) {
       logger.warn(
         {

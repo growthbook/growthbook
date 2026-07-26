@@ -61,6 +61,7 @@ import FactTableAutoSliceSelector from "@/components/FactTables/FactTableAutoSli
 import { useCurrency } from "@/hooks/useCurrency";
 import HistoryTable from "@/components/HistoryTable";
 import Modal from "@/components/Modal";
+import OpenInExplorerButton from "@/enterprise/components/ProductAnalytics/OpenInExplorerButton";
 import {
   DropdownMenu,
   DropdownMenuItem,
@@ -267,6 +268,9 @@ export default function FactMetricPage() {
   const datasource = factMetric.datasource
     ? getDatasourceById(factMetric.datasource)
     : null;
+  const canOpenInExplorer = datasource
+    ? permissionsUtil.canRunMetricQueries(datasource)
+    : false;
 
   const userFilters = getAggregateFilters({
     columnRef: factMetric.numerator,
@@ -534,7 +538,14 @@ export default function FactMetricPage() {
             <MetricName id={factMetric.id} officialBadgePosition="right" />
           </Heading>
         </Flex>
-        <Flex align="center" pr="2">
+        <Flex align="center" gap="2" pr="2">
+          <OpenInExplorerButton
+            enabled={canOpenInExplorer}
+            href={`/product-analytics/explore/metrics?metricId=${encodeURIComponent(
+              factMetric.id,
+            )}`}
+            tooltip="Open this Fact Metric in the Product Analytics Explorer to view trends, compare time periods, and slice/dice a metric."
+          />
           <DropdownMenu
             trigger={
               <IconButton

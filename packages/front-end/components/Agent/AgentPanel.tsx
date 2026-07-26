@@ -5,6 +5,8 @@ import { PiX, PiPlus, PiArrowLineLeft, PiArrowLineRight } from "react-icons/pi";
 import type { AIChatMessage } from "shared/ai-chat";
 import Markdown from "@/components/Markdown/Markdown";
 import Text from "@/ui/Text";
+import track from "@/services/track";
+import { useAISettings } from "@/hooks/useOrgSettings";
 import { useAIChat } from "@/enterprise/hooks/useAIChat";
 import type { ActiveTurnItem } from "@/enterprise/hooks/useAIChat/types";
 import { useDefaultDataSourceId } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
@@ -146,6 +148,7 @@ export default function AgentPanel({
   // active-turn → persisted-message remount so it doesn't snap shut mid-turn.
   const toolDetailsOpenRef = useRef<Record<string, boolean>>({});
   const router = useRouter();
+  const { defaultAIModel } = useAISettings();
   // Read latest pathname inside the callback (not at render) so the URL
   // captured matches where the user is when they hit send, not where they
   // were when the panel rendered.
@@ -339,6 +342,25 @@ export default function AgentPanel({
     onSSEEvent: handleSSEEvent,
     onConversationLoaded: handleConversationLoaded,
     conversationStorageKey: STORAGE_KEY,
+    onMessageComplete: (info) => {
+      track("AI Assistant Response Completed", {
+        model: defaultAIModel,
+        durationMs: info.durationMs,
+        toolCallCount: info.toolCallCount,
+      });
+    },
+    onMessageCancelled: (info) => {
+      track("AI Assistant Generation Cancelled", {
+        model: defaultAIModel,
+        durationMs: info.durationMs,
+      });
+    },
+    onMessageError: (info) => {
+      track("AI Assistant Error", {
+        errorType: info.errorType,
+        httpStatus: info.httpStatus,
+      });
+    },
   });
 
   // Keep the feedback hook's ref in sync with the current conversation id.
@@ -378,9 +400,17 @@ export default function AgentPanel({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, activeTurnItems]);
 
+  const trackMessageSent = useCallback(() => {
+    track("AI Assistant Message Sent", {
+      model: defaultAIModel,
+      messageCount: messages.length,
+      isFirstMessage: messages.length === 0,
+    });
+  }, [defaultAIModel, messages.length]);
+
   const handleSend = useCallback(() => {
     const text = input.trim();
-    if (!text) return;
+    if (!text || loading) return;
     if (askPrompt && !askPrompt.resolved) {
       // Typing a free-text reply also resolves the active question.
       setAskPrompt({ ...askPrompt, resolved: true });
@@ -389,16 +419,18 @@ export default function AgentPanel({
       // Typing instead of clicking supersedes the parked mutation server-side.
       setConfirmPrompt({ ...confirmPrompt, resolved: true });
     }
+    trackMessageSent();
     sendMessage();
-  }, [input, sendMessage, askPrompt, confirmPrompt]);
+  }, [input, loading, sendMessage, askPrompt, confirmPrompt, trackMessageSent]);
 
   const handleAskOption = useCallback(
     (option: AskUserOption) => {
       if (!askPrompt || askPrompt.resolved || loading) return;
       setAskPrompt({ ...askPrompt, resolved: true });
+      trackMessageSent();
       sendMessage(option.label);
     },
-    [askPrompt, sendMessage, loading],
+    [askPrompt, sendMessage, loading, trackMessageSent],
   );
 
   const handleConfirmAction = useCallback(
@@ -410,11 +442,12 @@ export default function AgentPanel({
         confirmDecision: decision,
       };
       // The decision is a control signal — don't render it as a user bubble.
+      trackMessageSent();
       sendMessage(decision === "confirm" ? "Confirm" : "Cancel", {
         suppressUserMessage: true,
       });
     },
-    [confirmPrompt, sendMessage, loading],
+    [confirmPrompt, sendMessage, loading, trackMessageSent],
   );
 
   const handleKeyDown = useCallback(
@@ -436,14 +469,24 @@ export default function AgentPanel({
   }, []);
 
   const handleNewChat = useCallback(() => {
+    track("AI Assistant New Conversation", {
+      previousConversationMessageCount: messages.length,
+    });
     newChat();
     resetTransientState();
     clearFeedback();
     focusInput();
-  }, [newChat, resetTransientState, clearFeedback, focusInput]);
+  }, [
+    messages.length,
+    newChat,
+    resetTransientState,
+    clearFeedback,
+    focusInput,
+  ]);
 
   const handleSelectConversation = useCallback(
     (id: string) => {
+      track("AI Assistant Load Conversation");
       void loadConversation(id);
       resetTransientState();
       focusInput();
@@ -562,6 +605,7 @@ export default function AgentPanel({
               toolDetailsOpenRef={toolDetailsOpenRef}
               feedbackMap={feedbackMap}
               onFeedbackSubmit={handleFeedbackSubmit}
+              feedbackTrackingEventName="AI Assistant Feedback"
             />
           ))}
 
@@ -725,6 +769,7 @@ function PersistedTurn({
   toolDetailsOpenRef,
   feedbackMap,
   onFeedbackSubmit,
+  feedbackTrackingEventName,
 }: {
   turn: MessageTurn;
   onInternalLinkClick?: (href: string) => void;
@@ -735,6 +780,7 @@ function PersistedTurn({
     rating: "positive" | "negative" | null,
     comment: string,
   ) => void;
+  feedbackTrackingEventName?: string;
 }) {
   const { preWork, replyContent, replyMessageId } = classifyTurn(turn.rest);
   const steps = preWorkToSteps(preWork, turn.rest, toolDetailsOpenRef);
@@ -765,6 +811,7 @@ function PersistedTurn({
           messageId={replyMessageId}
           value={feedbackMap[replyMessageId] ?? { rating: null, comment: "" }}
           onSubmit={onFeedbackSubmit}
+          trackingEventName={feedbackTrackingEventName}
         />
       )}
     </>

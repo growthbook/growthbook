@@ -1,8 +1,12 @@
 import {
+  ColumnInterface,
   FactTableInterface,
   UpdateFactTableProps,
 } from "shared/types/fact-table";
-import { needsColumnRefresh } from "back-end/src/api/fact-tables/updateFactTable";
+import {
+  columnsNeedDetection,
+  needsColumnRefresh,
+} from "back-end/src/api/fact-tables/updateFactTable";
 
 const existing: Pick<FactTableInterface, "sql" | "eventName"> = {
   sql: "SELECT user_id, timestamp FROM events",
@@ -48,5 +52,47 @@ describe("needsColumnRefresh", () => {
     };
     const changes: UpdateFactTableProps = { sql: existing.sql };
     expect(needsColumnRefresh(blank, changes)).toBe(true);
+  });
+});
+
+describe("columnsNeedDetection", () => {
+  const makeColumn = (
+    column: string,
+    datatype: ColumnInterface["datatype"],
+  ): ColumnInterface => ({
+    column,
+    name: column,
+    description: "",
+    numberFormat: "",
+    datatype,
+    dateCreated: new Date("2020-01-01"),
+    dateUpdated: new Date("2020-01-01"),
+    deleted: false,
+  });
+
+  it("returns false when columns is undefined", () => {
+    expect(columnsNeedDetection()).toBe(false);
+  });
+
+  it("returns false for an empty array", () => {
+    expect(columnsNeedDetection([])).toBe(false);
+  });
+
+  it("returns false when every column already has a datatype", () => {
+    expect(
+      columnsNeedDetection([
+        makeColumn("amount", "number"),
+        makeColumn("country", "string"),
+      ]),
+    ).toBe(false);
+  });
+
+  it("returns true when a column has an empty datatype (new or reset)", () => {
+    expect(
+      columnsNeedDetection([
+        makeColumn("amount", "number"),
+        makeColumn("country", ""),
+      ]),
+    ).toBe(true);
   });
 });

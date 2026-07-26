@@ -12,7 +12,6 @@ import {
   PiPlusCircle,
   PiUploadSimple,
 } from "react-icons/pi";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { useAuth } from "@/services/auth";
 import { trafficSplitPercentages } from "@/services/utils";
 import Carousel from "@/components/Carousel";
@@ -404,7 +403,6 @@ const VariationsTable: FC<Props> = ({
     variationId: string;
     index: number;
   } | null>(null);
-  const collapseEmptyVariations = useFeatureIsOn("simple-experiment-flow");
 
   const hasUniqueIDs = variations.some((v, i) => v.key !== i + "");
   const someVariationHasImage = variations.some(
@@ -461,9 +459,7 @@ const VariationsTable: FC<Props> = ({
               onEditMetadata={onEditMetadata}
               onEditTraffic={onEditTraffic}
               showNoImage={
-                !collapseEmptyVariations ||
-                experiment.status === "draft" ||
-                someVariationHasImage
+                experiment.status === "draft" || someVariationHasImage
               }
               capWidth={centered}
             />

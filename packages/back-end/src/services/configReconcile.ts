@@ -8,8 +8,13 @@ import {
   isConfigLocked,
 } from "shared/util";
 import { ConfigInterface } from "shared/types/config";
-import { BadRequestError, SoftWarningError } from "back-end/src/util/errors";
+import {
+  BadRequestError,
+  SoftWarningError,
+  TerminalPublishError,
+} from "back-end/src/util/errors";
 import type { Context } from "back-end/src/models/BaseModel";
+import type { PublishGate } from "back-end/src/revisions/publishGates";
 import { logger } from "back-end/src/util/logger";
 
 // Throw if any descendant of `rootKey` (via ANY base edge — `parent` or
@@ -107,18 +112,24 @@ function formatImpactLine(impact: ConfigSchemaChangeImpact): string {
  * Soft publish gate: warn when a proposed root schema/lineage change removes or
  * retypes fields that descendants still override or reference, or would drop a
  * descendant's contract-differing declaration via the cascade. Bypassable with
- * `?ignoreWarnings=true` (and inherently bypassed by background publishes —
- * scheduler/autopublish contexts have no request, matching the other soft
- * gates). Always soft, regardless of `blockPublishOnSchemaError`: the warning
- * is about OTHER configs' state, not the written value, so it must never
- * hard-block an ancestor's own legitimate publish — and for the same reason it
- * ignores `skipSchemaValidation`.
+ * `?ignoreWarnings=true`. Always soft on a synchronous publish, regardless of
+ * `blockPublishOnSchemaError`: the warning is about OTHER configs' state, not
+ * the written value, so it must never hard-block an ancestor's own legitimate
+ * publish — and for the same reason it ignores `skipSchemaValidation`.
+ *
+ * On a DEFERRED merge (scheduled poller / auto-publish-on-approval) there is no
+ * user to warn and request-less contexts force `ignoreWarnings=true`, which says
+ * nothing about intent — so instead of silently skipping, a tripped warning is a
+ * TERMINAL failure: the publish is rejected, the draft stays open, and the
+ * `revision.publishFailed` webhook fires. The publisher re-publishes manually
+ * with `ignoreWarnings` to push through.
  */
 export async function assertConfigSchemaChangeSafeForDescendants(
   context: Context,
   proposedRoot: ConfigInterface,
+  opts?: { deferred?: boolean },
 ): Promise<void> {
-  if (context.ignoreWarnings) return;
+  if (!opts?.deferred && context.ignoreWarnings) return;
   const before = await context.models.configs.getAllForReconcile();
   const after = before.map((c) =>
     c.key === proposedRoot.key ? proposedRoot : c,
@@ -130,12 +141,49 @@ export async function assertConfigSchemaChangeSafeForDescendants(
   });
   if (!impacts.length) return;
   const lines = impacts.map(formatImpactLine);
-  throw new SoftWarningError(
+  const message =
     `This change removes, retypes, or takes over fields that ` +
-      `${impacts.length} descendant config(s) still use:\n` +
-      lines.join("\n"),
-    lines,
+    `${impacts.length} descendant config(s) still use:\n` +
+    lines.join("\n");
+  if (opts?.deferred) {
+    throw new TerminalPublishError(message);
+  }
+  throw new SoftWarningError(message, lines);
+}
+
+/**
+ * The gate form of the schema-change-impact warning above, evaluated at plan
+ * time (the read context decides the baseline — under the bulk publisher's
+ * per-item overlay, `before` already reflects the other items' proposals).
+ * Cleared by ignoreWarnings alone, matching the assert.
+ */
+export async function collectConfigSchemaChangeImpactGates(
+  context: Context,
+  proposedRoot: ConfigInterface,
+): Promise<PublishGate[]> {
+  const before = await context.models.configs.getAllForReconcile();
+  const after = before.map((c) =>
+    c.key === proposedRoot.key ? proposedRoot : c,
   );
+  const impacts = computeConfigSchemaChangeImpact({
+    rootKey: proposedRoot.key,
+    before,
+    after,
+  });
+  if (!impacts.length) return [];
+  return [
+    {
+      type: "schema-change-impact",
+      severity: "warning",
+      messages: [
+        `This change removes, retypes, or takes over fields that ${impacts.length} descendant config(s) still use:`,
+        ...impacts.map(formatImpactLine),
+      ],
+      override: "ignoreWarnings",
+      requiresPermission: null,
+      resolution: null,
+    },
+  ];
 }
 
 /**

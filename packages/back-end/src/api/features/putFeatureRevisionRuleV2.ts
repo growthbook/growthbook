@@ -3,7 +3,6 @@ import {
   resetReviewOnChange,
   getConfigBackingKey,
   getConfigBackingPatch,
-  setConfigBacking,
 } from "shared/util";
 import {
   RevisionRampCreateAction,
@@ -16,6 +15,7 @@ import {
 } from "shared/validators";
 import { RevisionChanges } from "shared/types/feature-revision";
 import {
+  addIdsToFlatRules,
   assertFeatureValuesValid,
   toApiRevisionV2,
 } from "back-end/src/services/features";
@@ -42,6 +42,7 @@ import { applyPatch } from "./putFeatureRevisionRule";
 import {
   assertNoRawConfigExtends,
   assertValidRuleConfigKeys,
+  composeConfigBacking,
   resolveScopeFromInput,
 } from "./v2Shared";
 
@@ -97,6 +98,7 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
       [patch.config, ...(patch.variations?.map((v) => v.config) ?? [])],
       revision.defaultValue ?? feature.defaultValue,
       feature.baseConfig,
+      feature.project,
     );
 
     // Config backing comes only through the dedicated `config` field; a raw
@@ -200,7 +202,11 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
           patch.config !== undefined ? patch.config : existingConfig;
         const newPatch =
           patch.value !== undefined ? patch.value : existingPatch;
-        updatedRule.value = setConfigBacking(newConfig, newPatch);
+        updatedRule.value = composeConfigBacking(
+          newConfig,
+          newPatch,
+          "Rule value",
+        );
       }
     }
     if (
@@ -211,10 +217,14 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
         variationId: v.variationId,
         value:
           v.config !== undefined
-            ? setConfigBacking(v.config, v.value)
+            ? composeConfigBacking(v.config, v.value, "Variation value")
             : v.value,
       }));
     }
+
+    // A coverage patch can convert a force rule to a rollout, which arrives
+    // seedless. Existing rollouts already carry a seed and are left untouched.
+    addIdsToFlatRules([updatedRule as FeatureRule], feature.id);
 
     // Enforce the feature's JSON schema on the patched rule values (no-op for
     // config-backed values, whose schema lives on the config). Opt out with

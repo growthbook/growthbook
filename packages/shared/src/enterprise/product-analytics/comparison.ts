@@ -538,7 +538,9 @@ export function densifyComparisonExplorationTimeseries(params: {
   }
 
   const isRatioByIndex = getIsRatioByIndex(submittedConfig, getFactMetricById);
-  const zeroValues = buildZeroValueRow(metricIds, isRatioByIndex);
+  // buildZeroValueRow always returns an array; the `| undefined` comes from
+  // the union type on ProductAnalyticsResultRow["values"] (funnel rows omit it).
+  const zeroValues = buildZeroValueRow(metricIds, isRatioByIndex)!;
   const comparisonRows = comparison.result?.rows ?? [];
 
   if (!isGrouped) {
@@ -655,6 +657,17 @@ export function computeExplorationComparisonPayload(
 ): ProductAnalyticsRunComparisonPayload {
   const previousPeriod = dateRangeToPeriodStrings(previousTimeFrame);
 
+  // Funnels have no metric values but still need comparison.exploration
+  // passed through so the funnel table can render previous-period data.
+  if (submittedConfig.dataset?.type === "funnel") {
+    return {
+      exploration: comparison,
+      previousPeriod,
+      bigNumberTrends: [],
+      tableTrendsByRow: [],
+    };
+  }
+
   const n = submittedConfig.dataset?.values?.length ?? 0;
   const emptyTrends = Array.from({ length: n }, () => null);
 
@@ -700,8 +713,8 @@ export function computeExplorationComparisonPayload(
   }
 
   const bigNumberTrends = Array.from({ length: n }, (_, metricIndex) => {
-    const currCell = primary.result.rows[0]?.values[metricIndex];
-    const prevCell = exploration.result.rows[0]?.values[metricIndex];
+    const currCell = primary.result.rows[0]?.values?.[metricIndex];
+    const prevCell = exploration.result.rows[0]?.values?.[metricIndex];
     if (!currCell || !prevCell) return null;
 
     const isRatio = renderOpts.isRatioByIndex[metricIndex] ?? false;

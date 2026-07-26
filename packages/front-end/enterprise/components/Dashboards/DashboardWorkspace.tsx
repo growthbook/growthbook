@@ -326,7 +326,8 @@ export default function DashboardWorkspace({
     const isExplorationBlock =
       bType === "metric-exploration" ||
       bType === "fact-table-exploration" ||
-      bType === "data-source-exploration";
+      bType === "data-source-exploration" ||
+      bType === "funnel-exploration";
     // TypeScript can't correlate block type with its config in a discriminated union
     const createBlock = CREATE_BLOCK_TYPE[bType] as (args: {
       experiment: ExperimentInterfaceStringDates;

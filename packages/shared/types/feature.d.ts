@@ -149,6 +149,8 @@ export type FeatureMetaInfo = Pick<
   FeatureInterface,
   | "id"
   | "project"
+  | "targetingProjects"
+  | "targetingAllProjects"
   | "archived"
   | "description"
   | "dateCreated"

@@ -46,6 +46,10 @@ import { isSubmittableConfig } from "@/enterprise/components/ProductAnalytics/ut
 import MarkdownBlock from "./MarkdownBlock";
 import ExperimentMetadataBlock from "./ExperimentMetadataBlock";
 import ExperimentMetricBlock from "./ExperimentMetricBlock";
+import MetricExperimentsBlock from "./MetricExperimentsBlock";
+import ExperimentsScaledImpactBlock from "./ExperimentsScaledImpactBlock";
+import ExperimentsWinRateBlock from "./ExperimentsWinRateBlock";
+import ExperimentsStatusBlock from "./ExperimentsStatusBlock";
 import ExperimentDimensionBlock from "./ExperimentDimensionBlock";
 import ExperimentTimeSeriesBlock from "./ExperimentTimeSeriesBlock";
 import ExperimentTrafficBlock from "./ExperimentTrafficBlock";
@@ -121,6 +125,10 @@ const BLOCK_COMPONENTS: {
   markdown: MarkdownBlock,
   "experiment-metadata": ExperimentMetadataBlock,
   "experiment-metric": ExperimentMetricBlock,
+  "metric-experiments": MetricExperimentsBlock,
+  "experiments-scaled-impact": ExperimentsScaledImpactBlock,
+  "experiments-win-rate": ExperimentsWinRateBlock,
+  "experiments-status": ExperimentsStatusBlock,
   "experiment-dimension": ExperimentDimensionBlock,
   "experiment-time-series": ExperimentTimeSeriesBlock,
   "experiment-traffic": ExperimentTrafficBlock,
@@ -129,6 +137,7 @@ const BLOCK_COMPONENTS: {
   "metric-exploration": ProductAnalyticsExplorerBlock,
   "fact-table-exploration": ProductAnalyticsExplorerBlock,
   "data-source-exploration": ProductAnalyticsExplorerBlock,
+  "funnel-exploration": ProductAnalyticsExplorerBlock,
 };
 
 export default function DashboardBlock<T extends DashboardBlockInterface>({
@@ -369,7 +378,8 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
       (block.metricAnalysisId.length === 0 || !metricAnalysis)) ||
     ((block.type === "metric-exploration" ||
       block.type === "fact-table-exploration" ||
-      block.type === "data-source-exploration") &&
+      block.type === "data-source-exploration" ||
+      block.type === "funnel-exploration") &&
       !isSubmittableConfig(block.config));
 
   const blockMissingHealthCheck =
@@ -453,6 +463,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
         )}
         {canEditTitle && editTitle && setBlock ? (
           <Field
+            size="legacy"
             autoFocus
             defaultValue={block.title || getDefaultValueForTitle(block.type)}
             placeholder="Title"

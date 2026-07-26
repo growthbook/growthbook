@@ -5,7 +5,11 @@ import { Revision } from "shared/enterprise";
 // its own id in the revision's `armAcknowledgments` map, so keys never collide
 // across guards (e.g. the experiment guard and the config-lock guard can both
 // name the same config key without conflating their acknowledgments).
-export type ArmGuardId = "experiment" | "config-lock" | "schema-break";
+export type ArmGuardId =
+  | "experiment"
+  | "config-lock"
+  | "schema-break"
+  | "archive-dependents";
 
 // The per-guard arm-time acknowledgment fingerprint stored on a revision.
 export type ArmAcknowledgments = Partial<Record<ArmGuardId, string[]>>;

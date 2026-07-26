@@ -183,6 +183,26 @@ function unwrapOptional(annotation: string): string {
   return m ? m[1].trim() : annotation;
 }
 
+// Dict value annotations that are already fully captured by `{type:"object"}`.
+const PERMISSIVE_DICT_VALUES = new Set(["Any", "typing.Any", "object"]);
+
+// The value annotation of a `Dict[K, V]` / `dict[K, V]` (the part after the
+// first top-level comma), or null when there isn't one (bare `dict`, missing
+// closing bracket, or a single-argument form).
+function dictValueAnnotation(annotation: string): string | null {
+  const m = annotation.match(/^(?:Dict|dict)\s*\[(.+)\]$/);
+  if (!m) return null;
+  const inner = m[1];
+  let depth = 0;
+  for (let i = 0; i < inner.length; i++) {
+    const c = inner[i];
+    if (c === "[") depth++;
+    else if (c === "]") depth--;
+    else if (c === "," && depth === 0) return inner.slice(i + 1).trim();
+  }
+  return null;
+}
+
 // String or numeric Literal members. Mixed/empty/other members (True, None, …)
 // return null so the field falls through to the unresolved-type warning instead
 // of silently importing as `{type:"string", enum:[]}`.
@@ -266,6 +286,17 @@ function annotationToNode(
   }
 
   if (/^(?:Dict|dict)\s*\[/.test(annotation) || annotation === "dict") {
+    // `dict` / `Dict[str, Any]` are the permissive open-object construct —
+    // `{type:"object"}` captures them losslessly, so no warning. A TYPED value
+    // annotation constrains the values, and that constraint is dropped — warn.
+    const value = dictValueAnnotation(annotation);
+    if (value !== null && !PERMISSIVE_DICT_VALUES.has(value)) {
+      warnings.push({
+        code: "unresolved-type",
+        path,
+        message: `${path}: dict value type "${value}" isn't representable; values left untyped.`,
+      });
+    }
     return { type: "object" };
   }
 

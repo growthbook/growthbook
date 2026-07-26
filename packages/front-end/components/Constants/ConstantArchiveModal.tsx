@@ -47,6 +47,10 @@ export default function ConstantArchiveModal({
       referenceCount={totalReferences}
       referencesLoading={loading}
       referencesError={(error ?? null) !== null}
+      // The server is the source of truth: archiving a still-referenced constant
+      // returns a soft warning the user acknowledges via the shared apiCall
+      // handler, rather than a client-side hard block.
+      referenceBlockMode="soft"
       referencesList={
         <ConstantReferencesList
           features={references?.features ?? []}

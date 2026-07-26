@@ -15,6 +15,7 @@ import {
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
 import { assertConstantPublishGuards } from "back-end/src/services/publishGuards";
+import { constantChangeAffectsServedValue } from "back-end/src/services/experimentGuard";
 import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
 
 export const updateConstant = createApiRequestHandler(updateConstantValidator)(
@@ -100,10 +101,7 @@ export const updateConstant = createApiRequestHandler(updateConstantValidator)(
     // path below applies live, and none of them run assertPublishable, so
     // enforce the guards here — mirroring the config REST update. Skipped for a
     // metadata-only update (can't rewrite a served value).
-    if (
-      fieldsToUpdate.value !== undefined ||
-      fieldsToUpdate.environmentValues !== undefined
-    ) {
+    if (constantChangeAffectsServedValue(Object.keys(fieldsToUpdate))) {
       await assertConstantPublishGuards(
         req.context,
         constant,

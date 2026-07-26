@@ -89,6 +89,7 @@ export default function FactTableTabContent() {
               Value type
             </Text>
             <SelectField
+              size="legacy"
               value={v.valueType}
               onChange={(val) =>
                 updateValueInDataset(idx, {
@@ -96,7 +97,10 @@ export default function FactTableTabContent() {
                   valueType: val as "count" | "unit_count" | "sum",
                   name: generateUniqueValueName(
                     getValueTypeLabel(val as "count" | "unit_count" | "sum"),
-                    draftExploreState.dataset.values,
+                    // Tab content only renders for "fact_table" datasets.
+                    draftExploreState.dataset.type === "fact_table"
+                      ? draftExploreState.dataset.values
+                      : [],
                   ),
                   unit:
                     val === "unit_count" && factTable?.userIdTypes?.length
@@ -116,6 +120,7 @@ export default function FactTableTabContent() {
                   Value column
                 </Text>
                 <SelectField
+                  size="legacy"
                   value={v.valueColumn ?? ""}
                   onChange={(val) =>
                     updateValueInDataset(idx, {

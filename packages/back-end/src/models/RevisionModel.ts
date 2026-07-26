@@ -19,9 +19,11 @@ import {
   hasArmAcknowledgments,
 } from "back-end/src/services/armGuards";
 import { getAdapter } from "back-end/src/revisions/index";
+import { ConflictError } from "back-end/src/util/errors";
 import {
   createWithVersionRetry,
   getCollection,
+  isDuplicateKeyErrorForIndex,
 } from "back-end/src/util/mongo.util";
 
 // Derived from the validator so the two can't drift apart.
@@ -62,14 +64,7 @@ const SCHEDULED_PUBLISH_UNSET = {
 // True for the duplicate-key error from the lock-others partial unique index —
 // i.e. a concurrent arming request won the race for this entity's lock.
 function isPublishLockIndexConflict(e: unknown): boolean {
-  return (
-    !!e &&
-    typeof e === "object" &&
-    (e as { code?: number }).code === 11000 &&
-    String((e as { message?: string }).message ?? "").includes(
-      LOCK_OTHERS_INDEX_NAME,
-    )
-  );
+  return isDuplicateKeyErrorForIndex(e, LOCK_OTHERS_INDEX_NAME);
 }
 
 const BaseClass = MakeModelClass({
@@ -846,6 +841,18 @@ export class RevisionModel extends BaseClass {
         : {}),
     } as UpdateProps<Revision>);
 
+    // A fresh arm supersedes a prior schedule's parked failure — clear it so
+    // the "Could not publish" notice doesn't persist next to a healthy arm
+    // (the dated-schedule arm and disarm paths already do this).
+    if (enabled && (existing.scheduledPublishGaveUpAt ?? null) !== null) {
+      await this._dangerousGetCollection().updateOne(
+        { organization: this.context.org.id, id },
+        { $unset: { ...SCHEDULED_PUBLISH_FAILURE_UNSET } },
+      );
+      const refreshed = await this.getById(id);
+      if (refreshed) return refreshed;
+    }
+
     // Disabling: this.update can only flip the flag, leaving scheduledPublishAt
     // and the locks set on the document. Scrub the whole schedule so a later
     // re-arm can't resurrect a stale dated schedule and fire it (or re-block
@@ -1286,20 +1293,54 @@ export class RevisionModel extends BaseClass {
   // under CAS and throws. (publishRevision claims the merge before applying
   // changes to the live entity, so a losing discard can't orphan a half-applied
   // change.)
-  async merge(id: string, userId: string, options?: { bypass?: boolean }) {
+  async merge(
+    id: string,
+    userId: string,
+    options?: {
+      bypass?: boolean;
+      /** Publish comment, recorded in the merge activity-log entry. */
+      comment?: string;
+      // Plan-time baseline for bulk publishes: the claim fails if the revision
+      // was touched at all since planning (content edit, review, competing
+      // lifecycle change), not just if its status moved. dateUpdated rides in
+      // the guard fields so a same-status edit racing the read→write window
+      // trips the CAS retry, which re-runs this compute and re-checks the
+      // baseline. Conflicts throw ConflictError so callers can tell a lost
+      // race from an infra failure.
+      expected?: { status: string; dateUpdated: Date };
+    },
+  ) {
     // Whether a schedule was armed on the winning CAS read — used after the
     // status transition lands to scrub the schedule fields.
     let hadSchedule = false;
-    const merged = await this.updateWithCas(id, ["status"], (existing) => {
+    const guardFields: (keyof Revision)[] = options?.expected
+      ? ["status", "dateUpdated"]
+      : ["status"];
+    const merged = await this.updateWithCas(id, guardFields, (existing) => {
       if (existing.status === "merged" || existing.status === "discarded") {
-        throw new Error("Cannot merge a discarded or already-merged revision");
+        throw new ConflictError(
+          "Cannot merge a discarded or already-merged revision",
+        );
+      }
+      const expected = options?.expected;
+      if (
+        expected &&
+        (existing.status !== expected.status ||
+          existing.dateUpdated.getTime() !== expected.dateUpdated.getTime())
+      ) {
+        throw new ConflictError(
+          "The revision changed after the publish was planned — re-plan and retry",
+        );
       }
       hadSchedule =
         !!existing.autoPublishOnApproval ||
         (existing.scheduledPublishAt ?? null) !== null;
-      const description = options?.bypass
+      const base = options?.bypass
         ? "Merged revision (bypass)"
         : "Merged revision";
+      const description = options?.comment
+        ? `${base}: ${options.comment}`
+        : base;
       return {
         status: "merged",
         // Publishing disarms any pending schedule and releases the lock-others
@@ -1388,11 +1429,17 @@ export class RevisionModel extends BaseClass {
    *
    * Status-guarded raw write: only applies while the doc is still "merged" from
    * the failed publish; returns null if something else moved it concurrently.
+   * `expectedDateUpdated` (bulk publish) additionally pins the write to the
+   * exact merge this call is compensating — if a concurrent actor reopened and
+   * re-published the revision (a new, successful merge with a fresh
+   * dateUpdated), the filter misses and we return null rather than clobbering
+   * their published state.
    */
   async reopenAfterFailedApply(
     id: string,
     userId: string,
     prior: Revision,
+    expectedDateUpdated?: Date | null,
   ): Promise<Revision | null> {
     const now = new Date();
     const buildSet = (lockOthers: boolean): Record<string, unknown> => ({
@@ -1439,6 +1486,7 @@ export class RevisionModel extends BaseClass {
       organization: this.context.org.id,
       id,
       status: "merged" as const,
+      ...(expectedDateUpdated ? { dateUpdated: expectedDateUpdated } : {}),
     };
     const update = (lockOthers: boolean) => ({
       $set: buildSet(lockOthers),

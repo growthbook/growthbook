@@ -8,8 +8,12 @@ import {
   metricExplorationConfigValidator,
   factTableExplorationConfigValidator,
   dataSourceExplorationConfigValidator,
+  funnelExplorationConfigValidator,
   explorationDateRangeValidator,
+  dateGranularity,
+  ExplorationDateRange,
 } from "../../validators/product-analytics";
+import { calculateProductAnalyticsDateRange } from "../product-analytics/sql";
 import { differenceTypes, pinSources } from "../dashboards/utils";
 
 // Hard cap on the canonical column count. Used as the zod ceiling on `w`/`x`
@@ -55,6 +59,15 @@ export const DEFAULT_BLOCK_SIZE_BY_TYPE: Record<
   "experiment-metadata": { w: DASHBOARD_GRID_COLS, h: 8, minW: 12, minH: 4 },
   "experiment-traffic": { w: DASHBOARD_GRID_COLS, h: 8, minW: 12, minH: 4 },
   "experiment-metric": { w: DASHBOARD_GRID_COLS, h: 8, minW: 12, minH: 4 },
+  "metric-experiments": { w: DASHBOARD_GRID_COLS, h: 8, minW: 12, minH: 4 },
+  "experiments-scaled-impact": {
+    w: DASHBOARD_GRID_COLS,
+    h: 8,
+    minW: 12,
+    minH: 4,
+  },
+  "experiments-win-rate": { w: DASHBOARD_GRID_COLS, h: 8, minW: 8, minH: 4 },
+  "experiments-status": { w: DASHBOARD_GRID_COLS, h: 8, minW: 8, minH: 4 },
   "experiment-dimension": { w: DASHBOARD_GRID_COLS, h: 8, minW: 12, minH: 4 },
   "experiment-time-series": { w: DASHBOARD_GRID_COLS, h: 8, minW: 12, minH: 4 },
   "sql-explorer": { w: DASHBOARD_GRID_COLS, h: 8, minW: 8, minH: 4 },
@@ -62,6 +75,7 @@ export const DEFAULT_BLOCK_SIZE_BY_TYPE: Record<
   "metric-exploration": { w: DASHBOARD_GRID_COLS, h: 8, minW: 8, minH: 4 },
   "fact-table-exploration": { w: DASHBOARD_GRID_COLS, h: 8, minW: 8, minH: 4 },
   "data-source-exploration": { w: DASHBOARD_GRID_COLS, h: 8, minW: 8, minH: 4 },
+  "funnel-exploration": { w: DASHBOARD_GRID_COLS, h: 8, minW: 8, minH: 4 },
 };
 
 export function getBlockSizeBounds(
@@ -204,6 +218,136 @@ const legacyExperimentMetricBlockInterface = experimentMetricBlockInterface
     sliceTagsFilter: z.array(z.string()).nullable().optional(),
   });
 
+const metricExperimentsBlockInterface = baseBlockInterface
+  .extend({
+    type: z.literal("metric-experiments"),
+    metricId: z.string(),
+    // Project ids to scope to; empty array means all projects.
+    projects: z.array(z.string()),
+    experimentSearchString: z.string(), // raw ExperimentSearchFilters query for now
+    differenceType: z.enum(differenceTypes),
+    bandits: z.boolean(),
+    // Optional Metric-Explorer-style date windows (Today / Past 7·30·90 /
+    // Custom Lookback / Custom Date Range). `startDateRange` filters on the
+    // experiment's phase start date (so in-flight experiments can be included);
+    // `endDateRange` filters on the phase end date. Legacy top-level
+    // startDate/endDate strings are migrated to `endDateRange` in migrateBlock.
+    startDateRange: explorationDateRangeValidator.optional(),
+    endDateRange: explorationDateRangeValidator.optional(),
+    // Ordered column config for the results table. Omitted = default order,
+    // all columns visible. The "Experiment" column is always shown first and
+    // is not included/managed here.
+    columns: z
+      .array(z.object({ id: z.string(), visible: z.boolean() }))
+      .optional(),
+  })
+  .strict();
+
+export type MetricExperimentsBlockInterface = z.infer<
+  typeof metricExperimentsBlockInterface
+>;
+
+// Shared fields for the "Completed Experiments" block family (Scaled Impact,
+// Win Percentage, Experiment Status). Date range + project scoping mirror the
+// Executive Report controls. Kept per-block for now, but always read through
+// resolveCompletedExperimentsFilters so a future dashboard-wide filter bar can
+// override them (see resolveBlockComparison for the same pattern).
+// Period comparison for a dashboard block. `enabled` turns the comparison on;
+// `previousTimeFrame` is only persisted for fixed windows (custom date ranges) —
+// predefined/rolling primaries re-derive (and roll) the previous period on each
+// refresh. Kept as a structured object so a future dashboard-wide compare toggle
+// can resolve to the same shape (see resolveBlockComparison).
+export const blockComparisonValidator = z.object({
+  enabled: z.boolean(),
+  previousTimeFrame: explorationDateRangeValidator.optional(),
+});
+export type BlockComparison = z.infer<typeof blockComparisonValidator>;
+
+const completedExperimentsBlockCommon = {
+  // Metric-Explorer-style date range (Today / Past 7·30·90 / Custom Lookback /
+  // Custom Date Range). Legacy string presets are migrated to this shape in
+  // migrateBlock.
+  dateRange: explorationDateRangeValidator,
+  // Project ids to scope to; empty array means all projects.
+  projects: z.array(z.string()),
+  // Raw ExperimentSearchFilters query (e.g. "status:stopped tag:checkout"),
+  // shared with the Metric Experiments block. Optional so pre-existing blocks
+  // read as "no filter"; applied client-side on top of the date/project scope.
+  experimentSearchString: z.string().optional(),
+  // Compare-to-previous-period. Optional so pre-existing blocks read as "no
+  // comparison". The previous window is derived from the current one on each
+  // refresh (span-shift), so we don't persist `previousTimeFrame` here.
+  comparison: blockComparisonValidator.optional(),
+};
+
+const experimentsScaledImpactBlockInterface = baseBlockInterface
+  .extend({
+    type: z.literal("experiments-scaled-impact"),
+    ...completedExperimentsBlockCommon,
+    metricId: z.string(),
+  })
+  .strict();
+
+export type ExperimentsScaledImpactBlockInterface = z.infer<
+  typeof experimentsScaledImpactBlockInterface
+>;
+
+const experimentsWinRateBlockInterface = baseBlockInterface
+  .extend({
+    type: z.literal("experiments-win-rate"),
+    ...completedExperimentsBlockCommon,
+    showProjectBreakdown: z.boolean(),
+  })
+  .strict();
+
+export type ExperimentsWinRateBlockInterface = z.infer<
+  typeof experimentsWinRateBlockInterface
+>;
+
+const experimentsStatusBlockInterface = baseBlockInterface
+  .extend({
+    type: z.literal("experiments-status"),
+    ...completedExperimentsBlockCommon,
+    // Time bucketing for the velocity bars. Optional so pre-existing blocks
+    // read as "auto"; resolved against the date range via getDateGranularity.
+    dateGranularity: z.enum(dateGranularity).optional(),
+  })
+  .strict();
+
+export type ExperimentsStatusBlockInterface = z.infer<
+  typeof experimentsStatusBlockInterface
+>;
+
+export type CompletedExperimentsBlockFilters = {
+  dateRange: ExplorationDateRange;
+  projects: string[];
+  // Raw ExperimentSearchFilters query applied client-side on top of the
+  // date/project scope. Undefined/empty means no additional filtering.
+  experimentSearchString?: string;
+};
+
+/**
+ * Effective filters for a "Completed Experiments" block. Today these come
+ * straight from the block; the `dashboard` arg is the forward-compat seam for a
+ * future dashboard-wide filter bar (project / date range) that would take
+ * precedence — mirrors resolveBlockComparison so render code never changes.
+ * The date range is resolved with the same helper Metric Explorer uses.
+ */
+export function resolveCompletedExperimentsFilters(
+  block: CompletedExperimentsBlockFilters,
+  dashboard?: { projects?: string[] } | null,
+): { startDate: Date; endDate: Date; projects: string[] } {
+  const projects =
+    dashboard?.projects && dashboard.projects.length > 0
+      ? dashboard.projects
+      : block.projects;
+
+  const { startDate, endDate } = calculateProductAnalyticsDateRange(
+    block.dateRange,
+  );
+  return { startDate, endDate, projects };
+}
+
 const experimentDimensionBlockInterface = baseBlockInterface
   .extend({
     type: z.literal("experiment-dimension"),
@@ -303,17 +447,6 @@ export type SqlExplorerBlockInterface = z.infer<
   typeof sqlExplorerBlockInterface
 >;
 
-// Period comparison for a dashboard block. `enabled` turns the comparison on;
-// `previousTimeFrame` is only persisted for fixed windows (custom date ranges) —
-// predefined/rolling primaries re-derive (and roll) the previous period on each
-// refresh. Kept as a structured object so a future dashboard-wide compare toggle
-// can resolve to the same shape (see resolveBlockComparison).
-export const blockComparisonValidator = z.object({
-  enabled: z.boolean(),
-  previousTimeFrame: explorationDateRangeValidator.optional(),
-});
-export type BlockComparison = z.infer<typeof blockComparisonValidator>;
-
 const metricExplorerBlockInterface = baseBlockInterface
   .extend({
     type: z.literal("metric-explorer"),
@@ -382,6 +515,12 @@ const dataSourceExplorationBlockInterface = baseBlockInterface.extend({
   config: dataSourceExplorationConfigValidator,
 });
 
+const funnelExplorationBlockInterface = baseBlockInterface.extend({
+  type: z.literal("funnel-exploration"),
+  ...explorationBlockCommon,
+  config: funnelExplorationConfigValidator,
+});
+
 /**
  * The effective comparison for an exploration block. Today this is just the
  * block's own setting (saved from the explorer). The `dashboard` arg is the
@@ -407,11 +546,18 @@ export type FactTableExplorationBlockInterface = z.infer<
 export type DataSourceExplorationBlockInterface = z.infer<
   typeof dataSourceExplorationBlockInterface
 >;
+export type FunnelExplorationBlockInterface = z.infer<
+  typeof funnelExplorationBlockInterface
+>;
 // Blocks that are the same for both the standard interface and the api interface
 const standardAndApiCommonBlocks = [
   markdownBlockInterface,
   experimentMetadataBlockInterface,
   experimentMetricBlockInterface,
+  metricExperimentsBlockInterface,
+  experimentsScaledImpactBlockInterface,
+  experimentsWinRateBlockInterface,
+  experimentsStatusBlockInterface,
   experimentDimensionBlockInterface,
   experimentTimeSeriesBlockInterface,
   experimentTrafficBlockInterface,
@@ -419,6 +565,7 @@ const standardAndApiCommonBlocks = [
   metricExplorationBlockInterface,
   factTableExplorationBlockInterface,
   dataSourceExplorationBlockInterface,
+  funnelExplorationBlockInterface,
 ];
 
 export const dashboardBlockInterface = z.discriminatedUnion("type", [
@@ -461,6 +608,10 @@ export const createDashboardBlockInterface = z.discriminatedUnion("type", [
   markdownBlockInterface.omit(createOmits),
   experimentMetadataBlockInterface.omit(createOmits),
   experimentMetricBlockInterface.omit(createOmits),
+  metricExperimentsBlockInterface.omit(createOmits),
+  experimentsScaledImpactBlockInterface.omit(createOmits),
+  experimentsWinRateBlockInterface.omit(createOmits),
+  experimentsStatusBlockInterface.omit(createOmits),
   experimentDimensionBlockInterface.omit(createOmits),
   experimentTimeSeriesBlockInterface.omit(createOmits),
   experimentTrafficBlockInterface.omit(createOmits),
@@ -469,11 +620,16 @@ export const createDashboardBlockInterface = z.discriminatedUnion("type", [
   metricExplorationBlockInterface.omit(createOmits),
   factTableExplorationBlockInterface.omit(createOmits),
   dataSourceExplorationBlockInterface.omit(createOmits),
+  funnelExplorationBlockInterface.omit(createOmits),
 ]);
 export const apiCreateDashboardBlockInterface = z.discriminatedUnion("type", [
   markdownBlockInterface.omit(createOmits),
   experimentMetadataBlockInterface.omit(createOmits),
   experimentMetricBlockInterface.omit(createOmits),
+  metricExperimentsBlockInterface.omit(createOmits),
+  experimentsScaledImpactBlockInterface.omit(createOmits),
+  experimentsWinRateBlockInterface.omit(createOmits),
+  experimentsStatusBlockInterface.omit(createOmits),
   experimentDimensionBlockInterface.omit(createOmits),
   experimentTimeSeriesBlockInterface.omit(createOmits),
   experimentTrafficBlockInterface.omit(createOmits),
@@ -498,6 +654,22 @@ export const dashboardBlockPartial = z.discriminatedUnion("type", [
     .partial()
     .required({ type: true }),
   experimentMetricBlockInterface
+    .omit(createOmits)
+    .partial()
+    .required({ type: true }),
+  metricExperimentsBlockInterface
+    .omit(createOmits)
+    .partial()
+    .required({ type: true }),
+  experimentsScaledImpactBlockInterface
+    .omit(createOmits)
+    .partial()
+    .required({ type: true }),
+  experimentsWinRateBlockInterface
+    .omit(createOmits)
+    .partial()
+    .required({ type: true }),
+  experimentsStatusBlockInterface
     .omit(createOmits)
     .partial()
     .required({ type: true }),
@@ -530,6 +702,10 @@ export const dashboardBlockPartial = z.discriminatedUnion("type", [
     .partial()
     .required({ type: true }),
   dataSourceExplorationBlockInterface
+    .omit(createOmits)
+    .partial()
+    .required({ type: true }),
+  funnelExplorationBlockInterface
     .omit(createOmits)
     .partial()
     .required({ type: true }),

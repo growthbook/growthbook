@@ -18,6 +18,7 @@ import { validateExperimentChange } from "back-end/src/services/experimentChange
 import { toExperimentApiInterface } from "back-end/src/services/experiments";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { requireDraftExperiment } from "./requireDraftExperiment";
 import { requireUserAuth } from "./requireUserAuth";
 
 const bodySchema = z
@@ -70,6 +71,7 @@ export const postAddVariant = createApiRequestHandler(validation)(async (
   if (!context.permissions.canUpdateVisualChange(experiment)) {
     context.permissions.throwPermissionError();
   }
+  requireDraftExperiment(context, experiment);
 
   // For a duplicate, resolve the source variation's visual change (matched
   // on the internal `variation` id) and the source variation itself (for the

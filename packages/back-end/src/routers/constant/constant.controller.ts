@@ -28,12 +28,13 @@ import { getAdapter } from "back-end/src/revisions";
 import {
   ConstantReferences,
   loadConstantReferences,
-  assertConstantArchivable,
   assertKeyAvailable,
 } from "back-end/src/services/constants";
+import { assertConstantArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
 import { assertConstantPublishGuards } from "back-end/src/services/publishGuards";
+import { constantChangeAffectsServedValue } from "back-end/src/services/experimentGuard";
 import {
   isValidRevertBypass,
   revertRestoresTargetSnapshot,
@@ -315,11 +316,15 @@ export const putConstant = async (
     fieldsToUpdate.archived = archived;
   }
 
-  // Block the archive transition when the constant is still referenced (same
-  // gate as the REST archive endpoints and the front-end ConstantArchiveModal).
-  // Mirrors saved groups; only archiving is blocked, never unarchiving.
+  // Soft-warn (bypassably) on the archive transition when the constant is still
+  // referenced (same gate as the REST archive endpoints and the front-end
+  // ConstantArchiveModal). Only archiving is guarded, never unarchiving.
   if (fieldsToUpdate.archived === true && !comparisonBase.archived) {
-    await assertConstantArchivable(context, existing.id);
+    await assertConstantArchiveDependentsGuard(
+      context,
+      { id: existing.id, key: existing.key, project: existing.project },
+      { armed: false },
+    );
   }
 
   const forceCreateRevision = req.query.forceCreateRevision === "1";
@@ -446,9 +451,11 @@ export const putConstant = async (
       // Only record a bypass when the caller used the explicit admin override.
       const isBypass = approvalRequired && bypassApproval;
 
-      // Warn (bypassably) when this value change would reach a running experiment
-      // through a guarded config. Metadata-only edits can't shift a served value.
-      if ("value" in fieldsToUpdate || "environmentValues" in fieldsToUpdate) {
+      // Warn (bypassably) when this change would reach a running experiment
+      // through a guarded config, or when an archive/unarchive flip scrubs (or
+      // restores) refs into a schema-break for dependents. Metadata-only edits
+      // can't shift a served value.
+      if (constantChangeAffectsServedValue(Object.keys(fieldsToUpdate))) {
         await assertConstantPublishGuards(
           context,
           existing,
@@ -460,6 +467,7 @@ export const putConstant = async (
                 | Record<string, string>
                 | undefined)
             : existing.environmentValues,
+          "archived" in fieldsToUpdate ? !!fieldsToUpdate.archived : undefined,
         );
       }
 

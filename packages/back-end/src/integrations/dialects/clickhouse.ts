@@ -40,6 +40,10 @@ export const clickHouseDialect: SqlDialect = {
     `dateTrunc('${granularity}', ${col})`,
   dateDiff: (startCol: string, endCol: string) =>
     `dateDiff('day', ${startCol}, ${endCol})`,
+  dateDiffMs: (startCol: string, endCol: string) =>
+    `dateDiff('millisecond', ${startCol}, ${endCol})`,
+  addIntervalSeconds: (col: string, sign: "+" | "-", amount: number) =>
+    `date${sign === "+" ? "Add" : "Sub"}(second, ${amount}, ${col})`,
   formatDate: (col: string) => `formatDateTime(${col}, '%F')`,
   formatDateTimeString: (col: string) =>
     `formatDateTime(${col}, '%Y-%m-%d %H:%i:%S.%f')`,
@@ -48,6 +52,32 @@ export const clickHouseDialect: SqlDialect = {
   castToDate: (col: string) => {
     const columType = col === "NULL" ? "Nullable(DATE)" : "DATE";
     return `CAST(${col} AS ${columType})`;
+  },
+  castToTimestamp: (col: string) => {
+    // CH demands `Nullable(...)` to hold NULL; `DateTime` alone rejects it.
+    const colType = col === "NULL" ? "Nullable(DateTime)" : "DateTime";
+    return `CAST(${col} AS ${colType})`;
+  },
+
+  // ClickHouse uses functional array operators (no `unnest`-style relational
+  // expansion). These match the funnel SQL's array-based step resolution.
+  arrayAggSorted: (col: string) =>
+    // groupArrayIf skips NULLs entirely; we then sort ascending.
+    `arraySort(groupArrayIf(${col}, isNotNull(${col})))`,
+
+  argMinByTimestamp: (valueCol: string, tsCol: string) =>
+    `argMinIf(${valueCol}, ${tsCol}, isNotNull(${tsCol}))`,
+
+  arrayMinInRange: (col, lowerBound, upperBound) => {
+    const preds: string[] = [];
+    if (lowerBound) preds.push(`x >= ${lowerBound}`);
+    if (upperBound) preds.push(`x <= ${upperBound}`);
+    const predicate = preds.length ? preds.join(" AND ") : "1";
+    // `arrayMin([])` returned 0/epoch in older CH versions, which would
+    // pollute downstream DateTime math; guard with a length check so the
+    // result is properly NULL when no element falls in the window.
+    const filtered = `arrayFilter(x -> ${predicate}, ${col})`;
+    return `if(length(${filtered}) > 0, arrayMin(${filtered}), NULL)`;
   },
   castToString: (col: string) => `toString(${col})`,
   castToFloat: (col: string) => `toFloat64(${col})`,

@@ -15,8 +15,9 @@ import {
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
 import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
-import { assertConstantArchivable } from "back-end/src/services/constants";
+import { assertConstantArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 import { assertConstantPublishGuards } from "back-end/src/services/publishGuards";
+import { constantChangeAffectsServedValue } from "back-end/src/services/experimentGuard";
 import { loadRevisionByVersion } from "./validations";
 import { toApiConstantRevision } from "./toApiConstantRevision";
 
@@ -81,10 +82,14 @@ export const postConstantRevisionRevert = createApiRequestHandler(
   const isPublish = strategy === "publish";
 
   // Reverting to a historically-archived state re-archives the constant; enforce
-  // the same referenced-constant guard as the archive endpoint (an archived-only
-  // change doesn't otherwise trip a dependency check). Mirrors the config twin.
-  if (isPublish && fieldsToUpdate.archived === true) {
-    await assertConstantArchivable(req.context, constant.id);
+  // the same soft referenced-constant warning as the archive endpoint (bypassable
+  // by ignoreWarnings). Only the archive transition is guarded. Mirrors the config twin.
+  if (isPublish && fieldsToUpdate.archived === true && !constant.archived) {
+    await assertConstantArchiveDependentsGuard(
+      req.context,
+      { id: constant.id, key: constant.key, project: constant.project },
+      { armed: false },
+    );
   }
 
   const patchOps: JsonPatchOperation[] = Object.entries(fieldsToUpdate).map(
@@ -152,7 +157,7 @@ export const postConstantRevisionRevert = createApiRequestHandler(
   // calls applyChanges directly (which doesn't), so enforce them here —
   // mirroring the config revert handler. Skipped for a metadata-only revert
   // (can't rewrite a served value).
-  if ("value" in fieldsToUpdate || "environmentValues" in fieldsToUpdate) {
+  if (constantChangeAffectsServedValue(Object.keys(fieldsToUpdate))) {
     await assertConstantPublishGuards(
       req.context,
       constant,
@@ -162,6 +167,10 @@ export const postConstantRevisionRevert = createApiRequestHandler(
       "environmentValues" in fieldsToUpdate
         ? (fieldsToUpdate.environmentValues as Record<string, string>)
         : constant.environmentValues,
+      // A revert that flips archived scrubs (or restores) refs — model the
+      // transition so dependents' schema breaks are checked, like every other
+      // publish path.
+      "archived" in fieldsToUpdate ? !!fieldsToUpdate.archived : undefined,
     );
   }
 

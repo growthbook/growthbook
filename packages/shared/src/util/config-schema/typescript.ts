@@ -627,10 +627,20 @@ function objectBodyToDocument(
       continue;
     }
     if (m[1].startsWith("[")) {
-      warnings.push({
-        code: "unsupported-member",
-        message: "Index signatures are not supported and were skipped",
-      });
+      // A permissive index signature (`[key: string]: unknown` / `any`) is
+      // semantically the config's extensibility ("Allow extra fields"), so
+      // skipping it loses nothing. Only a TYPED index signature — whose
+      // value-type constraint genuinely can't be represented — warns.
+      const valueType = m[3]
+        .trim()
+        .replace(/[;,]+$/, "")
+        .trim();
+      if (valueType !== "unknown" && valueType !== "any") {
+        warnings.push({
+          code: "unsupported-member",
+          message: `Index signatures are not supported; the "${valueType}" value constraint on extra keys was dropped.`,
+        });
+      }
       continue;
     }
     const key = unquote(m[1]);

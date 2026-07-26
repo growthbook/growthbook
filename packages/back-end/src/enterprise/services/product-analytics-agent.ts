@@ -242,9 +242,18 @@ function buildSnapshotSummary(
     parts.push(
       `Initial: ${curr.chartType} chart, ${curr.type} dataset, date range ${curr.dateRange.predefined}`,
     );
-    const valueNames = curr.dataset?.values?.map((v) => v.name).filter(Boolean);
-    if (valueNames?.length) {
-      parts.push(`values: ${valueNames.join(", ")}`);
+    if (curr.dataset?.type === "funnel") {
+      const stepNames = curr.dataset.steps?.map((s) => s.name).filter(Boolean);
+      if (stepNames?.length) {
+        parts.push(`steps: ${stepNames.join(", ")}`);
+      }
+    } else {
+      const valueNames = curr.dataset?.values
+        ?.map((v) => v.name)
+        .filter(Boolean);
+      if (valueNames?.length) {
+        parts.push(`values: ${valueNames.join(", ")}`);
+      }
     }
     if (curr.showAs) {
       parts.push(`showAs: ${curr.showAs}`);
@@ -261,12 +270,28 @@ function buildSnapshotSummary(
     );
   }
 
-  const prevNames = prev.dataset?.values?.map((v) => v.name) ?? [];
-  const currNames = curr.dataset?.values?.map((v) => v.name) ?? [];
-  const added = currNames.filter((n) => !prevNames.includes(n));
-  const removed = prevNames.filter((n) => !currNames.includes(n));
-  if (added.length) parts.push(`added: ${added.join(", ")}`);
-  if (removed.length) parts.push(`removed: ${removed.join(", ")}`);
+  // Funnels carry "steps"; everything else carries "values". Diff whichever
+  // shape applies; treat shape change as a coarse "dataset changed".
+  if (prev.dataset?.type === "funnel" && curr.dataset?.type === "funnel") {
+    const prevSteps = prev.dataset.steps.map((s) => s.name);
+    const currSteps = curr.dataset.steps.map((s) => s.name);
+    const added = currSteps.filter((n) => !prevSteps.includes(n));
+    const removed = prevSteps.filter((n) => !currSteps.includes(n));
+    if (added.length) parts.push(`added steps: ${added.join(", ")}`);
+    if (removed.length) parts.push(`removed steps: ${removed.join(", ")}`);
+  } else if (
+    prev.dataset?.type !== "funnel" &&
+    curr.dataset?.type !== "funnel"
+  ) {
+    const prevNames = prev.dataset?.values?.map((v) => v.name) ?? [];
+    const currNames = curr.dataset?.values?.map((v) => v.name) ?? [];
+    const added = currNames.filter((n) => !prevNames.includes(n));
+    const removed = prevNames.filter((n) => !currNames.includes(n));
+    if (added.length) parts.push(`added: ${added.join(", ")}`);
+    if (removed.length) parts.push(`removed: ${removed.join(", ")}`);
+  } else if (prev.dataset?.type !== curr.dataset?.type) {
+    parts.push(`dataset type: ${prev.dataset?.type} → ${curr.dataset?.type}`);
+  }
 
   const prevDims = prev.dimensions?.length ?? 0;
   const currDims = curr.dimensions?.length ?? 0;
@@ -700,33 +725,39 @@ async function normalizeConfigForExplorer(
     );
   }
 
-  // bigNumber: no dimensions, single value
-  if (config.chartType === "bigNumber") {
-    if (dims.length > 0) {
-      dims = [];
-      warnings.push(
-        "Removed all dimensions — bigNumber charts do not support dimensions.",
-      );
+  // Funnel datasets have a different structure (steps instead of values)
+  // and the AI agent isn't equipped to produce them. The bigNumber / value
+  // count constraints below assume a `values` array, so we skip them for
+  // funnels — the front-end already enforces funnel-specific limits.
+  if (dataset.type !== "funnel") {
+    // bigNumber: no dimensions, single value
+    if (config.chartType === "bigNumber") {
+      if (dims.length > 0) {
+        dims = [];
+        warnings.push(
+          "Removed all dimensions — bigNumber charts do not support dimensions.",
+        );
+      }
+      if (dataset.values.length > 1) {
+        dataset = {
+          ...dataset,
+          values: dataset.values.slice(0, 1),
+        } as typeof dataset;
+        warnings.push(
+          "Trimmed to 1 value — bigNumber charts only support a single value.",
+        );
+      }
     }
-    if (dataset.values.length > 1) {
-      dataset = {
-        ...dataset,
-        values: dataset.values.slice(0, 1),
-      } as typeof dataset;
-      warnings.push(
-        "Trimmed to 1 value — bigNumber charts only support a single value.",
-      );
-    }
-  }
 
-  // Enforce max dimensions (2, or 1 if multiple values)
-  const maxDims = dataset.values.length > 1 ? 1 : 2;
-  if (dims.length > maxDims) {
-    const removed = dims.length - maxDims;
-    dims = dims.slice(0, maxDims);
-    warnings.push(
-      `Removed ${removed} dimension(s) to stay within the limit of ${maxDims} (max 2, or 1 when multiple values).`,
-    );
+    // Enforce max dimensions (2, or 1 if multiple values)
+    const maxDims = dataset.values.length > 1 ? 1 : 2;
+    if (dims.length > maxDims) {
+      const removed = dims.length - maxDims;
+      dims = dims.slice(0, maxDims);
+      warnings.push(
+        `Removed ${removed} dimension(s) to stay within the limit of ${maxDims} (max 2, or 1 when multiple values).`,
+      );
+    }
   }
 
   // Load every referenced fact metric once. This map serves both the unit

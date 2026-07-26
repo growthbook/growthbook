@@ -85,6 +85,7 @@ const SimulateFeatureModal: FC<{
             <div className="col mb-3">
               <h4>Select Archetype</h4>
               <SelectField
+                size="legacy"
                 value={simulateForm.watch("archetype")}
                 options={archetypeOptions}
                 onChange={(a) => {

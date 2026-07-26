@@ -20,14 +20,16 @@ import {
 import { UpdateProps } from "shared/types/base-model";
 import { isEqual, omit } from "lodash";
 import { BadRequestError } from "back-end/src/util/errors";
+import { overlayDocsById } from "back-end/src/util/scanOverlay.util";
 import {
   resolvableValueChanged,
   assertConfigDeletable,
-  assertConfigArchivable,
   pruneScopedOverridesReferencing,
   syncScopedConfigMarkers,
 } from "back-end/src/services/constants";
+import { assertConfigArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 import { configToResolvable } from "back-end/src/services/resolvableValues";
+import { emitOrDeferBulkPublishEvent } from "back-end/src/events/bulkPublishCorrelation";
 import {
   logConfigCreatedEvent,
   logConfigUpdatedEvent,
@@ -95,15 +97,23 @@ export class ConfigModel extends BaseClass {
   // Use the UNFILTERED config list (lineage is an org-global graph): a permission
   // -filtered read would hide a config in a project the writer can't see and let
   // a cross-project cycle through it slip past.
-  private async assertNoCycle(doc: ConfigInterface): Promise<void> {
+  // The lineage/`@config:` keys a proposed config would form a reference cycle
+  // through, resolved against this context's (possibly overlaid) config graph —
+  // empty when acyclic. Public so the bulk publisher can raise it as a plan
+  // gate against the combined end-state; `assertNoCycle` throws on it.
+  public async findReferenceCycle(doc: ConfigInterface): Promise<string[]> {
     const effectiveValue = withConfigExtends(doc.value, getConfigBaseKeys(doc));
-    const cyclic = getCyclicConstantRefs(
+    return getCyclicConstantRefs(
       doc.key,
       effectiveValue,
       undefined,
       (await this.getAllForReconcile()).map(configToResolvable),
       "config",
     );
+  }
+
+  private async assertNoCycle(doc: ConfigInterface): Promise<void> {
+    const cyclic = await this.findReferenceCycle(doc);
     if (cyclic.length) {
       throw new BadRequestError(
         `This config references ${cyclic.join(", ")}, which would create a reference cycle.`,
@@ -125,15 +135,45 @@ export class ConfigModel extends BaseClass {
     newDoc: ConfigInterface,
   ) {
     // Model-level backstop (handlers also check, for earlier/friendlier errors):
-    // block archiving a config that's still referenced or has live descendants,
-    // so no write path — including a future cascade — can orphan lineage.
-    if (updates.archived === true && !existing.archived) {
-      await assertConfigArchivable(this.context, existing);
-    }
+    // archiving a config with live dependents (references or lineage children) is
+    // a uniform SOFT warning, bypassable by ignoreWarnings — background jobs (the
+    // deferred fire) always ignore warnings, so an armed archive publish already
+    // re-checked its fingerprint at assertPublishable passes here. A direct write
+    // without ignoreWarnings still surfaces the warning on any write path.
+    // A bulk-publish commit already evaluated this guard as a plan gate against
+    // the release's combined end-state; re-running it here would judge the
+    // mid-commit mix (a sibling that removes the last dependent may not have
+    // applied yet) and spuriously fail the release.
     if (
-      updates.parent !== undefined ||
-      updates.extends !== undefined ||
-      updates.value !== undefined
+      updates.archived === true &&
+      !existing.archived &&
+      !this.context.bulkPublishApplying
+    ) {
+      await assertConfigArchiveDependentsGuard(
+        this.context,
+        {
+          id: existing.id,
+          key: existing.key,
+          project: existing.project,
+          // Fingerprint the POST-update value/lineage (newDoc), matching the
+          // handler-layer guard — a revision that archives AND reparents/empties
+          // in one write would otherwise collect dependents against the stale
+          // live state and spuriously over-block.
+          value: newDoc.value,
+          parent: newDoc.parent,
+          extends: newDoc.extends,
+        },
+        { armed: false },
+      );
+    }
+    // Lineage/value reference-cycle detection: skipped while a bulk commit is
+    // applying (the cycle gate validated the acyclic END-state at plan; the
+    // sequential apply can transiently form a cycle the end-state doesn't have).
+    if (
+      (updates.parent !== undefined ||
+        updates.extends !== undefined ||
+        updates.value !== undefined) &&
+      !this.context.bulkPublishApplying
     ) {
       await this.assertNoCycle(newDoc);
     }
@@ -332,13 +372,16 @@ export class ConfigModel extends BaseClass {
       });
     }
 
-    // Skip the webhook event when only `dateUpdated` changed.
+    // Skip the webhook event when only `dateUpdated` changed. During a
+    // bulk-publish commit the emission defers to the post-commit flush.
     const previous = this.toApiInterface(existing);
     const current = this.toApiInterface(newDoc);
     if (
       !isEqual(omit(previous, ["dateUpdated"]), omit(current, ["dateUpdated"]))
     ) {
-      await logConfigUpdatedEvent(this.context, previous, current);
+      await emitOrDeferBulkPublishEvent(this.context, () =>
+        logConfigUpdatedEvent(this.context, previous, current),
+      );
     }
   }
 
@@ -383,17 +426,33 @@ export class ConfigModel extends BaseClass {
   // retries.
   public getAllForReconcile(): Promise<ConfigInterface[]> {
     if (this.reconcileSnapshot === null) {
-      const load = this._find({}, { bypassReadPermissionChecks: true }).catch(
-        (err) => {
+      const load = this._find({}, { bypassReadPermissionChecks: true })
+        .then((docs) => this.applyScanOverlay(docs))
+        .catch((err) => {
           // Clear only our own failed load — a write may have invalidated it
           // and a newer healthy load may already be memoized.
           if (this.reconcileSnapshot === load) this.reconcileSnapshot = null;
           throw err;
-        },
-      );
+        });
       this.reconcileSnapshot = load;
     }
     return this.reconcileSnapshot;
+  }
+
+  // Scan-overlay: substitute hypothetical entity states into every snapshot
+  // read from this model instance. Used by the bulk publisher's overlay scan
+  // context so validation/guards evaluate a proposed multi-entity end-state
+  // instead of live DB state. Only ever set on a dedicated plan-scoped scan
+  // context — never on a request context that performs writes.
+  private scanOverlay: Map<string, ConfigInterface> | null = null;
+
+  public setScanOverlay(docs: ConfigInterface[]): void {
+    this.scanOverlay = new Map(docs.map((d) => [d.id, d]));
+    this.invalidateReconcileSnapshot();
+  }
+
+  private applyScanOverlay(docs: ConfigInterface[]): ConfigInterface[] {
+    return overlayDocsById(docs, this.scanOverlay);
   }
 
   private invalidateReconcileSnapshot(): void {

@@ -33,9 +33,10 @@ import {
   deriveChange,
 } from "back-end/src/services/savedGroupRevisionEvents";
 import {
+  assertSavedGroupDeletable,
   loadSavedGroupReferences,
-  totalSavedGroupReferences,
 } from "back-end/src/services/savedGroups";
+import { assertSavedGroupArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 
 // region POST /saved-groups
 
@@ -708,31 +709,16 @@ export const putSavedGroup = async (
     fieldsToUpdate.archived = archived;
   }
 
-  // Block archive when the saved group is still referenced. Same gate as the
-  // REST archive endpoint and the front-end SavedGroupArchiveModal — it keeps
-  // the invariant that archived groups have no references, so they're
-  // naturally excluded from the SDK payload's `filterUsedSavedGroups` without
-  // needing a separate scrub step. Only the archive transition is blocked;
-  // unarchiving is always allowed.
+  // Soft-warn (bypassable by ignoreWarnings) on the archive transition when the
+  // saved group is still referenced. Same gate as the REST archive endpoint and
+  // the front-end SavedGroupArchiveModal. Only archiving is guarded; unarchiving
+  // is always allowed.
   if (fieldsToUpdate.archived === true && !comparisonBase.archived) {
-    const refs = await loadSavedGroupReferences(context, id);
-    if (refs && totalSavedGroupReferences(refs) > 0) {
-      const parts: string[] = [];
-      if (refs.features.length) {
-        parts.push(`${refs.features.length} feature(s)`);
-      }
-      if (refs.experiments.length) {
-        parts.push(`${refs.experiments.length} experiment(s)`);
-      }
-      if (refs.savedGroups.length) {
-        parts.push(`${refs.savedGroups.length} other saved group(s)`);
-      }
-      throw new Error(
-        `Cannot archive saved group: it is still referenced by ${parts.join(
-          ", ",
-        )}. Remove these references first.`,
-      );
-    }
+    await assertSavedGroupArchiveDependentsGuard(
+      context,
+      { id },
+      { armed: false },
+    );
   }
 
   const forceCreateRevision = req.query.forceCreateRevision === "1";
@@ -959,6 +945,11 @@ export const deleteSavedGroup = async (
     });
     return;
   }
+
+  // Reference integrity (orthogonal to the archived-first UX gate above): a
+  // dangling group id silently flips live targeting, so block delete while any
+  // feature/experiment/other saved group still references it.
+  await assertSavedGroupDeletable(context, id);
 
   await context.models.savedGroups.delete(savedGroup);
 

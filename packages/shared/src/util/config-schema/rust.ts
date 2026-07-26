@@ -144,14 +144,29 @@ function typeTokenToNode(
   }
   const mapMatch = t.match(/^(?:HashMap|BTreeMap)\s*<[^,]+,(.+)>$/);
   if (mapMatch) {
+    const valueToken = mapMatch[1].trim();
     const valueNode = typeTokenToNode(
-      mapMatch[1].trim(),
+      valueToken,
       byName,
       seen,
       depth + 1,
       path,
       warnings,
     );
+    // `HashMap<String, serde_json::Value>` is the permissive open-object
+    // construct — `{type:"object"}` captures it losslessly, so no warning. A
+    // TYPED value that can't be resolved genuinely loses its constraint.
+    if (
+      !valueNode &&
+      valueToken !== "serde_json::Value" &&
+      valueToken !== "Value"
+    ) {
+      warnings.push({
+        code: "unresolved-type",
+        path,
+        message: `${path}: map value type "${valueToken}" couldn't be resolved; values left untyped.`,
+      });
+    }
     return {
       type: "object",
       ...(valueNode ? { additionalProperties: valueNode } : {}),

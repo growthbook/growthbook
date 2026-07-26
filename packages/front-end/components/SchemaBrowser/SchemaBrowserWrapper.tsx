@@ -96,6 +96,7 @@ export default function SchemaBrowserWrapper({
           {informationSchema && !informationSchema.error && (
             <Box mt="1">
               <Field
+                size="legacy"
                 type="search"
                 value={tableFilter}
                 onChange={(e) => onTableFilterChange(e.target.value)}

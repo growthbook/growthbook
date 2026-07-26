@@ -65,6 +65,7 @@ export default function FeatureSettings() {
           </Box>
           <Box mb="4" width="100%">
             <Field
+              size="legacy"
               label={
                 <PremiumTooltip
                   commercialFeature="hash-secure-attributes"
@@ -121,6 +122,7 @@ export default function FeatureSettings() {
               spaces.
             </Text>
             <Field
+              size="legacy"
               id="featureKeyExample"
               {...form.register("featureKeyExample")}
               placeholder="my-feature"
@@ -142,6 +144,7 @@ export default function FeatureSettings() {
               companies.
             </Text>
             <Field
+              size="legacy"
               id="featureRegexValidator"
               {...form.register("featureRegexValidator")}
               placeholder=""
@@ -225,7 +228,7 @@ export default function FeatureSettings() {
             <Checkbox
               id="toggle-blockPublishOnSchemaError"
               label="Block publishing on JSON schema errors"
-              description="When publishing a revision, re-check feature and config values against their JSON schema and block the publish if they don't match. Disable to surface a bypassable warning instead. Per-request edits are always validated unless ?skipSchemaValidation=true is passed."
+              description={`When publishing a revision, re-check feature and config values against their JSON schema and block the publish if they don't match. Disable to surface a bypassable warning instead. Per-request edits are always validated unless the request body passes "skipSchemaValidation": true.`}
               value={form.watch("blockPublishOnSchemaError") ?? true}
               setValue={(value) =>
                 form.setValue("blockPublishOnSchemaError", value, {
@@ -266,6 +269,7 @@ export default function FeatureSettings() {
 
           <Box mb="5">
             <SelectField
+              size="legacy"
               id="preferredEnvironment"
               label="Preferred environment for Feature Flag pages"
               labelClassName="font-weight-semibold"
@@ -397,6 +401,7 @@ export default function FeatureSettings() {
                   </Box>
                   <Box mb="5">
                     <Field
+                      size="legacy"
                       label="Only show code refs from the following branches (comma-separated)"
                       type="text"
                       placeholder="main, qa, dev"
@@ -409,6 +414,7 @@ export default function FeatureSettings() {
 
                   <Box mb="5">
                     <SelectField
+                      size="legacy"
                       label="Platform (to allow direct linking)"
                       labelClassName="font-weight-semibold"
                       containerClassName="mb-0"

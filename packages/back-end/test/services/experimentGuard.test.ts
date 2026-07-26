@@ -3,6 +3,10 @@ import {
   experimentGuardConflictsAcknowledged,
   decideExperimentGuard,
   configPublishAffectedRoots,
+  configChangeAffectsServedValue,
+  configRevisionAffectsServedValue,
+  constantChangeAffectsServedValue,
+  constantRevisionAffectsServedValue,
 } from "back-end/src/services/experimentGuard";
 
 type Impl = Parameters<typeof computeExperimentGuardConflictKeys>[0][number];
@@ -13,6 +17,38 @@ const impl = (over: Partial<Impl>): Impl => ({
   experimentStatus: "running",
   state: "live",
   ...over,
+});
+
+describe("served-value change classification", () => {
+  it("treats project and archived changes as value-affecting (refs are scrubbed)", () => {
+    expect(configChangeAffectsServedValue(["project"])).toBe(true);
+    expect(configChangeAffectsServedValue(["archived"])).toBe(true);
+    expect(constantChangeAffectsServedValue(["project"])).toBe(true);
+    expect(constantChangeAffectsServedValue(["archived"])).toBe(true);
+  });
+
+  it("still skips metadata-only changes", () => {
+    expect(configChangeAffectsServedValue(["name", "description"])).toBe(false);
+    expect(constantChangeAffectsServedValue(["name", "owner"])).toBe(false);
+  });
+
+  it("classifies revision patch ops by their top-level field", () => {
+    expect(
+      configRevisionAffectsServedValue([
+        { op: "replace", path: "/archived", value: true },
+      ]),
+    ).toBe(true);
+    expect(
+      constantRevisionAffectsServedValue([
+        { op: "replace", path: "/project", value: "prj_a" },
+      ]),
+    ).toBe(true);
+    expect(
+      constantRevisionAffectsServedValue([
+        { op: "replace", path: "/name", value: "renamed" },
+      ]),
+    ).toBe(false);
+  });
 });
 
 describe("computeExperimentGuardConflictKeys", () => {
@@ -72,6 +108,36 @@ describe("computeExperimentGuardConflictKeys", () => {
       new Set(["base"]),
     );
     expect([...keys]).toEqual(["base"]);
+  });
+
+  it("keys conflicts per (config, experiment) — a different experiment is a new conflict", () => {
+    // The arm-time fingerprint must go stale when a DIFFERENT experiment starts
+    // on an acknowledged config: with config-key-only identity, E1 stopping and
+    // E2 starting between arm and fire kept the set equal and published over E2.
+    const armTime = computeExperimentGuardConflictKeys(
+      [impl({ configKey: "base", experimentId: "exp_1" })],
+      new Set(["base"]),
+    );
+    const fireTime = computeExperimentGuardConflictKeys(
+      [impl({ configKey: "base", experimentId: "exp_2" })],
+      new Set(["base"]),
+    );
+    expect([...armTime]).toEqual(["base|exp:exp_1"]);
+    expect(experimentGuardConflictsAcknowledged(fireTime, [...armTime])).toBe(
+      false,
+    );
+    // The acknowledged experiment stopping is still a covered subset.
+    expect(
+      experimentGuardConflictsAcknowledged(new Set<string>(), [...armTime]),
+    ).toBe(true);
+  });
+
+  it("keys a contextual-bandit arm by its bandit id", () => {
+    const keys = computeExperimentGuardConflictKeys(
+      [impl({ configKey: "base", contextualBanditId: "cb_1" })],
+      new Set(["base"]),
+    );
+    expect([...keys]).toEqual(["base|cb:cb_1"]);
   });
 });
 
