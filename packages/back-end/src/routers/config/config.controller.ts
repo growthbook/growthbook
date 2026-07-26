@@ -1154,7 +1154,12 @@ export const deleteConfig = async (
   }
   // Check delete permission before the (DB-scanning) dependency assertion, so a
   // reader without manage access gets a clean 403 rather than a dependency error.
-  if (!context.permissions.canDeleteConfig(existing, NO_ENVIRONMENT_BINDING)) {
+  if (
+    !context.permissions.canDeleteConfig(
+      existing,
+      configPublishEnvironments(context, existing),
+    )
+  ) {
     context.permissions.throwPermissionError();
   }
   // A locked config is frozen at its published revision; deleting it would

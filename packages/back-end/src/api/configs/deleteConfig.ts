@@ -1,5 +1,5 @@
-import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { deleteConfigValidator } from "shared/validators";
+import { configPublishEnvironments } from "back-end/src/revisions/revisionPublishEnvironments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
@@ -19,7 +19,10 @@ export const deleteConfig = createApiRequestHandler(deleteConfigValidator)(
     }
 
     if (
-      !req.context.permissions.canDeleteConfig(config, NO_ENVIRONMENT_BINDING)
+      !req.context.permissions.canDeleteConfig(
+        config,
+        configPublishEnvironments(req.context, config),
+      )
     ) {
       req.context.permissions.throwPermissionError();
     }

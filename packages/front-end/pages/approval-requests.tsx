@@ -357,11 +357,10 @@ const ApprovalRequests: FC = () => {
     return items.filter((item) => allowed.has(item.status));
   }, [items, hasExplicitStatusFilter]);
 
-  // Per-row "can I act on this as a reviewer?" check. Mirrors the rules used
-  // elsewhere: `canReview` permission on the feature's project for feature
-  // revisions, and "can edit = can review" (canUpdateSavedGroup) for
-  // saved-group revisions — matching canUserReviewEntity in
-  // shared/src/revisions/helpers.ts.
+  // Per-row "can I act on this as a reviewer?" check. Reviewing is its own
+  // authority for every model, so each row asks the same question of its own
+  // family's review atom. Constants and Configs previously fell through to
+  // `false`, hiding their rows from every reviewer.
   const canReviewRow = useCallback(
     (row: ApprovalRow): boolean => {
       if (row.entityType === "feature") {
@@ -369,10 +368,14 @@ const ApprovalRequests: FC = () => {
           project: row.projects[0] ?? "",
         });
       }
-      if (row.entityType === "saved-group") {
+      if (
+        row.entityType === "saved-group" ||
+        row.entityType === "constant" ||
+        row.entityType === "config"
+      ) {
         return permissionsUtil.canRevisionAction(
-          "saved-group",
-          "draft",
+          row.entityType,
+          "review",
           { projects: row.projects },
           NO_ENVIRONMENT_BINDING,
         );

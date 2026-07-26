@@ -345,8 +345,16 @@ no edit verb. What remains is what an org actually governs separately:
 | `bypassApprovalFlags` / `bypassApprovalSavedGroups` | project       | project            |
 
 **Footprints.** Env-scope only where the entity declares its own environments:
-features (`environmentSettings`), Config flavors (`scopedConfig.environments`),
-Constants (`environmentValues`). A base/child Config, a Constant's base value and
+features (`environmentSettings`) and Config flavors
+(`scopedConfig.environments`) — those two are wired and real.
+
+**Constants are project-scoped in practice.** They _could_ bind through
+`environmentValues`, and `constantPublishEnvironments(changedEnvironments?)` is
+the seam for it, but every caller today passes nothing, so it always returns
+`NO_ENVIRONMENT_BINDING`. Wiring it needs the changed env keys at each site, and
+the adapter hooks only receive a snapshot, not the diff — a partial job would
+env-scope the PUT while leaving the adapter unscoped, which is worse than uniform.
+Treat constants as project-scoped until that's done properly. A base/child Config, a Constant's base value and
 every Saved Group reach environments only through consuming features — down to
 individual rules — which can't be computed inside a permission check, so they pass
 `NO_ENVIRONMENT_BINDING` and fall back to project scope. That constant is named
@@ -411,3 +419,47 @@ button publishes anyway. Bring them in line with REST:
 - unarmed → `review` **and** `publish`; the approver is electing the publish
 
 Done, with `planApproveAndPublish` unit-tested for all six combinations.
+
+## Parallelism audit
+
+Built the model × action × surface matrix rather than spot-checking. **The engine
+REST surface is exactly parallel**: every lifecycle endpoint shared by Configs,
+Constants and Saved Groups resolves to the same atom (draft for create/discard/
+rebase/request-review/archive/metadata/value, review for submit-review,
+delete+draft+revert for revert, `assertCanPublishRevision` for publish,
+`canLandArchivedState` for archive, publish for the entity update). The internal
+`put` handler is identical across all three. Feature REST v1/v2 pairs match on
+every endpoint that exists in both.
+
+Four defects found and fixed:
+
+1. **Approvals page reviewed the wrong atom.** `canReviewRow` asked features for
+   `review` but saved groups for `draft` (my regression — `main` used the edit
+   atom, which _was_ the review rule then), and returned a hardcoded `false` for
+   Constants and Configs, hiding their rows from every reviewer (pre-existing).
+   All four now ask their own family's review atom.
+2. **Feature project moves weren't checked at land.** The engine re-checks the
+   destination on publish via `ownershipChanged`; features only checked it when
+   the move was _staged_. Since the stager and the publisher needn't be the same
+   person, a move could land into a project the publisher had no authority over.
+   `assertCanPublishFeatureRevision` now checks the destination too.
+3. **Config delete footprint disagreed across surfaces.** The front end passed the
+   flavor's environments, the back end passed none — front end stricter than
+   server. The flavor envs are correct; the REST handler, controller and model
+   hook now all use `configPublishEnvironments`.
+4. **Stale vocabulary.** Page-level `canUpdate` locals (already resolving to
+   `draft`) renamed to `canDraft`, and two comments still describing "manage" or
+   "can edit = can review" corrected. Naming a variable after a verb the model no
+   longer has is what made `manageFlags` unreadable.
+
+Checked and clean: no back-end file lost all its gating vs `main`; every 2→1 drop
+in the features controller is the intended `canUpdateFeature && X` → `X` decouple
+and no handler is ungated; no REST handler that had a gate on `main` is now
+ungated; no new REST handlers were added; and no env-scoped atom is called with an
+empty footprint anywhere except the documented no-binding cases.
+
+Known non-defects: Constants have no internal-controller delete gate (the model
+hook enforces it, same as `main`); Constants and Saved Groups lack the
+recall-review / reopen / schedule-publish REST endpoints Configs have (feature
+surface, not permissions); Feature delete additionally requires publish because
+it can delete a _live_ flag via the REST bypass, which the engine models can't.

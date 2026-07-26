@@ -848,7 +848,7 @@ export default function ConfigDetailPage(): React.ReactElement {
     mutateDefinitions();
   };
 
-  const canUpdate = permissionsUtil.canRevisionAction(
+  const canDraft = permissionsUtil.canRevisionAction(
     "config",
     "draft",
     config,
@@ -877,7 +877,7 @@ export default function ConfigDetailPage(): React.ReactElement {
   // the live view; a selected merged/discarded revision is a read-only history
   // view (selectedRevision set + not a draft), so it stays non-editable.
   const isLocked = !!config.lock;
-  const canEditNow = canUpdate && !isLocked && (!selectedRevision || isDraft);
+  const canEditNow = canDraft && !isLocked && (!selectedRevision || isDraft);
   // Archiving is delete-class server-side — it takes the Config out of service,
   // and being archived is what allows deleting it. Unarchiving returns it to
   // service, so it's an ordinary publish.
@@ -1425,7 +1425,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                     extensible={effectiveExtensible}
                   />
                 </Box>
-                {canUpdate && (
+                {canDraft && (
                   <Box mt="3" pl="1">
                     {hasConfigsFeature ? (
                       <Link
@@ -1577,7 +1577,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                       Audit history
                     </DropdownMenuItem>
                   </DropdownMenuGroup>
-                  {((!config.lock && canUpdate) || !!config.lock) && (
+                  {((!config.lock && canDraft) || !!config.lock) && (
                     <>
                       <DropdownMenuSeparator />
                       <DropdownMenuGroup>
@@ -1611,7 +1611,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                       </DropdownMenuGroup>
                     </>
                   )}
-                  {((!config.experimentGuard && canUpdate) ||
+                  {((!config.experimentGuard && canDraft) ||
                     !!config.experimentGuard) && (
                     <>
                       <DropdownMenuSeparator />
@@ -1730,8 +1730,8 @@ export default function ConfigDetailPage(): React.ReactElement {
                   selectedRevision={selectedRevision}
                   entityNoun="config"
                   hasRevisions={allRevisions.length > 0}
-                  canEditTitle={canUpdate && !isLocked}
-                  canEditDescription={canUpdate && !isLocked}
+                  canEditTitle={canDraft && !isLocked}
+                  canEditDescription={canDraft && !isLocked}
                   fallbackOwnerId={config.owner}
                   fallbackDateCreated={config.dateCreated}
                   onSelectRevision={selectRevision}
@@ -1743,11 +1743,11 @@ export default function ConfigDetailPage(): React.ReactElement {
                     await mutateRevisions();
                   }}
                   onNewDraft={
-                    canUpdate && !isLocked ? handleNewDraft : undefined
+                    canDraft && !isLocked ? handleNewDraft : undefined
                   }
                   onReviewPublish={() => setTabAndScroll("review")}
                   onEditDescription={
-                    canUpdate && !isLocked
+                    canDraft && !isLocked
                       ? () => setEditDescriptionModal(true)
                       : undefined
                   }
@@ -2106,7 +2106,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                 />
                 <ConfigCustomHooksSection
                   config={config}
-                  canManage={canUpdate}
+                  canManage={canDraft}
                   lineage={[
                     ...data.lineage,
                     ...(data.composerFamilies ?? []).flatMap((f) => f.lineage),
@@ -2124,7 +2124,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                 entityName={config.name}
                 entityNoun="config"
                 requiresApproval={selectedRevisionRequiresApproval}
-                canEditEntity={canUpdate}
+                canEditEntity={canDraft}
                 canRevertEntity={permissionsUtil.canRevisionAction(
                   "config",
                   "revert",

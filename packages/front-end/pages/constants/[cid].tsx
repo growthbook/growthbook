@@ -298,7 +298,7 @@ export default function ConstantDetailPage(): React.ReactElement {
     if (res?.revision) await onRevisionCreated(res.revision);
   };
 
-  const canUpdate = permissionsUtil.canRevisionAction(
+  const canDraft = permissionsUtil.canRevisionAction(
     "constant",
     "draft",
     constant,
@@ -312,7 +312,7 @@ export default function ConstantDetailPage(): React.ReactElement {
   // Editing is only meaningful on the live state or a draft (not when viewing a
   // merged/discarded revision). On live it starts a new draft; on a draft it
   // updates it.
-  const canEditNow = canUpdate && (!selectedRevision || isDraft);
+  const canEditNow = canDraft && (!selectedRevision || isDraft);
   // Archiving is delete-class server-side — it takes the Constant out of service,
   // and being archived is what allows deleting it. Unarchiving returns it to
   // service, so it's an ordinary publish.
@@ -508,8 +508,8 @@ export default function ConstantDetailPage(): React.ReactElement {
               selectedRevision={selectedRevision}
               entityNoun="constant"
               hasRevisions={allRevisions.length > 0}
-              canEditTitle={canUpdate}
-              canEditDescription={canUpdate}
+              canEditTitle={canDraft}
+              canEditDescription={canDraft}
               fallbackOwnerId={constant.owner}
               fallbackDateCreated={constant.dateCreated}
               onSelectRevision={selectRevision}
@@ -520,10 +520,10 @@ export default function ConstantDetailPage(): React.ReactElement {
                 });
                 await mutateRevisions();
               }}
-              onNewDraft={canUpdate ? handleNewDraft : undefined}
+              onNewDraft={canDraft ? handleNewDraft : undefined}
               onReviewPublish={() => setTabAndScroll("review")}
               onEditDescription={
-                canUpdate ? () => setEditDescriptionModal(true) : undefined
+                canDraft ? () => setEditDescriptionModal(true) : undefined
               }
             />
             <Frame mb="4" px="6" py="5">

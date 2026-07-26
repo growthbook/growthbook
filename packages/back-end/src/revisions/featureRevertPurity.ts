@@ -153,6 +153,23 @@ export async function assertCanPublishFeatureRevision({
     context.permissions.throwPermissionError();
   }
 
+  // A merge that moves the flag to another project has to land where the
+  // publisher has authority, not just leave where they do. Staging the move
+  // already checks the destination, but the person who stages it and the person
+  // who publishes it needn't be the same. Mirrors `ownershipChanged` on the
+  // engine's publish path.
+  const destination = mergeChanges?.metadata?.project;
+  if (
+    destination !== undefined &&
+    (destination || "") !== (feature.project || "") &&
+    !context.permissions.canPublishFeature(
+      { project: destination },
+      environments,
+    )
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
   if (context.permissions.canPublishFeature(feature, environments)) return;
 
   if (

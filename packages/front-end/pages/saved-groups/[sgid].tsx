@@ -274,7 +274,7 @@ export default function EditSavedGroupPage() {
   const valuesPage = sortedValues.slice(start, end);
   const { user } = useUser();
   const permissionsUtil = usePermissionsUtil();
-  const canUpdate = savedGroup
+  const canDraft = savedGroup
     ? permissionsUtil.canRevisionAction(
         "saved-group",
         "draft",
@@ -294,7 +294,7 @@ export default function EditSavedGroupPage() {
     ((isArchivedInView
       ? permissionsUtil.canRevisionAction("saved-group", "publish", savedGroup)
       : permissionsUtil.canDeleteSavedGroup(savedGroup)) ||
-      canUpdate);
+      canDraft);
 
   const canAdminPublish =
     !!approvalRequired &&
@@ -1175,8 +1175,8 @@ export default function EditSavedGroupPage() {
               selectedRevision={selectedRevision}
               entityNoun="saved group"
               hasRevisions={hasRevisions}
-              canEditTitle={canUpdate}
-              canEditDescription={canUpdate}
+              canEditTitle={canDraft}
+              canEditDescription={canDraft}
               fallbackOwnerId={savedGroup.owner}
               fallbackDateCreated={savedGroup.dateCreated}
               onSelectRevision={selectFlow}
