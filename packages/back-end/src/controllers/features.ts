@@ -751,7 +751,7 @@ export async function postFeatures(
   if (org.settings?.requireProjectForFeatures && !otherProps.project) {
     throw new Error("Must specify a project for new features");
   }
-  if (org.settings?.requireDescriptionForFeatures && !otherProps.description) {
+  if (org.settings?.requireDescriptionForFeatures && !otherProps.description?.trim()) {
     throw new Error("Must specify a description for new features");
   }
   // Validate projects - We can remove this validation when FeatureModel is migrated to BaseModel
@@ -5085,7 +5085,7 @@ export async function putFeature(
   if (
     org.settings?.requireDescriptionForFeatures &&
     "description" in updates &&
-    !updates.description
+    !updates.description?.trim()
   ) {
     throw new Error("Must specify a description");
   }

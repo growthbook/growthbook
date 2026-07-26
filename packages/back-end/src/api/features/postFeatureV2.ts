@@ -70,7 +70,7 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
     }
     if (
       req.context.org.settings?.requireDescriptionForFeatures &&
-      !req.body.description
+      !req.body.description?.trim()
     ) {
       throw new Error("Must specify a description for new features");
     }

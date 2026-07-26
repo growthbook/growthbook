@@ -699,6 +699,28 @@ describe("features API", () => {
       });
     });
 
+    it("fails to create new features with whitespace-only description", async () => {
+      requireDescContext();
+
+      const response = await request(app)
+        .post("/api/v1/features")
+        .send({
+          defaultValue: "defaultValue",
+          valueType: "string",
+          owner: "owner",
+          description: "   ",
+          project: "project",
+          id: "id",
+          archived: false,
+          tags: [],
+        });
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({
+        message: "Must specify a description for new features",
+      });
+    });
+
     it("fails to create new features when description is omitted", async () => {
       requireDescContext();
 
@@ -733,6 +755,20 @@ describe("features API", () => {
       });
 
       expect(response.status).toBe(200);
+    });
+
+    it("fails to update a feature when description is whitespace-only", async () => {
+      requireDescContext();
+
+      const existingFeature = makeFeature({ description: "existing desc" });
+      (getFeature as jest.Mock).mockResolvedValue(existingFeature);
+
+      const response = await request(app)
+        .post(`/api/v1/features/${existingFeature.id}`)
+        .send({ description: "   " });
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({ message: "Must specify a description" });
     });
 
     it("fails to update a feature when description is cleared", async () => {

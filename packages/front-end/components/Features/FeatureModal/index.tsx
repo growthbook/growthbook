@@ -316,7 +316,7 @@ export default function FeatureModal({
         if (!valueType) {
           throw new Error("Please select a value type");
         }
-        if (requireDescriptionForFeatures && !feature.description) {
+        if (requireDescriptionForFeatures && !feature.description?.trim()) {
           throw new Error("Please add a description");
         }
 

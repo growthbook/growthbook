@@ -96,7 +96,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     if (
       req.context.org.settings?.requireDescriptionForFeatures &&
       description != null &&
-      !description
+      !description.trim()
     ) {
       throw new Error("Must specify a description");
     }

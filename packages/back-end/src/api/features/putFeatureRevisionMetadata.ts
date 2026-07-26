@@ -53,7 +53,7 @@ export async function setRevisionMetadata(
   if (
     context.org.settings?.requireDescriptionForFeatures &&
     metadataFields.description !== undefined &&
-    !metadataFields.description
+    !metadataFields.description.trim()
   ) {
     throw new BadRequestError("Must specify a description");
   }
