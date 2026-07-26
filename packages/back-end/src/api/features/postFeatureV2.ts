@@ -1,4 +1,4 @@
-import { validateFeatureValue } from "shared/util";
+import { validateFeatureValue, normalizeTargetingProjects } from "shared/util";
 import { postFeatureV2Validator } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -28,6 +28,8 @@ import { validateEnvKeys } from "./postFeature";
 import {
   assertConfigSchemaCompat,
   assertValidProjectId,
+  assertValidProjectIds,
+  assertValidRuleProjectIds,
   assertValidRuleConfigKeys,
   assertValidBaseConfig,
   assertValidDefaultValueConfig,
@@ -68,6 +70,7 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
     }
 
     await assertValidProjectId(req.body.project, req.context);
+    await assertValidProjectIds(req.body.targetingProjects, req.context);
 
     await validateCustomFields(
       req.body.customFields,
@@ -87,6 +90,11 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
       owner: await resolveOwnerForCreate(req.body.owner, req.context),
       description: req.body.description || "",
       project: req.body.project || "",
+      ...normalizeTargetingProjects({
+        project: req.body.project || "",
+        targetingAllProjects: req.body.targetingAllProjects,
+        targetingProjects: req.body.targetingProjects,
+      }),
       dateCreated: new Date(),
       dateUpdated: new Date(),
       organization: req.context.org.id,
@@ -124,6 +132,7 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
     feature.rules = (req.body.rules ?? []).map((rule) =>
       mapV2ApiRuleToFeatureRule(rule),
     );
+    await assertValidRuleProjectIds(feature.rules, req.context);
 
     // Config backing comes through dedicated fields — reject a raw `@config:`
     // in the default value, validate the fields, then compose the stored value

@@ -1,6 +1,8 @@
 import type { FeatureInterface, FeatureRule } from "shared/types/feature";
+import type { ReqContext } from "back-end/types/organization";
 import {
   ApiRuleV2Input,
+  assertValidRuleProjectIds,
   composeConfigBacking,
   extractRevisionMetadata,
   mapV2ApiRuleToFeatureRule,
@@ -169,6 +171,37 @@ describe("mapV2ApiRuleToFeatureRule", () => {
         coverage: 0.5,
         hashAttribute: "userId",
       });
+    });
+
+    // GET→edit→PUT must persist id/seed/hashVersion verbatim (else re-bucketing).
+    it("preserves id, seed, and hashVersion on round-trip", () => {
+      const out = mapV2ApiRuleToFeatureRule({
+        id: "fr_explicit",
+        type: "rollout",
+        value: "v",
+        coverage: 0.5,
+        hashAttribute: "userId",
+        seed: "my-seed",
+        hashVersion: 2,
+      } as ApiRuleV2Input);
+      expect(out).toMatchObject({
+        id: "fr_explicit",
+        seed: "my-seed",
+        hashVersion: 2,
+        hashAttribute: "userId",
+      });
+    });
+
+    // Absent seed stays absent — the write-time backfill owns the default.
+    it("does not invent a seed when the caller omits one", () => {
+      const out = mapV2ApiRuleToFeatureRule({
+        type: "rollout",
+        value: "v",
+        coverage: 0.5,
+        hashAttribute: "userId",
+      } as ApiRuleV2Input);
+      expect(out).not.toHaveProperty("seed");
+      expect(out).not.toHaveProperty("hashVersion");
     });
   });
 
@@ -405,5 +438,31 @@ describe("extractRevisionMetadata", () => {
     expect(remaining).toEqual(updates);
     // Returned `remaining` is a fresh object, not the same reference.
     expect(remaining).not.toBe(updates);
+  });
+});
+
+describe("assertValidRuleProjectIds", () => {
+  const context = {
+    getProjects: async () => [{ id: "p1" }, { id: "p2" }],
+  } as unknown as ReqContext;
+  const rule = (projects?: string[]) =>
+    ({ id: "r", type: "force", projects }) as unknown as FeatureRule;
+
+  it("resolves when every rule project exists", async () => {
+    await expect(
+      assertValidRuleProjectIds([rule(["p1"]), rule(["p2"])], context),
+    ).resolves.toBeUndefined();
+  });
+
+  it("resolves for rules with no project scope", async () => {
+    await expect(
+      assertValidRuleProjectIds([rule(), rule([])], context),
+    ).resolves.toBeUndefined();
+  });
+
+  it("throws when a rule references a non-existent project", async () => {
+    await expect(
+      assertValidRuleProjectIds([rule(["p1"]), rule(["ghost"])], context),
+    ).rejects.toThrow(/rule project ids.*ghost/);
   });
 });

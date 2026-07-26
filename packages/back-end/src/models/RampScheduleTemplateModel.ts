@@ -33,9 +33,16 @@ const BaseClass = MakeModelClass({
 export class RampScheduleTemplateModel extends BaseClass {
   protected migrate(legacyDoc: unknown): RampScheduleTemplateInterface {
     const doc = legacyDoc as RampScheduleTemplateInterface;
-    const migrated = migrateRampStepTriggers(
-      doc as unknown as Parameters<typeof migrateRampStepTriggers>[0],
-    ) as unknown as RampScheduleTemplateInterface;
+    // Templates are reusable plans, so a legacy scheduled trigger's absolute
+    // date is meaningless against the template's creation time. Convert with
+    // no date anchor: the first scheduled date anchors the walk, preserving
+    // the plan's relative pacing (the first such step becomes ~instant).
+    const migrated = {
+      ...doc,
+      ...(migrateRampStepTriggers({ steps: doc.steps } as Parameters<
+        typeof migrateRampStepTriggers
+      >[0]) as unknown as Pick<RampScheduleTemplateInterface, "steps">),
+    };
     // Legacy templates predate the `order` field — default them to 0 so they
     // keep a stable (date-created) order until the first manual reorder.
     return { ...migrated, order: migrated.order ?? 0 };

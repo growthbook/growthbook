@@ -23,6 +23,7 @@ import {
 } from "@/services/features";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { isHoldoutEnabledAnyEnv } from "@/hooks/useHoldouts";
+import useApi from "@/hooks/useApi";
 import Switch from "@/ui/Switch";
 import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
@@ -183,15 +184,45 @@ export default function FeatureRules({
     !feature.holdout?.id &&
     !!baseFeature.holdout?.id &&
     holdoutEnabledInActiveEnv;
-  const includeHoldoutRule = liveHoldoutActive || draftDeletesHoldout;
+
+  // A draft adds a holdout when the merged (viewed) feature references one that
+  // live doesn't. The page-level `holdout` prop is resolved from the live
+  // feature, so it's undefined here — fetch the added holdout to know which
+  // envs it's enabled in (SWR dedupes with HoldoutRule's own fetch).
+  const draftAddsHoldoutBase =
+    !!feature.holdout?.id && !baseFeature.holdout?.id;
+  const { data: addedHoldoutData } = useApi<{ holdout: HoldoutInterface }>(
+    `/holdout/${feature.holdout?.id}`,
+    { shouldRun: () => draftAddsHoldoutBase },
+  );
+  const addedHoldout = draftAddsHoldoutBase
+    ? addedHoldoutData?.holdout
+    : undefined;
+  const draftAddsHoldout =
+    draftAddsHoldoutBase &&
+    !!activeEnv &&
+    !!addedHoldout?.environmentSettings?.[activeEnv.id]?.enabled;
+
+  const includeHoldoutRule =
+    liveHoldoutActive || draftDeletesHoldout || draftAddsHoldout;
 
   // Show holdout in All-Envs whenever it's enabled in any of the org's envs.
   const holdoutEnabledAnyEnv = isHoldoutEnabledAnyEnv(holdout, envs);
   const liveHoldoutActiveAnyEnv = !!feature.holdout?.id && holdoutEnabledAnyEnv;
   const draftDeletesHoldoutAnyEnv =
     !feature.holdout?.id && !!baseFeature.holdout?.id && holdoutEnabledAnyEnv;
+  const draftAddsHoldoutAnyEnv =
+    draftAddsHoldoutBase && isHoldoutEnabledAnyEnv(addedHoldout, envs);
   const includeHoldoutRuleAllEnvs =
-    liveHoldoutActiveAnyEnv || draftDeletesHoldoutAnyEnv;
+    liveHoldoutActiveAnyEnv ||
+    draftDeletesHoldoutAnyEnv ||
+    draftAddsHoldoutAnyEnv;
+
+  // Whether a holdout row occupies the given env's rule list — the live/deleted
+  // holdout (from the page `holdout` prop) or a draft-added one.
+  const holdoutRowInEnv = (envId: string) =>
+    !!holdout?.environmentSettings?.[envId]?.enabled ||
+    !!addedHoldout?.environmentSettings?.[envId]?.enabled;
 
   // Tab overflow: cache each trigger's natural width once, then compute
   // cumulative-width overflow against the tabs-bar. Caching avoids the
@@ -285,7 +316,7 @@ export default function FeatureRules({
     }
     const e = envById.get(key);
     if (!e) continue;
-    const count = holdout?.environmentSettings?.[e.id]?.enabled
+    const count = holdoutRowInEnv(e.id)
       ? rulesByEnv[e.id].length + 1
       : rulesByEnv[e.id].length;
     overflowLabels.push({ key: e.id, label: e.id, count });
@@ -353,7 +384,7 @@ export default function FeatureRules({
               {orderedEnvIds.map((id) => {
                 const e = envById.get(id);
                 if (!e) return null;
-                const count = holdout?.environmentSettings?.[e.id]?.enabled
+                const count = holdoutRowInEnv(e.id)
                   ? rulesByEnv[e.id].length + 1
                   : rulesByEnv[e.id].length;
                 return (
@@ -504,6 +535,7 @@ export default function FeatureRules({
                 safeRolloutsMap={safeRolloutsMap}
                 holdout={liveHoldoutActiveAnyEnv ? holdout : undefined}
                 holdoutIsDeleted={draftDeletesHoldoutAnyEnv}
+                holdoutIsPendingAdd={draftAddsHoldoutAnyEnv}
                 openHoldoutModal={() => setHoldoutModal(true)}
                 revisionList={revisionList}
                 rampSchedules={rampSchedules}
@@ -558,6 +590,7 @@ export default function FeatureRules({
                 safeRolloutsMap={safeRolloutsMap}
                 holdout={liveHoldoutActive ? holdout : undefined}
                 holdoutIsDeleted={draftDeletesHoldout}
+                holdoutIsPendingAdd={draftAddsHoldout}
                 openHoldoutModal={() => setHoldoutModal(true)}
                 revisionList={revisionList}
                 rampSchedules={rampSchedules}

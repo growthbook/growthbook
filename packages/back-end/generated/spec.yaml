@@ -814,6 +814,20 @@ paths:
                 project:
                   description: An associated project ID
                   type: string
+                targetingAllProjects:
+                  description: >-
+                    Make this feature discoverable in — and served to — every
+                    project, beyond its primary `project`. Governance/approvals
+                    stay with `project`.
+                  type: boolean
+                targetingProjects:
+                  description: >-
+                    Secondary project IDs this feature is targeted in and served
+                    to, beyond its primary `project`. Governance/approvals stay
+                    with `project`.
+                  type: array
+                  items:
+                    type: string
                 valueType:
                   description: The data type of the feature payload. Boolean by default.
                   type: string
@@ -862,6 +876,20 @@ paths:
                           anyOf:
                             - type: object
                               properties:
+                                allProjects:
+                                  description: >-
+                                    When true (default), the rule applies to
+                                    every project the feature is delivered to.
+                                    When false, `projects` scopes it.
+                                  type: boolean
+                                projects:
+                                  description: >-
+                                    Project IDs this rule is scoped to when
+                                    `allProjects` is false. An empty array
+                                    scopes the rule to no project.
+                                  type: array
+                                  items:
+                                    type: string
                                 description:
                                   type: string
                                   maxLength: 10000
@@ -928,6 +956,20 @@ paths:
                               additionalProperties: false
                             - type: object
                               properties:
+                                allProjects:
+                                  description: >-
+                                    When true (default), the rule applies to
+                                    every project the feature is delivered to.
+                                    When false, `projects` scopes it.
+                                  type: boolean
+                                projects:
+                                  description: >-
+                                    Project IDs this rule is scoped to when
+                                    `allProjects` is false. An empty array
+                                    scopes the rule to no project.
+                                  type: array
+                                  items:
+                                    type: string
                                 description:
                                   type: string
                                   maxLength: 10000
@@ -1016,6 +1058,20 @@ paths:
                               additionalProperties: false
                             - type: object
                               properties:
+                                allProjects:
+                                  description: >-
+                                    When true (default), the rule applies to
+                                    every project the feature is delivered to.
+                                    When false, `projects` scopes it.
+                                  type: boolean
+                                projects:
+                                  description: >-
+                                    Project IDs this rule is scoped to when
+                                    `allProjects` is false. An empty array
+                                    scopes the rule to no project.
+                                  type: array
+                                  items:
+                                    type: string
                                 description:
                                   type: string
                                   maxLength: 10000
@@ -1095,6 +1151,20 @@ paths:
                               additionalProperties: false
                             - type: object
                               properties:
+                                allProjects:
+                                  description: >-
+                                    When true (default), the rule applies to
+                                    every project the feature is delivered to.
+                                    When false, `projects` scopes it.
+                                  type: boolean
+                                projects:
+                                  description: >-
+                                    Project IDs this rule is scoped to when
+                                    `allProjects` is false. An empty array
+                                    scopes the rule to no project.
+                                  type: array
+                                  items:
+                                    type: string
                                 description:
                                   type: string
                                   maxLength: 10000
@@ -1214,6 +1284,20 @@ paths:
                               anyOf:
                                 - type: object
                                   properties:
+                                    allProjects:
+                                      description: >-
+                                        When true (default), the rule applies to
+                                        every project the feature is delivered
+                                        to. When false, `projects` scopes it.
+                                      type: boolean
+                                    projects:
+                                      description: >-
+                                        Project IDs this rule is scoped to when
+                                        `allProjects` is false. An empty array
+                                        scopes the rule to no project.
+                                      type: array
+                                      items:
+                                        type: string
                                     description:
                                       type: string
                                       maxLength: 10000
@@ -1280,6 +1364,20 @@ paths:
                                   additionalProperties: false
                                 - type: object
                                   properties:
+                                    allProjects:
+                                      description: >-
+                                        When true (default), the rule applies to
+                                        every project the feature is delivered
+                                        to. When false, `projects` scopes it.
+                                      type: boolean
+                                    projects:
+                                      description: >-
+                                        Project IDs this rule is scoped to when
+                                        `allProjects` is false. An empty array
+                                        scopes the rule to no project.
+                                      type: array
+                                      items:
+                                        type: string
                                     description:
                                       type: string
                                       maxLength: 10000
@@ -1368,6 +1466,20 @@ paths:
                                   additionalProperties: false
                                 - type: object
                                   properties:
+                                    allProjects:
+                                      description: >-
+                                        When true (default), the rule applies to
+                                        every project the feature is delivered
+                                        to. When false, `projects` scopes it.
+                                      type: boolean
+                                    projects:
+                                      description: >-
+                                        Project IDs this rule is scoped to when
+                                        `allProjects` is false. An empty array
+                                        scopes the rule to no project.
+                                      type: array
+                                      items:
+                                        type: string
                                     description:
                                       type: string
                                       maxLength: 10000
@@ -1447,6 +1559,20 @@ paths:
                                   additionalProperties: false
                                 - type: object
                                   properties:
+                                    allProjects:
+                                      description: >-
+                                        When true (default), the rule applies to
+                                        every project the feature is delivered
+                                        to. When false, `projects` scopes it.
+                                      type: boolean
+                                    projects:
+                                      description: >-
+                                        Project IDs this rule is scoped to when
+                                        `allProjects` is false. An empty array
+                                        scopes the rule to no project.
+                                      type: array
+                                      items:
+                                        type: string
                                     description:
                                       type: string
                                       maxLength: 10000
@@ -1707,6 +1833,20 @@ paths:
                 project:
                   description: An associated project ID
                   type: string
+                targetingAllProjects:
+                  description: >-
+                    Make this feature discoverable in — and served to — every
+                    project, beyond its primary `project`. Governance/approvals
+                    stay with `project`.
+                  type: boolean
+                targetingProjects:
+                  description: >-
+                    Secondary project IDs this feature is targeted in and served
+                    to, beyond its primary `project`. Governance/approvals stay
+                    with `project`.
+                  type: array
+                  items:
+                    type: string
                 owner:
                   description: >-
                     The userId or email address of the owner. If an email
@@ -1747,6 +1887,20 @@ paths:
                           anyOf:
                             - type: object
                               properties:
+                                allProjects:
+                                  description: >-
+                                    When true (default), the rule applies to
+                                    every project the feature is delivered to.
+                                    When false, `projects` scopes it.
+                                  type: boolean
+                                projects:
+                                  description: >-
+                                    Project IDs this rule is scoped to when
+                                    `allProjects` is false. An empty array
+                                    scopes the rule to no project.
+                                  type: array
+                                  items:
+                                    type: string
                                 description:
                                   type: string
                                   maxLength: 10000
@@ -1813,6 +1967,20 @@ paths:
                               additionalProperties: false
                             - type: object
                               properties:
+                                allProjects:
+                                  description: >-
+                                    When true (default), the rule applies to
+                                    every project the feature is delivered to.
+                                    When false, `projects` scopes it.
+                                  type: boolean
+                                projects:
+                                  description: >-
+                                    Project IDs this rule is scoped to when
+                                    `allProjects` is false. An empty array
+                                    scopes the rule to no project.
+                                  type: array
+                                  items:
+                                    type: string
                                 description:
                                   type: string
                                   maxLength: 10000
@@ -1901,6 +2069,20 @@ paths:
                               additionalProperties: false
                             - type: object
                               properties:
+                                allProjects:
+                                  description: >-
+                                    When true (default), the rule applies to
+                                    every project the feature is delivered to.
+                                    When false, `projects` scopes it.
+                                  type: boolean
+                                projects:
+                                  description: >-
+                                    Project IDs this rule is scoped to when
+                                    `allProjects` is false. An empty array
+                                    scopes the rule to no project.
+                                  type: array
+                                  items:
+                                    type: string
                                 description:
                                   type: string
                                   maxLength: 10000
@@ -1980,6 +2162,20 @@ paths:
                               additionalProperties: false
                             - type: object
                               properties:
+                                allProjects:
+                                  description: >-
+                                    When true (default), the rule applies to
+                                    every project the feature is delivered to.
+                                    When false, `projects` scopes it.
+                                  type: boolean
+                                projects:
+                                  description: >-
+                                    Project IDs this rule is scoped to when
+                                    `allProjects` is false. An empty array
+                                    scopes the rule to no project.
+                                  type: array
+                                  items:
+                                    type: string
                                 description:
                                   type: string
                                   maxLength: 10000
@@ -2099,6 +2295,20 @@ paths:
                               anyOf:
                                 - type: object
                                   properties:
+                                    allProjects:
+                                      description: >-
+                                        When true (default), the rule applies to
+                                        every project the feature is delivered
+                                        to. When false, `projects` scopes it.
+                                      type: boolean
+                                    projects:
+                                      description: >-
+                                        Project IDs this rule is scoped to when
+                                        `allProjects` is false. An empty array
+                                        scopes the rule to no project.
+                                      type: array
+                                      items:
+                                        type: string
                                     description:
                                       type: string
                                       maxLength: 10000
@@ -2165,6 +2375,20 @@ paths:
                                   additionalProperties: false
                                 - type: object
                                   properties:
+                                    allProjects:
+                                      description: >-
+                                        When true (default), the rule applies to
+                                        every project the feature is delivered
+                                        to. When false, `projects` scopes it.
+                                      type: boolean
+                                    projects:
+                                      description: >-
+                                        Project IDs this rule is scoped to when
+                                        `allProjects` is false. An empty array
+                                        scopes the rule to no project.
+                                      type: array
+                                      items:
+                                        type: string
                                     description:
                                       type: string
                                       maxLength: 10000
@@ -2253,6 +2477,20 @@ paths:
                                   additionalProperties: false
                                 - type: object
                                   properties:
+                                    allProjects:
+                                      description: >-
+                                        When true (default), the rule applies to
+                                        every project the feature is delivered
+                                        to. When false, `projects` scopes it.
+                                      type: boolean
+                                    projects:
+                                      description: >-
+                                        Project IDs this rule is scoped to when
+                                        `allProjects` is false. An empty array
+                                        scopes the rule to no project.
+                                      type: array
+                                      items:
+                                        type: string
                                     description:
                                       type: string
                                       maxLength: 10000
@@ -2332,6 +2570,20 @@ paths:
                                   additionalProperties: false
                                 - type: object
                                   properties:
+                                    allProjects:
+                                      description: >-
+                                        When true (default), the rule applies to
+                                        every project the feature is delivered
+                                        to. When false, `projects` scopes it.
+                                      type: boolean
+                                    projects:
+                                      description: >-
+                                        Project IDs this rule is scoped to when
+                                        `allProjects` is false. An empty array
+                                        scopes the rule to no project.
+                                      type: array
+                                      items:
+                                        type: string
                                     description:
                                       type: string
                                       maxLength: 10000
@@ -6641,6 +6893,20 @@ paths:
                 project:
                   description: An associated project ID
                   type: string
+                targetingAllProjects:
+                  description: >-
+                    Make this feature discoverable in — and served to — every
+                    project, beyond its primary `project`. Governance/approvals
+                    stay with `project`.
+                  type: boolean
+                targetingProjects:
+                  description: >-
+                    Secondary project IDs this feature is targeted in and served
+                    to, beyond its primary `project`. Governance/approvals stay
+                    with `project`.
+                  type: array
+                  items:
+                    type: string
                 valueType:
                   description: The data type of the feature payload. Boolean by default.
                   type: string
@@ -6783,6 +7049,20 @@ paths:
                             type: array
                             items:
                               type: string
+                          allProjects:
+                            description: >-
+                              When true (the default) the rule applies to every
+                              project the feature is delivered to. Set false and
+                              supply `projects` to scope the rule.
+                            type: boolean
+                          projects:
+                            description: >-
+                              Specific project IDs this rule applies to. Used
+                              when allProjects is false. An empty array scopes
+                              the rule to no project.
+                            type: array
+                            items:
+                              type: string
                         required:
                           - type
                           - value
@@ -6873,6 +7153,11 @@ paths:
                             type: number
                           hashAttribute:
                             type: string
+                          seed:
+                            description: >-
+                              Optional seed for the hash function; defaults to
+                              the rule id
+                            type: string
                           hashVersion:
                             anyOf:
                               - type: number
@@ -6888,6 +7173,20 @@ paths:
                             description: >-
                               Specific environment IDs this rule applies to.
                               Required when allEnvironments is false.
+                            type: array
+                            items:
+                              type: string
+                          allProjects:
+                            description: >-
+                              When true (the default) the rule applies to every
+                              project the feature is delivered to. Set false and
+                              supply `projects` to scope the rule.
+                            type: boolean
+                          projects:
+                            description: >-
+                              Specific project IDs this rule applies to. Used
+                              when allProjects is false. An empty array scopes
+                              the rule to no project.
                             type: array
                             items:
                               type: string
@@ -7005,6 +7304,20 @@ paths:
                             type: array
                             items:
                               type: string
+                          allProjects:
+                            description: >-
+                              When true (the default) the rule applies to every
+                              project the feature is delivered to. Set false and
+                              supply `projects` to scope the rule.
+                            type: boolean
+                          projects:
+                            description: >-
+                              Specific project IDs this rule applies to. Used
+                              when allProjects is false. An empty array scopes
+                              the rule to no project.
+                            type: array
+                            items:
+                              type: string
                         required:
                           - type
                           - variations
@@ -7109,6 +7422,20 @@ paths:
                             description: >-
                               Specific environment IDs this rule applies to.
                               Required when allEnvironments is false.
+                            type: array
+                            items:
+                              type: string
+                          allProjects:
+                            description: >-
+                              When true (the default) the rule applies to every
+                              project the feature is delivered to. Set false and
+                              supply `projects` to scope the rule.
+                            type: boolean
+                          projects:
+                            description: >-
+                              Specific project IDs this rule applies to. Used
+                              when allProjects is false. An empty array scopes
+                              the rule to no project.
                             type: array
                             items:
                               type: string
@@ -7272,6 +7599,20 @@ paths:
                 project:
                   description: An associated project ID
                   type: string
+                targetingAllProjects:
+                  description: >-
+                    Make this feature discoverable in — and served to — every
+                    project, beyond its primary `project`. Governance/approvals
+                    stay with `project`.
+                  type: boolean
+                targetingProjects:
+                  description: >-
+                    Secondary project IDs this feature is targeted in and served
+                    to, beyond its primary `project`. Governance/approvals stay
+                    with `project`.
+                  type: array
+                  items:
+                    type: string
                 owner:
                   description: >-
                     The userId or email address of the owner. If an email
@@ -7413,6 +7754,20 @@ paths:
                             type: array
                             items:
                               type: string
+                          allProjects:
+                            description: >-
+                              When true (the default) the rule applies to every
+                              project the feature is delivered to. Set false and
+                              supply `projects` to scope the rule.
+                            type: boolean
+                          projects:
+                            description: >-
+                              Specific project IDs this rule applies to. Used
+                              when allProjects is false. An empty array scopes
+                              the rule to no project.
+                            type: array
+                            items:
+                              type: string
                         required:
                           - type
                           - value
@@ -7503,6 +7858,11 @@ paths:
                             type: number
                           hashAttribute:
                             type: string
+                          seed:
+                            description: >-
+                              Optional seed for the hash function; defaults to
+                              the rule id
+                            type: string
                           hashVersion:
                             anyOf:
                               - type: number
@@ -7518,6 +7878,20 @@ paths:
                             description: >-
                               Specific environment IDs this rule applies to.
                               Required when allEnvironments is false.
+                            type: array
+                            items:
+                              type: string
+                          allProjects:
+                            description: >-
+                              When true (the default) the rule applies to every
+                              project the feature is delivered to. Set false and
+                              supply `projects` to scope the rule.
+                            type: boolean
+                          projects:
+                            description: >-
+                              Specific project IDs this rule applies to. Used
+                              when allProjects is false. An empty array scopes
+                              the rule to no project.
                             type: array
                             items:
                               type: string
@@ -7635,6 +8009,20 @@ paths:
                             type: array
                             items:
                               type: string
+                          allProjects:
+                            description: >-
+                              When true (the default) the rule applies to every
+                              project the feature is delivered to. Set false and
+                              supply `projects` to scope the rule.
+                            type: boolean
+                          projects:
+                            description: >-
+                              Specific project IDs this rule applies to. Used
+                              when allProjects is false. An empty array scopes
+                              the rule to no project.
+                            type: array
+                            items:
+                              type: string
                         required:
                           - type
                           - variations
@@ -7739,6 +8127,20 @@ paths:
                             description: >-
                               Specific environment IDs this rule applies to.
                               Required when allEnvironments is false.
+                            type: array
+                            items:
+                              type: string
+                          allProjects:
+                            description: >-
+                              When true (the default) the rule applies to every
+                              project the feature is delivered to. Set false and
+                              supply `projects` to scope the rule.
+                            type: boolean
+                          projects:
+                            description: >-
+                              Specific project IDs this rule applies to. Used
+                              when allProjects is false. An empty array scopes
+                              the rule to no project.
                             type: array
                             items:
                               type: string
@@ -24874,6 +25276,15 @@ paths:
                 eventName:
                   description: The event name used in SQL template variables
                   type: string
+                columns:
+                  description: >-
+                    Optional array of column definitions to store for this fact
+                    table. Supplied columns are stored as-is. Omit `datatype`
+                    (or send "") on a column to have it auto-detected from the
+                    SQL.
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/FactTableColumnInput'
                 managedBy:
                   description: Set this to "api" to disable editing in the GrowthBook UI
                   type: string
@@ -25020,15 +25431,16 @@ paths:
                   type: string
                 columns:
                   description: >-
-                    Optional array of columns that you want to update. Only
-                    allows updating properties of existing columns. Cannot
-                    create new columns or delete existing ones. Columns cannot
-                    be added or deleted; column structure is determined by SQL
-                    parsing. Slice-related properties require an enterprise
-                    license.
+                    Optional array of columns to upsert by `column`: existing
+                    columns are patched, new columns are created, and columns
+                    not included are left unchanged. Omit `datatype` to leave an
+                    existing column's type untouched; send "" to reset it for
+                    auto-detection; new columns are auto-detected when
+                    `datatype` is omitted or "". Slice-related properties
+                    require an enterprise license.
                   type: array
                   items:
-                    $ref: '#/components/schemas/FactTableColumn'
+                    $ref: '#/components/schemas/FactTableColumnInput'
                 columnsError:
                   description: Error message if there was an issue parsing the SQL schema
                   anyOf:
@@ -26723,6 +27135,23 @@ paths:
                           eventName:
                             description: The event name used in SQL template variables
                             type: string
+                          columns:
+                            description: >-
+                              Optional array of column definitions for this fact
+                              table. On create, columns are stored as-is. On
+                              update, columns upsert by `column`: existing
+                              columns are patched, new columns are created, and
+                              columns not included are left unchanged. Omit
+                              `datatype` to leave an existing column's type
+                              untouched; send "" to reset it for auto-detection;
+                              new columns are auto-detected when `datatype` is
+                              omitted or "". Datatype-dependent properties (e.g.
+                              `alwaysInlineFilter`) are validated once the
+                              datatype is known. Slice-related properties
+                              require an enterprise license.
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/FactTableColumnInput'
                           managedBy:
                             description: >-
                               Set this to "api" to disable editing in the
@@ -46426,6 +46855,12 @@ components:
           type: string
         project:
           type: string
+        targetingAllProjects:
+          type: boolean
+        targetingProjects:
+          type: array
+          items:
+            type: string
         valueType:
           type: string
           enum:
@@ -46654,6 +47089,19 @@ components:
                   - id
                   - condition
                 additionalProperties: false
+            allProjects:
+              description: >-
+                When true (the default) the rule applies to every project the
+                feature is delivered to. When false the rule is limited to
+                `projects`.
+              type: boolean
+            projects:
+              description: >-
+                Project IDs this rule is scoped to when `allProjects` is false.
+                An empty array scopes the rule to no project.
+              type: array
+              items:
+                type: string
           required:
             - description
             - id
@@ -46772,6 +47220,19 @@ components:
                   - id
                   - condition
                 additionalProperties: false
+            allProjects:
+              description: >-
+                When true (the default) the rule applies to every project the
+                feature is delivered to. When false the rule is limited to
+                `projects`.
+              type: boolean
+            projects:
+              description: >-
+                Project IDs this rule is scoped to when `allProjects` is false.
+                An empty array scopes the rule to no project.
+              type: array
+              items:
+                type: string
           required:
             - description
             - id
@@ -46892,6 +47353,19 @@ components:
                   - id
                   - condition
                 additionalProperties: false
+            allProjects:
+              description: >-
+                When true (the default) the rule applies to every project the
+                feature is delivered to. When false the rule is limited to
+                `projects`.
+              type: boolean
+            projects:
+              description: >-
+                Project IDs this rule is scoped to when `allProjects` is false.
+                An empty array scopes the rule to no project.
+              type: array
+              items:
+                type: string
           required:
             - description
             - id
@@ -47034,6 +47508,19 @@ components:
                   - id
                   - condition
                 additionalProperties: false
+            allProjects:
+              description: >-
+                When true (the default) the rule applies to every project the
+                feature is delivered to. When false the rule is limited to
+                `projects`.
+              type: boolean
+            projects:
+              description: >-
+                Project IDs this rule is scoped to when `allProjects` is false.
+                An empty array scopes the rule to no project.
+              type: array
+              items:
+                type: string
           required:
             - description
             - id
@@ -47149,6 +47636,19 @@ components:
                   - id
                   - condition
                 additionalProperties: false
+            allProjects:
+              description: >-
+                When true (the default) the rule applies to every project the
+                feature is delivered to. When false the rule is limited to
+                `projects`.
+              type: boolean
+            projects:
+              description: >-
+                Project IDs this rule is scoped to when `allProjects` is false.
+                An empty array scopes the rule to no project.
+              type: array
+              items:
+                type: string
           required:
             - description
             - id
@@ -47258,6 +47758,19 @@ components:
                   - id
                   - condition
                 additionalProperties: false
+            allProjects:
+              description: >-
+                When true (the default) the rule applies to every project the
+                feature is delivered to. When false the rule is limited to
+                `projects`.
+              type: boolean
+            projects:
+              description: >-
+                Project IDs this rule is scoped to when `allProjects` is false.
+                An empty array scopes the rule to no project.
+              type: array
+              items:
+                type: string
           required:
             - description
             - id
@@ -48375,6 +48888,12 @@ components:
           type: string
         project:
           type: string
+        targetingAllProjects:
+          type: boolean
+        targetingProjects:
+          type: array
+          items:
+            type: string
         valueType:
           type: string
           enum:
@@ -48674,6 +49193,19 @@ components:
               - id
               - condition
             additionalProperties: false
+        allProjects:
+          description: >-
+            When true (the default) the rule applies to every project the
+            feature is delivered to. When false the rule is limited to
+            `projects`.
+          type: boolean
+        projects:
+          description: >-
+            Project IDs this rule is scoped to when `allProjects` is false. An
+            empty array scopes the rule to no project.
+          type: array
+          items:
+            type: string
       required:
         - description
         - id
@@ -54002,6 +54534,101 @@ components:
         - column
         - datatype
       additionalProperties: false
+    FactTableColumnInput:
+      type: object
+      properties:
+        column:
+          description: The actual column name in the database/SQL query
+          type: string
+        datatype:
+          description: >-
+            The column's data type. Omit (or send "") to have it auto-detected
+            from the SQL.
+          type: string
+          enum:
+            - number
+            - string
+            - date
+            - boolean
+            - json
+            - binary
+            - other
+            - ''
+        numberFormat:
+          type: string
+          enum:
+            - ''
+            - currency
+            - time:seconds
+            - memory:bytes
+            - memory:kilobytes
+        jsonFields:
+          description: For JSON columns, defines the structure of nested fields
+          type: object
+          propertyNames:
+            type: string
+          additionalProperties:
+            type: object
+            properties:
+              datatype:
+                type: string
+                enum:
+                  - number
+                  - string
+                  - date
+                  - boolean
+                  - json
+                  - binary
+                  - other
+                  - ''
+            additionalProperties: false
+        name:
+          description: >-
+            Display name for the column (can be different from the actual column
+            name)
+          type: string
+        description:
+          type: string
+          maxLength: 10000
+        alwaysInlineFilter:
+          default: false
+          description: >-
+            Whether this column should always be included as an inline filter in
+            queries
+          type: boolean
+        deleted:
+          default: false
+          type: boolean
+        isAutoSliceColumn:
+          default: false
+          description: >-
+            Whether this column can be used for auto slice analysis. This is an
+            enterprise feature.
+          type: boolean
+        autoSlices:
+          description: Specific slices to automatically analyze for this column.
+          type: array
+          items:
+            type: string
+        lockedAutoSlices:
+          description: >-
+            Locked slices that are protected from automatic updates. These will
+            always be included in the slice levels even if they're not in the
+            top values query results.
+          type: array
+          items:
+            type: string
+        dateCreated:
+          readOnly: true
+          format: date-time
+          type: string
+        dateUpdated:
+          readOnly: true
+          format: date-time
+          type: string
+      required:
+        - column
+      additionalProperties: false
     FactTableFilter:
       type: object
       properties:
@@ -55069,6 +55696,24 @@ components:
                 type: boolean
               autopublishOnApproval:
                 type: boolean
+            additionalProperties: false
+        targetingReviewMode:
+          type: array
+          items:
+            type: object
+            properties:
+              projects:
+                type: array
+                items:
+                  type: string
+              mode:
+                type: string
+                enum:
+                  - strict
+                  - loose
+            required:
+              - projects
+              - mode
             additionalProperties: false
         restApiBypassesReviews:
           type: boolean
@@ -62258,6 +62903,12 @@ components:
                     type: array
                     items:
                       type: string
+                  allProjects:
+                    type: boolean
+                  projects:
+                    type: array
+                    items:
+                      type: string
                   enabled:
                     type: boolean
                   scheduleRules:
@@ -62339,6 +62990,12 @@ components:
                   allEnvironments:
                     type: boolean
                   environments:
+                    type: array
+                    items:
+                      type: string
+                  allProjects:
+                    type: boolean
+                  projects:
                     type: array
                     items:
                       type: string
@@ -62437,6 +63094,12 @@ components:
                   allEnvironments:
                     type: boolean
                   environments:
+                    type: array
+                    items:
+                      type: string
+                  allProjects:
+                    type: boolean
+                  projects:
                     type: array
                     items:
                       type: string
@@ -62679,6 +63342,12 @@ components:
                     type: array
                     items:
                       type: string
+                  allProjects:
+                    type: boolean
+                  projects:
+                    type: array
+                    items:
+                      type: string
                   enabled:
                     type: boolean
                   scheduleRules:
@@ -62777,6 +63446,12 @@ components:
                     type: array
                     items:
                       type: string
+                  allProjects:
+                    type: boolean
+                  projects:
+                    type: array
+                    items:
+                      type: string
                   enabled:
                     type: boolean
                   scheduleRules:
@@ -62870,6 +63545,12 @@ components:
                   allEnvironments:
                     type: boolean
                   environments:
+                    type: array
+                    items:
+                      type: string
+                  allProjects:
+                    type: boolean
+                  projects:
                     type: array
                     items:
                       type: string
