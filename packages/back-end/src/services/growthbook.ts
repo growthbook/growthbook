@@ -187,8 +187,9 @@ export function trackRequestCompletion(
 ) {
   const start = Date.now();
 
-  // compression strips Content-Length for compressed responses, so measure
-  // the actual bytes written instead of trusting the response header
+  // Sum the bytes written by handlers. This runs above the compression
+  // middleware, so it's the uncompressed payload size (independent of the
+  // client's Accept-Encoding), not the on-wire byte count.
   let resContentSize = 0;
   const origWrite = res.write.bind(res);
   const origEnd = res.end.bind(res);
