@@ -11,28 +11,29 @@ const etagFor = (
     version: 0,
     organization: "org_1",
     permissionsFingerprint: "abc",
+    buildFingerprint: "build1",
     ...args,
   });
 
 describe("definitions ETag helpers", () => {
   describe("buildDefinitionsEtag", () => {
-    it("composes version, org, and permissions fingerprint into a strong ETag", () => {
-      expect(etagFor()).toBe('"v0-org_1-abc"');
+    it("composes version, org, permissions, and build into a strong ETag", () => {
+      expect(etagFor()).toBe('"v0-org_1-abc-bbuild1"');
       expect(
         etagFor({
           version: 42,
           organization: "org_2",
           permissionsFingerprint: "deadbeef",
         }),
-      ).toBe('"v42-org_2-deadbeef"');
+      ).toBe('"v42-org_2-deadbeef-bbuild1"');
     });
 
     it("appends the config file hash only when using file config", () => {
       expect(etagFor({ version: 1, configFileHash: "filehash" })).toBe(
-        '"v1-org_1-abc-filehash"',
+        '"v1-org_1-abc-bbuild1-filehash"',
       );
       expect(etagFor({ version: 1, configFileHash: null })).toBe(
-        '"v1-org_1-abc"',
+        '"v1-org_1-abc-bbuild1"',
       );
       // File config toggling on/off or the file changing must change the ETag.
       expect(etagFor({ version: 1, configFileHash: "filehash" })).not.toBe(
@@ -53,6 +54,12 @@ describe("definitions ETag helpers", () => {
       expect(etagFor({ version: 1, permissionsFingerprint: "abc" })).not.toBe(
         etagFor({ version: 1, permissionsFingerprint: "xyz" }),
       );
+    });
+
+    it("varies by build fingerprint (a deploy invalidates all cached copies)", () => {
+      // The response shape is code-defined, so a new build must not validate
+      // ETags minted by the old one.
+      expect(etagFor({ buildFingerprint: "build2" })).not.toBe(etagFor());
     });
 
     describe("per-project versions", () => {

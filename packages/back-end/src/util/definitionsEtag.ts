@@ -1,4 +1,5 @@
 import md5 from "md5";
+import { getBuild } from "back-end/src/util/build";
 
 // Helpers for the `/organization/definitions` ETag. The ETag combines the org's
 // global definitions version (bumped by writes that affect every reader — see
@@ -11,6 +12,11 @@ import md5 from "md5";
 // permission fingerprints are identical across orgs for the same role, so
 // without the org id that false-matches into a cross-org 304.
 //
+// `buildFingerprint` covers the code side: the response shape is code-defined,
+// so a deploy can change it with no DB write — without a build component every
+// pre-deploy ETag would keep validating against the old cached body until some
+// write happened to bump the org. Costs a full cache reset per deploy.
+//
 // `readableProjects` is the set of projects the user can read (`readData`):
 // `null` means "all projects" (a global reader), so every project's version
 // joins the ETag; a list means only those projects' versions do, so a write in
@@ -19,11 +25,25 @@ import md5 from "md5";
 // Under file config, metrics/dimensions/datasources/segments come from
 // config.yml and bypass the Mongo writes that bump the version, so the parsed
 // file's hash joins the ETag to invalidate on file changes.
+// Identifies the running build (git SHA when baked in, else the package
+// version). Memoized: the build cannot change within a process.
+let memoizedBuildFingerprint: string | undefined;
+export function definitionsBuildFingerprint(): string {
+  if (memoizedBuildFingerprint === undefined) {
+    const build = getBuild();
+    memoizedBuildFingerprint = md5(
+      build.sha || build.lastVersion || "dev",
+    ).slice(0, 8);
+  }
+  return memoizedBuildFingerprint;
+}
+
 export function buildDefinitionsEtag({
   version,
   projectVersions,
   organization,
   permissionsFingerprint,
+  buildFingerprint,
   readableProjects,
   configFileHash,
 }: {
@@ -31,6 +51,7 @@ export function buildDefinitionsEtag({
   projectVersions?: Record<string, number>;
   organization: string;
   permissionsFingerprint: string;
+  buildFingerprint: string;
   // Project ids the user can read; null = all projects (global reader).
   readableProjects?: string[] | null;
   configFileHash?: string | null;
@@ -49,7 +70,7 @@ export function buildDefinitionsEtag({
     ? `-p${md5(relevant.map(([p, v]) => `${p}:${v}`).join(","))}`
     : "";
   const configPart = configFileHash ? `-${configFileHash}` : "";
-  return `"v${version}-${organization}-${permissionsFingerprint}${projectPart}${configPart}"`;
+  return `"v${version}-${organization}-${permissionsFingerprint}-b${buildFingerprint}${projectPart}${configPart}"`;
 }
 
 // Returns true if the client's If-None-Match header matches our ETag. Handles

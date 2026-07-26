@@ -104,6 +104,7 @@ import { getDefinitionsData } from "back-end/src/services/definitions";
 import { getDefinitionsVersionState } from "back-end/src/models/DefinitionsVersionModel";
 import {
   buildDefinitionsEtag,
+  definitionsBuildFingerprint,
   ifNoneMatchMatches,
 } from "back-end/src/util/definitionsEtag";
 import {
@@ -183,6 +184,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
       projectVersions,
       organization: orgId,
       permissionsFingerprint: context.getPermissionsFingerprint(),
+      buildFingerprint: definitionsBuildFingerprint(),
       // null = the user can read all projects, so every project's version counts.
       readableProjects:
         context.permissions.getProjectsWithPermission("readData"),

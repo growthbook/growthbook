@@ -8,8 +8,11 @@ export async function init() {
   if (!initPromise) {
     initPromise = (async () => {
       await mongoInit();
-      await queueInit();
+      // Before queueInit: agenda jobs can bump the definitions version, and
+      // concurrent first-touch upserts without the unique index would create
+      // duplicate per-org docs (breaking this index's creation on the next boot).
       await ensureDefinitionsVersionIndex();
+      await queueInit();
     })();
   }
   try {
