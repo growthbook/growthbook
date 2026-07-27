@@ -1419,17 +1419,17 @@ export default function ReviewAndPublish({
           )}
 
           {isDiscarded && !canManageDrafts && (
-            <HelperText status="info" size="sm" mt="5">
+            <HelperText status="info" size="sm" mt="2">
               You don&apos;t have permission to edit drafts for this feature.
             </HelperText>
           )}
           {!isDiscarded && !canRevertHere && (
-            <HelperText status="info" size="sm" mt="5">
+            <HelperText status="info" size="sm" mt="2">
               You don&apos;t have permission to revert this feature.
             </HelperText>
           )}
           {!isDiscarded && canRevertHere && !revertTarget && (
-            <HelperText status="info" size="sm" mt="5">
+            <HelperText status="info" size="sm" mt="2">
               There is no previously published revision to roll back to.
             </HelperText>
           )}
@@ -2697,7 +2697,7 @@ export default function ReviewAndPublish({
                     </Button>
                     {state.submitAction === "request-review" &&
                       !permissionsUtil.canEditFeatureDrafts(feature) && (
-                        <HelperText status="info" size="sm" mt="5">
+                        <HelperText status="info" size="sm" mt="2">
                           You don&apos;t have permission to request review for
                           this draft.
                         </HelperText>
