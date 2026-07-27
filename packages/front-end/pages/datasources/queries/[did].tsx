@@ -24,12 +24,19 @@ import ExpandableQuery from "@/components/Queries/ExpandableQuery";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
 import Callout from "@/ui/Callout";
+import Link from "@/ui/Link";
+
+const CLICKHOUSE_CLUSTER_CONFIGURATION_ERROR_CODE =
+  "clickhouse_cluster_configuration";
 
 const DataSourceQueries = (): React.ReactElement => {
   const permissions = usePermissions();
   const { apiCall } = useAuth();
   const [modalData, setModalData] = useState<QueryInterface | null>(null);
-  const [cancelError, setCancelError] = useState<string | null>(null);
+  const [cancelError, setCancelError] = useState<{
+    message: string;
+    needsClusterConfiguration: boolean;
+  } | null>(null);
   const router = useRouter();
   const { did } = router.query as { did: string };
   const { getDatasourceById, ready, error: datasourceError } = useDefinitions();
@@ -146,7 +153,13 @@ const DataSourceQueries = (): React.ReactElement => {
       </div>
       {cancelError && (
         <Callout status="error" mb="3">
-          {cancelError}
+          {cancelError.message}
+          {cancelError.needsClusterConfiguration && (
+            <>
+              {" "}
+              <Link href={`/datasources/${did}`}>Edit Data Source</Link>
+            </>
+          )}
         </Callout>
       )}
       <table className="table appbox gbtable table-hover">
@@ -260,17 +273,29 @@ const DataSourceQueries = (): React.ReactElement => {
                           onClick={async (e) => {
                             e.stopPropagation();
                             setCancelError(null);
+                            let needsClusterConfiguration = false;
                             try {
                               await apiCall(
                                 `/datasource/${did}/query/${query.id}/cancel`,
                                 { method: "POST" },
+                                (responseData: unknown) => {
+                                  needsClusterConfiguration =
+                                    typeof responseData === "object" &&
+                                    responseData !== null &&
+                                    "code" in responseData &&
+                                    responseData.code ===
+                                      CLICKHOUSE_CLUSTER_CONFIGURATION_ERROR_CODE;
+                                },
                               );
                             } catch (err: unknown) {
                               const message =
                                 err instanceof Error
                                   ? err.message
                                   : "Failed to cancel query";
-                              setCancelError(message);
+                              setCancelError({
+                                message,
+                                needsClusterConfiguration,
+                              });
                             } finally {
                               await mutate();
                             }
