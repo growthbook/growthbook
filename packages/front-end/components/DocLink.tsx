@@ -9,7 +9,7 @@ const docSections = {
   experimentResults: "/app/experiment-results",
   experimentDecisionFramework: "/app/experiment-decisions",
   experimentsOverview: "/experiments",
-  featureFlagExperiments: "/feature-flag-experiments",
+  featureFlagExperiments: "/features/feature-flag-experiments",
   experimentTimeSeries: "/app/experiment-time-series",
   experimentTemplates: "/running-experiments/experiment-templates",
   makingExperimentChanges: "/app/making-experiment-changes",

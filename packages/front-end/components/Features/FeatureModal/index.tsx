@@ -1,4 +1,5 @@
 import { useForm, FormProvider } from "react-hook-form";
+import omit from "lodash/omit";
 import {
   FeatureEnvironment,
   FeatureInterface,
@@ -43,6 +44,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import SelectField from "@/components/Forms/SelectField";
+import TargetingProjectsField from "@/components/TargetingProjectsField";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
@@ -107,6 +109,8 @@ const genFormDefaultValues = ({
   | "description"
   | "tags"
   | "project"
+  | "targetingAllProjects"
+  | "targetingProjects"
   | "id"
   | "environmentSettings"
   | "rules"
@@ -136,9 +140,15 @@ const genFormDefaultValues = ({
         description: featureToDuplicate.description,
         id: genDuplicatedKey(featureToDuplicate),
         project: featureToDuplicate.project ?? project,
+        targetingAllProjects: featureToDuplicate.targetingAllProjects ?? false,
+        targetingProjects: featureToDuplicate.targetingProjects ?? [],
         tags: featureToDuplicate.tags,
         environmentSettings,
-        rules: featureToDuplicate.rules ?? [],
+        // Drop rollout seeds so the copy buckets independently of the source
+        // flag; the back end stamps each rule's own id on create.
+        rules: (featureToDuplicate.rules ?? []).map((r) =>
+          r?.type === "rollout" ? omit(r, ["seed"]) : r,
+        ),
         customFields: customFieldValues,
         holdout: featureToDuplicate.holdout?.id
           ? featureToDuplicate.holdout
@@ -151,6 +161,8 @@ const genFormDefaultValues = ({
         description: "",
         id: "",
         project,
+        targetingAllProjects: false,
+        targetingProjects: [],
         tags: [],
         environmentSettings,
         rules: [],
@@ -385,6 +397,7 @@ export default function FeatureModal({
 
         {projectOptions.length > 0 && (
           <SelectField
+            size="legacy"
             label={
               <>
                 Project{" "}
@@ -400,6 +413,15 @@ export default function FeatureModal({
             required={requireProjectForFeatures}
           />
         )}
+
+        <TargetingProjectsField
+          mb="3"
+          primaryProject={selectedProject}
+          allProjects={!!form.watch("targetingAllProjects")}
+          setAllProjects={(v) => form.setValue("targetingAllProjects", v)}
+          targetingProjects={form.watch("targetingProjects") ?? []}
+          setTargetingProjects={(v) => form.setValue("targetingProjects", v)}
+        />
 
         <HoldoutSelect
           selectedProject={selectedProject}

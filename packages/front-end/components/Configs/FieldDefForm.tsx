@@ -18,7 +18,7 @@ import CodeTextArea, {
   FIVE_LINES_HEIGHT,
 } from "@/components/Forms/CodeTextArea";
 import SelectField from "@/components/Forms/SelectField";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import {
   FIELD_GRID_TEMPLATE,

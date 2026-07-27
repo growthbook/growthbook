@@ -77,6 +77,7 @@ export default function OAuthLookup() {
           </p>
         </div>
         <Field
+          size="legacy"
           required
           label="Email Address"
           {...form.register("email")}

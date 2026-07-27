@@ -95,6 +95,7 @@ export default function MetricTabContent() {
           <ValueCard key={idx} index={idx}>
             <Flex direction="column">
               <SelectField
+                size="legacy"
                 className={styles.metricSelect}
                 value={v.metricId}
                 disabled={

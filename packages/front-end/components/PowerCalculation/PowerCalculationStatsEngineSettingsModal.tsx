@@ -150,6 +150,7 @@ export default function PowerCalculationStatsEngineSettingsModal({
         <div className="rounded px-3 pt-3 pb-1 bg-highlight">
           {currentParams.type === "frequentist" ? (
             <Field
+              size="legacy"
               label="P-value threshold"
               type="number"
               step="0.001"
@@ -179,6 +180,7 @@ export default function PowerCalculationStatsEngineSettingsModal({
           ) : null}
           {currentParams.type === "bayesian" ? (
             <Field
+              size="legacy"
               label="Chance to win threshold"
               type="number"
               step="any"

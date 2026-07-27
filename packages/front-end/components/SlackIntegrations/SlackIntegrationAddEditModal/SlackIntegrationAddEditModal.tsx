@@ -14,7 +14,7 @@ import {
 import Modal from "@/components/Modal";
 import TagsInput from "@/components/Tags/TagsInput";
 import Field from "@/components/Forms/Field";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 
 type SlackIntegrationAddEditModalProps = {
   projects: {
@@ -134,6 +134,7 @@ export const SlackIntegrationAddEditModal: FC<
         .
       </p>
       <Field
+        size="legacy"
         label="Name"
         placeholder="My Slack integration"
         autoComplete="off"
@@ -146,6 +147,7 @@ export const SlackIntegrationAddEditModal: FC<
       />
 
       <Field
+        size="legacy"
         label="Description"
         placeholder="(optional description)"
         autoComplete="off"
@@ -157,6 +159,7 @@ export const SlackIntegrationAddEditModal: FC<
       />
 
       <MultiSelectField
+        size="legacy"
         label="Event filters"
         helpText="Only receive notifications for matching events."
         value={form.watch("events")}
@@ -170,6 +173,7 @@ export const SlackIntegrationAddEditModal: FC<
       />
 
       <Field
+        size="legacy"
         label="Slack App ID"
         autoComplete="off"
         helpText="Copy the Slack App ID from the app's Basic Information page"
@@ -182,6 +186,7 @@ export const SlackIntegrationAddEditModal: FC<
       />
 
       <Field
+        size="legacy"
         label="Slack App Incoming Webhook URL"
         autoComplete="off"
         helpText="Copy the Incoming Webhook URL for your Slack App. This can be found on the Incoming Webhooks page under Features for your Slack app configuration"
@@ -194,6 +199,7 @@ export const SlackIntegrationAddEditModal: FC<
       />
 
       <Field
+        size="legacy"
         label="Slack Signing Key"
         autoComplete="off"
         required
@@ -206,6 +212,7 @@ export const SlackIntegrationAddEditModal: FC<
       />
 
       <MultiSelectField
+        size="legacy"
         label="Environment filters"
         helpText="Only receive notifications for matching environments."
         value={form.watch("environments")}
@@ -220,6 +227,7 @@ export const SlackIntegrationAddEditModal: FC<
       />
 
       <MultiSelectField
+        size="legacy"
         label="Project filters"
         helpText="Only receive notifications for matching projects."
         value={form.watch("projects")}

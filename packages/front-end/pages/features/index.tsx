@@ -301,6 +301,7 @@ export default function FeaturesPage() {
               <Flex align="center" gap="1" width="40%">
                 <Box flexGrow="1" style={{ position: "relative" }}>
                   <Field
+                    size="legacy"
                     placeholder="Search..."
                     type="search"
                     containerClassName="mb-0"

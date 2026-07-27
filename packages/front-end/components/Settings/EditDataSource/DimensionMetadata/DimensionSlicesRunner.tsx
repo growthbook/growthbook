@@ -12,7 +12,7 @@ import RunQueriesButton, {
 } from "@/components/Queries/RunQueriesButton";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import Field from "@/components/Forms/Field";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import SelectField from "@/components/Forms/SelectField";
 import Link from "@/ui/Link";
@@ -101,6 +101,7 @@ export const DimensionSlicesRunner: FC<DimensionSlicesRunnerProps> = ({
     <div className="d-inline-flex align-items-center mt-1">
       <label className="mb-0 mr-2 small">Days to look back</label>
       <Field
+        size="legacy"
         type="number"
         style={{ width: 70 }}
         {...form.register("lookbackDays", {
@@ -402,6 +403,7 @@ export const DimensionSlicesResults: FC<{
                     {metadata?.customSlicesArray ? (
                       <>
                         <MultiSelectField
+                          size="legacy"
                           value={metadata?.customSlicesArray || []}
                           onChange={(values) =>
                             updateCustomSelectedSlices(
@@ -456,6 +458,7 @@ export const DimensionSlicesResults: FC<{
                 {growthbook.isOn("pre-computed-dimensions") ? (
                   <td>
                     <SelectField
+                      size="legacy"
                       value={metadata.priority?.toString() ?? "0"}
                       onChange={(value) =>
                         updatePriority(metadata.dimension, parseInt(value))

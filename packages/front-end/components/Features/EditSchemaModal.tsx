@@ -58,6 +58,7 @@ function EditSimpleSchema({
     <div>
       {!lockedPrimitive && (
         <SelectField
+          size="legacy"
           label="Type"
           labelClassName="font-weight-bold text-dark"
           value={schema.type}
