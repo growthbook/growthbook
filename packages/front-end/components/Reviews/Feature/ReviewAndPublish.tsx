@@ -1226,6 +1226,10 @@ export default function ReviewAndPublish({
       );
     const canRevert = canRevertHere && !!revertTarget;
     const isDiscarded = revision.status === "discarded";
+    // The first published revision has nothing behind it to roll back to, so the
+    // whole revert affordance — explanation, button, and reason — is dropped
+    // rather than stacked up as three ways of saying "not available".
+    const nothingToRevertTo = !isDiscarded && !revertTarget;
     // Same page header as the draft path, but the summary line describes
     // the terminal state (merged/published, live, or discarded) instead of a
     // pending merge.
@@ -1376,26 +1380,28 @@ export default function ReviewAndPublish({
             </Box>
           )}
 
-          <Box mt="5" mb="4">
-            <HelperText status="info" size="sm">
-              {isDiscarded ? (
-                <>
-                  This revision was discarded. Reopen it as a draft to continue
-                  editing, request review, and publish.
-                </>
-              ) : isLive ? (
-                <>
-                  This revision is currently live. Rolling back reverts the
-                  feature to the previously published revision.
-                </>
-              ) : (
-                <>
-                  This revision was published and is now locked. You can revert
-                  the feature back to this revision.
-                </>
-              )}
-            </HelperText>
-          </Box>
+          {!nothingToRevertTo && (
+            <Box mt="5" mb="4">
+              <HelperText status="info" size="sm">
+                {isDiscarded ? (
+                  <>
+                    This revision was discarded. Reopen it as a draft to
+                    continue editing, request review, and publish.
+                  </>
+                ) : isLive ? (
+                  <>
+                    This revision is currently live. Rolling back reverts the
+                    feature to the previously published revision.
+                  </>
+                ) : (
+                  <>
+                    This revision was published and is now locked. You can
+                    revert the feature back to this revision.
+                  </>
+                )}
+              </HelperText>
+            </Box>
+          )}
 
           {isDiscarded ? (
             <Button
@@ -1406,7 +1412,7 @@ export default function ReviewAndPublish({
             >
               Reopen as draft
             </Button>
-          ) : (
+          ) : nothingToRevertTo ? null : (
             <Button
               color="red"
               variant="outline"
@@ -1423,14 +1429,9 @@ export default function ReviewAndPublish({
               You don&apos;t have permission to edit drafts for this feature.
             </HelperText>
           )}
-          {!isDiscarded && !canRevertHere && (
+          {!isDiscarded && !nothingToRevertTo && !canRevertHere && (
             <HelperText status="info" size="sm" mt="2">
               You don&apos;t have permission to revert this feature.
-            </HelperText>
-          )}
-          {!isDiscarded && canRevertHere && !revertTarget && (
-            <HelperText status="info" size="sm" mt="2">
-              There is no previously published revision to roll back to.
             </HelperText>
           )}
         </Box>
