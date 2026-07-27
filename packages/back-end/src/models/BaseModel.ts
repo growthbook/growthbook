@@ -848,13 +848,15 @@ export abstract class BaseModel<
       skip?: number;
       bypassReadPermissionChecks?: boolean;
       bypassSanitization?: boolean;
-      // Note: projection does not work when using config.yml
-      projection?: Partial<Record<keyof z.infer<T>, 0 | 1>>;
+      // Exclusion-only, so `omittedFields` below can take every listed field
+      // as dropped. Note: projection does not work when using config.yml
+      projection?: Partial<Record<keyof z.infer<T>, 0>>;
       dangerousCrossOrganization?: boolean;
     } = {},
   ) {
     const fullQuery = this.applyBaseQuery(query, dangerousCrossOrganization);
     let rawDocs;
+    let omittedFields: ReadonlySet<string> | undefined;
 
     if (this.useConfigFile()) {
       const docs =
@@ -879,6 +881,7 @@ export abstract class BaseModel<
       const cursor = this._dangerousGetCollection().find(fullQuery);
       if (projection) {
         cursor.project(projection);
+        omittedFields = new Set(Object.keys(projection));
       }
       sort &&
         cursor.sort(
@@ -890,14 +893,6 @@ export abstract class BaseModel<
     }
 
     if (!rawDocs.length) return [];
-
-    const omittedFields = projection
-      ? new Set(
-          Object.entries(projection)
-            .filter(([, include]) => include === 0)
-            .map(([field]) => field),
-        )
-      : undefined;
 
     const migrated = rawDocs.map((d) =>
       this._stripLegacyNullFields(
