@@ -4,6 +4,8 @@ import {
   getExperimentByTrackingKey,
   createExperiment,
   getAllExperiments,
+  getExperimentsPage,
+  countExperiments,
   updateExperiment,
 } from "../../src/models/ExperimentModel";
 import {
@@ -27,6 +29,8 @@ jest.mock("../../src/models/ExperimentModel", () => ({
   createExperiment: jest.fn(),
   updateExperiment: jest.fn(),
   getAllExperiments: jest.fn(),
+  getExperimentsPage: jest.fn(),
+  countExperiments: jest.fn(),
 }));
 
 jest.mock("../../src/models/ExperimentSnapshotModel", () => ({
@@ -94,6 +98,8 @@ describe("experiments API", () => {
         canCreateExperiment: () => true,
         canUpdateExperiment: () => true,
         canAddComment: () => true,
+        canReadSingleProjectResource: () => true,
+        getProjectsWithPermission: () => null,
       },
       hasPremiumFeature: () => false,
       getUsersByIds: jest.fn().mockResolvedValue([]),
@@ -435,7 +441,8 @@ describe("experiments API", () => {
 
   describe("GET /api/v1/experiments", () => {
     it("returns signed screenshot URLs for all experiments", async () => {
-      (getAllExperiments as jest.Mock).mockResolvedValue([experiment]);
+      (getExperimentsPage as jest.Mock).mockResolvedValue([experiment]);
+      (countExperiments as jest.Mock).mockResolvedValue(1);
       const res = await request(app)
         .get("/api/v1/experiments")
         .set("Authorization", "Bearer foo");
@@ -448,7 +455,8 @@ describe("experiments API", () => {
     });
 
     it("returns empty array when no experiments exist", async () => {
-      (getAllExperiments as jest.Mock).mockResolvedValue([]);
+      (getExperimentsPage as jest.Mock).mockResolvedValue([]);
+      (countExperiments as jest.Mock).mockResolvedValue(0);
       const res = await request(app)
         .get("/api/v1/experiments")
         .set("Authorization", "Bearer foo");
@@ -464,10 +472,11 @@ describe("experiments API", () => {
         trackingKey: "exp_456",
         name: "Second Experiment",
       };
-      (getAllExperiments as jest.Mock).mockResolvedValue([
+      (getExperimentsPage as jest.Mock).mockResolvedValue([
         experiment,
         experiment2,
       ]);
+      (countExperiments as jest.Mock).mockResolvedValue(2);
       const res = await request(app)
         .get("/api/v1/experiments")
         .set("Authorization", "Bearer foo");
@@ -476,11 +485,14 @@ describe("experiments API", () => {
       expect(res.body.experiments).toHaveLength(2);
       expect(res.body.experiments[0].id).toBe("exp_123");
       expect(res.body.experiments[1].id).toBe("exp_456");
+      expect(res.body.total).toBe(2);
+      expect(res.body.hasMore).toBe(false);
     });
 
     it("filters experiments by project", async () => {
       const projectExperiment = { ...experiment, project: "proj_1" };
-      (getAllExperiments as jest.Mock).mockResolvedValue([projectExperiment]);
+      (getExperimentsPage as jest.Mock).mockResolvedValue([projectExperiment]);
+      (countExperiments as jest.Mock).mockResolvedValue(1);
       const res = await request(app)
         .get("/api/v1/experiments?projectId=proj_1")
         .set("Authorization", "Bearer foo");
@@ -488,10 +500,54 @@ describe("experiments API", () => {
       expect(res.status).toBe(200);
       expect(res.body.experiments).toHaveLength(1);
       expect(res.body.experiments[0].project).toBe("proj_1");
+      expect(getExperimentsPage).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ project: "proj_1" }),
+      );
+    });
+
+    it("returns an empty page when the requested project is not readable", async () => {
+      updateReqContext({
+        permissions: {
+          canViewExperiment: () => true,
+          canReadSingleProjectResource: () => false,
+          getProjectsWithPermission: () => null,
+        },
+      });
+      const res = await request(app)
+        .get("/api/v1/experiments?projectId=proj_hidden")
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      expect(res.body.experiments).toEqual([]);
+      expect(res.body.total).toBe(0);
+      expect(getExperimentsPage).not.toHaveBeenCalled();
+    });
+
+    it("pre-scopes the query to readable projects", async () => {
+      updateReqContext({
+        permissions: {
+          canViewExperiment: () => true,
+          canReadSingleProjectResource: () => true,
+          getProjectsWithPermission: () => ["proj_a", "proj_b"],
+        },
+      });
+      (getExperimentsPage as jest.Mock).mockResolvedValue([experiment]);
+      (countExperiments as jest.Mock).mockResolvedValue(1);
+      const res = await request(app)
+        .get("/api/v1/experiments")
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      expect(getExperimentsPage).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ projectIds: ["proj_a", "proj_b"] }),
+      );
     });
 
     it("returns experiments with correct metadata", async () => {
-      (getAllExperiments as jest.Mock).mockResolvedValue([experiment]);
+      (getExperimentsPage as jest.Mock).mockResolvedValue([experiment]);
+      (countExperiments as jest.Mock).mockResolvedValue(1);
       const res = await request(app)
         .get("/api/v1/experiments")
         .set("Authorization", "Bearer foo");
@@ -506,10 +562,11 @@ describe("experiments API", () => {
 
     it("includes archived experiments in list when requested", async () => {
       const archivedExp = { ...experiment, archived: true };
-      (getAllExperiments as jest.Mock).mockResolvedValue([
+      (getExperimentsPage as jest.Mock).mockResolvedValue([
         experiment,
         archivedExp,
       ]);
+      (countExperiments as jest.Mock).mockResolvedValue(2);
       const res = await request(app)
         .get("/api/v1/experiments")
         .set("Authorization", "Bearer foo");
@@ -518,27 +575,40 @@ describe("experiments API", () => {
       expect(res.body.experiments).toHaveLength(2);
     });
 
-    it("sorts by dateCreated ascending by default", async () => {
-      const older = {
-        ...experiment,
-        id: "exp_older",
-        dateCreated: new Date("2020-01-01"),
-      };
-      const newer = {
-        ...experiment,
-        id: "exp_newer",
-        dateCreated: new Date("2024-01-01"),
-      };
-      (getAllExperiments as jest.Mock).mockResolvedValue([newer, older]);
+    it("pages in the database with the default dateCreated sort", async () => {
+      (getExperimentsPage as jest.Mock).mockResolvedValue([experiment]);
+      (countExperiments as jest.Mock).mockResolvedValue(25);
       const res = await request(app)
-        .get("/api/v1/experiments")
+        .get("/api/v1/experiments?limit=10&offset=10")
         .set("Authorization", "Bearer foo");
 
       expect(res.status).toBe(200);
-      expect(res.body.experiments.map((e: { id: string }) => e.id)).toEqual([
-        "exp_older",
-        "exp_newer",
-      ]);
+      expect(getExperimentsPage).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          sort: { dateCreated: 1, _id: 1 },
+          limit: 10,
+          offset: 10,
+        }),
+      );
+      expect(res.body.total).toBe(25);
+      expect(res.body.hasMore).toBe(true);
+      expect(res.body.nextOffset).toBe(20);
+      expect(getAllExperiments).not.toHaveBeenCalled();
+    });
+
+    it("passes sortBy and sortOrder to the database sort", async () => {
+      (getExperimentsPage as jest.Mock).mockResolvedValue([experiment]);
+      (countExperiments as jest.Mock).mockResolvedValue(1);
+      const res = await request(app)
+        .get("/api/v1/experiments?sortBy=dateUpdated&sortOrder=desc")
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      expect(getExperimentsPage).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ sort: { dateUpdated: -1, _id: 1 } }),
+      );
     });
 
     it("sorts by name descending, case-insensitively", async () => {
@@ -660,28 +730,51 @@ describe("experiments API", () => {
       expect(res.body.experiments[0].id).toBe("exp_metric");
     });
 
-    it("filters bandits in or out with the bandits param", async () => {
+    it("maps the bandits param onto the type filter in the database", async () => {
       const bandit = {
         ...experiment,
         id: "exp_bandit",
         type: "multi-armed-bandit",
       };
-      (getAllExperiments as jest.Mock).mockResolvedValue([experiment, bandit]);
+      (getExperimentsPage as jest.Mock).mockResolvedValue([bandit]);
+      (countExperiments as jest.Mock).mockResolvedValue(1);
 
       const onlyBandits = await request(app)
         .get("/api/v1/experiments?bandits=true")
         .set("Authorization", "Bearer foo");
       expect(onlyBandits.status).toBe(200);
-      expect(onlyBandits.body.experiments).toHaveLength(1);
-      expect(onlyBandits.body.experiments[0].id).toBe("exp_bandit");
+      expect(getExperimentsPage).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ type: "multi-armed-bandit" }),
+      );
 
-      (getAllExperiments as jest.Mock).mockResolvedValue([experiment, bandit]);
+      (getExperimentsPage as jest.Mock).mockResolvedValue([experiment]);
       const noBandits = await request(app)
         .get("/api/v1/experiments?bandits=false")
         .set("Authorization", "Bearer foo");
       expect(noBandits.status).toBe(200);
-      expect(noBandits.body.experiments).toHaveLength(1);
-      expect(noBandits.body.experiments[0].id).toBe("exp_123");
+      expect(getExperimentsPage).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ type: "standard" }),
+      );
+    });
+
+    it("still filters bandits in memory when combined with in-memory filters", async () => {
+      const bandit = {
+        ...experiment,
+        id: "exp_bandit",
+        type: "multi-armed-bandit",
+        tags: ["checkout"],
+      };
+      const tagged = { ...experiment, id: "exp_tagged", tags: ["checkout"] };
+      (getAllExperiments as jest.Mock).mockResolvedValue([tagged, bandit]);
+      const res = await request(app)
+        .get("/api/v1/experiments?bandits=true&tag=checkout")
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      expect(res.body.experiments).toHaveLength(1);
+      expect(res.body.experiments[0].id).toBe("exp_bandit");
     });
 
     it("applies filters from a q search string", async () => {
@@ -705,13 +798,14 @@ describe("experiments API", () => {
     });
 
     it("leaves the archived filter unset when the param is omitted", async () => {
-      (getAllExperiments as jest.Mock).mockResolvedValue([experiment]);
+      (getExperimentsPage as jest.Mock).mockResolvedValue([experiment]);
+      (countExperiments as jest.Mock).mockResolvedValue(1);
       const res = await request(app)
         .get("/api/v1/experiments")
         .set("Authorization", "Bearer foo");
 
       expect(res.status).toBe(200);
-      expect(getAllExperiments).toHaveBeenCalledWith(
+      expect(getExperimentsPage).toHaveBeenCalledWith(
         expect.anything(),
         expect.objectContaining({ archived: undefined, includeArchived: true }),
       );
@@ -721,13 +815,14 @@ describe("experiments API", () => {
       ["true", true],
       ["false", false],
     ])("passes archived=%s through as a boolean", async (param, value) => {
-      (getAllExperiments as jest.Mock).mockResolvedValue([experiment]);
+      (getExperimentsPage as jest.Mock).mockResolvedValue([experiment]);
+      (countExperiments as jest.Mock).mockResolvedValue(1);
       const res = await request(app)
         .get(`/api/v1/experiments?archived=${param}`)
         .set("Authorization", "Bearer foo");
 
       expect(res.status).toBe(200);
-      expect(getAllExperiments).toHaveBeenCalledWith(
+      expect(getExperimentsPage).toHaveBeenCalledWith(
         expect.anything(),
         expect.objectContaining({ archived: value }),
       );
