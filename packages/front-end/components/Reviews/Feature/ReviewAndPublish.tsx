@@ -685,6 +685,18 @@ export default function ReviewAndPublish({
     !!isPendingReview &&
     createdBy?.id !== user?.id &&
     permissionsUtil.canReviewFeatureDrafts(feature);
+  // Moving a draft along — requesting review, discarding it — normally takes
+  // draft authority. Revert authority also covers a draft that only restores a
+  // published revision, so a revert-only role isn't left holding a rollback it
+  // can't advance. Provenance is all the client can see; the server re-verifies
+  // that the draft really is a pure revert.
+  const canAdvanceDraft =
+    permissionsUtil.canEditFeatureDrafts(feature) ||
+    (revision?.revertedFromVersion !== undefined &&
+      permissionsUtil.canRevertFeature(
+        feature,
+        environments.map((e) => e.id),
+      ));
   const approved = revision?.status === "approved" || adminPublish;
 
   const autopublishOnApproval =
@@ -2035,7 +2047,7 @@ export default function ReviewAndPublish({
 
   // Shared by the no-changes empty state and the actions column kebab — the
   // only two places an active draft can be discarded from.
-  const canDiscardDraft = permissionsUtil.canEditFeatureDrafts(feature);
+  const canDiscardDraft = canAdvanceDraft;
   const discardConfirmModal = confirmDiscard ? (
     <ModalStandard
       trackingEventModalType="discard-feature-revision"
@@ -2688,16 +2700,13 @@ export default function ReviewAndPublish({
                       // Requesting review is a draft action, and the endpoint
                       // gates on draft authority — so a publish- or review-only
                       // role must not be offered it.
-                      disabled={
-                        !state.ctaEnabled ||
-                        !permissionsUtil.canEditFeatureDrafts(feature)
-                      }
+                      disabled={!state.ctaEnabled || !canAdvanceDraft}
                       style={{ width: "100%" }}
                     >
                       {state.ctaLabel}
                     </Button>
                     {state.submitAction === "request-review" &&
-                      !permissionsUtil.canEditFeatureDrafts(feature) && (
+                      !canAdvanceDraft && (
                         <HelperText status="info" size="sm" mt="2">
                           You don&apos;t have permission to request review for
                           this draft.

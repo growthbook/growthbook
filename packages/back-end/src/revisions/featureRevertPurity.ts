@@ -5,6 +5,8 @@ import { FeatureRevisionInterface } from "shared/validators";
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
+import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
+import { getEnabledEnvironments } from "back-end/src/util/features";
 import { isPlausibleFeatureRule } from "back-end/src/util/flattenRules";
 import { upgradeFeatureRule } from "back-end/src/util/migrations";
 import { isArchiveTransition } from "back-end/src/revisions/archiveTransition";
@@ -122,6 +124,35 @@ function environmentsEnabledOnlyRestore({
 }
 
 /**
+ * Whether the caller may move this draft through the review workflow. Draft
+ * authority covers any draft; revert authority covers one that only restores a
+ * previously-published revision, so a revert-only role can shepherd its own
+ * rollback instead of stranding it. The purity check runs only on the fallback.
+ */
+export async function canAdvanceFeatureDraft({
+  context,
+  feature,
+  draft,
+}: {
+  context: ReqContext | ApiReqContext;
+  feature: FeatureInterface;
+  draft: FeatureRevisionInterface;
+}): Promise<boolean> {
+  if (context.permissions.canEditFeatureDrafts(feature)) return true;
+  if (
+    !context.permissions.canRevertFeature(
+      feature,
+      Array.from(
+        getEnabledEnvironments(feature, getEnvironmentIdsFromOrg(context.org)),
+      ),
+    )
+  ) {
+    return false;
+  }
+  return draftIsPureRevert({ context, feature, draft });
+}
+
+/**
  * Publish authority for the environments the merge touches, or revert authority
  * for a draft that only restores a previously-published revision. The purity
  * check runs only on the fallback, so publishers pay no extra load.
@@ -182,7 +213,7 @@ export async function assertCanPublishFeatureRevision({
   context.permissions.throwPermissionError();
 }
 
-async function draftIsPureRevert({
+export async function draftIsPureRevert({
   context,
   feature,
   draft,

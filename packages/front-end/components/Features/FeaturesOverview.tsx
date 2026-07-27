@@ -1145,11 +1145,11 @@ export default function FeaturesOverview({
                               flipTheme={false}
                               body={environmentKillSwitchTooltipBody(
                                 enabled,
-                                !isReadOnly,
+                                !isReadOnly && canChangeEnvironments,
                                 envAndSummaryTooltipNonLiveDisclaimer,
                               )}
                             >
-                              {!isReadOnly ? (
+                              {!isReadOnly && canChangeEnvironments ? (
                                 <IconButton
                                   variant="ghost"
                                   radius="full"
@@ -1334,11 +1334,11 @@ export default function FeaturesOverview({
                           flipTheme={false}
                           body={environmentKillSwitchTooltipBody(
                             enabled,
-                            !isReadOnly,
+                            !isReadOnly && canChangeEnvironments,
                             envAndSummaryTooltipNonLiveDisclaimer,
                           )}
                         >
-                          {!isReadOnly ? (
+                          {!isReadOnly && canChangeEnvironments ? (
                             <IconButton
                               variant="ghost"
                               radius="full"

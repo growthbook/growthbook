@@ -130,7 +130,10 @@ import { assertFeatureArchiveDependentsGuard } from "back-end/src/services/archi
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
-import { assertCanPublishFeatureRevision } from "back-end/src/revisions/featureRevertPurity";
+import {
+  assertCanPublishFeatureRevision,
+  canAdvanceFeatureDraft,
+} from "back-end/src/revisions/featureRevertPurity";
 import {
   canLandArchivedState,
   isArchiveTransition,
@@ -1206,10 +1209,6 @@ export async function postFeatureRequestReview(
   if (!feature) {
     throw new Error("Could not find feature");
   }
-  if (!context.permissions.canEditFeatureDrafts(feature)) {
-    context.permissions.throwPermissionError();
-  }
-
   const revision = await getRevision({
     context,
     organization: context.org.id,
@@ -1219,6 +1218,12 @@ export async function postFeatureRequestReview(
   });
   if (!revision) {
     throw new Error("Could not find feature revision");
+  }
+  // Draft authority, or revert authority over a draft that only restores a
+  // published revision — otherwise a revert-only role can open a rollback it
+  // has no way to move forward.
+  if (!(await canAdvanceFeatureDraft({ context, feature, draft: revision }))) {
+    context.permissions.throwPermissionError();
   }
   if (revision.status !== "draft") {
     throw new Error("Can only request review if is a draft");

@@ -14,6 +14,7 @@ import {
   getRevision,
   markRevisionAsReviewRequested,
 } from "back-end/src/models/FeatureRevisionModel";
+import { canAdvanceFeatureDraft } from "back-end/src/revisions/featureRevertPurity";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import {
   canEnableFeatureAutoPublishOnApproval,
@@ -37,12 +38,6 @@ export async function requestReview(
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
-  // Gated on canEditFeatureDrafts only so contributors can request approval
-  // on drafts they can't publish themselves.
-  if (!req.context.permissions.canEditFeatureDrafts(feature)) {
-    req.context.permissions.throwPermissionError();
-  }
-
   const revision = await getRevision({
     context: req.context,
     organization: req.organization.id,
@@ -51,6 +46,19 @@ export async function requestReview(
     version: req.params.version,
   });
   if (!revision) throw new NotFoundError("Could not find feature revision");
+
+  // Draft authority so contributors can request approval on drafts they can't
+  // publish themselves, or revert authority over a draft that only restores a
+  // published revision — otherwise a revert-only role strands its own rollback.
+  if (
+    !(await canAdvanceFeatureDraft({
+      context: req.context,
+      feature,
+      draft: revision,
+    }))
+  ) {
+    req.context.permissions.throwPermissionError();
+  }
 
   if (revision.status !== "draft") {
     throw new BadRequestError(
