@@ -96,6 +96,10 @@ interface DimensionData {
   /** When set, rows CTE filters to these values (no "other" bucket). */
   filterExpr?: string;
 }
+/** Stages downstream of the rows CTE only reference the already-materialized column, not the expression that produced it. */
+interface DimensionAlias {
+  alias: string;
+}
 interface CTE {
   name: string;
   sql: string;
@@ -131,6 +135,8 @@ function buildPinnedDimensionFilter(
   const valueList = values
     .map((v) => `'${helpers.escapeStringLiteral(v)}'`)
     .join(", ");
+  // `IN` never matches NULL, so rows where the column is NULL are dropped
+  // here rather than bucketed into 'other' like the top-N path does below.
   return `${columnExpr} IN (${valueList})`;
 }
 
@@ -501,12 +507,15 @@ function generateDimensionExpression(
         helpers.jsonExtract,
       );
       // Explicit values: use the raw column; caller filters to the value list
-      // so non-matching rows are excluded (no "other" bucket).
+      // so non-matching rows (including NULLs, since IN never matches NULL)
+      // are excluded rather than bucketed into 'other'.
       if (getPinnedDynamicDimension(dimension)) {
         return columnExpr;
       }
+      // Top-N: unlike the pinned path above, NULL column values fall through
+      // to the ELSE branch and get grouped into 'other' rather than dropped.
       const topCTE = `_dimension${dimensionIndex}_top`;
-      return `CASE 
+      return `CASE
         WHEN ${columnExpr} IN (SELECT value FROM ${topCTE}) THEN ${columnExpr}
         ELSE 'other'
       END`;
@@ -1014,7 +1023,7 @@ function generateFactTableRowsCTE(
 function generateUnitAggregationCTE(
   factTableGroup: FactTableGroup,
   sourceCTE: CTE,
-  dimensions: DimensionData[],
+  dimensions: DimensionAlias[],
   unitIndex: number,
   includedMetrics: MetricData[],
 ): CTE {
@@ -1051,7 +1060,7 @@ function generateUnitAggregationCTE(
 function generateUnitAggregationRollupCTE(
   factTableGroup: FactTableGroup,
   sourceCTE: CTE,
-  dimensions: DimensionData[],
+  dimensions: DimensionAlias[],
   unitIndex: number,
   includedMetrics: MetricData[],
   allMetrics: string[],
@@ -1105,7 +1114,7 @@ function generateUnitAggregationRollupCTE(
 function generateEventRollupCTE(
   factTableGroup: FactTableGroup,
   sourceCTE: CTE,
-  dimensions: DimensionData[],
+  dimensions: DimensionAlias[],
   includedMetrics: MetricData[],
   allMetrics: string[],
   aliasesWithDenominator: Set<string>,
@@ -1163,7 +1172,7 @@ function generateCombinedRollupCTE(rollupCTEs: CTE[]): CTE {
 
 function generateFinalSelect(
   combinedRollupCTE: CTE,
-  dimensions: DimensionData[],
+  dimensions: DimensionAlias[],
   allMetrics: MetricData[],
   needsReaggregation: boolean,
 ): string {
@@ -1721,9 +1730,8 @@ export function generateProductAnalyticsSQL(
   );
 
   // Dimension aliases for rollups / final select (expressions are applied per fact table below)
-  const dimensionAliases: DimensionData[] = config.dimensions.map((_, i) => ({
+  const dimensionAliases: DimensionAlias[] = config.dimensions.map((_, i) => ({
     alias: `dimension${i}`,
-    valueExpr: "",
   }));
 
   const ctes: CTE[] = [];

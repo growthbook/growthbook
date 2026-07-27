@@ -35,12 +35,16 @@ export default function GroupBySection() {
   >({});
   const latestMaxValuesRef = useRef<Record<number, string>>({});
   const skipBlurCommitRef = useRef(false);
+  const [valuesTruncated, setValuesTruncated] = useState<
+    Record<number, boolean>
+  >({});
 
   const prevDimensionsLengthRef = useRef(draftExploreState.dimensions.length);
   useEffect(() => {
     if (draftExploreState.dimensions.length < prevDimensionsLengthRef.current) {
       setLocalMaxValues({});
       latestMaxValuesRef.current = {};
+      setValuesTruncated({});
     }
     prevDimensionsLengthRef.current = draftExploreState.dimensions.length;
   }, [draftExploreState.dimensions.length]);
@@ -213,13 +217,18 @@ export default function GroupBySection() {
               <SelectField
                 containerStyle={{ flex: 1, minWidth: 0 }}
                 value={dim.column || ""}
-                onChange={(val) =>
+                onChange={(val) => {
+                  setValuesTruncated((prev) => {
+                    const next = { ...prev };
+                    delete next[i];
+                    return next;
+                  });
                   handleUpdateDimension(i, {
                     column: val,
                     maxValues: dim.maxValues,
                     values: undefined,
-                  })
-                }
+                  });
+                }}
                 options={getColumnOptionsForDimension(i)}
                 placeholder="Select dimension..."
                 sort={false}
@@ -328,16 +337,17 @@ export default function GroupBySection() {
                 </Text>
                 <MultiSelectField
                   value={selectedValues}
-                  onChange={(vals) =>
+                  onChange={(vals) => {
+                    const truncated = vals.length > MAX_PINNED_DIMENSION_VALUES;
+                    setValuesTruncated((prev) => ({ ...prev, [i]: truncated }));
                     handleUpdateDimension(i, {
-                      values:
-                        vals.length > MAX_PINNED_DIMENSION_VALUES
-                          ? vals.slice(0, MAX_PINNED_DIMENSION_VALUES)
-                          : vals.length > 0
-                            ? vals
-                            : undefined,
-                    })
-                  }
+                      values: truncated
+                        ? vals.slice(0, MAX_PINNED_DIMENSION_VALUES)
+                        : vals.length > 0
+                          ? vals
+                          : undefined,
+                    });
+                  }}
                   options={getValueOptionsForDimension(dim)}
                   placeholder="Select values..."
                   creatable
@@ -349,6 +359,12 @@ export default function GroupBySection() {
                     !selectedValues.includes(option.value)
                   }
                   showCopyButton={false}
+                  error={
+                    valuesTruncated[i]
+                      ? `Only the first ${MAX_PINNED_DIMENSION_VALUES} values are kept.`
+                      : undefined
+                  }
+                  errorLevel="warning"
                 />
               </Flex>
             </Collapsible>
