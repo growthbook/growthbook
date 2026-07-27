@@ -227,6 +227,17 @@ export async function assertCanPublishFeatureRevision({
     return;
   }
 
+  // Delete authority lands a draft that only archives the flag, the same change
+  // the archive endpoint would let it land directly. Staging it as a draft first
+  // must not require an atom that landing it in one step doesn't. Approval is
+  // enforced separately by the caller — this decides authority only.
+  if (
+    context.permissions.canDeleteFeature(feature, environments) &&
+    isPureFeatureArchive({ feature, draft: revision })
+  ) {
+    return;
+  }
+
   context.permissions.throwPermissionError();
 }
 

@@ -1530,10 +1530,22 @@ export default function ReviewAndPublish({
       ),
   );
 
-  const hasPublishPermission = permissionsUtil.canPublishFeature(
+  // Publish authority, or the narrow atom that could land this exact change in
+  // one step: a pure revert under revert authority, a pure archive under delete
+  // authority. Staging a change as a draft must not require an atom that landing
+  // it directly doesn't. Provenance is all the client can see — the server
+  // re-verifies purity.
+  const affectedRevisionEnvs = getAffectedRevisionEnvs(
     feature,
-    getAffectedRevisionEnvs(feature, revision, environments),
+    revision,
+    environments,
   );
+  const hasPublishPermission =
+    permissionsUtil.canPublishFeature(feature, affectedRevisionEnvs) ||
+    (draftStagesRevert &&
+      permissionsUtil.canRevertFeature(feature, affectedRevisionEnvs)) ||
+    (draftStagesArchive &&
+      permissionsUtil.canDeleteFeature(feature, affectedRevisionEnvs));
 
   // Publishing is currently blocked (merge conflict, required rebase/divergence,
   // ramp lockdown, or nothing to publish). Used to suppress the reviewer's
