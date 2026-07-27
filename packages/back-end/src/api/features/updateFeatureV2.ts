@@ -76,12 +76,10 @@ export const updateFeatureV2 = createApiRequestHandler(
 
   const orgEnvs = getEnvironmentIdsFromOrg(req.context.org);
 
-  if (
-    !req.context.permissions.canPublishFeature(
-      feature,
-      Array.from(getEnabledEnvironments(feature, orgEnvs)),
-    )
-  ) {
+  // Authoring gate. Landing authority is checked below, per part of the body
+  // that reaches the payload — a publisher alone may land someone else's draft,
+  // not write new content through this endpoint.
+  if (!req.context.permissions.canEditFeatureDrafts(feature)) {
     req.context.permissions.throwPermissionError();
   }
   if (
@@ -94,6 +92,7 @@ export const updateFeatureV2 = createApiRequestHandler(
 
   if (project != null) {
     if (
+      !req.context.permissions.canEditFeatureDrafts({ project }) ||
       !req.context.permissions.canPublishFeature(
         feature,
         Array.from(getEnabledEnvironments(feature, orgEnvs)),

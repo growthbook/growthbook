@@ -87,10 +87,22 @@ const CASES: Case[] = [
     run: () => api.post(`/api/v1/features/${FEATURE_ID}/revisions`, {}),
   },
   {
+    // A direct update authors content AND lands it, so it takes both atoms.
+    // Publish alone lands someone else's draft; it does not license writing
+    // new content straight to the payload.
     name: "land a change directly (v2 update)",
-    allowed: ["publisher", "creatorPublisher", "editor", "full"],
+    allowed: ["editor", "full"],
     run: () =>
       api.post(`/api/v2/features/${FEATURE_ID}`, { defaultValue: "true" }),
+  },
+  {
+    // Metadata never reaches the payload, so the landing gate doesn't apply
+    // and a drafter can do it — matching what `manageFeatures` allowed before
+    // the split.
+    name: "update metadata only (v2 update)",
+    allowed: ["drafter", "editor", "full"],
+    run: () =>
+      api.post(`/api/v2/features/${FEATURE_ID}`, { description: "hello" }),
   },
   {
     name: "toggle an environment",

@@ -14,6 +14,7 @@ import {
   buildEffectiveDraft,
   filterEnvironmentsByFeature,
 } from "shared/util";
+import HelperText from "@/ui/HelperText";
 import Switch from "@/ui/Switch";
 import Text from "@/ui/Text";
 import { useAuth } from "@/services/auth";
@@ -288,8 +289,9 @@ export default function KillSwitchModal({
     return activeDrafts[0]?.version ?? null;
   }, [activeDrafts, currentVersion, userId]);
 
+  const canDraft = permissionsUtil.canEditFeatureDrafts(feature);
   const [mode, setMode] = useState<DraftMode>(
-    viewingActiveDraft ? "existing" : "new",
+    !canDraft ? "publish" : viewingActiveDraft ? "existing" : "new",
   );
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
     defaultDraft,
@@ -384,13 +386,18 @@ export default function KillSwitchModal({
     });
 
   const canAutoPublish = isAdmin || !envIsGated;
+  // Without draft rights, publishing is the only route — and an approval-gated
+  // change closes it, leaving nothing this user can submit.
+  const noRouteAvailable = !canDraft && !canAutoPublish;
 
   // Reset mode if "publish now" becomes unavailable due to a newly gated change.
+  // Without draft rights there's nowhere to fall back to — leave the mode alone
+  // so the selector keeps reporting the one route the user has.
   useEffect(() => {
-    if (!canAutoPublish && mode === "publish") {
+    if (!canAutoPublish && canDraft && mode === "publish") {
       setMode("new");
     }
-  }, [canAutoPublish, mode]);
+  }, [canAutoPublish, canDraft, mode]);
 
   // Delay the switch animation for pre-toggled envs so users see it animate in.
   const [uiReady, setUiReady] = useState(false);
@@ -476,9 +483,17 @@ export default function KillSwitchModal({
       open={true}
       cta={mode === "publish" ? "Publish now" : "Save to draft"}
       size="lg"
-      submit={submit}
+      // Without draft rights, publishing is the only route — and an
+      // approval-gated change closes it, leaving nothing to submit.
+      submit={noRouteAvailable ? undefined : submit}
     >
       <div style={{ minHeight: 300 }}>
+        {noRouteAvailable ? (
+          <HelperText status="info" size="sm" mb="4">
+            This change needs review before it can be published, and you
+            don&apos;t have permission to put it in a draft.
+          </HelperText>
+        ) : null}
         <DraftSelectorForChanges
           feature={feature}
           baseFeature={baseFeature}
@@ -488,6 +503,7 @@ export default function KillSwitchModal({
           selectedDraft={selectedDraft}
           setSelectedDraft={handleSetSelectedDraft}
           canAutoPublish={canAutoPublish}
+          canDraft={canDraft}
           gatedEnvSet={envIsGated ? gatedEnvSet : "none"}
           defaultExpanded
         />

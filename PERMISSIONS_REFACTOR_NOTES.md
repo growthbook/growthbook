@@ -478,3 +478,38 @@ hook enforces it, same as `main`); Constants and Saved Groups lack the
 recall-review / reopen / schedule-publish REST endpoints Configs have (feature
 surface, not permissions); Feature delete additionally requires publish because
 it can delete a _live_ flag via the REST bypass, which the engine models can't.
+
+## Authoring vs landing: where each gate belongs
+
+Every write answers two questions, and they take different atoms:
+
+- **Who may author this content?** → `draft`, project-scoped.
+- **Who may put it in front of users?** → `publish`, environment-scoped.
+
+An endpoint needs whichever it actually does. Revision-scoped handlers author
+only, so they take `draft` alone. Toggling an environment, publishing a draft
+and unarchiving land only, so they take `publish` alone. A **direct update does
+both**, so it takes both — that is what the `editor` persona is.
+
+The model `canUpdate` hooks stay publish-only on purpose. They are the floor for
+_any_ write to the live document, including the write that publishing someone
+else's draft performs; requiring `draft` there would stop a publisher from
+publishing. The authoring gate belongs at the endpoint, which is the only layer
+that knows whether the caller is authoring or landing.
+
+A second round found the direct-update REST handlers for all four models
+checking `publish` twice — the comments said "publish authority on top of edit",
+but the edit half was never wired. Net effect versus `main`, whose single
+`canUpdateFeature`/`canUpdateConfig`/… covered authoring: a publish-only role
+could write new content straight to the payload. All four now gate authoring
+first, on both sides of a project move (matching `main`'s
+`checkProjectFilterUpdatePermission`), and land second. Feature metadata never
+reaches the payload, so a metadata-only update stays draft-only — what
+`manageFeatures` allowed before the split. `deleteLinkedFeature` had the same
+comment/code mismatch and is now `canEditFeatureDrafts`, matching the holdout
+controller's identical unlink.
+
+Create stays asymmetric on purpose: a new feature enables its own environments,
+so it takes `create` + `publish`; a new Config, Constant or Saved Group declares
+no environments and reaches no one until something consumes it, so it takes
+`create` alone. That is the footprint rule, not an oversight.

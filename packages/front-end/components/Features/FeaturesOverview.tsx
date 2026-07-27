@@ -525,6 +525,11 @@ export default function FeaturesOverview({
 
   const canEdit = permissionsUtil.canViewFeatureModal(projectId);
   const canEditDrafts = permissionsUtil.canEditFeatureDrafts(feature);
+  // An env change can be staged in a draft or published straight out. Offer the
+  // control when either route is open; the modal narrows it to the ones that are.
+  const canChangeEnvironments =
+    canEditDrafts ||
+    envs.some((envId) => permissionsUtil.canPublishFeature(feature, [envId]));
 
   const featureCustomFields = filterCustomFieldsForSectionAndProject(
     allCustomFields,
@@ -1077,7 +1082,7 @@ export default function FeaturesOverview({
           {prerequisites.length > 0 ? (
             /* Grid layout: env icons column-aligned with prereq rows */
             <>
-              {!isReadOnly && (
+              {!isReadOnly && canChangeEnvironments && (
                 <Flex
                   justify="end"
                   style={{
@@ -1291,7 +1296,7 @@ export default function FeaturesOverview({
                 <span>
                   <span className="font-weight-bold">Enabled Environments</span>
                 </span>
-                {!isReadOnly && (
+                {!isReadOnly && canChangeEnvironments && (
                   <Button
                     variant="ghost"
                     size="sm"

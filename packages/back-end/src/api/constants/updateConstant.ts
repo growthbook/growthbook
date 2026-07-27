@@ -31,13 +31,18 @@ export const updateConstant = createApiRequestHandler(updateConstantValidator)(
       throw new NotFoundError(`Unable to locate the Constant: ${key}`);
     }
 
+    // Authoring gate; the landing gate is below. A move is checked on both
+    // sides — you need authoring rights in the project you're taking it out of
+    // and the one you're putting it into.
     if (
       !req.context.permissions.canRevisionAction(
         "constant",
-        "publish",
-        { projects: [project ?? constant.project ?? ""] },
-        constantPublishEnvironments(req.context),
-      )
+        "draft",
+        constant,
+      ) ||
+      !req.context.permissions.canRevisionAction("constant", "draft", {
+        projects: [project ?? constant.project ?? ""],
+      })
     ) {
       req.context.permissions.throwPermissionError();
     }

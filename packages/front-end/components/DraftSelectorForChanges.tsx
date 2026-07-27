@@ -29,6 +29,7 @@ export default function DraftSelectorForChanges<K>({
   hideExisting = false,
   triggerPrefix = "Changes will be",
   metadataOnly = false,
+  canDraft = true,
   maxDrafts = 0,
   isAdmin = false,
   allowNewDraftAtCap = false,
@@ -47,6 +48,9 @@ export default function DraftSelectorForChanges<K>({
   hideExisting?: boolean;
   triggerPrefix?: string;
   metadataOnly?: boolean;
+  // Whether the user may author drafts. Without it publishing is the only route
+  // their change can take, so the draft options aren't offered.
+  canDraft?: boolean;
   // Soft per-entity draft cap (org setting). 0 means no cap.
   maxDrafts?: number;
   isAdmin?: boolean;
@@ -56,9 +60,11 @@ export default function DraftSelectorForChanges<K>({
   // Subject of the cap message, e.g. "This feature". Defaults to "This".
   capNoun?: string;
 }) {
-  const singleOption = hideExisting
-    ? !canAutoPublish
-    : activeDraftKeys.length === 0 && !canAutoPublish;
+  const singleOption = !canDraft
+    ? true
+    : hideExisting
+      ? !canAutoPublish
+      : activeDraftKeys.length === 0 && !canAutoPublish;
 
   // Soft per-entity draft cap (org setting). At/over the cap we steer users to
   // an existing draft and block creating a new one — except admins and critical
@@ -67,9 +73,15 @@ export default function DraftSelectorForChanges<K>({
     !hideExisting && maxDrafts > 0 && activeDraftKeys.length >= maxDrafts;
   const newDraftBlocked = atDraftCap && !isAdmin && !allowNewDraftAtCap;
 
-  // When there is only one mode available it must be "new"; keep the form in
-  // sync in case the parent initialised with a stale value.
-  if (singleOption && mode !== "new") {
+  // Without draft rights the only route is publishing, so that's the one mode.
+  if (!canDraft) {
+    if (mode !== "publish") {
+      setSelectedDraft(null);
+      setMode("publish");
+    }
+  } else if (singleOption && mode !== "new") {
+    // Otherwise the sole remaining mode is "new"; keep the form in sync in case
+    // the parent initialised with a stale value.
     setSelectedDraft(null);
     setMode("new");
   } else if (newDraftBlocked && mode === "new") {
@@ -90,6 +102,7 @@ export default function DraftSelectorForChanges<K>({
       existingDraftLabel={existingDraftLabel}
       revisionDropdown={revisionDropdown}
       metadataOnly={metadataOnly}
+      canDraft={canDraft}
       singleOption={singleOption}
       recommendExisting={atDraftCap}
       newDraftDisabled={newDraftBlocked}

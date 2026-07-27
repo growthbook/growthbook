@@ -1218,13 +1218,13 @@ export default function ReviewAndPublish({
     const canManageDrafts = permissionsUtil.canEditFeatureDrafts(feature);
     // Revert authority alone is enough to offer the action — a revert-only role
     // holds no draft rights. The modal re-checks per environment.
-    const canRevert =
-      (canManageDrafts ||
-        permissionsUtil.canRevertFeature(
-          feature,
-          environments.map((e) => e.id),
-        )) &&
-      !!revertTarget;
+    const canRevertHere =
+      canManageDrafts ||
+      permissionsUtil.canRevertFeature(
+        feature,
+        environments.map((e) => e.id),
+      );
+    const canRevert = canRevertHere && !!revertTarget;
     const isDiscarded = revision.status === "discarded";
     // Same page header as the draft path, but the summary line describes
     // the terminal state (merged/published, live, or discarded) instead of a
@@ -1418,13 +1418,18 @@ export default function ReviewAndPublish({
             </Button>
           )}
 
-          {!canManageDrafts && (
-            <HelperText status="info" size="md" mt="5">
-              You don&apos;t have permission to manage drafts for this feature.
+          {isDiscarded && !canManageDrafts && (
+            <HelperText status="info" size="sm" mt="5">
+              You don&apos;t have permission to edit drafts for this feature.
             </HelperText>
           )}
-          {!isDiscarded && canManageDrafts && !revertTarget && (
-            <HelperText status="info" size="md" mt="5">
+          {!isDiscarded && !canRevertHere && (
+            <HelperText status="info" size="sm" mt="5">
+              You don&apos;t have permission to revert this feature.
+            </HelperText>
+          )}
+          {!isDiscarded && canRevertHere && !revertTarget && (
+            <HelperText status="info" size="sm" mt="5">
               There is no previously published revision to roll back to.
             </HelperText>
           )}
@@ -2690,6 +2695,13 @@ export default function ReviewAndPublish({
                     >
                       {state.ctaLabel}
                     </Button>
+                    {state.submitAction === "request-review" &&
+                      !permissionsUtil.canEditFeatureDrafts(feature) && (
+                        <HelperText status="info" size="sm" mt="5">
+                          You don&apos;t have permission to request review for
+                          this draft.
+                        </HelperText>
+                      )}
                   </Box>
                 )}
 

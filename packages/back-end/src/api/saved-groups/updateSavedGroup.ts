@@ -1,4 +1,3 @@
-import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { isEqual } from "lodash";
 import { Revision } from "shared/enterprise";
 import { validateCondition } from "shared/util";
@@ -29,13 +28,18 @@ export const updateSavedGroup = createApiRequestHandler(
     throw new NotFoundError(`Unable to locate the saved-group: ${id}`);
   }
 
+  // Authoring gate; the landing gate is below. A move is checked on both sides
+  // — you need authoring rights in the projects you're taking it out of and the
+  // ones you're putting it into.
   if (
     !req.context.permissions.canRevisionAction(
       "saved-group",
-      "publish",
-      { projects: req.body.projects ?? savedGroup.projects ?? [] },
-      NO_ENVIRONMENT_BINDING,
-    )
+      "draft",
+      savedGroup,
+    ) ||
+    !req.context.permissions.canRevisionAction("saved-group", "draft", {
+      projects: req.body.projects ?? savedGroup.projects ?? [],
+    })
   ) {
     req.context.permissions.throwPermissionError();
   }

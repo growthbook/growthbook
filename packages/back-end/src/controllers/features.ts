@@ -4686,7 +4686,15 @@ export async function postFeatureToggle(
     }
   }
 
-  if (!context.permissions.canPublishFeature(feature, envIds)) {
+  // Two paths, two authorities: `autoPublish` lands the toggle live, while the
+  // draft path only stages it. Gating both on publish let a publisher stage a
+  // draft they have no authoring rights to, and stopped a drafter from staging
+  // one at all.
+  if (
+    autoPublish
+      ? !context.permissions.canPublishFeature(feature, envIds)
+      : !context.permissions.canEditFeatureDrafts(feature)
+  ) {
     context.permissions.throwPermissionError();
   }
 

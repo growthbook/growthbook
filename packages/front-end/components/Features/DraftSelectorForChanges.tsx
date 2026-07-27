@@ -35,6 +35,7 @@ export default function DraftSelectorForChanges({
   selectedDraft,
   setSelectedDraft,
   canAutoPublish,
+  canDraft = true,
   gatedEnvSet,
   defaultExpanded = false,
   hideExisting = false,
@@ -50,6 +51,8 @@ export default function DraftSelectorForChanges({
   selectedDraft: number | null;
   setSelectedDraft: (v: number | null) => void;
   canAutoPublish: boolean;
+  // Whether the user may author drafts; without it publishing is the only route.
+  canDraft?: boolean;
   gatedEnvSet: Set<string> | "all" | "none";
   defaultExpanded?: boolean;
   hideExisting?: boolean;
@@ -186,6 +189,7 @@ export default function DraftSelectorForChanges({
       mode={mode}
       setMode={setMode}
       canAutoPublish={canAutoPublish}
+      canDraft={canDraft}
       approvalRequired={gatedEnvSet !== "none"}
       existingDraftLabel={existingDraftLabel}
       revisionDropdown={revisionDropdown}

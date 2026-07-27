@@ -71,13 +71,14 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
       throw new NotFoundError(`Unable to locate the Config: ${key}`);
     }
 
+    // Authoring gate; the landing gate is below. A move is checked on both
+    // sides — you need authoring rights in the project you're taking it out of
+    // and the one you're putting it into.
     if (
-      !req.context.permissions.canRevisionAction(
-        "config",
-        "publish",
-        { projects: [project ?? config.project ?? ""] },
-        configPublishEnvironments(req.context, config),
-      )
+      !req.context.permissions.canRevisionAction("config", "draft", config) ||
+      !req.context.permissions.canRevisionAction("config", "draft", {
+        projects: [project ?? config.project ?? ""],
+      })
     ) {
       req.context.permissions.throwPermissionError();
     }
