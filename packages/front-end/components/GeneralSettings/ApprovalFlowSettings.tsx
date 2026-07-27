@@ -437,7 +437,7 @@ export default function ApprovalFlowSettings() {
                 <Checkbox
                   id="toggle-reverts-bypass-approval"
                   label="Allow reverts without approval"
-                  description="Anyone with the publish or revert permission can revert to a past revision and publish it immediately, even when approvals are required."
+                  description="Anyone with the revert permission can revert to a past revision and publish it immediately, even when approvals are required."
                   value={!!form.watch("revertsBypassApproval")}
                   setValue={(v) => form.setValue("revertsBypassApproval", v)}
                 />

@@ -51,7 +51,10 @@ export const REVISION_PERMISSIONS: Record<
     create: { permission: "createFlags", scope: "environment" },
     delete: { permission: "deleteFlags", scope: "environment" },
     draft: { permission: "editFlagDrafts", scope: "project" },
-    review: { permission: "reviewFlags", scope: "environment" },
+    // Reviewing is a judgement on the whole proposed change, not on any one
+    // environment, and no caller ever had a footprint to hand it. Project-scoped
+    // so the declaration matches what actually happens.
+    review: { permission: "reviewFlags", scope: "project" },
     publish: { permission: "publishFlags", scope: "environment" },
     revert: { permission: "revertFlags", scope: "environment" },
     bypass: { permission: "bypassApprovalFlags", scope: "project" },

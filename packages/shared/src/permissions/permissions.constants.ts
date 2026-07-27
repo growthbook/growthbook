@@ -619,7 +619,7 @@ export const GRANULAR_PERMISSION_METADATA: Partial<
   deleteFlags: {
     displayName: "Archive & delete",
     description:
-      "Archive or delete Feature Flags, Constants, and Configs (environment-scoped)",
+      "Archive (environment-scoped) or delete Feature Flags, Constants, and Configs. Deleting is not environment-scoped — an archived flag already serves nowhere.",
   },
   editFlagDrafts: {
     displayName: "Edit",
@@ -628,7 +628,7 @@ export const GRANULAR_PERMISSION_METADATA: Partial<
   },
   reviewFlags: {
     displayName: "Review",
-    description: "Approve or request changes on revisions (environment-scoped)",
+    description: "Approve or request changes on revisions",
   },
   publishFlags: {
     displayName: "Publish",
@@ -861,7 +861,6 @@ export const ENV_SCOPED_PERMISSIONS = [
   // environment (a base Config, a Constant's base value).
   "createFlags",
   "deleteFlags",
-  "reviewFlags",
   "publishFlags",
   "revertFlags",
   "manageEnvironments",
@@ -874,6 +873,7 @@ export const PROJECT_SCOPED_PERMISSIONS = [
   "readData",
   "addComments",
   "editFlagDrafts",
+  "reviewFlags",
   "bypassApprovalFlags",
   "manageArchetype",
   "manageProjects",

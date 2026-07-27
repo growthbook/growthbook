@@ -1,3 +1,4 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { useRouter } from "next/router";
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -208,14 +209,22 @@ export default function FeaturesHeader({
   // not make the page claim the flag is out of service, nor offer Delete on a
   // flag that is still serving (the server refuses that anyway).
   const isArchived = baseFeature.archived;
-  const canDelete = permissionsUtil.canDeleteFeature(feature, enabledEnvs);
+  // Archiving takes a live flag out of service, so it is scoped to the
+  // environments it serves in. Deleting is not scoped: it is only reachable once
+  // the flag is archived, at which point it serves nowhere and there is no
+  // footprint left to scope against. Matches both delete endpoints.
+  const canArchive = permissionsUtil.canDeleteFeature(feature, enabledEnvs);
+  const canDelete = permissionsUtil.canDeleteFeature(
+    feature,
+    NO_ENVIRONMENT_BINDING,
+  );
   // Archiving takes the flag out of service, so it carries delete authority;
   // unarchiving returns it to service, an ordinary publish in its environments.
   // Either authority is enough: the landing atom stands on its own (the archive
   // endpoint changes nothing but `archived`), and a draft author without it can
   // still stage the flip.
   const canToggleArchive =
-    (isArchived ? canPublish : canDelete) ||
+    (isArchived ? canPublish : canArchive) ||
     permissionsUtil.canEditFeatureDrafts(feature);
 
   // Tab chip + tooltip count revisions at "request review" or beyond; drafts
