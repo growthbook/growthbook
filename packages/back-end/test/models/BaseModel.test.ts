@@ -137,6 +137,10 @@ class TestModel extends BaseModel<WriteOptions> {
   public exposeGetEntityId(doc: Record<string, unknown>): string {
     return this.getEntityId(doc);
   }
+
+  public exposeFindWithProjection() {
+    return this._find({}, { projection: { name: 0 } });
+  }
 }
 
 const CompositeBaseModel = MakeModelClass({
@@ -377,7 +381,10 @@ describe("BaseModel", () => {
     model.canReadMock.mockReturnValue(true);
 
     const ret = await model.getAll();
-    expect(model.migrateMock).toHaveBeenCalledWith({ id: "aabb", name: "foo" });
+    expect(model.migrateMock).toHaveBeenCalledWith(
+      { id: "aabb", name: "foo" },
+      undefined,
+    );
     expect(mockFind).toHaveBeenCalledWith({ organization: "a" });
     expect(model.populateForeignRefsMock).toHaveBeenCalledWith([
       { id: "aabb", name: "foo" },
@@ -389,6 +396,27 @@ describe("BaseModel", () => {
       { id: "aabb", name: "foo" },
       { id: "ccdd", name: "bla" },
     ]);
+  });
+
+  it("tells migrate which fields a projection omitted", async () => {
+    const model = new TestModel(defaultContext);
+
+    const mockProject = jest.fn();
+    const mockFind = jest.fn().mockReturnValueOnce({
+      project: mockProject,
+      toArray: () => [{ _id: "removed", __v: "removed", id: "aabb" }],
+    });
+
+    model.dangerousGetCollectionMock.mockReturnValueOnce({ find: mockFind });
+    model.canReadMock.mockReturnValue(true);
+
+    await model.exposeFindWithProjection();
+
+    expect(mockProject).toHaveBeenCalledWith({ name: 0 });
+    expect(model.migrateMock).toHaveBeenCalledWith(
+      { id: "aabb" },
+      new Set(["name"]),
+    );
   });
 
   it("can filter getAll result by read permission", async () => {

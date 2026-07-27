@@ -139,7 +139,9 @@ export default function EditSavedGroupPage() {
   const { savedGroupSizeLimit, attributeSchema } = settings;
   const revertsBypassApproval = !!settings.revertsBypassApproval;
 
-  const { references } = useSavedGroupReferences(savedGroup?.id);
+  const { references, loading: referencesLoading } = useSavedGroupReferences(
+    savedGroup?.id,
+  );
   const referencingFeatures = references?.features ?? [];
   const referencingExperiments = references?.experiments ?? [];
   const referencingSavedGroups = references?.savedGroups ?? [];
@@ -1105,6 +1107,7 @@ export default function EditSavedGroupPage() {
                 <SavedGroupReferences
                   totalReferences={totalReferences}
                   onShowReferences={() => setShowReferencesModal(true)}
+                  loading={referencesLoading}
                 />
               </Flex>
             </Flex>

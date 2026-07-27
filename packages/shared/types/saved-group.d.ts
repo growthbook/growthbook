@@ -12,6 +12,11 @@ export type SavedGroupInterface = z.infer<typeof savedGroupValidator>;
 
 export type SavedGroupWithoutValues = Omit<SavedGroupInterface, "values">;
 
+export type SavedGroupForDefinitions = Omit<
+  SavedGroupInterface,
+  "values" | "condition"
+>;
+
 /**
  * @deprecated
  */

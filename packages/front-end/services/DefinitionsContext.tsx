@@ -19,7 +19,7 @@ import {
   FactTableDefinition,
 } from "shared/types/fact-table";
 import { ExperimentMetricDefinition, isFactMetricId } from "shared/experiments";
-import { SavedGroupWithoutValues } from "shared/types/saved-group";
+import { SavedGroupForDefinitions } from "shared/types/saved-group";
 import { ConstantWithoutValue } from "shared/types/constant";
 import { ConfigWithoutValue } from "shared/types/config";
 import { MetricGroupInterface } from "shared/types/metric-groups";
@@ -39,8 +39,7 @@ type Definitions = {
   dimensions: DimensionInterface[];
   segments: SegmentInterface[];
   projects: ProjectInterface[];
-  savedGroups: SavedGroupWithoutValues[];
-  _savedGroupsIncludingArchived: SavedGroupWithoutValues[];
+  savedGroups: SavedGroupForDefinitions[];
   constants: ConstantWithoutValue[];
   _constantsIncludingArchived: ConstantWithoutValue[];
   configs: ConfigWithoutValue[];
@@ -68,7 +67,7 @@ type DefinitionContextValue = Definitions & {
   getDimensionById: (id: string) => null | DimensionInterface;
   getSegmentById: (id: string) => null | SegmentInterface;
   getProjectById: (id: string) => null | ProjectInterface;
-  getSavedGroupById: (id: string) => null | SavedGroupWithoutValues;
+  getSavedGroupById: (id: string) => null | SavedGroupForDefinitions;
   getConstantById: (id: string) => null | ConstantWithoutValue;
   getConstantByKey: (key: string) => null | ConstantWithoutValue;
   getConfigById: (id: string) => null | ConfigWithoutValue;
@@ -100,7 +99,6 @@ const defaultValue: DefinitionContextValue = {
   segments: [],
   tags: [],
   savedGroups: [],
-  _savedGroupsIncludingArchived: [],
   constants: [],
   _constantsIncludingArchived: [],
   configs: [],
@@ -388,7 +386,6 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       segments: data.segments,
       tags: allTags,
       savedGroups: activeSavedGroups,
-      _savedGroupsIncludingArchived: allSavedGroups,
       constants: activeConstants,
       _constantsIncludingArchived: allConstants,
       configs: activeConfigs,
