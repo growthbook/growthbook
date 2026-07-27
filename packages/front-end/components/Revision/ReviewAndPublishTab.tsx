@@ -1299,6 +1299,15 @@ function ReviewAndPublishRevision<T>({
               )}
 
             <Flex direction="column" gap="2" mt="3">
+              {/* Lacking publish authority disables the CTA above, and a
+                  greyed-out button with no reason reads as a bug. First in the
+                  stack: it's the reason nothing else here is actionable. */}
+              {!canPublishOrEdit && (
+                <Callout status="info" size="sm">
+                  You don&apos;t have permission to publish this draft.
+                </Callout>
+              )}
+
               {/* Entity-level publish lock (e.g. a locked config). */}
               {publishBlockedReason && (
                 <Callout status="warning" size="sm">

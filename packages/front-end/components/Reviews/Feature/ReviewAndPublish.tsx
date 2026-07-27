@@ -2777,6 +2777,16 @@ export default function ReviewAndPublish({
                     messages. Stacked in priority order: ramps, errors, and
                     finally the "no approval necessary" note. */}
                     <Flex direction="column" gap="2" mt="3">
+                      {/* Lacking publish authority disables the CTA above, and
+                          a greyed-out button with no reason reads as a bug.
+                          First in the stack: it's the reason nothing else on
+                          this panel is actionable. */}
+                      {!hasPublishPermission && (
+                        <Callout status="info" size="sm">
+                          You don&apos;t have permission to publish this draft.
+                        </Callout>
+                      )}
+
                       {linkedRamps.map((ramp) => (
                         <Callout key={ramp.id} status="info" size="sm">
                           Publishing this draft will activate ramp schedule{" "}

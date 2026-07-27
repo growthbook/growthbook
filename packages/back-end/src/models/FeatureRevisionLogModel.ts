@@ -59,7 +59,15 @@ export class FeatureRevisionLogModel extends BaseClass {
     if (!feature) {
       throw new Error("Feature not found for FeatureRevisionLog");
     }
-    return this.context.permissions.canManageFeatureDrafts(feature);
+    // Creating a flag writes its first log entry, so create authority has to
+    // count here as well as draft authority — otherwise `createFlags` alone
+    // can't create anything.
+    return (
+      this.context.permissions.canCreateFeature(
+        feature,
+        NO_ENVIRONMENT_BINDING,
+      ) || this.context.permissions.canManageFeatureDrafts(feature)
+    );
   }
 
   // Owner check shared by update / delete. Action membership is checked by
