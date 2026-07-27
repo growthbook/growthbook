@@ -45,6 +45,9 @@ import BanditSettings from "@/components/GeneralSettings/BanditSettings";
 import RuleEnvironmentScopeField, {
   type EnvScopeProps,
 } from "@/components/Features/RuleModal/EnvironmentScopeField";
+import RuleProjectScopeField, {
+  type ProjectScopeProps,
+} from "@/components/Features/RuleModal/ProjectScopeField";
 import Callout from "@/ui/Callout";
 
 export default function BanditRefNewFields({
@@ -73,6 +76,7 @@ export default function BanditRefNewFields({
   disableBanditConversionWindow,
   setDisableBanditConversionWindow,
   envScope,
+  projectScope,
   onRuleCyclicChange,
 }: {
   step: number;
@@ -99,6 +103,7 @@ export default function BanditRefNewFields({
   disableBanditConversionWindow: boolean;
   setDisableBanditConversionWindow: (v: boolean) => void;
   envScope?: EnvScopeProps;
+  projectScope?: ProjectScopeProps;
   onRuleCyclicChange?: (result: RuleCyclicResult) => void;
 }) {
   const form = useFormContext();
@@ -169,6 +174,7 @@ export default function BanditRefNewFields({
           />
 
           {envScope && <RuleEnvironmentScopeField {...envScope} my="5" />}
+          {projectScope && <RuleProjectScopeField {...projectScope} mb="5" />}
         </>
       ) : null}
 
