@@ -622,7 +622,7 @@ export const GRANULAR_PERMISSION_METADATA: Partial<
       "Archive or delete Feature Flags, Constants, and Configs (environment-scoped)",
   },
   manageFlagDrafts: {
-    displayName: "Edit drafts",
+    displayName: "Edit",
     description:
       "Create, edit, and discard drafts, and request review. Drafts reach no one until published.",
   },
@@ -657,7 +657,7 @@ export const GRANULAR_PERMISSION_METADATA: Partial<
     description: "Delete saved groups",
   },
   manageSavedGroupDrafts: {
-    displayName: "Edit drafts",
+    displayName: "Edit",
     description:
       "Create, edit, and discard Saved Group drafts, and request review. Drafts reach no one until published.",
   },
