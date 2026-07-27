@@ -4067,6 +4067,19 @@ export async function postFeatureSchema(
     ...schemaDef,
     date: new Date(),
   };
+  // A schema change lands across every enabled environment, so publishing it
+  // takes landing authority — `assertCanAutoPublish` only covers approvals.
+  // Checked before the revision is created so a blocked publish leaves no
+  // orphaned draft behind.
+  if (
+    autoPublish &&
+    !context.permissions.canPublishFeature(
+      feature,
+      Array.from(getEnabledEnvironments(feature, context.environments)),
+    )
+  ) {
+    context.permissions.throwPermissionError();
+  }
   const draft = await createOrUpdateDraftWithChanges(
     context,
     feature,
@@ -4082,16 +4095,6 @@ export async function postFeatureSchema(
     autoPublish ? "Update JSON schema" : undefined,
   );
   if (autoPublish) {
-    // A schema change lands across every enabled environment, so publishing it
-    // takes landing authority — `assertCanAutoPublish` only covers approvals.
-    if (
-      !context.permissions.canPublishFeature(
-        feature,
-        Array.from(getEnabledEnvironments(feature, context.environments)),
-      )
-    ) {
-      context.permissions.throwPermissionError();
-    }
     await assertCanAutoPublish(context, feature, draft);
     await publishRevision({
       context,
@@ -4125,9 +4128,18 @@ export async function putSafeRolloutStatus(
     throw new Error("Could not find feature");
   }
 
-  // Authoring gate: this writes a revision. Landing authority is checked per
-  // changed environment below, where the change actually goes live.
+  // Authoring gate, then landing authority — both before the revision is
+  // created, so a blocked publish leaves no orphaned revision behind. This
+  // endpoint always lands the change when no review is required.
   if (!context.permissions.canEditFeatureDrafts(feature)) {
+    context.permissions.throwPermissionError();
+  }
+  if (
+    !context.permissions.canPublishFeature(
+      feature,
+      getEnvironmentIdsFromOrg(context.org),
+    )
+  ) {
     context.permissions.throwPermissionError();
   }
 
@@ -4166,14 +4178,6 @@ export async function putSafeRolloutStatus(
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const environmentIds = environments.map((e) => e.id);
 
-  if (
-    !context.permissions.canPublishFeature(
-      feature,
-      getEnvironmentIdsFromOrg(context.org),
-    )
-  ) {
-    context.permissions.throwPermissionError();
-  }
   const requiresReview = checkIfRevisionNeedsReview({
     feature,
     baseRevision: base,

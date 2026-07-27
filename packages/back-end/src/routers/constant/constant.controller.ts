@@ -427,6 +427,19 @@ export const putConstant = async (
 
   const forceCreate = wantsMerge || forceCreateRevision;
 
+  // Delegate to the adapter so the multi-project bypass rule has a single
+  // source of truth (also used by the generic revision controller).
+  const canBypass = getAdapter("constant").canBypassApproval(
+    context,
+    existing as unknown as Record<string, unknown>,
+  );
+
+  // bypassApproval is an explicit admin override — enforce it before the
+  // revision is written, so a caller without the atom doesn't leave one behind.
+  if (wantsMerge && bypassApproval && approvalRequired && !canBypass) {
+    context.permissions.throwPermissionError();
+  }
+
   let revision = await createOrUpdateRevision(
     context,
     "constant",
@@ -442,18 +455,6 @@ export const putConstant = async (
   );
 
   if (wantsMerge) {
-    // Delegate to the adapter so the multi-project bypass rule has a single
-    // source of truth (also used by the generic revision controller).
-    const canBypass = getAdapter("constant").canBypassApproval(
-      context,
-      existing as unknown as Record<string, unknown>,
-    );
-
-    // bypassApproval is an explicit admin override — enforce server-side.
-    if (bypassApproval && approvalRequired && !canBypass) {
-      context.permissions.throwPermissionError();
-    }
-
     // autoPublish must not bypass review that this change genuinely requires.
     // `approvalRequired` is already change-aware (it returns false for changes
     // the review rules don't gate — e.g. metadata when metadata review is off,

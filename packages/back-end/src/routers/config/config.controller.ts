@@ -965,6 +965,17 @@ export const putConfig = async (
 
   const forceCreate = wantsMerge || forceCreateRevision;
 
+  const canBypass = getAdapter("config").canBypassApproval(
+    context,
+    existing as unknown as Record<string, unknown>,
+  );
+
+  // bypassApproval is an explicit admin override — enforce it before the
+  // revision is written, so a caller without the atom doesn't leave one behind.
+  if (wantsMerge && bypassApproval && approvalRequired && !canBypass) {
+    context.permissions.throwPermissionError();
+  }
+
   let revision = await createOrUpdateRevision(
     context,
     "config",
@@ -980,15 +991,6 @@ export const putConfig = async (
   );
 
   if (wantsMerge) {
-    const canBypass = getAdapter("config").canBypassApproval(
-      context,
-      existing as unknown as Record<string, unknown>,
-    );
-
-    if (bypassApproval && approvalRequired && !canBypass) {
-      context.permissions.throwPermissionError();
-    }
-
     if (autoPublish && approvalRequired && !canBypass) {
       // A revert may auto-publish past review only when `revertedFrom` names a
       // genuine merged revision of THIS config AND the proposed changes actually

@@ -834,6 +834,19 @@ export const putSavedGroup = async (
   // can't merge yet). Otherwise we update the targeted draft.
   const forceCreate = wantsMerge || forceCreateRevision;
 
+  // Delegate to the adapter so the multi-project bypass rule has a single
+  // source of truth (also used by the generic revision controller).
+  const canBypass = getAdapter("saved-group").canBypassApproval(
+    context,
+    savedGroup as unknown as Record<string, unknown>,
+  );
+
+  // bypassApproval is an explicit admin override — enforce it before the
+  // revision is written, so a caller without the atom doesn't leave one behind.
+  if (wantsMerge && bypassApproval && approvalRequired && !canBypass) {
+    context.permissions.throwPermissionError();
+  }
+
   // When updating a revision, merge changes (don't replace) to preserve other fields
   let revision = await createOrUpdateRevision(
     context,
@@ -853,18 +866,6 @@ export const putSavedGroup = async (
   );
 
   if (wantsMerge) {
-    // Delegate to the adapter so the multi-project bypass rule has a single
-    // source of truth (also used by the generic revision controller).
-    const canBypass = getAdapter("saved-group").canBypassApproval(
-      context,
-      savedGroup as unknown as Record<string, unknown>,
-    );
-
-    // bypassApproval is an explicit admin override — enforce the permission server-side.
-    if (bypassApproval && approvalRequired && !canBypass) {
-      context.permissions.throwPermissionError();
-    }
-
     // autoPublish is the "metadata-only shortcut": it lets non-admins publish
     // changes immediately when the org has disabled metadata review. It must
     // NOT be usable to bypass full content review — otherwise any editor could
