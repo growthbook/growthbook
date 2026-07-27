@@ -217,7 +217,7 @@ curl -X POST "https://us1.gb-ingest.com/track?client_key=YOUR_CLIENT_KEY" \
 }]'
 ```
 
-The example above uses the `us1.gb-ingest.com` endpoint. Contact your account manager to find out which endpoint you should use.
+The example above uses the `us1.gb-ingest.com` endpoint, for forwarders provisioned in the `us-east-1` **Data Region**. If you chose `eu-west-1` when setting up your Event Forwarder, send events to `https://eu1.gb-ingest.com` instead — using the wrong host means events won't reach the Kafka/Confluent resources your forwarder is actually wired up to.
 
 #### Experiment View Events
 

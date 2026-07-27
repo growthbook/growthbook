@@ -31,6 +31,7 @@ export default function ManagedWarehouseModal({
 
   const [agree, setAgree] = useState(false);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [region, setRegion] = useState<"us-east-1" | "eu-west-1">("us-east-1");
 
   const settings = useOrgSettings();
   const { metricDefaults } = useOrganizationMetricDefaults();
@@ -112,6 +113,7 @@ export default function ManagedWarehouseModal({
           datasource: DataSourceInterfaceWithParams;
         }>("/datasources/managed-warehouse", {
           method: "POST",
+          body: JSON.stringify({ region }),
         });
 
         if (res.id) {
@@ -147,11 +149,13 @@ export default function ManagedWarehouseModal({
       <SelectField
         size="legacy"
         label="Data Region"
-        value="us-east-1"
-        onChange={() => {}}
-        options={[{ label: "AWS us-east-1", value: "us-east-1" }]}
-        disabled
-        helpText="This is the only region available for now."
+        value={region}
+        onChange={(value) => setRegion(value as "us-east-1" | "eu-west-1")}
+        options={[
+          { label: "AWS us-east-1", value: "us-east-1" },
+          { label: "AWS eu-west-1", value: "eu-west-1" },
+        ]}
+        helpText="Where your event data will be ingested and stored. This cannot be changed later."
       />
 
       <div className="mb-3">

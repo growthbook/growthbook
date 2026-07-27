@@ -80,6 +80,9 @@ function OrganizationRow({
   const [licenseLoading, setLicenseLoading] = useState(false);
   const { apiCall } = useAuth();
   const [clickhouseModalOpen, setClickhouseModalOpen] = useState(false);
+  const [clickhouseRegion, setClickhouseRegion] = useState<
+    "us-east-1" | "eu-west-1"
+  >("us-east-1");
   const [managedWarehouseId, setManagedWarehouseId] = useState(
     datasources.find((ds) => ds.type === "growthbook_clickhouse")?.id || null,
   );
@@ -135,6 +138,7 @@ function OrganizationRow({
       {
         method: "POST",
         headers: { "X-Organization": organization.id },
+        body: JSON.stringify({ region: clickhouseRegion }),
       },
     );
     setClickhouseModalOpen(false);
@@ -164,6 +168,18 @@ function OrganizationRow({
         >
           Are you sure you want to create a Managed Warehouse data source for
           this organization?
+          <SelectField
+            size="small"
+            label="Data Region"
+            value={clickhouseRegion}
+            onChange={(value) =>
+              setClickhouseRegion(value as "us-east-1" | "eu-west-1")
+            }
+            options={[
+              { label: "AWS us-east-1", value: "us-east-1" },
+              { label: "AWS eu-west-1", value: "eu-west-1" },
+            ]}
+          />
         </Modal>
       )}
       {editSSOOpen && (

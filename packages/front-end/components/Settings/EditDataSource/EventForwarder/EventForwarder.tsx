@@ -22,6 +22,7 @@ import { PiCaretRight, PiPause, PiPencilSimple, PiPlay } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import PremiumCallout from "@/ui/PremiumCallout";
+import SelectField from "@/components/Forms/SelectField";
 import BigQueryEventForwarderForm from "@/components/Settings/BigQueryEventForwarderForm";
 import SnowflakeEventForwarderForm from "@/components/Settings/SnowflakeEventForwarderForm";
 import { useEventForwarderAccessTest } from "@/components/Settings/useEventForwarderAccessTest";
@@ -120,6 +121,7 @@ function getEventForwarderDraft(
   if (existing?.sinkType === "bigquery") {
     return {
       sinkType: "bigquery",
+      region: existing.region,
       config: {
         projectId: existing.config.projectId,
         dataset: existing.config.dataset,
@@ -131,6 +133,7 @@ function getEventForwarderDraft(
   if (existing?.sinkType === "snowflake") {
     return {
       sinkType: "snowflake",
+      region: existing.region,
       config: {
         database: existing.config.database,
         schema: existing.config.schema,
@@ -150,6 +153,7 @@ function getEventForwarderDraft(
 
     return {
       sinkType: "bigquery",
+      region: "us-east-1",
       config: {
         projectId: params.defaultProject || params.projectId || "",
         dataset: params.defaultDataset || "",
@@ -162,6 +166,7 @@ function getEventForwarderDraft(
     const params = dataSource.params as SnowflakeConnectionParams;
     return {
       sinkType: "snowflake",
+      region: "us-east-1",
       config: {
         database: params.database || "",
         schema: params.schema || "",
@@ -436,12 +441,33 @@ function EventForwarderModal({
                 setEventForwarderConfig={setEventForwarderConfig}
               />
             ) : null}
+            {eventForwarderConfig ? (
+              <SelectField
+                size="small"
+                label="Data Region"
+                value={eventForwarderConfig.region ?? "us-east-1"}
+                onChange={(value) =>
+                  setEventForwarderConfig({
+                    ...eventForwarderConfig,
+                    region: value as "us-east-1" | "eu-west-1",
+                  })
+                }
+                disabled={isEditingEventForwarder}
+                options={[
+                  { label: "AWS us-east-1", value: "us-east-1" },
+                  { label: "AWS eu-west-1", value: "eu-west-1" },
+                ]}
+                helpText="Where the forwarder's Kafka/Confluent resources are provisioned. This cannot be changed later."
+              />
+            ) : null}
             <Callout status="info" mb="0" mt="3" icon={null}>
               <Checkbox
                 value={usEventForwarderFlowConsent}
                 setValue={setUsEventForwarderFlowConsent}
                 disabled={isEditingEventForwarder}
-                label="I understand that event data will flow through GrowthBook's US servers and confirm I'm authorized to enable this for my organization."
+                label={`I understand that event data will flow through GrowthBook's servers in ${
+                  eventForwarderConfig?.region ?? "us-east-1"
+                } and confirm I'm authorized to enable this for my organization.`}
                 weight="regular"
               />
             </Callout>

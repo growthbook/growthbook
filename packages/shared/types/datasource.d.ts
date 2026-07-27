@@ -319,6 +319,8 @@ export interface GrowthbookClickhouseSettings extends DataSourceSettings {
   /** When false, the warehouse exists in GrowthBook but ClickHouse was not provisioned yet. */
   hasBeenProvisioned?: boolean;
   sessionReplayProvisioned?: boolean;
+  /** AWS region the managed warehouse is provisioned in. Absent means `us-east-1` (pre-EU warehouses). */
+  region?: "us-east-1" | "eu-west-1";
   /** @deprecated Replaced by native JSON columns (`useJsonColumns`); kept for legacy warehouses. */
   materializedColumns?: MaterializedColumn[];
   /**

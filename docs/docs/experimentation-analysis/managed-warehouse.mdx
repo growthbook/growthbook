@@ -276,7 +276,14 @@ req.growthbook.logEvent("Sign Up", {
 
 ### Ingestion API
 
-You can also send events directly to our ingestion API. Pass an array of event objects, each with the following properties:
+You can also send events directly to our ingestion API. The host depends on the **Data Region** you chose when creating your Managed Warehouse datasource:
+
+- `us-east-1` → `https://us1.gb-ingest.com`
+- `eu-west-1` → `https://eu1.gb-ingest.com`
+
+Sending events to the wrong region's host means they won't reach the ClickHouse cluster your data warehouse actually lives in — always match the host to the region shown on your datasource's settings page.
+
+Pass an array of event objects, each with the following properties:
 
 - **event_name**: The name of the event (e.g., "Purchase", "Button Click")
 - **properties**: Optional key-value pairs with properties of the event itself
