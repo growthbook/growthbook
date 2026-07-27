@@ -3,7 +3,6 @@ import bodyParser from "body-parser";
 import express, { Request, Response } from "express";
 import { APP_ORIGIN, SLACK_SIGNING_SECRET } from "back-end/src/util/secrets";
 import { EventWebHookModel } from "back-end/src/models/EventWebhookModel";
-import { snoozeSlackExperimentNotifications } from "back-end/src/models/SlackNotificationSnoozeModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { resolveSlackAssistantTarget } from "back-end/src/services/slack/slackIdentity";
 import { logger } from "back-end/src/util/logger";
@@ -223,8 +222,7 @@ router.post(
       });
     }
 
-    await snoozeSlackExperimentNotifications({
-      organizationId: target.organizationId,
+    await target.context.models.slackNotificationSnoozes.snoozeExperiment({
       eventWebHookId: target.eventWebHookId,
       experimentId,
       snoozedUntil: new Date(Date.now() + 24 * 60 * 60 * 1000),

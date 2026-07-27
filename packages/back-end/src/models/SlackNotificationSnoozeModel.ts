@@ -1,79 +1,71 @@
-import mongoose from "mongoose";
+import { slackNotificationSnoozeValidator } from "shared/validators";
+import { MakeModelClass } from "./BaseModel";
 
-type SlackNotificationSnoozeInterface = {
-  organizationId: string;
-  eventWebHookId: string;
-  experimentId: string;
-  snoozedUntil: Date;
-  dateCreated: Date;
-};
-
-const slackNotificationSnoozeSchema =
-  new mongoose.Schema<SlackNotificationSnoozeInterface>({
-    organizationId: { type: String, required: true },
-    eventWebHookId: { type: String, required: true },
-    experimentId: { type: String, required: true },
-    snoozedUntil: { type: Date, required: true },
-    dateCreated: { type: Date, required: true },
-  });
-
-slackNotificationSnoozeSchema.index({
-  organizationId: 1,
-  eventWebHookId: 1,
-  experimentId: 1,
-});
-slackNotificationSnoozeSchema.index(
-  { snoozedUntil: 1 },
-  { expireAfterSeconds: 0 },
-);
-
-const SlackNotificationSnoozeModel =
-  mongoose.model<SlackNotificationSnoozeInterface>(
-    "SlackNotificationSnooze",
-    slackNotificationSnoozeSchema,
-  );
-
-export const snoozeSlackExperimentNotifications = async ({
-  organizationId,
-  eventWebHookId,
-  experimentId,
-  snoozedUntil,
-}: {
-  organizationId: string;
-  eventWebHookId: string;
-  experimentId: string;
-  snoozedUntil: Date;
-}) => {
-  await SlackNotificationSnoozeModel.updateOne(
-    { organizationId, eventWebHookId, experimentId },
+const BaseClass = MakeModelClass({
+  schema: slackNotificationSnoozeValidator,
+  // Matches the collection the previous Mongoose model wrote to.
+  collectionName: "slacknotificationsnoozes",
+  idPrefix: "slacksnooze_",
+  globallyUniquePrimaryKeys: true,
+  additionalIndexes: [
     {
-      $set: {
-        organizationId,
-        eventWebHookId,
-        experimentId,
-        snoozedUntil,
-        dateCreated: new Date(),
-      },
+      fields: { eventWebHookId: 1, experimentId: 1 },
+      name: "snooze_webhook_experiment",
     },
-    { upsert: true },
-  );
-};
+  ],
+});
 
-export const isSlackExperimentNotificationSnoozed = async ({
-  organizationId,
-  eventWebHookId,
-  experimentId,
-}: {
-  organizationId: string;
-  eventWebHookId: string;
-  experimentId: string;
-}) => {
-  const snooze = await SlackNotificationSnoozeModel.findOne({
-    organizationId,
+/**
+ * Snoozes are a delivery preference for a connected channel, not user data:
+ * anyone who can act on a notification in that channel can mute it, and the
+ * inbound Slack handler already authorizes the clicking user (linked account,
+ * org membership, and read access to the experiment) before writing one.
+ */
+export class SlackNotificationSnoozeModel extends BaseClass {
+  protected canRead() {
+    return true;
+  }
+  protected canCreate() {
+    return true;
+  }
+  protected canUpdate() {
+    return true;
+  }
+  protected canDelete() {
+    return true;
+  }
+
+  /** Mute one experiment's notifications in one channel until `snoozedUntil`. */
+  public async snoozeExperiment({
     eventWebHookId,
     experimentId,
-    snoozedUntil: { $gt: new Date() },
-  });
+    snoozedUntil,
+  }: {
+    eventWebHookId: string;
+    experimentId: string;
+    snoozedUntil: Date;
+  }): Promise<void> {
+    const existing = await this._findOne({ eventWebHookId, experimentId });
+    if (existing) {
+      await this.update(existing, { snoozedUntil });
+      return;
+    }
+    await this.create({ eventWebHookId, experimentId, snoozedUntil });
+  }
 
-  return !!snooze;
-};
+  /** Whether this experiment is currently muted for this channel. */
+  public async isExperimentSnoozed({
+    eventWebHookId,
+    experimentId,
+  }: {
+    eventWebHookId: string;
+    experimentId: string;
+  }): Promise<boolean> {
+    const snooze = await this._findOne({
+      eventWebHookId,
+      experimentId,
+      snoozedUntil: { $gt: new Date() },
+    });
+    return !!snooze;
+  }
+}

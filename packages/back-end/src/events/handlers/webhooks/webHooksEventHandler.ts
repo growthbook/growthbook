@@ -19,7 +19,6 @@ import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { ReqContext } from "back-end/types/request";
 import { upsertCoalesceBucket } from "back-end/src/models/EventWebHookCoalesceBucketModel";
-import { isSlackExperimentNotificationSnoozed } from "back-end/src/models/SlackNotificationSnoozeModel";
 import { NotificationEventHandler } from "back-end/src/events/notifiers/EventNotifier";
 import {
   getFilterDataForNotificationEvent,
@@ -253,8 +252,9 @@ export const webHooksEventHandler: NotificationEventHandler = async (event) => {
       eventWebHook.payloadType === "slack" &&
       event.object === "experiment" &&
       event.objectId &&
-      (await isSlackExperimentNotificationSnoozed({
-        organizationId: event.organizationId,
+      (await (
+        await orgContext()
+      ).models.slackNotificationSnoozes.isExperimentSnoozed({
         eventWebHookId: eventWebHook.id,
         experimentId: event.objectId,
       }))

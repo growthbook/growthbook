@@ -52,6 +52,7 @@ import { MetricGroupModel } from "back-end/src/models/MetricGroupModel";
 import { PopulationDataModel } from "back-end/src/models/PopulationDataModel";
 import { ExperimentTemplatesModel } from "back-end/src/models/ExperimentTemplateModel";
 import { SafeRolloutModel } from "back-end/src/models/SafeRolloutModel";
+import { SlackNotificationSnoozeModel } from "back-end/src/models/SlackNotificationSnoozeModel";
 import { SafeRolloutSnapshotModel } from "back-end/src/models/SafeRolloutSnapshotModel";
 import { IncrementalRefreshModel } from "back-end/src/models/IncrementalRefreshModel";
 import { AggregatedFactTableModel } from "back-end/src/models/AggregatedFactTableModel";
@@ -116,6 +117,7 @@ export type ModelName =
   | "vectors"
   | "safeRollout"
   | "safeRolloutSnapshots"
+  | "slackNotificationSnoozes"
   | "decisionCriteria"
   | "metricTimeSeries"
   | "webhookSecrets"
@@ -166,6 +168,7 @@ export const modelClasses = {
   vectors: VectorsModel,
   safeRollout: SafeRolloutModel,
   safeRolloutSnapshots: SafeRolloutSnapshotModel,
+  slackNotificationSnoozes: SlackNotificationSnoozeModel,
   decisionCriteria: DecisionCriteriaModel,
   metricTimeSeries: MetricTimeSeriesModel,
   webhookSecrets: WebhookSecretDataModel,
@@ -305,6 +308,7 @@ export class ReqContextClass {
       vectors: new VectorsModel(this),
       safeRollout: new SafeRolloutModel(this),
       safeRolloutSnapshots: new SafeRolloutSnapshotModel(this),
+      slackNotificationSnoozes: new SlackNotificationSnoozeModel(this),
       decisionCriteria: new DecisionCriteriaModel(this),
       metricTimeSeries: new MetricTimeSeriesModel(this),
       webhookSecrets: new WebhookSecretDataModel(this),
