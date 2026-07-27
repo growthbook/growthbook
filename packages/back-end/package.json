@@ -8,11 +8,12 @@
   "scripts": {
     "build:emails": "mkdir -p dist/templates && cp -r src/templates/* dist/templates",
     "build:skills": "mkdir -p dist/agent/skills && cp -r src/agent/skills/* dist/agent/skills",
+    "build:slack-assets": "mkdir -p dist/services/slack/assets && cp -r src/services/slack/assets/* dist/services/slack/assets",
     "build:clean": "rimraf -rf dist",
     "build:typescript": "tsc",
     "clean": "rimraf node_modules",
     "dev": "pnpm build:clean && concurrently \"pnpm watch-compile\" \"pnpm watch-dev | pnpm pino-pretty\"",
-    "build": "pnpm build:clean && pnpm build:typescript && pnpm build:emails && pnpm build:skills",
+    "build": "pnpm build:clean && pnpm build:typescript && pnpm build:emails && pnpm build:skills && pnpm build:slack-assets",
     "start": "node dist/server.js",
     "start:with-tracing": "node --require ./dist/tracing.opentelemetry.js dist/server.js",
     "start:with-datadog": "node --require ./dist/tracing.datadog.js dist/server.js",
@@ -60,6 +61,7 @@
     "@opentelemetry/sdk-node": "~0.218.0",
     "@opentelemetry/semantic-conventions": "~1.41.0",
     "@opentelemetry/winston-transport": "~0.28.0",
+    "@resvg/resvg-wasm": "^2.6.2",
     "@sentry/cli-linux-x64": "^2.58.4",
     "@sentry/node": "^10.44.0",
     "@stdlib/random": "^0.1.1",
@@ -123,6 +125,7 @@
     "proxy-agent": "^6.5.0",
     "python-shell": "^3.0.0",
     "saslprep": "^1.0.0",
+    "satori": "^0.26.0",
     "scim2-parse-filter": "^0.2.8",
     "shared": "workspace:*",
     "stats-ts": "workspace:*",
@@ -135,6 +138,8 @@
     "zod": "^4.1.12"
   },
   "devDependencies": {
+    "@fontsource/inter": "^5.2.8",
+    "@fontsource/roboto-mono": "^5.2.9",
     "@slack/types": "^1.7.0",
     "@swc/cli": "^0.1.57",
     "@swc/core": "^1.3.4",

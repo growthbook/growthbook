@@ -27,6 +27,8 @@ import updateAutoSlicesJob from "back-end/src/jobs/updateAutoSlices";
 import updateAggregatedFactTablesJob from "back-end/src/jobs/updateAggregatedFactTables";
 import addRampScheduleJob from "back-end/src/jobs/updateRampSchedules";
 import addScheduledPublishJob from "back-end/src/jobs/updateScheduledPublishes";
+import addSlackAssistantJobs from "back-end/src/jobs/slackAssistantTasks";
+import addWeeklyScorecardJob from "back-end/src/jobs/eventWebhookWeeklyDigest";
 import addMigrateManagedWarehouseJob from "back-end/src/jobs/migrateManagedWarehouse";
 import addSweepManagedWarehouseMigrationsJob from "back-end/src/jobs/sweepManagedWarehouseMigrations";
 import { initRampScheduleHooks } from "back-end/src/services/rampSchedule";
@@ -57,6 +59,8 @@ export async function queueInit() {
   updateAggregatedFactTablesJob(agenda);
   addRampScheduleJob(agenda);
   addScheduledPublishJob(agenda);
+  addSlackAssistantJobs(agenda);
+  addWeeklyScorecardJob(agenda);
   addMigrateManagedWarehouseJob(agenda);
   await addSweepManagedWarehouseMigrationsJob(agenda);
   initRampScheduleHooks();

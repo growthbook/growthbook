@@ -43,6 +43,7 @@ export * from "./event-forwarder-config";
 export * from "./event-forwarder-access-test";
 export * from "./event-forwarder-status";
 export * from "./event-webhook";
+export * from "./slack-notification-snooze";
 export * from "./feature-webhook-schemas";
 // Load watch before events - events imports base-types which imports validators, creating a cycle.
 // Having watch (and apikey) loaded first ensures they're available when the cycle is hit.
@@ -53,6 +54,7 @@ export * from "./events";
 export * from "./experiment-decision";
 export * from "./experiment-info";
 export * from "./experiment-warnings";
+export * from "./experiment-alerts";
 
 export * from "./features";
 export * from "./features-v2";

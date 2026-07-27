@@ -137,6 +137,8 @@ import { projectRouter } from "./routers/project/project.router";
 import { vercelRouter } from "./routers/vercel-native-integration/vercel-native-integration.router";
 import { factTableRouter } from "./routers/fact-table/fact-table.router";
 import { slackIntegrationRouter } from "./routers/slack-integration/slack-integration.router";
+import { slackActionsRouter } from "./routers/slack-actions/slack-actions.router";
+import { slackTestRouter } from "./routers/slack-test/slack-test.router";
 import { dataExportRouter } from "./routers/data-export/data-export.router";
 import { demoDatasourceProjectRouter } from "./routers/demo-datasource-project/demo-datasource-project.router";
 import { environmentRouter } from "./routers/environment/environment.router";
@@ -301,6 +303,12 @@ app.use(async (req, res, next) => {
 
 // Visual Designer js file (does not require JWT or cors)
 app.get("/js/:key.js", getExperimentsScript);
+
+// Slack inbound (events / slash commands / interactivity). Mounted BEFORE the
+// global JSON body parser: Slack signatures are verified against the raw body,
+// which this router captures in its own parsers — only possible if no earlier
+// parser has consumed the stream. Public (Slack authenticates via signature).
+app.use("/integrations/slack", slackActionsRouter);
 
 // 2mb default; 10mb for screenshot upload and visual-editor AI image
 // gen (the latter accepts a base64-encoded reference image).
@@ -1142,6 +1150,9 @@ app.use(eventWebHooksRouter);
 
 // Slack integration
 app.use("/integrations/slack", slackIntegrationRouter);
+
+// Slack card/webhook test endpoints (admin-only)
+app.use("/admin/slack-test", slackTestRouter);
 
 // Data Export
 app.use("/data-export", dataExportRouter);
