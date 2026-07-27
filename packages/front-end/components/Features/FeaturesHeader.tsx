@@ -54,6 +54,7 @@ import FeatureDeleteModal from "./FeatureDeleteModal";
 import AddToHoldoutModal from "./AddToHoldoutModal";
 export default function FeaturesHeader({
   feature,
+  baseFeature,
   mutate,
   setVersion,
   version,
@@ -66,6 +67,10 @@ export default function FeaturesHeader({
   onCompareRevisions,
 }: {
   feature: FeatureInterface;
+  // Live feature doc. `feature` is merged with whichever revision is being
+  // viewed, so anything describing the flag's actual service state has to read
+  // this instead.
+  baseFeature: FeatureInterface;
   mutate: () => Promise<unknown>;
   setVersion: (version: number) => void;
   version: number | null;
@@ -199,7 +204,10 @@ export default function FeaturesHeader({
   const canEdit = permissionsUtil.canViewFeatureModal(projectId);
   const enabledEnvs = getEnabledEnvironments(feature, environments);
   const canPublish = permissionsUtil.canPublishFeature(feature, enabledEnvs);
-  const isArchived = feature.archived;
+  // Live state, not the viewed revision's: a draft that stages an archive must
+  // not make the page claim the flag is out of service, nor offer Delete on a
+  // flag that is still serving (the server refuses that anyway).
+  const isArchived = baseFeature.archived;
   const canDelete = permissionsUtil.canDeleteFeature(feature, enabledEnvs);
   // Archiving takes the flag out of service, so it carries delete authority;
   // unarchiving returns it to service, an ordinary publish in its environments.
@@ -432,7 +440,9 @@ export default function FeaturesHeader({
                 {feature.id}
               </Heading>
               <FeatureStatusBadge
-                feature={feature}
+                // Live doc: the chip states the flag's actual status, so a
+                // draft staging an archive must not flip it to "Archived".
+                feature={baseFeature}
                 staleData={staleData}
                 fetchStaleData={handleRerunStale}
                 onDisable={canEdit ? () => setStaleFFModal(true) : undefined}
@@ -538,12 +548,18 @@ export default function FeaturesHeader({
               </Box>
             ) : null}
           </Box>
-          {isArchived && (
+          {isArchived ? (
             <Callout status="info" mb="2">
               <strong>This feature is archived.</strong> It will not be included
               in SDK Endpoints or Webhook payloads.
             </Callout>
-          )}
+          ) : feature.archived ? (
+            <Callout status="warning" mb="2">
+              <strong>This draft will archive the feature.</strong> Once
+              published it will be removed from SDK Endpoints and Webhook
+              payloads.
+            </Callout>
+          ) : null}
         </Box>
       </Box>
       <>
