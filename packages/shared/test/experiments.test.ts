@@ -1816,6 +1816,26 @@ describe("Virtual Columns", () => {
       );
     });
 
+    it("leaves an already-qualified reference alone even with spaces around the dot", () => {
+      // A copied qualified expression must not be re-qualified into
+      // `m.m . price`, which is invalid SQL.
+      const spaced = {
+        columns: [
+          col({ column: "price", datatype: "number" }),
+          col({ column: "quantity", datatype: "number" }),
+          col({
+            column: "spaced_vc",
+            isVirtual: true,
+            sql: "m . price * quantity",
+            datatype: "number",
+          }),
+        ],
+      };
+      expect(getColumnExpression("spaced_vc", spaced, jsonExtract, "m")).toBe(
+        "(m . price * m.quantity)",
+      );
+    });
+
     it("does not rewrite column names inside string literals", () => {
       const withLiteral = {
         columns: [
@@ -1929,6 +1949,13 @@ describe("Virtual Columns", () => {
 
     it("does not match an already-qualified identifier", () => {
       expect(sqlReferencesColumn("m.price", "price")).toBe(false);
+    });
+
+    it("does not match a qualified identifier with whitespace around the dot", () => {
+      expect(sqlReferencesColumn("m . price", "price")).toBe(false);
+      expect(sqlReferencesColumn("m.\n  price", "price")).toBe(false);
+      expect(sqlReferencesColumn('m . "price"', "price")).toBe(false);
+      expect(sqlReferencesColumn("`m` . `price`", "price", "`")).toBe(false);
     });
 
     it("matches a double-quoted identifier in the default dialect", () => {

@@ -122,6 +122,18 @@ export class DashboardModel extends BaseClass {
     return this._find({ experimentId: null });
   }
 
+  // Every dashboard in the org, ignoring the caller's read permissions. Only
+  // for authoritative dependency scans (e.g. blocking deletion of a fact table
+  // column a dashboard still references), where missing a dashboard the caller
+  // cannot read would let the delete through and leave that dashboard
+  // generating SQL for a column that no longer exists. Never return these to
+  // the caller.
+  public async dangerousGetAllForDependencyScan(): Promise<
+    DashboardInterface[]
+  > {
+    return this._find({}, { bypassReadPermissionChecks: true });
+  }
+
   public static async getDashboardsToUpdate(): Promise<
     Array<{
       id: string;

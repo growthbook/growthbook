@@ -167,8 +167,9 @@ function isBareIdentifierChar(c: string): boolean {
 //
 // `replacer(name, quoted)` returns the replacement for a matched identifier;
 // `quoted` tells it whether the match came from a quoted-identifier span so it
-// can re-quote when qualifying. Identifiers immediately preceded by `.` are
-// skipped so already-qualified names (`m.price`) are not re-qualified. Single
+// can re-quote when qualifying. Identifiers preceded by `.` (ignoring
+// whitespace, so `m.price` and `m . price` both count) are skipped so
+// already-qualified names are not re-qualified. Single
 // pass — inserted replacement text is never re-scanned, so an inserted
 // `m.price` is never re-qualified into `m.m.price`.
 function replaceSqlIdentifiers(
@@ -210,7 +211,14 @@ function replaceSqlIdentifiers(
     return { end: j, inner, closed };
   };
 
-  const prevChar = () => (out.length ? out[out.length - 1] : "");
+  // Whether the identifier about to be emitted is already qualified by a
+  // preceding `.`. SQL allows whitespace around the dot (`m . price`), so skip
+  // any trailing whitespace before looking for the qualifier.
+  const isAlreadyQualified = () => {
+    let k = out.length - 1;
+    while (k >= 0 && /\s/.test(out[k])) k--;
+    return k >= 0 && out[k] === ".";
+  };
 
   while (i < n) {
     const c = sql[i];
@@ -265,7 +273,7 @@ function replaceSqlIdentifiers(
     // Quoted identifier in the dialect's identifier quote.
     if (c === identifierQuote) {
       const { end, inner, closed } = readQuoted(identifierQuote);
-      if (closed && prevChar() !== "." && nameSet.has(inner)) {
+      if (closed && !isAlreadyQualified() && nameSet.has(inner)) {
         out += replacer(inner, true);
       } else {
         out += sql.slice(i, end);
@@ -289,7 +297,7 @@ function replaceSqlIdentifiers(
       const token = sql.slice(i, j);
       // A run starting with a digit is a numeric literal, not an identifier.
       const startsWithDigit = c >= "0" && c <= "9";
-      if (!startsWithDigit && prevChar() !== "." && nameSet.has(token)) {
+      if (!startsWithDigit && !isAlreadyQualified() && nameSet.has(token)) {
         out += replacer(token, false);
       } else {
         out += token;
