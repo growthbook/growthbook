@@ -15,7 +15,11 @@ import {
 } from "shared/types/datasource";
 import { FactTableColumnType } from "shared/types/fact-table";
 import { QueryStatistics, QueryType } from "shared/types/query";
-import { formatQueryExecutionErrorForApi } from "shared/util";
+import {
+  formatQueryExecutionErrorForApi,
+  redactSecretParams,
+  secretParamKeys,
+} from "shared/util";
 import { SQLExecutionError } from "back-end/src/util/errors";
 import { determineColumnTypes } from "back-end/src/util/sql";
 import { ENCRYPTION_KEY } from "back-end/src/util/secrets";
@@ -51,20 +55,14 @@ export function encryptParams(params: DataSourceParams): string {
 }
 
 export function getNonSensitiveParams(integration: SourceIntegrationInterface) {
-  const ret = { ...integration.params };
-  integration.getSensitiveParamKeys().forEach((k) => {
-    if (ret[k]) {
-      ret[k] = "";
-    }
-  });
-  return ret;
+  return redactSecretParams(integration.datasource.type, integration.params);
 }
 
 export function mergeParams(
   integration: SourceIntegrationInterface,
   newParams: Partial<DataSourceParams>,
 ) {
-  const secretKeys = integration.getSensitiveParamKeys();
+  const secretKeys = secretParamKeys(integration.datasource.type);
   (Object.keys(newParams) as (keyof DataSourceParams)[]).forEach((k) => {
     // If a secret value is left empty, keep the original value
     if (secretKeys.includes(k) && !newParams[k]) return;

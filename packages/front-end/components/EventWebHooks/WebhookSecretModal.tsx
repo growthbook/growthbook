@@ -5,6 +5,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import { useAuth } from "@/services/auth";
 import StringArrayField from "@/ui/StringArrayField";
+import { KEEP_EXISTING_PLACEHOLDER } from "@/components/Forms/secretInput";
 
 export default function WebhookSecretModal({
   existingId,
@@ -100,7 +101,7 @@ export default function WebhookSecretModal({
         {...form.register("value")}
         label="Value"
         required={!existingId}
-        placeholder={existingId ? "(keep existing)" : ""}
+        placeholder={existingId ? KEEP_EXISTING_PLACEHOLDER : ""}
       />
       <Field
         size="legacy"

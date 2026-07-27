@@ -207,7 +207,6 @@ export default abstract class SqlIntegration
     // No-op default; warehouses with remote job control override.
     logger.debug(`Cancel query: ${externalId} - not implemented`);
   }
-  abstract getSensitiveParamKeys(): string[];
 
   abstract getSqlDialect(): SqlDialect;
 

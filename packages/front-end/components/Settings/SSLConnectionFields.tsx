@@ -2,6 +2,7 @@ import { ChangeEventHandler, useState } from "react";
 import { FaCaretDown, FaCaretRight } from "react-icons/fa";
 import Field from "@/components/Forms/Field";
 import Switch from "@/ui/Switch";
+import { KEEP_EXISTING_PLACEHOLDER } from "@/components/Forms/secretInput";
 
 export interface Props {
   value: {
@@ -12,14 +13,17 @@ export interface Props {
   };
   setSSL: (ssl: boolean) => void;
   onParamChange: ChangeEventHandler<HTMLInputElement | HTMLSelectElement>;
+  existing: boolean;
 }
 
 export default function SSLConnectionFields({
   value,
   setSSL,
   onParamChange,
+  existing,
 }: Props) {
   const [certs, setCerts] = useState(false);
+  const certificatePlaceholder = `-----BEGIN CERTIFICATE-----\nMIIE...`;
 
   return (
     <>
@@ -53,7 +57,9 @@ export default function SSLConnectionFields({
               size="legacy"
               label="CA Cert (optional)"
               textarea
-              placeholder={`-----BEGIN CERTIFICATE-----\nMIIE...`}
+              placeholder={
+                existing ? KEEP_EXISTING_PLACEHOLDER : certificatePlaceholder
+              }
               minRows={2}
               value={value.caCert || ""}
               name="caCert"
@@ -63,7 +69,9 @@ export default function SSLConnectionFields({
               size="legacy"
               label="Client Cert"
               textarea
-              placeholder={`-----BEGIN CERTIFICATE-----\nMIIE...`}
+              placeholder={
+                existing ? KEEP_EXISTING_PLACEHOLDER : certificatePlaceholder
+              }
               minRows={2}
               value={value.clientCert || ""}
               name="clientCert"
@@ -73,7 +81,9 @@ export default function SSLConnectionFields({
               size="legacy"
               label="Client Key"
               textarea
-              placeholder={`-----BEGIN CERTIFICATE-----\nMIIE...`}
+              placeholder={
+                existing ? KEEP_EXISTING_PLACEHOLDER : certificatePlaceholder
+              }
               minRows={2}
               value={value.clientKey || ""}
               name="clientKey"

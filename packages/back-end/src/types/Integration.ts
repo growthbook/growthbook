@@ -87,7 +87,6 @@ export interface SourceIntegrationInterface {
   setAdditionalQueryMetadata?(
     additionalQueryMetadata: AdditionalQueryMetadata,
   ): void;
-  getSensitiveParamKeys(): string[];
   getExperimentResultsQuery(
     snapshotSettings: ExperimentSnapshotSettings,
     metricDocs: ExperimentMetricInterface[],
