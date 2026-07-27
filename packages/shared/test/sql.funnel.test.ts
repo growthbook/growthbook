@@ -414,6 +414,7 @@ describe("isFunnelSupportedDatasourceType (D-PA2 allowlist)", () => {
       "athena",
       "presto",
       "databricks",
+      "redshift",
     ];
     supported.forEach((t) =>
       expect(isFunnelSupportedDatasourceType(t)).toBe(true),
@@ -426,7 +427,6 @@ describe("isFunnelSupportedDatasourceType (D-PA2 allowlist)", () => {
 
   it("rejects dialects that aren't funnel-ready", () => {
     const unsupported: DataSourceType[] = [
-      "redshift",
       "vertica",
       "mysql",
       "mssql",

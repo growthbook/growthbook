@@ -62,6 +62,9 @@ import HelperText from "@/ui/HelperText";
 import RuleEnvironmentScopeField, {
   type EnvScopeProps,
 } from "@/components/Features/RuleModal/EnvironmentScopeField";
+import RuleProjectScopeField, {
+  type ProjectScopeProps,
+} from "@/components/Features/RuleModal/ProjectScopeField";
 import { getExposureQuery } from "@/services/datasources";
 import Text from "@/ui/Text";
 import {
@@ -103,6 +106,7 @@ export default function ExperimentRefNewFields({
   isTemplate = false,
   holdoutHashAttribute,
   envScope,
+  projectScope,
   onRuleCyclicChange,
 }: {
   step: number;
@@ -138,6 +142,7 @@ export default function ExperimentRefNewFields({
   isTemplate?: boolean;
   holdoutHashAttribute?: string;
   envScope?: EnvScopeProps;
+  projectScope?: ProjectScopeProps;
   onRuleCyclicChange?: (result: RuleCyclicResult) => void;
 }) {
   const form = useFormContext();
@@ -374,6 +379,7 @@ export default function ExperimentRefNewFields({
           />
 
           {envScope && <RuleEnvironmentScopeField {...envScope} my="5" />}
+          {projectScope && <RuleProjectScopeField {...projectScope} mb="5" />}
 
           {hasCommercialFeature("custom-metadata") &&
             !!customFields?.length && (

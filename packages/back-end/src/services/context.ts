@@ -89,6 +89,9 @@ import { PresentationThemeModel } from "back-end/src/models/PresentationThemeMod
 import { WatchModel } from "back-end/src/models/WatchModel";
 import { FigmaConnectionModel } from "back-end/src/models/FigmaConnectionModel";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
+import { OAuthAuthCodeModel } from "back-end/src/models/OAuthAuthCodeModel";
+import { OAuthGrantModel } from "back-end/src/models/OAuthGrantModel";
+import { OAuthRefreshTokenModel } from "back-end/src/models/OAuthRefreshTokenModel";
 import { getUserByEmail, getUsersByIds } from "back-end/src/models/UserModel";
 import { getExperimentMetricsByIds } from "./experiments";
 
@@ -139,6 +142,9 @@ export type ModelName =
   | "watch"
   | "figmaConnections"
   | "apiKeys"
+  | "oauthAuthCodes"
+  | "oauthGrants"
+  | "oauthRefreshTokens"
   | "rampSchedules"
   | "rampScheduleTemplates"
   | "aiConversations"
@@ -189,6 +195,9 @@ export const modelClasses = {
   watch: WatchModel,
   figmaConnections: FigmaConnectionModel,
   apiKeys: ApiKeyModel,
+  oauthAuthCodes: OAuthAuthCodeModel,
+  oauthGrants: OAuthGrantModel,
+  oauthRefreshTokens: OAuthRefreshTokenModel,
   rampSchedules: RampScheduleModel,
   rampScheduleTemplates: RampScheduleTemplateModel,
   aiConversations: AIConversationModel,
@@ -329,6 +338,9 @@ export class ReqContextClass {
       watch: new WatchModel(this),
       figmaConnections: new FigmaConnectionModel(this),
       apiKeys: new ApiKeyModel(this),
+      oauthAuthCodes: new OAuthAuthCodeModel(this),
+      oauthGrants: new OAuthGrantModel(this),
+      oauthRefreshTokens: new OAuthRefreshTokenModel(this),
       rampSchedules: new RampScheduleModel(this),
       rampScheduleTemplates: new RampScheduleTemplateModel(this),
       aiConversations: new AIConversationModel(this),
@@ -645,6 +657,15 @@ export class ReqContextClass {
       return projects;
     }
     return this._projects;
+  }
+
+  // Cached, unfiltered by read permissions (internal fan-out, unlike getProjects()).
+  private _allProjectIds: string[] | null = null;
+  public async getAllProjectIds(): Promise<string[]> {
+    if (this._allProjectIds === null) {
+      this._allProjectIds = await this.models.projects.getAllIdsForOrg();
+    }
+    return this._allProjectIds;
   }
 
   // Tags can be created on the fly, so we cache which ones already exist

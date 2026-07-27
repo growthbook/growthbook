@@ -10,6 +10,8 @@ import {
   isMultiRangeNamespaceFormat,
   namespacesToMap,
   recursiveWalk,
+  ruleServedToConnection,
+  ruleProjectScope,
   ruleFootprint,
   stemRuleId,
   getNamespaceRanges,
@@ -24,6 +26,7 @@ import {
   ensureConfigBacking,
   stripConfigExtends,
   deepMergePatch,
+  getTargetingProjectIds,
 } from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
@@ -112,11 +115,45 @@ export type MetadataOptions = {
   includeTagsInMetadata?: boolean;
 };
 
+function toProjectPublicIds(
+  ids: string[],
+  projectsMap: Map<string, ProjectInterface>,
+): string[] {
+  return ids
+    .map((id) => projectsMap.get(id))
+    .filter((p): p is ProjectInterface => !!p)
+    .map((p) => p.publicId || p.id);
+}
+
+// A rule's explicit project scope as public ids, scrubbed to the feature's
+// delivery set. All-projects/unscoped rules emit nothing (absent = all).
+function applyRuleProjectMetadata(
+  rule: FeatureDefinitionRule,
+  sourceRule: Parameters<typeof ruleProjectScope>[0],
+  deliveryProjects: string[] | null,
+  opts: MetadataOptions,
+  projectsMap: Map<string, ProjectInterface> | undefined,
+): void {
+  if (!opts.includeProjectIdInMetadata || !projectsMap) return;
+  const scope = ruleProjectScope(sourceRule);
+  if (scope === null) return;
+  const effective =
+    deliveryProjects === null
+      ? scope
+      : scope.filter((p) => deliveryProjects.includes(p));
+  const publicIds = toProjectPublicIds(effective, projectsMap);
+  if (publicIds.length) {
+    rule.metadata = { ...(rule.metadata ?? {}), projects: publicIds };
+  }
+}
+
 export function buildPayloadMetadata<
   T extends FeatureMetadata | ExperimentMetadata,
 >(
   entity: {
     project?: string;
+    targetingProjects?: string[];
+    targetingAllProjects?: boolean;
     customFields?: Record<string, unknown>;
     tags?: string[];
   },
@@ -125,10 +162,17 @@ export function buildPayloadMetadata<
 ): T | undefined {
   const metadata: T = {} as T;
 
-  if (opts.includeProjectIdInMetadata && entity.project && projectsMap) {
-    const project = projectsMap.get(entity.project);
-    if (project) {
-      metadata.projects = [project.publicId || project.id];
+  if (opts.includeProjectIdInMetadata && projectsMap) {
+    // Explicit delivery projects as public ids; all-projects emits nothing (absent = all).
+    const ids = getTargetingProjectIds(entity);
+    if (ids !== null) {
+      const publicIds = toProjectPublicIds(
+        ids.filter((id) => !!id),
+        projectsMap,
+      );
+      if (publicIds.length) {
+        metadata.projects = publicIds;
+      }
     }
   }
 
@@ -340,6 +384,8 @@ export function getSDKPayloadKeysByDiff(
   originalFeature: FeatureInterface,
   updatedFeature: FeatureInterface,
   allowedEnvs: string[],
+  // Every org project id — only consulted when the feature targets all projects.
+  allProjectIds: string[] = [],
 ): SDKPayloadKey[] {
   const environments = new Set<string>();
 
@@ -353,6 +399,9 @@ export function getSDKPayloadKeysByDiff(
     "archived",
     "defaultValue",
     "project",
+    // Targeting changes affect connection membership like a project change.
+    "targetingAllProjects",
+    "targetingProjects",
     "valueType",
     "nextScheduledUpdate",
     "holdout",
@@ -431,7 +480,16 @@ export function getSDKPayloadKeysByDiff(
     "",
     originalFeature.project || "",
     updatedFeature.project || "",
+    ...(originalFeature.targetingProjects ?? []),
+    ...(updatedFeature.targetingProjects ?? []),
   ]);
+  // targetingAllProjects delivers everywhere → invalidate every project's cache.
+  if (
+    originalFeature.targetingAllProjects ||
+    updatedFeature.targetingAllProjects
+  ) {
+    allProjectIds.forEach((id) => projects.add(id));
+  }
 
   return getSDKPayloadKeys(environments, projects);
 }
@@ -440,6 +498,8 @@ export function getAffectedSDKPayloadKeys(
   features: FeatureInterface[],
   allowedEnvs: string[],
   ruleFilter?: (rule: FeatureRule) => boolean | unknown,
+  // Every org project id — only consulted for features that target all projects.
+  allProjectIds: string[] = [],
 ): SDKPayloadKey[] {
   const keys: SDKPayloadKey[] = [];
 
@@ -449,7 +509,14 @@ export function getAffectedSDKPayloadKeys(
       allowedEnvs,
       ruleFilter,
     );
-    const projects = new Set(["", feature.project || ""]);
+    const projects = new Set([
+      "",
+      feature.project || "",
+      ...(feature.targetingProjects ?? []),
+    ]);
+    if (feature.targetingAllProjects) {
+      allProjectIds.forEach((id) => projects.add(id));
+    }
     keys.push(...getSDKPayloadKeys(environments, projects));
   });
 
@@ -550,6 +617,7 @@ export function getFeatureDefinition({
   namespaces,
   metadataOptions,
   projectsMap,
+  payloadProjects,
   cbMap,
   rampMonitoredRuleMap,
   constantMap,
@@ -579,6 +647,9 @@ export function getFeatureDefinition({
   >;
   metadataOptions?: MetadataOptions;
   projectsMap?: Map<string, ProjectInterface>;
+  // Projects this payload serves (a connection's scope). undefined = preview path
+  // (keep all rules); otherwise rules outside the served scope are dropped.
+  payloadProjects?: string[];
   cbMap?: Map<string, ContextualBanditInterface>;
   rampMonitoredRuleMap?: Map<string, RampMonitoredRuleInfo>;
   // Per-environment constant values. When provided, EVERY emitted value is
@@ -701,7 +772,7 @@ export function getFeatureDefinition({
   // fall back to the literal env-list filter.
   const v2Rules = revision?.rules ?? feature.rules;
   const applicableEnvs = organization?.settings?.environments
-    ? getApplicableEnvIds(organization.settings.environments, feature.project)
+    ? getApplicableEnvIds(organization.settings.environments, feature)
     : null;
   let rules: FeatureRule[];
   if (!Array.isArray(v2Rules)) {
@@ -713,6 +784,15 @@ export function getFeatureDefinition({
   } else {
     rules = v2Rules.filter((r) =>
       ruleFootprint(r, applicableEnvs).includes(environment),
+    );
+  }
+
+  // Drop rules not served to this connection (own scope ∩ feature delivery ∩
+  // served). undefined payloadProjects = preview path, keep all rules.
+  const deliveryProjects = getTargetingProjectIds(feature);
+  if (payloadProjects !== undefined) {
+    rules = rules.filter((r) =>
+      ruleServedToConnection(r, deliveryProjects, payloadProjects),
     );
   }
 
@@ -936,7 +1016,8 @@ export function getFeatureDefinition({
           if (metadataOptions) {
             const expMetadata = buildPayloadMetadata<ExperimentMetadata>(
               {
-                project: exp.project,
+                // No project here — metadata.projects comes solely from the
+                // rule's own scope below, not the experiment's project.
                 customFields: exp.customFields,
                 tags: exp.tags,
               },
@@ -944,6 +1025,13 @@ export function getFeatureDefinition({
               projectsMap,
             );
             if (expMetadata) rule.metadata = expMetadata;
+            applyRuleProjectMetadata(
+              rule,
+              r,
+              deliveryProjects,
+              metadataOptions,
+              projectsMap,
+            );
           }
 
           if (allowedKeys) {
@@ -1032,13 +1120,20 @@ export function getFeatureDefinition({
           if (metadataOptions) {
             const cbMetadata = buildPayloadMetadata<ExperimentMetadata>(
               {
-                project: cb.project,
+                // Projects come solely from the rule's own scope below.
                 tags: cb.tags,
               },
               metadataOptions,
               projectsMap,
             );
             if (cbMetadata) rule.metadata = cbMetadata;
+            applyRuleProjectMetadata(
+              rule,
+              r,
+              deliveryProjects,
+              metadataOptions,
+              projectsMap,
+            );
           }
 
           if (allowedKeys) {
@@ -1275,6 +1370,15 @@ export function getFeatureDefinition({
               replaceSavedGroups(savedGroupsMap, organization!),
             );
         }
+        if (metadataOptions) {
+          applyRuleProjectMetadata(
+            rule,
+            r,
+            deliveryProjects,
+            metadataOptions,
+            projectsMap,
+          );
+        }
         if (allowedKeys) {
           const picked = pick(
             rule,
@@ -1304,6 +1408,8 @@ export function getFeatureDefinition({
     const featureMetadata = buildPayloadMetadata<FeatureMetadata>(
       {
         project: feature.project,
+        targetingProjects: feature.targetingProjects,
+        targetingAllProjects: feature.targetingAllProjects,
         customFields: feature.customFields,
         tags: feature.tags,
       },

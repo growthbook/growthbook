@@ -8,7 +8,8 @@ overrides:
   '@babel/core@7': ^7.29.7
   '@babel/runtime@7': ^7.28.6
   '@tootallnate/once@2': ^2.0.1
-  '@growthbook/growthbook': 1.6.5
+  '@growthbook/growthbook': workspace:*
+  '@growthbook/growthbook-react': workspace:*
   '@grpc/grpc-js@1.8': 1.8.22
   '@octokit/plugin-paginate-rest@9': ^9.2.2
   '@octokit/request@8': ^8.4.1
@@ -211,8 +212,8 @@ importers:
         specifier: ^5.20.5
         version: 5.20.5(encoding@0.1.13)
       '@growthbook/growthbook':
-        specifier: 1.6.5
-        version: 1.6.5
+        specifier: workspace:*
+        version: link:../sdk-js
       '@growthbook/proxy-eval':
         specifier: ^1.1.2
         version: 1.1.2
@@ -642,11 +643,11 @@ importers:
         specifier: ^0.25.4
         version: 0.25.4(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       '@growthbook/growthbook':
-        specifier: 1.6.5
-        version: 1.6.5
+        specifier: workspace:*
+        version: link:../sdk-js
       '@growthbook/growthbook-react':
-        specifier: ^1.6.5
-        version: 1.6.5(react@18.2.0)
+        specifier: workspace:*
+        version: link:../sdk-react
       '@jitsu/sdk-js':
         specifier: ^2.2.0
         version: 2.2.0
@@ -1122,8 +1123,8 @@ importers:
   packages/sdk-react:
     dependencies:
       '@growthbook/growthbook':
-        specifier: 1.6.5
-        version: 1.6.5
+        specifier: workspace:*
+        version: link:../sdk-js
     devDependencies:
       '@babel/cli':
         specifier: ^7.28.3
@@ -1201,8 +1202,8 @@ importers:
         specifier: ^8.1.1
         version: 8.1.1
       '@growthbook/growthbook':
-        specifier: 1.6.5
-        version: 1.6.5
+        specifier: workspace:*
+        version: link:../sdk-js
       '@stdlib/stats':
         specifier: ^0.1.1
         version: 0.1.1
@@ -3232,16 +3233,6 @@ packages:
 
   '@google-cloud/storage@5.20.5':
     resolution: {integrity: sha512-lOs/dCyveVF8TkVFnFSF7IGd0CJrTm91qiK6JLu+Z8qiT+7Ag0RyVhxZIWkhiACqwABo7kSHDm8FdH8p2wxSSw==}
-    engines: {node: '>=10'}
-
-  '@growthbook/growthbook-react@1.6.5':
-    resolution: {integrity: sha512-afi/RUbwazVNKv2acn6wDQz4BJNRAEpwIuHfggQup2/aE5PLAxy3+95gjjRMgCcPR0Pf3sFmhYGvOmxLD0ZRbQ==}
-    engines: {node: '>=10'}
-    peerDependencies:
-      react: ^16.8.0-0 || ^17.0.0-0 || ^18.0.0-0 || ^19.0.0-0
-
-  '@growthbook/growthbook@1.6.5':
-    resolution: {integrity: sha512-mUaMsgeUTpRIUOTn33EUXHRK6j7pxBjwqH4WpQyq+pukjd1AIzWlEa6w7i6bInJUcweGgP2beXZmaP6b6UPn7A==}
     engines: {node: '>=10'}
 
   '@growthbook/proxy-eval@1.1.2':
@@ -16643,18 +16634,9 @@ snapshots:
       - encoding
       - supports-color
 
-  '@growthbook/growthbook-react@1.6.5(react@18.2.0)':
-    dependencies:
-      '@growthbook/growthbook': 1.6.5
-      react: 18.2.0
-
-  '@growthbook/growthbook@1.6.5':
-    dependencies:
-      dom-mutator: 0.6.0
-
   '@growthbook/proxy-eval@1.1.2':
     dependencies:
-      '@growthbook/growthbook': 1.6.5
+      '@growthbook/growthbook': link:packages/sdk-js
 
   '@grpc/grpc-js@1.14.4':
     dependencies:
