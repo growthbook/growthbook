@@ -4,6 +4,7 @@ import {
   toFactTableColumnApiInterface,
   updateColumn,
 } from "back-end/src/models/FactTableModel";
+import { validateVirtualColumnSql } from "back-end/src/util/factTable";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
 export const updateFactTableColumn = createApiRequestHandler(
@@ -14,7 +15,7 @@ export const updateFactTableColumn = createApiRequestHandler(
     throw new Error("Could not find factTable with that id");
   }
 
-  if (!req.context.permissions.canUpdateFactTable(factTable, { columns: [] })) {
+  if (!req.context.permissions.canManageFactTableVirtualColumn(factTable)) {
     req.context.permissions.throwPermissionError();
   }
 
@@ -32,6 +33,10 @@ export const updateFactTableColumn = createApiRequestHandler(
   // Editing a virtual column's expression must not blank it out.
   if (req.body.sql !== undefined && !req.body.sql.trim()) {
     throw new Error("Virtual columns require a SQL expression");
+  }
+
+  if (req.body.sql !== undefined) {
+    validateVirtualColumnSql(req.body.sql);
   }
 
   await updateColumn({

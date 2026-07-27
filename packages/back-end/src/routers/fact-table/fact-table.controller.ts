@@ -57,6 +57,7 @@ import {
   validateAggregatedFactTableSettings,
   getNextUpdateOccurrence,
   validateVirtualColumnProps,
+  validateVirtualColumnSql,
 } from "back-end/src/util/factTable";
 import { logger } from "back-end/src/util/logger";
 import { needsColumnRefresh } from "back-end/src/api/fact-tables/updateFactTable";
@@ -165,6 +166,10 @@ async function testVirtualColumnQuery(
   if (!context.permissions.canRunTestQueries(datasource)) {
     context.permissions.throwPermissionError();
   }
+
+  // The preview runs the expression, so apply the same structural check as the
+  // save paths rather than letting an unsafe expression reach the warehouse.
+  validateVirtualColumnSql(sql);
 
   const integration = getSourceIntegrationObject(context, datasource, true);
 
@@ -968,9 +973,23 @@ export const putColumn = async (
     data.name = col.column;
   }
 
+  // Editing a virtual column's expression is equivalent in power to editing the
+  // fact table's SQL, so it needs the stricter gate (the `columns`-only check
+  // above intentionally skips the managedBy check).
+  if (
+    col.isVirtual &&
+    !context.permissions.canManageFactTableVirtualColumn(factTable)
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
   // Editing a virtual column's expression must not blank it out.
   if (col.isVirtual && data.sql !== undefined && !data.sql.trim()) {
     throw new Error("Virtual columns require a SQL expression");
+  }
+
+  if (col.isVirtual && data.sql !== undefined) {
+    validateVirtualColumnSql(data.sql);
   }
 
   // A virtual column must be removed via the delete endpoint so the dependency
@@ -1172,7 +1191,7 @@ export const postVirtualColumn = async (
     throw new Error("Could not find fact table with that id");
   }
 
-  if (!context.permissions.canUpdateFactTable(factTable, { columns: [] })) {
+  if (!context.permissions.canManageFactTableVirtualColumn(factTable)) {
     context.permissions.throwPermissionError();
   }
 
@@ -1201,6 +1220,18 @@ export const deleteColumn = async (
   }
 
   if (!context.permissions.canUpdateFactTable(factTable, { columns: [] })) {
+    context.permissions.throwPermissionError();
+  }
+
+  // Deleting a virtual column removes a stored SQL expression, so it needs the
+  // same gate as creating or editing one.
+  const columnToDelete = factTable.columns.find(
+    (c) => c.column === req.params.column,
+  );
+  if (
+    columnToDelete?.isVirtual &&
+    !context.permissions.canManageFactTableVirtualColumn(factTable)
+  ) {
     context.permissions.throwPermissionError();
   }
 
@@ -1236,7 +1267,7 @@ export const postVirtualColumnTest = async (
     throw new Error("Could not find fact table with that id");
   }
 
-  if (!context.permissions.canUpdateFactTable(factTable, { columns: [] })) {
+  if (!context.permissions.canManageFactTableVirtualColumn(factTable)) {
     context.permissions.throwPermissionError();
   }
 

@@ -19,6 +19,16 @@ export const deleteFactTableColumn = createApiRequestHandler(
     req.context.permissions.throwPermissionError();
   }
 
+  // Deleting a virtual column removes a stored SQL expression, so it needs the
+  // same gate as creating or editing one.
+  const column = factTable.columns.find((c) => c.column === req.params.id);
+  if (
+    column?.isVirtual &&
+    !req.context.permissions.canManageFactTableVirtualColumn(factTable)
+  ) {
+    req.context.permissions.throwPermissionError();
+  }
+
   // The datasource's identifier-quote style makes the dependency scan
   // (nested virtual columns, filters, explorations, ...) treat quoted
   // identifiers correctly for this dialect.

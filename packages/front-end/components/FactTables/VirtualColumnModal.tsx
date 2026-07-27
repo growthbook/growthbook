@@ -4,6 +4,7 @@ import {
   FactTableColumnType,
   FactTableInterface,
 } from "shared/types/fact-table";
+import { validateVirtualColumnExpression } from "shared/experiments";
 import { useForm } from "react-hook-form";
 import { useEffect, useRef, useState } from "react";
 import { PiPlay, PiCaretDown, PiCaretRight } from "react-icons/pi";
@@ -153,6 +154,12 @@ export default function VirtualColumnModal({
         }
         if (!value.datatype) {
           throw new Error("Please choose a data type");
+        }
+        // Surface the same structural check the back-end applies, so an unsafe
+        // expression fails here instead of as a server error.
+        const sqlError = validateVirtualColumnExpression(value.sql);
+        if (sqlError) {
+          throw new Error(sqlError);
         }
 
         if (testBeforeSave) {

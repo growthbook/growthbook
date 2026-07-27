@@ -120,6 +120,15 @@ export const postBulkImportFacts = createApiRequestHandler(
           }
           if (col.isVirtual) {
             validateVirtualColumnProps(col);
+            // A virtual column carries raw SQL, so importing one into an
+            // existing fact table needs the same gate as the dedicated
+            // virtual-column endpoints.
+            if (
+              existing &&
+              !req.context.permissions.canManageFactTableVirtualColumn(existing)
+            ) {
+              req.context.permissions.throwPermissionError();
+            }
           }
         }
       }

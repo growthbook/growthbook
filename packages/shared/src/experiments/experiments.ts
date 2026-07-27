@@ -305,6 +305,121 @@ function replaceSqlIdentifiers(
   return out;
 }
 
+// A virtual column's expression is inlined into generated SQL as `(<sql>)`, so
+// the expression must not be able to break out of those parentheses. Validate
+// that it is a single self-contained scalar expression: no statement
+// separator, no unbalanced parenthesis, and no unterminated literal or comment
+// that would swallow the closing paren (and whatever follows it) in the
+// generated query. Lexical rules mirror `replaceSqlIdentifiers` so literals and
+// comments are consistently ignored.
+//
+// This is a structural guard, not a capability guard: a balanced expression may
+// still contain a subquery, which is the same read access the fact table's own
+// SQL already has. Returns an error message, or null when the expression is
+// structurally safe.
+export function validateVirtualColumnExpression(
+  sql: string,
+  identifierQuote: SqlIdentifierQuote = DEFAULT_IDENTIFIER_QUOTE,
+): string | null {
+  const stringQuote = identifierQuote === '"' ? "`" : '"';
+  const n = sql.length;
+  let i = 0;
+  let depth = 0;
+
+  // Consume a quote-delimited span starting at the opening quote at `i`,
+  // honoring doubled-quote escapes. Returns the end index (exclusive) and
+  // whether a closing quote was found.
+  const readQuoted = (quote: string) => {
+    let j = i + 1;
+    let closed = false;
+    while (j < n) {
+      if (sql[j] === quote) {
+        if (sql[j + 1] === quote) {
+          j += 2;
+          continue;
+        }
+        j++;
+        closed = true;
+        break;
+      }
+      j++;
+    }
+    return { end: j, closed };
+  };
+
+  while (i < n) {
+    const c = sql[i];
+
+    if (c === "'" || c === stringQuote || c === identifierQuote) {
+      const { end, closed } = readQuoted(c);
+      if (!closed) {
+        return "SQL expression has an unterminated quoted string or identifier";
+      }
+      i = end;
+      continue;
+    }
+
+    // Line comment: must be terminated by a newline, otherwise it would
+    // comment out the closing paren of the inlined expression.
+    if (c === "-" && sql[i + 1] === "-") {
+      const j = sql.indexOf("\n", i + 2);
+      if (j === -1) {
+        return "SQL expression ends in a line comment; remove it or add a newline after it";
+      }
+      i = j + 1;
+      continue;
+    }
+
+    // Block comment: must be closed.
+    if (c === "/" && sql[i + 1] === "*") {
+      const j = sql.indexOf("*/", i + 2);
+      if (j === -1) {
+        return "SQL expression has an unterminated block comment";
+      }
+      i = j + 2;
+      continue;
+    }
+
+    // Dollar-quoted string ($tag$...$tag$). Only a string when a valid closing
+    // delimiter exists; otherwise `$` is an ordinary character.
+    if (c === "$") {
+      const open = sql.slice(i).match(/^\$([A-Za-z_][A-Za-z0-9_]*)?\$/);
+      if (open) {
+        const delim = open[0];
+        const close = sql.indexOf(delim, i + delim.length);
+        if (close !== -1) {
+          i = close + delim.length;
+          continue;
+        }
+      }
+      i++;
+      continue;
+    }
+
+    if (c === ";") {
+      return "SQL expression cannot contain ';' — it must be a single expression, not a statement";
+    }
+
+    if (c === "(") depth++;
+    if (c === ")") {
+      depth--;
+      // Going negative means the expression closes a paren it never opened, so
+      // it would escape the wrapping parentheses in the generated query.
+      if (depth < 0) {
+        return "SQL expression has an unbalanced ')'";
+      }
+    }
+
+    i++;
+  }
+
+  if (depth !== 0) {
+    return "SQL expression has an unbalanced '('";
+  }
+
+  return null;
+}
+
 // Resolve a virtual column's expression into valid SQL for the current query
 // context. Any fact table column name appearing in the expression is rewritten:
 // a real column becomes `alias.<col>` (bare when no alias), and a nested virtual
@@ -408,8 +523,10 @@ export function getColumnExpression(
 ): string {
   // Virtual (computed) columns inline their stored SQL expression wherever they
   // are referenced (metric value SELECT, row-filter WHERE, slice WHERE, ...).
+  // `!c.deleted` matches `expandVirtualColumnsInSql`: a soft-deleted virtual
+  // column must not keep contributing its expression to generated SQL.
   const virtualCol = factTable.columns.find(
-    (c) => c.column === column && c.isVirtual && c.sql,
+    (c) => c.column === column && c.isVirtual && c.sql && !c.deleted,
   );
   if (virtualCol?.sql) {
     return `(${resolveVirtualColumnSql(

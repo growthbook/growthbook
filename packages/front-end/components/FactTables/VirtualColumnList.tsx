@@ -117,9 +117,9 @@ export default function VirtualColumnList({ factTable }: Props) {
       pageSize: 10,
     });
 
-  const canEdit = permissionsUtil.canUpdateFactTable(factTable, {
-    columns: [],
-  });
+  // Virtual columns carry raw SQL, so they use the stricter gate that also
+  // honors managedBy — matching what the back-end enforces.
+  const canEdit = permissionsUtil.canManageFactTableVirtualColumn(factTable);
 
   return (
     <>

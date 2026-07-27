@@ -15,7 +15,7 @@ export const postFactTableColumn = createApiRequestHandler(
     throw new Error("Could not find factTable with that id");
   }
 
-  if (!req.context.permissions.canUpdateFactTable(factTable, { columns: [] })) {
+  if (!req.context.permissions.canManageFactTableVirtualColumn(factTable)) {
     req.context.permissions.throwPermissionError();
   }
 

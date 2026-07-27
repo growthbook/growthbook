@@ -12,6 +12,7 @@ import {
   getColumnExpression,
   expandVirtualColumnsInSql,
   sqlReferencesColumn,
+  validateVirtualColumnExpression,
   getSelectedColumnDatatype,
   adjustPValuesBenjaminiHochberg,
   adjustPValuesHolmBonferroni,
@@ -1967,6 +1968,75 @@ describe("Virtual Columns", () => {
 
     it("still matches around a lone dollar sign with no closing delimiter", () => {
       expect(sqlReferencesColumn("margin_vc + $1", "margin_vc")).toBe(true);
+    });
+  });
+
+  describe("validateVirtualColumnExpression", () => {
+    const ok = (sql: string, quote?: "`" | '"') =>
+      validateVirtualColumnExpression(sql, quote);
+
+    it("accepts ordinary scalar expressions", () => {
+      expect(ok("price * quantity")).toBeNull();
+      expect(ok("first_name || ' ' || last_name")).toBeNull();
+      expect(ok("DATE_DIFF(shipped_at, ordered_at, DAY)")).toBeNull();
+      expect(
+        ok("CASE WHEN price > 0 THEN (price - cost) ELSE 0 END"),
+      ).toBeNull();
+    });
+
+    it("rejects a statement separator", () => {
+      expect(ok("price; DELETE FROM users")).toMatch(/';'/);
+      expect(ok("price;")).toMatch(/';'/);
+    });
+
+    it("rejects the paren-escape stacking payload", () => {
+      // Rejected on the unbalanced ')' it hits before the ';' — either way the
+      // expression cannot escape the wrapping parentheses.
+      expect(ok("1) AS x FROM t; DROP TABLE orders; SELECT (1")).not.toBeNull();
+    });
+
+    it("rejects escaping the wrapping parentheses", () => {
+      // Would emit `(1) AS x FROM t UNION SELECT (1)` — balanced overall, but
+      // it closes a paren it never opened.
+      expect(ok("1) AS x FROM t UNION SELECT (1")).toMatch(/unbalanced '\)'/);
+      expect(ok("1)")).toMatch(/unbalanced '\)'/);
+    });
+
+    it("rejects unbalanced open parentheses", () => {
+      expect(ok("COALESCE(price, 0")).toMatch(/unbalanced '\('/);
+    });
+
+    it("rejects a trailing line comment that would swallow the closing paren", () => {
+      expect(ok("1 --")).toMatch(/line comment/);
+      expect(ok("1 -- trailing")).toMatch(/line comment/);
+    });
+
+    it("allows a line comment terminated by a newline", () => {
+      expect(ok("price -- note\n * quantity")).toBeNull();
+    });
+
+    it("rejects an unterminated block comment", () => {
+      expect(ok("price /* note")).toMatch(/block comment/);
+    });
+
+    it("allows a closed block comment", () => {
+      expect(ok("price /* note */ * quantity")).toBeNull();
+    });
+
+    it("rejects an unterminated quoted string", () => {
+      expect(ok("first_name || '")).toMatch(/unterminated/);
+    });
+
+    it("ignores separators and parens inside literals and comments", () => {
+      expect(ok("status || ';'")).toBeNull();
+      expect(ok("status || ')'")).toBeNull();
+      expect(ok("price /* ; ) */ * 2")).toBeNull();
+      expect(ok("$$; )$$")).toBeNull();
+    });
+
+    it("honors the dialect identifier quote", () => {
+      expect(ok('"weird;col" * 2')).toBeNull();
+      expect(ok("`weird;col` * 2", "`")).toBeNull();
     });
   });
 
