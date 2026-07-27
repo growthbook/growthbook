@@ -16,9 +16,12 @@ export const DATE_RANGE_PREDEFINED_LABELS: Record<
   string
 > = {
   today: "Today",
+  yesterday: "Yesterday",
   last7Days: "Past 7 Days",
   last30Days: "Past 30 Days",
   last90Days: "Past 90 Days",
+  last12Months: "Past 12 Months",
+  lastCalendarYear: "Last Calendar Year",
   customLookback: "Custom Lookback",
   customDateRange: "Custom Date Range",
 };
@@ -54,9 +57,12 @@ export function formatExplorationDateRange(
 ): string {
   switch (dateRange.predefined) {
     case "today":
+    case "yesterday":
     case "last7Days":
     case "last30Days":
     case "last90Days":
+    case "last12Months":
+    case "lastCalendarYear":
       return DATE_RANGE_PREDEFINED_LABELS[dateRange.predefined];
     case "customLookback": {
       const lookbackValue = dateRange.lookbackValue ?? 30;

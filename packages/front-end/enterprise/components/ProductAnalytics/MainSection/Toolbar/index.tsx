@@ -1,11 +1,15 @@
 import { Flex } from "@radix-ui/themes";
 import { getValidDate } from "shared/dates";
+import {
+  resolveComparisonMode,
+  resolveComparisonPreviousTimeFrame,
+} from "shared/enterprise";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
-import Switch from "@/ui/Switch";
+import DateRangeCompareDropdown from "@/enterprise/components/ProductAnalytics/DateRangeCompareDropdown";
+import type { DateRangeCompareValue } from "@/enterprise/components/ProductAnalytics/DateRangeComparePanel";
 import GraphTypeSelector from "./GraphTypeSelector";
 import FunnelGraphTypeSelector from "./FunnelGraphTypeSelector";
 import FunnelYAxisSelector from "./FunnelYAxisSelector";
-import DateRangePicker, { ComparisonDateControls } from "./DateRangePicker";
 import GranularitySelector from "./GranularitySelector";
 import LastRefreshedIndicator from "./LastRefreshedIndicator";
 import DataSourceDropdown from "./DataSourceDropdown";
@@ -14,14 +18,46 @@ export default function Toolbar() {
   const {
     exploration,
     draftExploreState,
-    submittedExploreState,
+    setDraftExploreState,
     compareEnabled,
-    setCompareEnabled,
+    comparisonMode,
     managedWarehouseUnavailable,
   } = useExplorerContext();
   const isFunnel = draftExploreState.dataset?.type === "funnel";
 
-  const showComparisonDateControls = compareEnabled;
+  const dateRangeValue: DateRangeCompareValue = {
+    dateRange: draftExploreState.dateRange,
+    comparison: compareEnabled
+      ? {
+          enabled: true,
+          mode: comparisonMode,
+          previousTimeFrame: draftExploreState.previousTimeFrame,
+        }
+      : null,
+  };
+
+  const applyDateRange = ({ dateRange, comparison }: DateRangeCompareValue) => {
+    setDraftExploreState((prev) => {
+      const next = { ...prev, dateRange };
+      if (!comparison?.enabled) {
+        const {
+          previousTimeFrame: _,
+          comparisonMode: __,
+          ...withoutCompare
+        } = next;
+        return withoutCompare;
+      }
+      const mode = resolveComparisonMode(comparison);
+      return {
+        ...next,
+        comparisonMode: mode,
+        previousTimeFrame: resolveComparisonPreviousTimeFrame(
+          dateRange,
+          comparison,
+        ),
+      };
+    });
+  };
 
   return (
     <Flex direction="column" gap="3">
@@ -62,31 +98,16 @@ export default function Toolbar() {
           gap="3"
           style={{ flexGrow: 1, minWidth: 0 }}
         >
-          <Switch
-            label="Compare"
-            value={compareEnabled}
-            onChange={setCompareEnabled}
-            disabled={!submittedExploreState || managedWarehouseUnavailable}
+          <DateRangeCompareDropdown
+            showCompare
+            value={dateRangeValue}
+            onChange={applyDateRange}
+            disabled={managedWarehouseUnavailable}
           />
-          {showComparisonDateControls ? (
-            <ComparisonDateControls
-              groupBySlot={
-                ["line", "area", "timeseries-table"].includes(
-                  draftExploreState.chartType,
-                ) ? (
-                  <GranularitySelector />
-                ) : null
-              }
-            />
-          ) : (
-            <>
-              <DateRangePicker />
-              {!isFunnel &&
-                ["line", "area", "timeseries-table"].includes(
-                  draftExploreState.chartType,
-                ) && <GranularitySelector />}
-            </>
-          )}
+          {!isFunnel &&
+            ["line", "area", "timeseries-table"].includes(
+              draftExploreState.chartType,
+            ) && <GranularitySelector />}
         </Flex>
       </Flex>
     </Flex>

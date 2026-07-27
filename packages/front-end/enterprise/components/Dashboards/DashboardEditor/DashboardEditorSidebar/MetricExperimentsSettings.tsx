@@ -20,10 +20,9 @@ import MetricSelector from "@/components/Experiment/MetricSelector";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/ui/MultiSelectField";
 import { resolveMetricExperimentColumns } from "@/components/MetricExperiments/MetricExperiments";
+import { DATE_RANGE_PREDEFINED_LABELS } from "@/enterprise/components/ProductAnalytics/dateRangeLabels";
 import MetricExperimentsColumnSettings from "./MetricExperimentsColumnSettings";
-import BlockDateRangePicker, {
-  PREDEFINED_LABELS,
-} from "./BlockDateRangePicker";
+import BlockDateRangePicker from "./BlockDateRangePicker";
 
 // Short human-readable label for a date range, shown on the filter pill.
 function formatDateRange(dr: ExplorationDateRange): string {
@@ -38,7 +37,7 @@ function formatDateRange(dr: ExplorationDateRange): string {
   if (dr.predefined === "customDateRange") {
     return `${dr.startDate ?? "…"} – ${dr.endDate ?? "…"}`;
   }
-  return PREDEFINED_LABELS[dr.predefined];
+  return DATE_RANGE_PREDEFINED_LABELS[dr.predefined];
 }
 
 const DEFAULT_DATE_RANGE: ExplorationDateRange = { predefined: "last30Days" };

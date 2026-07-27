@@ -606,6 +606,30 @@ function stepBucketUtc(d: Date, granularity: ResolvedGranularity): void {
 }
 
 /**
+ * The next `count` bucket starts after `afterIso`, continuing its cadence.
+ *
+ * Used to stretch a chart's category axis when the comparison window has more
+ * buckets than the primary — the axis has to reach the longer of the two, and
+ * the primary has no dates of its own out there.
+ */
+export function extendDateBucketsForward(params: {
+  resolvedGranularity: ResolvedGranularity;
+  afterIso: string;
+  count: number;
+}): string[] {
+  const { resolvedGranularity, afterIso, count } = params;
+  if (count <= 0) return [];
+  const cur = truncateUtc(new Date(afterIso), resolvedGranularity);
+  if (Number.isNaN(cur.getTime())) return [];
+  const out: string[] = [];
+  for (let i = 0; i < count; i++) {
+    stepBucketUtc(cur, resolvedGranularity);
+    out.push(cur.toISOString());
+  }
+  return out;
+}
+
+/**
  * Every bucket start in `[rangeStart, rangeEnd]` inclusive, aligned to Postgres-style
  * `date_trunc` in UTC (week = Monday 00:00 UTC).
  */

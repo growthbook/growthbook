@@ -1,12 +1,13 @@
 import { ReactNode } from "react";
-import { Box, Flex } from "@radix-ui/themes";
-import { ComparisonMode, ExplorationDateRange } from "shared/validators";
+import { Box } from "@radix-ui/themes";
+import { ExplorationDateRange } from "shared/validators";
+import { BlockComparison } from "shared/enterprise";
 import MultiSelectField from "@/ui/MultiSelectField";
 import Text from "@/ui/Text";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useExperiments } from "@/hooks/useExperiments";
 import SidebarExperimentFilters from "@/components/Search/SidebarExperimentFilters";
-import BlockDateRangePicker from "./BlockDateRangePicker";
+import DateRangeCompareDropdown from "@/enterprise/components/ProductAnalytics/DateRangeCompareDropdown";
 
 export interface CompletedExperimentsFilterValue {
   dateRange: ExplorationDateRange;
@@ -22,19 +23,15 @@ interface Props {
   // Restrict the project options (e.g. to the dashboard's projects). Empty
   // means all org projects are selectable.
   availableProjects?: string[];
-  // Optional control rendered on the right of the "Date Range" label row (e.g.
-  // a Compare toggle), mirroring the Metric Explorer editor header.
-  dateRangeAccessory?: ReactNode;
   // Optional content rendered between the Date Range and Projects fields
   // (e.g. Team Velocity's Date Granularity control).
   afterDateRange?: ReactNode;
-  // Comparison support: when enabled the picker shows a "Compare to" mode
-  // selector, plus the Prior / Current fields for the `custom` mode.
-  comparisonEnabled?: boolean;
-  comparisonMode?: ComparisonMode;
-  onComparisonModeChange?: (mode: ComparisonMode) => void;
-  previousTimeFrame?: ExplorationDateRange;
-  onPreviousTimeFrameChange?: (dr: ExplorationDateRange) => void;
+  comparison?: BlockComparison | null;
+  /**
+   * Omit to hide the Compare section entirely — blocks that can't render a
+   * previous period (Team Velocity, Scaled Impact) simply don't pass it.
+   */
+  onComparisonChange?: (comparison: BlockComparison | undefined) => void;
 }
 
 // Shared date-range + project scoping controls for the "Completed Experiments"
@@ -43,13 +40,9 @@ export default function CompletedExperimentsFilterFields({
   value,
   onChange,
   availableProjects,
-  dateRangeAccessory,
   afterDateRange,
-  comparisonEnabled,
-  comparisonMode,
-  onComparisonModeChange,
-  previousTimeFrame,
-  onPreviousTimeFrameChange,
+  comparison = null,
+  onComparisonChange,
 }: Props) {
   const { projects } = useDefinitions();
   const { experiments } = useExperiments();
@@ -63,18 +56,17 @@ export default function CompletedExperimentsFilterFields({
   return (
     <>
       <Box>
-        <Flex justify="between" align="center" mb="2">
+        <Box mb="2">
           <Text weight="semibold">Date Range</Text>
-          {dateRangeAccessory}
-        </Flex>
-        <BlockDateRangePicker
-          value={value.dateRange}
-          onChange={(dateRange) => onChange({ dateRange })}
-          comparisonEnabled={comparisonEnabled}
-          comparisonMode={comparisonMode}
-          onComparisonModeChange={onComparisonModeChange}
-          previousTimeFrame={previousTimeFrame}
-          onPreviousTimeFrameChange={onPreviousTimeFrameChange}
+        </Box>
+        <DateRangeCompareDropdown
+          fullWidth
+          showCompare={!!onComparisonChange}
+          value={{ dateRange: value.dateRange, comparison }}
+          onChange={(next) => {
+            onChange({ dateRange: next.dateRange });
+            onComparisonChange?.(next.comparison ?? undefined);
+          }}
         />
       </Box>
 

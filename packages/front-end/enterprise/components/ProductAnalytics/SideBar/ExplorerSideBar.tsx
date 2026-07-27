@@ -6,6 +6,10 @@ import {
   ExplorationConfig,
 } from "shared/validators";
 import { PiArrowsClockwise, PiLink } from "react-icons/pi";
+import {
+  resolveComparisonMode,
+  resolveComparisonPreviousTimeFrame,
+} from "shared/enterprise";
 import ShareUrlPopover from "@/ui/ShareUrlPopover";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import Text from "@/ui/Text";
@@ -16,9 +20,8 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import GraphTypeSelector from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/GraphTypeSelector";
 import FunnelGraphTypeSelector from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/FunnelGraphTypeSelector";
-import DateRangePicker, {
-  ComparisonDateControls,
-} from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/DateRangePicker";
+import DateRangeCompareDropdown from "@/enterprise/components/ProductAnalytics/DateRangeCompareDropdown";
+import type { DateRangeCompareValue } from "@/enterprise/components/ProductAnalytics/DateRangeComparePanel";
 import GranularitySelector from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/GranularitySelector";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Callout from "@/ui/Callout";
@@ -66,7 +69,6 @@ export default function ExplorerSideBar({
     exploration,
     compareEnabled,
     comparisonMode,
-    setCompareEnabled,
     comparisonExploration,
     loading,
     handleSubmit,
@@ -75,8 +77,6 @@ export default function ExplorerSideBar({
     needsFetch,
     error,
     trackingSource,
-    submittedExploreState,
-    managedWarehouseUnavailable,
   } = useExplorerContext();
   const { factTables, getFactMetricById, getFactTableById, project } =
     useDefinitions();
@@ -112,7 +112,39 @@ export default function ExplorerSideBar({
     dataset?.type === "funnel"
       ? hasFunnelInputs
       : (dataset?.values?.length ?? 0) > 0;
-  const showComparisonDateControls = compareEnabled;
+  const dateRangeValue: DateRangeCompareValue = {
+    dateRange: draftExploreState.dateRange,
+    comparison: compareEnabled
+      ? {
+          enabled: true,
+          mode: comparisonMode,
+          previousTimeFrame: draftExploreState.previousTimeFrame,
+        }
+      : null,
+  };
+
+  const applyDateRange = ({ dateRange, comparison }: DateRangeCompareValue) => {
+    setDraftExploreState((prev) => {
+      const next = { ...prev, dateRange };
+      if (!comparison?.enabled) {
+        const {
+          previousTimeFrame: _,
+          comparisonMode: __,
+          ...withoutCompare
+        } = next;
+        return withoutCompare;
+      }
+      return {
+        ...next,
+        comparisonMode: resolveComparisonMode(comparison),
+        previousTimeFrame: resolveComparisonPreviousTimeFrame(
+          dateRange,
+          comparison,
+        ),
+      };
+    });
+  };
+
   const isTimeSeriesChart = ["line", "area", "timeseries-table"].includes(
     draftExploreState.chartType,
   );
@@ -254,15 +286,7 @@ export default function ExplorerSideBar({
           }}
         >
           <Flex direction="column" gap="2">
-            <Flex direction="row" align="center" justify="between" width="100%">
-              <Text weight="medium">Chart Type</Text>
-              <Switch
-                label="Compare"
-                value={compareEnabled}
-                onChange={setCompareEnabled}
-                disabled={!submittedExploreState || managedWarehouseUnavailable}
-              />
-            </Flex>
+            <Text weight="medium">Chart Type</Text>
             {activeType === "funnel" ? (
               <FunnelGraphTypeSelector />
             ) : (
@@ -309,10 +333,13 @@ export default function ExplorerSideBar({
                   {formatExplorationDateRange(dashboardDateRange)}
                 </Text>
               </Flex>
-            ) : showComparisonDateControls ? (
-              <ComparisonDateControls fullWidth />
             ) : (
-              <DateRangePicker fullWidth />
+              <DateRangeCompareDropdown
+                fullWidth
+                showCompare
+                value={dateRangeValue}
+                onChange={applyDateRange}
+              />
             )}
           </Flex>
           {isTimeSeriesChart && !usesInheritedDashboardDateRange && (

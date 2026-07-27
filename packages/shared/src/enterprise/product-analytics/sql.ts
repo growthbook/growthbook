@@ -310,6 +310,14 @@ export function calculateProductAnalyticsDateRange(
     case "today":
       startDate.setUTCHours(0, 0, 0, 0);
       return { startDate, endDate };
+    case "yesterday": {
+      // A complete day, unlike `today` which runs up to "now".
+      startDate.setUTCDate(startDate.getUTCDate() - 1);
+      startDate.setUTCHours(0, 0, 0, 0);
+      const yesterdayEnd = new Date(startDate);
+      yesterdayEnd.setUTCHours(23, 59, 59, 999);
+      return { startDate, endDate: yesterdayEnd };
+    }
     case "last7Days":
       startDate.setUTCDate(startDate.getUTCDate() - 7);
       return { startDate, endDate };
@@ -319,6 +327,17 @@ export function calculateProductAnalyticsDateRange(
     case "last90Days":
       startDate.setUTCDate(startDate.getUTCDate() - 90);
       return { startDate, endDate };
+    case "last12Months":
+      startDate.setUTCMonth(startDate.getUTCMonth() - 12);
+      return { startDate, endDate };
+    case "lastCalendarYear": {
+      // The whole prior calendar year — fixed until the year rolls over.
+      const year = startDate.getUTCFullYear() - 1;
+      return {
+        startDate: new Date(Date.UTC(year, 0, 1, 0, 0, 0, 0)),
+        endDate: new Date(Date.UTC(year, 11, 31, 23, 59, 59, 999)),
+      };
+    }
     case "customLookback":
       if (dateRange.lookbackValue && dateRange.lookbackUnit) {
         const unit = dateRange.lookbackUnit;

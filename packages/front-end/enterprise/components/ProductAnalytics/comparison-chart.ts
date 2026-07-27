@@ -314,6 +314,8 @@ export function alignComparisonOverlayToCategories(
     aligned[seriesKey] = {};
     for (const x of sortedXValues) {
       const compKey = resolveComparisonKey(x);
+      // Buckets past the end of a shorter comparison window read as zero, same
+      // as a matched bucket the comparison simply had no rows in.
       aligned[seriesKey][x] = compKey !== undefined ? (src[compKey] ?? 0) : 0;
     }
   }

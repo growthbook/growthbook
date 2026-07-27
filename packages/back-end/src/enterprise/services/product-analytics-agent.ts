@@ -5,6 +5,7 @@ import {
   type AIChatToolResultPart,
 } from "shared/ai-chat";
 import {
+  dateRangePredefined,
   ExplorationConfig,
   explorationConfigValidator,
   ProductAnalyticsResultRow,
@@ -121,7 +122,7 @@ getColumnValues only works on string-typed columns.
 
 <date_range_rules>
 "last14Days" is NOT a valid predefined value. For 14 days use: { predefined: "customLookback", lookbackValue: 14, lookbackUnit: "day" }.
-Valid predefined values: "today", "last7Days", "last30Days", "last90Days", "customLookback", "customDateRange".
+Valid predefined values: ${dateRangePredefined.map((v) => `"${v}"`).join(", ")}.
 </date_range_rules>
 
 <search_rules>

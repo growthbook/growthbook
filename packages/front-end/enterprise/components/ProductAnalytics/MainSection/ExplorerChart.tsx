@@ -11,6 +11,7 @@ import type {
 import { isManagedWarehousePendingQueryError } from "shared/util";
 import {
   calculateProductAnalyticsDateRange,
+  extendDateBucketsForward,
   getComparisonAlignmentStrategy,
   getDateGranularity,
 } from "shared/enterprise";
@@ -332,6 +333,30 @@ export default function ExplorerChart({
       );
     } else {
       sortedXValues = Array.from(uniqueXValues).sort();
+    }
+
+    // A custom comparison window can hold more buckets than the primary. The
+    // axis has to reach the longer of the two, so continue the primary's cadence
+    // past its own last bucket; both series read null out there until the
+    // comparison's rank-aligned values fill in.
+    if (firstDimensionIsDate && !isBarType && resolvedGranularity) {
+      const comparisonBucketCount = new Set(
+        (comparisonExploration?.result?.rows ?? []).map((r) =>
+          String(r.dimensions[0] ?? ""),
+        ),
+      ).size;
+      const shortfall = comparisonBucketCount - sortedXValues.length;
+      const lastBucket = sortedXValues[sortedXValues.length - 1];
+      if (shortfall > 0 && lastBucket) {
+        sortedXValues = [
+          ...sortedXValues,
+          ...extendDateBucketsForward({
+            resolvedGranularity,
+            afterIso: lastBucket,
+            count: shortfall,
+          }),
+        ];
+      }
     }
 
     // 3. Build Series (ordered by cumulative total, highest first)

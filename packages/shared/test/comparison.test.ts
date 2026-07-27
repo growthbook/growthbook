@@ -4,7 +4,7 @@ import type {
   ProductAnalyticsExploration,
   ProductAnalyticsResultRow,
 } from "shared/validators";
-import { comparisonMode } from "shared/validators";
+import { comparisonMode, dateRangePredefined } from "shared/validators";
 import {
   buildAlignedComparisonRowLookup,
   buildComparisonDateRange,
@@ -19,6 +19,7 @@ import {
   densifyComparisonExplorationTimeseries,
   enumerateProductAnalyticsDateBuckets,
   explorerDimensionDateToUtcYyyyMmDd,
+  extendDateBucketsForward,
   getComparisonAlignmentStrategy,
   getComparisonShiftDays,
   getDateGranularity,
@@ -270,6 +271,121 @@ describe("resolveComparisonPreviousTimeFrame", () => {
     });
     expect(out.startDate).toBe("2023-06-08");
     expect(out.endDate).toBe("2023-06-15");
+  });
+});
+
+describe("calculateProductAnalyticsDateRange presets", () => {
+  const preset = (
+    predefined: (typeof dateRangePredefined)[number],
+  ): ExplorationDateRange => ({
+    predefined,
+    lookbackValue: null,
+    lookbackUnit: null,
+    startDate: null,
+    endDate: null,
+  });
+
+  const utc = (d: Date) => d.toISOString();
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  beforeEach(() => {
+    jest.useFakeTimers({ doNotFake: ["nextTick", "setImmediate"] });
+    jest.setSystemTime(new Date("2024-06-15T12:00:00.000Z"));
+  });
+
+  it("bounds yesterday to a complete UTC day", () => {
+    const out = calculateProductAnalyticsDateRange(preset("yesterday"));
+    expect(utc(out.startDate)).toBe("2024-06-14T00:00:00.000Z");
+    expect(utc(out.endDate)).toBe("2024-06-14T23:59:59.999Z");
+  });
+
+  it("leaves today open-ended at now, unlike yesterday", () => {
+    const out = calculateProductAnalyticsDateRange(preset("today"));
+    expect(utc(out.startDate)).toBe("2024-06-15T00:00:00.000Z");
+    expect(utc(out.endDate)).toBe("2024-06-15T12:00:00.000Z");
+  });
+
+  it("shifts last12Months back twelve calendar months", () => {
+    const out = calculateProductAnalyticsDateRange(preset("last12Months"));
+    expect(utc(out.startDate)).toBe("2023-06-15T12:00:00.000Z");
+    expect(utc(out.endDate)).toBe("2024-06-15T12:00:00.000Z");
+  });
+
+  it("pins lastCalendarYear to the whole prior year", () => {
+    const out = calculateProductAnalyticsDateRange(preset("lastCalendarYear"));
+    expect(utc(out.startDate)).toBe("2023-01-01T00:00:00.000Z");
+    expect(utc(out.endDate)).toBe("2023-12-31T23:59:59.999Z");
+  });
+
+  it("keeps lastCalendarYear fixed as the clock advances within the year", () => {
+    const before = calculateProductAnalyticsDateRange(
+      preset("lastCalendarYear"),
+    );
+    jest.setSystemTime(new Date("2024-11-30T09:00:00.000Z"));
+    const after = calculateProductAnalyticsDateRange(
+      preset("lastCalendarYear"),
+    );
+    expect(after).toEqual(before);
+  });
+
+  it("rolls lastCalendarYear when the year turns over", () => {
+    jest.setSystemTime(new Date("2025-01-02T00:00:00.000Z"));
+    const out = calculateProductAnalyticsDateRange(preset("lastCalendarYear"));
+    expect(utc(out.startDate)).toBe("2024-01-01T00:00:00.000Z");
+    expect(utc(out.endDate)).toBe("2024-12-31T23:59:59.999Z");
+  });
+
+  it("derives a comparison window for every new preset and mode", () => {
+    for (const predefined of [
+      "yesterday",
+      "last12Months",
+      "lastCalendarYear",
+    ] as const) {
+      for (const mode of comparisonMode) {
+        if (mode === "custom") continue;
+        const out = buildComparisonDateRangeForMode(preset(predefined), mode);
+        expect(out.predefined).toBe("customDateRange");
+        expect(out.startDate).toBeTruthy();
+        expect(out.endDate).toBeTruthy();
+        expect(
+          getInclusiveUtcCalendarDayCount(
+            out.startDate as string,
+            out.endDate as string,
+          ),
+        ).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it("maps yesterday's previousPeriod to the day before", () => {
+    const out = buildComparisonDateRangeForMode(
+      preset("yesterday"),
+      "previousPeriod",
+    );
+    expect(out.startDate).toBe("2024-06-13");
+    expect(out.endDate).toBe("2024-06-13");
+  });
+
+  it("maps lastCalendarYear's previousPeriod to the year before it", () => {
+    const out = buildComparisonDateRangeForMode(
+      preset("lastCalendarYear"),
+      "previousPeriod",
+    );
+    // 2023 spans 365 days, so the contiguous prior window ends 2022-12-31.
+    expect(out.startDate).toBe("2022-01-01");
+    expect(out.endDate).toBe("2022-12-31");
+  });
+
+  it("maps lastCalendarYear's previousYear to the same calendar year back", () => {
+    const out = buildComparisonDateRangeForMode(
+      preset("lastCalendarYear"),
+      "previousYear",
+    );
+    expect(out.startDate).toBe("2022-01-01");
+    expect(out.endDate).toBe("2022-12-31");
   });
 });
 
@@ -747,6 +863,67 @@ describe("createComparisonAlignmentResolver", () => {
     expect(resolver("2024-02-28")).toBe("2023-02-28");
     expect(resolver("2024-02-29")).toBe("2023-02-28");
   });
+
+  // Only a `custom` comparison can differ in length from the primary; the
+  // derived modes are equal-length by construction (bar the leap-day clamp).
+  describe("unequal-length windows", () => {
+    const sevenDays = [
+      "2026-07-01",
+      "2026-07-02",
+      "2026-07-03",
+      "2026-07-04",
+      "2026-07-05",
+      "2026-07-06",
+      "2026-07-07",
+    ];
+    const fiveDays = [
+      "2026-06-01",
+      "2026-06-02",
+      "2026-06-03",
+      "2026-06-04",
+      "2026-06-05",
+    ];
+
+    it("pairs a shorter comparison from the start and leaves the tail unmatched", () => {
+      const resolver = createComparisonAlignmentResolver(
+        sevenDays,
+        fiveDays,
+        true,
+        "chronological",
+      );
+      expect(resolver("2026-07-01")).toBe("2026-06-01");
+      expect(resolver("2026-07-05")).toBe("2026-06-05");
+      // Nothing left to pair with — the last two current days have no counterpart.
+      expect(resolver("2026-07-06")).toBeUndefined();
+      expect(resolver("2026-07-07")).toBeUndefined();
+    });
+
+    it("ignores the surplus tail of a longer comparison", () => {
+      const resolver = createComparisonAlignmentResolver(
+        fiveDays,
+        sevenDays,
+        true,
+        "chronological",
+      );
+      expect(resolver("2026-06-01")).toBe("2026-07-01");
+      expect(resolver("2026-06-05")).toBe("2026-07-05");
+      // 2026-07-06 and -07 are simply never returned.
+      const paired = fiveDays.map((d) => resolver(d));
+      expect(paired).not.toContain("2026-07-06");
+      expect(paired).not.toContain("2026-07-07");
+    });
+
+    it("aligns the same way under the calendar strategy when no YoY match exists", () => {
+      const resolver = createComparisonAlignmentResolver(
+        sevenDays,
+        fiveDays,
+        true,
+        "calendarYearOverYear",
+      );
+      expect(resolver("2026-07-01")).toBe("2026-06-01");
+      expect(resolver("2026-07-06")).toBeUndefined();
+    });
+  });
 });
 
 describe("buildComparisonExplorationConfig", () => {
@@ -833,6 +1010,51 @@ describe("enumerateProductAnalyticsDateBuckets", () => {
     expect(buckets).toHaveLength(2);
     expect(buckets[0]).toBe("2024-01-01T00:00:00.000Z");
     expect(buckets[1]).toBe("2024-01-08T00:00:00.000Z");
+  });
+});
+
+describe("extendDateBucketsForward", () => {
+  it("continues a daily cadence", () => {
+    expect(
+      extendDateBucketsForward({
+        resolvedGranularity: "day",
+        afterIso: "2026-07-05T00:00:00.000Z",
+        count: 2,
+      }),
+    ).toEqual(["2026-07-06T00:00:00.000Z", "2026-07-07T00:00:00.000Z"]);
+  });
+
+  it("continues a weekly cadence on Monday boundaries", () => {
+    expect(
+      extendDateBucketsForward({
+        resolvedGranularity: "week",
+        afterIso: "2026-07-06T00:00:00.000Z",
+        count: 2,
+      }),
+    ).toEqual(["2026-07-13T00:00:00.000Z", "2026-07-20T00:00:00.000Z"]);
+  });
+
+  it("continues a monthly cadence across a year boundary", () => {
+    expect(
+      extendDateBucketsForward({
+        resolvedGranularity: "month",
+        afterIso: "2026-11-01T00:00:00.000Z",
+        count: 3,
+      }),
+    ).toEqual([
+      "2026-12-01T00:00:00.000Z",
+      "2027-01-01T00:00:00.000Z",
+      "2027-02-01T00:00:00.000Z",
+    ]);
+  });
+
+  it("returns nothing for a non-positive count", () => {
+    const args = {
+      resolvedGranularity: "day" as const,
+      afterIso: "2026-07-05T00:00:00.000Z",
+    };
+    expect(extendDateBucketsForward({ ...args, count: 0 })).toEqual([]);
+    expect(extendDateBucketsForward({ ...args, count: -3 })).toEqual([]);
   });
 });
 

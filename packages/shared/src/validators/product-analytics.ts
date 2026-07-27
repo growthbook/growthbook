@@ -189,9 +189,12 @@ export const chartTypes = [
 
 export const dateRangePredefined = [
   "today",
+  "yesterday",
   "last7Days",
   "last30Days",
   "last90Days",
+  "last12Months",
+  "lastCalendarYear",
   "customLookback",
   "customDateRange",
 ] as const;
