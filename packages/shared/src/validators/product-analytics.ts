@@ -155,6 +155,8 @@ export const dynamicDimensionValidator = z.object({
 export const staticDimensionValidator = z.object({
   dimensionType: z.literal("static"),
   column: z.string(),
+  // Unbounded so this can parse older saved/URL-encoded explorations too;
+  // the editor enforces the 20-value cap.
   values: z.array(z.string()),
 });
 
@@ -364,6 +366,9 @@ export type ProductAnalyticsFunnelStepResult = z.infer<
 export type ProductAnalyticsDimension = z.infer<typeof dimensionValidator>;
 export type ProductAnalyticsDynamicDimension = z.infer<
   typeof dynamicDimensionValidator
+>;
+export type ProductAnalyticsStaticDimension = z.infer<
+  typeof staticDimensionValidator
 >;
 export type ProductAnalyticsResult = z.infer<
   typeof productAnalyticsResultValidator
