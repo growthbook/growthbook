@@ -2933,6 +2933,25 @@ describe("saved group migrations", () => {
     });
   });
 
+  it("does not synthesize a runtime condition when the read omitted condition", () => {
+    expect(
+      SavedGroupModel.migrateSavedGroup(
+        {
+          ...baseSavedGroup,
+          attributeKey: "foo",
+          values: [],
+          source: "runtime",
+        },
+        { conditionOmitted: true },
+      ),
+    ).toEqual({
+      ...baseSavedGroup,
+      attributeKey: "foo",
+      values: [],
+      type: "condition",
+    });
+  });
+
   it("does not migrate saved groups that already have type=list", () => {
     expect(
       SavedGroupModel.migrateSavedGroup({

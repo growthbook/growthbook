@@ -5,6 +5,7 @@ import { MdPending } from "react-icons/md";
 import { FeatureInterface } from "shared/types/feature";
 import { ProjectInterface } from "shared/types/project";
 import { FactTableInterface } from "shared/types/fact-table";
+import { SavedGroupWithoutValues } from "shared/types/saved-group";
 import {
   buildImportedData,
   runImport,
@@ -1001,8 +1002,7 @@ export default function ImportFromStatsig() {
   const { features, mutate: mutateFeatures } = useFeaturesList({
     useCurrentProject: false,
   });
-  const { mutateDefinitions, savedGroups, tags, projects, factMetrics } =
-    useDefinitions();
+  const { mutateDefinitions, tags, projects, factMetrics } = useDefinitions();
   // The import diff compares fact table sql, which the slimmed definitions
   // don't include, so fetch the full fact tables
   const {
@@ -1013,6 +1013,17 @@ export default function ImportFromStatsig() {
   const factTables = useMemo(
     () => factTablesData?.factTables || [],
     [factTablesData],
+  );
+  const {
+    data: savedGroupsData,
+    mutate: mutateSavedGroups,
+    isLoading: savedGroupsLoading,
+  } = useApi<{
+    savedGroups: SavedGroupWithoutValues[];
+  }>("/saved-groups");
+  const savedGroups = useMemo(
+    () => (savedGroupsData?.savedGroups ?? []).filter((sg) => !sg.archived),
+    [savedGroupsData],
   );
   const { experiments } = useExperiments();
   const environments = useEnvironments();
@@ -1183,7 +1194,7 @@ export default function ImportFromStatsig() {
             <Button
               type="button"
               color={step === 1 ? "primary" : "outline-primary"}
-              disabled={factTablesLoading}
+              disabled={factTablesLoading || savedGroupsLoading}
               onClick={async () => {
                 if (!token) return;
 
@@ -1195,6 +1206,16 @@ export default function ImportFromStatsig() {
                     status: "error",
                     error:
                       "Could not load existing fact tables. Please refresh and try again.",
+                  });
+                  return;
+                }
+
+                if (!savedGroupsData) {
+                  setData({
+                    ...data,
+                    status: "error",
+                    error:
+                      "Could not load existing saved groups. Please refresh and try again.",
                   });
                   return;
                 }
@@ -1276,9 +1297,8 @@ export default function ImportFromStatsig() {
                 mutateDefinitions();
                 mutateFeatures();
                 refreshOrganization();
-                // Await so a quick repeat import diffs against the freshly
-                // imported fact tables, not the stale pre-import cache
-                await mutateFactTables();
+                // Revalidate before another import can compare stale data.
+                await Promise.all([mutateFactTables(), mutateSavedGroups()]);
               }}
             >
               Step 2: Import to GrowthBook
