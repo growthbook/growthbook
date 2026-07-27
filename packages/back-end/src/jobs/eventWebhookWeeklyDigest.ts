@@ -3,13 +3,17 @@ import { EventWebHookInterface } from "shared/types/event-webhook";
 import {
   resolveExperimentDigest,
   resolveFeatureDigest,
-  isSlackDigestDue,
+  slackDigestNextRunAt,
   slackDigestWindowMs,
   type ResolvedSlackDigest,
 } from "shared/validators";
 import {
-  EventWebHookModel,
+  claimSlackDigestRun,
+  getSlackWebhooksMissingDigestSchedule,
+  getSlackWebhooksWithDigestDue,
+  syncSlackDigestSchedule,
   getSlackBotAccessTokenForWebhook,
+  type SlackDigestKind,
 } from "back-end/src/models/EventWebhookModel";
 import {
   renderWeeklyScorecard,
@@ -180,36 +184,71 @@ async function deliverFeatureDigest(
   );
 }
 
+// Deliver one digest if it's still due. Claiming advances the stored next-run
+// timestamp first, so a duplicated job run finds nothing to claim and exits —
+// at-least-once job scheduling can't produce a double digest. A delivery that
+// then throws is skipped rather than retried; a duplicate post is worse than a
+// missed one, and the next scheduled run is already set.
+async function runDigestIfDue(
+  webhook: EventWebHookInterface,
+  kind: SlackDigestKind,
+  now: Date,
+): Promise<void> {
+  const dueAt =
+    kind === "experiment"
+      ? webhook.nextExperimentDigestAt
+      : webhook.nextFeatureDigestAt;
+  if (!dueAt || dueAt > now) return;
+
+  const digest =
+    kind === "experiment"
+      ? resolveExperimentDigest(webhook.slackOptions)
+      : resolveFeatureDigest(webhook.slackOptions);
+
+  const claimed = await claimSlackDigestRun({
+    eventWebHookId: webhook.id,
+    organizationId: webhook.organizationId,
+    kind,
+    now,
+    // Schedule from the due time, not `now`, so a late run doesn't drift the
+    // cadence forward.
+    nextRunAt: slackDigestNextRunAt(digest, dueAt),
+  });
+  if (!claimed) return;
+
+  try {
+    if (kind === "experiment") {
+      await deliverExperimentDigest(webhook, digest, now);
+    } else {
+      await deliverFeatureDigest(webhook, digest, now);
+    }
+  } catch (e) {
+    logger.error(e, `${kind} digest failed for webhook ${webhook.id}`);
+  }
+}
+
 export default function addWeeklyScorecardJob(agenda: Agenda) {
   agenda.define(DIGEST_JOB, async () => {
     const now = new Date();
 
-    // Resolve each install's experiment and feature digest schedules
-    // independently and deliver whichever are due this hour. Slack installs are
-    // few, so an hourly scan is cheap.
-    const webhooks = await EventWebHookModel.find({
-      enabled: true,
-      payloadType: "slack",
-    }).lean<EventWebHookInterface[]>();
-
-    for (const webhook of webhooks) {
-      const experimentDigest = resolveExperimentDigest(webhook.slackOptions);
-      if (isSlackDigestDue(experimentDigest, now)) {
-        try {
-          await deliverExperimentDigest(webhook, experimentDigest, now);
-        } catch (e) {
-          logger.error(e, `Experiment digest failed for webhook ${webhook.id}`);
-        }
+    // Connections created before digest scheduling existed have no next-run
+    // timestamp. Seed them (first run in the future) instead of firing now.
+    for (const webhook of await getSlackWebhooksMissingDigestSchedule()) {
+      try {
+        await syncSlackDigestSchedule({
+          eventWebHookId: webhook.id,
+          organizationId: webhook.organizationId,
+          slackOptions: webhook.slackOptions,
+          from: now,
+        });
+      } catch (e) {
+        logger.error(e, `Failed seeding digest schedule for ${webhook.id}`);
       }
+    }
 
-      const featureDigest = resolveFeatureDigest(webhook.slackOptions);
-      if (isSlackDigestDue(featureDigest, now)) {
-        try {
-          await deliverFeatureDigest(webhook, featureDigest, now);
-        } catch (e) {
-          logger.error(e, `Feature digest failed for webhook ${webhook.id}`);
-        }
-      }
+    for (const webhook of await getSlackWebhooksWithDigestDue(now)) {
+      await runDigestIfDue(webhook, "experiment", now);
+      await runDigestIfDue(webhook, "feature", now);
     }
   });
 

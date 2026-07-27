@@ -14,6 +14,7 @@ import {
   isEventWebhookWildcard,
   getWildcardPatternsForEvent,
   NotificationEventNameOrWildcard,
+  slackDigestNextRunAts,
 } from "shared/validators";
 import { EventWebHookInterface } from "shared/types/event-webhook";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
@@ -205,9 +206,21 @@ const eventWebHookSchema = new mongoose.Schema({
     type: Object,
     required: false,
   },
+  nextExperimentDigestAt: {
+    type: Date,
+    required: false,
+  },
+  nextFeatureDigestAt: {
+    type: Date,
+    required: false,
+  },
 });
 
 eventWebHookSchema.index({ organizationId: 1 });
+// The hourly digest job selects Slack webhooks whose next-run timestamp has
+// passed; index both so it never scans every Slack connection.
+eventWebHookSchema.index({ payloadType: 1, nextExperimentDigestAt: 1 });
+eventWebHookSchema.index({ payloadType: 1, nextFeatureDigestAt: 1 });
 
 type EventWebHookDocument = mongoose.Document & EventWebHookInterface;
 
@@ -334,6 +347,14 @@ export const createEventWebHook = async ({
     lastResponseBody: null,
     ...(coalesceWindowMs !== undefined ? { coalesceWindowMs } : {}),
     ...(slackOptions !== undefined ? { slackOptions } : {}),
+    // Seed the digest schedule so the first run is a real future timestamp.
+    ...(() => {
+      const next = slackDigestNextRunAts(slackOptions, now);
+      return {
+        ...(next.experiment ? { nextExperimentDigestAt: next.experiment } : {}),
+        ...(next.feature ? { nextFeatureDigestAt: next.feature } : {}),
+      };
+    })(),
   });
 
   return toInterface(doc);
@@ -435,6 +456,15 @@ export const updateEventWebHook = async (
       },
     },
   );
+
+  // Cadence may have changed — re-derive the digest next-run timestamps.
+  if (updates.slackOptions !== undefined) {
+    await syncSlackDigestSchedule({
+      eventWebHookId,
+      organizationId,
+      slackOptions: updates.slackOptions,
+    });
+  }
 
   return result.modifiedCount === 1;
 };
@@ -707,6 +737,105 @@ export const getAllEventWebHooksForEvent = async ({
     return true;
   });
 
+  return docs.map(toInterface);
+};
+
+export type SlackDigestKind = "experiment" | "feature";
+
+const DIGEST_FIELD: Record<SlackDigestKind, string> = {
+  experiment: "nextExperimentDigestAt",
+  feature: "nextFeatureDigestAt",
+};
+
+// Persist both digests' next-run timestamps from the connection's current
+// cadence config. Unsets a field when that digest is off, so it drops out of the
+// due query. Call whenever slackOptions change.
+export const syncSlackDigestSchedule = async ({
+  eventWebHookId,
+  organizationId,
+  slackOptions,
+  from = new Date(),
+}: {
+  eventWebHookId: string;
+  organizationId: string;
+  slackOptions: EventWebHookInterface["slackOptions"];
+  from?: Date;
+}): Promise<void> => {
+  const next = slackDigestNextRunAts(slackOptions, from);
+  const set: Record<string, Date> = {};
+  const unset: Record<string, ""> = {};
+  (["experiment", "feature"] as SlackDigestKind[]).forEach((kind) => {
+    const field = DIGEST_FIELD[kind];
+    const value = next[kind];
+    if (value) set[field] = value;
+    else unset[field] = "";
+  });
+
+  await EventWebHookModel.updateOne(
+    { id: eventWebHookId, organizationId },
+    {
+      ...(Object.keys(set).length ? { $set: set } : {}),
+      ...(Object.keys(unset).length ? { $unset: unset } : {}),
+    },
+  );
+};
+
+// Slack connections with at least one digest due. Enabled-only: a paused
+// connection shouldn't accrue digests.
+export const getSlackWebhooksWithDigestDue = async (
+  now: Date,
+): Promise<EventWebHookInterface[]> => {
+  const docs = await EventWebHookModel.find({
+    enabled: true,
+    payloadType: "slack",
+    $or: [
+      { nextExperimentDigestAt: { $lte: now } },
+      { nextFeatureDigestAt: { $lte: now } },
+    ],
+  });
+  return docs.map(toInterface);
+};
+
+/**
+ * Atomically claim one digest delivery: advance `nextDigestAt` to the following
+ * scheduled run, but only if it's still due. Returns false when another job run
+ * already claimed it, so a duplicated hourly run can't double-send.
+ */
+export const claimSlackDigestRun = async ({
+  eventWebHookId,
+  organizationId,
+  kind,
+  now,
+  nextRunAt,
+}: {
+  eventWebHookId: string;
+  organizationId: string;
+  kind: SlackDigestKind;
+  now: Date;
+  nextRunAt: Date | null;
+}): Promise<boolean> => {
+  const field = DIGEST_FIELD[kind];
+  const res = await EventWebHookModel.updateOne(
+    { id: eventWebHookId, organizationId, [field]: { $lte: now } },
+    nextRunAt ? { $set: { [field]: nextRunAt } } : { $unset: { [field]: "" } },
+  );
+  return res.modifiedCount === 1;
+};
+
+// Slack connections with a digest configured but no next-run timestamp yet —
+// i.e. created before this scheduling existed. The job seeds their first run
+// (in the future) rather than firing immediately on deploy.
+export const getSlackWebhooksMissingDigestSchedule = async (): Promise<
+  EventWebHookInterface[]
+> => {
+  const docs = await EventWebHookModel.find({
+    enabled: true,
+    payloadType: "slack",
+    $or: [
+      { nextExperimentDigestAt: { $exists: false } },
+      { nextFeatureDigestAt: { $exists: false } },
+    ],
+  }).limit(500);
   return docs.map(toInterface);
 };
 

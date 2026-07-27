@@ -209,35 +209,91 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 // Quarters begin in these UTC months (Jan, Apr, Jul, Oct).
 const QUARTER_START_MONTHS = new Set([0, 3, 6, 9]);
 
-// Whether a resolved digest should fire at `now`. Jobs run hourly, so we match
-// on the hour plus the frequency's day rule. `custom` is anchored to the Unix
-// epoch so "every N days" is deterministic across runs.
-export const isSlackDigestDue = (
+const daysInUtcMonth = (d: Date): number =>
+  new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
+
+// Guard against runaway scanning: a quarterly schedule needs at most ~1 year of
+// candidate days, so this is far beyond any real cadence.
+const MAX_CANDIDATE_DAYS = 400;
+
+/**
+ * The next UTC instant a digest should be delivered, strictly after `from`, or
+ * null when the digest is off.
+ *
+ * Delivery is driven by a stored `nextDigestAt` timestamp (claimed atomically)
+ * rather than "does the current hour match?", because the hourly job is
+ * at-least-once: a duplicated run would double-send and a missed run would skip
+ * the digest entirely. Same approach as experiment `nextSnapshotAttempt`.
+ *
+ * `custom` ("every N days") advances N days from `from` — i.e. from the last
+ * delivery — so the interval is honored even if a run is late.
+ */
+export const slackDigestNextRunAt = (
   r: ResolvedSlackDigest,
-  now: Date,
-): boolean => {
-  if (!SLACK_DIGEST_LIVE_FREQUENCIES.has(r.frequency)) return false;
-  if (now.getUTCHours() !== r.hourUtc) return false;
-  switch (r.frequency) {
-    case "daily":
-      return true;
-    case "weekly":
-      return now.getUTCDay() === r.dayOfWeekUtc;
-    case "monthly":
-      return now.getUTCDate() === r.dayOfMonth;
-    case "quarterly":
-      return (
-        now.getUTCDate() === r.dayOfMonth &&
-        QUARTER_START_MONTHS.has(now.getUTCMonth())
+  from: Date,
+): Date | null => {
+  if (!SLACK_DIGEST_LIVE_FREQUENCIES.has(r.frequency)) return null;
+
+  const hour = Math.min(23, Math.max(0, r.hourUtc));
+  const atHour = (d: Date) =>
+    new Date(
+      Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), hour),
+    );
+
+  if (r.frequency === "custom") {
+    const stepMs = Math.max(1, r.intervalDays) * MS_PER_DAY;
+    let next = atHour(from);
+    // Skip whole intervals rather than looping when a run is very overdue.
+    if (next.getTime() <= from.getTime()) {
+      const behind = from.getTime() - next.getTime();
+      next = new Date(
+        next.getTime() + (Math.floor(behind / stepMs) + 1) * stepMs,
       );
-    case "custom": {
-      const dayIndex = Math.floor(now.getTime() / MS_PER_DAY);
-      return dayIndex % Math.max(1, r.intervalDays) === 0;
     }
-    default:
-      return false;
+    return next;
   }
+
+  // Day-rule frequencies: walk forward a day at a time to the first candidate
+  // that satisfies the rule and is strictly after `from`. Month-end is clamped
+  // (e.g. "the 31st" fires on the 30th in a 30-day month).
+  const matchesDay = (d: Date): boolean => {
+    switch (r.frequency) {
+      case "daily":
+        return true;
+      case "weekly":
+        return d.getUTCDay() === r.dayOfWeekUtc;
+      case "monthly":
+        return d.getUTCDate() === Math.min(r.dayOfMonth, daysInUtcMonth(d));
+      case "quarterly":
+        return (
+          QUARTER_START_MONTHS.has(d.getUTCMonth()) &&
+          d.getUTCDate() === Math.min(r.dayOfMonth, daysInUtcMonth(d))
+        );
+      default:
+        return false;
+    }
+  };
+
+  let candidate = atHour(from);
+  for (let i = 0; i <= MAX_CANDIDATE_DAYS; i++) {
+    if (candidate.getTime() > from.getTime() && matchesDay(candidate)) {
+      return candidate;
+    }
+    candidate = new Date(candidate.getTime() + MS_PER_DAY);
+  }
+  return null;
 };
+
+// The two digest schedules for a Slack connection, as `nextRunAt` timestamps
+// computed from `from`. `null` means that digest is off (the stored field is
+// cleared so it never matches the due query).
+export const slackDigestNextRunAts = (
+  options: SlackEventWebHookOptions | undefined,
+  from: Date,
+): { experiment: Date | null; feature: Date | null } => ({
+  experiment: slackDigestNextRunAt(resolveExperimentDigest(options), from),
+  feature: slackDigestNextRunAt(resolveFeatureDigest(options), from),
+});
 
 // The trailing window (ms) a digest should aggregate, so each post covers only
 // since the last one (daily = last day, weekly = last week, etc.).
@@ -708,6 +764,11 @@ export const eventWebHookInterface = z
     // Slack bot display/digest options (flat keys so new toggles don't need
     // model/router/controller changes).
     slackOptions: slackEventWebHookOptions.optional(),
+    // When each Slack digest is next due. The hourly job selects on these
+    // (<= now) and atomically advances them, so an at-least-once job run can't
+    // double-send or skip. Absent/unset means that digest is off.
+    nextExperimentDigestAt: z.date().optional(),
+    nextFeatureDigestAt: z.date().optional(),
   })
   .strict();
 
