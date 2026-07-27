@@ -191,8 +191,8 @@ There are a few repo-wide code quality tools:
 - `pnpm --filter stats lint` - Python code linting (ensure you have run `pnpm setup` first to install the poetry virtual environment)
 
 There is a pre-commit hook that lints and formats staged files automatically, so
-you shouldn't need to run those yourself. Note that linting and formatting are
-separate gates: `pnpm lint` does not format, and CI checks each independently.
+you shouldn't need to run those yourself. Linting and formatting are separate
+gates. `pnpm lint` does not format, and CI checks each independently.
 
 ## Opening Pull Requests
 

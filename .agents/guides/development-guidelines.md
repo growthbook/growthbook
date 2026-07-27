@@ -71,7 +71,7 @@ type MyType = z.infer<typeof mySchema>;
 - **Format**: `pnpm pretty` (writes), `pnpm pretty:check` (verifies)
 - **Everything CI runs**: `pnpm ci`
 
-Linting and formatting are separate gates. ESLint no longer runs Prettier, so a
+Linting and formatting are separate gates. ESLint does not run Prettier, so a
 clean `pnpm lint` says nothing about formatting. CI fails on `pretty:check`
 independently. Run `pnpm ci` before pushing, or let the pre-commit hook handle
 both.

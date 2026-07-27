@@ -559,10 +559,17 @@ export default defineConfig([
     },
   },
   {
-    // TypeScript already resolves imports, and every package under packages/ has
-    // a type-check script, so re-deriving resolution in ESLint is duplicated work
-    // and roughly doubles lint wall time. docs/ is not a workspace member and has
-    // no type-check, and plain .js files are never seen by tsc, so both keep these.
+    // TypeScript already resolves imports, so re-deriving resolution here is
+    // duplicated work. Measured on the full file set, uncached: 79s with these on
+    // versus 31s with them off. The cost is import/default and import/namespace,
+    // which parse every imported module to enumerate its exports; no-unresolved
+    // only calls resolve() and is nearly free, but it goes with them because tsc
+    // subsumes it. docs/ keeps all three (not a workspace member, no type-check),
+    // as do plain .js files, which tsc never sees.
+    //
+    // Caveat: packages/{back-end,shared}/scripts/*.ts sit outside their package
+    // tsconfig include, so tsc does not cover them either and they lose import
+    // checking entirely. Five dev-only scripts, judged not worth guarding.
     files: ["./packages/**/*.{ts,tsx}"],
 
     rules: {
