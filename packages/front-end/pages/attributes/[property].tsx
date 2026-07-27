@@ -54,8 +54,23 @@ export default function AttributeDetailPage() {
     () => (savedGroupsData?.savedGroups ?? []).filter((sg) => !sg.archived),
     [savedGroupsData],
   );
-  const { features } = useFeaturesList({ useCurrentProject: false });
-  const { experiments } = useExperiments();
+  const {
+    features,
+    loading: featuresLoading,
+    error: featuresError,
+  } = useFeaturesList({ useCurrentProject: false });
+  const {
+    experiments,
+    loading: experimentsLoading,
+    error: experimentsError,
+  } = useExperiments();
+  // The count sums all three sources, so any one of them still in flight makes
+  // a "0 references" render a lie. Error wins over loading because
+  // `useFeaturesList`/`useExperiments` leave `loading` true on failure.
+  const referencesError =
+    savedGroupsError || featuresError || experimentsError || null;
+  const referencesLoading =
+    savedGroupsLoading || featuresLoading || experimentsLoading;
   const { apiCall } = useAuth();
   const { refreshOrganization } = useUser();
   const permissionsUtil = usePermissionsUtil();
@@ -349,10 +364,10 @@ export default function AttributeDetailPage() {
               onShow={() => setShowReferencesModal(true)}
               emptyTooltip="No features, experiments, or saved groups currently reference this attribute."
               status={
-                savedGroupsLoading
-                  ? "loading"
-                  : savedGroupsError
-                    ? "error"
+                referencesError
+                  ? "error"
+                  : referencesLoading
+                    ? "loading"
                     : undefined
               }
             />
