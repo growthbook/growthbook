@@ -711,7 +711,11 @@ export default function ReviewAndPublish({
       revision.createdBy.id === userId) ||
     (!!userId && (revision?.contributors ?? []).includes(userId));
   const draftStagesRevert = revision?.revertedFromVersion !== undefined;
-  const draftStagesArchive = revision?.archived === true;
+  // `feature` here is the live doc, so this mirrors the server's
+  // `isArchiveTransition`: only an active flag being archived counts. Without
+  // the second half, any draft on an already-archived flag would look like an
+  // archive and the client would offer actions the server then refuses.
+  const draftStagesArchive = revision?.archived === true && !feature.archived;
   const canAdvanceDraft =
     permissionsUtil.canEditFeatureDrafts(feature) ||
     (authoredDraft && (hasRevertAuthority || hasDeleteAuthority)) ||
