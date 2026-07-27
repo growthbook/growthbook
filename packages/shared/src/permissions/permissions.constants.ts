@@ -641,8 +641,9 @@ export const GRANULAR_PERMISSION_METADATA: Partial<
       "Revert to a previously published revision (environment-scoped)",
   },
   bypassApprovalFlags: {
-    displayName: "Bypass approvals",
-    description: "Publish without required approvals",
+    displayName: "Bypass draft approvals",
+    description:
+      "Publish without the required draft review, force-merge an out-of-date draft, and unlock a locked Config. Applies to Feature Flags, Configs, and Constants. Does not bypass schema validation or custom hooks.",
   },
   manageArchetype: {
     displayName: "Manage archetypes",
@@ -653,8 +654,8 @@ export const GRANULAR_PERMISSION_METADATA: Partial<
     description: "Create new Saved Groups",
   },
   deleteSavedGroups: {
-    displayName: "Delete",
-    description: "Delete saved groups",
+    displayName: "Archive & delete",
+    description: "Archive or delete Saved Groups",
   },
   editSavedGroupDrafts: {
     displayName: "Edit",
@@ -663,23 +664,25 @@ export const GRANULAR_PERMISSION_METADATA: Partial<
   },
   reviewSavedGroups: {
     displayName: "Review",
-    description: "Approve or request changes on saved-group revisions",
+    description: "Approve or request changes on revisions",
   },
   publishSavedGroups: {
     displayName: "Publish",
-    description: "Publish saved-group revisions",
+    description:
+      "Put changes in front of users: publish a revision, save directly, or unarchive",
   },
   revertSavedGroups: {
     displayName: "Revert",
-    description: "Revert a saved group to a previously published revision",
+    description: "Revert to a previously published revision",
   },
   bypassApprovalSavedGroups: {
-    displayName: "Bypass approvals",
-    description: "Publish saved groups without required approvals",
+    displayName: "Bypass draft approvals",
+    description:
+      "Publish without the required draft review, and force-merge an out-of-date draft",
   },
   bypassSavedGroupSizeLimit: {
     displayName: "Bypass size limit",
-    description: "Bypass org-defined saved-group size limits",
+    description: "Exceed the organization's size limits for a Saved Group",
   },
 };
 
