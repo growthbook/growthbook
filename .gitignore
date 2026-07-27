@@ -33,6 +33,7 @@ coverage.xml
 
 # Python virtual environment
 venv/
+.venv/
 .eslintcache
 
 # Docs
