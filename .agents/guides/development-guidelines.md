@@ -76,6 +76,12 @@ clean `pnpm lint` says nothing about formatting. CI fails on `pretty:check`
 independently. Run `pnpm ci` before pushing, or let the pre-commit hook handle
 both.
 
+`pnpm lint` and the pre-commit hook use ESLint's cache, which keys on file
+content and config only. It has no view of the type graph, so a type-aware rule
+such as `switch-exhaustiveness-check` can pass locally after you add a union
+member in another package and still fail in CI, which runs uncached. Use
+`pnpm lint:ci` when you need the authoritative answer.
+
 ## Key Principles
 
 1. **Respect package boundaries** - front-end, back-end, and shared have strict import restrictions

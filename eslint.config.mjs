@@ -559,13 +559,14 @@ export default defineConfig([
     },
   },
   {
-    // TypeScript already resolves imports, so re-deriving resolution here is
-    // duplicated work. Measured on the full file set, uncached: 79s with these on
-    // versus 31s with them off. The cost is import/default and import/namespace,
-    // which parse every imported module to enumerate its exports; no-unresolved
-    // only calls resolve() and is nearly free, but it goes with them because tsc
-    // subsumes it. docs/ keeps all three (not a workspace member, no type-check),
-    // as do plain .js files, which tsc never sees.
+    // TypeScript already resolves imports and enumerates exports, so re-deriving
+    // that here is duplicated work. Measured on the full file set, uncached: 79s
+    // with these on versus 31s with them off. The cost is the ExportMap rules
+    // (import/default, import/namespace, import/export), which read and parse
+    // every imported module to list its exports. import/no-unresolved only calls
+    // resolve() and is nearly free, but it goes with them because tsc subsumes it.
+    // docs/ keeps all four (not a workspace member, no type-check), as do plain
+    // .js files, which tsc never sees.
     //
     // Caveat: packages/{back-end,shared}/scripts/*.ts sit outside their package
     // tsconfig include, so tsc does not cover them either and they lose import
@@ -574,6 +575,7 @@ export default defineConfig([
 
     rules: {
       "import/default": "off",
+      "import/export": "off",
       "import/namespace": "off",
       "import/no-unresolved": "off",
     },
@@ -624,19 +626,27 @@ export default defineConfig([
     },
   },
   {
-    // Type-aware linting. Each entry is a package's tsconfig'd source root.
-    // projectService hard-errors on any file it cannot map to a project, so this
-    // list must track the `include` arrays in the corresponding tsconfig.json.
+    // Type-aware linting. Each entry is a package's tsconfig'd source root, so
+    // this covers every TypeScript package in the workspace. projectService
+    // hard-errors on any file it cannot map to a project, so this list must track
+    // the `include` arrays in the corresponding tsconfig.json.
+    //
+    // Deliberately absent: packages/{back-end,shared}/scripts/*.ts, which sit
+    // outside their package tsconfig and would hard-error here. Covering them
+    // means adding them to a tsconfig first.
     files: [
       "./packages/front-end/**/*.{ts,tsx}",
       "./packages/back-end/src/**/*.{ts,tsx}",
       "./packages/shared/src/**/*.{ts,tsx}",
+      "./packages/sdk-js/src/**/*.{ts,tsx}",
+      "./packages/sdk-react/src/**/*.{ts,tsx}",
+      "./packages/stats-ts/src/**/*.{ts,tsx}",
     ],
 
-    // Test directories are excluded uniformly across all three packages.
-    // shared/test and back-end/test sit outside their package tsconfig, and
-    // front-end/test would otherwise be the only test tree that is type-linted.
-    // No test file in any package currently contains a switch statement.
+    // Test directories are excluded uniformly across every package. shared/test
+    // and back-end/test sit outside their package tsconfig, and front-end/test
+    // would otherwise be the only test tree that is type-linted. No test file in
+    // any package currently contains a switch statement.
     ignores: ["./packages/*/test/**"],
 
     languageOptions: {
