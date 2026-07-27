@@ -7,6 +7,7 @@ import { userHasPermission } from "shared/permissions";
 import { AuditInterface } from "shared/types/audit";
 import { Permission } from "shared/types/organization";
 import { UserInterface } from "shared/types/user";
+import { SSOConnectionInterface } from "shared/types/sso-connection";
 import {
   EventUserForResponseLocals,
   EventUserLoggedIn,
@@ -20,6 +21,7 @@ import {
   getUserByEmail,
 } from "back-end/src/models/UserModel";
 import {
+  isUserAuthorizedForSSOConnection,
   getOrganizationById,
   validateLoginMethod,
 } from "back-end/src/services/organizations";
@@ -77,7 +79,10 @@ export function getAuthConnection(): AuthConnection {
   return usingOpenId() ? new OpenIdAuthConnection() : new LocalAuthConnection();
 }
 
-async function getUserFromJWT(info: JWTInfo): Promise<null | UserInterface> {
+async function getUserFromJWT(
+  info: JWTInfo,
+  loginMethod?: SSOConnectionInterface,
+): Promise<null | UserInterface> {
   if (!info.email) {
     throw new Error("Id token does not contain email address");
   }
@@ -90,6 +95,17 @@ async function getUserFromJWT(info: JWTInfo): Promise<null | UserInterface> {
         "Your session has been revoked. Please refresh the page and login.",
       );
     }
+  }
+
+  // Don't let an Enterprise SSO connection silently authenticate as an existing
+  // account it has no legitimate relationship with (see isUserAuthorizedForSSOConnection).
+  if (
+    loginMethod &&
+    !(await isUserAuthorizedForSSOConnection(user, loginMethod))
+  ) {
+    throw new Error(
+      "This SSO connection is not authorized to log in as this account.",
+    );
   }
 
   return user;
@@ -162,7 +178,7 @@ export async function processJWT(
     }
   };
 
-  const user = await getUserFromJWT(parsedJWT);
+  const user = await getUserFromJWT(parsedJWT, req.loginMethod);
 
   if (user) {
     req.currentUser = user;
