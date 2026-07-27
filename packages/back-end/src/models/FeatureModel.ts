@@ -179,9 +179,11 @@ const featureSchema = new mongoose.Schema({
 
 featureSchema.index({ id: 1, organization: 1 }, { unique: true });
 featureSchema.index({ organization: 1, project: 1 });
-// Compound indexes for API list sorting (org equality + sort field) — keep in
-// sync with sortableFeatureFields in shared/validators/features-v2.ts
-featureSchema.index({ organization: 1, id: 1 });
+// Compound indexes for the API list's date sorts. Unlike the filter indexes
+// above, these exist for the sort: pagination is DB-level (skip/limit), so an
+// index-order scan reads ~one page instead of fetching and sorting the whole
+// org under Mongo's in-memory sort ceiling. `id` sorts (rare) have no
+// backing index and fall back to an in-memory Mongo sort.
 featureSchema.index({ organization: 1, dateCreated: 1 });
 featureSchema.index({ organization: 1, dateUpdated: 1 });
 

@@ -686,8 +686,9 @@ export const updateFeatureBodyV2 = z
 
 // ---- Route validators ----
 
-// Each sortable field is backed by a compound { organization, <field> } index
-// in FeatureModel — keep the two lists in sync when adding fields.
+// The date fields are backed by compound { organization, <field> } indexes in
+// FeatureModel (keep in sync when adding fields); `id` sorts are rare and
+// intentionally unindexed — Mongo sorts those in memory.
 export const sortableFeatureFields = [
   "id",
   "dateCreated",
