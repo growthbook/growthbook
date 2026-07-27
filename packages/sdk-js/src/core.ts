@@ -15,7 +15,7 @@ import {
   FeatureApiResponse,
   Options,
   ClientOptions,
-  UserContext,
+  UserContextAttributes,
 } from "./types/growthbook";
 import { evalCondition } from "./mongrule";
 import { ConditionInterface } from "./types/mongrule";
@@ -310,7 +310,7 @@ export function evalFeature<V = unknown>(
               ctx.global.saveDeferredTrack({
                 experiment: t.experiment,
                 result: t.result,
-                user: getTrackingUserContext(ctx, true),
+                user: getTrackingUserContext(ctx),
               });
             }
           });
@@ -765,7 +765,7 @@ export function runExperiment<T>(
     ctx.global.saveDeferredTrack({
       experiment,
       result,
-      user: getTrackingUserContext(ctx, true),
+      user: getTrackingUserContext(ctx),
     });
   }
   const trackingCall = !trackingCalls.length
@@ -823,10 +823,9 @@ function getAttributes(ctx: EvalContext) {
   };
 }
 
-function getTrackingUserContext(ctx: EvalContext, deep = false): UserContext {
-  const attributes = getAttributes(ctx);
+function getTrackingUserContext(ctx: EvalContext): UserContextAttributes {
   return {
-    attributes: deep ? JSON.parse(JSON.stringify(attributes)) : attributes,
+    attributes: { ...getAttributes(ctx) },
   };
 }
 

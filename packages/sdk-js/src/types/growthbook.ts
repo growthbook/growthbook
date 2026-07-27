@@ -156,12 +156,12 @@ export interface Result<T> {
 
 export type Attributes = Record<string, any>;
 
+export type UserContextAttributes = Pick<UserContext, "attributes">;
+
 export interface TrackingData {
   experiment: Experiment<any>;
   result: Result<any>;
-  // A lean UserContext carrying only the user's attributes, so deferred
-  // tracking calls stay serializable and match the trackingCallback shape.
-  user?: UserContext;
+  user?: UserContextAttributes;
 }
 
 export interface TrackingDataWithUser {
