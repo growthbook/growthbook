@@ -14,6 +14,10 @@ export type AutoAttributeSettings = {
   uuidKey?: string;
   uuid?: string;
   uuidAutoPersist?: boolean;
+  // Scope the uuid cookie to a parent domain (e.g. ".example.com") so the same
+  // anonymous id is shared across subdomains. Without this the cookie is
+  // host-only and a redirect to another subdomain mints a brand new id.
+  uuidCookieDomain?: string;
 };
 
 const SESSION_REPLAY_TOUCH_THROTTLE_MS = 60 * 1000;
@@ -57,10 +61,23 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
   }
 
   const COOKIE_NAME = settings.uuidCookieName || "gbuuid";
+  const COOKIE_DOMAIN = settings.uuidCookieDomain || "";
   const uuidKey = settings.uuidKey || "id";
   let uuid = settings.uuid || "";
   function persistUUID() {
-    setCookie(COOKIE_NAME, uuid);
+    if (!COOKIE_DOMAIN) {
+      setCookie(COOKIE_NAME, uuid);
+      return;
+    }
+    // Remove any legacy host-only cookie first - two same-named cookies would
+    // shadow each other and make reads unreliable
+    expireCookie(COOKIE_NAME);
+    setCookie(COOKIE_NAME, uuid, COOKIE_DOMAIN);
+    // Browsers silently reject a cookie whose domain doesn't cover this host
+    // (e.g. a typo) - fall back to host-only so the id stays stable here
+    if (getCookie(COOKIE_NAME) !== uuid) {
+      setCookie(COOKIE_NAME, uuid);
+    }
   }
   function getUUID() {
     // Already stored in memory, return
@@ -163,17 +180,26 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
   };
 }
 
-function setCookie(name: string, value: string) {
+function setCookie(name: string, value: string, domain?: string) {
   const d = new Date();
   const COOKIE_DAYS = 400; // 400 days is the max cookie duration for chrome
   d.setTime(d.getTime() + 24 * 60 * 60 * 1000 * COOKIE_DAYS);
-  document.cookie = name + "=" + value + ";path=/;expires=" + d.toUTCString();
+  const domainStr = domain ? ";domain=" + domain : "";
+  document.cookie =
+    name + "=" + value + ";path=/" + domainStr + ";expires=" + d.toUTCString();
+}
+
+function expireCookie(name: string) {
+  // No domain attribute, so this only removes the host-only cookie
+  document.cookie = name + "=;path=/;expires=Thu, 01 Jan 1970 00:00:00 GMT";
 }
 
 function getCookie(name: string): string {
+  // A host-only and a domain-scoped cookie can coexist under the same name
+  // (e.g. before/after uuidCookieDomain is enabled) - use the first match
   const value = "; " + document.cookie;
   const parts = value.split(`; ${name}=`);
-  return parts.length === 2 ? parts[1].split(";")[0] : "";
+  return parts.length >= 2 ? parts[1].split(";")[0] : "";
 }
 
 function getUtmAttributes(url: URL | Location | undefined) {

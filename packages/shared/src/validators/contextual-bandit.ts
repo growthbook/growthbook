@@ -4,6 +4,7 @@ import { banditStageType, variation } from "./experiments";
 import { namedSchema } from "./openapi-helpers";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import { featurePrerequisite, savedGroupTargeting } from "./shared";
+import { contextualLeafClauseValidator } from "./contextual-bandit-event";
 
 export const variationWeightPairValidator = z.object({
   variationId: z.string(),
@@ -476,6 +477,7 @@ export const getContextualBanditResultsValidator = {
               leafId: z.number().int(),
               updateMessage: z.string().nullable(),
               error: z.string().nullable(),
+              clauses: z.array(contextualLeafClauseValidator),
               variations: z.array(
                 z.object({
                   variationId: z.string(),
@@ -529,7 +531,7 @@ export const getContextualBanditResultsValidator = {
     .strict(),
   summary: "Get latest Contextual Bandit results",
   description:
-    "Returns the latest contextual-bandit stats engine output (per-context responses, the context-to-leaf map, and per-leaf aggregated stats), the overall (marginal) variation weights across all contexts, the SRM of the most recent run, and the status of the most recent snapshot run for the contextual bandit. Same payload the GrowthBook UI uses to render the contextual bandit results table.",
+    "Returns the latest contextual-bandit stats engine output (per-context responses tagged with their leaf, the per-leaf targeting conditions, and per-leaf aggregated stats), the overall (marginal) variation weights across all contexts, the SRM of the most recent run, and the status of the most recent snapshot run for the contextual bandit. Same payload the GrowthBook UI uses to render the contextual bandit results table.",
   operationId: "getContextualBanditResults",
   tags: ["ContextualBandits"],
   method: "get" as const,

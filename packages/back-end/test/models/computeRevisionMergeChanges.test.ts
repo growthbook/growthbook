@@ -98,6 +98,36 @@ describe("computeRevisionMergeChanges", () => {
     expect("nextScheduledUpdate" in changes).toBe(true);
   });
 
+  // A legacy rule pinned to the feature id on read must survive publish
+  // untouched — stamping rule.id here would re-bucket the cohort.
+  it("preserves a seed already pinned to the feature id (no re-bucketing on publish)", () => {
+    const rules = [
+      {
+        id: "fr_legacy",
+        type: "rollout",
+        description: "",
+        value: "true",
+        coverage: 0.5,
+        hashAttribute: "id",
+        seed: "feat_test", // pinned at read time to the feature id
+        enabled: true,
+        allEnvironments: true,
+      },
+    ] as unknown as FeatureRule[];
+
+    const { changes } = computeRevisionMergeChanges(
+      mockContext(),
+      makeFeature(),
+      REVISION,
+      { rules } as MergeResultChanges,
+    );
+
+    expect((changes.rules?.[0] as { seed?: string }).seed).toBe("feat_test");
+    expect((changes.rules?.[0] as { seed?: string }).seed).not.toBe(
+      changes.rules?.[0].id,
+    );
+  });
+
   it("skips no-op environment toggles so the SDK payload cache is preserved", () => {
     const { changes, hasChanges } = computeRevisionMergeChanges(
       mockContext(),

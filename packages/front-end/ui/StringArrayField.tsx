@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
+import clsx from "clsx";
 import CreatableSelect from "react-select/creatable";
 import {
   components as SelectComponents,
@@ -7,12 +8,14 @@ import {
 import TextareaAutosize from "react-textarea-autosize";
 import { PiCopy, PiRepeatBold, PiXBold } from "react-icons/pi";
 import { Tooltip } from "@radix-ui/themes";
-import Field, { FieldProps } from "./Field";
-import { ReactSelectProps } from "./SelectField";
+import Field, { FieldProps } from "@/components/Forms/Field";
+import { ReactSelectProps } from "@/components/Forms/SelectField";
+
+export type StringArrayFieldSize = "small" | "legacy" | "medium";
 
 export type Props = Omit<
   FieldProps,
-  "value" | "onChange" | "options" | "multi" | "initialOption"
+  "value" | "onChange" | "options" | "multi" | "initialOption" | "size"
 > & {
   value: string[];
   onChange: (value: string[]) => void;
@@ -20,6 +23,7 @@ export type Props = Omit<
   enableRawTextMode?: boolean;
   removeDuplicates?: boolean;
   showCopyButton?: boolean;
+  size?: StringArrayFieldSize;
 };
 
 const DEFAULT_DELIMITERS = ["Enter", "Tab", " ", ","];
@@ -155,6 +159,7 @@ export default function StringArrayField({
   enableRawTextMode = false,
   removeDuplicates = true,
   showCopyButton = true,
+  size = "legacy",
   helpText,
   ...otherProps
 }: Props) {
@@ -205,6 +210,33 @@ export default function StringArrayField({
   };
 
   const rawTextValue = value.join(",");
+
+  const sizeStyles = useMemo(() => {
+    const sizeMinHeight: Record<StringArrayFieldSize, number> = {
+      small: 32,
+      legacy: 36,
+      medium: 40,
+    };
+    const sizeVPadding: Record<StringArrayFieldSize, number> = {
+      small: 0,
+      legacy: 2,
+      medium: 4,
+    };
+    return {
+      ...ReactSelectProps.styles,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      control: (base: any, state: any) => ({
+        ...ReactSelectProps.styles.control(base, state),
+        minHeight: sizeMinHeight[size],
+      }),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      valueContainer: (base: any) => ({
+        ...base,
+        paddingTop: sizeVPadding[size],
+        paddingBottom: sizeVPadding[size],
+      }),
+    };
+  }, [size]);
 
   // eslint-disable-next-line
   const fieldProps = otherProps as any;
@@ -271,72 +303,87 @@ export default function StringArrayField({
         if (enableRawTextMode && rawTextMode) {
           return (
             <div
-              className="gb-select__control gb-select__raw-text-control"
-              ref={ref}
+              className={clsx(
+                "gb-select-wrapper position-relative",
+                `gb-select-wrapper--${size}`,
+              )}
             >
-              <div className="gb-select__value-container gb-select__raw-text-value-container">
-                <TextareaAutosize
-                  id={id}
-                  className="form-control gb-select__raw-text-input"
-                  value={rawTextValue}
-                  onChange={handleRawTextChange}
-                  placeholder={placeholder ?? "value 1, value 2..."}
-                  minRows={1}
-                  disabled={disabled}
-                  required={fieldProps.required}
-                  autoFocus={autoFocus}
-                  style={{ resize: "none" }}
-                />
-              </div>
-              <div className="gb-select__indicators">
-                <RawTextModeToggleButton
-                  rawTextMode={true}
-                  onToggle={() => setRawTextMode(false)}
-                />
+              <div
+                className="gb-select__control gb-select__raw-text-control"
+                ref={ref}
+              >
+                <div className="gb-select__value-container gb-select__raw-text-value-container">
+                  <TextareaAutosize
+                    id={id}
+                    className="form-control gb-select__raw-text-input"
+                    value={rawTextValue}
+                    onChange={handleRawTextChange}
+                    placeholder={placeholder ?? "value 1, value 2..."}
+                    minRows={1}
+                    disabled={disabled}
+                    required={fieldProps.required}
+                    autoFocus={autoFocus}
+                    style={{ resize: "none" }}
+                  />
+                </div>
+                <div className="gb-select__indicators">
+                  <RawTextModeToggleButton
+                    rawTextMode={true}
+                    onToggle={() => setRawTextMode(false)}
+                  />
+                </div>
               </div>
             </div>
           );
         }
 
         return (
-          <CreatableSelect
-            id={id}
-            ref={ref}
-            isDisabled={disabled}
-            components={components}
-            onToggleRawTextMode={
-              enableRawTextMode ? () => setRawTextMode(true) : undefined
-            }
-            showCopyButton={showCopyButton}
-            onPasteCapture={handlePaste}
-            inputValue={inputValue}
-            isClearable
-            classNamePrefix="gb-select"
-            isMulti
-            menuIsOpen={false}
-            autoFocus={autoFocus}
-            getOptionLabel={(option) => option}
-            getOptionValue={(option) => option}
-            onChange={(val) => onChange(val as string[])}
-            onInputChange={(val) => setInputValue(val)}
-            onKeyDown={(event) => handleKeyDown(event)}
-            onBlur={() => {
-              if (!inputValue) return;
-              if (removeDuplicates && value.includes(inputValue)) {
-                setInputValue("");
-                return;
+          <div
+            className={clsx(
+              "gb-select-wrapper position-relative",
+              `gb-select-wrapper--${size}`,
+            )}
+          >
+            <CreatableSelect
+              id={id}
+              ref={ref}
+              isDisabled={disabled}
+              components={components}
+              onToggleRawTextMode={
+                enableRawTextMode ? () => setRawTextMode(true) : undefined
               }
-              onChange([...value, inputValue]);
-              setInputValue("");
-            }}
-            isValidNewOption={(val) => {
-              if (!pattern) return !!val;
-              return new RegExp(pattern).test(val);
-            }}
-            placeholder={placeholder}
-            value={value}
-            {...ReactSelectProps}
-          />
+              showCopyButton={showCopyButton}
+              onPasteCapture={handlePaste}
+              inputValue={inputValue}
+              isClearable
+              classNamePrefix="gb-select"
+              isMulti
+              menuIsOpen={false}
+              autoFocus={autoFocus}
+              getOptionLabel={(option) => option}
+              getOptionValue={(option) => option}
+              onChange={(val) => onChange(val as string[])}
+              onInputChange={(val) => setInputValue(val)}
+              onKeyDown={(event) => handleKeyDown(event)}
+              onBlur={() => {
+                if (!inputValue) return;
+                if (removeDuplicates && value.includes(inputValue)) {
+                  setInputValue("");
+                  return;
+                }
+                onChange([...value, inputValue]);
+                setInputValue("");
+              }}
+              isValidNewOption={(val) => {
+                if (!pattern) return !!val;
+                return new RegExp(pattern).test(val);
+              }}
+              placeholder={placeholder}
+              value={value}
+              {...ReactSelectProps}
+              styles={sizeStyles}
+            />
+          </div>
         );
       }}
     />

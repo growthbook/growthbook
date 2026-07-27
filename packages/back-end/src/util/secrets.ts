@@ -84,7 +84,8 @@ if (MONGODB_URI.match(/:27017(\/)?$/)) {
 }
 export { MONGODB_URI };
 
-export const APP_ORIGIN = process.env.APP_ORIGIN || "http://localhost:3000";
+const RAW_APP_ORIGIN = process.env.APP_ORIGIN || "http://localhost:3000";
+export const APP_ORIGIN = RAW_APP_ORIGIN.replace(/\/+$/, "");
 export const IS_LOCALHOST = APP_ORIGIN.startsWith("http://localhost:");
 
 const corsOriginRegex = process.env.CORS_ORIGIN_REGEX;

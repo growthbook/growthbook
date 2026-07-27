@@ -4,7 +4,7 @@ import Modal from "@/components/Modal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import { useAuth } from "@/services/auth";
-import StringArrayField from "@/components/Forms/StringArrayField";
+import StringArrayField from "@/ui/StringArrayField";
 
 export default function WebhookSecretModal({
   existingId,
@@ -86,6 +86,7 @@ export default function WebhookSecretModal({
       })}
     >
       <Field
+        size="legacy"
         autoComplete="off"
         {...form.register("key")}
         label="Key"
@@ -94,6 +95,7 @@ export default function WebhookSecretModal({
         helpText="This is what you reference within your webhook endpoint or headers"
       />
       <Field
+        size="legacy"
         autoComplete="off"
         {...form.register("value")}
         label="Value"
@@ -101,12 +103,14 @@ export default function WebhookSecretModal({
         placeholder={existingId ? "(keep existing)" : ""}
       />
       <Field
+        size="legacy"
         {...form.register("description")}
         label="Description"
         textarea
         placeholder="(optional)"
       />
       <StringArrayField
+        size="legacy"
         value={form.watch("allowedOrigins")}
         onChange={(value) => form.setValue("allowedOrigins", value)}
         label="Restrict to Specific Origins"

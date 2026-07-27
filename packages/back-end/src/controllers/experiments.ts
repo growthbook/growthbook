@@ -8,6 +8,7 @@ import {
   getSnapshotAnalysis,
   isDefined,
   autoMerge,
+  reconcileMergeBaselines,
   includeExperimentInPayload,
 } from "shared/util";
 import {
@@ -1711,6 +1712,8 @@ export async function postExperiment(
     }
   }
 
+  // TODO(holdouts): allow changing holdout if the experiment is not linked to a feature
+  // in the live! feature revision
   const experimentHasLinkedChanges =
     experiment.hasURLRedirects ||
     experiment.hasVisualChangesets ||
@@ -4302,7 +4305,18 @@ export async function postExperimentFeatureValues(
         revision: updatedRevision,
       });
       // Auto publish permission check is in validateExperimentFeatureUpdates
-      const mergeResult = autoMerge(live, base, updatedRevision, orgEnvIds, {});
+      const { live: mergeLive, base: mergeBase } = reconcileMergeBaselines(
+        feature,
+        live,
+        base,
+      );
+      const mergeResult = autoMerge(
+        mergeLive,
+        mergeBase,
+        updatedRevision,
+        orgEnvIds,
+        {},
+      );
 
       // This should never happen since we only allow auto-publising new revisions, but guard against it just in case
       if (!mergeResult.success) {

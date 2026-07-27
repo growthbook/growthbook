@@ -33,6 +33,7 @@ import {
   getExperimentsScript,
 } from "./controllers/config";
 import { getAuthConnection, processJWT, usingOpenId } from "./services/auth";
+import { trackRequestCompletion } from "./services/growthbook";
 import { wrapController } from "./routers/wrapController";
 import apiRouter from "./api/api.router";
 import scimRouter from "./scim/scim.router";
@@ -275,9 +276,10 @@ app.get("/", (req, res) => {
     res.json({
       name: "GrowthBook API",
       production: ENVIRONMENT === "production",
-      api_host:
+      api_host: (
         process.env.API_HOST ||
-        req.protocol + "://" + req.hostname + ":" + app.get("port"),
+        req.protocol + "://" + req.hostname + ":" + app.get("port")
+      ).replace(/\/+$/, ""),
       app_origin: APP_ORIGIN,
       config_source: usingFileConfig() ? "file" : "db",
       email_enabled: isEmailEnabled(),
@@ -512,6 +514,10 @@ app.use(auth.middleware as RequestHandler);
 
 // Add logged in user props to the request
 app.use(asyncHandler(processJWT as unknown as RequestHandler));
+
+// Track request completion for GrowthBook telemetry — only routes past this
+// point can have `req.gb` set, so earlier (public/SDK) routes never pay for it
+app.use(trackRequestCompletion as unknown as RequestHandler);
 
 // Add logged in user props to the logger
 app.use(((

@@ -186,6 +186,16 @@ export default defineConfig([
     },
   },
   {
+    // Standalone CommonJS runtime script (no build step): require() is correct
+    // and console is the intended logging channel.
+    files: ["./preview/idle-monitor.js"],
+
+    rules: {
+      "@typescript-eslint/no-require-imports": "off",
+      "no-console": "off",
+    },
+  },
+  {
     files: ["./packages/front-end/**/*.ts*"],
     ignores: ["./packages/front-end/ui/**/*.ts*"],
 
@@ -270,8 +280,42 @@ export default defineConfig([
           message:
             "Don't use window.history.replaceState directly. Use router.replace(url, undefined, { shallow: true }) from next/router instead.",
         },
+        {
+          selector:
+            "JSXAttribute[name.name='size'][value.type='Literal'][value.value='legacy']",
+          message:
+            'Do not add new `size="legacy"` props. Omit `size` to use the component default, or use an explicit design-system size ("x-small", "small", or "medium" on Select/SelectField/MultiSelectField/StringArrayField/TextField; "sm" or "md" on Field).',
+        },
+        {
+          selector:
+            "JSXAttribute[name.name='size'] JSXExpressionContainer > Literal[value='legacy']",
+          message:
+            'Do not add new `size="legacy"` props. Omit `size` to use the component default, or use an explicit design-system size ("x-small", "small", or "medium" on Select/SelectField/MultiSelectField/StringArrayField/TextField; "sm" or "md" on Field).',
+        },
       ],
       "local/no-alert-classname": "error",
+    },
+  },
+  {
+    files: ["./packages/front-end/**/*.stories.tsx"],
+
+    rules: {
+      // Design system stories intentionally demonstrate all size variants, including legacy.
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            "MemberExpression[object.object.name='window'][object.property.name='history'][property.name='pushState']",
+          message:
+            "Don't use window.history.pushState directly. Use router.push(url, undefined, { shallow: true }) from next/router instead.",
+        },
+        {
+          selector:
+            "MemberExpression[object.object.name='window'][object.property.name='history'][property.name='replaceState']",
+          message:
+            "Don't use window.history.replaceState directly. Use router.replace(url, undefined, { shallow: true }) from next/router instead.",
+        },
+      ],
     },
   },
   {
