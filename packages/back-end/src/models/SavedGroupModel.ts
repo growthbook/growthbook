@@ -3,6 +3,7 @@ import {
   SavedGroupInterface,
   LegacySavedGroupInterface,
   SavedGroupWithoutValues,
+  SavedGroupForDefinitions,
 } from "shared/types/saved-group";
 import { savedGroupValidator, ApiSavedGroup } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
@@ -81,6 +82,7 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
 
   public static migrateSavedGroup(
     legacyDoc: LegacySavedGroupInterface,
+    { conditionOmitted = false }: { conditionOmitted?: boolean } = {},
   ): SavedGroupInterface {
     // Add `type` field to legacy groups
     const { source, type, ...otherFields } = legacyDoc;
@@ -89,10 +91,12 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
       type: type || (source === "runtime" ? "condition" : "list"),
     };
 
-    // Migrate legacy runtime groups to use a condition
+    // Migrate legacy runtime groups to use a condition.
+    // Do not synthesize a condition when it was excluded from the read.
     if (
       group.type === "condition" &&
       !group.condition &&
+      !conditionOmitted &&
       source === "runtime" &&
       group.attributeKey
     ) {
@@ -108,8 +112,13 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
     return group;
   }
 
-  protected migrate(legacyDoc: LegacySavedGroupInterface): SavedGroupInterface {
-    return SavedGroupModel.migrateSavedGroup(legacyDoc);
+  protected migrate(
+    legacyDoc: LegacySavedGroupInterface,
+    omittedFields?: ReadonlySet<string>,
+  ): SavedGroupInterface {
+    return SavedGroupModel.migrateSavedGroup(legacyDoc, {
+      conditionOmitted: omittedFields?.has("condition") ?? false,
+    });
   }
 
   protected async customValidation(
@@ -193,6 +202,17 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
   public async getAllWithoutValues(): Promise<SavedGroupWithoutValues[]> {
     const groups = await this._find({}, { projection: { values: 0 } });
     return groups as SavedGroupWithoutValues[];
+  }
+
+  /**
+   * Returns saved-group metadata without the payload-heavy values and condition.
+   */
+  public async getAllForDefinitions(): Promise<SavedGroupForDefinitions[]> {
+    const groups = await this._find(
+      {},
+      { projection: { values: 0, condition: 0 } },
+    );
+    return groups as SavedGroupForDefinitions[];
   }
 
   public toApiInterface(savedGroup: SavedGroupInterface): ApiSavedGroup {
