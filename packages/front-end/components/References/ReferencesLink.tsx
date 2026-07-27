@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
 import { BiShow } from "react-icons/bi";
+import { PiWarningFill } from "react-icons/pi";
 import Link from "@/ui/Link";
 import Tooltip from "@/ui/Tooltip";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -40,7 +41,7 @@ export default function ReferencesLink({
     return (
       <Tooltip content="Some data failed to load, so references can't be counted.">
         <DisabledLabel>
-          <BiShow /> References unavailable
+          <PiWarningFill /> References unavailable
         </DisabledLabel>
       </Tooltip>
     );
