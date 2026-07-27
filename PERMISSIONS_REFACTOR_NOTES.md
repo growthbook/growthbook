@@ -237,6 +237,16 @@ only via additive grants (`manageExecReports` is policy-orphaned on `main` too).
 - **Manual QA of the new personas** — nothing has exercised review-only,
   publish-only, revert-only or edit-no-delete end to end, including the editor's
   preset/atom mutual exclusion. This is the main untested surface.
+- **Type `FeatureRevisionLogInterface.action`** (deferred, agreed). It's
+  `z.string()`, so the authority table in `FeatureRevisionLogModel` is keyed off
+  hand-transcribed string literals — the drift that lost a reviewer's verdict.
+  A strict Zod union makes the table exhaustive and compiler-checked, and
+  retires the permissive fallback for unlisted actions. `migrate()` runs on raw
+  docs before anything consumes them, so historical values coerce to a default
+  there rather than failing to parse. Once the action is typed, the
+  fire-and-forget `.catch` on log writes is only reachable by real operational
+  failures, which is what it should have been all along; give it `featureId`,
+  `version` and `action` in the payload so those are diagnosable.
 - Delete this file before merge.
 
 ## Expected behavior — the QA oracle
