@@ -78,7 +78,7 @@ type FindOrganizationOptions = {
 
 type FilterKeys = ExperimentInterface & { _id: string };
 
-type SortFilter = {
+export type SortFilter = {
   [key in keyof Partial<FilterKeys>]: 1 | -1;
 };
 
@@ -386,6 +386,12 @@ const experimentSchema = new mongoose.Schema({
 experimentSchema.index({ organization: 1, datasource: 1 });
 experimentSchema.index({ organization: 1, project: 1 });
 experimentSchema.index({ organization: 1, trackingKey: 1 });
+// Back the API list's DB-paginated date sorts: with skip/limit in the query,
+// an index-order scan reads ~one page instead of fetching and sorting the
+// whole org. `name` sorts intentionally take the fetch-all path (Node sorts
+// case-insensitively), so there is no name index.
+experimentSchema.index({ organization: 1, dateCreated: 1 });
+experimentSchema.index({ organization: 1, dateUpdated: 1 });
 experimentSchema.index(
   { "nextScheduledStatusUpdate.date": 1 },
   { sparse: true },
@@ -414,9 +420,13 @@ async function findExperiments(
   query: FilterQuery<ExperimentDocument>,
   limit?: number,
   sortBy?: SortFilter,
+  offset?: number,
 ): Promise<ExperimentInterface[]> {
   let cursor = getCollection(COLLECTION).find(query);
 
+  if (offset) {
+    cursor = cursor.skip(offset);
+  }
   if (limit) {
     cursor = cursor.limit(limit);
   }
@@ -507,12 +517,57 @@ export async function getAllExperiments(
     limit?: number;
   } = {},
 ): Promise<ExperimentInterface[]> {
+  const query = experimentListQuery(context.org.id, {
+    project,
+    includeArchived,
+    archived,
+    type,
+    datasourceId,
+    trackingKey,
+    status,
+  });
+
+  return await findExperiments(context, query, limit, sortBy);
+}
+
+export type ExperimentListFilters = {
+  project?: string;
+  // Restrict to these projects — used by the API list to pre-scope the query
+  // to the projects the caller can read so DB-level pagination stays correct.
+  // Ignored when `project` is set. An empty array matches nothing (callers
+  // should short-circuit instead of querying).
+  projectIds?: string[];
+  includeArchived?: boolean;
+  // Tri-state archived filter: true = archived only, false = exclude
+  // archived, undefined = fall back to `includeArchived`.
+  archived?: boolean;
+  type?: ExperimentType;
+  datasourceId?: string;
+  trackingKey?: string;
+  status?: ExperimentStatus;
+};
+
+function experimentListQuery(
+  orgId: string,
+  {
+    project,
+    projectIds,
+    includeArchived = false,
+    archived,
+    type,
+    datasourceId,
+    trackingKey,
+    status,
+  }: ExperimentListFilters,
+): FilterQuery<ExperimentDocument> {
   const query: FilterQuery<ExperimentDocument> = {
-    organization: context.org.id,
+    organization: orgId,
   };
 
   if (project) {
     query.project = project;
+  } else if (projectIds) {
+    query.project = { $in: projectIds };
   }
 
   if (datasourceId) {
@@ -543,7 +598,42 @@ export async function getAllExperiments(
     query.type = { $ne: "holdout" };
   }
 
-  return await findExperiments(context, query, limit, sortBy);
+  return query;
+}
+
+/**
+ * One page of experiments for the API list's DB-pagination fast path. The
+ * query must be pre-scoped to readable projects via `project`/`projectIds`
+ * (see ExperimentListFilters) — the per-doc permission filter still runs as
+ * defense in depth, but anything it removes would shorten the page, so
+ * callers must not rely on it.
+ */
+export async function getExperimentsPage(
+  context: ReqContext | ApiReqContext,
+  {
+    sort,
+    limit,
+    offset,
+    ...filters
+  }: ExperimentListFilters & {
+    sort: SortFilter;
+    limit: number;
+    offset: number;
+  },
+): Promise<ExperimentInterface[]> {
+  if (filters.projectIds?.length === 0) return [];
+  const query = experimentListQuery(context.org.id, filters);
+  return await findExperiments(context, query, limit, sort, offset);
+}
+
+export async function countExperiments(
+  context: ReqContext | ApiReqContext,
+  filters: ExperimentListFilters,
+): Promise<number> {
+  if (filters.projectIds?.length === 0) return 0;
+  return getCollection(COLLECTION).countDocuments(
+    experimentListQuery(context.org.id, filters),
+  );
 }
 
 /**
