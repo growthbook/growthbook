@@ -1,4 +1,4 @@
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { PiCaretDown, PiCaretRight, PiPlus, PiX } from "react-icons/pi";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Collapsible from "react-collapsible";
@@ -270,9 +270,9 @@ export default function GroupBySection() {
                 </Text>
                 <Tooltip
                   enabled={hasPinnedValues}
-                  content="Max values only applies when Values is empty. Clear Values to show the top results by volume."
+                  content="Max values only applies when explicitly selected values are empty. Clear values to show the top results by volume."
                 >
-                  <div>
+                  <Box>
                     <Field
                       type="number"
                       min="1"
@@ -315,7 +315,7 @@ export default function GroupBySection() {
                         }
                       }}
                     />
-                  </div>
+                  </Box>
                 </Tooltip>
               </Flex>
               <Flex direction="column" gap="2" mt="2">
@@ -348,6 +348,7 @@ export default function GroupBySection() {
                     "value" in option &&
                     !selectedValues.includes(option.value)
                   }
+                  showCopyButton={false}
                 />
               </Flex>
             </Collapsible>
