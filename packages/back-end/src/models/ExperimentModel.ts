@@ -386,9 +386,6 @@ const experimentSchema = new mongoose.Schema({
 experimentSchema.index({ organization: 1, datasource: 1 });
 experimentSchema.index({ organization: 1, project: 1 });
 experimentSchema.index({ organization: 1, trackingKey: 1 });
-experimentSchema.index({ organization: 1, dateCreated: 1 });
-experimentSchema.index({ organization: 1, dateUpdated: 1 });
-experimentSchema.index({ organization: 1, name: 1 });
 experimentSchema.index(
   { "nextScheduledStatusUpdate.date": 1 },
   { sparse: true },

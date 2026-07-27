@@ -41,7 +41,7 @@ export const listExperiments = createApiRequestHandler(
       ? undefined
       : stringToBoolean(req.query.archived.toString());
 
-  // Filter and sort at the database level where possible
+  // Filter at the database level where possible
   // Note: type is not specified, which defaults to excluding holdouts
   const experiments = await getAllExperiments(req.context, {
     includeArchived: true,
@@ -50,16 +50,11 @@ export const listExperiments = createApiRequestHandler(
     datasourceId: req.query.datasourceId,
     trackingKey: req.query.trackingKey ?? req.query.experimentId,
     status: req.query.status,
-    sortBy: {
-      [req.query.sortBy ?? "dateCreated"]:
-        req.query.sortOrder === "desc" ? -1 : 1,
-    },
   });
 
   // The remaining filters share the app's experiment-list semantics (matching
   // is case-insensitive; values within a category are ORed, categories are
   // ANDed), so apply them in memory via the shared filtering service.
-  // filterExperiments preserves input order, keeping the sort from above.
   const filters = normalizeExperimentFilters({
     searchString: req.query.q,
     filters: {
@@ -92,11 +87,22 @@ export const listExperiments = createApiRequestHandler(
       })
     : experiments;
 
+  // Sort in Node: the endpoint materializes the full (permission-filtered)
+  // result set for in-memory pagination anyway, so sorting here is free,
+  // sidesteps Mongo's in-memory sort memory ceiling on large orgs, and lets
+  // `name` sort case-insensitively (Mongo would sort by raw byte order)
+  const sortBy = req.query.sortBy ?? "dateCreated";
+  const sortDir = req.query.sortOrder === "desc" ? -1 : 1;
+  const sorted = [...filteredExperiments].sort((a, b) => {
+    const diff =
+      sortBy === "name"
+        ? a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+        : a[sortBy].getTime() - b[sortBy].getTime();
+    return sortDir === -1 ? -diff : diff;
+  });
+
   // TODO: Move pagination (limit/offset) to database for better performance
-  const { filtered, returnFields } = applyPagination(
-    filteredExperiments,
-    req.query,
-  );
+  const { filtered, returnFields } = applyPagination(sorted, req.query);
 
   // Batch-load all projects for the filtered experiments to avoid N+1 queries
   const projectIds = [

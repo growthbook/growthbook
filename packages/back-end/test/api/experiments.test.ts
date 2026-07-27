@@ -519,29 +519,42 @@ describe("experiments API", () => {
     });
 
     it("sorts by dateCreated ascending by default", async () => {
-      (getAllExperiments as jest.Mock).mockResolvedValue([experiment]);
+      const older = {
+        ...experiment,
+        id: "exp_older",
+        dateCreated: new Date("2020-01-01"),
+      };
+      const newer = {
+        ...experiment,
+        id: "exp_newer",
+        dateCreated: new Date("2024-01-01"),
+      };
+      (getAllExperiments as jest.Mock).mockResolvedValue([newer, older]);
       const res = await request(app)
         .get("/api/v1/experiments")
         .set("Authorization", "Bearer foo");
 
       expect(res.status).toBe(200);
-      expect(getAllExperiments).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.objectContaining({ sortBy: { dateCreated: 1 } }),
-      );
+      expect(res.body.experiments.map((e: { id: string }) => e.id)).toEqual([
+        "exp_older",
+        "exp_newer",
+      ]);
     });
 
-    it("passes sortBy and sortOrder to the query", async () => {
-      (getAllExperiments as jest.Mock).mockResolvedValue([experiment]);
+    it("sorts by name descending, case-insensitively", async () => {
+      const apple = { ...experiment, id: "exp_apple", name: "apple test" };
+      const zebra = { ...experiment, id: "exp_zebra", name: "Zebra test" };
+      (getAllExperiments as jest.Mock).mockResolvedValue([apple, zebra]);
       const res = await request(app)
         .get("/api/v1/experiments?sortBy=name&sortOrder=desc")
         .set("Authorization", "Bearer foo");
 
       expect(res.status).toBe(200);
-      expect(getAllExperiments).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.objectContaining({ sortBy: { name: -1 } }),
-      );
+      // Case-insensitive: "Zebra" sorts after "apple" despite uppercase Z
+      expect(res.body.experiments.map((e: { id: string }) => e.id)).toEqual([
+        "exp_zebra",
+        "exp_apple",
+      ]);
     });
 
     it("rejects an unsupported sortBy field", async () => {

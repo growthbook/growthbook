@@ -1527,8 +1527,9 @@ const idAndVariationParams = z
 // Route validators
 // ---------------------------------------------------------------------------
 
-// Each sortable field is backed by a compound { organization, <field> } index
-// in ExperimentModel — keep the two lists in sync when adding fields.
+// Sorting is applied in the API handler after the (in-memory) permission
+// filter, so sortable fields need no backing index. `name` sorts
+// case-insensitively.
 export const sortableExperimentFields = [
   "dateCreated",
   "dateUpdated",
