@@ -367,7 +367,7 @@ export const POLICY_METADATA_MAP: Record<
   FlagsFullAccess: {
     displayName: "Full access",
     description:
-      "Create, edit, delete, draft, review, publish, and revert Feature Flags, Constants, and Configs",
+      "Create, edit, review, publish, revert, and delete Feature Flags, Constants, and Configs",
   },
   FlagsBypassApprovals: {
     displayName: "Bypass draft approvals",
@@ -484,7 +484,8 @@ export const POLICY_METADATA_MAP: Record<
   },
   SavedGroupsFullAccess: {
     displayName: "Full access",
-    description: "Create, edit, and delete saved groups",
+    description:
+      "Create, edit, review, publish, revert, and delete Saved Groups",
   },
   SavedGroupsBypassApprovals: {
     displayName: "Bypass draft approvals",
@@ -621,9 +622,9 @@ export const GRANULAR_PERMISSION_METADATA: Partial<
       "Archive or delete Feature Flags, Constants, and Configs (environment-scoped)",
   },
   manageFlagDrafts: {
-    displayName: "Manage drafts",
+    displayName: "Edit drafts",
     description:
-      "Create, edit, and discard drafts and request review. Drafts reach no one until published.",
+      "Create, edit, and discard drafts, and request review. Drafts reach no one until published.",
   },
   reviewFlags: {
     displayName: "Review",
@@ -656,8 +657,9 @@ export const GRANULAR_PERMISSION_METADATA: Partial<
     description: "Delete saved groups",
   },
   manageSavedGroupDrafts: {
-    displayName: "Manage drafts",
-    description: "Create, edit, and discard saved-group drafts",
+    displayName: "Edit drafts",
+    description:
+      "Create, edit, and discard Saved Group drafts, and request review. Drafts reach no one until published.",
   },
   reviewSavedGroups: {
     displayName: "Review",
