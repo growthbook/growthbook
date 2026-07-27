@@ -64,10 +64,10 @@
     "typescript": "5.7.3"
   },
   "lint-staged": {
-    "./**/*.{json,css,scss,md,mdx,mjs}": [
+    "./**/*.{json,css,scss,md,mdx}": [
       "prettier --write"
     ],
-    "./**/*.{js,jsx,ts,tsx}": [
+    "./**/*.{js,jsx,mjs,ts,tsx}": [
       "pnpm eslint --fix --max-warnings 0 --cache --cache-strategy content --prune-suppressions",
       "prettier --write"
     ],
