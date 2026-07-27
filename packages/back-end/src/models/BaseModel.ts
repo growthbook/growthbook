@@ -399,9 +399,8 @@ export abstract class BaseModel<
     return filtered;
   }
   /**
-   * `omittedFields` lists fields a projection excluded from the read, so a
-   * migration can tell "not fetched" from "never set" and skip backfilling a
-   * field it cannot see. Overrides that ignore it are fine.
+   * Passes projected-out fields so migrations can distinguish omitted values
+   * from unset values.
    */
   protected migrate(
     legacyDoc: unknown,
@@ -848,8 +847,8 @@ export abstract class BaseModel<
       skip?: number;
       bypassReadPermissionChecks?: boolean;
       bypassSanitization?: boolean;
-      // Exclusion-only, so `omittedFields` below can take every listed field
-      // as dropped. Note: projection does not work when using config.yml
+      // Note: projection does not work when using config.yml
+      // Note: exclusion-only, so projection: { field: 1 } is not supported at the moment.
       projection?: Partial<Record<keyof z.infer<T>, 0>>;
       dangerousCrossOrganization?: boolean;
     } = {},

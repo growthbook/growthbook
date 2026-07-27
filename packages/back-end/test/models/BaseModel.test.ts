@@ -381,7 +381,6 @@ describe("BaseModel", () => {
     model.canReadMock.mockReturnValue(true);
 
     const ret = await model.getAll();
-    // No projection, so migrate is told nothing was omitted
     expect(model.migrateMock).toHaveBeenCalledWith(
       { id: "aabb", name: "foo" },
       undefined,

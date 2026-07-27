@@ -1014,9 +1014,6 @@ export default function ImportFromStatsig() {
     () => factTablesData?.factTables || [],
     [factTablesData],
   );
-  // Same reason as fact tables: the segment diff compares saved group
-  // `condition`, which the slimmed definitions drop. Archived groups are
-  // filtered out to match what definitions exposed.
   const {
     data: savedGroupsData,
     mutate: mutateSavedGroups,
@@ -1213,9 +1210,6 @@ export default function ImportFromStatsig() {
                   return;
                 }
 
-                // Same for saved groups: an empty map makes every Statsig
-                // segment look new, so Step 2 would create duplicates instead
-                // of updating the groups that already exist.
                 if (!savedGroupsData) {
                   setData({
                     ...data,
@@ -1303,9 +1297,7 @@ export default function ImportFromStatsig() {
                 mutateDefinitions();
                 mutateFeatures();
                 refreshOrganization();
-                // Await so a quick repeat import diffs against the freshly
-                // imported fact tables and saved groups, not the stale
-                // pre-import cache
+                // Revalidate before another import can compare stale data.
                 await Promise.all([mutateFactTables(), mutateSavedGroups()]);
               }}
             >

@@ -126,10 +126,6 @@ export default function RuleList(props: RuleListProps) {
   const { savedGroups, getProjectById } = useDefinitions();
   const [activeId, setActiveId] = useState<string | null>(null);
 
-  // `/organization/definitions` drops saved-group `condition` (payload size),
-  // so pull conditions from the bulk `/saved-groups` list, which SWR caches and
-  // revalidates on focus/reconnect for us. ID-list `values` are stripped there
-  // too and are fetched lazily per referenced group below.
   const { data: savedGroupsWithCondition } = useApi<{
     savedGroups: SavedGroupWithoutValues[];
   }>("/saved-groups");
@@ -141,10 +137,7 @@ export default function RuleList(props: RuleListProps) {
     return map;
   }, [savedGroupsWithCondition]);
 
-  // Conflict-detection defs. Condition groups get their `condition` from the
-  // bulk fetch above; ID-list `values` are fetched lazily below. Until either
-  // arrives, the group is opaque — conflict detection surfaces soft overlap on
-  // its attribute, then upgrades to precise conflicts once the data loads.
+  // Missing conditions or values keep conflict detection conservative.
   const savedGroupDefs = useMemo<Map<string, SavedGroupForConflicts>>(() => {
     const map = new Map<string, SavedGroupForConflicts>();
     for (const g of savedGroups) {

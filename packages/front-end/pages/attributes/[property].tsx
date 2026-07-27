@@ -47,9 +47,7 @@ export default function AttributeDetailPage() {
     savedGroups: SavedGroupWithoutValues[];
   }>("/saved-groups");
   const savedGroupsLoading = !savedGroupsData && !savedGroupsError;
-  // Archived groups are filtered out because this page previously read
-  // `useDefinitions().savedGroups`, which is archived-filtered. Counting them
-  // would change the reference count users see.
+  // Match definitions behavior by excluding archived groups.
   const savedGroups = useMemo(
     () => (savedGroupsData?.savedGroups ?? []).filter((sg) => !sg.archived),
     [savedGroupsData],
@@ -64,9 +62,6 @@ export default function AttributeDetailPage() {
     loading: experimentsLoading,
     error: experimentsError,
   } = useExperiments();
-  // The count sums all three sources, so any one of them still in flight makes
-  // a "0 references" render a lie. Error wins over loading because
-  // `useFeaturesList`/`useExperiments` leave `loading` true on failure.
   const referencesError =
     savedGroupsError || featuresError || experimentsError || null;
   const referencesLoading =

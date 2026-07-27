@@ -92,9 +92,7 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
     };
 
     // Migrate legacy runtime groups to use a condition.
-    // A legacy runtime group is only distinguishable from one that has since
-    // been given a real condition by whether `condition` is set, so when the
-    // read projected `condition` away we can't tell and must not guess.
+    // Do not synthesize a condition when it was excluded from the read.
     if (
       group.type === "condition" &&
       !group.condition &&
@@ -207,14 +205,7 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
   }
 
   /**
-   * For `/organization/definitions`. Drops both `values` and `condition`, which
-   * together are most of the payload, and definitions is refetched after every
-   * mutation. Consumers that need a condition use `GET /saved-groups`, and
-   * per-group `values` come from `getById`.
-   *
-   * Projecting `condition` away also stops `migrateSavedGroup` from backfilling
-   * one for legacy runtime groups, so a `type: "condition"` group here can have
-   * no `condition` at all. Absent means "not fetched", never "empty".
+   * Returns saved-group metadata without the payload-heavy values and condition.
    */
   public async getAllForDefinitions(): Promise<SavedGroupForDefinitions[]> {
     const groups = await this._find(

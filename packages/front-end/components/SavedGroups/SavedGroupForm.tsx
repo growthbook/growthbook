@@ -63,7 +63,6 @@ const SavedGroupForm: FC<{
   editInfoOnly?: boolean;
   editConditionOnly?: boolean;
   autoBypassApproval?: boolean;
-  // Awaited on save, so callers that refresh a cache must return the promise.
   mutate?: () => void | Promise<void>;
 }> = ({
   close,
@@ -177,8 +176,6 @@ const SavedGroupForm: FC<{
 
   const { mutateDefinitions, project } = useDefinitions();
 
-  // /organization/definitions drops `condition` to keep the payload small, so
-  // cycle detection needs the condition-bearing /saved-groups list instead.
   const { data: savedGroupsData } = useApi<{
     savedGroups: SavedGroupWithoutValues[];
   }>("/saved-groups");
@@ -386,10 +383,7 @@ const SavedGroupForm: FC<{
             },
             true,
             groupMap,
-            // /saved-groups loads async and starts out empty, which would make
-            // every $savedGroups reference look unknown; skip the whole
-            // nested-group check (unknown / max depth / cycle) until it
-            // arrives. The backend re-validates on submit either way.
+            // Avoid false unknown-group errors while the group map is loading.
             !savedGroupsLoaded,
           );
           if (conditionRes.empty) {

@@ -13,8 +13,6 @@ function DisabledLabel({ children }: { children: ReactNode }) {
   );
 }
 
-// "{n} references" link that opens a references modal; renders a disabled,
-// tooltip-explained label when there are none.
 export default function ReferencesLink({
   total,
   onShow,
@@ -24,9 +22,6 @@ export default function ReferencesLink({
   total: number;
   onShow: () => void;
   emptyTooltip: string;
-  // Omit when the count is known at render time. Callers whose reference data
-  // arrives asynchronously pass this, so a pending or failed fetch isn't drawn
-  // as "0 references" under a tooltip claiming nothing references the entity.
   status?: "loading" | "error";
 }) {
   if (status === "loading") {
