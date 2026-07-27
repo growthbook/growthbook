@@ -44,7 +44,7 @@ import {
 } from "back-end/src/events/handlers/utils";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
 import { getEvent } from "back-end/src/models/EventModel";
-import { getExperimentByIdForOrganization } from "back-end/src/models/ExperimentModel";
+import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getSlackBotAccessTokenForWebhook } from "back-end/src/models/EventWebhookModel";
 import { getUserById } from "back-end/src/models/UserModel";
 import { cancellableFetch } from "back-end/src/util/http.util";
@@ -1776,10 +1776,8 @@ const getExperimentDetailsSource = async (
   if (!organizationId) return source;
 
   try {
-    return (
-      (await getExperimentByIdForOrganization(organizationId, experimentId)) ||
-      source
-    );
+    const context = await getContextForAgendaJobByOrgId(organizationId);
+    return (await getExperimentById(context, experimentId)) || source;
   } catch (e) {
     logger.error(e, "Failed to load experiment details for Slack message");
     return source;
@@ -3239,8 +3237,8 @@ export const maybeSendSlackDirectMessageForEvent = async ({
   });
   if (!token) return;
 
-  const experiment = await getExperimentByIdForOrganization(
-    event.organizationId,
+  const experiment = await getExperimentById(
+    await getContextForAgendaJobByOrgId(event.organizationId),
     experimentId,
   );
   const ownerEmail = experiment?.owner?.includes("@")

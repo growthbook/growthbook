@@ -468,18 +468,6 @@ export async function getExperimentById(
     : null;
 }
 
-export async function getExperimentByIdForOrganization(
-  organizationId: string,
-  id: string,
-): Promise<ExperimentInterface | null> {
-  const doc = await getCollection(COLLECTION).findOne({
-    organization: organizationId,
-    id,
-  });
-
-  return doc ? toInterface(doc) : null;
-}
-
 export async function getExperimentByUid(
   uid: string,
 ): Promise<ExperimentInterface | null> {

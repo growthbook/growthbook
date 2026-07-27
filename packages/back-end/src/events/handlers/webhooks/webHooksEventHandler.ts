@@ -17,6 +17,7 @@ import {
 } from "back-end/src/models/FeatureModel";
 import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import { ReqContext } from "back-end/types/request";
 import { upsertCoalesceBucket } from "back-end/src/models/EventWebHookCoalesceBucketModel";
 import { isSlackExperimentNotificationSnoozed } from "back-end/src/models/SlackNotificationSnoozeModel";
 import { NotificationEventHandler } from "back-end/src/events/notifiers/EventNotifier";
@@ -114,14 +115,12 @@ const metricIdsFromMetricConfig = (c: {
 // guardrail metrics, (2) metrics on inline experiment rules, and (4) metrics of
 // experiments linked to the feature — which also subsumes (3) experiment-ref
 // rules, since those experiments are in `linkedExperiments`. Resolved only when
-// a channel filters by metric (this builds a context + loads the feature and
-// its experiments).
+// a channel filters by metric (this loads the feature and its experiments).
 const getFeatureMetricIds = async (
-  organizationId: string,
+  context: ReqContext,
   featureId: string,
 ): Promise<string[]> => {
   try {
-    const context = await getContextForAgendaJobByOrgId(organizationId);
     const ids: string[] = [];
 
     // (1) Safe-rollout guardrail metrics — metrics monitoring the rollout.
@@ -164,11 +163,17 @@ export const webHooksEventHandler: NotificationEventHandler = async (event) => {
     event.object === "experiment" ? event.objectId : undefined;
   const featureId = event.object === "feature" ? event.objectId : undefined;
 
+  // The cross-subject association lookups below each need an org context, but
+  // only run when some channel actually filters by that dimension. Build it at
+  // most once, lazily, so the common (no such filter) path stays context-free.
+  let contextPromise: ReturnType<typeof getContextForAgendaJobByOrgId> | null =
+    null;
+  const orgContext = () =>
+    (contextPromise ??= getContextForAgendaJobByOrgId(event.organizationId));
+
   // Metrics this event's subject is associated with, for the cross-subject
   // metric filter. Experiments carry theirs in the payload; a feature's come
-  // from its safe rollouts + experiment rules + linked experiments (resolved
-  // only when some channel filters by metric, to avoid a per-event context
-  // build otherwise).
+  // from its safe rollouts + experiment rules + linked experiments.
   let metricIds = getMetricIdsForEvent(event);
   if (
     featureId &&
@@ -177,7 +182,7 @@ export const webHooksEventHandler: NotificationEventHandler = async (event) => {
     metricIds = Array.from(
       new Set([
         ...metricIds,
-        ...(await getFeatureMetricIds(event.organizationId, featureId)),
+        ...(await getFeatureMetricIds(await orgContext(), featureId)),
       ]),
     );
   }
@@ -191,7 +196,7 @@ export const webHooksEventHandler: NotificationEventHandler = async (event) => {
     (await orgHasWebhookFilteringBy(event.organizationId, "features"))
   ) {
     featureIds = await getFeatureIdsLinkedToExperiment(
-      event.organizationId,
+      await orgContext(),
       experimentId,
     );
   }
@@ -206,7 +211,7 @@ export const webHooksEventHandler: NotificationEventHandler = async (event) => {
     (await orgHasWebhookFilteringBy(event.organizationId, "experiments"))
   ) {
     experimentIds = await getFeatureLinkedExperimentIds(
-      event.organizationId,
+      await orgContext(),
       featureId,
     );
   }
