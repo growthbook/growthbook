@@ -149,6 +149,15 @@ function getDetailedRunningStatusIndicatorData(
         needsAttention: true,
         sortOrder: 11,
       };
+    case "scheduled-end-review":
+      return {
+        color: "amber",
+        status: "Running",
+        detailedStatus: "Ready for review",
+        tooltip: decisionData.tooltip,
+        needsAttention: true,
+        sortOrder: 10.5,
+      };
     case "no-data":
       return {
         color: "amber",

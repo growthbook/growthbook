@@ -29,7 +29,7 @@ import {
   DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
   DEFAULT_SRM_THRESHOLD,
 } from "../../constants";
-import { daysBetween, getValidDate } from "../../dates";
+import { daysBetween, getValidDate, hoursBetween } from "../../dates";
 import { getMultipleExposureHealthData, getSRMHealthData } from "../../health";
 import {
   PRESET_DECISION_CRITERIA,
@@ -477,6 +477,22 @@ export function getExperimentResultStatus({
     !!scheduledStopAt &&
     getValidDate(scheduledStopAt) <= new Date();
 
+  // A future scheduled end date sets the remaining run time directly, instead
+  // of the estimated time to reach the targeted statistical power. Round up so
+  // a still-running experiment never shows "0 days left" (daysBetween would
+  // truncate a partial final day to 0).
+  const scheduledDaysLeft =
+    experimentData.status === "running" &&
+    !!scheduledStopAt &&
+    !scheduledEndPassed
+      ? Math.max(
+          1,
+          Math.ceil(
+            hoursBetween(new Date(), getValidDate(scheduledStopAt)) / 24,
+          ),
+        )
+      : null;
+
   // Fully skip decision framework if there are no goal metrics
   // TODO @dmf-experiment: Add front-end information about this
   let decisionStatus: ExperimentResultStatusData | undefined = undefined;
@@ -536,6 +552,9 @@ export function getExperimentResultStatus({
       // or before min duration
       !decisionStatus &&
       !beforeMinDuration &&
+      // a scheduled end date sets the run time, so the mid-experiment
+      // low-power warning no longer applies
+      !scheduledStopAt &&
       // ignore if user has dismissed the warning
       !experimentData.dismissedWarnings?.includes("low-power")
     ) {
@@ -585,24 +604,52 @@ export function getExperimentResultStatus({
     };
   }
 
-  // 3. If early in the experiment, just say running with a tooltip
-  if (beforeMinDuration) {
+  // 3. If early in the experiment, just say running with a tooltip — unless the
+  // scheduled end has already passed, in which case the min-duration wait no
+  // longer applies.
+  if (beforeMinDuration && !scheduledEndPassed) {
     return {
       status: "before-min-duration",
       tooltip: `Estimated days left or decision recommendations will appear after the minimum experiment duration of ${healthSettings.experimentMinLengthDays} is reached.`,
     };
   }
 
-  if (healthSettings.decisionFrameworkEnabled) {
-    // 4. if clear shipping status, show it
-    if (decisionStatus) {
-      return decisionStatus;
-    }
+  // 4. If the Decision Framework produced a clear recommendation, show it.
+  if (healthSettings.decisionFrameworkEnabled && decisionStatus) {
+    return decisionStatus;
+  }
 
-    // 5. If no unhealthy status or clear shipping criteria, show days left data
-    if (daysLeftStatus) {
-      return daysLeftStatus;
-    }
+  // 5. The scheduled end has passed but there is no recommendation. Explain why
+  // and prompt a manual review. Not gated on the Decision Framework.
+  if (scheduledEndPassed) {
+    const reason = !experimentData.goalMetrics.length
+      ? "No goal metrics are configured, so no recommendation can be made."
+      : !resultsStatus
+        ? "Results are not available yet."
+        : !healthSettings.decisionFrameworkEnabled
+          ? "The Experiment Decision Framework is not enabled, so no recommendation can be made."
+          : "No decision criteria were met.";
+    return {
+      status: "scheduled-end-review",
+      tooltip: `The scheduled end date has passed and this experiment is still running. ${reason} Review the results and decide whether to ship a variation, roll back, or keep running.`,
+    };
+  }
+
+  // 6. A future scheduled end date drives the days-left countdown, ahead of and
+  // regardless of the power-based estimate. Not gated on the Decision Framework.
+  if (scheduledDaysLeft !== null) {
+    return {
+      status: "days-left",
+      daysLeft: scheduledDaysLeft,
+      tooltip: `This experiment is scheduled to end in about ${scheduledDaysLeft} ${
+        scheduledDaysLeft === 1 ? "day" : "days"
+      }.`,
+    };
+  }
+
+  // 7. Otherwise fall back to the power-based days-left estimate.
+  if (healthSettings.decisionFrameworkEnabled && daysLeftStatus) {
+    return daysLeftStatus;
   }
 }
 

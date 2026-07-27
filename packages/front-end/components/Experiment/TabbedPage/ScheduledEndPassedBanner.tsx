@@ -24,10 +24,14 @@ function getReasonText(status: ExperimentResultStatusData | undefined): string {
       }.`;
     case "no-data":
       return status.tooltip ? `${status.tooltip}.` : "There is no data yet.";
+    case "scheduled-end-review":
+      return status.tooltip ?? "No decision recommendation is available.";
     case "days-left":
-      return `More data is needed — about ${status.daysLeft} more ${
-        status.daysLeft === 1 ? "day" : "days"
-      } to reach the targeted statistical power.`;
+      return status.tooltip
+        ? status.tooltip
+        : `More data is needed — about ${status.daysLeft} more ${
+            status.daysLeft === 1 ? "day" : "days"
+          } to reach the targeted statistical power.`;
     case "before-min-duration":
       return "The minimum experiment duration has not been reached yet.";
     default:
