@@ -3497,7 +3497,12 @@ export async function postFeatureExperimentRefRule(
     ? environments
     : (scopedRule.environments ?? []);
 
-  if (!context.permissions.canPublishFeature(feature, ruleEnvFootprint)) {
+  // Landing authority only when this call lands. Staging the rule into a draft
+  // is authoring, already gated above; the draft reaches no one until published.
+  if (
+    autoPublish &&
+    !context.permissions.canPublishFeature(feature, ruleEnvFootprint)
+  ) {
     context.permissions.throwPermissionError();
   }
 
@@ -3726,7 +3731,12 @@ export async function postFeatureContextualBanditRefRule(
     ? environments
     : (scopedRule.environments ?? []);
 
-  if (!context.permissions.canPublishFeature(feature, ruleEnvFootprint)) {
+  // Landing authority only when this call lands. Staging the rule into a draft
+  // is authoring, already gated above; the draft reaches no one until published.
+  if (
+    autoPublish &&
+    !context.permissions.canPublishFeature(feature, ruleEnvFootprint)
+  ) {
     context.permissions.throwPermissionError();
   }
 
@@ -4072,6 +4082,16 @@ export async function postFeatureSchema(
     autoPublish ? "Update JSON schema" : undefined,
   );
   if (autoPublish) {
+    // A schema change lands across every enabled environment, so publishing it
+    // takes landing authority — `assertCanAutoPublish` only covers approvals.
+    if (
+      !context.permissions.canPublishFeature(
+        feature,
+        Array.from(getEnabledEnvironments(feature, context.environments)),
+      )
+    ) {
+      context.permissions.throwPermissionError();
+    }
     await assertCanAutoPublish(context, feature, draft);
     await publishRevision({
       context,
@@ -4103,6 +4123,12 @@ export async function putSafeRolloutStatus(
   const feature = await getFeature(context, id);
   if (!feature) {
     throw new Error("Could not find feature");
+  }
+
+  // Authoring gate: this writes a revision. Landing authority is checked per
+  // changed environment below, where the change actually goes live.
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
+    context.permissions.throwPermissionError();
   }
 
   const revision = await createRevision({
@@ -6079,6 +6105,16 @@ export async function toggleStaleFFDetectionForFeature(
   if (autoPublish) {
     if ((feature.neverStale ?? false) === neverStale) {
       return res.status(200).json({ status: 200 });
+    }
+    // Publishing takes landing authority; `assertCanAutoPublish` below only
+    // covers the approval requirement.
+    if (
+      !context.permissions.canPublishFeature(
+        feature,
+        Array.from(getEnabledEnvironments(feature, context.environments)),
+      )
+    ) {
+      context.permissions.throwPermissionError();
     }
     const environments = getEnvironmentIdsFromOrg(context.org);
     const revision = await createRevision({
