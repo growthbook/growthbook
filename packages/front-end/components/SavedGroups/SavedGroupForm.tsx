@@ -386,10 +386,10 @@ const SavedGroupForm: FC<{
             },
             true,
             groupMap,
-            // /saved-groups loads async and starts out empty, which would
-            // make every $savedGroups reference look unknown; skip the
-            // client-side cycle check until it arrives (the backend still
-            // validates on submit).
+            // /saved-groups loads async and starts out empty, which would make
+            // every $savedGroups reference look unknown; skip the whole
+            // nested-group check (unknown / max depth / cycle) until it
+            // arrives. The backend re-validates on submit either way.
             !savedGroupsLoaded,
           );
           if (conditionRes.empty) {
