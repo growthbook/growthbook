@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import md5 from "md5";
 import { getBuild } from "back-end/src/util/build";
 
@@ -25,15 +26,19 @@ import { getBuild } from "back-end/src/util/build";
 // Under file config, metrics/dimensions/datasources/segments come from
 // config.yml and bypass the Mongo writes that bump the version, so the parsed
 // file's hash joins the ETag to invalidate on file changes.
-// Identifies the running build (git SHA when baked in, else the package
-// version). Memoized: the build cannot change within a process.
+// Identifies the running build: the baked-in git SHA when present (official
+// images), else a random per-process id. A package-version fallback would keep
+// validating across SHA-less rebuilds (source checkouts, custom docker builds)
+// — the exact stale-304 class this component exists to prevent. The random id
+// scopes those deploys' caching to the process lifetime: never stale, and a
+// multi-instance SHA-less setup merely degrades to per-instance hit rates.
 let memoizedBuildFingerprint: string | undefined;
 export function definitionsBuildFingerprint(): string {
   if (memoizedBuildFingerprint === undefined) {
-    const build = getBuild();
-    memoizedBuildFingerprint = md5(
-      build.sha || build.lastVersion || "dev",
-    ).slice(0, 8);
+    const sha = getBuild().sha;
+    memoizedBuildFingerprint = sha
+      ? md5(sha).slice(0, 8)
+      : crypto.randomUUID().slice(0, 8);
   }
   return memoizedBuildFingerprint;
 }
