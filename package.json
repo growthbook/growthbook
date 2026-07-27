@@ -6,8 +6,8 @@
   "scripts": {
     "lint": "eslint './**/*.{ts,tsx,js,jsx,mjs}' --max-warnings 0 --cache --cache-strategy content >/dev/null 2>&1 || eslint './**/*.{ts,tsx,js,jsx,mjs}' --fix --max-warnings 0 --cache --cache-strategy content",
     "lint:ci": "eslint './**/*.{ts,tsx,js,jsx,mjs}' --max-warnings 0",
-    "pretty": "prettier --write './**/*.{json,css,scss,md,mdx,js,jsx,ts,tsx,mjs}'",
-    "pretty:check": "prettier --check './**/*.{json,css,scss,md,mdx,js,jsx,ts,tsx,mjs}'",
+    "pretty": "prettier --write --ignore-path .gitignore --ignore-path .prettierignore './**/*.{json,css,scss,md,mdx,js,jsx,ts,tsx,mjs}'",
+    "pretty:check": "prettier --check --ignore-path .gitignore --ignore-path .prettierignore './**/*.{json,css,scss,md,mdx,js,jsx,ts,tsx,mjs}'",
     "type-check": "pnpm -r run type-check",
     "clean": "pnpm -r run clean && rimraf node_modules",
     "doc-gen": "cd docs && pnpm install && pnpm gen",

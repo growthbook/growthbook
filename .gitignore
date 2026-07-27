@@ -53,3 +53,6 @@ next-env.d.ts
 # Private claude folders
 .claude/worktrees/
 .claude/projects/
+
+# Agent scratch space
+.context/
