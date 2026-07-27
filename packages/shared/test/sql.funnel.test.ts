@@ -219,6 +219,86 @@ describe("buildFunnelSql", () => {
     expect(sql).not.toContain("step1_tfp_sum_hrs");
   });
 
+  it("filters out non-qualifying users before the per-step CTEs, not just in the final SELECT", () => {
+    const config = baseFunnelConfig(
+      [
+        { name: "Step 1", factTable: "orders" },
+        { name: "Step 2", factTable: "orders" },
+        { name: "Step 3", factTable: "orders" },
+      ],
+      {
+        dimensions: [
+          {
+            dimensionType: "static",
+            column: "country",
+            values: ["US", "CA"],
+          },
+        ],
+      },
+    );
+
+    const { sql } = buildFunnelSql(config, factTableMap, helpers);
+    const qualifyingIdx = sql.indexOf("__funnel_qualifying_users AS (");
+    const step2Idx = sql.indexOf("__funnel_resolved_step2 AS (");
+    expect(qualifyingIdx).toBeGreaterThan(-1);
+    // The qualifying-users CTE is defined before the per-step CTEs that
+    // consume it, and does the step1/dimension filtering so later steps
+    // never process users who couldn't survive anyway.
+    expect(qualifyingIdx).toBeLessThan(step2Idx);
+    expect(sql).toContain("FROM __funnel_user_aggregates");
+    expect(sql).toContain("WHERE step1_resolved_ts IS NOT NULL");
+    expect(sql).toContain("FROM __funnel_qualifying_users r");
+    expect(sql).not.toContain("FROM __funnel_user_aggregates r");
+    // The final SELECT no longer repeats the filter.
+    const finalSelect = sql.slice(sql.lastIndexOf("SELECT"));
+    expect(finalSelect).not.toContain("WHERE");
+  });
+
+  it("filters to pinned values via a WHERE clause for a static dimension", () => {
+    const config = baseFunnelConfig(
+      [
+        { name: "Step 1", factTable: "orders" },
+        { name: "Step 2", factTable: "orders" },
+      ],
+      {
+        dimensions: [
+          {
+            dimensionType: "static",
+            column: "country",
+            values: ["US", "CA"],
+          },
+        ],
+      },
+    );
+
+    const { sql } = buildFunnelSql(config, factTableMap, helpers);
+    // Applied post-aggregation on the first-touch dimension, not on raw
+    // per-fact-table events (which may also feed unrelated steps).
+    expect(sql).toContain("dimension_1 IN ('US', 'CA')");
+    expect(sql).not.toContain("'other'");
+  });
+
+  it("skips the filter for a static dimension with no pinned values instead of emitting invalid SQL", () => {
+    // The validator no longer rejects an empty `values` array (it must keep
+    // parsing already-persisted/URL-encoded explorations that predate the
+    // editor's 1-20 cap), so this must not emit a malformed `IN ()`.
+    const config = baseFunnelConfig(
+      [
+        { name: "Step 1", factTable: "orders" },
+        { name: "Step 2", factTable: "orders" },
+      ],
+      {
+        dimensions: [
+          { dimensionType: "static", column: "country", values: [] },
+        ],
+      },
+    );
+
+    const { sql } = buildFunnelSql(config, factTableMap, helpers);
+    expect(sql).not.toContain("IN ()");
+    expect(sql).not.toContain("dimension_1 IN");
+  });
+
   it("aggregates the event log exactly once and looks step 2+ up in arrays", () => {
     const config = baseFunnelConfig([
       { name: "Step 1", factTable: "orders" },
