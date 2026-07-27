@@ -153,6 +153,47 @@ export async function canAdvanceFeatureDraft({
 }
 
 /**
+ * A rebase that pulls in nothing: every merge field undefined, bar an empty
+ * environment map. Defined once so the internal and REST rebase paths can't
+ * drift on what "no-op" means.
+ */
+export function rebasePullsInNothing(
+  mergeChanges: MergeResultChanges,
+): boolean {
+  return Object.entries(mergeChanges).every(([field, value]) => {
+    if (value === undefined) return true;
+    if (field === "environmentsEnabled") {
+      return Object.keys(value ?? {}).length === 0;
+    }
+    return false;
+  });
+}
+
+/**
+ * Draft authority covers any rebase. Revert authority covers one that pulls in
+ * nothing, so a revert-only role can satisfy "require drafts to be rebased
+ * before publishing" without gaining a way to sweep someone else's changes into
+ * its rollback.
+ */
+export async function canRebaseFeatureDraft({
+  context,
+  feature,
+  draft,
+  mergeChanges,
+}: {
+  context: ReqContext | ApiReqContext;
+  feature: FeatureInterface;
+  draft: FeatureRevisionInterface;
+  // Absent when the merge failed: unresolved conflicts need resolutions, which
+  // is never a no-op, so those always take draft authority.
+  mergeChanges?: MergeResultChanges;
+}): Promise<boolean> {
+  if (context.permissions.canEditFeatureDrafts(feature)) return true;
+  if (!mergeChanges || !rebasePullsInNothing(mergeChanges)) return false;
+  return canAdvanceFeatureDraft({ context, feature, draft });
+}
+
+/**
  * Publish authority for the environments the merge touches, or revert authority
  * for a draft that only restores a previously-published revision. The purity
  * check runs only on the fallback, so publishers pay no extra load.

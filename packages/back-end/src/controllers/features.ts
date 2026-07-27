@@ -133,6 +133,7 @@ import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import {
   assertCanPublishFeatureRevision,
   canAdvanceFeatureDraft,
+  canRebaseFeatureDraft,
 } from "back-end/src/revisions/featureRevertPurity";
 import {
   canLandArchivedState,
@@ -924,10 +925,6 @@ export async function postFeatureRebase(
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const environmentIds = environments.map((e) => e.id);
 
-  if (!context.permissions.canEditFeatureDrafts(feature)) {
-    context.permissions.throwPermissionError();
-  }
-
   const revision = await getRevision({
     context,
     organization: org.id,
@@ -968,6 +965,17 @@ export async function postFeatureRebase(
 
   if (!mergeResult.success) {
     throw new Error("Please resolve conflicts before saving");
+  }
+
+  if (
+    !(await canRebaseFeatureDraft({
+      context,
+      feature,
+      draft: revision,
+      mergeChanges: mergeResult.result,
+    }))
+  ) {
+    context.permissions.throwPermissionError();
   }
 
   const newRules: FeatureRule[] =
