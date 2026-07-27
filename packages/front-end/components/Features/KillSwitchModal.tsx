@@ -385,7 +385,16 @@ export default function KillSwitchModal({
       return getEffectiveState(env.id) !== !!liveEnvSettings[env.id]?.enabled;
     });
 
-  const canAutoPublish = isAdmin || !envIsGated;
+  // Landing the toggle needs publish authority in every environment it actually
+  // flips. Approval gating alone is not enough: a draft-only editor may stage a
+  // toggle but never land one, however inconsequential it is.
+  const canPublishFlippedEnvs = visibleEnvs.every(
+    (env) =>
+      getEffectiveState(env.id) === !!liveEnvSettings[env.id]?.enabled ||
+      permissionsUtil.canPublishFeature(feature, [env.id]),
+  );
+
+  const canAutoPublish = (isAdmin || !envIsGated) && canPublishFlippedEnvs;
   // Without draft rights, publishing is the only route — and an approval-gated
   // change closes it, leaving nothing this user can submit.
   const noRouteAvailable = !canDraft && !canAutoPublish;

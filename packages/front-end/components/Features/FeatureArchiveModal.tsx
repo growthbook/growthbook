@@ -80,7 +80,15 @@ export default function FeatureArchiveModal({
     return servingEnvs.some((env) => gatedEnvs.includes(env));
   })();
 
-  const canAutoPublish = isAdmin || !archiveGated;
+  // Landing the flip is delete-class when archiving and publish-class when
+  // unarchiving — the same split `canLandArchivedState` enforces server-side.
+  // Approval gating alone is not enough: a draft-only editor may stage an
+  // archive but never land one, however inconsequential the flip.
+  const canLandArchiveFlip = isArchived
+    ? permissionsUtil.canPublishFeature(feature, servingEnvs)
+    : permissionsUtil.canDeleteFeature(feature, servingEnvs);
+
+  const canAutoPublish = (isAdmin || !archiveGated) && canLandArchiveFlip;
 
   const { mode: initialMode, defaultDraft } = useDefaultDraftMode(
     revisionList,
