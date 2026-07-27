@@ -3,6 +3,7 @@ import { toApiRevisionV2 } from "back-end/src/services/features";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
+import { canRecallFeatureReview } from "back-end/src/revisions/featureDraftAuthority";
 import {
   getRevision,
   recallReview,
@@ -14,10 +15,6 @@ export const postFeatureRevisionRecallReviewV2 = createApiRequestHandler(
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
-  if (!req.context.permissions.canEditFeatureDrafts(feature)) {
-    req.context.permissions.throwPermissionError();
-  }
-
   const revision = await getRevision({
     context: req.context,
     organization: req.organization.id,
@@ -26,6 +23,16 @@ export const postFeatureRevisionRecallReviewV2 = createApiRequestHandler(
     version: req.params.version,
   });
   if (!revision) throw new NotFoundError("Could not find feature revision");
+
+  if (
+    !(await canRecallFeatureReview({
+      context: req.context,
+      feature,
+      draft: revision,
+    }))
+  ) {
+    req.context.permissions.throwPermissionError();
+  }
 
   const allowed = ["pending-review", "changes-requested", "approved"];
   if (!allowed.includes(revision.status)) {

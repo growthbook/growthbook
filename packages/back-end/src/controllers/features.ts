@@ -130,11 +130,13 @@ import { assertFeatureArchiveDependentsGuard } from "back-end/src/services/archi
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
+import { assertCanPublishFeatureRevision } from "back-end/src/revisions/featureRevertPurity";
 import {
-  assertCanPublishFeatureRevision,
   canAdvanceFeatureDraft,
+  canDiscardFeatureDraft,
   canRebaseFeatureDraft,
-} from "back-end/src/revisions/featureRevertPurity";
+  canRecallFeatureReview,
+} from "back-end/src/revisions/featureDraftAuthority";
 import {
   canLandArchivedState,
   isArchiveTransition,
@@ -1675,8 +1677,9 @@ export async function postFeatureToggleAutoPublish(
 }
 
 // Retract a review request: reverts pending-review / changes-requested /
-// approved back to draft. Gated on canEditFeatureDrafts (any draft manager,
-// not only the original requester).
+// approved back to draft. Draft authority reaches any draft; revert and delete
+// authority reach only a draft the caller authored, so a single-purpose role can
+// retract its own request without touching anyone else's.
 export async function postFeatureRecallReview(
   req: AuthRequest<Record<string, never>, { id: string; version: string }>,
   res: Response,
@@ -1685,9 +1688,6 @@ export async function postFeatureRecallReview(
   const { id, version } = req.params;
   const feature = await getFeature(context, id);
   if (!feature) throw new Error("Could not find feature");
-  if (!context.permissions.canEditFeatureDrafts(feature)) {
-    context.permissions.throwPermissionError();
-  }
   const revision = await getRevision({
     context,
     organization: context.org.id,
@@ -1696,6 +1696,9 @@ export async function postFeatureRecallReview(
     version: parseInt(version),
   });
   if (!revision) throw new Error("Could not find feature revision");
+  if (!(await canRecallFeatureReview({ context, feature, draft: revision }))) {
+    context.permissions.throwPermissionError();
+  }
   await recallReview(context, revision, res.locals.eventAudit);
   res.status(200).json({ status: 200 });
 }
@@ -2791,7 +2794,7 @@ export async function postFeatureDiscard(
     throw new Error(`Can not discard ${revision.status} revisions`);
   }
 
-  if (!context.permissions.canEditFeatureDrafts(feature)) {
+  if (!(await canDiscardFeatureDraft({ context, feature, draft: revision }))) {
     context.permissions.throwPermissionError();
   }
 

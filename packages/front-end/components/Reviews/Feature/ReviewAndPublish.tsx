@@ -690,13 +690,33 @@ export default function ReviewAndPublish({
   // published revision, so a revert-only role isn't left holding a rollback it
   // can't advance. Provenance is all the client can see; the server re-verifies
   // that the draft really is a pure revert.
+  // Moving a draft along — requesting review, recalling it, discarding it —
+  // normally takes draft authority. Revert and delete authority also reach a
+  // draft that only does the thing they're allowed to do, and either reaches a
+  // draft the caller authored whatever it contains: you can clean up your own
+  // mess. The client goes on provenance alone; the server re-verifies purity.
+  const draftEnvIds = environments.map((e) => e.id);
+  const hasRevertAuthority = permissionsUtil.canRevertFeature(
+    feature,
+    draftEnvIds,
+  );
+  const hasDeleteAuthority = permissionsUtil.canDeleteFeature(
+    feature,
+    draftEnvIds,
+  );
+  const authoredDraft =
+    (!!userId &&
+      !!revision?.createdBy &&
+      "id" in revision.createdBy &&
+      revision.createdBy.id === userId) ||
+    (!!userId && (revision?.contributors ?? []).includes(userId));
+  const draftStagesRevert = revision?.revertedFromVersion !== undefined;
+  const draftStagesArchive = revision?.archived === true;
   const canAdvanceDraft =
     permissionsUtil.canEditFeatureDrafts(feature) ||
-    (revision?.revertedFromVersion !== undefined &&
-      permissionsUtil.canRevertFeature(
-        feature,
-        environments.map((e) => e.id),
-      ));
+    (authoredDraft && (hasRevertAuthority || hasDeleteAuthority)) ||
+    (hasRevertAuthority && draftStagesRevert) ||
+    (hasDeleteAuthority && draftStagesArchive);
   const approved = revision?.status === "approved" || adminPublish;
 
   const autopublishOnApproval =
@@ -1585,7 +1605,10 @@ export default function ReviewAndPublish({
     mergeSuccess: mergeResult.success,
     hasChanges,
     hasReviewPermission: permissionsUtil.canReviewFeatureDrafts(feature),
-    canManageDraft: permissionsUtil.canEditFeatureDrafts(feature),
+    // Recall is derived from this in the state machine, and revert/delete
+    // authority may recall a review request on a draft they authored — so pass
+    // the widened predicate rather than the bare draft atom.
+    canManageDraft: canAdvanceDraft,
     isReviewRequester,
     isContributor: !!userId && contributorIds.includes(userId),
     isReviewer: !!userId && reviewers.some((r) => r.id === userId),

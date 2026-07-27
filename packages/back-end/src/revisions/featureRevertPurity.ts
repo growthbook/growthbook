@@ -5,8 +5,6 @@ import { FeatureRevisionInterface } from "shared/validators";
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
-import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
-import { getEnabledEnvironments } from "back-end/src/util/features";
 import { isPlausibleFeatureRule } from "back-end/src/util/flattenRules";
 import { upgradeFeatureRule } from "back-end/src/util/migrations";
 import { isArchiveTransition } from "back-end/src/revisions/archiveTransition";
@@ -124,73 +122,51 @@ function environmentsEnabledOnlyRestore({
 }
 
 /**
- * Whether the caller may move this draft through the review workflow. Draft
- * authority covers any draft; revert authority covers one that only restores a
- * previously-published revision, so a revert-only role can shepherd its own
- * rollback instead of stranding it. The purity check runs only on the fallback.
+ * Whether a feature draft only archives the flag and changes nothing else.
+ * Mirrors `isPureFeatureRevert`: the fallback that lets delete authority act on
+ * a draft it would be allowed to land, without letting anything else ride along.
+ *
+ * Only the archive direction counts — unarchiving returns a flag to service and
+ * is publish-class, not delete-class.
  */
-export async function canAdvanceFeatureDraft({
-  context,
+export function isPureFeatureArchive({
   feature,
   draft,
 }: {
-  context: ReqContext | ApiReqContext;
   feature: FeatureInterface;
   draft: FeatureRevisionInterface;
-}): Promise<boolean> {
-  if (context.permissions.canEditFeatureDrafts(feature)) return true;
+}): boolean {
   if (
-    !context.permissions.canRevertFeature(
-      feature,
-      Array.from(
-        getEnabledEnvironments(feature, getEnvironmentIdsFromOrg(context.org)),
-      ),
-    )
+    !isArchiveTransition({
+      proposed: draft.archived,
+      current: feature.archived,
+    })
   ) {
     return false;
   }
-  return draftIsPureRevert({ context, feature, draft });
-}
 
-/**
- * A rebase that pulls in nothing: every merge field undefined, bar an empty
- * environment map. Defined once so the internal and REST rebase paths can't
- * drift on what "no-op" means.
- */
-export function rebasePullsInNothing(
-  mergeChanges: MergeResultChanges,
-): boolean {
-  return Object.entries(mergeChanges).every(([field, value]) => {
-    if (value === undefined) return true;
-    if (field === "environmentsEnabled") {
-      return Object.keys(value ?? {}).length === 0;
-    }
-    return false;
-  });
-}
+  // Side effects reaching beyond this feature are never part of a pure archive.
+  if (draft.rampActions?.length) return false;
+  if (!isEqual(draft.holdout ?? null, feature.holdout ?? null)) return false;
 
-/**
- * Draft authority covers any rebase. Revert authority covers one that pulls in
- * nothing, so a revert-only role can satisfy "require drafts to be rebased
- * before publishing" without gaining a way to sweep someone else's changes into
- * its rollback.
- */
-export async function canRebaseFeatureDraft({
-  context,
-  feature,
-  draft,
-  mergeChanges,
-}: {
-  context: ReqContext | ApiReqContext;
-  feature: FeatureInterface;
-  draft: FeatureRevisionInterface;
-  // Absent when the merge failed: unresolved conflicts need resolutions, which
-  // is never a no-op, so those always take draft authority.
-  mergeChanges?: MergeResultChanges;
-}): Promise<boolean> {
-  if (context.permissions.canEditFeatureDrafts(feature)) return true;
-  if (!mergeChanges || !rebasePullsInNothing(mergeChanges)) return false;
-  return canAdvanceFeatureDraft({ context, feature, draft });
+  const normalize = (rules: unknown) =>
+    ((rules ?? []) as FeatureRule[])
+      .filter(isPlausibleFeatureRule)
+      .map((r) => upgradeFeatureRule(r));
+  if (!isEqual(normalize(draft.rules), normalize(feature.rules))) return false;
+
+  // `createRevision` fills an entry per environment it was handed, so compare
+  // per key against live rather than whole-object.
+  const proposedEnvs = draft.environmentsEnabled ?? {};
+  const envsUnchanged = Object.entries(proposedEnvs).every(
+    ([env, enabled]) =>
+      enabled === (feature.environmentSettings?.[env]?.enabled ?? false),
+  );
+  if (!envsUnchanged) return false;
+
+  return CONTENT_FIELDS.filter((field) => field !== "archived").every((field) =>
+    isEqual(draft[field], liveValueFor(field, feature)),
+  );
 }
 
 /**

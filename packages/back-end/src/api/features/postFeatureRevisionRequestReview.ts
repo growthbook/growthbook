@@ -14,7 +14,7 @@ import {
   getRevision,
   markRevisionAsReviewRequested,
 } from "back-end/src/models/FeatureRevisionModel";
-import { canAdvanceFeatureDraft } from "back-end/src/revisions/featureRevertPurity";
+import { canAdvanceFeatureDraft } from "back-end/src/revisions/featureDraftAuthority";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import {
   canEnableFeatureAutoPublishOnApproval,

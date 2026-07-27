@@ -11,6 +11,7 @@ import {
   discardRevision,
   getRevision,
 } from "back-end/src/models/FeatureRevisionModel";
+import { canDiscardFeatureDraft } from "back-end/src/revisions/featureDraftAuthority";
 
 export async function discardFeatureRevision(
   req: Pick<ApiRequestLocals, "context" | "organization" | "audit"> & {
@@ -19,10 +20,6 @@ export async function discardFeatureRevision(
 ) {
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
-
-  if (!req.context.permissions.canEditFeatureDrafts(feature)) {
-    req.context.permissions.throwPermissionError();
-  }
 
   const revision = await getRevision({
     context: req.context,
@@ -35,6 +32,16 @@ export async function discardFeatureRevision(
 
   if (revision.status === "published" || revision.status === "discarded") {
     throw new BadRequestError(`Cannot discard a ${revision.status} revision`);
+  }
+
+  if (
+    !(await canDiscardFeatureDraft({
+      context: req.context,
+      feature,
+      draft: revision,
+    }))
+  ) {
+    req.context.permissions.throwPermissionError();
   }
 
   await discardRevision(req.context, revision, req.context.auditUser);

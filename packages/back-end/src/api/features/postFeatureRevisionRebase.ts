@@ -34,7 +34,7 @@ import {
   MergeConflictError,
   NotFoundError,
 } from "back-end/src/util/errors";
-import { canRebaseFeatureDraft } from "back-end/src/revisions/featureRevertPurity";
+import { canRebaseFeatureDraft } from "back-end/src/revisions/featureDraftAuthority";
 import { maybeAutoPublishFeatureRevision } from "./autoPublishOnApproval";
 import { isDraftStatus } from "./validations";
 
