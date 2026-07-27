@@ -23,6 +23,35 @@ const EDITABLE_AUTHOR_ACTIONS = new Set([
 // effect on the revision's status — use `undoReview` for that.
 const DELETABLE_AUTHOR_ACTIONS = new Set(["Comment"]);
 
+// An entry is the record of an action, so writing it takes exactly the action's
+// own authority: approve and you may log the approval; may not approve and you
+// may do neither. Keyed by the `action` each writer in FeatureRevisionModel
+// stores. Anything unlisted falls back to "may act on this flag at all" — a new
+// action must not silently lose its log entry, which is the failure this table
+// exists to prevent.
+const REVIEW_CLASS_ACTIONS = new Set([
+  "Approved",
+  "Requested Changes",
+  "Comment",
+  "Undo Review",
+]);
+
+const PUBLISH_CLASS_ACTIONS = new Set([
+  "publish",
+  "re-publish",
+  "schedule publish",
+  "update scheduled publish",
+  "cancel scheduled publish",
+]);
+
+const DRAFT_CLASS_ACTIONS = new Set([
+  "new revision",
+  "Review Requested",
+  "Recall Review",
+  "reopen",
+  "discard",
+]);
+
 const BaseClass = MakeModelClass({
   schema: featureRevisionLogValidator,
   collectionName: COLLECTION_NAME,
@@ -59,14 +88,34 @@ export class FeatureRevisionLogModel extends BaseClass {
     if (!feature) {
       throw new Error("Feature not found for FeatureRevisionLog");
     }
-    // Creating a flag writes its first log entry, so create authority has to
-    // count here as well as draft authority — otherwise `createFlags` alone
-    // can't create anything.
+    // Environments are deliberately unbound throughout: the action's own gate
+    // scopes it, and the record of it isn't environment-specific.
+    const permissions = this.context.permissions;
+
+    if (REVIEW_CLASS_ACTIONS.has(doc.action)) {
+      return permissions.canReviewFeatureDrafts(feature);
+    }
+    if (PUBLISH_CLASS_ACTIONS.has(doc.action)) {
+      return permissions.canPublishFeature(feature, NO_ENVIRONMENT_BINDING);
+    }
+    if (DRAFT_CLASS_ACTIONS.has(doc.action)) {
+      // Creating a flag writes its first "new revision" entry, so create
+      // authority counts alongside draft authority here.
+      return (
+        permissions.canCreateFeature(feature, NO_ENVIRONMENT_BINDING) ||
+        permissions.canEditFeatureDrafts(feature)
+      );
+    }
+    // Unlisted action — rule edits, toggles, archive, revert. Any authority to
+    // act on the flag suffices, so a newly added action can't silently lose its
+    // entry the way a reviewer's verdict did.
     return (
-      this.context.permissions.canCreateFeature(
-        feature,
-        NO_ENVIRONMENT_BINDING,
-      ) || this.context.permissions.canEditFeatureDrafts(feature)
+      permissions.canCreateFeature(feature, NO_ENVIRONMENT_BINDING) ||
+      permissions.canEditFeatureDrafts(feature) ||
+      permissions.canReviewFeatureDrafts(feature) ||
+      permissions.canPublishFeature(feature, NO_ENVIRONMENT_BINDING) ||
+      permissions.canRevertFeature(feature, NO_ENVIRONMENT_BINDING) ||
+      permissions.canDeleteFeature(feature, NO_ENVIRONMENT_BINDING)
     );
   }
 
