@@ -1,5 +1,5 @@
 import { generateProductAnalyticsSQL } from "shared/enterprise";
-import { format } from "shared/sql";
+import { format, createLikeStringMatchFn } from "shared/sql";
 import { ExplorationConfig } from "shared/validators";
 import { SqlDialect } from "shared/types/sql";
 import {
@@ -15,6 +15,10 @@ describe("productAnalytics", () => {
 
   const helpers: SqlDialect = {
     escapeStringLiteral: (value) => value,
+    stringMatch: createLikeStringMatchFn({
+      escapeStringLiteral: (value) => value,
+      emitEscapeClause: false,
+    }),
     jsonExtract: (jsonCol, path, isNumeric) =>
       `${jsonCol}:'${path}'::${isNumeric ? "float" : "text"}`,
     evalBoolean: (col, value) => `${col} IS ${value ? "TRUE" : "FALSE"}`,
@@ -110,6 +114,39 @@ describe("productAnalytics", () => {
   ]);
 
   const metricMap = new Map<string, FactMetricInterface>();
+
+  const ratioMetricMap = new Map<string, FactMetricInterface>([
+    [
+      "revenue_per_event",
+      {
+        id: "revenue_per_event",
+        name: "Revenue per Event",
+        metricType: "ratio",
+        numerator: {
+          factTableId: "orders",
+          column: "revenue",
+          aggregation: "sum",
+        },
+        denominator: {
+          factTableId: "orders",
+          column: "$$count",
+          aggregation: "sum",
+        },
+        cappingSettings: {
+          type: "",
+          value: 0,
+        },
+        windowSettings: {
+          type: "",
+          delayValue: 0,
+          delayUnit: "days",
+          windowValue: 0,
+          windowUnit: "days",
+        },
+        quantileSettings: null,
+      } as FactMetricInterface,
+    ],
+  ]);
 
   const sketchFactTableMap = new Map<string, FactTableInterface>([
     [
@@ -740,6 +777,114 @@ describe("productAnalytics", () => {
     );
 
     expect(sql).toEqual(expected);
+  });
+
+  it("generates SQL aliases for event-level ratio metrics", () => {
+    const config: ExplorationConfig = {
+      type: "metric",
+      datasource: "ds_1",
+      chartType: "line",
+      showAs: "total",
+      dateRange: {
+        predefined: "last7Days",
+        startDate: null,
+        endDate: null,
+        lookbackValue: null,
+        lookbackUnit: null,
+      },
+      dimensions: [
+        {
+          dimensionType: "date",
+          column: null,
+          dateGranularity: "day",
+        },
+      ],
+      dataset: {
+        type: "metric",
+        values: [
+          {
+            name: "Revenue per Event",
+            type: "metric",
+            metricId: "revenue_per_event",
+            rowFilters: [],
+            unit: null,
+            denominatorUnit: null,
+          },
+        ],
+      },
+    };
+
+    const { sql, orderedMetricIds } = generateProductAnalyticsSQL(
+      config,
+      factTableMap,
+      ratioMetricMap,
+      helpers,
+      datasource,
+    );
+
+    expect(orderedMetricIds).toEqual(["revenue_per_event"]);
+    expect(sql).toContain("CAST(SUM(m0) AS FLOAT) AS m0_numerator");
+    expect(sql).toContain(
+      "CAST(SUM(m0_denominator) AS FLOAT) AS m0_denominator",
+    );
+    expect(sql).toContain("m0_numerator AS m0_numerator");
+    expect(sql).toContain("m0_denominator AS m0_denominator");
+    expect(sql).not.toContain("m0_denominator_numerator");
+    expect(sql).not.toContain("m0_denominator_denominator");
+  });
+
+  it("generates SQL aliases for ratio metrics across unit and event rollups", () => {
+    const config: ExplorationConfig = {
+      type: "metric",
+      datasource: "ds_1",
+      chartType: "line",
+      showAs: "total",
+      dateRange: {
+        predefined: "last7Days",
+        startDate: null,
+        endDate: null,
+        lookbackValue: null,
+        lookbackUnit: null,
+      },
+      dimensions: [
+        {
+          dimensionType: "date",
+          column: null,
+          dateGranularity: "day",
+        },
+      ],
+      dataset: {
+        type: "metric",
+        values: [
+          {
+            name: "Revenue per Event",
+            type: "metric",
+            metricId: "revenue_per_event",
+            rowFilters: [],
+            unit: "user_id",
+            denominatorUnit: null,
+          },
+        ],
+      },
+    };
+
+    const { sql, orderedMetricIds } = generateProductAnalyticsSQL(
+      config,
+      factTableMap,
+      ratioMetricMap,
+      helpers,
+      datasource,
+    );
+
+    expect(orderedMetricIds).toEqual(["revenue_per_event"]);
+    expect(sql).toContain("CAST(SUM(m0) AS FLOAT) AS m0_numerator");
+    expect(sql).toContain(
+      "CAST(SUM(m0_denominator) AS FLOAT) AS m0_denominator",
+    );
+    expect(sql).toContain("MAX(m0_numerator) AS m0_numerator");
+    expect(sql).toContain("MAX(m0_denominator) AS m0_denominator");
+    expect(sql).not.toContain("m0_denominator_numerator");
+    expect(sql).not.toContain("m0_denominator_denominator");
   });
 
   it("generates SQL for HLL merge metric unit aggregation", () => {

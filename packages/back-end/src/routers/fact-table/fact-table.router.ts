@@ -17,6 +17,9 @@ const router = express.Router();
 const factTableController = wrapController(rawFactTableController);
 
 const factTableParams = z.object({ id: z.string() }).strict();
+const aggregatedRunsParams = z
+  .object({ id: z.string(), idType: z.string() })
+  .strict();
 const columnParams = z.object({ id: z.string(), column: z.string() }).strict();
 const filterParams = z
   .object({ id: z.string(), filterId: z.string() })
@@ -30,6 +33,16 @@ router.post(
   factTableController.postFactTable,
 );
 
+router.get("/fact-tables", factTableController.getFactTables);
+
+router.get(
+  "/fact-tables/:id",
+  validateRequestMiddleware({
+    params: factTableParams,
+  }),
+  factTableController.getFactTableById,
+);
+
 router.put(
   "/fact-tables/:id",
   validateRequestMiddleware({
@@ -37,6 +50,44 @@ router.put(
     body: updateFactTablePropsValidator,
   }),
   factTableController.putFactTable,
+);
+
+router.get(
+  "/fact-tables/:id/aggregated-tables",
+  validateRequestMiddleware({
+    params: factTableParams,
+  }),
+  factTableController.getAggregatedFactTables,
+);
+
+router.get(
+  "/fact-tables/:id/aggregated-tables/:idType/runs",
+  validateRequestMiddleware({
+    params: aggregatedRunsParams,
+  }),
+  factTableController.getAggregatedFactTableRuns,
+);
+
+router.post(
+  "/fact-tables/:id/aggregated-tables/refresh",
+  validateRequestMiddleware({
+    params: factTableParams,
+    body: z
+      .object({
+        idType: z.string().optional(),
+        fullRestate: z.boolean().optional(),
+      })
+      .strict(),
+  }),
+  factTableController.refreshAggregatedFactTables,
+);
+
+router.post(
+  "/fact-tables/:id/aggregated-tables/:idType/cancel",
+  validateRequestMiddleware({
+    params: aggregatedRunsParams,
+  }),
+  factTableController.cancelAggregatedFactTableRun,
 );
 
 router.post("/fact-tables/:id/archive", factTableController.archiveFactTable);

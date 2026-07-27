@@ -6,11 +6,12 @@ import {
 import { useForm } from "react-hook-form";
 import cloneDeep from "lodash/cloneDeep";
 import uniqId from "uniqid";
-import { FaExclamationTriangle, FaExternalLinkAlt } from "react-icons/fa";
+import { FaExternalLinkAlt } from "react-icons/fa";
 import { TestQueryRow } from "shared/types/integrations";
 import Code from "@/components/SyntaxHighlighting/Code";
 import Modal from "@/components/Modal";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
+import Callout from "@/ui/Callout";
 
 type FeatureEvaluationQueryProps = {
   featureUsageQuery?: FeatureUsageQuery;
@@ -99,6 +100,7 @@ export const FeatureEvaluationQueryModal: FC<FeatureEvaluationQueryProps> = ({
       )}
 
       <Modal
+        useRadixButton={false}
         trackingEventModalType=""
         open={true}
         submit={handleSubmit}
@@ -114,11 +116,10 @@ export const FeatureEvaluationQueryModal: FC<FeatureEvaluationQueryProps> = ({
               <div className="form-group">
                 <label className="mr-5">Query</label>
                 {userEnteredQuery === defaultQuery && (
-                  <div className="alert alert-info">
-                    <FaExclamationTriangle style={{ marginTop: "-2px" }} /> The
-                    prefilled query below may require editing to fit your data
-                    structure.
-                  </div>
+                  <Callout status="info">
+                    The prefilled query below may require editing to fit your
+                    data structure.
+                  </Callout>
                 )}
                 {userEnteredQuery && (
                   <Code

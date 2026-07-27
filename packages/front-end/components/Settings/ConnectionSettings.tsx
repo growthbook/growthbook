@@ -1,5 +1,5 @@
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { ChangeEventHandler } from "react";
+import { ChangeEventHandler, ReactNode } from "react";
 import AthenaForm from "./AthenaForm";
 import BigQueryForm from "./BigQueryForm";
 import ClickHouseForm from "./ClickHouseForm";
@@ -19,6 +19,7 @@ export interface Props {
   hasError: boolean;
   setDirty?: (dirty: boolean) => void;
   setDatasource: (newVal: Partial<DataSourceInterfaceWithParams>) => void;
+  beforeAdvancedSettings?: ReactNode;
 }
 
 export default function ConnectionSettings({
@@ -27,10 +28,11 @@ export default function ConnectionSettings({
   setDatasource,
   setDirty,
   hasError,
+  beforeAdvancedSettings,
 }: Props) {
   // Set the new params (specific per-datasource) and optionally settings (shared between datasources)
   const setParams = (
-    params: { [key: string]: string },
+    params: { [key: string]: string | boolean },
     settings: { [key: string]: string } = {},
   ) => {
     const newVal = {
@@ -206,6 +208,7 @@ export default function ConnectionSettings({
   return (
     <>
       {datasourceComponent}
+      {beforeAdvancedSettings}
       <SharedConnectionSettings
         onSettingChange={onSettingChange}
         settings={datasource?.settings || {}}

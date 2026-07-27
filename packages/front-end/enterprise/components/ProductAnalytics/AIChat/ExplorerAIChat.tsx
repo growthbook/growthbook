@@ -10,13 +10,13 @@ import { useAIChat } from "@/enterprise/hooks/useAIChat";
 import ConversationSidebar from "@/enterprise/components/AIChat/ConversationSidebar";
 import AIChatGatingScreen from "@/enterprise/components/AIChat/AIChatGatingScreen";
 import ChatInputBar from "@/enterprise/components/AIChat/ChatInputBar";
+import { useChatFeedback } from "@/enterprise/components/AIChat/useChatFeedback";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import DataSourceDropdown from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/DataSourceDropdown";
 import { PA_AI_CHAT_INITIAL_MESSAGE_KEY } from "@/enterprise/components/ProductAnalytics/util";
 import ChatMessageList, { TOOL_STATUS_LABELS } from "./ChatMessageList";
 import { useConversationList } from "./useConversationList";
 import { useChatModel } from "./useChatModel";
-import { useChatFeedback } from "./useChatFeedback";
 import { useAutoScroll } from "./useAutoScroll";
 
 export default function ExplorerAIChat() {

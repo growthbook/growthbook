@@ -427,9 +427,12 @@ export default function ReportMetaInfo({
             mutate?.();
           })}
           header={`Edit "${report.title}"`}
-          useRadixButton={true}
         >
-          <Field label="Report Name" {...generalForm.register("title")} />
+          <Field
+            size="legacy"
+            label="Report Name"
+            {...generalForm.register("title")}
+          />
 
           <label>Description</label>
           <MarkdownInput
@@ -446,7 +449,6 @@ export default function ReportMetaInfo({
           close={() => setShareModalOpen(false)}
           closeCta="Close"
           header={`Share "${report.title}"`}
-          useRadixButton={true}
           secondaryCTA={shareLinkButton}
         >
           <div className="mb-3">
@@ -470,6 +472,7 @@ export default function ReportMetaInfo({
           </div>
 
           <SelectField
+            size="legacy"
             label="View access"
             value={shareLevel}
             onChange={(v: ShareLevel) => setShareLevel(v)}
@@ -499,6 +502,7 @@ export default function ReportMetaInfo({
           </div>
 
           <SelectField
+            size="legacy"
             label="Edit access"
             value={editLevel}
             onChange={(v: EditLevel) => setEditLevel(v)}

@@ -91,7 +91,7 @@ export default function StickyBucketingSettings() {
                       </>
                     }
                   >
-                    Enable fallback attributes in experiments <GBInfo />
+                    Enable fallback attributes in Experiments <GBInfo />
                   </Tooltip>
                 </label>
               </Box>
@@ -107,7 +107,11 @@ export default function StickyBucketingSettings() {
             someMessage={
               <>
                 Ensure that Sticky Bucketing is correctly integrated (
-                <DocLink docSection="stickyBucketing" className="underline">
+                <DocLink
+                  useRadix={false}
+                  docSection="stickyBucketing"
+                  className="underline"
+                >
                   see docs
                 </DocLink>
                 ) with your SDK.

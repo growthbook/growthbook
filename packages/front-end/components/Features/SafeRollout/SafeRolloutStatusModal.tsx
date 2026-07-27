@@ -139,6 +139,7 @@ export default function SafeRolloutStatusModal({
 
   return (
     <Modal
+      useRadixButton={false}
       open={open}
       close={() => setStatusModalOpen(false)}
       header={`End Safe Rollout`}
@@ -170,6 +171,7 @@ export default function SafeRolloutStatusModal({
       ) : null}
       <div className="mb-4">
         <SelectField
+          size="legacy"
           label="Update Safe Rollout status"
           value={form.watch("status")}
           required

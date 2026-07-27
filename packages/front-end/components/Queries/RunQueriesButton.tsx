@@ -97,7 +97,7 @@ const RunQueriesButton = forwardRef<HTMLButtonElement, Props>(
       size = "sm",
       onSubmit,
       disabled,
-      useRadixButton = false,
+      useRadixButton = true,
     },
     ref: ForwardedRef<HTMLButtonElement>,
   ) => {

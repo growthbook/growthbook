@@ -28,9 +28,17 @@ import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { IdeaInterface } from "shared/types/idea";
 import { ArchetypeInterface } from "shared/types/archetype";
 import { SavedGroupInterface } from "shared/types/saved-group";
+import { ConstantInterface } from "shared/types/constant";
+import { ConfigInterface } from "shared/types/config";
 import { CustomHookInterface } from "../validators/custom-hooks";
+import { ContextualBanditInterface } from "../validators/contextual-bandit";
+import { EventForwarderConfigInterface } from "../validators/event-forwarder-config";
 import { HoldoutInterface } from "../validators/holdout";
-import { PermissionError } from "../util/";
+import {
+  PermissionError,
+  getTargetingProjectIds,
+  TargetingScopedEntity,
+} from "../util/";
 import { READ_ONLY_PERMISSIONS } from "./permissions.constants";
 
 type NotificationEvent = {
@@ -128,6 +136,24 @@ export class Permissions {
 
   public canDeleteMetricGroup = (): boolean => {
     return this.checkGlobalPermission("createMetricGroups");
+  };
+
+  public canViewSessionReplay = (
+    session?: { projects?: string[] } | null,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: session?.projects },
+      "viewSessionReplay",
+    );
+  };
+
+  public canDeleteSessionReplay = (
+    session?: { projects?: string[] } | null,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: session?.projects },
+      "deleteSessionReplay",
+    );
   };
 
   public canManageOrgSettings = (): boolean => {
@@ -429,6 +455,70 @@ export class Permissions {
       { projects: experiment.project ? [experiment.project] : [] },
       "createAnalyses",
     );
+  };
+
+  public canViewContextualBanditModal = (
+    project?: string,
+    allProjects?: { id: string }[],
+  ): boolean => {
+    if (!project && allProjects?.length) {
+      return allProjects.some((p) =>
+        this.checkProjectFilterPermission(
+          { projects: [p.id] },
+          "createAnalyses",
+        ),
+      );
+    }
+    return this.checkProjectFilterPermission(
+      { projects: project ? [project] : [] },
+      "createAnalyses",
+    );
+  };
+
+  public canCreateContextualBandit = (
+    cb: Pick<ContextualBanditInterface, "project">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: cb.project ? [cb.project] : [] },
+      "createAnalyses",
+    );
+  };
+
+  public canUpdateContextualBandit = (
+    existing: Pick<ContextualBanditInterface, "project">,
+    updated: Pick<ContextualBanditInterface, "project">,
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      { projects: existing.project ? [existing.project] : [] },
+      "project" in updated ? { projects: [updated.project || ""] } : {},
+      "createAnalyses",
+    );
+  };
+
+  public canDeleteContextualBandit = (
+    cb: Pick<ContextualBanditInterface, "project">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: cb.project ? [cb.project] : [] },
+      "createAnalyses",
+    );
+  };
+
+  public canRunContextualBandit = (
+    cb: Pick<ContextualBanditInterface, "project">,
+    environments: string[],
+  ): boolean => {
+    return this.checkEnvFilterPermission(
+      { projects: cb.project ? [cb.project] : [] },
+      environments,
+      "runExperiments",
+    );
+  };
+
+  public canRunContextualBanditQueries = (
+    datasource: Pick<DataSourceInterface, "projects">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(datasource, "runQueries");
   };
 
   // Frontend helper to gate "Create Holdout" UI.
@@ -869,6 +959,8 @@ export class Permissions {
   public canReviewFeatureDrafts = (
     feature: Pick<FeatureInterface, "project">,
   ): boolean => {
+    // Reviewer eligibility follows the primary project only. Targeting projects
+    // affect whether a review is required, never who may approve.
     return this.checkProjectFilterPermission(
       { projects: feature.project ? [feature.project] : [] },
       "canReview",
@@ -925,6 +1017,19 @@ export class Permissions {
         "manageProjects",
       ),
     );
+  };
+
+  // Used to determine if we should show the Settings > Projects link in SideNav
+  // Returns true if user can view any projects (even without manage permission)
+  public canViewProjectsPage = (): boolean => {
+    // If user can manage some projects, they should see the page
+    if (this.canManageSomeProjects()) {
+      return true;
+    }
+
+    // Otherwise, check if they have readData permission globally or in any project
+    const projectsToCheck = ["", ...Object.keys(this.userPermissions.projects)];
+    return projectsToCheck.some((p) => this.hasPermission("readData", p));
   };
 
   public canUpdateProject = (project: string): boolean => {
@@ -1273,6 +1378,64 @@ export class Permissions {
     return this.checkProjectFilterPermission(savedGroup, "manageSavedGroups");
   };
 
+  public canCreateConstant = (
+    constant: Pick<ConstantInterface, "project">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: constant.project ? [constant.project] : [] },
+      "manageConstants",
+    );
+  };
+
+  public canUpdateConstant = (
+    existing: Pick<ConstantInterface, "project">,
+    updated: Pick<ConstantInterface, "project">,
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      { projects: existing.project ? [existing.project] : [] },
+      "project" in updated ? { projects: [updated.project || ""] } : {},
+      "manageConstants",
+    );
+  };
+
+  public canDeleteConstant = (
+    constant: Pick<ConstantInterface, "project">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: constant.project ? [constant.project] : [] },
+      "manageConstants",
+    );
+  };
+
+  public canCreateConfig = (
+    config: Pick<ConfigInterface, "project">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: config.project ? [config.project] : [] },
+      "manageConfigs",
+    );
+  };
+
+  public canUpdateConfig = (
+    existing: Pick<ConfigInterface, "project">,
+    updated: Pick<ConfigInterface, "project">,
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      { projects: existing.project ? [existing.project] : [] },
+      "project" in updated ? { projects: [updated.project || ""] } : {},
+      "manageConfigs",
+    );
+  };
+
+  public canDeleteConfig = (
+    config: Pick<ConfigInterface, "project">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: config.project ? [config.project] : [] },
+      "manageConfigs",
+    );
+  };
+
   public canBypassSavedGroupSizeLimit = (projects?: string[]): boolean => {
     return this.checkProjectFilterPermission(
       { projects },
@@ -1376,6 +1539,51 @@ export class Permissions {
     return this.checkProjectFilterPermission(customHook, "manageCustomHooks");
   };
 
+  // Alias for the feature-edit permission; its own method so we can add logic/resource types later.
+  public canManageFeatureCustomHooks = (
+    feature: Pick<FeatureInterface, "project">,
+  ): boolean => {
+    return this.canUpdateFeature(feature, {});
+  };
+
+  public canManageExperimentCustomHooks = (
+    experiment: Pick<ExperimentInterface, "project">,
+  ): boolean => {
+    return this.canUpdateExperiment(experiment, {});
+  };
+
+  public canCreateEventForwarderConfig = (
+    config: Pick<EventForwarderConfigInterface, "projects">,
+  ): boolean => {
+    return (
+      this.checkProjectFilterPermission(config, "editDatasourceSettings") &&
+      this.checkProjectFilterPermission(config, "runQueries")
+    );
+  };
+
+  public canUpdateEventForwarderConfig = (
+    existing: Pick<EventForwarderConfigInterface, "projects">,
+    updates: Pick<EventForwarderConfigInterface, "projects">,
+  ): boolean => {
+    return (
+      this.checkProjectFilterUpdatePermission(
+        existing,
+        updates,
+        "editDatasourceSettings",
+      ) &&
+      this.checkProjectFilterUpdatePermission(existing, updates, "runQueries")
+    );
+  };
+
+  public canDeleteEventForwarderConfig = (
+    config: Pick<EventForwarderConfigInterface, "projects">,
+  ): boolean => {
+    return (
+      this.checkProjectFilterPermission(config, "editDatasourceSettings") &&
+      this.checkProjectFilterPermission(config, "runQueries")
+    );
+  };
+
   public throwPermissionError(message?: string): void {
     throw new PermissionError(
       message ?? "You do not have permission to perform this action",
@@ -1418,6 +1626,17 @@ export class Permissions {
 
     // Otherwise, check if they have read access for atleast 1 of the resource's projects
     return projects.some((p) => this.hasPermission("readData", p));
+  };
+
+  // Targeting-scoped READ: readable via the governance project OR any targeting
+  // project (or all). Widens read/discovery only; governance/write keys on `project`.
+  public canReadTargetingScopedResource = (
+    entity: TargetingScopedEntity,
+  ): boolean => {
+    // null (all projects) maps to the empty-array "all" convention.
+    return this.canReadMultiProjectResource(
+      getTargetingProjectIds(entity) ?? [],
+    );
   };
 
   public canManageCustomRoles = (): boolean => {

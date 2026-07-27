@@ -8,6 +8,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
+import Callout from "@/ui/Callout";
 
 export default function AutoApproveMembersToggle({
   mutate,
@@ -80,10 +81,10 @@ export default function AutoApproveMembersToggle({
               </>
             }
           >
-            <span className="p-2 alert alert-info">
+            <Callout status="info" size="sm">
               This organization&apos;s domain must be verified to enable
               automatic approvals <FaQuestionCircle />
-            </span>
+            </Callout>
           </Tooltip>
         </div>
       )}

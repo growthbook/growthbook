@@ -1,4 +1,5 @@
 import { ChangeEventHandler, FC, useState } from "react";
+import { stripLeadingUtf8ByteOrderMark } from "shared/util";
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { isCloud } from "@/services/env";
 import { useAuth } from "@/services/auth";
@@ -6,11 +7,12 @@ import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import SelectField from "@/components/Forms/SelectField";
 import Button from "@/components/Button";
+import Callout from "@/ui/Callout";
 
 const BigQueryForm: FC<{
   params: Partial<BigQueryConnectionParams>;
   existing: boolean;
-  setParams: (params: { [key: string]: string }) => void;
+  setParams: (params: { [key: string]: string | boolean }) => void;
   onParamChange: ChangeEventHandler<HTMLInputElement | HTMLSelectElement>;
 }> = ({ params, setParams, existing, onParamChange }) => {
   const [testConnectionResults, setTestConnectionResults] = useState<{
@@ -65,25 +67,16 @@ const BigQueryForm: FC<{
     <div className="row">
       {!isCloud() && (
         <div className="col-md-12">
-          <Field
+          <SelectField
+            size="legacy"
             label="Authentication Method"
             options={[
-              {
-                value: "json",
-                display: "JSON key file",
-              },
-              {
-                value: "auto",
-                display: "Auto-discovery",
-              },
+              { value: "json", label: "JSON key file" },
+              { value: "auto", label: "Auto-discovery" },
             ]}
             helpText="'Auto-discovery' will look for credentials in environment variables and GCP metadata."
             value={params.authType || "json"}
-            onChange={(e) => {
-              setParams({
-                authType: e.target.value,
-              });
-            }}
+            onChange={(value) => setParams({ authType: value })}
           />
         </div>
       )}
@@ -111,11 +104,12 @@ const BigQueryForm: FC<{
                       if (typeof str !== "string") {
                         return;
                       }
+                      const raw = stripLeadingUtf8ByteOrderMark(str);
                       const json: {
                         project_id: string;
                         private_key: string;
                         client_email: string;
-                      } = JSON.parse(str);
+                      } = JSON.parse(raw);
 
                       if (
                         json.project_id &&
@@ -127,6 +121,7 @@ const BigQueryForm: FC<{
                           projectId: json.project_id,
                           clientEmail: json.client_email,
                           defaultProject: json.project_id,
+                          serviceAccountJson: raw,
                         });
                       }
                     } catch (e) {
@@ -157,18 +152,22 @@ const BigQueryForm: FC<{
                   </li>
                 </ul>
                 {testConnectionResults?.message ? (
-                  <div
-                    className={`alert alert-${testConnectionResults.status}`}
+                  <Callout
+                    status={
+                      testConnectionResults.status === "danger"
+                        ? "error"
+                        : testConnectionResults.status
+                    }
                   >
                     {testConnectionResults.message}
-                  </div>
+                  </Callout>
                 ) : null}
               </>
             ) : (
-              <div className="alert alert-info">
+              <Callout status="info">
                 Your connection info will appear here when you select a valid
                 JSON key file.
-              </div>
+              </Callout>
             )}
             <Button
               disabled={
@@ -188,6 +187,7 @@ const BigQueryForm: FC<{
       <div className="form-group col-md-12">
         <label>BigQuery Project ID</label>
         <Field
+          size="legacy"
           type="text"
           className="form-control"
           name="defaultProject"
@@ -202,6 +202,7 @@ const BigQueryForm: FC<{
           <Tooltip body="If set, GrowthBook will include this reservation on all BigQuery query jobs. Use the full reservation resource name (e.g. projects/my-project/locations/US/reservations/my-reservation)." />
         </label>
         <Field
+          size="legacy"
           type="text"
           className="form-control"
           name="reservation"
@@ -217,6 +218,7 @@ const BigQueryForm: FC<{
         {testConnectionResults &&
         testConnectionResults?.datasetOptions.length > 0 ? (
           <SelectField
+            size="legacy"
             placeholder="Choose a dataset or create a new one..."
             name="defaultDataset"
             autoComplete="off"
@@ -234,6 +236,7 @@ const BigQueryForm: FC<{
           />
         ) : (
           <Field
+            size="legacy"
             type="text"
             className="form-control"
             name="defaultDataset"

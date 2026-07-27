@@ -4,6 +4,7 @@ import {
   QueryRunner,
   QueryMap,
   InterfaceWithQueries,
+  getQueryFailureError,
 } from "back-end/src/queryRunners/QueryRunner";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { getQueriesByIds, updateQuery } from "back-end/src/models/QueryModel";
@@ -106,6 +107,46 @@ const createMockContext = (): ReqContext => {
   } as unknown as ReqContext;
 };
 
+const makeFailedQueryMap = (
+  ...entries: [string, { id: string; error?: string }][]
+): QueryMap => {
+  const map: QueryMap = new Map();
+  for (const [name, { id, error }] of entries) {
+    map.set(name, {
+      ...createMockQuery(id, "failed"),
+      ...(error ? { error } : {}),
+    });
+  }
+  return map;
+};
+
+describe("getQueryFailureError", () => {
+  it("prefers a root-cause error over a dependency cascade", () => {
+    const error = getQueryFailureError(
+      makeFailedQueryMap(
+        ["insert", { id: "q1", error: "Syntax error: bad SQL" }],
+        ["coverage", { id: "q2", error: "Dependencies failed: q1" }],
+      ),
+    );
+    expect(error).toBe("Syntax error: bad SQL");
+  });
+
+  it("falls back to the first failed query when all errors are cascades", () => {
+    const error = getQueryFailureError(
+      makeFailedQueryMap(
+        ["b", { id: "q2", error: "Dependencies failed: q1" }],
+        ["a", { id: "q1", error: "Dependencies failed: q0" }],
+      ),
+    );
+    expect(error).toBe("Dependencies failed: q1");
+  });
+
+  it("returns the generic message when no failed query has an error", () => {
+    const error = getQueryFailureError(makeFailedQueryMap(["a", { id: "q1" }]));
+    expect(error).toBe("Failed to run a majority of the database queries");
+  });
+});
+
 describe("QueryRunner", () => {
   describe("startReadyQueries", () => {
     let mockContext: ReqContext;
@@ -201,6 +242,48 @@ describe("QueryRunner", () => {
 
       // Clean up timer
       clearTimeout(timerA);
+    });
+
+    it("processes ready non-runAtEnd queries even when a runAtEnd query is iterated first", async () => {
+      const queryEnd = createMockQuery("qry_end", "queued", []);
+      queryEnd.runAtEnd = true;
+      const queryB = createMockQuery("qry_B", "queued", []);
+
+      const model: InterfaceWithQueries = {
+        id: "test-model",
+        organization: "test-org",
+        queries: [
+          { name: "end", query: "qry_end", status: "queued" },
+          { name: "B", query: "qry_B", status: "queued" },
+        ],
+        runStarted: new Date(),
+      };
+
+      const runner = new TestQueryRunner(mockContext, model, mockIntegration);
+
+      const cb = {
+        run: jest.fn().mockResolvedValue({ rows: [], statistics: {} }),
+        process: jest.fn((rows) => rows),
+        onFailure: jest.fn(),
+      };
+      runner.runCallbacks["qry_end"] = cb;
+      runner.runCallbacks["qry_B"] = cb;
+
+      const queryMap: QueryMap = new Map([
+        ["end", queryEnd],
+        ["B", queryB],
+      ]);
+
+      await runner.startReadyQueries(queryMap);
+
+      expect(runner.executeQuerySpy).not.toHaveBeenCalledWith(
+        expect.objectContaining({ id: "qry_end" }),
+        expect.anything(),
+      );
+      expect(runner.executeQuerySpy).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "qry_B" }),
+        expect.anything(),
+      );
     });
 
     it("should not execute queries with pending dependencies", async () => {
@@ -454,13 +537,6 @@ describe("QueryRunner", () => {
       jest.clearAllMocks();
     });
 
-    // Simulates the Full Refresh race: a dependency-free query (e.g. a DROP
-    // TABLE) is executed fire-and-forget inside startQueries() and can finish
-    // — and fire its onQueryFinish follow-up timer — before startAnalysis()
-    // has persisted the full `queries` array to the model. The early timer
-    // reloads a model with no queued/running queries and gives up. Without a
-    // post-persist re-arm, nothing ever drives the rest of the DAG and every
-    // downstream query stays "queued" forever.
     class RaceTestQueryRunner extends QueryRunner<
       InterfaceWithQueries,
       { pointers: Queries },
@@ -506,7 +582,7 @@ describe("QueryRunner", () => {
       }
     }
 
-    it("re-arms the follow-up timer after persisting the query DAG", async () => {
+    it("gates onQueryFinish until the query DAG is persisted, then drives once", async () => {
       jest.useFakeTimers();
       try {
         const model: InterfaceWithQueries = {
@@ -521,6 +597,10 @@ describe("QueryRunner", () => {
           mockIntegration,
         );
 
+        await runner.onQueryFinish();
+        expect(jest.getTimerCount()).toBe(0);
+        expect(runner.onQueryFinishSpy).toHaveBeenLastCalledWith(0);
+
         const pointers: Queries = [
           { name: "drop_old", query: "qry_drop", status: "running" },
           { name: "create", query: "qry_create", status: "queued" },
@@ -528,15 +608,13 @@ describe("QueryRunner", () => {
 
         await runner.startAnalysis({ pointers });
 
-        // updateModel must have been called with the full DAG...
         expect(runner.updateModelSpy).toHaveBeenCalledWith(
           expect.objectContaining({ status: "running", queries: pointers }),
         );
-        // ...and onQueryFinish must have been called AFTER that persist, i.e.
-        // with the full DAG visible in the "database". This is what re-drives
-        // the DAG if a fast dependency-free query already finished and its
-        // follow-up timer already fired before the DAG was persisted.
-        expect(runner.onQueryFinishSpy).toHaveBeenCalledWith(pointers.length);
+        expect(runner.onQueryFinishSpy).toHaveBeenLastCalledWith(
+          pointers.length,
+        );
+        expect(jest.getTimerCount()).toBeGreaterThan(0);
       } finally {
         jest.clearAllTimers();
         jest.useRealTimers();
@@ -572,6 +650,145 @@ describe("QueryRunner", () => {
       } finally {
         jest.clearAllTimers();
         jest.useRealTimers();
+      }
+    });
+
+    class FailingAnalysisQueryRunner extends RaceTestQueryRunner {
+      async runAnalysis(): Promise<{ success: boolean }> {
+        throw new Error("stats engine blew up");
+      }
+
+      async onQueryFinish() {}
+    }
+
+    it("persists a failed status when analysis throws on cached results", async () => {
+      const model: InterfaceWithQueries = {
+        id: "test-model",
+        organization: "test-org",
+        queries: [],
+        runStarted: new Date(),
+      };
+      const runner = new FailingAnalysisQueryRunner(
+        mockContext,
+        model,
+        mockIntegration,
+      );
+
+      const pointers: Queries = [
+        { name: "a", query: "qry_a", status: "succeeded" },
+        { name: "b", query: "qry_b", status: "succeeded" },
+      ];
+
+      await runner.startAnalysis({ pointers });
+
+      expect(runner.updateModelSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: "failed",
+          error: expect.stringContaining("stats engine blew up"),
+        }),
+      );
+      expect(runner.status).toBe("finished");
+      await expect(runner.waitForResults()).rejects.toThrow(
+        "stats engine blew up",
+      );
+    });
+
+    it("persists a failed status when analysis throws after queries finish", async () => {
+      const pointers: Queries = [
+        { name: "a", query: "qry_a", status: "running" },
+      ];
+      const model: InterfaceWithQueries = {
+        id: "test-model",
+        organization: "test-org",
+        queries: [],
+        runStarted: new Date(),
+      };
+      const runner = new FailingAnalysisQueryRunner(
+        mockContext,
+        model,
+        mockIntegration,
+      );
+
+      await runner.startAnalysis({ pointers });
+      expect(runner.status).toBe("running");
+      runner.updateModelSpy.mockClear();
+
+      const succeededQuery = createMockQuery("qry_a", "succeeded");
+      (getQueriesByIds as jest.Mock).mockResolvedValue([succeededQuery]);
+
+      await runner.refreshQueryStatuses();
+
+      expect(runner.updateModelSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: "failed",
+          error: expect.stringContaining("stats engine blew up"),
+        }),
+      );
+      expect(runner.status).toBe("finished");
+      await expect(runner.waitForResults()).rejects.toThrow(
+        "stats engine blew up",
+      );
+    });
+
+    class CascadeFailureQueryRunner extends RaceTestQueryRunner {
+      async onQueryFinish() {}
+    }
+
+    // Reproduces the swallowed-error bug in the aggregated fact table pipeline.
+    // A multi-query DAG (insert + a dependent coverage query) fails when the
+    // insert hits invalid SQL. The first refresh flips the runner to failed; a
+    // later refresh observes the dependent query cascading to failed while the
+    // runner is ALREADY failed. The error must be reported on every failed
+    // refresh — and must be the real query error — otherwise a model that
+    // persists `error ?? null` writes null over the recorded failure.
+    it("reports the real failing query error on every failed refresh, even a cascade", async () => {
+      const model: InterfaceWithQueries = {
+        id: "test-model",
+        organization: "test-org",
+        queries: [],
+        runStarted: new Date(),
+      };
+      const runner = new CascadeFailureQueryRunner(
+        mockContext,
+        model,
+        mockIntegration,
+      );
+
+      await runner.startAnalysis({
+        pointers: [
+          { name: "insert", query: "qry_insert", status: "running" },
+          { name: "coverage", query: "qry_coverage", status: "queued" },
+        ],
+      });
+      expect(runner.status).toBe("running");
+      runner.updateModelSpy.mockClear();
+
+      const insertFailed: QueryInterface = {
+        ...createMockQuery("qry_insert", "failed"),
+        error: "Syntax error: unexpected keyword INSERT",
+      };
+
+      (getQueriesByIds as jest.Mock).mockResolvedValue([
+        insertFailed,
+        createMockQuery("qry_coverage", "queued", ["qry_insert"]),
+      ]);
+      await runner.refreshQueryStatuses();
+
+      (getQueriesByIds as jest.Mock).mockResolvedValue([
+        insertFailed,
+        {
+          ...createMockQuery("qry_coverage", "failed", ["qry_insert"]),
+          error: "Dependencies failed: qry_insert",
+        },
+      ]);
+      await runner.refreshQueryStatuses();
+
+      const failedCalls = runner.updateModelSpy.mock.calls
+        .map((c) => c[0])
+        .filter((p) => p.status === "failed");
+      expect(failedCalls.length).toBeGreaterThanOrEqual(2);
+      for (const call of failedCalls) {
+        expect(call.error).toContain("unexpected keyword INSERT");
       }
     });
   });

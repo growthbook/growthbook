@@ -193,7 +193,6 @@ const OptInModal = ({
         loading={loading}
         error={error}
         closeCta={isAdmin ? `No thanks` : `Close`}
-        useRadixButton={true}
       >
         <>
           <Text

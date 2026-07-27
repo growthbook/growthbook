@@ -2,7 +2,11 @@ import Handlebars from "handlebars";
 import escapeRegExp from "lodash/escapeRegExp";
 import trimEnd from "lodash/trimEnd";
 import { parseEnvInt, stringToBoolean } from "shared/util";
-import { DEFAULT_METRIC_WINDOW_HOURS } from "shared/constants";
+import {
+  GB_SDK_ID_DEV,
+  GB_SDK_ID_PROD,
+  DEFAULT_METRIC_WINDOW_HOURS,
+} from "shared/constants";
 import { z } from "zod";
 
 export const ENVIRONMENT = process.env.NODE_ENV;
@@ -12,6 +16,26 @@ export const LOG_LEVEL = process.env.LOG_LEVEL;
 
 export const IS_CLOUD = stringToBoolean(process.env.IS_CLOUD);
 export const IS_MULTI_ORG = stringToBoolean(process.env.IS_MULTI_ORG);
+
+export const DISABLE_TELEMETRY = process.env.DISABLE_TELEMETRY;
+export const INGESTOR_HOST = process.env.INGESTOR_HOST || "";
+
+export function isGrowthBookTelemetryEnabled(): boolean {
+  if (DISABLE_TELEMETRY === "debug") return false;
+  if (DISABLE_TELEMETRY === "enable-with-debug") return true;
+  if (DISABLE_TELEMETRY) return false;
+  return true;
+}
+
+export function isGrowthBookTelemetryDebug(): boolean {
+  return (
+    DISABLE_TELEMETRY === "debug" || DISABLE_TELEMETRY === "enable-with-debug"
+  );
+}
+
+export function getIngestorHost(): string {
+  return INGESTOR_HOST || "https://us1.gb-ingest.com";
+}
 
 // Default to true
 export const ALLOW_SELF_ORG_CREATION = stringToBoolean(
@@ -60,7 +84,8 @@ if (MONGODB_URI.match(/:27017(\/)?$/)) {
 }
 export { MONGODB_URI };
 
-export const APP_ORIGIN = process.env.APP_ORIGIN || "http://localhost:3000";
+const RAW_APP_ORIGIN = process.env.APP_ORIGIN || "http://localhost:3000";
+export const APP_ORIGIN = RAW_APP_ORIGIN.replace(/\/+$/, "");
 export const IS_LOCALHOST = APP_ORIGIN.startsWith("http://localhost:");
 
 const corsOriginRegex = process.env.CORS_ORIGIN_REGEX;
@@ -72,10 +97,33 @@ export const GOOGLE_OAUTH_CLIENT_ID = process.env.GOOGLE_OAUTH_CLIENT_ID || "";
 export const GOOGLE_OAUTH_CLIENT_SECRET =
   process.env.GOOGLE_OAUTH_CLIENT_SECRET || "";
 
+// Figma OAuth app credentials, used by the Visual Editor's "Figma →
+// Variant" feature. The client_id is exposed to the extension (not
+// secret); the client_secret stays server-side for the code↔token
+// exchange. Empty when the org's deployment hasn't configured Figma.
+export const FIGMA_OAUTH_CLIENT_ID = process.env.FIGMA_OAUTH_CLIENT_ID || "";
+export const FIGMA_OAUTH_CLIENT_SECRET =
+  process.env.FIGMA_OAUTH_CLIENT_SECRET || "";
+
 export const S3_BUCKET = process.env.S3_BUCKET || "";
 export const S3_REGION = process.env.S3_REGION || "us-east-1";
 export const S3_DOMAIN =
   process.env.S3_DOMAIN || `https://${S3_BUCKET}.s3.amazonaws.com/`;
+// Optional override for S3-compatible endpoints (MinIO, R2, etc.).
+// Leave empty to use AWS S3.
+export const S3_ENDPOINT = process.env.S3_ENDPOINT || "";
+
+// Separate public, CDN-fronted bucket for visual-editor assets. Falls
+// back to the private S3_BUCKET when not configured.
+export const VISUAL_EDITOR_ASSETS_S3_BUCKET =
+  process.env.VISUAL_EDITOR_ASSETS_S3_BUCKET || S3_BUCKET;
+export const VISUAL_EDITOR_ASSETS_S3_REGION =
+  process.env.VISUAL_EDITOR_ASSETS_S3_REGION || S3_REGION;
+// Must be the long-lived public/CDN hostname — gets baked into
+// visual-changeset DOM mutations and persisted forever.
+export const VISUAL_EDITOR_ASSETS_S3_DOMAIN =
+  process.env.VISUAL_EDITOR_ASSETS_S3_DOMAIN ||
+  `https://${VISUAL_EDITOR_ASSETS_S3_BUCKET}.s3.amazonaws.com/`;
 export const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || "dev";
 if (prod && ENCRYPTION_KEY === "dev") {
   throw new Error(
@@ -88,6 +136,14 @@ export const GCS_DOMAIN =
   process.env.GCS_DOMAIN ||
   `https://storage.googleapis.com/${GCS_BUCKET_NAME}/`;
 
+// Visual-editor public-assets bucket (GCS variant). Falls back to the
+// private GCS_BUCKET_NAME when not configured.
+export const VISUAL_EDITOR_ASSETS_GCS_BUCKET_NAME =
+  process.env.VISUAL_EDITOR_ASSETS_GCS_BUCKET_NAME || GCS_BUCKET_NAME;
+export const VISUAL_EDITOR_ASSETS_GCS_DOMAIN =
+  process.env.VISUAL_EDITOR_ASSETS_GCS_DOMAIN ||
+  `https://storage.googleapis.com/${VISUAL_EDITOR_ASSETS_GCS_BUCKET_NAME}/`;
+
 export const JWT_SECRET = process.env.JWT_SECRET || "dev";
 if ((prod || !IS_LOCALHOST) && !IS_CLOUD && JWT_SECRET === "dev") {
   throw new Error(
@@ -96,6 +152,17 @@ if ((prod || !IS_LOCALHOST) && !IS_CLOUD && JWT_SECRET === "dev") {
 }
 
 export const AWS_ASSUME_ROLE = process.env.AWS_ASSUME_ROLE || "";
+
+// Optional override for the session-replay S3 bucket — replay payload chunks
+// are stored in their own bucket so that the back-end's read role can be
+// scoped separately from the general uploads bucket (`S3_BUCKET`). Leave
+// empty to disable signed-URL session-replay reads.
+export const S3_SESSION_REPLAY_BUCKET =
+  process.env.S3_SESSION_REPLAY_BUCKET || "";
+// Optional override for the role used to read the session-replay bucket. Falls
+// back to AWS_ASSUME_ROLE when unset, so single-role setups need no extra env.
+export const S3_SESSION_REPLAY_ASSUME_ROLE =
+  process.env.S3_SESSION_REPLAY_ASSUME_ROLE || AWS_ASSUME_ROLE;
 
 export const EMAIL_ENABLED = stringToBoolean(process.env.EMAIL_ENABLED);
 export const EMAIL_HOST = process.env.EMAIL_HOST;
@@ -228,6 +295,32 @@ if ((prod || !IS_LOCALHOST) && secretAPIKey === "dev") {
   );
 }
 export const SECRET_API_KEY = secretAPIKey;
+
+// Gemini (Google AI Studio) — used by the visual editor's image-gen endpoint.
+export const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
+// Pin a specific model ID — if your key returns 404, hit
+// /v1beta/models to find an ID your account has access to and override.
+export const GEMINI_IMAGE_MODEL =
+  process.env.GEMINI_IMAGE_MODEL || "gemini-2.5-flash-image";
+// Kraken.io credentials — AI-generated images are resized + re-encoded to
+// WebP via the Kraken API instead of any in-process codec (sharp/wasm-vips),
+// which proved unreliable in production. When unset, optimization is skipped
+// and the original image is uploaded untouched.
+export const KRAKEN_API_KEY = process.env.KRAKEN_API_KEY || "";
+export const KRAKEN_API_SECRET = process.env.KRAKEN_API_SECRET || "";
+// Kill-switch: when true, skip AI-image optimization entirely and upload
+// the original (larger but functional) image. Instant escape hatch — no
+// code change needed.
+export const DISABLE_AI_IMAGE_OPTIMIZATION = stringToBoolean(
+  process.env.DISABLE_AI_IMAGE_OPTIMIZATION,
+);
+// Wall-clock cap (ms) for the full Kraken round-trip (upload + result
+// download). On timeout we abort and fall back to the original image.
+export const AI_IMAGE_OPTIMIZATION_TIMEOUT_MS = parseEnvInt(
+  process.env.AI_IMAGE_OPTIMIZATION_TIMEOUT_MS,
+  20000,
+  { name: "AI_IMAGE_OPTIMIZATION_TIMEOUT_MS", min: 1000, max: 120000 },
+);
 // This is typically used for the Proxy Server, which only requires readonly access
 export const SECRET_API_KEY_ROLE =
   process.env.SECRET_API_KEY_ROLE || "readonly";
@@ -321,6 +414,8 @@ export const CLOUD_SECRET = process.env.CLOUD_SECRET ?? "";
 export const DISABLE_API_ROOT_PATH = stringToBoolean(
   process.env.DISABLE_API_ROOT_PATH,
 );
+
+export const GB_SDK_ID = prod ? GB_SDK_ID_PROD : GB_SDK_ID_DEV;
 
 export type SecretsReplacer = <T extends string | Record<string, string>>(
   s: T,

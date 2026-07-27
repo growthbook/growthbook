@@ -28,7 +28,7 @@ import Table, {
 import {
   draftStatusDots,
   draftStatusTooltip,
-} from "@/components/Features/RevisionStatusBadge";
+} from "@/components/Reviews/RevisionStatusBadge";
 import { useSavedGroupDraftStates } from "@/hooks/useSavedGroupDraftStates";
 import SavedGroupSearchFilters from "@/components/Search/SavedGroupSearchFilters";
 import TruncatedConditionDisplay from "./TruncatedConditionDisplay";
@@ -61,11 +61,15 @@ export default function ConditionGroups({ groups, mutate }: Props) {
     return groups.filter((g) => g.type === "condition");
   }, [groups]);
 
-  const filteredConditionGroups = project
-    ? conditionGroups.filter((group) =>
-        isProjectListValidForProject(group.projects, project),
-      )
-    : conditionGroups;
+  const filteredConditionGroups = useMemo(
+    () =>
+      project
+        ? conditionGroups.filter((group) =>
+            isProjectListValidForProject(group.projects, project),
+          )
+        : conditionGroups,
+    [conditionGroups, project],
+  );
 
   const [showArchived, setShowArchived] = useState(false);
 
@@ -189,6 +193,7 @@ export default function ConditionGroups({ groups, mutate }: Props) {
             <Flex align="center" justify="between" gap="3" mb="4">
               <Box style={{ width: "40%" }}>
                 <Field
+                  size="legacy"
                   placeholder="Search..."
                   type="search"
                   {...searchInputProps}

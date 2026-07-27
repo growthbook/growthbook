@@ -261,7 +261,7 @@ const ContainsSelectRow: FC<{
           <FilterItem item={label} exists={true} />
           <Box onClick={(e) => e.stopPropagation()}>
             <Select
-              size="1"
+              size="x-small"
               variant="surface"
               placeholder={placeholder}
               value={currentValue ?? ""}

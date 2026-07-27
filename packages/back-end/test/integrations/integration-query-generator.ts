@@ -666,7 +666,7 @@ engines.forEach((engine) => {
         segment: segment,
         useUnitsTable: false,
       };
-      const sql = integration.getExperimentMetricQuery(queryParams);
+      const sql = integration.getSnapshotMetricQuery(queryParams);
       testCases.push({
         name: `${engine} > ${experiment.id} > ${metric.id}`,
         engine: engine,
@@ -681,7 +681,7 @@ engines.forEach((engine) => {
           unitsTableFullName: unitsQueryFullName,
         });
 
-        const sql = integration.getExperimentMetricQuery({
+        const sql = integration.getSnapshotMetricQuery({
           ...queryParams,
           useUnitsTable: true,
           unitsTableFullName: unitsQueryFullName,

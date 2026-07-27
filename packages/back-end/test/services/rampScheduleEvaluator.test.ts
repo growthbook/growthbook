@@ -136,6 +136,9 @@ function makeContext({
               ...updates,
             }),
           ),
+        acquireAdvanceLock: jest.fn().mockResolvedValue(true),
+        releaseAdvanceLock: jest.fn().mockResolvedValue(undefined),
+        touchAdvanceLockHeartbeat: jest.fn().mockResolvedValue(true),
       },
       safeRollout: {
         getById: jest.fn().mockResolvedValue(safeRollout),
@@ -154,6 +157,142 @@ function makeContext({
     },
   };
 }
+
+describe("evaluateCurrentStep: 0-step simple schedules", () => {
+  it("holds when a 0-step schedule has a future cutoffDate", async () => {
+    const schedule = makeSchedule({
+      steps: [],
+      currentStepIndex: -1,
+      cutoffDate: new Date("2026-01-05T00:00:00Z"),
+    });
+    const context = makeContext({
+      safeRollout: makeSafeRollout("sr_unused"),
+      snapshotDate: new Date("2026-01-01T00:00:00Z"),
+    });
+
+    const decision = await evaluateCurrentStep(
+      context as Parameters<typeof evaluateCurrentStep>[0],
+      schedule,
+      new Date("2026-01-01T01:00:00Z"),
+    );
+
+    expect(decision).toEqual({
+      action: "hold",
+      reason: "Waiting for scheduled end date",
+      nextProcessAt: new Date("2026-01-05T00:00:00Z"),
+    });
+  });
+
+  it("advances when a 0-step schedule has a past cutoffDate", async () => {
+    const schedule = makeSchedule({
+      steps: [],
+      currentStepIndex: -1,
+      cutoffDate: new Date("2025-12-31T00:00:00Z"),
+    });
+    const context = makeContext({
+      safeRollout: makeSafeRollout("sr_unused"),
+      snapshotDate: new Date("2026-01-01T00:00:00Z"),
+    });
+
+    const decision = await evaluateCurrentStep(
+      context as Parameters<typeof evaluateCurrentStep>[0],
+      schedule,
+      new Date("2026-01-01T01:00:00Z"),
+    );
+
+    expect(decision).toEqual({ action: "advance" });
+  });
+
+  it("advances when a 0-step schedule has no cutoffDate", async () => {
+    const schedule = makeSchedule({
+      steps: [],
+      currentStepIndex: -1,
+      cutoffDate: undefined,
+    });
+    const context = makeContext({
+      safeRollout: makeSafeRollout("sr_unused"),
+      snapshotDate: new Date("2026-01-01T00:00:00Z"),
+    });
+
+    const decision = await evaluateCurrentStep(
+      context as Parameters<typeof evaluateCurrentStep>[0],
+      schedule,
+      new Date("2026-01-01T01:00:00Z"),
+    );
+
+    expect(decision).toEqual({ action: "advance" });
+  });
+
+  it("still advances a multi-step ramp from step -1 even with a future cutoffDate", async () => {
+    const schedule = makeSchedule({
+      steps: [{ interval: 3600, monitored: false, actions: [] }],
+      currentStepIndex: -1,
+      cutoffDate: new Date("2026-01-05T00:00:00Z"),
+    });
+    const context = makeContext({
+      safeRollout: makeSafeRollout("sr_unused"),
+      snapshotDate: new Date("2026-01-01T00:00:00Z"),
+    });
+
+    const decision = await evaluateCurrentStep(
+      context as Parameters<typeof evaluateCurrentStep>[0],
+      schedule,
+      new Date("2026-01-01T01:00:00Z"),
+    );
+
+    expect(decision).toEqual({ action: "advance" });
+  });
+
+  it("holds a completed multi-step ramp waiting for a future cutoffDate", async () => {
+    const schedule = makeSchedule({
+      steps: [
+        { interval: 3600, monitored: false, actions: [] },
+        { interval: 3600, monitored: false, actions: [] },
+      ],
+      currentStepIndex: 2,
+      cutoffDate: new Date("2026-01-10T00:00:00Z"),
+    });
+    const context = makeContext({
+      safeRollout: makeSafeRollout("sr_unused"),
+      snapshotDate: new Date("2026-01-01T00:00:00Z"),
+    });
+
+    const decision = await evaluateCurrentStep(
+      context as Parameters<typeof evaluateCurrentStep>[0],
+      schedule,
+      new Date("2026-01-05T00:00:00Z"),
+    );
+
+    expect(decision).toEqual({
+      action: "hold",
+      reason: "Waiting for scheduled end date",
+      nextProcessAt: new Date("2026-01-10T00:00:00Z"),
+    });
+  });
+
+  it("advances a completed multi-step ramp once cutoffDate has passed", async () => {
+    const schedule = makeSchedule({
+      steps: [
+        { interval: 3600, monitored: false, actions: [] },
+        { interval: 3600, monitored: false, actions: [] },
+      ],
+      currentStepIndex: 2,
+      cutoffDate: new Date("2026-01-03T00:00:00Z"),
+    });
+    const context = makeContext({
+      safeRollout: makeSafeRollout("sr_unused"),
+      snapshotDate: new Date("2026-01-01T00:00:00Z"),
+    });
+
+    const decision = await evaluateCurrentStep(
+      context as Parameters<typeof evaluateCurrentStep>[0],
+      schedule,
+      new Date("2026-01-05T00:00:00Z"),
+    );
+
+    expect(decision).toEqual({ action: "advance" });
+  });
+});
 
 describe("rampScheduleEvaluator monitored SafeRollout integration", () => {
   beforeEach(() => {

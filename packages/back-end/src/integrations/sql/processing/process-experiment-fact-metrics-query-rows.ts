@@ -1,3 +1,4 @@
+import { isContextualBanditAttrColumn } from "shared/experiments";
 import { parseIntWithDefault } from "shared/util";
 import type { ExperimentFactMetricsQueryResponseRows } from "shared/types/integrations";
 
@@ -40,9 +41,17 @@ export function processExperimentFactMetricsQueryRows(
         dimensionData[key] = value;
       });
 
+    const attributeData: Record<string, string> = {};
+    Object.entries(row)
+      .filter(([key, _]) => isContextualBanditAttrColumn(key))
+      .forEach(([key, value]) => {
+        attributeData[key] = value;
+      });
+
     return {
       variation: row.variation ?? "",
       ...dimensionData,
+      ...attributeData,
       users: parseIntWithDefault(row.users, 0),
       count: parseIntWithDefault(row.users, 0),
       ...metricData,

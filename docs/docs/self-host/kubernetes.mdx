@@ -9,7 +9,7 @@ import TabItem from '@theme/TabItem';
 # Deploying GrowthBook with Kubernetes
 
 :::tip Deploying GrowthBook with Kubernetes
-Our official Helm chart to deploy GrowthBook on Kubernetes is distributed as a OCI artifact via [ghcr.io](https://ghcr.io/growthbook/charts/growthbook):
+Our official Helm chart to deploy GrowthBook on Kubernetes is distributed as an OCI artifact via [ghcr.io](https://ghcr.io/growthbook/charts/growthbook):
 
 - For production and scalable cloud-native deployments, use GCP (GKE) or AWS (EKS).
 - For local testing and development, use Minikube.
@@ -21,7 +21,7 @@ Before you apply the example values files, make sure you complete these minimal 
 
 **Kubernetes Cluster Access**
 
-Ensure you have access to a running Kubernetes cluster ([Minikube](https://minikube.sigs.k8s.io/docs/start/?arch=%2Fmacos%2Farm64%2Fstable%2Fbinary+download), [GKE](https://cloud.google.com/kubernetes-engine?hl=en), or [EKS](https://aws.amazon.com/eks/)) with permissions to deploy workloads and required controllers (such as load balancer controllers) installed. You'll need `kubectl` and the GrowthBook Helm chart, which is available on [Artifact Hub](https://artifacthub.io/packages/helm/one-acre-fund/growthbook).
+Ensure you have access to a running Kubernetes cluster ([Minikube](https://minikube.sigs.k8s.io/docs/start/?arch=%2Fmacos%2Farm64%2Fstable%2Fbinary+download), [GKE](https://cloud.google.com/kubernetes-engine?hl=en), or [EKS](https://aws.amazon.com/eks/)) with permissions to deploy workloads and required controllers (such as load balancer controllers) installed. You'll need `kubectl` and the [GrowthBook Helm chart](https://artifacthub.io/packages/helm/growthbook/growthbook).
 
 **Authentication Secrets**
 
@@ -156,7 +156,7 @@ ingress:
       </details>
       Installation:
       ```bash
-      helm install growthbook growthbook/growthbook -f values-aws.yaml
+      helm install growthbook oci://ghcr.io/growthbook/charts/growthbook -f values-aws.yaml
       ```
       <div className="admonition info">
         <p>
@@ -262,7 +262,7 @@ ingress:
       </details>
       Installation:
       ```bash
-      helm install growthbook growthbook/growthbook -f values-gcp.yaml
+      helm install growthbook oci://ghcr.io/growthbook/charts/growthbook -f values-gcp.yaml
       ```
       <div className="admonition info">
         <p>
@@ -477,7 +477,7 @@ ingress:
       </details>
       Installation:
       ```bash
-      helm upgrade --install growthbook oci://ghcr.io/growthbook/charts/growthbook -f values-minikube.yaml
+      helm install growthbook oci://ghcr.io/growthbook/charts/growthbook -f values-minikube.yaml
       ```
     </div>
 

@@ -231,6 +231,7 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
   if (success) {
     return (
       <Modal
+        useRadixButton={false}
         header={null}
         close={() => {
           close();
@@ -276,6 +277,7 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
 
   return (
     <PagedModal
+      useRadixButton={false}
       trackingEventModalType="upgrade-to-pro"
       trackingEventModalSource="upgrade-modal"
       hideNav={true}
@@ -314,6 +316,7 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
               Monthly invoices will be sent to this address
             </Text>
             <Field
+              size="legacy"
               type="email"
               required={true}
               {...form.register("email")}
@@ -323,6 +326,7 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
           <Flex align="center" width="100%" gap="4">
             <Box style={{ width: "50%" }}>
               <SelectField
+                size="legacy"
                 label="Tax ID type"
                 options={taxIdTypeOptions}
                 value={form.watch("taxIdType") || ""}
@@ -335,6 +339,7 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
             </Box>
             <Box style={{ width: "50%" }}>
               <Field
+                size="legacy"
                 type="text"
                 {...form.register("taxIdValue")}
                 placeholder="(optional)"

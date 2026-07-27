@@ -5,6 +5,7 @@ import {
 } from "shared/types/experiment-snapshot";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
+import type { CovariateInsertPathReason } from "back-end/src/integrations/sql/fact-metrics/resolve-covariate-insert-path";
 import { SnapshotQueryRunnerKind } from "./experiments";
 
 type ExperimentUpdateLogMeta = {
@@ -23,8 +24,19 @@ export type ExperimentUpdateLogPlan = {
   fullRefreshReason: string | null;
 };
 
+export type ExperimentUpdateCovariateSourceLog = {
+  groupId: string;
+  factTableId: string | null;
+  path: "aggregated" | "legacy";
+  aggregatedTableFullName: string | null;
+  reason: CovariateInsertPathReason;
+};
+
 type ExperimentUpdateExecutionLog = {
   incrementalRefreshMode: "full" | "incremental" | null;
+  // Per fact-table group: which covariate table the run used and why. null when
+  // the run never resolved a covariate path (e.g. non-incremental runner kinds).
+  covariateSources: ExperimentUpdateCovariateSourceLog[] | null;
 };
 
 type ExperimentUpdateTimingMs = {
@@ -44,6 +56,7 @@ export type ExperimentUpdateTimingPhase = Exclude<
 export class ExperimentUpdateExecutionLogger {
   public execution: ExperimentUpdateExecutionLog = {
     incrementalRefreshMode: null,
+    covariateSources: null,
   };
 
   private readonly startedAtMs = Date.now();
@@ -110,6 +123,10 @@ export class ExperimentUpdateExecutionLogger {
     };
   }
 
+  recordCovariateSource(entry: ExperimentUpdateCovariateSourceLog): void {
+    (this.execution.covariateSources ??= []).push(entry);
+  }
+
   logUpdateCompleted(
     context: ReqContext | ApiReqContext,
     {
@@ -141,6 +158,7 @@ export class ExperimentUpdateExecutionLogger {
         plannedFullRefresh: this.plan.fullRefresh,
         fullRefreshReason: this.plan.fullRefreshReason,
         incrementalRefreshMode: this.execution.incrementalRefreshMode,
+        covariateSources: this.execution.covariateSources,
         timingsMs: this.getTimings(),
       },
       "Experiment update completed",

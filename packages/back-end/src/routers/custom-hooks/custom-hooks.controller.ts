@@ -1,10 +1,13 @@
 import type { Response } from "express";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
-import { CustomHookInterface } from "shared/validators";
+import { CustomHookEntityType, CustomHookInterface } from "shared/validators";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { IS_CLOUD } from "back-end/src/util/secrets";
-import { sandboxEval } from "back-end/src/enterprise/sandbox/sandbox-eval";
+import { runInSandbox } from "back-end/src/enterprise/sandbox/sandbox-pool";
+import { getFeature } from "back-end/src/models/FeatureModel";
+import { revertCustomHookToVersion } from "back-end/src/services/customHookHistory";
+import { getExperimentById } from "back-end/src/models/ExperimentModel";
 
 export const getCustomHooks = async (
   req: AuthRequest,
@@ -46,7 +49,13 @@ export const createCustomHook = async (
     throw new Error("Not allowed");
   }
 
-  const customHook = await context.models.customHooks.create(req.body);
+  const data = { ...req.body };
+  // Entity-scoped hooks derive scope from the target resource; keep projects empty.
+  if (data.entityType && data.entityId) {
+    data.projects = [];
+  }
+
+  const customHook = await context.models.customHooks.create(data);
 
   res.status(200).json({
     status: 200,
@@ -99,9 +108,39 @@ export const deleteCustomHook = async (
   });
 };
 
+export const revertCustomHook = async (
+  req: AuthRequest<{ auditId: string }, { id: string }>,
+  res: Response<{
+    status: 200;
+    customHook: CustomHookInterface;
+  }>,
+) => {
+  const context = getContextFromReq(req);
+
+  if (IS_CLOUD || !context.hasPremiumFeature("custom-hooks")) {
+    throw new Error("Not allowed");
+  }
+
+  const customHook = await revertCustomHookToVersion(
+    context,
+    req.params.id,
+    req.body.auditId,
+  );
+
+  res.status(200).json({
+    status: 200,
+    customHook,
+  });
+};
+
 export const testCustomHook = async (
   req: AuthRequest<
-    { functionBody: string; functionArgs: Record<string, unknown> },
+    {
+      functionBody: string;
+      functionArgs: Record<string, unknown>;
+      entityType?: CustomHookEntityType;
+      entityId?: string;
+    },
     null
   >,
   res: Response<{
@@ -109,6 +148,7 @@ export const testCustomHook = async (
     success: boolean;
     returnVal?: string;
     error?: string;
+    warnings?: string[];
     log?: string;
   }>,
 ) => {
@@ -119,11 +159,27 @@ export const testCustomHook = async (
   if (IS_CLOUD || !context.hasPremiumFeature("custom-hooks")) {
     throw new Error("Not allowed");
   }
-  if (!context.permissions.canCreateCustomHook({ projects: [] })) {
+
+  const { entityType, entityId } = req.body;
+  if (entityType === "feature" && entityId) {
+    // Feature-scoped test: authorize against the target feature
+    const feature = await getFeature(context, entityId);
+    if (!feature || !context.permissions.canManageFeatureCustomHooks(feature)) {
+      context.permissions.throwPermissionError();
+    }
+  } else if (entityType === "experiment" && entityId) {
+    const experiment = await getExperimentById(context, entityId);
+    if (
+      !experiment ||
+      !context.permissions.canManageExperimentCustomHooks(experiment)
+    ) {
+      context.permissions.throwPermissionError();
+    }
+  } else if (!context.permissions.canCreateCustomHook({ projects: [] })) {
     context.permissions.throwPermissionError();
   }
 
-  const result = await sandboxEval(
+  const result = await runInSandbox(
     req.body.functionBody,
     req.body.functionArgs,
   );
@@ -135,6 +191,7 @@ export const testCustomHook = async (
       returnVal: result.returnVal
         ? JSON.stringify(result.returnVal, null, 2)
         : undefined,
+      warnings: result.warnings,
       log: result.log,
     });
   } else {
@@ -142,6 +199,7 @@ export const testCustomHook = async (
       status: 200,
       success: false,
       error: result.error || "Unknown error",
+      warnings: result.warnings,
       log: result.log,
     });
   }

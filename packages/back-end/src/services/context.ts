@@ -3,7 +3,7 @@ import { uniq } from "lodash";
 import type pino from "pino";
 import type { Request } from "express";
 import { ExperimentMetricInterface } from "shared/experiments";
-import { CommercialFeature } from "shared/enterprise";
+import { CommercialFeature, OrgLimitsAccessor } from "shared/enterprise";
 import { AuditInterfaceInput } from "shared/types/audit";
 import {
   OrganizationInterface,
@@ -18,9 +18,12 @@ import { ExperimentInterface } from "shared/types/experiment";
 import { DataSourceInterface } from "shared/types/datasource";
 import { FeatureInterface } from "shared/types/feature";
 import { UserInterface } from "shared/types/user";
+import { stringToBoolean } from "shared/util";
+import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import {
   BadRequestError,
   UnauthorizedError,
+  PaymentRequiredError,
   PlanDoesNotAllowError,
   NotFoundError,
   InternalServerError,
@@ -28,6 +31,7 @@ import {
 import { SdkConnectionCacheModel } from "back-end/src/models/SdkConnectionCacheModel";
 import { DashboardModel } from "back-end/src/enterprise/models/DashboardModel";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
+import { getEffectiveOrgLimits } from "back-end/src/services/plan-limits";
 import { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
 import { MetricAnalysisModel } from "back-end/src/models/MetricAnalysisModel";
 import {
@@ -50,17 +54,22 @@ import { ExperimentTemplatesModel } from "back-end/src/models/ExperimentTemplate
 import { SafeRolloutModel } from "back-end/src/models/SafeRolloutModel";
 import { SafeRolloutSnapshotModel } from "back-end/src/models/SafeRolloutSnapshotModel";
 import { IncrementalRefreshModel } from "back-end/src/models/IncrementalRefreshModel";
+import { AggregatedFactTableModel } from "back-end/src/models/AggregatedFactTableModel";
+import { AggregatedFactTableRunModel } from "back-end/src/models/AggregatedFactTableRunModel";
 import { DecisionCriteriaModel } from "back-end/src/enterprise/models/DecisionCriteriaModel";
 import { MetricTimeSeriesModel } from "back-end/src/models/MetricTimeSeriesModel";
 import { WebhookSecretDataModel } from "back-end/src/models/WebhookSecretModel";
 import { HoldoutModel } from "back-end/src/models/HoldoutModel";
 import { SavedQueryDataModel } from "back-end/src/models/SavedQueryDataModel";
 import { SavedGroupModel } from "back-end/src/models/SavedGroupModel";
+import { ConstantModel } from "back-end/src/models/ConstantModel";
+import { ConfigModel } from "back-end/src/models/ConfigModel";
 import { FeatureRevisionLogModel } from "back-end/src/models/FeatureRevisionLogModel";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { AiPromptModel } from "back-end/src/enterprise/models/AIPromptModel";
 import { VectorsModel } from "back-end/src/enterprise/models/VectorsModel";
 import { AgreementModel } from "back-end/src/models/AgreementModel";
+import { SessionReplayModel } from "back-end/src/models/SessionReplayModel";
 import { SqlResultChunkModel } from "back-end/src/models/SqlResultChunkModel";
 import { ExperimentSnapshotAnalysisChunkModel } from "back-end/src/models/ExperimentSnapshotAnalysisChunkModel";
 import { CustomHookModel } from "back-end/src/models/CustomHookModel";
@@ -68,11 +77,17 @@ import { RampScheduleModel } from "back-end/src/models/RampScheduleModel";
 import { RampScheduleTemplateModel } from "back-end/src/models/RampScheduleTemplateModel";
 import { SdkWebhookModel } from "back-end/src/models/WebhookModel";
 import { TeamModel } from "back-end/src/models/TeamModel";
+import { ContextualBanditModel } from "back-end/src/enterprise/models/ContextualBanditModel";
+import { ContextualBanditQueryModel } from "back-end/src/enterprise/models/ContextualBanditQueryModel";
+import { ContextualBanditSnapshotModel } from "back-end/src/enterprise/models/ContextualBanditSnapshotModel";
+import { ContextualBanditEventModel } from "back-end/src/enterprise/models/ContextualBanditEventModel";
 import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
 import { RevisionModel } from "back-end/src/models/RevisionModel";
 import { AIConversationModel } from "back-end/src/models/AIConversationModel";
+import { EventForwarderConfigModel } from "back-end/src/models/EventForwarderConfigModel";
 import { PresentationThemeModel } from "back-end/src/models/PresentationThemeModel";
 import { WatchModel } from "back-end/src/models/WatchModel";
+import { FigmaConnectionModel } from "back-end/src/models/FigmaConnectionModel";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import { getUserByEmail, getUsersByIds } from "back-end/src/models/UserModel";
 import { getExperimentMetricsByIds } from "./experiments";
@@ -108,20 +123,31 @@ export type ModelName =
   | "dashboards"
   | "customHooks"
   | "incrementalRefresh"
+  | "aggregatedFactTables"
+  | "aggregatedFactTableRuns"
   | "experimentSnapshotAnalysisChunks"
   | "sqlResultChunks"
   | "sdkConnectionCache"
   | "sdkWebhooks"
   | "savedGroups"
+  | "constants"
+  | "configs"
   | "teams"
   | "analyticsExplorations"
   | "presentationThemes"
   | "revisions"
   | "watch"
+  | "figmaConnections"
   | "apiKeys"
   | "rampSchedules"
   | "rampScheduleTemplates"
-  | "aiConversations";
+  | "aiConversations"
+  | "contextualBandits"
+  | "contextualBanditQueries"
+  | "contextualBanditSnapshots"
+  | "contextualBanditEvents"
+  | "sessionReplays"
+  | "eventForwarderConfigs";
 
 export const modelClasses = {
   agreements: AgreementModel,
@@ -147,27 +173,118 @@ export const modelClasses = {
   dashboards: DashboardModel,
   customHooks: CustomHookModel,
   incrementalRefresh: IncrementalRefreshModel,
+  aggregatedFactTables: AggregatedFactTableModel,
+  aggregatedFactTableRuns: AggregatedFactTableRunModel,
   experimentSnapshotAnalysisChunks: ExperimentSnapshotAnalysisChunkModel,
   sqlResultChunks: SqlResultChunkModel,
   sdkConnectionCache: SdkConnectionCacheModel,
   sdkWebhooks: SdkWebhookModel,
   savedGroups: SavedGroupModel,
+  constants: ConstantModel,
+  configs: ConfigModel,
   teams: TeamModel,
   analyticsExplorations: AnalyticsExplorationModel,
   revisions: RevisionModel,
   presentationThemes: PresentationThemeModel,
   watch: WatchModel,
+  figmaConnections: FigmaConnectionModel,
   apiKeys: ApiKeyModel,
   rampSchedules: RampScheduleModel,
   rampScheduleTemplates: RampScheduleTemplateModel,
   aiConversations: AIConversationModel,
+  contextualBandits: ContextualBanditModel,
+  contextualBanditQueries: ContextualBanditQueryModel,
+  contextualBanditSnapshots: ContextualBanditSnapshotModel,
+  contextualBanditEvents: ContextualBanditEventModel,
+  sessionReplays: SessionReplayModel,
+  eventForwarderConfigs: EventForwarderConfigModel,
 };
-export type ModelClass = (typeof modelClasses)[ModelName];
+// ModelClass narrows to only BaseModel-derived model constructors (those
+// expose a static `getModelConfig`). Non-BaseModel context models — e.g.
+// SessionReplayModel, which is backed by ClickHouse + S3 rather than
+// Mongo — are still registered on the request context but excluded from
+// API_MODELS iteration in api.router.ts.
+export type ModelClass = Extract<
+  (typeof modelClasses)[ModelName],
+  { getModelConfig: () => unknown }
+>;
 type ModelInstances = {
   [K in ModelName]: InstanceType<(typeof modelClasses)[K]>;
 };
 
 export class ReqContextClass {
+  /**
+   * When set, guard evaluators use this as their org-wide scan context instead
+   * of minting a fresh one per evaluation. Sharing one context makes the
+   * model-instance snapshot memos (e.g. ConfigModel.getAllForReconcile) span all
+   * guards in the operation, and lets the bulk publisher substitute an overlay
+   * whose reads reflect a hypothetical multi-entity end-state. Set
+   * self-referentially so nested evaluations inherit it. Request-scoped only —
+   * never cache one across requests.
+   */
+  public scanContextOverride?: ReqContextClass;
+
+  /**
+   * Proposed feature states for the bulk publisher's overlay scan context,
+   * keyed by feature id. Honored by getAllFeaturesWithoutEditorFields (the
+   * single funnel every cross-entity validator reads features through), so
+   * guards evaluating a config/constant publish see the batch's proposed
+   * feature values instead of live ones. Only ever set on a dedicated
+   * plan-scoped scan context — never on a context that performs writes.
+   */
+  public featureScanOverlay?: Map<string, FeatureInterface> | null;
+
+  /**
+   * When set, queueSDKPayloadRefresh appends payload keys here instead of
+   * refreshing — the bulk publisher's side-effect buffer, so a multi-entity
+   * commit produces ONE deduped refresh (at most one rebuild per SDK
+   * connection) after every write lands, and none at all if the commit
+   * compensates. `treatEmptyProjectAsGlobal` ORs across buffered calls so the
+   * flush matches connections at least as widely as the suppressed refreshes
+   * would have. Cleared before the flush itself refreshes.
+   */
+  public sdkPayloadRefreshBuffer?: {
+    keys: SDKPayloadKey[];
+    treatEmptyProjectAsGlobal: boolean;
+    /**
+     * Set when the flush drains the buffer. Fire-and-forget producers that
+     * captured the buffer reference before the flush (e.g. a model
+     * afterUpdate's async resolvable scan) fall through to a live refresh
+     * instead of pushing into a drained array nobody will read.
+     */
+    closed?: boolean;
+  } | null;
+
+  /**
+   * When set, apply-path `*.updated` webhook-event emissions enqueue here
+   * instead of firing — the bulk publisher flushes them per entity after the
+   * whole commit lands, and drops them on compensation so a rolled-back
+   * release emits no update events. Audit-log entries are NOT deferred: they
+   * record writes that genuinely happened, compensation included.
+   */
+  public bulkPublishDeferredEvents?: Array<() => Promise<unknown>> | null;
+
+  /**
+   * Correlation token for the multi-entity publish ATTEMPT currently
+   * committing (`pub_…`, minted per commit). Distinct from the future
+   * Release id: a Release may publish over several attempts, each minting
+   * its own token. Revision lifecycle events emitted while set carry it as
+   * `bulkPublishId`. Absent on single-entity publishes.
+   */
+  public bulkPublishId?: string | null;
+
+  /**
+   * True ONLY while a bulk-publish commit is writing entities (the claim →
+   * apply → compensation window). Write-path guards that already ran as plan
+   * gates against the combined end-state stand down while it's set, since
+   * re-running them against the mid-commit mix would spuriously fail a
+   * plan-clean release. Distinct from `bulkPublishId` (the event-correlation
+   * token, which stays set through post-commit emission): post-commit side
+   * effects (e.g. ramp activation) are genuine writes NOT covered by the plan
+   * gates, so they must run with guards active — hence a separate flag.
+   */
+  public bulkPublishApplying?: boolean;
+
   // Models
   public models!: ModelInstances;
   private initModels() {
@@ -195,21 +312,32 @@ export class ReqContextClass {
       dashboards: new DashboardModel(this),
       customHooks: new CustomHookModel(this),
       incrementalRefresh: new IncrementalRefreshModel(this),
+      aggregatedFactTables: new AggregatedFactTableModel(this),
+      aggregatedFactTableRuns: new AggregatedFactTableRunModel(this),
       experimentSnapshotAnalysisChunks:
         new ExperimentSnapshotAnalysisChunkModel(this),
       sqlResultChunks: new SqlResultChunkModel(this),
       sdkConnectionCache: new SdkConnectionCacheModel(this),
       sdkWebhooks: new SdkWebhookModel(this),
       savedGroups: new SavedGroupModel(this),
+      constants: new ConstantModel(this),
+      configs: new ConfigModel(this),
       teams: new TeamModel(this),
       analyticsExplorations: new AnalyticsExplorationModel(this),
       revisions: new RevisionModel(this),
       presentationThemes: new PresentationThemeModel(this),
       watch: new WatchModel(this),
+      figmaConnections: new FigmaConnectionModel(this),
       apiKeys: new ApiKeyModel(this),
       rampSchedules: new RampScheduleModel(this),
       rampScheduleTemplates: new RampScheduleTemplateModel(this),
       aiConversations: new AIConversationModel(this),
+      contextualBandits: new ContextualBanditModel(this),
+      contextualBanditQueries: new ContextualBanditQueryModel(this),
+      contextualBanditSnapshots: new ContextualBanditSnapshotModel(this),
+      contextualBanditEvents: new ContextualBanditEventModel(this),
+      sessionReplays: new SessionReplayModel(this),
+      eventForwarderConfigs: new EventForwarderConfigModel(this),
     };
   }
 
@@ -303,8 +431,71 @@ export class ReqContextClass {
     this.initModels();
   }
 
+  // True to skip soft warnings; background jobs (no req) always ignore.
+  // Body-canonical (`{ "ignoreWarnings": true }`) with the querystring form
+  // kept as a deprecated alias — the flag is request disposition, but callers
+  // (agents especially) discover and retry flags far more reliably in the body
+  // schema. Strict zod body schemas mostly limit the flag to endpoints that
+  // declare the field, but not fully: `z.never()` bodies and internal routes
+  // skip body validation, so this getter can still see the raw flag there.
+  public get ignoreWarnings(): boolean {
+    if (!this.req) return true;
+    if (this.bodyFlag("ignoreWarnings")) return true;
+    const v = this.req.query?.ignoreWarnings;
+    if (typeof v !== "string") return false;
+    return stringToBoolean(v);
+  }
+
+  private bodyFlag(field: string): boolean {
+    const body = this.req?.body;
+    return (
+      !!body &&
+      typeof body === "object" &&
+      (body as Record<string, unknown>)[field] === true
+    );
+  }
+
+  // Opt-in escape hatch to skip JSON-schema / value-shape conformance checks on
+  // write paths (body-canonical `{ "skipSchemaValidation": true }`, with the
+  // querystring form as a deprecated alias). Validation is enforced by
+  // default; this only relaxes it when a caller explicitly asks. Background jobs
+  // (no req) never skip — they must produce conforming data.
+  //
+  // Gated: turning off hard validation is only honored for callers with org-wide
+  // bypass authority (`bypassApprovalChecks` on all projects). A project-scoped
+  // writer can't silently ship non-conforming data — the flag is ignored and
+  // validation still runs (a 4xx, the secure default). Schema validation is new,
+  // so nothing depends on an ungated bypass.
+  public get skipSchemaValidation(): boolean {
+    if (!this.req) return false;
+    const queryValue = this.req.query?.skipSchemaValidation;
+    const requested =
+      this.bodyFlag("skipSchemaValidation") ||
+      (typeof queryValue === "string" && stringToBoolean(queryValue));
+    if (!requested) return false;
+    return this.permissions.canBypassApprovalChecks({ project: undefined });
+  }
+
+  // Force past a custom validation hook that rejected the change. Its own flag
+  // (not skipSchemaValidation — a hook failure isn't a schema error), honored
+  // only for callers with org-wide bypass authority (the bypassApprovalChecks
+  // permission on all projects); ignored otherwise.
+  public get skipHooks(): boolean {
+    if (!this.req) return false;
+    const queryValue = this.req.query?.skipHooks;
+    const requested =
+      this.bodyFlag("skipHooks") ||
+      (typeof queryValue === "string" && stringToBoolean(queryValue));
+    if (!requested) return false;
+    return this.permissions.canBypassApprovalChecks({ project: undefined });
+  }
+
   public throwBadRequestError(message: string): never {
     throw new BadRequestError(message);
+  }
+
+  public throwPaymentRequiredError(message: string): never {
+    throw new PaymentRequiredError(message);
   }
 
   public throwUnauthorizedError(message: string): never {
@@ -350,6 +541,14 @@ export class ReqContextClass {
 
   public hasPremiumFeature(feature: CommercialFeature) {
     return orgHasPremiumFeature(this.org, feature);
+  }
+
+  private _limits: OrgLimitsAccessor | null = null;
+  public get limits(): OrgLimitsAccessor {
+    if (!this._limits) {
+      this._limits = getEffectiveOrgLimits(this.org);
+    }
+    return this._limits;
   }
 
   // Record an audit log entry
@@ -446,6 +645,15 @@ export class ReqContextClass {
       return projects;
     }
     return this._projects;
+  }
+
+  // Cached, unfiltered by read permissions (internal fan-out, unlike getProjects()).
+  private _allProjectIds: string[] | null = null;
+  public async getAllProjectIds(): Promise<string[]> {
+    if (this._allProjectIds === null) {
+      this._allProjectIds = await this.models.projects.getAllIdsForOrg();
+    }
+    return this._allProjectIds;
   }
 
   // Tags can be created on the fly, so we cache which ones already exist

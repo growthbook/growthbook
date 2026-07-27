@@ -255,6 +255,45 @@ export const notifySrm = async ({
   return triggered && !experiment.pastNotifications?.includes("srm");
 };
 
+export const notifyUnderpowered = async ({
+  context,
+  experiment,
+  currentStatus,
+}: {
+  context: Context;
+  experiment: ExperimentInterface;
+  currentStatus: ExperimentResultStatusData;
+}) => {
+  const triggered =
+    currentStatus.status === "unhealthy" &&
+    !!currentStatus.unhealthyData.lowPowered;
+
+  await memoizeNotification({
+    context,
+    experiment,
+    type: "underpowered",
+    triggered,
+    dispatch: async () => {
+      if (!triggered) return;
+
+      await dispatchEvent({
+        context,
+        experiment,
+        event: "warning",
+        data: {
+          object: {
+            type: "underpowered",
+            experimentId: experiment.id,
+            experimentName: experiment.name,
+          },
+        },
+      });
+    },
+  });
+
+  return triggered && !experiment.pastNotifications?.includes("underpowered");
+};
+
 export const notifyNoData = async ({
   context,
   experiment,
@@ -670,6 +709,15 @@ export const notifyExperimentChange = async ({
     });
     if (triggeredSrm) {
       notificationsTriggered.push("srm");
+    }
+
+    const triggeredUnderpowered = await notifyUnderpowered({
+      context,
+      experiment,
+      currentStatus,
+    });
+    if (triggeredUnderpowered) {
+      notificationsTriggered.push("underpowered");
     }
 
     const lastStatus = getExperimentResultStatus({

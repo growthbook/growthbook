@@ -1,8 +1,8 @@
 import { useForm } from "react-hook-form";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import MultiSelectField from "@/ui/MultiSelectField";
 
 export const AddMembersModal = ({
   teamId,
@@ -54,6 +54,7 @@ export const AddMembersModal = ({
       })}
     >
       <MultiSelectField
+        size="legacy"
         label="Members to add"
         placeholder="Select members"
         value={form.watch("members")}

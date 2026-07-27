@@ -7,9 +7,10 @@ import AttributeForm from "@/components/Archetype/AttributeForm";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Modal from "@/components/Modal";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useProjectOptions from "@/hooks/useProjectOptions";
+import { useEnvironments } from "@/services/features";
 import Checkbox from "@/ui/Checkbox";
 
 const ArchetypeAttributesModal: FC<{
@@ -24,6 +25,7 @@ const ArchetypeAttributesModal: FC<{
     attributes: string;
     isPublic: boolean;
     projects: string[];
+    environments: string[];
   }>({
     defaultValues: {
       name: initialValues?.name || "",
@@ -31,11 +33,13 @@ const ArchetypeAttributesModal: FC<{
       attributes: initialValues?.attributes || "",
       isPublic: initialValues?.isPublic ?? true,
       projects: initialValues?.projects || [],
+      environments: initialValues?.environments || [],
     },
   });
 
   const { apiCall } = useAuth();
   const { project, projects } = useDefinitions();
+  const environments = useEnvironments();
   const permissionsUtil = usePermissionsUtil();
   const hasPermissionToAddEditArchetypes =
     permissionsUtil.canCreateArchetype({
@@ -63,6 +67,7 @@ const ArchetypeAttributesModal: FC<{
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType="add-edit-archetype"
       trackingEventModalSource={source}
       open={true}
@@ -97,10 +102,16 @@ const ArchetypeAttributesModal: FC<{
       ) : (
         <>
           <div>
-            <Field label={"Name"} required={true} {...form.register("name")} />
+            <Field
+              size="legacy"
+              label={"Name"}
+              required={true}
+              {...form.register("name")}
+            />
           </div>
           <div>
             <Field
+              size="legacy"
               label={"Description"}
               maxLength={MAX_DESCRIPTION_LENGTH}
               {...form.register("description")}
@@ -110,13 +121,29 @@ const ArchetypeAttributesModal: FC<{
           {projects?.length > 0 && (
             <div className="form-group">
               <MultiSelectField
+                size="legacy"
                 label={<>Projects </>}
-                placeholder="All projects"
+                placeholder="All Projects"
                 value={form.watch("projects")}
                 options={projectOptions}
                 onChange={(v) => form.setValue("projects", v)}
                 customClassName="label-overflow-ellipsis"
                 helpText="Assign this archetype to specific projects"
+              />
+            </div>
+          )}
+          {environments.length > 0 && (
+            <div className="form-group">
+              <MultiSelectField
+                label="Environments"
+                placeholder="All environments"
+                value={form.watch("environments")}
+                options={environments.map((env) => ({
+                  label: env.id,
+                  value: env.id,
+                }))}
+                onChange={(v) => form.setValue("environments", v)}
+                helpText="Limit this archetype to specific environments. Leave empty to show it in all environments."
               />
             </div>
           )}

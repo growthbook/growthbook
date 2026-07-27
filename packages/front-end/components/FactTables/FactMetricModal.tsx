@@ -15,6 +15,7 @@ import {
   UpdateFactMetricProps,
   MetricQuantileSettings,
   FactMetricType,
+  FactTableDefinition,
   FactTableInterface,
   MetricWindowSettings,
   ColumnInterface,
@@ -28,9 +29,11 @@ import {
   getColumnRefWhereClause,
   getSelectedColumnDatatype,
 } from "shared/experiments";
+import { createLikeStringMatchFn } from "shared/sql";
 import { PiArrowSquareOut, PiPlus } from "react-icons/pi";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import useFullFactTable from "@/hooks/useFullFactTable";
 import {
   formatNumber,
   getDefaultFactMetricProps,
@@ -48,7 +51,7 @@ import SelectField, {
   GroupedValue,
   SingleValue,
 } from "@/components/Forms/SelectField";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import Field from "@/components/Forms/Field";
 import Switch from "@/ui/Switch";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
@@ -67,6 +70,7 @@ import HelperText from "@/ui/HelperText";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { RowFilterInput } from "@/components/FactTables/RowFilterInput";
+import { getAttributeFieldsExposedAsColumns } from "@/components/FactTables/rowFilterUtils";
 import { MANAGED_BY_ADMIN } from "@/components/Metrics/MetricForm";
 import { DocLink } from "@/components/DocLink";
 
@@ -106,6 +110,7 @@ function QuantileSelector({
     <div className="row align-items-center">
       <div className="col-auto">
         <SelectField
+          size="legacy"
           label="Quantile"
           value={showCustom ? "custom" : value.quantile + ""}
           onChange={(v) => {
@@ -123,6 +128,7 @@ function QuantileSelector({
       {showCustom && (
         <div className="col-auto">
           <Field
+            size="legacy"
             label="&nbsp;"
             autoFocus
             type="number"
@@ -154,7 +160,7 @@ function QuantileSelector({
 }
 
 function getNumericColumns(
-  factTable: FactTableInterface | null,
+  factTable: FactTableDefinition | null,
 ): ColumnInterface[] {
   if (!factTable) return [];
   return factTable.columns.filter(
@@ -180,7 +186,7 @@ function getColumnOptions({
   excludeColumns,
   groupPrefix = "",
 }: {
-  factTable: FactTableInterface | null;
+  factTable: Omit<FactTableInterface, "sql"> | null;
   datasource: DataSourceInterfaceWithParams | null;
   includeCount?: boolean;
   includeCountDistinct?: boolean;
@@ -248,10 +254,12 @@ function getColumnOptions({
 
   // Add JSON fields
   if (includeJSONFields && factTable?.columns) {
-    const excludedAttributeFields = new Set<string>();
+    // When an attribute is surfaced as a top-level column — legacy materialized
+    // columns, or JSON-warehouse identifiers aliased out of `attributes` —
+    // point people at that column, not the JSON field.
+    const excludedAttributeFields =
+      getAttributeFieldsExposedAsColumns(factTable);
     if (datasource && datasource.type === "growthbook_clickhouse") {
-      // When an attribute has been materialized to the top-level,
-      // we want people to use the top-level column and not a JSON field
       datasource.settings.materializedColumns?.forEach((col) => {
         excludedAttributeFields.add(col.sourceField);
       });
@@ -263,7 +271,10 @@ function getColumnOptions({
     for (const col of jsonColumns) {
       if (col.jsonFields) {
         for (const [field, data] of Object.entries(col.jsonFields)) {
-          if (col.name === "attributes" && excludedAttributeFields.has(field)) {
+          if (
+            col.column === "attributes" &&
+            excludedAttributeFields.has(field)
+          ) {
             continue;
           }
 
@@ -347,6 +358,7 @@ function RetentionWindowSelector({
           <div className="col-auto">Event must be at least</div>
           <div className="col-auto">
             <Field
+              size="legacy"
               {...form?.register("windowSettings.delayValue", {
                 valueAsNumber: true,
               })}
@@ -361,6 +373,7 @@ function RetentionWindowSelector({
           </div>
           <div className="col-auto ">
             <SelectField
+              size="legacy"
               value={form?.watch("windowSettings.delayUnit") ?? "days"}
               onChange={(value) => {
                 form.setValue(
@@ -425,8 +438,11 @@ function ColumnRefSelector({
 }) {
   const { getFactTableById, factTables } = useDefinitions();
 
-  let factTable = getFactTableById(value.factTableId);
-  if (factTable?.datasource !== datasource.id) factTable = null;
+  // Need full columns (jsonFields) here for JSON sub-field options and filters,
+  // which the slimmed definitions omit
+  const { factTable: fullFactTable } = useFullFactTable(value.factTableId);
+  const factTable =
+    fullFactTable?.datasource === datasource.id ? fullFactTable : null;
 
   const columnOptions = getColumnOptions({
     factTable,
@@ -453,6 +469,7 @@ function ColumnRefSelector({
       <div className="row align-items-top">
         <div className="col-auto">
           <SelectField
+            size="legacy"
             label={"Fact Table"}
             disabled={disableFactTableSelector}
             value={value.factTableId}
@@ -524,6 +541,7 @@ function ColumnRefSelector({
         {includeColumn && (
           <div className="col-auto">
             <SelectField
+              size="legacy"
               label="Value"
               value={value.column}
               onChange={(column) => {
@@ -554,6 +572,7 @@ function ColumnRefSelector({
           aggregationType === "unit" && (
             <div className="col-auto">
               <SelectField
+                size="legacy"
                 label={"Aggregation"}
                 value={value.aggregation || "sum"}
                 onChange={(v) =>
@@ -604,6 +623,7 @@ function ColumnRefSelector({
               {value.aggregateFilterColumn || addUserFilter ? (
                 <div className="d-flex align-items-center">
                   <SelectField
+                    size="legacy"
                     value={value.aggregateFilterColumn || ""}
                     onChange={(v) =>
                       setValue({
@@ -627,6 +647,7 @@ function ColumnRefSelector({
                   {value.aggregateFilterColumn ? (
                     <div className="ml-1">
                       <Field
+                        size="legacy"
                         value={value.aggregateFilter || ""}
                         onChange={(v) =>
                           setValue({
@@ -676,7 +697,7 @@ function getWHERE({
   quantileSettings,
   type,
 }: {
-  factTable: FactTableInterface | null;
+  factTable: FactTableDefinition | null;
   columnRef: ColumnRef | null;
   windowSettings: MetricWindowSettings;
   quantileSettings: MetricQuantileSettings;
@@ -688,6 +709,10 @@ function getWHERE({
           factTable,
           columnRef,
           escapeStringLiteral: (s) => s.replace(/'/g, "''"),
+          stringMatch: createLikeStringMatchFn({
+            escapeStringLiteral: (s) => s.replace(/'/g, "''"),
+            emitEscapeClause: false,
+          }),
           // This isn't real SQL syntax for most dialects, but it should get the point across
           jsonExtract: (jsonCol, path) => `${jsonCol}.${path}`,
           evalBoolean: (col, value) => `${col} IS ${value ? "TRUE" : "FALSE"}`,
@@ -761,8 +786,8 @@ function getPreviewSQL({
   windowSettings: MetricWindowSettings;
   numerator: ColumnRef;
   denominator: ColumnRef | null;
-  numeratorFactTable: FactTableInterface | null;
-  denominatorFactTable: FactTableInterface | null;
+  numeratorFactTable: FactTableDefinition | null;
+  denominatorFactTable: FactTableDefinition | null;
 }): { sql: string; denominatorSQL?: string; experimentSQL: string } {
   const identifier =
     "`" + (numeratorFactTable?.userIdTypes?.[0] || "user_id") + "`";
@@ -1059,6 +1084,7 @@ function FieldMappingModal({
 
   return (
     <Modal
+      useRadixButton={false}
       close={close}
       header="Create Fact Metric From Template"
       trackingEventModalType=""
@@ -1130,6 +1156,7 @@ function FieldMappingModal({
       </div>
       <p>Which fact table do you want to add this metric to?</p>
       <SelectField
+        size="legacy"
         label={"Fact Table"}
         value={numerator?.factTableId || ""}
         onChange={(factTableId) => {
@@ -1225,6 +1252,7 @@ function FieldMappingModal({
           if (!numericColumnOptions.length) return null;
           return (
             <SelectField
+              size="legacy"
               key={k}
               label={`Column: ${k}`}
               value={numericColumnMap[k] || ""}
@@ -1244,6 +1272,7 @@ function FieldMappingModal({
           if (!stringColumnOptions.length) return null;
           return (
             <SelectField
+              size="legacy"
               key={k}
               label={`Column: ${k}`}
               value={stringColumnMap[k] || ""}
@@ -1439,6 +1468,7 @@ export default function FactMetricModal({
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       open={true}
       header={!isNew ? "Edit Metric" : "Create Fact Table Metric"}
@@ -1667,6 +1697,7 @@ export default function FactMetricModal({
             </Callout>
           )}
           <Field
+            size="legacy"
             label="Metric Name"
             {...form.register("name")}
             autoFocus
@@ -1674,6 +1705,7 @@ export default function FactMetricModal({
           />
           {!existing && !initialFactTable && (
             <SelectField
+              size="legacy"
               label="Data Source"
               value={form.watch("datasource")}
               onChange={(v) => {
@@ -2121,6 +2153,7 @@ export default function FactMetricModal({
               <MetricWindowSettingsForm form={form} type={type} />
 
               <SelectField
+                size="legacy"
                 label="Metric Goal"
                 value={form.watch("inverse") ? "1" : "0"}
                 onChange={(v) => {
@@ -2165,7 +2198,7 @@ export default function FactMetricModal({
                       >
                         Choose metric breakdowns to automatically analyze in
                         your experiments.{" "}
-                        <DocLink docSection="autoSlices">
+                        <DocLink useRadix={false} docSection="autoSlices">
                           Learn More <PiArrowSquareOut />
                         </DocLink>
                       </Text>
@@ -2173,6 +2206,7 @@ export default function FactMetricModal({
                         <div className="mt-2">
                           {availableSlices.length > 0 ? (
                             <MultiSelectField
+                              size="legacy"
                               value={form.watch("metricAutoSlices") || []}
                               onChange={(metricAutoSlices) => {
                                 form.setValue(
@@ -2259,6 +2293,7 @@ export default function FactMetricModal({
                         ) : null}
 
                         <Field
+                          size="legacy"
                           label="Target MDE"
                           type="number"
                           step="any"
@@ -2351,6 +2386,7 @@ export default function FactMetricModal({
                                   }}
                                 >
                                   <Field
+                                    size="legacy"
                                     label="Pre-exposure lookback period (days)"
                                     type="number"
                                     style={{
@@ -2446,6 +2482,7 @@ export default function FactMetricModal({
                           </small>
                         </div>
                         <Field
+                          size="legacy"
                           label="Max Percent Change"
                           type="number"
                           step="any"
@@ -2459,6 +2496,7 @@ export default function FactMetricModal({
             }%)`}
                         />
                         <Field
+                          size="legacy"
                           label="Min Percent Change"
                           type="number"
                           step="any"

@@ -16,9 +16,7 @@ export default function SliderStories() {
             setSliderVal(e[0]);
           }}
         />
-        <span className="col-auto" style={{ fontSize: "1.3em" }}>
-          {sliderVal}%
-        </span>
+        <span>{sliderVal}%</span>
       </div>
       <div>
         <label>Slider in cyan (high contrast) </label>

@@ -9,7 +9,9 @@ import {
 import { Responsive } from "@radix-ui/themes/dist/esm/props/prop-def.js";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 
-export type Color = "violet" | "red" | "gray";
+// "inherit" drops the forced accent color so the button inherits the
+// surrounding Radix accent context (e.g. a Callout's status color).
+export type Color = "violet" | "red" | "gray" | "inherit";
 export type Variant = "solid" | "soft" | "outline" | "ghost";
 export type Size = "xs" | "sm" | "md" | "lg";
 
@@ -90,7 +92,7 @@ const Button = forwardRef<HTMLButtonElement, Props>(
               }
             : undefined
         }
-        color={color}
+        color={color === "inherit" ? undefined : color}
         variant={variant}
         size={getRadixSize(size)}
         disabled={disabled}

@@ -1,108 +1,159 @@
 ---
 title: GrowthBook Command Line Interface (CLI)
-description: The GrowthBook command-line interface (CLI) for working with the GrowthBook A/B testing, feature flagging, and experimentation platform
+description: The GrowthBook command-line interface (CLI) for managing feature flags, experiments, metrics, and more from your terminal
 slug: cli
 toc_max_heading_level: 5
 ---
 
 import ExternalLink from '@site/src/components/ExternalLink'
 
-The GrowthBook command-line interface (CLI) is a tool for working with the GrowthBook A/B testing, feature flagging, and experimentation platform.
+The GrowthBook CLI lets you manage feature flags, experiments, metrics, and everything else in the [GrowthBook REST API](/app/api) from your terminal. Every API resource has a command group, so anything you can do via the API you can do from a shell — interactively, in scripts, or in CI.
 
-Requires Node.js version 16+.
+The CLI is generated from the GrowthBook OpenAPI spec, so it tracks the API closely and updates shortly after new endpoints ship.
 
-:::success New
+:::note Upgrading from the legacy CLI?
 
-The GrowthBook CLI is a brand new tool. If you experience any issues, let us know either on [Slack](https://slack.growthbook.io/) or [create an issue](https://github.com/growthbook/growthbook-cli/issues).
+Version 1.0 is a ground-up rewrite of the previous `growthbook` npm package. Your existing `~/.growthbook/config.toml` profiles are imported automatically on first run. Most commands are unchanged — see the [migration guide <ExternalLink />](https://github.com/growthbook/cli/blob/main/MIGRATION.md) for what moved.
 
 :::
 
-## CLI Features
+## Installation
 
-### Generating Types
-
-The GrowthBook CLI enables you to generate TypeScript types for working with the SDK.
-
-Run `growthbook features generate-types --help` for more info.
-
-See the [JavaScript SDK documentation](/lib/js#strict-typing) for more information on working with typed features.
-
-### Profile management
-
-If you have multiple GrowthBook organizations or accounts, you can easily switch between profiles when running individual commands.
-
-Run `growthbook auth --help` for more info.
-
-## Usage
-
-### Installing the CLI
-
-You can install the CLI to your project with the following command:
-
-```bash npm2yarn
-npm install growthbook --save
-```
-
-You can also install it globally so you can use it with multiple projects and outside of projects:
+Install via npm (a small launcher that downloads the prebuilt binary for your platform; requires Node.js 16+):
 
 ```bash
 npm install -g growthbook
 ```
 
-The `growthbook` executable should now be available in your project. You should now be able to run commands, e.g.:
+Or with Homebrew:
 
 ```bash
-growthbook --help
+brew install growthbook/tap/growthbook
 ```
 
-### Adding your API secret
+Prefer a standalone binary with no Node.js dependency? An install script, `go install`, and prebuilt downloads are covered in the [repository README <ExternalLink />](https://github.com/growthbook/cli#cli-installation).
 
-Before using the GrowthBook CLI you will need to authenticate yourself. You will need to get an API key, which you can do [here <ExternalLink />](https://app.growthbook.io/settings/keys).
+Verify the install:
 
-Next, use the `growthbook auth login --apiKey XXX` command to set your token for the default profile.
+```bash
+growthbook --version
+```
 
-Run `growthbook auth login --help` for more info and options.
+## Authentication
 
-### Generating Types
+The CLI authenticates with a **Secret Key** or **Personal Access Token**, which you can create under [**Settings → API Keys** <ExternalLink />](https://app.growthbook.io/settings/keys).
 
-You can also add it to your `package.json` file of the project that will use the types, e.g.:
+For interactive setup, run:
+
+```bash
+growthbook auth login
+```
+
+This stores your credentials in the OS keychain when available (with a config-file fallback). Check what's active at any time with:
+
+```bash
+growthbook whoami
+```
+
+You can also pass credentials explicitly — useful for one-off commands or scripts:
+
+```bash
+growthbook features list --bearer-auth secret_abc123
+# or
+GBCLI_BEARER_AUTH=secret_abc123 growthbook features list
+```
+
+### Self-hosted instances
+
+Point the CLI at your API host with `--server-url` (note the `/api` suffix), or store it once via `growthbook configure`:
+
+```bash
+growthbook features list --server-url https://gb-api.example.com/api
+```
+
+### Multiple organizations or servers
+
+Named profiles bundle a server URL and credential together:
+
+```bash
+growthbook profiles set staging --server-url https://gb.staging.example.com/api --bearer-auth secret_xxx
+growthbook profiles use staging          # set the default
+growthbook features list --profile prod  # or per-command
+```
+
+## Everyday usage
+
+Every command and group documents itself — start with `growthbook --help` and drill down:
+
+```bash
+growthbook features list                      # list feature flags
+growthbook features get --id my-flag          # inspect one
+growthbook features toggle --id my-flag --environments '{"production": false}'
+growthbook experiments list
+```
+
+For guided exploration, `growthbook explore` opens an interactive browser of the full command tree.
+
+Write operations accept individual flags or a raw JSON body (via `--body`, or piped through stdin):
+
+```bash
+echo '{"id": "my-flag", "valueType": "boolean", "defaultValue": "true"}' | growthbook features create --body -
+```
+
+Feature changes that need review can go through the full draft workflow — create a revision, edit it, and publish (or request review):
+
+```bash
+growthbook feature-revisions create --id my-flag --title "Enable for beta users"
+growthbook feature-revisions add-rule --id my-flag --version-param 2 --rule '{"type": "force", "value": "true", "condition": "{\"beta\": true}", "environments": ["production"]}'
+growthbook feature-revisions publish --id my-flag --version-param 2
+```
+
+## Scripting and automation
+
+The CLI is built to compose with shell pipelines:
+
+- `--output-format json|yaml|toon|pretty` controls the output shape (`-o json` for pipelines).
+- `--jq '<expression>'` filters output with built-in [jq](https://jqlang.github.io/jq/) — no separate install needed.
+- `--all` auto-paginates list commands, streaming NDJSON in JSON mode.
+- `--dry-run` prints the HTTP request that would be sent without executing it.
+- Exit codes are meaningful: `0` on success, non-zero on any failure, with structured error output.
+
+```bash
+growthbook features list --all -o json --jq '.id' | sort
+```
+
+In CI, authenticate with the `GBCLI_BEARER_AUTH` environment variable (the keychain isn't available in headless environments) and pass `--no-interactive` to disable all prompts.
+
+### AI coding agents
+
+When the CLI detects it's running under an AI coding agent (Claude Code, Cursor, and others), it automatically enables `--agent-mode`: structured, machine-readable errors with remediation hints and token-efficient TOON output. The CLI is self-documenting enough that agents can discover and use the full API surface from `--help` alone. Use `--agent-mode=false` to opt out.
+
+## Generating TypeScript types
+
+Generate an `AppFeatures` type definition from your feature flags for [strictly-typed SDK usage](/lib/js#strict-typing):
+
+```bash
+growthbook generate-types --output ./types
+```
+
+Add it to your `package.json` scripts to keep types in sync:
 
 ```json
 {
   "scripts": {
-    "type-gen": "growthbook features generate-types --output ./types"
+    "type-gen": "growthbook generate-types --output ./types"
   }
 }
 ```
 
-It should now be available for use when you run `npm run type-gen` or `yarn type-gen`.
+## API versioning and server compatibility
 
-### Usage on CI/CD
+REST endpoints are versioned by path prefix (`/v1`, `/v2`). Each command group targets the newest version of its endpoint; superseded versions remain available under a `-vN` suffix (e.g. `features-v1`, deprecated). When a command group advances to a newer API version, it ships as a major CLI release with a changelog callout so you can pin the prior major or switch to the explicit `-vN` command on your own schedule.
 
-If you'd like to use the CLI in continuous integration/continuous deployment environments, instead of running the `growthbook auth login` command, we recommend creating the following file at `~/.growthbook/config.toml` with your secret and API base URL:
+**Self-hosted:** the full command surface requires **GrowthBook 4.4.0 or newer** (when the v2 API shipped). On older servers, v2-backed commands return 404 — use the `-v1` command variants or upgrade. GrowthBook Cloud is always current.
 
-```toml
-[default]
-growthbook_secret = "secret_abc123"
-api_base_url = "https://api.growthbook.io" # replace this with your API URL if self-hosted
-```
+The CLI checks once a day for a newer version and prints a notice to stderr when an upgrade is available _and_ compatible with the server you're connected to. Disable with `--no-update-check` or `GBCLI_NO_UPDATE_CHECK=1`.
 
-You can also store multiple profiles and refer to them with the `--profile` flag in supported commands:
+## Detailed command reference
 
-```toml
-[default]
-growthbook_secret = "secret_abc123"
-api_base_url = "https://api.growthbook.io"
-
-[acme_donuts]
-growthbook_secret = "secret_xyz987"
-api_base_url = "http://localhost:3100"
-```
-
-### Detailed Command Usage
-
-See the generated [GrowthBook CLI command documentation on Github <ExternalLink />](https://github.com/growthbook/growthbook-cli#commands).
-
-### Examples
-
-- [Example implementation of a TypeScript project that uses the GrowthBook CLI <ExternalLink />](https://github.com/growthbook/examples/tree/main/vanilla-typescript)
+See the generated [command documentation on GitHub <ExternalLink />](https://github.com/growthbook/cli/tree/main/docs), or run `growthbook --help` — every command's full usage, flags, and examples are built in.

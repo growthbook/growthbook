@@ -76,7 +76,7 @@ const SnowflakeForm: FC<{
         </div>
       ) : null}
 
-      {authMethod === "key-pair" ? (
+      {authMethod === "key-pair" && (
         <>
           <div className="form-group col-md-12">
             <label>Private Key File</label>
@@ -123,7 +123,7 @@ const SnowflakeForm: FC<{
             />
           </div>
         </>
-      ) : null}
+      )}
 
       <div className="form-group col-md-12">
         <label>Database</label>
@@ -186,7 +186,7 @@ const SnowflakeForm: FC<{
           />
         </div>
       </div>
-      {useAccessUrl ? (
+      {useAccessUrl && (
         <div className="form-group col-md-12">
           <label>
             Access URL{" "}
@@ -201,7 +201,7 @@ const SnowflakeForm: FC<{
             onChange={onParamChange}
           />
         </div>
-      ) : null}
+      )}
     </div>
   );
 };

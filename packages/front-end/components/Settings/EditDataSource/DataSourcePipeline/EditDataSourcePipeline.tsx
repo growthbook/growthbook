@@ -13,7 +13,7 @@ import {
 } from "shared/enterprise";
 import Checkbox from "@/ui/Checkbox";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import { useExperiments } from "@/hooks/useExperiments";
 import PipelineValidationResultsView from "@/enterprise/components/DataPipeline/PipelineValidationResults";
 import { useDataSourcePipelineSettingsValidation } from "@/enterprise/components/DataPipeline/useDataSourcePipelineSettingsValidation";
@@ -181,7 +181,6 @@ export const EditDataSourcePipeline = ({
       submit={handleSubmit}
       autoCloseOnSubmit={false}
       borderlessHeader={true}
-      useRadixButton={true}
       cta={validateBeforeSaving ? "Validate & Save" : "Save"}
       size="lg"
       includeCloseCta={true}
@@ -368,6 +367,7 @@ function IncrementalScopeSelector({
       {!form.watch("applyToAllExperiments") ? (
         <Box ml="23px">
           <MultiSelectField
+            size="legacy"
             value={form.watch("includedExperimentIds") ?? []}
             onChange={(v) => {
               form.setValue("includedExperimentIds", v);

@@ -9,6 +9,7 @@ import TagsInput from "@/components/Tags/TagsInput";
 import SelectOwner from "@/components/Owner/SelectOwner";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import SelectField from "@/components/Forms/SelectField";
+import TargetingProjectsField from "@/components/TargetingProjectsField";
 import Callout from "@/ui/Callout";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -18,7 +19,7 @@ import { useAuth } from "@/services/auth";
 import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
-import { useDefaultDraft } from "@/hooks/useDefaultDraft";
+import { useDefaultDraftMode } from "@/hooks/useDefaultDraft";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 const EditFeatureInfoModal: FC<{
@@ -58,11 +59,12 @@ const EditFeatureInfoModal: FC<{
 
   const canAutoPublish = isAdmin || !metadataGated;
 
-  const defaultDraft = useDefaultDraft(revisionList);
-
-  const [mode, setMode] = useState<DraftMode>(
-    metadataGated ? "new" : "publish",
+  const { mode: initialMode, defaultDraft } = useDefaultDraftMode(
+    revisionList,
+    canAutoPublish,
   );
+
+  const [mode, setMode] = useState<DraftMode>(initialMode);
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
     defaultDraft,
   );
@@ -72,6 +74,8 @@ const EditFeatureInfoModal: FC<{
       tags: feature.tags || [],
       owner: feature.owner,
       project: feature.project || "",
+      targetingAllProjects: feature.targetingAllProjects || false,
+      targetingProjects: feature.targetingProjects || [],
       description: feature.description || "",
     },
   });
@@ -124,12 +128,14 @@ const EditFeatureInfoModal: FC<{
           gatedEnvSet={metadataGated ? "all" : "none"}
         />
         <Field
+          size="legacy"
           label="Feature Key"
           value={feature.id}
           disabled={true}
           helpText="Feature keys are not editable"
         />
         <Field
+          size="legacy"
           label="Feature Type"
           value={feature.valueType}
           disabled={true}
@@ -141,6 +147,7 @@ const EditFeatureInfoModal: FC<{
         />
         <Box mb="4">
           <SelectField
+            size="legacy"
             label="Project"
             value={form.watch("project")}
             onChange={(v) => {
@@ -174,6 +181,18 @@ const EditFeatureInfoModal: FC<{
             </>
           )}
         </Box>
+        <TargetingProjectsField
+          mb="4"
+          primaryProject={form.watch("project")}
+          allProjects={form.watch("targetingAllProjects")}
+          setAllProjects={(v) =>
+            form.setValue("targetingAllProjects", v, { shouldDirty: true })
+          }
+          targetingProjects={form.watch("targetingProjects")}
+          setTargetingProjects={(v) =>
+            form.setValue("targetingProjects", v, { shouldDirty: true })
+          }
+        />
         <Box mb="4">
           <label>Tags</label>
           <TagsInput

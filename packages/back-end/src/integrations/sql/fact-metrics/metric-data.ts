@@ -26,6 +26,24 @@ import { getMetricMinDelay } from "back-end/src/integrations/sql/dates/metric-mi
 import { getMetricStart } from "back-end/src/integrations/sql/dates/metric-start";
 import { getRaMetricPhaseStartSettings } from "back-end/src/integrations/sql/dates/ra-metric-phase-start-settings";
 
+export function getMetricRegressionAdjustmentData(
+  metric: FactMetricInterface,
+  regressionAdjustmentEnabled: boolean,
+): {
+  regressionAdjusted: boolean;
+  regressionAdjustmentHours: number;
+} {
+  const regressionAdjusted =
+    regressionAdjustmentEnabled && isRegressionAdjusted(metric);
+  const regressionAdjustmentHours = regressionAdjusted
+    ? (metric.regressionAdjustmentDays ?? 0) * 24
+    : 0;
+  return {
+    regressionAdjusted,
+    regressionAdjustmentHours,
+  };
+}
+
 export function getMetricData(
   dialect: SqlDialect,
   metricWithIndex: { metric: FactMetricInterface; index: number },
@@ -48,11 +66,11 @@ export function getMetricData(
     ? metric.quantileSettings
     : undefined) ?? { type: "unit", quantile: 0, ignoreZeros: false };
 
-  const regressionAdjusted =
-    settings.regressionAdjustmentEnabled && isRegressionAdjusted(metric);
-  const regressionAdjustmentHours = regressionAdjusted
-    ? (metric.regressionAdjustmentDays ?? 0) * 24
-    : 0;
+  const { regressionAdjusted, regressionAdjustmentHours } =
+    getMetricRegressionAdjustmentData(
+      metric,
+      settings.regressionAdjustmentEnabled,
+    );
 
   const overrideConversionWindows =
     settings.attributionModel === "experimentDuration" ||

@@ -58,6 +58,7 @@ const DecisionCriteriaSelectorModal: FC<DecisionCriteriaSelectorModalProps> = ({
 
   return (
     <Modal
+      useRadixButton={false}
       open={true}
       submit={
         canEdit
@@ -96,7 +97,7 @@ const DecisionCriteriaSelectorModal: FC<DecisionCriteriaSelectorModalProps> = ({
               );
               form.setValue("decisionCriteriaId", value);
             }}
-            size="2"
+            size="small"
             disabled={!canEdit}
           >
             {decisionCriterias.map((criteria) => (

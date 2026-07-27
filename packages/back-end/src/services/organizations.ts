@@ -54,7 +54,12 @@ import {
   findOrganizationsByDomain,
   updateOrganization,
 } from "back-end/src/models/OrganizationModel";
-import { APP_ORIGIN, IS_CLOUD, IS_MULTI_ORG } from "back-end/src/util/secrets";
+import {
+  APP_ORIGIN,
+  GEMINI_IMAGE_MODEL,
+  IS_CLOUD,
+  IS_MULTI_ORG,
+} from "back-end/src/util/secrets";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext, ExperimentOverride } from "back-end/types/api";
@@ -75,14 +80,17 @@ import {
   updateDimension,
 } from "back-end/src/models/DimensionModel";
 import { logger } from "back-end/src/util/logger";
+import { PaymentRequiredError } from "back-end/src/util/errors";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { addTags } from "back-end/src/models/TagModel";
-import { getUsersByIds } from "back-end/src/models/UserModel";
+import { getUserById, getUsersByIds } from "back-end/src/models/UserModel";
 import {
   getLicenseMetaData,
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
 import { getLicense, licenseInit } from "back-end/src/enterprise";
+import { getEffectiveOrgLimits } from "back-end/src/services/plan-limits";
+import { TeamModel } from "back-end/src/models/TeamModel";
 import { findVercelInstallationByInstallationId } from "back-end/src/models/VercelNativeIntegrationModel";
 import {
   encryptParams,
@@ -90,7 +98,12 @@ import {
   mergeParams,
 } from "./datasource";
 import { createMetric } from "./experiments";
-import { isEmailEnabled, sendInviteEmail, sendNewMemberEmail } from "./email";
+import {
+  isEmailEnabled,
+  sendInviteEmail,
+  sendNewMemberEmail,
+  sendPendingMemberEmail,
+} from "./email";
 import { ReqContextClass } from "./context";
 
 export {
@@ -260,12 +273,20 @@ export function getAISettingsForOrg(
   googleAPIKey: string;
   defaultAIModel: AIModel;
   embeddingModel: EmbeddingModel;
+  // Resolved Visual Editor overrides — both already fall back to a
+  // sensible default so callers don't need their own resolution logic.
+  visualEditorAIModel: AIModel;
+  visualEditorImageModel: string;
+  // Free-text brand guidelines appended to the AI system prompt.
+  visualEditorAIContext: string;
 } {
   const openAIKey = process.env.OPENAI_API_KEY || "";
   const anthropicKey = process.env.ANTHROPIC_API_KEY || "";
   const xaiKey = process.env.XAI_API_KEY || "";
   const mistralKey = process.env.MISTRAL_API_KEY || "";
-  const googleKey = process.env.GOOGLE_AI_API_KEY || "";
+  // GEMINI_API_KEY is the legacy name; GOOGLE_AI_API_KEY is preferred.
+  const googleKey =
+    process.env.GOOGLE_AI_API_KEY || process.env.GEMINI_API_KEY || "";
 
   const hasValidKey = !!(
     openAIKey ||
@@ -279,6 +300,32 @@ export function getAISettingsForOrg(
     ? !!context.org.settings?.aiEnabled
     : !!(context.org.settings?.aiEnabled && hasValidKey);
 
+  const defaultAIModel: AIModel = IS_CLOUD
+    ? "claude-haiku-4-5-20251001"
+    : context.org.settings?.defaultAIModel ||
+      context.org.settings?.openAIDefaultModel ||
+      "gpt-5.4-mini";
+
+  // Visual editor AI. An explicit per-surface override always wins.
+  // Otherwise: on Cloud, default to Sonnet — the visual editor's
+  // structured-output + vision workload (mutations schema, figma-to-
+  // variant) needs more capability than the cheap managed default
+  // (Haiku), which fails schema adherence too often here. Self-hosted
+  // keeps falling back to the org's general default model so admins stay
+  // in control of cost/model.
+  const visualEditorAIModel: AIModel =
+    context.org.settings?.visualEditorAIModel ||
+    (IS_CLOUD ? "claude-sonnet-4-5-20250929" : defaultAIModel);
+  // On Cloud, default the visual editor's image model to Gemini 3 Pro Image:
+  // it honors the requested aspect ratio (so replacements aren't center-
+  // cropped/clipped) and renders at higher resolution, while still supporting
+  // reference images for img2img. Self-hosted keeps the stable nano-banana
+  // default (GEMINI_IMAGE_MODEL, env-overridable) rather than a preview model.
+  // An explicit org setting always wins.
+  const visualEditorImageModel: string =
+    context.org.settings?.visualEditorImageModel ||
+    (IS_CLOUD ? "gemini-3-pro-image-preview" : GEMINI_IMAGE_MODEL);
+
   return {
     aiEnabled,
     openAIAPIKey: includeKey ? openAIKey : "",
@@ -286,13 +333,14 @@ export function getAISettingsForOrg(
     xaiAPIKey: includeKey ? xaiKey : "",
     mistralAPIKey: includeKey ? mistralKey : "",
     googleAPIKey: includeKey ? googleKey : "",
-    defaultAIModel: IS_CLOUD
-      ? "claude-haiku-4-5-20251001"
-      : context.org.settings?.defaultAIModel ||
-        context.org.settings?.openAIDefaultModel ||
-        "gpt-5.4-mini",
+    defaultAIModel,
     embeddingModel:
       context.org.settings?.embeddingModel || "text-embedding-ada-002",
+    visualEditorAIModel,
+    visualEditorImageModel,
+    visualEditorAIContext: (
+      context.org.settings?.visualEditorAIContext || ""
+    ).trim(),
   };
 }
 
@@ -449,6 +497,31 @@ export function getInviteUrl(key: string) {
   return `${APP_ORIGIN}/invitation?key=${key}`;
 }
 
+// Free (role-restricted) plans can only assign the admin global role. Only the
+// global role is checked here.
+export function assertRoleAssignmentAllowed(
+  organization: OrganizationInterface,
+  role: string,
+) {
+  if (getEffectiveOrgLimits(organization).orgSupportsRoles()) return;
+  if (role === "admin") return;
+
+  throw new PaymentRequiredError(
+    "Your plan only supports the admin role. Upgrade your plan to assign other roles.",
+  );
+}
+
+// Gate a human role selection but only when the role actually changes, so
+// existing assignments keep working.
+export function assertRoleChangeAllowed(
+  organization: OrganizationInterface,
+  existingRole: string,
+  newRole: string,
+) {
+  if (existingRole === newRole) return;
+  assertRoleAssignmentAllowed(organization, newRole);
+}
+
 export async function addMemberToOrg({
   organization,
   userId,
@@ -485,6 +558,8 @@ export async function addMemberToOrg({
   ) {
     throw new Error("Invalid role");
   }
+  // Role limits are gated where a human picks a role; automated joins keep
+  // the configured default so they never throw or escalate to admin.
 
   const members: Member[] = [
     ...organization.members,
@@ -644,7 +719,7 @@ export async function addPendingMemberToOrg({
   await updateOrganization(organization.id, { pendingMembers });
 }
 
-export async function acceptInvite(key: string, userId: string) {
+export async function acceptInvite(key: string, userId: string, email: string) {
   const organization = await findOrganizationByInviteKey(key);
   if (!organization) {
     throw new Error("Invalid key");
@@ -660,6 +735,12 @@ export async function acceptInvite(key: string, userId: string) {
   const invite = organization.invites.filter((invite) => invite.key === key)[0];
   if (!invite) {
     throw new Error("Could not find invitation with that key");
+  }
+
+  // Ensure the invite was issued to the authenticated user's email; otherwise a
+  // leaked invite key would let any logged-in user join with the invited role.
+  if (!email || email.toLowerCase() !== invite.email.toLowerCase()) {
+    throw new Error("This invitation was sent to a different email address");
   }
 
   // Remove invite
@@ -735,6 +816,7 @@ export async function inviteUser({
   ) {
     throw new Error("Invalid role");
   }
+  assertRoleAssignmentAllowed(organization, role);
 
   // Generate random key for invite
   const buffer: Buffer = await new Promise((resolve, reject) => {
@@ -1189,6 +1271,36 @@ export async function addMemberFromSSOConnection(
   }
   if (!organization) return null;
 
+  // If the org has explicitly disabled autoApproveMembers, add the user as a pending member
+  // This differs from the non-SSO path (`undefined` is auto-approved there) to preserve existing behavior
+  if (organization.autoApproveMembers === false) {
+    const alreadyPending = organization.pendingMembers?.some(
+      (m) => m.id === req.userId,
+    );
+    if (!alreadyPending) {
+      await addPendingMemberToOrg({
+        organization,
+        name: req.name || "",
+        email: req.email || "",
+        userId: req.userId,
+        ...getDefaultRole(organization),
+      });
+      try {
+        const teamUrl = APP_ORIGIN + "/settings/team/?org=" + organization.id;
+        await sendPendingMemberEmail(
+          req.name || "",
+          req.email || "",
+          organization.name,
+          organization.ownerEmail,
+          teamUrl,
+        );
+      } catch (e) {
+        req.log.error(e, "Failed to send pending member email");
+      }
+    }
+    return null;
+  }
+
   await addMemberToOrg({
     organization,
     userId: req.userId,
@@ -1320,4 +1432,34 @@ export async function getContextForAgendaJobByOrgId(
   }
 
   return getContextForAgendaJobByOrgObject(organization);
+}
+
+export async function getContextForUserIdInOrg(
+  org: OrganizationInterface,
+  userId: string,
+): Promise<ApiReqContext | null> {
+  const user = await getUserById(userId);
+  if (!user) return null;
+
+  const isMember = org.members.some((m) => m.id === user.id);
+  if (!isMember) return null;
+
+  const teams = await TeamModel.dangerousGetTeamsForOrganization(org.id);
+
+  return new ReqContextClass({
+    org,
+    auditUser: {
+      type: "dashboard",
+      id: user.id,
+      email: user.email,
+      name: user.name || "",
+    },
+    user: {
+      id: user.id,
+      email: user.email,
+      name: user.name || "",
+      superAdmin: user.superAdmin,
+    },
+    teams,
+  });
 }

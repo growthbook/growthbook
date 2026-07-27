@@ -1,6 +1,11 @@
 import Agenda from "agenda";
 import { Queries } from "shared/types/query";
-import { SafeRolloutSnapshotInterface } from "shared/validators";
+import {
+  AggregatedFactTableInterface,
+  AggregatedFactTableRunInterface,
+  ContextualBanditSnapshotInterface,
+  SafeRolloutSnapshotInterface,
+} from "shared/validators";
 import {
   errorSnapshotIfStillRunning,
   findRunningSnapshotsByQueryId,
@@ -18,7 +23,12 @@ import {
 import {
   getQueryStatusesByIds,
   getStaleQueries,
+  markPendingQueriesAsFailed,
 } from "back-end/src/models/QueryModel";
+import {
+  getExperimentById,
+  updateExperiment,
+} from "back-end/src/models/ExperimentModel";
 import {
   findReportsByQueryId,
   updateReport,
@@ -34,6 +44,10 @@ const STALLED_SNAPSHOT_THRESHOLD_MS = 60 * 60 * 1000;
 // The allowable time between the last query finishing and the snapshot being finalized
 const STALLED_FINALIZE_GRACE_MS = 10 * 60 * 1000;
 const STALLED_SNAPSHOT_REAP_LIMIT = 50;
+
+// Accessed via raw collections (not context-scoped BaseModel) so this cross-org reaper needs no per-run org context.
+const AGGREGATED_FACT_TABLE_RUN_COLLECTION = "aggregatedfacttableruns";
+const AGGREGATED_FACT_TABLE_COLLECTION = "aggregatedfacttables";
 
 function updateQueryStatus(queries: Queries, ids: Set<string>) {
   queries.forEach((q) => {
@@ -162,10 +176,59 @@ const expireOldQueries = async () => {
     );
   }
 
+  const cbSnapshots = await findRunningContextualBanditSnapshotsByQueryId([
+    ...queryIds,
+  ]);
+  for (const cbSnapshot of cbSnapshots) {
+    logger.info(
+      "Updating status of contextual bandit snapshot " + cbSnapshot.id,
+    );
+    updateQueryStatus(cbSnapshot.queries, queryIds);
+    await getCollection<ContextualBanditSnapshotInterface>(
+      "contextualbanditsnapshots",
+    ).updateOne(
+      { id: cbSnapshot.id },
+      {
+        $set: {
+          error: "Queries were interrupted. Please try updating results again.",
+          status: "error",
+          queries: cbSnapshot.queries,
+        },
+      },
+    );
+  }
+
+  // Finalize matching aggregated runs: driven only by an in-memory QueryRunner
+  // (no client polling), so a dead process leaves run pointers stuck even though
+  // the query docs were flipped to failed.
+  const aggregatedRuns = await findRunningAggregatedFactTableRunsByQueryId([
+    ...queryIds,
+  ]);
+  for (const run of aggregatedRuns) {
+    logger.info("Updating status of aggregated fact table run " + run.id);
+    updateQueryStatus(run.queries, queryIds);
+    await finalizeStuckAggregatedFactTableRun(run, {
+      queries: run.queries,
+      error: "Queries were interupted. Please try refreshing the results.",
+    });
+  }
+
   try {
     await reapStalledSnapshots();
   } catch (e) {
     logger.error(e, "Failed to reap stalled snapshots");
+  }
+
+  try {
+    await reapStalledContextualBanditSnapshots();
+  } catch (e) {
+    logger.error(e, "Failed to reap stalled contextual bandit snapshots");
+  }
+
+  try {
+    await reapStalledAggregatedFactTableRuns();
+  } catch (e) {
+    logger.error(e, "Failed to reap stalled aggregated fact table runs");
   }
 };
 
@@ -192,15 +255,8 @@ async function reapStalledSnapshots() {
       (q) => q.status === "succeeded" || q.status === "failed",
     );
 
-    // An orphaned DAG: nothing is actually executing, but one or more
-    // queries are still "queued" and will never be started. This happens
-    // when the in-memory timer that drives the DAG forward was lost —
-    // e.g. the process restarted mid-run, or a fast first query finished
-    // and fired its follow-up timer before the full query DAG was
-    // persisted (the Full Refresh race). Queued queries have no heartbeat
-    // and are never "running", so neither getStaleQueries() nor the
-    // all-terminal reap path above will ever touch them. Without this
-    // branch the snapshot would show "Running" forever.
+    // Queued queries have no heartbeat. If the in-memory runner disappears
+    // before starting them, the normal stale-query path will never see them.
     const orphanedDag = running.length === 0 && queued.length > 0;
 
     if (!allTerminal && !orphanedDag) continue;
@@ -209,9 +265,7 @@ async function reapStalledSnapshots() {
       0,
       ...statuses.map((s) => s.finishedAt?.getTime() ?? 0),
     );
-    // For an orphaned DAG nothing may have finished yet (latestFinishedAt
-    // stays 0), in which case fall back to the snapshot's age — the
-    // STALLED_SNAPSHOT_THRESHOLD_MS check above has already guaranteed it.
+    // Orphaned DAGs may have no finished queries, so fall back to snapshot age.
     const lastActivityAt =
       latestFinishedAt > 0 ? latestFinishedAt : snapshot.dateCreated.getTime();
     if (Date.now() - lastActivityAt < STALLED_FINALIZE_GRACE_MS) continue;
@@ -221,8 +275,16 @@ async function reapStalledSnapshots() {
       q.status = statusById.get(q.query) ?? q.status;
     });
 
+    const shouldScheduleSnapshotRetry =
+      orphanedDag &&
+      !snapshot.report &&
+      snapshot.type === "standard" &&
+      snapshot.triggeredBy === "schedule";
+
     const error = orphanedDag
-      ? "Snapshot stalled: queries were never started. This can happen when the server restarts mid-refresh. Please try updating results again."
+      ? shouldScheduleSnapshotRetry
+        ? "Snapshot stalled: queries were never started. This can happen when the server restarts mid-refresh. A retry has been scheduled."
+        : "Snapshot stalled: queries were never started. This can happen when the server restarts mid-refresh. Please try updating results again."
       : "Snapshot stalled: queries finished but results were never finalized. This usually means the analysis step failed (check server logs) or the process was restarted.";
 
     const context = await getContextForAgendaJobByOrgId(snapshot.organization);
@@ -237,6 +299,43 @@ async function reapStalledSnapshots() {
         ? `Reaped orphaned snapshot ${snapshot.id} (experiment ${snapshot.experiment}): ${queued.length} of ${queryIds.length} queries stuck in "queued" with nothing running`
         : `Reaped stalled snapshot ${snapshot.id} (experiment ${snapshot.experiment}): all ${queryIds.length} queries terminal but status still running`,
     );
+
+    if (orphanedDag) {
+      await markPendingQueriesAsFailed(
+        context,
+        queued.map((q) => q.id),
+        "Query was never started: the snapshot driving it was reaped as stalled.",
+      ).catch((e) =>
+        logger.warn(e, "Failed to mark orphaned queued queries as failed"),
+      );
+
+      // Only scheduled standard snapshots can be retried by bumping the
+      // generic experiment refresh schedule.
+      if (shouldScheduleSnapshotRetry) {
+        try {
+          const experiment = await getExperimentById(
+            context,
+            snapshot.experiment,
+          );
+          if (experiment) {
+            await updateExperiment({
+              context,
+              experiment,
+              changes: {
+                nextSnapshotAttempt: new Date(),
+                autoSnapshots: true,
+              },
+              bypassWebhooks: true,
+            });
+          }
+        } catch (e) {
+          logger.warn(
+            e,
+            "Failed to schedule retry snapshot after orphaned-DAG reap",
+          );
+        }
+      }
+    }
 
     await context.models.incrementalRefresh
       .releaseLock(snapshot.experiment, snapshot.id)
@@ -271,4 +370,239 @@ async function findRunningSafeRolloutSnapshotsByQueryId(
       queries: { $elemMatch: { query: { $in: ids }, status: "running" } },
     })
     .toArray();
+}
+
+async function findRunningContextualBanditSnapshotsByQueryId(
+  ids: string[],
+): Promise<ContextualBanditSnapshotInterface[]> {
+  const earliestDate = new Date();
+  earliestDate.setDate(earliestDate.getDate() - 1);
+
+  return getCollection<ContextualBanditSnapshotInterface>(
+    "contextualbanditsnapshots",
+  )
+    .find({
+      status: "running",
+      dateCreated: { $gt: earliestDate },
+      queries: { $elemMatch: { query: { $in: ids }, status: "running" } },
+    })
+    .toArray();
+}
+
+// In-flight runs with a still-"running" pointer to a now-failed query. Mirrors findRunningSnapshotsByQueryId.
+async function findRunningAggregatedFactTableRunsByQueryId(
+  ids: string[],
+): Promise<AggregatedFactTableRunInterface[]> {
+  if (!ids.length) return [];
+  const earliestDate = new Date();
+  earliestDate.setDate(earliestDate.getDate() - 1);
+
+  return getCollection<AggregatedFactTableRunInterface>(
+    AGGREGATED_FACT_TABLE_RUN_COLLECTION,
+  )
+    .find({
+      finishedAt: null,
+      dateCreated: { $gt: earliestDate },
+      queries: { $elemMatch: { query: { $in: ids }, status: "running" } },
+    })
+    .toArray();
+}
+
+async function reapStalledContextualBanditSnapshots() {
+  const stalledBefore = new Date(Date.now() - STALLED_SNAPSHOT_THRESHOLD_MS);
+  const earliestDate = new Date();
+  earliestDate.setDate(earliestDate.getDate() - 1);
+
+  const cbsCollection = getCollection<ContextualBanditSnapshotInterface>(
+    "contextualbanditsnapshots",
+  );
+
+  const candidates = await cbsCollection
+    .find({
+      status: "running",
+      dateCreated: { $gt: earliestDate, $lt: stalledBefore },
+    })
+    .limit(STALLED_SNAPSHOT_REAP_LIMIT)
+    .toArray();
+
+  for (const snapshot of candidates) {
+    const queryIds = [...new Set(snapshot.queries.map((q) => q.query))];
+    if (!queryIds.length) continue;
+
+    const statuses = await getQueryStatusesByIds(
+      snapshot.organization,
+      queryIds,
+    );
+    if (statuses.length !== queryIds.length) continue;
+
+    const running = statuses.filter((q) => q.status === "running");
+    const queued = statuses.filter((q) => q.status === "queued");
+    const allTerminal = statuses.every(
+      (q) => q.status === "succeeded" || q.status === "failed",
+    );
+
+    const orphanedDag = running.length === 0 && queued.length > 0;
+    if (!allTerminal && !orphanedDag) continue;
+
+    const latestFinishedAt = Math.max(
+      0,
+      ...statuses.map((s) => s.finishedAt?.getTime() ?? 0),
+    );
+    const lastActivityAt =
+      latestFinishedAt > 0 ? latestFinishedAt : snapshot.dateCreated.getTime();
+    if (Date.now() - lastActivityAt < STALLED_FINALIZE_GRACE_MS) continue;
+
+    const statusById = new Map(statuses.map((s) => [s.id, s.status]));
+    snapshot.queries.forEach((q) => {
+      q.status = statusById.get(q.query) ?? q.status;
+    });
+
+    const error = orphanedDag
+      ? "Snapshot stalled: queries were never started. This can happen when the server restarts mid-refresh. Please try updating results again."
+      : "Snapshot stalled: queries finished but results were never finalized. This usually means the analysis step failed (check server logs) or the process was restarted.";
+
+    const res = await cbsCollection.updateOne(
+      { id: snapshot.id, status: "running" },
+      {
+        $set: {
+          status: "error",
+          error,
+          queries: snapshot.queries,
+        },
+      },
+    );
+    if (res.modifiedCount === 0) continue;
+
+    logger.info(
+      orphanedDag
+        ? `Reaped orphaned contextual bandit snapshot ${snapshot.id} (cb ${snapshot.contextualBandit}): ${queued.length} of ${queryIds.length} queries stuck in "queued" with nothing running`
+        : `Reaped stalled contextual bandit snapshot ${snapshot.id} (cb ${snapshot.contextualBandit}): all ${queryIds.length} queries terminal but status still running`,
+    );
+  }
+}
+
+// In-flight runs old enough to be considered stalled. Mirrors dangerousFindStalledRunningSnapshotsFromAllOrgs.
+async function dangerousFindStalledAggregatedFactTableRunsFromAllOrgs(
+  stalledBefore: Date,
+  limit: number,
+): Promise<AggregatedFactTableRunInterface[]> {
+  const earliestDate = new Date();
+  earliestDate.setDate(earliestDate.getDate() - 1);
+
+  return getCollection<AggregatedFactTableRunInterface>(
+    AGGREGATED_FACT_TABLE_RUN_COLLECTION,
+  )
+    .find({
+      finishedAt: null,
+      dateCreated: { $gt: earliestDate, $lt: stalledBefore },
+    })
+    .limit(limit)
+    .toArray();
+}
+
+// Finalize a stalled/orphaned run and release its lock. The run-doc write is
+// guarded on finishedAt:null so a live runner that just finished wins the race;
+// the registry write is guarded on currentExecutionId so we never clobber a
+// newer run that reacquired the lock. Returns true if this call finalized it.
+async function finalizeStuckAggregatedFactTableRun(
+  run: AggregatedFactTableRunInterface,
+  { queries, error }: { queries: Queries; error: string },
+): Promise<boolean> {
+  const now = new Date();
+  const res = await getCollection<AggregatedFactTableRunInterface>(
+    AGGREGATED_FACT_TABLE_RUN_COLLECTION,
+  ).updateOne(
+    { id: run.id, finishedAt: null },
+    { $set: { queries, error, finishedAt: now, dateUpdated: now } },
+  );
+  if (res.modifiedCount === 0) return false;
+
+  await getCollection<AggregatedFactTableInterface>(
+    AGGREGATED_FACT_TABLE_COLLECTION,
+  ).updateOne(
+    {
+      organization: run.organization,
+      datasourceId: run.datasourceId,
+      factTableId: run.factTableId,
+      idType: run.idType,
+      currentExecutionId: run.executionId,
+    },
+    {
+      $set: {
+        lastError: error,
+        lastRunId: run.id,
+        currentExecutionId: null,
+        lockHeartbeatAt: null,
+        dateUpdated: now,
+        // Deliberately does NOT touch inFlightExecutionId: a reaped run may have
+        // committed an insert without durably advancing the watermark, so the
+        // marker must stay set to force the next run to restate instead of
+        // re-appending the same window (only an observed atomic insert failure
+        // or a durable watermark advance clears it).
+      },
+    },
+  );
+
+  return true;
+}
+
+// Catches stalled runs the stale-query fan-out can't: an orphaned DAG (a query
+// stuck "queued" with nothing running) or all-terminal queries whose run was
+// never finalized. Mirrors reapStalledSnapshots.
+async function reapStalledAggregatedFactTableRuns() {
+  const stalledBefore = new Date(Date.now() - STALLED_SNAPSHOT_THRESHOLD_MS);
+  const candidates =
+    await dangerousFindStalledAggregatedFactTableRunsFromAllOrgs(
+      stalledBefore,
+      STALLED_SNAPSHOT_REAP_LIMIT,
+    );
+
+  for (const run of candidates) {
+    const queryIds = [...new Set(run.queries.map((q) => q.query))];
+    if (!queryIds.length) continue;
+
+    const statuses = await getQueryStatusesByIds(run.organization, queryIds);
+    if (statuses.length !== queryIds.length) continue;
+
+    const running = statuses.filter((q) => q.status === "running");
+    const queued = statuses.filter((q) => q.status === "queued");
+    const allTerminal = statuses.every(
+      (q) => q.status === "succeeded" || q.status === "failed",
+    );
+
+    // Stuck "queued" with nothing running: the in-memory timer driving the DAG was lost.
+    const orphanedDag = running.length === 0 && queued.length > 0;
+
+    if (!allTerminal && !orphanedDag) continue;
+
+    const latestFinishedAt = Math.max(
+      0,
+      ...statuses.map((s) => s.finishedAt?.getTime() ?? 0),
+    );
+    // Orphaned DAG may have nothing finished yet (latestFinishedAt 0); fall back to the run's age.
+    const lastActivityAt =
+      latestFinishedAt > 0 ? latestFinishedAt : run.dateCreated.getTime();
+    if (Date.now() - lastActivityAt < STALLED_FINALIZE_GRACE_MS) continue;
+
+    const statusById = new Map(statuses.map((s) => [s.id, s.status]));
+    run.queries.forEach((q) => {
+      q.status = statusById.get(q.query) ?? q.status;
+    });
+
+    const error = orphanedDag
+      ? "Aggregated fact table run stalled: queries were never started (the server likely restarted mid-run). It will be retried on the next scheduled update."
+      : "Aggregated fact table run stalled: queries finished but the run was never finalized (the process was likely restarted). It will be retried on the next scheduled update.";
+
+    const reaped = await finalizeStuckAggregatedFactTableRun(run, {
+      queries: run.queries,
+      error,
+    });
+    if (!reaped) continue;
+
+    logger.info(
+      orphanedDag
+        ? `Reaped orphaned aggregated fact table run ${run.id} (${run.factTableId}/${run.idType}): ${queued.length} of ${queryIds.length} queries stuck in "queued" with nothing running`
+        : `Reaped stalled aggregated fact table run ${run.id} (${run.factTableId}/${run.idType}): all ${queryIds.length} queries terminal but run never finalized`,
+    );
+  }
 }

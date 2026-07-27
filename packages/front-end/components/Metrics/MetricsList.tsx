@@ -544,7 +544,11 @@ const MetricsList = (): React.ReactElement => {
           <div>
             Define what constitutes success and failure for your business.
           </div>
-          <DocLink docSection="metrics" className="align-self-center pb-1">
+          <DocLink
+            useRadix={false}
+            docSection="metrics"
+            className="align-self-center pb-1"
+          >
             View Docs
           </DocLink>
         </Flex>
@@ -581,7 +585,12 @@ const MetricsList = (): React.ReactElement => {
       </Box>
       <Flex justify="between" mb="3" gap="3" align="center">
         <Box className="relative" width="40%">
-          <Field placeholder="Search..." type="search" {...searchInputProps} />
+          <Field
+            size="legacy"
+            placeholder="Search..."
+            type="search"
+            {...searchInputProps}
+          />
         </Box>
         <MetricSearchFilters
           combinedMetrics={combinedMetrics}
@@ -593,7 +602,7 @@ const MetricsList = (): React.ReactElement => {
       {metrics.length > 4 && !metricGroups.length ? (
         <PremiumCallout
           commercialFeature="metric-groups"
-          dismissable={true}
+          dismissible={true}
           id="metrics-list-metric-group-promo"
           docSection="metricGroups"
           mb="2"
