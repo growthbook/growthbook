@@ -42,6 +42,7 @@ const validation = {
 
 // How many suggestions we hand back, and the longest one we'll keep.
 // Enforced in code (see normalizeSuggestions) rather than in the schema.
+const MIN_SUGGESTIONS = 3;
 const MAX_SUGGESTIONS = 4;
 const MAX_SUGGESTION_LENGTH = 140;
 
@@ -65,7 +66,8 @@ const outputSchema = z.object({
 // The model is prompted for 3-4 clean suggestions, but nothing enforces
 // that at the protocol level now, so tidy the response before returning:
 // trim, drop blanks, drop duplicates, truncate anything overlong, and cap
-// the count.
+// the count. The MIN_SUGGESTIONS floor is applied by the caller, not here —
+// this just reports what survived cleaning.
 function normalizeSuggestions(suggestions: string[]): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
@@ -238,5 +240,29 @@ export const postAISuggestions = createApiRequestHandler(validation)(async (
     overrideModel: visualEditorAIModel,
   });
 
-  return { suggestions: normalizeSuggestions(result.suggestions) };
+  // All-or-nothing on the count. The old `.array(...).min(3)` schema gave us
+  // a floor for free — a short response failed validation, burned the one
+  // retry in parsePrompt, and then errored. We can't express that floor in
+  // the schema any more (see outputSchema), so enforce it here instead.
+  //
+  // Returning 1-2 items would render a conspicuously thin suggestion list in
+  // the side panel, so we'd rather hand back nothing: the extension already
+  // treats an empty list as "no server suggestions" and falls back to its own
+  // localized starter prompts, which reads as intentional. That also beats
+  // re-erroring — same visible outcome for the user, no wasted retry tokens.
+  const suggestions = normalizeSuggestions(result.suggestions);
+  if (suggestions.length < MIN_SUGGESTIONS) {
+    logger.warn(
+      {
+        orgId: req.organization.id,
+        visualChangesetId,
+        returned: result.suggestions.length,
+        usable: suggestions.length,
+      },
+      "[visual-editor-ai/suggestions] too few usable suggestions; returning none",
+    );
+    return { suggestions: [] };
+  }
+
+  return { suggestions };
 });
