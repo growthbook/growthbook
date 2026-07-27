@@ -41,11 +41,11 @@ export default function ContextualBanditLinkedFeatureFlag({
     permissionsUtil.canUpdateContextualBandit({ project: cb.project }, {});
 
   const canUpdateLinkedFeature =
-    canEditCb && permissionsUtil.canManageFeatureDrafts(info.feature);
+    canEditCb && permissionsUtil.canEditFeatureDrafts(info.feature);
 
   const canEditFeatureDraft =
     canUpdateLinkedFeature &&
-    permissionsUtil.canManageFeatureDrafts(info.feature);
+    permissionsUtil.canEditFeatureDrafts(info.feature);
 
   const handleRemove = async () => {
     setRemoving(true);

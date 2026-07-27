@@ -4247,7 +4247,7 @@ export async function postExperimentFeatureValues(
         feature,
         getEnvironmentIdsFromOrg(context.org),
       ) ||
-      !context.permissions.canManageFeatureDrafts(feature)
+      !context.permissions.canEditFeatureDrafts(feature)
     ) {
       context.permissions.throwPermissionError();
     }

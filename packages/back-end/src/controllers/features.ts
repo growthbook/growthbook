@@ -727,7 +727,7 @@ export async function postFeatures(
         ),
       ),
     ) ||
-    !context.permissions.canManageFeatureDrafts({ project: otherProps.project })
+    !context.permissions.canEditFeatureDrafts({ project: otherProps.project })
   ) {
     context.permissions.throwPermissionError();
   }
@@ -921,7 +921,7 @@ export async function postFeatureRebase(
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const environmentIds = environments.map((e) => e.id);
 
-  if (!context.permissions.canManageFeatureDrafts(feature)) {
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -1206,7 +1206,7 @@ export async function postFeatureRequestReview(
   if (!feature) {
     throw new Error("Could not find feature");
   }
-  if (!context.permissions.canManageFeatureDrafts(feature)) {
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -1635,7 +1635,7 @@ export async function postFeatureToggleAutoPublish(
   // Baseline: only draft managers may change auto-publish arming (else any org
   // member could disarm another's draft). Enabling additionally needs publish
   // authority, since auto-publish runs under this user's authority.
-  if (!context.permissions.canManageFeatureDrafts(feature)) {
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
   if (enabled && !canEnableFeatureAutoPublishOnApproval(context, feature)) {
@@ -1662,7 +1662,7 @@ export async function postFeatureToggleAutoPublish(
 }
 
 // Retract a review request: reverts pending-review / changes-requested /
-// approved back to draft. Gated on canManageFeatureDrafts (any draft manager,
+// approved back to draft. Gated on canEditFeatureDrafts (any draft manager,
 // not only the original requester).
 export async function postFeatureRecallReview(
   req: AuthRequest<Record<string, never>, { id: string; version: string }>,
@@ -1672,7 +1672,7 @@ export async function postFeatureRecallReview(
   const { id, version } = req.params;
   const feature = await getFeature(context, id);
   if (!feature) throw new Error("Could not find feature");
-  if (!context.permissions.canManageFeatureDrafts(feature)) {
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
   const revision = await getRevision({
@@ -2646,7 +2646,7 @@ export async function postFeatureRevertDraft(
   // Proposing a revert as a draft is open to draft authors, and also to anyone
   // with revert authority even if they have no general draft access.
   if (
-    !context.permissions.canManageFeatureDrafts(feature) &&
+    !context.permissions.canEditFeatureDrafts(feature) &&
     // No env list: a draft publishes nothing, so this only asks for revert
     // authority in the feature's project.
     !context.permissions.canRevertFeature(feature, [])
@@ -2729,7 +2729,7 @@ export async function postFeatureFork(
     throw new Error("Could not find feature revision");
   }
 
-  if (!context.permissions.canManageFeatureDrafts(feature)) {
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -2778,7 +2778,7 @@ export async function postFeatureDiscard(
     throw new Error(`Can not discard ${revision.status} revisions`);
   }
 
-  if (!context.permissions.canManageFeatureDrafts(feature)) {
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -2855,7 +2855,7 @@ export async function postFeatureReopen(
     throw new Error(`Can only reopen discarded revisions`);
   }
 
-  if (!context.permissions.canManageFeatureDrafts(feature)) {
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -2926,7 +2926,7 @@ export async function postFeatureRule(
     }
   });
 
-  if (!context.permissions.canManageFeatureDrafts(feature)) {
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -3262,7 +3262,7 @@ export async function postFeatureSync(
 
   const data = req.body;
 
-  if (!context.permissions.canManageFeatureDrafts(feature)) {
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -3462,7 +3462,7 @@ export async function postFeatureExperimentRefRule(
     throw new Error("Could not find feature");
   }
 
-  if (!context.permissions.canManageFeatureDrafts(feature)) {
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -3692,7 +3692,7 @@ export async function postFeatureContextualBanditRefRule(
     throw new Error("Could not find feature");
   }
 
-  if (!context.permissions.canManageFeatureDrafts(feature)) {
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -3883,7 +3883,7 @@ export async function putRevisionComment(
     throw new Error("Could not find feature");
   }
 
-  if (!context.permissions.canManageFeatureDrafts(feature)) {
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -3937,7 +3937,7 @@ export async function putRevisionTitle(
     throw new Error("Could not find feature");
   }
 
-  if (!context.permissions.canManageFeatureDrafts(feature)) {
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -3991,7 +3991,7 @@ export async function postFeatureDefaultValue(
     throw new Error("Could not find feature");
   }
 
-  if (!context.permissions.canManageFeatureDrafts(feature)) {
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -4047,7 +4047,7 @@ export async function postFeatureSchema(
     throw new Error("Could not find feature");
   }
 
-  if (!context.permissions.canManageFeatureDrafts(feature)) {
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -4261,7 +4261,7 @@ export async function putFeatureRule(
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const environmentIds = environments.map((e) => e.id);
 
-  if (!context.permissions.canManageFeatureDrafts(feature)) {
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -4586,7 +4586,7 @@ export async function postFeatureCreateDraft(
     throw new Error("Could not find feature");
   }
 
-  if (!context.permissions.canManageFeatureDrafts(feature)) {
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -4827,7 +4827,7 @@ export async function postFeatureMoveRule(
     throw new Error("Could not find feature");
   }
 
-  if (!context.permissions.canManageFeatureDrafts(feature)) {
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -4927,7 +4927,7 @@ export async function deleteFeatureRule(
   const featureEnvs = filterEnvironmentsByFeature(allEnvironments, feature);
   const environmentIds = featureEnvs.map((e) => e.id);
 
-  if (!context.permissions.canManageFeatureDrafts(feature)) {
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -5035,7 +5035,7 @@ export async function putFeature(
 
   const { targetDraftVersion, autoPublish, forceNewDraft, ...updates } =
     req.body;
-  if (!context.permissions.canManageFeatureDrafts(feature)) {
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -5446,7 +5446,7 @@ export async function postFeatureArchive(
     archived: newArchivedState,
     environments: archiveEnvs,
   });
-  if (!canLand && !context.permissions.canManageFeatureDrafts(feature)) {
+  if (!canLand && !context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -6060,7 +6060,7 @@ export async function toggleStaleFFDetectionForFeature(
     throw new Error("Could not find feature");
   }
 
-  if (!context.permissions.canManageFeatureDrafts(feature)) {
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -6157,7 +6157,7 @@ export async function postPrerequisite(
     throw new Error("Could not find feature");
   }
 
-  if (!context.permissions.canManageFeatureDrafts(feature)) {
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -6211,7 +6211,7 @@ export async function putPrerequisite(
     throw new Error("Could not find feature");
   }
 
-  if (!context.permissions.canManageFeatureDrafts(feature)) {
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -6264,7 +6264,7 @@ export async function deletePrerequisite(
     throw new Error("Could not find feature");
   }
 
-  if (!context.permissions.canManageFeatureDrafts(feature)) {
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 

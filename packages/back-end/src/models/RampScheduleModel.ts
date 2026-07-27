@@ -387,7 +387,7 @@ export class RampScheduleModel extends BaseClass {
     );
   }
   protected canCreate(doc: RampScheduleInterface) {
-    return this.context.permissions.canManageFeatureDrafts({
+    return this.context.permissions.canEditFeatureDrafts({
       project: this.getProject(doc),
     });
   }
@@ -396,7 +396,7 @@ export class RampScheduleModel extends BaseClass {
     _updates: UpdateProps<RampScheduleInterface>,
     newDoc: RampScheduleInterface,
   ) {
-    return this.context.permissions.canManageFeatureDrafts({
+    return this.context.permissions.canEditFeatureDrafts({
       project: this.getProject(newDoc),
     });
   }

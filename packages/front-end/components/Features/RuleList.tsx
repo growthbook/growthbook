@@ -362,7 +362,7 @@ export default function RuleList(props: RuleListProps) {
 
   const canEdit =
     permissionsUtil.canViewFeatureModal(feature.project) &&
-    permissionsUtil.canManageFeatureDrafts(feature);
+    permissionsUtil.canEditFeatureDrafts(feature);
 
   // Optimistic reorder + flat-index API call. Used by both DnD onDragEnd and
   // the per-rule "Move up/down" menu items, so they share the same translation

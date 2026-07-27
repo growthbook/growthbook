@@ -32,7 +32,7 @@ export async function setRevisionDefaultValue(
   const feature = await getFeature(context, params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
-  if (!context.permissions.canManageFeatureDrafts(feature)) {
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 

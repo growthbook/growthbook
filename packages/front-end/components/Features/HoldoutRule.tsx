@@ -93,7 +93,7 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
 
     const canEdit =
       permissionsUtil.canViewFeatureModal(feature.project) &&
-      permissionsUtil.canManageFeatureDrafts(feature);
+      permissionsUtil.canEditFeatureDrafts(feature);
 
     const isInactive =
       !isDeleted &&

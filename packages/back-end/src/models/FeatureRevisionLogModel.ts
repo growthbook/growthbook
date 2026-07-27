@@ -66,7 +66,7 @@ export class FeatureRevisionLogModel extends BaseClass {
       this.context.permissions.canCreateFeature(
         feature,
         NO_ENVIRONMENT_BINDING,
-      ) || this.context.permissions.canManageFeatureDrafts(feature)
+      ) || this.context.permissions.canEditFeatureDrafts(feature)
     );
   }
 

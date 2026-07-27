@@ -122,7 +122,7 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
   // the draft (author/contributor) can pull it back, provided they have
   // draft-manage permission. Unrelated draft managers shouldn't be able to
   // retract someone else's review request. (The backend only enforces
-  // canManageFeatureDrafts, so this is deliberately the stricter gate.)
+  // canEditFeatureDrafts, so this is deliberately the stricter gate.)
   const recallableStatuses = [
     "pending-review",
     "changes-requested",

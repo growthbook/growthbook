@@ -1066,7 +1066,7 @@ export default function ReviewAndPublish({
             },
           ]}
           isDraft={isActiveDraft}
-          canEdit={permissionsUtil.canManageFeatureDrafts(feature)}
+          canEdit={permissionsUtil.canEditFeatureDrafts(feature)}
           onSaved={mutate}
         />
       )}
@@ -1215,7 +1215,7 @@ export default function ReviewAndPublish({
       : revision.status === "published"
         ? revision
         : null;
-    const canManageDrafts = permissionsUtil.canManageFeatureDrafts(feature);
+    const canManageDrafts = permissionsUtil.canEditFeatureDrafts(feature);
     // Revert authority alone is enough to offer the action — a revert-only role
     // holds no draft rights. The modal re-checks per environment.
     const canRevert =
@@ -1567,7 +1567,7 @@ export default function ReviewAndPublish({
     mergeSuccess: mergeResult.success,
     hasChanges,
     hasReviewPermission: permissionsUtil.canReviewFeatureDrafts(feature),
-    canManageDraft: permissionsUtil.canManageFeatureDrafts(feature),
+    canManageDraft: permissionsUtil.canEditFeatureDrafts(feature),
     isReviewRequester,
     isContributor: !!userId && contributorIds.includes(userId),
     isReviewer: !!userId && reviewers.some((r) => r.id === userId),
@@ -2029,7 +2029,7 @@ export default function ReviewAndPublish({
 
   // Shared by the no-changes empty state and the actions column kebab — the
   // only two places an active draft can be discarded from.
-  const canDiscardDraft = permissionsUtil.canManageFeatureDrafts(feature);
+  const canDiscardDraft = permissionsUtil.canEditFeatureDrafts(feature);
   const discardConfirmModal = confirmDiscard ? (
     <ModalStandard
       trackingEventModalType="discard-feature-revision"
@@ -2684,7 +2684,7 @@ export default function ReviewAndPublish({
                       // role must not be offered it.
                       disabled={
                         !state.ctaEnabled ||
-                        !permissionsUtil.canManageFeatureDrafts(feature)
+                        !permissionsUtil.canEditFeatureDrafts(feature)
                       }
                       style={{ width: "100%" }}
                     >
@@ -2711,7 +2711,7 @@ export default function ReviewAndPublish({
                         baseVersion={revision.baseVersion}
                         onUpdateFromLive={onUpdateFromLive}
                         updating={rebasing}
-                        canRebase={permissionsUtil.canManageFeatureDrafts(
+                        canRebase={permissionsUtil.canEditFeatureDrafts(
                           feature,
                         )}
                         onResolveConflicts={() => setResolveConflicts(true)}

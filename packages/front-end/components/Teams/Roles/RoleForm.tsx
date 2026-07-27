@@ -1,4 +1,5 @@
 import {
+  ALL_PERMISSIONS,
   GRANULAR_PERMISSION_METADATA,
   POLICIES,
   POLICY_DISPLAY_GROUPS,
@@ -25,6 +26,12 @@ import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import TempMessage from "@/components/TempMessage";
 import Callout from "@/ui/Callout";
+
+const KNOWN_PERMISSIONS = new Set<string>(ALL_PERMISSIONS);
+
+function knownPermissions(permissions: Permission[] | undefined): Permission[] {
+  return (permissions || []).filter((p) => KNOWN_PERMISSIONS.has(p));
+}
 
 export default function RoleForm({
   role,
@@ -100,7 +107,12 @@ export default function RoleForm({
     permissions: Permission[];
     displayName?: string;
   }>({
-    defaultValues: { ...role, permissions: role.permissions || [] },
+    // Drop atoms this build doesn't recognise. A stored role can name a
+    // permission that no longer exists (renamed or removed in a later version);
+    // it already grants nothing, but carrying it in form state makes every save
+    // fail validation on a field the editor never rendered — leaving the role
+    // unfixable through the UI.
+    defaultValues: { ...role, permissions: knownPermissions(role.permissions) },
   });
 
   const currentValue = {
@@ -129,7 +141,7 @@ export default function RoleForm({
       id: role.id,
       description: role.description,
       policies: role.policies,
-      permissions: role.permissions || [],
+      permissions: knownPermissions(role.permissions),
       displayName: role.displayName,
     }) !== JSON.stringify(currentValue);
 

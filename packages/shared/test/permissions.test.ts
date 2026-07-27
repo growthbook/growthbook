@@ -94,7 +94,7 @@ describe("Role permissions", () => {
     expect(p.canDeleteTag()).toBe(false);
     expect(p.canManageBilling()).toBe(false);
     expect(p.canViewUsage()).toBe(false);
-    expect(p.canManageFeatureDrafts(projectResource)).toBe(false);
+    expect(p.canEditFeatureDrafts(projectResource)).toBe(false);
     expect(p.canManageIntegrations()).toBe(false);
     expect(p.canManageNorthStarMetric()).toBe(false);
     expect(p.canManageOrgSettings()).toBe(false);
@@ -119,7 +119,7 @@ describe("Role permissions", () => {
     expect(p.canUpdateExperiment(projectResource, updates)).toBe(false);
     expect(p.canUpdateFactMetric(projectsResource, updates)).toBe(false);
     expect(p.canUpdateFactTable(projectsResource, updates)).toBe(false);
-    expect(p.canManageFeatureDrafts(projectResource)).toBe(false);
+    expect(p.canEditFeatureDrafts(projectResource)).toBe(false);
     expect(p.canUpdateIdea(projectResource, updates)).toBe(false);
     expect(p.canUpdateMetric(projectsResource, updates)).toBe(false);
     expect(p.canUpdateNamespace()).toBe(false);
@@ -221,7 +221,7 @@ describe("Role permissions", () => {
     expect(p.canDeleteTag()).toBe(false);
     expect(p.canManageBilling()).toBe(false);
     expect(p.canViewUsage()).toBe(false);
-    expect(p.canManageFeatureDrafts(projectResource)).toBe(false);
+    expect(p.canEditFeatureDrafts(projectResource)).toBe(false);
     expect(p.canManageIntegrations()).toBe(false);
     expect(p.canManageNorthStarMetric()).toBe(false);
     expect(p.canManageOrgSettings()).toBe(false);
@@ -247,7 +247,7 @@ describe("Role permissions", () => {
     expect(p.canUpdateExperiment(projectResource, updates)).toBe(false);
     expect(p.canUpdateFactMetric(projectsResource, updates)).toBe(false);
     expect(p.canUpdateFactTable(projectsResource, updates)).toBe(false);
-    expect(p.canManageFeatureDrafts(projectResource)).toBe(false);
+    expect(p.canEditFeatureDrafts(projectResource)).toBe(false);
     expect(p.canUpdateIdea(projectResource, updates)).toBe(false);
     expect(p.canUpdateMetric(projectsResource, updates)).toBe(false);
     expect(p.canUpdateNamespace()).toBe(false);
@@ -349,7 +349,7 @@ describe("Role permissions", () => {
     expect(p.canDeleteTag()).toBe(false);
     expect(p.canManageBilling()).toBe(false);
     expect(p.canViewUsage()).toBe(false);
-    expect(p.canManageFeatureDrafts(projectResource)).toBe(false);
+    expect(p.canEditFeatureDrafts(projectResource)).toBe(false);
     expect(p.canManageIntegrations()).toBe(false);
     expect(p.canManageNorthStarMetric()).toBe(false);
     expect(p.canManageOrgSettings()).toBe(false);
@@ -375,7 +375,7 @@ describe("Role permissions", () => {
     expect(p.canUpdateExperiment(projectResource, updates)).toBe(false);
     expect(p.canUpdateFactMetric(projectsResource, updates)).toBe(false);
     expect(p.canUpdateFactTable(projectsResource, updates)).toBe(false);
-    expect(p.canManageFeatureDrafts(projectResource)).toBe(false);
+    expect(p.canEditFeatureDrafts(projectResource)).toBe(false);
     expect(p.canUpdateIdea(projectResource, updates)).toBe(false);
     expect(p.canUpdateMetric(projectsResource, updates)).toBe(false);
     expect(p.canUpdateNamespace()).toBe(false);
@@ -477,7 +477,7 @@ describe("Role permissions", () => {
     expect(p.canDeleteTag()).toBe(false);
     expect(p.canManageBilling()).toBe(false);
     expect(p.canViewUsage()).toBe(false);
-    expect(p.canManageFeatureDrafts(projectResource)).toBe(false);
+    expect(p.canEditFeatureDrafts(projectResource)).toBe(false);
     expect(p.canManageIntegrations()).toBe(false);
     expect(p.canManageNorthStarMetric()).toBe(false);
     expect(p.canManageOrgSettings()).toBe(false);
@@ -503,7 +503,7 @@ describe("Role permissions", () => {
     expect(p.canUpdateExperiment(projectResource, updates)).toBe(false);
     expect(p.canUpdateFactMetric(projectsResource, updates)).toBe(false);
     expect(p.canUpdateFactTable(projectsResource, updates)).toBe(false);
-    expect(p.canManageFeatureDrafts(projectResource)).toBe(false);
+    expect(p.canEditFeatureDrafts(projectResource)).toBe(false);
     expect(p.canUpdateIdea(projectResource, updates)).toBe(true);
     expect(p.canUpdateMetric(projectsResource, updates)).toBe(false);
     expect(p.canUpdateNamespace()).toBe(false);
@@ -605,7 +605,7 @@ describe("Role permissions", () => {
     expect(p.canDeleteTag()).toBe(true);
     expect(p.canManageBilling()).toBe(false);
     expect(p.canViewUsage()).toBe(false);
-    expect(p.canManageFeatureDrafts(projectResource)).toBe(true);
+    expect(p.canEditFeatureDrafts(projectResource)).toBe(true);
     expect(p.canManageIntegrations()).toBe(false);
     expect(p.canManageNorthStarMetric()).toBe(false);
     expect(p.canManageOrgSettings()).toBe(false);
@@ -631,7 +631,7 @@ describe("Role permissions", () => {
     expect(p.canUpdateExperiment(projectResource, updates)).toBe(false);
     expect(p.canUpdateFactMetric(projectsResource, updates)).toBe(false);
     expect(p.canUpdateFactTable(projectsResource, updates)).toBe(false);
-    expect(p.canManageFeatureDrafts(projectResource)).toBe(true);
+    expect(p.canEditFeatureDrafts(projectResource)).toBe(true);
     expect(p.canUpdateIdea(projectResource, updates)).toBe(true);
     expect(p.canUpdateMetric(projectsResource, updates)).toBe(false);
     expect(p.canUpdateNamespace()).toBe(true);
@@ -733,7 +733,7 @@ describe("Role permissions", () => {
     expect(p.canDeleteTag()).toBe(true);
     expect(p.canManageBilling()).toBe(false);
     expect(p.canViewUsage()).toBe(false);
-    expect(p.canManageFeatureDrafts(projectResource)).toBe(false);
+    expect(p.canEditFeatureDrafts(projectResource)).toBe(false);
     expect(p.canManageIntegrations()).toBe(false);
     expect(p.canManageNorthStarMetric()).toBe(false);
     expect(p.canManageOrgSettings()).toBe(false);
@@ -759,7 +759,7 @@ describe("Role permissions", () => {
     expect(p.canUpdateExperiment(projectResource, updates)).toBe(true);
     expect(p.canUpdateFactMetric(projectsResource, updates)).toBe(true);
     expect(p.canUpdateFactTable(projectsResource, updates)).toBe(true);
-    expect(p.canManageFeatureDrafts(projectResource)).toBe(false);
+    expect(p.canEditFeatureDrafts(projectResource)).toBe(false);
     expect(p.canUpdateIdea(projectResource, updates)).toBe(true);
     expect(p.canUpdateMetric(projectsResource, updates)).toBe(true);
     expect(p.canUpdateNamespace()).toBe(false);
@@ -861,7 +861,7 @@ describe("Role permissions", () => {
     expect(p.canDeleteTag()).toBe(true);
     expect(p.canManageBilling()).toBe(false);
     expect(p.canViewUsage()).toBe(false);
-    expect(p.canManageFeatureDrafts(projectResource)).toBe(true);
+    expect(p.canEditFeatureDrafts(projectResource)).toBe(true);
     expect(p.canManageIntegrations()).toBe(false);
     expect(p.canManageNorthStarMetric()).toBe(false);
     expect(p.canManageOrgSettings()).toBe(false);
@@ -887,7 +887,7 @@ describe("Role permissions", () => {
     expect(p.canUpdateExperiment(projectResource, updates)).toBe(true);
     expect(p.canUpdateFactMetric(projectsResource, updates)).toBe(true);
     expect(p.canUpdateFactTable(projectsResource, updates)).toBe(true);
-    expect(p.canManageFeatureDrafts(projectResource)).toBe(true);
+    expect(p.canEditFeatureDrafts(projectResource)).toBe(true);
     expect(p.canUpdateIdea(projectResource, updates)).toBe(true);
     expect(p.canUpdateMetric(projectsResource, updates)).toBe(true);
     expect(p.canUpdateNamespace()).toBe(true);
@@ -989,7 +989,7 @@ describe("Role permissions", () => {
     expect(p.canDeleteTag()).toBe(true);
     expect(p.canManageBilling()).toBe(true);
     expect(p.canViewUsage()).toBe(true);
-    expect(p.canManageFeatureDrafts(projectResource)).toBe(true);
+    expect(p.canEditFeatureDrafts(projectResource)).toBe(true);
     expect(p.canManageIntegrations()).toBe(true);
     expect(p.canManageNorthStarMetric()).toBe(true);
     expect(p.canManageOrgSettings()).toBe(true);
@@ -1015,7 +1015,7 @@ describe("Role permissions", () => {
     expect(p.canUpdateExperiment(projectResource, updates)).toBe(true);
     expect(p.canUpdateFactMetric(projectsResource, updates)).toBe(true);
     expect(p.canUpdateFactTable(projectsResource, updates)).toBe(true);
-    expect(p.canManageFeatureDrafts(projectResource)).toBe(true);
+    expect(p.canEditFeatureDrafts(projectResource)).toBe(true);
     expect(p.canUpdateIdea(projectResource, updates)).toBe(true);
     expect(p.canUpdateMetric(projectsResource, updates)).toBe(true);
     expect(p.canUpdateNamespace()).toBe(true);

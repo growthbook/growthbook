@@ -420,6 +420,21 @@ button publishes anyway. Bring them in line with REST:
 
 Done, with `planApproveAndPublish` unit-tested for all six combinations.
 
+## Renaming an atom drops it from stored roles
+
+A custom role stores its additive atoms as **strings** in `permissions[]`, and
+nothing reconciles them on read — an unrecognised name is simply absent, so the
+role silently loses that capability. Verified by renaming `manageFlagDrafts` to
+`editFlagDrafts` mid-QA: a role saved with the old name degraded to read-only
+with no error anywhere.
+
+Harmless on this branch, because `permissions[]` is new here and no stored role
+predates it — policies, which is what everything shipped uses, remap fine. But
+once this ships, renaming an atom is a breaking change for any org that composed
+a role from it, and it fails _silently_ rather than loudly. Either settle the
+vocabulary before release (what we did), or add a rename map if one is ever
+needed after.
+
 ## Parallelism audit
 
 Built the model × action × surface matrix rather than spot-checking. **The engine

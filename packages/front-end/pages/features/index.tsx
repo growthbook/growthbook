@@ -612,7 +612,7 @@ export default function FeaturesPage() {
   const canCreateFeatures = useMemo(() => {
     // If a specific project is selected, check permissions for that project
     if (project) {
-      return permissionsUtil.canManageFeatureDrafts({ project });
+      return permissionsUtil.canEditFeatureDrafts({ project });
     }
     // "All Projects" selected. Check the global (no-project) permission first so
     // a user who can create features at the org level (e.g. an admin) isn't
@@ -623,7 +623,7 @@ export default function FeaturesPage() {
         { project: "" },
         NO_ENVIRONMENT_BINDING,
       ) &&
-      permissionsUtil.canManageFeatureDrafts({ project: "" })
+      permissionsUtil.canEditFeatureDrafts({ project: "" })
     ) {
       return true;
     }
@@ -633,7 +633,7 @@ export default function FeaturesPage() {
         permissionsUtil.canCreateFeature(
           { project: p.id },
           NO_ENVIRONMENT_BINDING,
-        ) && permissionsUtil.canManageFeatureDrafts({ project: p.id }),
+        ) && permissionsUtil.canEditFeatureDrafts({ project: p.id }),
     );
   }, [project, projects, permissionsUtil]);
 

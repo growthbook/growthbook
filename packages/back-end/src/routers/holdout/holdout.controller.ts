@@ -731,7 +731,7 @@ export const deleteHoldoutFeature = async (
     });
   }
 
-  if (!context.permissions.canManageFeatureDrafts(feature)) {
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 

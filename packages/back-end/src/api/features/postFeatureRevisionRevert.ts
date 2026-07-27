@@ -53,10 +53,10 @@ export async function revertFeatureRevision(
   const feature = await getFeature(context, params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
-  // Revert authority gated per strategy below (publish: canRevertFeature; draft: canManageFeatureDrafts).
+  // Revert authority gated per strategy below (publish: canRevertFeature; draft: canEditFeatureDrafts).
   const { strategy = "draft", comment, title } = body;
   // Publish perms only apply to strategy: "publish"; the draft branch is
-  // gated by canManageFeatureDrafts below.
+  // gated by canEditFeatureDrafts below.
   const isPublish = strategy === "publish";
 
   const targetRevision = await getRevision({
@@ -267,7 +267,7 @@ export async function revertFeatureRevision(
     // Proposing a revert as a draft is open to draft authors, and also to anyone
     // with revert authority even if they have no general draft access.
     if (
-      !context.permissions.canManageFeatureDrafts(feature) &&
+      !context.permissions.canEditFeatureDrafts(feature) &&
       !context.permissions.canRevertFeature(feature, allEnabledEnvs)
     ) {
       context.permissions.throwPermissionError();

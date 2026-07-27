@@ -136,7 +136,7 @@ export default function RevertModal({
   const canBypassApprovals =
     permissionsUtil.canBypassFlagApprovalChecks(feature);
   const canCreateDraft =
-    permissionsUtil.canManageFeatureDrafts(feature) || canRevert;
+    permissionsUtil.canEditFeatureDrafts(feature) || canRevert;
 
   // Restoring an archived state takes the flag out of service, so publishing it
   // carries the delete-class gate too (staging it as a draft doesn't). Matches

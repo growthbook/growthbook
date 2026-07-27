@@ -421,11 +421,9 @@ export default function RampScheduleTemplates() {
 
   const hasFeature = hasCommercialFeature("ramp-schedules");
   const canCreate =
-    hasFeature &&
-    permissionsUtil.canManageFeatureDrafts({ project: undefined });
+    hasFeature && permissionsUtil.canEditFeatureDrafts({ project: undefined });
   const canUpdate =
-    hasFeature &&
-    permissionsUtil.canManageFeatureDrafts({ project: undefined });
+    hasFeature && permissionsUtil.canEditFeatureDrafts({ project: undefined });
   const canDelete =
     hasFeature &&
     permissionsUtil.canDeleteFeature(

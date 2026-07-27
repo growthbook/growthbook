@@ -984,7 +984,7 @@ export class Permissions {
     return this.checkProjectFilterPermission(metric, "createMetrics");
   };
 
-  public canManageFeatureDrafts = (
+  public canEditFeatureDrafts = (
     feature: Pick<FeatureInterface, "project">,
   ) => {
     return this.canRevisionAction("feature", "draft", {

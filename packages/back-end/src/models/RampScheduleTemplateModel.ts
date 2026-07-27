@@ -53,7 +53,7 @@ export class RampScheduleTemplateModel extends BaseClass {
     return this.context.permissions.canViewFeatureModal(undefined);
   }
   protected canCreate() {
-    return this.context.permissions.canManageFeatureDrafts({
+    return this.context.permissions.canEditFeatureDrafts({
       project: undefined,
     });
   }
@@ -61,7 +61,7 @@ export class RampScheduleTemplateModel extends BaseClass {
     _existing: RampScheduleTemplateInterface,
     _updates: UpdateProps<RampScheduleTemplateInterface>,
   ) {
-    return this.context.permissions.canManageFeatureDrafts({
+    return this.context.permissions.canEditFeatureDrafts({
       project: undefined,
     });
   }

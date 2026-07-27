@@ -421,7 +421,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
 
     const canEdit =
       permissionsUtil.canViewFeatureModal(feature.project) &&
-      permissionsUtil.canManageFeatureDrafts(feature);
+      permissionsUtil.canEditFeatureDrafts(feature);
 
     const gatedEnvSet: Set<string> | "all" | "none" = useMemo(() => {
       const raw = settings?.requireReviews;

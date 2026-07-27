@@ -208,7 +208,7 @@ export default function FeaturesHeader({
   // still stage the flip.
   const canToggleArchive =
     (isArchived ? canPublish : canDelete) ||
-    permissionsUtil.canManageFeatureDrafts(feature);
+    permissionsUtil.canEditFeatureDrafts(feature);
 
   // Tab chip + tooltip count revisions at "request review" or beyond; drafts
   // still being edited don't need reviewer/publisher attention.

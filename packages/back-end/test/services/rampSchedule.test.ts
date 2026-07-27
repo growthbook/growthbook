@@ -238,7 +238,7 @@ function makeContext(scheduleUpdates: Partial<RampScheduleInterface> = {}) {
         canUpdateFeature: jest.fn().mockReturnValue(true),
         canReviewFeatureDrafts: jest.fn().mockReturnValue(true),
         canPublishFeature: jest.fn().mockReturnValue(true),
-        canManageFeatureDrafts: jest.fn().mockReturnValue(true),
+        canEditFeatureDrafts: jest.fn().mockReturnValue(true),
       },
       models: {
         rampSchedules: {
@@ -2003,7 +2003,7 @@ describe("advanceScheduleManually", () => {
         canUpdateFeature: jest.fn().mockReturnValue(true),
         canReviewFeatureDrafts: jest.fn().mockReturnValue(true),
         canPublishFeature: jest.fn().mockReturnValue(true),
-        canManageFeatureDrafts: jest.fn().mockReturnValue(true),
+        canEditFeatureDrafts: jest.fn().mockReturnValue(true),
       },
       models: {
         rampSchedules: {
@@ -2408,7 +2408,7 @@ describe("resumeSchedule", () => {
         canUpdateFeature: jest.fn().mockReturnValue(true),
         canReviewFeatureDrafts: jest.fn().mockReturnValue(true),
         canPublishFeature: jest.fn().mockReturnValue(true),
-        canManageFeatureDrafts: jest.fn().mockReturnValue(true),
+        canEditFeatureDrafts: jest.fn().mockReturnValue(true),
       },
       models: {
         rampSchedules: {
@@ -2480,7 +2480,7 @@ describe("restartSchedule", () => {
         canUpdateFeature: jest.fn().mockReturnValue(true),
         canReviewFeatureDrafts: jest.fn().mockReturnValue(true),
         canPublishFeature: jest.fn().mockReturnValue(true),
-        canManageFeatureDrafts: jest.fn().mockReturnValue(true),
+        canEditFeatureDrafts: jest.fn().mockReturnValue(true),
       },
       models: {
         rampSchedules: { updateById, getById },
@@ -3528,7 +3528,7 @@ describe("startReadyScheduleNow", () => {
         canUpdateFeature: jest.fn().mockReturnValue(true),
         canReviewFeatureDrafts: jest.fn().mockReturnValue(true),
         canPublishFeature: jest.fn().mockReturnValue(true),
-        canManageFeatureDrafts: jest.fn().mockReturnValue(true),
+        canEditFeatureDrafts: jest.fn().mockReturnValue(true),
       },
       models: {
         rampSchedules: {
@@ -3806,7 +3806,7 @@ describe("startReadyScheduleNow", () => {
         canUpdateFeature: jest.fn().mockReturnValue(true),
         canReviewFeatureDrafts: jest.fn().mockReturnValue(true),
         canPublishFeature: jest.fn().mockReturnValue(true),
-        canManageFeatureDrafts: jest.fn().mockReturnValue(true),
+        canEditFeatureDrafts: jest.fn().mockReturnValue(true),
       },
       models: {
         rampSchedules: {
@@ -3986,7 +3986,7 @@ describe("approveAndPublishStep", () => {
           canUpdateFeature: jest.fn().mockReturnValue(true),
           canReviewFeatureDrafts: jest.fn().mockReturnValue(true),
           canPublishFeature: jest.fn().mockReturnValue(true),
-          canManageFeatureDrafts: jest.fn().mockReturnValue(true),
+          canEditFeatureDrafts: jest.fn().mockReturnValue(true),
         },
         models: {
           rampSchedules: { updateById, getById: jest.fn() },
@@ -4109,7 +4109,7 @@ describe("approveAndPublishStep", () => {
         canUpdateFeature: jest.fn().mockReturnValue(true),
         canReviewFeatureDrafts: jest.fn().mockReturnValue(true),
         canPublishFeature: jest.fn().mockReturnValue(true),
-        canManageFeatureDrafts: jest.fn().mockReturnValue(true),
+        canEditFeatureDrafts: jest.fn().mockReturnValue(true),
       },
       models: {
         rampSchedules: {
@@ -4183,7 +4183,7 @@ describe("approveAndPublishStep", () => {
         canUpdateFeature: jest.fn().mockReturnValue(true),
         canReviewFeatureDrafts: jest.fn().mockReturnValue(true),
         canPublishFeature: jest.fn().mockReturnValue(true),
-        canManageFeatureDrafts: jest.fn().mockReturnValue(true),
+        canEditFeatureDrafts: jest.fn().mockReturnValue(true),
       },
       models: {
         rampSchedules: {
@@ -4252,7 +4252,7 @@ describe("approveAndPublishStep", () => {
         canUpdateFeature: jest.fn().mockReturnValue(true),
         canReviewFeatureDrafts: jest.fn().mockReturnValue(true),
         canPublishFeature: jest.fn().mockReturnValue(true),
-        canManageFeatureDrafts: jest.fn().mockReturnValue(true),
+        canEditFeatureDrafts: jest.fn().mockReturnValue(true),
       },
       models: {
         rampSchedules: {
@@ -4325,7 +4325,7 @@ describe("approveAndPublishStep", () => {
         canUpdateFeature: jest.fn().mockReturnValue(true),
         canReviewFeatureDrafts: jest.fn().mockReturnValue(true),
         canPublishFeature: jest.fn().mockReturnValue(true),
-        canManageFeatureDrafts: jest.fn().mockReturnValue(true),
+        canEditFeatureDrafts: jest.fn().mockReturnValue(true),
       },
       models: {
         rampSchedules: {

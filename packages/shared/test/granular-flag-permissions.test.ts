@@ -72,7 +72,7 @@ describe("granular flag permissions", () => {
       expect(
         roleSupportsEnvLimitFromRole({
           policies: ["ReadData"],
-          permissions: ["manageFlagDrafts"],
+          permissions: ["editFlagDrafts"],
         }),
       ).toBe(false);
     });
@@ -94,7 +94,7 @@ describe("granular flag permissions", () => {
         expect.arrayContaining([
           "createFlags",
           "deleteFlags",
-          "manageFlagDrafts",
+          "editFlagDrafts",
           "reviewFlags",
           "publishFlags",
           "revertFlags",
@@ -126,7 +126,7 @@ describe("granular flag permissions", () => {
           expect.arrayContaining([
             "createFlags",
             "deleteFlags",
-            "manageFlagDrafts",
+            "editFlagDrafts",
             "reviewFlags",
           ]),
         );

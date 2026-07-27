@@ -46,11 +46,11 @@ export default function LinkedFeatureFlag({
     !experiment.archived && permissionsUtil.canUpdateExperiment(experiment, {});
 
   const canUpdateLinkedFeature =
-    canEditExperiment && permissionsUtil.canManageFeatureDrafts(info.feature);
+    canEditExperiment && permissionsUtil.canEditFeatureDrafts(info.feature);
 
   const canEditFeatureDraft =
     canUpdateLinkedFeature &&
-    permissionsUtil.canManageFeatureDrafts(info.feature);
+    permissionsUtil.canEditFeatureDrafts(info.feature);
 
   // Gates the "Re-add feature flag" link in the discarded callout: requires
   // feature-draft perms AND the experiment to still be in draft status with no

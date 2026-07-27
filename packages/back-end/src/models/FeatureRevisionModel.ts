@@ -2253,7 +2253,7 @@ export async function submitReviewAndComments(
 }
 
 // Retract a review request: pending-review / changes-requested / approved back
-// to draft. Callers gate on canManageFeatureDrafts (any draft manager, not just
+// to draft. Callers gate on canEditFeatureDrafts (any draft manager, not just
 // the requester), matching request-review. Log entries are preserved.
 export async function recallReview(
   context: ReqContext | ApiReqContext,

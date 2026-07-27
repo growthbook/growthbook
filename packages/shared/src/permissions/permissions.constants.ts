@@ -91,7 +91,7 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
     "readData",
     "createFlags",
     "deleteFlags",
-    "manageFlagDrafts",
+    "editFlagDrafts",
     "reviewFlags",
     "publishFlags",
     "revertFlags",
@@ -110,7 +110,7 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
     "readData",
     "createFlags",
     "deleteFlags",
-    "manageFlagDrafts",
+    "editFlagDrafts",
     "reviewFlags",
     "manageArchetype",
   ],
@@ -120,7 +120,7 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
     "readData",
     "createFlags",
     "deleteFlags",
-    "manageFlagDrafts",
+    "editFlagDrafts",
     "reviewFlags",
     "bypassApprovalFlags",
     "bypassApprovalSavedGroups",
@@ -184,7 +184,7 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
     "readData",
     "createFlags",
     "deleteFlags",
-    "manageFlagDrafts",
+    "editFlagDrafts",
     "reviewFlags",
     "publishFlags",
     "revertFlags",
@@ -193,7 +193,7 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
     "readData",
     "createFlags",
     "deleteFlags",
-    "manageFlagDrafts",
+    "editFlagDrafts",
     "reviewFlags",
     "publishFlags",
     "revertFlags",
@@ -202,7 +202,7 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
     "readData",
     "createSavedGroups",
     "deleteSavedGroups",
-    "manageSavedGroupDrafts",
+    "editSavedGroupDrafts",
     "reviewSavedGroups",
     "publishSavedGroups",
     "revertSavedGroups",
@@ -215,7 +215,7 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
     "readData",
     "createSavedGroups",
     "deleteSavedGroups",
-    "manageSavedGroupDrafts",
+    "editSavedGroupDrafts",
     "reviewSavedGroups",
     "publishSavedGroups",
     "revertSavedGroups",
@@ -621,7 +621,7 @@ export const GRANULAR_PERMISSION_METADATA: Partial<
     description:
       "Archive or delete Feature Flags, Constants, and Configs (environment-scoped)",
   },
-  manageFlagDrafts: {
+  editFlagDrafts: {
     displayName: "Edit",
     description:
       "Create, edit, and discard drafts, and request review. Drafts reach no one until published.",
@@ -656,7 +656,7 @@ export const GRANULAR_PERMISSION_METADATA: Partial<
     displayName: "Delete",
     description: "Delete saved groups",
   },
-  manageSavedGroupDrafts: {
+  editSavedGroupDrafts: {
     displayName: "Edit",
     description:
       "Create, edit, and discard Saved Group drafts, and request review. Drafts reach no one until published.",
@@ -870,7 +870,7 @@ export const ENV_SCOPED_PERMISSIONS = [
 export const PROJECT_SCOPED_PERMISSIONS = [
   "readData",
   "addComments",
-  "manageFlagDrafts",
+  "editFlagDrafts",
   "bypassApprovalFlags",
   "manageArchetype",
   "manageProjects",
@@ -891,7 +891,7 @@ export const PROJECT_SCOPED_PERMISSIONS = [
   "manageVisualChanges",
   "createSavedGroups",
   "deleteSavedGroups",
-  "manageSavedGroupDrafts",
+  "editSavedGroupDrafts",
   "reviewSavedGroups",
   "publishSavedGroups",
   "revertSavedGroups",

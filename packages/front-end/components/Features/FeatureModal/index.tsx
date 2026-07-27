@@ -205,7 +205,7 @@ export default function FeatureModal({
   const projectOptions = useProjectOptions(
     (project) =>
       permissionsUtil.canCreateFeature({ project }, NO_ENVIRONMENT_BINDING) &&
-      permissionsUtil.canManageFeatureDrafts({ project }),
+      permissionsUtil.canEditFeatureDrafts({ project }),
     project ? [project] : [],
   );
   const canCreateWithoutProject =
@@ -272,7 +272,7 @@ export default function FeatureModal({
   let disabledMessage: string | undefined;
 
   if (
-    !permissionsUtil.canManageFeatureDrafts({
+    !permissionsUtil.canEditFeatureDrafts({
       project: featureToDuplicate?.project ?? selectedProject,
     })
   ) {

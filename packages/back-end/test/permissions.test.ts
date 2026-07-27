@@ -6063,7 +6063,7 @@ describe("PermissionsUtilClass.canRunTestQueries check", () => {
   });
 });
 
-describe("PermissionsUtilClass.canManageFeatureDrafts", () => {
+describe("PermissionsUtilClass.canEditFeatureDrafts", () => {
   const testOrg: OrganizationInterface = {
     id: "org_sktwi1id9l7z9xkjb",
     name: "Test Org",
@@ -6101,7 +6101,7 @@ describe("PermissionsUtilClass.canManageFeatureDrafts", () => {
       projects: {},
     });
 
-    expect(permissions.canManageFeatureDrafts({ project: "" })).toEqual(false);
+    expect(permissions.canEditFeatureDrafts({ project: "" })).toEqual(false);
   });
 
   it("User with engineer role is able to manage feature drafts", async () => {
@@ -6114,7 +6114,7 @@ describe("PermissionsUtilClass.canManageFeatureDrafts", () => {
       projects: {},
     });
 
-    expect(permissions.canManageFeatureDrafts({ project: "" })).toEqual(true);
+    expect(permissions.canEditFeatureDrafts({ project: "" })).toEqual(true);
   });
 
   it("User with anaylst role is not able to manage feature drafts", async () => {
@@ -6127,7 +6127,7 @@ describe("PermissionsUtilClass.canManageFeatureDrafts", () => {
       projects: {},
     });
 
-    expect(permissions.canManageFeatureDrafts({ project: "" })).toEqual(false);
+    expect(permissions.canEditFeatureDrafts({ project: "" })).toEqual(false);
   });
 
   it("User with global readonly role is not able to manage feature drafts for feature without a project", async () => {
@@ -6146,7 +6146,7 @@ describe("PermissionsUtilClass.canManageFeatureDrafts", () => {
       },
     });
 
-    expect(permissions.canManageFeatureDrafts({ project: "" })).toEqual(false);
+    expect(permissions.canEditFeatureDrafts({ project: "" })).toEqual(false);
   });
 
   it("User with global readonly role is able to manage feature drafts if their project specific permissions grant it", async () => {
@@ -6165,12 +6165,12 @@ describe("PermissionsUtilClass.canManageFeatureDrafts", () => {
       },
     });
 
-    expect(permissions.canManageFeatureDrafts({ project: "abc123" })).toEqual(
+    expect(permissions.canEditFeatureDrafts({ project: "abc123" })).toEqual(
       true,
     );
   });
 
-  it("canManageFeatureDrafts works as expected for a feature without the project property", async () => {
+  it("canEditFeatureDrafts works as expected for a feature without the project property", async () => {
     const permissions = new Permissions({
       global: {
         permissions: roleToPermissionMap("engineer", testOrg),
@@ -6186,10 +6186,10 @@ describe("PermissionsUtilClass.canManageFeatureDrafts", () => {
       },
     });
 
-    expect(permissions.canManageFeatureDrafts({})).toEqual(true);
+    expect(permissions.canEditFeatureDrafts({})).toEqual(true);
   });
 
-  it("canManageFeatureDrafts works as expected for a feature without the project property", async () => {
+  it("canEditFeatureDrafts works as expected for a feature without the project property", async () => {
     const permissions = new Permissions({
       global: {
         permissions: roleToPermissionMap("collaborator", testOrg),
@@ -6205,7 +6205,7 @@ describe("PermissionsUtilClass.canManageFeatureDrafts", () => {
       },
     });
 
-    expect(permissions.canManageFeatureDrafts({})).toEqual(false);
+    expect(permissions.canEditFeatureDrafts({})).toEqual(false);
   });
 });
 
@@ -6377,7 +6377,7 @@ describe("PermissionsUtilClass.canCreateFeature check", () => {
 });
 
 // The move-aware `canUpdateFeature` is gone: there is no edit verb. Authoring a
-// change is `manageFlagDrafts` (project-scoped, so a move has no second project
+// change is `editFlagDrafts` (project-scoped, so a move has no second project
 // to check), and landing it — including into a different project — is
 // `publishFlags`, checked against both the source and destination at each
 // publish site. Those paths are covered by the publish tests.

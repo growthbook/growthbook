@@ -524,7 +524,7 @@ export default function FeaturesOverview({
     featureReviewConfig?.featureRequireMetadataReview !== false;
 
   const canEdit = permissionsUtil.canViewFeatureModal(projectId);
-  const canEditDrafts = permissionsUtil.canManageFeatureDrafts(feature);
+  const canEditDrafts = permissionsUtil.canEditFeatureDrafts(feature);
 
   const featureCustomFields = filterCustomFieldsForSectionAndProject(
     allCustomFields,
@@ -1655,7 +1655,7 @@ export default function FeaturesOverview({
               </>
             }
             permissionRequired={(project) =>
-              permissionsUtil.canManageFeatureDrafts({ project })
+              permissionsUtil.canEditFeatureDrafts({ project })
             }
             apiEndpoint={`/feature/${feature.id}`}
             cancel={() => setEditProjectModal(false)}

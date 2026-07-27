@@ -50,7 +50,7 @@ export const REVISION_PERMISSIONS: Record<
   flags: {
     create: { permission: "createFlags", scope: "environment" },
     delete: { permission: "deleteFlags", scope: "environment" },
-    draft: { permission: "manageFlagDrafts", scope: "project" },
+    draft: { permission: "editFlagDrafts", scope: "project" },
     review: { permission: "reviewFlags", scope: "environment" },
     publish: { permission: "publishFlags", scope: "environment" },
     revert: { permission: "revertFlags", scope: "environment" },
@@ -63,7 +63,7 @@ export const REVISION_PERMISSIONS: Record<
   savedGroups: {
     create: { permission: "createSavedGroups", scope: "project" },
     delete: { permission: "deleteSavedGroups", scope: "project" },
-    draft: { permission: "manageSavedGroupDrafts", scope: "project" },
+    draft: { permission: "editSavedGroupDrafts", scope: "project" },
     review: { permission: "reviewSavedGroups", scope: "project" },
     publish: { permission: "publishSavedGroups", scope: "project" },
     revert: { permission: "revertSavedGroups", scope: "project" },

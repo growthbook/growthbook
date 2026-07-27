@@ -18,7 +18,7 @@ export const ENVS = ["dev", "production"] as const;
 
 /** One custom role per persona, carrying only the atoms under test. */
 export const PERSONAS = {
-  drafter: ["manageFlagDrafts", "manageSavedGroupDrafts"],
+  drafter: ["editFlagDrafts", "editSavedGroupDrafts"],
   reviewer: ["reviewFlags", "reviewSavedGroups"],
   publisher: ["publishFlags", "publishSavedGroups"],
   reverter: ["revertFlags", "revertSavedGroups"],
@@ -35,21 +35,21 @@ export const PERSONAS = {
   ],
   // The everyday editor: authors a change and lands it.
   editor: [
-    "manageFlagDrafts",
+    "editFlagDrafts",
     "publishFlags",
-    "manageSavedGroupDrafts",
+    "editSavedGroupDrafts",
     "publishSavedGroups",
   ],
   // Everything except bypass, so approval requirements still apply.
   full: [
     "createFlags",
-    "manageFlagDrafts",
+    "editFlagDrafts",
     "reviewFlags",
     "publishFlags",
     "revertFlags",
     "deleteFlags",
     "createSavedGroups",
-    "manageSavedGroupDrafts",
+    "editSavedGroupDrafts",
     "reviewSavedGroups",
     "publishSavedGroups",
     "revertSavedGroups",
