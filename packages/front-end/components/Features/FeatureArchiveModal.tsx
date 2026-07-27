@@ -58,13 +58,26 @@ export default function FeatureArchiveModal({
 
   const isAdmin = permissionsUtil.canBypassFlagApprovalChecks(feature);
 
-  // Gated by requireReviewOn only, not by metadata or environment review flags
+  // Environments the flip actually reaches: the ones the flag serves in. For an
+  // unarchive that's where it will resume serving, which is the same set —
+  // archiving doesn't clear the per-environment toggles.
+  const servingEnvs = getEnabledEnvironments(feature, environments);
+
+  // Mirrors `checkIfRevisionNeedsReview` for an `archived` flip: the rule has to
+  // be on for this project, and the flip has to reach an environment the rule
+  // protects. A flag serving nowhere reaches none, so it needs no approval.
+  // Kept in step with the server deliberately — a stricter client here would
+  // push the user into a draft the server would have let them publish.
   const archiveGated: boolean = (() => {
     const raw = settings?.requireReviews;
-    if (raw === true) return true;
+    if (raw === true) return servingEnvs.length > 0;
     if (!Array.isArray(raw)) return false;
     const reviewSetting = getReviewSetting(raw, feature);
-    return !!reviewSetting?.requireReviewOn;
+    if (!reviewSetting?.requireReviewOn) return false;
+    if (servingEnvs.length === 0) return false;
+    const gatedEnvs = reviewSetting.environments;
+    if (gatedEnvs.length === 0) return true;
+    return servingEnvs.some((env) => gatedEnvs.includes(env));
   })();
 
   const canAutoPublish = isAdmin || !archiveGated;

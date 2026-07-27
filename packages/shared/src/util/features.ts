@@ -1517,13 +1517,18 @@ export function normalizeMetadataValue(
 function revisionHasGlobalChange(
   revision: RevisionFields,
   base: RevisionFields,
+  { ignoreArchived = false }: { ignoreArchived?: boolean } = {},
 ): boolean {
   if (
     revision.prerequisites !== undefined &&
     !isEqual(revision.prerequisites, base.prerequisites || [])
   )
     return true;
-  if (revision.archived !== undefined && revision.archived !== base.archived)
+  if (
+    !ignoreArchived &&
+    revision.archived !== undefined &&
+    revision.archived !== base.archived
+  )
     return true;
   if (
     "holdout" in revision &&
@@ -2927,13 +2932,49 @@ export function getEnvsFromRampSchedule(
   return [...envs];
 }
 
+/** Whether this draft flips `archived` in either direction. */
+export function revisionFlipsArchived(
+  revision: RevisionFields,
+  base: RevisionFields,
+): boolean {
+  return revision.archived !== undefined && revision.archived !== base.archived;
+}
+
+/**
+ * The environments an `archived` flip actually touches: the ones the flag
+ * serves in. Archiving a flag that is live nowhere removes nothing from any
+ * payload, so it isn't treated as affecting every environment the way other
+ * global changes are.
+ */
+export function archiveAffectedEnvironments(
+  revision: RevisionFields,
+  base: RevisionFields,
+  allEnvironments: string[],
+): string[] {
+  return allEnvironments.filter(
+    (env) =>
+      (base.environmentsEnabled?.[env] ?? false) ||
+      (revision.environmentsEnabled?.[env] ?? false),
+  );
+}
+
 export function getDraftAffectedEnvironments(
   revision: RevisionFields,
   baseRevision: RevisionFields,
   allEnvironments: string[],
   liveRampScheduleEnvs?: Map<string, string[] | "all">,
 ): string[] | "all" {
-  if (revisionHasGlobalChange(revision, baseRevision)) return "all";
+  // A global change other than `archived` reaches every environment.
+  if (revisionHasGlobalChange(revision, baseRevision, { ignoreArchived: true }))
+    return "all";
+
+  // An `archived` flip only reaches the environments the flag serves in, so it
+  // seeds the set rather than short-circuiting to "all".
+  const envs = new Set<string>(
+    revisionFlipsArchived(revision, baseRevision)
+      ? archiveAffectedEnvironments(revision, baseRevision, allEnvironments)
+      : [],
+  );
 
   // Per-environment changes. v2 `rules` is a flat array, so derive the per-env
   // projection via `getRulesForEnvironment`. This preserves the env-granular
@@ -2942,7 +2983,6 @@ export function getDraftAffectedEnvironments(
   // with `environments: ["prod"]` counts only as touching prod.
   const revRulesAll = naiveFlattenV1Rules(revision.rules);
   const baseRulesAll = naiveFlattenV1Rules(baseRevision.rules);
-  const envs = new Set<string>();
   for (const env of allEnvironments) {
     const revRules = getRulesForEnvironment(revRulesAll, env).map(
       normalizeRuleForDiff,
@@ -3134,6 +3174,22 @@ export function checkIfRevisionNeedsReview({
   );
 
   const gatedEnvs = reviewSetting.environments;
+
+  // Archiving pulls the flag out of every environment it serves in at once, so
+  // it gates like a rule change rather than a kill switch — it is not subject to
+  // `featureRequireEnvironmentReview`. A flag serving nowhere yields no
+  // environments here and so needs no approval.
+  if (revisionFlipsArchived(revision, baseRevision)) {
+    const archiveEnvs = archiveAffectedEnvironments(
+      revision,
+      baseRevision,
+      allEnvironments,
+    );
+    if (archiveEnvs.length > 0) {
+      if (gatedEnvs.length === 0) return true;
+      if (archiveEnvs.some((env) => gatedEnvs.includes(env))) return true;
+    }
+  }
 
   // Rules/values always gate
   if (envsWithRuleChanges.length > 0) {
