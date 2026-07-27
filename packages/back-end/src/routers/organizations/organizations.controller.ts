@@ -1855,7 +1855,11 @@ export const autoAddGroupsAttribute = async (
 export async function getApiKeys(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
   const keys = await context.models.apiKeys.getAll();
-  const filteredKeys = keys.filter((k) => !k.userId || k.userId === req.userId);
+  // Exclude OAuth-issued access tokens (they carry an oauthClientId): they're
+  // hashed and short-lived, so they don't belong in the API Keys / PAT UI.
+  const filteredKeys = keys.filter(
+    (k) => !k.oauthClientId && (!k.userId || k.userId === req.userId),
+  );
 
   res.status(200).json({
     status: 200,

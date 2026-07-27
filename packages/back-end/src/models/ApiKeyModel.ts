@@ -18,7 +18,16 @@ const BaseClass = MakeModelClass({
   pKey: ["key"] as const,
   globallyUniquePrimaryKeys: true,
   idPrefix: "key_",
-  additionalIndexes: [{ fields: { id: 1 } }],
+  additionalIndexes: [
+    { fields: { id: 1 } },
+    // Partial TTL for OAuth access tokens only — classic API keys/PATs are untouched.
+    {
+      fields: { expiresAt: 1 },
+      expireAfterSeconds: 0,
+      partialFilterExpression: { oauthClientId: { $exists: true } },
+      name: "oauthAccessTokenTtl",
+    },
+  ],
   skipDateUpdatedFields: ["lastUsed"],
   defaultValues: {
     limitAccessByEnvironment: false,
@@ -344,6 +353,42 @@ export class ApiKeyModel extends BaseClass {
     await getCollection<ApiKeyInterface>(COLLECTION_NAME).updateOne(
       { key, organization },
       { $set: { lastUsed: new Date() } },
+    );
+  }
+
+  // OAuth token endpoint has no ReqContext. These static helpers keep apikey
+  // writes in the model layer (same pattern as dangerousRecordUsageByKey).
+
+  public static async dangerousFindByKeyHash(
+    keyHash: string,
+  ): Promise<ApiKeyInterface | null> {
+    return getCollection<ApiKeyInterface>(COLLECTION_NAME).findOne({
+      key: keyHash,
+    });
+  }
+
+  public static async dangerousDisableByKeyHash(
+    keyHash: string,
+  ): Promise<void> {
+    await getCollection<ApiKeyInterface>(COLLECTION_NAME).updateOne(
+      { key: keyHash },
+      { $set: { disabled: true } },
+    );
+  }
+
+  public static async dangerousDisableOAuthGrant(
+    clientId: string,
+    userId: string,
+    organization: string,
+  ): Promise<void> {
+    await getCollection<ApiKeyInterface>(COLLECTION_NAME).updateMany(
+      {
+        oauthClientId: clientId,
+        userId,
+        organization,
+        disabled: { $ne: true },
+      },
+      { $set: { disabled: true } },
     );
   }
 
