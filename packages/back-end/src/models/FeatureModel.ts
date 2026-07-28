@@ -179,13 +179,14 @@ const featureSchema = new mongoose.Schema({
 
 featureSchema.index({ id: 1, organization: 1 }, { unique: true });
 featureSchema.index({ organization: 1, project: 1 });
-// Compound indexes for the API list's date sorts. Unlike the filter indexes
-// above, these exist for the sort: pagination is DB-level (skip/limit), so an
-// index-order scan reads ~one page instead of fetching and sorting the whole
-// org under Mongo's in-memory sort ceiling. `id` sorts (rare) have no
-// backing index and fall back to an in-memory Mongo sort.
-featureSchema.index({ organization: 1, dateCreated: 1 });
-featureSchema.index({ organization: 1, dateUpdated: 1 });
+// No index backs the API list's sorts — Mongo does a bounded (top-k) blocking
+// sort instead, which examines every matching doc in the org per page but
+// caps memory at the page size. Deemed not worth the write overhead for now.
+// If that becomes a bottleneck, note that adding { organization, <field> }
+// alone does NOT help: the sort spec carries an _id tiebreak, and Mongo only
+// uses an index for a sort when it satisfies the whole sort key in a
+// consistent direction. It would need { organization, <field>, _id } with the
+// tiebreak direction matching sortOrder (see buildSort in api/features).
 
 type FeatureDocument = mongoose.Document & LegacyFeatureInterface;
 

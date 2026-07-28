@@ -124,9 +124,12 @@ export async function loadFeaturesPage(
   const sortDir = query.sortOrder === "desc" ? -1 : 1;
   // Without sortBy, preserve each path's historical default order (insertion
   // order in the DB path, dateCreated ascending in the in-memory paths). With
-  // sortBy, the _id tiebreak keeps ties stable across pages.
+  // sortBy, the _id tiebreak keeps ties stable across pages; its direction
+  // matches sortDir so the spec stays index-eligible if a
+  // { organization, <field>, _id } index is ever added (a mixed-direction
+  // tiebreak can never use one).
   const sort: FeatureSortFilter | undefined = query.sortBy
-    ? { [query.sortBy]: sortDir, _id: 1 }
+    ? { [query.sortBy]: sortDir, _id: sortDir }
     : undefined;
   const sortInMemory = (features: FeatureInterface[]): FeatureInterface[] => {
     const sortBy = query.sortBy;
