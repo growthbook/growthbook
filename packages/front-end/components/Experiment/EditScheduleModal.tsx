@@ -23,6 +23,8 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
 import DecisionCriteriaSelectorModal from "@/components/DecisionCriteria/DecisionCriteriaSelectorModal";
 import DecisionCriteriaModal from "@/components/DecisionCriteria/DecisionCriteriaModal";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import Callout from "@/ui/Callout";
 
 type ScheduledStopMode = "notify" | "auto-ship" | "force-ship" | "stop";
 type ScheduledStopFallback = "notify" | "force-ship";
@@ -75,7 +77,7 @@ export default function EditScheduleModal({
     hasDecisionFrameworkFeature &&
     (decisionFrameworkEnabled ?? DEFAULT_DECISION_FRAMEWORK_ENABLED);
   const autoShipDisabledReason = !hasDecisionFrameworkFeature
-    ? "Shipping the winning variation requires the Decision Framework (available on Pro and Enterprise plans)."
+    ? "Shipping the winning variation requires the Decision Framework."
     : "Enable the Decision Framework in your organization settings to ship the winning variation.";
 
   const form = useForm({
@@ -174,15 +176,7 @@ export default function EditScheduleModal({
   // analytical result — they don't change what the mode actually does. Set off
   // in its own box so that distinction is clear.
   const renderVerdictSection = () => (
-    <Box
-      mt="4"
-      px="3"
-      py="3"
-      style={{
-        backgroundColor: "var(--violet-a3)",
-        borderRadius: "var(--radius-3)",
-      }}
-    >
+    <Callout status="info" icon={null} mt="4">
       <Text as="div" size="medium" weight="semibold" color="text-high" mb="1">
         Record a result
       </Text>
@@ -218,7 +212,7 @@ export default function EditScheduleModal({
           )}
         </>
       )}
-    </Box>
+    </Callout>
   );
 
   // "after" stores a relative offset (stopAfter) that the back-end resolves to a
@@ -259,39 +253,18 @@ export default function EditScheduleModal({
   const modeHelpText = () => {
     switch (mode) {
       case "notify":
-        return (
-          <Helpertext status="info" size="sm">
-            The experiment keeps running past the end date — you&apos;ll be
-            notified
-            {decisionFrameworkAvailable
-              ? ", with a recommendation to review"
-              : ""}
-            .
-          </Helpertext>
-        );
+        return `The experiment keeps running past the end date — you'll be notified${
+          decisionFrameworkAvailable ? ", with a recommendation to review" : ""
+        }.`;
       case "auto-ship":
-        return (
-          <Helpertext status="info" size="sm">
-            Stops the experiment and rolls out the winning variation to linked
-            features.
-          </Helpertext>
-        );
+        return "Stops the experiment and rolls out the winning variation to linked features.";
       case "force-ship":
-        return (
-          <Helpertext status="info" size="sm">
-            Stops the experiment and rolls out this variation to linked
-            features, regardless of results.
-          </Helpertext>
-        );
+        return "Stops the experiment and rolls out this variation to linked features, regardless of results.";
       case "stop":
-        return (
-          <Helpertext status="info" size="sm">
-            Stops the experiment and reverts to any default feature flag values,
-            regardless of results.
-          </Helpertext>
-        );
+        return "Stops the experiment and reverts to any default feature flag values, regardless of results.";
       default: {
-        return null;
+        const exhaustiveCheck: never = mode;
+        return exhaustiveCheck;
       }
     }
   };
@@ -597,6 +570,16 @@ export default function EditScheduleModal({
                     if (o.value !== "auto-ship" || decisionFrameworkAvailable) {
                       return <>{o.label}</>;
                     }
+                    if (!hasDecisionFrameworkFeature) {
+                      return (
+                        <PremiumTooltip
+                          commercialFeature="decision-framework"
+                          premiumText={autoShipDisabledReason}
+                        >
+                          <Text color="text-disabled">{o.label}</Text>
+                        </PremiumTooltip>
+                      );
+                    }
                     return (
                       <Tooltip content={autoShipDisabledReason}>
                         <Box>
@@ -608,8 +591,12 @@ export default function EditScheduleModal({
                   onChange={(v) =>
                     form.setValue("mode", v as ScheduledStopMode)
                   }
-                  helpText={modeHelpText()}
                 />
+                <Box mt="2">
+                  <Helpertext status="info" size="sm">
+                    {modeHelpText()}
+                  </Helpertext>
+                </Box>
               </Box>
 
               {mode === "auto-ship" && (
