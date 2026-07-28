@@ -15,6 +15,7 @@ import Link from "@/ui/Link";
 import Helpertext from "@/ui/HelperText";
 import Button from "@/ui/Button";
 import SelectField from "@/components/Forms/SelectField";
+import ScheduleRow from "@/components/Schedule/ScheduleRow";
 import VariationLabel from "@/ui/VariationLabel";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -29,9 +30,6 @@ import Callout from "@/ui/Callout";
 type ScheduledStopMode = "notify" | "auto-ship" | "force-ship" | "stop";
 type ScheduledStopFallback = "notify" | "force-ship";
 type EndMode = "manual" | "on-date" | "after";
-
-// Shared width for the "Start"/"End" label column.
-const LABEL_COL_WIDTH = 60;
 
 // Default end offset, shared by the "After N days" relative preset and the
 // "On date" picker (which prepopulates now + this many days) so they match.
@@ -384,12 +382,7 @@ export default function EditScheduleModal({
       >
         <Flex direction="column" gap="4">
           <Flex direction="column" gap="1">
-            <Flex align="baseline" gap="3" py="1" style={{ minHeight: 42 }}>
-              <Box style={{ width: LABEL_COL_WIDTH }}>
-                <Text as="label" color="text-high" weight="medium" mb="0">
-                  Start
-                </Text>
-              </Box>
+            <ScheduleRow label="Start" labelColor="text-high">
               <SelectField
                 label=""
                 value={startAt ? "on-date" : "immediately"}
@@ -407,7 +400,7 @@ export default function EditScheduleModal({
                     form.setValue("startAt", d.toISOString());
                   }
                 }}
-                containerStyle={{ minHeight: 38, width: 150 }}
+                containerStyle={{ width: 150 }}
                 disabled={experiment.status !== "draft"}
               />
               {startAt && (
@@ -423,16 +416,11 @@ export default function EditScheduleModal({
                   disabled={experiment.status !== "draft"}
                 />
               )}
-            </Flex>
+            </ScheduleRow>
 
             <Separator size="4" my="3" />
 
-            <Flex align="baseline" gap="3" py="1" style={{ minHeight: 42 }}>
-              <Box style={{ width: LABEL_COL_WIDTH }}>
-                <Text as="label" color="text-high" weight="medium" mb="0">
-                  End
-                </Text>
-              </Box>
+            <ScheduleRow label="End" labelColor="text-high">
               <SelectField
                 label=""
                 value={endMode}
@@ -456,7 +444,7 @@ export default function EditScheduleModal({
                     form.setValue("stopAt", "");
                   }
                 }}
-                containerStyle={{ minHeight: 38, width: 150 }}
+                containerStyle={{ width: 150 }}
               />
               {endMode === "on-date" && (
                 <DatePicker
@@ -487,7 +475,7 @@ export default function EditScheduleModal({
                       );
                       setEndAfterValue(n);
                     }}
-                    style={{ width: 78, minHeight: 38 }}
+                    style={{ width: 78 }}
                   />
                   <SelectField
                     label=""
@@ -505,7 +493,7 @@ export default function EditScheduleModal({
                   </Text>
                 </Flex>
               )}
-            </Flex>
+            </ScheduleRow>
           </Flex>
 
           {scheduleIsInThePast && experiment.status === "draft" && (
