@@ -52,7 +52,6 @@ function makeContext(overrides: {
 }): Context {
   const permissions = {
     canReadMultiProjectResource: () => true,
-    canUpdateSavedGroup: () => true,
     canBypassSavedGroupApprovalChecks: () => true,
     ...(overrides.permissions ?? {}),
   };

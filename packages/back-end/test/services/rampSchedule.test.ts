@@ -235,7 +235,6 @@ function makeContext(scheduleUpdates: Partial<RampScheduleInterface> = {}) {
       auditUser: { type: "system" },
       environments: [],
       permissions: {
-        canUpdateFeature: jest.fn().mockReturnValue(true),
         canReviewFeatureDrafts: jest.fn().mockReturnValue(true),
         canPublishFeature: jest.fn().mockReturnValue(true),
         canEditFeatureDrafts: jest.fn().mockReturnValue(true),
@@ -2000,7 +1999,6 @@ describe("advanceScheduleManually", () => {
       auditUser: { type: "system" },
       environments: [],
       permissions: {
-        canUpdateFeature: jest.fn().mockReturnValue(true),
         canReviewFeatureDrafts: jest.fn().mockReturnValue(true),
         canPublishFeature: jest.fn().mockReturnValue(true),
         canEditFeatureDrafts: jest.fn().mockReturnValue(true),
@@ -2405,7 +2403,6 @@ describe("resumeSchedule", () => {
       auditUser: { type: "system" },
       environments: [],
       permissions: {
-        canUpdateFeature: jest.fn().mockReturnValue(true),
         canReviewFeatureDrafts: jest.fn().mockReturnValue(true),
         canPublishFeature: jest.fn().mockReturnValue(true),
         canEditFeatureDrafts: jest.fn().mockReturnValue(true),
@@ -2477,7 +2474,6 @@ describe("restartSchedule", () => {
       auditUser: { type: "system" },
       environments: [],
       permissions: {
-        canUpdateFeature: jest.fn().mockReturnValue(true),
         canReviewFeatureDrafts: jest.fn().mockReturnValue(true),
         canPublishFeature: jest.fn().mockReturnValue(true),
         canEditFeatureDrafts: jest.fn().mockReturnValue(true),
@@ -3525,7 +3521,6 @@ describe("startReadyScheduleNow", () => {
       auditUser: { type: "system" },
       environments: [],
       permissions: {
-        canUpdateFeature: jest.fn().mockReturnValue(true),
         canReviewFeatureDrafts: jest.fn().mockReturnValue(true),
         canPublishFeature: jest.fn().mockReturnValue(true),
         canEditFeatureDrafts: jest.fn().mockReturnValue(true),
@@ -3803,7 +3798,6 @@ describe("startReadyScheduleNow", () => {
       auditUser: { type: "system" },
       environments: [],
       permissions: {
-        canUpdateFeature: jest.fn().mockReturnValue(true),
         canReviewFeatureDrafts: jest.fn().mockReturnValue(true),
         canPublishFeature: jest.fn().mockReturnValue(true),
         canEditFeatureDrafts: jest.fn().mockReturnValue(true),
@@ -3983,7 +3977,6 @@ describe("approveAndPublishStep", () => {
         auditUser: { type: "session" as const, userAgent: "", ip: "" },
         environments: [],
         permissions: {
-          canUpdateFeature: jest.fn().mockReturnValue(true),
           canReviewFeatureDrafts: jest.fn().mockReturnValue(true),
           canPublishFeature: jest.fn().mockReturnValue(true),
           canEditFeatureDrafts: jest.fn().mockReturnValue(true),
@@ -4106,7 +4099,6 @@ describe("approveAndPublishStep", () => {
       auditUser: { type: "session" as const, userAgent: "", ip: "" },
       environments: [],
       permissions: {
-        canUpdateFeature: jest.fn().mockReturnValue(true),
         canReviewFeatureDrafts: jest.fn().mockReturnValue(true),
         canPublishFeature: jest.fn().mockReturnValue(true),
         canEditFeatureDrafts: jest.fn().mockReturnValue(true),
@@ -4180,7 +4172,6 @@ describe("approveAndPublishStep", () => {
       auditUser: { type: "session" as const, userAgent: "", ip: "" },
       environments: [],
       permissions: {
-        canUpdateFeature: jest.fn().mockReturnValue(true),
         canReviewFeatureDrafts: jest.fn().mockReturnValue(true),
         canPublishFeature: jest.fn().mockReturnValue(true),
         canEditFeatureDrafts: jest.fn().mockReturnValue(true),
@@ -4249,7 +4240,6 @@ describe("approveAndPublishStep", () => {
       auditUser: { type: "session" as const, userAgent: "", ip: "" },
       environments: [],
       permissions: {
-        canUpdateFeature: jest.fn().mockReturnValue(true),
         canReviewFeatureDrafts: jest.fn().mockReturnValue(true),
         canPublishFeature: jest.fn().mockReturnValue(true),
         canEditFeatureDrafts: jest.fn().mockReturnValue(true),
@@ -4322,7 +4312,6 @@ describe("approveAndPublishStep", () => {
       auditUser: { type: "session" as const, userAgent: "", ip: "" },
       environments: [],
       permissions: {
-        canUpdateFeature: jest.fn().mockReturnValue(true),
         canReviewFeatureDrafts: jest.fn().mockReturnValue(true),
         canPublishFeature: jest.fn().mockReturnValue(true),
         canEditFeatureDrafts: jest.fn().mockReturnValue(true),
@@ -4805,9 +4794,7 @@ describe("pauseSchedule", () => {
       org: { id: ORG_ID, settings: {} },
       auditUser: { type: "system" },
       environments: [],
-      permissions: {
-        canUpdateFeature: jest.fn().mockReturnValue(true),
-      },
+      permissions: {},
       models: {
         rampSchedules: { updateById, getById: jest.fn() },
       },
@@ -4840,9 +4827,7 @@ describe("pauseSchedule", () => {
       org: { id: ORG_ID, settings: {} },
       auditUser: { type: "system" },
       environments: [],
-      permissions: {
-        canUpdateFeature: jest.fn().mockReturnValue(true),
-      },
+      permissions: {},
       models: {
         rampSchedules: { updateById, getById: jest.fn() },
       },

@@ -208,24 +208,18 @@ export default function FeaturesHeader({
   const canEdit = permissionsUtil.canEditFeatureDrafts(feature);
   const enabledEnvs = getEnabledEnvironments(feature, environments);
   const canPublish = permissionsUtil.canPublishFeature(feature, enabledEnvs);
-  // Live state, not the viewed revision's: a draft that stages an archive must
-  // not make the page claim the flag is out of service, nor offer Delete on a
-  // flag that is still serving (the server refuses that anyway).
+  // Live state, not the viewed revision's: a draft staging an archive must not
+  // make the page claim the flag is already out of service.
   const isArchived = baseFeature.archived;
-  // Archiving takes a live flag out of service, so it is scoped to the
-  // environments it serves in. Deleting is not scoped: it is only reachable once
-  // the flag is archived, at which point it serves nowhere and there is no
-  // footprint left to scope against. Matches both delete endpoints.
+  // Archiving is scoped to the environments the flag serves in. Deleting is
+  // not: it is only reachable once archived, when there is no footprint left.
   const canArchive = permissionsUtil.canDeleteFeature(feature, enabledEnvs);
   const canDelete = permissionsUtil.canDeleteFeature(
     feature,
     NO_ENVIRONMENT_BINDING,
   );
-  // Archiving takes the flag out of service, so it carries delete authority;
-  // unarchiving returns it to service, an ordinary publish in its environments.
-  // Either authority is enough: the landing atom stands on its own (the archive
-  // endpoint changes nothing but `archived`), and a draft author without it can
-  // still stage the flip.
+  // Archiving carries delete authority; unarchiving is an ordinary publish.
+  // A draft author without either can still stage the flip.
   const canToggleArchive = (isArchived ? canPublish : canArchive) || canEdit;
 
   // Tab chip + tooltip count revisions at "request review" or beyond; drafts
@@ -450,8 +444,7 @@ export default function FeaturesHeader({
                 {feature.id}
               </Heading>
               <FeatureStatusBadge
-                // Live doc: the chip states the flag's actual status, so a
-                // draft staging an archive must not flip it to "Archived".
+                // Live doc: the chip states actual status, not the draft's.
                 feature={baseFeature}
                 staleData={staleData}
                 fetchStaleData={handleRerunStale}

@@ -41,6 +41,10 @@ import {
 // Model-agnostic dispatch: this controller only has a type string + snapshot, so
 // it routes through the adapter hook. Model-specific callers use
 // context.permissions.canRevisionAction directly.
+//
+// Draft actions gate on draft AUTHORITY, not authorship: anyone who can author
+// drafts may submit, retitle, redescribe or rebase someone else's, so teammates
+// can unblock each other. Authors additionally get their own draft regardless.
 function canDoRevisionAction(
   type: RevisionTargetType,
   action: RevisionActionKind,
@@ -499,9 +503,6 @@ export const postSubmit = async (
     });
   }
 
-  // Anyone who can author drafts can move a draft into review (not just the
-  // original author), so co-authors and teammates can flag someone else's
-  // draft as ready for review.
   if (
     !canDoRevisionAction(
       existingRevision.target.type,
@@ -622,10 +623,7 @@ export const postReview = async (
     });
   }
 
-  // Approving or requesting changes is a review verdict and needs review
-  // authority. A plain comment is participation, not judgement — the author is
-  // explicitly allowed to comment above — so draft authors and reviewers alike
-  // can post one.
+  // A verdict needs review authority; a plain comment is participation.
   const snapshot = existingRevision.target.snapshot as Record<string, unknown>;
   const type = existingRevision.target.type;
   const allowed =
@@ -777,9 +775,6 @@ export const patchTitle = async (
     return res.status(404).json({ message: "Revision not found" });
   }
 
-  // Anyone who can author drafts may edit a draft's title — not just the author.
-  // Matches the other revision-edit endpoints and the UI, which gate the
-  // title/description pencil on draft-authoring permission, not authorship.
   if (
     !canDoRevisionAction(
       existingRevision.target.type,
@@ -848,9 +843,6 @@ export const patchDescription = async (
     return res.status(404).json({ message: "Revision not found" });
   }
 
-  // Anyone who can author drafts may edit a draft's description — not just the
-  // author. Matches the other revision-edit endpoints and the UI, which gate the
-  // title/description pencil on draft-authoring permission.
   if (
     !canDoRevisionAction(
       existingRevision.target.type,
@@ -935,9 +927,6 @@ export const postRebase = async (
     return res.status(404).json({ message: "Entity not found" });
   }
 
-  // Anyone who can author drafts can rebase a draft onto the latest live state
-  // (not just the original author), so teammates can unblock each other's stuck
-  // drafts. Matches the submit-for-review permission model.
   if (
     !canDoRevisionAction(
       revision.target.type,
@@ -1312,9 +1301,7 @@ export const postToggleAutoPublish = async (
     return res.status(404).json({ message: "Revision not found" });
   }
 
-  // Same gate as submit-for-review: anyone who can author drafts can arm/disarm
-  // auto-publish. The separate canEnableAutoPublishOnApproval check below
-  // additionally requires publish authority when enabling.
+  // Arming additionally requires publish authority — see the check below.
   if (
     !canDoRevisionAction(
       existing.target.type,
@@ -1684,8 +1671,6 @@ export const putComment = async (
     return res.status(404).json({ message: "Revision not found" });
   }
 
-  // Editing or removing your own comment is comment-class; the model enforces
-  // author-only.
   if (
     !canCommentOnRevision(
       existingRevision.target.type,
@@ -1739,8 +1724,6 @@ export const deleteComment = async (
     return res.status(404).json({ message: "Revision not found" });
   }
 
-  // Editing or removing your own comment is comment-class; the model enforces
-  // author-only.
   if (
     !canCommentOnRevision(
       existingRevision.target.type,

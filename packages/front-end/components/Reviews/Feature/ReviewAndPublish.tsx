@@ -687,16 +687,10 @@ export default function ReviewAndPublish({
     !!isPendingReview &&
     createdBy?.id !== user?.id &&
     permissionsUtil.canReviewFeatureDrafts(feature);
-  // Moving a draft along — requesting review, discarding it — normally takes
-  // draft authority. Revert authority also covers a draft that only restores a
-  // published revision, so a revert-only role isn't left holding a rollback it
-  // can't advance. Provenance is all the client can see; the server re-verifies
-  // that the draft really is a pure revert.
-  // Moving a draft along — requesting review, recalling it, discarding it —
-  // normally takes draft authority. Revert and delete authority also reach a
-  // draft that only does the thing they're allowed to do, and either reaches a
-  // draft the caller authored whatever it contains: you can clean up your own
-  // mess. The client goes on provenance alone; the server re-verifies purity.
+  // Moving a draft along normally takes draft authority. Revert and delete
+  // authority also reach a draft that only does what they cover, and either
+  // reaches one the caller authored whatever it contains. The client goes on
+  // provenance alone; the server re-verifies purity.
   const draftEnvIds = environments.map((e) => e.id);
   const hasRevertAuthority = permissionsUtil.canRevertFeature(
     feature,
@@ -713,8 +707,7 @@ export default function ReviewAndPublish({
       revision.createdBy.id === userId) ||
     (!!userId && (revision?.contributors ?? []).includes(userId));
   // The same predicates the server enforces, so the client can't offer an
-  // action the server then refuses. The revert target must be a published
-  // revision, which is exactly what the server re-checks.
+  // action the server then refuses.
   const revertTargetRevision =
     revision?.revertedFromVersion !== undefined
       ? revisions.find(
@@ -731,10 +724,8 @@ export default function ReviewAndPublish({
       draft: revision,
       target: revertTargetRevision,
     });
-  // `feature` here is the live doc, so this mirrors the server's
-  // `isArchiveTransition`: only an active flag being archived counts. Without
-  // the second half, any draft on an already-archived flag would look like an
-  // archive and the client would offer actions the server then refuses.
+  // Mirrors the server's `isArchiveTransition`: only an ACTIVE flag being
+  // archived counts, else any draft on an archived flag looks like an archive.
   const draftStagesArchive =
     !!revision && isPureFeatureArchive({ feature, draft: revision });
   const canAdvanceDraft =

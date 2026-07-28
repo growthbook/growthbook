@@ -77,7 +77,6 @@ const mockDispatchEvent = dispatchFeatureRevisionEvent as jest.MockedFunction<
 const ctx = {
   org: { id: "org_1", settings: {} },
   permissions: {
-    canUpdateFeature: jest.fn(() => true),
     canPublishFeature: jest.fn(() => true),
     canRevertFeature: jest.fn(() => true),
     canBypassFlagApprovalChecks: jest.fn(() => true),

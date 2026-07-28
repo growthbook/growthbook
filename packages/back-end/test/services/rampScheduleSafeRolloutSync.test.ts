@@ -272,9 +272,7 @@ describe("restartSchedule SafeRollout floor reset", () => {
         org: { id: "org_1", settings: {} },
         auditUser: { type: "system" },
         environments: [],
-        permissions: {
-          canUpdateFeature: jest.fn().mockReturnValue(true),
-        },
+        permissions: {},
         models: {
           rampSchedules: {
             updateById: rampUpdateById,
