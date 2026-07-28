@@ -1,10 +1,8 @@
 import Agenda, { Job } from "agenda";
 import {
-  getManagedWarehouseTypedAttributeColumns,
   isManagedWarehouseAwaitingProvisioning,
   MANAGED_WAREHOUSE_JSON_ERGONOMICS_VERSION,
 } from "shared/util";
-import { TypedAttributeColumn } from "shared/types/datasource";
 import { getCollection } from "back-end/src/util/mongo.util";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import {
@@ -78,23 +76,29 @@ const syncManagedWarehouseJsonErgonomics = async (job: SyncJob) => {
       if (!(await applyManagedWarehouseJsonErgonomics(context))) return;
     }
 
-    // The sync above derives from the job-start org snapshot, so it can race
-    // a concurrent attribute change and revert its newer typedAttributeColumns.
-    // Only record the version while the persisted columns still match a fresh
-    // derivation — otherwise leave it unset so the next sweep pass re-syncs
-    // from current state (which also heals the reverted write).
+    // The sync above derives everything it persists (userIdTypes, typed
+    // attribute columns, exposure queries, fact-table SQL) from the job-start
+    // snapshots, so a concurrent attribute or datasource change could have been
+    // overwritten with stale output. All of that state is a pure function of
+    // three inputs, so only record the version while those inputs are unchanged
+    // — comparing outputs instead would miss changes that alter identifier
+    // behavior without touching the compared field (e.g. toggling hashAttribute
+    // on an existing string attribute). On mismatch, leave the version unset so
+    // the next sweep pass re-syncs from current state, healing the stale write.
     const freshContext = await getContextForAgendaJobByOrgId(orgId);
     const fresh =
       await dangerouslyGetGrowthbookDatasourceBypassPermission(freshContext);
     if (!fresh || fresh.type !== "growthbook_clickhouse") return;
-    const key = (cols: TypedAttributeColumn[] | undefined) =>
-      (cols ?? []).map((c) => `${c.property}:${c.datatype}`).join(",");
-    const desired = getManagedWarehouseTypedAttributeColumns(
-      freshContext.org.settings?.attributeSchema,
-      fresh.settings.migratedIdentifiers || [],
-      fresh.settings.migratedColumns || [],
-    );
-    if (key(fresh.settings.typedAttributeColumns) !== key(desired)) {
+    const derivationInputs = (org: typeof context.org, ds: typeof datasource) =>
+      JSON.stringify([
+        org.settings?.attributeSchema ?? [],
+        ds.settings.migratedIdentifiers ?? [],
+        ds.settings.migratedColumns ?? [],
+      ]);
+    if (
+      derivationInputs(context.org, datasource) !==
+      derivationInputs(freshContext.org, fresh)
+    ) {
       logger.warn(
         `Managed warehouse JSON ergonomics sync raced a concurrent settings write for org ${orgId}; leaving version unset so the sweep retries`,
       );
