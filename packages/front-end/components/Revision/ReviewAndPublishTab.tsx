@@ -1148,6 +1148,30 @@ function ReviewAndPublishRevision<T>({
           </Button>
         ) : null}
 
+        {/* Each button above greys out on its own atom, so a viewer holding
+            some other authority needs the reason spelled out — otherwise the
+            disabled control reads as a bug. */}
+        {revision.status === "discarded" && !canDraftOrEdit && (
+          <HelperText
+            status="warning"
+            size="sm"
+            icon={<PiProhibitInset size={13} />}
+            mt="2"
+          >
+            You don&apos;t have permission to edit drafts for this {entityNoun}.
+          </HelperText>
+        )}
+        {revision.status !== "discarded" && onRevert && !canRevertOrEdit && (
+          <HelperText
+            status="warning"
+            size="sm"
+            icon={<PiProhibitInset size={13} />}
+            mt="2"
+          >
+            You don&apos;t have permission to revert this {entityNoun}.
+          </HelperText>
+        )}
+
         {!hasAnyAuthority && !canComment && (
           <HelperText
             status="warning"
