@@ -419,9 +419,9 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const router = useRouter();
     const useDummyData = router.query["dummy"] === "true";
 
-    const canEdit =
-      permissionsUtil.canViewFeatureModal(feature.project) &&
-      permissionsUtil.canEditFeatureDrafts(feature);
+    // Editing a rule on an existing flag is draft-class; the create gate has
+    // no bearing on it.
+    const canEdit = permissionsUtil.canEditFeatureDrafts(feature);
 
     const gatedEnvSet: Set<string> | "all" | "none" = useMemo(() => {
       const raw = settings?.requireReviews;

@@ -523,7 +523,6 @@ export default function FeaturesOverview({
     approvalsEngaged &&
     featureReviewConfig?.featureRequireMetadataReview !== false;
 
-  const canEdit = permissionsUtil.canViewFeatureModal(projectId);
   const canEditDrafts = permissionsUtil.canEditFeatureDrafts(feature);
   // An env change can be staged in a draft or published straight out. Offer the
   // control when either route is open; the modal narrows it to the ones that are.
@@ -1010,7 +1009,7 @@ export default function FeaturesOverview({
                     : "Description"}
                 </Heading>
                 <Flex align="center" gap="2">
-                  {canEdit && canEditDrafts && !isReadOnly && (
+                  {canEditDrafts && !isReadOnly && (
                     <Button
                       variant="ghost"
                       size="sm"
@@ -1044,7 +1043,7 @@ export default function FeaturesOverview({
               </Box>
               <CustomFieldDisplay
                 target={feature}
-                canEdit={canEdit && !isReadOnly}
+                canEdit={canEditDrafts && !isReadOnly}
                 mutate={mutate}
                 section={"feature"}
                 mt="4"
@@ -1259,7 +1258,7 @@ export default function FeaturesOverview({
                   </Flex>
                 </Flex>
               </div>
-              {canEdit && canEditDrafts && !isReadOnly && (
+              {canEditDrafts && !isReadOnly && (
                 <PremiumTooltip
                   commercialFeature="prerequisites"
                   className="d-inline-flex align-items-center mt-2"
@@ -1396,7 +1395,7 @@ export default function FeaturesOverview({
                   </Box>
                 )}
               </Flex>
-              {canEdit && canEditDrafts && !isReadOnly && (
+              {canEditDrafts && !isReadOnly && (
                 <PremiumTooltip
                   commercialFeature="prerequisites"
                   className="d-inline-flex align-items-center mt-2"
@@ -1534,7 +1533,7 @@ export default function FeaturesOverview({
                     Default Value
                   </Heading>
                 </Flex>
-                {canEdit && canEditDrafts && !isReadOnly && (
+                {canEditDrafts && !isReadOnly && (
                   <Button
                     variant="ghost"
                     size="sm"

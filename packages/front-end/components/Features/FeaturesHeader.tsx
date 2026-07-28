@@ -202,7 +202,10 @@ export default function FeaturesHeader({
   const projectName = project?.name || null;
   const projectIsDeReferenced = projectId && !projectName;
 
-  const canEdit = permissionsUtil.canViewFeatureModal(projectId);
+  // Editing an existing flag takes draft authority, not the create gate.
+  // `canViewFeatureModal` answers "may this user create a feature" — the two
+  // were the same atom before the split, which is why this read as correct.
+  const canEdit = permissionsUtil.canEditFeatureDrafts(feature);
   const enabledEnvs = getEnabledEnvironments(feature, environments);
   const canPublish = permissionsUtil.canPublishFeature(feature, enabledEnvs);
   // Live state, not the viewed revision's: a draft that stages an archive must
@@ -223,9 +226,7 @@ export default function FeaturesHeader({
   // Either authority is enough: the landing atom stands on its own (the archive
   // endpoint changes nothing but `archived`), and a draft author without it can
   // still stage the flip.
-  const canToggleArchive =
-    (isArchived ? canPublish : canArchive) ||
-    permissionsUtil.canEditFeatureDrafts(feature);
+  const canToggleArchive = (isArchived ? canPublish : canArchive) || canEdit;
 
   // Tab chip + tooltip count revisions at "request review" or beyond; drafts
   // still being edited don't need reviewer/publisher attention.
