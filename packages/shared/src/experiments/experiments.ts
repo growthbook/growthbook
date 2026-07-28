@@ -1,5 +1,6 @@
 import normal from "@stdlib/stats/base/dists/normal";
 import cloneDeep from "lodash/cloneDeep";
+import isEqual from "lodash/isEqual";
 import uniqid from "uniqid";
 import {
   DEFAULT_GUARDRAIL_ALPHA,
@@ -45,7 +46,11 @@ import {
   DataSourceInterfaceWithParams,
   DataSourceSettings,
 } from "shared/types/datasource";
-import { SnapshotMetric } from "shared/types/experiment-snapshot";
+import {
+  ExperimentSnapshotAnalysis,
+  ExperimentSnapshotAnalysisSettings,
+  SnapshotMetric,
+} from "shared/types/experiment-snapshot";
 import {
   DifferenceType,
   IndexedPValue,
@@ -2034,6 +2039,77 @@ export function isDimensionPrecomputed(
   }
 
   return !!dimension && snapshotUnitDimensionIds.includes(dimension);
+}
+
+// The relative/absolute/scaled analysis set for a dimension is written from a
+// single base analysis, so readers must resolve that same base rather than
+// deriving one of their own — otherwise stored analyses become unreachable.
+export function isDimensionTimeSeriesCompatibleAnalysisSettings({
+  settings,
+  dimensionId,
+}: {
+  settings: ExperimentSnapshotAnalysisSettings;
+  dimensionId?: string;
+}): boolean {
+  if ((settings.baselineVariationIndex ?? 0) !== 0) return false;
+
+  const expectedDimensions = dimensionId ? [dimensionId] : [];
+  return isEqual(settings.dimensions, expectedDimensions);
+}
+
+export function getTimeSeriesAnalysisSettings({
+  baseSettings,
+  dimensionId,
+}: {
+  baseSettings: ExperimentSnapshotAnalysisSettings;
+  dimensionId?: string;
+}): ExperimentSnapshotAnalysisSettings[] {
+  return (["relative", "absolute", "scaled"] as const).map(
+    (differenceType) => ({
+      ...baseSettings,
+      dimensions: dimensionId ? [dimensionId] : [],
+      differenceType,
+    }),
+  );
+}
+
+export function getTimeSeriesBaseAnalysis({
+  analyses,
+  dimensionId,
+}: {
+  analyses: ExperimentSnapshotAnalysis[];
+  dimensionId?: string;
+}): ExperimentSnapshotAnalysis | undefined {
+  const compatibleAnalyses = analyses.filter((analysis) =>
+    isDimensionTimeSeriesCompatibleAnalysisSettings({
+      settings: analysis.settings,
+      dimensionId,
+    }),
+  );
+
+  return compatibleAnalyses.find(
+    (analysis) => analysis.settings.differenceType === "relative",
+  );
+}
+
+export function getTimeSeriesAnalyses({
+  analyses,
+  dimensionId,
+}: {
+  analyses: ExperimentSnapshotAnalysis[];
+  dimensionId?: string;
+}): ExperimentSnapshotAnalysis[] {
+  const baseAnalysis = getTimeSeriesBaseAnalysis({ analyses, dimensionId });
+  if (!baseAnalysis) return [];
+
+  return getTimeSeriesAnalysisSettings({
+    baseSettings: baseAnalysis.settings,
+    dimensionId,
+  })
+    .map((analysisSettings) =>
+      analyses.find((analysis) => isEqual(analysis.settings, analysisSettings)),
+    )
+    .filter((analysis) => analysis !== undefined);
 }
 
 /**

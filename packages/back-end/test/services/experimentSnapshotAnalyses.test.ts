@@ -251,6 +251,30 @@ describe("toApiResultAnalysis", () => {
     expect(result.pValue).toBeNull();
     expect(result.mean).toBeNull();
   });
+
+  // gbstats emits denominator: 0 for every non-ratio metric, so the unit
+  // count is the only meaningful denominator for those.
+  it("falls back to users when the stored denominator is zero", () => {
+    const result = toApiResultAnalysis("bayesian", "relative", {
+      value: 5,
+      cr: 0.5,
+      users: 10,
+      denominator: 0,
+    });
+
+    expect(result.denominator).toBe(10);
+  });
+
+  it("keeps a real denominator for ratio metrics", () => {
+    const result = toApiResultAnalysis("bayesian", "relative", {
+      value: 5,
+      cr: 0.5,
+      users: 10,
+      denominator: 40,
+    });
+
+    expect(result.denominator).toBe(40);
+  });
 });
 
 describe("toSnapshotApiInterface (legacy contract)", () => {
@@ -528,6 +552,38 @@ describe("toExperimentSnapshotBulkResultsApiInterface", () => {
     expect(overallAnalyses.map((a) => a.differenceType)).toEqual([
       "relative",
       "absolute",
+    ]);
+  });
+
+  // Dimension analyses are written off the relative, baseline-0 analysis,
+  // which is not necessarily analyses[0].
+  it("finds dimension analyses when the default analysis uses an ad-hoc baseline", () => {
+    const snapshot = makeSnapshot();
+    snapshot.settings.precomputedUnitDimensionIds = [];
+    snapshot.analyses = [
+      makeSuccessAnalysis(
+        makeAnalysisSettings({ dimensions: [""], baselineVariationIndex: 1 }),
+        makeOverallResult("met_1", [makeSnapshotMetricData()]),
+      ),
+      makeSuccessAnalysis(
+        makeAnalysisSettings({ dimensions: [""] }),
+        makeOverallResult("met_1", [makeSnapshotMetricData()]),
+      ),
+      makeSuccessAnalysis(
+        makeAnalysisSettings({ dimensions: ["precomputed:country"] }),
+        makeOverallResult("met_1", [makeSnapshotMetricData()]),
+      ),
+    ];
+
+    const results = toExperimentSnapshotBulkResultsApiInterface(
+      makeExperiment(),
+      snapshot,
+      new Map(),
+    );
+
+    expect(results.map((r) => r.id)).toEqual([
+      "snp_1:overall",
+      "snp_1:dimension:precomputed%3Acountry",
     ]);
   });
 

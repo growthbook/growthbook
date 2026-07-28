@@ -931,15 +931,24 @@ export async function findSnapshotsByExperiment(
   const query: FilterQuery<ExperimentSnapshotDocument> = {
     organization: context.org.id,
     experiment,
-    status: "success",
     dateCreated: { $gte: dateStart, $lte: dateEnd },
+    // `status` is derived at read time by migrateSnapshot, so snapshots
+    // written before the field existed need the legacy results check too.
+    $or: [
+      { status: "success" },
+      { results: { $exists: true, $type: "array", $ne: [] } },
+    ],
   };
   if (phase !== undefined) {
     query.phase = phase;
   }
   // Only filter by type when requested; by default include every type
   // (standard, exploratory, and report) since this endpoint dumps all runs.
-  if (type) {
+  if (type === "standard") {
+    // `type` was added in Oct 2024 and never backfilled; the serializer reads
+    // a missing type as "standard", so the filter has to match that.
+    query.type = { $in: ["standard", null] };
+  } else if (type) {
     query.type = type;
   }
 

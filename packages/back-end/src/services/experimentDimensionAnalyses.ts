@@ -1,5 +1,8 @@
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
-import { isDimensionPrecomputed } from "shared/experiments";
+import {
+  getTimeSeriesBaseAnalysis,
+  isDimensionPrecomputed,
+} from "shared/experiments";
 import { ExperimentInterface } from "shared/validators";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
@@ -8,10 +11,7 @@ import {
   getExperimentTimeSeriesContext,
   updateExperimentAnalysisTimeSeries,
 } from "back-end/src/services/experimentTimeSeries";
-import {
-  getTimeSeriesBaseAnalysis,
-  getOrCreatePrecomputedDimensionTimeSeriesAnalyses,
-} from "back-end/src/services/experimentDimensionTimeSeries";
+import { getOrCreatePrecomputedDimensionTimeSeriesAnalyses } from "back-end/src/services/experimentDimensionTimeSeries";
 
 // Optimize some concurrency for the analyses, as the query cost is already
 // paid, we don't want to process them via gbstats serially.
