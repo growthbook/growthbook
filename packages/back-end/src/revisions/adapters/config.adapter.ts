@@ -23,6 +23,7 @@ import {
   reconcileConfigDescendants,
   assertConfigDescendantsReconcilable,
   assertConfigSchemaChangeSafeForDescendants,
+  collectConfigSchemaChangeImpactGates,
 } from "back-end/src/services/configReconcile";
 import {
   assertConfigInvariantsValid,
@@ -56,7 +57,11 @@ import {
 } from "back-end/src/services/archiveDependentsGuard";
 import { assertConfigPublishGuards } from "back-end/src/services/publishGuards";
 import type { PublishGate } from "back-end/src/revisions/publishGates";
-import { schemaFailureGateOverride } from "back-end/src/revisions/publishGates";
+import {
+  gateOr5xx,
+  makeBlockingGate,
+  schemaFailureGateOverride,
+} from "back-end/src/revisions/publishGates";
 import { applyPatchToSnapshot } from "back-end/src/revisions/util";
 import { BadRequestError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
@@ -205,15 +210,22 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
     entity: ConfigInterface,
     changes: Record<string, unknown>,
     options?: { isRevert?: boolean },
-  ): Promise<void> {
-    void options;
+  ): Promise<string[]> {
+    // Guard asserts are skipped when (a) restoring a pre-image (isRevert — a
+    // revert to known-good published state must not be vetoed by guards
+    // judging mid-restore state) or (b) a bulk-publish commit is applying
+    // (bulkPublishId set — every guard already ran as a plan gate against the
+    // release's combined end-state; re-running against the mid-commit mix
+    // would spuriously fail plan-clean releases).
+    const skipGuardAsserts =
+      !!options?.isRevert || !!context.bulkPublishApplying;
     const filteredChanges = filterUpdatableChanges(
       changes,
       entity as Record<string, unknown>,
       UPDATABLE_FIELDS,
     );
 
-    if (Object.keys(filteredChanges).length === 0) return;
+    if (Object.keys(filteredChanges).length === 0) return [];
 
     // Publish-time "base wins" reconciliation: strip any contract-identical
     // field this config declares whose key a published ancestor now owns
@@ -233,9 +245,18 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
           ),
       );
     if (conflicting.length) {
-      throw new BadRequestError(
-        formatAncestorFieldConflictMessage(conflicting),
-      );
+      // A restore must not be vetoed: the normalized schema (collision keys
+      // stripped, base wins) is still the closest reachable pre-image state.
+      if (options?.isRevert) {
+        logger.warn(
+          { configKey: entity.key, conflicting },
+          "Config restore stripped ancestor-conflicting schema fields",
+        );
+      } else {
+        throw new BadRequestError(
+          formatAncestorFieldConflictMessage(conflicting),
+        );
+      }
     }
 
     const touchesLineageOrSchema =
@@ -243,43 +264,56 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
       normalizedChanges.parent !== undefined ||
       "extends" in normalizedChanges;
 
-    // Dry run BEFORE the write: reject a publish that would create an
-    // unresolvable sibling conflict at a descendant, so nothing is persisted
-    // (vs. committing the root and then throwing from the post-write cascade),
-    // then soft-warn when the change removes/retypes fields descendants use.
     if (touchesLineageOrSchema) {
       const proposedRoot = {
         ...entity,
         ...normalizedChanges,
       } as ConfigInterface;
-      await assertConfigDescendantsReconcilable(context, proposedRoot);
-      await assertConfigSchemaChangeSafeForDescendants(context, proposedRoot);
+      // Hard fail-fast BEFORE the root write: a sibling two-owner conflict
+      // can't be strip-resolved, and the post-write cascade would otherwise
+      // throw AFTER the root is persisted — a partial write. Skipped ONLY in a
+      // bulk commit, where the plan gate validates the combined end-state and
+      // compensation undoes a throw; NEVER on a revert (isRevert), which has
+      // no compensation to roll the root write back.
+      if (!context.bulkPublishApplying) {
+        await assertConfigDescendantsReconcilable(context, proposedRoot);
+      }
+      // Soft governance warning (removes/retypes fields descendants use) — a
+      // revert to known-good state or a plan-gated bulk publish must not be
+      // re-blocked here.
+      if (!skipGuardAsserts) {
+        await assertConfigSchemaChangeSafeForDescendants(context, proposedRoot);
+      }
     }
 
     // Enforce cross-field invariants here — the chokepoint every publish path
     // (direct, scheduled, autopublish-on-approval) flows through — against the
     // revision's proposed (draft) state.
-    await assertConfigInvariantsValid(
-      context,
-      {
-        key: entity.key,
-        name: entity.name,
-        value: (normalizedChanges.value as string | undefined) ?? entity.value,
-        // Honor an explicit schema clear (null): validate against no schema, not
-        // the old one — `?? entity.schema` would resurrect the removed invariants.
-        schema:
-          "schema" in normalizedChanges
-            ? (normalizedChanges.schema as ConfigInterface["schema"])
-            : entity.schema,
-        parent:
-          (normalizedChanges.parent as string | undefined) ?? entity.parent,
-        extends:
-          "extends" in normalizedChanges
-            ? (normalizedChanges.extends as string[] | undefined)
-            : entity.extends,
-      },
-      (normalizedChanges.value as string | undefined) ?? entity.value,
-    );
+    if (!skipGuardAsserts) {
+      await assertConfigInvariantsValid(
+        context,
+        {
+          key: entity.key,
+          name: entity.name,
+          value:
+            (normalizedChanges.value as string | undefined) ?? entity.value,
+          // Honor an explicit schema clear (null): validate against no schema,
+          // not the old one — `?? entity.schema` would resurrect the removed
+          // invariants.
+          schema:
+            "schema" in normalizedChanges
+              ? (normalizedChanges.schema as ConfigInterface["schema"])
+              : entity.schema,
+          parent:
+            (normalizedChanges.parent as string | undefined) ?? entity.parent,
+          extends:
+            "extends" in normalizedChanges
+              ? (normalizedChanges.extends as string[] | undefined)
+              : entity.extends,
+        },
+        (normalizedChanges.value as string | undefined) ?? entity.value,
+      );
+    }
 
     await context.models.configs.update(
       entity,
@@ -290,6 +324,10 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
     if (touchesLineageOrSchema) {
       await reconcileConfigDescendants(context, entity.key);
     }
+
+    // Only the normalized set was persisted on THIS config — a field stripped
+    // as ancestor-owned was never written, so it must not be rolled back.
+    return Object.keys(normalizedChanges);
   },
 
   // Self-heal path: a retry after applyChanges wrote the root but failed before
@@ -520,6 +558,89 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
         ),
         resolution: null,
       });
+    }
+
+    // A schema/lineage change that removes, retypes, or takes over fields
+    // descendants still use — the gate form of
+    // assertConfigSchemaChangeSafeForDescendants, evaluated on the same
+    // normalized proposed root the apply would write.
+    if (
+      "schema" in filteredChanges ||
+      filteredChanges.parent !== undefined ||
+      "extends" in filteredChanges
+    ) {
+      const { changes: normalizedChanges, conflicting } =
+        await normalizeConfigChangesAgainstAncestors(
+          entity,
+          filteredChanges,
+          (config, schema) =>
+            context.models.configs.normalizeSchemaAgainstAncestors(
+              config,
+              schema,
+            ),
+        );
+      const proposedRoot = {
+        ...entity,
+        ...normalizedChanges,
+      } as ConfigInterface;
+      // Structural conflicts the apply would otherwise only throw on at commit
+      // (a 500 + rollback churn) — surfaced here as blocking, unbypassable
+      // gates so a plan/dryRun reports a clean 422 against the combined
+      // end-state. Neither is strip-resolvable, so no override flag clears them.
+      if (conflicting.length) {
+        gates.push(
+          makeBlockingGate({
+            type: "ancestor-conflict",
+            messages: [formatAncestorFieldConflictMessage(conflicting)],
+          }),
+        );
+      }
+      try {
+        await assertConfigDescendantsReconcilable(context, proposedRoot);
+      } catch (e) {
+        // Only a 4xx-class reconcilability rejection is a real blocking gate;
+        // an infra/5xx failure of the descendant scan must surface as itself,
+        // not congeal into a permanent, unfixable descendant-conflict gate.
+        gates.push(
+          gateOr5xx(e, (message) =>
+            makeBlockingGate({
+              type: "descendant-conflict",
+              messages: [message],
+            }),
+          ),
+        );
+      }
+      gates.push(
+        ...(await collectConfigSchemaChangeImpactGates(context, proposedRoot)),
+      );
+    }
+
+    // Lineage/value reference-cycle gate (against the overlay end-state, so a
+    // cycle formed only by the combined proposals of several release items is
+    // caught): an @config: / parent / extends cycle can't publish — it would
+    // leak raw placeholders into payloads. Unbypassable. Mirrors the
+    // ConfigModel.beforeUpdate assert, which stands down during a bulk commit.
+    if (
+      "value" in filteredChanges ||
+      filteredChanges.parent !== undefined ||
+      "extends" in filteredChanges
+    ) {
+      const cyclic = await context.models.configs.findReferenceCycle({
+        ...entity,
+        ...filteredChanges,
+      } as ConfigInterface);
+      if (cyclic.length) {
+        gates.push(
+          makeBlockingGate({
+            type: "reference-cycle",
+            messages: [
+              `This config references ${cyclic.join(
+                ", ",
+              )}, which would create a reference cycle.`,
+            ],
+          }),
+        );
+      }
     }
 
     // An archive/unarchive flip scrubs (or restores) this config's contribution

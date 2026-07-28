@@ -8,6 +8,7 @@ import {
 } from "shared/util";
 import {
   SavedGroupInterface,
+  SavedGroupWithoutValues,
   CreateSavedGroupProps,
   UpdateSavedGroupProps,
 } from "shared/types/saved-group";
@@ -157,6 +158,30 @@ export const postSavedGroup = async (
 };
 
 // endregion POST /saved-groups
+
+// region GET /saved-groups
+
+type GetSavedGroupsResponse = {
+  status: 200;
+  savedGroups: SavedGroupWithoutValues[];
+};
+
+/**
+ * GET /saved-groups
+ * List for the Saved Groups admin page: includes `condition` (preview/search/
+ * sort) but omits `values`. Unlike `/organization/definitions`, which drops
+ * both heavy fields because it loads on every page.
+ */
+export const getSavedGroups = async (
+  req: AuthRequest,
+  res: Response<GetSavedGroupsResponse>,
+) => {
+  const context = getContextFromReq(req);
+  const savedGroups = await context.models.savedGroups.getAllWithoutValues();
+  return res.status(200).json({ status: 200, savedGroups });
+};
+
+// endregion GET /saved-groups
 
 // region GET /saved-groups/:id
 

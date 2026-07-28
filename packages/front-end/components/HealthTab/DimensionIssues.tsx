@@ -185,6 +185,7 @@ export const DimensionIssues = ({
           <div className="mb-4" style={{ maxWidth: 200 }}>
             <div className="uppercase-title text-muted">Dimension</div>
             <SelectField
+              size="legacy"
               containerClassName={"select-dropdown-underline"}
               options={availableDimensions}
               value={selectedDimension}

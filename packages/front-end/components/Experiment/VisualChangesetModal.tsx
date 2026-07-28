@@ -124,6 +124,7 @@ const VisualChangesetModal: FC<{
       cta={cta}
     >
       <Field
+        size="legacy"
         required
         label={editorUrlLabel}
         containerClassName="mb-2"
@@ -160,6 +161,7 @@ const VisualChangesetModal: FC<{
             <div className="row">
               <div className="col-2">
                 <SelectField
+                  size="legacy"
                   value={
                     !form.watch(`urlPatterns.${i}.include`) ? "false" : "true"
                   }
@@ -173,10 +175,14 @@ const VisualChangesetModal: FC<{
                 />
               </div>
               <div className="col">
-                <Field {...form.register(`urlPatterns.${i}.pattern`)} />
+                <Field
+                  size="legacy"
+                  {...form.register(`urlPatterns.${i}.pattern`)}
+                />
               </div>
               <div className="col-2">
                 <SelectField
+                  size="legacy"
                   value={form.watch(`urlPatterns.${i}.type`)}
                   options={[
                     { label: "Simple", value: "simple" },

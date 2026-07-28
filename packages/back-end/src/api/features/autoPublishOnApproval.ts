@@ -173,15 +173,15 @@ async function publishArmedRevision(
   enablerContext: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,
-  mergeNow: boolean,
+  mayForceMerge: boolean,
 ): Promise<FeatureRevisionInterface> {
   // Use the armer's context, not the caller's: a reviewer scoped out of a linked
   // experiment's project would see no experiments and skip the checklist. An
-  // admin bypass schedule (mergeNow) force-merges past this governance gate.
+  // admin bypass schedule force-merges past this governance gate.
   // Plain (transient) error, not terminal — an incomplete checklist is
   // recoverable, so the poller holds and retries rather than parking at once.
   if (
-    !mergeNow &&
+    !mayForceMerge &&
     (await revisionRequiresPreLaunchChecklist(
       enablerContext,
       feature,
@@ -205,7 +205,7 @@ async function publishArmedRevision(
       audit: enablerContext.auditLog.bind(enablerContext),
       params: { id: feature.id, version: revision.version },
       // Only honored for armers who can bypass approvals (force-merge a stale draft).
-      body: { comment: "", mergeNow },
+      body: { comment: "", ignoreWarnings: mayForceMerge },
     },
     false,
   );

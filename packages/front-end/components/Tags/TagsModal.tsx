@@ -66,6 +66,7 @@ export default function TagsModal({
               Name
             </Text>
             <Field
+              size="legacy"
               minLength={2}
               maxLength={64}
               className=""
@@ -91,7 +92,12 @@ export default function TagsModal({
           <Text as="label" size="3" weight="medium">
             Description
           </Text>
-          <Field textarea maxLength={256} {...form.register("description")} />
+          <Field
+            size="legacy"
+            textarea
+            maxLength={256}
+            {...form.register("description")}
+          />
         </Container>
 
         <Container>
