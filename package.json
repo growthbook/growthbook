@@ -4,9 +4,10 @@
   "private": true,
   "version": "5.0.0",
   "scripts": {
-    "lint": "eslint './**/*.{ts,tsx,js,jsx}' --max-warnings 0 --cache --cache-strategy content >/dev/null 2>&1 || eslint './**/*.{ts,tsx,js,jsx}' --fix --max-warnings 0 --cache --cache-strategy content",
-    "lint:ci": "eslint './**/*.{ts,tsx,js,jsx}' --max-warnings 0 --cache --cache-strategy content",
-    "pretty": "prettier --write ./**/*.{json,css,scss,md,mdx,js,jsx,ts,tsx}",
+    "lint": "eslint './**/*.{ts,tsx,js,jsx,mjs}' --max-warnings 0 --cache --cache-strategy content >/dev/null 2>&1 || eslint './**/*.{ts,tsx,js,jsx,mjs}' --fix --max-warnings 0 --cache --cache-strategy content",
+    "lint:ci": "eslint './**/*.{ts,tsx,js,jsx,mjs}' --max-warnings 0",
+    "pretty": "prettier --write './**/*.{json,css,scss,md,mdx,js,jsx,ts,tsx,mjs}'",
+    "pretty:check": "prettier --check './**/*.{json,css,scss,md,mdx,js,jsx,ts,tsx,mjs}'",
     "type-check": "pnpm -r run type-check",
     "clean": "pnpm -r run clean && rimraf node_modules",
     "doc-gen": "cd docs && pnpm install && pnpm gen",
@@ -27,7 +28,7 @@
     "plop": "plop",
     "migrate-encryption-key": "pnpm --filter back-end migrate-encryption-key",
     "generate-openapi": "pnpm --filter back-end generate-openapi",
-    "ci": "pnpm lint:ci && pnpm run type-check && pnpm run test",
+    "ci": "pnpm lint:ci && pnpm pretty:check && pnpm run type-check && pnpm run test",
     "postinstall": "if command -v poetry >/dev/null 2>&1; then pnpm update-stats-deps; fi",
     "type-gen": "pnpm --filter shared type-gen",
     "generate-sdk-report": "pnpm --filter shared generate-sdk-report",
@@ -48,11 +49,9 @@
     "@typescript-eslint/parser": "^8.33.1",
     "eslint": "^9.39.2",
     "eslint-config-next": "^16.1.6",
-    "eslint-config-prettier": "^10.1.0",
     "eslint-import-resolver-typescript": "^4.4.0",
     "eslint-plugin-import": "^2.31.0",
     "eslint-plugin-no-async-foreach": "^0.1.1",
-    "eslint-plugin-prettier": "^5.5.4",
     "eslint-plugin-react": "^7.37.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "globals": "^16.0.0",
@@ -68,8 +67,9 @@
     "./**/*.{json,css,scss,md,mdx}": [
       "prettier --write"
     ],
-    "./**/*.{ts,tsx}": [
-      "pnpm eslint --fix --max-warnings 0 --cache --cache-strategy content --prune-suppressions"
+    "./**/*.{js,jsx,mjs,ts,tsx}": [
+      "pnpm eslint --fix --max-warnings 0 --cache --cache-strategy content --prune-suppressions",
+      "prettier --write"
     ],
     "./packages/stats/{gbstats,tests}/**/*.py": [
       "pnpm --filter stats lint"
