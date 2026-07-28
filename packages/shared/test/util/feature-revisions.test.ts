@@ -8,6 +8,7 @@ import {
   getDraftAffectedEnvironments,
   getEffectiveRevisionHoldout,
   getReviewSetting,
+  isStrandedLiveRevision,
   getFeatureAutopublishOnApproval,
   mergeResultHasChanges,
   mergeRevision,
@@ -2244,4 +2245,41 @@ describe("getFeatureAutopublishOnApproval", () => {
       ).toBe(false);
     },
   );
+});
+
+describe("isStrandedLiveRevision", () => {
+  const stranded = {
+    featureVersion: 13,
+    revisionVersion: 13,
+    revisionStatus: "draft",
+    hasChanges: false,
+  };
+
+  it("detects an open draft that is already the live version", () => {
+    expect(isStrandedLiveRevision(stranded)).toBe(true);
+    expect(
+      isStrandedLiveRevision({ ...stranded, revisionStatus: "approved" }),
+    ).toBe(true);
+  });
+
+  it("is false when the revision still has changes to publish", () => {
+    expect(isStrandedLiveRevision({ ...stranded, hasChanges: true })).toBe(
+      false,
+    );
+  });
+
+  it("is false for an ordinary no-op draft ahead of the live version", () => {
+    expect(isStrandedLiveRevision({ ...stranded, revisionVersion: 14 })).toBe(
+      false,
+    );
+  });
+
+  it("is false for revisions already published or discarded", () => {
+    expect(
+      isStrandedLiveRevision({ ...stranded, revisionStatus: "published" }),
+    ).toBe(false);
+    expect(
+      isStrandedLiveRevision({ ...stranded, revisionStatus: "discarded" }),
+    ).toBe(false);
+  });
 });

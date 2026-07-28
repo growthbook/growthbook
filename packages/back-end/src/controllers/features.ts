@@ -878,16 +878,7 @@ export async function postFeatures(
   });
 
   if (holdout && holdout.id) {
-    const holdoutObj = await context.models.holdout.getById(holdout.id);
-    if (!holdoutObj) {
-      throw new Error("Holdout not found");
-    }
-    await context.models.holdout.updateById(holdout.id, {
-      linkedFeatures: {
-        ...holdoutObj.linkedFeatures,
-        [id]: { id, dateAdded: new Date() },
-      },
-    });
+    await context.models.holdout.addFeatureToHoldout(holdout.id, id);
   }
 
   res.status(200).json({
@@ -2506,9 +2497,20 @@ export async function postFeatureRevert(
   if (revision.metadata !== undefined) {
     revisionChanges.metadata = revision.metadata;
   }
-  // Holdout intentionally excluded: changes require the dedicated updateHoldout
-  // flow (side effects + guards), and the field is sparse in revisions so
-  // absent !== "no holdout".
+  // Holdout membership is part of the state a revert restores. It must land in
+  // BOTH objects — `revisionChanges` so the revision doc records it, and
+  // `mergeChanges` so the publish sees a delta and runs the linkage side effects.
+  // Setting only one is a silent no-op.
+  const targetHoldout = getEffectiveRevisionHoldout(revision, feature);
+  revisionChanges.holdout = targetHoldout;
+  if (!isEqual(targetHoldout, feature.holdout ?? null)) {
+    if (!context.permissions.canPublishFeature(feature, allEnabledEnvs)) {
+      context.permissions.throwPermissionError();
+    }
+    mergeChanges.holdout = targetHoldout;
+  }
+  // Marks the new revision as a revert, so publish-time guards recognize it.
+  revisionChanges.revertedFrom = revision.version;
 
   const newRevision = await createRevision({
     context,
@@ -2639,6 +2641,11 @@ export async function postFeatureRevertDraft(
   if (revision.metadata !== undefined) {
     changes.metadata = revision.metadata;
   }
+  // The draft carries the target's holdout so it represents the state being
+  // reverted to; `revertedFrom` survives on it so the later publish still
+  // applies revert semantics.
+  changes.holdout = getEffectiveRevisionHoldout(revision, feature);
+  changes.revertedFrom = revision.version;
 
   const newRevision = await createRevision({
     context,
@@ -2752,7 +2759,12 @@ export async function postFeatureDiscard(
     context.permissions.throwPermissionError();
   }
 
-  await discardRevision(context, revision, res.locals.eventAudit);
+  await discardRevision(
+    context,
+    revision,
+    res.locals.eventAudit,
+    feature.version,
+  );
   await clearPendingFeatureDraftsForRevision(
     context,
     feature.id,

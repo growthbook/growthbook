@@ -107,6 +107,8 @@ const featureRevisionSchema = new mongoose.Schema({
   // Live feature version captured when this revision was approved; used to
   // detect approvals that have gone stale due to subsequent publishes.
   approvedBaseVersion: Number,
+  // Version this revision reverts to; marks the revision as a revert.
+  revertedFrom: Number,
   dateCreated: Date,
   dateUpdated: Date,
   datePublished: Date,
@@ -1051,6 +1053,9 @@ export async function createRevision({
     archived,
     metadata,
     holdout,
+    ...(changes?.revertedFrom !== undefined
+      ? { revertedFrom: changes.revertedFrom }
+      : {}),
   } as FeatureRevisionInterface;
   const requiresReview = checkIfRevisionNeedsReview({
     feature,
@@ -1418,6 +1423,11 @@ export async function markRevisionAsPublished(
     });
 
   await dispatchRevisionPublishedHook(context, revision);
+
+  // The datePublished this call stamped: a caller that has to undo the publish
+  // passes it back as the claim fingerprint, so the restore becomes a no-op once
+  // a concurrent legitimate publish has re-stamped the revision.
+  return changes.datePublished ?? null;
 }
 
 /**
@@ -2565,9 +2575,21 @@ export async function discardRevision(
   context: ReqContext | ApiReqContext,
   revision: FeatureRevisionInterface,
   user: EventUser,
+  // The parent feature's current version. Pass it whenever the caller has the
+  // feature so this can refuse to discard the revision the feature is live on.
+  liveVersion?: number,
 ) {
   if (revision.status === "published" || revision.status === "discarded") {
     throw new Error(`Can not discard ${revision.status} revisions`);
+  }
+
+  // Discarding the revision the feature is live on turns a recoverable split
+  // into silent corruption: the feature keeps serving a revision that then
+  // reports as never published, and publishing it can no longer reconcile it.
+  if (liveVersion !== undefined && revision.version === liveVersion) {
+    throw new Error(
+      "This revision is the live version of the Feature Flag, so it cannot be discarded. An earlier publish updated the Feature Flag without marking this revision published — publish it again to reconcile.",
+    );
   }
 
   await FeatureRevisionModel.updateOne(

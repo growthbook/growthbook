@@ -1,4 +1,4 @@
-import type { MergeResultChanges } from "shared/util";
+import { isStrandedLiveRevision, type MergeResultChanges } from "shared/util";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import type { SafeRolloutInterface } from "shared/validators";
@@ -206,7 +206,17 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
 
     // The generic no-op merge path doesn't apply to features — a publish must
     // advance the live version pointer — so an empty revision blocks.
-    if (!plan.hasChanges) {
+    if (
+      !plan.hasChanges &&
+      // A stranded live revision has no changes either, but publishing it is
+      // how it gets reconciled — gating it would leave no route out.
+      !isStrandedLiveRevision({
+        featureVersion: feature.version,
+        revisionVersion: raw.version,
+        revisionStatus: raw.status,
+        hasChanges: plan.hasChanges,
+      })
+    ) {
       gates.push(
         makeBlockingGate({
           type: "no-changes",

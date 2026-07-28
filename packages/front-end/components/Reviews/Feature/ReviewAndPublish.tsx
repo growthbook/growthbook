@@ -15,6 +15,7 @@ import {
   liveRevisionFromFeature,
   filterEnvironmentsByFeature,
   getEnvsFromRampSchedule,
+  isStrandedLiveRevision,
   mergeResultHasChanges,
   getReviewSetting,
   getFeatureAutopublishOnApproval,
@@ -1474,6 +1475,15 @@ export default function ReviewAndPublish({
   const allDiffs = [...resultDiffs, ...rampDiffs];
   const hasChanges = mergeResultHasChanges(mergeResult) || rampDiffs.length > 0;
 
+  // Diffs empty against live but publishing it is the reconciliation, so the
+  // CTA stays enabled below instead of dead-ending on "nothing to publish".
+  const isStranded = isStrandedLiveRevision({
+    featureVersion: feature.version,
+    revisionVersion: revision.version,
+    revisionStatus: revision.status,
+    hasChanges,
+  });
+
   const linkedRamps = (rampSchedules ?? []).filter(
     (r) =>
       r.status === "pending" &&
@@ -1557,7 +1567,9 @@ export default function ReviewAndPublish({
     requireReviews,
     status: revision.status,
     mergeSuccess: mergeResult.success,
-    hasChanges,
+    // A stranded revision is publishable despite having no diff — publishing is
+    // what reconciles it.
+    hasChanges: hasChanges || isStranded,
     hasReviewPermission: permissionsUtil.canReviewFeatureDrafts(feature),
     canManageDraft: permissionsUtil.canManageFeatureDrafts(feature),
     isReviewRequester,
@@ -2061,7 +2073,7 @@ export default function ReviewAndPublish({
   type BlockInfo = { overridable: boolean } | null;
   const blockInfo: BlockInfo = (() => {
     if (!mergeResult.success) return { overridable: false };
-    if (!hasChanges) return { overridable: false };
+    if (!hasChanges && !isStranded) return { overridable: false };
     if (!hasPublishPermission) return { overridable: false };
     if (
       requireReviews &&
@@ -2771,12 +2783,22 @@ export default function ReviewAndPublish({
                         </Callout>
                       ))}
 
-                      {!hasChanges && (
-                        <Callout status="info" size="sm">
-                          No changes to publish. Discard the draft or add
-                          changes first.
-                        </Callout>
-                      )}
+                      {!hasChanges &&
+                        (isStranded ? (
+                          <Callout status="warning" size="sm">
+                            This revision is already the live version of the
+                            Feature Flag, but was never marked published — an
+                            earlier publish updated the Feature Flag without
+                            finishing. Publish it to reconcile the two. Do not
+                            discard it: that would leave the Feature Flag
+                            serving a revision it reports as never published.
+                          </Callout>
+                        ) : (
+                          <Callout status="info" size="sm">
+                            No changes to publish. Discard the draft or add
+                            changes first.
+                          </Callout>
+                        ))}
 
                       {featureLockedBySchedule && !adminPublish && (
                         <Callout status="warning" size="sm">

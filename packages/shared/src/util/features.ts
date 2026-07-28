@@ -1090,6 +1090,33 @@ export function getEffectiveRevisionHoldout(
     : (feature.holdout ?? null);
 }
 
+/**
+ * An open draft that is already the feature's live version: a publish advanced
+ * the feature but never marked the revision published. It diffs empty against
+ * live, so the ordinary "nothing to publish" handling would dead-end it — and
+ * discarding it would leave the feature serving a revision reported as never
+ * published. Publishing it is the reconciliation: no feature write is needed,
+ * only the revision's status.
+ */
+export function isStrandedLiveRevision({
+  featureVersion,
+  revisionVersion,
+  revisionStatus,
+  hasChanges,
+}: {
+  featureVersion: number;
+  revisionVersion: number;
+  revisionStatus: string;
+  hasChanges: boolean;
+}): boolean {
+  return (
+    !hasChanges &&
+    revisionVersion === featureVersion &&
+    revisionStatus !== "published" &&
+    revisionStatus !== "discarded"
+  );
+}
+
 // Per-field backfill for old/sparse revisions before passing to autoMerge.
 // Fields not listed here are left as-is; sparse absence is meaningful for those.
 const revisionFieldFillers: Partial<{

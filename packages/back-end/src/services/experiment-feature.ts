@@ -616,7 +616,12 @@ export async function publishPendingFeatureDraftsForExperiment(
         { experimentId: experiment.id, featureId, revisionVersion },
         "Discarding no-op pending feature draft on experiment start",
       );
-      await discardRevision(context, revision, context.auditUser);
+      await discardRevision(
+        context,
+        revision,
+        context.auditUser,
+        feature.version,
+      );
       await removePendingFeatureDraftFromExperiment(
         context,
         experiment.id,

@@ -230,11 +230,74 @@ export class HoldoutModel extends BaseClass {
   }
 
   public async removeFeatureFromHoldout(holdoutId: string, featureId: string) {
-    const holdout = await this.getById(holdoutId);
+    const holdout = await this.getLinkageTarget(holdoutId);
+    const { [featureId]: _, ...linkedFeatures } = holdout.linkedFeatures;
+    await this.writeLinkage(holdout, { linkedFeatures });
+  }
+
+  public async addFeatureToHoldout(
+    holdoutId: string,
+    featureId: string,
+    experimentIds: string[] = [],
+  ) {
+    const holdout = await this.getLinkageTarget(holdoutId);
+    await this.writeLinkage(holdout, {
+      linkedFeatures: {
+        [featureId]: { id: featureId, dateAdded: new Date() },
+        ...holdout.linkedFeatures,
+      },
+      ...(experimentIds.length
+        ? {
+            linkedExperiments: {
+              ...Object.fromEntries(
+                experimentIds.map((experimentId) => [
+                  experimentId,
+                  { id: experimentId, dateAdded: new Date() },
+                ]),
+              ),
+              ...holdout.linkedExperiments,
+            },
+          }
+        : {}),
+    });
+  }
+
+  // Resolve a linkage target regardless of the caller's read scope: the Holdout
+  // reference is already committed on the Feature Flag, so a linkage write must
+  // not depend on the publisher also being able to see the Holdout's Projects.
+  // Public so a publish path can preflight resolution before it mutates.
+  public async getByIdForLinkage(
+    holdoutId: string,
+  ): Promise<HoldoutInterface | null> {
+    const [holdout] = await this._find(
+      { id: holdoutId },
+      { bypassReadPermissionChecks: true },
+    );
+    return holdout ?? null;
+  }
+
+  private async getLinkageTarget(holdoutId: string): Promise<HoldoutInterface> {
+    const holdout = await this.getByIdForLinkage(holdoutId);
     if (!holdout) {
       throw new Error("Holdout not found");
     }
-    const { [featureId]: _, ...linkedFeatures } = holdout.linkedFeatures;
-    await this.updateById(holdoutId, { linkedFeatures });
+    return holdout;
+  }
+
+  // Linkage maps are the back-reference to `feature.holdout`, maintained as a
+  // side effect of an authorized Feature Flag write rather than a user-initiated
+  // Holdout edit — so flag edit/publish authority is enough. Gating them on
+  // Holdout update authority (`createAnalyses`) instead fails mid-publish for
+  // roles that can publish flags but not manage analyses, and an unlinked
+  // Holdout drops out of the SDK payload (getAllPayloadHoldouts) entirely.
+  //
+  // Takes the resolved doc, not an id: the by-id variant re-reads through the
+  // read-permission filter and would reintroduce the same failure for a Holdout
+  // outside the publisher's read scope.
+  private async writeLinkage(
+    holdout: HoldoutInterface,
+    updates: UpdateProps<HoldoutInterface>,
+  ) {
+    await this.dangerousUpdateBypassPermission(holdout, updates);
   }
 }

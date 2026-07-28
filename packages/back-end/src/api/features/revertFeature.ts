@@ -6,6 +6,7 @@ import {
   MergeResultChanges,
   PermissionError,
   checkIfRevisionNeedsReview,
+  getEffectiveRevisionHoldout,
   getRevertValueValidationWarnings,
   getRulesForEnvironment,
 } from "shared/util";
@@ -209,6 +210,21 @@ export async function revertFeatureCore(
     }
   }
 
+  // Holdout membership is part of the state a revert restores, so a
+  // holdout-only difference is a real revert rather than an empty diff.
+  const targetHoldout = getEffectiveRevisionHoldout(revision, feature);
+  if (!isEqual(targetHoldout, feature.holdout ?? null)) {
+    if (
+      !context.permissions.canPublishFeature(
+        feature,
+        Array.from(getEnabledEnvironments(feature, environmentIds)),
+      )
+    ) {
+      context.permissions.throwPermissionError();
+    }
+    changes.holdout = targetHoldout;
+  }
+
   // No diff against live — refuse before creating an empty "Locked" revision.
   if (Object.keys(changes).length === 0) {
     throw new Error(
@@ -270,7 +286,10 @@ export async function revertFeatureCore(
       feature,
       user: eventAudit,
       org: organization,
-      changes,
+      // `revertedFrom` marks the new revision as a revert for publish-time
+      // guards. Added here rather than to `changes` so it can't satisfy the
+      // empty-diff check above.
+      changes: { ...changes, revertedFrom: version },
       comment: comment ?? `Reverted to revision #${version}`,
       canBypassApprovalChecks: canBypass,
     });

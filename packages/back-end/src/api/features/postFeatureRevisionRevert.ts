@@ -5,6 +5,7 @@ import {
   filterEnvironmentsByFeature,
   MergeResultChanges,
   checkIfRevisionNeedsReview,
+  getEffectiveRevisionHoldout,
   getRulesForEnvironment,
 } from "shared/util";
 import { isEqual } from "lodash";
@@ -243,11 +244,30 @@ export async function revertFeatureRevision(
     }
   }
 
+  // Holdout membership is part of the state a revert restores: reverting to a
+  // revision that predates a holdout must detach it, and reverting to one that
+  // had it must reattach it (with the linkage side effects publish runs).
+  const targetHoldout = getEffectiveRevisionHoldout(targetRevision, feature);
+  const holdoutChanged = !isEqual(targetHoldout, feature.holdout ?? null);
+  if (holdoutChanged) {
+    if (
+      isPublish &&
+      !context.permissions.canPublishFeature(feature, allEnabledEnvs)
+    ) {
+      context.permissions.throwPermissionError();
+    }
+    changes.holdout = targetHoldout;
+  }
+
   // Full target state for the new revision; sparse `changes` above is only
   // used for per-field permission checks.
   const revisionChanges: Partial<FeatureRevisionInterface> = {
     defaultValue: targetRevision.defaultValue,
     rules: targetRevision.rules ?? feature.rules ?? [],
+    holdout: targetHoldout,
+    // Marks the new revision as a revert, so publish-time guards recognize it
+    // even when the revert is staged as a draft and published later.
+    revertedFrom: targetRevision.version,
   };
   if (targetRevision.environmentsEnabled !== undefined) {
     revisionChanges.environmentsEnabled = targetRevision.environmentsEnabled;

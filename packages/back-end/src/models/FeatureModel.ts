@@ -89,8 +89,13 @@ import {
   getSDKPayloadKeysByDiff,
 } from "back-end/src/util/features";
 import { applyPartialFeatureRuleUpdatesToRevision } from "back-end/src/util/featureRevision.util";
-import { NotFoundError } from "back-end/src/util/errors";
+import { getErrorMessage, NotFoundError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
+import { ownedRestoreValues } from "back-end/src/revisions/bulkPublish/ownedRestore";
+import {
+  makeBlockingGate,
+  type PublishGate,
+} from "back-end/src/revisions/publishGates";
 import {
   getContextForAgendaJobByOrgId,
   getEnvironmentIdsFromOrg,
@@ -133,6 +138,7 @@ import {
   hasPublishLockingScheduledSibling,
   markRevisionAsPublished,
   computeRevisionPublishChanges,
+  restoreFeatureRevisionAfterFailedBulkPublish,
   updateRevision,
   createRevision,
 } from "./FeatureRevisionModel";
@@ -1942,6 +1948,76 @@ export async function assertHoldoutChangeAllowed(
   }
 }
 
+// Read-only, so it can run before any mutation instead of after the feature
+// version has already advanced.
+export async function assertHoldoutLinkageResolvable(
+  context: ReqContext | ApiReqContext,
+  newHoldout: { id: string; value: string } | null,
+) {
+  if (!newHoldout?.id) return;
+  const holdout = await context.models.holdout.getByIdForLinkage(newHoldout.id);
+  if (!holdout) {
+    throw new Error("Holdout not found");
+  }
+}
+
+/**
+ * The holdout-transition publish gates, shared by every publish surface so the
+ * rule has one implementation. Both checks are decidable read-only and so belong
+ * at plan time — the linkage writes they precede run after the feature document
+ * is advanced, where a failure strands the feature.
+ *
+ * Lives here rather than in services/featurePublishGates because that module
+ * already imports this one; the reverse would be a runtime import cycle.
+ */
+export async function collectHoldoutChangeGates({
+  context,
+  feature,
+  mergeResult,
+  isRevert,
+}: {
+  context: ReqContext | ApiReqContext;
+  feature: FeatureInterface;
+  mergeResult: MergeResultChanges;
+  isRevert?: boolean;
+}): Promise<PublishGate[]> {
+  if (mergeResult.holdout === undefined) return [];
+  const gates: PublishGate[] = [];
+  const newHoldout = mergeResult.holdout ?? null;
+
+  // Merged (post-publish) rules, so a bundled experiment-ref for an
+  // already-running experiment is caught.
+  try {
+    await assertHoldoutChangeAllowed(
+      context,
+      feature,
+      newHoldout,
+      mergeResult.rules ?? feature.rules ?? [],
+      { isRevert },
+    );
+  } catch (e) {
+    gates.push(
+      makeBlockingGate({
+        type: "holdout-change-conflict",
+        messages: [getErrorMessage(e)],
+      }),
+    );
+  }
+
+  try {
+    await assertHoldoutLinkageResolvable(context, newHoldout);
+  } catch (e) {
+    gates.push(
+      makeBlockingGate({
+        type: "holdout-unresolvable",
+        messages: [getErrorMessage(e)],
+      }),
+    );
+  }
+
+  return gates;
+}
+
 // Run HoldoutModel / Experiment side-effects when a feature's holdout
 // membership changes at publish. Called from `publishRevision` when
 // `result.holdout` is defined, so all publish paths (direct, approval,
@@ -1973,12 +2049,7 @@ export async function applyHoldoutSideEffects(
 
   // Resolve the new holdout BEFORE removing from the old one, so a missing
   // holdout fails with no membership mutated (no partial transition).
-  const holdoutObj = newHoldoutId
-    ? await context.models.holdout.getById(newHoldoutId)
-    : null;
-  if (newHoldoutId && !holdoutObj) {
-    throw new Error("Holdout not found");
-  }
+  await assertHoldoutLinkageResolvable(context, newHoldout);
 
   // Remove feature from the old holdout. The guard (assertHoldoutChangeAllowed)
   // has already refused this move if any linked experiment still belongs to the
@@ -1992,7 +2063,7 @@ export async function applyHoldoutSideEffects(
   }
 
   // Link feature (and experiments in its rules) to the new holdout.
-  if (newHoldoutId && holdoutObj) {
+  if (newHoldoutId) {
     const ruleExperimentIds = Array.from(
       new Set(
         (feature.rules ?? [])
@@ -2001,25 +2072,11 @@ export async function applyHoldoutSideEffects(
       ),
     );
 
-    await context.models.holdout.updateById(newHoldoutId, {
-      linkedFeatures: {
-        [feature.id]: { id: feature.id, dateAdded: new Date() },
-        ...holdoutObj.linkedFeatures,
-      },
-      ...(ruleExperimentIds.length
-        ? {
-            linkedExperiments: {
-              ...Object.fromEntries(
-                ruleExperimentIds.map((experimentId) => [
-                  experimentId,
-                  { id: experimentId, dateAdded: new Date() },
-                ]),
-              ),
-              ...holdoutObj.linkedExperiments,
-            },
-          }
-        : {}),
-    });
+    await context.models.holdout.addFeatureToHoldout(
+      newHoldoutId,
+      feature.id,
+      ruleExperimentIds,
+    );
 
     if (ruleExperimentIds.length) {
       const linkedExperiments = await Promise.all(
@@ -2856,6 +2913,124 @@ export async function prevalidatePublishRevision({
   });
 }
 
+/**
+ * Restores only the fields this publish wrote, and only while the live doc still
+ * holds the value we wrote — a concurrent writer's different value is newer
+ * intent (the bulk publisher's compensation uses the same ownership rule).
+ */
+async function restorePublishedFeatureDoc(
+  context: ReqContext | ApiReqContext,
+  preImage: FeatureInterface,
+  revision: FeatureRevisionInterface,
+  result: MergeResultChanges,
+) {
+  const current = await getFeature(context, preImage.id);
+  if (!current) return;
+
+  const { changes } = computeRevisionMergeChanges(
+    context,
+    preImage,
+    revision,
+    result,
+  );
+  const restoreKeys = new Set([...Object.keys(changes), "version"]);
+  // A holdout removal lands via removeHoldoutFromFeature rather than `changes`,
+  // so name the key explicitly whenever this publish transitioned it.
+  if (result.holdout !== undefined) restoreKeys.add("holdout");
+
+  const restore = ownedRestoreValues({
+    keys: restoreKeys,
+    preImage: preImage as unknown as Record<string, unknown>,
+    written: {
+      ...changes,
+      ...(result.holdout === null ? { holdout: undefined } : {}),
+    },
+    current: current as unknown as Record<string, unknown>,
+  }) as Partial<FeatureInterface>;
+
+  if (Object.keys(restore).length) {
+    await updateFeature(context, current, restore);
+  }
+}
+
+/**
+ * Read-only publishability probe: runs every deterministic check and collects
+ * them all, so a caller learns everything blocking the publish in one pass
+ * instead of fixing one and rediscovering the next. Anything decidable without
+ * mutating belongs here, which leaves the commit phase only infra failures and
+ * makes the rewind a last resort rather than the primary safety net.
+ */
+export async function collectPublishRevisionBlockers({
+  context,
+  feature,
+  revision,
+  result,
+  comment,
+  bypassLockdown,
+  skipPrevalidateValidation,
+}: {
+  context: ReqContext | ApiReqContext;
+  feature: FeatureInterface;
+  revision: FeatureRevisionInterface;
+  result: MergeResultChanges;
+  comment?: string;
+  bypassLockdown?: boolean;
+  skipPrevalidateValidation?: boolean;
+}): Promise<string[]> {
+  const blockers: string[] = [];
+  const probe = async (check: () => Promise<void>) => {
+    try {
+      await check();
+    } catch (e) {
+      blockers.push(e instanceof Error ? e.message : String(e));
+    }
+  };
+
+  if (!bypassLockdown) {
+    await probe(() => assertFeatureNotLockedByRamp(context, feature.id));
+    await probe(async () => {
+      if (
+        revision.version !== undefined &&
+        (await hasPublishLockingScheduledSibling(
+          context.org.id,
+          feature.id,
+          revision.version,
+        ))
+      ) {
+        throw new Error(
+          "Another draft of this feature is scheduled to publish and has locked publishing of other drafts. Cancel that schedule to publish this revision.",
+        );
+      }
+    });
+  }
+
+  await probe(() =>
+    prevalidatePublishRevision({
+      context,
+      feature,
+      revision,
+      result,
+      comment,
+      skipValidation: skipPrevalidateValidation,
+    }),
+  );
+
+  // Same holdout gates the REST handler and the bulk adapter collect, so the
+  // rule lives in exactly one place across all three publish surfaces. Flattened
+  // to messages here because this legacy commit path throws rather than
+  // returning a structured 422; the gate objects are what survive the eventual
+  // move onto the bulk plan/commit pipeline.
+  const holdoutGates = await collectHoldoutChangeGates({
+    context,
+    feature,
+    mergeResult: result,
+    isRevert: !!revision.revertedFrom,
+  });
+  blockers.push(...holdoutGates.flatMap((g) => g.messages));
+
+  return blockers;
+}
+
 export async function publishRevision({
   context,
   feature,
@@ -2882,45 +3057,26 @@ export async function publishRevision({
     throw new Error("Can only publish a draft revision");
   }
 
-  if (!bypassLockdown) {
-    await assertFeatureNotLockedByRamp(context, feature.id);
-
-    // A sibling draft's "lock other drafts" schedule freezes other publishes.
-    if (
-      revision.version !== undefined &&
-      (await hasPublishLockingScheduledSibling(
-        context.org.id,
-        feature.id,
-        revision.version,
-      ))
-    ) {
-      throw new Error(
-        "Another draft of this feature is scheduled to publish and has locked publishing of other drafts. Cancel that schedule to publish this revision.",
-      );
-    }
-  }
-
-  // Run custom hooks before the side-effect writes below so a rejection doesn't orphan them
-  await prevalidatePublishRevision({
+  // Everything decidable runs read-only BEFORE any mutation: applyRevisionChanges
+  // advances feature.version and writes feature.holdout, so a check that threw
+  // afterward would leave the feature live on a still-draft revision.
+  const blockers = await collectPublishRevisionBlockers({
     context,
     feature,
     revision,
     result,
     comment,
-    skipValidation: skipPrevalidateValidation,
+    bypassLockdown,
+    skipPrevalidateValidation,
   });
-
-  // Guard the holdout change BEFORE any mutation. applyRevisionChanges (below)
-  // advances feature.version and writes feature.holdout; if the holdout guard
-  // ran only afterward and threw, the feature would be left pointing at this
-  // still-draft revision. Check the revision's merged rules (post-publish state)
-  // so a bundled experiment-ref for an already-running experiment is caught.
-  if (result.holdout !== undefined) {
-    await assertHoldoutChangeAllowed(
-      context,
-      feature,
-      result.holdout,
-      result.rules ?? feature.rules ?? [],
+  if (blockers.length === 1) {
+    throw new Error(blockers[0]);
+  }
+  if (blockers.length > 1) {
+    throw new Error(
+      `This revision cannot be published:\n${blockers
+        .map((b) => `• ${b}`)
+        .join("\n")}`,
     );
   }
 
@@ -2933,16 +3089,29 @@ export async function publishRevision({
   const updateActions = (revision.rampActions ?? []).filter(
     (a) => a.mode === "update",
   );
-  const preCreatedScheduleIds: string[] = [];
+  // Each committed step registers how to undo itself, so a later failure can
+  // put live state back instead of leaving a half-published feature behind.
+  const rewinds: { what: string; undo: () => Promise<unknown> }[] = [];
+
   if (createActions.length) {
-    const ids = await createRampSchedulesForRevision(
+    const preCreatedScheduleIds = await createRampSchedulesForRevision(
       context,
       feature,
       revision,
       result,
       createActions,
     );
-    preCreatedScheduleIds.push(...ids);
+    if (preCreatedScheduleIds.length) {
+      rewinds.push({
+        what: "ramp schedules",
+        undo: () =>
+          Promise.all(
+            preCreatedScheduleIds.map((id) =>
+              context.models.rampSchedules.deleteById(id),
+            ),
+          ),
+      });
+    }
   }
 
   let updatedFeature: FeatureInterface;
@@ -2953,6 +3122,12 @@ export async function publishRevision({
       revision,
       result,
     );
+
+    rewinds.push({
+      what: "feature document",
+      undo: () =>
+        restorePublishedFeatureDoc(context, feature, revision, result),
+    });
 
     if (result.holdout !== undefined) {
       // Guard already ran above (before any mutation) — skip the re-check.
@@ -2966,15 +3141,37 @@ export async function publishRevision({
         result.holdout,
         { skipGuard: true },
       );
+      // Converges to the pre-image rather than undoing a delta: a failure
+      // mid-transition still needs repairing, and every step is an idempotent
+      // no-op when the forward write never landed.
+      rewinds.push({
+        what: "holdout linkage",
+        undo: () =>
+          applyHoldoutSideEffects(
+            context,
+            { ...feature, holdout: result.holdout ?? undefined },
+            feature.holdout ?? null,
+            { isRevert: true },
+          ),
+      });
     }
 
-    await markRevisionAsPublished(
+    const publishStamp = await markRevisionAsPublished(
       context,
       feature,
       revision,
       context.auditUser,
       comment,
     );
+    rewinds.push({
+      what: "revision status",
+      undo: async () => {
+        await restoreFeatureRevisionAfterFailedBulkPublish(
+          revision,
+          publishStamp,
+        );
+      },
+    });
 
     await clearPendingFeatureDraftsForRevision(
       context,
@@ -2983,19 +3180,22 @@ export async function publishRevision({
       revision.rules,
     );
   } catch (err) {
-    // Roll back pre-created ramp schedules so they don't linger as orphans.
-    for (const id of preCreatedScheduleIds) {
+    // Reverse order, so satellites unwind before the feature document they hang
+    // off. Leave-whole (same rule as the bulk publisher's compensation): the
+    // moment one step fails, stop and leave the feature published — reverting
+    // the document beside a satellite that stayed published is a worse shape
+    // than a publish that simply stands. The original error always surfaces.
+    for (const { what, undo } of rewinds.reverse()) {
       try {
-        await context.models.rampSchedules.deleteById(id);
-      } catch (deleteErr) {
+        await undo();
+      } catch (rewindErr) {
         logger.error(
-          deleteErr,
-          `Failed to delete orphaned ramp schedule ${id} during publish rollback`,
+          rewindErr,
+          `Failed to rewind ${what} for feature ${feature.id} revision ${revision.version} after a failed publish — stopping rewind, feature left at the published state`,
         );
+        break;
       }
     }
-
-    // TODO(holdouts): undo holdout side effects if the publish failed
     throw err;
   }
 
@@ -3049,6 +3249,8 @@ export async function createAndPublishRevision({
   feature: FeatureInterface;
   user: EventUser;
   org: OrganizationInterface;
+  // Pass `revertedFrom` here to mark the new revision as a revert; publish-time
+  // guards read it off the revision.
   changes: Parameters<typeof createRevision>[0]["changes"];
   comment?: string;
   canBypassApprovalChecks: boolean;
