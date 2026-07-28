@@ -10,7 +10,14 @@ import type {
 import type { ContextualBanditSnapshot } from "shared/types/stats";
 import type { ContextualBanditResultsView } from "shared/experiments";
 import type { LinkedFeatureInfo } from "shared/types/experiment";
+import {
+  getContextualBanditResultStatus,
+  getHealthSettings,
+} from "shared/enterprise";
+import type { ExperimentReportVariation } from "shared/types/report";
+import type { IssueValue } from "@/components/HealthTab/IssueTags";
 import { useAuth } from "@/services/auth";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import useApi from "./useApi";
 
 /** Fetches CB docs from the REST API and returns the API shape directly. */
@@ -170,4 +177,57 @@ export function useContextualBanditLinkedFeatures(cbId: string | undefined) {
     error,
     mutate,
   };
+}
+
+/**
+ * Computes the CB health issues (Balance / Multiple Exposures) for the current results snapshot.
+ */
+export function useContextualBanditHealthIssues(
+  cb: ApiContextualBanditInterface,
+): IssueValue[] {
+  const { results, latest } = useContextualBanditResults(cb.id);
+  const orgSettings = useOrgSettings();
+
+  const variations: ExperimentReportVariation[] = useMemo(
+    () =>
+      cb.variations.map((v, i) => ({
+        id: v.id,
+        index: i,
+        name: v.name,
+        weight:
+          results?.overall.variations[i]?.weight ??
+          (cb.variations.length ? 1 / cb.variations.length : 0),
+      })),
+    [cb.variations, results],
+  );
+
+  const totalUsers = useMemo(
+    () =>
+      cb.variations.reduce(
+        (sum, _v, i) => sum + (results?.overall.variations[i]?.users ?? 0),
+        0,
+      ),
+    [cb.variations, results],
+  );
+
+  return useMemo<IssueValue[]>(() => {
+    if (!latest) return [];
+    const healthSettings = getHealthSettings(orgSettings);
+    const resultStatus = getContextualBanditResultStatus({
+      srm: latest.srm?.pValue ?? null,
+      multipleExposures: latest.multipleExposures ?? 0,
+      totalUsers,
+      numOfVariations: variations.length,
+      healthSettings,
+    });
+    if (resultStatus?.status !== "unhealthy") return [];
+    const issues: IssueValue[] = [];
+    if (resultStatus.unhealthyData.srm) {
+      issues.push({ label: "Balance", value: "balanceCheck" });
+    }
+    if (resultStatus.unhealthyData.multipleExposures) {
+      issues.push({ label: "Multiple Exposures", value: "multipleExposures" });
+    }
+    return issues;
+  }, [latest, orgSettings, totalUsers, variations.length]);
 }

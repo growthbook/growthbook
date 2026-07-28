@@ -37,7 +37,11 @@ import ContextualBanditVariations from "@/components/ContextualBandit/Contextual
 import ContextualBanditLinkedFeatures from "@/components/ContextualBandit/ContextualBanditLinkedFeatures";
 import StartContextualBanditModal from "@/components/ContextualBandit/StartContextualBanditModal";
 import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
-import { useContextualBanditResults } from "@/hooks/useContextualBandits";
+import {
+  useContextualBanditHealthIssues,
+  useContextualBanditResults,
+} from "@/hooks/useContextualBandits";
+import Avatar from "@/ui/Avatar";
 
 function OverviewSection({
   title,
@@ -121,6 +125,7 @@ export default function ContextualBanditDetailPage({
   const updateEndpoint = `/api/v1/contextual-bandits/${cb.id}`;
 
   const { results, latest } = useContextualBanditResults(cb.id);
+  const healthIssues = useContextualBanditHealthIssues(cb);
   const statusHealth = useMemo(() => {
     if (!latest) return undefined;
     const totalUsers = cb.variations.reduce(
@@ -383,7 +388,14 @@ export default function ContextualBanditDetailPage({
           {showResultsTab ? (
             <>
               <TabsTrigger value="results">Results</TabsTrigger>
-              <TabsTrigger value="health">Health</TabsTrigger>
+              <TabsTrigger value="health">
+                Health
+                {healthIssues.length > 0 ? (
+                  <Avatar size="sm" ml="2" color="red">
+                    {healthIssues.length}
+                  </Avatar>
+                ) : null}
+              </TabsTrigger>
             </>
           ) : null}
         </TabsList>

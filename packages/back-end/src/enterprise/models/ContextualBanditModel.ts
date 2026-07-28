@@ -7,6 +7,7 @@ import {
   ApiContextualBanditInterface,
   assertExposureQueriesTargetingAttributeColumnsValid,
   CONTEXTUAL_BANDIT_API_UPDATE_FIELDS,
+  ContextualBanditAnalysisSummary,
   ContextualBanditInterface,
   contextualBanditValidator,
   LeafWeight,
@@ -36,8 +37,16 @@ const BaseClass = MakeModelClass({
   collectionName: "contextualbandits",
   idPrefix: "cb_",
   globallyUniquePrimaryKeys: true,
-  skipAuditLogFields: ["nextSnapshotAttempt", "lastSnapshotAttempt"],
-  skipDateUpdatedFields: ["nextSnapshotAttempt", "lastSnapshotAttempt"],
+  skipAuditLogFields: [
+    "nextSnapshotAttempt",
+    "lastSnapshotAttempt",
+    "analysisSummary",
+  ],
+  skipDateUpdatedFields: [
+    "nextSnapshotAttempt",
+    "lastSnapshotAttempt",
+    "analysisSummary",
+  ],
   defaultValues: {
     holdoutPercent: 0,
     archived: false,
@@ -177,6 +186,7 @@ export function toApiContextualBandit(
     conversionWindowUnit: doc.conversionWindowUnit,
     stage: doc.stage,
     stageDateStarted: doc.stageDateStarted?.toISOString(),
+    analysisSummary: doc.analysisSummary,
   };
 }
 
@@ -384,6 +394,20 @@ export class ContextualBanditModel extends BaseClass {
       throw new Error(`ContextualBandit ${cbId} disappeared after update`);
     }
     return refreshed;
+  }
+
+  /**
+   * Persists the latest health summary on the CB doc.
+   */
+  public async patchAnalysisSummary(
+    cbId: string,
+    analysisSummary: ContextualBanditAnalysisSummary,
+  ): Promise<void> {
+    const existingCB = await this.getById(cbId);
+    if (!existingCB) {
+      throw new Error(`ContextualBandit not found: ${cbId}`);
+    }
+    await this.update(existingCB, { analysisSummary });
   }
 
   public async addLinkedFeature(

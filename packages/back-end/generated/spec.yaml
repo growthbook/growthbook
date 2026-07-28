@@ -59684,6 +59684,30 @@ components:
         stageDateStarted:
           type: string
           format: date-time
+        analysisSummary:
+          type: object
+          properties:
+            snapshotId:
+              type: string
+            health:
+              type: object
+              properties:
+                srm:
+                  anyOf:
+                    - type: number
+                    - type: 'null'
+                multipleExposures:
+                  type: number
+                totalUsers:
+                  type: number
+              required:
+                - srm
+                - multipleExposures
+                - totalUsers
+              additionalProperties: false
+          required:
+            - snapshotId
+          additionalProperties: false
       required:
         - id
         - dateCreated

@@ -2,16 +2,14 @@ import { useMemo } from "react";
 import { Flex } from "@radix-ui/themes";
 import { ApiContextualBanditInterface } from "shared/validators";
 import { ExperimentReportVariation } from "shared/types/report";
-import {
-  getContextualBanditResultStatus,
-  getHealthSettings,
-} from "shared/enterprise";
 import TrafficCard from "@/components/HealthTab/TrafficCard";
 import MultipleExposuresCard from "@/components/HealthTab/MultipleExposuresCard";
-import { IssueTags, IssueValue } from "@/components/HealthTab/IssueTags";
+import { IssueTags } from "@/components/HealthTab/IssueTags";
 import Callout from "@/ui/Callout";
-import { useContextualBanditResults } from "@/hooks/useContextualBandits";
-import useOrgSettings from "@/hooks/useOrgSettings";
+import {
+  useContextualBanditHealthIssues,
+  useContextualBanditResults,
+} from "@/hooks/useContextualBandits";
 import ContextualBanditSRMCard from "./ContextualBanditSRMCard";
 
 export default function ContextualBanditHealthTab({
@@ -20,7 +18,7 @@ export default function ContextualBanditHealthTab({
   cb: ApiContextualBanditInterface;
 }) {
   const { results, latest } = useContextualBanditResults(cb.id);
-  const orgSettings = useOrgSettings();
+  const healthIssues = useContextualBanditHealthIssues(cb);
 
   const variations: ExperimentReportVariation[] = useMemo(
     () =>
@@ -48,29 +46,6 @@ export default function ContextualBanditHealthTab({
   // Base the balance check on the same per-variation units shown in the table and
   // used to compute the SRM p-value.
   const totalUsers = overallUsers.reduce((sum, n) => sum + n, 0);
-
-  const resultStatus = useMemo(() => {
-    const healthSettings = getHealthSettings(orgSettings);
-    return getContextualBanditResultStatus({
-      srm,
-      multipleExposures,
-      totalUsers,
-      numOfVariations: variations.length,
-      healthSettings,
-    });
-  }, [orgSettings, srm, multipleExposures, totalUsers, variations.length]);
-
-  const healthIssues = useMemo<IssueValue[]>(() => {
-    if (resultStatus?.status !== "unhealthy") return [];
-    const issues: IssueValue[] = [];
-    if (resultStatus.unhealthyData.srm) {
-      issues.push({ label: "Balance", value: "balanceCheck" });
-    }
-    if (resultStatus.unhealthyData.multipleExposures) {
-      issues.push({ label: "Multiple Exposures", value: "multipleExposures" });
-    }
-    return issues;
-  }, [resultStatus]);
 
   if (!latest) {
     return (

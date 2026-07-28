@@ -192,6 +192,7 @@ function makeContext(cb: ContextualBanditInterface): ReqContext {
       contextualBandits: {
         getById: jest.fn().mockResolvedValue(cb),
         patchLeafWeights: jest.fn().mockResolvedValue(cb),
+        patchAnalysisSummary: jest.fn().mockResolvedValue(undefined),
       },
       contextualBanditEvents: {
         getLatestForContextualBandit: jest.fn().mockResolvedValue(null),

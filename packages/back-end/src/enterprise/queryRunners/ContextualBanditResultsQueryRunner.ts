@@ -479,6 +479,26 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
         if (result.multipleExposures !== undefined) {
           updates.multipleExposures = result.multipleExposures;
         }
+
+        // Similar to experiment `analysisSummary` pattern, persist a lightweight health
+        // summary on the CB doc so list views can render the shared status without loading
+        // the full snapshot.
+        const summaryTotalUsers =
+          result.traffic?.overall?.variationUnits?.reduce(
+            (sum, n) => sum + n,
+            0,
+          ) ?? 0;
+        await this.context.models.contextualBandits.patchAnalysisSummary(
+          this.model.contextualBandit,
+          {
+            snapshotId: this.model.id,
+            health: {
+              srm: result.srm?.pValue ?? null,
+              multipleExposures: result.multipleExposures ?? 0,
+              totalUsers: summaryTotalUsers,
+            },
+          },
+        );
       }
     }
 
