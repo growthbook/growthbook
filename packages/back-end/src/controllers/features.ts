@@ -5219,7 +5219,6 @@ export async function putFeature(
         context,
         feature,
         changes: envelopeChanges as Partial<FeatureRevisionInterface>,
-        result: envelopeChanges,
         comment: draftComment,
       });
     }
@@ -5253,8 +5252,6 @@ export async function putFeature(
         revision: draft,
         result: envelopeChanges,
         bypassLockdown: context.permissions.canBypassApprovalChecks(feature),
-        // Already validated up front; skip the re-run so hooks fire once.
-        skipPrevalidateValidation: true,
       });
     }
     // Keep the tag autocomplete table in sync (side-effect; revision already captures the values).

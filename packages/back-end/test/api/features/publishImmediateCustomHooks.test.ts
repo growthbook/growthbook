@@ -3,7 +3,10 @@ import type { Request } from "express";
 import type { OrganizationInterface } from "shared/types/organization";
 import { ReqContextClass } from "back-end/src/services/context";
 import { runInSandbox } from "back-end/src/enterprise/sandbox/sandbox-pool";
-import { createInitialRevision } from "back-end/src/models/FeatureRevisionModel";
+import {
+  createInitialRevision,
+  createRevision,
+} from "back-end/src/models/FeatureRevisionModel";
 import {
   createAndPublishRevision,
   getFeature,
@@ -70,7 +73,10 @@ async function seedFeature(tags: string[]) {
   });
 }
 
-async function seedHook(hook: "validateFeature" | "validateFeatureRevision") {
+async function seedHook(
+  hook: "validateFeature" | "validateFeatureRevision",
+  incrementalChangesOnly = false,
+) {
   await mongoose.connection.collection("customhooks").insertOne({
     id: `hook_${hook}`,
     organization: ORG.id,
@@ -81,6 +87,7 @@ async function seedHook(hook: "validateFeature" | "validateFeatureRevision") {
     name: `test ${hook} hook`,
     hook,
     code: "// behavior comes from the runInSandbox mock",
+    incrementalChangesOnly,
   });
 }
 
@@ -125,16 +132,27 @@ describe("publish-immediately custom hooks", () => {
     return { context, feature };
   }
 
-  // A validateFeature rejection on publish-immediately must fail before the
-  // draft revision is written, leaving no orphan draft.
-  it("does not persist a draft revision when a validateFeature hook rejects the publish", async () => {
+  it("prevalidates against the actual next revision version", async () => {
     const { context, feature } = await setup(["important"]);
+    await createRevision({
+      context,
+      feature,
+      user: context.auditUser,
+      environments: ["production", "dev"],
+      baseVersion: feature.version,
+      changes: { metadata: { tags: ["important", "draft"] } },
+      publish: false,
+      org: ORG,
+    });
     await seedHook("validateFeature");
 
-    // The feature hook receives { feature } (no revision); reject it.
     mockRunInSandbox.mockImplementation(async (_code, args) => {
-      if (!("revision" in (args as Record<string, unknown>))) {
-        return { ok: false, error: "feature hook rejected", warnings: [] };
+      const hookArgs = args as {
+        feature?: { version?: number };
+        revision?: unknown;
+      };
+      if (hookArgs.revision === undefined && hookArgs.feature?.version === 3) {
+        return { ok: false, error: "version 3 rejected", warnings: [] };
       }
       return { ok: true, warnings: [] };
     });
@@ -149,22 +167,24 @@ describe("publish-immediately custom hooks", () => {
         comment: "add tag",
         canBypassApprovalChecks: true,
       }),
-    ).rejects.toThrow("feature hook rejected");
+    ).rejects.toThrow("version 3 rejected");
 
-    // Only the initial published revision exists — the draft was never written.
-    expect(await countRevisions()).toBe(1);
-    expect((await findRevision(2)) ?? null).toBeNull();
+    expect(await countRevisions()).toBe(2);
+    expect((await findRevision(3)) ?? null).toBeNull();
   });
 
-  // The dashboard autoPublish helper runs the hooks up front and throws without
-  // writing anything.
-  it("prevalidatePublishImmediate runs validation up front and never writes", async () => {
+  it("prevalidates the draft-to-published lifecycle transition", async () => {
     const { context, feature } = await setup(["important"]);
-    await seedHook("validateFeature");
+    await seedHook("validateFeatureRevision", true);
 
     mockRunInSandbox.mockImplementation(async (_code, args) => {
-      if (!("revision" in (args as Record<string, unknown>))) {
-        return { ok: false, error: "feature hook rejected", warnings: [] };
+      const revision = (
+        args as {
+          revision?: { status?: string };
+        }
+      ).revision;
+      if (revision?.status === "published") {
+        return { ok: false, error: "published rejected", warnings: [] };
       }
       return { ok: true, warnings: [] };
     });
@@ -174,10 +194,9 @@ describe("publish-immediately custom hooks", () => {
         context,
         feature,
         changes: { metadata: { tags: [] } },
-        result: { metadata: { tags: [] } },
         comment: "remove tag",
       }),
-    ).rejects.toThrow("feature hook rejected");
+    ).rejects.toThrow("published rejected");
 
     expect(await countRevisions()).toBe(1);
   });

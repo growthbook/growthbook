@@ -135,6 +135,7 @@ import {
   computeRevisionPublishChanges,
   updateRevision,
   createRevision,
+  prepareFeatureRevision,
 } from "./FeatureRevisionModel";
 
 const featureSchema = new mongoose.Schema({
@@ -2880,30 +2881,35 @@ export async function prevalidatePublishImmediate({
   context,
   feature,
   changes,
-  result,
   comment,
 }: {
   context: ReqContext | ApiReqContext;
   feature: FeatureInterface;
   changes: Partial<FeatureRevisionInterface>;
-  result: MergeResultChanges;
   comment?: string;
 }): Promise<void> {
   const baseline = await getLiveBaselineRevision(context, feature);
-  // metadata is a partial patch — deep-merge onto the live snapshot (matches createRevision).
-  const syntheticRevision: FeatureRevisionInterface = {
-    ...baseline,
-    version: baseline.version + 1,
-    ...changes,
-    ...(changes.metadata
-      ? { metadata: { ...(baseline.metadata ?? {}), ...changes.metadata } }
-      : {}),
-  } as FeatureRevisionInterface;
+  const environments = getEnvironmentIdsFromOrg(context.org);
+  const { revision } = await prepareFeatureRevision({
+    context,
+    feature,
+    user: context.auditUser,
+    environments,
+    baseVersion: feature.version,
+    changes,
+    comment,
+  });
+  const mergeResult = autoMerge(baseline, baseline, revision, environments, {});
+  if (!mergeResult.success) {
+    throw new Error(
+      "Merge conflict detected while publishing revision. Please retry.",
+    );
+  }
   await prevalidatePublishRevision({
     context,
     feature,
-    revision: syntheticRevision,
-    result,
+    revision,
+    result: mergeResult.result,
     comment,
   });
 }
@@ -3118,22 +3124,20 @@ export async function createAndPublishRevision({
     applicableEnvSet.has(e),
   );
 
-  // Check whether the revision needs review before creating anything, against a synthetic revision.
   const liveBase = await getLiveBaselineRevision(context, feature);
-
-  // Synthetic revision: rules replace the live array wholesale, metadata is deep-merged (as autoMerge/createRevision).
-  const syntheticRevision: FeatureRevisionInterface = {
-    ...liveBase,
-    ...(changes ?? {}),
-    rules: changes?.rules ?? liveBase.rules ?? [],
-    ...(changes?.metadata
-      ? { metadata: { ...(liveBase.metadata ?? {}), ...changes.metadata } }
-      : {}),
-  };
+  const { revision: preparedRevision } = await prepareFeatureRevision({
+    context,
+    feature,
+    user,
+    environments: allEnvironments,
+    baseVersion: feature.version,
+    changes,
+    comment: comment ?? "Created via REST API",
+  });
   const requiresReview = checkIfRevisionNeedsReview({
     feature,
     baseRevision: liveBase,
-    revision: syntheticRevision,
+    revision: preparedRevision,
     allEnvironments,
     settings: org.settings,
     requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
@@ -3150,7 +3154,7 @@ export async function createAndPublishRevision({
   const preMergeResult = autoMerge(
     liveBase,
     liveBase,
-    syntheticRevision,
+    preparedRevision,
     allEnvironments,
     {},
   );
@@ -3162,7 +3166,7 @@ export async function createAndPublishRevision({
   await prevalidatePublishRevision({
     context,
     feature,
-    revision: syntheticRevision,
+    revision: preparedRevision,
     result: preMergeResult.result,
     comment,
   });
@@ -3207,8 +3211,6 @@ export async function createAndPublishRevision({
     // See postFeatureRevisionPublish.ts for the bypassLockdown policy rationale:
     // approval-bypass permission intentionally doubles as ramp-lockdown bypass.
     bypassLockdown: canBypassApprovalChecks,
-    // Already validated up front; skip the re-run so hooks fire once.
-    skipPrevalidateValidation: true,
   });
 
   return { revision, updatedFeature };
