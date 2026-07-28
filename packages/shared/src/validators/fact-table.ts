@@ -459,14 +459,14 @@ export const apiFactTableColumnValidator = namedSchema(
       isVirtual: z
         .boolean()
         .describe(
-          "Whether this is a virtual (computed) column defined by a SQL expression rather than detected from the fact table SQL. Managed via the dedicated virtual-column endpoints, not the fact table create/update body.",
+          "Whether this is a virtual (computed) column defined by a SQL expression rather than detected from the fact table SQL. Can be set when creating a fact table; on update it is ignored, since a column's origin cannot be changed — use the dedicated virtual-column endpoints instead.",
         )
         .optional()
         .meta({ default: false }),
       sql: z
         .string()
         .describe(
-          "For virtual columns, the SQL expression that computes the column value. Managed via the dedicated virtual-column endpoints, not the fact table create/update body.",
+          "For virtual columns, the SQL expression that computes the column value. Can be set when creating a fact table; on update it is ignored — use the dedicated virtual-column endpoints instead.",
         )
         .optional(),
       dateCreated: z
