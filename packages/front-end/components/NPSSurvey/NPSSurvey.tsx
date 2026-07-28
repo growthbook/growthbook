@@ -16,7 +16,6 @@ import Text from "@/ui/Text";
 import Portal from "@/components/Modal/Portal";
 import { useKeydown } from "@/hooks/useKeydown";
 import track from "@/services/track";
-import { isCloud } from "@/services/env";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import styles from "./NPSSurvey.module.scss";
@@ -173,11 +172,17 @@ export default function NPSSurvey() {
   // card suppresses it instead of re-prompting on every reload and new tab).
   // `?show-nps` skips those gates for staff, but never the Cloud check.
   useEffect(() => {
-    if (!isCloud() || orgSuspended) return;
+    // Never show where the response can't be recorded: a suspended org's POST
+    // is rejected by the API, which would silently drop the answer.
+    if (orgSuspended) return;
     if (forceShow) {
       setVisible(true);
       return;
     }
+    // No deployment check here: the `nps-survey` feature is targeted in
+    // GrowthBook and defaults off, and forwarding additionally requires the
+    // private NPS_SLACK_WEBHOOK, so self-hosted instances are already gated
+    // without a hardcoded Cloud test that would also block dev testing.
     if (!eligible || suppressed || withinCooldown(readStored()?.date)) return;
     const t = window.setTimeout(() => {
       writeStored("shown");
