@@ -559,18 +559,12 @@ export default defineConfig([
     },
   },
   {
-    // TypeScript already resolves imports and enumerates exports, so re-deriving
-    // that here is duplicated work. Measured on the full file set, uncached: 79s
-    // with these on versus 31s with them off. The cost is the ExportMap rules
-    // (import/default, import/namespace, import/export), which read and parse
-    // every imported module to list its exports. import/no-unresolved only calls
-    // resolve() and is nearly free, but it goes with them because tsc subsumes it.
-    // docs/ keeps all four (not a workspace member, no type-check), as do plain
-    // .js files, which tsc never sees.
-    //
-    // Caveat: packages/{back-end,shared}/scripts/*.ts sit outside their package
-    // tsconfig include, so tsc does not cover them either and they lose import
-    // checking entirely. Five dev-only scripts, judged not worth guarding.
+    // tsc already resolves imports and enumerates exports, making these rules
+    // redundant. The ExportMap rules (import/default, import/namespace,
+    // import/export) also parse every imported module, so disabling all four
+    // shaves ~45s off an uncached full lint. docs/ and plain .js keep them since
+    // tsc never sees those. Scripts under back-end/shared are outside their
+    // tsconfig and lose import checking here, but they're dev-only.
     files: ["./packages/**/*.{ts,tsx}"],
 
     rules: {
@@ -581,9 +575,8 @@ export default defineConfig([
     },
   },
   {
-    // Narrower resolver projects than the repo-wide default. import/order and
-    // import/no-restricted-paths still resolve, and scoping each package to its
-    // own tsconfig keeps that work small.
+    // Scope each package's resolver to its own tsconfig so import/order and
+    // import/no-restricted-paths resolve against a smaller project.
     files: ["./packages/front-end/**/*.{ts,tsx}"],
 
     settings: {
@@ -626,14 +619,10 @@ export default defineConfig([
     },
   },
   {
-    // Type-aware linting. Each entry is a package's tsconfig'd source root, so
-    // this covers every TypeScript package in the workspace. projectService
-    // hard-errors on any file it cannot map to a project, so this list must track
-    // the `include` arrays in the corresponding tsconfig.json.
-    //
-    // Deliberately absent: packages/{back-end,shared}/scripts/*.ts, which sit
-    // outside their package tsconfig and would hard-error here. Covering them
-    // means adding them to a tsconfig first.
+    // Type-aware linting, one entry per package's tsconfig'd source root.
+    // projectService hard-errors on any file it can't map to a project, so this
+    // list must track each tsconfig's `include`. Scripts under back-end/shared
+    // are outside their tsconfig and would hard-error, so they're omitted.
     files: [
       "./packages/front-end/**/*.{ts,tsx}",
       "./packages/back-end/src/**/*.{ts,tsx}",
@@ -643,10 +632,8 @@ export default defineConfig([
       "./packages/stats-ts/src/**/*.{ts,tsx}",
     ],
 
-    // Test directories are excluded uniformly across every package. shared/test
-    // and back-end/test sit outside their package tsconfig, and front-end/test
-    // would otherwise be the only test tree that is type-linted. No test file in
-    // any package currently contains a switch statement.
+    // Exclude test dirs everywhere: shared/test and back-end/test are outside
+    // their tsconfig, and this keeps front-end/test consistent with them.
     ignores: ["./packages/*/test/**"],
 
     languageOptions: {
