@@ -1,6 +1,9 @@
 import { FeatureRevisionInterface } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
-import { isPureFeatureRevert } from "../../src/util/featureDraftPurity";
+import {
+  isPureFeatureArchive,
+  isPureFeatureRevert,
+} from "../../src/util/featureDraftPurity";
 
 // Live feature: drifted away from the target on defaultValue and rules, and it
 // carries prerequisites the sparse target revision never recorded.
@@ -228,6 +231,110 @@ describe("isPureFeatureRevert", () => {
         feature,
         draft: draft({ environmentsEnabled: { production: false } }),
         target,
+      }),
+    ).toBe(false);
+  });
+
+  it("accepts a draft that records no metadata at all (inherits live)", () => {
+    expect(
+      isPureFeatureRevert({
+        feature,
+        draft: draft({ metadata: undefined }),
+        target,
+      }),
+    ).toBe(true);
+  });
+
+  it("accepts metadata that only spells an absent value differently", () => {
+    expect(
+      isPureFeatureRevert({
+        feature,
+        draft: draft({
+          metadata: { description: "live desc", tags: undefined },
+        } as unknown as Partial<FeatureRevisionInterface>),
+        target,
+      }),
+    ).toBe(true);
+  });
+});
+
+// Archive drafts touch nothing but `archived`, so the live feature is the only
+// baseline. Reuses the drifted `feature` above.
+const archiveDraft = (overrides: Partial<FeatureRevisionInterface>) =>
+  ({
+    version: 9,
+    status: "draft",
+    archived: true,
+    defaultValue: feature.defaultValue,
+    rules: feature.rules,
+    prerequisites: feature.prerequisites,
+    environmentsEnabled: { production: true },
+    ...overrides,
+  }) as unknown as FeatureRevisionInterface;
+
+describe("isPureFeatureArchive", () => {
+  it("accepts an archive draft that records no metadata", () => {
+    expect(isPureFeatureArchive({ feature, draft: archiveDraft({}) })).toBe(
+      true,
+    );
+  });
+
+  it("accepts an archive draft carrying live's metadata envelope", () => {
+    expect(
+      isPureFeatureArchive({
+        feature,
+        draft: archiveDraft({
+          metadata: liveMetadata,
+        } as unknown as Partial<FeatureRevisionInterface>),
+      }),
+    ).toBe(true);
+  });
+
+  it("accepts an archive draft that omits the inherited envelopes", () => {
+    expect(
+      isPureFeatureArchive({
+        feature,
+        draft: archiveDraft({ prerequisites: undefined }),
+      }),
+    ).toBe(true);
+  });
+
+  it("rejects an archive draft that also edits metadata", () => {
+    expect(
+      isPureFeatureArchive({
+        feature,
+        draft: archiveDraft({
+          metadata: { ...liveMetadata, description: "sneaky" },
+        } as unknown as Partial<FeatureRevisionInterface>),
+      }),
+    ).toBe(false);
+  });
+
+  it("rejects an archive draft that also edits a rule", () => {
+    expect(
+      isPureFeatureArchive({
+        feature,
+        draft: archiveDraft({
+          rules: [{ id: "r-live", type: "force" }, { id: "r-new" }],
+        } as unknown as Partial<FeatureRevisionInterface>),
+      }),
+    ).toBe(false);
+  });
+
+  it("rejects an archive draft that also flips an environment", () => {
+    expect(
+      isPureFeatureArchive({
+        feature,
+        draft: archiveDraft({ environmentsEnabled: { production: false } }),
+      }),
+    ).toBe(false);
+  });
+
+  it("rejects a draft on an already-archived feature", () => {
+    expect(
+      isPureFeatureArchive({
+        feature: { ...feature, archived: true } as FeatureInterface,
+        draft: archiveDraft({}),
       }),
     ).toBe(false);
   });

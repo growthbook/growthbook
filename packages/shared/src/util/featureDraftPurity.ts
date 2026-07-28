@@ -1,7 +1,8 @@
 import { isEqual } from "lodash";
+import type { RevisionMetadata } from "shared/validators";
 import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import type { FeatureInterface, FeatureRule } from "shared/types/feature";
-import { MergeResultChanges } from "./features";
+import { MergeResultChanges, normalizeMetadataValue } from "./features";
 
 /**
  * "Is this draft purely an X?" — the questions a narrow atom asks before acting
@@ -21,13 +22,15 @@ import { MergeResultChanges } from "./features";
  */
 
 // Plain content: restoring these puts back a value that was already live.
-// `rules` and `environmentsEnabled` are handled separately.
-const CONTENT_FIELDS = [
-  "defaultValue",
+// `rules`, `environmentsEnabled` and `metadata` are handled separately.
+const CONTENT_FIELDS = ["defaultValue", "prerequisites", "archived"] as const;
+
+// Fields `buildEffectiveDraft` inherits from live when the draft omits them, so
+// an omission proposes nothing rather than proposing `undefined`.
+const INHERITED_WHEN_ABSENT = new Set<(typeof CONTENT_FIELDS)[number]>([
   "prerequisites",
   "archived",
-  "metadata",
-] as const;
+]);
 
 // Effects reaching beyond this feature: never restorable, only left untouched.
 type SideEffectField = "holdout";
@@ -40,6 +43,7 @@ type UnclassifiedMergeField = Exclude<
   | SideEffectField
   | "rules"
   | "environmentsEnabled"
+  | "metadata"
 >;
 const _allMergeFieldsClassified: UnclassifiedMergeField extends never
   ? true
@@ -78,20 +82,46 @@ function liveValueFor(
       return feature.prerequisites ?? [];
     case "archived":
       return feature.archived ?? false;
-    case "metadata":
-      // The metadata envelope mirrors the live feature's own fields.
-      return {
-        description: feature.description,
-        owner: feature.owner,
-        project: feature.project,
-        tags: feature.tags,
-        neverStale: feature.neverStale,
-        customFields: feature.customFields,
-        jsonSchema: feature.jsonSchema,
-        valueType: feature.valueType,
-        baseConfig: feature.baseConfig ?? null,
-      };
   }
+}
+
+function liveMetadata(feature: FeatureInterface): RevisionMetadata {
+  return {
+    description: feature.description,
+    owner: feature.owner,
+    project: feature.project,
+    tags: feature.tags,
+    neverStale: feature.neverStale,
+    customFields: feature.customFields,
+    jsonSchema: feature.jsonSchema,
+    valueType: feature.valueType,
+    baseConfig: feature.baseConfig ?? null,
+  };
+}
+
+/**
+ * Whether a draft's metadata proposes anything.
+ *
+ * A revision's `metadata` is a sparse patch, not a full envelope: absent means
+ * "inherit live" and present keys overlay it (see `buildEffectiveDraft`). So
+ * only the keys the draft actually carries can differ, and each is compared
+ * through `normalizeMetadataValue` — the same normalization the diff and review
+ * gates use, which absorbs unset-vs-empty spellings.
+ *
+ * Comparing the whole object instead would read every draft as impure the
+ * moment either side spelled an absent field differently.
+ */
+function metadataMatches(
+  proposed: RevisionMetadata | undefined,
+  against: RevisionMetadata | undefined,
+): boolean {
+  if (!proposed) return true;
+  return (Object.keys(proposed) as (keyof RevisionMetadata)[]).every((k) =>
+    isEqual(
+      normalizeMetadataValue(k, proposed[k]),
+      normalizeMetadataValue(k, against?.[k]),
+    ),
+  );
 }
 
 // `createRevision` writes an entry for every environment it was handed,
@@ -151,8 +181,16 @@ export function isPureFeatureRevert({
 
   if (!environmentsEnabledOnlyRestore({ feature, draft, target })) return false;
 
+  if (
+    !metadataMatches(draft.metadata, target.metadata) &&
+    !metadataMatches(draft.metadata, liveMetadata(feature))
+  ) {
+    return false;
+  }
+
   return CONTENT_FIELDS.every((field) => {
     const proposed = draft[field];
+    if (proposed === undefined && INHERITED_WHEN_ABSENT.has(field)) return true;
     if (isEqual(proposed, target[field])) return true;
     return isEqual(proposed, liveValueFor(field, feature));
   });
@@ -192,7 +230,11 @@ export function isPureFeatureArchive({
   );
   if (!envsUnchanged) return false;
 
-  return CONTENT_FIELDS.filter((field) => field !== "archived").every((field) =>
-    isEqual(draft[field], liveValueFor(field, feature)),
+  if (!metadataMatches(draft.metadata, liveMetadata(feature))) return false;
+
+  return CONTENT_FIELDS.filter((field) => field !== "archived").every(
+    (field) =>
+      (draft[field] === undefined && INHERITED_WHEN_ABSENT.has(field)) ||
+      isEqual(draft[field], liveValueFor(field, feature)),
   );
 }
