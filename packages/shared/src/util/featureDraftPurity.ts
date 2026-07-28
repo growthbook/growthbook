@@ -4,25 +4,18 @@ import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import type { FeatureInterface, FeatureRule } from "shared/types/feature";
 import {
   MergeResultChanges,
+  featureMetadataEnvelope,
   getEffectiveRevisionHoldout,
   normalizeMetadataValue,
 } from "./features";
 
 /**
- * "Is this draft purely an X?" — the questions a narrow atom asks before acting
- * on a draft it didn't author. Revert authority may move a draft that only
- * restores a published revision; delete authority may move one that only
- * archives the flag.
+ * "Is this draft purely an X?" — what a narrow atom asks before acting on a
+ * draft it didn't author. Revert authority may move one that only restores a
+ * published revision; delete authority, one that only archives the flag.
  *
- * These live in shared because the answer must be identical on both surfaces:
- * the client decides what to offer, the server decides what to allow, and a
- * disagreement shows up as a button that fails.
- *
- * Rules arrive already normalized — both `FeatureModel.migrateRawFeatureToV2`
- * and `FeatureRevisionModel.buildFeatureRevisionInterface` run
- * `upgradeFeatureRule` on read — so nothing here re-migrates. Were an
- * un-normalized rule ever passed in, the comparison would read as impure and
- * the caller would deny, which is the safe direction.
+ * Shared because the client decides what to offer and the server decides what
+ * to allow: a disagreement is a button that fails.
  */
 
 // Plain content: restoring these puts back a value that was already live.
@@ -107,31 +100,11 @@ function liveValueFor(
   }
 }
 
-function liveMetadata(feature: FeatureInterface): RevisionMetadata {
-  return {
-    description: feature.description,
-    owner: feature.owner,
-    project: feature.project,
-    tags: feature.tags,
-    neverStale: feature.neverStale,
-    customFields: feature.customFields,
-    jsonSchema: feature.jsonSchema,
-    valueType: feature.valueType,
-    baseConfig: feature.baseConfig ?? null,
-  };
-}
-
 /**
- * Whether a draft's metadata proposes anything.
- *
- * A revision's `metadata` is a sparse patch, not a full envelope: absent means
- * "inherit live" and present keys overlay it (see `buildEffectiveDraft`). So
- * only the keys the draft actually carries can differ, and each is compared
- * through `normalizeMetadataValue` — the same normalization the diff and review
- * gates use, which absorbs unset-vs-empty spellings.
- *
- * Comparing the whole object instead would read every draft as impure the
- * moment either side spelled an absent field differently.
+ * `metadata` is a sparse patch, not an envelope: absent inherits live, present
+ * keys overlay it. Only the keys the draft carries can differ, and comparing
+ * the whole object would read every draft as impure the moment either side
+ * spelled an absent field differently.
  */
 function metadataMatches(
   proposed: RevisionMetadata | undefined,
@@ -205,7 +178,7 @@ export function isPureFeatureRevert({
 
   if (
     !metadataMatches(draft.metadata, target.metadata) &&
-    !metadataMatches(draft.metadata, liveMetadata(feature))
+    !metadataMatches(draft.metadata, featureMetadataEnvelope(feature))
   ) {
     return false;
   }
@@ -252,7 +225,8 @@ export function isPureFeatureArchive({
   );
   if (!envsUnchanged) return false;
 
-  if (!metadataMatches(draft.metadata, liveMetadata(feature))) return false;
+  if (!metadataMatches(draft.metadata, featureMetadataEnvelope(feature)))
+    return false;
 
   return CONTENT_FIELDS.filter((field) => field !== "archived").every(
     (field) =>

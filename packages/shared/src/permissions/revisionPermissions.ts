@@ -6,9 +6,8 @@ import { Permission } from "shared/types/organization";
  * permissions.constants.ts, map its model to a family in MODEL_FAMILY, and gate
  * with `context.permissions.canRevisionAction(model, action, obj, envs)`.
  *
- * There is deliberately no "edit"/"manage" verb. Every content change is
- * authored as a revision and then landed, so an edit is a draft plus a publish.
- * What remains are the actions an org actually governs separately.
+ * There is deliberately no "edit"/"manage" verb: an edit is a draft plus a
+ * publish.
  */
 
 export type RevisionAction =
@@ -45,23 +44,19 @@ export const REVISION_PERMISSIONS: Record<
 > = {
   // Everything that touches live state is env-scoped; the caller supplies the
   // footprint. Drafting touches nothing live, and bypass only relaxes the review
-  // requirement on a publish that was already env-checked (and covers
-  // entity-level acts like unlocking a Config, which have no env at all).
+  // requirement on a publish that was already env-checked.
   flags: {
     create: { permission: "createFlags", scope: "environment" },
     delete: { permission: "deleteFlags", scope: "environment" },
     draft: { permission: "editFlagDrafts", scope: "project" },
-    // Reviewing is a judgement on the whole proposed change, not on any one
-    // environment, and no caller ever had a footprint to hand it. Project-scoped
-    // so the declaration matches what actually happens.
+    // A judgement on the whole proposed change, not on any one environment.
     review: { permission: "reviewFlags", scope: "project" },
     publish: { permission: "publishFlags", scope: "environment" },
     revert: { permission: "revertFlags", scope: "environment" },
     bypass: { permission: "bypassApprovalFlags", scope: "project" },
   },
-  // Saved groups declare no environments anywhere in their schema — their reach
-  // is entirely consumer-derived — so every action is project-scoped and the
-  // footprint argument is ignored. Call sites still pass one, so they read
+  // Saved groups declare no environments, so every action is project-scoped and
+  // the footprint argument is ignored. Call sites still pass one so they read
   // identically to the flags family.
   savedGroups: {
     create: { permission: "createSavedGroups", scope: "project" },
@@ -74,11 +69,7 @@ export const REVISION_PERMISSIONS: Record<
   },
 };
 
-/**
- * The bypass-approval atom for an entity's family. Use it wherever a permission
- * has to be named as data rather than checked — the gate metadata a blocked
- * publish reports back, for instance.
- */
+/** The bypass-approval atom for an entity's family, named as data (gate metadata). */
 export function bypassApprovalPermission(model: RevisionModel): Permission {
   return REVISION_PERMISSIONS[MODEL_FAMILY[model]].bypass.permission;
 }
@@ -91,14 +82,13 @@ export function isBypassApprovalPermission(permission: string): boolean {
 }
 
 /**
- * The footprint to pass when a change has NO intrinsic environment binding —
- * a base Config, a Constant's base value, any Saved Group. Their reach is
- * consumer-derived (down to individual rules), which can't be computed inside a
- * permission check, so the env limit doesn't apply and the check falls back to
- * project scope.
+ * The footprint for a change with NO intrinsic environment binding — a base
+ * Config, a Constant's base value, any Saved Group. Their reach is
+ * consumer-derived and can't be computed in a permission check, so only the
+ * project is checked.
  *
- * Named rather than a bare `[]` so it reads as a decision: an empty footprint
- * SKIPS the environment check, and passing one by accident silently widens
- * access for env-limited roles.
+ * Named rather than a bare `[]` because an empty footprint SKIPS the
+ * environment check: passing one by accident widens access for env-limited
+ * roles.
  */
 export const NO_ENVIRONMENT_BINDING: string[] = [];

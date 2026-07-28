@@ -28,7 +28,7 @@ import {
   evaluatePublishGates,
   PublishBlockedError,
 } from "back-end/src/revisions/publishGates";
-import { assertCanPublishFeatureRevision } from "back-end/src/revisions/featureRevertPurity";
+import { assertCanPublishFeatureRevision } from "back-end/src/revisions/featureDraftAuthority";
 import { canUseRestApiBypassSetting } from "./reviewBypass";
 
 export async function publishFeatureRevision(

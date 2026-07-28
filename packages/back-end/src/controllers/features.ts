@@ -16,6 +16,7 @@ import {
   MergeStrategy,
   checkIfRevisionNeedsReview,
   evaluatePublishGovernance,
+  featureMetadataEnvelope,
   resetReviewOnChange,
   getAffectedEnvsForExperiment,
   getDependentExperiments,
@@ -138,8 +139,8 @@ import { assertFeatureArchiveDependentsGuard } from "back-end/src/services/archi
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
-import { assertCanPublishFeatureRevision } from "back-end/src/revisions/featureRevertPurity";
 import {
+  assertCanPublishFeatureRevision,
   canAdvanceFeatureDraft,
   canDiscardFeatureDraft,
   canRebaseFeatureDraft,
@@ -1006,16 +1007,8 @@ export async function postFeatureRebase(
 
   // Build complete metadata snapshot: start from live feature, overlay any
   // metadata fields the merge result explicitly changed.
-  const featureMetadataSnapshot: RevisionMetadata = {
-    description: feature.description,
-    owner: feature.owner,
-    project: feature.project,
-    tags: feature.tags,
-    neverStale: feature.neverStale,
-    customFields: feature.customFields,
-    jsonSchema: feature.jsonSchema,
-    valueType: feature.valueType,
-  };
+  const featureMetadataSnapshot: RevisionMetadata =
+    featureMetadataEnvelope(feature);
   const newMetadata: RevisionMetadata = mergeResult.result.metadata
     ? { ...featureMetadataSnapshot, ...mergeResult.result.metadata }
     : featureMetadataSnapshot;

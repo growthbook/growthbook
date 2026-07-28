@@ -1,6 +1,7 @@
 import { FeatureInterface } from "shared/types/feature";
 import {
   MergeResultChanges,
+  isArchiveTransition,
   isPureFeatureArchive,
   isPureFeatureRevert,
 } from "shared/util";
@@ -12,20 +13,15 @@ import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { getEnabledEnvironments } from "back-end/src/util/features";
 
 /**
- * Who may move a feature draft along — request review on it, recall that
- * request, discard it, rebase it.
+ * Who may move a feature draft along, and who may land it.
  *
- * Draft authority covers every draft. Beyond that, two narrower atoms get a say
- * so a single-purpose role can finish what it is allowed to start:
+ * Draft authority covers every draft. Beyond that, revert authority reaches a
+ * draft that only restores a published revision, delete authority one that only
+ * archives the flag, and either reaches a draft the caller authored whatever it
+ * contains — so a single-purpose role can finish what it may start.
  *
- * - revert authority, over a draft that only restores a published revision
- * - delete authority, over a draft that only archives the flag
- *
- * and, regardless of what the draft contains, over a draft the caller authored
- * themselves: you can always clean up your own mess.
- *
- * The purity checks read a second revision, so they run only after the cheap
- * atom check fails.
+ * Purity checks read a second revision, so they run only after the cheap atom
+ * check fails.
  */
 
 function allEnabledEnvs(
@@ -70,6 +66,30 @@ export function authoredFeatureDraft(
   return (draft.contributors ?? []).includes(userId);
 }
 
+/** Whether the draft restores a state that was actually live. */
+export async function draftIsPureRevert({
+  context,
+  feature,
+  draft,
+}: {
+  context: ReqContext | ApiReqContext;
+  feature: FeatureInterface;
+  draft: FeatureRevisionInterface;
+}): Promise<boolean> {
+  if (draft.revertedFromVersion === undefined) return false;
+
+  const target = await getRevision({
+    context,
+    organization: feature.organization,
+    featureId: feature.id,
+    feature,
+    version: draft.revertedFromVersion,
+  });
+  if (!target || target.status !== "published") return false;
+
+  return isPureFeatureRevert({ feature, draft, target });
+}
+
 /** Whether the draft is one this caller's narrow atom would let them land. */
 async function matchesNarrowAtom({
   context,
@@ -88,18 +108,7 @@ async function matchesNarrowAtom({
   }
 
   if (!hasRevertAuthority(context, feature)) return false;
-  if (draft.revertedFromVersion === undefined) return false;
-
-  const target = await getRevision({
-    context,
-    organization: feature.organization,
-    featureId: feature.id,
-    feature,
-    version: draft.revertedFromVersion,
-  });
-  // Only a state that was actually live can be restored under revert authority.
-  if (!target || target.status !== "published") return false;
-  return isPureFeatureRevert({ feature, draft, target });
+  return draftIsPureRevert({ context, feature, draft });
 }
 
 /**
@@ -203,4 +212,70 @@ export function rebasePullsInNothing(
     }
     return false;
   });
+}
+
+/**
+ * Landing authority: publish authority over the environments the merge touches,
+ * or a narrow atom over a draft that only does what that atom covers. Approval
+ * is a separate gate, enforced by the caller.
+ */
+export async function assertCanPublishFeatureRevision({
+  context,
+  feature,
+  revision,
+  environments,
+  mergeChanges,
+}: {
+  context: ReqContext | ApiReqContext;
+  feature: FeatureInterface;
+  revision: FeatureRevisionInterface;
+  environments: string[];
+  mergeChanges?: MergeResultChanges;
+}): Promise<void> {
+  // Archiving takes the flag out of service wherever it lands, not just via the
+  // archive endpoint. Unarchiving returns it to service and is an ordinary
+  // publish.
+  if (
+    isArchiveTransition({
+      proposed: mergeChanges?.archived,
+      current: feature.archived,
+    }) &&
+    !context.permissions.canDeleteFeature(feature, environments)
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  // A move has to land where the publisher has authority, not just leave where
+  // they do — whoever stages it needn't be whoever publishes it.
+  const destination = mergeChanges?.metadata?.project;
+  if (
+    destination !== undefined &&
+    (destination || "") !== (feature.project || "") &&
+    !context.permissions.canPublishFeature(
+      { project: destination },
+      environments,
+    )
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  if (context.permissions.canPublishFeature(feature, environments)) return;
+
+  if (
+    context.permissions.canRevertFeature(feature, environments) &&
+    (await draftIsPureRevert({ context, feature, draft: revision }))
+  ) {
+    return;
+  }
+
+  // Staging an archive as a draft must not require an atom that landing it in
+  // one step doesn't.
+  if (
+    context.permissions.canDeleteFeature(feature, environments) &&
+    isPureFeatureArchive({ feature, draft: revision })
+  ) {
+    return;
+  }
+
+  context.permissions.throwPermissionError();
 }
