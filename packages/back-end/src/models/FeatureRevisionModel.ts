@@ -3,6 +3,7 @@ import uniqid from "uniqid";
 import omit from "lodash/omit";
 import {
   checkIfRevisionNeedsReview,
+  featureMetadataEnvelope,
   isRevisionEditLockedBySchedule,
 } from "shared/util";
 import {
@@ -893,19 +894,7 @@ export async function createInitialRevision(
     environmentsEnabled,
     prerequisites: feature.prerequisites || [],
     archived: feature.archived ?? false,
-    metadata: {
-      description: feature.description,
-      owner: feature.owner,
-      project: feature.project,
-      targetingAllProjects: feature.targetingAllProjects,
-      targetingProjects: feature.targetingProjects,
-      tags: feature.tags,
-      neverStale: feature.neverStale,
-      customFields: feature.customFields,
-      jsonSchema: feature.jsonSchema,
-      valueType: feature.valueType,
-      baseConfig: feature.baseConfig ?? null,
-    },
+    metadata: featureMetadataEnvelope(feature),
   });
 
   return toInterface(doc, context, feature);
@@ -997,19 +986,8 @@ export async function createRevision({
   );
   const prerequisites = changes?.prerequisites ?? feature.prerequisites ?? [];
   const archived = changes?.archived ?? feature.archived ?? false;
-  const featureMetadataSnapshot: RevisionMetadata = {
-    description: feature.description,
-    owner: feature.owner,
-    project: feature.project,
-    targetingAllProjects: feature.targetingAllProjects,
-    targetingProjects: feature.targetingProjects,
-    tags: feature.tags,
-    neverStale: feature.neverStale,
-    customFields: feature.customFields,
-    jsonSchema: feature.jsonSchema,
-    valueType: feature.valueType,
-    baseConfig: feature.baseConfig ?? null,
-  };
+  const featureMetadataSnapshot: RevisionMetadata =
+    featureMetadataEnvelope(feature);
   // Always store a complete snapshot. Partial changes (e.g. { neverStale: true })
   // are merged on top so other metadata fields aren't silently dropped.
   const metadata: RevisionMetadata = changes?.metadata

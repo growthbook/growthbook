@@ -4,6 +4,7 @@ import { OrganizationSettings, RequireReview } from "shared/types/organization";
 import {
   autoMerge,
   checkIfRevisionNeedsReview,
+  featureMetadataEnvelope,
   fillRevisionFromFeature,
   getDraftAffectedEnvironments,
   getEffectiveRevisionHoldout,
@@ -960,6 +961,42 @@ describe("reconcileMergeBaselines", () => {
       // Without reconciliation this would be swallowed (draft === stale base).
       expect(result.result.environmentsEnabled).toEqual({ staging: true });
     }
+  });
+});
+
+// Baselines seed from this and snapshots write it, so a key it omits is a key
+// a draft can record and then diff against nothing. The `Required` return type
+// is the real guard; this pins the same contract at runtime.
+describe("featureMetadataEnvelope", () => {
+  it("covers every key the revision metadata schema defines", () => {
+    const schemaKeys = [
+      "description",
+      "owner",
+      "project",
+      "targetingAllProjects",
+      "targetingProjects",
+      "tags",
+      "neverStale",
+      "customFields",
+      "jsonSchema",
+      "valueType",
+      "baseConfig",
+    ].sort();
+
+    expect(Object.keys(featureMetadataEnvelope(baseFeature)).sort()).toEqual(
+      schemaKeys,
+    );
+  });
+
+  it("carries the feature's targeting scope, which drafts record", () => {
+    const envelope = featureMetadataEnvelope({
+      ...baseFeature,
+      targetingAllProjects: true,
+      targetingProjects: ["p1"],
+    } as FeatureInterface);
+
+    expect(envelope.targetingAllProjects).toBe(true);
+    expect(envelope.targetingProjects).toEqual(["p1"]);
   });
 });
 

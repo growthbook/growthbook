@@ -1093,17 +1093,27 @@ export function getEffectiveRevisionHoldout(
 /**
  * The metadata envelope as the live feature spells it. Revisions store metadata
  * sparsely — absent keys inherit live — so every baseline seeds from this before
- * being diffed, and `createRevision` snapshots the same set. One definition,
- * because a field present in one spelling and absent from another reads as an
- * edit nobody made.
+ * being diffed, and every snapshot writes it. One definition, because a field
+ * present in one spelling and absent from another reads as an edit nobody made.
+ *
+ * `CompleteMetadata` is the point: every key of `RevisionMetadata` is optional,
+ * so without it a field added to the schema could be snapshotted but never
+ * seeded into a baseline, and drafts on features using it would diff against
+ * nothing. Only the keys are compulsory — values may still be undefined.
  */
+type CompleteMetadata = {
+  [K in keyof Required<RevisionMetadata>]: RevisionMetadata[K];
+};
+
 export function featureMetadataEnvelope(
   feature: FeatureInterface,
-): RevisionMetadata {
+): CompleteMetadata {
   return {
     description: feature.description ?? "",
     owner: feature.owner ?? "",
     project: feature.project ?? "",
+    targetingAllProjects: feature.targetingAllProjects,
+    targetingProjects: feature.targetingProjects,
     tags: feature.tags ?? [],
     neverStale: feature.neverStale,
     customFields: feature.customFields,
