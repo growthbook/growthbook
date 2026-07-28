@@ -1,4 +1,5 @@
 import { normalizeProposedChanges } from "shared/enterprise";
+import { isArchiveTransition as isArchiveTransitionPredicate } from "shared/util";
 import type { Permissions, RevisionModel } from "shared/permissions";
 
 /**
@@ -36,6 +37,39 @@ export function canLandArchivedState({
   return archived
     ? permissions.canRevisionAction(model, "delete", entity)
     : permissions.canRevisionAction(model, "publish", entity, environments);
+}
+
+/**
+ * Authority to land a direct write to the entity document. Publish-class, except
+ * where the write is what takes the entity out of service — then it is
+ * delete-class, matching what the archive endpoint would allow in one step.
+ *
+ * Every BaseModel entity's `canUpdate` routes through this, so the model-layer
+ * backstop can't be stricter than the handler that already checked.
+ */
+export function canLandEntityUpdate({
+  permissions,
+  model,
+  existing,
+  newDoc,
+  environments = [],
+}: {
+  permissions: Pick<Permissions, "canRevisionAction">;
+  model: RevisionModel;
+  existing: { archived?: boolean };
+  newDoc: { project?: string; projects?: string[]; archived?: boolean };
+  environments?: string[];
+}): boolean {
+  return canLandArchivedState({
+    permissions,
+    model,
+    entity: newDoc,
+    archived: isArchiveTransitionPredicate({
+      proposed: newDoc.archived,
+      current: existing.archived,
+    }),
+    environments,
+  });
 }
 
 /**

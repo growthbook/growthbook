@@ -13,6 +13,7 @@ import { resolvableValueChanged } from "back-end/src/services/constants";
 import { assertConstantArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import { emitOrDeferBulkPublishEvent } from "back-end/src/events/bulkPublishCorrelation";
+import { canLandEntityUpdate } from "back-end/src/revisions/archiveTransition";
 import {
   logConstantCreatedEvent,
   logConstantUpdatedEvent,
@@ -99,12 +100,13 @@ export class ConstantModel extends BaseClass {
     _updates: UpdateProps<ConstantInterface>,
     newDoc: ConstantInterface,
   ): boolean {
-    return this.context.permissions.canRevisionAction(
-      "constant",
-      "publish",
-      { projects: newDoc.project ? [newDoc.project] : [] },
-      NO_ENVIRONMENT_BINDING,
-    );
+    return canLandEntityUpdate({
+      permissions: this.context.permissions,
+      model: "constant",
+      existing,
+      newDoc,
+      environments: NO_ENVIRONMENT_BINDING,
+    });
   }
 
   protected canDelete(doc: ConstantInterface): boolean {

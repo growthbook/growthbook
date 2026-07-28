@@ -31,6 +31,7 @@ import {
 import { assertConfigArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 import { configToResolvable } from "back-end/src/services/resolvableValues";
 import { emitOrDeferBulkPublishEvent } from "back-end/src/events/bulkPublishCorrelation";
+import { canLandEntityUpdate } from "back-end/src/revisions/archiveTransition";
 import {
   logConfigCreatedEvent,
   logConfigUpdatedEvent,
@@ -82,12 +83,13 @@ export class ConfigModel extends BaseClass {
     _updates: UpdateProps<ConfigInterface>,
     newDoc: ConfigInterface,
   ): boolean {
-    return this.context.permissions.canRevisionAction(
-      "config",
-      "publish",
-      { projects: newDoc.project ? [newDoc.project] : [] },
-      configPublishEnvironments(newDoc),
-    );
+    return canLandEntityUpdate({
+      permissions: this.context.permissions,
+      model: "config",
+      existing,
+      newDoc,
+      environments: configPublishEnvironments(newDoc),
+    });
   }
 
   protected canDelete(doc: ConfigInterface): boolean {

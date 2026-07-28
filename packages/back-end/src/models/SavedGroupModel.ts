@@ -13,6 +13,7 @@ import { savedGroupUpdated } from "back-end/src/services/savedGroups";
 import { emitOrDeferBulkPublishEvent } from "back-end/src/events/bulkPublishCorrelation";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import { overlayDocsById } from "back-end/src/util/scanOverlay.util";
+import { canLandEntityUpdate } from "back-end/src/revisions/archiveTransition";
 import {
   logSavedGroupCreatedEvent,
   logSavedGroupUpdatedEvent,
@@ -74,12 +75,13 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
     _updates: UpdateProps<SavedGroupInterface>,
     newDoc: SavedGroupInterface,
   ): boolean {
-    return this.context.permissions.canRevisionAction(
-      "saved-group",
-      "publish",
+    return canLandEntityUpdate({
+      permissions: this.context.permissions,
+      model: "saved-group",
+      existing,
       newDoc,
-      NO_ENVIRONMENT_BINDING,
-    );
+      environments: NO_ENVIRONMENT_BINDING,
+    });
   }
 
   protected canDelete(doc: SavedGroupInterface): boolean {

@@ -117,6 +117,8 @@ export function buildOrg(orgId: string): OrganizationInterface {
     ],
     settings: {
       environments: ENVS.map((id) => ({ id, description: "" })),
+      // Saved groups reject an attributeKey the org doesn't declare.
+      attributeSchema: [{ property: "userId", datatype: "string" }],
     },
   } as unknown as OrganizationInterface;
 }

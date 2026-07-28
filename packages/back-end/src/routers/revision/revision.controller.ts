@@ -31,37 +31,12 @@ import { isRevisionDiverged } from "back-end/src/revisions/util";
 // by revision.target.type, so adding a new approval type needs no changes here.
 import { getRevisionWebhookAdapter } from "back-end/src/events/revisionWebhookAdapters";
 import {
+  canDoRevisionAction,
   approveRevision,
   publishRevision as publishRevisionAction,
   maybeAutoPublishRevision,
   canEnableAutoPublishOnApproval,
-  RevisionActionKind,
 } from "back-end/src/revisions/revisionActions";
-
-// Model-agnostic dispatch: this controller only has a type string + snapshot, so
-// it routes through the adapter hook. Model-specific callers use
-// context.permissions.canRevisionAction directly.
-//
-// Draft actions gate on draft AUTHORITY, not authorship: anyone who can author
-// drafts may submit, retitle, redescribe or rebase someone else's, so teammates
-// can unblock each other. Authors additionally get their own draft regardless.
-function canDoRevisionAction(
-  type: RevisionTargetType,
-  action: RevisionActionKind,
-  context: ReqContext,
-  snapshot: Record<string, unknown>,
-): boolean {
-  const adapter = getAdapter(type);
-  const fn =
-    action === "draft"
-      ? adapter.canManageDrafts
-      : action === "review"
-        ? adapter.canReview
-        : action === "revert"
-          ? adapter.canRevert
-          : adapter.canPublishRevision;
-  return (fn ?? adapter.canUpdate)(context, snapshot);
-}
 
 // Commenting is participation, not authority over the entity: the addComments
 // atom is what gates it everywhere else (feature and experiment discussions), so

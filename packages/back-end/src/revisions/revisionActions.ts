@@ -38,6 +38,47 @@ import { logger } from "back-end/src/util/logger";
 export type RevisionActionKind = "draft" | "review" | "revert" | "publish";
 
 /**
+ * Authority for one revision action on one entity. The per-action hooks are
+ * optional; an adapter that doesn't split them falls back to `canUpdate`.
+ */
+export function canDoRevisionAction(
+  type: RevisionTargetType,
+  action: RevisionActionKind,
+  context: Context,
+  snapshot: Record<string, unknown>,
+): boolean {
+  const adapter = getAdapter(type);
+  const fn =
+    action === "draft"
+      ? adapter.canManageDrafts
+      : action === "review"
+        ? adapter.canReview
+        : action === "revert"
+          ? adapter.canRevert
+          : adapter.canPublishRevision;
+  return (fn ?? adapter.canUpdate)(context, snapshot);
+}
+
+/**
+ * May this caller touch a revision of this entity at all — the model-layer
+ * backstop behind the controller's per-action gate.
+ *
+ * It is the union of the four actions on purpose. A revision document is
+ * written by drafting, reviewing, reverting and publishing alike, and the model
+ * can't see which one it is; anything narrower would refuse writes the
+ * controller had already allowed.
+ */
+export function canTouchRevision(
+  type: RevisionTargetType,
+  context: Context,
+  snapshot: Record<string, unknown>,
+): boolean {
+  return (["draft", "review", "revert", "publish"] as const).some((action) =>
+    canDoRevisionAction(type, action, context, snapshot),
+  );
+}
+
+/**
  * Publish authority, or revert authority for a revision that only restores a
  * previously-published state. Purity is checked only on the fallback, so
  * publishers are unaffected and pay no extra revision load.

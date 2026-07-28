@@ -12,6 +12,7 @@ import omit from "lodash/omit";
 import { z } from "zod";
 import { isEqual, pick } from "lodash";
 import { evalCondition } from "@growthbook/growthbook";
+import { PermissionError } from "shared/util";
 import { BaseSchemaWithPrimaryKey } from "shared/validators";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
 import { EntityType, EventType } from "shared/types/audit";
@@ -997,7 +998,9 @@ export abstract class BaseModel<
 
     await this.populateForeignRefs([doc]);
     if (!forceCanCreate && !this.canCreate(doc)) {
-      throw new Error("You do not have access to create this resource");
+      throw new PermissionError(
+        "You do not have access to create this resource",
+      );
     }
 
     await this.validateProjectFields(doc);
@@ -1118,7 +1121,9 @@ export abstract class BaseModel<
     await this.populateForeignRefs([newDoc]);
 
     if (!options?.forceCanUpdate && !this.canUpdate(doc, updates, newDoc)) {
-      throw new Error("You do not have access to update this resource");
+      throw new PermissionError(
+        "You do not have access to update this resource",
+      );
     }
 
     await this.validateProjectFields(updates as Partial<z.infer<T>>);
@@ -1241,7 +1246,9 @@ export abstract class BaseModel<
 
   protected async _deleteOne(doc: z.infer<T>, writeOptions?: WriteOptions) {
     if (!this.canDelete(doc)) {
-      throw new Error("You do not have access to delete this resource");
+      throw new PermissionError(
+        "You do not have access to delete this resource",
+      );
     }
 
     if (this.useConfigFile()) {

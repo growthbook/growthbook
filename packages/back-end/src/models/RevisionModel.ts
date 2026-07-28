@@ -20,6 +20,7 @@ import {
 } from "back-end/src/services/armGuards";
 import { getAdapter } from "back-end/src/revisions/index";
 import { ConflictError } from "back-end/src/util/errors";
+import { canTouchRevision } from "back-end/src/revisions/revisionActions";
 import {
   createWithVersionRetry,
   getCollection,
@@ -304,17 +305,18 @@ export class RevisionModel extends BaseClass {
    * for revisions; prefer `createRequest` or `createWithVersionRetry(...)`.
    */
   protected canCreate(doc: Revision): boolean {
-    return getAdapter(doc.target.type).canCreate(
+    return canTouchRevision(
+      doc.target.type,
       this.context,
       doc.target.snapshot as Record<string, unknown>,
     );
   }
 
   /**
-   * Delegate update permission to the underlying target entity via adapter.
-   * The author can always update their own revision; otherwise the user must be
-   * able to edit the target entity (e.g. for reviews). Merged revisions cannot
-   * be updated.
+   * The author can always update their own revision; otherwise they must hold
+   * one of the revision authorities on the target. Merged revisions cannot be
+   * updated. The controller gates the specific action — this only stops a write
+   * from someone with no standing at all.
    */
   protected canUpdate(
     existing: Revision,
@@ -325,7 +327,8 @@ export class RevisionModel extends BaseClass {
 
     if (existing.authorId === this.context.userId) return true;
 
-    return getAdapter(existing.target.type).canUpdate(
+    return canTouchRevision(
+      existing.target.type,
       this.context,
       existing.target.snapshot as Record<string, unknown>,
     );
