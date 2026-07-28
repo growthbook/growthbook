@@ -552,10 +552,12 @@ function migratedColumnSelectExpr(col: MaterializedColumn): string {
 // keys in the same precedence, so both eras resolve (folded rows can't
 // double-resolve: their JSON no longer contains the keys).
 function builtinIdentifierReplaceClause(): string {
+  // nullIf-wrapped so empty strings fall through, matching the plugin's falsy
+  // `||` chain — a JSON `device_id: ""` must not shadow a populated `id`.
   const path = (key: string) =>
-    `${MANAGED_WAREHOUSE_ATTRIBUTES_COLUMN}.${chIdentifier(
+    `nullIf(${MANAGED_WAREHOUSE_ATTRIBUTES_COLUMN}.${chIdentifier(
       key,
-    )}::Nullable(String)`;
+    )}::Nullable(String), '')`;
   return ` REPLACE (
   coalesce(nullIf(user_id, ''), ${path("user_id")}) AS user_id,
   coalesce(nullIf(device_id, ''), ${path("device_id")}, ${path(

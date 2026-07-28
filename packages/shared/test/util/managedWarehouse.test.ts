@@ -277,10 +277,10 @@ describe("buildManagedWarehouseEventsFactTableSql", () => {
   it("falls back to the attributes JSON for the built-in identifier columns", () => {
     const sql = buildManagedWarehouseEventsFactTableSql(defaultSchema);
     expect(sql).toContain(
-      "coalesce(nullIf(user_id, ''), attributes.user_id::Nullable(String)) AS user_id",
+      "coalesce(nullIf(user_id, ''), nullIf(attributes.user_id::Nullable(String), '')) AS user_id",
     );
     expect(sql).toContain(
-      "coalesce(nullIf(device_id, ''), attributes.device_id::Nullable(String), attributes.anonymous_id::Nullable(String), attributes.id::Nullable(String)) AS device_id",
+      "coalesce(nullIf(device_id, ''), nullIf(attributes.device_id::Nullable(String), ''), nullIf(attributes.anonymous_id::Nullable(String), ''), nullIf(attributes.id::Nullable(String), '')) AS device_id",
     );
   });
 
@@ -773,7 +773,7 @@ describe("buildManagedWarehouseAttributeAliasClause", () => {
   it("emits only the built-in fallback when there are no custom identifiers or dimensions", () => {
     expect(builtinOnlyClause).toContain("REPLACE (");
     expect(builtinOnlyClause).toContain(
-      "coalesce(nullIf(user_id, ''), attributes.user_id::Nullable(String)) AS user_id",
+      "coalesce(nullIf(user_id, ''), nullIf(attributes.user_id::Nullable(String), '')) AS user_id",
     );
     // No alias list after the REPLACE.
     expect(builtinOnlyClause.trimEnd().endsWith(")")).toBe(true);
