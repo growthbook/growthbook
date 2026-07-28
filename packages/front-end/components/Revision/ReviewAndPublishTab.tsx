@@ -1064,16 +1064,18 @@ function ReviewAndPublishRevision<T>({
                     Retract review
                   </DropdownMenuItem>
                 )}
-                <DropdownMenuItem
-                  color="red"
-                  disabled={submitting}
-                  onClick={() => {
-                    setActionsDropdownOpen(false);
-                    setConfirmDiscard(true);
-                  }}
-                >
-                  Discard draft
-                </DropdownMenuItem>
+                {canDraftOrEdit && (
+                  <DropdownMenuItem
+                    color="red"
+                    disabled={submitting}
+                    onClick={() => {
+                      setActionsDropdownOpen(false);
+                      setConfirmDiscard(true);
+                    }}
+                  >
+                    Discard draft
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuGroup>
             </DropdownMenu>
           </Box>
@@ -1313,9 +1315,13 @@ function ReviewAndPublishRevision<T>({
                   greyed-out button with no reason reads as a bug. First in the
                   stack: it's the reason nothing else here is actionable. */}
               {!canPublishOrEdit && (
-                <Callout status="info" size="sm">
+                <HelperText
+                  status="warning"
+                  size="sm"
+                  icon={<PiProhibitInset size={13} />}
+                >
                   You don&apos;t have permission to publish this draft.
-                </Callout>
+                </HelperText>
               )}
 
               {/* Entity-level publish lock (e.g. a locked config). */}

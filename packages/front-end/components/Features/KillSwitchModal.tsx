@@ -395,7 +395,19 @@ export default function KillSwitchModal({
       permissionsUtil.canPublishFeature(feature, [env.id]),
   );
 
-  const canAutoPublish = (isAdmin || !envIsGated) && canPublishFlippedEnvs;
+  // Whether the publish route is open at all, judged over every environment on
+  // offer rather than only the ones flipped so far — before the first toggle
+  // that set is empty, and `every` on it is vacuously true, which would offer
+  // "Publish now" to a draft-only user.
+  const canPublishAnyVisibleEnv =
+    visibleEnvs.length > 0 &&
+    visibleEnvs.every((env) =>
+      permissionsUtil.canPublishFeature(feature, [env.id]),
+    );
+  const canAutoPublish =
+    (isAdmin || !envIsGated) &&
+    canPublishFlippedEnvs &&
+    canPublishAnyVisibleEnv;
   // Without draft rights, publishing is the only route — and an approval-gated
   // change closes it, leaving nothing this user can submit.
   const noRouteAvailable = !canDraft && !canAutoPublish;
@@ -422,8 +434,11 @@ export default function KillSwitchModal({
     return getEffectiveState(envId);
   };
 
+  // Flipping a switch commits to nothing: the strategy below decides whether the
+  // change is published or staged. So the switch is open to anyone with either
+  // route, and it's the CTA that enforces which one they actually hold.
   const canToggleEnv = (envId: string) =>
-    permissionsUtil.canPublishFeature(feature, [envId]);
+    canDraft || permissionsUtil.canPublishFeature(feature, [envId]);
 
   const submit = async () => {
     const environments: Record<string, boolean> = {};
@@ -480,6 +495,10 @@ export default function KillSwitchModal({
   const changedEnvs = visibleEnvs.filter(
     (env) => getEffectiveState(env.id) !== !!liveEnvSettings[env.id]?.enabled,
   );
+  // Selected "Publish now" but the flip set includes an environment this user
+  // can't publish. The switch was legitimately theirs to flip; the route isn't.
+  const cannotLandSelectedRoute =
+    mode === "publish" && !noRouteAvailable && !canAutoPublish;
   const modalHeader =
     changedEnvs.length === 1
       ? `${getEffectiveState(changedEnvs[0].id) ? "Enable" : "Disable"} ${changedEnvs[0].id}`
@@ -496,8 +515,23 @@ export default function KillSwitchModal({
       // Without draft rights, publishing is the only route — and an
       // approval-gated change closes it, leaving nothing to submit.
       submit={noRouteAvailable ? undefined : submit}
+      // The switches are open to anyone with either route, so the CTA is where
+      // the chosen route is enforced: publishing environments this user can't
+      // publish is refused here rather than by the server.
+      ctaEnabled={!cannotLandSelectedRoute}
     >
       <div style={{ minHeight: 300 }}>
+        {cannotLandSelectedRoute ? (
+          <HelperText
+            status="warning"
+            size="sm"
+            icon={<PiProhibitInset size={13} />}
+            mb="4"
+          >
+            You don&apos;t have permission to publish every environment you
+            changed. Save it to a draft instead.
+          </HelperText>
+        ) : null}
         {noRouteAvailable ? (
           <HelperText
             status="warning"

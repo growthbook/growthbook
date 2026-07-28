@@ -319,6 +319,19 @@ export const postRampScheduleAction = async (
       .json({ status: 404, message: "Ramp schedule not found" });
   }
 
+  // Every action here changes a rollout that is already serving users, so all of
+  // them take publish authority over the environments the schedule reaches — not
+  // the draft authority that gates editing a schedule's steps in a revision.
+  const linkedFeature = await getFeature(context, schedule.entityId);
+  if (
+    !context.permissions.canPublishFeature(
+      { project: linkedFeature?.project },
+      context.models.rampSchedules.publishEnvironments(schedule),
+    )
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
   let updated: RampScheduleInterface;
 
   switch (req.params.action) {

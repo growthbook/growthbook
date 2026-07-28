@@ -2993,6 +2993,21 @@ function normalizeRuleForDiff(
  * schedule's patch actions (startActions, steps, endActions).  Returns "all"
  * if any patch sets `allEnvironments: true`.
  */
+/**
+ * The publish footprint for a live ramp-schedule action. Pausing, advancing or
+ * rewinding a schedule changes what users are served right now, so it takes
+ * publish authority over the environments the schedule actually touches — "all"
+ * resolves to every environment rather than to an empty list, which would
+ * satisfy the environment check vacuously.
+ */
+export function rampSchedulePublishEnvironments(
+  schedule: Parameters<typeof getEnvsFromRampSchedule>[0],
+  allEnvironments: string[],
+): string[] {
+  const envs = getEnvsFromRampSchedule(schedule);
+  return envs === "all" ? allEnvironments : envs;
+}
+
 export function getEnvsFromRampSchedule(
   schedule: Pick<
     RampScheduleInterface,

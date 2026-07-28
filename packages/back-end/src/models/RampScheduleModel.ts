@@ -1,4 +1,3 @@
-import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import escapeRegExp from "lodash/escapeRegExp";
 import mongoose from "mongoose";
 import { UpdateProps } from "shared/types/base-model";
@@ -11,7 +10,11 @@ import {
   isReadyForApproval,
   rampScheduleValidator,
 } from "shared/validators";
-import { RULE_ID_ENV_SUFFIX_DELIMITER, stemRuleId } from "shared/util";
+import {
+  rampSchedulePublishEnvironments,
+  RULE_ID_ENV_SUFFIX_DELIMITER,
+  stemRuleId,
+} from "shared/util";
 import { rampScheduleApiSpec } from "back-end/src/api/specs/ramp-schedule.spec";
 import {
   appendRampEvent,
@@ -31,6 +34,7 @@ import {
   NotFoundError,
 } from "back-end/src/util/errors";
 import { rampTargetsEquivalent } from "back-end/src/util/flattenRules";
+import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "rampschedules";
@@ -391,19 +395,39 @@ export class RampScheduleModel extends BaseClass {
       project: this.getProject(doc),
     });
   }
+  /**
+   * A schedule is written both by revision-bound edits (draft-class) and by live
+   * state changes — pause, advance, rewind (publish-class). The model can't tell
+   * which, so it takes the union and the action handler gates precisely. Anything
+   * narrower would refuse writes the handler had already allowed.
+   */
   protected canUpdate(
     existing: RampScheduleInterface,
     _updates: UpdateProps<RampScheduleInterface>,
     newDoc: RampScheduleInterface,
   ) {
-    return this.context.permissions.canEditFeatureDrafts({
-      project: this.getProject(newDoc),
-    });
+    const project = this.getProject(newDoc);
+    return (
+      this.context.permissions.canEditFeatureDrafts({ project }) ||
+      this.context.permissions.canPublishFeature(
+        { project },
+        this.publishEnvironments(newDoc),
+      )
+    );
   }
+  // Removing a schedule detaches it from a live rule, so it lands like a publish.
   protected canDelete(existing: RampScheduleInterface) {
-    return this.context.permissions.canDeleteFeature(
+    return this.context.permissions.canPublishFeature(
       { project: this.getProject(existing) },
-      NO_ENVIRONMENT_BINDING,
+      this.publishEnvironments(existing),
+    );
+  }
+
+  /** Environments a live action on this schedule reaches. */
+  public publishEnvironments(doc: RampScheduleInterface): string[] {
+    return rampSchedulePublishEnvironments(
+      doc,
+      getEnvironmentIdsFromOrg(this.context.org),
     );
   }
 

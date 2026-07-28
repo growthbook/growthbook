@@ -953,14 +953,17 @@ export default function EditSavedGroupPage() {
               <DropdownMenuGroup>
                 <DropdownMenuItem
                   disabled={
+                    !canDraft ||
                     !!(metadataReviewRequired && (isMerged || isDiscarded))
                   }
                   tooltip={
-                    metadataReviewRequired && isMerged
-                      ? "You cannot edit a merged revision."
-                      : metadataReviewRequired && isDiscarded
-                        ? "You cannot edit a discarded revision."
-                        : undefined
+                    !canDraft
+                      ? "You don't have permission to edit this saved group."
+                      : metadataReviewRequired && isMerged
+                        ? "You cannot edit a merged revision."
+                        : metadataReviewRequired && isDiscarded
+                          ? "You cannot edit a discarded revision."
+                          : undefined
                   }
                   onClick={() => {
                     setDropdownOpen(false);
@@ -1273,25 +1276,38 @@ export default function EditSavedGroupPage() {
                   </Box>
                   <Flex gap="4" align="center">
                     {selected.size > 0 && (
-                      <Button
-                        variant="ghost"
-                        color="red"
-                        onClick={() => {
-                          setDeleteItemsDraftMode(
-                            !approvalRequired
-                              ? "publish"
-                              : userOpenRevision
-                                ? "existing"
-                                : "new",
-                          );
-                          setDeleteItemsDraftSelectedId(
-                            userOpenRevision?.id ?? null,
-                          );
-                          setDeleteItemsModal(true);
-                        }}
+                      <Tooltip
+                        body={
+                          isMerged
+                            ? "You cannot edit a merged revision."
+                            : isDiscarded
+                              ? "You cannot edit a discarded revision."
+                              : !canDraft
+                                ? "You don't have permission to edit drafts for this Saved Group."
+                                : ""
+                        }
                       >
-                        Delete Selected ({selected.size})
-                      </Button>
+                        <Button
+                          variant="ghost"
+                          color="red"
+                          disabled={!canDraft || !!(isMerged || isDiscarded)}
+                          onClick={() => {
+                            setDeleteItemsDraftMode(
+                              !approvalRequired
+                                ? "publish"
+                                : userOpenRevision
+                                  ? "existing"
+                                  : "new",
+                            );
+                            setDeleteItemsDraftSelectedId(
+                              userOpenRevision?.id ?? null,
+                            );
+                            setDeleteItemsModal(true);
+                          }}
+                        >
+                          Delete Selected ({selected.size})
+                        </Button>
+                      </Tooltip>
                     )}
                     <Tooltip
                       body={

@@ -2871,9 +2871,13 @@ export default function ReviewAndPublish({
                           First in the stack: it's the reason nothing else on
                           this panel is actionable. */}
                       {!hasPublishPermission && (
-                        <Callout status="info" size="sm">
+                        <HelperText
+                          status="warning"
+                          size="sm"
+                          icon={<PiProhibitInset size={13} />}
+                        >
                           You don&apos;t have permission to publish this draft.
-                        </Callout>
+                        </HelperText>
                       )}
 
                       {linkedRamps.map((ramp) => (
