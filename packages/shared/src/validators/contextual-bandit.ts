@@ -5,7 +5,10 @@ import { namedSchema } from "./openapi-helpers";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import { featurePrerequisite, savedGroupTargeting } from "./shared";
 import { contextualLeafClauseValidator } from "./contextual-bandit-event";
-import { contextualBanditTrafficValidator } from "./contextual-bandit-snapshot";
+import {
+  contextualBanditSrmLatestPeriodValidator,
+  contextualBanditTrafficValidator,
+} from "./contextual-bandit-snapshot";
 
 export const variationWeightPairValidator = z.object({
   variationId: z.string(),
@@ -524,18 +527,7 @@ export const getContextualBanditResultsValidator = {
               statistic: z.number(),
               pValue: z.number(),
               degreesOfFreedom: z.number().int().nonnegative(),
-              latestPeriod: z
-                .object({
-                  banditVersion: z.string(),
-                  leaves: z.array(
-                    z.object({
-                      leafId: z.string(),
-                      observed: z.array(z.number()),
-                      expected: z.array(z.number()),
-                    }),
-                  ),
-                })
-                .optional(),
+              latestPeriod: contextualBanditSrmLatestPeriodValidator.optional(),
             })
             .nullable(),
           traffic: contextualBanditTrafficValidator.nullable(),

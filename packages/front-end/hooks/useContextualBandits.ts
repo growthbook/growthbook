@@ -1,4 +1,7 @@
-import { ApiContextualBanditInterface } from "shared/validators";
+import {
+  ApiContextualBanditInterface,
+  ContextualBanditSrmLatestPeriod,
+} from "shared/validators";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
   ExperimentSnapshotTraffic,
@@ -74,10 +77,7 @@ export type ContextualBanditResultsLatest = SnapshotStatusSummary & {
     statistic: number;
     pValue: number;
     degreesOfFreedom: number;
-    latestPeriod?: {
-      banditVersion: string;
-      leaves: { leafId: string; observed: number[]; expected: number[] }[];
-    };
+    latestPeriod?: ContextualBanditSrmLatestPeriod;
   } | null;
   traffic?: ExperimentSnapshotTraffic | null;
 };

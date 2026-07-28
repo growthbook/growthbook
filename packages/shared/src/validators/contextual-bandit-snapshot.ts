@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { ExperimentSnapshotTraffic } from "shared/types/experiment-snapshot";
 import { baseSchema } from "./base-model";
 import { queryPointerValidator } from "./queries";
 
@@ -56,6 +57,36 @@ export const contextualBanditTrafficValidator = z.object({
   error: z.string().optional(),
 });
 
+// Compile-time guard: keep this validator's inferred type in lockstep with the
+// experiment health UI's `ExperimentSnapshotTraffic`.
+type AssertExtends<T extends U, U> = T;
+type _ContextualBanditTrafficMatchesExperiment = AssertExtends<
+  z.infer<typeof contextualBanditTrafficValidator>,
+  ExperimentSnapshotTraffic
+>;
+type _ExperimentTrafficMatchesContextualBandit = AssertExtends<
+  ExperimentSnapshotTraffic,
+  z.infer<typeof contextualBanditTrafficValidator>
+>;
+
+/**
+ * Observed vs. expected units per leaf & variation for a single bandit period.
+ */
+export const contextualBanditSrmLatestPeriodValidator = z.object({
+  banditVersion: z.string(),
+  leaves: z.array(
+    z.object({
+      leafId: z.string(),
+      observed: z.array(z.number()),
+      expected: z.array(z.number()),
+    }),
+  ),
+});
+
+export type ContextualBanditSrmLatestPeriod = z.infer<
+  typeof contextualBanditSrmLatestPeriodValidator
+>;
+
 export const contextualBanditSnapshotValidator = baseSchema
   .extend({
     contextualBandit: z.string(),
@@ -72,20 +103,7 @@ export const contextualBanditSnapshotValidator = baseSchema
         statistic: z.number(),
         pValue: z.number(),
         degreesOfFreedom: z.number().int().nonnegative(),
-        // Illustrative observed vs expected per leaf & variation for the most
-        // recent bandit period only. Does not reconcile to the p-value above.
-        latestPeriod: z
-          .object({
-            banditVersion: z.string(),
-            leaves: z.array(
-              z.object({
-                leafId: z.string(),
-                observed: z.array(z.number()),
-                expected: z.array(z.number()),
-              }),
-            ),
-          })
-          .optional(),
+        latestPeriod: contextualBanditSrmLatestPeriodValidator.optional(),
       })
       .optional(),
     multipleExposures: z.number().optional(),

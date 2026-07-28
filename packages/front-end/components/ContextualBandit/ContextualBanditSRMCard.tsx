@@ -1,15 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { Box } from "@radix-ui/themes";
+import { PiCaretDown, PiCaretRight } from "react-icons/pi";
 import { ExperimentReportVariation } from "shared/types/report";
-import { getSRMHealthData } from "shared/health";
-import {
-  DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION,
-  DEFAULT_SRM_THRESHOLD,
-} from "shared/constants";
-import { useUser } from "@/services/UserContext";
+import { ContextualBanditSrmLatestPeriod } from "shared/validators";
+import { DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION } from "shared/constants";
 import { pValueFormatter } from "@/services/experiments";
 import VariationUsersTable from "@/components/Experiment/TabbedPage/VariationUsersTable";
-import SRMWarning from "@/components/Experiment/SRMWarning";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
 import VariationLabel from "@/ui/VariationLabel";
@@ -21,13 +17,10 @@ import Table, {
   TableRow,
   TableRowHeaderCell,
 } from "@/ui/Table";
-import { StatusBadge } from "@/components/HealthTab/StatusBadge";
-import { IssueValue } from "@/components/HealthTab/IssueTags";
-
-export type ContextualBanditSrmLatestPeriod = {
-  banditVersion: string;
-  leaves: { leafId: string; observed: number[]; expected: number[] }[];
-};
+import SRMCardShell, {
+  SRMWarningFooter,
+  useSrmHealth,
+} from "@/components/HealthTab/SRMCardShell";
 
 interface Props {
   srm: number | null;
@@ -35,7 +28,6 @@ interface Props {
   users: number[];
   totalUsers: number;
   latestPeriod?: ContextualBanditSrmLatestPeriod | null;
-  onNotify?: (issue: IssueValue) => void;
 }
 
 export default function ContextualBanditSRMCard({
@@ -44,29 +36,19 @@ export default function ContextualBanditSRMCard({
   users,
   totalUsers,
   latestPeriod,
-  onNotify,
 }: Props) {
-  const { settings } = useUser();
+  const srmHealth = useSrmHealth({
+    srm: srm ?? Infinity,
+    numOfVariations: variations.length,
+    totalUsersCount: totalUsers,
+    minUsersPerVariation: DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION,
+  });
 
-  const srmThreshold = settings.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
-
-  const srmHealth = useMemo(
-    () =>
-      getSRMHealthData({
-        srm: srm ?? Infinity,
-        srmThreshold,
-        numOfVariations: variations.length,
-        totalUsersCount: totalUsers,
-        minUsersPerVariation: DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION,
-      }),
-    [srm, srmThreshold, variations.length, totalUsers],
-  );
-
+  const isUnhealthy = srmHealth === "unhealthy";
+  const [isCollapsed, setIsCollapsed] = useState(!isUnhealthy);
   useEffect(() => {
-    if (srmHealth === "unhealthy" && onNotify) {
-      onNotify({ label: "Experiment Balance", value: "balanceCheck" });
-    }
-  }, [srmHealth, onNotify]);
+    setIsCollapsed(!isUnhealthy);
+  }, [isUnhealthy]);
 
   if (srm === null) {
     return (
@@ -79,52 +61,57 @@ export default function ContextualBanditSRMCard({
   }
 
   return (
-    <div className="appbox container-fluid my-4 pl-3 py-3">
-      <div className="overflow-auto">
-        <h2 className="d-inline">Balance Check</h2>{" "}
-        {srmHealth !== "healthy" && <StatusBadge status={srmHealth} />}
-        <p className="mt-1">
-          Shows the actual unit split compared to the assigned variation weights
-          for the most recent bandit period, broken down by leaf
-        </p>
-        <hr className="mb-0" />
-        <div style={{ paddingTop: "10px" }}>
-          <div className="w-100 overflow-auto">
-            {latestPeriod && latestPeriod.leaves.length > 0 ? (
-              <LatestPeriodBalanceTable
-                latestPeriod={latestPeriod}
-                variations={variations}
-              />
-            ) : (
-              <VariationUsersTable
-                users={users}
-                variations={variations}
-                srm={srm}
-              />
-            )}
-          </div>
-          <div className="text-muted mx-2 mt-1 mb-2">
-            p-value = {pValueFormatter(srm)}
-          </div>
-          <div>
-            {srmHealth !== "not-enough-traffic" ? (
-              <SRMWarning
-                srm={srm}
-                variations={variations}
-                users={users}
-                showWhenHealthy
-                isBandit
-              />
-            ) : (
-              <Callout status="info">
-                More traffic is required to detect a Sample Ratio Mismatch
-                (SRM).
-              </Callout>
-            )}
-          </div>
+    <SRMCardShell
+      title="Balance Check"
+      description={
+        <>
+          Shows actual unit split compared to the assigned variation weights for
+          the most recent bandit period, grouped by regression tree leaf.
+          <br />
+          p-value below is calculated using all data, not just the most recent
+          bandit period.
+        </>
+      }
+      srmHealth={srmHealth}
+      headerRight={
+        <Button
+          variant="ghost"
+          size="xs"
+          onClick={() => setIsCollapsed((prev) => !prev)}
+        >
+          {isCollapsed ? <PiCaretRight size={15} /> : <PiCaretDown size={15} />}
+        </Button>
+      }
+    >
+      {!isCollapsed && (
+        <div className="w-100 overflow-auto">
+          {latestPeriod && latestPeriod.leaves.length > 0 ? (
+            <LatestPeriodBalanceTable
+              latestPeriod={latestPeriod}
+              variations={variations}
+            />
+          ) : (
+            <VariationUsersTable
+              users={users}
+              variations={variations}
+              srm={srm}
+            />
+          )}
         </div>
+      )}
+      <div className="text-muted mx-2 mt-1 mb-2">
+        p-value = {pValueFormatter(srm)}
       </div>
-    </div>
+      <div>
+        <SRMWarningFooter
+          srm={srm}
+          srmHealth={srmHealth}
+          variations={variations}
+          users={users}
+          isBandit
+        />
+      </div>
+    </SRMCardShell>
   );
 }
 

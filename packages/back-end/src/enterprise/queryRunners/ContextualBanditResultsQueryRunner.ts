@@ -4,6 +4,7 @@ import {
   ContextualBanditInterface,
   ContextualBanditSnapshotInterface,
   ContextualBanditSnapshotSettings,
+  ContextualBanditSrmLatestPeriod,
   queryHasContextualBanditSrmColumns,
 } from "shared/validators";
 import { buildUnitsQuerySettingsFromCb } from "shared/util";
@@ -41,20 +42,14 @@ export type ContextualBanditResultsQueryParams = {
 };
 
 /** Raw observed vs expected units for one leaf, indexed by variation, for a single bandit period. */
-export type ContextualBanditSrmLeafBreakdown = {
-  leafId: string;
-  observed: number[];
-  expected: number[];
-};
+export type ContextualBanditSrmLeafBreakdown =
+  ContextualBanditSrmLatestPeriod["leaves"][number];
 
 export type ContextualBanditSrmResult = {
   statistic: number;
   pValue: number;
   degreesOfFreedom: number;
-  latestPeriod?: {
-    banditVersion: string;
-    leaves: ContextualBanditSrmLeafBreakdown[];
-  };
+  latestPeriod?: ContextualBanditSrmLatestPeriod;
 };
 
 /** The successful output of one CB run. Returned from `runAnalysis`. */
