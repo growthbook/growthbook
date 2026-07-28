@@ -123,8 +123,7 @@ export type AppFeatures = {
   "events-forwarder": boolean;
   "enable-error-tracking": boolean;
   "managed-warehouse-diagnostics": boolean;
-  "managed-warehouse-json-migration": boolean;
-  "managed-warehouse-migration-sweep": boolean;
+  "managed-warehouse-json-ergonomics-sweep": boolean;
   "session-replays": boolean;
   "login-page-content": Record<string, unknown>;
   "slackbot-enabled": boolean;
@@ -140,5 +139,6 @@ export type AppFeatures = {
   "show-switch-to-old-exp-create": boolean;
   "playstation-new-internal-dashboard": boolean;
   tester123: boolean;
+  "definitions-etag-304": boolean;
   "pricing-phase-1-limits": Record<string, unknown>;
 };

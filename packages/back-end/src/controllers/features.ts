@@ -29,9 +29,12 @@ import {
   fillRevisionFromFeature,
   reconcileMergeBaselines,
   getReviewSetting,
+  normalizeTargetingProjects,
+  normalizeTargetingInUpdates,
   namespacesToMap,
   pruneOrphanedRampActions,
   assertSchemaMatchesValueType,
+  getEffectiveRevisionHoldout,
 } from "shared/util";
 import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
 import {
@@ -111,6 +114,7 @@ import { generateId } from "back-end/src/util/uuid";
 import {
   addIdsToFlatRules,
   addIdsToRules,
+  inheritStoredRolloutSeeds,
   assertFeatureDeletable,
   evaluateAllFeatures,
   evaluateFeature,
@@ -125,6 +129,10 @@ import {
   assertCanAutoPublish,
   revisionRequiresReview,
 } from "back-end/src/services/features";
+import {
+  linkExperimentToHoldout,
+  resolveHoldoutExperimentToLink,
+} from "back-end/src/services/holdouts";
 import { assertFeatureArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
@@ -748,6 +756,11 @@ export async function postFeatures(
   if (otherProps.project) {
     await context.models.projects.ensureProjectsExist([otherProps.project]);
   }
+  const createTargetingProjects = (otherProps as Partial<FeatureInterface>)
+    .targetingProjects;
+  if (createTargetingProjects?.length) {
+    await context.models.projects.ensureProjectsExist(createTargetingProjects);
+  }
 
   await validateCustomFieldsForSection({
     customFieldValues: customFields,
@@ -784,6 +797,7 @@ export async function postFeatures(
     holdout: holdout?.id ? holdout : undefined,
     jsonSchema: initialJsonSchema,
   };
+  Object.assign(feature, normalizeTargetingProjects(feature));
 
   const allEnvironments = getEnvironments(org);
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
@@ -2412,6 +2426,20 @@ export async function postFeatureRevert(
       metadataChanges.project = m.project;
       hasMetadataChanges = true;
     }
+    if (
+      m.targetingAllProjects !== undefined &&
+      m.targetingAllProjects !== (feature.targetingAllProjects ?? false)
+    ) {
+      metadataChanges.targetingAllProjects = m.targetingAllProjects;
+      hasMetadataChanges = true;
+    }
+    if (
+      m.targetingProjects !== undefined &&
+      !isEqual(m.targetingProjects, feature.targetingProjects ?? [])
+    ) {
+      metadataChanges.targetingProjects = m.targetingProjects;
+      hasMetadataChanges = true;
+    }
     if (m.tags !== undefined && !isEqual(m.tags, feature.tags ?? [])) {
       metadataChanges.tags = m.tags;
       hasMetadataChanges = true;
@@ -2915,45 +2943,31 @@ export async function postFeatureRule(
     rule.safeRolloutId = generateId("sr_");
   }
 
+  const revision = await getDraftRevision(context, feature, parseInt(version));
+
+  const effectiveHoldout = getEffectiveRevisionHoldout(revision, feature);
+
   // Add holdout to existing experiment and experiment to holdout linkedExperiments
   // if the experiment is not running and has no linked implementations for
   // experiment-ref rules (writes deferred until after custom-hook prevalidation)
   let holdoutExperimentToLink: ExperimentInterface | null = null;
-  if (rule.type === "experiment-ref" && feature.holdout?.id) {
+  if (rule.type === "experiment-ref") {
     const experiment = await getExperimentById(context, rule.experimentId);
-
-    if (experiment?.status !== "draft") {
-      throw new Error(
-        `Cannot add experiment rule: this feature uses a holdout, so the experiment must be in "draft" status (currently "${experiment?.status ?? "unknown"}").`,
-      );
+    // With a holdout in play the experiment must exist; without one, a missing
+    // experiment is left for downstream validation (preserves prior behavior).
+    if (effectiveHoldout?.id && !experiment) {
+      throw new Error(`Could not find experiment "${rule.experimentId}"`);
     }
-    const expHasLinkedChanges =
-      (experiment.linkedFeatures?.length ?? 0) > 0 ||
-      experiment.hasURLRedirects ||
-      experiment.hasVisualChangesets;
-    if (expHasLinkedChanges) {
-      throw new Error(
-        `Cannot add experiment rule: this feature uses a holdout, but the experiment already has linked features, URL redirects, or visual changesets. Unlink them first.`,
-      );
-    }
-    if (experiment.holdoutId && experiment.holdoutId !== feature.holdout.id) {
-      const featureHoldout = await context.models.holdout.getById(
-        feature.holdout.id,
-      );
-      const expHoldout = experiment.holdoutId
-        ? await context.models.holdout.getById(experiment.holdoutId)
-        : null;
-      throw new Error(
-        `Cannot add experiment rule: experiment belongs to holdout "${expHoldout?.name || experiment.holdoutId}" but this feature uses holdout "${featureHoldout?.name || feature.holdout.id}".`,
-      );
-    }
-
-    if (!experiment.holdoutId) {
-      holdoutExperimentToLink = experiment;
+    if (experiment) {
+      holdoutExperimentToLink = await resolveHoldoutExperimentToLink({
+        context,
+        feature,
+        experiment,
+        effectiveHoldout,
+      });
     }
   }
 
-  const revision = await getDraftRevision(context, feature, parseInt(version));
   const resetReview = resetReviewOnChange({
     feature,
     changedEnvironments: selectedEnvironments,
@@ -2961,15 +2975,8 @@ export async function postFeatureRule(
     settings: org?.settings,
   });
 
-  // Assign rule ID if not present
-  if (!rule.id) {
-    rule.id = generateRuleId();
-  }
-  // Rollout rules always carry an explicit seed (= rule.id when user didn't set
-  // one) so monitored and non-monitored steps bucket users identically.
-  if (rule.type === "rollout" && !rule.seed) {
-    rule.seed = rule.id;
-  }
+  // Stamp id + rollout seed via the shared chokepoint (safe-rollout seed set above).
+  addIdsToFlatRules([rule], feature.id);
   let rampActionsUpdate:
     | RevisionRampCreateAction
     | RevisionRampDetachAction
@@ -3046,6 +3053,15 @@ export async function postFeatureRule(
           allEnvironments: true,
         } as FeatureRule)
       : stampRuleForEnvs(rule, selectedEnvironments);
+  // Mirror the env-scope invariant for project scope: an all-projects rule
+  // carries no explicit list, so cleanup can't later empty it into "all".
+  if (stampedRule.allProjects === true) {
+    delete (stampedRule as { projects?: string[] }).projects;
+  }
+  const ruleScopeProjects = (stampedRule as { projects?: string[] }).projects;
+  if (ruleScopeProjects?.length) {
+    await context.models.projects.ensureProjectsExist(ruleScopeProjects);
+  }
   const ruleAdditionChanges = {
     rules: [...existingRules, stampedRule],
   };
@@ -3107,24 +3123,19 @@ export async function postFeatureRule(
     }
   }
 
-  if (holdoutExperimentToLink && feature.holdout?.id) {
-    await updateExperiment({
-      context,
-      experiment: holdoutExperimentToLink,
-      changes: {
-        holdoutId: feature.holdout.id,
-      },
-    });
-    const holdout = await context.models.holdout.getById(feature.holdout.id);
-    await context.models.holdout.updateById(feature.holdout.id, {
-      linkedExperiments: {
-        ...holdout?.linkedExperiments,
-        [holdoutExperimentToLink.id]: {
-          id: holdoutExperimentToLink.id,
-          dateAdded: new Date(),
-        },
-      },
-    });
+  // TODO(holdouts): remove code below (which makes this endpoint consistent with API routes)
+  // and instead only link when the holdout and experiment go live
+  if (holdoutExperimentToLink && effectiveHoldout?.id) {
+    // Link now only when the validated holdout is already live. A draft-only
+    // holdout defers to publish — applyHoldoutSideEffects enrolls the
+    // experiments in the merged rules when the holdout change lands.
+    if (feature.holdout?.id === effectiveHoldout.id) {
+      await linkExperimentToHoldout(
+        context,
+        holdoutExperimentToLink,
+        effectiveHoldout.id,
+      );
+    }
   }
 
   const auditSubject =
@@ -3466,7 +3477,20 @@ export async function postFeatureExperimentRefRule(
     : forceNewDraft
       ? feature.version
       : (draftVersion ?? feature.version);
+
   const revision = await getDraftRevision(context, feature, targetVersion);
+
+  // If posting to a different revision, use the holdout from that revision
+  // to check compatibility
+  const effectiveHoldout = getEffectiveRevisionHoldout(revision, feature);
+
+  const holdoutExperimentToLink = await resolveHoldoutExperimentToLink({
+    context,
+    feature,
+    experiment,
+    effectiveHoldout,
+    allowExistingLinkToThisFeature: true,
+  });
 
   // One-way: any rule-footprint env that's currently off flips on. We never
   // turn envs off here.
@@ -3596,6 +3620,21 @@ export async function postFeatureExperimentRefRule(
     feature.id,
     experiment,
   );
+
+  // TODO(holdouts): remove code below (which makes this endpoint consistent with API routes)
+  // and instead only link when the holdout and experiment go live
+  if (holdoutExperimentToLink && effectiveHoldout?.id) {
+    // Link now only when the validated holdout is already live. A draft-only
+    // holdout defers to publish — applyHoldoutSideEffects enrolls the
+    // experiments in the merged rules when the holdout change lands.
+    if (feature.holdout?.id === effectiveHoldout.id) {
+      await linkExperimentToHoldout(
+        context,
+        holdoutExperimentToLink,
+        effectiveHoldout.id,
+      );
+    }
+  }
 
   res.status(200).json({
     status: 200,
@@ -4300,6 +4339,14 @@ export async function putFeatureRule(
 
   if (!existingRule) throw new Error("Unknown rule");
 
+  // An existing rollout inherits its stored (read-time-pinned) seed so it's
+  // never re-bucketed; a force rule the UI promoted by dropping coverage has no
+  // rollout history, so it seeds off its own id. Id first, so nothing mints one.
+  const inboundRule = rule as FeatureRule;
+  if (!inboundRule.id) inboundRule.id = ruleId;
+  inheritStoredRolloutSeeds([inboundRule], existingRules);
+  addIdsToFlatRules([inboundRule], feature.id);
+
   // Audit/review scope is the rule's own env scope.
   const ruleChangedEnvs: string[] =
     existingRule.allEnvironments || existingRule.environments === undefined
@@ -4435,17 +4482,20 @@ export async function putFeatureRule(
     // "clear" removes any pending ramp action for this rule without adding a new one
   }
 
-  // Drop stale `environments` when merge produces `allEnvironments: true`.
+  // Drop stale `environments`/`projects` when merge produces an all-* scope.
   const { rules: nextRules } = updateRuleById(existingRules, ruleId, (e) => {
-    const merged = {
+    let merged = {
       ...e,
       ...(rule as Partial<FeatureRule>),
     } as FeatureRule;
     if (merged.allEnvironments === true) {
-      return {
+      merged = {
         ...omit(merged, ["environments"]),
         allEnvironments: true,
       } as FeatureRule;
+    }
+    if (merged.allProjects === true) {
+      merged = omit(merged, ["projects"]) as FeatureRule;
     }
     return merged;
   });
@@ -4457,6 +4507,11 @@ export async function putFeatureRule(
   // feature is config-backed JSON.
   const ruleToValidate = nextRules.find((r) => r.id === ruleId);
   if (ruleToValidate) {
+    const ruleScopeProjects = (ruleToValidate as { projects?: string[] })
+      .projects;
+    if (ruleScopeProjects?.length) {
+      await context.models.projects.ensureProjectsExist(ruleScopeProjects);
+    }
     await assertConfigBackedFeatureValuesValid(context, feature, {
       rules: [ruleToValidate],
     });
@@ -5028,8 +5083,13 @@ export async function putFeature(
   if (updates.project && feature.project !== updates.project) {
     await context.models.projects.ensureProjectsExist([updates.project]);
   }
+  if (updates.targetingProjects?.length) {
+    await context.models.projects.ensureProjectsExist(
+      updates.targetingProjects,
+    );
+  }
 
-  // Changing the project can affect SDK payload visibility; require publish permission in both old and new project
+  // Changing the project can affect SDK payload targeting; require publish permission in both old and new project
   if ("project" in updates) {
     if (
       !context.permissions.canPublishFeature(
@@ -5049,6 +5109,8 @@ export async function putFeature(
     "tags",
     "description",
     "project",
+    "targetingAllProjects",
+    "targetingProjects",
     "owner",
     "customFields",
     "holdout",
@@ -5083,6 +5145,8 @@ export async function putFeature(
     "tags",
     "description",
     "project",
+    "targetingAllProjects",
+    "targetingProjects",
     "owner",
     "customFields",
   ];
@@ -5091,6 +5155,7 @@ export async function putFeature(
       metadataKeys.includes(k as keyof FeatureInterface),
     ),
   ) as Partial<FeatureInterface>;
+  normalizeTargetingInUpdates(metadataUpdates, feature);
   const holdoutUpdate = "holdout" in updates ? updates.holdout : undefined;
 
   if (Object.keys(metadataUpdates).length > 0 || holdoutUpdate !== undefined) {
@@ -5108,6 +5173,12 @@ export async function putFeature(
         }),
         ...(metadataUpdates.project !== undefined && {
           project: metadataUpdates.project,
+        }),
+        ...(metadataUpdates.targetingAllProjects !== undefined && {
+          targetingAllProjects: metadataUpdates.targetingAllProjects,
+        }),
+        ...(metadataUpdates.targetingProjects !== undefined && {
+          targetingProjects: metadataUpdates.targetingProjects,
         }),
         ...(metadataUpdates.tags !== undefined && {
           tags: metadataUpdates.tags,
@@ -5132,6 +5203,8 @@ export async function putFeature(
         tags: "tags",
         owner: "owner",
         project: "project",
+        targetingAllProjects: "Targeting Projects",
+        targetingProjects: "Targeting Projects",
         customFields: "custom fields",
         holdout: "holdout",
       };

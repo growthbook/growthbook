@@ -436,7 +436,11 @@ describe("features", () => {
     expect(res.source).toEqual("force");
 
     expect(onExperimentViewed.mock.calls.length).toEqual(1);
-    expect(onExperimentViewed.mock.calls[0]).toEqual([exp, result]);
+    expect(onExperimentViewed.mock.calls[0]).toEqual([
+      exp,
+      result,
+      { attributes: {} },
+    ]);
 
     growthbook.destroy();
   });

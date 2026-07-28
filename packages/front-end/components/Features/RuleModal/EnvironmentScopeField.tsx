@@ -4,7 +4,6 @@ import { Environment } from "shared/types/organization";
 import RadioGroup from "@/ui/RadioGroup";
 import Callout from "@/ui/Callout";
 import MultiSelectField from "@/ui/MultiSelectField";
-import Text from "@/ui/Text";
 
 // Rule-level environment scope editor. Sits under the Description field in
 // every rule-type modal. `selectedEnvironments: []` with `allEnvironments: false`
@@ -69,9 +68,11 @@ export default function RuleEnvironmentScopeField({
   return (
     <Box {...marginProps}>
       {label ? (
-        <Text as="div" weight="semibold" mb="3">
-          {label}
-        </Text>
+        <Box mb="3">
+          <label className="mb-0" style={{ fontWeight: 600 }}>
+            {label}
+          </label>
+        </Box>
       ) : null}
       <RadioGroup
         value={allEnvironments ? "all" : "specific"}

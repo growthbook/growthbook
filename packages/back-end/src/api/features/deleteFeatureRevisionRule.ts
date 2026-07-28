@@ -46,7 +46,7 @@ export const deleteFeatureRevisionRule = createApiRequestHandler(
   // same effective coverage) — looks like success but doesn't change
   // anything the user can observe.
   const orgEnvs = getEnvironments(req.organization);
-  const applicableEnvs = getApplicableEnvIds(orgEnvs, feature.project);
+  const applicableEnvs = getApplicableEnvIds(orgEnvs, feature);
   if (!applicableEnvs.includes(environment)) {
     throw new BadRequestError(
       `Environment "${environment}" is not applicable to this feature's project`,
