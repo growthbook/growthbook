@@ -48,7 +48,27 @@ export type FeatureRule<T = any> = {
     experiment: Experiment<T>;
     result: Result<T>;
   }>;
+  contextualBanditRef?: string;
+  // Contextual bandit rules carry their variations here instead of under
+  // `variations` so that older SDKs (which key off `variations` to detect an
+  // experiment rule) skip the rule entirely rather than mis-bucketing users
+  // into an even split. CB-capable SDKs read this into the experiment.
+  contextualVariations?: T[];
 };
+
+export type ContextualBanditDefinition = {
+  banditVersion?: number;
+  contexts: {
+    leafId: number;
+    condition: Record<string, unknown>;
+    weights: number[];
+  }[];
+};
+
+export type ContextualBanditDefinitions = Record<
+  string,
+  ContextualBanditDefinition
+>;
 
 export interface FeatureDefinition<T = any> {
   defaultValue?: T;
@@ -111,6 +131,7 @@ export type Experiment<T> = {
   minBucketVersion?: number;
   active?: boolean;
   persistQueryString?: boolean;
+  contextualBandit?: CBContext;
   /** @deprecated */
   status?: ExperimentStatus;
   /** @deprecated */
@@ -152,7 +173,16 @@ export interface Result<T> {
   hashValue: string;
   featureId: string | null;
   stickyBucketUsed?: boolean;
+  leafId?: number;
+  variationWeights?: number[];
+  banditVersion?: number;
 }
+
+export type CBContext = {
+  leafId: number;
+  variationWeights: number[];
+  banditVersion?: number;
+};
 
 export type Attributes = Record<string, any>;
 
@@ -276,6 +306,7 @@ export type Options = {
   antiFlickerTimeout?: number;
   applyDomChangesCallback?: ApplyDomChangesCallback;
   savedGroups?: SavedGroupsValues;
+  contextualBandits?: ContextualBanditDefinitions;
   plugins?: Plugin[];
 };
 
@@ -302,6 +333,7 @@ export type ClientOptions = {
   clientKey?: string;
   decryptionKey?: string;
   savedGroups?: SavedGroupsValues;
+  contextualBandits?: ContextualBanditDefinitions;
   plugins?: Plugin[];
 };
 
@@ -313,6 +345,7 @@ export type GlobalContext = {
   enabled?: boolean;
   qaMode?: boolean;
   savedGroups?: SavedGroupsValues;
+  contextualBandits?: ContextualBanditDefinitions;
   forcedVariations?: Record<string, number>;
   forcedFeatureValues?: Map<string, any>;
   trackingCallback?: TrackingCallbackWithUser;
@@ -449,6 +482,8 @@ export type FeatureApiResponse = {
   encryptedExperiments?: string;
   savedGroups?: SavedGroupsValues;
   encryptedSavedGroups?: string;
+  contextualBandits?: ContextualBanditDefinitions;
+  encryptedContextualBandits?: string;
 };
 
 // Alias
