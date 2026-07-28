@@ -156,9 +156,12 @@ export interface Result<T> {
 
 export type Attributes = Record<string, any>;
 
+export type UserContextAttributes = Pick<UserContext, "attributes">;
+
 export interface TrackingData {
   experiment: Experiment<any>;
   result: Result<any>;
+  user?: UserContextAttributes;
 }
 
 export interface TrackingDataWithUser {
@@ -170,6 +173,7 @@ export interface TrackingDataWithUser {
 export type TrackingCallback = (
   experiment: Experiment<any>,
   result: Result<any>,
+  user?: UserContext,
 ) => Promise<void> | void;
 
 export type TrackingCallbackWithUser = (
