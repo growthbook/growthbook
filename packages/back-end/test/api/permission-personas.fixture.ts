@@ -5,10 +5,10 @@ import { ReqContextClass } from "back-end/src/services/context";
 /**
  * The permission model's expected behaviour, as data.
  *
- * The oracle used to live as a table in PERMISSIONS_REFACTOR_NOTES.md, which
- * gets deleted at merge and can't fail when the code disagrees with it. Here it
- * executes: each persona holds exactly the atoms named, and the matrix tests
- * drive real endpoints and diff the result against `EXPECTED`.
+ * The oracle used to live as a prose table, which can't fail when the code
+ * disagrees with it. Here it executes: each persona holds exactly the atoms
+ * named, and the matrix tests drive real endpoints and diff the result against
+ * `EXPECTED`.
  *
  * Every persona also holds `readData` — without it they can't see the entity at
  * all and every case would fail for the wrong reason.
