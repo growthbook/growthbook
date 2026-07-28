@@ -80,6 +80,7 @@ export type CommercialFeature =
   | "ramp-schedules"
   | "scheduled-revisions"
   | "feature-configs"
+  | "releases"
   | "contextual-bandits";
 
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
@@ -278,6 +279,7 @@ const commercialFeaturesEnterpriseOnly: CommercialFeature[] = [
   "contextual-bandits",
   "scheduled-revisions",
   "feature-configs",
+  "releases",
 ];
 
 const commercialFeaturesEnterprise: CommercialFeature[] = [

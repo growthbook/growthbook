@@ -30,7 +30,7 @@ import {
   dataSourceConnections,
   eventSchema,
 } from "@/services/eventSchema";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import Modal from "@/components/Modal";
@@ -609,8 +609,9 @@ const NewDataSourceForm: FC<{
         </div>
         <div className="form-group">
           <label>Description</label>
-          <textarea
-            className="form-control"
+          <Field
+            textarea
+            minRows={1}
             maxLength={MAX_DESCRIPTION_LENGTH}
             name="description"
             onChange={onChange}
@@ -620,6 +621,7 @@ const NewDataSourceForm: FC<{
         {projects?.length > 0 && (
           <div className="form-group">
             <MultiSelectField
+              size="legacy"
               label={
                 <>
                   Projects{" "}
@@ -678,6 +680,7 @@ const NewDataSourceForm: FC<{
           {selectedSchema?.options?.map(({ name, label, type, helpText }) => (
             <div key={name} className="form-group">
               <Field
+                size="legacy"
                 label={label}
                 name={name}
                 value={schemaOptionsForm.watch(name)}

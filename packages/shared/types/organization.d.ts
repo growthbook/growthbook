@@ -75,6 +75,13 @@ export type RequireReview = {
   autopublishOnApproval?: boolean;
 };
 
+// Whether secondary targeting projects impose their own review requirements
+// (strict) or only the primary governs (loose). Most-specific-wins; default strict.
+export type TargetingReviewRule = {
+  projects: string[];
+  mode: "strict" | "loose";
+};
+
 export type OwnerJobTitle = keyof typeof OWNER_JOB_TITLES;
 
 export type UsageIntent = keyof typeof USAGE_INTENTS;
@@ -268,6 +275,8 @@ export interface OrganizationSettings {
   /** @deprecated */
   killswitchConfirmation?: boolean;
   requireReviews?: boolean | RequireReview[];
+  // Project-scoped rules; absent/no-match = strict.
+  targetingReviewMode?: TargetingReviewRule[];
   // Default extensibility for newly authored configs. When true (default),
   // base configs allow child configs / feature rules to add extra keys unless
   // a config explicitly opts out via its own `extensible` flag.

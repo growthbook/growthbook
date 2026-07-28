@@ -153,6 +153,7 @@ function makeResult(
     responses: [
       {
         context: { country: "US" },
+        leafId: 0,
         sampleSizePerVariation: [50, 50],
         sampleMeans: [0.1, 0.2],
         updatedWeights: [0.3, 0.7],
@@ -161,6 +162,7 @@ function makeResult(
       },
       {
         context: { country: "CA" },
+        leafId: 1,
         sampleSizePerVariation: [30, 70],
         sampleMeans: [0.05, 0.07],
         updatedWeights: [0.55, 0.45],
@@ -169,8 +171,20 @@ function makeResult(
       },
     ],
     leaf_map: [
-      { context: { country: "US", device: "mobile" }, leafId: 0 },
-      { context: { country: "CA", device: "desktop" }, leafId: 1 },
+      {
+        leafId: 0,
+        context: [
+          { attribute: "country", levels: ["US"], operator: "in" },
+          { attribute: "device", levels: ["mobile"], operator: "in" },
+        ],
+      },
+      {
+        leafId: 1,
+        context: [
+          { attribute: "country", levels: ["CA"], operator: "in" },
+          { attribute: "device", levels: ["desktop"], operator: "in" },
+        ],
+      },
     ],
     ...overrides,
   };
@@ -579,10 +593,16 @@ describe("getContextualBanditResultsForUi", () => {
       responses: [
         {
           context: { country: "US" },
+          leafId: 0,
           updatedWeights: [0.4, 0.6],
         },
       ],
-      leaf_map: [{ context: { country: "US" }, leafId: 0 }],
+      leaf_map: [
+        {
+          leafId: 0,
+          context: [{ attribute: "country", levels: ["US"], operator: "in" }],
+        },
+      ],
     };
 
     const context = {

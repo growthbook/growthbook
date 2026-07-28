@@ -127,6 +127,7 @@ export default function TrafficCard({
             <div className="col-auto">
               <div className="uppercase-title text-muted">Dimension</div>
               <SelectField
+                size="legacy"
                 containerClassName={"select-dropdown-underline"}
                 initialOption="Over Time"
                 options={availableDimensions}

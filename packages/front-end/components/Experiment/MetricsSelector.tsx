@@ -8,10 +8,11 @@ import {
   quantileMetricType,
 } from "shared/experiments";
 import { Flex } from "@radix-ui/themes";
+import { FactMetricType } from "shared/types/fact-table";
 import { PiInfo } from "react-icons/pi";
 import Text from "@/ui/Text";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import SelectField, {
   GroupedValue,
   SingleValue,
@@ -93,6 +94,7 @@ const MetricsSelector: FC<{
   includeFacts?: boolean;
   includeGroups?: boolean;
   excludeQuantiles?: boolean;
+  allowedFactMetricTypes?: FactMetricType[];
   forceSingleMetric?: boolean;
   noManual?: boolean;
   noLegacyMetrics?: boolean;
@@ -118,6 +120,7 @@ const MetricsSelector: FC<{
   includeFacts,
   includeGroups = true,
   excludeQuantiles,
+  allowedFactMetricTypes,
   forceSingleMetric = false,
   noManual = false,
   noLegacyMetrics = false,
@@ -187,6 +190,12 @@ const MetricsSelector: FC<{
         ? factMetrics
             .filter((m) => {
               if (quantileMetricType(m) && excludeQuantiles) {
+                return false;
+              }
+              if (
+                allowedFactMetricTypes &&
+                !allowedFactMetricTypes.includes(m.metricType)
+              ) {
                 return false;
               }
               if (filterConversionWindowMetrics) {
@@ -271,6 +280,7 @@ const MetricsSelector: FC<{
     includeFacts,
     includeGroups,
     excludeQuantiles,
+    allowedFactMetricTypes,
     filterConversionWindowMetrics,
     getMetricDisabledInfo,
     requireDatasource,
@@ -474,6 +484,7 @@ const MetricsSelector: FC<{
 
   const selector = !forceSingleMetric ? (
     <MultiSelectField
+      size="legacy"
       value={selected}
       onChange={onChange}
       options={multiSelectOptions}
@@ -541,6 +552,7 @@ const MetricsSelector: FC<{
                       </Tooltip>
                     </span>
                     <SelectField
+                      size="legacy"
                       value="choose"
                       placeholder="choose"
                       className="ml-3"
@@ -576,6 +588,7 @@ const MetricsSelector: FC<{
     />
   ) : (
     <SelectField
+      size="legacy"
       key={datasource ?? "__no_datasource__"} // forces selector UI to clear when changing datasource
       value={selected[0]}
       onChange={(m) => onChange([m])}

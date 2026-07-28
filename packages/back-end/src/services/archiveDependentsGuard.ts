@@ -20,6 +20,7 @@ import {
 } from "back-end/src/services/savedGroups";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
 import { getAllExperimentsForStaleGraph } from "back-end/src/models/ExperimentModel";
+import type { PublishGate } from "back-end/src/revisions/publishGates";
 import {
   SoftWarningError,
   TerminalPublishError,
@@ -74,7 +75,9 @@ export async function collectFeatureArchiveDependents(
   context: ReqContext | ApiReqContext,
   featureId: string,
 ): Promise<ArchiveDependents> {
-  const scanContext = getContextForAgendaJobByOrgObject(context.org);
+  const scanContext =
+    context.scanContextOverride ??
+    getContextForAgendaJobByOrgObject(context.org);
   const [dependentFeatureIds, allExperiments] = await Promise.all([
     getFeaturesDependingOnAsPrerequisite(scanContext, featureId),
     // Projected loader (id/status/phases.prerequisites only) — avoids
@@ -107,7 +110,9 @@ export async function collectConstantArchiveDependents(
   context: ReqContext | ApiReqContext,
   constantId: string,
 ): Promise<ArchiveDependents> {
-  const scanContext = getContextForAgendaJobByOrgObject(context.org);
+  const scanContext =
+    context.scanContextOverride ??
+    getContextForAgendaJobByOrgObject(context.org);
   const refs = await loadConstantReferences(scanContext, constantId);
   if (!refs || totalConstantReferences(refs) === 0) return EMPTY_DEPENDENTS;
   const ids = [
@@ -142,7 +147,9 @@ export async function collectConfigArchiveDependents(
     extends?: string[];
   },
 ): Promise<ArchiveDependents> {
-  const scanContext = getContextForAgendaJobByOrgObject(context.org);
+  const scanContext =
+    context.scanContextOverride ??
+    getContextForAgendaJobByOrgObject(context.org);
 
   // Cheap, request-memoized reads first (config reconcile snapshot) so the
   // common harmless case can short-circuit BEFORE the expensive feature scan.
@@ -225,7 +232,9 @@ export async function collectSavedGroupArchiveDependents(
   context: ReqContext | ApiReqContext,
   savedGroupId: string,
 ): Promise<ArchiveDependents> {
-  const scanContext = getContextForAgendaJobByOrgObject(context.org);
+  const scanContext =
+    context.scanContextOverride ??
+    getContextForAgendaJobByOrgObject(context.org);
   const refs = await loadSavedGroupReferences(scanContext, savedGroupId);
   if (!refs || totalSavedGroupReferences(refs) === 0) return EMPTY_DEPENDENTS;
   const ids = [
@@ -511,4 +520,30 @@ export function archiveDependentsGateMessage(
   dependents: ArchiveDependents,
 ): string {
   return archiveMessage(noun, dependents, { elevated: noun === "config" });
+}
+
+// The gate form of the saved-group archive guard, shared by the single-entity
+// publish handler and the bulk publisher. Only the archive transition is
+// guarded, as a soft warning (ignoreWarnings clears it; no elevated permission).
+export async function collectSavedGroupArchiveDependentsGate(
+  context: ReqContext | ApiReqContext,
+  savedGroup: { id: string; archived?: boolean },
+  desiredState: Record<string, unknown>,
+): Promise<PublishGate[]> {
+  if (desiredState.archived !== true || savedGroup.archived) return [];
+  const dependents = await collectSavedGroupArchiveDependents(
+    context,
+    savedGroup.id,
+  );
+  if (!dependents.ids.length) return [];
+  return [
+    {
+      type: "archive-dependents",
+      severity: "warning",
+      messages: [archiveDependentsGateMessage("Saved Group", dependents)],
+      override: "ignoreWarnings",
+      requiresPermission: null,
+      resolution: null,
+    },
+  ];
 }

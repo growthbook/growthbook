@@ -20,6 +20,7 @@ import {
   buildPatchOps,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
+import { collectArchiveApprovalGate } from "back-end/src/revisions/governanceGates";
 import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
 
 async function buildResponse(
@@ -73,27 +74,15 @@ async function setArchivedState(
   // Aggregate every publish gate into one structured 422 (same contract as the
   // revision-publish endpoints). Unlike configs, a constant has no revision pin,
   // so there's no config-locked gate here.
-  const gates: PublishGate[] = [];
-  // Metadata-only, but still gated so it can't bypass a required metadata review.
-  // No draft to approve here, so the resolution routes through a draft revision.
-  if (approvalRequired) {
-    gates.push({
-      type: "approval-required",
-      severity: "blocker",
-      messages: [
-        `This organization requires approval to ${
-          archived ? "archive" : "unarchive"
-        } this constant.`,
-      ],
-      override: null,
-      requiresPermission: "bypassApprovalChecks",
-      resolution: {
-        action: "create-draft",
-        method: "POST",
-        path: `/constants-revisions/${constant.key}`,
-      },
-    });
-  }
+  // Metadata-only, but still gated so it can't bypass a required metadata
+  // review. No draft to approve here, so the resolution routes through a
+  // draft revision.
+  const gates: PublishGate[] = collectArchiveApprovalGate({
+    approvalRequired,
+    archived,
+    noun: "constant",
+    createDraftPath: `/constants-revisions/${constant.key}`,
+  });
   // Soft guards (experiment / locked-dependent / schema-break / archive-dependents)
   // for the archived flip. Archived refs are scrubbed at resolution, so the
   // transition rewrites consumers' values even though the constant's own values

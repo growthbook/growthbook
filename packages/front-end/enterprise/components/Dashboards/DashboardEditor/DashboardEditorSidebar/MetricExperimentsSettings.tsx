@@ -18,7 +18,7 @@ import SidebarExperimentFilters, {
 } from "@/components/Search/SidebarExperimentFilters";
 import MetricSelector from "@/components/Experiment/MetricSelector";
 import SelectField from "@/components/Forms/SelectField";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import { resolveMetricExperimentColumns } from "@/components/MetricExperiments/MetricExperiments";
 import MetricExperimentsColumnSettings from "./MetricExperimentsColumnSettings";
 import BlockDateRangePicker, {
