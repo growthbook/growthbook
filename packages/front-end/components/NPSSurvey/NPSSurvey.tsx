@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
+import { useFeatureIsOn, useFeatureValue } from "@growthbook/growthbook-react";
 import { Flex, IconButton, TextArea } from "@radix-ui/themes";
 import { PiArrowLeft, PiX } from "react-icons/pi";
 import { useForm } from "react-hook-form";
@@ -15,7 +15,10 @@ import styles from "./NPSSurvey.module.scss";
 import {
   type Category,
   categoryOf,
+  inSampledCohort,
+  meetsMinimumTenure,
   npsValue,
+  parseSampleRate,
   withinCooldown,
 } from "./nps.utils";
 
@@ -105,11 +108,23 @@ function CheckMark() {
 }
 
 export default function NPSSurvey() {
-  const flagOn = useFeatureIsOn("nps-survey");
+  // The `nps-survey` feature carries the sample rate (0 = off, 0.05 = 5% of
+  // eligible users per day), so volume is tunable in GrowthBook without a
+  // deploy. Targeting rules on the feature still apply as usual.
+  const sampleRate = parseSampleRate(useFeatureValue("nps-survey", 0));
   const previewFlagOn = useFeatureIsOn("nps-survey-preview");
   const { apiCall } = useAuth();
-  const { npsSurveyAt, updateUser, orgSuspended } = useUser();
+  const { npsSurveyAt, updateUser, orgSuspended, userId, organization } =
+    useUser();
   const suppressed = withinCooldown(npsSurveyAt);
+  // Sample a rotating slice of long-enough-tenured users rather than prompting
+  // everyone at once, which would spike responses and then go quiet.
+  const eligible =
+    meetsMinimumTenure(
+      organization?.dateCreated
+        ? new Date(organization.dateCreated).toISOString()
+        : null,
+    ) && inSampledCohort(userId, sampleRate);
 
   const [visible, setVisible] = useState(false);
   const [forceShow, setForceShow] = useState(false);
@@ -143,7 +158,7 @@ export default function NPSSurvey() {
       return;
     }
     if (
-      !flagOn ||
+      !eligible ||
       !isCloud() ||
       orgSuspended ||
       suppressed ||
@@ -152,7 +167,7 @@ export default function NPSSurvey() {
       return;
     const t = window.setTimeout(() => setVisible(true), SHOW_DELAY);
     return () => window.clearTimeout(t);
-  }, [flagOn, suppressed, forceShow, orgSuspended]);
+  }, [eligible, suppressed, forceShow, orgSuspended]);
 
   // Persist the cross-device suppression signal on the user's account (best-effort).
   // keepalive lets the write survive a tab close, so abandonment suppresses elsewhere too.
