@@ -17,6 +17,7 @@ import uniqid from "uniqid";
 import { LicenseInterface, accountFeatures } from "shared/enterprise";
 import { AgreementType, updateSdkWebhookValidator } from "shared/validators";
 import { entityTypes } from "shared/constants";
+import { AI_PROVIDERS } from "shared/ai";
 import { UpdateSdkWebhookProps } from "shared/types/webhook";
 import { ApiKeyInterface } from "shared/types/apikey";
 import {
@@ -48,6 +49,7 @@ import {
   assertRoleChangeAllowed,
   expandOrgMembers,
   findVerifiedOrgsForNewUser,
+  getAISettingsForOrg,
   getContextFromReq,
   getInviteUrl,
   getMembersOfTeam,
@@ -941,6 +943,12 @@ export async function getOrganization(
     ? getSSOConnectionSummary(req.loginMethod)
     : null;
 
+  // Which providers AI features can actually reach. Returned here so every page
+  // can gate AI affordances off the org's real key state without a second
+  // request; the keys themselves never leave the back end.
+  const { keySource } = await getAISettingsForOrg(context);
+  const aiKeyProviders = AI_PROVIDERS.filter((p) => keySource[p] !== "none");
+
   // Teams were already loaded (unfiltered) by the auth middleware
   const teams = context.teams;
 
@@ -981,6 +989,7 @@ export async function getOrganization(
     installationName: installationName || null,
     subscription: license ? getSubscriptionFromLicense(license) : null,
     agreements: agreementsAgreed || [],
+    aiKeyProviders,
     watching: {
       experiments: watch?.experiments || [],
       features: watch?.features || [],

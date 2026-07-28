@@ -13,6 +13,8 @@ import { usingFileConfig } from "back-end/src/init/config";
 import { ENCRYPTION_KEY, IS_CLOUD } from "back-end/src/util/secrets";
 import { init } from "back-end/src/init";
 import { encryptParams } from "back-end/src/services/datasource";
+import { encryptAIKey } from "back-end/src/services/aiCredentials";
+import { getCollection } from "back-end/src/util/mongo.util";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 
 const [oldEncryptionKey] = process.argv.slice(2);
@@ -61,6 +63,43 @@ async function run() {
     } catch (e) {
       console.log(`- Could not decrypt '${ds.name}' (${ds.id}), skipping`);
     }
+  }
+
+  // Loop through all org-level AI provider keys. These are written through
+  // BaseModel, but re-encryption is a raw field rewrite with no permission or
+  // audit-log meaning, so go straight at the collection instead of building a
+  // context per org.
+  const aiCredentials = getCollection("aicredentials");
+  const allAICredentials = await aiCredentials.find({}).toArray();
+  for (const credential of allAICredentials) {
+    const { organization, provider, encryptedKey } = credential;
+    if (typeof encryptedKey !== "string" || !encryptedKey) continue;
+
+    // AES.decrypt with the wrong key returns an empty string rather than
+    // throwing, so check the value, not just the absence of an exception.
+    const decrypted = AES.decrypt(
+      encryptedKey,
+      oldEncryptionKey || "dev",
+    ).toString(enc.Utf8);
+    if (!decrypted) {
+      console.log(
+        `- Could not decrypt the ${provider} AI key for organization ${organization}, skipping`,
+      );
+      continue;
+    }
+
+    console.log(
+      `- Decrypted the ${provider} AI key for organization ${organization}, re-encrypting with new key and saving...`,
+    );
+    await aiCredentials.updateOne(
+      { organization, provider },
+      {
+        $set: {
+          encryptedKey: encryptAIKey(decrypted),
+          dateUpdated: new Date(),
+        },
+      },
+    );
   }
 }
 run()

@@ -55,7 +55,7 @@ export function generateImageTool(toolCtx: GenerateImageToolContext) {
       const { context } = toolCtx;
       const org = context.org;
       const { visualEditorImageModel, visualEditorAIContext } =
-        getAISettingsForOrg(context, true);
+        await getAISettingsForOrg(context, true);
 
       // Defensive single-image constraint. Even with the tool
       // description telling the model to make one image per call, an

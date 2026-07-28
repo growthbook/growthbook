@@ -90,7 +90,7 @@ export const postAIImageGen = createApiRequestHandler(validation)(async (
   // Text endpoints inherit this check via parsePrompt; image-gen calls
   // the paid provider directly so we have to enforce it ourselves.
   const { visualEditorImageModel, visualEditorAIContext, aiEnabled } =
-    getAISettingsForOrg(context, true);
+    await getAISettingsForOrg(context, true);
   if (!aiEnabled) {
     throw new Error(
       "AI features are disabled for this organization. Enable them in Settings → AI Settings.",

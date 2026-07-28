@@ -34,11 +34,17 @@ export const useAISettings = (): {
   aiAgreedTo: boolean;
   defaultAIModel: string;
 } => {
-  const { settings, agreements } = useUser();
+  const { settings, agreements, aiKeyProviders } = useUser();
+
+  // Self-hosted needs a key from somewhere before AI can do anything.
+  // `aiKeyProviders` counts both the org's own stored keys and the back end's
+  // environment variables — the front-end server's env (hasAnyAIKey) can't see
+  // either reliably, so it is only a fallback for a stale org payload.
+  const hasKey = aiKeyProviders.length > 0 || hasAnyAIKey();
 
   const aiEnabled = isCloud()
     ? !!settings?.aiEnabled && !!agreements?.includes(AGREEMENT_TYPE_AI)
-    : !!(settings?.aiEnabled && hasAnyAIKey());
+    : !!(settings?.aiEnabled && hasKey);
   const aiAgreedTo = isCloud()
     ? !!agreements?.includes(AGREEMENT_TYPE_AI)
     : true;

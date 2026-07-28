@@ -219,7 +219,7 @@ export const postAISuggestions = createApiRequestHandler(validation)(async (
     );
   }
 
-  const { visualEditorAIModel } = getAISettingsForOrg(context, true);
+  const { visualEditorAIModel } = await getAISettingsForOrg(context, true);
 
   const result = await parsePrompt({
     context,

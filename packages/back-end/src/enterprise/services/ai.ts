@@ -22,6 +22,7 @@ import {
 import {
   AIModel,
   AIPromptType,
+  AIProvider,
   getProviderFromModel,
   getProviderFromEmbeddingModel,
   isReasoningModel,
@@ -36,18 +37,45 @@ import {
 } from "back-end/src/models/AITokenUsageModel";
 import { ApiReqContext } from "back-end/types/api";
 import { getAISettingsForOrg } from "back-end/src/services/organizations";
+import {
+  AIKeySource,
+  missingAIKeyMessage,
+} from "back-end/src/services/aiCredentials";
 import { logCloudAIUsage } from "back-end/src/services/licenseServerManagedClickhouse";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 
-export const getAIProviderClass = (
+/**
+ * Whether this org is spending its own provider budget for `model`, i.e. the key
+ * we resolved for the model's provider is one the org stored in GrowthBook
+ * rather than one of the host's environment variables.
+ *
+ * Cloud meters AI usage against a daily token cap because GrowthBook pays for
+ * the managed keys. That rationale disappears when the org brings its own key,
+ * so those requests are exempt from the cap — usage is still reported for
+ * analytics, just not rate limited.
+ */
+const usesOwnAIKey = (
+  keySource: Record<AIProvider, AIKeySource>,
+  model: AIModel,
+): boolean => {
+  try {
+    return keySource[getProviderFromModel(model)] === "organization";
+  } catch {
+    // Unknown model — fall back to metering it.
+    return false;
+  }
+};
+
+export const getAIProviderClass = async (
   context: ReqContext | ApiReqContext,
   model: AIModel,
-):
+): Promise<
   | ReturnType<typeof createAnthropic>
   | ReturnType<typeof createOpenAI>
   | ReturnType<typeof createXai>
   | ReturnType<typeof createMistral>
-  | ReturnType<typeof createGoogleGenerativeAI> => {
+  | ReturnType<typeof createGoogleGenerativeAI>
+> => {
   const {
     aiEnabled,
     openAIAPIKey,
@@ -55,7 +83,7 @@ export const getAIProviderClass = (
     xaiAPIKey,
     mistralAPIKey,
     googleAPIKey,
-  } = getAISettingsForOrg(context, true);
+  } = await getAISettingsForOrg(context, true);
 
   if (!aiEnabled) {
     throw new Error(
@@ -67,35 +95,35 @@ export const getAIProviderClass = (
 
   if (selectedProvider === "anthropic") {
     if (!anthropicAPIKey) {
-      throw new Error("ANTHROPIC_API_KEY is not set.");
+      throw new Error(missingAIKeyMessage("anthropic"));
     }
     return createAnthropic({
       apiKey: anthropicAPIKey,
     });
   } else if (selectedProvider === "xai") {
     if (!xaiAPIKey) {
-      throw new Error("XAI_API_KEY is not set.");
+      throw new Error(missingAIKeyMessage("xai"));
     }
     return createXai({
       apiKey: xaiAPIKey,
     });
   } else if (selectedProvider === "mistral") {
     if (!mistralAPIKey) {
-      throw new Error("MISTRAL_API_KEY is not set.");
+      throw new Error(missingAIKeyMessage("mistral"));
     }
     return createMistral({
       apiKey: mistralAPIKey,
     });
   } else if (selectedProvider === "google") {
     if (!googleAPIKey) {
-      throw new Error("GOOGLE_AI_API_KEY is not set.");
+      throw new Error(missingAIKeyMessage("google"));
     }
     return createGoogleGenerativeAI({
       apiKey: googleAPIKey,
     });
   } else {
     if (!openAIAPIKey) {
-      throw new Error("OPENAI_API_KEY is not set.");
+      throw new Error(missingAIKeyMessage("openai"));
     }
     return createOpenAI({
       apiKey: openAIAPIKey,
@@ -218,11 +246,15 @@ export const simpleCompletion = async ({
   jsonSchema?: ZodObject<ZodRawShape>;
   overrideModel?: AIModel;
 }) => {
-  const { defaultAIModel } = getAISettingsForOrg(context, true);
+  const { defaultAIModel, keySource } = await getAISettingsForOrg(
+    context,
+    true,
+  );
 
   const model = overrideModel || defaultAIModel;
+  const ownKey = usesOwnAIKey(keySource, model);
 
-  const aiProvider = getAIProviderClass(context, model);
+  const aiProvider = await getAIProviderClass(context, model);
 
   if (aiProvider == null) {
     throw new Error("AI provider not enabled or key not set");
@@ -269,10 +301,13 @@ export const simpleCompletion = async ({
   }
 
   if (IS_CLOUD) {
-    if (!numTokensUsed) {
-      numTokensUsed = numTokensFromMessages(messages, model);
+    // Only meter usage against the daily cap when GrowthBook is paying.
+    if (!ownKey) {
+      if (!numTokensUsed) {
+        numTokensUsed = numTokensFromMessages(messages, model);
+      }
+      await updateTokenUsage({ numTokensUsed, organization: context.org });
     }
-    await updateTokenUsage({ numTokensUsed, organization: context.org });
 
     // Fire and forget
     logCloudAIUsage({
@@ -312,9 +347,13 @@ export const streamingChatCompletion = async ({
   maxSteps?: number;
   abortSignal?: AbortSignal;
 }) => {
-  const { defaultAIModel } = getAISettingsForOrg(context, true);
+  const { defaultAIModel, keySource } = await getAISettingsForOrg(
+    context,
+    true,
+  );
   const model = overrideModel || defaultAIModel;
-  const aiProvider = getAIProviderClass(context, model);
+  const ownKey = usesOwnAIKey(keySource, model);
+  const aiProvider = await getAIProviderClass(context, model);
 
   if (aiProvider == null) {
     throw new Error("AI provider not enabled or key not set");
@@ -338,7 +377,8 @@ export const streamingChatCompletion = async ({
     onFinish: async ({ usage }) => {
       if (IS_CLOUD) {
         const numTokensUsed = usage?.totalTokens ?? 0;
-        if (numTokensUsed) {
+        // Only meter usage against the daily cap when GrowthBook is paying.
+        if (numTokensUsed && !ownKey) {
           await updateTokenUsage({ numTokensUsed, organization: context.org });
         }
 
@@ -424,10 +464,14 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   // and how many steps a turn used.
   onStepFinish?: Parameters<typeof generateText>[0]["onStepFinish"];
 }): Promise<z.infer<T>> => {
-  const { defaultAIModel } = getAISettingsForOrg(context, true);
+  const { defaultAIModel, keySource } = await getAISettingsForOrg(
+    context,
+    true,
+  );
   const model = overrideModel || defaultAIModel;
+  const ownKey = usesOwnAIKey(keySource, model);
 
-  const aiProvider = getAIProviderClass(context, model);
+  const aiProvider = await getAIProviderClass(context, model);
 
   if (aiProvider == null) {
     throw new Error("AI provider not enabled or key not set");
@@ -569,8 +613,9 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
         "parsePrompt: model returned no usable output after retry; giving up",
       );
       // Bill both failed attempts before surfacing the error so Cloud
-      // rate-limiting doesn't under-count a double failure.
-      if (IS_CLOUD && retriedTokens > 0) {
+      // rate-limiting doesn't under-count a double failure. Orgs on their own
+      // key aren't rate limited, so there is nothing to bill.
+      if (IS_CLOUD && !ownKey && retriedTokens > 0) {
         await updateTokenUsage({
           numTokensUsed: retriedTokens,
           organization: context.org,
@@ -604,10 +649,13 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
       usedDefaultPrompt: isDefaultPrompt,
     });
 
-    const numTokensUsed =
-      (response.usage?.totalTokens ?? numTokensFromMessages(messages, model)) +
-      retriedTokens;
-    await updateTokenUsage({ numTokensUsed, organization: context.org });
+    // Only meter usage against the daily cap when GrowthBook is paying.
+    if (!ownKey) {
+      const numTokensUsed =
+        (response.usage?.totalTokens ??
+          numTokensFromMessages(messages, model)) + retriedTokens;
+      await updateTokenUsage({ numTokensUsed, organization: context.org });
+    }
   }
 
   if (!response.output) {
@@ -639,7 +687,7 @@ export async function generateEmbeddings({
     mistralAPIKey,
     googleAPIKey,
     embeddingModel,
-  } = getAISettingsForOrg(context, true);
+  } = await getAISettingsForOrg(context, true);
 
   if (!aiEnabled) {
     throw new Error("AI features are not enabled");

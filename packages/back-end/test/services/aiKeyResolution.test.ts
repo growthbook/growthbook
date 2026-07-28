@@ -1,0 +1,182 @@
+import { AICredentialInterface } from "shared/validators";
+import { AIProvider } from "shared/ai";
+
+// Env vars are captured at module load in util/secrets, so they have to be set
+// before the module graph is required. Each test builds its own module instance
+// via jest.isolateModules to get a clean env AND a clean per-request cache.
+type AICredentialsModule = typeof import("back-end/src/services/aiCredentials");
+
+const loadModule = (env: Record<string, string>): AICredentialsModule => {
+  let mod: AICredentialsModule | undefined;
+  jest.isolateModules(() => {
+    const previous = { ...process.env };
+    Object.assign(process.env, env);
+    mod = jest.requireActual<AICredentialsModule>(
+      "back-end/src/services/aiCredentials",
+    );
+    process.env = previous;
+  });
+  if (!mod) throw new Error("Could not load aiCredentials module");
+  return mod;
+};
+
+const credential = (
+  provider: AIProvider,
+  encryptedKey: string,
+): AICredentialInterface => ({
+  organization: "org_1",
+  provider,
+  encryptedKey,
+  last4: "1234",
+  updatedByEmail: "admin@example.com",
+  dateCreated: new Date(),
+  dateUpdated: new Date(),
+});
+
+// Minimal stand-in for ReqContext. getResolvedAIKeys only touches
+// context.models.aiCredentials.getAll(), and the WeakMap cache keys off object
+// identity, so a plain object is a faithful stub.
+const makeContext = (credentials: AICredentialInterface[]) => {
+  const getAll = jest.fn().mockResolvedValue(credentials);
+  return {
+    context: { models: { aiCredentials: { getAll } } },
+    getAll,
+  };
+};
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const resolve = (mod: AICredentialsModule, context: any) =>
+  mod.getResolvedAIKeys(context);
+
+describe("getResolvedAIKeys", () => {
+  it("prefers an org-stored key over the environment variable", async () => {
+    const mod = loadModule({ ANTHROPIC_API_KEY: "env-anthropic" });
+    const { context } = makeContext([
+      credential("anthropic", mod.encryptAIKey("org-anthropic")),
+    ]);
+
+    const keys = await resolve(mod, context);
+
+    expect(keys.anthropic).toEqual({
+      key: "org-anthropic",
+      source: "organization",
+    });
+  });
+
+  it("falls back to the environment variable when nothing is stored", async () => {
+    const mod = loadModule({ OPENAI_API_KEY: "env-openai" });
+    const { context } = makeContext([]);
+
+    const keys = await resolve(mod, context);
+
+    expect(keys.openai).toEqual({ key: "env-openai", source: "env" });
+  });
+
+  it("reports no key when neither source has one", async () => {
+    const mod = loadModule({});
+    const { context } = makeContext([]);
+
+    const keys = await resolve(mod, context);
+
+    expect(keys.mistral).toEqual({ key: "", source: "none" });
+  });
+
+  it("resolves each provider independently", async () => {
+    const mod = loadModule({ OPENAI_API_KEY: "env-openai" });
+    const { context } = makeContext([
+      credential("google", mod.encryptAIKey("org-google")),
+    ]);
+
+    const keys = await resolve(mod, context);
+
+    expect(keys.google.source).toBe("organization");
+    expect(keys.openai.source).toBe("env");
+    expect(keys.xai.source).toBe("none");
+  });
+
+  it("keeps the env fallback when a stored key cannot be decrypted", async () => {
+    // ENCRYPTION_KEY changed without running the migration script, so the
+    // stored ciphertext decrypts to "". Handing an empty key to the provider
+    // would surface as an opaque 401, so the env key must survive instead.
+    const mod = loadModule({ ANTHROPIC_API_KEY: "env-anthropic" });
+    const { context } = makeContext([
+      credential("anthropic", "garbage-not-decryptable"),
+    ]);
+
+    const keys = await resolve(mod, context);
+
+    expect(keys.anthropic).toEqual({ key: "env-anthropic", source: "env" });
+  });
+
+  it("falls back to env keys when the credential query fails", async () => {
+    const mod = loadModule({ OPENAI_API_KEY: "env-openai" });
+    const getAll = jest.fn().mockRejectedValue(new Error("mongo is down"));
+    const context = { models: { aiCredentials: { getAll } } };
+
+    const keys = await resolve(mod, context);
+
+    expect(keys.openai).toEqual({ key: "env-openai", source: "env" });
+  });
+
+  it("queries once per request no matter how many callers ask", async () => {
+    const mod = loadModule({});
+    const { context, getAll } = makeContext([]);
+
+    await Promise.all([
+      resolve(mod, context),
+      resolve(mod, context),
+      resolve(mod, context),
+    ]);
+    await resolve(mod, context);
+
+    expect(getAll).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not share cached keys between two contexts", async () => {
+    const mod = loadModule({});
+    const first = makeContext([
+      credential("openai", mod.encryptAIKey("first-org-key")),
+    ]);
+    const second = makeContext([
+      credential("openai", mod.encryptAIKey("second-org-key")),
+    ]);
+
+    expect((await resolve(mod, first.context)).openai.key).toBe(
+      "first-org-key",
+    );
+    expect((await resolve(mod, second.context)).openai.key).toBe(
+      "second-org-key",
+    );
+  });
+
+  it("re-reads after the cache is cleared", async () => {
+    const mod = loadModule({});
+    const { context, getAll } = makeContext([]);
+
+    await resolve(mod, context);
+    mod.clearResolvedAIKeysCache(context as never);
+    await resolve(mod, context);
+
+    expect(getAll).toHaveBeenCalledTimes(2);
+  });
+
+  it("treats GOOGLE_AI_API_KEY as preferred over the legacy GEMINI_API_KEY", async () => {
+    const mod = loadModule({
+      GOOGLE_AI_API_KEY: "preferred",
+      GEMINI_API_KEY: "legacy",
+    });
+    const { context } = makeContext([]);
+
+    expect((await resolve(mod, context)).google.key).toBe("preferred");
+  });
+
+  it("still accepts the legacy GEMINI_API_KEY on its own", async () => {
+    const mod = loadModule({ GEMINI_API_KEY: "legacy" });
+    const { context } = makeContext([]);
+
+    expect((await resolve(mod, context)).google).toEqual({
+      key: "legacy",
+      source: "env",
+    });
+  });
+});

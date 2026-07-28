@@ -324,7 +324,17 @@ if ((prod || !IS_LOCALHOST) && secretAPIKey === "dev") {
 }
 export const SECRET_API_KEY = secretAPIKey;
 
+// Provider API keys used as the FALLBACK for AI features. An org-level key
+// stored in Mongo (see services/aiCredentials.ts) always takes precedence over
+// these — they exist so a self-hosted install can be configured entirely from
+// the environment, with no per-org setup.
+export const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
+export const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || "";
+export const XAI_API_KEY = process.env.XAI_API_KEY || "";
+export const MISTRAL_API_KEY = process.env.MISTRAL_API_KEY || "";
+export const GOOGLE_AI_API_KEY = process.env.GOOGLE_AI_API_KEY || "";
 // Gemini (Google AI Studio) — used by the visual editor's image-gen endpoint.
+// GEMINI_API_KEY is the legacy name for GOOGLE_AI_API_KEY.
 export const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 // Pin a specific model ID — if your key returns 404, hit
 // /v1beta/models to find an ID your account has access to and override.

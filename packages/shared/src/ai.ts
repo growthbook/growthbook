@@ -1,7 +1,81 @@
 import { parseOptionalInt } from "./util/numbers";
 
-// AI Provider types and configurations
-export type AIProvider = "openai" | "anthropic" | "xai" | "mistral" | "google";
+// AI Provider types and configurations.
+// Declared as a const tuple (not a bare union) so it can be fed straight to
+// `z.enum()` and iterated in the UI without a second hand-maintained list.
+export const AI_PROVIDERS = [
+  "openai",
+  "anthropic",
+  "google",
+  "xai",
+  "mistral",
+] as const;
+export type AIProvider = (typeof AI_PROVIDERS)[number];
+
+// Per-provider display + configuration metadata, shared by the settings UI
+// (labels, logos, input hints) and the back end (error messages that name the
+// right env var). Single source of truth — these strings used to be duplicated
+// as local maps inside AISettings.tsx.
+export const AI_PROVIDER_META: Record<
+  AIProvider,
+  {
+    label: string;
+    // Env var read as the fallback when the org has no key stored in the DB.
+    envVar: string;
+    // Any additional env vars accepted for backwards compatibility.
+    legacyEnvVars?: string[];
+    // Shown as the API key input's placeholder. Not validated against — key
+    // formats change, and a stale regex would lock users out of a valid key.
+    keyPlaceholder: string;
+    // Where a user goes to create a key for this provider.
+    consoleUrl: string;
+    // Drives the provider badge in Settings. Chosen to stay legible on both
+    // the light and dark app themes.
+    brandColor: string;
+    // Optional path to a real logo under front-end/public. When set, the badge
+    // renders the image instead of the initial — drop an official SVG in and
+    // point this at it. Left unset deliberately: GrowthBook does not ship
+    // third-party AI brand marks.
+    logo?: string;
+  }
+> = {
+  openai: {
+    label: "OpenAI",
+    envVar: "OPENAI_API_KEY",
+    keyPlaceholder: "sk-...",
+    consoleUrl: "https://platform.openai.com/api-keys",
+    brandColor: "#10A37F",
+  },
+  anthropic: {
+    label: "Anthropic",
+    envVar: "ANTHROPIC_API_KEY",
+    keyPlaceholder: "sk-ant-...",
+    consoleUrl: "https://console.anthropic.com/settings/keys",
+    brandColor: "#D97757",
+  },
+  google: {
+    label: "Google",
+    envVar: "GOOGLE_AI_API_KEY",
+    legacyEnvVars: ["GEMINI_API_KEY"],
+    keyPlaceholder: "AIza...",
+    consoleUrl: "https://aistudio.google.com/apikey",
+    brandColor: "#4285F4",
+  },
+  xai: {
+    label: "xAI",
+    envVar: "XAI_API_KEY",
+    keyPlaceholder: "xai-...",
+    consoleUrl: "https://console.x.ai",
+    brandColor: "#6B7280",
+  },
+  mistral: {
+    label: "Mistral",
+    envVar: "MISTRAL_API_KEY",
+    keyPlaceholder: "...",
+    consoleUrl: "https://console.mistral.ai/api-keys",
+    brandColor: "#FA500F",
+  },
+};
 
 // Available text generation models for each provider
 export const AI_PROVIDER_MODEL_MAP = {

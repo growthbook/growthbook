@@ -49,6 +49,7 @@ export * from "./feature-webhook-schemas";
 export * from "./watch";
 export * from "./apikey";
 export * from "./figma-connection";
+export * from "./ai-credential";
 export * from "./events";
 export * from "./experiment-decision";
 export * from "./experiment-info";

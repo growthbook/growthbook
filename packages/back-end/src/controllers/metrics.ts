@@ -745,7 +745,7 @@ export const getGeneratedDescription = async (
 ) => {
   const context = getContextFromReq(req);
   const { id } = req.params;
-  const { aiEnabled } = getAISettingsForOrg(context);
+  const { aiEnabled } = await getAISettingsForOrg(context);
 
   if (!aiEnabled) {
     return res.status(404).json({
@@ -1034,7 +1034,7 @@ export async function postSimilarMetrics(
 ) {
   const context = getContextFromReq(req);
   const { name, description, full } = req.body;
-  const { aiEnabled } = getAISettingsForOrg(context);
+  const { aiEnabled } = await getAISettingsForOrg(context);
 
   if (!aiEnabled) {
     return res.status(404).json({
@@ -1145,7 +1145,7 @@ export async function postRegenerateEmbeddings(
 ) {
   const context = getContextFromReq(req);
 
-  const { aiEnabled } = getAISettingsForOrg(context);
+  const { aiEnabled } = await getAISettingsForOrg(context);
 
   if (!aiEnabled) {
     return res.status(404).json({

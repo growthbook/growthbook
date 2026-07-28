@@ -294,7 +294,7 @@ export async function postGenerateSQL(
   const { input, datasourceId, temperature: reqTemperature } = req.body;
   const temperature = reqTemperature ?? 0.1;
   const context = getContextFromReq(req);
-  const { aiEnabled } = getAISettingsForOrg(context);
+  const { aiEnabled } = await getAISettingsForOrg(context);
 
   if (!orgHasPremiumFeature(context.org, "ai-suggestions")) {
     context.throwPlanDoesNotAllowError(

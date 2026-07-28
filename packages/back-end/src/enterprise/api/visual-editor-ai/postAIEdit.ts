@@ -644,10 +644,8 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
   // visualEditorAIContext is the free-text brand guidelines admins set in
   // Settings → AI Settings. Appended to the system prompt (not the user
   // message) so the LLM treats it as instructions, not ignorable input.
-  const { visualEditorAIModel, visualEditorAIContext } = getAISettingsForOrg(
-    context,
-    true,
-  );
+  const { visualEditorAIModel, visualEditorAIContext } =
+    await getAISettingsForOrg(context, true);
   let effectiveInstructions = visualEditorAIContext
     ? `${instructions}\n\nAdditional brand guidelines / context provided by the organization (these MUST be respected unless they conflict with the JSON output schema):\n${visualEditorAIContext}`
     : instructions;

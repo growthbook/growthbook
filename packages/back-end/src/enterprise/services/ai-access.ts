@@ -25,7 +25,7 @@ export async function runAccessGates(
     return false;
   }
 
-  const { aiEnabled } = getAISettingsForOrg(context);
+  const { aiEnabled, keySource } = await getAISettingsForOrg(context);
   if (!aiEnabled) {
     res.status(404).json({
       status: 404,
@@ -34,14 +34,21 @@ export async function runAccessGates(
     return false;
   }
 
-  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context.org);
-  if (secondsUntilReset > 0) {
-    res.status(429).json({
-      status: 429,
-      message: "Over AI usage limits",
-      retryAfter: secondsUntilReset,
-    });
-    return false;
+  // The Cloud usage cap exists because GrowthBook pays for the managed keys.
+  // An org on its own key pays its own provider bill, so skip the cap. This
+  // gate runs before the model is known, so any org-owned key exempts the
+  // request; the per-call metering in services/ai.ts is provider-exact.
+  const usesOwnKey = Object.values(keySource).some((s) => s === "organization");
+  if (!usesOwnKey) {
+    const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context.org);
+    if (secondsUntilReset > 0) {
+      res.status(429).json({
+        status: 429,
+        message: "Over AI usage limits",
+        retryAfter: secondsUntilReset,
+      });
+      return false;
+    }
   }
 
   return true;

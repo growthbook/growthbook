@@ -245,7 +245,7 @@ export async function postAIExperimentAnalysis(
       message: "Experiment not found",
     });
   }
-  const { aiEnabled } = getAISettingsForOrg(context);
+  const { aiEnabled } = await getAISettingsForOrg(context);
 
   if (!aiEnabled) {
     return res.status(404).json({
@@ -439,7 +439,7 @@ export async function postSimilarExperiments(
 ) {
   const context = getContextFromReq(req);
   const { hypothesis, name, description, project, full } = req.body;
-  const { aiEnabled } = getAISettingsForOrg(context);
+  const { aiEnabled } = await getAISettingsForOrg(context);
 
   if (!aiEnabled) {
     return res.status(404).json({
@@ -579,7 +579,7 @@ export async function postRegenerateEmbeddings(
   const context = getContextFromReq(req);
   const project =
     typeof req.query?.project === "string" ? req.query.project : "";
-  const { aiEnabled } = getAISettingsForOrg(context);
+  const { aiEnabled } = await getAISettingsForOrg(context);
 
   if (!aiEnabled) {
     return res.status(404).json({
@@ -1474,7 +1474,7 @@ export async function postExperiment(
   } = req.body;
 
   const experiment = await getExperimentById(context, id);
-  const aiSettings = getAISettingsForOrg(context);
+  const aiSettings = await getAISettingsForOrg(context);
 
   if (!experiment) {
     res.status(403).json({

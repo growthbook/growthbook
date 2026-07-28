@@ -216,7 +216,7 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
       ? storedModel
       : storedModel || body.model || dbOverrideModel;
 
-    const { defaultAIModel } = getAISettingsForOrg(context, false);
+    const { defaultAIModel } = await getAISettingsForOrg(context, false);
     const resolvedModel = overrideModel || defaultAIModel;
     buffer.setModel(resolvedModel);
 

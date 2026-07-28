@@ -270,7 +270,7 @@ export const postFigmaToVariant = createApiRequestHandler(validation)(async (
     );
   }
 
-  const settings = getAISettingsForOrg(context, true);
+  const settings = await getAISettingsForOrg(context, true);
   if (!settings.aiEnabled) {
     throw new Error(
       "AI features are disabled for this organization. Enable them in Settings → AI Settings.",
