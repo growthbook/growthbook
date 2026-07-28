@@ -3,14 +3,10 @@ import type { Request } from "express";
 import type { OrganizationInterface } from "shared/types/organization";
 import { ReqContextClass } from "back-end/src/services/context";
 import { runInSandbox } from "back-end/src/enterprise/sandbox/sandbox-pool";
-import {
-  createInitialRevision,
-  createRevision,
-} from "back-end/src/models/FeatureRevisionModel";
+import { createInitialRevision } from "back-end/src/models/FeatureRevisionModel";
 import {
   createAndPublishRevision,
   getFeature,
-  prevalidatePublishImmediate,
 } from "back-end/src/models/FeatureModel";
 import { setupApp } from "../api.setup";
 
@@ -132,25 +128,44 @@ describe("publish-immediately custom hooks", () => {
     return { context, feature };
   }
 
-  it("prevalidates against the actual next revision version", async () => {
+  it("revalidates a concurrent version retry before inserting", async () => {
     const { context, feature } = await setup(["important"]);
-    await createRevision({
-      context,
-      feature,
-      user: context.auditUser,
-      environments: ["production", "dev"],
-      baseVersion: feature.version,
-      changes: { metadata: { tags: ["important", "draft"] } },
-      publish: false,
-      org: ORG,
-    });
     await seedHook("validateFeature");
+    let insertedConcurrentDraft = false;
 
     mockRunInSandbox.mockImplementation(async (_code, args) => {
       const hookArgs = args as {
         feature?: { version?: number };
         revision?: unknown;
       };
+      if (
+        hookArgs.revision === undefined &&
+        hookArgs.feature?.version === 2 &&
+        !insertedConcurrentDraft
+      ) {
+        insertedConcurrentDraft = true;
+        const now = new Date();
+        await mongoose.connection.collection("featurerevisions").insertOne({
+          organization: ORG.id,
+          featureId: FEATURE_ID,
+          version: 2,
+          dateCreated: now,
+          dateUpdated: now,
+          datePublished: null,
+          createdBy: context.auditUser,
+          baseVersion: 1,
+          status: "draft",
+          publishedBy: null,
+          comment: "concurrent draft",
+          defaultValue: "false",
+          rules: [],
+          environmentsEnabled: { production: true, dev: false },
+          prerequisites: [],
+          archived: false,
+          metadata: { tags: ["important", "concurrent"] },
+          holdout: null,
+        });
+      }
       if (hookArgs.revision === undefined && hookArgs.feature?.version === 3) {
         return { ok: false, error: "version 3 rejected", warnings: [] };
       }
@@ -170,6 +185,7 @@ describe("publish-immediately custom hooks", () => {
     ).rejects.toThrow("version 3 rejected");
 
     expect(await countRevisions()).toBe(2);
+    expect((await findRevision(2)) ?? null).not.toBeNull();
     expect((await findRevision(3)) ?? null).toBeNull();
   });
 
@@ -190,11 +206,14 @@ describe("publish-immediately custom hooks", () => {
     });
 
     await expect(
-      prevalidatePublishImmediate({
+      createAndPublishRevision({
         context,
         feature,
+        user: context.auditUser,
+        org: ORG,
         changes: { metadata: { tags: [] } },
         comment: "remove tag",
+        canBypassApprovalChecks: true,
       }),
     ).rejects.toThrow("published rejected");
 

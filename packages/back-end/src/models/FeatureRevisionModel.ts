@@ -1062,10 +1062,12 @@ export async function createRevision({
   title,
   org,
   canBypassApprovalChecks,
+  preInsertValidation,
 }: PrepareFeatureRevisionParams & {
   publish?: boolean;
   org: OrganizationInterface;
   canBypassApprovalChecks?: boolean;
+  preInsertValidation?: (revision: FeatureRevisionInterface) => Promise<void>;
 }) {
   const prepared = await prepareFeatureRevision({
     context,
@@ -1096,15 +1098,14 @@ export async function createRevision({
     revision.status = "pending-review";
   }
 
-  // Validation hooks (no-op on cloud; custom user code on self-hosted) MUST
-  // run exactly once — keep them outside the retry loop so a duplicate-key
-  // race never causes a hook to fire twice.
-  await runValidateFeatureRevisionHooks({
-    context,
-    feature,
-    revision,
-    original: baseRevision,
-  });
+  if (!preInsertValidation) {
+    await runValidateFeatureRevisionHooks({
+      context,
+      feature,
+      revision,
+      original: baseRevision,
+    });
+  }
 
   // Retry the insert on duplicate-key collisions from the
   // (organization, featureId, version) unique index. The first attempt uses
@@ -1118,6 +1119,15 @@ export async function createRevision({
       revision.version = latest ? latest.version + 1 : 1;
     }
     firstAttempt = false;
+    if (preInsertValidation) {
+      await runValidateFeatureRevisionHooks({
+        context,
+        feature,
+        revision,
+        original: baseRevision,
+      });
+      await preInsertValidation(revision);
+    }
     return FeatureRevisionModel.create(revision);
   });
 

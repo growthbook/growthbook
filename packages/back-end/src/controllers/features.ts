@@ -102,7 +102,6 @@ import {
   getFeatureEnvStatus,
   hasArchivedFeatures,
   migrateDraft,
-  prevalidatePublishImmediate,
   prevalidatePublishRevision,
   publishRevision,
   setDefaultValue,
@@ -285,6 +284,7 @@ async function createOrUpdateDraftWithChanges(
   targetDraftVersion?: number,
   forceNewDraft?: boolean,
   autoComment?: string,
+  preInsertValidation?: (revision: FeatureRevisionInterface) => Promise<void>,
 ): Promise<FeatureRevisionInterface> {
   const { org } = context;
   const environments = getEnvironmentIdsFromOrg(context.org);
@@ -355,6 +355,7 @@ async function createOrUpdateDraftWithChanges(
     publish: false,
     comment: autoComment || "",
     org,
+    preInsertValidation,
   });
   return newRevision;
 }
@@ -5213,15 +5214,6 @@ export async function putFeature(
         ? `Update ${metadataFieldLabels[changedKeys[0]] ?? changedKeys[0]}`
         : "Update feature"
       : undefined;
-    // Publish-immediately: validate before writing the draft so a hook rejection can't orphan it.
-    if (autoPublish) {
-      await prevalidatePublishImmediate({
-        context,
-        feature,
-        changes: envelopeChanges as Partial<FeatureRevisionInterface>,
-        comment: draftComment,
-      });
-    }
     const draft = await createOrUpdateDraftWithChanges(
       context,
       feature,
@@ -5242,6 +5234,17 @@ export async function putFeature(
       autoPublish ? undefined : targetDraftVersion,
       autoPublish ? true : forceNewDraft,
       draftComment,
+      autoPublish
+        ? async (revision) => {
+            await prevalidatePublishRevision({
+              context,
+              feature,
+              revision,
+              result: envelopeChanges,
+              comment: draftComment,
+            });
+          }
+        : undefined,
     );
     let updatedFeature: FeatureInterface = feature;
     if (autoPublish) {
@@ -5252,6 +5255,7 @@ export async function putFeature(
         revision: draft,
         result: envelopeChanges,
         bypassLockdown: context.permissions.canBypassApprovalChecks(feature),
+        skipPrevalidateValidation: true,
       });
     }
     // Keep the tag autocomplete table in sync (side-effect; revision already captures the values).

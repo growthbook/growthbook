@@ -2807,13 +2807,8 @@ export function computeProposedFeatureForValidation(
 }
 
 // Best-effort early hook run; updateFeature / markRevisionAsPublished re-run hooks authoritatively.
-// `skipValidation` skips the config-backed value net AND the custom validation
-// hooks — used by the REST publish handler, which has already run both
-// non-throwing and surfaced their results as publish gates, so re-running them
-// here would double-execute the sandboxed hooks and re-throw what the handler
-// already reported. The proposed feature is still computed (callers may rely on
-// the side-effect-free work). Auto-publish/scheduled paths never set it and keep
-// the throwing behavior.
+// `skipValidation` is used when the exact revision was already validated as a
+// pre-insert gate. The proposed feature is still computed for callers.
 export async function prevalidatePublishRevision({
   context,
   feature,
@@ -2876,44 +2871,6 @@ export async function getLiveBaselineRevision(
   } as FeatureRevisionInterface;
 }
 
-// Run publish-time validation before any Mongo write so a hook rejection can't orphan a draft.
-export async function prevalidatePublishImmediate({
-  context,
-  feature,
-  changes,
-  comment,
-}: {
-  context: ReqContext | ApiReqContext;
-  feature: FeatureInterface;
-  changes: Partial<FeatureRevisionInterface>;
-  comment?: string;
-}): Promise<void> {
-  const baseline = await getLiveBaselineRevision(context, feature);
-  const environments = getEnvironmentIdsFromOrg(context.org);
-  const { revision } = await prepareFeatureRevision({
-    context,
-    feature,
-    user: context.auditUser,
-    environments,
-    baseVersion: feature.version,
-    changes,
-    comment,
-  });
-  const mergeResult = autoMerge(baseline, baseline, revision, environments, {});
-  if (!mergeResult.success) {
-    throw new Error(
-      "Merge conflict detected while publishing revision. Please retry.",
-    );
-  }
-  await prevalidatePublishRevision({
-    context,
-    feature,
-    revision,
-    result: mergeResult.result,
-    comment,
-  });
-}
-
 export async function publishRevision({
   context,
   feature,
@@ -2929,11 +2886,7 @@ export async function publishRevision({
   result: MergeResultChanges;
   comment?: string;
   bypassLockdown?: boolean;
-  // Set only by the REST publish handler, which has already run the config-backed
-  // value net and the custom validation hooks non-throwing and surfaced their
-  // outcomes as publish gates. Skips the re-run in prevalidatePublishRevision so
-  // the sandboxed hooks don't double-execute and the gated failures aren't
-  // re-thrown. Auto-publish/scheduled paths leave it unset and keep throwing.
+  // Set when the exact revision was validated immediately before insertion.
   skipPrevalidateValidation?: boolean;
 }) {
   if (revision.status === "published" || revision.status === "discarded") {
@@ -3150,26 +3103,15 @@ export async function createAndPublishRevision({
     );
   }
 
-  // Validate before writing the draft so a hook rejection can't orphan it.
-  const preMergeResult = autoMerge(
-    liveBase,
-    liveBase,
-    preparedRevision,
-    allEnvironments,
-    {},
-  );
-  if (!preMergeResult.success) {
-    throw new Error(
-      "Merge conflict detected while publishing revision. Please retry.",
-    );
-  }
-  await prevalidatePublishRevision({
-    context,
-    feature,
-    revision: preparedRevision,
-    result: preMergeResult.result,
-    comment,
-  });
+  const mergeForPublish = (revision: FeatureRevisionInterface) => {
+    const result = autoMerge(liveBase, liveBase, revision, allEnvironments, {});
+    if (!result.success) {
+      throw new Error(
+        "Merge conflict detected while publishing revision. Please retry.",
+      );
+    }
+    return result.result;
+  };
 
   // Create the draft revision (never auto-publishes; publish=false).
   const revision = await createRevision({
@@ -3183,34 +3125,27 @@ export async function createAndPublishRevision({
     changes,
     org,
     canBypassApprovalChecks,
+    preInsertValidation: async (revision) => {
+      await prevalidatePublishRevision({
+        context,
+        feature,
+        revision,
+        result: mergeForPublish(revision),
+        comment,
+      });
+    },
   });
-
-  // Merge the new revision against the live-feature baseline. base === live
-  // for a fresh revision off HEAD.
-  const mergeResult = autoMerge(
-    liveBase,
-    liveBase,
-    revision,
-    allEnvironments,
-    {},
-  );
-
-  if (!mergeResult.success) {
-    // Shouldn't happen for a brand-new revision off HEAD, but guard anyway.
-    throw new Error(
-      "Merge conflict detected while publishing revision. Please retry.",
-    );
-  }
 
   const updatedFeature = await publishRevision({
     context,
     feature,
     revision,
-    result: mergeResult.result,
+    result: mergeForPublish(revision),
     comment,
     // See postFeatureRevisionPublish.ts for the bypassLockdown policy rationale:
     // approval-bypass permission intentionally doubles as ramp-lockdown bypass.
     bypassLockdown: canBypassApprovalChecks,
+    skipPrevalidateValidation: true,
   });
 
   return { revision, updatedFeature };
