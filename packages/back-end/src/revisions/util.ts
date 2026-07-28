@@ -38,10 +38,8 @@ export function applyPatchToSnapshot<T extends object>(
  * baseline revision so the history view has a starting point. No-op if any
  * revisions already exist for this target.
  *
- * Callers must already have verified that the current user can edit the
- * underlying entity — `RevisionModel.canCreate` delegates to the entity
- * adapter's `canCreate` (which mirrors the "edit entity" permission), so a
- * caller who lacks update permission will get a permission error here.
+ * Callers must already have verified that the current user may bring the entity
+ * into being; this write is not separately gated (see the note below).
  */
 export async function ensureLiveRevisionExists(
   context: ReqContext | ApiReqContext,
@@ -64,8 +62,14 @@ export async function ensureLiveRevisionExists(
   // Wrapped in createWithVersionRetry so that two concurrent backfill calls
   // (e.g. two users editing the same untracked entity at the same time) don't
   // collide on the unique (target.type, target.id, version) index.
+  //
+  // Permission-bypassed on purpose: this records live state that already exists,
+  // and whoever brought the entity into being was already authorized. Re-gating
+  // it as an authored revision would demand draft or publish authority from a
+  // creator who needs neither. The retry wrapper is applied here, so bypassing
+  // `create`'s own wrapper costs nothing.
   await context.models.revisions.createWithVersionRetry(() =>
-    context.models.revisions.create({
+    context.models.revisions.dangerousCreateBypassPermission({
       authorId,
       target: {
         type: entityType,
@@ -81,7 +85,9 @@ export async function ensureLiveRevisionExists(
       },
       activityLog: [],
       reviews: [],
-    } as unknown as Parameters<typeof context.models.revisions.create>[0]),
+    } as unknown as Parameters<
+      typeof context.models.revisions.dangerousCreateBypassPermission
+    >[0]),
   );
 }
 

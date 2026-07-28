@@ -185,16 +185,19 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   // ensure default value matches value type
   feature.defaultValue = validateFeatureValue(feature, feature.defaultValue);
 
-  if (
-    !req.context.permissions.canPublishFeature(
+  const enabledOnCreate = Array.from(
+    getEnabledEnvironments(
       feature,
-      Array.from(
-        getEnabledEnvironments(
-          feature,
-          orgEnvs.map((e) => e.id),
-        ),
-      ),
-    )
+      orgEnvs.map((e) => e.id),
+    ),
+  );
+  // A new flag that enables no environment is absent from every SDK payload
+  // (getFeatureDefinition returns null for a disabled env), so bringing it
+  // into being takes only create authority. Enabling an environment is the
+  // live write, and takes publish authority for exactly those environments.
+  if (
+    enabledOnCreate.length &&
+    !req.context.permissions.canPublishFeature(feature, enabledOnCreate)
   ) {
     req.context.permissions.throwPermissionError();
   }

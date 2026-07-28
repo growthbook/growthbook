@@ -283,16 +283,20 @@ export default function FeatureModal({
   let ctaEnabled = true;
   let disabledMessage: string | undefined;
 
+  // Create authority, not draft authority: this modal creates and publishes in
+  // one step, and a flag that enables no environment reaches no SDK. Enabling
+  // one is gated per environment by EnvironmentSelect.
   if (
-    !permissionsUtil.canEditFeatureDrafts({
-      project: featureToDuplicate?.project ?? selectedProject,
-    })
+    !permissionsUtil.canCreateFeature(
+      { project: featureToDuplicate?.project ?? selectedProject },
+      NO_ENVIRONMENT_BINDING,
+    )
   ) {
     ctaEnabled = false;
     disabledMessage =
       !selectedProject && projectOptions.length > 0
         ? "Select a project to continue."
-        : "You don't have permission to create feature flag drafts.";
+        : "You don't have permission to create Feature Flags.";
   }
 
   return (

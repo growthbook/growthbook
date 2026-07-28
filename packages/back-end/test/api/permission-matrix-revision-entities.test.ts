@@ -54,8 +54,6 @@ type Entity = {
   editBody: Record<string, unknown>;
   /** A direct write to the live entity that isn't an archive. */
   renameBody: Record<string, unknown>;
-  /** Cases where this entity deliberately differs from the shared table. */
-  overrides?: Partial<Record<string, Persona[]>>;
 };
 
 const ENTITIES: Entity[] = [
@@ -100,12 +98,6 @@ const ENTITIES: Entity[] = [
     editSegment: "values",
     editBody: { values: ["u1", "u2", "u3"] },
     renameBody: { name: "Renamed" },
-    overrides: {
-      // Unlike a flag, a new Saved Group changes no evaluation until something
-      // references it, and nothing can reference it without flag permissions.
-      // So create stands alone here rather than also taking publish.
-      create: ["creator", "creatorPublisher", "full"],
-    },
   },
 ];
 
@@ -122,10 +114,10 @@ type Case = {
 
 const CASES: Case[] = [
   {
-    // Mirrors "create a flag": the entity is live the moment it exists, so
-    // create alone isn't enough.
+    // None of these three reach an SDK payload until something references them,
+    // so bringing one into being takes only create authority.
     name: "create",
-    allowed: ["creatorPublisher", "full"],
+    allowed: ["creator", "creatorPublisher", "full"],
     run: (e) => api.post(`/api/v1/${e.base}`, e.createBody()),
   },
   {
@@ -197,9 +189,8 @@ async function seedDraft(e: Entity, id: string): Promise<number> {
 }
 
 describe.each(ENTITIES)("permission matrix — $label", (entity: Entity) => {
-  describe.each(CASES)("$name", ({ name, allowed, run, needsDraft }: Case) => {
+  describe.each(CASES)("$name", ({ allowed, run, needsDraft }: Case) => {
     it.each(PERSONA_IDS)("%s", async (persona) => {
-      const expected = entity.overrides?.[name] ?? allowed;
       const id = await seed(entity);
       const version = needsDraft ? await seedDraft(entity, id) : 0;
 
@@ -209,7 +200,7 @@ describe.each(ENTITIES)("permission matrix — $label", (entity: Entity) => {
       // otherwise look like a permission result and make the case vacuous.
       const actual = `${res.status} ${JSON.stringify(res.body ?? {}).slice(0, 200)}`;
 
-      if (expected.includes(persona)) {
+      if (allowed.includes(persona)) {
         expect(actual).toMatch(/^[123]\d\d /);
       } else {
         expect(actual).toMatch(/^403 /);

@@ -69,16 +69,28 @@ type Case = {
 
 const CASES: Case[] = [
   {
-    // Create alone is not enough: the endpoint also requires publish, because
-    // the new flag is served the moment it exists.
+    // A flag enabling no environment is in no payload, so create stands alone.
     name: "create a flag",
-    allowed: ["creatorPublisher", "full"],
+    allowed: ["creator", "creatorPublisher", "full"],
     run: () =>
       api.post("/api/v1/features", {
-        id: `feat_new_${Date.now()}`,
+        id: `feat_new_${Date.now()}_${Math.floor(Math.random() * 1e6)}`,
         valueType: "boolean",
         defaultValue: "false",
         owner: "u_admin",
+      }),
+  },
+  {
+    // Enabling an environment IS the live write, so it takes publish there too.
+    name: "create a flag already enabled in an environment",
+    allowed: ["creatorPublisher", "full"],
+    run: () =>
+      api.post("/api/v1/features", {
+        id: `feat_live_${Date.now()}_${Math.floor(Math.random() * 1e6)}`,
+        valueType: "boolean",
+        defaultValue: "false",
+        owner: "u_admin",
+        environments: { production: { enabled: true, rules: [] } },
       }),
   },
   {

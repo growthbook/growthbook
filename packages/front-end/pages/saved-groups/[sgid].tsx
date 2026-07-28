@@ -1190,7 +1190,7 @@ export default function EditSavedGroupPage() {
                 });
                 await mutateRevisions();
               }}
-              onNewDraft={() => setConfirmNewDraft(true)}
+              onNewDraft={canDraft ? () => setConfirmNewDraft(true) : undefined}
               onReviewPublish={() => setTabAndScroll("review")}
               onEditDescription={() => setEditDescriptionModal(true)}
             />
@@ -1219,12 +1219,14 @@ export default function EditSavedGroupPage() {
                           ? "You cannot edit a merged revision."
                           : isDiscarded
                             ? "You cannot edit a discarded revision."
-                            : ""
+                            : !canDraft
+                              ? "You don't have permission to edit drafts for this Saved Group."
+                              : ""
                       }
                     >
                       <Button
                         variant="ghost"
-                        disabled={!!(isMerged || isDiscarded)}
+                        disabled={!canDraft || !!(isMerged || isDiscarded)}
                         onClick={() => {
                           if (!selectedRevision && userOpenRevision) {
                             selectFlow(userOpenRevision);
@@ -1297,13 +1299,15 @@ export default function EditSavedGroupPage() {
                           ? "You cannot edit a merged revision."
                           : isDiscarded
                             ? "You cannot edit a discarded revision."
-                            : ""
+                            : !canDraft
+                              ? "You don't have permission to edit drafts for this Saved Group."
+                              : ""
                       }
                     >
                       <Button
                         variant="ghost"
                         color="red"
-                        disabled={!!(isMerged || isDiscarded)}
+                        disabled={!canDraft || !!(isMerged || isDiscarded)}
                         onClick={() => {
                           // When viewing live, switch to/create draft first
                           if (!selectedRevision && userOpenRevision) {
@@ -1332,12 +1336,14 @@ export default function EditSavedGroupPage() {
                           ? "You cannot edit a merged revision."
                           : isDiscarded
                             ? "You cannot edit a discarded revision."
-                            : ""
+                            : !canDraft
+                              ? "You don't have permission to edit drafts for this Saved Group."
+                              : ""
                       }
                     >
                       <Button
                         variant="outline"
-                        disabled={!!(isMerged || isDiscarded)}
+                        disabled={!canDraft || !!(isMerged || isDiscarded)}
                         icon={<PiPlusCircleBold />}
                         onClick={() => {
                           // When viewing live, switch to/create draft first
