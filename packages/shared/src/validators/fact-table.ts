@@ -1003,7 +1003,7 @@ const virtualColumnDatatype = z.enum([
   "other",
 ]);
 
-const postFactTableColumnBody = z
+const postFactTableVirtualColumnBody = z
   .object({
     column: z
       .string()
@@ -1024,7 +1024,7 @@ const postFactTableColumnBody = z
   })
   .strict();
 
-const updateFactTableColumnBody = z
+const updateFactTableVirtualColumnBody = z
   .object({
     name: z.string().describe("Display name for the column").optional(),
     description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
@@ -1039,8 +1039,8 @@ const updateFactTableColumnBody = z
   })
   .strict();
 
-export const postFactTableColumnValidator = {
-  bodySchema: postFactTableColumnBody,
+export const postFactTableVirtualColumnValidator = {
+  bodySchema: postFactTableVirtualColumnBody,
   querySchema: z.never(),
   paramsSchema: factTableIdParams,
   responseSchema: z
@@ -1049,10 +1049,10 @@ export const postFactTableColumnValidator = {
     })
     .strict(),
   summary: "Create a virtual (computed) column on a fact table",
-  operationId: "postFactTableColumn",
+  operationId: "postFactTableVirtualColumn",
   tags: ["fact-tables"],
   method: "post" as const,
-  path: "/fact-tables/:factTableId/columns",
+  path: "/fact-tables/:factTableId/virtual-columns",
   exampleRequest: {
     params: { factTableId: "abc123" },
     body: {
@@ -1063,8 +1063,8 @@ export const postFactTableColumnValidator = {
   },
 };
 
-export const updateFactTableColumnValidator = {
-  bodySchema: updateFactTableColumnBody,
+export const updateFactTableVirtualColumnValidator = {
+  bodySchema: updateFactTableVirtualColumnBody,
   querySchema: z.never(),
   paramsSchema: factTableIdAndIdParams,
   responseSchema: z
@@ -1073,17 +1073,17 @@ export const updateFactTableColumnValidator = {
     })
     .strict(),
   summary: "Update a virtual (computed) column on a fact table",
-  operationId: "updateFactTableColumn",
+  operationId: "updateFactTableVirtualColumn",
   tags: ["fact-tables"],
   method: "post" as const,
-  path: "/fact-tables/:factTableId/columns/:id",
+  path: "/fact-tables/:factTableId/virtual-columns/:id",
   exampleRequest: {
     params: { factTableId: "abc123", id: "revenue_vc" },
     body: { sql: "price * quantity * 1.1" },
   },
 };
 
-export const deleteFactTableColumnValidator = {
+export const deleteFactTableVirtualColumnValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),
   paramsSchema: factTableIdAndIdParams,
@@ -1096,10 +1096,10 @@ export const deleteFactTableColumnValidator = {
     })
     .strict(),
   summary: "Delete a virtual (computed) column from a fact table",
-  operationId: "deleteFactTableColumn",
+  operationId: "deleteFactTableVirtualColumn",
   tags: ["fact-tables"],
   method: "delete" as const,
-  path: "/fact-tables/:factTableId/columns/:id",
+  path: "/fact-tables/:factTableId/virtual-columns/:id",
   exampleRequest: { params: { factTableId: "abc123", id: "revenue_vc" } },
 };
 

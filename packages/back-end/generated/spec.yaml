@@ -25711,9 +25711,9 @@ paths:
             'https://api.growthbook.io/api/v1/fact-tables/abc123/filters/abc123'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/fact-tables/{factTableId}/columns:
+  /v1/fact-tables/{factTableId}/virtual-columns:
     post:
-      operationId: postFactTableColumn
+      operationId: postFactTableVirtualColumn
       summary: Create a virtual (computed) column on a fact table
       tags:
         - fact-tables
@@ -25783,13 +25783,14 @@ paths:
         - lang: cURL
           source: >-
             curl -X POST
-            'https://api.growthbook.io/api/v1/fact-tables/abc123/columns' \
+            'https://api.growthbook.io/api/v1/fact-tables/abc123/virtual-columns'
+            \
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"column":"revenue_vc","datatype":"number","sql":"price * quantity"}'
-  /v1/fact-tables/{factTableId}/columns/{id}:
+  /v1/fact-tables/{factTableId}/virtual-columns/{id}:
     post:
-      operationId: updateFactTableColumn
+      operationId: updateFactTableVirtualColumn
       summary: Update a virtual (computed) column on a fact table
       tags:
         - fact-tables
@@ -25849,13 +25850,13 @@ paths:
         - lang: cURL
           source: >-
             curl -X POST
-            'https://api.growthbook.io/api/v1/fact-tables/abc123/columns/revenue_vc'
+            'https://api.growthbook.io/api/v1/fact-tables/abc123/virtual-columns/revenue_vc'
             \
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"sql":"price * quantity * 1.1"}'
     delete:
-      operationId: deleteFactTableColumn
+      operationId: deleteFactTableVirtualColumn
       summary: Delete a virtual (computed) column from a fact table
       tags:
         - fact-tables
@@ -25881,7 +25882,7 @@ paths:
         - lang: cURL
           source: >-
             curl -X DELETE
-            'https://api.growthbook.io/api/v1/fact-tables/abc123/columns/revenue_vc'
+            'https://api.growthbook.io/api/v1/fact-tables/abc123/virtual-columns/revenue_vc'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/fact-tables/{id}/aggregated-tables:

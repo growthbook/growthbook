@@ -9,9 +9,9 @@ import { postFactTableFilter } from "./postFactTableFilter";
 import { getFactTableFilter } from "./getFactTableFilter";
 import { updateFactTableFilter } from "./updateFactTableFilter";
 import { deleteFactTableFilter } from "./deleteFactTableFilter";
-import { postFactTableColumn } from "./postFactTableColumn";
-import { updateFactTableColumn } from "./updateFactTableColumn";
-import { deleteFactTableColumn } from "./deleteFactTableColumn";
+import { postFactTableVirtualColumn } from "./postFactTableVirtualColumn";
+import { updateFactTableVirtualColumn } from "./updateFactTableVirtualColumn";
+import { deleteFactTableVirtualColumn } from "./deleteFactTableVirtualColumn";
 import { getAggregatedFactTables } from "./getAggregatedFactTables";
 import { refreshAggregatedFactTable } from "./refreshAggregatedFactTable";
 import { listAggregatedTableRuns } from "./listAggregatedTableRuns";
@@ -28,9 +28,9 @@ export const factTablesRoutes: OpenApiRoute[] = [
   getFactTableFilter,
   updateFactTableFilter,
   deleteFactTableFilter,
-  postFactTableColumn,
-  updateFactTableColumn,
-  deleteFactTableColumn,
+  postFactTableVirtualColumn,
+  updateFactTableVirtualColumn,
+  deleteFactTableVirtualColumn,
   getAggregatedFactTables,
   refreshAggregatedFactTable,
   listAggregatedTableRuns,

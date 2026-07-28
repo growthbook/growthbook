@@ -1,4 +1,4 @@
-import { deleteFactTableColumnValidator } from "shared/validators";
+import { deleteFactTableVirtualColumnValidator } from "shared/validators";
 import { deleteColumn, getFactTable } from "back-end/src/models/FactTableModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
@@ -7,8 +7,8 @@ import {
 } from "back-end/src/services/datasource";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
-export const deleteFactTableColumn = createApiRequestHandler(
-  deleteFactTableColumnValidator,
+export const deleteFactTableVirtualColumn = createApiRequestHandler(
+  deleteFactTableVirtualColumnValidator,
 )(async (req) => {
   const factTable = await getFactTable(req.context, req.params.factTableId);
   if (!factTable) {

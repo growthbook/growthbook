@@ -1,4 +1,4 @@
-import { postFactTableColumnValidator } from "shared/validators";
+import { postFactTableVirtualColumnValidator } from "shared/validators";
 import {
   createColumn,
   getFactTable,
@@ -7,8 +7,8 @@ import {
 import { validateVirtualColumnProps } from "back-end/src/util/factTable";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
-export const postFactTableColumn = createApiRequestHandler(
-  postFactTableColumnValidator,
+export const postFactTableVirtualColumn = createApiRequestHandler(
+  postFactTableVirtualColumnValidator,
 )(async (req) => {
   const factTable = await getFactTable(req.context, req.params.factTableId);
   if (!factTable) {
