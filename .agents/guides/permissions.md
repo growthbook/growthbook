@@ -19,18 +19,24 @@ Apply organization-wide, not restricted to projects or environments:
 
 Can be granted for all projects or specific projects:
 
-- `readData`, `addComments`, `canReview`
-- `manageFeatures`, `manageFeatureDrafts`
+- `readData`, `addComments`
+- `editFlagDrafts`, `reviewFlags`, `bypassApprovalFlags`
+- `editSavedGroupDrafts`, `reviewSavedGroups`, `publishSavedGroups`,
+  `revertSavedGroups`, `createSavedGroups`, `deleteSavedGroups`,
+  `bypassApprovalSavedGroups`
 - `createMetrics`, `createAnalyses`, `createSegments`
 - `manageFactTables`, `manageFactMetrics`
-- `manageSavedGroups`, `manageTargetingAttributes`
+- `manageTargetingAttributes`
 - `createDatasources`, `editDatasourceSettings`, `runQueries`
 
 ### Environment-Scoped Permissions
 
 Further restricted to specific environments within projects:
 
-- `publishFeatures` - Publish feature changes to environments
+- `createFlags`, `publishFlags`, `revertFlags` - live writes to Feature Flags,
+  Configs and Constants
+- `deleteFlags` - archiving is environment-scoped; deleting an archived flag is
+  not (pass `NO_ENVIRONMENT_BINDING`)
 - `runExperiments` - Start/stop experiments
 - `manageEnvironments` - Create/edit environments
 - `manageSDKConnections` - Manage SDK connections
@@ -73,10 +79,12 @@ function MyComponent() {
 const permissionsUtil = usePermissionsUtil();
 
 // Feature permissions
-permissionsUtil.canCreateFeature({ project });
-permissionsUtil.canUpdateFeature(existingFeature, updatedFeature);
-permissionsUtil.canDeleteFeature(feature);
+permissionsUtil.canCreateFeature({ project }, environments);
+permissionsUtil.canEditFeatureDrafts(feature);
+permissionsUtil.canReviewFeatureDrafts(feature);
+permissionsUtil.canDeleteFeature(feature, environments);
 permissionsUtil.canPublishFeature(feature, environments);
+permissionsUtil.canRevertFeature(feature, environments);
 
 // Experiment permissions
 permissionsUtil.canCreateExperiment({ project });
@@ -126,11 +134,11 @@ function FeatureActions({ feature }: { feature: FeatureInterface }) {
 
   return (
     <div>
-      {permissionsUtil.canUpdateFeature(feature, feature) && (
+      {permissionsUtil.canEditFeatureDrafts(feature) && (
         <Button onClick={handleEdit}>Edit</Button>
       )}
 
-      {permissionsUtil.canDeleteFeature(feature) && (
+      {permissionsUtil.canDeleteFeature(feature, NO_ENVIRONMENT_BINDING) && (
         <Button variant="danger" onClick={handleDelete}>Delete</Button>
       )}
 
@@ -163,9 +171,7 @@ export async function updateFeature(req: AuthRequest, res: Response) {
   }
 
   // Check permission
-  if (
-    !context.permissions.canUpdateFeature(feature, { ...feature, ...updates })
-  ) {
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -187,9 +193,8 @@ context.permissions.canViewAuditLogs();
 context.permissions.canManageBilling();
 
 // Project-scoped permissions
-context.permissions.canCreateFeature({ project });
-context.permissions.canUpdateFeature(existing, updated);
-context.permissions.canDeleteFeature(feature);
+context.permissions.canEditFeatureDrafts(feature);
+context.permissions.canReviewFeatureDrafts(feature);
 
 // Environment-scoped permissions
 context.permissions.canPublishFeature(feature, environments);
@@ -326,14 +331,14 @@ export async function createArchetype(req: AuthRequest, res: Response) {
 
 ```typescript
 // Good - check at start of handler
-if (!context.permissions.canUpdateFeature(feature, updates)) {
+if (!context.permissions.canEditFeatureDrafts(feature)) {
   context.permissions.throwPermissionError();
 }
 
 // Bad - check after doing work
-const result = await expensiveOperation();
-if (!context.permissions.canUpdateFeature(feature, updates)) {
-  throw new Error("No permission");
+const revision = await createRevision(...);
+if (!context.permissions.canEditFeatureDrafts(feature)) {
+  throw new Error("No permission"); // the draft is already on disk
 }
 ```
 
@@ -341,30 +346,34 @@ if (!context.permissions.canUpdateFeature(feature, updates)) {
 
 ```typescript
 // Good - use the specific method
-if (!permissionsUtil.canUpdateFeature(existing, updated)) {
+if (!permissionsUtil.canEditFeatureDrafts(feature)) {
   return <NoAccess />;
 }
 
 // Bad - check raw permission without context
-if (!permissions.manageFeatures) {
+if (!permissions.editFlagDrafts) {
   return <NoAccess />;
 }
 ```
 
-### 3. Pass Complete Objects for Update Checks
+There is no "edit" verb. A content change is a draft plus a publish, so authoring
+gates on `canEditFeatureDrafts` and landing gates on `canPublishFeature` with the
+environments the change touches. Saved groups use the generic form directly:
+`canRevisionAction("saved-group", action, obj)`.
+
+### 3. Pass the Environments a Change Touches
 
 ```typescript
-// Good - pass both existing and updated states (merged object)
-const canUpdate = permissionsUtil.canUpdateFeature(existingFeature, {
-  ...existingFeature,
-  ...updates,
-});
+// Good - the environments this publish actually writes to
+const canPublish = permissionsUtil.canPublishFeature(feature, changedEnvs);
 
-// Bad - passing partial updates without merging with existing state
-const canUpdate = permissionsUtil.canUpdateFeature(existingFeature, {
-  name: "new name", // Missing other fields from existingFeature
-});
+// Bad - every org environment, which demands authority the change doesn't need
+const canPublish = permissionsUtil.canPublishFeature(feature, allOrgEnvs);
 ```
+
+Pass `NO_ENVIRONMENT_BINDING` when a change has no environment — a base Config, a
+Constant's base value, deleting an already-archived flag. An empty array skips
+the environment check, so never pass one by accident.
 
 ### 4. Handle Both Permission and Feature Gates
 
