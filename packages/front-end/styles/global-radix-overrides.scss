@@ -281,6 +281,25 @@
   max-width: var(--radix-dropdown-menu-content-available-width);
   max-height: var(--radix-dropdown-menu-content-available-height);
 }
+// A menu separator is decorative and must sit between two visible things.
+// Consumers gate separators by hand against the conditions of the items around
+// them, and that bookkeeping drifts, leaving a stray divider at the top or
+// bottom of the menu (or a doubled one). Heal it structurally so no consumer
+// has to get the conditions exactly right. Hide separators with nothing
+// rendered on one side, and drop groups left empty by all-conditional items.
+.rt-BaseMenuGroup:empty {
+  display: none;
+}
+.rt-BaseMenuSeparator {
+  &:first-child,
+  &:last-child {
+    display: none;
+  }
+  & + &,
+  .rt-BaseMenuGroup:empty + & {
+    display: none;
+  }
+}
 .rt-BaseMenuItem {
   cursor: pointer !important;
   &[data-disabled] {

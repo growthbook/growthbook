@@ -1357,22 +1357,24 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       </>
                     )}
                     {!locked && (
-                      <DropdownMenuGroup>
+                      <>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          color="red"
-                          onClick={() => {
-                            setDeleteMode(
-                              defaultDraft !== null ? "existing" : "new",
-                            );
-                            setDeleteSelectedDraft(defaultDraft);
-                            setShowDeleteRuleModal(true);
-                            setDropdownOpen(false);
-                          }}
-                        >
-                          Delete rule
-                        </DropdownMenuItem>
-                      </DropdownMenuGroup>
+                        <DropdownMenuGroup>
+                          <DropdownMenuItem
+                            color="red"
+                            onClick={() => {
+                              setDeleteMode(
+                                defaultDraft !== null ? "existing" : "new",
+                              );
+                              setDeleteSelectedDraft(defaultDraft);
+                              setShowDeleteRuleModal(true);
+                              setDropdownOpen(false);
+                            }}
+                          >
+                            Delete rule
+                          </DropdownMenuItem>
+                        </DropdownMenuGroup>
+                      </>
                     )}
                   </DropdownMenu>
                 )}
