@@ -205,6 +205,7 @@ export default function NPSSurvey() {
         score: number;
         feedback: string;
         disposition: NpsDisposition;
+        supersedes?: NpsDisposition;
       },
     ) => {
       void apiCall(`/user/nps-response`, {
@@ -233,6 +234,9 @@ export default function NPSSurvey() {
           return;
         }
       }
+      // Carry the state being replaced so the second report is recognisable as
+      // an update of the first rather than a separate response.
+      const supersedes = sentRef.current ?? undefined;
       sentRef.current = disposition;
       const feedbackText = disposition === "submitted" ? feedback.trim() : "";
       track("nps_response", {
@@ -241,6 +245,7 @@ export default function NPSSurvey() {
         category: npsCategoryOf(s),
         feedback: feedbackText,
         disposition,
+        supersedes: supersedes ?? "",
         preview: forceShow,
         survey_id: SURVEY_ID,
       });
@@ -249,6 +254,7 @@ export default function NPSSurvey() {
         score: s,
         feedback: feedbackText,
         disposition,
+        supersedes,
       });
     },
     [persistServer, getValues, forceShow],
