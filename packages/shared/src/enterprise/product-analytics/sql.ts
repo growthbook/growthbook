@@ -414,7 +414,7 @@ function getCappingSettings(
 }
 
 // Generate dimension expression
-function generateDimensionExpression(
+export function generateDimensionExpression(
   dimension: ProductAnalyticsDimension,
   dimensionIndex: number,
   factTableGroup: FactTableGroup,
@@ -1254,6 +1254,7 @@ export const FUNNEL_SUPPORTED_DATASOURCE_TYPES: readonly DataSourceType[] = [
   "athena",
   "presto",
   "databricks",
+  "redshift",
 ];
 
 export function isFunnelSupportedDatasourceType(type: DataSourceType): boolean {

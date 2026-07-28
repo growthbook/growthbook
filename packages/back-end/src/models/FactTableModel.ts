@@ -1,6 +1,6 @@
 import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
-import { omit } from "lodash";
+import { isEqual, omit } from "lodash";
 import {
   CreateColumnProps,
   CreateFactFilterProps,
@@ -20,6 +20,10 @@ import { promiseAllChunks } from "back-end/src/util/promise";
 import { projectFilterQuery } from "back-end/src/util/mongo.util";
 import { createModelAuditLogger } from "back-end/src/services/audit";
 import { deferAggregatedFactTableToNextSlot } from "back-end/src/services/aggregatedFactTables";
+import {
+  definitionsScope,
+  touchDefinitionsVersion,
+} from "back-end/src/models/DefinitionsVersionModel";
 import {
   ensureAutoSliceDefaults,
   normalizeJSONFieldsInput,
@@ -339,6 +343,10 @@ export async function createFactTable(
   const factTable = toInterface(doc);
 
   await audit.logCreate(context, factTable);
+  await touchDefinitionsVersion(
+    context.org.id,
+    definitionsScope(factTable.projects),
+  );
 
   return factTable;
 }
@@ -396,6 +404,13 @@ export async function updateFactTable(
   );
 
   await audit.logUpdate(context, factTable, { ...factTable, ...changes });
+  await touchDefinitionsVersion(
+    factTable.organization,
+    definitionsScope(
+      factTable.projects,
+      changes.projects ?? factTable.projects,
+    ),
+  );
 }
 
 const ALLOWED_COLUMN_UPDATE_FIELDS = [
@@ -432,6 +447,19 @@ export async function updateFactTableColumns(
     },
   );
 
+  // Only bump the definitions version if something actually changed — this runs
+  // from a background cron on every fact table, so an unconditional touch would
+  // churn the version and tank the ETag hit rate.
+  const changedDefinitionFields = Object.entries(safeChanges).some(
+    ([k, v]) => !isEqual(factTable[k as keyof FactTableInterface], v),
+  );
+  if (changedDefinitionFields) {
+    await touchDefinitionsVersion(
+      factTable.organization,
+      definitionsScope(factTable.projects),
+    );
+  }
+
   // Clean up auto slices from metrics if columns were refreshed and some were deleted
   if (changes.columns) {
     const removedColumns = detectRemovedColumns(
@@ -458,6 +486,16 @@ export async function dangerouslySyncManagedWarehouseFactTable(
   factTable: FactTableInterface,
   changes: Pick<UpdateFactTableProps, "sql" | "columns" | "userIdTypes">,
 ) {
+  // No-op sync: skip the write entirely so we neither churn the definitions
+  // version nor drift dateUpdated (which is part of the definitions payload).
+  if (
+    (Object.keys(changes) as (keyof typeof changes)[]).every((k) =>
+      isEqual(factTable[k], changes[k]),
+    )
+  ) {
+    return;
+  }
+
   if (changes.columns) {
     const removedColumns = detectRemovedColumns(
       factTable.columns || [],
@@ -483,6 +521,10 @@ export async function dangerouslySyncManagedWarehouseFactTable(
         dateUpdated: new Date(),
       },
     },
+  );
+  await touchDefinitionsVersion(
+    factTable.organization,
+    definitionsScope(factTable.projects),
   );
 }
 
@@ -603,6 +645,10 @@ export async function updateColumn({
       },
     },
   );
+  await touchDefinitionsVersion(
+    factTable.organization,
+    definitionsScope(factTable.projects),
+  );
 
   // Clean up auto slices from metrics if column was deleted or isAutoSliceColumn was disabled
   if (
@@ -693,6 +739,11 @@ export async function upsertColumns({
     },
   );
 
+  await touchDefinitionsVersion(
+    factTable.organization,
+    definitionsScope(factTable.projects),
+  );
+
   if (context && removedAutoSliceColumns.length > 0) {
     await cleanupMetricAutoSlices({
       context,
@@ -747,6 +798,10 @@ export async function createFactFilter(
       },
     },
   );
+  await touchDefinitionsVersion(
+    factTable.organization,
+    definitionsScope(factTable.projects),
+  );
 
   return filter;
 }
@@ -788,6 +843,10 @@ export async function updateFactFilter(
       },
     },
   );
+  await touchDefinitionsVersion(
+    factTable.organization,
+    definitionsScope(factTable.projects),
+  );
 }
 
 export async function deleteFactTable(
@@ -819,6 +878,10 @@ export async function deleteFactTable(
   });
 
   await audit.logDelete(context, factTable);
+  await touchDefinitionsVersion(
+    factTable.organization,
+    definitionsScope(factTable.projects),
+  );
 }
 
 export async function projectHasFactTables(
@@ -883,6 +946,10 @@ export async function deleteFactFilter(
         filters: newFilters,
       },
     },
+  );
+  await touchDefinitionsVersion(
+    factTable.organization,
+    definitionsScope(factTable.projects),
   );
 }
 

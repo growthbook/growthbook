@@ -42,6 +42,9 @@ const apiRuleScopeExtension = z
       .describe(
         "The environment IDs this rule is active in. Populated when `allEnvironments` is false.",
       ),
+    // Project scope (allProjects/projects) lives on the shared base rule
+    // validator so it appears on both v1 and v2 rules; only the flat-array env
+    // scope is v2-specific and lives here.
     pendingRamp: z
       .enum(["create", "detach"])
       .optional()
@@ -364,6 +367,8 @@ export const apiFeatureV2Validator = namedSchema(
       description: z.string().max(MAX_DESCRIPTION_LENGTH),
       owner: ownerInputField,
       project: z.string(),
+      targetingAllProjects: z.boolean().optional(),
+      targetingProjects: z.array(z.string()).optional(),
       valueType: z.enum(["boolean", "string", "number", "json"]),
       defaultValue: z.string(),
       baseConfig: apiBaseConfigField,
@@ -439,6 +444,18 @@ const v2RuleScopeInput = z.object({
     .describe(
       "Specific environment IDs this rule applies to. Required when allEnvironments is false.",
     ),
+  allProjects: z
+    .boolean()
+    .optional()
+    .describe(
+      "When true (the default) the rule applies to every project the feature is delivered to. Set false and supply `projects` to scope the rule.",
+    ),
+  projects: z
+    .array(z.string())
+    .optional()
+    .describe(
+      "Specific project IDs this rule applies to. Used when allProjects is false. An empty array scopes the rule to no project.",
+    ),
 });
 
 // Re-use the same per-rule shapes from v1 (force, rollout, experiment-ref,
@@ -511,6 +528,10 @@ const v2RuleRolloutBase = z.object({
   sparse: v2SparseRuleField,
   coverage: z.number(),
   hashAttribute: z.string(),
+  seed: z
+    .string()
+    .describe("Optional seed for the hash function; defaults to the rule id")
+    .optional(),
   hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
 });
 
@@ -592,6 +613,18 @@ export const postFeatureBodyV2 = z
       .optional(),
     owner: requiredUnlessPatOwnerInputField,
     project: z.string().describe("An associated project ID").optional(),
+    targetingAllProjects: z
+      .boolean()
+      .describe(
+        "Make this feature discoverable in — and served to — every project, beyond its primary `project`. Governance/approvals stay with `project`.",
+      )
+      .optional(),
+    targetingProjects: z
+      .array(z.string())
+      .describe(
+        "Secondary project IDs this feature is targeted in and served to, beyond its primary `project`. Governance/approvals stay with `project`.",
+      )
+      .optional(),
     valueType: z
       .enum(["boolean", "string", "number", "json"])
       .describe("The data type of the feature payload. Boolean by default."),
@@ -640,6 +673,18 @@ export const updateFeatureBodyV2 = z
       .optional(),
     archived: z.boolean().optional(),
     project: z.string().describe("An associated project ID").optional(),
+    targetingAllProjects: z
+      .boolean()
+      .describe(
+        "Make this feature discoverable in — and served to — every project, beyond its primary `project`. Governance/approvals stay with `project`.",
+      )
+      .optional(),
+    targetingProjects: z
+      .array(z.string())
+      .describe(
+        "Secondary project IDs this feature is targeted in and served to, beyond its primary `project`. Governance/approvals stay with `project`.",
+      )
+      .optional(),
     owner: ownerInputField.optional(),
     defaultValue: z.string().optional(),
     baseConfig: apiBaseConfigUpdateField,

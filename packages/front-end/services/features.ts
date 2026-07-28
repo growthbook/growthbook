@@ -34,6 +34,7 @@ import {
   extractConditionAttributeKeys,
   getRequireRegisteredAttributesSettings,
   formatJsonMultilineObjects,
+  getTargetingProjectIds,
   type RequireRegisteredAttributesSettings,
 } from "shared/util";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
@@ -238,7 +239,7 @@ export function useFeatureSearch({
     [contentSearchPrefixes],
   );
   const { getOwnerDisplay } = useUser();
-  const { getProjectById } = useDefinitions();
+  const { getProjectById, projects } = useDefinitions();
 
   const features = useAddComputedFields(
     allFeatures,
@@ -273,6 +274,8 @@ export function useFeatureSearch({
       rampStates,
       dependencyIndex,
       experimentStates,
+      projects,
+      getProjectById,
     ],
     searchTermFilters: {
       is: (item) => {
@@ -317,10 +320,16 @@ export function useFeatureSearch({
         return has;
       },
       key: (item) => item.id,
-      project: (item: ComputedFeatureInterface) => [
-        item.project,
-        item.projectName,
-      ],
+      // Match the governance project plus any targeting projects (all
+      // projects when targetingAllProjects), by id and resolved name, so
+      // `project:` discovery mirrors where the feature is actually delivered.
+      project: (item: ComputedFeatureInterface) => {
+        const ids = getTargetingProjectIds(item) ?? projects.map((p) => p.id);
+        return [
+          ...ids,
+          ...ids.map((id) => (id ? getProjectById(id)?.name : undefined)),
+        ];
+      },
       created: (item) => new Date(item.dateCreated),
       updated: (item) => new Date(item.dateUpdated),
       experiment: (item) => item.linkedExperiments || [],
