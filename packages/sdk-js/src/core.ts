@@ -320,6 +320,8 @@ export function evalFeature<V = unknown>(
 
         return getFeatureResult(ctx, id, rule.force as V, "force", rule.id);
       }
+      // Contextual bandit rules carry their variations under
+      // `contextualVariations` so older SDKs skip them; read either field here.
       const ruleVariations = rule.contextualVariations ?? rule.variations;
       if (!ruleVariations) {
         process.env.NODE_ENV !== "production" &&
@@ -426,6 +428,13 @@ export function runExperiment<T>(
 
   // 2.5. Merge in experiment overrides from the context
   experiment = mergeOverrides(experiment, ctx);
+
+  if (experiment.contextualBandit && experiment.weights) {
+    experiment.contextualBandit = {
+      ...experiment.contextualBandit,
+      variationWeights: experiment.weights,
+    };
+  }
 
   // 2.6 New, more powerful URL targeting
   if (
@@ -1222,6 +1231,7 @@ function deriveStickyBucketIdentifierAttributes(
     const feature = features[id];
     if (feature.rules) {
       for (const rule of feature.rules) {
+        // Contextual bandit rules carry their variations under `contextualVariations`
         if (rule.variations || rule.contextualVariations) {
           attributes.add(rule.hashAttribute || "id");
           if (rule.fallbackAttribute) {

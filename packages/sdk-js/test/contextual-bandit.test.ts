@@ -4,22 +4,22 @@ import { ContextualBanditDefinitions } from "../src/types/growthbook";
 
 function cbRule(overrides: Record<string, unknown> = {}) {
   return {
-    key: "promo_bandit",
-    seed: "promo_bandit",
+    key: "bandit-exp",
+    seed: "bandit-exp",
     hashAttribute: "id",
     hashVersion: 2,
     coverage: 1,
     contextualVariations: ["control", "treatment"],
     weights: [1, 0],
     meta: [{ key: "0" }, { key: "1" }],
-    contextualBanditRef: "cb_promo",
+    contextualBanditRef: "cb-bandit",
     ...overrides,
   };
 }
 
 function cbFeatures(overrides: Record<string, unknown> = {}) {
   return {
-    promo: {
+    "bandit-feature": {
       defaultValue: "default",
       rules: [cbRule(overrides)],
     },
@@ -30,7 +30,7 @@ function cbMap(
   overrides: Record<string, unknown> = {},
 ): ContextualBanditDefinitions {
   return {
-    cb_promo: {
+    "cb-bandit": {
       banditVersion: 7,
       contexts: [
         { leafId: 1, condition: { plan: "enterprise" }, weights: [1, 0] },
@@ -49,7 +49,7 @@ describe("contextual bandit feature rules", () => {
       contextualBandits: cbMap(),
     });
 
-    const res = gb.evalFeature("promo");
+    const res = gb.evalFeature("bandit-feature");
     expect(res.source).toEqual("experiment");
     expect(res.value).toEqual("control");
     expect(res.experimentResult?.inExperiment).toEqual(true);
@@ -65,7 +65,7 @@ describe("contextual bandit feature rules", () => {
     const gb = new GrowthBook({
       attributes: { id: "u1", plan: "enterprise" },
       features: {
-        promo: {
+        "bandit-feature": {
           defaultValue: "default",
           rules: [
             cbRule({
@@ -77,7 +77,7 @@ describe("contextual bandit feature rules", () => {
         },
       },
       contextualBandits: {
-        cb_promo: {
+        "cb-bandit": {
           banditVersion: 8,
           contexts: [
             {
@@ -91,7 +91,7 @@ describe("contextual bandit feature rules", () => {
       },
     });
 
-    const res = gb.evalFeature("promo");
+    const res = gb.evalFeature("bandit-feature");
     expect(res.value).toEqual("added");
     expect(res.experimentResult?.variationId).toEqual(2);
     expect(res.experimentResult?.leafId).toEqual(1);
@@ -102,15 +102,19 @@ describe("contextual bandit feature rules", () => {
   });
 
   it("skips a CB rule whose variations were stripped (old-SDK payload), no even-split fallback", () => {
+    // An SDK without the contextualBandits capability drops the CB-gated keys
+    // (`contextualVariations` and `contextualBanditRef`) and never sees
+    // `variations`, so the rule must be skipped and fall through to the default
+    // rather than run as a plain 50/50 experiment.
     const gb = new GrowthBook({
       attributes: { id: "u1", plan: "enterprise" },
       features: {
-        promo: {
+        "bandit-feature": {
           defaultValue: "default",
           rules: [
             {
-              key: "promo_bandit",
-              seed: "promo_bandit",
+              key: "bandit-exp",
+              seed: "bandit-exp",
               hashAttribute: "id",
               hashVersion: 2,
               coverage: 1,
@@ -123,7 +127,7 @@ describe("contextual bandit feature rules", () => {
       contextualBandits: cbMap(),
     });
 
-    const res = gb.evalFeature("promo");
+    const res = gb.evalFeature("bandit-feature");
     expect(res.source).toEqual("defaultValue");
     expect(res.value).toEqual("default");
     expect(res.experimentResult).toBeUndefined();
@@ -132,13 +136,15 @@ describe("contextual bandit feature rules", () => {
   });
 
   it("buckets into a leaf only when both global targeting and the leaf condition pass", () => {
+    // Rule-level `condition` is the global targeting; it is ANDed with the
+    // per-leaf context condition. Here the user passes both.
     const gb = new GrowthBook({
       attributes: { id: "u1", plan: "enterprise", country: "US" },
       features: cbFeatures({ condition: { country: "US" } }),
       contextualBandits: cbMap(),
     });
 
-    const res = gb.evalFeature("promo");
+    const res = gb.evalFeature("bandit-feature");
     expect(res.source).toEqual("experiment");
     expect(res.value).toEqual("control");
     expect(res.experimentResult?.inExperiment).toEqual(true);
@@ -148,6 +154,8 @@ describe("contextual bandit feature rules", () => {
   });
 
   it("excludes the user (no exposure, no leaf metadata) when global targeting fails even if a leaf matches", () => {
+    // The user matches leaf 1 (plan=enterprise) but fails the global targeting
+    // condition (country != US). Must be excluded and leak no leaf metadata.
     const trackingCallback = jest.fn();
     const gb = new GrowthBook({
       attributes: { id: "u1", plan: "enterprise", country: "CA" },
@@ -156,7 +164,7 @@ describe("contextual bandit feature rules", () => {
       contextualBandits: cbMap(),
     });
 
-    const res = gb.evalFeature("promo");
+    const res = gb.evalFeature("bandit-feature");
     expect(res.source).toEqual("defaultValue");
     expect(res.value).toEqual("default");
     expect(res.experimentResult).toBeUndefined();
@@ -172,7 +180,7 @@ describe("contextual bandit feature rules", () => {
       contextualBandits: cbMap(),
     });
 
-    const res = gb.evalFeature("promo");
+    const res = gb.evalFeature("bandit-feature");
     expect(res.source).toEqual("experiment");
     expect(res.value).toEqual("treatment");
     expect(res.experimentResult?.variationId).toEqual(1);
@@ -199,9 +207,9 @@ describe("contextual bandit feature rules", () => {
       contextualBandits: cbMap(),
     });
 
-    const promo = gb.evalFeature("promo");
+    const feature = gb.evalFeature("bandit-feature");
     const banner = gb.evalFeature("banner");
-    expect(promo.experimentResult?.leafId).toEqual(1);
+    expect(feature.experimentResult?.leafId).toEqual(1);
     expect(banner.experimentResult?.leafId).toEqual(1);
     expect(banner.value).toEqual("off");
     expect(banner.experimentResult?.banditVersion).toEqual(7);
@@ -210,6 +218,9 @@ describe("contextual bandit feature rules", () => {
   });
 
   it("falls into the catch-all leaf when an attribute used by a leaf condition is missing", () => {
+    // The SDK no longer enforces a list of required attributes. A user missing
+    // `plan` simply fails the specific leaf condition and matches the catch-all
+    // leaf like any other non-enterprise user.
     const trackingCallback = jest.fn();
     const gb = new GrowthBook({
       attributes: { id: "u1" },
@@ -218,7 +229,7 @@ describe("contextual bandit feature rules", () => {
       contextualBandits: cbMap(),
     });
 
-    const res = gb.evalFeature("promo");
+    const res = gb.evalFeature("bandit-feature");
     expect(res.source).toEqual("experiment");
     expect(res.value).toEqual("treatment");
     expect(res.experimentResult?.inExperiment).toEqual(true);
@@ -232,6 +243,8 @@ describe("contextual bandit feature rules", () => {
   });
 
   it("buckets on fallback weights (leafId -1) and tracks when no leaf matches", () => {
+    // User passes global targeting and has the required attribute, but matches
+    // none of the leaves (no catch-all present). Fallback leaf, still tracked.
     const trackingCallback = jest.fn();
     const gb = new GrowthBook({
       attributes: { id: "u1", plan: "free" },
@@ -244,7 +257,7 @@ describe("contextual bandit feature rules", () => {
       }),
     });
 
-    const res = gb.evalFeature("promo");
+    const res = gb.evalFeature("bandit-feature");
     expect(res.source).toEqual("experiment");
     expect(res.value).toEqual("control");
     expect(res.experimentResult?.inExperiment).toEqual(true);
@@ -259,6 +272,7 @@ describe("contextual bandit feature rules", () => {
 
   it("does not crash and uses fallback weights (leafId -1) when leaf selection throws", () => {
     const trackingCallback = jest.fn();
+    // A condition that throws when evaluated (e.g. a malformed payload).
     const throwingCondition = new Proxy(
       {},
       {
@@ -268,7 +282,7 @@ describe("contextual bandit feature rules", () => {
       },
     ) as Record<string, unknown>;
     const bandits = cbMap();
-    bandits.cb_promo.contexts[0].condition = throwingCondition;
+    bandits["cb-bandit"].contexts[0].condition = throwingCondition;
 
     const gb = new GrowthBook({
       attributes: { id: "u1", plan: "enterprise" },
@@ -277,9 +291,11 @@ describe("contextual bandit feature rules", () => {
       contextualBandits: bandits,
     });
 
+    // Should not throw; the user falls back to aggregate weights rather than
+    // being dropped, and is tracked as a fallback-leaf exposure.
     let res: ReturnType<typeof gb.evalFeature>;
     expect(() => {
-      res = gb.evalFeature("promo");
+      res = gb.evalFeature("bandit-feature");
     }).not.toThrow();
     expect(res!.source).toEqual("experiment");
     expect(res!.value).toEqual("control");
@@ -300,16 +316,47 @@ describe("contextual bandit feature rules", () => {
       contextualBandits: cbMap(),
     });
 
-    gb.evalFeature("promo");
+    gb.evalFeature("bandit-feature");
 
     expect(trackingCallback.mock.calls.length).toEqual(1);
     const [experiment, result, user] = trackingCallback.mock.calls[0];
-    expect(experiment.key).toEqual("promo_bandit");
+    expect(experiment.key).toEqual("bandit-exp");
     expect(result.leafId).toEqual(1);
     expect(result.variationId).toEqual(0);
     expect(result.variationWeights).toEqual([1, 0]);
     expect(result.banditVersion).toEqual(7);
     expect(user.attributes).toEqual({ id: "u1", plan: "enterprise" });
+
+    gb.destroy();
+  });
+
+  it("reports the override weights (not the leaf weights) when a context weights-override changes bucketing", () => {
+    const trackingCallback = jest.fn();
+    const gb = new GrowthBook({
+      attributes: { id: "u1", plan: "enterprise" }, // matches leaf 1 -> [1, 0]
+      trackingCallback,
+      features: cbFeatures(),
+      contextualBandits: cbMap(),
+      // Override flips the weights so the user buckets into variation 1 instead.
+      overrides: { "bandit-exp": { weights: [0, 1] } },
+    });
+
+    const res = gb.evalFeature("bandit-feature");
+
+    // Leaf selection is unchanged (still leaf 1)...
+    expect(res.experimentResult?.leafId).toEqual(1);
+    // ...but bucketing used the override weights, so the reported weights and
+    // the assigned variation must reflect [0, 1], not the leaf's [1, 0].
+    expect(res.experimentResult?.variationId).toEqual(1);
+    expect(res.experimentResult?.value).toEqual("treatment");
+    expect(res.experimentResult?.variationWeights).toEqual([0, 1]);
+
+    // The trackingCallback must see the same override weights.
+    expect(trackingCallback.mock.calls.length).toEqual(1);
+    const [experiment, result] = trackingCallback.mock.calls[0];
+    expect(result.variationWeights).toEqual([0, 1]);
+    expect(experiment.contextualBandit.variationWeights).toEqual([0, 1]);
+    expect(experiment.weights).toEqual([0, 1]);
 
     gb.destroy();
   });
@@ -352,13 +399,16 @@ describe("contextual bandit feature rules", () => {
   });
 
   it("uses marginal weights with fallback-leaf metadata when contexts[] is empty (explore stage)", () => {
+    // An explore-stage CB has no leaves yet. Users are bucketed on the aggregate
+    // weights but the exposure is still attributable via the fallback leaf (-1)
+    // and banditVersion, so it can be tied to a weight generation.
     const gb = new GrowthBook({
       attributes: { id: "u1" },
       features: cbFeatures(),
       contextualBandits: cbMap({ contexts: [] }),
     });
 
-    const res = gb.evalFeature("promo");
+    const res = gb.evalFeature("bandit-feature");
     expect(res.source).toEqual("experiment");
     expect(res.value).toEqual("control");
     expect(res.experimentResult?.variationId).toEqual(0);
@@ -370,12 +420,15 @@ describe("contextual bandit feature rules", () => {
   });
 
   it("falls back to marginal weights with NO metadata when the contextualBanditRef is dangling", () => {
+    // No CB definition in the payload at all, so there is no banditVersion to
+    // report — the rule runs as a plain MAB experiment with no leaf metadata.
     const gb = new GrowthBook({
       attributes: { id: "u1" },
       features: cbFeatures(),
+      // No contextualBandits map at all
     });
 
-    const res = gb.evalFeature("promo");
+    const res = gb.evalFeature("bandit-feature");
     expect(res.source).toEqual("experiment");
     expect(res.value).toEqual("control");
     expect(res.experimentResult?.variationId).toEqual(0);
@@ -387,13 +440,14 @@ describe("contextual bandit feature rules", () => {
   });
 
   it("preserves attributes through deferred tracking calls", async () => {
+    // No trackingCallback at eval time => the exposure is deferred.
     const gb = new GrowthBook({
       attributes: { id: "u1", plan: "enterprise" },
       features: cbFeatures(),
       contextualBandits: cbMap(),
     });
 
-    gb.evalFeature("promo");
+    gb.evalFeature("bandit-feature");
 
     const deferred = gb.getDeferredTrackingCalls();
     expect(deferred.length).toEqual(1);
@@ -425,7 +479,7 @@ describe("contextual bandit feature rules", () => {
       contextualBandits: cbMap(),
     });
 
-    const res = gb.evalFeature("promo");
+    const res = gb.evalFeature("bandit-feature");
     expect(res.experimentResult?.leafId).toEqual(1);
     expect(res.experimentResult?.banditVersion).toEqual(7);
 
@@ -443,7 +497,7 @@ describe("contextual bandit feature rules", () => {
       },
     });
 
-    const res = gb.evalFeature("promo");
+    const res = gb.evalFeature("bandit-feature");
     expect(res.source).toEqual("experiment");
     expect(res.value).toEqual("control");
     expect(res.experimentResult?.leafId).toEqual(1);
@@ -462,7 +516,7 @@ describe("contextual bandit feature rules", () => {
       },
     });
 
-    const res = gb.evalFeature("promo", {
+    const res = gb.evalFeature("bandit-feature", {
       attributes: { id: "u1", plan: "enterprise" },
     });
     expect(res.source).toEqual("experiment");
