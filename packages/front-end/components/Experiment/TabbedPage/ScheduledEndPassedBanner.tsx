@@ -86,17 +86,17 @@ export default function ScheduledEndPassedBanner({
         <>
           <Separator size="4" mt="3" />
           <Box mt="4" ml="3">
-            <Text size="medium">
-              <p>
+            <Flex direction="column" gap="4">
+              <Text as="p" size="medium">
                 This experiment passed its scheduled end date on{" "}
                 {format(new Date(stopAt), "MMM d, yyyy 'at' h:mm a (z)")} and
                 was kept running as requested by the experiment schedule.
-              </p>
-              <p>
+              </Text>
+              <Text as="p" size="medium">
                 There is no clear decision recommendation for the following
                 reason(s):
-              </p>
-            </Text>
+              </Text>
+            </Flex>
             <Flex direction="column" gap="2" mt="2">
               <Flex gap="2" align="center">
                 <Text size="medium" color="text-mid">
