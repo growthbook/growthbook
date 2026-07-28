@@ -142,8 +142,9 @@ function onFeatureUsage(
       });
     }
 
-    if (ctx.user.featureEvalSubs?.size) {
-      ctx.user.featureEvalSubs.forEach((cb) => {
+    // Deduped by value above — subscribers only fire on value changes, not every eval.
+    if (ctx.user.featureUsageSubs?.size) {
+      ctx.user.featureUsageSubs.forEach((cb) => {
         try {
           cb(key, ret);
         } catch (e) {

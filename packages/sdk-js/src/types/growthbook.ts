@@ -190,14 +190,15 @@ export type FeatureUsageCallbackWithUser = (
 ) => void;
 
 // Callback types for internal plugin subscriptions (e.g. session replay).
-export type FeatureEvalCallback = (
+// Must be synchronous — async callbacks are not awaited and rejected promises won't be caught.
+export type FeatureUsageSubCallback = (
   key: string,
-  result: FeatureResult<any>,
+  result: Readonly<FeatureResult<any>>,
 ) => void;
 
-export type EventEvalCallback = (
+export type CustomEventSubCallback = (
   eventName: string,
-  properties?: Record<string, unknown>,
+  properties: Readonly<Record<string, unknown>>,
 ) => void;
 
 export type Plugin = (
@@ -364,7 +365,7 @@ export type UserContext = {
   trackedExperiments?: Set<string>;
   trackedFeatureUsage?: Record<string, string>;
   devLogs?: LogUnion[];
-  featureEvalSubs?: Set<FeatureEvalCallback>;
+  featureUsageSubs?: Set<FeatureUsageSubCallback>;
 };
 
 export type StackContext = {
