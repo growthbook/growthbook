@@ -429,6 +429,13 @@ export function runExperiment<T>(
   // 2.5. Merge in experiment overrides from the context
   experiment = mergeOverrides(experiment, ctx);
 
+  if (experiment.contextualBandit && experiment.weights) {
+    experiment.contextualBandit = {
+      ...experiment.contextualBandit,
+      variationWeights: experiment.weights,
+    };
+  }
+
   // 2.6 New, more powerful URL targeting
   if (
     experiment.urlPatterns &&
