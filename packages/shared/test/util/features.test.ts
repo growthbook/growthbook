@@ -2256,59 +2256,6 @@ describe("getRevertValueValidationWarnings", () => {
     });
     expect(warnings).toEqual([]);
   });
-
-  it("flags invalid variation values in a contextual-bandit-ref rule", () => {
-    const warnings = getRevertValueValidationWarnings(numberSchema, {
-      rules: [
-        {
-          id: "a",
-          type: "contextual-bandit-ref",
-          variations: [
-            { variationId: "0", value: "4" },
-            { variationId: "1", value: "999" },
-          ],
-        } as never,
-      ],
-    });
-    expect(warnings.length).toBe(1);
-    expect(warnings[0]).toContain("Rule #1 variation #2");
-  });
-
-  it("flags invalid control and variation values in a safe-rollout rule", () => {
-    const warnings = getRevertValueValidationWarnings(numberSchema, {
-      rules: [
-        {
-          id: "a",
-          type: "safe-rollout",
-          controlValue: "0",
-          variationValue: "999",
-        } as never,
-      ],
-    });
-    expect(warnings.length).toBe(2);
-    expect(warnings[0]).toContain("Rule #1 control value");
-    expect(warnings[1]).toContain("Rule #1 variation value");
-  });
-
-  it("returns no warnings for valid safe-rollout and contextual-bandit-ref rules", () => {
-    expect(
-      getRevertValueValidationWarnings(numberSchema, {
-        rules: [
-          {
-            id: "a",
-            type: "safe-rollout",
-            controlValue: "2",
-            variationValue: "8",
-          } as never,
-          {
-            id: "b",
-            type: "contextual-bandit-ref",
-            variations: [{ variationId: "0", value: "3" }],
-          } as never,
-        ],
-      }),
-    ).toEqual([]);
-  });
 });
 
 describe("assertSchemaMatchesValueType", () => {

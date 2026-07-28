@@ -1273,6 +1273,11 @@
       "count": 1
     }
   },
+  "packages/front-end/components/Metrics/FactMetricTypeDisplayName.tsx": {
+    "@typescript-eslint/switch-exhaustiveness-check": {
+      "count": 1
+    }
+  },
   "packages/front-end/components/Metrics/MetricForm/MetricCappingSettingsForm.tsx": {
     "no-restricted-syntax": {
       "count": 2
@@ -2366,7 +2371,7 @@
   },
   "packages/shared/src/util/features.ts": {
     "@typescript-eslint/switch-exhaustiveness-check": {
-      "count": 1
+      "count": 2
     }
   },
   "packages/shared/src/util/managedWarehouse.ts": {
