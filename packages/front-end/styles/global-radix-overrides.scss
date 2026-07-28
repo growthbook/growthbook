@@ -295,8 +295,12 @@
   &:last-child {
     display: none;
   }
+  // Adjacent to another separator, or bordering a group emptied by
+  // all-conditional items. The empty group is hidden above but stays in the
+  // DOM, so :first-child / :last-child cannot see past it in either direction.
   & + &,
-  .rt-BaseMenuGroup:empty + & {
+  .rt-BaseMenuGroup:empty + &,
+  &:has(+ .rt-BaseMenuGroup:empty:last-child) {
     display: none;
   }
 }
