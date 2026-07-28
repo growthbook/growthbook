@@ -12,10 +12,10 @@ import {
   getManagedWarehouseEventsFactTableColumns,
   getManagedWarehouseExposureQueryIdForAttribute,
   getManagedWarehouseIdentifierForAttribute,
+  getManagedWarehouseTypedAttributeColumns,
   getManagedWarehouseUserIdTypes,
   getManagedWarehouseUserIdTypeSettings,
   isManagedWarehouse,
-  isManagedWarehouseAwaitingJsonMigration,
   isManagedWarehouseMigrating,
   isManagedWarehouseUnavailable,
   isManagedWarehouseNoEventsGuidanceMessage,
@@ -34,51 +34,6 @@ describe("isManagedWarehouse", () => {
     expect(isManagedWarehouse({ type: "clickhouse" })).toBe(false);
     expect(isManagedWarehouse({ type: "bigquery" })).toBe(false);
     expect(isManagedWarehouse({ type: "snowflake" })).toBe(false);
-  });
-});
-
-describe("isManagedWarehouseAwaitingJsonMigration", () => {
-  const ds = (settings: Record<string, unknown>) =>
-    ({ type: "growthbook_clickhouse", settings }) as Parameters<
-      typeof isManagedWarehouseAwaitingJsonMigration
-    >[0];
-
-  it("is false for non-managed warehouses", () => {
-    expect(
-      isManagedWarehouseAwaitingJsonMigration({
-        type: "clickhouse",
-        settings: {},
-      }),
-    ).toBe(false);
-  });
-
-  it("is true for a legacy warehouse (no useJsonColumns)", () => {
-    expect(isManagedWarehouseAwaitingJsonMigration(ds({}))).toBe(true);
-    expect(
-      isManagedWarehouseAwaitingJsonMigration(ds({ useJsonColumns: false })),
-    ).toBe(true);
-  });
-
-  it("is true for a partially-migrated warehouse (flag set, matcols not cleared)", () => {
-    expect(
-      isManagedWarehouseAwaitingJsonMigration(
-        ds({
-          useJsonColumns: true,
-          materializedColumns: [{ columnName: "plan" }],
-        }),
-      ),
-    ).toBe(true);
-  });
-
-  it("is false once fully migrated (flag set, matcols cleared/empty/absent)", () => {
-    expect(
-      isManagedWarehouseAwaitingJsonMigration(ds({ useJsonColumns: true })),
-    ).toBe(false);
-    expect(
-      isManagedWarehouseAwaitingJsonMigration(
-        ds({ useJsonColumns: true, materializedColumns: [] }),
-      ),
-    ).toBe(false);
   });
 });
 
@@ -498,6 +453,91 @@ describe("getManagedWarehouseAttributesJsonFields", () => {
 
   it("returns an empty object when there are no JSON attributes", () => {
     expect(getManagedWarehouseAttributesJsonFields(undefined)).toEqual({});
+  });
+});
+
+describe("getManagedWarehouseTypedAttributeColumns", () => {
+  it("includes every attribute stored in the attributes JSON, typed and sorted", () => {
+    const schema: SDKAttributeSchema = [
+      { property: "plan", datatype: "enum", enum: "free,pro" },
+      { property: "company_id", datatype: "string", hashAttribute: true },
+      { property: "age", datatype: "number" },
+      { property: "is_admin", datatype: "boolean" },
+      { property: "team_ids", datatype: "string[]" },
+      // Extracted by the SDK to a top-level column; never inside `attributes`.
+      { property: "user_id", datatype: "string" },
+      { property: "archived", datatype: "string", archived: true },
+      // Reserved column-name collisions don't matter for dotted names.
+      { property: "geo_country", datatype: "string" },
+    ];
+    expect(getManagedWarehouseTypedAttributeColumns(schema)).toEqual([
+      { property: "age", datatype: "number" },
+      { property: "company_id", datatype: "string" },
+      { property: "geo_country", datatype: "string" },
+      { property: "is_admin", datatype: "string" },
+      { property: "plan", datatype: "string" },
+      { property: "team_ids", datatype: "string" },
+    ]);
+  });
+
+  it("includes preserved legacy identifiers without duplicating schema entries", () => {
+    const schema: SDKAttributeSchema = [
+      { property: "company_id", datatype: "string", hashAttribute: true },
+    ];
+    expect(
+      getManagedWarehouseTypedAttributeColumns(schema, [
+        "legacy_id",
+        "company_id",
+        "user_id", // SDK-extracted; excluded
+      ]),
+    ).toEqual([
+      { property: "company_id", datatype: "string" },
+      { property: "legacy_id", datatype: "string" },
+    ]);
+  });
+
+  it("forces string typing for numeric identifiers (exact-value join keys)", () => {
+    const schema: SDKAttributeSchema = [
+      { property: "company_id", datatype: "number", hashAttribute: true },
+      // Non-identifier numbers keep their numeric typing.
+      { property: "age", datatype: "number" },
+      // Reserved-name collision keeps this out of the identifier set, so its
+      // declared numeric type wins.
+      { property: "timestamp", datatype: "number", hashAttribute: true },
+    ];
+    expect(getManagedWarehouseTypedAttributeColumns(schema)).toEqual([
+      { property: "age", datatype: "number" },
+      { property: "company_id", datatype: "string" },
+      { property: "timestamp", datatype: "number" },
+    ]);
+  });
+
+  it("includes preserved legacy dimensions typed like their fact-table alias", () => {
+    const schema: SDKAttributeSchema = [
+      { property: "plan", datatype: "string" },
+    ];
+    expect(
+      getManagedWarehouseTypedAttributeColumns(
+        schema,
+        [],
+        [
+          { columnName: "score_col", sourceField: "score", datatype: "number" },
+          { columnName: "tier_col", sourceField: "tier", datatype: "string" },
+          // Schema entry wins over the migrated column's datatype.
+          { columnName: "plan_col", sourceField: "plan", datatype: "number" },
+          // SDK-extracted; excluded.
+          { columnName: "uid_col", sourceField: "user_id", datatype: "string" },
+        ],
+      ),
+    ).toEqual([
+      { property: "plan", datatype: "string" },
+      { property: "score", datatype: "number" },
+      { property: "tier", datatype: "string" },
+    ]);
+  });
+
+  it("returns an empty list for an empty schema", () => {
+    expect(getManagedWarehouseTypedAttributeColumns(undefined)).toEqual([]);
   });
 });
 

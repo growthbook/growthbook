@@ -1,4 +1,5 @@
 import { useForm, FormProvider } from "react-hook-form";
+import omit from "lodash/omit";
 import {
   FeatureEnvironment,
   FeatureInterface,
@@ -143,7 +144,11 @@ const genFormDefaultValues = ({
         targetingProjects: featureToDuplicate.targetingProjects ?? [],
         tags: featureToDuplicate.tags,
         environmentSettings,
-        rules: featureToDuplicate.rules ?? [],
+        // Drop rollout seeds so the copy buckets independently of the source
+        // flag; the back end stamps each rule's own id on create.
+        rules: (featureToDuplicate.rules ?? []).map((r) =>
+          r?.type === "rollout" ? omit(r, ["seed"]) : r,
+        ),
         customFields: customFieldValues,
         holdout: featureToDuplicate.holdout?.id
           ? featureToDuplicate.holdout

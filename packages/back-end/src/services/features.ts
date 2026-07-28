@@ -1868,21 +1868,13 @@ export function addIdsToRules(
   Object.values(environmentSettings).forEach((env) => {
     const rules = (env as unknown as { rules?: FeatureRule[] }).rules;
     if (rules && rules.length) {
-      rules.forEach((r) => {
-        if (r.type === "experiment" && !r?.trackingKey) {
-          r.trackingKey = featureId;
-        }
-        if (!r.id) {
-          r.id = generateRuleId();
-        }
-        if (r.type === "rollout" && !r.seed) {
-          r.seed = r.id;
-        }
-      });
+      addIdsToFlatRules(rules, featureId);
     }
   });
 }
 
+// Single write-time chokepoint for rule ids, experiment tracking keys, and
+// rollout seeds — consolidated so the invariant can't drift across call sites.
 export function addIdsToFlatRules(
   rules: FeatureRule[] = [],
   featureId: string,
@@ -1894,12 +1886,38 @@ export function addIdsToFlatRules(
     if (!r.id) {
       r.id = generateRuleId();
     }
-    // Rollout rules without an explicit seed default to their rule ID.
-    // This ensures the SDK (which falls back to rule.id when no seed is sent)
-    // and the monitored-ramp payload both bucket users identically, preventing
-    // variation hopping when a rule transitions between monitored/unmonitored.
+    // Seed new rollout rules off their own id so stacked rollouts hash
+    // independently. Legacy seedless rules are pinned to the feature id on read
+    // (`pinLegacyRolloutSeeds`), so this only ever applies to new rules.
     if (r.type === "rollout" && !r.seed) {
       r.seed = r.id;
+    }
+  });
+}
+
+// A bulk update replaces the whole rules array, so an inbound rollout rule that
+// echoes an existing rule by id but omits seed/hashVersion would be re-stamped
+// (seed → rule.id) by addIdsToFlatRules, re-drawing the cohort. Inherit those from
+// the stored (read-time-pinned) rule so only rules with no history get stamped.
+export function inheritStoredRolloutSeeds(
+  inbound: FeatureRule[] = [],
+  storedRules: FeatureRule[] = [],
+): void {
+  const priorById = new Map(
+    storedRules.filter((r) => r?.id).map((r) => [r.id, r]),
+  );
+  inbound.forEach((r) => {
+    if (r?.type !== "rollout" || !r.id) return;
+    const prior = priorById.get(r.id);
+    if (prior?.type !== "rollout") return;
+    // Seed uses `!r.seed` to match addIdsToFlatRules and the read pin, so an
+    // empty string counts as unset; hashVersion is numeric, so only `undefined`
+    // does.
+    if (!r.seed && prior.seed) {
+      r.seed = prior.seed;
+    }
+    if (r.hashVersion === undefined && prior.hashVersion !== undefined) {
+      r.hashVersion = prior.hashVersion;
     }
   });
 }
@@ -2047,6 +2065,8 @@ export function normalizeRuleForApi(rule: FeatureRule): ApiFeatureRule {
         coverage: rule.coverage ?? 1,
         hashAttribute: rule.hashAttribute,
         seed: rule.seed,
+        // Emit so a GET→edit→PUT round-trip preserves it (else the rollout re-buckets).
+        hashVersion: rule.hashVersion,
       };
     case "experiment":
       return {
@@ -3196,6 +3216,9 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
             match: s.matchType,
           })),
           enabled: r.enabled != null ? r.enabled : true,
+          // Preserve on round-trips — dropping seed/hashVersion re-buckets the rollout.
+          ...(r.seed !== undefined && { seed: r.seed }),
+          ...(r.hashVersion !== undefined && { hashVersion: r.hashVersion }),
           ...(r.sparse !== undefined && { sparse: r.sparse }),
           ...(r.prerequisites && { prerequisites: r.prerequisites }),
           ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
