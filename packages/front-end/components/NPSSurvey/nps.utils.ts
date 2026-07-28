@@ -33,18 +33,17 @@ export function meetsMinimumTenure(orgCreatedIso?: string | null): boolean {
   return !Number.isNaN(t) && Date.now() - t >= MIN_ORG_AGE_MS;
 }
 
-// The rate comes from the `nps-survey` feature, so it can be tuned live without
-// a deploy. Accepts a 0-1 fraction or a 0-100 percentage; booleans are honored
-// for backwards compatibility with the flag's original on/off shape. Anything
-// unexpected fails closed at 0 (survey off).
+// The `nps-survey` feature holds the percentage (0-100) of eligible users to
+// sample, so volume is tunable in GrowthBook without a deploy. Returns a 0-1
+// fraction. Percent-only on purpose: accepting fractions too would make `1`
+// ambiguous between 1% and 100%, where guessing wrong surveys everybody.
+// Anything unexpected — including the flag's original boolean shape — fails
+// closed at 0, so a misconfigured flag never blasts the whole user base.
 export function parseSampleRate(value: unknown): number {
-  if (value === true) return 1;
   if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
     return 0;
   }
-  // Allow "5" to mean 5%, since a percentage is the natural way to express this.
-  const rate = value > 1 ? value / 100 : value;
-  return Math.min(rate, 1);
+  return Math.min(value / 100, 1);
 }
 
 // FNV-1a, matching the GrowthBook SDK's v2 hashing so sampling buckets behave

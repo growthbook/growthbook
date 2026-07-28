@@ -67,14 +67,20 @@ describe("withinCooldown", () => {
 });
 
 describe("parseSampleRate", () => {
-  it("treats a 0-1 value as a fraction", () => {
-    expect(parseSampleRate(0.05)).toBe(0.05);
-    expect(parseSampleRate(1)).toBe(1);
+  it("reads the value as a percentage", () => {
+    expect(parseSampleRate(5)).toBe(0.05);
+    expect(parseSampleRate(50)).toBe(0.5);
   });
 
-  it("treats a value above 1 as a percentage", () => {
-    expect(parseSampleRate(5)).toBe(0.05);
+  it("treats 0 as off and 100 as all users", () => {
+    expect(parseSampleRate(0)).toBe(0);
     expect(parseSampleRate(100)).toBe(1);
+  });
+
+  it("reads a small number as that percent, not a fraction", () => {
+    // The ambiguous case: 1 must mean 1%, never 100%.
+    expect(parseSampleRate(1)).toBe(0.01);
+    expect(parseSampleRate(0.5)).toBe(0.005);
   });
 
   it("clamps out-of-range values", () => {
@@ -82,12 +88,9 @@ describe("parseSampleRate", () => {
     expect(parseSampleRate(-1)).toBe(0);
   });
 
-  it("honors the flag's original boolean shape", () => {
-    expect(parseSampleRate(true)).toBe(1);
+  it("fails closed on unexpected values, including booleans", () => {
+    expect(parseSampleRate(true)).toBe(0);
     expect(parseSampleRate(false)).toBe(0);
-  });
-
-  it("fails closed on unexpected values", () => {
     expect(parseSampleRate(undefined)).toBe(0);
     expect(parseSampleRate(null)).toBe(0);
     expect(parseSampleRate("5")).toBe(0);
