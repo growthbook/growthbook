@@ -31,7 +31,10 @@ const queueSDKPayloadRefreshMock =
 function makeContext(): ReqContext {
   // No org.settings.environments → getEnvironmentIdsFromOrg falls back to
   // the default ["dev", "production"].
-  return { org: { id: "org_1" } } as unknown as ReqContext;
+  return {
+    org: { id: "org_1" },
+    getAllProjectIds: jest.fn().mockResolvedValue([]),
+  } as unknown as ReqContext;
 }
 
 function makeCb(
