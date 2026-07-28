@@ -1,7 +1,3 @@
-# The pretty scripts also pass --ignore-path .gitignore, so anything git ignores
-# (build output, generated files such as next-env.d.ts, local scratch dirs) is
-# already skipped and does not need an entry here. This file is for tracked files
-# that should not be formatted.
 .next
 node_modules
 public
@@ -15,10 +11,5 @@ dist
 *.hbs
 packages/back-end/src/templates/javascript.js
 packages/shared/types/*.js
-# Vendored, minified Reo.dev analytics loader. Formatting de-minifies it and
-# makes it undiffable against an upstream re-copy.
 docs/static/scripts/reo.js
-
-# ESLint writes this with its own stable serializer and emits no trailing
-# newline, so every regeneration would otherwise fail pretty:check.
 eslint-suppressions.json
