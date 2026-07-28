@@ -256,6 +256,8 @@ export interface ModelConfig<
     fields: Partial<Record<IndexableFieldPath<z.infer<T>>, 1 | -1>>;
     unique?: boolean;
     sparse?: boolean;
+    // TTL: seconds after the indexed Date field before Mongo deletes the doc (0 = at that time).
+    expireAfterSeconds?: number;
     // Explicit index name (required for partial indexes so they can be matched
     // for removal and so dup-key errors can be identified).
     name?: string;
@@ -425,7 +427,14 @@ export abstract class BaseModel<
     }
     return filtered;
   }
-  protected migrate(legacyDoc: unknown): z.infer<T> {
+  /**
+   * Passes projected-out fields so migrations can distinguish omitted values
+   * from unset values.
+   */
+  protected migrate(
+    legacyDoc: unknown,
+    omittedFields?: ReadonlySet<string>,
+  ): z.infer<T> {
     return legacyDoc as z.infer<T>;
   }
   protected toApiInterface(doc: z.infer<T>): z.infer<ApiT> {
@@ -868,12 +877,14 @@ export abstract class BaseModel<
       bypassReadPermissionChecks?: boolean;
       bypassSanitization?: boolean;
       // Note: projection does not work when using config.yml
-      projection?: Partial<Record<keyof z.infer<T>, 0 | 1>>;
+      // Note: exclusion-only, so projection: { field: 1 } is not supported at the moment.
+      projection?: Partial<Record<keyof z.infer<T>, 0>>;
       dangerousCrossOrganization?: boolean;
     } = {},
   ) {
     const fullQuery = this.applyBaseQuery(query, dangerousCrossOrganization);
     let rawDocs;
+    let omittedFields: ReadonlySet<string> | undefined;
 
     if (this.useConfigFile()) {
       const docs =
@@ -898,6 +909,7 @@ export abstract class BaseModel<
       const cursor = this._dangerousGetCollection().find(fullQuery);
       if (projection) {
         cursor.project(projection);
+        omittedFields = new Set(Object.keys(projection));
       }
       sort &&
         cursor.sort(
@@ -911,7 +923,9 @@ export abstract class BaseModel<
     if (!rawDocs.length) return [];
 
     const migrated = rawDocs.map((d) =>
-      this._stripLegacyNullFields(this.migrate(this._removeMongooseFields(d))),
+      this._stripLegacyNullFields(
+        this.migrate(this._removeMongooseFields(d), omittedFields),
+      ),
     );
     const filtered = bypassReadPermissionChecks
       ? migrated
@@ -1501,6 +1515,9 @@ export abstract class BaseModel<
             unique: !!index.unique,
             sparse: !!index.sparse,
             ...(index.name ? { name: index.name } : {}),
+            ...(index.expireAfterSeconds !== undefined
+              ? { expireAfterSeconds: index.expireAfterSeconds }
+              : {}),
             ...(index.partialFilterExpression
               ? { partialFilterExpression: index.partialFilterExpression }
               : {}),

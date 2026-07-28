@@ -414,7 +414,7 @@ function getCappingSettings(
 }
 
 // Generate dimension expression
-function generateDimensionExpression(
+export function generateDimensionExpression(
   dimension: ProductAnalyticsDimension,
   dimensionIndex: number,
   factTableGroup: FactTableGroup,
