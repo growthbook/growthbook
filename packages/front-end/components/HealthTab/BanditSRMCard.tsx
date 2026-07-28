@@ -93,10 +93,10 @@ export default function BanditSRMCard({
       <div>
         {overallHealth !== "not-enough-traffic" ? (
           <>
-            <div className="text-muted mx-3 mb-2">
+            <Text as="div" color="text-low" mx="3" mb="2">
               p-value:{" "}
               {srm !== undefined ? pValueFormatter(srm, 4) : <em>n/a</em>}
-            </div>
+            </Text>
             <SRMWarning
               srm={srm ?? Infinity}
               users={users}

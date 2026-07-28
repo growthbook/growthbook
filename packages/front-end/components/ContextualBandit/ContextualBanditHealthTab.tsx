@@ -52,22 +52,24 @@ export default function ContextualBanditHealthTab({
     );
   }
 
+  if (!traffic || totalUsers === 0) {
+    return (
+      <Callout status="info" mt="3">
+        Traffic data will appear after a successful results refresh.
+      </Callout>
+    );
+  }
+
   return (
     <Flex direction="column">
       <IssueTags issues={healthIssues} />
 
-      {traffic ? (
-        <TrafficCard
-          traffic={traffic}
-          variations={variations}
-          isBandit
-          disableDimensions
-        />
-      ) : (
-        <Callout status="info" mt="3">
-          Traffic data will appear after a successful results refresh.
-        </Callout>
-      )}
+      <TrafficCard
+        traffic={traffic}
+        variations={variations}
+        isBandit
+        disableDimensions
+      />
 
       <div id="balanceCheck" style={{ scrollMarginTop: "100px" }}>
         <ContextualBanditSRMCard
