@@ -40,6 +40,10 @@ import { MakeModelClass } from "./BaseModel";
 const BaseClass = MakeModelClass({
   schema: configValidator,
   collectionName: "configs",
+  affectsDefinitionsVersion: true,
+  definitionsVersionProjectField: "project",
+  // `value` is projected out of the definitions response (getAllWithoutValues).
+  definitionsVersionExcludedFields: ["value"],
   idPrefix: "cfg_",
   auditLog: {
     entity: "config",
