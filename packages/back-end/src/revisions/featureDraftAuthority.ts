@@ -1,15 +1,15 @@
 import { FeatureInterface } from "shared/types/feature";
-import { MergeResultChanges } from "shared/util";
+import {
+  MergeResultChanges,
+  isPureFeatureArchive,
+  isPureFeatureRevert,
+} from "shared/util";
 import { FeatureRevisionInterface } from "shared/validators";
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { getEnabledEnvironments } from "back-end/src/util/features";
-import {
-  isPureFeatureArchive,
-  isPureFeatureRevert,
-} from "back-end/src/revisions/featureRevertPurity";
 
 /**
  * Who may move a feature draft along — request review on it, recall that

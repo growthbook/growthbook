@@ -1,6 +1,6 @@
-import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/validators";
-import { isPureFeatureRevert } from "back-end/src/revisions/featureRevertPurity";
+import { FeatureInterface } from "shared/types/feature";
+import { isPureFeatureRevert } from "../../src/util/featureDraftPurity";
 
 // Live feature: drifted away from the target on defaultValue and rules, and it
 // carries prerequisites the sparse target revision never recorded.

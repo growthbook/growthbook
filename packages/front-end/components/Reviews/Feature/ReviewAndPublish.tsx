@@ -21,6 +21,8 @@ import {
   checkIfRevisionNeedsReview,
   evaluatePublishGovernance,
   getLiveChangesSinceBase,
+  isPureFeatureArchive,
+  isPureFeatureRevert,
   MergeStrategy,
 } from "shared/util";
 import {
@@ -710,12 +712,31 @@ export default function ReviewAndPublish({
       "id" in revision.createdBy &&
       revision.createdBy.id === userId) ||
     (!!userId && (revision?.contributors ?? []).includes(userId));
-  const draftStagesRevert = revision?.revertedFromVersion !== undefined;
+  // The same predicates the server enforces, so the client can't offer an
+  // action the server then refuses. The revert target must be a published
+  // revision, which is exactly what the server re-checks.
+  const revertTargetRevision =
+    revision?.revertedFromVersion !== undefined
+      ? revisions.find(
+          (r) =>
+            r.version === revision.revertedFromVersion &&
+            r.status === "published",
+        )
+      : undefined;
+  const draftStagesRevert =
+    !!revision &&
+    !!revertTargetRevision &&
+    isPureFeatureRevert({
+      feature,
+      draft: revision,
+      target: revertTargetRevision,
+    });
   // `feature` here is the live doc, so this mirrors the server's
   // `isArchiveTransition`: only an active flag being archived counts. Without
   // the second half, any draft on an already-archived flag would look like an
   // archive and the client would offer actions the server then refuses.
-  const draftStagesArchive = revision?.archived === true && !feature.archived;
+  const draftStagesArchive =
+    !!revision && isPureFeatureArchive({ feature, draft: revision });
   const canAdvanceDraft =
     permissionsUtil.canEditFeatureDrafts(feature) ||
     (authoredDraft && (hasRevertAuthority || hasDeleteAuthority)) ||

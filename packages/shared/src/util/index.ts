@@ -29,6 +29,7 @@ export * from "./strings";
 export * from "./units-query-settings";
 export * from "./event-forwarder-destination";
 export * from "./features";
+export * from "./featureDraftPurity";
 export * from "./configs";
 export * from "./deep-merge";
 export * from "./config-schema";

@@ -10,16 +10,9 @@ import type { Permissions, RevisionModel } from "shared/permissions";
  * land the transition (feature publish, bulk publish, the revision engine).
  */
 
-/** True only for the false -> true transition. */
-export function isArchiveTransition({
-  proposed,
-  current,
-}: {
-  proposed: boolean | undefined;
-  current: boolean | undefined;
-}): boolean {
-  return proposed === true && !current;
-}
+// Defined in shared so the client asks the same question; re-exported here
+// because every back-end archive path already imports it from this module.
+export { isArchiveTransition } from "shared/util";
 
 /**
  * Authority to land an `archived` flip, in whichever direction. The one place
