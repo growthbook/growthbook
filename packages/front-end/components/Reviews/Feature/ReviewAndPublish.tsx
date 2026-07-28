@@ -2786,12 +2786,11 @@ export default function ReviewAndPublish({
                       {!hasChanges &&
                         (isStranded ? (
                           <Callout status="warning" size="sm">
-                            This revision is already the live version of the
-                            Feature Flag, but was never marked published — an
-                            earlier publish updated the Feature Flag without
-                            finishing. Publish it to reconcile the two. Do not
-                            discard it: that would leave the Feature Flag
-                            serving a revision it reports as never published.
+                            This revision is already live but was never marked
+                            published — an earlier publish didn&apos;t finish.
+                            Publish it to reconcile; don&apos;t discard it, or
+                            the Feature Flag will keep serving a revision it
+                            reports as unpublished.
                           </Callout>
                         ) : (
                           <Callout status="info" size="sm">

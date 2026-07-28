@@ -1145,6 +1145,9 @@ export function computeRevisionUpdate(
   // flip to "-stale" variants (see `staleReviews`) so they stay attributable
   // without counting as active verdicts.
   clearReviews: boolean;
+  // True when a content edit means this revision no longer represents the state
+  // it was created to revert to, so its `revertedFrom` marker must be dropped.
+  clearRevertedFrom: boolean;
   // The `reviews` array to persist when `clearReviews` is true: prior active
   // verdicts demoted to "approved-stale" / "changes-requested-stale".
   staleReviews: FeatureRevisionInterface["reviews"];
@@ -1197,6 +1200,12 @@ export function computeRevisionUpdate(
         }
       : changes;
 
+  // A revert marker only describes the revision as it was created. Once its
+  // content is edited it no longer restores that previously-live state, so the
+  // publish-time guard relaxations it grants must not carry over.
+  const clearRevertedFrom =
+    hasMutableChange && revision.revertedFrom !== undefined;
+
   const clearReviews =
     status === "pending-review" && revision.status !== "pending-review";
   const staleReviews = clearReviews
@@ -1219,7 +1228,9 @@ export function computeRevisionUpdate(
       ...normalizedChanges,
       status,
       ...(clearReviews ? { reviews: staleReviews } : {}),
+      ...(clearRevertedFrom ? { revertedFrom: undefined } : {}),
     },
+    clearRevertedFrom,
     clearReviews,
     staleReviews,
   };
@@ -1270,6 +1281,7 @@ export async function updateRevision(
     status,
     proposedRevision,
     clearReviews,
+    clearRevertedFrom,
     staleReviews,
   } = computeRevisionUpdate(context, feature, revision, changes, resetReview);
 
@@ -1309,6 +1321,7 @@ export async function updateRevision(
         // older content, while the UI can still attribute them.
         ...(clearReviews ? { reviews: staleReviews } : {}),
       },
+      ...(clearRevertedFrom ? { $unset: { revertedFrom: 1 } } : {}),
       ...contributorUpdate,
     },
     { new: true },

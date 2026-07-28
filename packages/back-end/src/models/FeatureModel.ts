@@ -3140,7 +3140,15 @@ export async function publishRevision({
         undo: () =>
           applyHoldoutSideEffects(
             context,
-            { ...feature, holdout: result.holdout ?? undefined },
+            {
+              ...feature,
+              // POST-publish rules, matching the forward pass: it enrolls the
+              // experiments in the merged rules, so the reversal has to consider
+              // that same set or experiments this publish added keep pointing at
+              // the new holdout.
+              rules: result.rules ?? feature.rules,
+              holdout: result.holdout ?? undefined,
+            },
             feature.holdout ?? null,
             { isRevert: true },
           ),
