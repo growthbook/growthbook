@@ -26,6 +26,7 @@ import {
 } from "back-end/src/services/experiments";
 import { planMetricFanOut } from "back-end/src/services/experimentQueries/planMetricFanOut";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
+import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
   createExperimentSnapshotModel,
   findSnapshotById,
@@ -34,7 +35,10 @@ import {
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { updateExperimentDashboards } from "back-end/src/enterprise/services/dashboards";
-import { FactTableMap } from "back-end/src/models/FactTableModel";
+import {
+  FactTableMap,
+  getFactTableMap,
+} from "back-end/src/models/FactTableModel";
 import { factMetricFactory } from "../factories/FactMetric.factory";
 import { factTableFactory } from "../factories/FactTable.factory";
 
@@ -50,6 +54,17 @@ jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
 
 jest.mock("back-end/src/models/DataSourceModel", () => ({
   getDataSourceById: jest.fn(),
+}));
+
+jest.mock("back-end/src/models/MetricModel", () => ({
+  getMetricById: jest.fn(),
+  getMetricMap: jest.fn(),
+  getMetricsByIds: jest.fn(),
+  insertMetric: jest.fn(),
+}));
+
+jest.mock("back-end/src/models/FactTableModel", () => ({
+  getFactTableMap: jest.fn(),
 }));
 
 jest.mock("back-end/src/services/datasource", () => ({
@@ -96,6 +111,12 @@ const getLatestSuccessfulSnapshotMock =
   >;
 const getDataSourceByIdMock = getDataSourceById as jest.MockedFunction<
   typeof getDataSourceById
+>;
+const getMetricMapMock = getMetricMap as jest.MockedFunction<
+  typeof getMetricMap
+>;
+const getFactTableMapMock = getFactTableMap as jest.MockedFunction<
+  typeof getFactTableMap
 >;
 const getSourceIntegrationObjectMock =
   getSourceIntegrationObject as jest.MockedFunction<
@@ -211,6 +232,8 @@ describe("snapshot planning", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     getDataSourceByIdMock.mockResolvedValue(makeDatasource());
+    getMetricMapMock.mockResolvedValue(new Map());
+    getFactTableMapMock.mockResolvedValue(new Map() as FactTableMap);
     getSourceIntegrationObjectMock.mockReturnValue({} as never);
     exploratoryOverallRequiresFullRefreshMock.mockReturnValue(false);
   });
@@ -258,6 +281,25 @@ describe("snapshot planning", () => {
       }),
     ).rejects.toThrow(BadRequestError);
 
+    expect(createExperimentSnapshotModelMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a snapshot when none of the selected metrics can be resolved", async () => {
+    await expect(
+      createExperimentSnapshot({
+        context: makeContext(),
+        experiment: makeExperiment({
+          goalMetrics: ["fact__deleted"],
+          metricOverrides: [],
+        }),
+        datasource: makeDatasource(),
+        dimension: undefined,
+        phase: 0,
+        useCache: false,
+      }),
+    ).rejects.toThrow(BadRequestError);
+
+    expect(getMetricMapMock).toHaveBeenCalled();
     expect(createExperimentSnapshotModelMock).not.toHaveBeenCalled();
   });
 

@@ -14,6 +14,7 @@ import {
 import {
   isDimensionPrecomputed,
   getEffectiveLookbackOverride,
+  getAllMetricIdsFromExperiment,
   getLatestPhaseVariations,
 } from "shared/experiments";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
@@ -135,7 +136,8 @@ const Results: FC<{
   }, [experiment.phases.length, setPhase]);
 
   const permissionsUtil = usePermissionsUtil();
-  const { getDatasourceById } = useDefinitions();
+  const { getDatasourceById, getExperimentMetricById, metricGroups } =
+    useDefinitions();
   const incrementalPipelineUnsupportedReason =
     useIncrementalPipelineUnsupportedReason(experiment);
 
@@ -228,10 +230,11 @@ const Results: FC<{
     isIncrementalActive &&
     !(dimensionless && !dimensionless.dimension);
 
-  const hasMetrics =
-    experiment.goalMetrics.length > 0 ||
-    experiment.secondaryMetrics.length > 0 ||
-    experiment.guardrailMetrics.length > 0;
+  const hasMetrics = getAllMetricIdsFromExperiment(
+    experiment,
+    false,
+    metricGroups,
+  ).some((metricId) => getExperimentMetricById(metricId) !== null);
 
   const isBandit = experiment.type === "multi-armed-bandit";
   const hasQueries = queryStrings.length > 0;

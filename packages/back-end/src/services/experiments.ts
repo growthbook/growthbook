@@ -2236,14 +2236,9 @@ export async function planExperimentSnapshot({
     metricGroups,
   );
 
-  // Reject up front instead of persisting a snapshot that the query runner
-  // would immediately fail (every experiment runner requires at least one
-  // metric). Guarding here keeps the request path free of orphaned "error"
-  // snapshot records for both the internal and public snapshot APIs, and
-  // matches the front-end "Add at least 1 metric" gate.
   if (metricIds.length === 0) {
     throw new BadRequestError(
-      "Experiment must have at least 1 metric selected.",
+      "Experiment must have at least 1 metric selected to be analyzed.",
     );
   }
 
@@ -2264,9 +2259,14 @@ export async function planExperimentSnapshot({
   const postStratificationEnabled = settings.postStratificationEnabled.value;
 
   const metricMap = await getMetricMap(context);
-  const factTableMap = await getFactTableMap(context);
-
-  const allExperimentMetrics = metricIds.map((m) => metricMap.get(m) || null);
+  const allExperimentMetrics = metricIds
+    .map((metricId) => metricMap.get(metricId))
+    .filter(isDefined);
+  if (allExperimentMetrics.length === 0) {
+    throw new BadRequestError(
+      "Experiment must have at least 1 metric selected.",
+    );
+  }
 
   const denominatorMetricIds = uniq<string>(
     allExperimentMetrics
@@ -2276,6 +2276,8 @@ export async function planExperimentSnapshot({
   const denominatorMetrics = denominatorMetricIds
     .map((m) => metricMap.get(m) || null)
     .filter(isDefined) as MetricInterface[];
+
+  const factTableMap = await getFactTableMap(context);
 
   const { settingsForSnapshotMetrics, regressionAdjustmentEnabled } =
     getAllMetricSettingsForSnapshot({
