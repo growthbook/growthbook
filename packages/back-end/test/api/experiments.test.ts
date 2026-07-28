@@ -607,7 +607,7 @@ describe("experiments API", () => {
       expect(res.status).toBe(200);
       expect(getExperimentsPage).toHaveBeenCalledWith(
         expect.anything(),
-        expect.objectContaining({ sort: { dateUpdated: -1, _id: 1 } }),
+        expect.objectContaining({ sort: { dateUpdated: -1, _id: -1 } }),
       );
     });
 

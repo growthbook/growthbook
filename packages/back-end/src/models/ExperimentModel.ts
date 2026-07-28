@@ -386,12 +386,14 @@ const experimentSchema = new mongoose.Schema({
 experimentSchema.index({ organization: 1, datasource: 1 });
 experimentSchema.index({ organization: 1, project: 1 });
 experimentSchema.index({ organization: 1, trackingKey: 1 });
-// Back the API list's DB-paginated date sorts: with skip/limit in the query,
-// an index-order scan reads ~one page instead of fetching and sorting the
-// whole org. `name` sorts intentionally take the fetch-all path (Node sorts
-// case-insensitively), so there is no name index.
-experimentSchema.index({ organization: 1, dateCreated: 1 });
-experimentSchema.index({ organization: 1, dateUpdated: 1 });
+// No index backs the API list's date sorts. Mongo does a bounded (top-k)
+// blocking sort per page instead: it examines every matching doc in the org
+// but only ships one page and caps sort memory at the page size. Deemed not
+// worth the write overhead for now. If it becomes a bottleneck, note that
+// { organization, <field> } alone does NOT help — the sort spec carries an
+// _id tiebreak, and Mongo uses an index for a sort only when it satisfies the
+// whole sort key in one direction. It needs { organization, <field>, _id }
+// with the tiebreak direction matching sortOrder.
 experimentSchema.index(
   { "nextScheduledStatusUpdate.date": 1 },
   { sparse: true },

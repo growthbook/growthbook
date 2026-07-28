@@ -1527,9 +1527,9 @@ const idAndVariationParams = z
 // Route validators
 // ---------------------------------------------------------------------------
 
-// Sorting is applied in the API handler after the (in-memory) permission
-// filter, so sortable fields need no backing index. `name` sorts
-// case-insensitively.
+// None of these are index-backed: date sorts run as a bounded blocking sort
+// in Mongo (see the index note in ExperimentModel) and `name` sorts in the
+// API handler, case-insensitively, on the fetch-all path.
 export const sortableExperimentFields = [
   "dateCreated",
   "dateUpdated",

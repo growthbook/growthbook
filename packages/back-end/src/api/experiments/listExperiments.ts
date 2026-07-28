@@ -99,12 +99,14 @@ export const listExperiments = createApiRequestHandler(
     return resolveOwnerEmails(await Promise.all(promises), req.context);
   };
 
-  // Fast path: every requested filter is expressible in the Mongo query and
-  // the sort is backed by an { organization, <date> } index, so page in the
-  // database instead of materializing the whole org's experiments. `name`
-  // sorts take the fetch-all path so they can sort case-insensitively.
-  // The query is pre-scoped to readable projects to keep the page and total
-  // correct (mirrors loadFeaturesPage).
+  // Fast path: every requested filter is expressible in the Mongo query, so
+  // page in the database instead of materializing the whole org's experiments
+  // in Node. The sort is unindexed (Mongo does a bounded blocking sort), but
+  // the win is that only one page crosses the wire and gets hydrated +
+  // migrated, rather than every experiment in the org. `name` sorts take the
+  // fetch-all path so they can sort case-insensitively. The query is
+  // pre-scoped to readable projects to keep the page and total correct
+  // (mirrors loadFeaturesPage).
   if (!hasInMemoryFilters && sortBy !== "name") {
     const { limit, offset } = validatePagination(req.query);
     const emptyPage = {
@@ -156,8 +158,11 @@ export const listExperiments = createApiRequestHandler(
     const [page, total] = await Promise.all([
       getExperimentsPage(req.context, {
         ...dbFilters,
-        // _id tiebreak keeps equal dates paginating deterministically
-        sort: { [sortBy]: sortDir, _id: 1 },
+        // _id tiebreak keeps equal dates paginating deterministically; its
+        // direction matches sortDir so the spec stays index-eligible if a
+        // { organization, <field>, _id } index is ever added (a
+        // mixed-direction tiebreak can never use one)
+        sort: { [sortBy]: sortDir, _id: sortDir },
         limit,
         offset,
       }),
