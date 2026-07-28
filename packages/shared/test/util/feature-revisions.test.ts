@@ -6,6 +6,7 @@ import {
   checkIfRevisionNeedsReview,
   fillRevisionFromFeature,
   getDraftAffectedEnvironments,
+  getEffectiveRevisionHoldout,
   getReviewSetting,
   getFeatureAutopublishOnApproval,
   mergeResultHasChanges,
@@ -1139,6 +1140,41 @@ describe("fillRevisionFromFeature", () => {
     };
     const filled = fillRevisionFromFeature(revision, feature);
     expect(filled.holdout).toBeNull();
+  });
+});
+
+describe("getEffectiveRevisionHoldout", () => {
+  const featureHoldout = { id: "h-1", value: "feature-value" };
+
+  it("carries the feature's holdout forward when the revision predates the field", () => {
+    const feature: FeatureInterface = {
+      ...baseFeature,
+      holdout: featureHoldout,
+    };
+    expect(getEffectiveRevisionHoldout({}, feature)).toEqual(featureHoldout);
+  });
+
+  it("returns null for an explicit removal even when the feature has a holdout", () => {
+    const feature: FeatureInterface = {
+      ...baseFeature,
+      holdout: featureHoldout,
+    };
+    expect(getEffectiveRevisionHoldout({ holdout: null }, feature)).toBeNull();
+  });
+
+  it("prefers the revision's holdout over the feature's", () => {
+    const revisionHoldout = { id: "h-2", value: "revision-value" };
+    const feature: FeatureInterface = {
+      ...baseFeature,
+      holdout: featureHoldout,
+    };
+    expect(
+      getEffectiveRevisionHoldout({ holdout: revisionHoldout }, feature),
+    ).toEqual(revisionHoldout);
+  });
+
+  it("returns null when neither the revision nor the feature has a holdout", () => {
+    expect(getEffectiveRevisionHoldout({}, baseFeature)).toBeNull();
   });
 });
 

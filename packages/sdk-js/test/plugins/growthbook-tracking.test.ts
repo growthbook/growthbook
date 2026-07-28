@@ -83,6 +83,7 @@ describe("growthbookTrackingPlugin", () => {
           },
         ]),
         credentials: "omit",
+        keepalive: true,
       },
     );
 
@@ -333,6 +334,188 @@ describe("growthbookTrackingPlugin", () => {
     expect(body.length).toBe(4);
 
     gb.destroy();
+  });
+
+  it("skips keepalive for batches over the 64KB keepalive quota", async () => {
+    const gb = new GrowthBook({
+      clientKey: "test",
+      plugins: [growthbookTrackingPlugin()],
+    });
+
+    gb.logEvent("small");
+    await sleep(150);
+    expect(fetchMock.mock.calls[0][1].keepalive).toBe(true);
+
+    gb.logEvent("big", { data: "x".repeat(70000) });
+    await sleep(150);
+    expect(fetchMock.mock.calls[1][1].keepalive).toBe(false);
+
+    // The quota is in BYTES: this payload is under 60k characters but each
+    // character is 3 bytes in UTF-8
+    gb.logEvent("multibyte", { data: "あ".repeat(25000) });
+    await sleep(150);
+    expect(fetchMock.mock.calls[2][1].keepalive).toBe(false);
+
+    gb.destroy();
+  });
+
+  it("keeps flushing on the timer after an unload flush", async () => {
+    const gb = new GrowthBook({
+      clientKey: "test",
+      plugins: [growthbookTrackingPlugin()],
+    });
+
+    gb.logEvent("a");
+    // Unload flush fires before the 100ms timer would have
+    window.dispatchEvent(new Event("pagehide"));
+    await sleep(10);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    // Later events must still be flushed by the normal timer
+    gb.logEvent("b");
+    await sleep(150);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)[0].event_name).toBe("b");
+
+    gb.destroy();
+  });
+
+  it("removes unload listeners on destroy", () => {
+    const removeWin = jest.spyOn(window, "removeEventListener");
+    const removeDoc = jest.spyOn(document, "removeEventListener");
+    const gb = new GrowthBook({
+      clientKey: "test",
+      plugins: [growthbookTrackingPlugin()],
+    });
+    gb.destroy();
+    expect(removeWin).toHaveBeenCalledWith("pagehide", expect.any(Function));
+    expect(removeDoc).toHaveBeenCalledWith(
+      "visibilitychange",
+      expect.any(Function),
+    );
+  });
+
+  describe("transport", () => {
+    let sendBeaconMock: jest.Mock;
+    const installBeacon = (returnValue: boolean) => {
+      sendBeaconMock = jest.fn(() => returnValue);
+      Object.defineProperty(global.navigator, "sendBeacon", {
+        value: sendBeaconMock,
+        configurable: true,
+        writable: true,
+      });
+    };
+    afterEach(() => {
+      // eslint-disable-next-line
+      delete (global.navigator as any).sendBeacon;
+    });
+
+    it("flushes with sendBeacon on pagehide before the timer fires", async () => {
+      installBeacon(true);
+      const gb = new GrowthBook({
+        clientKey: "test",
+        plugins: [growthbookTrackingPlugin()],
+      });
+
+      gb.logEvent("test");
+      window.dispatchEvent(new Event("pagehide"));
+      await sleep(10);
+
+      expect(sendBeaconMock).toHaveBeenCalledTimes(1);
+      const [url, blob] = sendBeaconMock.mock.calls[0];
+      expect(url).toBe("https://us1.gb-ingest.com/track?client_key=test");
+      // jsdom's Blob has no .text() - read via FileReader
+      const text = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject(reader.error);
+        reader.readAsText(blob as Blob);
+      });
+      const body = JSON.parse(text);
+      expect(body.length).toBe(1);
+      expect(body[0].event_name).toBe("test");
+      expect(fetchMock).not.toHaveBeenCalled();
+
+      // Queue was drained - the flush timer must not re-send
+      await sleep(150);
+      expect(sendBeaconMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock).not.toHaveBeenCalled();
+
+      gb.destroy();
+    });
+
+    it("flushes with sendBeacon when the page becomes hidden", async () => {
+      installBeacon(true);
+      const gb = new GrowthBook({
+        clientKey: "test",
+        plugins: [growthbookTrackingPlugin()],
+      });
+
+      gb.logEvent("test");
+      const visibilityState = jest
+        .spyOn(document, "visibilityState", "get")
+        .mockReturnValue("hidden");
+      document.dispatchEvent(new Event("visibilitychange"));
+      await sleep(10);
+      visibilityState.mockRestore();
+
+      expect(sendBeaconMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock).not.toHaveBeenCalled();
+
+      gb.destroy();
+    });
+
+    it("falls back to keepalive fetch when sendBeacon is rejected", async () => {
+      installBeacon(false);
+      const gb = new GrowthBook({
+        clientKey: "test",
+        plugins: [growthbookTrackingPlugin()],
+      });
+
+      gb.logEvent("test");
+      window.dispatchEvent(new Event("pagehide"));
+      await sleep(10);
+
+      expect(sendBeaconMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock.mock.calls[0][1].keepalive).toBe(true);
+
+      gb.destroy();
+    });
+
+    it("never uses sendBeacon with transport 'fetch'", async () => {
+      installBeacon(true);
+      const gb = new GrowthBook({
+        clientKey: "test",
+        plugins: [growthbookTrackingPlugin({ transport: "fetch" })],
+      });
+
+      gb.logEvent("test");
+      window.dispatchEvent(new Event("pagehide"));
+      await sleep(10);
+
+      expect(sendBeaconMock).not.toHaveBeenCalled();
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock.mock.calls[0][1].keepalive).toBe(true);
+
+      gb.destroy();
+    });
+
+    it("prefers sendBeacon on regular flushes with transport 'beacon'", async () => {
+      installBeacon(true);
+      const gb = new GrowthBook({
+        clientKey: "test",
+        plugins: [growthbookTrackingPlugin({ transport: "beacon" })],
+      });
+
+      gb.logEvent("test");
+      await sleep(150);
+
+      expect(sendBeaconMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock).not.toHaveBeenCalled();
+
+      gb.destroy();
+    });
   });
 
   it("works for GrowthBookClient and user-scoped instances", async () => {

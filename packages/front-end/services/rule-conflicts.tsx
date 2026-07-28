@@ -3,6 +3,7 @@ import { Flex } from "@radix-ui/themes";
 import { FeatureRule } from "shared/types/feature";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { paddedVersionString } from "@growthbook/growthbook";
+import { ruleProjectScope } from "shared/util";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
@@ -1292,6 +1293,45 @@ export function getRuleReachability(
   return result;
 }
 
+// A rule's reachability in one (environment × project) cell.
+export type ScopeCell = {
+  env: string;
+  project: string;
+  reach: RuleReachability;
+};
+
+// Sentinel bucket for feature-reached projects no rule specifically scopes to
+// (used when targeting all projects). Unscoped rules occupy it; never displayed.
+export const OTHER_PROJECT_BUCKET = " other";
+
+function ruleInProjectBucket(rule: FeatureRule, project: string): boolean {
+  const scope = ruleProjectScope(rule); // null = all projects
+  return scope === null || scope.includes(project);
+}
+
+// Per-rule reachability across (environment × project) cells. Partitioning by
+// project drops a rule from cells it doesn't scope to, so it can't shadow or be
+// shadowed across projects; a rule scoped to no project produces no cells.
+export function getReachabilityCells(
+  rulesByEnv: { env: string; rules: FeatureRule[] }[],
+  projectBuckets: string[],
+  experimentsMap: Map<string, ExperimentInterfaceStringDates>,
+  savedGroups: Map<string, SavedGroupForConflicts> = new Map(),
+): Map<string, ScopeCell[]> {
+  const out = new Map<string, ScopeCell[]>();
+  const buckets = projectBuckets.length ? projectBuckets : [""];
+  for (const { env, rules } of rulesByEnv) {
+    for (const project of buckets) {
+      const cellRules = rules.filter((r) => ruleInProjectBucket(r, project));
+      const reach = getRuleReachability(cellRules, experimentsMap, savedGroups);
+      for (const [ruleId, r] of reach) {
+        pushToBucket(out, ruleId, { env, project, reach: r });
+      }
+    }
+  }
+  return out;
+}
+
 // ---------------------------------------------------------------------------
 // Conflict display (UI)
 // ---------------------------------------------------------------------------
@@ -1364,6 +1404,9 @@ export type ConflictBanner = {
   conflicts: RuleConflictInfo;
   environments: string[];
   allEnvironments: boolean;
+  // Project names this status is confined to (strict subset of delivery projects); empty otherwise.
+  projects: string[];
+  allProjects: boolean;
 };
 
 // Group a rule's per-environment reachability into banners — one per distinct
@@ -1372,32 +1415,72 @@ export type ConflictBanner = {
 // no banner. When `nameEnvironments` is false (single-env view) env names are
 // omitted. Pass environments in the order they should be displayed.
 export function buildConflictBanners(
-  perEnv: { env: string; reach: RuleReachability }[],
+  // One (environment × project) cell; `project` optional for env-only callers.
+  perScope: { env: string; project?: string; reach: RuleReachability }[],
   ruleNumber: (consumingRuleId: string) => number | undefined,
   nameEnvironments: boolean,
+  opts?: { multiProject?: boolean; projectLabel?: (id: string) => string },
 ): ConflictBanner[] {
+  const multiProject = opts?.multiProject ?? false;
+  const projectLabel = opts?.projectLabel ?? ((id: string) => id);
   const order: Exclude<ReachLevel, "clean">[] = ["unreachable", "hard", "soft"];
-  const envsByLevel = new Map<ReachLevel, string[]>();
-  const reachesByLevel = new Map<ReachLevel, RuleReachability[]>();
-  for (const { env, reach } of perEnv) {
-    const level = reachLevel(reach);
+  const cellsByLevel = new Map<
+    ReachLevel,
+    { env: string; project?: string; reach: RuleReachability }[]
+  >();
+  for (const cell of perScope) {
+    const level = reachLevel(cell.reach);
     if (level === "clean") continue;
-    pushToBucket(envsByLevel, level, env);
-    pushToBucket(reachesByLevel, level, reach);
+    pushToBucket(cellsByLevel, level, cell);
   }
-  const total = perEnv.length;
+  // Distinct env/project footprint across all cells, so a full-footprint status reads "all" not a list.
+  const envFootprint = new Set(perScope.map((c) => c.env));
+  const projectFootprint = new Set(
+    perScope
+      .map((c) => c.project)
+      .filter(
+        (p): p is string => p !== undefined && p !== OTHER_PROJECT_BUCKET,
+      ),
+  );
+
+  // "Unreachable" is reserved for a rule unreachable in EVERY cell it occupies;
+  // if reachable anywhere, its unreachable cells are a partial conflict, not a kill.
+  const fullyUnreachable =
+    perScope.length > 0 && perScope.every((c) => c.reach.unreachable);
+
   const banners: ConflictBanner[] = [];
   for (const level of order) {
-    const envs = envsByLevel.get(level);
-    const reaches = reachesByLevel.get(level);
-    if (!envs?.length || !reaches?.length) continue;
+    const cells = cellsByLevel.get(level);
+    if (!cells?.length) continue;
+    const envs = [...new Set(cells.map((c) => c.env))];
+    const projects = [
+      ...new Set(
+        cells.map((c) => c.project).filter((p): p is string => p !== undefined),
+      ),
+    ];
+    const realProjects = projects.filter((p) => p !== OTHER_PROJECT_BUCKET);
     banners.push({
-      isUnreachable: level === "unreachable",
-      conflicts: mergeConflicts(reaches, ruleNumber),
+      isUnreachable: level === "unreachable" && fullyUnreachable,
+      conflicts: mergeConflicts(
+        cells.map((c) => c.reach),
+        ruleNumber,
+      ),
       environments: nameEnvironments ? envs : [],
       // "in all environments" reads better than listing them, but only when the
       // banner truly spans every env the rule applies to (and there's >1).
-      allEnvironments: nameEnvironments && total > 1 && envs.length === total,
+      allEnvironments:
+        nameEnvironments &&
+        envFootprint.size > 1 &&
+        envs.length === envFootprint.size,
+      // Name projects only for a strict subset of the feature's delivery projects.
+      projects:
+        multiProject && realProjects.length < projectFootprint.size
+          ? realProjects.map(projectLabel)
+          : [],
+      allProjects:
+        multiProject &&
+        projectFootprint.size > 1 &&
+        realProjects.length === projectFootprint.size,
     });
   }
   return banners;
@@ -1511,11 +1594,15 @@ export function ConflictCallout({
   conflicts,
   environments = [],
   allEnvironments = false,
+  projects = [],
+  allProjects = false,
 }: {
   isUnreachable: boolean;
   conflicts: RuleConflictInfo;
   environments?: string[];
   allEnvironments?: boolean;
+  projects?: string[];
+  allProjects?: boolean;
 }): ReactElement {
   const [open, setOpen] = useState(false);
   const hasHard = conflicts.hard.length > 0;
@@ -1530,10 +1617,21 @@ export function ConflictCallout({
   ) : environments.length > 0 ? (
     <> in {joinEnvNames(environments)}</>
   ) : null;
+  const projectSuffix =
+    projects.length > 0 ? (
+      <>
+        {" "}
+        for {projects.length === 1 ? "project" : "projects"}{" "}
+        {joinEnvNames(projects)}
+      </>
+    ) : allProjects ? (
+      <> for all projects</>
+    ) : null;
   const headline = (
     <span>
       {base}
-      {envSuffix}.
+      {envSuffix}
+      {projectSuffix}.
     </span>
   );
   const hasDetails = hasHard || hasSoft;

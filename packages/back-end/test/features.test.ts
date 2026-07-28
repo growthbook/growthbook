@@ -15,6 +15,7 @@ import {
   generateRuleId,
   addIdsToFlatRules,
   addIdsToRules,
+  inheritStoredRolloutSeeds,
   getFeatureDefinitionsResponse,
   hashStrings,
   sha256,
@@ -1025,6 +1026,92 @@ describe("Detecting Feature Changes", () => {
         environment: "dev",
       },
     ]);
+  });
+
+  it("invalidates targeting projects and fans out all-projects via allProjectIds", () => {
+    const feature = cloneDeep(baseFeature);
+    const base = cloneDeep(baseFeature);
+    const envs = ["dev", "production", "test"];
+    const norm = (keys: { environment: string; project: string }[]) =>
+      keys.map((k) => `${k.environment}:${k.project}`).sort();
+
+    // Adding a targeting project invalidates that project's caches too
+    expect(
+      norm(
+        getSDKPayloadKeysByDiff(
+          feature,
+          { ...base, targetingProjects: ["p2"] },
+          envs,
+        ),
+      ),
+    ).toEqual(
+      norm([
+        { environment: "dev", project: "" },
+        { environment: "dev", project: "p2" },
+        { environment: "production", project: "" },
+        { environment: "production", project: "p2" },
+      ]),
+    );
+
+    // targetingAllProjects enumerates every org project — but only when
+    // allProjectIds is supplied (the invalidation-fan-out fix)
+    const allProjectIds = ["p1", "p2"];
+    expect(
+      norm(
+        getSDKPayloadKeysByDiff(
+          feature,
+          { ...base, targetingAllProjects: true },
+          envs,
+          allProjectIds,
+        ),
+      ),
+    ).toEqual(
+      norm([
+        { environment: "dev", project: "" },
+        { environment: "dev", project: "p1" },
+        { environment: "dev", project: "p2" },
+        { environment: "production", project: "" },
+        { environment: "production", project: "p1" },
+        { environment: "production", project: "p2" },
+      ]),
+    );
+
+    // Without allProjectIds the all-projects fan-out can't happen (regression guard)
+    expect(
+      norm(
+        getSDKPayloadKeysByDiff(
+          feature,
+          { ...base, targetingAllProjects: true },
+          envs,
+        ),
+      ),
+    ).toEqual(
+      norm([
+        { environment: "dev", project: "" },
+        { environment: "production", project: "" },
+      ]),
+    );
+
+    // getAffectedSDKPayloadKeys enumerates for an all-projects feature too
+    expect(
+      norm(
+        getAffectedSDKPayloadKeys(
+          [{ ...base, targetingAllProjects: true }],
+          envs,
+          undefined,
+          allProjectIds,
+        ),
+      ),
+    ).toEqual(
+      norm([
+        { environment: "dev", project: "" },
+        { environment: "dev", project: "p1" },
+        { environment: "dev", project: "p2" },
+        { environment: "production", project: "" },
+        { environment: "production", project: "p1" },
+        { environment: "production", project: "p2" },
+      ]),
+    );
   });
 });
 
@@ -2817,8 +2904,10 @@ describe("SDK Payloads", () => {
       rules: [expect.objectContaining({ id: "rule_1", key: "meta-exp-key" })],
     });
 
-    // With metadataOptions: experiment-ref rule gets ExperimentMetadata from the
-    // experiment (proj_exp / exp-tag / bob), NOT from the feature
+    // With metadataOptions: experiment-ref rule gets tags/customFields from the
+    // experiment (exp-tag / bob). Projects come from the set the rule is served
+    // to — here the feature's delivery set (proj_feature), since the rule is
+    // unscoped — NOT the experiment's own project.
     const defWithMeta = getFeatureDefinition({
       feature,
       environment: "production",
@@ -2840,24 +2929,160 @@ describe("SDK Payloads", () => {
       expect.objectContaining({
         id: "rule_1",
         metadata: {
-          projects: ["exp-project"],
           tags: ["exp-tag"],
           customFields: { owner: "bob" },
         },
       }),
     );
+    // An unscoped rule omits projects entirely (absent = all), and never carries
+    // the experiment's own project
+    expect(defWithMeta?.rules?.[0]?.metadata).not.toHaveProperty("projects");
 
-    // Confirm experiment metadata differs from what feature metadata would be
-    expect(defWithMeta?.rules?.[0]?.metadata).not.toEqual({
-      projects: ["feature-project"],
-      tags: ["feature-tag"],
-      customFields: { owner: "alice" },
+    // A scoped experiment-ref rule emits its own scope (∩ delivery)
+    const featureScopedExpRule = cloneDeep(feature);
+    featureScopedExpRule.targetingProjects = ["proj_exp"]; // delivers to both
+    (
+      featureScopedExpRule.environmentSettings["production"]
+        .rules[0] as unknown as { projects: string[] }
+    ).projects = ["proj_exp"];
+    const defScopedExpRule = getFeatureDefinition({
+      feature: featureScopedExpRule,
+      environment: "production",
+      groupMap,
+      experimentMap: expMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      includeRuleIds: true,
+      metadataOptions: { includeProjectIdInMetadata: true },
+      projectsMap,
     });
+    expect(defScopedExpRule?.rules?.[0]?.metadata?.projects).toEqual([
+      "exp-project",
+    ]);
 
     // allowedCustomFieldsInMetadata filters keys — region is excluded
     expect(defWithMeta?.rules?.[0]?.metadata?.customFields).not.toHaveProperty(
       "region",
     );
+
+    // Feature-level metadata advertises the governance project by default
+    expect(defWithMeta?.metadata).toEqual({
+      projects: ["feature-project"],
+      tags: ["feature-tag"],
+      customFields: { owner: "alice" },
+    });
+
+    // Targeting projects fold into metadata.projects (as public ids), so the
+    // payload lists every project the feature is delivered to
+    const featureWithTargeting = cloneDeep(feature);
+    featureWithTargeting.targetingProjects = ["proj_exp"];
+    const defWithTargeting = getFeatureDefinition({
+      feature: featureWithTargeting,
+      environment: "production",
+      groupMap,
+      experimentMap: expMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      includeRuleIds: true,
+      metadataOptions: { includeProjectIdInMetadata: true },
+      projectsMap,
+    });
+    expect(defWithTargeting?.metadata?.projects).toEqual([
+      "feature-project",
+      "exp-project",
+    ]);
+
+    // targetingAllProjects omits the projects list (absent = all), rather than
+    // enumerating every org project
+    const featureAllProjects = cloneDeep(feature);
+    featureAllProjects.targetingAllProjects = true;
+    const defAllProjects = getFeatureDefinition({
+      feature: featureAllProjects,
+      environment: "production",
+      groupMap,
+      experimentMap: expMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      includeRuleIds: true,
+      metadataOptions: { includeProjectIdInMetadata: true },
+      projectsMap,
+    });
+    expect(defAllProjects?.metadata?.projects).toBeUndefined();
+  });
+
+  it("Emits a rule's explicit project scope, omitting when the rule targets all", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.project = "proj_feature";
+    feature.targetingProjects = ["proj_exp"]; // delivers to both projects
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "force",
+        value: "true",
+        id: "scoped",
+        enabled: true,
+        description: "",
+        projects: ["proj_exp"],
+      },
+      {
+        type: "force",
+        value: "true",
+        id: "unscoped",
+        enabled: true,
+        description: "",
+      },
+      {
+        type: "force",
+        value: "true",
+        id: "allprojects",
+        enabled: true,
+        description: "",
+        allProjects: true,
+      },
+      // Scoped partly outside the feature's delivery set — scrubbed to delivery.
+      {
+        type: "force",
+        value: "true",
+        id: "partly-dead",
+        enabled: true,
+        description: "",
+        projects: ["proj_exp", "proj_other"],
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ] as any;
+
+    const projectsMap = new Map([
+      [
+        "proj_feature",
+        { id: "proj_feature", publicId: "feature-project", name: "F" },
+      ],
+      ["proj_exp", { id: "proj_exp", publicId: "exp-project", name: "E" }],
+      // A third org project the feature does not deliver to
+      [
+        "proj_other",
+        { id: "proj_other", publicId: "other-project", name: "O" },
+      ],
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ] as any);
+
+    const def = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap: new Map(),
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      includeRuleIds: true,
+      metadataOptions: { includeProjectIdInMetadata: true },
+      projectsMap,
+    });
+    const byId = (id: string) => def?.rules?.find((r) => r.id === id);
+
+    // Specific scope → its own projects, scrubbed to the delivery set
+    expect(byId("scoped")?.metadata?.projects).toEqual(["exp-project"]);
+    expect(byId("partly-dead")?.metadata?.projects).toEqual(["exp-project"]);
+    // All-projects / unscoped rules omit projects entirely (absent = all)
+    expect(byId("unscoped")?.metadata).toBeUndefined();
+    expect(byId("allprojects")?.metadata).toBeUndefined();
   });
 
   it("Gets Feature Definitions", () => {
@@ -3178,6 +3403,41 @@ describe("buildFeatureRulesFromApiEnvSettings", () => {
     expect(rules[0]).not.toHaveProperty("prerequisites");
   });
 
+  // GET→edit→PUT must persist rollout id/seed/hashVersion verbatim (else re-bucketing).
+  it("preserves rollout id/seed/hashVersion through the v1 converter", () => {
+    const rules = buildFeatureRulesFromApiEnvSettings(
+      mockContext,
+      baseFeature,
+      [{ id: "production" }],
+      {
+        production: {
+          enabled: true,
+          rules: [
+            {
+              id: "fr_explicit",
+              type: "rollout",
+              value: "true",
+              coverage: 0.5,
+              hashAttribute: "userId",
+              seed: "my-seed",
+              hashVersion: 2,
+            },
+          ],
+        },
+      },
+    );
+    const rule = rules[0] as {
+      id?: string;
+      seed?: string;
+      hashAttribute?: string;
+      hashVersion?: number;
+    };
+    expect(rule.id).toBe("fr_explicit");
+    expect(rule.seed).toBe("my-seed");
+    expect(rule.hashAttribute).toBe("userId");
+    expect(rule.hashVersion).toBe(2);
+  });
+
   // ---------------------------------------------------------------------------
   // Content-identical rules across envs must merge into ONE v2 rule with a
   // multi-env footprint — not two split rules with the second id suffixed by
@@ -3452,5 +3712,100 @@ describe("addIdsToRules — rollout seed backfill (legacy env format)", () => {
     const rule = (envSettings.production as { rules?: { seed?: string }[] })
       .rules?.[0];
     expect(rule?.seed).toBe("keep-me");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// inheritStoredRolloutSeeds — a bulk update that echoes a rollout rule by id
+// but omits seed/hashVersion must inherit them from the stored (already
+// read-time-pinned) rule, so the write-time backfill can't re-bucket it.
+// ---------------------------------------------------------------------------
+describe("inheritStoredRolloutSeeds", () => {
+  const inboundRollout = (over: Record<string, unknown> = {}) =>
+    ({
+      id: "fr_legacy",
+      type: "rollout",
+      value: "true",
+      coverage: 0.5,
+      hashAttribute: "id",
+      ...over,
+    }) as unknown as FeatureInterface["rules"][number];
+
+  const storedRollout = (over: Record<string, unknown> = {}) =>
+    ({
+      id: "fr_legacy",
+      type: "rollout",
+      value: "true",
+      coverage: 0.5,
+      hashAttribute: "id",
+      seed: "feat_1", // pinned to the feature id at read time
+      ...over,
+    }) as unknown as FeatureInterface["rules"][number];
+
+  it("inherits a stored seed when the inbound rule omits it", () => {
+    const inbound = [inboundRollout()];
+    inheritStoredRolloutSeeds(inbound, [storedRollout()]);
+    expect((inbound[0] as { seed?: string }).seed).toBe("feat_1");
+  });
+
+  it("inherits stored hashVersion when omitted", () => {
+    const inbound = [inboundRollout()];
+    inheritStoredRolloutSeeds(inbound, [
+      storedRollout({ hashVersion: 1, seed: "feat_1" }),
+    ]);
+    expect((inbound[0] as { hashVersion?: number }).hashVersion).toBe(1);
+  });
+
+  it("does not override a seed the caller explicitly sent", () => {
+    const inbound = [inboundRollout({ seed: "client-seed" })];
+    inheritStoredRolloutSeeds(inbound, [storedRollout()]);
+    expect((inbound[0] as { seed?: string }).seed).toBe("client-seed");
+  });
+
+  it("only matches by id — a new rule (no stored match) is left seedless", () => {
+    const inbound = [inboundRollout({ id: "fr_new" })];
+    inheritStoredRolloutSeeds(inbound, [storedRollout()]);
+    expect((inbound[0] as { seed?: string }).seed).toBeUndefined();
+  });
+
+  it("ignores non-rollout stored/inbound rules", () => {
+    const inbound = [inboundRollout({ type: "force" })];
+    inheritStoredRolloutSeeds(inbound, [storedRollout()]);
+    expect(inbound[0]).not.toHaveProperty("seed");
+  });
+
+  // force → rollout promotion: the stored rule shares the id but is a force
+  // rule, so there's no cohort to preserve. Inheritance must skip it, leaving
+  // the backfill to seed it off its own id for independent stacking.
+  it("skips inheritance when the stored rule is a force rule (promotion)", () => {
+    const inbound = [inboundRollout()];
+    const storedForce = {
+      id: "fr_legacy",
+      type: "force",
+      value: "true",
+    } as unknown as FeatureInterface["rules"][number];
+
+    inheritStoredRolloutSeeds(inbound, [storedForce]);
+    expect((inbound[0] as { seed?: string }).seed).toBeUndefined();
+
+    addIdsToFlatRules(inbound as FeatureInterface["rules"], "feat_1");
+    expect((inbound[0] as { seed?: string }).seed).toBe("fr_legacy");
+  });
+
+  it("treats an empty-string seed as absent and inherits the stored seed", () => {
+    const inbound = [inboundRollout({ seed: "" })];
+    inheritStoredRolloutSeeds(inbound, [storedRollout()]);
+    expect((inbound[0] as { seed?: string }).seed).toBe("feat_1");
+  });
+
+  // The regression Anna reported: a client echoes a legacy rule by id but omits
+  // the seed. With inheritance it settles on the stored (feature-id) seed; the
+  // backfill must NOT then stamp the rule id.
+  it("keeps a legacy rollout on the feature-id seed through inherit → backfill", () => {
+    const inbound = [inboundRollout()]; // no seed
+    inheritStoredRolloutSeeds(inbound, [storedRollout({ seed: "feat_1" })]);
+    addIdsToFlatRules(inbound as FeatureInterface["rules"], "feat_1");
+    expect((inbound[0] as { seed?: string }).seed).toBe("feat_1");
+    expect((inbound[0] as { seed?: string }).seed).not.toBe(inbound[0].id);
   });
 });

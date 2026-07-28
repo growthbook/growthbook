@@ -383,6 +383,21 @@ export function upgradeFeatureRule(rule: FeatureRule): FeatureRule {
   return rule;
 }
 
+// Materialize the SDK's own no-seed fallback (`rule.seed || featureId`) for
+// seedless rollout rules, so the write-time default (rule.id) can't re-bucket a
+// legacy rollout on its next save. New rules are seeded at write, so anything
+// seedless on read is legacy. Safe rollouts keep their own seed.
+export function pinLegacyRolloutSeeds<T extends FeatureRule>(
+  rules: T[] = [],
+  featureId: string,
+): T[] {
+  return rules.map((r) =>
+    r != null && r.type === "rollout" && !r.seed
+      ? { ...r, seed: featureId }
+      : r,
+  );
+}
+
 /**
  * Backfills the `jsonSchema` keys that postdate the oldest documents, returning
  * a new object. Docs written before `schemaType`/`simple` existed hold a

@@ -1713,6 +1713,8 @@ export async function postExperiment(
     }
   }
 
+  // TODO(holdouts): allow changing holdout if the experiment is not linked to a feature
+  // in the live! feature revision
   const experimentHasLinkedChanges =
     experiment.hasURLRedirects ||
     experiment.hasVisualChangesets ||
