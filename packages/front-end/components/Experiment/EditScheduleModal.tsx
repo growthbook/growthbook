@@ -140,35 +140,35 @@ export default function EditScheduleModal({
     );
   };
   const renderTiebreakerField = (helper: string) => (
-    <Box>
-      <Text as="label" color="text-high" mb="1">
-        Tiebreaker metric
-      </Text>
-      <Text as="div" color="text-mid" mb="1" size="small">
-        {helper}
-      </Text>
-      <SelectField
-        label=""
-        value={form.watch("tiebreakerMetricId")}
-        options={metricOptions}
-        initialOption="None"
-        onChange={(v) => form.setValue("tiebreakerMetricId", v)}
-      />
-    </Box>
+    <SelectField
+      label={
+        <>
+          <Text as="label" color="text-high" mb="1">
+            Tiebreaker metric
+          </Text>
+          <Text as="div" color="text-mid" mb="0" size="small">
+            {helper}
+          </Text>
+        </>
+      }
+      value={form.watch("tiebreakerMetricId")}
+      options={metricOptions}
+      initialOption="None"
+      onChange={(v) => form.setValue("tiebreakerMetricId", v)}
+    />
   );
   const renderVariationPicker = (label: string) => (
-    <Box>
-      <Text as="label" color="text-high" mb="1">
-        {label}
-      </Text>
-      <SelectField
-        label=""
-        value={form.watch("fallbackVariationId")}
-        options={variationOptions}
-        formatOptionLabel={(o) => renderVariationOption(o.value)}
-        onChange={(v) => form.setValue("fallbackVariationId", v)}
-      />
-    </Box>
+    <SelectField
+      label={
+        <Text as="label" color="text-high" mb="0">
+          {label}
+        </Text>
+      }
+      value={form.watch("fallbackVariationId")}
+      options={variationOptions}
+      formatOptionLabel={(o) => renderVariationOption(o.value)}
+      onChange={(v) => form.setValue("fallbackVariationId", v)}
+    />
   );
   // Verdict section for force-ship / stop: the EDF + tiebreaker only tag an
   // analytical result — they don't change what the mode actually does. Set off
@@ -189,11 +189,12 @@ export default function EditScheduleModal({
             The tiebreaker metric will break ties when multiple variations
             qualify.
           </Text>
-          <Text as="label" color="text-high" mb="1">
-            Tiebreaker metric
-          </Text>
           <SelectField
-            label=""
+            label={
+              <Text as="label" color="text-high" mb="0">
+                Tiebreaker metric
+              </Text>
+            }
             value={
               decisionFrameworkAvailable ? form.watch("tiebreakerMetricId") : ""
             }
@@ -520,154 +521,152 @@ export default function EditScheduleModal({
               manually
             </Helpertext>
           )}
+        </Flex>
 
-          {hasEndDate && (
-            <>
-              <Box>
-                <Text as="label" color="text-high" mb="1">
-                  When the experiment ends
+        {hasEndDate && (
+          <Box>
+            <Box my="4">
+              <SelectField
+                label={
+                  <Text as="label" color="text-high" mb="0">
+                    When the experiment ends
+                  </Text>
+                }
+                value={mode}
+                sort={false}
+                options={[
+                  { value: "notify", label: "Notify only — keep running" },
+                  {
+                    value: "auto-ship",
+                    label: "Ship the winning variation",
+                  },
+                  {
+                    value: "force-ship",
+                    label: "Ship a specific variation",
+                  },
+                  {
+                    value: "stop",
+                    label: "Stop the experiment (no rollout)",
+                  },
+                ]}
+                isOptionDisabled={(o) =>
+                  "value" in o &&
+                  o.value === "auto-ship" &&
+                  !decisionFrameworkAvailable
+                }
+                containerStyles={{
+                  option: (base) => ({ ...base, opacity: 1 }),
+                }}
+                formatOptionLabel={(o) => {
+                  if (o.value !== "auto-ship" || decisionFrameworkAvailable) {
+                    return <>{o.label}</>;
+                  }
+                  if (!hasDecisionFrameworkFeature) {
+                    return (
+                      <PremiumTooltip
+                        commercialFeature="decision-framework"
+                        premiumText={autoShipDisabledReason}
+                      >
+                        <Text color="text-disabled">{o.label}</Text>
+                      </PremiumTooltip>
+                    );
+                  }
+                  return (
+                    <Tooltip content={autoShipDisabledReason}>
+                      <Box>
+                        <Text color="text-disabled">{o.label}</Text>
+                      </Box>
+                    </Tooltip>
+                  );
+                }}
+                onChange={(v) => form.setValue("mode", v as ScheduledStopMode)}
+                containerStyle={{ marginBottom: 0 }}
+              />
+              <Box mt="2">
+                <Helpertext status="info" size="sm">
+                  {modeHelpText()}
+                </Helpertext>
+              </Box>
+            </Box>
+
+            {mode === "auto-ship" && (
+              // TODO: Replace with ui/Panel component when it's ready
+              <Box
+                my="4"
+                p="3"
+                style={{
+                  backgroundColor: "var(--slate-2)",
+                  borderRadius: "var(--radius-1)",
+                  borderColor: "var(--slate-a3)",
+                  borderWidth: "1px",
+                  borderStyle: "solid",
+                }}
+              >
+                <Flex align="center" justify="between" mb="1" gap="2">
+                  <Text size="small" weight="semibold" color="text-high">
+                    Decision Criteria
+                  </Text>
+                  <Link onClick={() => setDecisionCriteriaModal(true)}>
+                    <Flex align="center" gap="1" as="span">
+                      <Text size="small" weight="semibold">
+                        {canEditDecisionCriteria ? "Edit" : "View"}
+                      </Text>
+                      <PiArrowSquareOut size={12} />
+                    </Flex>
+                  </Link>
+                </Flex>
+                <Text as="div" size="small" color="text-mid" mb="2">
+                  {decisionCriteria.name}
+                  {decisionCriteria.description
+                    ? `: ${decisionCriteria.description}`
+                    : ""}
                 </Text>
+              </Box>
+            )}
+
+            {mode === "auto-ship" && (
+              <>
+                {showTiebreaker &&
+                  renderTiebreakerField(
+                    "If two variations both qualify, ship the one with the higher lift on this goal metric.",
+                  )}
+
                 <SelectField
-                  label=""
-                  value={mode}
-                  sort={false}
+                  label={
+                    <Text as="label" color="text-high" mb="0">
+                      If there&apos;s no clear winner or failing health checks
+                    </Text>
+                  }
+                  value={fallback}
                   options={[
-                    { value: "notify", label: "Notify only — keep running" },
-                    {
-                      value: "auto-ship",
-                      label: "Ship the winning variation",
-                    },
+                    { value: "notify", label: "Keep running — notify me" },
                     {
                       value: "force-ship",
                       label: "Ship a specific variation",
                     },
-                    {
-                      value: "stop",
-                      label: "Stop the experiment (no rollout)",
-                    },
                   ]}
-                  isOptionDisabled={(o) =>
-                    "value" in o &&
-                    o.value === "auto-ship" &&
-                    !decisionFrameworkAvailable
-                  }
-                  containerStyles={{
-                    option: (base) => ({ ...base, opacity: 1 }),
-                  }}
-                  formatOptionLabel={(o) => {
-                    if (o.value !== "auto-ship" || decisionFrameworkAvailable) {
-                      return <>{o.label}</>;
-                    }
-                    if (!hasDecisionFrameworkFeature) {
-                      return (
-                        <PremiumTooltip
-                          commercialFeature="decision-framework"
-                          premiumText={autoShipDisabledReason}
-                        >
-                          <Text color="text-disabled">{o.label}</Text>
-                        </PremiumTooltip>
-                      );
-                    }
-                    return (
-                      <Tooltip content={autoShipDisabledReason}>
-                        <Box>
-                          <Text color="text-disabled">{o.label}</Text>
-                        </Box>
-                      </Tooltip>
-                    );
-                  }}
                   onChange={(v) =>
-                    form.setValue("mode", v as ScheduledStopMode)
+                    form.setValue("fallback", v as ScheduledStopFallback)
                   }
                 />
-                <Box mt="2">
-                  <Helpertext status="info" size="sm">
-                    {modeHelpText()}
-                  </Helpertext>
-                </Box>
-              </Box>
 
-              {mode === "auto-ship" && (
-                // TODO: Replace with ui/Panel component when it's ready
-                <Box
-                  p="3"
-                  style={{
-                    backgroundColor: "var(--slate-2)",
-                    borderRadius: "var(--radius-1)",
-                    borderColor: "var(--slate-a3)",
-                    borderWidth: "1px",
-                    borderStyle: "solid",
-                  }}
-                >
-                  <Flex align="center" justify="between" mb="1" gap="2">
-                    <Text size="small" weight="semibold" color="text-high">
-                      Decision Criteria
-                    </Text>
-                    <Link onClick={() => setDecisionCriteriaModal(true)}>
-                      <Flex align="center" gap="1" as="span">
-                        <Text size="small" weight="semibold">
-                          {canEditDecisionCriteria ? "Edit" : "View"}
-                        </Text>
-                        <PiArrowSquareOut size={12} />
-                      </Flex>
-                    </Link>
-                  </Flex>
-                  <Text as="div" size="small" color="text-mid" mb="2">
-                    {decisionCriteria.name}
-                    {decisionCriteria.description
-                      ? `: ${decisionCriteria.description}`
-                      : ""}
-                  </Text>
-                </Box>
-              )}
+                {fallback === "force-ship" &&
+                  renderVariationPicker("Variation to ship")}
+              </>
+            )}
 
-              {mode === "auto-ship" && (
-                <Flex direction="column" gap="3">
-                  {showTiebreaker &&
-                    renderTiebreakerField(
-                      "If two variations both qualify, ship the one with the higher lift on this goal metric.",
-                    )}
+            {mode === "force-ship" && (
+              <>
+                {renderVariationPicker("Variation to ship")}
+                {decisionFrameworkAvailable && renderVerdictSection()}
+              </>
+            )}
 
-                  <Box>
-                    <Text as="label" color="text-high" mb="1">
-                      If there&apos;s no clear winner or failing health checks
-                    </Text>
-                    <SelectField
-                      label=""
-                      value={fallback}
-                      options={[
-                        { value: "notify", label: "Keep running — notify me" },
-                        {
-                          value: "force-ship",
-                          label: "Ship a specific variation",
-                        },
-                      ]}
-                      onChange={(v) =>
-                        form.setValue("fallback", v as ScheduledStopFallback)
-                      }
-                    />
-                  </Box>
-
-                  {fallback === "force-ship" &&
-                    renderVariationPicker("Variation to ship")}
-                </Flex>
-              )}
-
-              {mode === "force-ship" && (
-                <Flex direction="column" gap="3">
-                  {renderVariationPicker("Variation to ship")}
-                  {decisionFrameworkAvailable && renderVerdictSection()}
-                </Flex>
-              )}
-
-              {mode === "stop" && (
-                <Flex direction="column" gap="3">
-                  {decisionFrameworkAvailable && renderVerdictSection()}
-                </Flex>
-              )}
-            </>
-          )}
-        </Flex>
+            {mode === "stop" && (
+              <>{decisionFrameworkAvailable && renderVerdictSection()}</>
+            )}
+          </Box>
+        )}
       </ModalStandard>
     </>
   );
