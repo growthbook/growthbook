@@ -2,7 +2,9 @@
   position: fixed;
   right: 24px;
   bottom: 24px;
-  z-index: 4000;
+  // Below modals (bootstrap 1050, 1550 with increasedElevation) so the card
+  // can never cover a dialog's footer buttons, but above ordinary page content.
+  z-index: 1040;
   width: 384px;
   max-width: calc(100vw - 32px);
   animation: nps-in 0.5s cubic-bezier(0.16, 1, 0.3, 1);

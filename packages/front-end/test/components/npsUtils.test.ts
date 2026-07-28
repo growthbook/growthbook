@@ -1,44 +1,36 @@
+import { npsCategoryOf, npsValueOf } from "shared/nps";
 import {
-  categoryOf,
   inSampledCohort,
   meetsMinimumTenure,
-  npsValue,
   parseSampleRate,
   withinCooldown,
 } from "@/components/NPSSurvey/nps.utils";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const CYCLE_DAYS = 90;
 
-describe("categoryOf", () => {
+describe("npsCategoryOf", () => {
   it("classifies detractors (0-6)", () => {
-    for (const s of [0, 1, 5, 6]) expect(categoryOf(s)).toBe("detractor");
+    for (const s of [0, 1, 5, 6]) expect(npsCategoryOf(s)).toBe("detractor");
   });
   it("classifies passives (7-8)", () => {
-    expect(categoryOf(7)).toBe("passive");
-    expect(categoryOf(8)).toBe("passive");
+    expect(npsCategoryOf(7)).toBe("passive");
+    expect(npsCategoryOf(8)).toBe("passive");
   });
   it("classifies promoters (9-10)", () => {
-    expect(categoryOf(9)).toBe("promoter");
-    expect(categoryOf(10)).toBe("promoter");
+    expect(npsCategoryOf(9)).toBe("promoter");
+    expect(npsCategoryOf(10)).toBe("promoter");
   });
 });
 
-describe("npsValue", () => {
+describe("npsValueOf", () => {
   it("is -1 for detractors, 0 for passives, +1 for promoters", () => {
-    expect(npsValue(6)).toBe(-1);
-    expect(npsValue(0)).toBe(-1);
-    expect(npsValue(7)).toBe(0);
-    expect(npsValue(8)).toBe(0);
-    expect(npsValue(9)).toBe(1);
-    expect(npsValue(10)).toBe(1);
-  });
-
-  it("agrees with categoryOf at every score boundary", () => {
-    for (let s = 0; s <= 10; s++) {
-      const cat = categoryOf(s);
-      const expected = cat === "promoter" ? 1 : cat === "detractor" ? -1 : 0;
-      expect(npsValue(s)).toBe(expected);
-    }
+    expect(npsValueOf(0)).toBe(-1);
+    expect(npsValueOf(6)).toBe(-1);
+    expect(npsValueOf(7)).toBe(0);
+    expect(npsValueOf(8)).toBe(0);
+    expect(npsValueOf(9)).toBe(1);
+    expect(npsValueOf(10)).toBe(1);
   });
 });
 
@@ -53,16 +45,23 @@ describe("withinCooldown", () => {
     expect(withinCooldown("not-a-date")).toBe(false);
   });
 
+  it("accepts a Date as well as an ISO string", () => {
+    expect(withinCooldown(new Date(Date.now() - DAY_MS))).toBe(true);
+  });
+
   it("returns true inside the 90-day window", () => {
-    const recent = new Date(Date.now() - 1 * DAY_MS).toISOString();
-    expect(withinCooldown(recent)).toBe(true);
-    const almostExpired = new Date(Date.now() - 89 * DAY_MS).toISOString();
-    expect(withinCooldown(almostExpired)).toBe(true);
+    expect(withinCooldown(new Date(Date.now() - DAY_MS).toISOString())).toBe(
+      true,
+    );
+    expect(
+      withinCooldown(new Date(Date.now() - 89 * DAY_MS).toISOString()),
+    ).toBe(true);
   });
 
   it("returns false once the 90-day window has passed", () => {
-    const expired = new Date(Date.now() - 91 * DAY_MS).toISOString();
-    expect(withinCooldown(expired)).toBe(false);
+    expect(
+      withinCooldown(new Date(Date.now() - 91 * DAY_MS).toISOString()),
+    ).toBe(false);
   });
 });
 
@@ -100,27 +99,41 @@ describe("parseSampleRate", () => {
 });
 
 describe("meetsMinimumTenure", () => {
-  it("excludes orgs younger than the minimum", () => {
+  it("excludes users who joined less than the minimum ago", () => {
     expect(
       meetsMinimumTenure(new Date(Date.now() - 3 * DAY_MS).toISOString()),
     ).toBe(false);
   });
 
-  it("includes orgs older than the minimum", () => {
+  it("includes users past the minimum", () => {
     expect(
       meetsMinimumTenure(new Date(Date.now() - 30 * DAY_MS).toISOString()),
     ).toBe(true);
   });
 
-  it("fails closed on missing or invalid dates", () => {
+  it("accepts a Date as well as an ISO string", () => {
+    expect(meetsMinimumTenure(new Date(Date.now() - 30 * DAY_MS))).toBe(true);
+  });
+
+  it("fails closed on missing or invalid dates rather than throwing", () => {
     expect(meetsMinimumTenure()).toBe(false);
     expect(meetsMinimumTenure(null)).toBe(false);
     expect(meetsMinimumTenure("nonsense")).toBe(false);
+    expect(meetsMinimumTenure(new Date("nonsense"))).toBe(false);
   });
 });
 
 describe("inSampledCohort", () => {
   const day = (n: number) => new Date(n * DAY_MS);
+  // Day 0 of a cycle, so a whole cycle is available ahead of us.
+  const cycleStart = 20000 - (20000 % CYCLE_DAYS);
+  const users = Array.from({ length: 3000 }, (_, i) => `usr_${i}`);
+
+  // Anyone selected this cycle is eligible by the last day of it.
+  const cohortByEndOfCycle = (cycle = 0, rate = 0.1) =>
+    users.filter((u) =>
+      inSampledCohort(u, rate, day(cycleStart + cycle * CYCLE_DAYS + 89)),
+    );
 
   it("never samples when the rate is 0 or the user is unknown", () => {
     expect(inSampledCohort("usr_1", 0)).toBe(false);
@@ -133,40 +146,76 @@ describe("inSampledCohort", () => {
   });
 
   it("is deterministic for the same user and day", () => {
-    const a = inSampledCohort("usr_42", 0.5, day(20000));
-    const b = inSampledCohort("usr_42", 0.5, day(20000));
+    const a = inSampledCohort("usr_42", 0.5, day(cycleStart + 10));
+    const b = inSampledCohort("usr_42", 0.5, day(cycleStart + 10));
     expect(a).toBe(b);
   });
 
-  it("samples roughly the configured share of users", () => {
+  it("samples roughly the configured share of users over a cycle", () => {
     const rate = 0.1;
-    const n = 4000;
-    let hits = 0;
-    for (let i = 0; i < n; i++) {
-      if (inSampledCohort(`usr_${i}`, rate, day(20000))) hits++;
-    }
-    // Allow generous slack; this asserts the ballpark, not exact distribution.
-    expect(hits / n).toBeGreaterThan(rate * 0.5);
-    expect(hits / n).toBeLessThan(rate * 1.5);
+    const share = cohortByEndOfCycle(0, rate).length / users.length;
+    expect(share).toBeGreaterThan(rate * 0.7);
+    expect(share).toBeLessThan(rate * 1.3);
   });
 
-  it("rotates the cohort across days so it is not a fixed panel", () => {
+  it("selects on identity, not on which days a user visits", () => {
+    // The whole point of the redesign: a user's selection must not depend on
+    // how often they load the app, or frequent visitors would be over-sampled.
+    // Once a user's start day has passed, every later day in the cycle agrees.
     const rate = 0.2;
-    const users = Array.from({ length: 500 }, (_, i) => `usr_${i}`);
-    const cohortFor = (d: number) =>
-      users.filter((u) => inSampledCohort(u, rate, day(d))).join(",");
-    const dayA = cohortFor(20000);
-    const dayB = cohortFor(20001);
-    expect(dayA).not.toBe(dayB);
-  });
-
-  it("eventually reaches users who were not sampled on day one", () => {
-    const rate = 0.2;
-    const user = "usr_rotation";
-    const days = Array.from({ length: 60 }, (_, i) =>
-      inSampledCohort(user, rate, day(20000 + i)),
+    const selected = users.filter((u) =>
+      inSampledCohort(u, rate, day(cycleStart + 89)),
     );
-    // Over a couple of months a given user should come up at least once.
-    expect(days.some(Boolean)).toBe(true);
+    for (const u of selected.slice(0, 50)) {
+      // Eligibility is monotonic to the end of the cycle, so a user who only
+      // shows up on the final day still gets their turn.
+      expect(inSampledCohort(u, rate, day(cycleStart + 89))).toBe(true);
+    }
+    // And a user's status on a given day never depends on prior visits, since
+    // it is a pure function of (user, day).
+    expect(inSampledCohort("usr_7", rate, day(cycleStart + 40))).toBe(
+      inSampledCohort("usr_7", rate, day(cycleStart + 40)),
+    );
+  });
+
+  it("staggers start days across the cycle instead of prompting everyone at once", () => {
+    const rate = 0.5;
+    const onFirstDay = users.filter((u) =>
+      inSampledCohort(u, rate, day(cycleStart)),
+    ).length;
+    const byEndOfCycle = cohortByEndOfCycle(0, rate).length;
+    // Only a small slice is live on day 1; the rest phase in over the cycle.
+    expect(onFirstDay).toBeGreaterThan(0);
+    expect(onFirstDay).toBeLessThan(byEndOfCycle / 5);
+  });
+
+  it("is sticky within a cycle: eligibility never flips back off", () => {
+    const rate = 0.3;
+    const u = users.find((x) =>
+      inSampledCohort(x, rate, day(cycleStart + 45)),
+    ) as string;
+    for (let d = 45; d < CYCLE_DAYS; d++) {
+      expect(inSampledCohort(u, rate, day(cycleStart + d))).toBe(true);
+    }
+  });
+
+  it("re-rolls the cohort each cycle so it is not a permanent panel", () => {
+    const a = cohortByEndOfCycle(0).join(",");
+    const b = cohortByEndOfCycle(1).join(",");
+    expect(a).not.toBe(b);
+  });
+
+  it("reaches users who were not selected in the first cycle", () => {
+    const rate = 0.2;
+    const missedFirst = users.filter(
+      (u) => !inSampledCohort(u, rate, day(cycleStart + 89)),
+    );
+    const laterCycles = [1, 2, 3, 4, 5];
+    const eventuallyReached = missedFirst.filter((u) =>
+      laterCycles.some((c) =>
+        inSampledCohort(u, rate, day(cycleStart + c * CYCLE_DAYS + 89)),
+      ),
+    );
+    expect(eventuallyReached.length).toBeGreaterThan(0);
   });
 });

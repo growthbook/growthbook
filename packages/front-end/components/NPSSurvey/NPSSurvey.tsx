@@ -3,29 +3,31 @@ import { useFeatureIsOn, useFeatureValue } from "@growthbook/growthbook-react";
 import { Flex, IconButton, TextArea } from "@radix-ui/themes";
 import { PiArrowLeft, PiX } from "react-icons/pi";
 import { useForm } from "react-hook-form";
+import {
+  NPS_CATEGORY_META,
+  NpsCategory,
+  npsCategoryOf,
+  npsValueOf,
+} from "shared/nps";
+import { NpsDisposition, NpsSurveyStatus } from "shared/validators";
 import Button from "@/ui/Button";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Portal from "@/components/Modal/Portal";
+import { useKeydown } from "@/hooks/useKeydown";
 import track from "@/services/track";
 import { isCloud } from "@/services/env";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import styles from "./NPSSurvey.module.scss";
 import {
-  type Category,
-  categoryOf,
   inSampledCohort,
   meetsMinimumTenure,
-  npsValue,
   parseSampleRate,
   withinCooldown,
 } from "./nps.utils";
 
 type Panel = "question" | "feedback" | "thanks";
-// How the user left the survey after picking a score; only "submitted"
-// (an explicit "Send feedback" click) carries the comment text.
-type ExitDisposition = "submitted" | "skipped" | "dismissed" | "abandoned";
 
 const STORAGE_KEY = "gb_nps_v1";
 const SURVEY_ID = "app-nps";
@@ -34,28 +36,27 @@ const THANKS_DURATION = 2600;
 const EXIT_DURATION = 360;
 const SCORES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
-const PROMPTS: Record<Category, string> = {
-  detractor: "What's the main thing we should improve?",
-  passive: "What would make GrowthBook a 10 for you?",
-  promoter: "What do you enjoy most about GrowthBook?",
-};
-
-const CATEGORY_LABEL: Record<Category, string> = {
-  detractor: "Detractor",
-  passive: "Passive",
-  promoter: "Promoter",
-};
-
-const CAT_CLASS: Record<Category, string> = {
-  detractor: styles.catDetractor,
-  passive: styles.catPassive,
-  promoter: styles.catPromoter,
-};
+const CATEGORY_UI: Record<NpsCategory, { prompt: string; className: string }> =
+  {
+    detractor: {
+      prompt: "What's the main thing we should improve?",
+      className: styles.catDetractor,
+    },
+    passive: {
+      prompt: "What would make GrowthBook a 10 for you?",
+      className: styles.catPassive,
+    },
+    promoter: {
+      prompt: "What do you enjoy most about GrowthBook?",
+      className: styles.catPromoter,
+    },
+  };
 
 // Dev/staff override: `?show-nps` forces the survey to appear, bypassing the
-// cooldown and delay. Gated on the `nps-survey-preview` flag, which is targeted
-// to the GrowthBook org in GrowthBook — so org targeting lives in the flag, not
-// in hardcoded host/role checks. Devs enable the flag locally to test.
+// sampling, tenure and cooldown gates (but not the Cloud check). Gated on the
+// `nps-survey-preview` flag, which is targeted to the GrowthBook org in
+// GrowthBook — so org targeting lives in the flag, not in hardcoded host/role
+// checks. Devs enable the flag locally to test.
 function forceShowRequested(previewFlagOn: boolean): boolean {
   if (typeof window === "undefined") return false;
   if (!new URLSearchParams(window.location.search).has("show-nps"))
@@ -63,22 +64,40 @@ function forceShowRequested(previewFlagOn: boolean): boolean {
   return previewFlagOn;
 }
 
-type StoredState =
-  | { status: "responded"; score: number; date: string }
-  | { status: "dismissed"; date: string };
+// "shown" records that the card was displayed but never acted on, so ignoring
+// it suppresses re-prompting the same way answering or dismissing does.
+type StoredStatus = NpsSurveyStatus | "shown";
+type StoredState = { status: StoredStatus; date: string };
 
+// localStorage is user-writable, so treat it as untrusted: keep only the fields
+// we actually rely on and drop anything malformed rather than trusting a cast.
 function readStored(): StoredState | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as StoredState) : null;
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== "object" || parsed === null) return null;
+    const { status, date } = parsed as Record<string, unknown>;
+    if (typeof date !== "string") return null;
+    if (
+      status !== "responded" &&
+      status !== "dismissed" &&
+      status !== "shown"
+    ) {
+      return null;
+    }
+    return { status, date };
   } catch {
     return null;
   }
 }
 
-function writeStored(state: StoredState): void {
+function writeStored(status: StoredStatus): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ status, date: new Date().toISOString() }),
+    );
   } catch {
     // localStorage may be unavailable (private mode); ignore
   }
@@ -108,26 +127,25 @@ function CheckMark() {
 }
 
 export default function NPSSurvey() {
-  // The `nps-survey` feature carries the sample rate (0 = off, 0.05 = 5% of
-  // eligible users per day), so volume is tunable in GrowthBook without a
-  // deploy. Targeting rules on the feature still apply as usual.
+  // The `nps-survey` feature carries the sample rate as a PERCENT (0 = off,
+  // 5 = 5% of eligible users per 90-day cycle, 100 = everyone), so volume is
+  // tunable in GrowthBook without a deploy. Targeting rules still apply.
   const sampleRate = parseSampleRate(useFeatureValue("nps-survey", 0));
   const previewFlagOn = useFeatureIsOn("nps-survey-preview");
   const { apiCall } = useAuth();
-  const { npsSurveyAt, updateUser, orgSuspended, userId, organization } =
-    useUser();
+  const { npsSurveyAt, orgSuspended, userId, user } = useUser();
   const suppressed = withinCooldown(npsSurveyAt);
-  // Sample a rotating slice of long-enough-tenured users rather than prompting
-  // everyone at once, which would spike responses and then go quiet.
+  // Sample a slice of long-enough-tenured users rather than prompting everyone
+  // at once, which would spike responses and then go quiet. Tenure is the
+  // user's own join date, so a new hire at an established org isn't asked on
+  // their first day.
   const eligible =
-    meetsMinimumTenure(
-      organization?.dateCreated
-        ? new Date(organization.dateCreated).toISOString()
-        : null,
-    ) && inSampledCohort(userId, sampleRate);
+    meetsMinimumTenure(user?.dateCreated) &&
+    inSampledCohort(userId, sampleRate);
+  // Derived, not state: a pure read of the URL plus the preview flag.
+  const forceShow = forceShowRequested(previewFlagOn);
 
   const [visible, setVisible] = useState(false);
-  const [forceShow, setForceShow] = useState(false);
   const [closing, setClosing] = useState(false);
   const [panel, setPanel] = useState<Panel>("question");
 
@@ -140,110 +158,123 @@ export default function NPSSurvey() {
   }>({ defaultValues: { score: null, feedback: "" } });
   const score = watch("score");
 
-  // Send-once latch; read and set synchronously inside unload-time listeners,
-  // where async state updates could double-fire the response.
-  const sentRef = useRef(false);
+  // What we've already reported, read and set synchronously inside unload-time
+  // listeners where async state updates could double-fire. Holding the
+  // disposition rather than a boolean lets an explicit "submitted" supersede an
+  // earlier provisional send (e.g. an "abandoned" flush from a bfcache suspend
+  // the user then returned from), so a real comment is never swallowed.
+  const sentRef = useRef<NpsDisposition | null>(null);
   const closeTimer = useRef<number | null>(null);
+  const exitTimer = useRef<number | null>(null);
 
+  // Show after a delay for Cloud users who are sampled and not inside the
+  // re-survey window (checked cross-device via the user record, and per-device
+  // via localStorage — which also records a bare impression, so ignoring the
+  // card suppresses it instead of re-prompting on every reload and new tab).
+  // `?show-nps` skips those gates for staff, but never the Cloud check.
   useEffect(() => {
-    setForceShow(forceShowRequested(previewFlagOn));
-  }, [previewFlagOn]);
-
-  // The `?show-nps` dev/staff override fires immediately and bypasses every gate;
-  // otherwise show after a delay for Cloud users not in the re-survey cooldown
-  // (checked cross-device via the user record, and per-device via localStorage).
-  useEffect(() => {
+    if (!isCloud() || orgSuspended) return;
     if (forceShow) {
       setVisible(true);
       return;
     }
-    if (
-      !eligible ||
-      !isCloud() ||
-      orgSuspended ||
-      suppressed ||
-      withinCooldown(readStored()?.date)
-    )
-      return;
-    const t = window.setTimeout(() => setVisible(true), SHOW_DELAY);
+    if (!eligible || suppressed || withinCooldown(readStored()?.date)) return;
+    const t = window.setTimeout(() => {
+      writeStored("shown");
+      setVisible(true);
+    }, SHOW_DELAY);
     return () => window.clearTimeout(t);
   }, [eligible, suppressed, forceShow, orgSuspended]);
 
-  // Persist the cross-device suppression signal on the user's account (best-effort).
-  // keepalive lets the write survive a tab close, so abandonment suppresses elsewhere too.
+  // Persist the cross-device suppression signal on the user's account
+  // (best-effort). keepalive lets the write survive a tab close, so abandonment
+  // suppresses elsewhere too. Deliberately does not refetch /user afterwards:
+  // localStorage already suppresses on this device and nothing in the current
+  // session reads npsSurveyAt again, so a full bootstrap refetch (and the
+  // app-wide re-render it triggers) would be pure waste — especially on the
+  // unload path, where the browser cancels it anyway.
   const persistServer = useCallback(
     (
-      status: "responded" | "dismissed",
-      extra?: { score: number; feedback: string; disposition: ExitDisposition },
+      status: NpsSurveyStatus,
+      extra?: {
+        score: number;
+        feedback: string;
+        disposition: NpsDisposition;
+      },
     ) => {
       void apiCall(`/user/nps-response`, {
         method: "POST",
-        body: JSON.stringify({ status, ...extra }),
+        body: JSON.stringify({ status, ...extra, preview: forceShow }),
         keepalive: true,
-      })
-        .then(() => updateUser())
-        .catch(() => {
-          // best-effort; localStorage still suppresses on this device
-        });
+      }).catch(() => {
+        // Best-effort; localStorage still suppresses on this device. Surface it
+        // in telemetry so a broken contract can't masquerade as "no responses".
+        track("nps_persist_failed", { survey_id: SURVEY_ID });
+      });
     },
-    [apiCall, updateUser],
+    [apiCall, forceShow],
   );
 
-  // Report the chosen score exactly once, tagged with how the survey was
-  // exited. The comment text is only included on an explicit "Send feedback"
-  // click — every other exit records the score alone, never an unsent draft.
+  // Report the chosen score, tagged with how the survey was exited. The comment
+  // text is only included on an explicit "Send feedback" click — every other
+  // exit records the score alone, never an unsent draft.
   const emitResponse = useCallback(
-    (disposition: ExitDisposition) => {
+    (disposition: NpsDisposition) => {
       const { score: s, feedback } = getValues();
-      if (sentRef.current || s === null) return;
-      sentRef.current = true;
+      if (s === null) return;
+      // Already reported: only an explicit submit may supersede, and only once.
+      if (sentRef.current !== null) {
+        if (disposition !== "submitted" || sentRef.current === "submitted") {
+          return;
+        }
+      }
+      sentRef.current = disposition;
       const feedbackText = disposition === "submitted" ? feedback.trim() : "";
       track("nps_response", {
         score: s,
-        nps_value: npsValue(s),
-        category: categoryOf(s),
+        nps_value: npsValueOf(s),
+        category: npsCategoryOf(s),
         feedback: feedbackText,
         disposition,
+        preview: forceShow,
         survey_id: SURVEY_ID,
       });
-      writeStored({
-        status: "responded",
-        score: s,
-        date: new Date().toISOString(),
-      });
+      if (!forceShow) writeStored("responded");
       persistServer("responded", {
         score: s,
         feedback: feedbackText,
         disposition,
       });
     },
-    [persistServer, getValues],
+    [persistServer, getValues, forceShow],
   );
 
   const dismissCard = useCallback(() => {
+    if (exitTimer.current) window.clearTimeout(exitTimer.current);
     if (prefersReducedMotion()) {
       setVisible(false);
       return;
     }
     setClosing(true);
-    window.setTimeout(() => {
+    exitTimer.current = window.setTimeout(() => {
       setVisible(false);
       setClosing(false);
     }, EXIT_DURATION);
   }, []);
 
   const handleClose = useCallback(() => {
+    if (closeTimer.current) window.clearTimeout(closeTimer.current);
     if (getValues("score") !== null) {
       emitResponse("dismissed");
     } else {
-      writeStored({ status: "dismissed", date: new Date().toISOString() });
+      if (!forceShow) writeStored("dismissed");
       persistServer("dismissed");
     }
     dismissCard();
-  }, [emitResponse, dismissCard, persistServer, getValues]);
+  }, [emitResponse, dismissCard, persistServer, getValues, forceShow]);
 
   const handleSubmit = useCallback(
-    (disposition: "submitted" | "skipped") => {
+    (disposition: Extract<NpsDisposition, "submitted" | "skipped">) => {
       emitResponse(disposition);
       setPanel("thanks");
       if (closeTimer.current) window.clearTimeout(closeTimer.current);
@@ -252,15 +283,15 @@ export default function NPSSurvey() {
     [emitResponse, dismissCard],
   );
 
-  // Catch true abandonment: leaving the page (close / reload / navigation) with
-  // a score selected but not submitted — the score is recorded, the unsent
-  // draft is not. Fire only on `pagehide`, never on a bare visibilitychange: a
-  // tab switch must not latch the response, or the user's later explicit submit
-  // would be silently dropped while the UI still shows the thank-you panel.
+  // Catch true abandonment: leaving the page for good with a score selected but
+  // not submitted — the score is recorded, the unsent draft is not. `persisted`
+  // means the page went into the back-forward cache and may come back, so it is
+  // not an exit; reporting then would also be superseded by a later submit.
   useEffect(() => {
     if (!visible) return;
-    const flush = () => {
-      if (getValues("score") !== null && !sentRef.current) {
+    const flush = (e: PageTransitionEvent) => {
+      if (e.persisted) return;
+      if (getValues("score") !== null && sentRef.current === null) {
         emitResponse("abandoned");
       }
     };
@@ -268,28 +299,34 @@ export default function NPSSurvey() {
     return () => window.removeEventListener("pagehide", flush);
   }, [visible, emitResponse, getValues]);
 
-  useEffect(() => {
-    if (!visible) return;
-    const onKey = (e: KeyboardEvent) => {
-      // Ignore an Escape another overlay already handled: Radix Select/Dialog
-      // call preventDefault in the capture phase without stopping propagation,
-      // so closing an unrelated popup must not also dismiss the survey.
-      if (e.key === "Escape" && !e.defaultPrevented) handleClose();
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [visible, handleClose]);
+  // Escape dismisses the survey — but only when it isn't closing something
+  // else. `useKeydown` binds on window, so this runs after overlays that
+  // preventDefault on their own Escape handling (Radix captures; GrowthBook's
+  // Modal binds on window), and the DOM check covers overlays that close on
+  // Escape without calling preventDefault at all.
+  useKeydown("Escape", (e) => {
+    if (!visible || e.defaultPrevented) return;
+    if (
+      document.querySelector(
+        ".modal.show, [role=dialog][data-state=open], [role=menu][data-state=open]",
+      )
+    ) {
+      return;
+    }
+    handleClose();
+  });
 
   useEffect(
     () => () => {
       if (closeTimer.current) window.clearTimeout(closeTimer.current);
+      if (exitTimer.current) window.clearTimeout(exitTimer.current);
     },
     [],
   );
 
   if (!visible) return null;
 
-  const cat: Category | null = score !== null ? categoryOf(score) : null;
+  const cat: NpsCategory | null = score !== null ? npsCategoryOf(score) : null;
 
   const card = (
     <div className={`${styles.wrapper} ${closing ? styles.closing : ""}`}>
@@ -341,7 +378,9 @@ export default function NPSSurvey() {
                   aria-checked={score === s}
                   aria-label={`Score ${s}`}
                   data-score={s}
-                  className={`${styles.cell} ${CAT_CLASS[categoryOf(s)]}`}
+                  className={`${styles.cell} ${
+                    CATEGORY_UI[npsCategoryOf(s)].className
+                  }`}
                   onClick={() => {
                     setValue("score", s);
                     setPanel("feedback");
@@ -391,11 +430,15 @@ export default function NPSSurvey() {
               Change score
             </Button>
             <Flex align="center" gap="3" mb="4">
-              <span className={`${styles.scorebox} ${CAT_CLASS[cat]}`}>
+              <span
+                className={`${styles.scorebox} ${CATEGORY_UI[cat].className}`}
+              >
                 {score}
               </span>
-              <span className={`${styles.category} ${CAT_CLASS[cat]}`}>
-                {CATEGORY_LABEL[cat]}
+              <span
+                className={`${styles.category} ${CATEGORY_UI[cat].className}`}
+              >
+                {NPS_CATEGORY_META[cat].label}
               </span>
             </Flex>
             <Text
@@ -405,7 +448,7 @@ export default function NPSSurvey() {
               weight="semibold"
               color="text-high"
             >
-              {PROMPTS[cat]}
+              {CATEGORY_UI[cat].prompt}
             </Text>
             <TextArea
               id="gb-nps-feedback"

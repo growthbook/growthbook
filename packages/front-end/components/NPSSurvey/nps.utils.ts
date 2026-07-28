@@ -1,44 +1,36 @@
-export type Category = "detractor" | "passive" | "promoter";
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 const RESURVEY_DAYS = 90;
 const RESURVEY_MS = RESURVEY_DAYS * 24 * 60 * 60 * 1000;
 
-// Standard NPS bands: 0-6 detractor, 7-8 passive, 9-10 promoter.
-export function categoryOf(score: number): Category {
-  return score <= 6 ? "detractor" : score <= 8 ? "passive" : "promoter";
-}
-
-// NPS contribution of a score: +1 promoter, -1 detractor, 0 passive.
-export function npsValue(score: number): number {
-  return score >= 9 ? 1 : score <= 6 ? -1 : 0;
-}
-
-// True while a user is inside the re-survey cooldown window after their last
-// prompt. A missing or unparseable date is treated as "not in cooldown".
-export function withinCooldown(dateIso?: string | null): boolean {
-  if (!dateIso) return false;
-  const t = new Date(dateIso).getTime();
+// True while a user is inside the re-survey window after their last prompt.
+// A missing or unparseable date is treated as "not in the window".
+export function withinCooldown(date?: string | Date | null): boolean {
+  if (!date) return false;
+  const t = new Date(date).getTime();
   return !Number.isNaN(t) && Date.now() - t < RESURVEY_MS;
 }
 
 // Don't ask users who haven't used GrowthBook long enough to have an opinion.
-const MIN_ORG_AGE_DAYS = 14;
-const MIN_ORG_AGE_MS = MIN_ORG_AGE_DAYS * 24 * 60 * 60 * 1000;
+const MIN_TENURE_DAYS = 14;
+const MIN_TENURE_MS = MIN_TENURE_DAYS * 24 * 60 * 60 * 1000;
 
-// True once the org is old enough to be worth surveying. An unknown creation
-// date fails closed (not eligible) so we never survey on missing data.
-export function meetsMinimumTenure(orgCreatedIso?: string | null): boolean {
-  if (!orgCreatedIso) return false;
-  const t = new Date(orgCreatedIso).getTime();
-  return !Number.isNaN(t) && Date.now() - t >= MIN_ORG_AGE_MS;
+// True once the user has been around long enough to be worth surveying. Takes
+// a Date or an ISO string (the field is typed Date but crosses JSON as a
+// string). An unknown or unparseable date fails closed, so we never survey on
+// missing data — and never throw on it either.
+export function meetsMinimumTenure(joined?: string | Date | null): boolean {
+  if (!joined) return false;
+  const t = new Date(joined).getTime();
+  return !Number.isNaN(t) && Date.now() - t >= MIN_TENURE_MS;
 }
 
 // The `nps-survey` feature holds the percentage (0-100) of eligible users to
-// sample, so volume is tunable in GrowthBook without a deploy. Returns a 0-1
-// fraction. Percent-only on purpose: accepting fractions too would make `1`
-// ambiguous between 1% and 100%, where guessing wrong surveys everybody.
-// Anything unexpected — including the flag's original boolean shape — fails
-// closed at 0, so a misconfigured flag never blasts the whole user base.
+// sample per cycle, so volume is tunable in GrowthBook without a deploy.
+// Returns a 0-1 fraction. Percent-only on purpose: accepting fractions too
+// would make `1` ambiguous between 1% and 100%, where guessing wrong surveys
+// everybody. Anything unexpected — including the flag's original boolean
+// shape — fails closed at 0, so a misconfigured flag never blasts everyone.
 export function parseSampleRate(value: unknown): number {
   if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
     return 0;
@@ -62,16 +54,29 @@ function hashToUnitInterval(seed: string, value: string): number {
   return (fnv32a(fnv32a(seed + value) + "") % 10000) / 10000;
 }
 
-// Day index used to rotate the sampled cohort. Rotating daily spreads responses
-// into a steady trickle instead of one burst, the way dedicated NPS tools do.
-export function sampleWindow(now: Date = new Date()): number {
-  return Math.floor(now.getTime() / (24 * 60 * 60 * 1000));
+// Selection runs in cycles matching the re-survey window, so a user is picked
+// at most once per cycle and the cohort re-rolls afterwards rather than being a
+// permanent panel.
+const SAMPLE_CYCLE_DAYS = RESURVEY_DAYS;
+
+export function dayIndex(now: Date = new Date()): number {
+  return Math.floor(now.getTime() / DAY_MS);
 }
 
-// True when this user falls in today's sampled cohort. The window is folded
-// into the hash input so a different slice of users is eligible each day, and
-// everyone rotates through over time rather than a fixed panel being asked
-// repeatedly. Combined with the 90-day cooldown, nobody is asked twice.
+// True when this user is in the current cycle's sampled cohort AND their
+// staggered start day has arrived.
+//
+// Selection is keyed on the user and the cycle — deliberately NOT on the
+// current day. Re-drawing daily would make the rate behave as a share of
+// user-*days* rather than users, so someone visiting daily would be far more
+// likely to be picked than someone visiting monthly, biasing the score toward
+// power users. Here a visit is only the delivery occasion, not part of the
+// draw, which is how dedicated NPS tools sample.
+//
+// Each selected user then gets a start day spread across the cycle, so prompts
+// (and the Slack traffic they generate) trickle out evenly instead of arriving
+// as one launch-day burst. Eligibility runs from that day to the end of the
+// cycle, giving infrequent visitors a wide window to actually catch it.
 export function inSampledCohort(
   userId: string | undefined,
   rate: number,
@@ -79,7 +84,17 @@ export function inSampledCohort(
 ): boolean {
   if (!userId || rate <= 0) return false;
   if (rate >= 1) return true;
-  return (
-    hashToUnitInterval("nps-survey", `${userId}:${sampleWindow(now)}`) < rate
+
+  const day = dayIndex(now);
+  const cycle = Math.floor(day / SAMPLE_CYCLE_DAYS);
+  const dayInCycle = day - cycle * SAMPLE_CYCLE_DAYS;
+
+  if (hashToUnitInterval("nps-select", `${userId}:${cycle}`) >= rate) {
+    return false;
+  }
+
+  const startDay = Math.floor(
+    hashToUnitInterval("nps-stagger", `${userId}:${cycle}`) * SAMPLE_CYCLE_DAYS,
   );
+  return dayInCycle >= startDay;
 }

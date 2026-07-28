@@ -1,9 +1,15 @@
 import { createHmac } from "node:crypto";
 import { Response } from "express";
-import { z } from "zod";
 import { OrganizationInterface } from "shared/types/organization";
+import { NPS_CATEGORY_META, npsCategoryOf } from "shared/nps";
+import {
+  NpsDisposition,
+  NpsResponseBody,
+  npsResponseBodyValidator,
+} from "shared/validators";
 import { KnownBlock } from "@slack/types";
 import { IS_CLOUD, NPS_SLACK_WEBHOOK } from "back-end/src/util/secrets";
+import { logger } from "back-end/src/util/logger";
 import { sendSlackMessage } from "back-end/src/events/handlers/slack/slack-event-handler-utils";
 import {
   escapeSlackMrkdwn,
@@ -114,7 +120,8 @@ export async function getUser(req: AuthRequest, res: Response) {
     email: req.email,
     pylonHmacHash: createPylonHmacHash(req.email),
     superAdmin: !!req.superAdmin,
-    npsSurveyStatus: req.currentUser?.npsSurveyStatus,
+    // Only the date is sent: the client uses it for the re-survey window, and
+    // nothing reads the status, so it stays server-side.
     npsSurveyAt: req.currentUser?.npsSurveyAt?.toISOString(),
     organizations: validOrgs.map((org) => {
       return {
@@ -148,47 +155,24 @@ export async function putUserName(
 const MAX_FEEDBACK_LENGTH = 1500;
 // Slack rejects a section block whose text exceeds 3000 characters.
 const SLACK_SECTION_TEXT_LIMIT = 3000;
-// How the user exited the survey; "submitted" is the only path where the
-// feedback text was explicitly sent. Values outside this list are dropped.
-const NPS_DISPOSITIONS = [
-  "submitted",
-  "skipped",
-  "dismissed",
-  "abandoned",
-] as const;
-type NpsDisposition = (typeof NPS_DISPOSITIONS)[number];
-
-// The request body is untrusted, so validate it before use rather than trusting
-// the AuthRequest type. Zod is the source of truth for the shape; the handler
-// infers its body type from this schema.
-const npsResponseBody = z
-  .object({
-    status: z.enum(["responded", "dismissed"]),
-    score: z.number().int().min(0).max(10).optional(),
-    feedback: z.string().max(10000).optional(),
-    disposition: z.enum(NPS_DISPOSITIONS).optional(),
-  })
-  .refine((b) => b.status !== "responded" || b.score !== undefined, {
-    message: "score is required when status is responded",
-    path: ["score"],
-  });
 
 async function sendNpsResponseToSlack({
   score,
   feedback,
   email,
   disposition,
+  preview,
 }: {
   score: number;
   feedback: string;
   email: string;
   disposition?: NpsDisposition;
+  preview?: boolean;
 }): Promise<void> {
-  const category =
-    score >= 9 ? "Promoter" : score <= 6 ? "Detractor" : "Passive";
-  // Left color bar on the attachment carries the sentiment, so sentiment reads
-  // at a glance and stacked responses stay visually separated.
-  const color = score >= 9 ? "#2eb67d" : score <= 6 ? "#e01e5a" : "#ecb22e";
+  // Bands and the sentiment colour come from shared so the Slack message can't
+  // disagree with the category the front-end reports in telemetry.
+  const { label: category, slackColor: color } =
+    NPS_CATEGORY_META[npsCategoryOf(score)];
 
   const safeFeedback = escapeSlackMrkdwn(
     feedback.slice(0, MAX_FEEDBACK_LENGTH),
@@ -203,8 +187,17 @@ async function sendNpsResponseToSlack({
 
   // A "submitted" score is the norm, so only the other exits are called out —
   // a score with no comment reads differently when the survey was abandoned.
-  const exitNote =
-    disposition && disposition !== "submitted" ? `   ·   ${disposition}` : "";
+  // Staff previews are labelled so they're never mistaken for real feedback.
+  const notes = [
+    disposition && disposition !== "submitted" ? disposition : "",
+    preview ? "preview" : "",
+  ].filter(Boolean);
+  const exitNote = notes.length ? `   ·   ${notes.join("   ·   ")}` : "";
+
+  // The email is user-controlled in SSO/SCIM deployments, so escape it too —
+  // otherwise it's the one field that could smuggle a `<!channel>` ping past
+  // the escaping applied to the feedback beside it.
+  const safeEmail = escapeSlackMrkdwn(email);
 
   const blocks: KnownBlock[] = [
     {
@@ -219,7 +212,7 @@ async function sendNpsResponseToSlack({
       elements: [
         {
           type: "mrkdwn",
-          text: `:bust_in_silhouette:  ${email}${exitNote}`,
+          text: `:bust_in_silhouette:  ${safeEmail}${exitNote}`,
         },
       ],
     },
@@ -233,7 +226,7 @@ async function sendNpsResponseToSlack({
         {
           color,
           // Notification-only fallback; not shown in-channel.
-          fallback: `NPS ${score}/10 (${category}) from ${email}${exitNote}`,
+          fallback: `NPS ${score}/10 (${category}) from ${safeEmail}${exitNote}`,
           blocks,
         },
       ],
@@ -243,24 +236,34 @@ async function sendNpsResponseToSlack({
 }
 
 export async function postNpsResponse(
-  req: AuthRequest<z.infer<typeof npsResponseBody>>,
+  req: AuthRequest<NpsResponseBody>,
   res: Response,
 ) {
-  const parsed = npsResponseBody.safeParse(req.body);
+  const parsed = npsResponseBodyValidator.safeParse(req.body);
   if (!parsed.success) {
+    // Log it: a client/server contract drift would otherwise be invisible and
+    // look exactly like "nobody is responding to the survey".
+    logger.warn(
+      { issues: parsed.error.issues },
+      "Rejected malformed NPS response",
+    );
     return res.status(400).json({
       status: 400,
       message: "Invalid NPS response",
     });
   }
-  const { status, score, feedback, disposition } = parsed.data;
+  const { status, score, feedback, disposition, preview } = parsed.data;
 
   const { userId } = getContextFromReq(req);
 
-  await updateUser(userId, {
-    npsSurveyStatus: status,
-    npsSurveyAt: new Date(),
-  });
+  // A staff preview (`?show-nps`) still forwards to Slack so the path stays
+  // testable, but must not consume the previewer's own re-survey window.
+  if (!preview) {
+    await updateUser(userId, {
+      npsSurveyStatus: status,
+      npsSurveyAt: new Date(),
+    });
+  }
 
   // Forward actual responses to Slack. Gated solely on the private webhook env
   // var — only GrowthBook Cloud sets it, and the survey itself is isCloud()-
@@ -276,6 +279,7 @@ export async function postNpsResponse(
       feedback: disposition === "submitted" ? (feedback ?? "").trim() : "",
       email: req.email,
       disposition,
+      preview,
     });
   }
 
