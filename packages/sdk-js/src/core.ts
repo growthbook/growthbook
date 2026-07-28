@@ -16,7 +16,7 @@ import {
   FeatureApiResponse,
   Options,
   ClientOptions,
-  UserContext,
+  UserContextAttributes,
 } from "./types/growthbook";
 import { evalCondition } from "./mongrule";
 import { ConditionInterface } from "./types/mongrule";
@@ -832,8 +832,10 @@ function getAttributes(ctx: EvalContext) {
   };
 }
 
-function getTrackingUserContext(ctx: EvalContext): UserContext {
-  return { attributes: getAttributes(ctx) };
+function getTrackingUserContext(ctx: EvalContext): UserContextAttributes {
+  return {
+    attributes: { ...getAttributes(ctx) },
+  };
 }
 
 function getContextualBanditLeaf(

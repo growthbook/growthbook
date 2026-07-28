@@ -33,6 +33,9 @@ import Callout from "@/ui/Callout";
 import RuleEnvironmentScopeField, {
   type EnvScopeProps,
 } from "@/components/Features/RuleModal/EnvironmentScopeField";
+import RuleProjectScopeField, {
+  type ProjectScopeProps,
+} from "@/components/Features/RuleModal/ProjectScopeField";
 import SparsePatchToggle from "@/components/Features/SparsePatchToggle";
 
 export default function ExperimentRefFields({
@@ -44,6 +47,7 @@ export default function ExperimentRefFields({
   scheduleToggleEnabled,
   setScheduleToggleEnabled,
   envScope,
+  projectScope,
 }: {
   feature: FeatureInterface;
   existingRule: boolean;
@@ -53,6 +57,7 @@ export default function ExperimentRefFields({
   scheduleToggleEnabled?: boolean;
   setScheduleToggleEnabled?: (b: boolean) => void;
   envScope: EnvScopeProps;
+  projectScope: ProjectScopeProps;
 }) {
   const form = useFormContext();
 
@@ -249,6 +254,7 @@ export default function ExperimentRefFields({
       />
 
       <RuleEnvironmentScopeField {...envScope} my="5" />
+      <RuleProjectScopeField {...projectScope} mb="5" />
 
       {!noSchedule && setScheduleToggleEnabled ? (
         <div className="mt-4 mb-3">

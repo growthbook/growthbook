@@ -182,10 +182,12 @@ export type CBContext = {
 
 export type Attributes = Record<string, any>;
 
+export type UserContextAttributes = Pick<UserContext, "attributes">;
+
 export interface TrackingData {
   experiment: Experiment<any>;
   result: Result<any>;
-  user?: UserContext;
+  user?: UserContextAttributes;
 }
 
 export interface TrackingDataWithUser {
