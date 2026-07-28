@@ -26050,8 +26050,9 @@ paths:
                             description: >-
                               Not required for is_null, not_null, is_true,
                               is_false operators. The between and not_between
-                              operators require exactly two values (a lower and
-                              upper bound).
+                              operators take at most two values, a lower and an
+                              upper bound in that order; leave a bound as an
+                              empty string for an open-ended range.
                             type: array
                             items:
                               type: string
@@ -26166,8 +26167,9 @@ paths:
                             description: >-
                               Not required for is_null, not_null, is_true,
                               is_false operators. The between and not_between
-                              operators require exactly two values (a lower and
-                              upper bound).
+                              operators take at most two values, a lower and an
+                              upper bound in that order; leave a bound as an
+                              empty string for an open-ended range.
                             type: array
                             items:
                               type: string
@@ -26589,8 +26591,9 @@ paths:
                             description: >-
                               Not required for is_null, not_null, is_true,
                               is_false operators. The between and not_between
-                              operators require exactly two values (a lower and
-                              upper bound).
+                              operators take at most two values, a lower and an
+                              upper bound in that order; leave a bound as an
+                              empty string for an open-ended range.
                             type: array
                             items:
                               type: string
@@ -26705,8 +26708,9 @@ paths:
                             description: >-
                               Not required for is_null, not_null, is_true,
                               is_false operators. The between and not_between
-                              operators require exactly two values (a lower and
-                              upper bound).
+                              operators take at most two values, a lower and an
+                              upper bound in that order; leave a bound as an
+                              empty string for an open-ended range.
                             type: array
                             items:
                               type: string
@@ -55145,8 +55149,9 @@ components:
                   values:
                     description: >-
                       Not required for is_null, not_null, is_true, is_false
-                      operators. The between and not_between operators require
-                      exactly two values (a lower and upper bound).
+                      operators. The between and not_between operators take at
+                      most two values, a lower and an upper bound in that order;
+                      leave a bound as an empty string for an open-ended range.
                     type: array
                     items:
                       type: string
@@ -55236,8 +55241,9 @@ components:
                   values:
                     description: >-
                       Not required for is_null, not_null, is_true, is_false
-                      operators. The between and not_between operators require
-                      exactly two values (a lower and upper bound).
+                      operators. The between and not_between operators take at
+                      most two values, a lower and an upper bound in that order;
+                      leave a bound as an empty string for an open-ended range.
                     type: array
                     items:
                       type: string

@@ -2,45 +2,54 @@ import { z } from "zod";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
+import {
+  isValidRowFilterRangeLength,
+  ROW_FILTER_RANGE_LENGTH_MESSAGE,
+} from "./fact-table";
 
 import { namedSchema } from "./openapi-helpers";
 
 // Shared sub-schemas for fact metric column references
 
-const apiRowFilterValidator = z.object({
-  operator: z.enum([
-    "=",
-    "!=",
-    ">",
-    "<",
-    ">=",
-    "<=",
-    "between",
-    "not_between",
-    "in",
-    "not_in",
-    "is_null",
-    "not_null",
-    "is_true",
-    "is_false",
-    "contains",
-    "not_contains",
-    "starts_with",
-    "ends_with",
-    "sql_expr",
-    "saved_filter",
-  ]),
-  values: z
-    .array(z.string())
-    .describe(
-      "Not required for is_null, not_null, is_true, is_false operators. The between and not_between operators require exactly two values (a lower and upper bound).",
-    )
-    .optional(),
-  column: z
-    .string()
-    .describe("Required for all operators except sql_expr and saved_filter.")
-    .optional(),
-});
+const apiRowFilterValidator = z
+  .object({
+    operator: z.enum([
+      "=",
+      "!=",
+      ">",
+      "<",
+      ">=",
+      "<=",
+      "between",
+      "not_between",
+      "in",
+      "not_in",
+      "is_null",
+      "not_null",
+      "is_true",
+      "is_false",
+      "contains",
+      "not_contains",
+      "starts_with",
+      "ends_with",
+      "sql_expr",
+      "saved_filter",
+    ]),
+    values: z
+      .array(z.string())
+      .describe(
+        "Not required for is_null, not_null, is_true, is_false operators. The between and not_between operators take at most two values, a lower and an upper bound in that order; leave a bound as an empty string for an open-ended range.",
+      )
+      .optional(),
+    column: z
+      .string()
+      .describe("Required for all operators except sql_expr and saved_filter.")
+      .optional(),
+  })
+  .refine(isValidRowFilterRangeLength, {
+    message: ROW_FILTER_RANGE_LENGTH_MESSAGE,
+    path: ["values"],
+  });
 
 const apiNumeratorRef = z.object({
   factTableId: z.string(),

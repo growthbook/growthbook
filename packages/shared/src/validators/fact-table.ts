@@ -195,11 +195,35 @@ export const rowFilterOperators = [
   "saved_filter",
 ] as const;
 
-export const rowFilterValidator = z.object({
-  operator: z.enum(rowFilterOperators),
-  column: z.string().optional(),
-  values: z.array(z.string()).optional(),
-});
+/**
+ * `between` / `not_between` describe a lower and an upper bound, so a third
+ * value has no meaning — reject it rather than silently ignoring it. Either
+ * bound may be blank, which the query builder reads as an open-ended range
+ * (`["2024-01-01", ""]` becomes `>= 2024-01-01`).
+ */
+export const ROW_FILTER_RANGE_LENGTH_MESSAGE =
+  "between and not_between take at most two values (a lower and an upper bound)";
+
+export function isValidRowFilterRangeLength(filter: {
+  operator: string;
+  values?: string[];
+}): boolean {
+  if (filter.operator !== "between" && filter.operator !== "not_between") {
+    return true;
+  }
+  return (filter.values?.length ?? 0) <= 2;
+}
+
+export const rowFilterValidator = z
+  .object({
+    operator: z.enum(rowFilterOperators),
+    column: z.string().optional(),
+    values: z.array(z.string()).optional(),
+  })
+  .refine(isValidRowFilterRangeLength, {
+    message: ROW_FILTER_RANGE_LENGTH_MESSAGE,
+    path: ["values"],
+  });
 
 export const columnRefValidator = z
   .object({

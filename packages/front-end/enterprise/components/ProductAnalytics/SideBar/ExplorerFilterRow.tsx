@@ -305,7 +305,7 @@ export function ExplorerFilterRow({
 
   const valueInput = valueInputRequired && firstSelectCompleted && (
     <>
-      {isDateColumn ? (
+      {isDateColumn && !multiValueInput ? (
         <DateColumnFilterInput
           operator={filter.operator}
           values={filter.values}

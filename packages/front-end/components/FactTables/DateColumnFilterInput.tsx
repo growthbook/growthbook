@@ -8,6 +8,12 @@ import { isDateRangeOperator } from "./rowFilterUtils";
  * `between`/`not_between`, otherwise a single-value picker. Shared by the Fact
  * Metric row filter (`RowFilterInput`) and the Product Analytics explorer
  * filter (`ExplorerFilterRow`) so their date-column behavior stays in lockstep.
+ *
+ * Only handles the single-value and range operators. The multi-value operators
+ * (`in` / `not_in`) aren't offered for date columns in the UI but are accepted
+ * by the REST API, and this renders one value — so call sites must keep routing
+ * those to the regular multi-value input, which round-trips the whole list
+ * instead of discarding all but the first entry on edit.
  */
 export function DateColumnFilterInput({
   operator,

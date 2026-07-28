@@ -11,6 +11,11 @@ export const numberRegex = new RegExp(NUMBER_PATTERN);
  * day-level, so these use a date-only picker (no time-of-day). The ordering
  * operators (`< <= > >=`) are cutoffs where a specific time can matter, so they
  * keep the datetime picker.
+ *
+ * `getRowFilterSQL` implements the matching half: a `yyyy-MM-dd` value becomes
+ * the half-open interval `[day, nextDay)` rather than the instant at its
+ * midnight, so `=` matches the whole day and a range includes all of its final
+ * day.
  */
 export function isDateOnlyOperator(operator: string): boolean {
   return (

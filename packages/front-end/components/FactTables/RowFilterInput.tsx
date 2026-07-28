@@ -308,7 +308,7 @@ export function RowFilterInput({
             )}
             {valueInputRequired && firstSelectCompleted && (
               <>
-                {isDateColumn ? (
+                {isDateColumn && !multiValueInput ? (
                   <DateColumnFilterInput
                     operator={filter.operator}
                     values={filter.values}

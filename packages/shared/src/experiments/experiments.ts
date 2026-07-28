@@ -299,6 +299,35 @@ export function isValidRowFilterDateValue(value: string): boolean {
   );
 }
 
+/**
+ * Whether a `date`-column row-filter value names a whole calendar day rather
+ * than a precise instant (`2024-01-15` vs `2024-01-15 09:30`). The date-only
+ * operators (`=`, `between`, `not_between`) store this shape, and API callers
+ * can send it for any operator.
+ */
+export function isDateOnlyRowFilterValue(value: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value.trim());
+}
+
+/**
+ * The exclusive end of the calendar day a date-only value names — i.e. the
+ * following day at midnight. Used to expand day-level filters into half-open
+ * `[day, nextDay)` intervals; see `getRowFilterSQL`.
+ */
+export function getRowFilterDateDayEnd(value: string): string {
+  const [year, month, day] = value.trim().slice(0, 10).split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day + 1))
+    .toISOString()
+    .slice(0, 10);
+}
+
+/**
+ * Predicate that matches no rows. Used when a row filter is malformed: dropping
+ * it instead would silently widen the result set, which is the more dangerous
+ * failure for an analytics query (see `getRowFilterSQL`).
+ */
+const MATCH_NO_ROWS_SQL = "(1 = 0)";
+
 export function getRowFilterSQL({
   rowFilter,
   factTable,
@@ -390,13 +419,27 @@ export function getRowFilterSQL({
   // strings (lexicographic), when the dialect provides a timestamp cast.
   const castDates = columnType === "date" && !!castToTimestamp;
 
-  // Unparseable values can't be cast to a timestamp (e.g. CAST('foo' AS
-  // TIMESTAMP) fails), so drop invalid values for date comparisons; if none
-  // remain, the filter is a no-op. This guards saved/API filters too, not just
-  // the date picker.
-  const filterValues = castDates
-    ? rowFilter.values.filter((v) => isValidRowFilterDateValue(v))
-    : rowFilter.values;
+  let filterValues = rowFilter.values;
+  if (castDates) {
+    // Row filters reach here from saved metrics and API callers, not just the
+    // date picker, so the values can't be trusted to be castable — `CAST('foo'
+    // AS TIMESTAMP)` would fail the warehouse query. Two different situations,
+    // handled differently:
+    //   - Blank value: nothing has been entered yet (the pickers clear to `[]`,
+    //     but a range keeps the untouched side as ""). Treat it as absent.
+    //   - Non-blank but unparseable: the filter is malformed. Match no rows
+    //     rather than dropping the predicate — omitting it would silently
+    //     *widen* the result set, so a broken filter would quietly report more
+    //     conversions instead of surfacing the problem.
+    const provided = rowFilter.values.filter((v) => v.trim());
+    if (!provided.length) {
+      return null;
+    }
+    if (!provided.every((v) => isValidRowFilterDateValue(v))) {
+      return MATCH_NO_ROWS_SQL;
+    }
+    filterValues = provided;
+  }
   if (!filterValues.length) {
     return null;
   }
@@ -416,13 +459,36 @@ export function getRowFilterSQL({
     return "'" + escapeStringLiteral(v) + "'";
   };
 
-  const escapedValues = [...new Set(filterValues.map(escapeValue))];
+  // De-dupe on the escaped form (two spellings of the same instant collapse to
+  // one literal) while keeping the raw value, which the date-only handling below
+  // still needs.
+  const uniqueValues = [
+    ...new Map(filterValues.map((v) => [escapeValue(v), v])).values(),
+  ];
+  const escapedValues = uniqueValues.map(escapeValue);
 
+  const firstValue = uniqueValues[0];
   const firstEscapedValue = escapedValues[0];
 
   // For date comparisons, cast the column so both sides are timestamps
   const comparisonColumn =
     castDates && castToTimestamp ? castToTimestamp(columnExpr) : columnExpr;
+
+  // A `yyyy-MM-dd` value names a calendar day, not the instant at its midnight.
+  // Against a timestamp column, comparing to that instant directly means
+  // `= '2024-01-15'` only matches rows stamped exactly 00:00:00, and a range
+  // ending on `2024-01-15` excludes all but that same first instant of the day.
+  // Expand day-level values into the half-open interval [day, nextDay) so the
+  // SQL matches the calendar-day semantics the pickers present.
+  const isDayValue = (v: string) => castDates && isDateOnlyRowFilterValue(v);
+  const escapedDayEnd = (v: string) => escapeValue(getRowFilterDateDayEnd(v));
+
+  // Matches rows falling on/at the value: the whole day for a day-level value,
+  // the exact instant otherwise.
+  const equalsValue = (v: string) =>
+    isDayValue(v)
+      ? `${comparisonColumn} >= ${escapeValue(v)} AND ${comparisonColumn} < ${escapedDayEnd(v)}`
+      : `${comparisonColumn} = ${escapeValue(v)}`;
 
   // Convert single-value in/not_in to =/!=
   if (escapedValues.length === 1) {
@@ -436,12 +502,21 @@ export function getRowFilterSQL({
   // Handle remaining operators
   switch (operator) {
     case "=":
+      return `(${equalsValue(firstValue)})`;
     case "!=":
+      return isDayValue(firstValue)
+        ? `(NOT (${equalsValue(firstValue)}))`
+        : `(${comparisonColumn} != ${firstEscapedValue})`;
     case "<":
+    case ">=":
+      // Already the start of the day, so day-level values need no adjustment.
+      return `(${comparisonColumn} ${operator} ${firstEscapedValue})`;
     case "<=":
     case ">":
-    case ">=":
-      return `(${comparisonColumn} ${operator} ${firstEscapedValue})`;
+      // Inclusive/exclusive of the *end* of a day-level value.
+      return isDayValue(firstValue)
+        ? `(${comparisonColumn} ${operator === "<=" ? "<" : ">="} ${escapedDayEnd(firstValue)})`
+        : `(${comparisonColumn} ${operator} ${firstEscapedValue})`;
     case "between":
     case "not_between": {
       // A range has a lower and an upper bound, but a user can leave one side
@@ -449,17 +524,38 @@ export function getRowFilterSQL({
       // active in the UI while matching nothing), degrade a single-bound range
       // to the equivalent open-ended comparison. Read the bounds positionally
       // from `rowFilter.values` — `filterValues` collapses empties and loses
-      // which side was set.
-      const boundUsable = (v: string | undefined): v is string =>
-        !!v?.trim() && (!castDates || isValidRowFilterDateValue(v));
+      // which side was set. Blank is the only "absent" case here: an
+      // unparseable date bound already returned MATCH_NO_ROWS_SQL above rather
+      // than being treated as an unset side.
+      const boundUsable = (v: string | undefined): v is string => !!v?.trim();
       const lower = rowFilter.values[0];
       const upper = rowFilter.values[1];
       const hasLower = boundUsable(lower);
       const hasUpper = boundUsable(upper);
       const negated = operator === "not_between";
 
+      // The upper bound is inclusive, so a day-level bound has to run to the
+      // end of that day rather than stopping at its midnight — expressed as an
+      // exclusive `<` against the following midnight.
+      const atOrBeforeUpper = (v: string) =>
+        isDayValue(v)
+          ? `${comparisonColumn} < ${escapedDayEnd(v)}`
+          : `${comparisonColumn} <= ${escapeValue(v)}`;
+      const afterUpper = (v: string) =>
+        isDayValue(v)
+          ? `${comparisonColumn} >= ${escapedDayEnd(v)}`
+          : `${comparisonColumn} > ${escapeValue(v)}`;
+
       if (hasLower && hasUpper) {
-        return `(${comparisonColumn} ${negated ? "NOT " : ""}BETWEEN ${escapeValue(lower)} AND ${escapeValue(upper)})`;
+        // SQL BETWEEN is inclusive on both ends, so it only works when the
+        // upper bound is a single instant; a day-level bound needs the
+        // exclusive next-midnight form spelled out.
+        if (!isDayValue(upper)) {
+          return `(${comparisonColumn} ${negated ? "NOT " : ""}BETWEEN ${escapeValue(lower)} AND ${escapeValue(upper)})`;
+        }
+        return negated
+          ? `(${comparisonColumn} < ${escapeValue(lower)} OR ${afterUpper(upper)})`
+          : `(${comparisonColumn} >= ${escapeValue(lower)} AND ${atOrBeforeUpper(upper)})`;
       }
       if (hasLower) {
         // between [lower, ∞) → >=  ;  not_between → <
@@ -467,14 +563,25 @@ export function getRowFilterSQL({
       }
       if (hasUpper) {
         // between (-∞, upper] → <=  ;  not_between → >
-        return `(${comparisonColumn} ${negated ? ">" : "<="} ${escapeValue(upper)})`;
+        return `(${negated ? afterUpper(upper) : atOrBeforeUpper(upper)})`;
       }
       return null;
     }
     case "in":
-      return `(${comparisonColumn} IN (\n  ${escapedValues.join(",\n  ")}\n))`;
-    case "not_in":
-      return `(${comparisonColumn} NOT IN (\n  ${escapedValues.join(",\n  ")}\n))`;
+    case "not_in": {
+      // Day-level values each cover a whole day, so they can't be listed as
+      // scalars in an IN list — expand to a disjunction of day ranges.
+      if (uniqueValues.some(isDayValue)) {
+        const anyMatch = uniqueValues
+          .map((v) => `(${equalsValue(v)})`)
+          .join(" OR ");
+        return operator === "in" ? `(${anyMatch})` : `(NOT (${anyMatch}))`;
+      }
+      const list = `(\n  ${escapedValues.join(",\n  ")}\n)`;
+      return operator === "in"
+        ? `(${comparisonColumn} IN ${list})`
+        : `(${comparisonColumn} NOT IN ${list})`;
+    }
     case "starts_with":
     case "ends_with":
     case "contains":
