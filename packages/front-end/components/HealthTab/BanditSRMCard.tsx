@@ -64,7 +64,7 @@ export default function BanditSRMCard({
       title="Experiment Balance Check"
       description="Shows actual unit split compared to percent selected for the experiment"
       srmHealth={overallHealth}
-      className="box container-fluid my-4 p-3"
+      className="box"
     >
       <div>
         <div className="mb-3">

@@ -8,6 +8,7 @@ import { pValueFormatter } from "@/services/experiments";
 import VariationUsersTable from "@/components/Experiment/TabbedPage/VariationUsersTable";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
+import Text from "@/ui/Text";
 import VariationLabel from "@/ui/VariationLabel";
 import Table, {
   TableBody,
@@ -77,6 +78,9 @@ export default function ContextualBanditSRMCard({
         <Button
           variant="ghost"
           size="xs"
+          aria-label={
+            isCollapsed ? "Show balance details" : "Hide balance details"
+          }
           onClick={() => setIsCollapsed((prev) => !prev)}
         >
           {isCollapsed ? <PiCaretRight size={15} /> : <PiCaretDown size={15} />}
@@ -84,7 +88,7 @@ export default function ContextualBanditSRMCard({
       }
     >
       {!isCollapsed && (
-        <div className="w-100 overflow-auto">
+        <Box width="100%" overflow="auto">
           {latestPeriod && latestPeriod.leaves.length > 0 ? (
             <LatestPeriodBalanceTable
               latestPeriod={latestPeriod}
@@ -97,11 +101,11 @@ export default function ContextualBanditSRMCard({
               srm={srm}
             />
           )}
-        </div>
+        </Box>
       )}
-      <div className="text-muted mx-2 mt-1 mb-2">
-        p-value = {pValueFormatter(srm)}
-      </div>
+      <Text as="div" color="text-low" mx="2" mt="1" mb="2">
+        p-value: {pValueFormatter(srm, 4)}
+      </Text>
       <div>
         <SRMWarningFooter
           srm={srm}
@@ -183,19 +187,21 @@ function LatestPeriodBalanceTable({
                   <VariationLabel number={v.index} name={v.name} />
                 </TableCell>
                 <TableCell justify="end">
-                  <b>{unitFormatter.format(leaf.observed[i] ?? 0)}</b>
+                  <Text weight="semibold">
+                    {unitFormatter.format(leaf.observed[i] ?? 0)}
+                  </Text>
                 </TableCell>
                 <TableCell justify="end">
                   {unitFormatter.format(leaf.expected[i] ?? 0)}
                 </TableCell>
                 <TableCell justify="end">
-                  <b>
+                  <Text weight="semibold">
                     {totalObserved > 0
                       ? percentFormatter.format(
                           (leaf.observed[i] ?? 0) / totalObserved,
                         )
                       : "-"}
-                  </b>
+                  </Text>
                 </TableCell>
                 <TableCell justify="end">
                   {totalExpected > 0

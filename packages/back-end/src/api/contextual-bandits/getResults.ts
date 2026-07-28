@@ -69,9 +69,7 @@ export const getContextualBanditResults = createApiRequestHandler(
                 statistic: srm.statistic,
                 pValue: srm.pValue,
                 degreesOfFreedom: srm.degreesOfFreedom,
-                ...(srm.latestPeriod
-                  ? { latestPeriod: srm.latestPeriod }
-                  : {}),
+                ...(srm.latestPeriod ? { latestPeriod: srm.latestPeriod } : {}),
               }
             : null,
           traffic: traffic ?? null,

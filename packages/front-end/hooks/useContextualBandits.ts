@@ -14,7 +14,6 @@ import {
   getContextualBanditResultStatus,
   getHealthSettings,
 } from "shared/enterprise";
-import type { ExperimentReportVariation } from "shared/types/report";
 import type { IssueValue } from "@/components/HealthTab/IssueTags";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -179,45 +178,62 @@ export function useContextualBanditLinkedFeatures(cbId: string | undefined) {
   };
 }
 
+/** Health inputs (srm / multipleExposures / totalUsers) driving the CB status badge and Health tab. */
+export type ContextualBanditStatusHealth = {
+  srm: number | null;
+  multipleExposures: number;
+  totalUsers: number;
+};
+
+/**
+ * Resolves the health inputs for a CB's status badge and Health tab.
+ */
+export function useContextualBanditStatusHealth(
+  cb: ApiContextualBanditInterface,
+): ContextualBanditStatusHealth | undefined {
+  const { results, latest } = useContextualBanditResults(cb.id);
+  return useMemo(() => {
+    if (latest?.status === "success") {
+      const totalUsers = cb.variations.reduce(
+        (sum, _v, i) => sum + (results?.overall.variations[i]?.users ?? 0),
+        0,
+      );
+      return {
+        srm: latest.srm?.pValue ?? null,
+        multipleExposures: latest.multipleExposures ?? 0,
+        totalUsers,
+      };
+    }
+    const persisted = cb.analysisSummary?.health;
+    if (persisted) {
+      return {
+        srm: persisted.srm ?? null,
+        multipleExposures: persisted.multipleExposures,
+        totalUsers: persisted.totalUsers,
+      };
+    }
+    return undefined;
+  }, [cb.variations, cb.analysisSummary, results, latest]);
+}
+
 /**
  * Computes the CB health issues (Balance / Multiple Exposures) for the current results snapshot.
  */
 export function useContextualBanditHealthIssues(
   cb: ApiContextualBanditInterface,
 ): IssueValue[] {
-  const { results, latest } = useContextualBanditResults(cb.id);
   const orgSettings = useOrgSettings();
-
-  const variations: ExperimentReportVariation[] = useMemo(
-    () =>
-      cb.variations.map((v, i) => ({
-        id: v.id,
-        index: i,
-        name: v.name,
-        weight:
-          results?.overall.variations[i]?.weight ??
-          (cb.variations.length ? 1 / cb.variations.length : 0),
-      })),
-    [cb.variations, results],
-  );
-
-  const totalUsers = useMemo(
-    () =>
-      cb.variations.reduce(
-        (sum, _v, i) => sum + (results?.overall.variations[i]?.users ?? 0),
-        0,
-      ),
-    [cb.variations, results],
-  );
+  const health = useContextualBanditStatusHealth(cb);
+  const numOfVariations = cb.variations.length;
 
   return useMemo<IssueValue[]>(() => {
-    if (!latest) return [];
+    if (!health) return [];
     const healthSettings = getHealthSettings(orgSettings);
     const resultStatus = getContextualBanditResultStatus({
-      srm: latest.srm?.pValue ?? null,
-      multipleExposures: latest.multipleExposures ?? 0,
-      totalUsers,
-      numOfVariations: variations.length,
+      srm: health.srm,
+      multipleExposures: health.multipleExposures,
+      totalUsers: health.totalUsers,
+      numOfVariations,
       healthSettings,
     });
     if (resultStatus?.status !== "unhealthy") return [];
@@ -229,5 +245,5 @@ export function useContextualBanditHealthIssues(
       issues.push({ label: "Multiple Exposures", value: "multipleExposures" });
     }
     return issues;
-  }, [latest, orgSettings, totalUsers, variations.length]);
+  }, [health, orgSettings, numOfVariations]);
 }

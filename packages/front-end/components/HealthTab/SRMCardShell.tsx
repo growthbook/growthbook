@@ -6,6 +6,7 @@ import { DEFAULT_SRM_THRESHOLD } from "shared/constants";
 import { useUser } from "@/services/UserContext";
 import SRMWarning from "@/components/Experiment/SRMWarning";
 import Callout from "@/ui/Callout";
+import Heading from "@/ui/Heading";
 import { StatusBadge } from "./StatusBadge";
 import { IssueValue } from "./IssueTags";
 
@@ -85,39 +86,47 @@ export default function SRMCardShell({
   title,
   description,
   srmHealth,
-  className = "appbox container-fluid my-4 pl-3 py-3",
+  className = "appbox",
   headerRight,
   children,
 }: {
   title: string;
   description: ReactNode;
   srmHealth: SRMHealthStatus;
+  /** Card surface class (e.g. "appbox" or "box"). Spacing is handled by the shell. */
   className?: string;
   /** Optional control rendered at the top-right of the header (e.g. a collapse caret). */
   headerRight?: ReactNode;
   children: ReactNode;
 }) {
+  const header = (
+    <Flex align="center" gap="2">
+      <Heading as="h2" size="large">
+        {title}
+      </Heading>
+      {srmHealth !== "healthy" && <StatusBadge status={srmHealth} />}
+    </Flex>
+  );
+
   return (
-    <div className={className}>
-      <div className="overflow-auto">
+    <Box className={className} my="5" pl="4" py="4">
+      <div style={{ overflow: "auto" }}>
         {headerRight ? (
           <Flex justify="between" align="start" gap="2">
-            <div>
-              <h2 className="d-inline">{title}</h2>{" "}
-              {srmHealth !== "healthy" && <StatusBadge status={srmHealth} />}
-            </div>
+            {header}
             <Box flexShrink="0">{headerRight}</Box>
           </Flex>
         ) : (
-          <>
-            <h2 className="d-inline">{title}</h2>{" "}
-            {srmHealth !== "healthy" && <StatusBadge status={srmHealth} />}
-          </>
+          header
         )}
-        <p className="mt-1">{description}</p>
-        <hr className="mb-0" />
+        <Box asChild mt="1">
+          <p>{description}</p>
+        </Box>
+        <Box asChild mb="0">
+          <hr />
+        </Box>
         <div style={{ paddingTop: "10px" }}>{children}</div>
       </div>
-    </div>
+    </Box>
   );
 }

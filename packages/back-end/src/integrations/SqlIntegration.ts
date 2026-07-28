@@ -673,7 +673,8 @@ export default abstract class SqlIntegration
         row_type: row.row_type === "cell" ? "cell" : "summary",
         statistic: parseFloat(row.statistic) || 0,
         degrees_of_freedom: parseInt(row.degrees_of_freedom, 10) || 0,
-        bandit_version: row.bandit_version != null ? `${row.bandit_version}` : "",
+        bandit_version:
+          row.bandit_version != null ? `${row.bandit_version}` : "",
         leaf_id: row.leaf_id != null ? `${row.leaf_id}` : "",
         variation: row.variation != null ? `${row.variation}` : "",
         observed: parseFloat(row.observed) || 0,

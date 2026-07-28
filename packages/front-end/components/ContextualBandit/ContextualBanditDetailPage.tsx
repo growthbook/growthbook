@@ -1,4 +1,4 @@
-import { ReactNode, useMemo, useState } from "react";
+import { ReactNode, useState } from "react";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { date } from "shared/dates";
@@ -39,7 +39,7 @@ import StartContextualBanditModal from "@/components/ContextualBandit/StartConte
 import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
 import {
   useContextualBanditHealthIssues,
-  useContextualBanditResults,
+  useContextualBanditStatusHealth,
 } from "@/hooks/useContextualBandits";
 import Avatar from "@/ui/Avatar";
 
@@ -124,20 +124,8 @@ export default function ContextualBanditDetailPage({
 
   const updateEndpoint = `/api/v1/contextual-bandits/${cb.id}`;
 
-  const { results, latest } = useContextualBanditResults(cb.id);
   const healthIssues = useContextualBanditHealthIssues(cb);
-  const statusHealth = useMemo(() => {
-    if (!latest) return undefined;
-    const totalUsers = cb.variations.reduce(
-      (sum, _v, i) => sum + (results?.overall.variations[i]?.users ?? 0),
-      0,
-    );
-    return {
-      srm: latest.srm?.pValue ?? null,
-      multipleExposures: latest.multipleExposures ?? 0,
-      totalUsers,
-    };
-  }, [cb.variations, results, latest]);
+  const statusHealth = useContextualBanditStatusHealth(cb);
 
   const datasource = cb.datasource ? getDatasourceById(cb.datasource) : null;
   const datasourceName = datasource?.name ?? cb.datasource;
