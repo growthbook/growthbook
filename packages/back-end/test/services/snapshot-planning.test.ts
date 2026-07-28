@@ -14,9 +14,13 @@ import {
   assertIncrementalRefreshPrerequisites,
   exploratoryOverallRequiresFullRefresh,
 } from "back-end/src/enterprise/services/data-pipeline";
-import { ExperimentIncrementalPipelineRequiresFullRefreshError } from "back-end/src/util/errors";
+import {
+  BadRequestError,
+  ExperimentIncrementalPipelineRequiresFullRefreshError,
+} from "back-end/src/util/errors";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import {
+  createExperimentSnapshot,
   getSnapshotSettings,
   planSnapshot,
 } from "back-end/src/services/experiments";
@@ -236,6 +240,25 @@ describe("snapshot planning", () => {
     expect(createExperimentSnapshotModelMock).not.toHaveBeenCalled();
     expect(updateExperimentMock).not.toHaveBeenCalled();
     expect(updateExperimentDashboardsMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a snapshot for an experiment with no metrics without persisting a record", async () => {
+    await expect(
+      createExperimentSnapshot({
+        context: makeContext(),
+        experiment: makeExperiment({
+          goalMetrics: [],
+          secondaryMetrics: [],
+          guardrailMetrics: [],
+        }),
+        datasource: makeDatasource(),
+        dimension: undefined,
+        phase: 0,
+        useCache: false,
+      }),
+    ).rejects.toThrow(BadRequestError);
+
+    expect(createExperimentSnapshotModelMock).not.toHaveBeenCalled();
   });
 
   it("surfaces pipeline validation errors as incremental fallback reasons", async () => {

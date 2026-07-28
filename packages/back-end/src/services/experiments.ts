@@ -201,6 +201,7 @@ import {
 } from "back-end/src/services/dimensions";
 import {
   getErrorMessage,
+  BadRequestError,
   ConcurrentIncrementalRefreshError,
   ExperimentIncrementalPipelineRequiresFullRefreshError,
 } from "back-end/src/util/errors";
@@ -2228,6 +2229,24 @@ export async function planExperimentSnapshot({
       phaseIndex: phase,
     });
 
+  const metricGroups = await context.models.metricGroups.getAll();
+  const metricIds = getAllMetricIdsFromExperiment(
+    experiment,
+    false,
+    metricGroups,
+  );
+
+  // Reject up front instead of persisting a snapshot that the query runner
+  // would immediately fail (every experiment runner requires at least one
+  // metric). Guarding here keeps the request path free of orphaned "error"
+  // snapshot records for both the internal and public snapshot APIs, and
+  // matches the front-end "Add at least 1 metric" gate.
+  if (metricIds.length === 0) {
+    throw new BadRequestError(
+      "Experiment must have at least 1 metric selected.",
+    );
+  }
+
   let project = null;
   if (experiment.project) {
     project = await context.models.projects.getById(experiment.project);
@@ -2243,15 +2262,9 @@ export async function planExperimentSnapshot({
   });
   const statsEngine = settings.statsEngine.value;
   const postStratificationEnabled = settings.postStratificationEnabled.value;
+
   const metricMap = await getMetricMap(context);
   const factTableMap = await getFactTableMap(context);
-
-  const metricGroups = await context.models.metricGroups.getAll();
-  const metricIds = getAllMetricIdsFromExperiment(
-    experiment,
-    false,
-    metricGroups,
-  );
 
   const allExperimentMetrics = metricIds.map((m) => metricMap.get(m) || null);
 

@@ -32,6 +32,7 @@ import { trackSnapshot } from "@/services/track";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
+import Button from "@/ui/Button";
 import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
 import { MetricDrilldownProvider } from "@/components/MetricDrilldown/MetricDrilldownContext";
 import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
@@ -244,24 +245,20 @@ const Results: FC<{
       )}
 
       {!hasMetrics && (
-        <Callout status="info" m="3">
-          Add at least 1 metric to view results.{" "}
-          {editMetrics && (
-            <button
-              className="btn btn-primary btn-sm ml-3"
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                editMetrics();
-              }}
-            >
-              Add Metrics
-            </button>
-          )}
+        <Callout
+          status="info"
+          m="3"
+          action={
+            editMetrics && (
+              <Button onClick={() => editMetrics()}>Add metrics</Button>
+            )
+          }
+        >
+          Add at least 1 metric to view results.
         </Callout>
       )}
 
-      {status === "failed" && !hasData && !snapshotLoading ? (
+      {status === "failed" && !hasData && !snapshotLoading && hasMetrics ? (
         <Callout status="error" mx="3" my="4">
           The most recent update failed.
           {hasQueries ? (
