@@ -143,7 +143,7 @@ export default function EditScheduleModal({
     <SelectField
       label={
         <>
-          <Text as="label" color="text-high" mb="1">
+          <Text color="text-high" weight="semibold" mb="0">
             Tiebreaker metric
           </Text>
           <Text as="div" color="text-mid" mb="0" size="small">
@@ -160,7 +160,7 @@ export default function EditScheduleModal({
   const renderVariationPicker = (label: string) => (
     <SelectField
       label={
-        <Text as="label" color="text-high" mb="0">
+        <Text color="text-high" weight="semibold" mb="0">
           {label}
         </Text>
       }
@@ -191,7 +191,7 @@ export default function EditScheduleModal({
           </Text>
           <SelectField
             label={
-              <Text as="label" color="text-high" mb="0">
+              <Text color="text-high" weight="semibold" mb="0">
                 Tiebreaker metric
               </Text>
             }
@@ -528,7 +528,7 @@ export default function EditScheduleModal({
             <Box my="4">
               <SelectField
                 label={
-                  <Text as="label" color="text-high" mb="0">
+                  <Text color="text-high" weight="semibold" mb="0">
                     When the experiment ends
                   </Text>
                 }
@@ -633,7 +633,7 @@ export default function EditScheduleModal({
 
                 <SelectField
                   label={
-                    <Text as="label" color="text-high" mb="0">
+                    <Text color="text-high" weight="semibold" mb="0">
                       If there&apos;s no clear winner or failing health checks
                     </Text>
                   }
