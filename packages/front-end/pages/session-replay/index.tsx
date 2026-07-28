@@ -8,7 +8,11 @@ import {
   PiCaretDoubleLeft,
   PiCaretDoubleRight,
   PiCopy,
+  PiDesktop,
+  PiDeviceMobile,
+  PiGlobeSimple,
   PiListBullets,
+  PiMapPin,
   PiX,
 } from "react-icons/pi";
 import { AppFeatures } from "shared/types/app-features";
@@ -336,9 +340,9 @@ export default function SessionReplayPage() {
   const [metadata, setMetadata] = useState<SessionMetadata | null>(null);
   const [firstEvent, setFirstEvent] = useState<null | eventWithTime>(null);
   const [evaluations, setEvaluations] = useState<EvaluationEntry[]>([]);
-  const [evalTab, setEvalTab] = useState<"all" | "flags" | "exp" | "events">(
-    "all",
-  );
+  const [evalTab, setEvalTab] = useState<
+    "all" | "flags" | "exp" | "events" | "attributes"
+  >("all");
 
   const playerHandle = useRef<RrwebPlayerHandle>(null);
 
@@ -667,6 +671,54 @@ export default function SessionReplayPage() {
                         />
                       )}
                     </Flex>
+                    <Flex gap="2" mt="1" align="center" wrap="wrap">
+                      {session.browser && (
+                        <Badge
+                          label={
+                            <Flex gap="1" align="center">
+                              <PiGlobeSimple size={12} />
+                              {session.browser}
+                            </Flex>
+                          }
+                          size="xs"
+                          variant="soft"
+                          color="gray"
+                          radius="full"
+                        />
+                      )}
+                      {session.device && (
+                        <Badge
+                          label={
+                            <Flex gap="1" align="center">
+                              {session.device.toLowerCase() === "mobile" ? (
+                                <PiDeviceMobile size={12} />
+                              ) : (
+                                <PiDesktop size={12} />
+                              )}
+                              {session.device}
+                            </Flex>
+                          }
+                          size="xs"
+                          variant="soft"
+                          color="gray"
+                          radius="full"
+                        />
+                      )}
+                      {session.country && (
+                        <Badge
+                          label={
+                            <Flex gap="1" align="center">
+                              <PiMapPin size={12} />
+                              {session.country}
+                            </Flex>
+                          }
+                          size="xs"
+                          variant="soft"
+                          color="gray"
+                          radius="full"
+                        />
+                      )}
+                    </Flex>
                   </Box>
                 );
               })}
@@ -920,7 +972,10 @@ export default function SessionReplayPage() {
               <Tabs
                 value={evalTab}
                 onValueChange={(v) =>
-                  setEvalTab((v as "all" | "flags" | "exp" | "events") || "all")
+                  setEvalTab(
+                    (v as "all" | "flags" | "exp" | "events" | "attributes") ||
+                      "all",
+                  )
                 }
               >
                 <TabsList size="1">
@@ -960,87 +1015,309 @@ export default function SessionReplayPage() {
                       Events ({eventCount})
                     </Text>
                   </TabsTrigger>
+                  <TabsTrigger value="attributes">
+                    <Text
+                      size="small"
+                      weight="medium"
+                      color={
+                        evalTab === "attributes" ? "text-high" : "text-low"
+                      }
+                    >
+                      Attributes
+                    </Text>
+                  </TabsTrigger>
                 </TabsList>
               </Tabs>
             </Box>
 
-            {/* Evaluation rows */}
+            {/* Content rows */}
             <Box style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
-              {selectedSessionId &&
-                events &&
-                visibleEvaluations.length === 0 && (
-                  <Box style={{ padding: "12px 16px" }}>
-                    <Text size="small" color="text-low" weight="regular">
-                      No evaluations recorded for this session.
-                    </Text>
-                  </Box>
-                )}
-              {!events && !playerError && selectedSessionId && (
-                <Box style={{ padding: "12px 16px" }}>
-                  <Text size="small" color="text-low" weight="regular">
-                    Loading evaluations…
-                  </Text>
-                </Box>
+              {evalTab === "attributes" ? (
+                <>
+                  {!metadata && selectedSessionId && (
+                    <Box style={{ padding: "12px 16px" }}>
+                      <Text size="small" color="text-low" weight="regular">
+                        Loading attributes…
+                      </Text>
+                    </Box>
+                  )}
+                  {metadata && (
+                    <>
+                      {metadata.browser && (
+                        <Flex
+                          align="center"
+                          justify="between"
+                          gap="2"
+                          style={{
+                            padding: "0 16px",
+                            height: 49,
+                            borderBottom: "1px solid var(--slate-a3)",
+                            flexShrink: 0,
+                          }}
+                        >
+                          <Text size="small" weight="regular" color="text-low">
+                            Browser
+                          </Text>
+                          <Text
+                            size="medium"
+                            weight="semibold"
+                            color="text-high"
+                          >
+                            {metadata.browser}
+                          </Text>
+                        </Flex>
+                      )}
+                      {metadata.device && (
+                        <Flex
+                          align="center"
+                          justify="between"
+                          gap="2"
+                          style={{
+                            padding: "0 16px",
+                            height: 49,
+                            borderBottom: "1px solid var(--slate-a3)",
+                            flexShrink: 0,
+                          }}
+                        >
+                          <Text size="small" weight="regular" color="text-low">
+                            Device
+                          </Text>
+                          <Text
+                            size="medium"
+                            weight="semibold"
+                            color="text-high"
+                          >
+                            {metadata.device}
+                          </Text>
+                        </Flex>
+                      )}
+                      {metadata.country && (
+                        <Flex
+                          align="center"
+                          justify="between"
+                          gap="2"
+                          style={{
+                            padding: "0 16px",
+                            height: 49,
+                            borderBottom: "1px solid var(--slate-a3)",
+                            flexShrink: 0,
+                          }}
+                        >
+                          <Text size="small" weight="regular" color="text-low">
+                            Country
+                          </Text>
+                          <Text
+                            size="medium"
+                            weight="semibold"
+                            color="text-high"
+                          >
+                            {metadata.country}
+                          </Text>
+                        </Flex>
+                      )}
+                      {metadata.userAgent && (
+                        <Flex
+                          align="center"
+                          justify="between"
+                          gap="2"
+                          style={{
+                            padding: "0 16px",
+                            height: 49,
+                            borderBottom: "1px solid var(--slate-a3)",
+                            flexShrink: 0,
+                          }}
+                        >
+                          <Text
+                            size="small"
+                            weight="regular"
+                            color="text-low"
+                            style={{ flexShrink: 0 }}
+                          >
+                            User agent
+                          </Text>
+                          <Text
+                            size="small"
+                            weight="regular"
+                            color="text-high"
+                            truncate={true}
+                            style={{ fontFamily: "monospace" }}
+                          >
+                            {metadata.userAgent}
+                          </Text>
+                        </Flex>
+                      )}
+                      {metadata.viewportWidth > 0 && (
+                        <Flex
+                          align="center"
+                          justify="between"
+                          gap="2"
+                          style={{
+                            padding: "0 16px",
+                            height: 49,
+                            borderBottom: "1px solid var(--slate-a3)",
+                            flexShrink: 0,
+                          }}
+                        >
+                          <Text size="small" weight="regular" color="text-low">
+                            Viewport
+                          </Text>
+                          <Text
+                            size="medium"
+                            weight="semibold"
+                            color="text-high"
+                          >
+                            {metadata.viewportWidth} × {metadata.viewportHeight}
+                          </Text>
+                        </Flex>
+                      )}
+                      {metadata.urlFirst && (
+                        <Flex
+                          align="center"
+                          justify="between"
+                          gap="2"
+                          style={{
+                            padding: "0 16px",
+                            height: 49,
+                            borderBottom: "1px solid var(--slate-a3)",
+                            flexShrink: 0,
+                          }}
+                        >
+                          <Text
+                            size="small"
+                            weight="regular"
+                            color="text-low"
+                            style={{ flexShrink: 0 }}
+                          >
+                            Landing URL
+                          </Text>
+                          <Text
+                            size="small"
+                            weight="regular"
+                            color="text-high"
+                            truncate={true}
+                            style={{ fontFamily: "monospace" }}
+                          >
+                            {metadata.urlFirst}
+                          </Text>
+                        </Flex>
+                      )}
+                      {Object.entries(metadata.attributes)
+                        .filter(
+                          ([, v]) => v !== null && v !== undefined && v !== "",
+                        )
+                        .map(([key, value]) => (
+                          <Flex
+                            key={key}
+                            align="center"
+                            justify="between"
+                            gap="2"
+                            style={{
+                              padding: "0 16px",
+                              height: 49,
+                              borderBottom: "1px solid var(--slate-a3)",
+                              flexShrink: 0,
+                            }}
+                          >
+                            <Text
+                              size="small"
+                              weight="regular"
+                              color="text-low"
+                              style={{ flexShrink: 0 }}
+                            >
+                              {key}
+                            </Text>
+                            <Text
+                              size="medium"
+                              weight="semibold"
+                              color="text-high"
+                              truncate={true}
+                            >
+                              {value}
+                            </Text>
+                          </Flex>
+                        ))}
+                    </>
+                  )}
+                </>
+              ) : (
+                <>
+                  {selectedSessionId &&
+                    events &&
+                    visibleEvaluations.length === 0 && (
+                      <Box style={{ padding: "12px 16px" }}>
+                        <Text size="small" color="text-low" weight="regular">
+                          No evaluations recorded for this session.
+                        </Text>
+                      </Box>
+                    )}
+                  {!events && !playerError && selectedSessionId && (
+                    <Box style={{ padding: "12px 16px" }}>
+                      <Text size="small" color="text-low" weight="regular">
+                        Loading evaluations…
+                      </Text>
+                    </Box>
+                  )}
+                  {visibleEvaluations.map((evt, index) => (
+                    <Flex
+                      key={index}
+                      align="center"
+                      justify="between"
+                      gap="2"
+                      onClick={() => jumpToEvent(evt.timestamp)}
+                      style={{
+                        padding: "0 16px",
+                        height: 49,
+                        borderBottom: "1px solid var(--slate-a3)",
+                        cursor: "pointer",
+                        flexShrink: 0,
+                      }}
+                    >
+                      <Box style={{ flex: 1, minWidth: 0 }}>
+                        <Text
+                          as="div"
+                          size="medium"
+                          weight="semibold"
+                          color="text-high"
+                          truncate={true}
+                        >
+                          {evt.formattedMessage}
+                        </Text>
+                        <Text
+                          as="div"
+                          size="small"
+                          weight="regular"
+                          color="text-low"
+                        >
+                          {(() => {
+                            const d = new Date(evt.timestamp);
+                            return isNaN(d.getTime()) ? "" : d.toLocaleString();
+                          })()}
+                        </Text>
+                      </Box>
+                      <Badge
+                        label={
+                          evt.kind === "flag"
+                            ? "Flag"
+                            : evt.kind === "exp"
+                              ? "Exp"
+                              : "Event"
+                        }
+                        size="xs"
+                        variant="soft"
+                        color={
+                          evt.kind === "flag"
+                            ? "indigo"
+                            : evt.kind === "exp"
+                              ? "violet"
+                              : "amber"
+                        }
+                        radius="full"
+                        style={{ flexShrink: 0 }}
+                      />
+                    </Flex>
+                  ))}
+                </>
               )}
-              {visibleEvaluations.map((evt, index) => (
-                <Flex
-                  key={index}
-                  align="center"
-                  justify="between"
-                  gap="2"
-                  onClick={() => jumpToEvent(evt.timestamp)}
-                  style={{
-                    padding: "0 16px",
-                    height: 49,
-                    borderBottom: "1px solid var(--slate-a3)",
-                    cursor: "pointer",
-                    flexShrink: 0,
-                  }}
-                >
-                  <Box style={{ flex: 1, minWidth: 0 }}>
-                    <Text
-                      as="div"
-                      size="medium"
-                      weight="semibold"
-                      color="text-high"
-                      truncate={true}
-                    >
-                      {evt.formattedMessage}
-                    </Text>
-                    <Text
-                      as="div"
-                      size="small"
-                      weight="regular"
-                      color="text-low"
-                    >
-                      {(() => {
-                        const d = new Date(evt.timestamp);
-                        return isNaN(d.getTime()) ? "" : d.toLocaleString();
-                      })()}
-                    </Text>
-                  </Box>
-                  <Badge
-                    label={
-                      evt.kind === "flag"
-                        ? "Flag"
-                        : evt.kind === "exp"
-                          ? "Exp"
-                          : "Event"
-                    }
-                    size="xs"
-                    variant="soft"
-                    color={
-                      evt.kind === "flag"
-                        ? "indigo"
-                        : evt.kind === "exp"
-                          ? "violet"
-                          : "amber"
-                    }
-                    radius="full"
-                    style={{ flexShrink: 0 }}
-                  />
-                </Flex>
-              ))}
             </Box>
           </div>
         )}
