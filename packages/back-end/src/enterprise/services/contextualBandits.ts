@@ -310,7 +310,10 @@ export function contextualBanditWeightsWereUpdated(
   );
 }
 
-/** Persists one CB run's side effects: creates the CBE doc, patches parent CB leaf weights, refreshes SDK payload. */
+/**
+ * Persists one CB run's side effects: creates the CBE doc, patches parent CB leaf
+ * weights, refreshes SDK payload. Idempotent per snapshot.
+ */
 export async function persistContextualBanditEvent(
   context: ReqContext,
   cbs: ContextualBanditSnapshotInterface,
@@ -321,6 +324,14 @@ export async function persistContextualBanditEvent(
   );
   if (!cb) {
     throw new Error(`No CB doc for ${cbs.contextualBandit}`);
+  }
+
+  // Idempotency guard: this snapshot's run may be retried (e.g. if a later write
+  // in the same success path throws before the snapshot is linked).
+  const existingEvent =
+    await context.models.contextualBanditEvents.getBySnapshotId(cbs.id);
+  if (existingEvent) {
+    return existingEvent;
   }
 
   const currentLeafWeights = cb.currentLeafWeights ?? [];

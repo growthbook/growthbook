@@ -191,13 +191,14 @@ export type ContextualBanditStatusHealth = {
 export function useContextualBanditStatusHealth(
   cb: ApiContextualBanditInterface,
 ): ContextualBanditStatusHealth | undefined {
-  const { results, latest } = useContextualBanditResults(cb.id);
+  const { latest } = useContextualBanditResults(cb.id);
   return useMemo(() => {
     if (latest?.status === "success") {
-      const totalUsers = cb.variations.reduce(
-        (sum, _v, i) => sum + (results?.overall.variations[i]?.users ?? 0),
-        0,
-      );
+      const totalUsers =
+        latest.traffic?.overall?.variationUnits?.reduce(
+          (sum, n) => sum + n,
+          0,
+        ) ?? 0;
       return {
         srm: latest.srm?.pValue ?? null,
         multipleExposures: latest.multipleExposures ?? 0,
@@ -213,7 +214,7 @@ export function useContextualBanditStatusHealth(
       };
     }
     return undefined;
-  }, [cb.variations, cb.analysisSummary, results, latest]);
+  }, [cb.analysisSummary, latest]);
 }
 
 /**

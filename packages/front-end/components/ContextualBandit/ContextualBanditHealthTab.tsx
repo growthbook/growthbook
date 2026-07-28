@@ -33,18 +33,15 @@ export default function ContextualBanditHealthTab({
     [cb.variations, results],
   );
 
-  const overallUsers = useMemo(
-    () =>
-      cb.variations.map((_, i) => results?.overall.variations[i]?.users ?? 0),
-    [cb.variations, results],
-  );
-
   const traffic = latest?.traffic ?? null;
   const srm = latest?.srm?.pValue ?? null;
   const multipleExposures = latest?.multipleExposures ?? 0;
+  const overallUsers = useMemo(
+    () =>
+      cb.variations.map((_, i) => traffic?.overall?.variationUnits?.[i] ?? 0),
+    [cb.variations, traffic],
+  );
 
-  // Base the balance check on the same per-variation units shown in the table and
-  // used to compute the SRM p-value.
   const totalUsers = overallUsers.reduce((sum, n) => sum + n, 0);
 
   if (!latest) {

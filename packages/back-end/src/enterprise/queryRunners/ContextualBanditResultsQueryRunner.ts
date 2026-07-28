@@ -5,6 +5,7 @@ import {
   ContextualBanditSnapshotInterface,
   ContextualBanditSnapshotSettings,
   ContextualBanditSrmLatestPeriod,
+  ContextualBanditAnalysisSummary,
   queryHasContextualBanditSrmColumns,
 } from "shared/validators";
 import { buildUnitsQuerySettingsFromCb } from "shared/util";
@@ -460,6 +461,11 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
             : "success",
     };
 
+    // The lightweight health summary written to the CB doc after the snapshot is
+    // linked to its event. Deferred until after the snapshot update so the
+    // durable `contextualBanditEventId` link is persisted first.
+    let pendingAnalysisSummary: ContextualBanditAnalysisSummary | undefined;
+
     if (status === "succeeded" && result) {
       const latest = await this.getLatestModel();
       if (!latest.contextualBanditEventId) {
@@ -488,24 +494,30 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
             (sum, n) => sum + n,
             0,
           ) ?? 0;
-        await this.context.models.contextualBandits.patchAnalysisSummary(
-          this.model.contextualBandit,
-          {
-            snapshotId: this.model.id,
-            health: {
-              srm: result.srm?.pValue ?? null,
-              multipleExposures: result.multipleExposures ?? 0,
-              totalUsers: summaryTotalUsers,
-            },
+        pendingAnalysisSummary = {
+          snapshotId: this.model.id,
+          health: {
+            srm: result.srm?.pValue ?? null,
+            multipleExposures: result.multipleExposures ?? 0,
+            totalUsers: summaryTotalUsers,
           },
-        );
+        };
       }
     }
 
+    // Persist the snapshot (including `contextualBanditEventId`) before writing the
+    // health summary.
     await this.context.models.contextualBanditSnapshots.updateById(
       this.model.id,
       updates,
     );
+
+    if (pendingAnalysisSummary) {
+      await this.context.models.contextualBandits.patchAnalysisSummary(
+        this.model.contextualBandit,
+        pendingAnalysisSummary,
+      );
+    }
 
     return {
       ...this.model,
