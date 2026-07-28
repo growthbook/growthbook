@@ -29,6 +29,9 @@ import Callout from "@/ui/Callout";
 import RuleEnvironmentScopeField, {
   type EnvScopeProps,
 } from "@/components/Features/RuleModal/EnvironmentScopeField";
+import RuleProjectScopeField, {
+  type ProjectScopeProps,
+} from "@/components/Features/RuleModal/ProjectScopeField";
 import SparsePatchToggle from "@/components/Features/SparsePatchToggle";
 
 export default function BanditRefFields({
@@ -36,11 +39,13 @@ export default function BanditRefFields({
   existingRule,
   changeRuleType,
   envScope,
+  projectScope,
 }: {
   feature: FeatureInterface;
   existingRule: boolean;
   changeRuleType: (v: string) => void;
   envScope: EnvScopeProps;
+  projectScope: ProjectScopeProps;
 }) {
   const form = useFormContext();
 
@@ -236,6 +241,7 @@ export default function BanditRefFields({
       />
 
       <RuleEnvironmentScopeField {...envScope} my="5" />
+      <RuleProjectScopeField {...projectScope} mb="5" />
     </>
   );
 }

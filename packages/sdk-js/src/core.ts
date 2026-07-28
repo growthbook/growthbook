@@ -16,7 +16,7 @@ import {
   FeatureApiResponse,
   Options,
   ClientOptions,
-  UserContext,
+  UserContextAttributes,
 } from "./types/growthbook";
 import { evalCondition } from "./mongrule";
 import { ConditionInterface } from "./types/mongrule";
@@ -834,12 +834,10 @@ function getAttributes(ctx: EvalContext) {
   };
 }
 
-// A lean, serializable UserContext carrying only the user's (merged)
-// attributes. Used for the trackingCallback third argument and for deferred
-// tracking calls so we don't pass the full context (functions, sticky bucket
-// service, etc.) or invent a separate bare-attributes shape.
-function getTrackingUserContext(ctx: EvalContext): UserContext {
-  return { attributes: getAttributes(ctx) };
+function getTrackingUserContext(ctx: EvalContext): UserContextAttributes {
+  return {
+    attributes: { ...getAttributes(ctx) },
+  };
 }
 
 function getContextualBanditLeaf(
