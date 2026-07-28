@@ -4,22 +4,22 @@ import { ContextualBanditDefinitions } from "../src/types/growthbook";
 
 function cbRule(overrides: Record<string, unknown> = {}) {
   return {
-    key: "promo_bandit",
-    seed: "promo_bandit",
+    key: "bandit-exp",
+    seed: "bandit-exp",
     hashAttribute: "id",
     hashVersion: 2,
     coverage: 1,
     contextualVariations: ["control", "treatment"],
     weights: [1, 0],
     meta: [{ key: "0" }, { key: "1" }],
-    contextualBanditRef: "cb_promo",
+    contextualBanditRef: "cb-bandit",
     ...overrides,
   };
 }
 
 function cbFeatures(overrides: Record<string, unknown> = {}) {
   return {
-    promo: {
+    "bandit-feature": {
       defaultValue: "default",
       rules: [cbRule(overrides)],
     },
@@ -30,7 +30,7 @@ function cbMap(
   overrides: Record<string, unknown> = {},
 ): ContextualBanditDefinitions {
   return {
-    cb_promo: {
+    "cb-bandit": {
       banditVersion: 7,
       contexts: [
         { leafId: 1, condition: { plan: "enterprise" }, weights: [1, 0] },
@@ -49,7 +49,7 @@ describe("contextual bandit feature rules", () => {
       contextualBandits: cbMap(),
     });
 
-    const res = gb.evalFeature("promo");
+    const res = gb.evalFeature("bandit-feature");
     expect(res.source).toEqual("experiment");
     expect(res.value).toEqual("control");
     expect(res.experimentResult?.inExperiment).toEqual(true);
@@ -69,12 +69,12 @@ describe("contextual bandit feature rules", () => {
     const gb = new GrowthBook({
       attributes: { id: "u1", plan: "enterprise" },
       features: {
-        promo: {
+        "bandit-feature": {
           defaultValue: "default",
           rules: [
             {
-              key: "promo_bandit",
-              seed: "promo_bandit",
+              key: "bandit-exp",
+              seed: "bandit-exp",
               hashAttribute: "id",
               hashVersion: 2,
               coverage: 1,
@@ -87,7 +87,7 @@ describe("contextual bandit feature rules", () => {
       contextualBandits: cbMap(),
     });
 
-    const res = gb.evalFeature("promo");
+    const res = gb.evalFeature("bandit-feature");
     expect(res.source).toEqual("defaultValue");
     expect(res.value).toEqual("default");
     expect(res.experimentResult).toBeUndefined();
@@ -104,7 +104,7 @@ describe("contextual bandit feature rules", () => {
       contextualBandits: cbMap(),
     });
 
-    const res = gb.evalFeature("promo");
+    const res = gb.evalFeature("bandit-feature");
     expect(res.source).toEqual("experiment");
     expect(res.value).toEqual("control");
     expect(res.experimentResult?.inExperiment).toEqual(true);
@@ -124,7 +124,7 @@ describe("contextual bandit feature rules", () => {
       contextualBandits: cbMap(),
     });
 
-    const res = gb.evalFeature("promo");
+    const res = gb.evalFeature("bandit-feature");
     expect(res.source).toEqual("defaultValue");
     expect(res.value).toEqual("default");
     expect(res.experimentResult).toBeUndefined();
@@ -140,7 +140,7 @@ describe("contextual bandit feature rules", () => {
       contextualBandits: cbMap(),
     });
 
-    const res = gb.evalFeature("promo");
+    const res = gb.evalFeature("bandit-feature");
     expect(res.source).toEqual("experiment");
     expect(res.value).toEqual("treatment");
     expect(res.experimentResult?.variationId).toEqual(1);
@@ -167,9 +167,9 @@ describe("contextual bandit feature rules", () => {
       contextualBandits: cbMap(),
     });
 
-    const promo = gb.evalFeature("promo");
+    const feature = gb.evalFeature("bandit-feature");
     const banner = gb.evalFeature("banner");
-    expect(promo.experimentResult?.leafId).toEqual(1);
+    expect(feature.experimentResult?.leafId).toEqual(1);
     expect(banner.experimentResult?.leafId).toEqual(1);
     expect(banner.value).toEqual("off");
     expect(banner.experimentResult?.banditVersion).toEqual(7);
@@ -189,7 +189,7 @@ describe("contextual bandit feature rules", () => {
       contextualBandits: cbMap(),
     });
 
-    const res = gb.evalFeature("promo");
+    const res = gb.evalFeature("bandit-feature");
     expect(res.source).toEqual("experiment");
     expect(res.value).toEqual("treatment");
     expect(res.experimentResult?.inExperiment).toEqual(true);
@@ -217,7 +217,7 @@ describe("contextual bandit feature rules", () => {
       }),
     });
 
-    const res = gb.evalFeature("promo");
+    const res = gb.evalFeature("bandit-feature");
     expect(res.source).toEqual("experiment");
     expect(res.value).toEqual("control");
     expect(res.experimentResult?.inExperiment).toEqual(true);
@@ -242,7 +242,7 @@ describe("contextual bandit feature rules", () => {
       },
     ) as Record<string, unknown>;
     const bandits = cbMap();
-    bandits.cb_promo.contexts[0].condition = throwingCondition;
+    bandits["cb-bandit"].contexts[0].condition = throwingCondition;
 
     const gb = new GrowthBook({
       attributes: { id: "u1", plan: "enterprise" },
@@ -255,7 +255,7 @@ describe("contextual bandit feature rules", () => {
     // being dropped, and is tracked as a fallback-leaf exposure.
     let res: ReturnType<typeof gb.evalFeature>;
     expect(() => {
-      res = gb.evalFeature("promo");
+      res = gb.evalFeature("bandit-feature");
     }).not.toThrow();
     expect(res!.source).toEqual("experiment");
     expect(res!.value).toEqual("control");
@@ -276,16 +276,47 @@ describe("contextual bandit feature rules", () => {
       contextualBandits: cbMap(),
     });
 
-    gb.evalFeature("promo");
+    gb.evalFeature("bandit-feature");
 
     expect(trackingCallback.mock.calls.length).toEqual(1);
     const [experiment, result, user] = trackingCallback.mock.calls[0];
-    expect(experiment.key).toEqual("promo_bandit");
+    expect(experiment.key).toEqual("bandit-exp");
     expect(result.leafId).toEqual(1);
     expect(result.variationId).toEqual(0);
     expect(result.variationWeights).toEqual([1, 0]);
     expect(result.banditVersion).toEqual(7);
     expect(user.attributes).toEqual({ id: "u1", plan: "enterprise" });
+
+    gb.destroy();
+  });
+
+  it("reports the override weights (not the leaf weights) when a context weights-override changes bucketing", () => {
+    const trackingCallback = jest.fn();
+    const gb = new GrowthBook({
+      attributes: { id: "u1", plan: "enterprise" }, // matches leaf 1 -> [1, 0]
+      trackingCallback,
+      features: cbFeatures(),
+      contextualBandits: cbMap(),
+      // Override flips the weights so the user buckets into variation 1 instead.
+      overrides: { "bandit-exp": { weights: [0, 1] } },
+    });
+
+    const res = gb.evalFeature("bandit-feature");
+
+    // Leaf selection is unchanged (still leaf 1)...
+    expect(res.experimentResult?.leafId).toEqual(1);
+    // ...but bucketing used the override weights, so the reported weights and
+    // the assigned variation must reflect [0, 1], not the leaf's [1, 0].
+    expect(res.experimentResult?.variationId).toEqual(1);
+    expect(res.experimentResult?.value).toEqual("treatment");
+    expect(res.experimentResult?.variationWeights).toEqual([0, 1]);
+
+    // The trackingCallback must see the same override weights.
+    expect(trackingCallback.mock.calls.length).toEqual(1);
+    const [experiment, result] = trackingCallback.mock.calls[0];
+    expect(result.variationWeights).toEqual([0, 1]);
+    expect(experiment.contextualBandit.variationWeights).toEqual([0, 1]);
+    expect(experiment.weights).toEqual([0, 1]);
 
     gb.destroy();
   });
@@ -337,7 +368,7 @@ describe("contextual bandit feature rules", () => {
       contextualBandits: cbMap({ contexts: [] }),
     });
 
-    const res = gb.evalFeature("promo");
+    const res = gb.evalFeature("bandit-feature");
     expect(res.source).toEqual("experiment");
     expect(res.value).toEqual("control");
     expect(res.experimentResult?.variationId).toEqual(0);
@@ -357,7 +388,7 @@ describe("contextual bandit feature rules", () => {
       // No contextualBandits map at all
     });
 
-    const res = gb.evalFeature("promo");
+    const res = gb.evalFeature("bandit-feature");
     expect(res.source).toEqual("experiment");
     expect(res.value).toEqual("control");
     expect(res.experimentResult?.variationId).toEqual(0);
@@ -376,7 +407,7 @@ describe("contextual bandit feature rules", () => {
       contextualBandits: cbMap(),
     });
 
-    gb.evalFeature("promo");
+    gb.evalFeature("bandit-feature");
 
     const deferred = gb.getDeferredTrackingCalls();
     expect(deferred.length).toEqual(1);
@@ -408,7 +439,7 @@ describe("contextual bandit feature rules", () => {
       contextualBandits: cbMap(),
     });
 
-    const res = gb.evalFeature("promo");
+    const res = gb.evalFeature("bandit-feature");
     expect(res.experimentResult?.leafId).toEqual(1);
     expect(res.experimentResult?.banditVersion).toEqual(7);
 
@@ -426,7 +457,7 @@ describe("contextual bandit feature rules", () => {
       },
     });
 
-    const res = gb.evalFeature("promo");
+    const res = gb.evalFeature("bandit-feature");
     expect(res.source).toEqual("experiment");
     expect(res.value).toEqual("control");
     expect(res.experimentResult?.leafId).toEqual(1);
@@ -445,7 +476,7 @@ describe("contextual bandit feature rules", () => {
       },
     });
 
-    const res = gb.evalFeature("promo", {
+    const res = gb.evalFeature("bandit-feature", {
       attributes: { id: "u1", plan: "enterprise" },
     });
     expect(res.source).toEqual("experiment");

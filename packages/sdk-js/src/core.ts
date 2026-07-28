@@ -429,6 +429,13 @@ export function runExperiment<T>(
   // 2.5. Merge in experiment overrides from the context
   experiment = mergeOverrides(experiment, ctx);
 
+  if (experiment.contextualBandit && experiment.weights) {
+    experiment.contextualBandit = {
+      ...experiment.contextualBandit,
+      variationWeights: experiment.weights,
+    };
+  }
+
   // 2.6 New, more powerful URL targeting
   if (
     experiment.urlPatterns &&
@@ -1224,9 +1231,7 @@ function deriveStickyBucketIdentifierAttributes(
     const feature = features[id];
     if (feature.rules) {
       for (const rule of feature.rules) {
-        // Contextual bandit rules carry their variations under
-        // `contextualVariations`; match either so CB rules also register
-        // their hash/fallback attributes for sticky bucketing.
+        // Contextual bandit rules carry their variations under `contextualVariations`
         if (rule.variations || rule.contextualVariations) {
           attributes.add(rule.hashAttribute || "id");
           if (rule.fallbackAttribute) {
