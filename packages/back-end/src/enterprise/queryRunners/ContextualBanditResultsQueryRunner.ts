@@ -262,7 +262,9 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
 
     const multipleExposures = Math.max(
       0,
-      rows.filter((r) => r.variation === "__multiple__")?.[0]?.users ?? 0,
+      rows
+        .filter((r) => r.variation === "__multiple__")
+        .reduce((sum, r) => sum + (Number(r.users) || 0), 0),
     );
 
     const cb = await this.loadCbDoc();

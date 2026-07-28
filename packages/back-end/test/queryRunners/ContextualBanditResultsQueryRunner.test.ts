@@ -306,6 +306,64 @@ describe("ContextualBanditResultsQueryRunner", () => {
       ).toBe(true);
     });
 
+    it("sums multiple exposures across all context buckets", async () => {
+      const cb = makeCb();
+      const context = makeContext(cb);
+      const runner = newRunner(context);
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (runner as any).snapshotSettings = makeSnapshotSettings();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (runner as any).variationNames = ["Control", "Treatment"];
+
+      // The rows query is grouped by context attribute, so "__multiple__"
+      // appears once per bucket. The total must sum across buckets (14 + 86),
+      // not take a single bucket's value.
+      const rows: ExperimentMetricQueryResponseRows = [
+        {
+          variation: "__multiple__",
+          users: 14,
+          count: 14,
+          main_sum: 0,
+          main_sum_squares: 0,
+          [contextualBanditAttrCol("country")]: "US",
+        },
+        {
+          // users can come back from SQL as a string; it must still add up.
+          variation: "__multiple__",
+          users: "86",
+          count: 86,
+          main_sum: 0,
+          main_sum_squares: 0,
+          [contextualBanditAttrCol("country")]: "CA",
+        } as unknown as ExperimentMetricQueryResponseRows[number],
+        {
+          variation: "0",
+          users: 100,
+          count: 100,
+          main_sum: 5,
+          main_sum_squares: 0.5,
+          [contextualBanditAttrCol("country")]: "US",
+        },
+      ];
+
+      const queryMap: QueryMap = new Map<string, QueryInterface>([
+        [
+          CONTEXTUAL_BANDIT_ROWS_QUERY_NAME,
+          { result: rows } as unknown as QueryInterface,
+        ],
+      ]);
+
+      runContextualStatsEngineMock.mockResolvedValueOnce({
+        attributes: ["country"],
+        responses: [],
+      });
+
+      const result = await runner.runAnalysis(queryMap);
+
+      expect(result.multipleExposures).toBe(100);
+    });
+
     it("parses traffic keyed by variation key (does not drop rows)", async () => {
       const cb = makeCb();
       const context = makeContext(cb);

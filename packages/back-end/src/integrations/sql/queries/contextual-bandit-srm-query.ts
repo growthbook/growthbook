@@ -17,6 +17,7 @@ const MIN_VALID_CELLS_PER_GROUP = 2;
  * Each assignment-query row carries the per-row variation weights, the policy
  * leaf (`leaf_id`), and the bandit version / weight-update generation
  * (`bandit_version`).
+ *
  * For every (leaf_id, bandit_version) group we compare, per variation:
  *   - observed = number of users assigned to that variation, and
  *   - expected = sum of that variation's per-user weights.
@@ -129,7 +130,6 @@ export function getContextualBanditSrmQuery(
           }
       )
       , __cbRankedExposures AS (
-        -- Rank a user's rows within each (leaf_id, bandit_version) cell by time
         SELECT
           uid
           , leaf_id
@@ -140,11 +140,18 @@ export function getContextualBanditSrmQuery(
               PARTITION BY uid, leaf_id, bandit_version
               ORDER BY timestamp ASC
             ) AS __rn
+          , MIN(variation) OVER (
+              PARTITION BY uid, leaf_id, bandit_version
+            ) AS __min_variation
+          , MAX(variation) OVER (
+              PARTITION BY uid, leaf_id, bandit_version
+            ) AS __max_variation
         FROM
           __cbExposures
       )
       , __cbUnits AS (
-        -- Keep only each user's first exposure within the cell
+        -- Keep each user's first exposure within the cell, but separate out
+        -- multiple-exposure users. 
         SELECT
           uid
           , leaf_id
@@ -155,6 +162,7 @@ export function getContextualBanditSrmQuery(
           __cbRankedExposures
         WHERE
           __rn = 1
+          AND __min_variation = __max_variation
       )
       , __cbCellAgg AS (
         SELECT

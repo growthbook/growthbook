@@ -2,12 +2,14 @@ import {
   ExperimentAnalysisSummaryResultsStatus,
   ExperimentAnalysisSummaryVariationStatus,
   DecisionCriteriaRule,
+  ExperimentHealthSettings,
 } from "shared/types/experiment";
 import {
   getDecisionFrameworkStatus,
   evaluateDecisionRuleOnVariation,
   getVariationDecisions,
   getEarlyStoppingVariationDecisions,
+  getContextualBanditResultStatus,
 } from "../src/enterprise/decision-criteria/decisionCriteria";
 import { PRESET_DECISION_CRITERIA } from "../src/enterprise/decision-criteria/constants";
 
@@ -1186,5 +1188,83 @@ describe("getDecisionFrameworkStatus Handles Super Stat Sig Correctly", () => {
     });
 
     expect(decision).toEqual(undefined);
+  });
+});
+
+describe("getContextualBanditResultStatus", () => {
+  const healthSettings: ExperimentHealthSettings = {
+    decisionFrameworkEnabled: false,
+    experimentMinLengthDays: 3,
+    srmThreshold: 0.001,
+    multipleExposureMinPercent: 0.01,
+  };
+
+  it("flags SRM when the p-value is below the threshold", () => {
+    const status = getContextualBanditResultStatus({
+      srm: 0.0001,
+      multipleExposures: 0,
+      totalUsers: 10000,
+      numOfVariations: 2,
+      healthSettings,
+    });
+
+    expect(status?.status).toBe("unhealthy");
+    expect(status?.status === "unhealthy" && status.unhealthyData.srm).toBe(
+      true,
+    );
+    expect(status?.tooltip).toBe("SRM");
+  });
+
+  it("flags multiple exposures over the percent threshold", () => {
+    const status = getContextualBanditResultStatus({
+      srm: 0.9,
+      multipleExposures: 100,
+      totalUsers: 10000,
+      numOfVariations: 2,
+      healthSettings,
+    });
+
+    expect(status?.status).toBe("unhealthy");
+    expect(
+      status?.status === "unhealthy" &&
+        status.unhealthyData.multipleExposures?.multipleExposedUsers,
+    ).toBe(100);
+    expect(status?.tooltip).toBe("Multiple exposures");
+  });
+
+  it("reports both failing checks together", () => {
+    const status = getContextualBanditResultStatus({
+      srm: 0.0001,
+      multipleExposures: 100,
+      totalUsers: 10000,
+      numOfVariations: 2,
+      healthSettings,
+    });
+
+    expect(status?.tooltip).toBe("SRM, Multiple exposures");
+  });
+
+  it("returns undefined when healthy", () => {
+    const status = getContextualBanditResultStatus({
+      srm: 0.9,
+      multipleExposures: 1,
+      totalUsers: 10000,
+      numOfVariations: 2,
+      healthSettings,
+    });
+
+    expect(status).toBeUndefined();
+  });
+
+  it("returns no-data when there is no traffic", () => {
+    const status = getContextualBanditResultStatus({
+      srm: null,
+      multipleExposures: 0,
+      totalUsers: 0,
+      numOfVariations: 2,
+      healthSettings,
+    });
+
+    expect(status?.status).toBe("no-data");
   });
 });

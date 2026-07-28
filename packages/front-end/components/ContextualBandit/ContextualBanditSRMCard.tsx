@@ -1,15 +1,18 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Box } from "@radix-ui/themes";
 import { ExperimentReportVariation } from "shared/types/report";
 import { getSRMHealthData } from "shared/health";
 import {
   DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION,
   DEFAULT_SRM_THRESHOLD,
 } from "shared/constants";
-import Text from "@/ui/Text";
 import { useUser } from "@/services/UserContext";
+import { pValueFormatter } from "@/services/experiments";
 import VariationUsersTable from "@/components/Experiment/TabbedPage/VariationUsersTable";
 import SRMWarning from "@/components/Experiment/SRMWarning";
 import Callout from "@/ui/Callout";
+import Button from "@/ui/Button";
+import VariationLabel from "@/ui/VariationLabel";
 import Table, {
   TableBody,
   TableCell,
@@ -82,15 +85,26 @@ export default function ContextualBanditSRMCard({
         {srmHealth !== "healthy" && <StatusBadge status={srmHealth} />}
         <p className="mt-1">
           Shows the actual unit split compared to the assigned variation weights
+          for the most recent bandit period, broken down by leaf
         </p>
         <hr className="mb-0" />
         <div style={{ paddingTop: "10px" }}>
-          <div className="row justify-content-start w-100 overflow-auto">
-            <VariationUsersTable
-              users={users}
-              variations={variations}
-              srm={srm}
-            />
+          <div className="w-100 overflow-auto">
+            {latestPeriod && latestPeriod.leaves.length > 0 ? (
+              <LatestPeriodBalanceTable
+                latestPeriod={latestPeriod}
+                variations={variations}
+              />
+            ) : (
+              <VariationUsersTable
+                users={users}
+                variations={variations}
+                srm={srm}
+              />
+            )}
+          </div>
+          <div className="text-muted mx-2 mt-1 mb-2">
+            p-value = {pValueFormatter(srm)}
           </div>
           <div>
             {srmHealth !== "not-enough-traffic" ? (
@@ -108,74 +122,121 @@ export default function ContextualBanditSRMCard({
               </Callout>
             )}
           </div>
-          {srmHealth !== "not-enough-traffic" &&
-          latestPeriod &&
-          latestPeriod.leaves.length > 0 ? (
-            <LatestPeriodBreakdown
-              latestPeriod={latestPeriod}
-              variations={variations}
-            />
-          ) : null}
         </div>
       </div>
     </div>
   );
 }
 
+const unitFormatter = new Intl.NumberFormat(undefined, {
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 1,
+});
+
+const percentFormatter = new Intl.NumberFormat(undefined, {
+  style: "percent",
+  maximumFractionDigits: 2,
+});
+
+// Show only leaf 0 by default.
+const INITIAL_VISIBLE_LEAF_COUNT = 1;
+const SHOW_MORE_LEAF_CHUNK_SIZE = 10;
+
 /**
- * Observed vs expected units per leaf & variation for the most recent bandit
- * period only. This is illustrative context for the balance check — it does NOT
- * reconcile to the SRM p-value above.
+ * Actual vs. expected unit split per leaf & variation for the most recent
+ * bandit period. Leaf 0 is shown by default; the remaining leaves are revealed
+ * with "Show more...".
  */
-function LatestPeriodBreakdown({
+function LatestPeriodBalanceTable({
   latestPeriod,
   variations,
 }: {
   latestPeriod: ContextualBanditSrmLatestPeriod;
   variations: ExperimentReportVariation[];
 }) {
-  const numberFormatter = useMemo(() => new Intl.NumberFormat(), []);
-  const expectedFormatter = useMemo(
-    () => new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }),
-    [],
+  const [visibleLeafCount, setVisibleLeafCount] = useState(
+    INITIAL_VISIBLE_LEAF_COUNT,
   );
 
+  const leaves = useMemo(
+    () =>
+      [...latestPeriod.leaves].sort(
+        (a, b) => Number(a.leafId) - Number(b.leafId),
+      ),
+    [latestPeriod.leaves],
+  );
+
+  const visibleLeaves = leaves.slice(0, visibleLeafCount);
+
   return (
-    <div className="mt-4">
-      <h4 className="mb-1">Most recent period breakdown</h4>
-      <Text as="p" size="small" color="text-low" mb="2">
-        Observed vs. expected units per leaf and variation for the latest weight
-        update
-        {latestPeriod.banditVersion ? ` (${latestPeriod.banditVersion})` : ""}.
-        Shown for context only — these counts don&apos;t reconcile with the
-        p-value above, which spans the bandit&apos;s full history.
-      </Text>
-      <Table variant="surface">
+    <>
+      <Table variant="surface" mx="2" mb="2">
         <TableHeader>
           <TableRow>
             <TableColumnHeader>Leaf</TableColumnHeader>
-            {variations.map((v) => (
-              <TableColumnHeader key={v.id} align="right">
-                {v.name} (obs / exp)
-              </TableColumnHeader>
-            ))}
+            <TableColumnHeader>Variation</TableColumnHeader>
+            <TableColumnHeader justify="end">Actual Units</TableColumnHeader>
+            <TableColumnHeader justify="end">Expected Units</TableColumnHeader>
+            <TableColumnHeader justify="end">Actual %</TableColumnHeader>
+            <TableColumnHeader justify="end">Expected %</TableColumnHeader>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {latestPeriod.leaves.map((leaf) => (
-            <TableRow key={leaf.leafId}>
-              <TableRowHeaderCell>{leaf.leafId}</TableRowHeaderCell>
-              {variations.map((v, i) => (
-                <TableCell key={v.id} align="right">
-                  {numberFormatter.format(leaf.observed[i] ?? 0)}
-                  {" / "}
-                  {expectedFormatter.format(leaf.expected[i] ?? 0)}
+          {visibleLeaves.map((leaf) => {
+            const totalObserved = leaf.observed.reduce((sum, n) => sum + n, 0);
+            const totalExpected = leaf.expected.reduce((sum, n) => sum + n, 0);
+            return variations.map((v, i) => (
+              <TableRow key={`${leaf.leafId}-${v.id}`}>
+                {i === 0 ? (
+                  <TableRowHeaderCell rowSpan={variations.length}>
+                    {leaf.leafId}
+                  </TableRowHeaderCell>
+                ) : null}
+                <TableCell>
+                  <VariationLabel number={v.index} name={v.name} />
                 </TableCell>
-              ))}
-            </TableRow>
-          ))}
+                <TableCell justify="end">
+                  <b>{unitFormatter.format(leaf.observed[i] ?? 0)}</b>
+                </TableCell>
+                <TableCell justify="end">
+                  {unitFormatter.format(leaf.expected[i] ?? 0)}
+                </TableCell>
+                <TableCell justify="end">
+                  <b>
+                    {totalObserved > 0
+                      ? percentFormatter.format(
+                          (leaf.observed[i] ?? 0) / totalObserved,
+                        )
+                      : "-"}
+                  </b>
+                </TableCell>
+                <TableCell justify="end">
+                  {totalExpected > 0
+                    ? percentFormatter.format(
+                        (leaf.expected[i] ?? 0) / totalExpected,
+                      )
+                    : "-"}
+                </TableCell>
+              </TableRow>
+            ));
+          })}
         </TableBody>
       </Table>
-    </div>
+      {visibleLeafCount < leaves.length && (
+        <Box mx="2">
+          <Button
+            variant="ghost"
+            size="xs"
+            onClick={() =>
+              setVisibleLeafCount((count) =>
+                Math.min(count + SHOW_MORE_LEAF_CHUNK_SIZE, leaves.length),
+              )
+            }
+          >
+            Show more...
+          </Button>
+        </Box>
+      )}
+    </>
   );
 }

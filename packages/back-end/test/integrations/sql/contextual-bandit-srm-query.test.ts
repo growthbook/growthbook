@@ -47,6 +47,14 @@ describe("getContextualBanditSrmQuery", () => {
     );
     expect(c).toContain("__rn=1");
 
+    expect(c).toContain(
+      "MIN(variation)OVER(PARTITIONBYuid,leaf_id,bandit_version)AS__min_variation",
+    );
+    expect(c).toContain(
+      "MAX(variation)OVER(PARTITIONBYuid,leaf_id,bandit_version)AS__max_variation",
+    );
+    expect(c).toContain("__min_variation=__max_variation");
+
     expect(c).toContain("variation='0'");
     expect(c).toContain("variation='1'");
     expect(c).not.toContain("var_control");
@@ -80,7 +88,9 @@ describe("getContextualBanditSrmQuery", () => {
     expect(c).toContain("ASrow_type");
     expect(c).toContain("'summary'");
     expect(c).toContain("'cell'");
-    expect(c).toContain("JOIN__cbLatestVersionvON(a.bandit_version=v.bandit_version)");
+    expect(c).toContain(
+      "JOIN__cbLatestVersionvON(a.bandit_version=v.bandit_version)",
+    );
   });
 
   it("emits one observed/expected pair and array index per variation", () => {

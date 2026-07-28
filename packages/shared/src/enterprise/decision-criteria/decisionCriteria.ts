@@ -571,6 +571,73 @@ export function getExperimentResultStatus({
   }
 }
 
+export function getContextualBanditResultStatus({
+  srm,
+  multipleExposures,
+  totalUsers,
+  numOfVariations,
+  healthSettings,
+}: {
+  srm: number | null;
+  multipleExposures: number;
+  totalUsers: number;
+  numOfVariations: number;
+  healthSettings: ExperimentHealthSettings;
+}): ExperimentResultStatusData | undefined {
+  const unhealthyData: ExperimentUnhealthyData = {};
+
+  if (totalUsers) {
+    const srmHealthData = getSRMHealthData({
+      // A missing SRM p-value can't be unhealthy; Infinity keeps it "healthy".
+      srm: srm ?? Infinity,
+      srmThreshold: healthSettings.srmThreshold,
+      totalUsersCount: totalUsers,
+      numOfVariations,
+      // Bandits reweight frequently, so use the bandit-specific minimum.
+      minUsersPerVariation: DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION,
+    });
+
+    if (srmHealthData === "unhealthy") {
+      unhealthyData.srm = true;
+    }
+
+    const multipleExposuresHealthData = getMultipleExposureHealthData({
+      multipleExposuresCount: multipleExposures,
+      totalUsersCount: totalUsers,
+      minCountThreshold: DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
+      minPercentThreshold: healthSettings.multipleExposureMinPercent,
+    });
+
+    if (multipleExposuresHealthData.status === "unhealthy") {
+      unhealthyData.multipleExposures = {
+        rawDecimal: multipleExposuresHealthData.rawDecimal,
+        multipleExposedUsers: multipleExposures,
+      };
+    }
+  }
+
+  const unhealthyStatuses = [
+    ...(unhealthyData.srm ? ["SRM"] : []),
+    ...(unhealthyData.multipleExposures ? ["Multiple exposures"] : []),
+  ];
+
+  if (unhealthyStatuses.length > 0) {
+    return {
+      status: "unhealthy",
+      unhealthyData,
+      tooltip: unhealthyStatuses.join(", "),
+    };
+  }
+
+  if (totalUsers === 0) {
+    return {
+      status: "no-data",
+    };
+  }
+
+  return undefined;
+}
+
 export function getSafeRolloutDaysLeft({
   safeRollout,
   snapshotWithResults,
