@@ -157,12 +157,11 @@ export default function NPSSurvey() {
   }>({ defaultValues: { score: null, feedback: "" } });
   const score = watch("score");
 
-  // What we've already reported, read and set synchronously inside unload-time
-  // listeners where async state updates could double-fire. Holding the
-  // disposition rather than a boolean lets an explicit "submitted" supersede an
-  // earlier provisional send (e.g. an "abandoned" flush from a bfcache suspend
-  // the user then returned from), so a real comment is never swallowed.
-  const sentRef = useRef<NpsDisposition | null>(null);
+  // Send-once latch, read and set synchronously inside the unload listener
+  // where async state updates could double-fire. A latch can only be set on a
+  // page that is being discarded (see the pagehide handler), so it never needs
+  // to be superseded by a later submit.
+  const sentRef = useRef(false);
   const closeTimer = useRef<number | null>(null);
   const exitTimer = useRef<number | null>(null);
 
@@ -205,7 +204,6 @@ export default function NPSSurvey() {
         score: number;
         feedback: string;
         disposition: NpsDisposition;
-        supersedes?: NpsDisposition;
       },
     ) => {
       void apiCall(`/user/nps-response`, {
@@ -227,17 +225,8 @@ export default function NPSSurvey() {
   const emitResponse = useCallback(
     (disposition: NpsDisposition) => {
       const { score: s, feedback } = getValues();
-      if (s === null) return;
-      // Already reported: only an explicit submit may supersede, and only once.
-      if (sentRef.current !== null) {
-        if (disposition !== "submitted" || sentRef.current === "submitted") {
-          return;
-        }
-      }
-      // Carry the state being replaced so the second report is recognisable as
-      // an update of the first rather than a separate response.
-      const supersedes = sentRef.current ?? undefined;
-      sentRef.current = disposition;
+      if (sentRef.current || s === null) return;
+      sentRef.current = true;
       const feedbackText = disposition === "submitted" ? feedback.trim() : "";
       track("nps_response", {
         score: s,
@@ -245,7 +234,6 @@ export default function NPSSurvey() {
         category: npsCategoryOf(s),
         feedback: feedbackText,
         disposition,
-        supersedes: supersedes ?? "",
         preview: forceShow,
         survey_id: SURVEY_ID,
       });
@@ -254,7 +242,6 @@ export default function NPSSurvey() {
         score: s,
         feedback: feedbackText,
         disposition,
-        supersedes,
       });
     },
     [persistServer, getValues, forceShow],
@@ -295,14 +282,15 @@ export default function NPSSurvey() {
   );
 
   // Catch true abandonment: leaving the page for good with a score selected but
-  // not submitted — the score is recorded, the unsent draft is not. `persisted`
-  // means the page went into the back-forward cache and may come back, so it is
-  // not an exit; reporting then would also be superseded by a later submit.
+  // not submitted — the score is recorded, the unsent draft is not. Bail when
+  // `persisted` is set: the page went into the back-forward cache and may be
+  // restored, so it isn't an exit, and reporting would latch a response the
+  // user could still return to finish.
   useEffect(() => {
     if (!visible) return;
     const flush = (e: PageTransitionEvent) => {
       if (e.persisted) return;
-      if (getValues("score") !== null && sentRef.current === null) {
+      if (getValues("score") !== null && !sentRef.current) {
         emitResponse("abandoned");
       }
     };

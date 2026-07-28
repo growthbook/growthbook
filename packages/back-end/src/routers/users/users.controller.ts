@@ -161,14 +161,12 @@ async function sendNpsResponseToSlack({
   feedback,
   email,
   disposition,
-  supersedes,
   preview,
 }: {
   score: number;
   feedback: string;
   email: string;
   disposition?: NpsDisposition;
-  supersedes?: NpsDisposition;
   preview?: boolean;
 }): Promise<void> {
   // Bands and the sentiment colour come from shared so the Slack message can't
@@ -189,12 +187,9 @@ async function sendNpsResponseToSlack({
 
   // A "submitted" score is the norm, so only the other exits are called out —
   // a score with no comment reads differently when the survey was abandoned.
-  // An update names the state it replaces, so the earlier message it follows
-  // (e.g. the same score already posted as abandoned) is easy to tie together.
   // Staff previews are labelled so they're never mistaken for real feedback.
   const notes = [
     disposition && disposition !== "submitted" ? disposition : "",
-    supersedes ? `updated from ${supersedes}` : "",
     preview ? "preview" : "",
   ].filter(Boolean);
   const exitNote = notes.length ? `   ·   ${notes.join("   ·   ")}` : "";
@@ -257,8 +252,7 @@ export async function postNpsResponse(
       message: "Invalid NPS response",
     });
   }
-  const { status, score, feedback, disposition, supersedes, preview } =
-    parsed.data;
+  const { status, score, feedback, disposition, preview } = parsed.data;
 
   const { userId } = getContextFromReq(req);
 
@@ -285,7 +279,6 @@ export async function postNpsResponse(
       feedback: disposition === "submitted" ? (feedback ?? "").trim() : "",
       email: req.email,
       disposition,
-      supersedes,
       preview,
     });
   }

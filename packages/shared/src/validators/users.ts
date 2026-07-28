@@ -22,11 +22,6 @@ export const npsResponseBodyValidator = z
     score: z.number().int().min(0).max(10).optional(),
     feedback: z.string().max(10000).optional(),
     disposition: npsDispositionValidator.optional(),
-    // The disposition this response replaces, when a provisional report (e.g.
-    // an "abandoned" flush the user then returned from) is superseded by an
-    // explicit submit. Present so the update is recognisable as the same
-    // response rather than a second one.
-    supersedes: npsDispositionValidator.optional(),
     // Set by the `?show-nps` staff preview: still forwards to Slack so the
     // path stays testable, but doesn't consume the re-survey window.
     preview: z.boolean().optional(),
