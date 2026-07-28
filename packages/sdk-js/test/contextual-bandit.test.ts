@@ -290,6 +290,37 @@ describe("contextual bandit feature rules", () => {
     gb.destroy();
   });
 
+  it("reports the override weights (not the leaf weights) when a context weights-override changes bucketing", () => {
+    const trackingCallback = jest.fn();
+    const gb = new GrowthBook({
+      attributes: { id: "u1", plan: "enterprise" }, // matches leaf 1 -> [1, 0]
+      trackingCallback,
+      features: cbFeatures(),
+      contextualBandits: cbMap(),
+      // Override flips the weights so the user buckets into variation 1 instead.
+      overrides: { "bandit-exp": { weights: [0, 1] } },
+    });
+
+    const res = gb.evalFeature("bandit-feature");
+
+    // Leaf selection is unchanged (still leaf 1)...
+    expect(res.experimentResult?.leafId).toEqual(1);
+    // ...but bucketing used the override weights, so the reported weights and
+    // the assigned variation must reflect [0, 1], not the leaf's [1, 0].
+    expect(res.experimentResult?.variationId).toEqual(1);
+    expect(res.experimentResult?.value).toEqual("treatment");
+    expect(res.experimentResult?.variationWeights).toEqual([0, 1]);
+
+    // The trackingCallback must see the same override weights.
+    expect(trackingCallback.mock.calls.length).toEqual(1);
+    const [experiment, result] = trackingCallback.mock.calls[0];
+    expect(result.variationWeights).toEqual([0, 1]);
+    expect(experiment.contextualBandit.variationWeights).toEqual([0, 1]);
+    expect(experiment.weights).toEqual([0, 1]);
+
+    gb.destroy();
+  });
+
   it("passes attributes to the trackingCallback for non-CB experiments too (no leaf data on result)", () => {
     const trackingCallback = jest.fn();
     const gb = new GrowthBook({
