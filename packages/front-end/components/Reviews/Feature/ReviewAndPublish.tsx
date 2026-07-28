@@ -39,6 +39,7 @@ import { FaArrowLeft } from "react-icons/fa";
 import {
   PiLockSimple,
   PiLock,
+  PiProhibitInset,
   PiClockFill,
   PiGitMergeBold,
   PiCaretDownBold,
@@ -1473,12 +1474,22 @@ export default function ReviewAndPublish({
           )}
 
           {isDiscarded && !canManageDrafts && (
-            <HelperText status="info" size="sm" mt="2">
+            <HelperText
+              status="warning"
+              size="sm"
+              icon={<PiProhibitInset size={13} />}
+              mt="2"
+            >
               You don&apos;t have permission to edit drafts for this feature.
             </HelperText>
           )}
           {!isDiscarded && !nothingToRevertTo && !canRevertHere && (
-            <HelperText status="info" size="sm" mt="2">
+            <HelperText
+              status="warning"
+              size="sm"
+              icon={<PiProhibitInset size={13} />}
+              mt="2"
+            >
               You don&apos;t have permission to revert this feature.
             </HelperText>
           )}
@@ -2758,7 +2769,12 @@ export default function ReviewAndPublish({
                     </Button>
                     {state.submitAction === "request-review" &&
                       !canAdvanceDraft && (
-                        <HelperText status="info" size="sm" mt="2">
+                        <HelperText
+                          status="warning"
+                          size="sm"
+                          icon={<PiProhibitInset size={13} />}
+                          mt="2"
+                        >
                           You don&apos;t have permission to request review for
                           this draft.
                         </HelperText>

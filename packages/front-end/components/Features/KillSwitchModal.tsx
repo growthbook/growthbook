@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { FaCircleCheck, FaCircleXmark } from "react-icons/fa6";
+import { PiProhibitInset } from "react-icons/pi";
 import { FeatureInterface } from "shared/types/feature";
 import {
   FeatureRevisionInterface,
@@ -498,7 +499,12 @@ export default function KillSwitchModal({
     >
       <div style={{ minHeight: 300 }}>
         {noRouteAvailable ? (
-          <HelperText status="info" size="sm" mb="4">
+          <HelperText
+            status="warning"
+            size="sm"
+            icon={<PiProhibitInset size={13} />}
+            mb="4"
+          >
             This change needs review before it can be published, and you
             don&apos;t have permission to put it in a draft.
           </HelperText>

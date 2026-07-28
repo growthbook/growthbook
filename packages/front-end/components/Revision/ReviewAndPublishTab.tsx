@@ -14,7 +14,12 @@ import {
 import type { PublishGovernanceResult } from "shared/util";
 import { datetime } from "shared/dates";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { PiCaretDownBold, PiGitMergeBold, PiLockSimple } from "react-icons/pi";
+import {
+  PiCaretDownBold,
+  PiGitMergeBold,
+  PiLockSimple,
+  PiProhibitInset,
+} from "react-icons/pi";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import useURLHash from "@/hooks/useURLHash";
@@ -1142,7 +1147,12 @@ function ReviewAndPublishRevision<T>({
         ) : null}
 
         {!hasAnyAuthority && !canComment && (
-          <HelperText status="info" size="md" mt="5">
+          <HelperText
+            status="warning"
+            size="md"
+            icon={<PiProhibitInset size={15} />}
+            mt="5"
+          >
             You don&apos;t have permission to manage revisions for this entity.
           </HelperText>
         )}
