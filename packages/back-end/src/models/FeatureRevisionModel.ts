@@ -1233,6 +1233,12 @@ export async function prevalidateRevisionUpdate(
   });
 }
 
+/**
+ * `changes` is `$set` verbatim: top-level keys are patched, but a nested object
+ * like `metadata` REPLACES its stored counterpart. Pass a complete envelope —
+ * merge onto the draft's existing one first, as `createOrUpdateDraftWithChanges`
+ * does — or the keys you leave out are dropped.
+ */
 export async function updateRevision(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
