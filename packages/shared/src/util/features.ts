@@ -1159,6 +1159,10 @@ export function liveRevisionFromFeature(
       owner: feature.owner ?? "",
       project: feature.project ?? "",
       tags: feature.tags ?? [],
+      // Every field `createRevision` snapshots must be seeded here too, or a
+      // draft that recorded one diffs against a baseline that never had it.
+      neverStale: feature.neverStale,
+      customFields: feature.customFields,
       jsonSchema: feature.jsonSchema,
       valueType: feature.valueType,
       baseConfig: feature.baseConfig ?? null,

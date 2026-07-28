@@ -37,7 +37,10 @@ import {
   narrowRuleToApplicableEnvs,
   V1RulesByEnv,
 } from "back-end/src/util/flattenRules";
-import { upgradeFeatureRule } from "back-end/src/util/migrations";
+import {
+  normalizeJsonSchemaDef,
+  upgradeFeatureRule,
+} from "back-end/src/util/migrations";
 import {
   applyEnvironmentInheritance,
   buildInheritedChildrenByAncestor,
@@ -322,6 +325,17 @@ export function buildFeatureRevisionInterface(
       );
       return triggersMigrated as unknown as typeof action;
     });
+  }
+
+  // JIT migration: give the metadata snapshot the same `jsonSchema` spelling
+  // `migrateRawFeatureToV2` gives the feature, so an untouched schema doesn't
+  // read as an edit when the two are diffed. Cloned rather than mutated —
+  // `revision` is only a shallow copy of the raw doc.
+  if (revision.metadata?.jsonSchema) {
+    revision.metadata = {
+      ...revision.metadata,
+      jsonSchema: normalizeJsonSchemaDef(revision.metadata.jsonSchema),
+    };
   }
 
   revision.contributors = migrateContributors(
