@@ -1090,6 +1090,29 @@ export function getEffectiveRevisionHoldout(
     : (feature.holdout ?? null);
 }
 
+/**
+ * The metadata envelope as the live feature spells it. Revisions store metadata
+ * sparsely — absent keys inherit live — so every baseline seeds from this before
+ * being diffed, and `createRevision` snapshots the same set. One definition,
+ * because a field present in one spelling and absent from another reads as an
+ * edit nobody made.
+ */
+export function featureMetadataEnvelope(
+  feature: FeatureInterface,
+): RevisionMetadata {
+  return {
+    description: feature.description ?? "",
+    owner: feature.owner ?? "",
+    project: feature.project ?? "",
+    tags: feature.tags ?? [],
+    neverStale: feature.neverStale,
+    customFields: feature.customFields,
+    jsonSchema: feature.jsonSchema,
+    valueType: feature.valueType,
+    baseConfig: feature.baseConfig ?? null,
+  };
+}
+
 // Per-field backfill for old/sparse revisions before passing to autoMerge.
 // Fields not listed here are left as-is; sparse absence is meaningful for those.
 const revisionFieldFillers: Partial<{
@@ -1108,16 +1131,13 @@ const revisionFieldFillers: Partial<{
     ),
     ...(current ?? {}),
   }),
-  // Backfill valueType + baseConfig for old revisions that predate these fields,
-  // so a legacy draft doesn't false-diff against the live baseline.
-  metadata: (feature, current) => {
-    let next = current;
-    if (next?.valueType === undefined)
-      next = { ...next, valueType: feature.valueType };
-    if (next?.baseConfig === undefined)
-      next = { ...next, baseConfig: feature.baseConfig ?? null };
-    return next;
-  },
+  // Seed the whole envelope for old revisions that predate these fields, so a
+  // legacy revision doesn't false-diff against the live baseline. Recorded keys
+  // win; only the absent ones inherit.
+  metadata: (feature, current) => ({
+    ...featureMetadataEnvelope(feature),
+    ...(current ?? {}),
+  }),
   // Backfill envelope fields for legacy revisions that predate them. Without
   // this, revisionHasGlobalChange compares e.g. "false" !== undefined for
   // defaultValue and returns "all", bypassing env-scoped review checks even
@@ -1172,17 +1192,7 @@ export function liveRevisionFromFeature(
         ? ((feature as { holdout?: RevisionFields["holdout"] }).holdout ?? null)
         : (liveRevision.holdout ?? null),
     metadata: {
-      description: feature.description ?? "",
-      owner: feature.owner ?? "",
-      project: feature.project ?? "",
-      tags: feature.tags ?? [],
-      // Every field `createRevision` snapshots must be seeded here too, or a
-      // draft that recorded one diffs against a baseline that never had it.
-      neverStale: feature.neverStale,
-      customFields: feature.customFields,
-      jsonSchema: feature.jsonSchema,
-      valueType: feature.valueType,
-      baseConfig: feature.baseConfig ?? null,
+      ...featureMetadataEnvelope(feature),
       ...(liveRevision.metadata ?? {}),
     },
   };

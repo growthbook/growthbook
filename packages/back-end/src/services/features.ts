@@ -27,6 +27,7 @@ import {
   NodeHandler,
   recursiveWalk,
   checkIfRevisionNeedsReview,
+  fillRevisionFromFeature,
   ruleAppliesToEnv,
   namespacesToMap,
   stemRuleId,
@@ -3719,7 +3720,14 @@ export async function revisionRequiresReview(
 
   return checkIfRevisionNeedsReview({
     feature,
-    baseRevision,
+    // The draft is a complete snapshot; a legacy base may not be. Diffed raw,
+    // every field the base omits reads as a change — and a field it omits that
+    // the draft really does change reads as none. `createAndPublishRevision`
+    // and `postFeaturePublish` both backfill their baseline; so must this.
+    baseRevision: {
+      ...baseRevision,
+      ...fillRevisionFromFeature(baseRevision, feature),
+    },
     revision: draft,
     allEnvironments,
     settings: context.org.settings,
