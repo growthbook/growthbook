@@ -2259,12 +2259,12 @@ export async function planExperimentSnapshot({
   const postStratificationEnabled = settings.postStratificationEnabled.value;
 
   const metricMap = await getMetricMap(context);
-  const allExperimentMetrics = metricIds
-    .map((metricId) => metricMap.get(metricId))
-    .filter(isDefined);
-  if (allExperimentMetrics.length === 0) {
+  const allExperimentMetrics = metricIds.map(
+    (metricId) => metricMap.get(metricId) ?? null,
+  );
+  if (!allExperimentMetrics.some(isDefined)) {
     throw new BadRequestError(
-      "Experiment must have at least 1 metric selected.",
+      "Experiment must have at least 1 metric selected to be analyzed.",
     );
   }
 
