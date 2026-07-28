@@ -159,6 +159,23 @@ describe("isPureFeatureRevert", () => {
     ).toBe(true);
   });
 
+  // Revisions store holdout sparsely: an absent key means "inherit the live
+  // feature's holdout", the same inherit-when-absent rule the other revision
+  // fields follow. Reading absence as null would call an untouched holdout a
+  // removal and refuse a revert that never touched it.
+  it("treats an absent holdout as inheriting the live one, not removing it", () => {
+    const withHoldout = {
+      ...feature,
+      holdout: { id: "h-live", value: "on" },
+    } as unknown as FeatureInterface;
+    const sparse = draft({});
+    delete (sparse as { holdout?: unknown }).holdout;
+
+    expect(
+      isPureFeatureRevert({ feature: withHoldout, draft: sparse, target }),
+    ).toBe(true);
+  });
+
   it("rejects a draft with no revert provenance", () => {
     expect(
       isPureFeatureRevert({

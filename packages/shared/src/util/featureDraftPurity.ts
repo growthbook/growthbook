@@ -2,7 +2,11 @@ import { isEqual } from "lodash";
 import type { RevisionMetadata } from "shared/validators";
 import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import type { FeatureInterface, FeatureRule } from "shared/types/feature";
-import { MergeResultChanges, normalizeMetadataValue } from "./features";
+import {
+  MergeResultChanges,
+  getEffectiveRevisionHoldout,
+  normalizeMetadataValue,
+} from "./features";
 
 /**
  * "Is this draft purely an X?" — the questions a narrow atom asks before acting
@@ -63,6 +67,24 @@ export function isArchiveTransition({
   current: boolean | undefined;
 }): boolean {
   return proposed === true && !current;
+}
+
+/**
+ * Whether the draft moves the flag's holdout membership. Holdout is stored
+ * sparsely, so absence inherits the live value rather than clearing it —
+ * `getEffectiveRevisionHoldout` is the one place that rule is written down.
+ */
+function holdoutChanges({
+  feature,
+  draft,
+}: {
+  feature: FeatureInterface;
+  draft: FeatureRevisionInterface;
+}): boolean {
+  return !isEqual(
+    getEffectiveRevisionHoldout(draft, feature),
+    feature.holdout ?? null,
+  );
 }
 
 function plausibleRules(rules: unknown): FeatureRule[] {
@@ -171,7 +193,7 @@ export function isPureFeatureRevert({
 
   // Side effects must be no-ops — see the note above.
   if (draft.rampActions?.length) return false;
-  if (!isEqual(draft.holdout ?? null, feature.holdout ?? null)) return false;
+  if (holdoutChanges({ feature, draft })) return false;
 
   const proposedRules = plausibleRules(draft.rules);
   const rulesRestore =
@@ -217,7 +239,7 @@ export function isPureFeatureArchive({
   }
 
   if (draft.rampActions?.length) return false;
-  if (!isEqual(draft.holdout ?? null, feature.holdout ?? null)) return false;
+  if (holdoutChanges({ feature, draft })) return false;
 
   if (!isEqual(plausibleRules(draft.rules), plausibleRules(feature.rules))) {
     return false;
