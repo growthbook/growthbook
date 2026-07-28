@@ -2,7 +2,6 @@ import {
   ALL_PERMISSIONS,
   DEPRECATED_POLICIES,
   ENV_SCOPED_PERMISSIONS,
-  MODEL_FAMILY,
   POLICY_PERMISSION_MAP,
   Policy,
   REVISION_PERMISSIONS,
@@ -20,69 +19,62 @@ function grants(
   action: RevisionAction,
 ): boolean {
   const perms = permissionsFromRole({ policies });
-  const { permission } = REVISION_PERMISSIONS[MODEL_FAMILY[model]][action];
+  const { permission } = REVISION_PERMISSIONS[model][action];
   return perms[permission] === true;
 }
 
 describe("granular flag permissions", () => {
   describe("permissionsFromRole", () => {
-    it("unions policy-derived permissions with additive permissions[]", () => {
+    it("grants exactly what a bundled policy carries", () => {
       const perms = permissionsFromRole({
-        policies: ["ReadData"],
-        permissions: ["deleteFlags", "revertFlags"],
+        policies: ["ReadData", "FlagsDelete", "FlagsRevert"],
       });
       expect(perms.readData).toBe(true);
-      expect(perms.deleteFlags).toBe(true);
-      expect(perms.revertFlags).toBe(true);
-      // Not granted by ReadData nor listed explicitly
-      expect(perms.createFlags).toBeUndefined();
+      // A policy bundles the action across all three flag entities.
+      expect(perms.deleteFeatures).toBe(true);
+      expect(perms.deleteConfigs).toBe(true);
+      expect(perms.deleteConstants).toBe(true);
+      expect(perms.revertFeatures).toBe(true);
+      // Not carried by any granted policy
+      expect(perms.createFeatures).toBeUndefined();
     });
 
-    it("works with no additive permissions", () => {
+    it("grants nothing beyond readData for a read-only role", () => {
       const perms = permissionsFromRole({ policies: ["ReadData"] });
       expect(perms.readData).toBe(true);
-      expect(perms.deleteFlags).toBeUndefined();
+      expect(perms.deleteFeatures).toBeUndefined();
     });
 
-    it("grants only the single atom for a review-only custom role", () => {
-      const perms = permissionsFromRole({
-        policies: [],
-        permissions: ["reviewFlags"],
-      });
-      expect(perms.reviewFlags).toBe(true);
-      expect(perms.createFlags).toBeUndefined();
-      expect(perms.publishFlags).toBeUndefined();
-      expect(perms.deleteFlags).toBeUndefined();
+    it("grants only its own atoms for a review-only policy", () => {
+      const perms = permissionsFromRole({ policies: ["FlagsReview"] });
+      expect(perms.reviewFeatures).toBe(true);
+      expect(perms.reviewConfigs).toBe(true);
+      expect(perms.createFeatures).toBeUndefined();
+      expect(perms.publishFeatures).toBeUndefined();
+      expect(perms.deleteFeatures).toBeUndefined();
     });
   });
 
   describe("roleSupportsEnvLimitFromRole", () => {
-    it("is true when an additive permission is environment-scoped", () => {
-      expect(
-        roleSupportsEnvLimitFromRole({
-          policies: [],
-          permissions: ["revertFlags"],
-        }),
-      ).toBe(true);
+    it("is true when a granted policy carries an environment-scoped atom", () => {
+      expect(roleSupportsEnvLimitFromRole({ policies: ["FlagsRevert"] })).toBe(
+        true,
+      );
     });
 
     // Drafting touches nothing live, so it's the flags atom that stays
     // project-scoped — everything that reaches an environment is env-scoped.
-    it("is false when neither policies nor permissions are env-scoped", () => {
+    it("is false when no granted policy is env-scoped", () => {
       expect(
         roleSupportsEnvLimitFromRole({
-          policies: ["ReadData"],
-          permissions: ["editFlagDrafts"],
+          policies: ["ReadData", "FlagsEditDrafts"],
         }),
       ).toBe(false);
     });
 
     it("is true for a delete-only role, since delete reaches environments", () => {
       expect(
-        roleSupportsEnvLimitFromRole({
-          policies: ["ReadData"],
-          permissions: ["deleteFlags"],
-        }),
+        roleSupportsEnvLimitFromRole({ policies: ["ReadData", "FlagsDelete"] }),
       ).toBe(true);
     });
   });
@@ -92,55 +84,73 @@ describe("granular flag permissions", () => {
       const p = POLICY_PERMISSION_MAP.FlagsFullAccess;
       expect(p).toEqual(
         expect.arrayContaining([
-          "createFlags",
-          "deleteFlags",
-          "editFlagDrafts",
-          "reviewFlags",
-          "publishFlags",
-          "revertFlags",
+          "createFeatures",
+          "deleteFeatures",
+          "editFeatureDrafts",
+          "reviewFeatures",
+          "publishFeatures",
+          "revertFeatures",
+          "createConfigs",
+          "createConstants",
         ]),
       );
       // Full access alone does not grant approval bypass
-      expect(p).not.toContain("bypassApprovalFlags");
+      expect(p).not.toContain("bypassApprovalFeatures");
     });
 
-    it("FlagsBypassApprovals adds only the flags bypass atom", () => {
+    it("FlagsBypassApprovals adds only the flag bypass atoms", () => {
       const p = POLICY_PERMISSION_MAP.FlagsBypassApprovals;
-      expect(p).toContain("bypassApprovalFlags");
+      expect(p).toEqual(
+        expect.arrayContaining([
+          "bypassApprovalFeatures",
+          "bypassApprovalConfigs",
+          "bypassApprovalConstants",
+        ]),
+      );
       expect(p).not.toContain("bypassApprovalSavedGroups");
     });
 
     it("SavedGroupsBypassApprovals adds only the saved-group bypass atom", () => {
       const p = POLICY_PERMISSION_MAP.SavedGroupsBypassApprovals;
       expect(p).toContain("bypassApprovalSavedGroups");
-      expect(p).not.toContain("bypassApprovalFlags");
+      expect(p).not.toContain("bypassApprovalFeatures");
     });
 
-    it("deprecated Configs/Constants policies resolve to the merged Flags atoms", () => {
-      for (const policy of [
-        "ConfigsFullAccess",
-        "ConstantsFullAccess",
-      ] as const) {
-        const p = POLICY_PERMISSION_MAP[policy];
-        expect(p).toEqual(
-          expect.arrayContaining([
-            "createFlags",
-            "deleteFlags",
-            "editFlagDrafts",
-            "reviewFlags",
-          ]),
-        );
-      }
+    // The whole point of per-entity atoms: on main these granted `manageConfigs`
+    // / `manageConstants`, so bundling the flag family here would hand a
+    // Configs-only role full Feature Flag access on upgrade.
+    it("deprecated Configs/Constants policies stay scoped to their own entity", () => {
+      expect(POLICY_PERMISSION_MAP.ConfigsFullAccess).toEqual(
+        expect.arrayContaining([
+          "createConfigs",
+          "deleteConfigs",
+          "editConfigDrafts",
+          "reviewConfigs",
+        ]),
+      );
+      expect(POLICY_PERMISSION_MAP.ConfigsFullAccess).not.toContain(
+        "createFeatures",
+      );
+      expect(POLICY_PERMISSION_MAP.ConstantsFullAccess).not.toContain(
+        "createFeatures",
+      );
+      expect(POLICY_PERMISSION_MAP.ConstantsFullAccess).not.toContain(
+        "createConfigs",
+      );
     });
 
     it("deprecated Features access preserves legacy scope (no publish)", () => {
       const p = POLICY_PERMISSION_MAP.FeaturesFullAccess;
       expect(p).toEqual(
-        expect.arrayContaining(["createFlags", "deleteFlags", "reviewFlags"]),
+        expect.arrayContaining([
+          "createFeatures",
+          "deleteFeatures",
+          "reviewFeatures",
+        ]),
       );
       // Legacy Features Full Access never granted publish/revert directly
-      expect(p).not.toContain("publishFlags");
-      expect(p).not.toContain("revertFlags");
+      expect(p).not.toContain("publishFeatures");
+      expect(p).not.toContain("revertFeatures");
     });
 
     it("every deprecated policy still resolves to a non-empty permission set", () => {
@@ -161,12 +171,12 @@ describe("granular flag permissions", () => {
       "bypass",
     ];
 
-    it("defines every action for every family, mapped to a real atom", () => {
-      for (const family of Object.keys(REVISION_PERMISSIONS) as Array<
-        keyof typeof REVISION_PERMISSIONS
-      >) {
+    it("defines every action for every model, mapped to a real atom", () => {
+      for (const model of Object.keys(
+        REVISION_PERMISSIONS,
+      ) as RevisionModel[]) {
         for (const action of ACTIONS) {
-          const entry = REVISION_PERMISSIONS[family][action];
+          const entry = REVISION_PERMISSIONS[model][action];
           expect(entry).toBeDefined();
           expect(ALL_PERMISSIONS).toContain(entry.permission);
         }
@@ -174,11 +184,11 @@ describe("granular flag permissions", () => {
     });
 
     it("marks the atom's scope consistently with the scope arrays", () => {
-      for (const family of Object.keys(REVISION_PERMISSIONS) as Array<
-        keyof typeof REVISION_PERMISSIONS
-      >) {
+      for (const model of Object.keys(
+        REVISION_PERMISSIONS,
+      ) as RevisionModel[]) {
         for (const action of ACTIONS) {
-          const { permission, scope } = REVISION_PERMISSIONS[family][action];
+          const { permission, scope } = REVISION_PERMISSIONS[model][action];
           const isEnv = (ENV_SCOPED_PERMISSIONS as readonly string[]).includes(
             permission,
           );
@@ -188,21 +198,21 @@ describe("granular flag permissions", () => {
     });
 
     it("env-scopes flag publish/revert but keeps saved-group publish/revert project-scoped", () => {
-      expect(REVISION_PERMISSIONS.flags.publish.scope).toBe("environment");
-      expect(REVISION_PERMISSIONS.flags.revert.scope).toBe("environment");
-      expect(REVISION_PERMISSIONS.savedGroups.publish.scope).toBe("project");
-      expect(REVISION_PERMISSIONS.savedGroups.revert.scope).toBe("project");
+      for (const model of ["feature", "config", "constant"] as const) {
+        expect(REVISION_PERMISSIONS[model].publish.scope).toBe("environment");
+        expect(REVISION_PERMISSIONS[model].revert.scope).toBe("environment");
+      }
+      expect(REVISION_PERMISSIONS["saved-group"].publish.scope).toBe("project");
+      expect(REVISION_PERMISSIONS["saved-group"].revert.scope).toBe("project");
     });
 
-    it("gives each family its own project-scoped bypass atom", () => {
-      expect(REVISION_PERMISSIONS.flags.bypass).toEqual({
-        permission: "bypassApprovalFlags",
-        scope: "project",
-      });
-      expect(REVISION_PERMISSIONS.savedGroups.bypass).toEqual({
-        permission: "bypassApprovalSavedGroups",
-        scope: "project",
-      });
+    it("gives every model its own project-scoped bypass atom", () => {
+      const bypass = (Object.keys(REVISION_PERMISSIONS) as RevisionModel[]).map(
+        (m) => REVISION_PERMISSIONS[m].bypass,
+      );
+      bypass.forEach((b) => expect(b.scope).toBe("project"));
+      // Distinct per model, so no entity's grant implies another's.
+      expect(new Set(bypass.map((b) => b.permission)).size).toBe(bypass.length);
     });
   });
 
@@ -288,30 +298,30 @@ describe("granular flag permissions", () => {
 // entity's family, never hardcode one. Pins the mapping so a path that reaches
 // for the wrong family (flags authority clearing a Saved Group's validation, or
 // vice versa) is a test failure rather than a silent cross-family leak.
-describe("bypass is resolved per family", () => {
+describe("bypass is resolved per entity", () => {
   it("maps each model to its own bypass atom", () => {
     const expected: Record<RevisionModel, string> = {
-      feature: "bypassApprovalFlags",
-      config: "bypassApprovalFlags",
-      constant: "bypassApprovalFlags",
+      feature: "bypassApprovalFeatures",
+      config: "bypassApprovalConfigs",
+      constant: "bypassApprovalConstants",
       "saved-group": "bypassApprovalSavedGroups",
     };
     for (const [model, atom] of Object.entries(expected)) {
       expect(
-        REVISION_PERMISSIONS[MODEL_FAMILY[model as RevisionModel]].bypass
-          .permission,
+        REVISION_PERMISSIONS[model as RevisionModel].bypass.permission,
       ).toBe(atom);
     }
   });
 
-  it("keeps the two atoms distinct, so neither family's grant implies the other", () => {
+  it("keeps the flag and saved-group grants distinct, so neither implies the other", () => {
     const flags = permissionsFromRole({ policies: ["FlagsBypassApprovals"] });
     const sg = permissionsFromRole({
       policies: ["SavedGroupsBypassApprovals"],
     });
-    expect(flags.bypassApprovalFlags).toBe(true);
+    expect(flags.bypassApprovalFeatures).toBe(true);
+    expect(flags.bypassApprovalConfigs).toBe(true);
     expect(flags.bypassApprovalSavedGroups).toBeUndefined();
     expect(sg.bypassApprovalSavedGroups).toBe(true);
-    expect(sg.bypassApprovalFlags).toBeUndefined();
+    expect(sg.bypassApprovalFeatures).toBeUndefined();
   });
 });

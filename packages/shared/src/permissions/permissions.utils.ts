@@ -41,29 +41,20 @@ export function getPermissionsObjectByPolicies(
   return permissions;
 }
 
-// Effective permissions for a role: the union of its policy-derived permissions
-// and any additive fine-grained permission atoms (role.permissions).
+// Effective permissions for a role. Policies are the only grant mechanism —
+// atoms are an implementation detail of what a policy carries.
 export function permissionsFromRole(
-  role: Pick<Role, "policies"> & { permissions?: Permission[] },
+  role: Pick<Role, "policies">,
 ): PermissionsObject {
-  const permissions = getPermissionsObjectByPolicies(role.policies || []);
-  (role.permissions || []).forEach((permission) => {
-    permissions[permission] = true;
-  });
-  return permissions;
+  return getPermissionsObjectByPolicies(role.policies || []);
 }
 
-// Whether a role can be limited by environment: true if any policy OR any
-// additive permission is environment-scoped.
+// Whether a role can be limited by environment: true if any of its policies
+// carries an environment-scoped atom.
 export function roleSupportsEnvLimitFromRole(
-  role: Pick<Role, "policies"> & { permissions?: Permission[] },
+  role: Pick<Role, "policies">,
 ): boolean {
-  if (policiesSupportEnvLimit(role.policies || [])) return true;
-  return (role.permissions || []).some((permission) =>
-    ENV_SCOPED_PERMISSIONS.includes(
-      permission as (typeof ENV_SCOPED_PERMISSIONS)[number],
-    ),
-  );
+  return policiesSupportEnvLimit(role.policies || []);
 }
 
 export function getRoleById(

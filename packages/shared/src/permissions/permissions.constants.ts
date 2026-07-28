@@ -4,6 +4,12 @@ export const POLICIES = [
   "ReadData",
   "Comments",
   "FlagsFullAccess",
+  "FlagsCreate",
+  "FlagsEditDrafts",
+  "FlagsReview",
+  "FlagsPublish",
+  "FlagsRevert",
+  "FlagsDelete",
   "FlagsBypassApprovals",
   "ArchetypesFullAccess",
   // Deprecated: merged into the Flags family. Kept resolvable for back-compat
@@ -32,6 +38,12 @@ export const POLICIES = [
   "EnvironmentsFullAccess",
   "NamespacesFullAccess",
   "SavedGroupsFullAccess",
+  "SavedGroupsCreate",
+  "SavedGroupsEditDrafts",
+  "SavedGroupsReview",
+  "SavedGroupsPublish",
+  "SavedGroupsRevert",
+  "SavedGroupsDelete",
   "SavedGroupsBypassApprovals",
   "SavedGroupsBypassSizeLimit",
   "BypassSavedGroupSizeLimit",
@@ -89,18 +101,74 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   // because it did on main and stored roles rely on it.)
   FlagsFullAccess: [
     "readData",
-    "createFlags",
-    "deleteFlags",
-    "editFlagDrafts",
-    "reviewFlags",
-    "publishFlags",
-    "revertFlags",
+    "createFeatures",
+    "createConfigs",
+    "createConstants",
+    "deleteFeatures",
+    "deleteConfigs",
+    "deleteConstants",
+    "editFeatureDrafts",
+    "editConfigDrafts",
+    "editConstantDrafts",
+    "reviewFeatures",
+    "reviewConfigs",
+    "reviewConstants",
+    "publishFeatures",
+    "publishConfigs",
+    "publishConstants",
+    "revertFeatures",
+    "revertConfigs",
+    "revertConstants",
+  ],
+  // The lifecycle, one policy per action. Each bundles the three flag
+  // entities, so an admin grants "may publish flags" without choosing between
+  // Features, Configs and Constants — the split exists for the checks.
+  FlagsCreate: [
+    "readData",
+    "createFeatures",
+    "createConfigs",
+    "createConstants",
+  ],
+  FlagsDelete: [
+    "readData",
+    "deleteFeatures",
+    "deleteConfigs",
+    "deleteConstants",
+  ],
+  FlagsEditDrafts: [
+    "readData",
+    "editFeatureDrafts",
+    "editConfigDrafts",
+    "editConstantDrafts",
+  ],
+  FlagsReview: [
+    "readData",
+    "reviewFeatures",
+    "reviewConfigs",
+    "reviewConstants",
+  ],
+  FlagsPublish: [
+    "readData",
+    "publishFeatures",
+    "publishConfigs",
+    "publishConstants",
+  ],
+  FlagsRevert: [
+    "readData",
+    "revertFeatures",
+    "revertConfigs",
+    "revertConstants",
   ],
   // An add-on, not a bundle: bypassing review isn't a lifecycle action, it changes
   // how the lifecycle behaves. Ticked alongside FlagsFullAccess rather than
   // repeating it. (The deprecated FeaturesBypassApprovals below stays a superset,
   // since stored roles rely on it granting access on its own.)
-  FlagsBypassApprovals: ["readData", "bypassApprovalFlags"],
+  FlagsBypassApprovals: [
+    "readData",
+    "bypassApprovalFeatures",
+    "bypassApprovalConfigs",
+    "bypassApprovalConstants",
+  ],
   ArchetypesFullAccess: ["readData", "manageArchetype"],
   // Deprecated: merged into the Flags family. Mapped to the equivalent Flags
   // atoms to preserve legacy access exactly; hidden from the role editor and
@@ -108,21 +176,21 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   // publish, so these omit publishFlags/revertFlags.)
   FeaturesFullAccess: [
     "readData",
-    "createFlags",
-    "deleteFlags",
-    "editFlagDrafts",
-    "reviewFlags",
+    "createFeatures",
+    "deleteFeatures",
+    "editFeatureDrafts",
+    "reviewFeatures",
     "manageArchetype",
   ],
   // Grants BOTH bypass atoms: the single pre-split atom covered saved groups
   // too, so dropping either one would quietly take access from a stored role.
   FeaturesBypassApprovals: [
     "readData",
-    "createFlags",
-    "deleteFlags",
-    "editFlagDrafts",
-    "reviewFlags",
-    "bypassApprovalFlags",
+    "createFeatures",
+    "deleteFeatures",
+    "editFeatureDrafts",
+    "reviewFeatures",
+    "bypassApprovalFeatures",
     "bypassApprovalSavedGroups",
   ],
   ExperimentsFullAccess: ["readData", "createAnalyses", "runQueries"],
@@ -164,8 +232,8 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   // state is a strictly narrower live write than publishing new state.
   SDKPayloadPublish: [
     "readData",
-    "publishFlags",
-    "revertFlags",
+    "publishFeatures",
+    "revertFeatures",
     "runExperiments",
   ],
   SDKConnectionsFullAccess: [
@@ -177,26 +245,28 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   AttributesFullAccess: ["readData", "manageTargetingAttributes"],
   EnvironmentsFullAccess: ["readData", "manageEnvironments"],
   NamespacesFullAccess: ["readData", "manageNamespaces"],
-  // Deprecated: merged into the Flags family (see note above). These granted
-  // publish + revert pre-merge (a constant/config publish was gated by the same
-  // manage* atom as an edit), so they must keep publishFlags/revertFlags.
+  // Deprecated: superseded by the Flags policies. Each grants ONLY its own
+  // entity's atoms — on main these were `manageConstants` / `manageConfigs`, so
+  // granting the whole flag family here would hand a Configs-only role full
+  // Feature Flag access on upgrade. Publish + revert are included because a
+  // constant/config publish was gated by the same manage* atom as an edit.
   ConstantsFullAccess: [
     "readData",
-    "createFlags",
-    "deleteFlags",
-    "editFlagDrafts",
-    "reviewFlags",
-    "publishFlags",
-    "revertFlags",
+    "createConstants",
+    "deleteConstants",
+    "editConstantDrafts",
+    "reviewConstants",
+    "publishConstants",
+    "revertConstants",
   ],
   ConfigsFullAccess: [
     "readData",
-    "createFlags",
-    "deleteFlags",
-    "editFlagDrafts",
-    "reviewFlags",
-    "publishFlags",
-    "revertFlags",
+    "createConfigs",
+    "deleteConfigs",
+    "editConfigDrafts",
+    "reviewConfigs",
+    "publishConfigs",
+    "revertConfigs",
   ],
   SavedGroupsFullAccess: [
     "readData",
@@ -207,6 +277,12 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
     "publishSavedGroups",
     "revertSavedGroups",
   ],
+  SavedGroupsCreate: ["readData", "createSavedGroups"],
+  SavedGroupsEditDrafts: ["readData", "editSavedGroupDrafts"],
+  SavedGroupsReview: ["readData", "reviewSavedGroups"],
+  SavedGroupsPublish: ["readData", "publishSavedGroups"],
+  SavedGroupsRevert: ["readData", "revertSavedGroups"],
+  SavedGroupsDelete: ["readData", "deleteSavedGroups"],
   // The saved-group half of the bypass add-on, mirroring FlagsBypassApprovals.
   SavedGroupsBypassApprovals: ["readData", "bypassApprovalSavedGroups"],
   BypassSavedGroupSizeLimit: ["readData", "bypassSavedGroupSizeLimit"],
@@ -266,6 +342,12 @@ export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
     name: "Feature Flags, Configs, and Constants",
     policies: [
       "FlagsFullAccess",
+      "FlagsCreate",
+      "FlagsEditDrafts",
+      "FlagsReview",
+      "FlagsPublish",
+      "FlagsRevert",
+      "FlagsDelete",
       "FlagsBypassApprovals",
       "ArchetypesFullAccess",
     ],
@@ -274,6 +356,12 @@ export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
     name: "Saved Groups",
     policies: [
       "SavedGroupsFullAccess",
+      "SavedGroupsCreate",
+      "SavedGroupsEditDrafts",
+      "SavedGroupsReview",
+      "SavedGroupsPublish",
+      "SavedGroupsRevert",
+      "SavedGroupsDelete",
       "SavedGroupsBypassApprovals",
       "BypassSavedGroupSizeLimit",
     ],
@@ -368,6 +456,35 @@ export const POLICY_METADATA_MAP: Record<
     displayName: "Full access",
     description:
       "Create, edit, review, publish, revert, and delete Feature Flags, Constants, and Configs",
+  },
+  FlagsCreate: {
+    displayName: "Create",
+    description:
+      "Create new Feature Flags, Constants, and Configs (environment-scoped)",
+  },
+  FlagsEditDrafts: {
+    displayName: "Edit",
+    description:
+      "Create, edit, and discard drafts, and request review. Drafts reach no one until published.",
+  },
+  FlagsReview: {
+    displayName: "Review",
+    description: "Approve or request changes on revisions",
+  },
+  FlagsPublish: {
+    displayName: "Publish",
+    description:
+      "Put changes in front of users: publish a revision, save directly, unarchive, or toggle an environment (environment-scoped)",
+  },
+  FlagsRevert: {
+    displayName: "Revert",
+    description:
+      "Revert to a previously published revision (environment-scoped)",
+  },
+  FlagsDelete: {
+    displayName: "Archive & delete",
+    description:
+      "Archive (environment-scoped) or delete Feature Flags, Constants, and Configs. Deleting is not environment-scoped — an archived flag already serves nowhere.",
   },
   FlagsBypassApprovals: {
     displayName: "Bypass draft approvals",
@@ -487,6 +604,32 @@ export const POLICY_METADATA_MAP: Record<
     description:
       "Create, edit, review, publish, revert, and delete Saved Groups",
   },
+  SavedGroupsCreate: {
+    displayName: "Create",
+    description: "Create new Saved Groups",
+  },
+  SavedGroupsEditDrafts: {
+    displayName: "Edit",
+    description:
+      "Create, edit, and discard Saved Group drafts, and request review. Drafts reach no one until published.",
+  },
+  SavedGroupsReview: {
+    displayName: "Review",
+    description: "Approve or request changes on revisions",
+  },
+  SavedGroupsPublish: {
+    displayName: "Publish",
+    description:
+      "Put changes in front of users: publish a revision, save directly, or unarchive",
+  },
+  SavedGroupsRevert: {
+    displayName: "Revert",
+    description: "Revert to a previously published revision",
+  },
+  SavedGroupsDelete: {
+    displayName: "Archive & delete",
+    description: "Archive or delete Saved Groups",
+  },
   SavedGroupsBypassApprovals: {
     displayName: "Bypass draft approvals",
     description:
@@ -605,85 +748,27 @@ export const POLICY_METADATA_MAP: Record<
   },
 };
 
-// Display metadata for the fine-grained permission atoms that the role editor
-// can expose beneath a policy preset. Only atoms meant to be individually
-// grantable via a custom role's `permissions[]` need an entry.
-export const GRANULAR_PERMISSION_METADATA: Partial<
-  Record<Permission, { displayName: string; description: string }>
-> = {
-  createFlags: {
-    displayName: "Create",
-    description:
-      "Create new Feature Flags, Constants, and Configs (environment-scoped)",
-  },
-  deleteFlags: {
-    displayName: "Archive & delete",
-    description:
-      "Archive (environment-scoped) or delete Feature Flags, Constants, and Configs. Deleting is not environment-scoped — an archived flag already serves nowhere.",
-  },
-  editFlagDrafts: {
-    displayName: "Edit",
-    description:
-      "Create, edit, and discard drafts, and request review. Drafts reach no one until published.",
-  },
-  reviewFlags: {
-    displayName: "Review",
-    description: "Approve or request changes on revisions",
-  },
-  publishFlags: {
-    displayName: "Publish",
-    description:
-      "Put changes in front of users: publish a revision, save directly, unarchive, or toggle an environment (environment-scoped)",
-  },
-  revertFlags: {
-    displayName: "Revert",
-    description:
-      "Revert to a previously published revision (environment-scoped)",
-  },
-  bypassApprovalFlags: {
-    displayName: "Bypass draft approvals",
-    description:
-      "Publish without the required draft review, force-merge an out-of-date draft, and unlock a locked Config. Applies to Feature Flags, Configs, and Constants. Does not bypass schema validation or custom hooks.",
-  },
-  manageArchetype: {
-    displayName: "Manage archetypes",
-    description: "Create, edit, and delete saved user archetypes",
-  },
-  createSavedGroups: {
-    displayName: "Create",
-    description: "Create new Saved Groups",
-  },
-  deleteSavedGroups: {
-    displayName: "Archive & delete",
-    description: "Archive or delete Saved Groups",
-  },
-  editSavedGroupDrafts: {
-    displayName: "Edit",
-    description:
-      "Create, edit, and discard Saved Group drafts, and request review. Drafts reach no one until published.",
-  },
-  reviewSavedGroups: {
-    displayName: "Review",
-    description: "Approve or request changes on revisions",
-  },
-  publishSavedGroups: {
-    displayName: "Publish",
-    description:
-      "Put changes in front of users: publish a revision, save directly, or unarchive",
-  },
-  revertSavedGroups: {
-    displayName: "Revert",
-    description: "Revert to a previously published revision",
-  },
-  bypassApprovalSavedGroups: {
-    displayName: "Bypass draft approvals",
-    description:
-      "Publish without the required draft review, and force-merge an out-of-date draft",
-  },
-  bypassSavedGroupSizeLimit: {
-    displayName: "Bypass size limit",
-    description: "Exceed the organization's size limits for a Saved Group",
-  },
+/**
+ * The parts of a bundled policy, for the role editor's drill-down. A policy with
+ * one atom isn't listed: expanding it would just restate the row above.
+ */
+export const POLICY_PARTS: Partial<Record<Policy, Policy[]>> = {
+  FlagsFullAccess: [
+    "FlagsCreate",
+    "FlagsEditDrafts",
+    "FlagsReview",
+    "FlagsPublish",
+    "FlagsRevert",
+    "FlagsDelete",
+  ],
+  SavedGroupsFullAccess: [
+    "SavedGroupsCreate",
+    "SavedGroupsEditDrafts",
+    "SavedGroupsReview",
+    "SavedGroupsPublish",
+    "SavedGroupsRevert",
+    "SavedGroupsDelete",
+  ],
 };
 
 export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
@@ -856,13 +941,21 @@ export const RESERVED_ROLE_IDS = [
 ];
 
 export const ENV_SCOPED_PERMISSIONS = [
-  // Everything in the flags family that touches live state. The caller supplies
-  // the footprint; NO_ENVIRONMENT_BINDING means the change has no intrinsic
+  // Everything on a flag entity that touches live state. The caller supplies the
+  // footprint; NO_ENVIRONMENT_BINDING means the change has no intrinsic
   // environment (a base Config, a Constant's base value).
-  "createFlags",
-  "deleteFlags",
-  "publishFlags",
-  "revertFlags",
+  "createFeatures",
+  "deleteFeatures",
+  "publishFeatures",
+  "revertFeatures",
+  "createConfigs",
+  "deleteConfigs",
+  "publishConfigs",
+  "revertConfigs",
+  "createConstants",
+  "deleteConstants",
+  "publishConstants",
+  "revertConstants",
   "manageEnvironments",
   "manageSDKConnections",
   "manageSDKWebhooks",
@@ -872,9 +965,15 @@ export const ENV_SCOPED_PERMISSIONS = [
 export const PROJECT_SCOPED_PERMISSIONS = [
   "readData",
   "addComments",
-  "editFlagDrafts",
-  "reviewFlags",
-  "bypassApprovalFlags",
+  "editFeatureDrafts",
+  "reviewFeatures",
+  "bypassApprovalFeatures",
+  "editConfigDrafts",
+  "reviewConfigs",
+  "bypassApprovalConfigs",
+  "editConstantDrafts",
+  "reviewConstants",
+  "bypassApprovalConstants",
   "manageArchetype",
   "manageProjects",
   "createProjects",

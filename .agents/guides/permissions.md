@@ -20,7 +20,8 @@ Apply organization-wide, not restricted to projects or environments:
 Can be granted for all projects or specific projects:
 
 - `readData`, `addComments`
-- `editFlagDrafts`, `reviewFlags`, `bypassApprovalFlags`
+- per flag entity (`Features`/`Configs`/`Constants`): `edit*Drafts`, `review*`,
+  `bypassApproval*`
 - `editSavedGroupDrafts`, `reviewSavedGroups`, `publishSavedGroups`,
   `revertSavedGroups`, `createSavedGroups`, `deleteSavedGroups`,
   `bypassApprovalSavedGroups`
@@ -33,10 +34,9 @@ Can be granted for all projects or specific projects:
 
 Further restricted to specific environments within projects:
 
-- `createFlags`, `publishFlags`, `revertFlags` - live writes to Feature Flags,
-  Configs and Constants
-- `deleteFlags` - archiving is environment-scoped; deleting an archived flag is
-  not (pass `NO_ENVIRONMENT_BINDING`)
+- per flag entity: `create*`, `publish*`, `revert*` - live writes
+- per flag entity: `delete*` - archiving is environment-scoped; deleting an
+  archived flag is not (pass `NO_ENVIRONMENT_BINDING`)
 - `runExperiments` - Start/stop experiments
 - `manageEnvironments` - Create/edit environments
 - `manageSDKConnections` - Manage SDK connections
@@ -360,6 +360,10 @@ There is no "edit" verb. A content change is a draft plus a publish, so authorin
 gates on `canEditFeatureDrafts` and landing gates on `canPublishFeature` with the
 environments the change touches. Saved groups use the generic form directly:
 `canRevisionAction("saved-group", action, obj)`.
+
+Atoms are per entity, one per (model, action) — see `revisionPermissions.ts`.
+Roles never name them: an organization grants POLICIES, and a policy bundles the
+three flag entities. Add capability by adding a policy, not by exposing an atom.
 
 ### 3. Pass the Environments a Change Touches
 

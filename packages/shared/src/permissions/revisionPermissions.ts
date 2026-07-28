@@ -3,8 +3,13 @@ import { Permission } from "shared/types/organization";
 /**
  * Single source of truth for the per-action permission atoms of revisioned
  * "flag-like" entities. To add one: define its atoms in the scope arrays in
- * permissions.constants.ts, map its model to a family in MODEL_FAMILY, and gate
- * with `context.permissions.canRevisionAction(model, action, obj, envs)`.
+ * permissions.constants.ts, add its row below, and gate with
+ * `context.permissions.canRevisionAction(model, action, obj, envs)`.
+ *
+ * Atoms are per entity, one per (model, action). Policies are what an
+ * organization actually grants, and they bundle the three flag entities
+ * together — so the granularity here is what the checks need, not what an admin
+ * has to reason about.
  *
  * There is deliberately no "edit"/"manage" verb: an edit is a draft plus a
  * publish.
@@ -19,46 +24,74 @@ export type RevisionAction =
   | "revert" // restore a previously-published revision
   | "bypass"; // publish without the required review, force-merge a stale base
 
-// Entities sharing one permission vocabulary. Features, constants and configs
-// are all "flags"; saved groups have their own atoms.
-export type PermissionFamily = "flags" | "savedGroups";
-
-// The models callers name at the check site; each maps to a family.
 export type RevisionModel = "feature" | "config" | "constant" | "saved-group";
-
-export const MODEL_FAMILY: Record<RevisionModel, PermissionFamily> = {
-  feature: "flags",
-  config: "flags",
-  constant: "flags",
-  "saved-group": "savedGroups",
-};
 
 export interface ActionPermission {
   permission: Permission;
   scope: "project" | "environment";
 }
 
+// Which actions touch live state, and so take an environment footprint. Shared
+// by the three flag entities; saved groups declare no environments at all.
+const FLAG_SCOPES: Record<RevisionAction, ActionPermission["scope"]> = {
+  create: "environment",
+  delete: "environment",
+  publish: "environment",
+  revert: "environment",
+  // Drafting touches nothing live. Review is a judgement on the whole proposed
+  // change, not on any one environment. Bypass only relaxes the review
+  // requirement on a publish that was already env-checked.
+  draft: "project",
+  review: "project",
+  bypass: "project",
+};
+
+function flagEntity(
+  atoms: Record<RevisionAction, Permission>,
+): Record<RevisionAction, ActionPermission> {
+  return Object.fromEntries(
+    (Object.keys(FLAG_SCOPES) as RevisionAction[]).map((action) => [
+      action,
+      { permission: atoms[action], scope: FLAG_SCOPES[action] },
+    ]),
+  ) as Record<RevisionAction, ActionPermission>;
+}
+
 export const REVISION_PERMISSIONS: Record<
-  PermissionFamily,
+  RevisionModel,
   Record<RevisionAction, ActionPermission>
 > = {
-  // Everything that touches live state is env-scoped; the caller supplies the
-  // footprint. Drafting touches nothing live, and bypass only relaxes the review
-  // requirement on a publish that was already env-checked.
-  flags: {
-    create: { permission: "createFlags", scope: "environment" },
-    delete: { permission: "deleteFlags", scope: "environment" },
-    draft: { permission: "editFlagDrafts", scope: "project" },
-    // A judgement on the whole proposed change, not on any one environment.
-    review: { permission: "reviewFlags", scope: "project" },
-    publish: { permission: "publishFlags", scope: "environment" },
-    revert: { permission: "revertFlags", scope: "environment" },
-    bypass: { permission: "bypassApprovalFlags", scope: "project" },
-  },
+  feature: flagEntity({
+    create: "createFeatures",
+    delete: "deleteFeatures",
+    draft: "editFeatureDrafts",
+    review: "reviewFeatures",
+    publish: "publishFeatures",
+    revert: "revertFeatures",
+    bypass: "bypassApprovalFeatures",
+  }),
+  config: flagEntity({
+    create: "createConfigs",
+    delete: "deleteConfigs",
+    draft: "editConfigDrafts",
+    review: "reviewConfigs",
+    publish: "publishConfigs",
+    revert: "revertConfigs",
+    bypass: "bypassApprovalConfigs",
+  }),
+  constant: flagEntity({
+    create: "createConstants",
+    delete: "deleteConstants",
+    draft: "editConstantDrafts",
+    review: "reviewConstants",
+    publish: "publishConstants",
+    revert: "revertConstants",
+    bypass: "bypassApprovalConstants",
+  }),
   // Saved groups declare no environments, so every action is project-scoped and
   // the footprint argument is ignored. Call sites still pass one so they read
-  // identically to the flags family.
-  savedGroups: {
+  // identically to the flag entities.
+  "saved-group": {
     create: { permission: "createSavedGroups", scope: "project" },
     delete: { permission: "deleteSavedGroups", scope: "project" },
     draft: { permission: "editSavedGroupDrafts", scope: "project" },
@@ -69,15 +102,18 @@ export const REVISION_PERMISSIONS: Record<
   },
 };
 
-/** The bypass-approval atom for an entity's family, named as data (gate metadata). */
+/** Every entity that shares the Feature Flag policy vocabulary. */
+export const FLAG_MODELS = ["feature", "config", "constant"] as const;
+
+/** The bypass-approval atom for an entity, named as data (gate metadata). */
 export function bypassApprovalPermission(model: RevisionModel): Permission {
-  return REVISION_PERMISSIONS[MODEL_FAMILY[model]].bypass.permission;
+  return REVISION_PERMISSIONS[model].bypass.permission;
 }
 
-/** Is this atom one of the per-family bypass-approval atoms? */
+/** Is this atom one of the per-entity bypass-approval atoms? */
 export function isBypassApprovalPermission(permission: string): boolean {
   return Object.values(REVISION_PERMISSIONS).some(
-    (family) => family.bypass.permission === permission,
+    (entity) => entity.bypass.permission === permission,
   );
 }
 

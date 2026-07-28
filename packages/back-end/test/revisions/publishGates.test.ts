@@ -11,13 +11,13 @@ import {
 
 describe("schemaFailureGateOverride (blockPublishOnSchemaError)", () => {
   it("is validation-class in block mode (default), naming the caller's atom", () => {
-    expect(schemaFailureGateOverride(true, "bypassApprovalFlags")).toEqual({
+    expect(schemaFailureGateOverride(true, "bypassApprovalFeatures")).toEqual({
       override: "skipSchemaValidation",
-      requiresPermission: "bypassApprovalFlags",
+      requiresPermission: "bypassApprovalFeatures",
     });
   });
   it("demotes to acknowledge-class in warn mode", () => {
-    expect(schemaFailureGateOverride(false, "bypassApprovalFlags")).toEqual({
+    expect(schemaFailureGateOverride(false, "bypassApprovalFeatures")).toEqual({
       override: "ignoreWarnings",
       requiresPermission: null,
     });
@@ -31,7 +31,7 @@ const approvalGate: PublishGate = {
   severity: "blocker",
   messages: ['Requires approval before publishing (status: "draft").'],
   override: null,
-  requiresPermission: "bypassApprovalFlags",
+  requiresPermission: "bypassApprovalFeatures",
   resolution: {
     action: "request-review",
     method: "POST",
@@ -45,7 +45,7 @@ const configLockedGate: PublishGate = {
   severity: "blocker",
   messages: ["Locked at revision v3."],
   override: null,
-  requiresPermission: "bypassApprovalFlags",
+  requiresPermission: "bypassApprovalFeatures",
   resolution: {
     action: "unlock",
     method: "POST",
@@ -58,7 +58,7 @@ const staleBaseGate: PublishGate = {
   severity: "blocker",
   messages: ["This revision was created against an older version."],
   override: "ignoreWarnings",
-  requiresPermission: "bypassApprovalFlags",
+  requiresPermission: "bypassApprovalFeatures",
   resolution: {
     action: "rebase",
     method: "POST",
@@ -84,7 +84,7 @@ const schemaBreakGate: PublishGate = {
     'config "pricing" field "tier" expects a string',
   ],
   override: "skipSchemaValidation",
-  requiresPermission: "bypassApprovalFlags",
+  requiresPermission: "bypassApprovalFeatures",
   resolution: null,
 };
 
@@ -106,7 +106,7 @@ const customHookGate: PublishGate = {
   severity: "blocker",
   messages: ["A custom validation hook rejected this publish:"],
   override: "skipHooks",
-  requiresPermission: "bypassApprovalFlags",
+  requiresPermission: "bypassApprovalFeatures",
   resolution: null,
 };
 const clearance = (
@@ -198,7 +198,7 @@ describe("unclearedGates", () => {
       seen.push(permission);
       return true;
     });
-    expect(seen).toEqual(["bypassApprovalFlags"]);
+    expect(seen).toEqual(["bypassApprovalFeatures"]);
   });
 
   it("does not consult permissions for gates without requiresPermission", () => {
@@ -529,7 +529,7 @@ describe("PublishBlockedError", () => {
     expect(err.message).toContain("[stale-base]");
     expect(err.message).toContain('retry with "ignoreWarnings": true');
     expect(err.message).toContain(
-      "requires the bypassApprovalFlags permission",
+      "requires the bypassApprovalFeatures permission",
     );
     expect(err.message).toContain("[experiment-guard]");
   });

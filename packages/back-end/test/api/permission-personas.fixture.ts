@@ -16,45 +16,35 @@ import { ReqContextClass } from "back-end/src/services/context";
 
 export const ENVS = ["dev", "production"] as const;
 
-/** One custom role per persona, carrying only the atoms under test. */
+/**
+ * One custom role per persona, carrying only the POLICIES under test — the same
+ * grant mechanism an organization has. Composing from atoms would test a path
+ * no admin can configure.
+ */
 export const PERSONAS = {
-  drafter: ["editFlagDrafts", "editSavedGroupDrafts"],
-  reviewer: ["reviewFlags", "reviewSavedGroups"],
-  publisher: ["publishFlags", "publishSavedGroups"],
-  reverter: ["revertFlags", "revertSavedGroups"],
-  deleter: ["deleteFlags", "deleteSavedGroups"],
-  creator: ["createFlags", "createSavedGroups"],
-  // Creating a flag lands it in the payload immediately, so it takes publish
-  // authority as well as create — `createFlags` is what says "may spin up new
-  // ones" on top of being allowed to put changes in front of users.
+  drafter: ["FlagsEditDrafts", "SavedGroupsEditDrafts"],
+  reviewer: ["FlagsReview", "SavedGroupsReview"],
+  publisher: ["FlagsPublish", "SavedGroupsPublish"],
+  reverter: ["FlagsRevert", "SavedGroupsRevert"],
+  deleter: ["FlagsDelete", "SavedGroupsDelete"],
+  creator: ["FlagsCreate", "SavedGroupsCreate"],
+  // Creating a flag that enables an environment lands it in the payload, so
+  // that case takes publish as well as create.
   creatorPublisher: [
-    "createFlags",
-    "publishFlags",
-    "createSavedGroups",
-    "publishSavedGroups",
+    "FlagsCreate",
+    "FlagsPublish",
+    "SavedGroupsCreate",
+    "SavedGroupsPublish",
   ],
   // The everyday editor: authors a change and lands it.
   editor: [
-    "editFlagDrafts",
-    "publishFlags",
-    "editSavedGroupDrafts",
-    "publishSavedGroups",
+    "FlagsEditDrafts",
+    "FlagsPublish",
+    "SavedGroupsEditDrafts",
+    "SavedGroupsPublish",
   ],
   // Everything except bypass, so approval requirements still apply.
-  full: [
-    "createFlags",
-    "editFlagDrafts",
-    "reviewFlags",
-    "publishFlags",
-    "revertFlags",
-    "deleteFlags",
-    "createSavedGroups",
-    "editSavedGroupDrafts",
-    "reviewSavedGroups",
-    "publishSavedGroups",
-    "revertSavedGroups",
-    "deleteSavedGroups",
-  ],
+  full: ["FlagsFullAccess", "SavedGroupsFullAccess"],
 } as const;
 
 export type Persona = keyof typeof PERSONAS;
@@ -71,11 +61,7 @@ function roleFor(persona: Persona, envLimited: boolean): Role {
   return {
     id: envLimited ? `${persona}${DEV_ONLY_SUFFIX}` : persona,
     description: `QA persona: ${persona}${envLimited ? " (dev only)" : ""}`,
-    policies: [],
-    permissions: [
-      "readData",
-      ...PERSONAS[persona],
-    ] as unknown as Role["permissions"],
+    policies: ["ReadData", ...PERSONAS[persona]] as unknown as Role["policies"],
   };
 }
 

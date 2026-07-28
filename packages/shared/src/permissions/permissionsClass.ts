@@ -41,7 +41,6 @@ import {
 } from "../util/";
 import { READ_ONLY_PERMISSIONS } from "./permissions.constants";
 import {
-  MODEL_FAMILY,
   NO_ENVIRONMENT_BINDING,
   REVISION_PERMISSIONS,
   RevisionAction,
@@ -356,8 +355,7 @@ export class Permissions {
     environments: string[] = [],
   ): boolean => {
     const projects = obj.projects ?? (obj.project ? [obj.project] : []);
-    const { permission, scope } =
-      REVISION_PERMISSIONS[MODEL_FAMILY[model]][action];
+    const { permission, scope } = REVISION_PERMISSIONS[model][action];
     if (scope === "environment") {
       return this.checkEnvFilterPermission(
         { projects },

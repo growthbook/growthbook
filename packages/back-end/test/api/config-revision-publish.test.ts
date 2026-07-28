@@ -243,7 +243,7 @@ describe("POST /api/v1/configs-revisions/:key/:version/publish", () => {
     // fields are explicit: override is null and the escape is a callable unlock
     // route in `resolution`, not inline prose.
     expect(lockGate.override).toBeNull();
-    expect(lockGate.requiresPermission).toBe("bypassApprovalFlags");
+    expect(lockGate.requiresPermission).toBe("bypassApprovalConfigs");
     expect(lockGate.messages[0]).toMatch(/locked/i);
     expect(lockGate.resolution).toEqual({
       action: "unlock",
@@ -354,7 +354,7 @@ describe("POST /api/v1/configs-revisions/:key/:version/publish (archive schema-b
     // Schema-break is validation-class: cleared only by the privileged
     // skipSchemaValidation flag (which needs bypassApprovalFlags).
     expect(gate.override).toBe("skipSchemaValidation");
-    expect(gate.requiresPermission).toBe("bypassApprovalFlags");
+    expect(gate.requiresPermission).toBe("bypassApprovalConfigs");
     const gateText = gate.messages.join("\n");
     // The gate names the transition (not the config's own resolved value) and
     // the dependent it breaks.
@@ -497,7 +497,7 @@ describe("POST /api/v1/configs-revisions/:key/:version/publish (requireRebaseBef
     expect(staleGate).toBeDefined();
     expect(staleGate.severity).toBe("blocker");
     expect(staleGate.override).toBe("ignoreWarnings");
-    expect(staleGate.requiresPermission).toBe("bypassApprovalFlags");
+    expect(staleGate.requiresPermission).toBe("bypassApprovalConfigs");
     expect(staleGate.resolution.action).toBe("rebase");
     expect(staleGate.resolution).toEqual({
       action: "rebase",

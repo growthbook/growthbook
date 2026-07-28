@@ -1,15 +1,12 @@
 import {
-  ALL_PERMISSIONS,
-  GRANULAR_PERMISSION_METADATA,
-  POLICIES,
   POLICY_DISPLAY_GROUPS,
   POLICY_METADATA_MAP,
-  POLICY_PERMISSION_MAP,
+  POLICY_PARTS,
   Policy,
   RESERVED_ROLE_IDS,
 } from "shared/permissions";
 import { FormProvider, useForm } from "react-hook-form";
-import { Permission, Role } from "shared/types/organization";
+import { Role } from "shared/types/organization";
 import router from "next/router";
 import { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
@@ -27,11 +24,9 @@ import Text from "@/ui/Text";
 import TempMessage from "@/components/TempMessage";
 import Callout from "@/ui/Callout";
 
-const KNOWN_PERMISSIONS = new Set<string>(ALL_PERMISSIONS);
-
-function knownPermissions(permissions: Permission[] | undefined): Permission[] {
-  return (permissions || []).filter((p) => KNOWN_PERMISSIONS.has(p));
-}
+// Policies that appear as a part of another policy render inside their parent's
+// drill-down, so they must not also render as a top-level row.
+const PART_POLICIES = new Set<string>(Object.values(POLICY_PARTS).flat());
 
 export default function RoleForm({
   role,
@@ -51,14 +46,15 @@ export default function RoleForm({
   // Open the drill-down for any policy the saved role composes atom-by-atom —
   // those selections are otherwise invisible behind a collapsed row. A policy
   // granted whole stays collapsed: its atoms are implied, not chosen.
+  // Open any bundle whose parts are granted individually, so a composed role
+  // doesn't look empty on load.
   const [expandedPolicies, setExpandedPolicies] = useState<Set<Policy>>(() => {
-    const saved = new Set(role.permissions || []);
-    if (!saved.size) return new Set();
+    const granted = new Set(role.policies || []);
     return new Set(
-      POLICIES.filter(
+      (Object.keys(POLICY_PARTS) as Policy[]).filter(
         (policy) =>
-          !role.policies?.includes(policy) &&
-          (POLICY_PERMISSION_MAP[policy] || []).some((atom) => saved.has(atom)),
+          !granted.has(policy) &&
+          (POLICY_PARTS[policy] || []).some((part) => granted.has(part)),
       ),
     );
   });
@@ -67,7 +63,6 @@ export default function RoleForm({
     id: string;
     description: string;
     policies: Policy[];
-    permissions?: Permission[];
     displayName?: string;
   }): boolean => {
     if (!input.id.length) {
@@ -104,22 +99,15 @@ export default function RoleForm({
     id: string;
     description: string;
     policies: Policy[];
-    permissions: Permission[];
     displayName?: string;
   }>({
-    // Drop atoms this build doesn't recognise. A stored role can name a
-    // permission that no longer exists (renamed or removed in a later version);
-    // it already grants nothing, but carrying it in form state makes every save
-    // fail validation on a field the editor never rendered — leaving the role
-    // unfixable through the UI.
-    defaultValues: { ...role, permissions: knownPermissions(role.permissions) },
+    defaultValues: { ...role },
   });
 
   const currentValue = {
     id: form.watch("id"),
     description: form.watch("description"),
     policies: form.watch("policies"),
-    permissions: form.watch("permissions"),
     displayName: form.watch("displayName"),
   };
 
@@ -141,7 +129,6 @@ export default function RoleForm({
       id: role.id,
       description: role.description,
       policies: role.policies,
-      permissions: knownPermissions(role.permissions),
       displayName: role.displayName,
     }) !== JSON.stringify(currentValue);
 
@@ -163,7 +150,6 @@ export default function RoleForm({
           body: JSON.stringify({
             description: currentValue.description,
             policies: currentValue.policies,
-            permissions: currentValue.permissions,
             displayName: currentValue.displayName,
           }),
         });
@@ -188,23 +174,14 @@ export default function RoleForm({
       selecting ? [...current, policy] : current.filter((p) => p !== policy),
     );
     if (selecting) {
-      const covered = new Set<Permission>(POLICY_PERMISSION_MAP[policy] || []);
-      const perms = form.getValues("permissions");
-      const remaining = perms.filter((p) => !covered.has(p));
-      if (remaining.length !== perms.length) {
-        form.setValue("permissions", remaining);
+      // The parent grants everything its parts do, so drop them rather than
+      // storing a redundant pair.
+      const parts = new Set<string>(POLICY_PARTS[policy] || []);
+      const next = form.getValues("policies").filter((p) => !parts.has(p));
+      if (next.length !== form.getValues("policies").length) {
+        form.setValue("policies", next);
       }
     }
-  };
-
-  const togglePermission = (permission: Permission) => {
-    const current = form.getValues("permissions");
-    form.setValue(
-      "permissions",
-      current.includes(permission)
-        ? current.filter((p) => p !== permission)
-        : [...current, permission],
-    );
   };
 
   const toggleExpanded = (policy: Policy) => {
@@ -282,95 +259,87 @@ export default function RoleForm({
                   {group.name}
                 </Text>
                 <Flex direction="column" gap="3">
-                  {policies.map((policy) => {
-                    const policyData = POLICY_METADATA_MAP[policy];
-                    const {
-                      policies: currentPolicies,
-                      permissions: currentPermissions,
-                    } = currentValue;
+                  {policies
+                    .filter((policy) => !PART_POLICIES.has(policy))
+                    .map((policy) => {
+                      const policyData = POLICY_METADATA_MAP[policy];
+                      const { policies: currentPolicies } = currentValue;
 
-                    const checked = currentPolicies.includes(policy);
-                    // Fine-grained atoms this policy bundles that can be granted
-                    // individually via the role's permissions[] (excludes readData).
-                    // Only worth expanding when there's a composition choice:
-                    // a single-atom policy would just restate the row above it.
-                    const allAtoms = (
-                      POLICY_PERMISSION_MAP[policy] || []
-                    ).filter((p) => GRANULAR_PERMISSION_METADATA[p]);
-                    const granularAtoms = allAtoms.length > 1 ? allAtoms : [];
-                    const composedCount = granularAtoms.filter((a) =>
-                      currentPermissions.includes(a),
-                    ).length;
-                    // Indeterminate while composing atoms: the policy itself
-                    // isn't granted (it also carries readData, which has no
-                    // atom row), so it must not read as fully checked.
-                    const policyValue: boolean | "indeterminate" = checked
-                      ? true
-                      : composedCount > 0
-                        ? "indeterminate"
-                        : false;
-                    const expanded = expandedPolicies.has(policy);
-                    return (
-                      <Box key={policy}>
-                        <Checkbox
-                          id={`${policy}-checkbox`}
-                          value={policyValue}
-                          setValue={() => togglePolicy(policy)}
-                          disabled={status === "viewing"}
-                          weight="bold"
-                          label={policyData.displayName}
-                          description={policyData.description}
-                        />
-                        {policyData.warning ? (
-                          // Informational, not a validation error — so it sits
-                          // beside the checkbox rather than tinting it.
-                          <Box ml="5" mt="1">
-                            <HelperText status="warning" size="sm">
-                              {policyData.warning}
-                            </HelperText>
-                          </Box>
-                        ) : null}
-                        {granularAtoms.length ? (
-                          <Box ml="5" mt="1">
-                            <Link onClick={() => toggleExpanded(policy)}>
-                              <Flex align="center" gap="1">
-                                {expanded ? <PiMinusBold /> : <PiPlusBold />}
-                                {expanded
-                                  ? "Hide individual permissions"
-                                  : "Select individual permissions"}
-                              </Flex>
-                            </Link>
-                            {expanded ? (
-                              <Flex direction="column" gap="2" mt="2">
-                                {granularAtoms.map((atom) => {
-                                  const meta =
-                                    GRANULAR_PERMISSION_METADATA[atom];
-                                  if (!meta) return null;
-                                  return (
-                                    <Checkbox
-                                      key={atom}
-                                      id={`${policy}-${atom}-checkbox`}
-                                      // Selecting the policy grants all of its
-                                      // atoms, so they read as checked and
-                                      // locked; otherwise they're composable.
-                                      value={
-                                        checked ||
-                                        currentPermissions.includes(atom)
-                                      }
-                                      setValue={() => togglePermission(atom)}
-                                      disabled={status === "viewing" || checked}
-                                      label={meta.displayName}
-                                      description={meta.description}
-                                    />
-                                  );
-                                })}
-                              </Flex>
-                            ) : null}
-                          </Box>
-                        ) : null}
-                      </Box>
-                    );
-                  })}
+                      const checked = currentPolicies.includes(policy);
+                      const parts = POLICY_PARTS[policy] || [];
+                      const selectedParts = parts.filter((part) =>
+                        currentPolicies.includes(part),
+                      ).length;
+                      // Indeterminate while only some parts are granted: the
+                      // bundle itself isn't, so it must not read as fully checked.
+                      const policyValue: boolean | "indeterminate" = checked
+                        ? true
+                        : selectedParts > 0
+                          ? "indeterminate"
+                          : false;
+                      const expanded = expandedPolicies.has(policy);
+                      return (
+                        <Box key={policy}>
+                          <Checkbox
+                            id={`${policy}-checkbox`}
+                            value={policyValue}
+                            setValue={() => togglePolicy(policy)}
+                            disabled={status === "viewing"}
+                            weight="bold"
+                            label={policyData.displayName}
+                            description={policyData.description}
+                          />
+                          {policyData.warning ? (
+                            // Informational, not a validation error — so it sits
+                            // beside the checkbox rather than tinting it.
+                            <Box ml="5" mt="1">
+                              <HelperText status="warning" size="sm">
+                                {policyData.warning}
+                              </HelperText>
+                            </Box>
+                          ) : null}
+                          {parts.length ? (
+                            <Box ml="5" mt="1">
+                              <Link onClick={() => toggleExpanded(policy)}>
+                                <Flex align="center" gap="1">
+                                  {expanded ? <PiMinusBold /> : <PiPlusBold />}
+                                  {expanded
+                                    ? "Hide individual permissions"
+                                    : "Select individual permissions"}
+                                </Flex>
+                              </Link>
+                              {expanded ? (
+                                <Flex direction="column" gap="2" mt="2">
+                                  {parts.map((part) => {
+                                    const meta = POLICY_METADATA_MAP[part];
+                                    if (!meta) return null;
+                                    return (
+                                      <Checkbox
+                                        key={part}
+                                        id={`${policy}-${part}-checkbox`}
+                                        // The bundle grants every part, so they
+                                        // read as checked and locked; otherwise
+                                        // they're individually selectable.
+                                        value={
+                                          checked ||
+                                          currentPolicies.includes(part)
+                                        }
+                                        setValue={() => togglePolicy(part)}
+                                        disabled={
+                                          status === "viewing" || checked
+                                        }
+                                        label={meta.displayName}
+                                        description={meta.description}
+                                      />
+                                    );
+                                  })}
+                                </Flex>
+                              ) : null}
+                            </Box>
+                          ) : null}
+                        </Box>
+                      );
+                    })}
                 </Flex>
               </Box>
             );
