@@ -265,9 +265,6 @@ export async function revertFeatureRevision(
     defaultValue: targetRevision.defaultValue,
     rules: targetRevision.rules ?? feature.rules ?? [],
     holdout: targetHoldout,
-    // Marks the new revision as a revert, so publish-time guards recognize it
-    // even when the revert is staged as a draft and published later.
-    revertedFrom: targetRevision.version,
   };
   if (targetRevision.environmentsEnabled !== undefined) {
     revisionChanges.environmentsEnabled = targetRevision.environmentsEnabled;
@@ -301,6 +298,7 @@ export async function revertFeatureRevision(
       changes: revisionChanges,
       org: context.org,
       canBypassApprovalChecks: false,
+      revertedFrom: targetRevision.version,
     });
 
     return { feature, revision: newDraft };
@@ -350,6 +348,7 @@ export async function revertFeatureRevision(
       changes: revisionChanges,
       comment: comment ?? defaultComment,
       canBypassApprovalChecks: canBypass,
+      revertedFrom: targetRevision.version,
     });
 
   if (

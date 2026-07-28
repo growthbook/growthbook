@@ -2509,8 +2509,6 @@ export async function postFeatureRevert(
     }
     mergeChanges.holdout = targetHoldout;
   }
-  // Marks the new revision as a revert, so publish-time guards recognize it.
-  revisionChanges.revertedFrom = revision.version;
 
   const newRevision = await createRevision({
     context,
@@ -2521,6 +2519,7 @@ export async function postFeatureRevert(
     environments: contextEnvironments,
     org,
     comment: comment || `Revert to revision #${revision.version}`,
+    revertedFrom: revision.version,
   });
 
   // Reverts restore a previously-published (already-reviewed) state. When the
@@ -2645,7 +2644,6 @@ export async function postFeatureRevertDraft(
   // reverted to; `revertedFrom` survives on it so the later publish still
   // applies revert semantics.
   changes.holdout = getEffectiveRevisionHoldout(revision, feature);
-  changes.revertedFrom = revision.version;
 
   const newRevision = await createRevision({
     context,
@@ -2656,6 +2654,7 @@ export async function postFeatureRevertDraft(
     environments: contextEnvironments,
     org,
     comment: comment || `Revert to revision #${revision.version}`,
+    revertedFrom: revision.version,
   });
 
   await req.audit({

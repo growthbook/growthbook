@@ -286,12 +286,10 @@ export async function revertFeatureCore(
       feature,
       user: eventAudit,
       org: organization,
-      // `revertedFrom` marks the new revision as a revert for publish-time
-      // guards. Added here rather than to `changes` so it can't satisfy the
-      // empty-diff check above.
-      changes: { ...changes, revertedFrom: version },
+      changes,
       comment: comment ?? `Reverted to revision #${version}`,
       canBypassApprovalChecks: canBypass,
+      revertedFrom: version,
     });
 
   await audit({

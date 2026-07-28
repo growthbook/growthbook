@@ -3130,6 +3130,22 @@ export async function publishRevision({
     });
 
     if (result.holdout !== undefined) {
+      // Registered BEFORE the transition starts: it is several non-transactional
+      // writes (unlink old, link new, restamp experiments), so a failure partway
+      // through has already mutated linkage and must still be repaired.
+      // Converges to the pre-image rather than undoing a delta, which makes it an
+      // idempotent no-op when the forward write never landed.
+      rewinds.push({
+        what: "holdout linkage",
+        undo: () =>
+          applyHoldoutSideEffects(
+            context,
+            { ...feature, holdout: result.holdout ?? undefined },
+            feature.holdout ?? null,
+            { isRevert: true },
+          ),
+      });
+
       // Guard already ran above (before any mutation) — skip the re-check.
       // Pass the POST-publish rules: side effects enroll the experiments in
       // the feature's rules, and a draft can add the holdout and the
@@ -3141,19 +3157,6 @@ export async function publishRevision({
         result.holdout,
         { skipGuard: true },
       );
-      // Converges to the pre-image rather than undoing a delta: a failure
-      // mid-transition still needs repairing, and every step is an idempotent
-      // no-op when the forward write never landed.
-      rewinds.push({
-        what: "holdout linkage",
-        undo: () =>
-          applyHoldoutSideEffects(
-            context,
-            { ...feature, holdout: result.holdout ?? undefined },
-            feature.holdout ?? null,
-            { isRevert: true },
-          ),
-      });
     }
 
     const publishStamp = await markRevisionAsPublished(
@@ -3244,16 +3247,17 @@ export async function createAndPublishRevision({
   changes,
   comment,
   canBypassApprovalChecks,
+  revertedFrom,
 }: {
   context: ReqContext | ApiReqContext;
   feature: FeatureInterface;
   user: EventUser;
   org: OrganizationInterface;
-  // Pass `revertedFrom` here to mark the new revision as a revert; publish-time
-  // guards read it off the revision.
   changes: Parameters<typeof createRevision>[0]["changes"];
   comment?: string;
   canBypassApprovalChecks: boolean;
+  // Marks the new revision as a revert; publish-time guards read it off the doc.
+  revertedFrom?: number;
 }): Promise<{
   revision: FeatureRevisionInterface;
   updatedFeature: FeatureInterface;
@@ -3322,6 +3326,7 @@ export async function createAndPublishRevision({
     changes,
     org,
     canBypassApprovalChecks,
+    revertedFrom,
   });
 
   // Merge the new revision against the live-feature baseline. base === live

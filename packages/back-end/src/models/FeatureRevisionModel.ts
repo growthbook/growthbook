@@ -937,6 +937,7 @@ export async function createRevision({
   title,
   org,
   canBypassApprovalChecks,
+  revertedFrom,
 }: {
   context: ReqContext | ApiReqContext;
   feature: FeatureInterface;
@@ -944,6 +945,11 @@ export async function createRevision({
   environments: string[];
   baseVersion?: number;
   changes?: Partial<FeatureRevisionInterface>;
+  // Deliberately its own parameter rather than a `changes` field: callers that
+  // clone a whole revision into `changes` (forking a draft) must not inherit
+  // another revision's revert marker, which would let an edited fork publish
+  // with the revert guard relaxations.
+  revertedFrom?: number;
   publish?: boolean;
   comment?: string;
   title?: string;
@@ -1053,9 +1059,7 @@ export async function createRevision({
     archived,
     metadata,
     holdout,
-    ...(changes?.revertedFrom !== undefined
-      ? { revertedFrom: changes.revertedFrom }
-      : {}),
+    ...(revertedFrom !== undefined ? { revertedFrom } : {}),
   } as FeatureRevisionInterface;
   const requiresReview = checkIfRevisionNeedsReview({
     feature,
