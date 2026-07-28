@@ -77,7 +77,7 @@ export default function EditScheduleModal({
     hasDecisionFrameworkFeature &&
     (decisionFrameworkEnabled ?? DEFAULT_DECISION_FRAMEWORK_ENABLED);
   const autoShipDisabledReason = !hasDecisionFrameworkFeature
-    ? "Shipping the winning variation requires the Decision Framework."
+    ? "Shipping the winning variation requires the Decision Framework (available on Pro and Enterprise plans)"
     : "Enable the Decision Framework in your organization settings to ship the winning variation.";
 
   const form = useForm({
