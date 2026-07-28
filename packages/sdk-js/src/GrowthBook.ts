@@ -940,6 +940,7 @@ export class GrowthBook<
           (this._options.trackingCallback as TrackingCallback)(
             call.experiment,
             call.result,
+            call.user,
           ),
         );
       }
