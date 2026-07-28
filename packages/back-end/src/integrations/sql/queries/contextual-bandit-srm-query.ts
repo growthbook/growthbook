@@ -135,6 +135,7 @@ export function getContextualBanditSrmQuery(
           , leaf_id
           , bandit_version
           , variation
+          , timestamp
           ${weightPassCols}
           , ROW_NUMBER() OVER (
               PARTITION BY uid, leaf_id, bandit_version
@@ -157,6 +158,7 @@ export function getContextualBanditSrmQuery(
           , leaf_id
           , bandit_version
           , variation
+          , timestamp
           ${weightPassCols}
         FROM
           __cbRankedExposures
@@ -168,6 +170,7 @@ export function getContextualBanditSrmQuery(
         SELECT
           leaf_id
           , bandit_version
+          , MAX(timestamp) AS latest_ts
           ${cellAggCols}
         FROM
           __cbUnits
@@ -216,11 +219,17 @@ export function getContextualBanditSrmQuery(
           __cbGroups
       )
       , __cbLatestVersion AS (
-        -- Most recent bandit period (weight-update generation). Assumes
-        -- bandit_version orders correctly under MAX (integer counter or ISO
-        -- timestamp); non-zero-padded string counters could sort incorrectly.
-        SELECT MAX(bandit_version) AS bandit_version
-        FROM __cbCellAgg
+        -- Most recent bandit period (weight-update generation).
+        SELECT bandit_version
+        FROM (
+          SELECT
+            bandit_version
+            -- zero pad the strings to ensure correct ordering 
+            , ROW_NUMBER() OVER (ORDER BY MAX(latest_ts) DESC) AS __vrn
+          FROM __cbCellAgg
+          GROUP BY bandit_version
+        ) __cbVersionRank
+        WHERE __vrn = 1
       )
       , __cbLatestBreakdown AS (
         ${latestBreakdownRows}

@@ -1,3 +1,4 @@
+import { stripCommentsAndStrings } from "shared/sql";
 import type { SDKAttributeSchema } from "shared/types/organization";
 
 export type TargetingColumnQuery = {
@@ -28,6 +29,14 @@ export const CONTEXTUAL_BANDIT_SRM_REQUIRED_COLUMNS = [
   CONTEXTUAL_BANDIT_EAQ_VARIATION_WEIGHTS_COLUMN,
 ] as const;
 
+/**
+ * Detects whether a bare column identifier appears in the assignment query.
+ */
+function queryReferencesColumn(query: string, column: string): boolean {
+  const { strippedSql } = stripCommentsAndStrings(query, false);
+  return new RegExp(`\\b${column}\\b`).test(strippedSql);
+}
+
 export function queryHasContextualBanditSrmColumns(
   query: string | undefined,
 ): boolean {
@@ -35,7 +44,7 @@ export function queryHasContextualBanditSrmColumns(
     return false;
   }
   return CONTEXTUAL_BANDIT_SRM_REQUIRED_COLUMNS.every((col) =>
-    new RegExp(`\\b${col}\\b`).test(query),
+    queryReferencesColumn(query, col),
   );
 }
 
@@ -46,9 +55,10 @@ export function queryHasContextualBanditVersionColumn(
   if (!query) {
     return false;
   }
-  return new RegExp(
-    `\\b${CONTEXTUAL_BANDIT_EAQ_BANDIT_VERSION_COLUMN}\\b`,
-  ).test(query);
+  return queryReferencesColumn(
+    query,
+    CONTEXTUAL_BANDIT_EAQ_BANDIT_VERSION_COLUMN,
+  );
 }
 
 export function isSafeSqlIdentifier(name: string): boolean {

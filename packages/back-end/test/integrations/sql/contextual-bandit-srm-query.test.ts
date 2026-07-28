@@ -81,8 +81,11 @@ describe("getContextualBanditSrmQuery", () => {
     expect(c).toContain("ASdegrees_of_freedom");
 
     // Latest-period breakdown: a summary row plus one cell row per leaf/variation
-    // for the most recent bandit_version, discriminated by row_type.
-    expect(c).toContain("MAX(bandit_version)ASbandit_version");
+    // for the most recent bandit_version, discriminated by row_type. The latest
+    // period is chosen by most-recent exposure timestamp, not by ordering the
+    // free-form bandit_version column (which could sort '9' after '10').
+    expect(c).toContain("MAX(timestamp)ASlatest_ts");
+    expect(c).toContain("ROW_NUMBER()OVER(ORDERBYMAX(latest_ts)DESC)AS__vrn");
     expect(c).toContain("__cbLatestVersion");
     expect(c).toContain("__cbLatestBreakdown");
     expect(c).toContain("ASrow_type");
