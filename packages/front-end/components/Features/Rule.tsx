@@ -429,6 +429,17 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     // no bearing on it.
     const canEdit = permissionsUtil.canEditFeatureDrafts(feature);
 
+    // Landing a safe-rollout decision writes live state across the feature's
+    // environments, so it takes publish the same way a ramp action does.
+    const canPublishFeatureEnvs = useMemo(
+      () =>
+        permissionsUtil.canPublishFeature(
+          feature,
+          environments.map((e) => e.id),
+        ),
+      [feature, permissionsUtil, environments],
+    );
+
     // Live ramp control — pause, resume, advance, rewind, complete, restart,
     // remove — changes what users are served right now, so it takes publish
     // authority over the environments the schedule reaches, NOT the draft
@@ -666,6 +677,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
 
     if (
       rule.type === "safe-rollout" &&
+      canPublishFeatureEnvs &&
       !rampControlsLocked &&
       rule.enabled !== false
     ) {
@@ -800,6 +812,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             <Flex align="center" gap="3" flexShrink="0">
               {rampSchedule &&
                 safeRollout &&
+                canControlRamp &&
                 !rampControlsLocked &&
                 isOnMonitoredStep(rampSchedule) && (
                   <RampMonitoringCTAs
