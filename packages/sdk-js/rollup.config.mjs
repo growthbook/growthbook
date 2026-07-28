@@ -21,7 +21,7 @@ const terserSettings = terser({
       // rrweb uses _cssText in the serialized snapshot data format — it's
       // written by the recorder and read by the replayer across build
       // boundaries. Mangling it breaks CSS in session replays.
-      reserved: ["_cssText"],
+      reserved: ["_cssText", "_registerSessionReplay", "_unregisterSessionReplay", "_sessionReplayStart", "_sessionReplayStop"],
     },
   },
   ecma: 5,

@@ -42,6 +42,9 @@ type SessionReplayConfig = {
    */
   enabled?: boolean;
 
+  /** Auto-start recording on payload load. Default true. */
+  autoRecord?: boolean;
+
   /**
    * rrweb privacy controls. See SessionReplayPrivacyConfig for the full
    * surface — mask/block/ignore selectors, custom mask functions, URL
@@ -204,6 +207,7 @@ if (!sessionReplayDisabled) {
         windowContext.trackingHost ||
         CLOUD_INGESTOR_HOST,
       enabled: windowContext.sessionReplay?.enabled,
+      autoRecord: windowContext.sessionReplay?.autoRecord,
       privacy: windowContext.sessionReplay?.privacy,
     }) as Plugin,
   );
