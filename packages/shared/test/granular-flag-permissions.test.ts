@@ -239,11 +239,21 @@ describe("granular flag permissions", () => {
         actions: ["create", "delete", "draft", "review", "bypass"],
       },
       {
-        // The pre-split bypass atom was shared, so this policy covered saved
-        // groups too. Splitting it must keep BOTH halves or a stored role
-        // silently loses its saved-group bypass.
+        // The pre-split bypass atom was org-wide, so this policy covered every
+        // entity. Splitting it must keep ALL the halves or a stored role
+        // silently loses bypass somewhere on upgrade.
         policies: ["FeaturesBypassApprovals"],
         model: "saved-group",
+        actions: ["bypass"],
+      },
+      {
+        policies: ["FeaturesBypassApprovals"],
+        model: "config",
+        actions: ["bypass"],
+      },
+      {
+        policies: ["FeaturesBypassApprovals"],
+        model: "constant",
         actions: ["bypass"],
       },
       {

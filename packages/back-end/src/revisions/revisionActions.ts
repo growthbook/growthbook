@@ -308,6 +308,13 @@ export async function publishRevision(
     await adapter.applyChanges(context, entity, desiredState, {
       isRevert: !!revision.revertedFrom,
     });
+    // The original attempt failed before its dispatch, so this apply is the
+    // moment the change actually lands — fire the event it never got.
+    await getRevisionWebhookAdapter(revision.target.type)?.dispatch(
+      context,
+      revision,
+      { type: revision.revertedFrom ? "reverted" : "published" },
+    );
     return revision;
   }
 

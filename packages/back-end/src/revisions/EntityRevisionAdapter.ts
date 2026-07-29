@@ -71,6 +71,14 @@ export interface EntityRevisionAdapter<
   /** Restore a previously-published revision. */
   canRevert?(context: Context, snapshot: TSnapshot): boolean;
 
+  /**
+   * Archive or delete the ENTITY (the delete atom). Distinct from `canDelete`
+   * above, which governs discarding a revision document and is deliberately
+   * bypass-tier. Used by `canAdvanceRevision` so a deleter can move a draft
+   * that only archives the entity.
+   */
+  canDeleteEntity?(context: Context, snapshot: TSnapshot): boolean;
+
   // ---------- Approval flow ----------
 
   /** Whether this org requires approval before a revision can be merged. */

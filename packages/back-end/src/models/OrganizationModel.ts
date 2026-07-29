@@ -3,13 +3,8 @@ import uniqid from "uniqid";
 import { cloneDeep } from "lodash";
 import { z } from "zod";
 import { OWNER_JOB_TITLES, USAGE_INTENTS } from "shared/constants";
+import { POLICIES, RESERVED_ROLE_IDS } from "shared/permissions";
 import {
-  ALL_PERMISSIONS,
-  POLICIES,
-  RESERVED_ROLE_IDS,
-} from "shared/permissions";
-import {
-  Permission,
   DemographicData,
   Invite,
   Member,
@@ -507,14 +502,13 @@ export async function updateMember(
   });
 }
 
+// Policies are the only grant mechanism — `.strict()` rejects a stray
+// `permissions` array loudly rather than persisting a grant that does nothing.
 export const customRoleValidator = z
   .object({
     id: z.string().min(2).max(64),
     description: z.string().max(100),
     policies: z.array(z.enum(POLICIES)),
-    permissions: z
-      .array(z.enum(ALL_PERMISSIONS as [Permission, ...Permission[]]))
-      .optional(),
     displayName: z.string().max(64).optional(),
   })
   .strict();

@@ -395,15 +395,15 @@ export default function KillSwitchModal({
       permissionsUtil.canPublishFeature(feature, [env.id]),
   );
 
-  // Whether the publish route is open at all, judged over every environment on
-  // offer rather than only the ones flipped so far — before the first toggle
-  // that set is empty, and `every` on it is vacuously true, which would offer
-  // "Publish now" to a draft-only user.
-  const canPublishAnyVisibleEnv =
-    visibleEnvs.length > 0 &&
-    visibleEnvs.every((env) =>
-      permissionsUtil.canPublishFeature(feature, [env.id]),
-    );
+  // Whether the publish route is open at all — judged over the environments on
+  // offer rather than only the ones flipped so far, because before the first
+  // toggle that set is empty and `every` on it is vacuously true, which would
+  // offer "Publish now" to a draft-only user. `some`, not `every`: an
+  // env-limited publisher may publish the envs they hold, and the flipped-set
+  // check above plus the CTA gate enforce the actual selection.
+  const canPublishAnyVisibleEnv = visibleEnvs.some((env) =>
+    permissionsUtil.canPublishFeature(feature, [env.id]),
+  );
   const canAutoPublish =
     (isAdmin || !envIsGated) &&
     canPublishFlippedEnvs &&

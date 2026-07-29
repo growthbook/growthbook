@@ -1,6 +1,9 @@
 import { Revision } from "shared/enterprise";
 import { Context } from "back-end/src/models/BaseModel";
-import { isArchiveTransition , proposedArchivedValue } from "back-end/src/revisions/archiveTransition";
+import {
+  isArchiveTransition,
+  proposedArchivedValue,
+} from "back-end/src/revisions/archiveTransition";
 import { isPureRevertRevision } from "back-end/src/revisions/revertPurity";
 import { canDoRevisionAction } from "back-end/src/revisions/revisionActions";
 import { getAdapter } from "back-end/src/revisions";
@@ -32,10 +35,17 @@ export async function canAdvanceRevision(
   if (canDoRevisionAction(type, "draft", context, snapshot)) return true;
 
   const hasRevert = canDoRevisionAction(type, "revert", context, snapshot);
-  // Delete isn't a RevisionActionKind — it's the adapter's own hook.
-  const hasDelete = getAdapter(type).canDelete(context, snapshot);
+  // The ENTITY delete atom — the adapter's plain `canDelete` governs discarding
+  // revision documents and is bypass-tier, which is the wrong authority here.
+  const hasDelete =
+    getAdapter(type).canDeleteEntity?.(context, snapshot) ?? false;
 
+  // Guarded against falsy ids: API-key contexts have userId "", and an
+  // owner-less entity's bootstrap revision can too, so a bare equality would
+  // call two unrelated API keys "the author" of the same draft. Mirrors
+  // authoredFeatureDraft.
   if (
+    !!context.userId &&
     revision.authorId === context.userId &&
     (hasRevert || hasDelete)
   ) {

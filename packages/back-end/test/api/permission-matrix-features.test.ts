@@ -134,14 +134,16 @@ describe("permission matrix — Feature Flags", () => {
   describe.each(CASES)("$name", ({ allowed, run }) => {
     it.each(PERSONA_IDS)("%s", async (persona) => {
       as(persona);
-      const res = await run();
-      // Allowed personas must actually succeed, not merely avoid a 403 — a
-      // request that 400s before reaching the gate would otherwise make the
-      // case vacuous for everyone.
+      const res = (await run()) as { status: number; body?: unknown };
+      // Carry the body into the assertion (as the entities matrix does): a 400
+      // from a malformed request would otherwise look like a permission result
+      // and make the case vacuous for everyone.
+      const actual = `${res.status} ${JSON.stringify(res.body ?? {}).slice(0, 200)}`;
+      // Allowed personas must actually succeed, not merely avoid a 403.
       if (allowed.includes(persona)) {
-        expect(res.status).toBeLessThan(400);
+        expect(actual).toMatch(/^[123]\d\d /);
       } else {
-        expect(res.status).toBe(403);
+        expect(actual).toMatch(/^403 /);
       }
     });
   });

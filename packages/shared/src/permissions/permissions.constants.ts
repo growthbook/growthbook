@@ -182,8 +182,9 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
     "reviewFeatures",
     "manageArchetype",
   ],
-  // Grants BOTH bypass atoms: the single pre-split atom covered saved groups
-  // too, so dropping either one would quietly take access from a stored role.
+  // Grants EVERY entity's bypass atom: the pre-split `bypassApprovalChecks` was
+  // org-wide — main's config/constant adapters consult it directly — so dropping
+  // any one of these quietly takes bypass away from a stored role on upgrade.
   FeaturesBypassApprovals: [
     "readData",
     "createFeatures",
@@ -191,6 +192,8 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
     "editFeatureDrafts",
     "reviewFeatures",
     "bypassApprovalFeatures",
+    "bypassApprovalConfigs",
+    "bypassApprovalConstants",
     "bypassApprovalSavedGroups",
   ],
   ExperimentsFullAccess: ["readData", "createAnalyses", "runQueries"],

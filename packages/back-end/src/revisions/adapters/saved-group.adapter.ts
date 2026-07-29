@@ -130,6 +130,15 @@ export const savedGroupAdapter: EntityRevisionAdapter<SavedGroupInterface> = {
     return canBypassAcrossProjects(context, snapshot);
   },
 
+  canDeleteEntity(context: Context, snapshot: SavedGroupInterface): boolean {
+    return context.permissions.canRevisionAction(
+      "saved-group",
+      "delete",
+      snapshot,
+      NO_ENVIRONMENT_BINDING,
+    );
+  },
+
   // Saved groups have no environment concept, so publish/revert are
   // project-scoped (unlike the Flags family).
   canManageDrafts(context: Context, snapshot: SavedGroupInterface): boolean {

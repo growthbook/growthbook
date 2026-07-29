@@ -1,5 +1,8 @@
 import { ConstantInterface } from "shared/types/constant";
-import { bypassApprovalPermission } from "shared/permissions";
+import {
+  NO_ENVIRONMENT_BINDING,
+  bypassApprovalPermission,
+} from "shared/permissions";
 import {
   Revision,
   getConstantRevisionChange,
@@ -158,6 +161,16 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
   // admin-level action.
   canDelete(context: Context, snapshot: ConstantInterface): boolean {
     return canBypassApprovalForConstant(context, snapshot);
+  },
+
+  canDeleteEntity(context: Context, snapshot: ConstantInterface): boolean {
+    // A constant's base value has no environment binding (see ConstantModel).
+    return context.permissions.canRevisionAction(
+      "constant",
+      "delete",
+      { projects: constantProjects(snapshot) },
+      NO_ENVIRONMENT_BINDING,
+    );
   },
 
   canManageDrafts(context: Context, snapshot: ConstantInterface): boolean {

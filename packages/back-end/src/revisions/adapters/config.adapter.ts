@@ -168,6 +168,15 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
     return canBypassApprovalForConfig(context, snapshot);
   },
 
+  canDeleteEntity(context: Context, snapshot: ConfigInterface): boolean {
+    return context.permissions.canRevisionAction(
+      "config",
+      "delete",
+      { projects: configProjects(snapshot) },
+      configPublishEnvironments(context, snapshot),
+    );
+  },
+
   canManageDrafts(context: Context, snapshot: ConfigInterface): boolean {
     return context.permissions.canRevisionAction("config", "draft", {
       projects: configProjects(snapshot),
