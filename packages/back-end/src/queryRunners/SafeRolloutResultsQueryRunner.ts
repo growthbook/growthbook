@@ -10,12 +10,10 @@ import {
 } from "shared/validators";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { getSnapshotSettingsFromSafeRolloutArgs } from "back-end/src/services/safeRolloutSnapshots";
-import {
-  analyzeExperimentResults,
-  analyzeExperimentTraffic,
-} from "back-end/src/services/stats";
+import { analyzeExperimentResults } from "back-end/src/services/stats";
 import { logger } from "back-end/src/util/logger";
 import { QueryRunner, QueryMap, getMetricQueryOwnership } from "./QueryRunner";
+import { runTrafficAnalysisStep } from "./analysisSteps";
 import {
   ExperimentResultsQueryParams,
   getExperimentResultsQueryStatus,
@@ -141,15 +139,14 @@ export class SafeRolloutResultsQueryRunner extends QueryRunner<
     if (healthQuery) {
       const rows =
         healthQuery.result as ExperimentAggregateUnitsQueryResponseRows;
-      const trafficHealth = analyzeExperimentTraffic({
-        rows: rows,
-        error: healthQuery.error,
+      const { traffic } = runTrafficAnalysisStep({
+        modelId: this.model.id,
+        rows,
+        queryError: healthQuery.error,
         variations: this.model.settings.variations,
       });
 
-      result.health = {
-        traffic: trafficHealth,
-      };
+      result.health = { traffic };
     }
     // TODO: Add functionality to dynamically update coverage here
     return result;

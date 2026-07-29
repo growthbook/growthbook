@@ -26,12 +26,23 @@ export function PowerCard({
   const { mutate } = useSWRConfig();
   const { hasCommercialFeature } = useUser();
   const snapshotPower = snapshot.health?.power;
+  // Two ways power can be missing-with-a-reason: the step threw (recorded on
+  // health.stepErrors by the runner) or the calculation itself reported
+  // failure. Both read as "healthy"/"not calculated yet" otherwise.
+  const powerError =
+    snapshot.health?.stepErrors?.power ??
+    (snapshotPower?.type === "error"
+      ? (snapshotPower.errorMessage ?? "")
+      : undefined);
   const hasMidExperimentPowerFeature =
     hasCommercialFeature("decision-framework");
 
   const phase = experiment.phases[snapshot.phase];
-  const hasPowerData = snapshotPower !== undefined;
-  const isLowPowered = snapshotPower?.isLowPowered ?? false;
+  const hasPowerData = snapshotPower !== undefined && powerError === undefined;
+  // A failed calculation's isLowPowered flag is not a finding — don't badge the
+  // experiment unhealthy or offer to mute an alert we can't stand behind.
+  const isLowPowered =
+    snapshotPower?.type === "success" && snapshotPower.isLowPowered;
 
   const canBeMuted = hasMidExperimentPowerFeature && isLowPowered;
   const isMuted = experiment.dismissedWarnings?.includes("low-power") ?? false;
@@ -75,6 +86,13 @@ export function PowerCard({
     <Callout status="info">
       We have not calculated power for this experiment yet. Refresh the Results
       to see the power data.
+    </Callout>
+  );
+
+  const renderPowerError = () => (
+    <Callout status="warning">
+      We could not calculate power for this experiment.
+      {powerError ? ` ${powerError}` : ""}
     </Callout>
   );
 
@@ -127,11 +145,13 @@ export function PowerCard({
 
   const content = !hasMidExperimentPowerFeature
     ? renderUpsell()
-    : !hasPowerData
-      ? renderNoPowerData()
-      : !isLowPowered
-        ? renderHealthyExperiment()
-        : renderLowPowerRecommendations();
+    : powerError !== undefined
+      ? renderPowerError()
+      : !hasPowerData
+        ? renderNoPowerData()
+        : !isLowPowered
+          ? renderHealthyExperiment()
+          : renderLowPowerRecommendations();
 
   return (
     <div id="power-card" style={{ scrollMarginTop: "100px" }}>

@@ -31,6 +31,7 @@ export default function CovariateImbalanceCard({
 }: Props) {
   const { metricGroups } = useDefinitions();
   const covariateImbalanceResult = snapshot?.health?.covariateImbalance;
+  const covariateStepError = snapshot?.health?.stepErrors?.covariateImbalance;
 
   const isImbalanced = covariateImbalanceResult?.isImbalanced ?? false;
 
@@ -151,6 +152,10 @@ export default function CovariateImbalanceCard({
                 <i>Only available with CUPED enabled.</i>
               </Text>
             </Box>
+          ) : covariateStepError ? (
+            <Callout status="warning">
+              We could not run the pre-exposure bias check. {covariateStepError}
+            </Callout>
           ) : totalNumMetricsTested === 0 ? (
             <Box mt="2">
               <Text color="text-low">

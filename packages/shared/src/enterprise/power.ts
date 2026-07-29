@@ -60,6 +60,9 @@ export type MetricVariationPowerResult = z.infer<
 export const MidExperimentPowerCalculationFailureValidator = z.object({
   type: z.literal("error"),
   isLowPowered: z.boolean(),
+  // Why power could not be calculated, so the Health tab can say something
+  // specific instead of falling through to "not calculated yet".
+  errorMessage: z.string().optional(),
   metricVariationPowerResults: z.array(MetricVariationPowerResultValidator),
 });
 export type MidExperimentPowerCalculationFailureResult = z.infer<
@@ -433,6 +436,7 @@ export function calculateMidExperimentPower(
     return {
       type: "error",
       isLowPowered: lowPowerWarning,
+      errorMessage: `Power could not be calculated for ${metricVariationFailure} of ${metricVariationCounter} metric-variation tests.`,
       metricVariationPowerResults: metricVariationPowerArray,
     };
   }

@@ -41,10 +41,7 @@ import {
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { updateReport } from "back-end/src/models/ReportModel";
-import {
-  analyzeExperimentResults,
-  analyzeExperimentTraffic,
-} from "back-end/src/services/stats";
+import { analyzeExperimentResults } from "back-end/src/services/stats";
 import {
   getExperimentSettingsHashForIncrementalRefresh,
   getMetricSettingsHashForIncrementalRefresh,
@@ -76,6 +73,10 @@ import {
   getMetricQueryOwnership,
 } from "./QueryRunner";
 import { shouldRunHealthTrafficQuery } from "./snapshotQueryHelpers";
+import {
+  runIsolatedAnalysisStep,
+  runTrafficAnalysisStep,
+} from "./analysisSteps";
 import {
   getIncrementalCrossStatisticsQueryName,
   getIncrementalStatisticsQueryName,
@@ -1328,9 +1329,10 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
     if (healthQuery) {
       const rows =
         healthQuery.result as ExperimentAggregateUnitsQueryResponseRows;
-      const trafficHealth = analyzeExperimentTraffic({
-        rows: rows,
-        error: healthQuery.error,
+      const { traffic: trafficHealth } = runTrafficAnalysisStep({
+        modelId: this.model.id,
+        rows,
+        queryError: healthQuery.error,
         variations: this.model.settings.variations,
       });
 
@@ -1377,13 +1379,26 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       const isEligibleForCovariateImbalanceAnalysis =
         !!analysisForCovariateImbalance;
       if (isEligibleForCovariateImbalanceAnalysis) {
-        result.health.covariateImbalance = tabulateCovariateImbalance(
-          analysisForCovariateImbalance,
-          this.model.settings.goalMetrics,
-          this.model.settings.guardrailMetrics,
-          this.model.settings.secondaryMetrics,
-          this.model.settings.metricSettings,
-        );
+        const covariateStep = runIsolatedAnalysisStep({
+          step: "covariateImbalance",
+          modelId: this.model.id,
+          run: () =>
+            tabulateCovariateImbalance(
+              analysisForCovariateImbalance,
+              this.model.settings.goalMetrics,
+              this.model.settings.guardrailMetrics,
+              this.model.settings.secondaryMetrics,
+              this.model.settings.metricSettings,
+            ),
+        });
+        if (covariateStep.error === null) {
+          result.health.covariateImbalance = covariateStep.value;
+        } else {
+          result.health.stepErrors = {
+            ...result.health.stepErrors,
+            covariateImbalance: covariateStep.error,
+          };
+        }
       }
     }
 

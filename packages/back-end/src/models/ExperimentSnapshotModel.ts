@@ -170,18 +170,28 @@ const experimentSnapshotSchema = new mongoose.Schema({
       power: Number,
       isLowPowered: Boolean,
       additionalDaysNeeded: Number,
-      metricVariationPowerResults: [
-        {
-          _id: false,
-          metricId: String,
-          variation: Number,
-          errorMessage: String,
-          power: Number,
-          isLowPowered: Boolean,
-          effectSize: Number,
-          additionalDaysNeeded: Number,
-        },
-      ],
+      // Why the power calculation itself reported failure (type: "error").
+      errorMessage: String,
+      // Without `default: undefined` Mongoose materializes this array as `[]`
+      // on read, which materializes `health.power` itself — so a snapshot with
+      // no power result reads back as `{metricVariationPowerResults: []}` and
+      // every `power !== undefined` check (PowerCard, decision criteria) is
+      // wrong. Keep the field absent when nothing was stored.
+      metricVariationPowerResults: {
+        type: [
+          {
+            _id: false,
+            metricId: String,
+            variation: Number,
+            errorMessage: String,
+            power: Number,
+            isLowPowered: Boolean,
+            effectSize: Number,
+            additionalDaysNeeded: Number,
+          },
+        ],
+        default: undefined,
+      },
     },
     covariateImbalance: {
       _id: false,
@@ -193,22 +203,34 @@ const experimentSnapshotSchema = new mongoose.Schema({
       numGuardrailMetricsImbalanced: Number,
       numSecondaryMetrics: Number,
       numSecondaryMetricsImbalanced: Number,
-      metricVariationCovariateImbalanceResults: [
-        {
-          _id: false,
-          metricId: String,
-          variation: Number,
-          isImbalanced: Boolean,
-          baselineSampleSize: Number,
-          variationSampleSize: Number,
-          baselineMean: Number,
-          variationMean: Number,
-          baselineStandardError: Number,
-          variationStandardError: Number,
-          pValue: Number,
-          errorMessage: String,
-        },
-      ],
+      // See metricVariationPowerResults above for why `default: undefined` is
+      // required here too.
+      metricVariationCovariateImbalanceResults: {
+        type: [
+          {
+            _id: false,
+            metricId: String,
+            variation: Number,
+            isImbalanced: Boolean,
+            baselineSampleSize: Number,
+            variationSampleSize: Number,
+            baselineMean: Number,
+            variationMean: Number,
+            baselineStandardError: Number,
+            variationStandardError: Number,
+            pValue: Number,
+            errorMessage: String,
+          },
+        ],
+        default: undefined,
+      },
+    },
+    // Why an isolated health step produced no result (the step threw). Keyed by
+    // step name; the matching result field above is absent when set.
+    stepErrors: {
+      _id: false,
+      power: String,
+      covariateImbalance: String,
     },
   },
   hasRawQueries: Boolean,

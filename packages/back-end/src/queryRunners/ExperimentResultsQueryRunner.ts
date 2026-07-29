@@ -51,10 +51,7 @@ import {
   getFactMetricGroups,
 } from "back-end/src/services/experimentQueries/experimentQueries";
 import { parseDimension } from "back-end/src/services/experiments";
-import {
-  analyzeExperimentResults,
-  analyzeExperimentTraffic,
-} from "back-end/src/services/stats";
+import { analyzeExperimentResults } from "back-end/src/services/stats";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { expandDenominatorMetrics } from "back-end/src/util/sql";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
@@ -70,6 +67,10 @@ import {
   getMetricQueryOwnership,
 } from "./QueryRunner";
 import { shouldRunHealthTrafficQuery } from "./snapshotQueryHelpers";
+import {
+  runIsolatedAnalysisStep,
+  runTrafficAnalysisStep,
+} from "./analysisSteps";
 import { getUnitDimQueryName } from "./unitDimensionQueryNaming";
 export type SnapshotResult = {
   unknownVariations: string[];
@@ -637,16 +638,19 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       result.multipleExposures = results.multipleExposures ?? 0;
     });
 
-    // Run health checks
+    // Run health checks. Each step below is isolated: its failure is recorded on
+    // its own block so it cannot discard the metric results assembled above.
     const healthQuery = queryMap.get(TRAFFIC_QUERY_NAME);
     if (healthQuery) {
       const rows =
         healthQuery.result as ExperimentAggregateUnitsQueryResponseRows;
-      const trafficHealth = analyzeExperimentTraffic({
-        rows: rows,
-        error: healthQuery.error,
-        variations: this.model.settings.variations,
-      });
+      const { traffic: trafficHealth, error: trafficError } =
+        runTrafficAnalysisStep({
+          modelId: this.model.id,
+          rows,
+          queryError: healthQuery.error,
+          variations: this.model.settings.variations,
+        });
 
       result.health = {
         traffic: trafficHealth,
@@ -660,7 +664,10 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
         relativeAnalysis &&
         this.model.settings.banditSettings === undefined &&
         rows &&
-        rows.length;
+        rows.length &&
+        // Power is computed from the traffic health; skip it rather than derive
+        // power from the zero-filled placeholder above.
+        trafficError === null;
 
       if (isEligibleForMidExperimentPowerAnalysis) {
         const today = new Date();
@@ -676,13 +683,26 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
         );
         const targetDaysRemaining = daysBetween(today, experimentTargetEndDate);
         // NB: This does not run a SQL query, but it is a health check that depends on the trafficHealth
-        result.health.power = analyzeExperimentPower({
-          trafficHealth,
-          targetDaysRemaining,
-          analysis: relativeAnalysis,
-          goalMetrics: this.model.settings.goalMetrics,
-          variationsSettings: this.model.settings.variations,
+        const powerStep = runIsolatedAnalysisStep({
+          step: "power",
+          modelId: this.model.id,
+          run: () =>
+            analyzeExperimentPower({
+              trafficHealth,
+              targetDaysRemaining,
+              analysis: relativeAnalysis,
+              goalMetrics: this.model.settings.goalMetrics,
+              variationsSettings: this.model.settings.variations,
+            }),
         });
+        if (powerStep.error === null) {
+          result.health.power = powerStep.value;
+        } else {
+          result.health.stepErrors = {
+            ...result.health.stepErrors,
+            power: powerStep.error,
+          };
+        }
       }
       const analysisForCovariateImbalance = this.model.analyses.find(
         (a) => a.settings.useCovariateAsResponse === true,
@@ -690,13 +710,26 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       const isEligibleForCovariateImbalanceAnalysis =
         !!analysisForCovariateImbalance;
       if (isEligibleForCovariateImbalanceAnalysis) {
-        result.health.covariateImbalance = tabulateCovariateImbalance(
-          analysisForCovariateImbalance,
-          this.model.settings.goalMetrics,
-          this.model.settings.guardrailMetrics,
-          this.model.settings.secondaryMetrics,
-          this.model.settings.metricSettings,
-        );
+        const covariateStep = runIsolatedAnalysisStep({
+          step: "covariateImbalance",
+          modelId: this.model.id,
+          run: () =>
+            tabulateCovariateImbalance(
+              analysisForCovariateImbalance,
+              this.model.settings.goalMetrics,
+              this.model.settings.guardrailMetrics,
+              this.model.settings.secondaryMetrics,
+              this.model.settings.metricSettings,
+            ),
+        });
+        if (covariateStep.error === null) {
+          result.health.covariateImbalance = covariateStep.value;
+        } else {
+          result.health.stepErrors = {
+            ...result.health.stepErrors,
+            covariateImbalance: covariateStep.error,
+          };
+        }
       }
     }
     return result;
