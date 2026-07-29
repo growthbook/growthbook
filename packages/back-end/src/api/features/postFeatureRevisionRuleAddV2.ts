@@ -1,5 +1,4 @@
 import cloneDeep from "lodash/cloneDeep";
-import omit from "lodash/omit";
 import { v4 as uuidv4 } from "uuid";
 import {
   RevisionRampCreateAction,
@@ -9,7 +8,7 @@ import {
   SafeRolloutInterface,
 } from "shared/validators";
 import type { FeatureRule, SafeRolloutRule } from "shared/validators";
-import { resetReviewOnChange } from "shared/util";
+import { getEffectiveRevisionHoldout, resetReviewOnChange } from "shared/util";
 import { RevisionChanges } from "shared/types/feature-revision";
 import { ExperimentInterface } from "shared/types/experiment";
 import { CreateProps } from "shared/types/base-model";
@@ -23,6 +22,10 @@ import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/conf
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
+import {
+  linkExperimentToHoldout,
+  resolveHoldoutExperimentToLink,
+} from "back-end/src/services/holdouts";
 import {
   getExperimentById,
   updateExperiment,
@@ -128,65 +131,41 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
           "Either provide variationId for all variations or none; mixed inputs are not allowed.",
         );
       }
-      const needsHoldoutCheck = Boolean(feature.holdout?.id);
-      if (anyMissing || needsHoldoutCheck) {
-        const experiment = await getExperimentById(
-          req.context,
-          ruleInput.experimentId,
+      // Always resolve the experiment: holdout compatibility must be checked
+      // in both directions (the experiment may belong to a holdout even when
+      // this Feature Flag does not).
+      const experiment = await getExperimentById(
+        req.context,
+        ruleInput.experimentId,
+      );
+      if (!experiment)
+        throw new NotFoundError(
+          `Could not find experiment "${ruleInput.experimentId}"`,
         );
-        if (!experiment)
-          throw new NotFoundError(
-            `Could not find experiment "${ruleInput.experimentId}"`,
+
+      if (anyMissing) {
+        const phaseVariations = getLatestPhaseVariations(experiment);
+        if (phaseVariations.length < ruleInput.variations.length) {
+          throw new BadRequestError(
+            `Experiment has ${phaseVariations.length} variation(s) but ${ruleInput.variations.length} were specified`,
           );
-
-        if (anyMissing) {
-          const phaseVariations = getLatestPhaseVariations(experiment);
-          if (phaseVariations.length < ruleInput.variations.length) {
-            throw new BadRequestError(
-              `Experiment has ${phaseVariations.length} variation(s) but ${ruleInput.variations.length} were specified`,
-            );
-          }
-          ruleInput.variations = ruleInput.variations.map((v, i) => ({
-            variationId: phaseVariations[i].id,
-            value: v.value,
-          }));
         }
-
-        if (needsHoldoutCheck && feature.holdout?.id) {
-          if (experiment.status !== "draft") {
-            throw new BadRequestError(
-              `Cannot add experiment rule: this feature uses a holdout, so the experiment must be in "draft" status (currently "${experiment.status}").`,
-            );
-          }
-          const expHasLinkedChanges =
-            (experiment.linkedFeatures?.length ?? 0) > 0 ||
-            experiment.hasURLRedirects ||
-            experiment.hasVisualChangesets;
-          if (expHasLinkedChanges) {
-            throw new BadRequestError(
-              `Cannot add experiment rule: this feature uses a holdout, but the experiment already has linked features, URL redirects, or visual changesets. Unlink them first.`,
-            );
-          }
-          if (
-            experiment.holdoutId &&
-            experiment.holdoutId !== feature.holdout.id
-          ) {
-            const featureHoldout = await req.context.models.holdout.getById(
-              feature.holdout.id,
-            );
-            const expHoldout = experiment.holdoutId
-              ? await req.context.models.holdout.getById(experiment.holdoutId)
-              : null;
-            throw new BadRequestError(
-              `Cannot add experiment rule: experiment belongs to holdout "${expHoldout?.name || experiment.holdoutId}" but this feature uses holdout "${featureHoldout?.name || feature.holdout.id}".`,
-            );
-          }
-          if (!experiment.holdoutId) {
-            // Deferred until after custom-hook prevalidation below
-            holdoutExperimentToLink = experiment;
-          }
-        }
+        ruleInput.variations = ruleInput.variations.map((v, i) => ({
+          variationId: phaseVariations[i].id,
+          value: v.value,
+        }));
       }
+
+      // Legacy revisions store holdout sparsely, so absence carries the
+      // feature's holdout forward. Linking writes are deferred until after
+      // custom-hook prevalidation below.
+      holdoutExperimentToLink = await resolveHoldoutExperimentToLink({
+        context: req.context,
+        feature,
+        experiment,
+        effectiveHoldout: getEffectiveRevisionHoldout(revision, feature),
+        makeError: (message) => new BadRequestError(message),
+      });
     }
 
     // V2: derive scope from the rule itself, not from a body `environment` field.
@@ -379,26 +358,24 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
       createdSafeRolloutId = safeRollout.id;
     }
 
-    if (holdoutExperimentToLink && feature.holdout?.id) {
-      await updateExperiment({
-        context: req.context,
-        experiment: holdoutExperimentToLink,
-        changes: { holdoutId: feature.holdout.id },
-      });
+    // Link now only when the validated holdout is already live. A draft-only
+    // holdout defers to publish — applyHoldoutSideEffects enrolls the
+    // experiments in the merged rules when the holdout change lands.
+    const linkHoldoutId = getEffectiveRevisionHoldout(revision, feature)?.id;
+    if (
+      holdoutExperimentToLink &&
+      linkHoldoutId &&
+      feature.holdout?.id === linkHoldoutId
+    ) {
+      // Record ids for compensation BEFORE the writes — the rollback is
+      // idempotent, so a mid-write failure is still fully compensated.
       linkedExperimentId = holdoutExperimentToLink.id;
-      const holdout = await req.context.models.holdout.getById(
-        feature.holdout.id,
+      linkedHoldoutId = linkHoldoutId;
+      await linkExperimentToHoldout(
+        req.context,
+        holdoutExperimentToLink,
+        linkHoldoutId,
       );
-      await req.context.models.holdout.updateById(feature.holdout.id, {
-        linkedExperiments: {
-          ...holdout?.linkedExperiments,
-          [holdoutExperimentToLink.id]: {
-            id: holdoutExperimentToLink.id,
-            dateAdded: new Date(),
-          },
-        },
-      });
-      linkedHoldoutId = feature.holdout.id;
     }
 
     await updateRevision(
@@ -461,15 +438,10 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
     }
     if (linkedHoldoutId && linkedExperimentId) {
       try {
-        const holdout =
-          await req.context.models.holdout.getById(linkedHoldoutId);
-        if (holdout?.linkedExperiments?.[linkedExperimentId]) {
-          await req.context.models.holdout.updateById(linkedHoldoutId, {
-            linkedExperiments: omit(holdout.linkedExperiments, [
-              linkedExperimentId,
-            ]),
-          });
-        }
+        await req.context.models.holdout.removeExperimentFromHoldout(
+          linkedHoldoutId,
+          linkedExperimentId,
+        );
       } catch {
         /* best effort */
       }

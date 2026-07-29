@@ -82,6 +82,7 @@ import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
 import { useDefaultDraft } from "@/hooks/useDefaultDraft";
+import { useFeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
 import { useTemplates } from "@/hooks/useTemplates";
 import SafeRolloutFields from "@/components/Features/RuleModal/SafeRolloutFields";
 import RampScheduleSection from "@/components/Features/RuleModal/RampScheduleSection";
@@ -362,6 +363,19 @@ export default function RuleModal({
       ? selectedDraft
       : feature.version;
 
+  // Holdout a newly-created experiment should join: the holdout of the draft the
+  // rule is being added to (revision.holdout), not just the live feature's — so
+  // a holdout added in that same draft is picked up. Falls back to the merged
+  // feature's holdout when the target revision isn't in context (e.g. a new
+  // draft branched from the viewed version carries that holdout forward).
+  const revisionsCtx = useFeatureRevisionsContext();
+  const targetHoldoutId = useMemo(() => {
+    const targetRev = revisionsCtx?.revisions.find(
+      (r) => r.version === targetVersion,
+    );
+    return (targetRev ? targetRev.holdout : feature.holdout)?.id;
+  }, [revisionsCtx, targetVersion, feature.holdout]);
+
   const gatedEnvSet: Set<string> | "all" | "none" = useMemo(() => {
     const raw = settings?.requireReviews;
     if (raw === true) return "all";
@@ -408,6 +422,10 @@ export default function RuleModal({
   const defaultValues = {
     ...defaultRuleValues,
     ...convertRuleToFormValues(rule),
+    // A duplicated rollout starts seedless so it buckets independently; the Seed
+    // field stays editable to reuse the original's cohort. Safe-rollout has its
+    // own "Same seed" checkbox, so it's excluded here.
+    ...(mode === "duplicate" && rule?.type === "rollout" ? { seed: "" } : {}),
     // Pre-set the ID for new rollout rules so ramp creation can reference it
     // without a second round-trip. Back-end preserves a truthy id from the client.
     ...(mode === "create" && !rule ? { id: pregenRuleId } : {}),
@@ -1098,9 +1116,7 @@ export default function RuleModal({
           statsEngine: values.statsEngine ?? undefined,
           type: values.experimentType,
           holdoutId:
-            values.experimentType === "standard"
-              ? feature.holdout?.id
-              : undefined,
+            values.experimentType === "standard" ? targetHoldoutId : undefined,
         };
 
         if (values?.customFields) {
@@ -1232,6 +1248,13 @@ export default function RuleModal({
         // eslint-disable-next-line
         delete (values as any).seed;
         delete (values as { hashVersion?: number }).hashVersion;
+      } else if (values.type === "rollout") {
+        // An empty seed means "stamp this rule's own id" (the default for
+        // duplicates) — omit it rather than submitting "".
+        if (!values.seed) {
+          // eslint-disable-next-line
+          delete (values as any).seed;
+        }
       }
       if (
         values.scheduleRules &&

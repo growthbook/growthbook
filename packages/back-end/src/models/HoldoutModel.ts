@@ -2,6 +2,7 @@ import { HoldoutInterface, holdoutValidator } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
 import { ExperimentInterface } from "shared/types/experiment";
 import { getCollection } from "back-end/src/util/mongo.util";
+import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { MakeModelClass } from "./BaseModel";
 import { getExperimentById } from "./ExperimentModel";
 
@@ -55,12 +56,19 @@ export class HoldoutModel extends BaseClass {
     existing: HoldoutInterface,
     updates: Partial<HoldoutInterface>,
   ) {
+    // Every check below validates schedule dates. Returning early keeps a
+    // linkage-only write from having to resolve the holdout's experiment, which
+    // `getExperimentById` hides from anyone without `readData` on its project —
+    // the holdout experiment carries `project: ""`, so that is the caller's
+    // global role, and a project-scoped flag publisher would fail mid-publish.
+    if ((updates.statusUpdateSchedule ?? null) === null) return;
+
     const holdoutExperiment = await getExperimentById(
       this.context,
       existing.experimentId,
     );
     if (!holdoutExperiment) {
-      throw new Error("Holdout experiment not found");
+      throw new NotFoundError("Holdout experiment not found");
     }
 
     const { startAt, startAnalysisPeriodAt, stopAt } =
@@ -74,7 +82,7 @@ export class HoldoutModel extends BaseClass {
       holdoutExperiment.status === "draft" &&
       new Date(startAt) < now
     ) {
-      throw new Error("Scheduled start date cannot be in the past");
+      throw new BadRequestError("Scheduled start date cannot be in the past");
     }
     if (
       startAnalysisPeriodAt &&
@@ -82,14 +90,16 @@ export class HoldoutModel extends BaseClass {
       !existing.analysisStartDate &&
       new Date(startAnalysisPeriodAt) < now
     ) {
-      throw new Error("Scheduled analysis start date cannot be in the past");
+      throw new BadRequestError(
+        "Scheduled analysis start date cannot be in the past",
+      );
     }
     if (
       stopAt &&
       holdoutExperiment.status !== "stopped" &&
       new Date(stopAt) < now
     ) {
-      throw new Error("Scheduled stop date cannot be in the past");
+      throw new BadRequestError("Scheduled stop date cannot be in the past");
     }
 
     // Check date dependencies
@@ -98,7 +108,7 @@ export class HoldoutModel extends BaseClass {
       stopAt &&
       (!startAt || !startAnalysisPeriodAt)
     ) {
-      throw new Error(
+      throw new BadRequestError(
         "To set a stop date, you must also set a start date and an analysis start date",
       );
     }
@@ -107,7 +117,7 @@ export class HoldoutModel extends BaseClass {
       startAnalysisPeriodAt &&
       !startAt
     ) {
-      throw new Error(
+      throw new BadRequestError(
         "To set an analysis start date, you must first set a start date",
       );
     }
@@ -118,7 +128,7 @@ export class HoldoutModel extends BaseClass {
       stopAt &&
       !startAnalysisPeriodAt
     ) {
-      throw new Error(
+      throw new BadRequestError(
         "To set a stop date, you must first set an analysis start date",
       );
     }
@@ -138,7 +148,7 @@ export class HoldoutModel extends BaseClass {
         !existing.analysisStartDate &&
         startAnalysisPeriodAt > stopAt);
     if (dateError) {
-      throw new Error("Scheduled dates must be consecutive");
+      throw new BadRequestError("Scheduled dates must be consecutive");
     }
   }
 
@@ -220,21 +230,126 @@ export class HoldoutModel extends BaseClass {
     holdoutId: string,
     experimentId: string,
   ) {
-    const holdout = await this.getById(holdoutId);
-    if (!holdout) {
-      throw new Error("Holdout not found");
-    }
+    const holdout = await this.getLinkageTarget(holdoutId);
     const { [experimentId]: _, ...linkedExperiments } =
       holdout.linkedExperiments;
-    await this.updateById(holdoutId, { linkedExperiments });
+    await this.writeLinkage(holdout, { linkedExperiments });
   }
 
   public async removeFeatureFromHoldout(holdoutId: string, featureId: string) {
-    const holdout = await this.getById(holdoutId);
-    if (!holdout) {
-      throw new Error("Holdout not found");
-    }
+    const holdout = await this.getLinkageTarget(holdoutId);
     const { [featureId]: _, ...linkedFeatures } = holdout.linkedFeatures;
-    await this.updateById(holdoutId, { linkedFeatures });
+    await this.writeLinkage(holdout, { linkedFeatures });
+  }
+
+  public async addFeatureToHoldout(
+    holdoutId: string,
+    featureId: string,
+    experimentIds: string[] = [],
+  ) {
+    const holdout = await this.getLinkageTarget(holdoutId);
+    await this.writeLinkage(holdout, {
+      linkedFeatures: {
+        [featureId]: { id: featureId, dateAdded: new Date() },
+        ...holdout.linkedFeatures,
+      },
+      ...(experimentIds.length
+        ? {
+            linkedExperiments: {
+              ...Object.fromEntries(
+                experimentIds.map((experimentId) => [
+                  experimentId,
+                  { id: experimentId, dateAdded: new Date() },
+                ]),
+              ),
+              ...holdout.linkedExperiments,
+            },
+          }
+        : {}),
+    });
+  }
+
+  public async addExperimentToHoldout(holdoutId: string, experimentId: string) {
+    const holdout = await this.getLinkageTarget(holdoutId);
+    await this.writeLinkage(holdout, {
+      linkedExperiments: {
+        ...holdout.linkedExperiments,
+        [experimentId]: { id: experimentId, dateAdded: new Date() },
+      },
+    });
+  }
+
+  // Publish-rewind counterpart to `addFeatureToHoldout`: drops only the entries a
+  // failed publish added, in one write, leaving entries other features
+  // contributed alone. No-ops when the maps are already at the target state, so
+  // rewinding a forward pass that never landed writes nothing.
+  public async removeLinkageFromHoldout(
+    holdoutId: string,
+    {
+      featureId,
+      experimentIds,
+    }: { featureId?: string | null; experimentIds?: string[] },
+  ) {
+    const holdout = await this.getByIdForLinkage(holdoutId);
+    if (!holdout) return;
+
+    const drop = new Set(experimentIds ?? []);
+    const linkedExperiments = Object.fromEntries(
+      Object.entries(holdout.linkedExperiments).filter(([id]) => !drop.has(id)),
+    );
+    const linkedFeatures = { ...holdout.linkedFeatures };
+    if (featureId) delete linkedFeatures[featureId];
+
+    if (
+      Object.keys(linkedExperiments).length ===
+        Object.keys(holdout.linkedExperiments).length &&
+      Object.keys(linkedFeatures).length ===
+        Object.keys(holdout.linkedFeatures).length
+    ) {
+      return;
+    }
+    await this.writeLinkage(holdout, { linkedFeatures, linkedExperiments });
+  }
+
+  // Puts a feature back under the holdout it was unlinked from, with its original
+  // `dateAdded`. No-ops when it is still linked.
+  public async restoreFeatureLinkage(
+    holdoutId: string,
+    feature: { id: string; dateAdded: Date },
+  ) {
+    const holdout = await this.getByIdForLinkage(holdoutId);
+    if (!holdout || holdout.linkedFeatures[feature.id]) return;
+    await this.writeLinkage(holdout, {
+      linkedFeatures: { ...holdout.linkedFeatures, [feature.id]: feature },
+    });
+  }
+
+  // Bypasses read scope: the Holdout reference is already committed on the
+  // Feature Flag, so linkage must not depend on the publisher seeing its Projects.
+  public async getByIdForLinkage(
+    holdoutId: string,
+  ): Promise<HoldoutInterface | null> {
+    const [holdout] = await this._find(
+      { id: holdoutId },
+      { bypassReadPermissionChecks: true },
+    );
+    return holdout ?? null;
+  }
+
+  private async getLinkageTarget(holdoutId: string): Promise<HoldoutInterface> {
+    const holdout = await this.getByIdForLinkage(holdoutId);
+    if (!holdout) {
+      throw new NotFoundError("Holdout not found");
+    }
+    return holdout;
+  }
+
+  // A side effect of an authorized Feature Flag write, so flag authority is
+  // enough — gating on `createAnalyses` fails mid-publish for flag publishers.
+  private async writeLinkage(
+    holdout: HoldoutInterface,
+    updates: UpdateProps<HoldoutInterface>,
+  ) {
+    await this.dangerousUpdateBypassPermission(holdout, updates);
   }
 }
