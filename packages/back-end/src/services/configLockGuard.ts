@@ -93,9 +93,10 @@ export async function assertConfigLockGuard(
 
   const synchronousOverride =
     context.ignoreWarnings ||
-    context.permissions.canBypassFlagApprovalChecks({
-      project: resolvable.project || "",
-    });
+    context.permissions.canBypassFlagApprovalChecks(
+      { project: resolvable.project || "" },
+      resolvable.source,
+    );
 
   const decision = decideExperimentGuard({
     guardEnabled: true,
@@ -149,9 +150,10 @@ export async function captureConfigLockAcknowledgment(
   const sortedKeys = [...conflictKeys].sort();
   const override =
     context.ignoreWarnings ||
-    context.permissions.canBypassFlagApprovalChecks({
-      project: resolvable.project || "",
-    });
+    context.permissions.canBypassFlagApprovalChecks(
+      { project: resolvable.project || "" },
+      resolvable.source,
+    );
   if (!override) {
     throw new SoftWarningError(
       `Scheduling this publish will change the resolved value of locked Config(s): ${sortedKeys.join(

@@ -99,14 +99,14 @@ export async function publishFeatureRevision(
   // ignoreWarnings is always true, and force-merge for those must stay gated on
   // the schedule's persisted bypass intent (passed as body ignoreWarnings).
   const canBypassGovernance =
-    req.context.permissions.canBypassFlagApprovalChecks(feature);
+    req.context.permissions.canBypassFlagApprovalChecks(feature, "feature");
   const forceMergeRequested = req.body.ignoreWarnings === true;
 
   // Bypass via restApiBypassesReviews (API keys/PATs only — JWT-backed REST
   // calls should behave like dashboard actions) or bypassApprovalFlags.
   const canBypass =
     canUseRestApiBypass ||
-    req.context.permissions.canBypassFlagApprovalChecks(feature);
+    req.context.permissions.canBypassFlagApprovalChecks(feature, "feature");
 
   // Aggregate every publish gate up front so a blocked publish returns ONE
   // structured 422 naming each gate, the flag that clears it, and a callable
@@ -144,7 +144,7 @@ export async function publishFeatureRevision(
     skipSchemaValidation: req.context.skipSchemaValidation,
     skipHooks: req.context.skipHooks,
     bypassApprovalPermission:
-      req.context.permissions.canBypassFlagApprovalChecks(feature),
+      req.context.permissions.canBypassFlagApprovalChecks(feature, "feature"),
     restApiBypassesReviews: canUseRestApiBypass,
     canForceMergeStaleBase: canBypassGovernance,
   });

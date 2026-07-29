@@ -159,6 +159,7 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
   canBypassApproval(context, entity) {
     return context.permissions.canBypassFlagApprovalChecks(
       entity as unknown as FeatureInterface,
+      "feature",
     );
   },
 

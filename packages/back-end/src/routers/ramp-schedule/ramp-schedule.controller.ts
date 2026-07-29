@@ -437,7 +437,10 @@ export const postRampScheduleAction = async (
         const linkedFeature = await getFeature(context, schedule.entityId);
         if (
           !linkedFeature ||
-          !context.permissions.canBypassFlagApprovalChecks(linkedFeature)
+          !context.permissions.canBypassFlagApprovalChecks(
+            linkedFeature,
+            "feature",
+          )
         ) {
           return res.status(403).json({
             status: 403,
@@ -477,7 +480,10 @@ export const postRampScheduleAction = async (
             const linkedFeature = await getFeature(context, fresh.entityId);
             if (
               !linkedFeature ||
-              !context.permissions.canBypassFlagApprovalChecks(linkedFeature)
+              !context.permissions.canBypassFlagApprovalChecks(
+                linkedFeature,
+                "feature",
+              )
             ) {
               throw new PermissionError(
                 "Permission denied: bypassApprovalFlags required on the linked feature",

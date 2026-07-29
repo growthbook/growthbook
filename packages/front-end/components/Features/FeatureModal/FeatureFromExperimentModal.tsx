@@ -277,7 +277,7 @@ export default function FeatureFromExperimentModal({
 
   const canAutoPublish = useMemo(() => {
     if (!existingFeature) return false;
-    if (permissionsUtil.canBypassFlagApprovalChecks(existingFeature))
+    if (permissionsUtil.canBypassFlagApprovalChecks(existingFeature, "feature"))
       return true;
     return gatedEnvSet === "none";
   }, [existingFeature, permissionsUtil, gatedEnvSet]);

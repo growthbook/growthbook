@@ -479,6 +479,17 @@ export class ReqContextClass {
   // writer can't silently ship non-conforming data — the flag is ignored and
   // validation still runs (a 4xx, the secure default). Schema validation is new,
   // so nothing depends on an ungated bypass.
+  // These request flags are entity-agnostic; the publish gates re-check the
+  // specific entity's bypass atom per gate (requiresPermission).
+  private hasAnyFlagBypassAuthority(): boolean {
+    return (["feature", "config", "constant"] as const).some((model) =>
+      this.permissions.canBypassFlagApprovalChecks(
+        { project: undefined },
+        model,
+      ),
+    );
+  }
+
   public get skipSchemaValidation(): boolean {
     if (!this.req) return false;
     const queryValue = this.req.query?.skipSchemaValidation;
@@ -486,7 +497,7 @@ export class ReqContextClass {
       this.bodyFlag("skipSchemaValidation") ||
       (typeof queryValue === "string" && stringToBoolean(queryValue));
     if (!requested) return false;
-    return this.permissions.canBypassFlagApprovalChecks({ project: undefined });
+    return this.hasAnyFlagBypassAuthority();
   }
 
   // Force past a custom validation hook that rejected the change. Its own flag
@@ -500,7 +511,7 @@ export class ReqContextClass {
       this.bodyFlag("skipHooks") ||
       (typeof queryValue === "string" && stringToBoolean(queryValue));
     if (!requested) return false;
-    return this.permissions.canBypassFlagApprovalChecks({ project: undefined });
+    return this.hasAnyFlagBypassAuthority();
   }
 
   public throwBadRequestError(message: string): never {

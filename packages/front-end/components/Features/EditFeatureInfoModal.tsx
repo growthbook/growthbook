@@ -45,7 +45,10 @@ const EditFeatureInfoModal: FC<{
   const [showProjectWarningMsg, setShowProjectWarningMsg] = useState(false);
   const { requireProjectForFeatures } = settings;
 
-  const isAdmin = permissionsUtil.canBypassFlagApprovalChecks(feature);
+  const isAdmin = permissionsUtil.canBypassFlagApprovalChecks(
+    feature,
+    "feature",
+  );
 
   // Gated when requireReviewOn is true and featureRequireMetadataReview is not disabled
   const metadataGated: boolean = (() => {

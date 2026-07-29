@@ -3745,7 +3745,7 @@ export async function assertCanAutoPublish(
 
   if (
     requiresReview &&
-    !context.permissions.canBypassFlagApprovalChecks(feature)
+    !context.permissions.canBypassFlagApprovalChecks(feature, "feature")
   ) {
     context.permissions.throwPermissionError();
   }

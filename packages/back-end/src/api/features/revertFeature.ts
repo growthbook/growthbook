@@ -254,7 +254,7 @@ export async function revertFeatureCore(
   // per-change above, so any publisher may revert without approval).
   const canBypass =
     canUseRestApiBypass ||
-    context.permissions.canBypassFlagApprovalChecks(feature) ||
+    context.permissions.canBypassFlagApprovalChecks(feature, "feature") ||
     !!organization.settings?.revertsBypassApproval;
 
   if (!canBypass) {

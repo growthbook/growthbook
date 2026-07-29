@@ -56,7 +56,10 @@ export default function FeatureArchiveModal({
   // Only archiving is gated on dependents; unarchiving is always allowed.
   const needsDependentsAck = !isArchived && totalDependents > 0;
 
-  const isAdmin = permissionsUtil.canBypassFlagApprovalChecks(feature);
+  const isAdmin = permissionsUtil.canBypassFlagApprovalChecks(
+    feature,
+    "feature",
+  );
 
   // Environments the flip actually reaches: the ones the flag serves in. For an
   // unarchive that's where it will resume serving, which is the same set —

@@ -225,7 +225,7 @@ function scheduledPublishMayForceMerge(
 ): boolean {
   return (
     !!revision.scheduledPublishBypassApproval &&
-    context.permissions.canBypassFlagApprovalChecks(feature)
+    context.permissions.canBypassFlagApprovalChecks(feature, "feature")
   );
 }
 

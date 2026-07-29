@@ -331,7 +331,7 @@ export async function revertFeatureRevision(
   // calls should behave like dashboard actions) or bypassApprovalFlags.
   const canBypass =
     canUseRestApiBypass ||
-    context.permissions.canBypassFlagApprovalChecks(feature);
+    context.permissions.canBypassFlagApprovalChecks(feature, "feature");
 
   if (!canBypass) {
     const liveRevision = await getRevision({

@@ -62,7 +62,10 @@ export default function DraftSelectorForChanges({
   allowNewDraftAtCap?: boolean;
 }) {
   const permissionsUtil = usePermissionsUtil();
-  const isAdmin = permissionsUtil.canBypassFlagApprovalChecks(feature);
+  const isAdmin = permissionsUtil.canBypassFlagApprovalChecks(
+    feature,
+    "feature",
+  );
 
   const activeDrafts = useMemo(
     () =>

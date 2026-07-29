@@ -1047,10 +1047,9 @@ export class Permissions {
       project?: string;
       projects?: string[];
     },
-    model: Extract<
-      RevisionModel,
-      "feature" | "config" | "constant"
-    > = "feature",
+    // Required, no default: defaulting to "feature" let config/constant call
+    // sites silently consult the wrong entity's bypass atom.
+    model: Extract<RevisionModel, "feature" | "config" | "constant">,
   ): boolean => {
     return this.canRevisionAction(model, "bypass", obj);
   };

@@ -13,6 +13,6 @@ export function canBypassReviewChecks(
 ): boolean {
   return (
     canUseRestApiBypassSetting(req) ||
-    req.context.permissions.canBypassFlagApprovalChecks(feature)
+    req.context.permissions.canBypassFlagApprovalChecks(feature, "feature")
   );
 }

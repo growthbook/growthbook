@@ -357,9 +357,10 @@ export async function assertConfigExperimentGuard(
 
   const synchronousOverride =
     context.ignoreWarnings ||
-    context.permissions.canBypassFlagApprovalChecks({
-      project: config.project || "",
-    });
+    context.permissions.canBypassFlagApprovalChecks(
+      { project: config.project || "" },
+      "config",
+    );
 
   const decision = decideExperimentGuard({
     guardEnabled: true,
@@ -466,9 +467,10 @@ export async function captureConfigExperimentGuardAcknowledgment(
   const sortedKeys = [...conflictKeys].sort();
   const override =
     context.ignoreWarnings ||
-    context.permissions.canBypassFlagApprovalChecks({
-      project: config.project || "",
-    });
+    context.permissions.canBypassFlagApprovalChecks(
+      { project: config.project || "" },
+      "config",
+    );
   if (!override) {
     throw new SoftWarningError(
       `Scheduling this publish will rewrite the live value served to a running experiment (${describeConfigConflictKeys(
@@ -574,9 +576,10 @@ export async function assertConstantExperimentGuard(
 
   const synchronousOverride =
     context.ignoreWarnings ||
-    context.permissions.canBypassFlagApprovalChecks({
-      project: constant.project || "",
-    });
+    context.permissions.canBypassFlagApprovalChecks(
+      { project: constant.project || "" },
+      "constant",
+    );
 
   const decision = decideExperimentGuard({
     guardEnabled: true,
@@ -641,9 +644,10 @@ export async function captureConstantExperimentGuardAcknowledgment(
   const sortedKeys = [...conflictKeys].sort();
   const override =
     context.ignoreWarnings ||
-    context.permissions.canBypassFlagApprovalChecks({
-      project: constant.project || "",
-    });
+    context.permissions.canBypassFlagApprovalChecks(
+      { project: constant.project || "" },
+      "constant",
+    );
   if (!override) {
     throw new SoftWarningError(
       `Scheduling this publish will rewrite the live value served to a running experiment (${describeConstantConflictKeys(

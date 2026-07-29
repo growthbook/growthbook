@@ -250,7 +250,10 @@ export default function KillSwitchModal({
   const ctx = useFeatureRevisionsContext();
 
   const liveDoc = baseFeature ?? ctx?.baseFeature ?? feature;
-  const isAdmin = permissionsUtil.canBypassFlagApprovalChecks(feature);
+  const isAdmin = permissionsUtil.canBypassFlagApprovalChecks(
+    feature,
+    "feature",
+  );
 
   const rawRequireReviews = settings?.requireReviews;
   const reviewSetting = Array.isArray(rawRequireReviews)

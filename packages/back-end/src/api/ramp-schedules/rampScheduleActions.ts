@@ -715,7 +715,7 @@ export const apiAdvanceRampSchedule = createApiRequestHandler({
     const feature = await getFeature(req.context, schedule.entityId);
     if (
       !feature ||
-      !req.context.permissions.canBypassFlagApprovalChecks(feature)
+      !req.context.permissions.canBypassFlagApprovalChecks(feature, "feature")
     ) {
       throw new PermissionError(
         "force: true requires bypassApprovalFlags permission on the linked feature",
@@ -755,7 +755,10 @@ export const apiAdvanceRampSchedule = createApiRequestHandler({
         const linkedFeature = await getFeature(req.context, fresh.entityId);
         if (
           !linkedFeature ||
-          !req.context.permissions.canBypassFlagApprovalChecks(linkedFeature)
+          !req.context.permissions.canBypassFlagApprovalChecks(
+            linkedFeature,
+            "feature",
+          )
         ) {
           throw new PermissionError(
             "force: true requires bypassApprovalFlags permission on the linked feature",

@@ -36,7 +36,10 @@ export default function EditFeatureDescriptionModal({
   const settings = useOrgSettings();
   const permissionsUtil = usePermissionsUtil();
 
-  const isAdmin = permissionsUtil.canBypassFlagApprovalChecks(feature);
+  const isAdmin = permissionsUtil.canBypassFlagApprovalChecks(
+    feature,
+    "feature",
+  );
 
   const metadataGated: boolean = (() => {
     const raw = settings?.requireReviews;

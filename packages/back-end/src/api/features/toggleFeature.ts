@@ -102,7 +102,7 @@ export async function toggleFeatureCore(
   // the bypassApprovalFlags permission on this feature's project.
   const canBypass =
     canUseRestApiBypass ||
-    context.permissions.canBypassFlagApprovalChecks(feature);
+    context.permissions.canBypassFlagApprovalChecks(feature, "feature");
   // Build a minimal fake revision to check whether these toggle changes need review
   const liveRevision = await getRevision({
     context,

@@ -2362,7 +2362,7 @@ export async function postExperimentStatus(
   ) {
     const adminBypass =
       !!bypassLockdown &&
-      context.permissions.canBypassFlagApprovalChecks(experiment);
+      context.permissions.canBypassFlagApprovalChecks(experiment, "feature");
 
     await validateExperimentChange({
       context,
@@ -4351,8 +4351,10 @@ export async function postExperimentFeatureValues(
         revision: updatedRevision,
         result: mergeResult.result,
         comment: "auto-publish experiment variation values change",
-        bypassLockdown:
-          context.permissions.canBypassFlagApprovalChecks(feature),
+        bypassLockdown: context.permissions.canBypassFlagApprovalChecks(
+          feature,
+          "feature",
+        ),
       });
 
       await req.audit({
