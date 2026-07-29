@@ -1180,9 +1180,10 @@ export const deleteConfig = async (
   return res.status(200).json({ status: 200 });
 };
 
-// Freeze the config at its current published revision. Locking needs only edit
-// authority (the asymmetry: unlocking is gated). The lock lives outside the
-// revision merge allowlist, so write it directly after the auth check.
+// Freeze the config at its current published revision. Locking takes publish
+// authority — it changes what the live config does (the asymmetry: unlocking
+// needs the elevated bypass). The lock lives outside the revision merge
+// allowlist, so write it directly after the auth check.
 export const lockConfig = async (
   req: AuthRequest<{ reason?: string }, { id: string }>,
   res: Response<{ status: 200; config: ConfigInterface }>,
@@ -1238,9 +1239,12 @@ export const unlockConfig = async (
     return context.throwNotFoundError("Config not found");
   }
   if (
-    !context.permissions.canBypassFlagApprovalChecks({
-      project: config.project || "",
-    })
+    !context.permissions.canBypassFlagApprovalChecks(
+      {
+        project: config.project || "",
+      },
+      "config",
+    )
   ) {
     context.permissions.throwPermissionError();
   }
@@ -1257,7 +1261,7 @@ export const unlockConfig = async (
 };
 
 // Toggle the per-config experiment guard. Asymmetric like lock/unlock: turning it
-// ON needs only edit authority, turning it OFF (removing a protection) needs the
+// ON takes publish authority, turning it OFF (removing a protection) needs the
 // elevated bypassApprovalFlags. The flag lives outside the revision merge
 // allowlist, so it's written directly after the auth check.
 export const setConfigExperimentGuard = async (
@@ -1283,9 +1287,12 @@ export const setConfigExperimentGuard = async (
       context.permissions.throwPermissionError();
     }
   } else if (
-    !context.permissions.canBypassFlagApprovalChecks({
-      project: config.project || "",
-    })
+    !context.permissions.canBypassFlagApprovalChecks(
+      {
+        project: config.project || "",
+      },
+      "config",
+    )
   ) {
     context.permissions.throwPermissionError();
   }

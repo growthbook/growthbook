@@ -13,9 +13,12 @@ export const unlockConfig = createApiRequestHandler(unlockConfigValidator)(
     // Unlocking is the gated action: it requires the elevated bypassApprovalFlags
     // permission (the same trust that skips the review queue), not just edit access.
     if (
-      !req.context.permissions.canBypassFlagApprovalChecks({
-        project: config.project || "",
-      })
+      !req.context.permissions.canBypassFlagApprovalChecks(
+        {
+          project: config.project || "",
+        },
+        "config",
+      )
     ) {
       req.context.permissions.throwPermissionError();
     }

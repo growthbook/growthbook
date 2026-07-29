@@ -94,9 +94,12 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
         : undefined;
     if (
       guardToggle === false &&
-      !req.context.permissions.canBypassFlagApprovalChecks({
-        project: config.project || "",
-      })
+      !req.context.permissions.canBypassFlagApprovalChecks(
+        {
+          project: config.project || "",
+        },
+        "config",
+      )
     ) {
       req.context.permissions.throwPermissionError();
     }

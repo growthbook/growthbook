@@ -92,9 +92,12 @@ function canBypassApprovalForConfig(
   context: Context,
   snapshot: ConfigInterface,
 ): boolean {
-  return context.permissions.canBypassFlagApprovalChecks({
-    project: snapshot.project || "",
-  });
+  return context.permissions.canBypassFlagApprovalChecks(
+    {
+      project: snapshot.project || "",
+    },
+    "config",
+  );
 }
 
 // Every remaining consumer of canCreate/canUpdate lands a change on the live

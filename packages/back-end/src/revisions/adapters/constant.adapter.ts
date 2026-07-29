@@ -72,9 +72,12 @@ function canBypassApprovalForConstant(
   context: Context,
   snapshot: ConstantInterface,
 ): boolean {
-  return context.permissions.canBypassFlagApprovalChecks({
-    project: snapshot.project || "",
-  });
+  return context.permissions.canBypassFlagApprovalChecks(
+    {
+      project: snapshot.project || "",
+    },
+    "constant",
+  );
 }
 
 // canCreate and canUpdate both gate on the constant edit permission; extract so

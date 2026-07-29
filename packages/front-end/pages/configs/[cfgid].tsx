@@ -854,6 +854,16 @@ export default function ConfigDetailPage(): React.ReactElement {
     config,
     NO_ENVIRONMENT_BINDING,
   );
+  // Lock and the experiment guard are written straight to the live Config, never
+  // staged in a revision, so they take the publish atom — matching lockConfig and
+  // setConfigExperimentGuard on the server. Gating them on the draft atom offered
+  // a control that then 403'd.
+  const canPublishNow = permissionsUtil.canRevisionAction(
+    "config",
+    "publish",
+    config,
+    configPublishEnvironments(config),
+  );
   // Delete leaf-up: a config that others still derive from (parent-spine
   // children, composition mixins, or env/project overrides) can't be deleted
   // until those are gone. Mirrors the server's assertConfigDeletable so the UI
@@ -884,12 +894,7 @@ export default function ConfigDetailPage(): React.ReactElement {
   // Either authority is enough: the landing atom stands on its own for a pure
   // archive, and an editor without it can still stage the flip as a draft.
   const canLandArchive = config.archived
-    ? permissionsUtil.canRevisionAction(
-        "config",
-        "publish",
-        config,
-        configPublishEnvironments(config),
-      )
+    ? canPublishNow
     : permissionsUtil.canDeleteConfig(
         config,
         configPublishEnvironments(config),
@@ -902,9 +907,12 @@ export default function ConfigDetailPage(): React.ReactElement {
   // (saveValue's writeQuery falls back to ?forceCreateRevision=1). Kept in lockstep
   // with canEditNow so locked/discarded contexts expose no edit controls.
   const canEditInline = canEditNow;
-  const canBypassApproval = permissionsUtil.canBypassFlagApprovalChecks({
-    project: config.project || "",
-  });
+  const canBypassApproval = permissionsUtil.canBypassFlagApprovalChecks(
+    {
+      project: config.project || "",
+    },
+    "config",
+  );
 
   const revisionCtx: ConstantRevisionContext = {
     allRevisions,
@@ -913,12 +921,7 @@ export default function ConfigDetailPage(): React.ReactElement {
     approvalRequired,
     metadataReviewRequired,
     canBypassApproval,
-    canPublish: permissionsUtil.canRevisionAction(
-      "config",
-      "publish",
-      config,
-      configPublishEnvironments(config),
-    ),
+    canPublish: canPublishNow,
   };
 
   const projectName = displayedConfig.project
@@ -1577,7 +1580,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                       Audit history
                     </DropdownMenuItem>
                   </DropdownMenuGroup>
-                  {((!config.lock && canDraft) || !!config.lock) && (
+                  {((!config.lock && canPublishNow) || !!config.lock) && (
                     <>
                       <DropdownMenuSeparator />
                       <DropdownMenuGroup>
@@ -1611,7 +1614,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                       </DropdownMenuGroup>
                     </>
                   )}
-                  {((!config.experimentGuard && canDraft) ||
+                  {((!config.experimentGuard && canPublishNow) ||
                     !!config.experimentGuard) && (
                     <>
                       <DropdownMenuSeparator />

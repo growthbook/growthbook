@@ -331,9 +331,12 @@ export default function ConstantDetailPage(): React.ReactElement {
 
   // Whether the user can bypass approval for this constant (its project, or the
   // global "" project when unscoped) — enables the "publish now" option.
-  const canBypassApproval = permissionsUtil.canBypassFlagApprovalChecks({
-    project: constant.project || "",
-  });
+  const canBypassApproval = permissionsUtil.canBypassFlagApprovalChecks(
+    {
+      project: constant.project || "",
+    },
+    "constant",
+  );
 
   const revisionCtx: ConstantRevisionContext = {
     allRevisions,

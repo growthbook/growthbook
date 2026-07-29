@@ -1006,11 +1006,22 @@ export class Permissions {
 
   // Bypass the review requirement on a Feature Flag, Config or Constant. Saved
   // groups have their own atom — see canBypassSavedGroupApprovalChecks.
-  public canBypassFlagApprovalChecks = (obj: {
-    project?: string;
-    projects?: string[];
-  }): boolean => {
-    return this.canRevisionAction("feature", "bypass", obj);
+  /**
+   * Bypass the review requirement on a flag-family entity. `model` names which
+   * one: atoms are per entity, so a Config unlock must consult the Config atom,
+   * not the Feature one. Defaults to "feature" for the many feature-only callers.
+   */
+  public canBypassFlagApprovalChecks = (
+    obj: {
+      project?: string;
+      projects?: string[];
+    },
+    model: Extract<
+      RevisionModel,
+      "feature" | "config" | "constant"
+    > = "feature",
+  ): boolean => {
+    return this.canRevisionAction(model, "bypass", obj);
   };
 
   public canBypassSavedGroupApprovalChecks = (obj: {
