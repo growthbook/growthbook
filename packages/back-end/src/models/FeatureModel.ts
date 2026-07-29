@@ -88,6 +88,7 @@ import {
   getAffectedSDKPayloadKeys,
   getSDKPayloadKeysByDiff,
 } from "back-end/src/util/features";
+import { getHoldoutAvailableForProject } from "back-end/src/services/holdout-availability";
 import { applyPartialFeatureRuleUpdatesToRevision } from "back-end/src/util/featureRevision.util";
 import { getErrorMessage, NotFoundError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
@@ -1952,12 +1953,15 @@ export async function assertHoldoutChangeAllowed(
 export async function assertHoldoutLinkageResolvable(
   context: ReqContext | ApiReqContext,
   newHoldout: { id: string; value: string } | null,
+  project: string | undefined,
 ) {
   if (!newHoldout?.id) return;
-  const holdout = await context.models.holdout.getByIdForLinkage(newHoldout.id);
-  if (!holdout) {
-    throw new Error("Holdout not found");
-  }
+  await getHoldoutAvailableForProject({
+    context,
+    holdoutId: newHoldout.id,
+    project,
+    bypassReadPermissionChecks: true,
+  });
 }
 
 // Lives here, not in services/featurePublishGates: that module already imports
@@ -1973,9 +1977,17 @@ export async function collectHoldoutChangeGates({
   mergeResult: MergeResultChanges;
   isRevert?: boolean;
 }): Promise<PublishGate[]> {
-  if (mergeResult.holdout === undefined) return [];
+  if (
+    mergeResult.holdout === undefined &&
+    mergeResult.metadata?.project === undefined
+  ) {
+    return [];
+  }
   const gates: PublishGate[] = [];
-  const newHoldout = mergeResult.holdout ?? null;
+  const newHoldout =
+    mergeResult.holdout === undefined
+      ? (feature.holdout ?? null)
+      : (mergeResult.holdout ?? null);
 
   // Merged (post-publish) rules, so a bundled experiment-ref for an
   // already-running experiment is caught.
@@ -1997,7 +2009,11 @@ export async function collectHoldoutChangeGates({
   }
 
   try {
-    await assertHoldoutLinkageResolvable(context, newHoldout);
+    await assertHoldoutLinkageResolvable(
+      context,
+      newHoldout,
+      mergeResult.metadata?.project ?? feature.project,
+    );
   } catch (e) {
     gates.push(
       makeBlockingGate({
@@ -2041,7 +2057,7 @@ export async function applyHoldoutSideEffects(
 
   // Resolve the new holdout BEFORE removing from the old one, so a missing
   // holdout fails with no membership mutated (no partial transition).
-  await assertHoldoutLinkageResolvable(context, newHoldout);
+  await assertHoldoutLinkageResolvable(context, newHoldout, feature.project);
 
   // Remove feature from the old holdout. The guard (assertHoldoutChangeAllowed)
   // has already refused this move if any linked experiment still belongs to the

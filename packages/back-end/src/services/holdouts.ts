@@ -15,6 +15,7 @@ import {
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/holdouts";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
+import { getHoldoutAvailableForProject } from "back-end/src/services/holdout-availability";
 
 /**
  * Eagerly link an experiment into a holdout: set `experiment.holdoutId` and add
@@ -33,18 +34,33 @@ export async function linkExperimentToHoldout(
   experiment: ExperimentInterface,
   holdoutId: string,
 ): Promise<void> {
+  await getHoldoutAvailableForProject({
+    context,
+    holdoutId,
+    project: experiment.project,
+    bypassReadPermissionChecks: true,
+  });
   await updateExperiment({
     context,
     experiment,
     changes: { holdoutId },
   });
-  const holdout = await context.models.holdout.getById(holdoutId);
-  await context.models.holdout.updateById(holdoutId, {
-    linkedExperiments: {
-      ...holdout?.linkedExperiments,
-      [experiment.id]: { id: experiment.id, dateAdded: new Date() },
-    },
-  });
+  await context.models.holdout.addExperimentToHoldout(holdoutId, experiment.id);
+}
+
+export async function canLinkExperimentToHoldoutFromFeatures(
+  context: ReqContext | ApiReqContext,
+  holdoutId: string,
+  featureIds: string[],
+): Promise<boolean> {
+  if (!featureIds.length) return false;
+  const features = await getFeaturesByIds(context, featureIds);
+  return features.some(
+    (feature) =>
+      feature.holdout?.id === holdoutId &&
+      context.permissions.canUpdateFeature(feature, {}) &&
+      context.permissions.canManageFeatureDrafts(feature),
+  );
 }
 
 /**

@@ -248,7 +248,11 @@ export async function revertFeatureRevision(
   const targetHoldout = getRevertTargetHoldout(targetRevision);
   // Read-gated: restoring a holdout the caller cannot see would attach the
   // feature outside their scope, since publish resolves linkage unscoped.
-  await assertValidHoldout(targetHoldout, context);
+  await assertValidHoldout(
+    targetHoldout,
+    context,
+    changes.metadata?.project ?? feature.project,
+  );
   const holdoutChanged = !isEqual(targetHoldout, feature.holdout ?? null);
   if (holdoutChanged) {
     if (

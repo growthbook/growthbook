@@ -765,7 +765,11 @@ export async function postFeatures(
   // Read-gated, so a caller can't link a flag into a Holdout outside their scope.
   // The linkage write itself deliberately bypasses read scope, so this is the
   // only place the id is authorized.
-  await assertValidHoldout(holdout?.id ? holdout : null, context);
+  await assertValidHoldout(
+    holdout?.id ? holdout : null,
+    context,
+    otherProps.project ?? "",
+  );
 
   await validateCustomFieldsForSection({
     customFieldValues: customFields,
@@ -2470,7 +2474,11 @@ export async function postFeatureRevert(
   const targetHoldout = getRevertTargetHoldout(revision);
   // Read-gated: restoring a holdout the caller cannot see would attach the
   // feature outside their scope, since publish resolves linkage unscoped.
-  await assertValidHoldout(targetHoldout, context);
+  await assertValidHoldout(
+    targetHoldout,
+    context,
+    mergeChanges.metadata?.project ?? feature.project,
+  );
   if (!isEqual(targetHoldout, feature.holdout ?? null)) {
     if (!context.permissions.canPublishFeature(feature, allEnabledEnvs)) {
       context.permissions.throwPermissionError();
@@ -2650,7 +2658,11 @@ export async function postFeatureRevertDraft(
     changes.metadata = revision.metadata;
   }
   changes.holdout = getRevertTargetHoldout(revision);
-  await assertValidHoldout(changes.holdout, context);
+  await assertValidHoldout(
+    changes.holdout,
+    context,
+    changes.metadata?.project ?? feature.project,
+  );
 
   const newRevision = await createRevision({
     context,
@@ -5177,7 +5189,13 @@ export async function putFeature(
   // Read-gated, so a caller can't link a flag into a Holdout outside their scope.
   // The publish-time linkage write deliberately bypasses read scope, so this is
   // the only place the id is authorized.
-  await assertValidHoldout(holdoutUpdate ?? null, context);
+  if (holdoutUpdate !== undefined || metadataUpdates.project !== undefined) {
+    await assertValidHoldout(
+      holdoutUpdate !== undefined ? holdoutUpdate : (feature.holdout ?? null),
+      context,
+      metadataUpdates.project ?? feature.project,
+    );
+  }
 
   if (Object.keys(metadataUpdates).length > 0 || holdoutUpdate !== undefined) {
     const envelopeChanges: Parameters<

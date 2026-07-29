@@ -266,6 +266,16 @@ export class HoldoutModel extends BaseClass {
     });
   }
 
+  public async addExperimentToHoldout(holdoutId: string, experimentId: string) {
+    const holdout = await this.getLinkageTarget(holdoutId);
+    await this.writeLinkage(holdout, {
+      linkedExperiments: {
+        ...holdout.linkedExperiments,
+        [experimentId]: { id: experimentId, dateAdded: new Date() },
+      },
+    });
+  }
+
   // Publish-rewind counterpart to `addFeatureToHoldout`: drops only the entries a
   // failed publish added, in one write, leaving entries other features
   // contributed alone. No-ops when the maps are already at the target state, so
