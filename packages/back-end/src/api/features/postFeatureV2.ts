@@ -217,10 +217,10 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
         orgEnvs.map((e) => e.id),
       ),
     );
-    // A new flag that enables no environment is absent from every SDK payload
-    // (getFeatureDefinition returns null for a disabled env), so bringing it
-    // into being takes only create authority. Enabling an environment is the
-    // live write, and takes publish authority for exactly those environments.
+    // The environments a new flag starts enabled in are its whole live footprint,
+    // so gating those on publish is the only control needed — and a flag enabling
+    // none is in no payload at all, leaving create authority sufficient. Approval
+    // doesn't apply: there's no prior state to review a new flag against.
     if (
       enabledOnCreate.length &&
       !req.context.permissions.canPublishFeature(feature, enabledOnCreate)
