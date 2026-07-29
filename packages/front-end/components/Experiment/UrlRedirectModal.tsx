@@ -12,7 +12,7 @@ import { Box, Flex } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import Field from "@/components/Forms/Field";
-import Modal from "@/components/Modal";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { DocLink } from "@/components/DocLink";
 import Checkbox from "@/ui/Checkbox";
@@ -121,7 +121,6 @@ const UrlRedirectModal: FC<{
       );
       mutate();
     }
-    close();
   });
 
   const handleRedirectToggle = (i: number, enabled: boolean) => {
@@ -134,25 +133,17 @@ const UrlRedirectModal: FC<{
   };
 
   return (
-    <Modal
-      useRadixButton={false}
+    <ModalStandard
       trackingEventModalType="url-redirect-modal"
       trackingEventModalSource={source}
-      autoCloseOnSubmit={false}
       open
-      disabledMessage={
-        !hasSDKWithRedirects
-          ? "None of the SDK connections in this project support URL redirects"
-          : undefined
-      }
       close={close}
       size="lg"
-      header={`
-       ${mode === "add" ? "Add" : "Edit"} URL Redirects`}
+      header={`${mode === "add" ? "Add" : "Edit"} URL Redirects`}
       submit={onSubmit}
       ctaEnabled={hasSDKWithRedirects}
     >
-      <Box className="mx-3">
+      <Box>
         <SDKCapabilityWarning
           capability="redirects"
           project={experiment.project ?? ""}
@@ -251,7 +242,11 @@ const UrlRedirectModal: FC<{
                   </Box>
                   <Flex align="center" ml="auto">
                     <Checkbox
-                      label="Redirect"
+                      label={
+                        <Text color="text-high" weight="semibold">
+                          Redirect
+                        </Text>
+                      }
                       disabled={i === 0}
                       disabledMessage={
                         i === 0 ? "You can not edit the control" : ""
@@ -343,7 +338,7 @@ const UrlRedirectModal: FC<{
           />
         </Flex>
       </Box>
-    </Modal>
+    </ModalStandard>
   );
 };
 

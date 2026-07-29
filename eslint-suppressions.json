@@ -259,11 +259,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Experiment/UrlRedirectModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/VariationChooserColumnLabel.tsx": {
     "no-restricted-imports": {
       "count": 1
