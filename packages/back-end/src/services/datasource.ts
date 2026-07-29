@@ -281,7 +281,9 @@ export async function runFeatureEvalDiagnosticsQuery(
   error?: string;
   sql?: string;
 }> {
-  if (!context.permissions.canRunFeatureDiagnosticsQueries(feature, datasource)) {
+  if (
+    !context.permissions.canRunFeatureDiagnosticsQueries(feature, datasource)
+  ) {
     context.permissions.throwPermissionError();
   }
 

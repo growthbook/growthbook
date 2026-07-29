@@ -1276,7 +1276,8 @@ export class Permissions {
       this.canEditFeatureDrafts(feature) ||
       this.canPublishFeature(feature, NO_ENVIRONMENT_BINDING) ||
       this.canReviewFeatureDrafts(feature) ||
-      (!!datasource && this.checkProjectFilterPermission(datasource, "runQueries"))
+      (!!datasource &&
+        this.checkProjectFilterPermission(datasource, "runQueries"))
     );
   };
 

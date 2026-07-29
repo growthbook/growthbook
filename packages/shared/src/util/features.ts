@@ -1151,7 +1151,8 @@ export function featureMetadataEnvelope(
     jsonSchema: feature.jsonSchema,
     valueType: feature.valueType,
     baseConfig: feature.baseConfig ?? null,
-  };}
+  };
+}
 
 // Per-field backfill for old/sparse revisions before passing to autoMerge.
 // Fields not listed here are left as-is; sparse absence is meaningful for those.
