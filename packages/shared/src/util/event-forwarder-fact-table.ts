@@ -19,6 +19,9 @@ export const EVENT_FORWARDER_AVRO_PARTITION_FIELD = "received_at" as const;
 /** Map field holding org targeting attributes in the forwarder Avro schema. */
 export const EVENT_FORWARDER_AVRO_ATTRIBUTES_FIELD = "attributes" as const;
 
+/** Map field holding event properties in the forwarder Avro schema. */
+export const EVENT_FORWARDER_AVRO_PROPERTIES_FIELD = "properties" as const;
+
 /**
  * Sanitizes a string for use as an Avro/BigQuery/Snowflake field name.
  *
@@ -274,6 +277,30 @@ export function buildEventForwarderNestedAttributeValueSql({
       }),
     ),
   );
+}
+
+/**
+ * Extracts a single key out of the forwarder `properties` map as a string.
+ * BigQuery stores `properties` as a native JSON column; Snowflake as a
+ * schematized VARIANT object. Property keys are the raw SDK names (e.g.
+ * "ruleId", "variationId").
+ */
+export function buildEventForwarderPropertyValueSql({
+  sinkType,
+  propertyKey,
+}: {
+  sinkType: "bigquery" | "snowflake";
+  propertyKey: string;
+}): string {
+  if (sinkType === "bigquery") {
+    const propertiesCol = quoteBigQueryIdentifier(
+      EVENT_FORWARDER_AVRO_PROPERTIES_FIELD,
+    );
+    return `JSON_VALUE(${propertiesCol}, '$."${propertyKey}"')`;
+  }
+
+  const propertiesCol = EVENT_FORWARDER_AVRO_PROPERTIES_FIELD.toUpperCase();
+  return `${propertiesCol}:${quoteSnowflakeVariantFieldName(propertyKey)}::STRING`;
 }
 
 function getEventForwarderEventsFactTableAttributes(

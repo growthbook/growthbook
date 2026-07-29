@@ -18,7 +18,10 @@ import {
   reconcileEventForwarderManagedExposureQueries,
   refreshEventForwarderManagedExposureQuery,
 } from "../../src/util/event-forwarder-warehouse-queries";
-import { EVENT_FORWARDER_AVRO_PARTITION_FIELD } from "../../src/util/event-forwarder-fact-table";
+import {
+  buildEventForwarderPropertyValueSql,
+  EVENT_FORWARDER_AVRO_PARTITION_FIELD,
+} from "../../src/util/event-forwarder-fact-table";
 
 describe("event-forwarder-warehouse-queries experiment_viewed table reference", () => {
   it("builds BigQuery experiment_viewed table reference", () => {
@@ -431,7 +434,7 @@ describe("event-forwarder-warehouse-queries feature_usage table reference", () =
 describe("buildEventForwarderFeatureUsageQuerySql", () => {
   const tableRef = "`proj`.`ds`.`feature_usage`";
 
-  it("includes received_at partition filter for BigQuery only", () => {
+  it("includes received_at partition filter and property columns for BigQuery", () => {
     const sql = buildEventForwarderFeatureUsageQuerySql({
       sinkType: "bigquery",
       tableRef,
@@ -439,6 +442,15 @@ describe("buildEventForwarderFeatureUsageQuerySql", () => {
 
     expect(sql).toContain("timestamp AS timestamp");
     expect(sql).toContain("feature_key AS feature_key");
+    expect(sql).toContain("environment AS environment");
+    expect(sql).toContain("JSON_VALUE(`properties`, '$.\"value\"') AS value");
+    expect(sql).toContain("JSON_VALUE(`properties`, '$.\"source\"') AS source");
+    expect(sql).toContain(
+      "JSON_VALUE(`properties`, '$.\"ruleId\"') AS rule_id",
+    );
+    expect(sql).toContain(
+      "JSON_VALUE(`properties`, '$.\"variationId\"') AS variation_id",
+    );
     expect(sql).toContain(`FROM ${tableRef}`);
     expect(sql).toContain(
       `WHERE ${EVENT_FORWARDER_AVRO_PARTITION_FIELD} BETWEEN '{{startDate}}' AND '{{endDate}}'`,
@@ -453,8 +465,33 @@ describe("buildEventForwarderFeatureUsageQuerySql", () => {
 
     expect(sql).toContain("TIMESTAMP AS timestamp");
     expect(sql).toContain("FEATURE_KEY AS feature_key");
+    expect(sql).toContain("ENVIRONMENT AS environment");
+    expect(sql).toContain('PROPERTIES:"value"::STRING AS value');
+    expect(sql).toContain('PROPERTIES:"source"::STRING AS source');
+    expect(sql).toContain('PROPERTIES:"ruleId"::STRING AS rule_id');
+    expect(sql).toContain('PROPERTIES:"variationId"::STRING AS variation_id');
     expect(sql).toContain("FROM MY_DB.PUBLIC.FEATURE_USAGE");
     expect(sql).not.toContain("WHERE");
+  });
+});
+
+describe("buildEventForwarderPropertyValueSql", () => {
+  it("extracts a property from the BigQuery JSON column", () => {
+    expect(
+      buildEventForwarderPropertyValueSql({
+        sinkType: "bigquery",
+        propertyKey: "ruleId",
+      }),
+    ).toBe("JSON_VALUE(`properties`, '$.\"ruleId\"')");
+  });
+
+  it("extracts a property from the Snowflake VARIANT column", () => {
+    expect(
+      buildEventForwarderPropertyValueSql({
+        sinkType: "snowflake",
+        propertyKey: "variationId",
+      }),
+    ).toBe('PROPERTIES:"variationId"::STRING');
   });
 });
 
