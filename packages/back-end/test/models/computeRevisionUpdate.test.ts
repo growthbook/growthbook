@@ -218,3 +218,60 @@ describe("computeRevisionPublishChanges", () => {
     expect(changes.comment).toBe("original");
   });
 });
+
+describe("computeRevisionUpdate revert marker", () => {
+  const revertDraft = () =>
+    makeRevision({ revertedFrom: 1, status: "draft" as const });
+
+  it("drops the marker once the revert draft's content is edited", () => {
+    const { clearRevertedFrom, proposedRevision } = computeRevisionUpdate(
+      mockContext(),
+      FEATURE,
+      revertDraft(),
+      { defaultValue: "false" } as RevisionChanges,
+      false,
+    );
+    expect(clearRevertedFrom).toBe(true);
+    expect(proposedRevision.revertedFrom).toBeUndefined();
+  });
+
+  it("keeps the marker for non-content updates", () => {
+    const { clearRevertedFrom, proposedRevision } = computeRevisionUpdate(
+      mockContext(),
+      FEATURE,
+      revertDraft(),
+      { comment: "just a description" } as RevisionChanges,
+      false,
+    );
+    expect(clearRevertedFrom).toBe(false);
+    expect(proposedRevision.revertedFrom).toBe(1);
+  });
+
+  it("keeps the marker when mutable fields are re-sent unchanged", () => {
+    const revision = revertDraft();
+    const { clearRevertedFrom, proposedRevision } = computeRevisionUpdate(
+      mockContext(),
+      FEATURE,
+      revision,
+      {
+        defaultValue: revision.defaultValue,
+        rules: revision.rules,
+        baseVersion: 3,
+      } as RevisionChanges,
+      false,
+    );
+    expect(clearRevertedFrom).toBe(false);
+    expect(proposedRevision.revertedFrom).toBe(1);
+  });
+
+  it("is a no-op for revisions that were never reverts", () => {
+    const { clearRevertedFrom } = computeRevisionUpdate(
+      mockContext(),
+      FEATURE,
+      makeRevision(),
+      { defaultValue: "false" } as RevisionChanges,
+      false,
+    );
+    expect(clearRevertedFrom).toBe(false);
+  });
+});
