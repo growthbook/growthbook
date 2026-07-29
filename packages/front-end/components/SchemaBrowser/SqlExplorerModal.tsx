@@ -389,7 +389,9 @@ export default function SqlExplorerModal({
               break;
 
             case "greaterThan":
+            case "greaterThanOrEqualTo":
             case "lessThan":
+            case "lessThanOrEqualTo":
             case "equalTo":
               if (
                 filter.config.value === undefined ||
@@ -400,6 +402,11 @@ export default function SqlExplorerModal({
                   `Filter ${filterIndex + 1} in Visualization ${vizTitle} requires a value.`,
                 );
               }
+              break;
+
+            case "today":
+            case "last7Days":
+            case "last30Days":
               break;
 
             case "contains":
