@@ -195,6 +195,10 @@ export default function FeatureDiagnostics({
           }),
         },
       );
+      if (results.error) {
+        setError(results.error);
+        return;
+      }
       if (results.rows) {
         const rowsWithId = results.rows.map((row, index) => ({
           ...row,
@@ -204,11 +208,8 @@ export default function FeatureDiagnostics({
       } else {
         setResults([]);
       }
-      if (results.error) {
-        setError(results.error);
-      }
     } catch (e) {
-      setError(e.message);
+      setError(e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
     }
@@ -318,7 +319,7 @@ export default function FeatureDiagnostics({
               <strong>Error:</strong> {error}
             </Callout>
           )}
-          {results && results.length === 0 && (
+          {!error && results && results.length === 0 && (
             <Callout status="info" my="3">
               No feature evaluations found.
             </Callout>

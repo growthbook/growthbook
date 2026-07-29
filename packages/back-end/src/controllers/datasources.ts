@@ -38,7 +38,6 @@ import {
 import { GoogleAnalyticsParams } from "shared/types/integrations/googleanalytics";
 import type { ClickHouseConnectionParams } from "shared/types/integrations/clickhouse";
 import { SDKAttributeSchema } from "shared/types/organization";
-import { SQLExecutionError } from "back-end/src/util/errors";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import {
@@ -1493,26 +1492,19 @@ export async function postFeatureEvalDiagnostics(
     return;
   }
 
-  try {
-    const { rows, statistics, sql } = await runFeatureEvalDiagnosticsQuery(
-      context,
-      datasource,
-      feature,
-    );
+  const { rows, statistics, error, sql } = await runFeatureEvalDiagnosticsQuery(
+    context,
+    datasource,
+    feature,
+  );
 
-    res.status(200).json({
-      status: 200,
-      rows,
-      statistics,
-      sql,
-    });
-  } catch (e) {
-    res.status(400).json({
-      status: 400,
-      error: e.message,
-      sql: e instanceof SQLExecutionError ? e.query : undefined,
-    });
-  }
+  res.status(200).json({
+    status: 200,
+    rows,
+    statistics,
+    error,
+    sql,
+  });
 }
 
 export async function getDataSourceMetrics(

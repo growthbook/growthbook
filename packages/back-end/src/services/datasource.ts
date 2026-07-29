@@ -16,7 +16,6 @@ import {
 import { FactTableColumnType } from "shared/types/fact-table";
 import { QueryStatistics, QueryType } from "shared/types/query";
 import { formatQueryExecutionErrorForApi } from "shared/util";
-import { SQLExecutionError } from "back-end/src/util/errors";
 import { determineColumnTypes } from "back-end/src/util/sql";
 import { ENCRYPTION_KEY } from "back-end/src/util/secrets";
 import GoogleAnalytics from "back-end/src/integrations/GoogleAnalytics";
@@ -277,6 +276,7 @@ export async function runFeatureEvalDiagnosticsQuery(
 ): Promise<{
   rows?: FeatureEvalDiagnosticsQueryResponseRows;
   statistics?: QueryStatistics;
+  error?: string;
   sql?: string;
 }> {
   if (!context.permissions.canRunFeatureDiagnosticsQueries(datasource)) {
@@ -308,7 +308,10 @@ export async function runFeatureEvalDiagnosticsQuery(
       sql,
     };
   } catch (e) {
-    throw new SQLExecutionError(e.message, sql);
+    return {
+      error: formatQueryExecutionErrorForApi(e),
+      sql,
+    };
   }
 }
 
