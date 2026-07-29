@@ -40,8 +40,7 @@ export function SqlEditorProvider({
   initialViewMode: SqlEditorViewMode;
 }) {
   const [localSql, setLocalSql] = useState(sql);
-  const [viewMode, setViewMode] =
-    useState<SqlEditorViewMode>(initialViewMode);
+  const [viewMode, setViewMode] = useState<SqlEditorViewMode>(initialViewMode);
   const [isQueryActive, setIsQueryActive] = useState(false);
   const {
     autoCompletions,
