@@ -3857,3 +3857,45 @@ export function getApiFeatureEnabledEnvs(feature: ApiFeature) {
 export function getApiFeatureAllEnvs(feature: ApiFeature) {
   return Object.keys(feature.environments);
 }
+
+// Experiment ids an `experiment-ref` rule set enrolls in a holdout.
+export function getExperimentIdsFromRules(rules: FeatureRule[]): string[] {
+  return Array.from(
+    new Set(rules.filter(isExperimentRefRule).map((r) => r.experimentId)),
+  );
+}
+
+/**
+ * The holdout `linkedExperiments` delta a publish should apply for one feature,
+ * derived from published state only.
+ *
+ * Unlinking is deliberately conservative: an experiment stays linked while any
+ * other feature in the same holdout still references it, so publishing one
+ * feature can never revoke a holdout membership another feature is relying on.
+ */
+export function computeHoldoutExperimentLinkageDelta({
+  publishedRules,
+  hasHoldout,
+  linkedExperimentIds,
+  experimentIdsReferencedElsewhere,
+}: {
+  publishedRules: FeatureRule[];
+  // False when this publish leaves the feature with no holdout.
+  hasHoldout: boolean;
+  // The holdout's current `linkedExperiments` keys.
+  linkedExperimentIds: string[];
+  // Experiment ids the holdout's OTHER features still reference in live rules.
+  experimentIdsReferencedElsewhere: string[];
+}): { toLink: string[]; toUnlink: string[] } {
+  const desired = hasHoldout ? getExperimentIdsFromRules(publishedRules) : [];
+  const desiredSet = new Set(desired);
+  const linkedSet = new Set(linkedExperimentIds);
+  const elsewhere = new Set(experimentIdsReferencedElsewhere);
+
+  return {
+    toLink: desired.filter((id) => !linkedSet.has(id)),
+    toUnlink: linkedExperimentIds.filter(
+      (id) => !desiredSet.has(id) && !elsewhere.has(id),
+    ),
+  };
+}

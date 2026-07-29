@@ -10,7 +10,6 @@ import {
 import type { FeatureRule, SafeRolloutRule } from "shared/validators";
 import { getEffectiveRevisionHoldout, resetReviewOnChange } from "shared/util";
 import { RevisionChanges } from "shared/types/feature-revision";
-import { ExperimentInterface } from "shared/types/experiment";
 import { CreateProps } from "shared/types/base-model";
 import { getLatestPhaseVariations } from "shared/experiments";
 import {
@@ -22,14 +21,8 @@ import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/conf
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
-import {
-  linkExperimentToHoldout,
-  resolveHoldoutExperimentToLink,
-} from "back-end/src/services/holdouts";
-import {
-  getExperimentById,
-  updateExperiment,
-} from "back-end/src/models/ExperimentModel";
+import { resolveHoldoutExperimentToLink } from "back-end/src/services/holdouts";
+import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import {
   getRevision,
   prevalidateRevisionUpdate,
@@ -105,9 +98,6 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
   );
 
   let createdSafeRolloutId: string | undefined;
-  let linkedExperimentId: string | undefined;
-  let linkedHoldoutId: string | undefined;
-  let holdoutExperimentToLink: ExperimentInterface | null = null;
   try {
     if (!isDraftStatus(revision.status)) {
       throw new BadRequestError(
@@ -159,7 +149,8 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
       // Legacy revisions store holdout sparsely, so absence carries the
       // feature's holdout forward. Linking writes are deferred until after
       // custom-hook prevalidation below.
-      holdoutExperimentToLink = await resolveHoldoutExperimentToLink({
+      // Validation only: linkage itself is derived from published rules at publish.
+      await resolveHoldoutExperimentToLink({
         context: req.context,
         feature,
         experiment,
@@ -358,26 +349,6 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
       createdSafeRolloutId = safeRollout.id;
     }
 
-    // Link now only when the validated holdout is already live. A draft-only
-    // holdout defers to publish — applyHoldoutSideEffects enrolls the
-    // experiments in the merged rules when the holdout change lands.
-    const linkHoldoutId = getEffectiveRevisionHoldout(revision, feature)?.id;
-    if (
-      holdoutExperimentToLink &&
-      linkHoldoutId &&
-      feature.holdout?.id === linkHoldoutId
-    ) {
-      // Record ids for compensation BEFORE the writes — the rollback is
-      // idempotent, so a mid-write failure is still fully compensated.
-      linkedExperimentId = holdoutExperimentToLink.id;
-      linkedHoldoutId = linkHoldoutId;
-      await linkExperimentToHoldout(
-        req.context,
-        holdoutExperimentToLink,
-        linkHoldoutId,
-      );
-    }
-
     await updateRevision(
       req.context,
       feature,
@@ -419,29 +390,6 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
     if (createdSafeRolloutId) {
       try {
         await req.context.models.safeRollout.deleteById(createdSafeRolloutId);
-      } catch {
-        /* best effort */
-      }
-    }
-    if (linkedExperimentId) {
-      try {
-        const exp = await getExperimentById(req.context, linkedExperimentId);
-        if (exp)
-          await updateExperiment({
-            context: req.context,
-            experiment: exp,
-            changes: { holdoutId: "" },
-          });
-      } catch {
-        /* best effort */
-      }
-    }
-    if (linkedHoldoutId && linkedExperimentId) {
-      try {
-        await req.context.models.holdout.removeExperimentFromHoldout(
-          linkedHoldoutId,
-          linkedExperimentId,
-        );
       } catch {
         /* best effort */
       }
