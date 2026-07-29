@@ -36,6 +36,7 @@ import Mssql from "back-end/src/integrations/Mssql";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
+import { SQLExecutionError } from "back-end/src/util/errors";
 
 // freeFormQuery runs user-authored SQL; we should only use it for this scenario
 const FREE_FORM_QUERY_TYPE: QueryType = "freeFormQuery";
@@ -309,10 +310,7 @@ export async function runFeatureEvalDiagnosticsQuery(
       sql,
     };
   } catch (e) {
-    return {
-      error: formatQueryExecutionErrorForApi(e),
-      sql,
-    };
+    throw new SQLExecutionError(formatQueryExecutionErrorForApi(e), sql);
   }
 }
 

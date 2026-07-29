@@ -28,12 +28,11 @@ import EmptyState from "@/components/EmptyState";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import Table, { TableBody, TableCell, TableHeader, TableRow } from "@/ui/Table";
 import Field from "@/components/Forms/Field";
+import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 
 type FeatureEvaluationDiagnosticsQueryResults = {
   rows?: FeatureEvalDiagnosticsQueryResponseRows;
   statistics?: QueryStatistics;
-  error?: string;
-  sql?: string;
 };
 
 // Helper function to format a value for display
@@ -98,6 +97,7 @@ export default function FeatureDiagnostics({
 }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorSql, setErrorSql] = useState<string | null>(null);
 
   const { datasources, getDatasourceById } = useDefinitions();
   const settings = useOrgSettings();
@@ -184,6 +184,7 @@ export default function FeatureDiagnostics({
   const onRunFeatureUsageQuery = async () => {
     setLoading(true);
     setError(null);
+    setErrorSql(null);
     try {
       const results = await apiCall<FeatureEvaluationDiagnosticsQueryResults>(
         "/query/feature-eval-diagnostic",
@@ -194,11 +195,12 @@ export default function FeatureDiagnostics({
             datasourceId: form.watch("datasourceId"),
           }),
         },
+        (responseData) => {
+          if (typeof responseData?.sql === "string") {
+            setErrorSql(responseData.sql);
+          }
+        },
       );
-      if (results.error) {
-        setError(results.error);
-        return;
-      }
       if (results.rows) {
         const rowsWithId = results.rows.map((row, index) => ({
           ...row,
@@ -314,11 +316,21 @@ export default function FeatureDiagnostics({
               </Button>
             </Flex>
           )}
-          {error && (
+          {error && errorSql ? (
+            <Box my="3">
+              <DisplayTestQueryResults
+                results={[]}
+                duration={0}
+                sql={errorSql}
+                error={error}
+                expandable={true}
+              />
+            </Box>
+          ) : error ? (
             <Callout status="error" my="3">
               <strong>Error:</strong> {error}
             </Callout>
-          )}
+          ) : null}
           {!error && results && results.length === 0 && (
             <Callout status="info" my="3">
               No feature evaluations found.
