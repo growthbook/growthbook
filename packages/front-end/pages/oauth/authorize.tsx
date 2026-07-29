@@ -23,35 +23,6 @@ type AuthorizeInfoResponse = {
   user?: { id: string; email: string; name: string };
 };
 
-// Loopback hosts are the OS itself, so a code delivered here never leaves the
-// user's machine.
-const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
-
-// Where the authorization code will be delivered. This is the one signal on
-// this page the app cannot fake: the code always goes to a redirect_uri
-// pre-registered by the client.
-//
-// `isLocal` decides whether it is worth the user's attention. Loopback and
-// custom-scheme targets hand the code to something already running on this
-// machine, so a remote attacker never receives it and showing a bare
-// "localhost:8787" is noise. A remote host is the case that matters, and is
-// the only one surfaced.
-function describeRedirectTarget(
-  redirectUri?: string,
-): { host: string; isLocal: boolean } | null {
-  if (!redirectUri) return null;
-  try {
-    const url = new URL(redirectUri);
-    if (url.protocol === "http:" || url.protocol === "https:") {
-      return { host: url.host, isLocal: LOOPBACK_HOSTS.has(url.hostname) };
-    }
-    // Custom schemes (cursor://, etc.) hand off to a locally installed app.
-    return { host: url.protocol.replace(":", "") + "://", isLocal: true };
-  } catch {
-    return null;
-  }
-}
-
 // Shared narrow-page wrapper so the consent and success screens can't drift.
 function ConsentPageWrapper({ children }: { children: ReactNode }) {
   return (
@@ -252,7 +223,6 @@ export default function OAuthAuthorizePage() {
   }
 
   const claimedName = info?.client?.clientName;
-  const redirectTarget = describeRedirectTarget(info?.redirectUri);
   const showDetails = !!info?.client && !error;
 
   return (
@@ -281,16 +251,6 @@ export default function OAuthAuthorizePage() {
       {error ? (
         <Callout status="error" mb="4">
           {error}
-        </Callout>
-      ) : null}
-
-      {redirectTarget && !redirectTarget.isLocal ? (
-        <Callout status="warning" mb="4">
-          Your authorization code will be sent to{" "}
-          <Text as="span" size="inherit" weight="semibold">
-            {redirectTarget.host}
-          </Text>
-          . Continue only if you recognize that destination.
         </Callout>
       ) : null}
 
