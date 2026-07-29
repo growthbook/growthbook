@@ -1,9 +1,46 @@
-import { HoldoutInterface, holdoutValidator } from "shared/validators";
+import { z } from "zod";
+import { getHoldoutStage, stringToBoolean } from "shared/util";
+import {
+  ApiHoldoutInterface,
+  apiCreateHoldoutBody,
+  apiHoldoutStageReturn,
+  apiUpdateHoldoutBody,
+  coverageToHoldoutSize,
+  DEFAULT_HOLDOUT_SIZE,
+  holdoutSizeToCoverage,
+  HOLDOUT_API_EXPERIMENT_UPDATE_FIELDS,
+  HOLDOUT_API_TARGETING_UPDATE_FIELDS,
+  HOLDOUT_API_UPDATE_FIELDS,
+  HoldoutInterface,
+  holdoutValidator,
+} from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
 import { ExperimentInterface } from "shared/types/experiment";
 import { getCollection } from "back-end/src/util/mongo.util";
+import {
+  holdoutApiSpec,
+  holdoutStageEndpoint,
+} from "back-end/src/api/specs/holdout.spec";
+import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
+import {
+  advanceHoldoutStage,
+  applyHoldoutTargetingChanges,
+  createHoldoutWithExperiment,
+  normalizeHoldoutScheduleUpdates,
+} from "back-end/src/services/holdouts";
+import {
+  resolveOwnerEmail,
+  resolveOwnerEmails,
+  resolveOwnerForCreate,
+  resolveOwnerToUserId,
+} from "back-end/src/services/owner";
+import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { MakeModelClass } from "./BaseModel";
-import { getExperimentById } from "./ExperimentModel";
+import {
+  getExperimentById,
+  getExperimentsByIds,
+  updateExperiment,
+} from "./ExperimentModel";
 
 const COLLECTION_NAME = "holdouts";
 
@@ -26,7 +63,152 @@ const BaseClass = MakeModelClass({
       fields: { "nextScheduledStatusUpdate.date": 1 },
     },
   ],
+  apiConfig: {
+    modelKey: "holdout",
+    openApiSpec: holdoutApiSpec,
+    customHandlers: [
+      defineCustomApiHandler({
+        ...holdoutStageEndpoint,
+        reqHandler: async (
+          req,
+        ): Promise<z.infer<typeof apiHoldoutStageReturn>> => {
+          const holdout = await req.context.models.holdout.getById(
+            req.params.id,
+          );
+          if (!holdout) {
+            return req.context.throwNotFoundError();
+          }
+          const experiment = await getExperimentById(
+            req.context,
+            holdout.experimentId,
+          );
+          if (!experiment) {
+            return req.context.throwNotFoundError(
+              "Holdout experiment not found",
+            );
+          }
+
+          const envs = getEnvironmentIdsFromOrg(req.context.org);
+          if (!req.context.permissions.canRunHoldout(holdout, envs)) {
+            req.context.permissions.throwPermissionError();
+          }
+
+          await advanceHoldoutStage(req.context, {
+            holdout,
+            experiment,
+            stage: req.body.stage,
+          });
+
+          // Re-read both documents: the stage change rewrote the experiment's
+          // status and phases and the holdout's analysis/schedule fields.
+          const [updatedHoldout, updatedExperiment] = await Promise.all([
+            req.context.models.holdout.getById(holdout.id),
+            getExperimentById(req.context, holdout.experimentId),
+          ]);
+          if (!updatedHoldout || !updatedExperiment) {
+            return req.context.throwNotFoundError();
+          }
+
+          return {
+            holdout: await resolveOwnerEmail(
+              toApiHoldout(updatedHoldout, updatedExperiment),
+              req.context,
+            ),
+          };
+        },
+      }),
+    ],
+  },
 });
+
+/**
+ * Merges a holdout and its companion experiment into the public API shape.
+ *
+ * The experiment is nullable because a holdout can outlive a deleted experiment;
+ * in that case the experiment-derived fields fall back to empty values rather
+ * than failing the whole response.
+ */
+export function toApiHoldout(
+  holdout: HoldoutInterface,
+  experiment: ExperimentInterface | null,
+): ApiHoldoutInterface {
+  const phase = experiment?.phases?.[experiment.phases.length - 1];
+  const firstPhase = experiment?.phases?.[0];
+
+  return {
+    id: holdout.id,
+    dateCreated: holdout.dateCreated.toISOString(),
+    dateUpdated: holdout.dateUpdated.toISOString(),
+    name: holdout.name,
+    description: experiment?.description ?? "",
+    projects: holdout.projects,
+    owner: experiment?.owner ?? "",
+    tags: experiment?.tags ?? [],
+    archived: experiment?.archived ?? false,
+    stage: experiment
+      ? getHoldoutStage(holdout, experiment)
+      : /* No experiment left to derive from. */ "stopped",
+    experimentId: holdout.experimentId,
+    trackingKey: experiment?.trackingKey ?? "",
+    skipAsDefaultHoldout: holdout.skipAsDefaultHoldout ?? false,
+
+    holdoutSize: coverageToHoldoutSize(phase?.coverage ?? 0),
+    hashAttribute: experiment?.hashAttribute ?? "",
+    targetingCondition: phase?.condition ?? "",
+    savedGroups: phase?.savedGroups,
+
+    datasourceId: experiment?.datasource ?? "",
+    assignmentQueryId: experiment?.exposureQueryId ?? "",
+    goalMetrics: experiment?.goalMetrics ?? [],
+    secondaryMetrics: experiment?.secondaryMetrics ?? [],
+    guardrailMetrics: experiment?.guardrailMetrics ?? [],
+    activationMetric: experiment?.activationMetric || undefined,
+    variations: (experiment?.variations ?? []).map((v) => ({
+      variationId: v.id,
+      key: v.key,
+      name: v.name,
+      description: v.description,
+    })),
+
+    environments: Object.fromEntries(
+      Object.entries(holdout.environmentSettings).map(([id, settings]) => [
+        id,
+        { enabled: settings.enabled },
+      ]),
+    ),
+
+    linkedFeatures: Object.values(holdout.linkedFeatures).map((f) => ({
+      id: f.id,
+      dateAdded: f.dateAdded.toISOString(),
+    })),
+    linkedExperiments: Object.values(holdout.linkedExperiments).map((e) => ({
+      id: e.id,
+      dateAdded: e.dateAdded.toISOString(),
+    })),
+
+    dateStarted: firstPhase?.dateStarted?.toISOString(),
+    analysisStartDate: holdout.analysisStartDate?.toISOString(),
+    dateStopped:
+      experiment?.status === "stopped"
+        ? phase?.dateEnded?.toISOString()
+        : undefined,
+
+    statusUpdateSchedule: holdout.statusUpdateSchedule
+      ? {
+          startAt: holdout.statusUpdateSchedule.startAt?.toISOString(),
+          startAnalysisPeriodAt:
+            holdout.statusUpdateSchedule.startAnalysisPeriodAt?.toISOString(),
+          stopAt: holdout.statusUpdateSchedule.stopAt?.toISOString(),
+        }
+      : holdout.statusUpdateSchedule,
+    nextScheduledStatusUpdate: holdout.nextScheduledStatusUpdate
+      ? {
+          type: holdout.nextScheduledStatusUpdate.type,
+          date: holdout.nextScheduledStatusUpdate.date.toISOString(),
+        }
+      : holdout.nextScheduledStatusUpdate,
+  };
+}
 
 export class HoldoutModel extends BaseClass {
   // CRUD permission checks
@@ -49,6 +231,292 @@ export class HoldoutModel extends BaseClass {
 
   protected hasPremiumFeature(): boolean {
     return this.context.hasPremiumFeature("holdouts");
+  }
+
+  /***************
+   * REST API handlers
+   *
+   * All four are overridden because the default implementations assume a single
+   * document: `toApiInterface` is synchronous and per-doc, so it cannot fetch
+   * the companion experiment that supplies most of the API shape.
+   ***************/
+
+  protected toApiInterface(doc: HoldoutInterface): ApiHoldoutInterface {
+    // Only reached if a caller bypasses the overrides below. Returning the
+    // holdout half alone is better than throwing, and every handler here
+    // resolves the experiment properly.
+    return toApiHoldout(doc, null);
+  }
+
+  private async getExperimentOrThrow(
+    holdout: HoldoutInterface,
+  ): Promise<ExperimentInterface> {
+    const experiment = await getExperimentById(
+      this.context,
+      holdout.experimentId,
+    );
+    if (!experiment) {
+      // A 404 rather than a 500: the Holdout exists but is missing its other half.
+      this.context.throwNotFoundError("Holdout experiment not found");
+    }
+    return experiment;
+  }
+
+  public override async handleApiGet(
+    req: Parameters<InstanceType<typeof BaseClass>["handleApiGet"]>[0],
+  ): Promise<ApiHoldoutInterface> {
+    const holdout = await this.getById(req.params.id);
+    if (!holdout) req.context.throwNotFoundError();
+    const experiment = await this.getExperimentOrThrow(holdout);
+    return resolveOwnerEmail(toApiHoldout(holdout, experiment), this.context);
+  }
+
+  public override async handleApiList(
+    req: Parameters<InstanceType<typeof BaseClass>["handleApiList"]>[0],
+  ): Promise<ApiHoldoutInterface[]> {
+    const { projectId, datasourceId, stage, archived } = req.query;
+
+    const holdouts = await this.getAll();
+    const filteredByProject = projectId
+      ? holdouts.filter((h) => h.projects.includes(projectId))
+      : holdouts;
+
+    // Batch the experiment lookup rather than one query per holdout.
+    const experiments = await getExperimentsByIds(
+      this.context,
+      filteredByProject.map((h) => h.experimentId),
+    );
+    const experimentsById = new Map(experiments.map((e) => [e.id, e]));
+
+    const wantArchived =
+      archived === undefined ? undefined : stringToBoolean(archived.toString());
+
+    const results: ApiHoldoutInterface[] = [];
+    for (const holdout of filteredByProject) {
+      const experiment = experimentsById.get(holdout.experimentId);
+      // A holdout whose experiment was deleted cannot be filtered on
+      // experiment-derived fields, so drop it from filtered listings.
+      if (!experiment) {
+        if (datasourceId || stage || wantArchived !== undefined) continue;
+        results.push(toApiHoldout(holdout, null));
+        continue;
+      }
+      if (datasourceId && experiment.datasource !== datasourceId) continue;
+      if (stage && getHoldoutStage(holdout, experiment) !== stage) continue;
+      if (
+        wantArchived !== undefined &&
+        !!experiment.archived !== wantArchived
+      ) {
+        continue;
+      }
+      results.push(toApiHoldout(holdout, experiment));
+    }
+
+    return resolveOwnerEmails(results, this.context);
+  }
+
+  public override async handleApiCreate(
+    req: Parameters<InstanceType<typeof BaseClass>["handleApiCreate"]>[0],
+  ): Promise<ApiHoldoutInterface> {
+    const body = apiCreateHoldoutBody.parse(req.body);
+
+    const owner = await resolveOwnerForCreate(body.owner, this.context);
+
+    const { holdout, experiment } = await createHoldoutWithExperiment(
+      this.context,
+      {
+        name: body.name,
+        description: body.description,
+        projects: body.projects,
+        owner,
+        tags: body.tags,
+        skipAsDefaultHoldout: body.skipAsDefaultHoldout,
+        datasource: body.datasourceId,
+        exposureQueryId: body.assignmentQueryId,
+        // An empty hash attribute would leave the Holdout unable to bucket
+        // anyone, so fall back to the conventional default.
+        hashAttribute: body.hashAttribute || "id",
+        goalMetrics: body.goalMetrics,
+        secondaryMetrics: body.secondaryMetrics,
+        guardrailMetrics: body.guardrailMetrics,
+        activationMetric: body.activationMetric,
+        environmentSettings: body.environments
+          ? Object.fromEntries(
+              Object.entries(body.environments).map(([id, settings]) => [
+                id,
+                { enabled: settings.enabled },
+              ]),
+            )
+          : undefined,
+        // A new holdout gets a single phase holding its targeting and sizing.
+        phases: [
+          {
+            name: "Holdout",
+            reason: "",
+            dateStarted: new Date().toISOString(),
+            coverage: holdoutSizeToCoverage(
+              body.holdoutSize ?? DEFAULT_HOLDOUT_SIZE,
+            ),
+            condition: body.targetingCondition ?? "",
+            savedGroups: body.savedGroups,
+            variationWeights: [0.5, 0.5],
+            variations: [],
+          },
+        ],
+      },
+    );
+
+    // Applied after creation so it is validated against the real stored stage.
+    if (body.statusUpdateSchedule) {
+      const withSchedule = await this.update(
+        holdout,
+        normalizeHoldoutScheduleUpdates({
+          holdout,
+          experiment,
+          scheduleInput: body.statusUpdateSchedule,
+        }),
+      );
+      return resolveOwnerEmail(
+        toApiHoldout(withSchedule, experiment),
+        this.context,
+      );
+    }
+
+    return resolveOwnerEmail(toApiHoldout(holdout, experiment), this.context);
+  }
+
+  public override async handleApiUpdate(
+    req: Parameters<InstanceType<typeof BaseClass>["handleApiUpdate"]>[0],
+  ): Promise<ApiHoldoutInterface> {
+    const body = apiUpdateHoldoutBody.parse(req.body);
+
+    const holdout = await this.getById(req.params.id);
+    if (!holdout) req.context.throwNotFoundError();
+    let experiment = await this.getExperimentOrThrow(holdout);
+
+    // Gate every path explicitly. Writes to the companion experiment go through
+    // `updateExperiment`, which does no permission checking of its own, and a
+    // body touching only experiment-side fields never reaches `this.update`.
+    if (
+      !this.context.permissions.canUpdateHoldout(holdout, {
+        projects: body.projects ?? holdout.projects,
+      })
+    ) {
+      this.context.permissions.throwPermissionError();
+    }
+
+    const isTargetingChange = HOLDOUT_API_TARGETING_UPDATE_FIELDS.some(
+      (field) => body[field] !== undefined,
+    );
+
+    // Targeting and sizing changes reach live SDK payloads, so they additionally
+    // require run permission on the Holdout's environments — the same bar the
+    // internal targeting endpoint applies.
+    if (isTargetingChange) {
+      const envs = Object.keys(holdout.environmentSettings).filter(
+        (env) => holdout.environmentSettings[env]?.enabled,
+      );
+      if (
+        envs.length > 0 &&
+        !this.context.permissions.canRunHoldout(holdout, envs)
+      ) {
+        this.context.permissions.throwPermissionError();
+      }
+    }
+
+    // 1. Phase-level targeting and sizing, through the same path the internal
+    //    targeting endpoint uses so phases and the SDK payload stay correct.
+    if (isTargetingChange) {
+      experiment = await applyHoldoutTargetingChanges(this.context, {
+        experiment,
+        coverage:
+          body.holdoutSize === undefined
+            ? undefined
+            : holdoutSizeToCoverage(body.holdoutSize),
+        condition: body.targetingCondition,
+        savedGroups: body.savedGroups,
+        hashAttribute: body.hashAttribute,
+      });
+    }
+
+    // 2. Metadata and analysis settings on the companion experiment.
+    const experimentChanges: Partial<ExperimentInterface> = {};
+    for (const field of HOLDOUT_API_EXPERIMENT_UPDATE_FIELDS) {
+      if (body[field] !== undefined) {
+        (experimentChanges as Record<string, unknown>)[field] = body[field];
+      }
+    }
+    if (body.owner !== undefined) {
+      experimentChanges.owner = await resolveOwnerToUserId(
+        body.owner,
+        this.context,
+      );
+    }
+    if (body.datasourceId !== undefined) {
+      experimentChanges.datasource = body.datasourceId;
+    }
+    if (body.assignmentQueryId !== undefined) {
+      experimentChanges.exposureQueryId = body.assignmentQueryId;
+    }
+    // A holdout's two variations are fixed, so only their labels can change.
+    if (body.variations) {
+      const renames = new Map(body.variations.map((v) => [v.variationId, v]));
+      experimentChanges.variations = experiment.variations.map((v) => {
+        const rename = renames.get(v.id);
+        if (!rename) return v;
+        return {
+          ...v,
+          name: rename.name ?? v.name,
+          description: rename.description ?? v.description,
+        };
+      });
+    }
+    // The name is stored on both documents and must not drift.
+    if (body.name !== undefined) {
+      experimentChanges.name = body.name;
+    }
+    if (Object.keys(experimentChanges).length) {
+      experiment = await updateExperiment({
+        context: this.context,
+        experiment,
+        changes: experimentChanges,
+      });
+    }
+
+    // 3. Fields on the holdout document itself.
+    const holdoutUpdates: UpdateProps<HoldoutInterface> = {};
+    for (const field of HOLDOUT_API_UPDATE_FIELDS) {
+      if (body[field] !== undefined) {
+        (holdoutUpdates as Record<string, unknown>)[field] = body[field];
+      }
+    }
+    if (body.name !== undefined) {
+      holdoutUpdates.name = body.name;
+    }
+    if (body.environments !== undefined) {
+      holdoutUpdates.environmentSettings = Object.fromEntries(
+        Object.entries(body.environments).map(([id, settings]) => [
+          id,
+          { enabled: settings.enabled },
+        ]),
+      );
+    }
+    if (body.statusUpdateSchedule !== undefined) {
+      Object.assign(
+        holdoutUpdates,
+        normalizeHoldoutScheduleUpdates({
+          holdout,
+          experiment,
+          scheduleInput: body.statusUpdateSchedule,
+        }),
+      );
+    }
+
+    const updated = Object.keys(holdoutUpdates).length
+      ? await this.update(holdout, holdoutUpdates)
+      : holdout;
+
+    return resolveOwnerEmail(toApiHoldout(updated, experiment), this.context);
   }
 
   protected async beforeUpdate(
