@@ -1,12 +1,16 @@
 import { useRouter } from "next/router";
 import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, Separator } from "@radix-ui/themes";
+import { PiArrowCounterClockwise, PiKey, PiUserCircle } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import UserAvatar from "@/components/Avatar/UserAvatar";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
+import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
+import Link from "@/ui/Link";
 import { Select, SelectItem } from "@/ui/Select";
 import Text from "@/ui/Text";
 
@@ -19,33 +23,30 @@ type AuthorizeInfoResponse = {
   user?: { id: string; email: string; name: string };
 };
 
-// Loopback hosts are the OS itself — clarify that the code lands on this
-// device rather than showing a bare "127.0.0.1" that reads as a remote server.
+// Loopback hosts are the OS itself, so a code delivered here never leaves the
+// user's machine.
 const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
 
-// Describe where the authorization code will be delivered. This is the one
-// signal on this page that the app cannot fake: the code is always sent to a
-// redirect_uri pre-registered by the client, so a name/destination mismatch is
-// how a user catches a spoof.
+// Where the authorization code will be delivered. This is the one signal on
+// this page the app cannot fake: the code always goes to a redirect_uri
+// pre-registered by the client.
+//
+// `isLocal` decides whether it is worth the user's attention. Loopback and
+// custom-scheme targets hand the code to something already running on this
+// machine, so a remote attacker never receives it and showing a bare
+// "localhost:8787" is noise. A remote host is the case that matters, and is
+// the only one surfaced.
 function describeRedirectTarget(
   redirectUri?: string,
-): { host: string; isLoopback: boolean; scheme: string } | null {
+): { host: string; isLocal: boolean } | null {
   if (!redirectUri) return null;
   try {
     const url = new URL(redirectUri);
     if (url.protocol === "http:" || url.protocol === "https:") {
-      return {
-        host: url.host,
-        isLoopback: LOOPBACK_HOSTS.has(url.hostname),
-        scheme: url.protocol.replace(":", ""),
-      };
+      return { host: url.host, isLocal: LOOPBACK_HOSTS.has(url.hostname) };
     }
     // Custom schemes (cursor://, etc.) hand off to a locally installed app.
-    return {
-      host: url.protocol.replace(":", "") + "://",
-      isLoopback: false,
-      scheme: url.protocol.replace(":", ""),
-    };
+    return { host: url.protocol.replace(":", "") + "://", isLocal: true };
   } catch {
     return null;
   }
@@ -54,9 +55,36 @@ function describeRedirectTarget(
 // Shared narrow-page wrapper so the consent and success screens can't drift.
 function ConsentPageWrapper({ children }: { children: ReactNode }) {
   return (
-    <Box maxWidth="600px" mx="auto" my="9" px="4">
+    <Box maxWidth="520px" mx="auto" my="9" px="4">
       {children}
     </Box>
+  );
+}
+
+// Icon box is pinned to the text's line-height so the glyph centers on the
+// first line rather than floating above it (the same trick Callout uses).
+function AccessItem({
+  icon,
+  children,
+}: {
+  icon: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <Flex gap="3" align="start">
+      <Flex
+        align="center"
+        justify="center"
+        flexShrink="0"
+        height="var(--line-height-2)"
+        style={{ color: "var(--violet-11)" }}
+      >
+        {icon}
+      </Flex>
+      <Text size="medium" color="text-mid">
+        {children}
+      </Text>
+    </Flex>
   );
 }
 
@@ -229,14 +257,26 @@ export default function OAuthAuthorizePage() {
 
   return (
     <ConsentPageWrapper>
-      <Heading as="h1" size="x-large" mb="2">
-        Authorize Application
-      </Heading>
-      <Text as="p" size="medium" color="text-mid" mb="4">
-        An application is requesting access to your GrowthBook account.
-        GrowthBook cannot verify who built it, so review the details below
-        before you continue.
-      </Text>
+      {showDetails ? (
+        // `as="div"` rather than `as="p"`: global Bootstrap styling puts a
+        // margin on <p> that fights the explicit spacing here.
+        <Flex direction="column" align="center" mb="5">
+          <Heading as="h1" size="x-large" align="center" mb="1">
+            {claimedName}
+          </Heading>
+          <Text as="div" size="large" color="text-mid" align="center" mb="2">
+            is requesting access to your GrowthBook account
+          </Text>
+          <Text as="div" size="small" color="text-low" align="center">
+            Name provided by the application. GrowthBook does not verify
+            application identity.
+          </Text>
+        </Flex>
+      ) : (
+        <Heading as="h1" size="x-large" mb="4">
+          Authorize Application
+        </Heading>
+      )}
 
       {error ? (
         <Callout status="error" mb="4">
@@ -244,121 +284,107 @@ export default function OAuthAuthorizePage() {
         </Callout>
       ) : null}
 
-      {showDetails ? (
-        <>
-          <Callout status="warning" mb="4">
-            GrowthBook has not verified this application&rsquo;s identity. The
-            name below is provided by the application itself and could be
-            impersonated. Only continue if you started this from an application
-            you trust.
-          </Callout>
-
-          <Box
-            mb="4"
-            p="3"
-            style={{
-              border: "1px solid var(--gray-a5)",
-              borderRadius: "var(--radius-3)",
-            }}
-          >
-            <Flex direction="column" gap="2">
-              <Flex justify="between" gap="3">
-                <Text size="medium" color="text-mid">
-                  Application
-                </Text>
-                <Box style={{ textAlign: "right" }}>
-                  <Text size="medium" weight="medium">
-                    {claimedName}{" "}
-                    <Text
-                      as="span"
-                      size="small"
-                      color="text-mid"
-                      weight="regular"
-                    >
-                      (self-reported)
-                    </Text>
-                  </Text>
-                </Box>
-              </Flex>
-
-              {redirectTarget ? (
-                <Flex justify="between" gap="3">
-                  <Text size="medium" color="text-mid">
-                    Sends your access code to
-                  </Text>
-                  <Box style={{ textAlign: "right", wordBreak: "break-all" }}>
-                    <Text size="medium" weight="medium">
-                      {redirectTarget.host}
-                      {redirectTarget.isLoopback ? (
-                        <>
-                          {" "}
-                          <Text
-                            as="span"
-                            size="small"
-                            color="text-mid"
-                            weight="regular"
-                          >
-                            (an app on this device)
-                          </Text>
-                        </>
-                      ) : null}
-                    </Text>
-                  </Box>
-                </Flex>
-              ) : null}
-            </Flex>
-          </Box>
-        </>
-      ) : null}
-
-      {info?.user ? (
-        <Text as="p" size="medium" color="text-mid" mb="3">
-          Signed in as{" "}
-          <Text as="span" size="inherit" weight="semibold">
-            {info.user.email}
-          </Text>
-        </Text>
-      ) : null}
-
-      {info?.organizations && info.organizations.length > 0 ? (
-        <Box mb="4">
-          <Select
-            label="Organization"
-            value={orgId || undefined}
-            setValue={setOrgId}
-            placeholder="Select an organization"
-          >
-            {info.organizations.map((o) => (
-              <SelectItem key={o.id} value={o.id}>
-                {o.name}
-              </SelectItem>
-            ))}
-          </Select>
-        </Box>
-      ) : info && !error ? (
+      {redirectTarget && !redirectTarget.isLocal ? (
         <Callout status="warning" mb="4">
-          You are not a member of any organization.
+          Your authorization code will be sent to{" "}
+          <Text as="span" size="inherit" weight="semibold">
+            {redirectTarget.host}
+          </Text>
+          . Continue only if you recognize that destination.
         </Callout>
       ) : null}
 
-      <Text as="p" size="medium" color="text-mid" mb="4">
-        This will allow the application to act as you within the selected
-        organization, with the same permissions you have in GrowthBook.
-      </Text>
+      {info && !error ? (
+        <Frame>
+          {info.user ? (
+            <>
+              <Flex align="center" gap="3">
+                <UserAvatar
+                  size="md"
+                  variant="soft"
+                  color="gray"
+                  name={info.user.name}
+                  email={info.user.email}
+                />
+                <Box style={{ minWidth: 0 }}>
+                  <Text as="div" size="small" color="text-mid">
+                    Signed in as
+                  </Text>
+                  <Text
+                    as="div"
+                    size="medium"
+                    weight="medium"
+                    overflowWrap="anywhere"
+                  >
+                    {info.user.email}
+                  </Text>
+                </Box>
+              </Flex>
+              <Separator size="4" my="4" />
+            </>
+          ) : null}
 
-      <Flex gap="3" justify="end">
+          {info.organizations && info.organizations.length > 0 ? (
+            <Select
+              label="Organization"
+              value={orgId || undefined}
+              setValue={setOrgId}
+              placeholder="Select an organization"
+            >
+              {info.organizations.map((o) => (
+                <SelectItem key={o.id} value={o.id}>
+                  {o.name}
+                </SelectItem>
+              ))}
+            </Select>
+          ) : (
+            <Callout status="warning">
+              You are not a member of any organization.
+            </Callout>
+          )}
+        </Frame>
+      ) : null}
+
+      <Frame>
+        <Text as="div" size="medium" weight="semibold" mb="3">
+          What this allows
+        </Text>
+        <Flex direction="column" gap="3">
+          <AccessItem icon={<PiUserCircle size={16} />}>
+            Acting as you in the selected organization, with the same
+            permissions you have in GrowthBook.
+          </AccessItem>
+          <AccessItem icon={<PiKey size={16} />}>
+            Access through the GrowthBook API on your behalf. Your password is
+            never shared.
+          </AccessItem>
+          <AccessItem icon={<PiArrowCounterClockwise size={16} />}>
+            Access continues until you revoke it from{" "}
+            <Link href="/account/personal-access-tokens">
+              Personal Access Tokens
+            </Link>
+            .
+          </AccessItem>
+        </Flex>
+      </Frame>
+
+      <Flex gap="3">
         <Button
           variant="soft"
           color="gray"
+          size="md"
           onClick={deny}
           disabled={submitting}
+          style={{ flex: 1 }}
         >
           Deny
         </Button>
         <Button
+          size="md"
           onClick={approve}
           disabled={submitting || !orgId || !!error}
           loading={submitting}
+          style={{ flex: 1 }}
         >
           Authorize
         </Button>
