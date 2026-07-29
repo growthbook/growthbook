@@ -34,12 +34,14 @@ import { CustomHookInterface } from "../validators/custom-hooks";
 import { ContextualBanditInterface } from "../validators/contextual-bandit";
 import { EventForwarderConfigInterface } from "../validators/event-forwarder-config";
 import { HoldoutInterface } from "../validators/holdout";
+import { PermissionError, isEventForwarderEventsFactTable } from "../util/";
+// Imported from the specific module, not the util barrel: the barrel pulls in
+// modules that import back from shared/permissions, and the resulting require
+// cycle intermittently leaves barrel re-exports uninitialized at load time.
 import {
-  PermissionError,
   getTargetingProjectIds,
-  isEventForwarderEventsFactTable,
   TargetingScopedEntity,
-} from "../util/";
+} from "../util/features";
 import { READ_ONLY_PERMISSIONS } from "./permissions.constants";
 import {
   NO_ENVIRONMENT_BINDING,
@@ -1258,16 +1260,9 @@ export class Permissions {
     return this.checkProjectFilterPermission(datasource, "runQueries");
   };
 
-  /**
-   * Diagnostics read the flag and write nothing, so anyone with a reason to
-   * understand it qualifies — from either direction. Flag-side: authors, whoever
-   * lands it, and reviewers, since a reviewer judging a change needs the same
-   * picture the author had. Datasource-side: whoever may already query the data
-   * this reads, which is the check #6489 replaced rather than widened.
-   *
-   * NO_ENVIRONMENT_BINDING is deliberate: there's no write, so there's no
-   * environment footprint to narrow an env-limited publisher against.
-   */
+  // Diagnostics read the flag and write nothing, so any flag authority — or
+  // runQueries on the datasource it reads — qualifies. NO_ENVIRONMENT_BINDING:
+  // no write, so no footprint to narrow an env-limited publisher against.
   public canRunFeatureDiagnosticsQueries = (
     feature: Pick<FeatureInterface, "project">,
     datasource?: Pick<DataSourceInterface, "projects">,

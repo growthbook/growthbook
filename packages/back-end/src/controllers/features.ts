@@ -4212,15 +4212,8 @@ export async function putSafeRolloutStatus(
     throw new Error("Could not find feature");
   }
 
-  // Authoring gate, then landing authority — both before the revision is
-  // created, so a blocked publish leaves no orphaned revision behind. This
-  // endpoint always lands the change when no review is required.
-  // Flipping a safe-rollout's status is a live write in the one environment the
-  // rule lives in — the revision below is just the mechanism. `type:
-  // "safe-rollout"` is deprecated in favour of ramp schedules, so this takes the
-  // plain publish gate rather than a bespoke policy: requiring draft authority
-  // too, and publish across every org environment, locked out any env-scoped
-  // publisher.
+  // A status flip is a live write in one environment; the revision below is
+  // just the mechanism. safe-rollout rules are deprecated, so no bespoke policy.
   if (!context.permissions.canPublishFeature(feature, [environment])) {
     context.permissions.throwPermissionError();
   }

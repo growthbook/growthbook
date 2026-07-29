@@ -21,6 +21,7 @@ import type { Context } from "back-end/src/models/BaseModel";
 import {
   EntityRevisionAdapter,
   filterUpdatableChanges,
+  revisionActionHooks,
 } from "back-end/src/revisions/EntityRevisionAdapter";
 import {
   ArmAcknowledgments,
@@ -163,43 +164,20 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
     return canBypassApprovalForConstant(context, snapshot);
   },
 
+  ...revisionActionHooks<ConstantInterface>({
+    model: "constant",
+    projectsOf: constantProjects,
+    envsOf: (context) => constantPublishEnvironments(context),
+  }),
+
+  // Overrides the factory's env scoping: deleting isn't env-scoped for
+  // constants (mirrors ConstantModel.canDelete).
   canDeleteEntity(context: Context, snapshot: ConstantInterface): boolean {
-    // A constant's base value has no environment binding (see ConstantModel).
     return context.permissions.canRevisionAction(
       "constant",
       "delete",
       { projects: constantProjects(snapshot) },
       NO_ENVIRONMENT_BINDING,
-    );
-  },
-
-  canManageDrafts(context: Context, snapshot: ConstantInterface): boolean {
-    return context.permissions.canRevisionAction("constant", "draft", {
-      projects: constantProjects(snapshot),
-    });
-  },
-
-  canReview(context: Context, snapshot: ConstantInterface): boolean {
-    return context.permissions.canRevisionAction("constant", "review", {
-      projects: constantProjects(snapshot),
-    });
-  },
-
-  canPublishRevision(context: Context, snapshot: ConstantInterface): boolean {
-    return context.permissions.canRevisionAction(
-      "constant",
-      "publish",
-      { projects: constantProjects(snapshot) },
-      constantPublishEnvironments(context),
-    );
-  },
-
-  canRevert(context: Context, snapshot: ConstantInterface): boolean {
-    return context.permissions.canRevisionAction(
-      "constant",
-      "revert",
-      { projects: constantProjects(snapshot) },
-      constantPublishEnvironments(context),
     );
   },
 

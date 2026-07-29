@@ -14,12 +14,7 @@ import {
 import type { PublishGovernanceResult } from "shared/util";
 import { datetime } from "shared/dates";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import {
-  PiCaretDownBold,
-  PiGitMergeBold,
-  PiLockSimple,
-  PiProhibitInset,
-} from "react-icons/pi";
+import { PiCaretDownBold, PiGitMergeBold, PiLockSimple } from "react-icons/pi";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import useURLHash from "@/hooks/useURLHash";
@@ -29,6 +24,7 @@ import Heading from "@/ui/Heading";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import HelperText from "@/ui/HelperText";
+import PermissionBlocker from "@/components/PermissionBlocker";
 import {
   DropdownMenu,
   DropdownMenuGroup,
@@ -532,11 +528,8 @@ function ReviewAndPublishRevision<T>({
   // — and draft authority is enough to PROPOSE one. Mirrors the Feature pane;
   // the revert modal narrows the routes to the ones actually held.
   const canRevertOrEdit = (canRevertEntity ?? canEditEntity) || canDraftOrEdit;
-  // Moving a draft along — request review, recall, discard — is not the same as
-  // editing its content. Draft authority covers any draft; beyond that a narrow
-  // atom reaches a draft it authored, or one that only does what that atom
-  // covers. Mirrors the Feature pane's canAdvanceDraft and the server's
-  // canAdvanceRevision; the server re-checks purity.
+  // Advancing a draft (request review / recall / discard) is not editing its
+  // content. Mirrors the server's canAdvanceRevision, which re-checks purity.
   const draftStagesRevert = !!revision.revertedFrom;
   const canAdvanceDraft =
     canDraftOrEdit ||
@@ -1172,35 +1165,20 @@ function ReviewAndPublishRevision<T>({
             some other authority needs the reason spelled out — otherwise the
             disabled control reads as a bug. */}
         {revision.status === "discarded" && !canDraftOrEdit && (
-          <HelperText
-            status="warning"
-            size="sm"
-            icon={<PiProhibitInset size={13} />}
-            mt="2"
-          >
+          <PermissionBlocker mt="2">
             You don&apos;t have permission to edit drafts for this {entityNoun}.
-          </HelperText>
+          </PermissionBlocker>
         )}
         {revision.status !== "discarded" && onRevert && !canRevertOrEdit && (
-          <HelperText
-            status="warning"
-            size="sm"
-            icon={<PiProhibitInset size={13} />}
-            mt="2"
-          >
+          <PermissionBlocker mt="2">
             You don&apos;t have permission to revert this {entityNoun}.
-          </HelperText>
+          </PermissionBlocker>
         )}
 
         {!hasAnyAuthority && !canComment && (
-          <HelperText
-            status="warning"
-            size="md"
-            icon={<PiProhibitInset size={15} />}
-            mt="5"
-          >
+          <PermissionBlocker size="md" mt="5">
             You don&apos;t have permission to manage revisions for this entity.
-          </HelperText>
+          </PermissionBlocker>
         )}
         {isLive &&
           canRevertOrEdit &&
@@ -1359,13 +1337,9 @@ function ReviewAndPublishRevision<T>({
                   greyed-out button with no reason reads as a bug. First in the
                   stack: it's the reason nothing else here is actionable. */}
               {!canPublishOrEdit && (
-                <HelperText
-                  status="warning"
-                  size="sm"
-                  icon={<PiProhibitInset size={13} />}
-                >
+                <PermissionBlocker>
                   You don&apos;t have permission to publish this draft.
-                </HelperText>
+                </PermissionBlocker>
               )}
 
               {/* Entity-level publish lock (e.g. a locked config). */}

@@ -40,10 +40,8 @@ export async function canAdvanceRevision(
   const hasDelete =
     getAdapter(type).canDeleteEntity?.(context, snapshot) ?? false;
 
-  // Guarded against falsy ids: API-key contexts have userId "", and an
-  // owner-less entity's bootstrap revision can too, so a bare equality would
-  // call two unrelated API keys "the author" of the same draft. Mirrors
-  // authoredFeatureDraft.
+  // !!userId: API-key contexts have userId "" (bootstrap revisions can too),
+  // so a bare equality calls unrelated API keys "the author".
   if (
     !!context.userId &&
     revision.authorId === context.userId &&
@@ -52,7 +50,6 @@ export async function canAdvanceRevision(
     return true;
   }
 
-  // Delete authority reaches a draft that only takes the entity out of service.
   if (
     hasDelete &&
     isArchiveTransition({

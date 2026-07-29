@@ -14,6 +14,7 @@ import type { Context } from "back-end/src/models/BaseModel";
 import {
   EntityRevisionAdapter,
   filterUpdatableChanges,
+  revisionActionHooks,
 } from "back-end/src/revisions/EntityRevisionAdapter";
 import {
   ArmAcknowledgments,
@@ -130,48 +131,10 @@ export const savedGroupAdapter: EntityRevisionAdapter<SavedGroupInterface> = {
     return canBypassAcrossProjects(context, snapshot);
   },
 
-  canDeleteEntity(context: Context, snapshot: SavedGroupInterface): boolean {
-    return context.permissions.canRevisionAction(
-      "saved-group",
-      "delete",
-      snapshot,
-      NO_ENVIRONMENT_BINDING,
-    );
-  },
-
-  // Saved groups have no environment concept, so publish/revert are
-  // project-scoped (unlike the Flags family).
-  canManageDrafts(context: Context, snapshot: SavedGroupInterface): boolean {
-    return context.permissions.canRevisionAction(
-      "saved-group",
-      "draft",
-      snapshot,
-    );
-  },
-
-  canReview(context: Context, snapshot: SavedGroupInterface): boolean {
-    return context.permissions.canRevisionAction(
-      "saved-group",
-      "review",
-      snapshot,
-    );
-  },
-
-  canPublishRevision(context: Context, snapshot: SavedGroupInterface): boolean {
-    return context.permissions.canRevisionAction(
-      "saved-group",
-      "publish",
-      snapshot,
-    );
-  },
-
-  canRevert(context: Context, snapshot: SavedGroupInterface): boolean {
-    return context.permissions.canRevisionAction(
-      "saved-group",
-      "revert",
-      snapshot,
-    );
-  },
+  ...revisionActionHooks<SavedGroupInterface>({
+    model: "saved-group",
+    projectsOf: (snapshot) => snapshot.projects ?? [],
+  }),
 
   isApprovalRequired(context: Context): boolean {
     return isSavedGroupApprovalRequired(context);

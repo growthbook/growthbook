@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { FaCircleCheck, FaCircleXmark } from "react-icons/fa6";
-import { PiProhibitInset } from "react-icons/pi";
 import { FeatureInterface } from "shared/types/feature";
 import {
   FeatureRevisionInterface,
@@ -15,7 +14,6 @@ import {
   buildEffectiveDraft,
   filterEnvironmentsByFeature,
 } from "shared/util";
-import HelperText from "@/ui/HelperText";
 import Switch from "@/ui/Switch";
 import Text from "@/ui/Text";
 import { useAuth } from "@/services/auth";
@@ -31,6 +29,7 @@ import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import PermissionBlocker from "@/components/PermissionBlocker";
 
 function EnvStateIcon({ enabled }: { enabled: boolean }) {
   return enabled ? (
@@ -434,9 +433,7 @@ export default function KillSwitchModal({
     return getEffectiveState(envId);
   };
 
-  // Flipping a switch commits to nothing: the strategy below decides whether the
-  // change is published or staged. So the switch is open to anyone with either
-  // route, and it's the CTA that enforces which one they actually hold.
+  // Flipping a switch commits to nothing — the CTA enforces the chosen route.
   const canToggleEnv = (envId: string) =>
     canDraft || permissionsUtil.canPublishFeature(feature, [envId]);
 
@@ -522,26 +519,16 @@ export default function KillSwitchModal({
     >
       <div style={{ minHeight: 300 }}>
         {cannotLandSelectedRoute ? (
-          <HelperText
-            status="warning"
-            size="sm"
-            icon={<PiProhibitInset size={13} />}
-            mb="4"
-          >
+          <PermissionBlocker mb="4">
             You don&apos;t have permission to publish every environment you
             changed. Save it to a draft instead.
-          </HelperText>
+          </PermissionBlocker>
         ) : null}
         {noRouteAvailable ? (
-          <HelperText
-            status="warning"
-            size="sm"
-            icon={<PiProhibitInset size={13} />}
-            mb="4"
-          >
+          <PermissionBlocker mb="4">
             This change needs review before it can be published, and you
             don&apos;t have permission to put it in a draft.
-          </HelperText>
+          </PermissionBlocker>
         ) : null}
         <DraftSelectorForChanges
           feature={feature}

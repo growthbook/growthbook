@@ -40,7 +40,6 @@ import { FaArrowLeft } from "react-icons/fa";
 import {
   PiLockSimple,
   PiLock,
-  PiProhibitInset,
   PiClockFill,
   PiGitMergeBold,
   PiCaretDownBold,
@@ -115,6 +114,7 @@ type ReviewSubTab = "overview" | "changes";
 import DivergenceNotice from "@/components/Reviews/DivergenceNotice";
 import NoticeBanner from "@/components/Reviews/NoticeBanner";
 import HelperText from "@/ui/HelperText";
+import PermissionBlocker from "@/components/PermissionBlocker";
 import Metadata from "@/ui/Metadata";
 import ReviewCommentPopover from "@/components/Reviews/ReviewCommentPopover";
 import CommentComposer from "@/components/Comments/CommentComposer";
@@ -1475,24 +1475,14 @@ export default function ReviewAndPublish({
           )}
 
           {isDiscarded && !canManageDrafts && (
-            <HelperText
-              status="warning"
-              size="sm"
-              icon={<PiProhibitInset size={13} />}
-              mt="2"
-            >
+            <PermissionBlocker mt="2">
               You don&apos;t have permission to edit drafts for this feature.
-            </HelperText>
+            </PermissionBlocker>
           )}
           {!isDiscarded && !nothingToRevertTo && !canRevertHere && (
-            <HelperText
-              status="warning"
-              size="sm"
-              icon={<PiProhibitInset size={13} />}
-              mt="2"
-            >
+            <PermissionBlocker mt="2">
               You don&apos;t have permission to revert this feature.
-            </HelperText>
+            </PermissionBlocker>
           )}
         </Box>
       </Box>
@@ -2777,15 +2767,10 @@ export default function ReviewAndPublish({
                     </Button>
                     {state.submitAction === "request-review" &&
                       !canAdvanceDraft && (
-                        <HelperText
-                          status="warning"
-                          size="sm"
-                          icon={<PiProhibitInset size={13} />}
-                          mt="2"
-                        >
+                        <PermissionBlocker mt="2">
                           You don&apos;t have permission to request review for
                           this draft.
-                        </HelperText>
+                        </PermissionBlocker>
                       )}
                   </Box>
                 )}
@@ -2879,13 +2864,9 @@ export default function ReviewAndPublish({
                           First in the stack: it's the reason nothing else on
                           this panel is actionable. */}
                       {!hasPublishPermission && (
-                        <HelperText
-                          status="warning"
-                          size="sm"
-                          icon={<PiProhibitInset size={13} />}
-                        >
+                        <PermissionBlocker>
                           You don&apos;t have permission to publish this draft.
-                        </HelperText>
+                        </PermissionBlocker>
                       )}
 
                       {linkedRamps.map((ramp) => (

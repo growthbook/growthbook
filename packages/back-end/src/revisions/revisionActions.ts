@@ -196,11 +196,10 @@ export async function publishRevision(
       `Cannot publish a revision with status "${revision.status}"`,
     );
   }
-  // A "merged" revision is normally done, but the merge is claimed BEFORE the
-  // entity write — so if that write failed and the compensating reopen failed
-  // too, the revision holds a merge the entity never received. Publishing is the
-  // only way back, so the rejection moves below, once `hasChanges` can tell the
-  // two apart.
+  // The merge is claimed BEFORE the entity write, so a failed write plus a
+  // failed reopen strands a merge the entity never received. Publishing is the
+  // only way back — the rejection moves below, where `hasChanges` can tell a
+  // stranded merge from a completed one.
   const alreadyMerged = revision.status === "merged";
 
   const approvalRequired = adapter.isApprovalRequiredForRevision
@@ -295,15 +294,9 @@ export async function publishRevision(
     deferred: !!deferred,
   });
 
-  // Claimed the merge but never applied it. Reconcile by applying now — the
-  // revision already holds the merge, so there's nothing to claim. Without this
-  // the status guard above refused the only request that could recover it, and
-  // the fix was a hand-edit in Mongo.
-  //
-  // In an approval-required org the gate above demands bypass authority here
-  // ("merged" isn't "approved") — deliberate: this state takes a DB-level
-  // double failure to reach, and recovery stays one publish call, just by an
-  // admin.
+  // Claimed the merge but never applied it: apply now, nothing to re-claim. In
+  // approval-required orgs the gate above demands bypass ("merged" isn't
+  // "approved") — deliberate; recovery stays one publish call, by an admin.
   if (alreadyMerged) {
     if (!hasChanges) {
       throw new BadRequestError(
@@ -313,8 +306,7 @@ export async function publishRevision(
     await adapter.applyChanges(context, entity, desiredState, {
       isRevert: !!revision.revertedFrom,
     });
-    // The original attempt failed before its dispatch, so this apply is the
-    // moment the change actually lands — fire the event it never got.
+    // The failed attempt never dispatched; this apply is when the change lands.
     await getRevisionWebhookAdapter(revision.target.type)?.dispatch(
       context,
       revision,

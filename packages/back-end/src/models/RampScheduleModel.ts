@@ -395,12 +395,9 @@ export class RampScheduleModel extends BaseClass {
       project: this.getProject(doc),
     });
   }
-  /**
-   * A schedule is written both by revision-bound edits (draft-class) and by live
-   * state changes — pause, advance, rewind (publish-class). The model can't tell
-   * which, so it takes the union and the action handler gates precisely. Anything
-   * narrower would refuse writes the handler had already allowed.
-   */
+  // Written by revision-bound edits (draft-class) AND live state changes
+  // (publish-class); the model can't tell which, so it takes the union and the
+  // action handler gates precisely.
   protected canUpdate(
     existing: RampScheduleInterface,
     _updates: UpdateProps<RampScheduleInterface>,

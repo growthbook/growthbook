@@ -440,10 +440,9 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       [feature, permissionsUtil, environments],
     );
 
-    // Live ramp control — pause, resume, advance, rewind, complete, restart,
-    // remove — changes what users are served right now, so it takes publish
-    // authority over the environments the schedule reaches, NOT the draft
-    // authority that gates editing its steps in a revision.
+    // Live ramp control changes what users are served right now, so it takes
+    // publish over the schedule's environments — not the draft authority that
+    // gates editing its steps in a revision.
     const canControlRamp = useMemo(() => {
       if (!rampSchedule) return false;
       return permissionsUtil.canPublishFeature(

@@ -11,15 +11,12 @@ import type { Permissions, RevisionModel } from "shared/permissions";
  * land the transition (feature publish, bulk publish, the revision engine).
  */
 
-// Defined in shared so the client asks the same question; re-exported here
-// because every back-end archive path already imports it from this module.
+// Defined in shared so the client asks the same question.
 export { isArchiveTransition } from "shared/util";
 
 /**
- * Authority to land an `archived` flip, in whichever direction. The one place
- * the rule above turns into a permission check, so every archive path — REST,
- * entity PUT, revision publish — asks the same question. `environments` is the
- * publish footprint, only consulted for the unarchive direction.
+ * Authority to land an `archived` flip in either direction. `environments` is
+ * the publish footprint, consulted only for the unarchive direction.
  */
 export function canLandArchivedState({
   permissions,
@@ -40,20 +37,11 @@ export function canLandArchivedState({
 }
 
 /**
- * Authority to land a direct write to the entity document. Publish-class, except
- * where the write is what takes the entity out of service — then it is
- * delete-class, matching what the archive endpoint would allow in one step.
- *
- * Every BaseModel entity's `canUpdate` routes through this, so the model-layer
- * backstop can't be stricter than the handler that already checked.
- *
- * Which is why an ordinary write takes the union of publish and revert: restoring
- * a previously-published revision is its own atom, and from here a revert is
- * indistinguishable from any other write — the same reason `canTouchRevision`
- * unions its four actions. Narrower would refuse writes the caller was already
- * authorized for, and it is the caller (the entity handler, or
- * `assertCanPublishRevision`) that proves a revert only restores a published
- * pre-image before any write reaches this backstop.
+ * Authority to land a direct entity write: publish-class, except an archiving
+ * write, which is delete-class. Every BaseModel `canUpdate` routes through this,
+ * and a backstop can't be stricter than the handler that already checked — the
+ * handler proves what kind of write this is (e.g. a pure revert); from here they
+ * are indistinguishable.
  */
 export function canLandEntityUpdate({
   permissions,

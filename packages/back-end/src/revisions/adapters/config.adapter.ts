@@ -19,6 +19,7 @@ import type { Context } from "back-end/src/models/BaseModel";
 import {
   EntityRevisionAdapter,
   filterUpdatableChanges,
+  revisionActionHooks,
 } from "back-end/src/revisions/EntityRevisionAdapter";
 import {
   reconcileConfigDescendants,
@@ -168,44 +169,11 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
     return canBypassApprovalForConfig(context, snapshot);
   },
 
-  canDeleteEntity(context: Context, snapshot: ConfigInterface): boolean {
-    return context.permissions.canRevisionAction(
-      "config",
-      "delete",
-      { projects: configProjects(snapshot) },
-      configPublishEnvironments(context, snapshot),
-    );
-  },
-
-  canManageDrafts(context: Context, snapshot: ConfigInterface): boolean {
-    return context.permissions.canRevisionAction("config", "draft", {
-      projects: configProjects(snapshot),
-    });
-  },
-
-  canReview(context: Context, snapshot: ConfigInterface): boolean {
-    return context.permissions.canRevisionAction("config", "review", {
-      projects: configProjects(snapshot),
-    });
-  },
-
-  canPublishRevision(context: Context, snapshot: ConfigInterface): boolean {
-    return context.permissions.canRevisionAction(
-      "config",
-      "publish",
-      { projects: configProjects(snapshot) },
-      configPublishEnvironments(context, snapshot),
-    );
-  },
-
-  canRevert(context: Context, snapshot: ConfigInterface): boolean {
-    return context.permissions.canRevisionAction(
-      "config",
-      "revert",
-      { projects: configProjects(snapshot) },
-      configPublishEnvironments(context, snapshot),
-    );
-  },
+  ...revisionActionHooks<ConfigInterface>({
+    model: "config",
+    projectsOf: configProjects,
+    envsOf: (context, snapshot) => configPublishEnvironments(context, snapshot),
+  }),
 
   isApprovalRequired(context: Context): boolean {
     return configApprovalConfigured(context);

@@ -1,5 +1,10 @@
 import { isEqual } from "lodash";
 import type { Revision } from "shared/enterprise";
+import {
+  NO_ENVIRONMENT_BINDING,
+  RevisionAction,
+  RevisionModel,
+} from "shared/permissions";
 import type { Context } from "back-end/src/models/BaseModel";
 import type { ArmAcknowledgments } from "back-end/src/services/armGuards";
 import type { PublishGate } from "back-end/src/revisions/publishGates";
@@ -23,6 +28,55 @@ export function filterUpdatableChanges(
     }
   }
   return filtered;
+}
+
+/**
+ * The five per-action permission hooks, which differ across adapters only in
+ * how the snapshot yields projects and environments.
+ */
+export function revisionActionHooks<TSnapshot extends Record<string, unknown>>({
+  model,
+  projectsOf,
+  envsOf,
+}: {
+  model: RevisionModel;
+  projectsOf: (snapshot: TSnapshot) => string[];
+  envsOf?: (context: Context, snapshot: TSnapshot) => string[];
+}): Required<
+  Pick<
+    EntityRevisionAdapter<TSnapshot>,
+    | "canManageDrafts"
+    | "canReview"
+    | "canPublishRevision"
+    | "canRevert"
+    | "canDeleteEntity"
+  >
+> {
+  const scoped = (
+    action: RevisionAction,
+    context: Context,
+    snapshot: TSnapshot,
+  ) =>
+    context.permissions.canRevisionAction(
+      model,
+      action,
+      { projects: projectsOf(snapshot) },
+      envsOf ? envsOf(context, snapshot) : NO_ENVIRONMENT_BINDING,
+    );
+  return {
+    canManageDrafts: (context, snapshot) =>
+      context.permissions.canRevisionAction(model, "draft", {
+        projects: projectsOf(snapshot),
+      }),
+    canReview: (context, snapshot) =>
+      context.permissions.canRevisionAction(model, "review", {
+        projects: projectsOf(snapshot),
+      }),
+    canPublishRevision: (context, snapshot) =>
+      scoped("publish", context, snapshot),
+    canRevert: (context, snapshot) => scoped("revert", context, snapshot),
+    canDeleteEntity: (context, snapshot) => scoped("delete", context, snapshot),
+  };
 }
 
 /**
@@ -72,10 +126,8 @@ export interface EntityRevisionAdapter<
   canRevert?(context: Context, snapshot: TSnapshot): boolean;
 
   /**
-   * Archive or delete the ENTITY (the delete atom). Distinct from `canDelete`
-   * above, which governs discarding a revision document and is deliberately
-   * bypass-tier. Used by `canAdvanceRevision` so a deleter can move a draft
-   * that only archives the entity.
+   * Archive/delete the ENTITY (the delete atom) — distinct from `canDelete`
+   * above, which gates discarding a revision document and is bypass-tier.
    */
   canDeleteEntity?(context: Context, snapshot: TSnapshot): boolean;
 
