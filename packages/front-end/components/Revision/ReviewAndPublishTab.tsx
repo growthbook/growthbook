@@ -1031,8 +1031,10 @@ function ReviewAndPublishRevision<T>({
         </Heading>
       </Flex>
 
+      {/* Exactly the disjunction of the items below — `hasAnyAuthority` is wider
+          than any of them, so it rendered an empty menu for a publisher. */}
       {isActiveDraft &&
-        (state.canRecallReview || state.canUndoReview || hasAnyAuthority) && (
+        (state.canRecallReview || state.canUndoReview || canDraftOrEdit) && (
           <Box ml="auto" style={{ marginRight: -6 }}>
             <DropdownMenu
               trigger={
