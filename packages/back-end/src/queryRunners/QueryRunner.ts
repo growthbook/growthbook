@@ -470,9 +470,9 @@ export abstract class QueryRunner<
     } else if (queryStatus === "failed") {
       this.experimentUpdateExecutionLogger?.endPhase("runQueries");
       logger.debug(this.model.id + " runner: Query failed immediately");
-      // Queries that failed before ever running (build-time SQL-generation
-      // failures, cached failures) already carry their error on the pointer, so
-      // chain the real root cause instead of a generic message.
+      // A query that failed before ever running (a build-time SQL-generation
+      // failure) already carries its error on the pointer, so chain the real
+      // root cause instead of a generic message.
       error = pickQueryFailureError(queries);
     }
 

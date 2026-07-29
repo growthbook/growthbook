@@ -94,8 +94,7 @@ export const TRAFFIC_QUERY_NAME = "traffic";
 
 export const UNITS_TABLE_PREFIX = "growthbook_tmp_units";
 
-// Canonical name of the query that drops the shared units table. The builder and
-// the metric-query classifier below both derive it from here so they can't drift.
+// Canonical name of the query that drops the shared units table.
 export function getDropUnitsTableQueryName(queryParentId: string): string {
   return `drop_${queryParentId}`;
 }
@@ -363,7 +362,7 @@ export const startExperimentResultQueries = async (
 
     // Passing a builder isolates build-time SQL-generation failures to the
     // owning group: a throw becomes a failed-query record for `group_<i>`,
-    // which Phase 1's attribution maps to each constituent metric, while other
+    // which per-metric attribution maps to each constituent metric, while other
     // groups still build and run.
     queries.push(
       await startQuery({
