@@ -616,7 +616,21 @@ export async function publishPendingFeatureDraftsForExperiment(
         { experimentId: experiment.id, featureId, revisionVersion },
         "Discarding no-op pending feature draft on experiment start",
       );
-      await discardRevision(context, revision, context.auditUser);
+      try {
+        await discardRevision(
+          context,
+          revision,
+          context.auditUser,
+          feature.version,
+        );
+      } catch (err) {
+        logger.error(
+          { err, experimentId: experiment.id, featureId, revisionVersion },
+          "Failed to discard no-op pending feature draft on experiment start",
+        );
+        failed.push({ featureId, revisionVersion, reason: "publish-error" });
+        break;
+      }
       await removePendingFeatureDraftFromExperiment(
         context,
         experiment.id,

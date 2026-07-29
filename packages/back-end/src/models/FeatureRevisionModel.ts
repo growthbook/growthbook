@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import omit from "lodash/omit";
+import isEqual from "lodash/isEqual";
 import {
   checkIfRevisionNeedsReview,
   isRevisionEditLockedBySchedule,
@@ -107,6 +108,8 @@ const featureRevisionSchema = new mongoose.Schema({
   // Live feature version captured when this revision was approved; used to
   // detect approvals that have gone stale due to subsequent publishes.
   approvedBaseVersion: Number,
+  // Version this revision reverts to.
+  revertedFrom: Number,
   dateCreated: Date,
   dateUpdated: Date,
   datePublished: Date,
@@ -880,6 +883,9 @@ export async function createInitialRevision(
     environmentsEnabled,
     prerequisites: feature.prerequisites || [],
     archived: feature.archived ?? false,
+    // A feature can be created already attached to a holdout; omitting it here
+    // left revision 1 disagreeing with the feature document.
+    holdout: feature.holdout ?? null,
     metadata: {
       description: feature.description,
       owner: feature.owner,
@@ -930,6 +936,8 @@ type PrepareFeatureRevisionParams = {
   environments: string[];
   baseVersion?: number;
   changes?: Partial<FeatureRevisionInterface>;
+  // Not a `changes` field: a draft forked from a revert must not inherit the marker.
+  revertedFrom?: number;
   comment?: string;
   title?: string;
 };
@@ -941,6 +949,7 @@ export async function prepareFeatureRevision({
   environments,
   baseVersion,
   changes,
+  revertedFrom,
   comment,
   title,
 }: PrepareFeatureRevisionParams): Promise<{
@@ -1045,6 +1054,7 @@ export async function prepareFeatureRevision({
     archived,
     metadata,
     holdout,
+    ...(revertedFrom !== undefined ? { revertedFrom } : {}),
   } as FeatureRevisionInterface;
 
   return { revision, baseRevision, baseVersion };
@@ -1062,6 +1072,7 @@ export async function createRevision({
   title,
   org,
   canBypassApprovalChecks,
+  revertedFrom,
   preInsertValidation,
 }: PrepareFeatureRevisionParams & {
   publish?: boolean;
@@ -1076,6 +1087,7 @@ export async function createRevision({
     environments,
     baseVersion,
     changes,
+    revertedFrom,
     comment,
     title,
   });
@@ -1174,6 +1186,8 @@ export function computeRevisionUpdate(
   // flip to "-stale" variants (see `staleReviews`) so they stay attributable
   // without counting as active verdicts.
   clearReviews: boolean;
+  // True when a content edit invalidated the revert marker.
+  clearRevertedFrom: boolean;
   // The `reviews` array to persist when `clearReviews` is true: prior active
   // verdicts demoted to "approved-stale" / "changes-requested-stale".
   staleReviews: FeatureRevisionInterface["reviews"];
@@ -1226,6 +1240,14 @@ export function computeRevisionUpdate(
         }
       : changes;
 
+  // Compared by value, not presence: a rebase re-sends every mutable field.
+  const clearRevertedFrom =
+    revision.revertedFrom !== undefined &&
+    MUTABLE_FIELDS.some(
+      (f) =>
+        f in normalizedChanges && !isEqual(normalizedChanges[f], revision[f]),
+    );
+
   const clearReviews =
     status === "pending-review" && revision.status !== "pending-review";
   const staleReviews = clearReviews
@@ -1248,7 +1270,9 @@ export function computeRevisionUpdate(
       ...normalizedChanges,
       status,
       ...(clearReviews ? { reviews: staleReviews } : {}),
+      ...(clearRevertedFrom ? { revertedFrom: undefined } : {}),
     },
+    clearRevertedFrom,
     clearReviews,
     staleReviews,
   };
@@ -1299,6 +1323,7 @@ export async function updateRevision(
     status,
     proposedRevision,
     clearReviews,
+    clearRevertedFrom,
     staleReviews,
   } = computeRevisionUpdate(context, feature, revision, changes, resetReview);
 
@@ -1338,6 +1363,7 @@ export async function updateRevision(
         // older content, while the UI can still attribute them.
         ...(clearReviews ? { reviews: staleReviews } : {}),
       },
+      ...(clearRevertedFrom ? { $unset: { revertedFrom: 1 } } : {}),
       ...contributorUpdate,
     },
     { new: true },
@@ -1407,7 +1433,7 @@ export async function markRevisionAsPublished(
   revision: FeatureRevisionInterface,
   user: EventUser,
   comment?: string,
-) {
+): Promise<Date | null> {
   // "re-publish" only applies to a revision that was already live; publishing
   // an approved (or otherwise in-flight) draft for the first time is a "publish".
   const action = revision.status === "published" ? "re-publish" : "publish";
@@ -1456,6 +1482,8 @@ export async function markRevisionAsPublished(
     });
 
   await dispatchRevisionPublishedHook(context, revision);
+
+  return changes.datePublished ?? null;
 }
 
 /**
@@ -2603,9 +2631,18 @@ export async function discardRevision(
   context: ReqContext | ApiReqContext,
   revision: FeatureRevisionInterface,
   user: EventUser,
+  // The parent feature's current version, or null when the caller can't have
+  // published this revision.
+  liveVersion: number | null,
 ) {
   if (revision.status === "published" || revision.status === "discarded") {
     throw new Error(`Can not discard ${revision.status} revisions`);
+  }
+
+  if (liveVersion !== null && revision.version === liveVersion) {
+    throw new Error(
+      "This revision is the live version of the Feature Flag, so it cannot be discarded. An earlier publish updated the Feature Flag without marking this revision published — publish it again to reconcile.",
+    );
   }
 
   await FeatureRevisionModel.updateOne(

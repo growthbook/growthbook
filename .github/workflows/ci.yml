@@ -5,16 +5,18 @@ on:
     paths:
       - "packages/**"
       - "pnpm-lock.yaml"
+      - "package.json"
       - "eslint.config.mjs"
+      - "eslint-rules/**"
       - "eslint-suppressions.json"
-      - ".prettierignore"
   pull_request:
     paths:
       - "packages/**"
       - "pnpm-lock.yaml"
+      - "package.json"
       - "eslint.config.mjs"
+      - "eslint-rules/**"
       - "eslint-suppressions.json"
-      - ".prettierignore"
 
 jobs:
   # Linting, type-checking, and tests
@@ -33,13 +35,10 @@ jobs:
           node-version: "24"
           cache: "pnpm"
 
-      - name: Cache eslint
-        uses: actions/cache@v5
-        with:
-          path: ${{ github.workspace }}/.eslintcache
-          key: ${{ runner.os }}-eslint-${{ hashFiles('eslint.config.mjs', 'eslint-suppressions.json', 'pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-eslint-
+      # No eslint cache here on purpose. ESLint keys its cache on file content
+      # plus the serialized config, neither of which changes when a type in
+      # another package or a rule under eslint-rules/ changes. Caching would let
+      # type-aware rules such as switch-exhaustiveness-check pass on stale results.
 
       - name: Cache tsbuildinfo
         uses: actions/cache@v5
@@ -94,6 +93,9 @@ jobs:
           pnpm --filter stats lint:ci
         env:
           CI: true
+
+      - name: Check formatting
+        run: pnpm pretty:check
 
       - name: Check OpenAPI spec
         run: |

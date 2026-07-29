@@ -156,7 +156,13 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
           }))
         : null;
 
-    await assertValidHoldout(req.body.holdout, req.context);
+    if (req.body.holdout !== undefined || req.body.project !== undefined) {
+      await assertValidHoldout(
+        req.body.holdout !== undefined ? req.body.holdout : feature.holdout,
+        req.context,
+        req.body.project ?? feature.project,
+      );
+    }
 
     const jsonSchema =
       feature.valueType !== "boolean" && req.body.jsonSchema != null

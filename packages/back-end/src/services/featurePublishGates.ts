@@ -15,7 +15,10 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import type { EventUser } from "shared/types/events/event-types";
 import type { ApiReqContext } from "back-end/types/api";
 import type { ReqContext } from "back-end/types/request";
-import { computeProposedFeatureForValidation } from "back-end/src/models/FeatureModel";
+import {
+  collectHoldoutChangeGates,
+  computeProposedFeatureForValidation,
+} from "back-end/src/models/FeatureModel";
 import { computeRevisionPublishChanges } from "back-end/src/models/FeatureRevisionModel";
 import {
   collectFeatureValueErrorsForPublish,
@@ -183,10 +186,11 @@ export async function planFeatureRevisionMerge({
 
 /**
  * The interactive publish handler's gate set: stale-base, approval-required,
- * and (when `includeValidationGates`) publish-time value validation, custom
- * hooks, and archive-dependents. Throws on a config-backed default carrying
- * its own override patch — a structural payload error no override clears
- * (the bulk adapter catches it and reports it as a no-override gate).
+ * holdout transition, and (when `includeValidationGates`) publish-time value
+ * validation, custom hooks, and archive-dependents. Throws on a config-backed
+ * default carrying its own override patch — a structural payload error no
+ * override clears (the bulk adapter catches it and reports it as a no-override
+ * gate).
  */
 export async function collectFeaturePublishGates({
   context,
@@ -255,6 +259,17 @@ export async function collectFeaturePublishGates({
       }),
     );
   }
+
+  // Above the validation-gate cutoff on purpose: surfaces that skip validation
+  // gates still must not reach the linkage writes with a bad holdout transition.
+  gates.push(
+    ...(await collectHoldoutChangeGates({
+      context,
+      feature,
+      mergeResult: plan.mergeResult,
+      isRevert: !!revision.revertedFrom,
+    })),
+  );
 
   if (!includeValidationGates) return gates;
 
