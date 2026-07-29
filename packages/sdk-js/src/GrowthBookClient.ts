@@ -455,6 +455,9 @@ export class UserScopedGrowthBook<
   public setTrackingCallback(cb: TrackingCallback) {
     this._userContext.trackingCallback = cb;
   }
+  public setFeatureUsageCallback(cb: FeatureUsageCallback) {
+    this._userContext.onFeatureUsage = cb;
+  }
   public getApiInfo(): [ApiHost, ClientKey] {
     return this._gb.getApiInfo();
   }
