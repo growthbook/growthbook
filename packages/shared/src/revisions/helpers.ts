@@ -48,7 +48,6 @@ export const getApprovalFlowSettings = (
     // settings (see constantRequiresReview).
     case "config":
     case "constant":
-      return undefined;
     default:
       return undefined;
   }

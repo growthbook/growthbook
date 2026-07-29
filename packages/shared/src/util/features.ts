@@ -3719,7 +3719,6 @@ export function inferSchemaField(
     case "undefined":
     case "object":
     case "function":
-      throw new Error(`Invalid value type: ${typeof value}`);
     default:
       throw new Error(`Invalid value type: ${typeof value}`);
   }

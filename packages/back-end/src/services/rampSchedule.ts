@@ -771,7 +771,6 @@ export function computeNextProcessAt(schedule: {
     case "pending":
     case "completed":
     case "rolled-back":
-      return null;
     default:
       return null;
   }

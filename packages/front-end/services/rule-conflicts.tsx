@@ -290,7 +290,6 @@ function simplify(e: Expr): Expr {
     }
     case "atom":
     case "opaque":
-      return e;
     default:
       return e;
   }

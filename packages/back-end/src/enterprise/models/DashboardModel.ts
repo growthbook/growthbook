@@ -888,7 +888,6 @@ export function migrateBlock(
     case "fact-table-exploration":
     case "data-source-exploration":
     case "funnel-exploration":
-      return doc;
     default:
       return doc;
   }
@@ -924,7 +923,6 @@ function toBlockApiInterface(
     case "fact-table-exploration":
     case "data-source-exploration":
     case "funnel-exploration":
-      return block;
     default:
       return block;
   }
@@ -962,7 +960,6 @@ export function fromBlockApiInterface(
     case "fact-table-exploration":
     case "data-source-exploration":
     case "funnel-exploration":
-      return apiBlock;
     default:
       return apiBlock;
   }

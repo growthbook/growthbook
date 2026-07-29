@@ -268,7 +268,6 @@ const getYVal = (
     case "weights":
       return variation.weight ?? 0;
     case undefined:
-      return undefined;
     default:
       return undefined;
   }

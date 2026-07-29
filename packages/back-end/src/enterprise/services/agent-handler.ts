@@ -609,7 +609,6 @@ async function processStream<TParams>(
         case "finish-step":
         case "start":
         case "abort":
-          break;
         default:
           break;
       }

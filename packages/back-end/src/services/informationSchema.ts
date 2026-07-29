@@ -349,7 +349,6 @@ export function getTablePath(
     case "databricks":
     case "mixpanel":
     case "vertica":
-      return returnValue;
     default:
       return returnValue;
   }
@@ -388,7 +387,6 @@ export function getSchemaPath(
     case "databricks":
     case "mixpanel":
     case "vertica":
-      return returnValue;
     default:
       return returnValue;
   }
@@ -424,7 +422,6 @@ export function getDatabasePath(
     case "databricks":
     case "mixpanel":
     case "vertica":
-      return catalog;
     default:
       return catalog;
   }

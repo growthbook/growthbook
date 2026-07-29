@@ -104,13 +104,6 @@ export function getStatusIndicatorData(
           sortOrder: 1,
         };
       case undefined:
-        return {
-          color: "amber",
-          status: "Stopped",
-          detailedStatus: "Awaiting decision",
-          needsAttention: true,
-          sortOrder: 5,
-        };
       default:
         return {
           color: "amber",

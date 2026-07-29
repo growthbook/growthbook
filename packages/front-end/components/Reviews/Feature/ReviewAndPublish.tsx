@@ -1626,7 +1626,6 @@ export default function ReviewAndPublish({
           onPublish && onPublish();
           return;
         case "none":
-          return;
         default:
           return;
       }

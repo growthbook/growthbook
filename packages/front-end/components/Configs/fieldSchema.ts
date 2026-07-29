@@ -258,7 +258,6 @@ export function typeDefault(field: SchemaField | null): unknown {
     case "float":
       return 0;
     case "string":
-      return "";
     default:
       return "";
   }
@@ -309,7 +308,6 @@ export function fieldValueType(
     case "float":
       return "number";
     case "string":
-      return "string";
     default:
       return "string";
   }
@@ -331,7 +329,6 @@ export function valueToDisplayString(
     case "number":
       return value === null ? "null" : String(value);
     case "string":
-      return typeof value === "string" ? value : JSON.stringify(value);
     default:
       return typeof value === "string" ? value : JSON.stringify(value);
   }
