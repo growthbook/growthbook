@@ -106,7 +106,7 @@ export default function SqlTabContent() {
                       valueType: val as "count" | "sum",
                       name: generateUniqueValueName(
                         getValueTypeLabel(val as "count" | "sum"),
-                        draftExploreState.dataset.values,
+                        values,
                       ),
                     } as SqlValue)
                   }
