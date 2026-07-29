@@ -64,6 +64,7 @@ export function ProductAnalyticsExplorerVisualization({
     | FactTableExplorationBlockInterface
     | DataSourceExplorationBlockInterface
     | SqlExplorationBlockInterface
+    | FunnelExplorationBlockInterface
   >;
   dashboardGlobalControls?: BlockProps<SqlExplorationBlockInterface>["dashboardGlobalControls"];
 }) {
