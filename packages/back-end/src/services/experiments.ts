@@ -1300,7 +1300,7 @@ export function resolveSnapshotRunner({
   return { runnerFamily: "incremental", incrementalFallbackReason: null };
 }
 
-function finalizeSnapshotQueryRunnerKind({
+function getSnapshotQueryRunnerKind({
   runnerFamily,
   fullRefresh,
 }: {
@@ -1777,7 +1777,7 @@ export async function planSnapshot({
 
   const snapshot = {
     ...data,
-    runnerKind: finalizeSnapshotQueryRunnerKind({
+    runnerKind: getSnapshotQueryRunnerKind({
       runnerFamily: runnerPlan.runnerFamily,
       fullRefresh: runnerPlan.fullRefresh,
     }),
@@ -1813,8 +1813,12 @@ export async function createSnapshotFromPlan({
   const integration = getSourceIntegrationObject(context, datasource, true);
   const { runnerKind } = plan.snapshot;
 
-  // Main incremental runs mutate the pipeline tables while exploratory runs
-  // read them, so all incremental kinds share the per-experiment lock.
+  // Incremental full/update mutate the per-experiment pipeline tables
+  // (DROP/CREATE/RENAME on units + metric-source tables). Exploratory reads
+  // those tables. Lock all three so concurrent triggers (scheduled
+  // auto-refresh + manual Update) cannot race and produce empty or malformed
+  // results. The results runner only writes per-snapshot ephemeral tables, so
+  // it does not need this lock.
   const needsIncrementalRefreshLock =
     runnerKind === "incremental-full" ||
     runnerKind === "incremental-update" ||
