@@ -1,3 +1,5 @@
+import { getErrorMessage } from "back-end/src/util/errors";
+
 // Aggregated publish-gate reporting for the REST revision-publish endpoints.
 // A blocked publish returns ONE structured 422 naming every gate with a uniform
 // set of fields (override flag, required permission, and a callable resolution
@@ -93,6 +95,45 @@ export function schemaFailureGateOverride(
     : { override: "ignoreWarnings", requiresPermission: null };
 }
 
+/**
+ * The single factory for a blocking gate — the {severity:"blocker", ...} shape
+ * with all five always-present fields, so a PublishGate shape change touches
+ * one place and a per-site override/permission/resolution slip can't happen.
+ */
+export function makeBlockingGate(args: {
+  type: string;
+  messages: string[];
+  override?: PublishGateOverride | null;
+  requiresPermission?: string | null;
+  resolution?: PublishGateResolution | null;
+}): PublishGate {
+  return {
+    type: args.type,
+    severity: "blocker",
+    messages: args.messages,
+    override: args.override ?? null,
+    requiresPermission: args.requiresPermission ?? null,
+    resolution: args.resolution ?? null,
+  };
+}
+
+/**
+ * Convert a thrown error into a plan gate ONLY when it's a 4xx-class
+ * application rejection; rethrow infra/5xx (or non-status) errors so a
+ * transient failure surfaces as the 5xx it is instead of a permanent,
+ * unfixable gate. Shared by every plan-gate collector that wraps a
+ * DB-touching validation call. Generic in the gate type so callers that build
+ * a tagged gate (the orchestrator's itemGate) keep their concrete type.
+ */
+export function gateOr5xx<G extends PublishGate>(
+  e: unknown,
+  makeGate: (message: string) => G,
+): G {
+  const status = (e as { status?: number }).status;
+  if (typeof status !== "number" || status >= 500) throw e;
+  return makeGate(getErrorMessage(e));
+}
+
 /** A gate that would have blocked the publish but was bypassed by the caller. */
 export type BypassedGate = {
   type: string;
@@ -118,13 +159,60 @@ const SOFT_GUARD_GATE_TYPES: ReadonlySet<string> = new Set([
   "archive-dependents",
 ]);
 
+/** Feature lockdown gates, auto-cleared by the same authorities as
+ * bypassLockdown on the single-entity path (bypass-approval permission or the
+ * org REST-bypass setting) — no override flag required. */
+const LOCKDOWN_GATE_TYPES: ReadonlySet<string> = new Set([
+  "ramp-locked",
+  "publish-locking-sibling",
+]);
+
+/**
+ * Custom validation-hook results as publish gates — the one mapping shared by
+ * every entity family, so the skipHooks/ignoreWarnings classification and copy
+ * can't drift between them.
+ */
+export function hookResultsToGates(results: {
+  hardErrors: string[];
+  warnings: string[];
+}): PublishGate[] {
+  const gates: PublishGate[] = [];
+  if (results.hardErrors.length) {
+    gates.push({
+      type: "custom-hook",
+      severity: "blocker",
+      messages: [
+        "A custom validation hook rejected this publish:",
+        ...results.hardErrors,
+      ],
+      override: "skipHooks",
+      requiresPermission: "bypassApprovalChecks",
+      resolution: null,
+    });
+  }
+  if (results.warnings.length) {
+    gates.push({
+      type: "custom-hook",
+      severity: "warning",
+      messages: [
+        "A custom validation hook raised a warning:",
+        ...results.warnings,
+      ],
+      override: "ignoreWarnings",
+      requiresPermission: null,
+      resolution: null,
+    });
+  }
+  return gates;
+}
+
 /**
  * The clearing signals a request carries, used to decide each gate's
  * disposition. Handlers assemble this from their own bypass computations so the
  * gate evaluation matches the sequential backstops exactly.
  */
 export type PublishGateClearance = {
-  /** The request asked to force past warnings (body `ignoreWarnings`/`mergeNow`). */
+  /** The request asked to force past warnings (body `ignoreWarnings`). */
   ignoreWarnings: boolean;
   /**
    * The caller may skip validation-class gates (schema errors, invariants,
@@ -226,6 +314,20 @@ export function classifyPublishGate(
     }
     if (clearance.bypassApprovalPermission) {
       return { outcome: "bypassed", via: "bypassApprovalChecks" };
+    }
+    return { outcome: "blocking" };
+  }
+
+  // Feature lockdown gates: safety gates against accidental live-traffic
+  // changes, not security boundaries — the single-entity path's bypassLockdown
+  // auto-clears them for the same authorities that bypass approval (the
+  // permission OR the org REST-bypass setting), with no flag required.
+  if (LOCKDOWN_GATE_TYPES.has(gate.type)) {
+    if (clearance.bypassApprovalPermission) {
+      return { outcome: "bypassed", via: "bypassApprovalChecks" };
+    }
+    if (clearance.restApiBypassesReviews) {
+      return { outcome: "bypassed", via: "restApiBypassesReviews" };
     }
     return { outcome: "blocking" };
   }

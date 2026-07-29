@@ -44,7 +44,10 @@ import {
 } from "back-end/src/services/archiveDependentsGuard";
 import { assertConstantPublishGuards } from "back-end/src/services/publishGuards";
 import type { PublishGate } from "back-end/src/revisions/publishGates";
-import { schemaFailureGateOverride } from "back-end/src/revisions/publishGates";
+import {
+  makeBlockingGate,
+  schemaFailureGateOverride,
+} from "back-end/src/revisions/publishGates";
 import { applyPatchToSnapshot } from "back-end/src/revisions/util";
 import { logger } from "back-end/src/util/logger";
 
@@ -205,7 +208,7 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
     // adapter's stale-attribute skip, there's no revert-safe validation to opt
     // out of here — so the flag is accepted for interface conformance only.
     options?: { isRevert?: boolean },
-  ): Promise<void> {
+  ): Promise<string[]> {
     void options;
     const filteredChanges = filterUpdatableChanges(
       changes,
@@ -213,12 +216,13 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
       UPDATABLE_FIELDS,
     );
 
-    if (Object.keys(filteredChanges).length === 0) return;
+    if (Object.keys(filteredChanges).length === 0) return [];
 
     await context.models.constants.update(
       entity,
       filteredChanges as Parameters<typeof context.models.constants.update>[1],
     );
+    return Object.keys(filteredChanges);
   },
 
   // Snapshot the deferred-publish guard fingerprints when arming (schedule /
@@ -315,6 +319,34 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
     const override =
       context.ignoreWarnings || canBypassApprovalForConstant(context, entity);
     const gates: PublishGate[] = [];
+
+    // Reference-cycle gate (against the overlay end-state so a cycle formed
+    // only by the combined proposals of several release items is caught): a
+    // proposed value forming a @const: cycle can't publish — raw placeholders
+    // would leak into payloads. Unbypassable structural conflict. Mirrors the
+    // ConstantModel.beforeUpdate assert, which stands down during a bulk commit
+    // in favor of this gate.
+    if ("value" in filteredChanges || "environmentValues" in filteredChanges) {
+      const cyclic = await context.models.constants.findReferenceCycle(
+        entity.key,
+        (desiredState.value as string | undefined) ?? entity.value,
+        (desiredState.environmentValues as
+          | Record<string, string>
+          | undefined) ?? entity.environmentValues,
+      );
+      if (cyclic.length) {
+        gates.push(
+          makeBlockingGate({
+            type: "reference-cycle",
+            messages: [
+              `This value references ${cyclic
+                .map((k) => `@const:${k}`)
+                .join(", ")}, which would create a reference cycle.`,
+            ],
+          }),
+        );
+      }
+    }
 
     const experimentConflicts = [
       ...(await evaluateConstantExperimentGuardConflicts(context, entity)),

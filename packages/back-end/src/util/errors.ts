@@ -157,6 +157,23 @@ export class MergeConflictError extends ApiError<"conflict"> {
   }
 }
 
+/**
+ * A bulk publish failed after claims and compensated; `items` carries the
+ * honest per-item outcome, serialized top-level in the 500 body. The endpoint
+ * remaps item identifiers to the caller's vocabulary before rethrowing. Lives
+ * here (the leaf error module) so the response serializer can match on it
+ * without importing the orchestrator's model graph.
+ */
+export class BulkPublishCommitError extends Error {
+  status = 500;
+  items: unknown[];
+  constructor(message: string, items: unknown[]) {
+    super(message);
+    this.name = "BulkPublishCommitError";
+    this.items = items;
+  }
+}
+
 export class SoftWarningError extends Error {
   status = 422;
   warnings: string[];

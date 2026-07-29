@@ -175,6 +175,7 @@ const UrlRedirectModal: FC<{
         </Flex>
 
         <Field
+          size="legacy"
           required
           placeholder="Ex: https://www.example.com/pricing"
           containerClassName="mb-2"
@@ -266,6 +267,7 @@ const UrlRedirectModal: FC<{
 
                 <Box>
                   <Field
+                    size="legacy"
                     required
                     className={clsx({
                       "border-danger":

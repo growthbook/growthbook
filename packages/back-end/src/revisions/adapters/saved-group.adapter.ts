@@ -155,14 +155,14 @@ export const savedGroupAdapter: EntityRevisionAdapter<SavedGroupInterface> = {
     entity: SavedGroupInterface,
     changes: Record<string, unknown>,
     options?: { isRevert?: boolean },
-  ): Promise<void> {
+  ): Promise<string[]> {
     const filteredChanges = filterUpdatableChanges(
       changes,
       entity as Record<string, unknown>,
       UPDATABLE_FIELDS,
     );
 
-    if (Object.keys(filteredChanges).length === 0) return;
+    if (Object.keys(filteredChanges).length === 0) return [];
 
     // Reverts restore a previously-published condition as-is; skip the
     // registered-attributes check so an attribute removed/archived since the
@@ -174,6 +174,7 @@ export const savedGroupAdapter: EntityRevisionAdapter<SavedGroupInterface> = {
       >[1],
       options?.isRevert ? { skipAttributeValidation: true } : undefined,
     );
+    return Object.keys(filteredChanges);
   },
 
   // Snapshot the archive-dependents fingerprint when arming a deferred publish

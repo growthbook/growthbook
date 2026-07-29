@@ -59,9 +59,7 @@ import {
   revokeInvite,
   setLicenseKey,
 } from "back-end/src/services/organizations";
-import { getDataSourcesWithParams } from "back-end/src/services/datasourceResponse";
 import { updatePassword } from "back-end/src/services/users";
-import { getAllTags } from "back-end/src/models/TagModel";
 import {
   auditDetailsCreate,
   auditDetailsDelete,
@@ -73,7 +71,6 @@ import {
   getAllFeatures,
   hasNonDemoFeature,
 } from "back-end/src/models/FeatureModel";
-import { findDimensionsByOrganization } from "back-end/src/models/DimensionModel";
 import {
   ALLOW_SELF_ORG_CREATION,
   APP_ORIGIN,
@@ -88,8 +85,6 @@ import {
   sendPendingMemberApprovalEmail,
   sendOwnerEmailChangeEmail,
 } from "back-end/src/services/email";
-import { getDataSourcesByOrganization } from "back-end/src/models/DataSourceModel";
-import { getMetricsForDefinitions } from "back-end/src/models/MetricModel";
 import {
   createOrganization,
   findOrganizationByInviteKey,
@@ -104,7 +99,14 @@ import {
   activateRoleById,
   addGetStartedChecklistItem,
 } from "back-end/src/models/OrganizationModel";
-import { ConfigFile } from "back-end/src/init/config";
+import { ConfigFile, getConfigFileHash } from "back-end/src/init/config";
+import { getDefinitionsData } from "back-end/src/services/definitions";
+import { getDefinitionsVersionState } from "back-end/src/models/DefinitionsVersionModel";
+import {
+  buildDefinitionsEtag,
+  definitionsBuildFingerprint,
+  ifNoneMatchMatches,
+} from "back-end/src/util/definitionsEtag";
 import {
   classifyEmail,
   parseAttributionCookie,
@@ -135,7 +137,6 @@ import {
   countAllAuditsByEntityType,
   countAllAuditsByEntityTypeParent,
 } from "back-end/src/models/AuditModel";
-import { getAllFactTablesForDefinitions } from "back-end/src/models/FactTableModel";
 import { fireSdkWebhook } from "back-end/src/jobs/sdkWebhooks";
 import {
   getInstallationName,
@@ -168,66 +169,43 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     throw new Error("Must be part of an organization");
   }
 
-  const [
-    metrics,
-    datasources,
-    dimensions,
-    segments,
-    metricGroups,
-    tags,
-    savedGroups,
-    constants,
-    configs,
-    customFields,
-    projects,
-    factTables,
-    factMetrics,
-    decisionCriteria,
-    webhookSecrets,
-  ] = await Promise.all([
-    getMetricsForDefinitions(context),
-    getDataSourcesByOrganization(context).then((ds) =>
-      getDataSourcesWithParams(context, ds),
-    ),
-    findDimensionsByOrganization(orgId),
-    context.models.segments.getAll(),
-    context.models.metricGroups.getAll(),
-    getAllTags(orgId),
-    context.models.savedGroups.getAllWithoutValues(),
-    context.models.constants.getAllWithoutValues(),
-    context.models.configs.getAllWithoutValues(),
-    context.models.customFields.getCustomFields(),
-    context.models.projects.getAll(),
-    getAllFactTablesForDefinitions(context),
-    context.models.factMetrics.getAll(),
-    context.models.decisionCriteria.getAll(),
-    context.models.webhookSecrets.getAllForFrontEnd(),
-  ]);
+  // Short-circuit with a cheap 304 before the expensive reads below when the
+  // client's cached copy is still current. The ETag combines the org's global
+  // definitions version and the versions of the projects this user can read
+  // (both bumped by relevant writes via touchDefinitionsVersion) with the
+  // user's permission fingerprint (the response is permission-filtered) and,
+  // under config.yml, the parsed file's hash (file-managed resources bypass the
+  // Mongo writes that bump the version). Gated behind a feature flag.
+  if (req.gb?.getFeatureValue("definitions-etag-304", true) === true) {
+    const { version, projectVersions } =
+      await getDefinitionsVersionState(orgId);
+    const etag = buildDefinitionsEtag({
+      version,
+      projectVersions,
+      organization: orgId,
+      permissionsFingerprint: context.getPermissionsFingerprint(),
+      buildFingerprint: definitionsBuildFingerprint(),
+      // null = the user can read all projects, so every project's version counts.
+      readableProjects:
+        context.permissions.getProjectsWithPermission("readData"),
+      configFileHash: getConfigFileHash(),
+    });
+    // Make the browser behavior we rely on explicit: store, but always
+    // revalidate (private keeps shared caches out). Vary on the org header so
+    // the cache doesn't reuse one org's entry for another.
+    res.set("Cache-Control", "private, no-cache");
+    res.vary("X-Organization");
+    res.set("ETag", etag);
+    if (ifNoneMatchMatches(req.headers["if-none-match"], etag)) {
+      return res.status(304).end();
+    }
+  }
 
-  // A dimension inherits project access from its datasource, so drop any whose
-  // datasource is inaccessible or no longer exists.
-  const readableDatasourceIds = new Set(datasources.map((ds) => ds.id));
-  const visibleDimensions = dimensions.filter((dimension) =>
-    readableDatasourceIds.has(dimension.datasource),
-  );
+  const definitions = await getDefinitionsData(context);
 
   return res.status(200).json({
     status: 200,
-    metrics,
-    datasources,
-    dimensions: visibleDimensions,
-    segments,
-    metricGroups,
-    tags,
-    savedGroups,
-    constants,
-    configs,
-    customFields: customFields?.fields ?? [],
-    projects,
-    factTables,
-    factMetrics,
-    decisionCriteria,
-    webhookSecrets,
+    ...definitions,
   });
 }
 
@@ -1855,7 +1833,11 @@ export const autoAddGroupsAttribute = async (
 export async function getApiKeys(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
   const keys = await context.models.apiKeys.getAll();
-  const filteredKeys = keys.filter((k) => !k.userId || k.userId === req.userId);
+  // Exclude OAuth-issued access tokens (they carry an oauthClientId): they're
+  // hashed and short-lived, so they don't belong in the API Keys / PAT UI.
+  const filteredKeys = keys.filter(
+    (k) => !k.oauthClientId && (!k.userId || k.userId === req.userId),
+  );
 
   res.status(200).json({
     status: 200,

@@ -24,7 +24,11 @@ import {
   syncLinkedSafeRolloutForRampState,
 } from "back-end/src/services/rampSchedule";
 import { applyPagination } from "back-end/src/util/handler";
-import { ConflictError, NotFoundError } from "back-end/src/util/errors";
+import {
+  BadRequestError,
+  ConflictError,
+  NotFoundError,
+} from "back-end/src/util/errors";
 import { rampTargetsEquivalent } from "back-end/src/util/flattenRules";
 import { MakeModelClass } from "./BaseModel";
 
@@ -104,18 +108,65 @@ type LegacyTriggerStep = {
   holdConditions?: StepHoldConditions;
 };
 
+function toEpochMs(value: Date | string | null | undefined): number | null {
+  if ((value ?? null) === null) return null;
+  const time = (value instanceof Date ? value : new Date(value!)).getTime();
+  return Number.isNaN(time) ? null : time;
+}
+
 // Normalizes legacy `trigger` discriminated union to the unified `interval` +
 // `holdConditions.requiresApproval` shape. Idempotent on already-migrated docs.
+//
+// "scheduled" triggers carry an absolute fire date; the unified shape is
+// relative (cumulative intervals from the phase start), so each date becomes
+// the delta from the previous gate. Dropping the date instead would leave the
+// step with no gate at all — the evaluator treats a gate-less step as instant
+// and advances one per tick, so a multi-day plan would run to completion in
+// minutes.
 export function migrateRampStepTriggers<
-  T extends { steps?: LegacyTriggerStep[] | null },
+  T extends {
+    steps?: LegacyTriggerStep[] | null;
+    phaseStartedAt?: Date | string | null;
+    startedAt?: Date | string | null;
+    startDate?: Date | string | null;
+    dateCreated?: Date | string;
+  },
 >(doc: T): T {
   if (!doc.steps || !Array.isArray(doc.steps)) return doc;
   let changed = false;
+  // Running total of when the previous gate fires, accumulated in the same
+  // way the evaluator fires steps (anchor + cumulative interval). The anchor
+  // mirrors computeNextStepAt's precedence — phaseStartedAt, then startedAt —
+  // so converted intervals reproduce the plan's absolute dates for schedules
+  // that started later than their startDate (and, because this migration is
+  // recomputed on every read, pause/resume shifts to phaseStartedAt
+  // self-correct). Not-yet-started docs fall back to the scheduled start,
+  // creation time, or the first step's own date. Interval steps push the
+  // cursor forward by their duration; approval steps don't move it (their
+  // wait is unbounded).
+  let cursorMs =
+    toEpochMs(doc.phaseStartedAt) ??
+    toEpochMs(doc.startedAt) ??
+    toEpochMs(doc.startDate) ??
+    toEpochMs(doc.dateCreated) ??
+    doc.steps.reduce<number | null>(
+      (found, s) =>
+        found ??
+        (s?.trigger?.type === "scheduled" ? toEpochMs(s.trigger.at) : null),
+      null,
+    );
   const steps = doc.steps.map((s) => {
-    if (!s || !s.trigger) return s;
+    if (!s) return s;
+    if (!s.trigger) {
+      if (typeof s.interval === "number" && cursorMs !== null) {
+        cursorMs += s.interval * 1000;
+      }
+      return s;
+    }
     changed = true;
     const { trigger, ...rest } = s;
     if (trigger.type === "interval") {
+      if (cursorMs !== null) cursorMs += trigger.seconds * 1000;
       return { ...rest, interval: trigger.seconds };
     }
     if (trigger.type === "approval") {
@@ -128,10 +179,25 @@ export function migrateRampStepTriggers<
         },
       };
     }
-    // "scheduled" steps were only emitted by buildScheduleRampAction as a
-    // synthetic step-0; their `at` is already represented at the ramp level
-    // via startDate. Strip the trigger and let the schedule's startDate drive.
-    return { ...rest, interval: null };
+    // "scheduled": convert the absolute date to a relative interval. A date
+    // at or before the previous gate means the step is already due — clamp
+    // to 1s so the catch-up fold lands on it as a time-due step.
+    const atMs = toEpochMs(trigger.at);
+    if (atMs === null || cursorMs === null) {
+      // Unparseable date (or no anchor to measure from): fail safe by
+      // holding for a human instead of advancing without a gate.
+      return {
+        ...rest,
+        interval: null,
+        holdConditions: {
+          ...(rest.holdConditions ?? {}),
+          requiresApproval: true,
+        },
+      };
+    }
+    const interval = Math.max(1, Math.round((atMs - cursorMs) / 1000));
+    cursorMs += interval * 1000;
+    return { ...rest, interval };
   });
   return changed ? { ...doc, steps } : doc;
 }
@@ -246,53 +312,66 @@ type PostBodyAction = {
   patch: Partial<RampStepAction["patch"]>;
 };
 
-// Normalize a legacy API trigger input into the unified `interval` +
-// `holdConditions` shape used internally and on output.
-function normalizeLegacyApiTrigger(
-  trigger: LegacyApiRampTrigger,
-  existingHoldConditions?: StepHoldConditions,
-): { interval: number | null; holdConditions?: StepHoldConditions } {
-  if (trigger.type === "interval") {
-    return {
-      interval: trigger.seconds,
-      ...(existingHoldConditions
-        ? { holdConditions: existingHoldConditions }
-        : {}),
-    };
-  }
-  if (trigger.type === "approval") {
-    return {
-      interval: null,
-      holdConditions: {
-        ...(existingHoldConditions ?? {}),
-        requiresApproval: true,
-      },
-    };
-  }
-  // `scheduled` trigger types are no longer accepted as step-level triggers;
-  // callers should set `startDate` at the schedule level instead.
-  return {
-    interval: null,
-    ...(existingHoldConditions
-      ? { holdConditions: existingHoldConditions }
-      : {}),
-  };
-}
-
 // Accepts both the new `{ interval, holdConditions }` shape and the legacy
 // `{ trigger: { type, ... } }` shape on input. Returns the unified shape.
-function normalizeApiStepShape(s: {
-  interval?: number | null;
-  trigger?: LegacyApiRampTrigger;
-  holdConditions?: StepHoldConditions;
-}): { interval: number | null; holdConditions?: StepHoldConditions } {
-  if (s.trigger) {
-    return normalizeLegacyApiTrigger(s.trigger, s.holdConditions);
-  }
-  return {
-    interval: s.interval ?? null,
-    ...(s.holdConditions ? { holdConditions: s.holdConditions } : {}),
-  };
+//
+// Normalization needs the whole array: legacy `scheduled` triggers carry
+// absolute dates, and the unified shape is relative, so each date becomes the
+// delta from the previous gate (`anchor` seeds the first; see
+// migrateRampStepTriggers for the full rationale). Dates that don't parse or
+// don't increase are rejected so the caller learns the plan is malformed
+// instead of it running unpaced. Note the current v2 request schema strips
+// unrecognized step fields, so the trigger branch is defense-in-depth for
+// direct model callers and any future schema that re-admits the shape.
+export function normalizeApiStepShapes(
+  steps: {
+    interval?: number | null;
+    trigger?: LegacyApiRampTrigger;
+    holdConditions?: StepHoldConditions;
+  }[],
+  anchor: Date,
+): { interval: number | null; holdConditions?: StepHoldConditions }[] {
+  // Running total of when the previous gate fires. Approval steps don't move
+  // it (their wait is unbounded); gate-less steps are instant and don't either.
+  let cursorMs = anchor.getTime();
+  return steps.map((s, i) => {
+    const trigger = s.trigger;
+    const holdConditions = s.holdConditions
+      ? { holdConditions: s.holdConditions }
+      : {};
+    if (!trigger) {
+      if (typeof s.interval === "number") cursorMs += s.interval * 1000;
+      return { interval: s.interval ?? null, ...holdConditions };
+    }
+    if (trigger.type === "interval") {
+      cursorMs += trigger.seconds * 1000;
+      return { interval: trigger.seconds, ...holdConditions };
+    }
+    if (trigger.type === "approval") {
+      return {
+        interval: null,
+        holdConditions: {
+          ...(s.holdConditions ?? {}),
+          requiresApproval: true,
+        },
+      };
+    }
+    const atMs = toEpochMs(trigger.at);
+    if (atMs === null) {
+      throw new BadRequestError(
+        `steps[${i}].trigger.at is not a valid date: "${trigger.at}".`,
+      );
+    }
+    if (atMs <= cursorMs) {
+      throw new BadRequestError(
+        `steps[${i}].trigger.at (${trigger.at}) must be after the previous step's fire time. ` +
+          `Scheduled triggers are converted to relative intervals, so each date must be later than the schedule's timing anchor (its phase start once started, otherwise its start date) and all earlier steps.`,
+      );
+    }
+    const interval = Math.max(1, Math.round((atMs - cursorMs) / 1000));
+    cursorMs += interval * 1000;
+    return { interval, ...holdConditions };
+  });
 }
 
 export class RampScheduleModel extends BaseClass {
@@ -534,33 +613,45 @@ export class RampScheduleModel extends BaseClass {
       updates.startActions = body.startActions.map(resolveTargetId);
     }
     if (body.steps !== undefined) {
-      updates.steps = body.steps.map(
-        (step: {
-          interval?: number | null;
-          trigger?: LegacyApiRampTrigger;
-          actions?: {
-            targetType?: "feature-rule";
-            targetId?: string;
-            patch?: unknown;
-          }[];
-          approvalNotes?: string | null;
-          monitored?: boolean | null;
-          holdConditions?: StepHoldConditions | null;
-        }) => {
-          const normalized = normalizeApiStepShape({
-            interval: step.interval,
-            trigger: step.trigger,
-            holdConditions: step.holdConditions ?? undefined,
-          });
-          return {
-            interval: normalized.interval,
-            actions: (step.actions ?? []).map(resolveTargetId),
-            approvalNotes: step.approvalNotes ?? undefined,
-            monitored: !!step.monitored,
-            holdConditions: normalized.holdConditions,
-          };
-        },
+      const stepBodies = body.steps as {
+        interval?: number | null;
+        trigger?: LegacyApiRampTrigger;
+        actions?: {
+          targetType?: "feature-rule";
+          targetId?: string;
+          patch?: unknown;
+        }[];
+        approvalNotes?: string | null;
+        monitored?: boolean | null;
+        holdConditions?: StepHoldConditions | null;
+      }[];
+      // Legacy `scheduled` triggers become relative intervals measured from
+      // the point the step timers run from: the phase start once the schedule
+      // has started, otherwise the scheduled start (including one being set
+      // in this same request), otherwise now.
+      const bodyStartDate =
+        "startDate" in body
+          ? body.startDate
+            ? new Date(body.startDate)
+            : null
+          : undefined;
+      const normalized = normalizeApiStepShapes(
+        stepBodies.map((step) => ({
+          interval: step.interval,
+          trigger: step.trigger,
+          holdConditions: step.holdConditions ?? undefined,
+        })),
+        schedule.phaseStartedAt ??
+          (bodyStartDate !== undefined ? bodyStartDate : schedule.startDate) ??
+          new Date(),
       );
+      updates.steps = stepBodies.map((step, i) => ({
+        interval: normalized[i].interval,
+        actions: (step.actions ?? []).map(resolveTargetId),
+        approvalNotes: step.approvalNotes ?? undefined,
+        monitored: !!step.monitored,
+        holdConditions: normalized[i].holdConditions,
+      }));
     }
     if (body.endActions !== undefined) {
       updates.endActions = body.endActions.map(resolveTargetId);

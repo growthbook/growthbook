@@ -38,7 +38,9 @@ export const listMetricExperiments = createApiRequestHandler(
     statuses: splitCsv(req.query.status),
     results: splitCsv(req.query.result),
     tags: splitCsv(req.query.tag),
-    types: splitCsv(req.query.type),
+    // The public wire param stays `type` (shipped API surface); internally
+    // these are implementation types (feature | visualChange | redirect)
+    implementationTypes: splitCsv(req.query.type),
   };
 
   const bandits =
