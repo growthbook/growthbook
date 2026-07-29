@@ -35,6 +35,7 @@ import {
   pruneOrphanedRampActions,
   assertSchemaMatchesValueType,
   getEffectiveRevisionHoldout,
+  getRevertTargetHoldout,
 } from "shared/util";
 import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
 import {
@@ -2466,7 +2467,7 @@ export async function postFeatureRevert(
   }
 
   // Runs before the empty-diff check: a holdout-only difference is a real revert.
-  const targetHoldout = getEffectiveRevisionHoldout(revision, feature);
+  const targetHoldout = getRevertTargetHoldout(revision);
   if (!isEqual(targetHoldout, feature.holdout ?? null)) {
     if (!context.permissions.canPublishFeature(feature, allEnabledEnvs)) {
       context.permissions.throwPermissionError();
@@ -2645,7 +2646,7 @@ export async function postFeatureRevertDraft(
   if (revision.metadata !== undefined) {
     changes.metadata = revision.metadata;
   }
-  changes.holdout = getEffectiveRevisionHoldout(revision, feature);
+  changes.holdout = getRevertTargetHoldout(revision);
 
   const newRevision = await createRevision({
     context,

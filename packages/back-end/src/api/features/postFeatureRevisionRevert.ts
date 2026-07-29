@@ -5,7 +5,7 @@ import {
   filterEnvironmentsByFeature,
   MergeResultChanges,
   checkIfRevisionNeedsReview,
-  getEffectiveRevisionHoldout,
+  getRevertTargetHoldout,
   getRulesForEnvironment,
 } from "shared/util";
 import { isEqual } from "lodash";
@@ -244,7 +244,7 @@ export async function revertFeatureRevision(
     }
   }
 
-  const targetHoldout = getEffectiveRevisionHoldout(targetRevision, feature);
+  const targetHoldout = getRevertTargetHoldout(targetRevision);
   const holdoutChanged = !isEqual(targetHoldout, feature.holdout ?? null);
   if (holdoutChanged) {
     if (

@@ -6,7 +6,7 @@ import {
   MergeResultChanges,
   PermissionError,
   checkIfRevisionNeedsReview,
-  getEffectiveRevisionHoldout,
+  getRevertTargetHoldout,
   getRevertValueValidationWarnings,
   getRulesForEnvironment,
 } from "shared/util";
@@ -211,7 +211,7 @@ export async function revertFeatureCore(
   }
 
   // Runs before the empty-diff check: a holdout-only difference is a real revert.
-  const targetHoldout = getEffectiveRevisionHoldout(revision, feature);
+  const targetHoldout = getRevertTargetHoldout(revision);
   if (!isEqual(targetHoldout, feature.holdout ?? null)) {
     if (
       !context.permissions.canPublishFeature(

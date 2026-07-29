@@ -1090,6 +1090,16 @@ export function getEffectiveRevisionHoldout(
     : (feature.holdout ?? null);
 }
 
+// The holdout a revert restores. Unlike getEffectiveRevisionHoldout, an absent
+// value means "no holdout" rather than carrying the live one forward — carrying
+// forward makes a holdout attached after this revision un-revertable, which
+// reads as a revert that silently does nothing.
+export function getRevertTargetHoldout(
+  revision: Pick<RevisionFields, "holdout">,
+): Exclude<RevisionFields["holdout"], undefined> {
+  return revision.holdout ?? null;
+}
+
 // An open draft that is already the feature's live version: a publish advanced
 // the feature but never marked the revision published. Publishing it reconciles.
 export function isStrandedLiveRevision({
