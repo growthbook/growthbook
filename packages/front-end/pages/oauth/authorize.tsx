@@ -265,7 +265,7 @@ export default function OAuthAuthorizePage() {
             {claimedName}
           </Heading>
           <Text as="div" size="large" color="text-mid" align="center" mb="2">
-            is requesting access to your GrowthBook account
+            is requesting access to your GrowthBook account.
           </Text>
           <Text as="div" size="small" color="text-low" align="center">
             Name provided by the application. GrowthBook does not verify
