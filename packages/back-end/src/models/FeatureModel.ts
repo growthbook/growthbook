@@ -3220,14 +3220,27 @@ export async function publishRevision({
 
     rewinds.push({
       what: "feature document",
-      undo: () =>
-        restorePublishedFeatureDoc(
+      undo: async () => {
+        // Paired with the rules restore: a reverted rule set must not leave the
+        // experiments it added still pointing back at this feature.
+        const addedExperiments = (
+          updatedFeature.linkedExperiments ?? []
+        ).filter((id) => !(feature.linkedExperiments ?? []).includes(id));
+        for (const experimentId of addedExperiments) {
+          await removeLinkedFeatureFromExperiment(
+            context,
+            experimentId,
+            feature.id,
+          );
+        }
+        await restorePublishedFeatureDoc(
           context,
           feature,
           revision,
           result,
           updatedFeature,
-        ),
+        );
+      },
     });
 
     if (result.holdout !== undefined) {
