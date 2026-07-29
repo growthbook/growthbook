@@ -1260,19 +1260,23 @@ export class Permissions {
 
   /**
    * Diagnostics read the flag and write nothing, so anyone with a reason to
-   * understand it qualifies: authors, whoever lands it, and reviewers — a
-   * reviewer judging a change needs the same picture the author had.
+   * understand it qualifies — from either direction. Flag-side: authors, whoever
+   * lands it, and reviewers, since a reviewer judging a change needs the same
+   * picture the author had. Datasource-side: whoever may already query the data
+   * this reads, which is the check #6489 replaced rather than widened.
    *
    * NO_ENVIRONMENT_BINDING is deliberate: there's no write, so there's no
    * environment footprint to narrow an env-limited publisher against.
    */
   public canRunFeatureDiagnosticsQueries = (
     feature: Pick<FeatureInterface, "project">,
+    datasource?: Pick<DataSourceInterface, "projects">,
   ): boolean => {
     return (
       this.canEditFeatureDrafts(feature) ||
       this.canPublishFeature(feature, NO_ENVIRONMENT_BINDING) ||
-      this.canReviewFeatureDrafts(feature)
+      this.canReviewFeatureDrafts(feature) ||
+      (!!datasource && this.checkProjectFilterPermission(datasource, "runQueries"))
     );
   };
 
