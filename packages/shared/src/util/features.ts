@@ -3869,17 +3869,24 @@ export function getExperimentIdsFromRules(rules: FeatureRule[]): string[] {
  * The holdout `linkedExperiments` delta a publish should apply for one feature,
  * derived from published state only.
  *
- * Unlinking is deliberately conservative: an experiment stays linked while any
- * other feature in the same holdout still references it, so publishing one
- * feature can never revoke a holdout membership another feature is relying on.
+ * Unlinking is doubly constrained, because the holdout's experiment list is NOT
+ * merely a projection of feature rules — an experiment can be added to a holdout
+ * directly, with no feature referencing it. So a candidate must both have been
+ * contributed by THIS feature (present in its previous rules) and be referenced
+ * by nothing else. Anything else in the list belongs to another writer and is
+ * left alone.
  */
 export function computeHoldoutExperimentLinkageDelta({
   publishedRules,
+  previousRules,
   hasHoldout,
   linkedExperimentIds,
   experimentIdsReferencedElsewhere,
 }: {
   publishedRules: FeatureRule[];
+  // The feature's rules before this publish: the only experiments it can be said
+  // to have contributed, and so the only ones it may withdraw.
+  previousRules: FeatureRule[];
   // False when this publish leaves the feature with no holdout.
   hasHoldout: boolean;
   // The holdout's current `linkedExperiments` keys.
@@ -3891,11 +3898,12 @@ export function computeHoldoutExperimentLinkageDelta({
   const desiredSet = new Set(desired);
   const linkedSet = new Set(linkedExperimentIds);
   const elsewhere = new Set(experimentIdsReferencedElsewhere);
+  const contributed = new Set(getExperimentIdsFromRules(previousRules));
 
   return {
     toLink: desired.filter((id) => !linkedSet.has(id)),
     toUnlink: linkedExperimentIds.filter(
-      (id) => !desiredSet.has(id) && !elsewhere.has(id),
+      (id) => contributed.has(id) && !desiredSet.has(id) && !elsewhere.has(id),
     ),
   };
 }

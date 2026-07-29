@@ -47,6 +47,7 @@ describe("computeHoldoutExperimentLinkageDelta", () => {
     expect(
       computeHoldoutExperimentLinkageDelta({
         publishedRules: [expRule("exp_a"), expRule("exp_b")],
+        previousRules: [expRule("exp_a")],
         hasHoldout: true,
         linkedExperimentIds: ["exp_a"],
         experimentIdsReferencedElsewhere: [],
@@ -58,6 +59,7 @@ describe("computeHoldoutExperimentLinkageDelta", () => {
     expect(
       computeHoldoutExperimentLinkageDelta({
         publishedRules: [expRule("exp_a")],
+        previousRules: [expRule("exp_a"), expRule("exp_b")],
         hasHoldout: true,
         linkedExperimentIds: ["exp_a", "exp_b"],
         experimentIdsReferencedElsewhere: [],
@@ -72,6 +74,7 @@ describe("computeHoldoutExperimentLinkageDelta", () => {
     expect(
       computeHoldoutExperimentLinkageDelta({
         publishedRules: [],
+        previousRules: [expRule("exp_a"), expRule("exp_b")],
         hasHoldout: true,
         linkedExperimentIds: ["exp_a", "exp_b"],
         experimentIdsReferencedElsewhere: ["exp_a"],
@@ -83,6 +86,7 @@ describe("computeHoldoutExperimentLinkageDelta", () => {
     expect(
       computeHoldoutExperimentLinkageDelta({
         publishedRules: [expRule("exp_a")],
+        previousRules: [expRule("exp_a"), expRule("exp_b")],
         hasHoldout: false,
         linkedExperimentIds: ["exp_a", "exp_b"],
         experimentIdsReferencedElsewhere: [],
@@ -94,6 +98,7 @@ describe("computeHoldoutExperimentLinkageDelta", () => {
     expect(
       computeHoldoutExperimentLinkageDelta({
         publishedRules: [expRule("exp_a")],
+        previousRules: [expRule("exp_a")],
         hasHoldout: true,
         linkedExperimentIds: ["exp_a"],
         experimentIdsReferencedElsewhere: [],
@@ -105,10 +110,38 @@ describe("computeHoldoutExperimentLinkageDelta", () => {
     expect(
       computeHoldoutExperimentLinkageDelta({
         publishedRules: [forceRule("r1")],
+        previousRules: [forceRule("r1")],
         hasHoldout: true,
         linkedExperimentIds: [],
         experimentIdsReferencedElsewhere: [],
       }),
     ).toEqual({ toLink: [], toUnlink: [] });
+  });
+
+  // Regression: an experiment can be added to a holdout directly, with no
+  // feature referencing it. Publishing an unrelated feature must not withdraw
+  // it just because no feature's rules mention it.
+  it("leaves experiments this feature never contributed alone", () => {
+    expect(
+      computeHoldoutExperimentLinkageDelta({
+        publishedRules: [expRule("exp_mine")],
+        previousRules: [expRule("exp_mine")],
+        hasHoldout: true,
+        linkedExperimentIds: ["exp_mine", "exp_added_directly"],
+        experimentIdsReferencedElsewhere: [],
+      }),
+    ).toEqual({ toLink: [], toUnlink: [] });
+  });
+
+  it("withdraws only its own contribution when it leaves the holdout", () => {
+    expect(
+      computeHoldoutExperimentLinkageDelta({
+        publishedRules: [],
+        previousRules: [expRule("exp_mine")],
+        hasHoldout: false,
+        linkedExperimentIds: ["exp_mine", "exp_added_directly"],
+        experimentIdsReferencedElsewhere: [],
+      }),
+    ).toEqual({ toLink: [], toUnlink: ["exp_mine"] });
   });
 });

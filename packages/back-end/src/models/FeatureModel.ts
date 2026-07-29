@@ -2134,6 +2134,7 @@ export async function planHoldoutExperimentLinkage(
       // No rules under the old holdout any more, so everything this feature
       // brought is a candidate to unlink.
       [],
+      feature.rules ?? [],
     );
     if (leaving) plans.push(leaving);
   }
@@ -2144,6 +2145,7 @@ export async function planHoldoutExperimentLinkage(
       feature,
       holdoutId,
       publishedRules,
+      feature.rules ?? [],
     );
     if (joining) plans.push(joining);
   }
@@ -2156,6 +2158,8 @@ async function planLinkageForHoldout(
   feature: FeatureInterface,
   holdoutId: string,
   publishedRules: FeatureRule[],
+  // The feature's pre-publish rules — the bound on what it may withdraw.
+  previousRules: FeatureRule[],
 ): Promise<HoldoutExperimentLinkagePlan | null> {
   const holdout = await context.models.holdout.getByIdForLinkage(holdoutId);
   if (!holdout) return null;
@@ -2173,6 +2177,7 @@ async function planLinkageForHoldout(
 
   const { toLink, toUnlink } = computeHoldoutExperimentLinkageDelta({
     publishedRules,
+    previousRules,
     // Always a real holdout here; the "leaving" case expresses itself by passing
     // no rules, which yields an empty desired set.
     hasHoldout: true,
