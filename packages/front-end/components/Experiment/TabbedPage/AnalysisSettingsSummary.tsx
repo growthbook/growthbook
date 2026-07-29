@@ -1063,7 +1063,10 @@ export default function AnalysisSettingsSummary({
         </Box>
       )}
 
-      {incrementalUpdatesUnavailable && (
+      {/* Gate on metrics so this warning only shows alongside the refresh
+          button (same `allMetrics.length > 0` gate). With no metrics there is
+          nothing to rescan, and Results already shows "Add at least 1 metric". */}
+      {incrementalUpdatesUnavailable && allMetrics.length > 0 && (
         <Callout status="warning" mt="2">
           <Text weight="semibold" size="medium">
             Updates will rescan full experiment data.
