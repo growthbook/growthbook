@@ -5,7 +5,6 @@ import {
 } from "shared/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
 import { FaChevronRight, FaPlus } from "react-icons/fa";
-import { isEventForwarderManagedExposureQuery } from "shared/util";
 import { Box, Card, Flex, Heading } from "@radix-ui/themes";
 import { DimensionSlicesInterface } from "shared/types/dimension";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
@@ -74,11 +73,6 @@ export const ExperimentAssignmentQueries: FC<
 
   const handleActionDeleteClicked = useCallback(
     (idx: number) => async () => {
-      const query = dataSource.settings?.queries?.exposure?.[idx];
-      if (query && isEventForwarderManagedExposureQuery(query)) {
-        return;
-      }
-
       const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
 
       // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
@@ -155,7 +149,11 @@ export const ExperimentAssignmentQueries: FC<
 
       {experimentExposureQueries.map((query, idx) => {
         const isOpen = openIndexes[idx] || false;
-        const isManaged = isEventForwarderManagedExposureQuery(query);
+        // Event Forwarder managed queries are intentionally editable and
+        // deletable for now. Restore
+        // `isEventForwarderManagedExposureQuery(query)` here (and in the delete
+        // handler above) to lock them again.
+        const isManaged = false;
         const deleteButton = (
           <DeleteButton
             useRadix={false}
