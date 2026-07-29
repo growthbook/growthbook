@@ -446,12 +446,13 @@ function EventForwarderModal({
                 size="small"
                 label="Data Region"
                 value={eventForwarderConfig.region ?? "us-east-1"}
-                onChange={(value) =>
+                onChange={(value) => {
                   setEventForwarderConfig({
                     ...eventForwarderConfig,
                     region: value as "us-east-1" | "eu-west-1",
-                  })
-                }
+                  });
+                  setUsEventForwarderFlowConsent(false);
+                }}
                 disabled={isEditingEventForwarder}
                 options={[
                   { label: "AWS us-east-1", value: "us-east-1" },
