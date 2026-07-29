@@ -74,10 +74,10 @@ export default function ScheduledEndPassedBanner({
         trigger={
           <Flex direction="row" align="center" justify="between">
             <Box>
-              <Flex direction="row" align="center">
-                <BsLightningFill className="mx-1 text-warning" />
+              <Flex direction="row" align="center" gap="1">
+                <BsLightningFill color="var(--warning)" />
                 <Text weight="semibold">Scheduled end passed:</Text>
-                <Box ml="2">
+                <Box ml="1">
                   <Text>No clear recommendation</Text>
                 </Box>
               </Flex>
