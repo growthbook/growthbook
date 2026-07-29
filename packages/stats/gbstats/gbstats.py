@@ -1154,7 +1154,7 @@ def process_single_metric(
     all_var_ids: Set[str] = set([v for a in analyses for v in a.var_ids])
     unknown_var_ids = detect_unknown_variations(rows=pdrows, var_ids=all_var_ids)
 
-    results: List[List[DimensionResponse]] = []
+    results: List[ExperimentMetricAnalysisResult] = []
     for a in analyses:
         # skip pre-computed dimension reaggregation for quantile metrics
         attempted_quantile_dimension_reaggregation = a.dimension.startswith(
@@ -1169,25 +1169,41 @@ def process_single_metric(
             attempted_quantile_dimension_reaggregation
             or attempted_quantile_overall_reaggregation
         ):
+            results.append(
+                ExperimentMetricAnalysisResult(
+                    unknownVariations=list(unknown_var_ids),
+                    dimensions=[],
+                    multipleExposures=0,
+                )
+            )
             continue
-        results.append(
-            process_analysis(
+        try:
+            dimensions = process_analysis(
                 rows=pdrows,
                 var_id_map=get_var_id_map(a.var_ids),
                 metric=metric,
                 analysis=a,
             )
-        )
+            results.append(
+                ExperimentMetricAnalysisResult(
+                    unknownVariations=list(unknown_var_ids),
+                    dimensions=dimensions,
+                    multipleExposures=0,
+                )
+            )
+        except Exception as e:
+            results.append(
+                ExperimentMetricAnalysisResult(
+                    unknownVariations=list(unknown_var_ids),
+                    dimensions=[],
+                    multipleExposures=0,
+                    error=str(e),
+                    traceback=traceback.format_exc(),
+                )
+            )
     return ExperimentMetricAnalysis(
         metric=metric.id,
-        analyses=[
-            ExperimentMetricAnalysisResult(
-                unknownVariations=list(unknown_var_ids),
-                dimensions=r,
-                multipleExposures=0,
-            )
-            for r in results
-        ],
+        analyses=results,
     )
 
 
@@ -1378,24 +1394,27 @@ def process_experiment_results(
     bandit_result: Optional[BanditResult] = None
     for query_result in d.query_results:
         for i, metric in enumerate(query_result.metrics):
-            if metric in d.metrics:
+            if metric not in d.metrics:
+                continue
+            try:
                 this_metric = d.metrics[metric]
                 rows = filter_query_rows(query_result.rows, i)
-                if len(rows):
-                    if d.bandit_settings:
-                        metric_settings_bandit = copy.deepcopy(this_metric)
-                        # when using multi-period data, binomial is no longer iid and variance is wrong
-                        if metric_settings_bandit.main_metric_type == "binomial":
-                            metric_settings_bandit.main_metric_type = "count"
-                        if metric_settings_bandit.covariate_metric_type == "binomial":
-                            metric_settings_bandit.covariate_metric_type = "count"
-                        # TODO: after we have added the functionality for ratio_ra, remove this
-                        if metric_settings_bandit.statistic_type == "ratio_ra":
-                            metric_settings_bandit.statistic_type = "ratio"
-                        if (
-                            metric == d.bandit_settings.decision_metric
-                            and not d.analyses[0].dimension
-                        ):
+                metric_for_analysis = this_metric
+                if d.bandit_settings and len(rows):
+                    metric_settings_bandit = copy.deepcopy(this_metric)
+                    # when using multi-period data, binomial is no longer iid and variance is wrong
+                    if metric_settings_bandit.main_metric_type == "binomial":
+                        metric_settings_bandit.main_metric_type = "count"
+                    if metric_settings_bandit.covariate_metric_type == "binomial":
+                        metric_settings_bandit.covariate_metric_type = "count"
+                    # TODO: after we have added the functionality for ratio_ra, remove this
+                    if metric_settings_bandit.statistic_type == "ratio_ra":
+                        metric_settings_bandit.statistic_type = "ratio"
+                    if (
+                        metric == d.bandit_settings.decision_metric
+                        and not d.analyses[0].dimension
+                    ):
+                        try:
                             if bandit_result is not None:
                                 raise ValueError("Bandit weights already computed")
                             bandit_result = get_bandit_result(
@@ -1404,21 +1423,39 @@ def process_experiment_results(
                                 settings=d.analyses[0],
                                 bandit_settings=d.bandit_settings,
                             )
-                        results.append(
-                            process_single_metric(
-                                rows=rows,
-                                metric=metric_settings_bandit,
-                                analyses=d.analyses,
+                        except Exception as e:
+                            bandit_result = get_error_bandit_result(
+                                single_variation_results=None,
+                                update_message="not updated",
+                                error=str(e),
+                                reweight=d.bandit_settings.reweight,
+                                current_weights=d.bandit_settings.current_weights,
                             )
+                    metric_for_analysis = metric_settings_bandit
+                metric_result = process_single_metric(
+                    rows=rows,
+                    metric=metric_for_analysis,
+                    analyses=d.analyses,
+                )
+            except Exception as e:
+                # Failures outside an individual analysis cell still belong to
+                # this metric. Preserve one error slot for every requested
+                # analysis and continue with the remaining metrics.
+                error_traceback = traceback.format_exc()
+                metric_result = ExperimentMetricAnalysis(
+                    metric=metric,
+                    analyses=[
+                        ExperimentMetricAnalysisResult(
+                            unknownVariations=[],
+                            dimensions=[],
+                            multipleExposures=0,
+                            error=str(e),
+                            traceback=error_traceback,
                         )
-                    else:
-                        results.append(
-                            process_single_metric(
-                                rows=rows,
-                                metric=this_metric,
-                                analyses=d.analyses,
-                            )
-                        )
+                        for _ in d.analyses
+                    ],
+                )
+            results.append(metric_result)
 
     if d.bandit_settings and bandit_result is None:
         bandit_result = get_error_bandit_result(
