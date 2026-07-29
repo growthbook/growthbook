@@ -280,12 +280,6 @@ export default defineConfig([
           message:
             "Don't use window.history.replaceState directly. Use router.replace(url, undefined, { shallow: true }) from next/router instead.",
         },
-        {
-          selector:
-            "Literal[value=/with-variation-label/], TemplateElement[value.cooked=/with-variation-label/]",
-          message:
-            "Don't hand-roll variation labels. Use VariationLabel (or VariationNumber for number-only) from @/ui instead.",
-        },
       ],
       "local/no-alert-classname": "error",
     },
