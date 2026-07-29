@@ -1808,7 +1808,6 @@ export default function EditSingleBlock({
                     }
                     dashboardGlobalControls={dashboardGlobalControls}
                     onUpdate={(updatedBlock) => submit(updatedBlock)}
-                    onExit={cancel}
                   />
                 }
               />

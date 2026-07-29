@@ -51,6 +51,7 @@ interface Props {
   useDashboardDateControl?: boolean;
   onGlobalControlSettingsChange?: (settings: { dateRange?: boolean }) => void;
   onSubmit?: () => void;
+  hideHeaderActions?: boolean;
   headerActions?: ReactNode;
   hideDataSourceSelector?: boolean;
   sqlChartConfigOnly?: boolean;
@@ -63,6 +64,7 @@ export default function ExplorerSideBar({
   useDashboardDateControl = false,
   onGlobalControlSettingsChange,
   onSubmit,
+  hideHeaderActions = false,
   headerActions,
   hideDataSourceSelector = false,
   sqlChartConfigOnly = false,
@@ -181,7 +183,7 @@ export default function ExplorerSideBar({
       {error && renderingInDashboardSidebar ? (
         <Callout status="error">{error}</Callout>
       ) : null}
-      {headerActions ? (
+      {hideHeaderActions ? null : headerActions ? (
         <Flex justify="end" align="center" height="32px" py="2" gap="2">
           {headerActions}
         </Flex>

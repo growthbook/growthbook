@@ -75,16 +75,20 @@ function deriveConfigError(
 }
 
 export function ExplorerContent({
+  height = "calc(100vh - 72px)",
   hideDataSourceSelector = false,
+  hideSidebarHeaderActions = false,
   sidebarHeaderActions,
 }: {
+  height?: string;
   hideDataSourceSelector?: boolean;
+  hideSidebarHeaderActions?: boolean;
   sidebarHeaderActions?: React.ReactNode;
 }) {
   const { managedWarehouseUnavailable } = useExplorerContext();
 
   return (
-    <Flex direction="column" gap="3" height="calc(100vh - 72px)">
+    <Flex direction="column" gap="3" height={height}>
       {managedWarehouseUnavailable ? (
         <Box px="2">
           <ManagedWarehouseNoEventsCallout />
@@ -135,7 +139,10 @@ export function ExplorerContent({
               `calc(100vh - 160px)` — the latter left ~88px dead space at
               the bottom and caused unnecessary scrolling. */}
           <ShadowedScrollArea height="100%">
-            <ExplorerSideBar headerActions={sidebarHeaderActions} />
+            <ExplorerSideBar
+              hideHeaderActions={hideSidebarHeaderActions}
+              headerActions={sidebarHeaderActions}
+            />
           </ShadowedScrollArea>
         </Panel>
       </PanelGroup>

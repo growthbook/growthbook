@@ -167,34 +167,36 @@ export default function ExplorerMainSection({
               }}
             />
           </Panel>
-          {sqlQueryOpen ? (
-            <PanelResizeHandle
-              style={{
-                height: 20,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Box
-                flexGrow="1"
-                mx="3"
-                style={{
-                  height: 1,
-                  backgroundColor: "var(--gray-a4)",
-                }}
-              />
-              <PiDotsSix size={16} />
-              <Box
-                flexGrow="1"
-                mx="3"
-                style={{
-                  height: 1,
-                  backgroundColor: "var(--gray-a4)",
-                }}
-              />
-            </PanelResizeHandle>
-          ) : null}
+          <PanelResizeHandle
+            style={{
+              height: sqlQueryOpen ? 20 : 10,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            {sqlQueryOpen ? (
+              <>
+                <Box
+                  flexGrow="1"
+                  mx="3"
+                  style={{
+                    height: 1,
+                    backgroundColor: "var(--gray-a4)",
+                  }}
+                />
+                <PiDotsSix size={16} />
+                <Box
+                  flexGrow="1"
+                  mx="3"
+                  style={{
+                    height: 1,
+                    backgroundColor: "var(--gray-a4)",
+                  }}
+                />
+              </>
+            ) : null}
+          </PanelResizeHandle>
           <Panel order={2} defaultSize={40} minSize={25}>
             <Box
               ref={setSqlResultsTarget}
