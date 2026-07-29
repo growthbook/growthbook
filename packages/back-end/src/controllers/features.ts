@@ -3503,7 +3503,6 @@ export async function postFeatureExperimentRefRule(
     feature,
     experiment,
     effectiveHoldout,
-    allowExistingLinkToThisFeature: true,
   });
 
   // One-way: any rule-footprint env that's currently off flips on. We never

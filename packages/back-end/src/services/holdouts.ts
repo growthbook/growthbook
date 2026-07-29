@@ -50,17 +50,12 @@ export async function resolveHoldoutExperimentToLink({
   feature,
   experiment,
   effectiveHoldout,
-  // `postFeatureExperimentRefRule` tolerates the experiment already being linked
-  // to *this* feature (create-from-experiment); the other call sites reject any
-  // pre-existing linked feature.
-  allowExistingLinkToThisFeature = false,
   makeError = (message: string) => new Error(message),
 }: {
   context: ReqContext | ApiReqContext;
   feature: FeatureInterface;
   experiment: ExperimentInterface;
   effectiveHoldout: { id: string } | null | undefined;
-  allowExistingLinkToThisFeature?: boolean;
   makeError?: (message: string) => Error;
 }): Promise<void> {
   if (effectiveHoldout?.id) {
@@ -98,11 +93,14 @@ export async function resolveHoldoutExperimentToLink({
           `Cannot add experiment rule: this feature flag uses a holdout, so the experiment must be in "draft" status (currently "${experiment.status ?? "unknown"}").`,
         );
       }
+      // A link to THIS feature never counts: linkedFeatures is deliberately
+      // sticky (see syncFeatureExperimentLinkages — "removal is user-driven"),
+      // so an earlier draft on this same feature leaves one behind even when
+      // discarded. Counting it made re-adding the rule impossible, with advice
+      // the UI gives no way to follow.
       const expHasLinkedChanges =
-        (allowExistingLinkToThisFeature
-          ? (experiment.linkedFeatures?.some((fid) => fid !== feature.id) ??
-            false)
-          : (experiment.linkedFeatures?.length ?? 0) > 0) ||
+        (experiment.linkedFeatures?.some((fid) => fid !== feature.id) ??
+          false) ||
         experiment.hasURLRedirects ||
         experiment.hasVisualChangesets;
       if (expHasLinkedChanges) {

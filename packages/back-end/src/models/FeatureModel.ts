@@ -3342,7 +3342,17 @@ export async function publishRevision({
   const updateActions = (revision.rampActions ?? []).filter(
     (a) => a.mode === "update",
   );
-  type Rewind = { what: string; undo: () => Promise<unknown> };
+  // `critical` marks the steps that decide what is live and what the UI shows —
+  // the feature document, and the revision status that follows it. A satellite
+  // (ramp schedules, holdout linkage) that cannot be reversed is logged and
+  // skipped: abandoning the document restore because a satellite failed leaves
+  // the feature published on a revision still marked draft, which is the worst
+  // available outcome and the one this rewind exists to avoid.
+  type Rewind = {
+    what: string;
+    undo: () => Promise<unknown>;
+    critical?: boolean;
+  };
   const rewinds: Rewind[] = [];
   let revisionStatusRewind: Rewind | null = null;
 
@@ -3403,6 +3413,7 @@ export async function publishRevision({
 
     rewinds.push({
       what: "feature document",
+      critical: true,
       undo: async () => {
         // Paired with the rules restore: a reverted rule set must not leave the
         // experiments it added still pointing back at this feature.
@@ -3466,6 +3477,7 @@ export async function publishRevision({
     );
     revisionStatusRewind = {
       what: "revision status",
+      critical: true,
       undo: async () => {
         const reopened = await restoreFeatureRevisionAfterFailedBulkPublish(
           revision,
@@ -3483,15 +3495,24 @@ export async function publishRevision({
     // the feature doc it advanced stays published.
     const unwind = [...rewinds].reverse();
     if (revisionStatusRewind) unwind.push(revisionStatusRewind);
-    for (const { what, undo } of unwind) {
+    let criticalFailed = false;
+    for (const { what, undo, critical } of unwind) {
+      // Once the document could not be restored, reopening the revision would
+      // make it contradict a feature that is still published.
+      if (criticalFailed) {
+        logger.error(
+          `Skipping rewind of ${what} for feature ${feature.id} revision ${revision.version}: an earlier critical step could not be reversed`,
+        );
+        continue;
+      }
       try {
         await undo();
       } catch (rewindErr) {
+        if (critical) criticalFailed = true;
         logger.error(
           rewindErr,
-          `Failed to rewind ${what} for feature ${feature.id} revision ${revision.version} after a failed publish — stopping rewind, everything not yet rewound stays at the published state`,
+          `Failed to rewind ${what} for feature ${feature.id} revision ${revision.version} after a failed publish${critical ? " — the feature stays at the published state" : " (satellite; continuing)"}`,
         );
-        break;
       }
     }
     throw err;
