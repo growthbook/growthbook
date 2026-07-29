@@ -146,6 +146,7 @@ import {
   restoreFeatureRevisionAfterFailedBulkPublish,
   updateRevision,
   createRevision,
+  prepareFeatureRevision,
 } from "./FeatureRevisionModel";
 
 const featureSchema = new mongoose.Schema({
@@ -2986,13 +2987,10 @@ export function computeProposedFeatureForValidation(
 }
 
 // Best-effort early hook run; updateFeature / markRevisionAsPublished re-run hooks authoritatively.
-// `skipValidation` skips the config-backed value net AND the custom validation
-// hooks — used by the REST publish handler, which has already run both
-// non-throwing and surfaced their results as publish gates, so re-running them
-// here would double-execute the sandboxed hooks and re-throw what the handler
-// already reported. The proposed feature is still computed (callers may rely on
-// the side-effect-free work). Auto-publish/scheduled paths never set it and keep
-// the throwing behavior.
+// `skipValidation` is set by callers that already ran these checks against this
+// exact revision — the REST publish handler surfaces them as publish gates, and
+// the auto-publish paths run them as a pre-insert gate — so the sandboxed hooks
+// don't double-execute. The proposed feature is still computed for callers.
 export async function prevalidatePublishRevision({
   context,
   feature,
@@ -3034,6 +3032,25 @@ export async function prevalidatePublishRevision({
     },
     original: revision,
   });
+}
+
+// Live-baseline revision built from the feature doc (canonical live state), without writing.
+export async function getLiveBaselineRevision(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+): Promise<FeatureRevisionInterface> {
+  const liveRevision = await getRevision({
+    context,
+    organization: feature.organization,
+    featureId: feature.id,
+    feature,
+    version: feature.version,
+  });
+  if (!liveRevision) throw new Error("Could not load live revision");
+  return {
+    ...liveRevision,
+    ...liveRevisionFromFeature(liveRevision, feature),
+  } as FeatureRevisionInterface;
 }
 
 // Restores a key only while the live doc still holds the value this publish
@@ -3168,11 +3185,8 @@ export async function publishRevision({
   result: MergeResultChanges;
   comment?: string;
   bypassLockdown?: boolean;
-  // Set only by the REST publish handler, which has already run the config-backed
-  // value net and the custom validation hooks non-throwing and surfaced their
-  // outcomes as publish gates. Skips the re-run in prevalidatePublishRevision so
-  // the sandboxed hooks don't double-execute and the gated failures aren't
-  // re-thrown. Auto-publish/scheduled paths leave it unset and keep throwing.
+  // Set when this exact revision was already validated — as publish gates by the
+  // REST handler, or immediately before insertion on the auto-publish paths.
   skipPrevalidateValidation?: boolean;
 }) {
   if (revision.status === "published" || revision.status === "discarded") {
@@ -3428,36 +3442,21 @@ export async function createAndPublishRevision({
     applicableEnvSet.has(e),
   );
 
-  // Determine whether the revision would require review before we create anything.
-  // We need a synthetic revision to check against, mirroring what createRevision would build.
-  const liveRevision = await getRevision({
+  const liveBase = await getLiveBaselineRevision(context, feature);
+  const { revision: preparedRevision } = await prepareFeatureRevision({
     context,
-    organization: feature.organization,
-    featureId: feature.id,
     feature,
-    version: feature.version,
+    user,
+    environments: allEnvironments,
+    baseVersion: feature.version,
+    changes,
+    revertedFrom,
+    comment: comment ?? "Created via REST API",
   });
-  if (!liveRevision) throw new Error("Could not load live revision");
-
-  // Live baseline for the review check and the publish merge, built from the
-  // feature document (the canonical live state). Stored revision docs can be
-  // sparse or in legacy shapes, so they're not a reliable baseline.
-  const liveBase: FeatureRevisionInterface = {
-    ...liveRevision,
-    ...liveRevisionFromFeature(liveRevision, feature),
-  } as FeatureRevisionInterface;
-
-  // Synthetic revision for the review check; caller-supplied rules replace
-  // the live array wholesale (same as autoMerge).
-  const syntheticRevision: FeatureRevisionInterface = {
-    ...liveBase,
-    ...(changes ?? {}),
-    rules: changes?.rules ?? liveBase.rules ?? [],
-  };
   const requiresReview = checkIfRevisionNeedsReview({
     feature,
     baseRevision: liveBase,
-    revision: syntheticRevision,
+    revision: preparedRevision,
     allEnvironments,
     settings: org.settings,
     requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
@@ -3469,6 +3468,16 @@ export async function createAndPublishRevision({
         "Enable 'REST API always bypasses approval requirements' in organization settings.",
     );
   }
+
+  const mergeForPublish = (revision: FeatureRevisionInterface) => {
+    const result = autoMerge(liveBase, liveBase, revision, allEnvironments, {});
+    if (!result.success) {
+      throw new Error(
+        "Merge conflict detected while publishing revision. Please retry.",
+      );
+    }
+    return result.result;
+  };
 
   // Create the draft revision (never auto-publishes; publish=false).
   const revision = await createRevision({
@@ -3483,34 +3492,27 @@ export async function createAndPublishRevision({
     org,
     canBypassApprovalChecks,
     revertedFrom,
+    preInsertValidation: async (revision) => {
+      await prevalidatePublishRevision({
+        context,
+        feature,
+        revision,
+        result: mergeForPublish(revision),
+        comment,
+      });
+    },
   });
-
-  // Merge the new revision against the live-feature baseline. base === live
-  // for a fresh revision off HEAD.
-  const mergeResult = autoMerge(
-    liveBase,
-    liveBase,
-    revision,
-    allEnvironments,
-    {},
-  );
-
-  if (!mergeResult.success) {
-    // Shouldn't happen for a brand-new revision off HEAD, but guard anyway.
-    throw new Error(
-      "Merge conflict detected while publishing revision. Please retry.",
-    );
-  }
 
   const updatedFeature = await publishRevision({
     context,
     feature,
     revision,
-    result: mergeResult.result,
+    result: mergeForPublish(revision),
     comment,
     // See postFeatureRevisionPublish.ts for the bypassLockdown policy rationale:
     // approval-bypass permission intentionally doubles as ramp-lockdown bypass.
     bypassLockdown: canBypassApprovalChecks,
+    skipPrevalidateValidation: true,
   });
 
   return { revision, updatedFeature };

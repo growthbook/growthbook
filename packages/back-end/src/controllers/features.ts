@@ -286,6 +286,7 @@ async function createOrUpdateDraftWithChanges(
   targetDraftVersion?: number,
   forceNewDraft?: boolean,
   autoComment?: string,
+  preInsertValidation?: (revision: FeatureRevisionInterface) => Promise<void>,
 ): Promise<FeatureRevisionInterface> {
   const { org } = context;
   const environments = getEnvironmentIdsFromOrg(context.org);
@@ -356,6 +357,7 @@ async function createOrUpdateDraftWithChanges(
     publish: false,
     comment: autoComment || "",
     org,
+    preInsertValidation,
   });
   return newRevision;
 }
@@ -5272,6 +5274,17 @@ export async function putFeature(
       autoPublish ? undefined : targetDraftVersion,
       autoPublish ? true : forceNewDraft,
       draftComment,
+      autoPublish
+        ? async (revision) => {
+            await prevalidatePublishRevision({
+              context,
+              feature,
+              revision,
+              result: envelopeChanges,
+              comment: draftComment,
+            });
+          }
+        : undefined,
     );
     let updatedFeature: FeatureInterface = feature;
     if (autoPublish) {
@@ -5282,6 +5295,7 @@ export async function putFeature(
         revision: draft,
         result: envelopeChanges,
         bypassLockdown: context.permissions.canBypassApprovalChecks(feature),
+        skipPrevalidateValidation: true,
       });
     }
     // Keep the tag autocomplete table in sync (side-effect; revision already captures the values).
