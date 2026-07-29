@@ -172,15 +172,21 @@ async function computeScheduledVerdict(
 const variationExists = (experiment: ExperimentInterface, id?: string) =>
   !!id && experiment.variations.some((v) => v.id === id);
 
-// Falls back to control if the configured variation no longer exists, so a
-// hard cutoff still ships something rather than degrading to keep-running.
+// Returns the configured variation only if it still exists. A variation
+// deleted after config-time validation (drift) yields null so callers keep the
+// experiment running rather than force-shipping an unrelated variation.
 const resolveForceShipTarget = (
   experiment: ExperimentInterface,
   id?: string,
-): string | null =>
-  variationExists(experiment, id)
-    ? (id as string)
-    : (experiment.variations[0]?.id ?? null);
+): string | null => {
+  if (variationExists(experiment, id)) return id ?? null;
+  if (id) {
+    logger.warn(
+      `Scheduled force-ship target ${id} no longer exists on experiment ${experiment.id}; keeping the experiment running. Update the scheduled-stop plan to select a valid variation, or stop the experiment manually.`,
+    );
+  }
+  return null;
+};
 
 export async function applyScheduledExperimentStop({
   context,
