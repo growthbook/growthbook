@@ -1625,6 +1625,8 @@ export default function ReviewAndPublish({
           await mutate();
           onPublish && onPublish();
           return;
+        case "none":
+          return;
         default:
           return;
       }

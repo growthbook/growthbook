@@ -150,6 +150,11 @@ function sdkAttributeTypeToValueDatatype(
     case "number[]":
     case "secureString[]":
       return "json";
+    case undefined:
+    case "string":
+    case "enum":
+    case "secureString":
+      return "string";
     default:
       return "string";
   }
@@ -173,6 +178,8 @@ function buildBigQueryFlatMapAttributeValueSql(
       // JSON_QUERY on a native BigQuery JSON column returns JSON type (not STRING),
       // so the fact table column refresh job will correctly infer the type as "json".
       return `JSON_QUERY(${quotedAttributes}, ${jsonPath})`;
+    case "string":
+      return `JSON_VALUE(${quotedAttributes}, ${jsonPath})`;
     default:
       return `JSON_VALUE(${quotedAttributes}, ${jsonPath})`;
   }
@@ -194,6 +201,9 @@ function buildSnowflakeFlatMapAttributeValueSql(
       return `TRY_TO_BOOLEAN(${rawString})`;
     case "json":
       return `TRY_PARSE_JSON(${rawString})`;
+    case "string":
+      // Map values are strings in Avro; cast so Snowflake reports VARCHAR not VARIANT.
+      return rawString;
     default:
       // Map values are strings in Avro; cast so Snowflake reports VARCHAR not VARIANT.
       return rawString;

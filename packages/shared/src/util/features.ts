@@ -3714,6 +3714,12 @@ export function inferSchemaField(
       }
       max = Math.max(max || 999, value);
       break;
+    case "bigint":
+    case "symbol":
+    case "undefined":
+    case "object":
+    case "function":
+      throw new Error(`Invalid value type: ${typeof value}`);
     default:
       throw new Error(`Invalid value type: ${typeof value}`);
   }

@@ -880,6 +880,15 @@ export function migrateBlock(
       }
       return migrated;
     }
+    case "metric-explorer":
+    case "markdown":
+    case "experiment-metadata":
+    case "experiment-traffic":
+    case "metric-exploration":
+    case "fact-table-exploration":
+    case "data-source-exploration":
+    case "funnel-exploration":
+      return doc;
     default:
       return doc;
   }
@@ -900,6 +909,22 @@ function toBlockApiInterface(
           endDate: getValidDate(block.analysisSettings.endDate).toISOString(),
         },
       };
+    case "experiment-metric":
+    case "experiment-dimension":
+    case "experiment-time-series":
+    case "sql-explorer":
+    case "markdown":
+    case "experiment-metadata":
+    case "metric-experiments":
+    case "experiments-scaled-impact":
+    case "experiments-win-rate":
+    case "experiments-status":
+    case "experiment-traffic":
+    case "metric-exploration":
+    case "fact-table-exploration":
+    case "data-source-exploration":
+    case "funnel-exploration":
+      return block;
     default:
       return block;
   }
@@ -923,6 +948,21 @@ export function fromBlockApiInterface(
         ...apiBlock,
         blockConfig: apiBlock.blockConfig ?? [],
       };
+    case "experiment-metric":
+    case "experiment-dimension":
+    case "experiment-time-series":
+    case "markdown":
+    case "experiment-metadata":
+    case "metric-experiments":
+    case "experiments-scaled-impact":
+    case "experiments-win-rate":
+    case "experiments-status":
+    case "experiment-traffic":
+    case "metric-exploration":
+    case "fact-table-exploration":
+    case "data-source-exploration":
+    case "funnel-exploration":
+      return apiBlock;
     default:
       return apiBlock;
   }

@@ -293,6 +293,11 @@ function attributeDatatypeToFactColumnType(
     case "number[]":
     case "secureString[]":
       return "other";
+    case "string":
+    case "enum":
+    case "secureString":
+      // string, secureString, enum, "" — all treated as string.
+      return "string";
     default:
       // string, secureString, enum, "" — all treated as string.
       return "string";
