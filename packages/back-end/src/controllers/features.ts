@@ -2596,6 +2596,13 @@ export async function postFeatureRevert(
     revisionChanges.metadata = revision.metadata;
   }
 
+  // Reverts restore a previously-published (already-reviewed) state. When the
+  // org enables "reverts bypass approval", any publisher may publish a revert
+  // without approval — publish perms were already enforced per-change above.
+  const revertBypass =
+    context.permissions.canBypassFlagApprovalChecks(feature) ||
+    !!org.settings?.revertsBypassApproval;
+
   const newRevision = await createRevision({
     context,
     feature,
@@ -2606,17 +2613,13 @@ export async function postFeatureRevert(
     org,
     comment: comment || `Revert to revision #${revision.version}`,
     revertedFrom: revision.version,
+    // Checked before the insert, so a revert that needs approval this caller
+    // can't give errors without leaving a draft behind. Safe to re-run if a
+    // version collision retries the insert — it only reads permissions.
+    preInsertValidation: revertBypass
+      ? undefined
+      : (draft) => assertCanAutoPublish(context, feature, draft),
   });
-
-  // Reverts restore a previously-published (already-reviewed) state. When the
-  // org enables "reverts bypass approval", any publisher may publish a revert
-  // without approval — publish perms were already enforced per-change above.
-  const revertBypass =
-    context.permissions.canBypassFlagApprovalChecks(feature) ||
-    !!org.settings?.revertsBypassApproval;
-  if (!revertBypass) {
-    await assertCanAutoPublish(context, feature, newRevision);
-  }
   const updatedFeature = await publishRevision({
     context,
     feature,

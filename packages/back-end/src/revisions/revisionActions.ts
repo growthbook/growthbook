@@ -191,11 +191,17 @@ export async function publishRevision(
 
   await assertCanPublishRevision(context, revision, entity);
 
-  if (revision.status === "merged" || revision.status === "discarded") {
+  if (revision.status === "discarded") {
     throw new BadRequestError(
       `Cannot publish a revision with status "${revision.status}"`,
     );
   }
+  // A "merged" revision is normally done, but the merge is claimed BEFORE the
+  // entity write — so if that write failed and the compensating reopen failed
+  // too, the revision holds a merge the entity never received. Publishing is the
+  // only way back, so the rejection moves below, once `hasChanges` can tell the
+  // two apart.
+  const alreadyMerged = revision.status === "merged";
 
   const approvalRequired = adapter.isApprovalRequiredForRevision
     ? adapter.isApprovalRequiredForRevision(context, revision)
@@ -288,6 +294,22 @@ export async function publishRevision(
     isRevert: !!revision.revertedFrom,
     deferred: !!deferred,
   });
+
+  // Claimed the merge but never applied it. Reconcile by applying now — the
+  // revision already holds the merge, so there's nothing to claim. Without this
+  // the status guard above refused the only request that could recover it, and
+  // the fix was a hand-edit in Mongo.
+  if (alreadyMerged) {
+    if (!hasChanges) {
+      throw new BadRequestError(
+        `Cannot publish a revision with status "${revision.status}"`,
+      );
+    }
+    await adapter.applyChanges(context, entity, desiredState, {
+      isRevert: !!revision.revertedFrom,
+    });
+    return revision;
+  }
 
   // No net change vs the live entity: either a genuine no-op or a retry after a
   // partial publish (changes applied, merge failed). Close it out as merged
