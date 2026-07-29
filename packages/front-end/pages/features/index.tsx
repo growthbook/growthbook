@@ -148,7 +148,7 @@ export default function FeaturesPage() {
   );
 
   const gb = useGrowthBook<AppFeatures>();
-  gb.isOn("teresa-cb-feature");
+  gb?.isOn("teresa-cb-feature");
 
   const {
     searchInputProps,
