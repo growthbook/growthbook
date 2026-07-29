@@ -1204,9 +1204,12 @@ export class Permissions {
   };
 
   public canRunFeatureDiagnosticsQueries = (
-    datasource: Pick<DataSourceInterface, "projects">,
+    feature: Pick<FeatureInterface, "project">,
   ): boolean => {
-    return this.checkProjectFilterPermission(datasource, "runQueries");
+    return this.checkProjectFilterPermission(
+      { projects: feature.project ? [feature.project] : [] },
+      "manageFeatures",
+    );
   };
 
   public canViewSqlExplorerQueries = (
