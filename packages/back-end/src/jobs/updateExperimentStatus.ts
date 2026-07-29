@@ -175,7 +175,16 @@ const updateSingleExperimentStatus = async (
         // the notification below needs fresh state either way.
         const latest =
           (await getExperimentById(context, experiment.id)) ?? experiment;
-        if (latest.nextScheduledStatusUpdate) {
+        // A concurrent request can stage a new stop (different date) while the
+        // stop work above was awaiting. Only clear the staged update if it's
+        // still the exact one this job processed; otherwise we'd silently drop
+        // the freshly-staged one.
+        const staged = latest.nextScheduledStatusUpdate;
+        if (
+          staged &&
+          staged.type === scheduled.type &&
+          staged.date.getTime() === scheduled.date.getTime()
+        ) {
           await updateExperiment({
             context,
             experiment: latest,

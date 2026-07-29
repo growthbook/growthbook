@@ -14,11 +14,6 @@
       "count": 1
     }
   },
-  "packages/back-end/src/jobs/updateExperimentStatus.ts": {
-    "@typescript-eslint/switch-exhaustiveness-check": {
-      "count": 1
-    }
-  },
   "packages/back-end/src/services/features.ts": {
     "@typescript-eslint/switch-exhaustiveness-check": {
       "count": 1
