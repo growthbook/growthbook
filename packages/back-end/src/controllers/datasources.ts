@@ -1,10 +1,8 @@
 import { Response } from "express";
 import cloneDeep from "lodash/cloneDeep";
-import isEqual from "lodash/isEqual";
 import * as bq from "@google-cloud/bigquery";
 import { SQL_ROW_LIMIT } from "shared/sql";
 import {
-  isEventForwarderAllowedUserIdTypesChange,
   getEventForwarderDatasourceParams,
   buildManagedWarehouseExposureQueries,
   getManagedWarehouseUserIdTypeSettings,
@@ -484,27 +482,9 @@ export async function putDataSource(
     }
 
     if (settings) {
-      const existingEventForwarder = await getEventForwarderForDatasource(
-        context,
-        datasource.id,
-      );
-      if (existingEventForwarder && settings.userIdTypes !== undefined) {
-        const existingUserIdTypes = datasource.settings?.userIdTypes ?? [];
-        if (
-          !isEqual(settings.userIdTypes, existingUserIdTypes) &&
-          !isEventForwarderAllowedUserIdTypesChange(
-            existingUserIdTypes,
-            settings.userIdTypes,
-          )
-        ) {
-          res.status(400).json({
-            status: 400,
-            message:
-              "Identifier types cannot be changed while an Event Forwarder is configured for this data source.",
-          });
-          return;
-        }
-      }
+      // Event Forwarder managed identifier types (`ef_` prefixed) used to be
+      // rejected here. They're intentionally editable and deletable for now —
+      // restore the guard if we need to lock them down again.
       updates.settings = settings;
     }
 

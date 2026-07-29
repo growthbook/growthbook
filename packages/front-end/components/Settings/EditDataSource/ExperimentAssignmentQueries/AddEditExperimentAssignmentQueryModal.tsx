@@ -9,7 +9,6 @@ import { useForm } from "react-hook-form";
 import cloneDeep from "lodash/cloneDeep";
 import uniqId from "uniqid";
 import { FaExternalLinkAlt } from "react-icons/fa";
-import { isEventForwarderManagedExposureQuery } from "shared/util";
 import { TestQueryRow } from "shared/types/integrations";
 import Code from "@/components/SyntaxHighlighting/Code";
 import StringArrayField from "@/ui/StringArrayField";
@@ -41,10 +40,10 @@ export const AddEditExperimentAssignmentQueryModal: FC<
           exposureQuery ? exposureQuery.name : "Experiment Assignment"
         } query`;
 
-  const isManaged =
-    mode === "edit" &&
-    !!exposureQuery &&
-    isEventForwarderManagedExposureQuery(exposureQuery);
+  // Event Forwarder managed queries are intentionally editable for now. Restore
+  // `mode === "edit" && !!exposureQuery &&
+  // isEventForwarderManagedExposureQuery(exposureQuery)` to lock them again.
+  const isManaged = false;
 
   const userIdTypeOptions = dataSource?.settings?.userIdTypes?.map(
     ({ userIdType }) => ({
