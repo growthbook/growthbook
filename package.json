@@ -68,7 +68,7 @@
       "prettier --write"
     ],
     "./**/*.{js,jsx,mjs,ts,tsx}": [
-      "pnpm eslint --fix --max-warnings 0 --cache --cache-strategy content --prune-suppressions",
+      "pnpm eslint --fix --max-warnings 0 --no-warn-ignored --cache --cache-strategy content --prune-suppressions",
       "prettier --write"
     ],
     "./packages/stats/{gbstats,tests}/**/*.py": [
