@@ -6,6 +6,7 @@ import {
   MergeResultChanges,
   PermissionError,
   checkIfRevisionNeedsReview,
+  getRevertTargetHoldout,
   getRevertValueValidationWarnings,
   getRulesForEnvironment,
 } from "shared/util";
@@ -33,6 +34,7 @@ import { NotFoundError, SoftWarningError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getEnabledEnvironments } from "back-end/src/util/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
+import { assertValidHoldout } from "./v2Shared";
 import { canUseRestApiBypassSetting } from "./reviewBypass";
 
 export async function revertFeatureCore(
@@ -209,6 +211,27 @@ export async function revertFeatureCore(
     }
   }
 
+  // Runs before the empty-diff check: a holdout-only difference is a real revert.
+  const targetHoldout = getRevertTargetHoldout(revision);
+  // Read-gated: restoring a holdout the caller cannot see would attach the
+  // feature outside their scope, since publish resolves linkage unscoped.
+  await assertValidHoldout(
+    targetHoldout,
+    context,
+    changes.metadata?.project ?? feature.project,
+  );
+  if (!isEqual(targetHoldout, feature.holdout ?? null)) {
+    if (
+      !context.permissions.canPublishFeature(
+        feature,
+        Array.from(getEnabledEnvironments(feature, environmentIds)),
+      )
+    ) {
+      context.permissions.throwPermissionError();
+    }
+    changes.holdout = targetHoldout;
+  }
+
   // No diff against live — refuse before creating an empty "Locked" revision.
   if (Object.keys(changes).length === 0) {
     throw new Error(
@@ -273,6 +296,7 @@ export async function revertFeatureCore(
       changes,
       comment: comment ?? `Reverted to revision #${version}`,
       canBypassApprovalChecks: canBypass,
+      revertedFrom: version,
     });
 
   await audit({

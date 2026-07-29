@@ -22,6 +22,7 @@ import {
   ApiFactTableColumn,
   ApiFactTableFilter,
 } from "shared/validators";
+import { isEventForwarderEventsFactTable } from "shared/util";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { promiseAllChunks } from "back-end/src/util/promise";
@@ -369,7 +370,10 @@ export async function updateFactTable(
   // Allow changing columns even for API-managed fact tables. Also allow
   // system/background contexts (which have no audit user) through, e.g. the
   // event forwarder sync.
+  // The Event Forwarder Events fact table is `managedBy: "api"` but is
+  // intentionally user-editable for now.
   if (
+    !isEventForwarderEventsFactTable(factTable, factTable.datasource) &&
     factTable.managedBy === "api" &&
     context.auditUser?.type !== "api_key" &&
     context.auditUser !== null &&
@@ -1153,6 +1157,7 @@ export async function deleteFactTable(
 ) {
   if (
     !bypassManagedByCheck &&
+    !isEventForwarderEventsFactTable(factTable, factTable.datasource) &&
     factTable.managedBy === "api" &&
     context.auditUser?.type !== "api_key"
   ) {

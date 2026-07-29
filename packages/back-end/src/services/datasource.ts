@@ -14,9 +14,9 @@ import {
   FeatureUsageQuery,
 } from "shared/types/datasource";
 import { FactTableColumnType } from "shared/types/fact-table";
+import { FeatureInterface } from "shared/types/feature";
 import { QueryStatistics, QueryType } from "shared/types/query";
 import { formatQueryExecutionErrorForApi } from "shared/util";
-import { SQLExecutionError } from "back-end/src/util/errors";
 import { determineColumnTypes } from "back-end/src/util/sql";
 import { ENCRYPTION_KEY } from "back-end/src/util/secrets";
 import GoogleAnalytics from "back-end/src/integrations/GoogleAnalytics";
@@ -37,6 +37,7 @@ import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
+import { SQLExecutionError } from "back-end/src/util/errors";
 
 // freeFormQuery runs user-authored SQL; we should only use it for this scenario
 const FREE_FORM_QUERY_TYPE: QueryType = "freeFormQuery";
@@ -288,13 +289,14 @@ export async function runUserExposureQuery(
 export async function runFeatureEvalDiagnosticsQuery(
   context: ReqContext,
   datasource: DataSourceInterface,
-  feature: string,
+  feature: Pick<FeatureInterface, "id" | "project">,
 ): Promise<{
   rows?: FeatureEvalDiagnosticsQueryResponseRows;
   statistics?: QueryStatistics;
+  error?: string;
   sql?: string;
 }> {
-  if (!context.permissions.canRunFeatureDiagnosticsQueries(datasource)) {
+  if (!context.permissions.canRunFeatureDiagnosticsQueries(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -311,7 +313,7 @@ export async function runFeatureEvalDiagnosticsQuery(
   }
 
   const sql = integration.getFeatureEvalDiagnosticsQuery({
-    feature,
+    feature: feature.id,
   });
 
   try {
@@ -323,7 +325,7 @@ export async function runFeatureEvalDiagnosticsQuery(
       sql,
     };
   } catch (e) {
-    throw new SQLExecutionError(e.message, sql);
+    throw new SQLExecutionError(formatQueryExecutionErrorForApi(e), sql);
   }
 }
 

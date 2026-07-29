@@ -15,6 +15,8 @@ import {
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/holdouts";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
+import { getHoldoutAvailableForProject } from "back-end/src/services/holdout-availability";
+import { BadRequestError } from "back-end/src/util/errors";
 
 /**
  * Eagerly link an experiment into a holdout: set `experiment.holdoutId` and add
@@ -33,18 +35,33 @@ export async function linkExperimentToHoldout(
   experiment: ExperimentInterface,
   holdoutId: string,
 ): Promise<void> {
+  await getHoldoutAvailableForProject({
+    context,
+    holdoutId,
+    project: experiment.project,
+    bypassReadPermissionChecks: true,
+  });
   await updateExperiment({
     context,
     experiment,
     changes: { holdoutId },
   });
-  const holdout = await context.models.holdout.getById(holdoutId);
-  await context.models.holdout.updateById(holdoutId, {
-    linkedExperiments: {
-      ...holdout?.linkedExperiments,
-      [experiment.id]: { id: experiment.id, dateAdded: new Date() },
-    },
-  });
+  await context.models.holdout.addExperimentToHoldout(holdoutId, experiment.id);
+}
+
+export async function canLinkExperimentToHoldoutFromFeatures(
+  context: ReqContext | ApiReqContext,
+  holdoutId: string,
+  featureIds: string[],
+): Promise<boolean> {
+  if (!featureIds.length) return false;
+  const features = await getFeaturesByIds(context, featureIds);
+  return features.some(
+    (feature) =>
+      feature.holdout?.id === holdoutId &&
+      context.permissions.canUpdateFeature(feature, {}) &&
+      context.permissions.canManageFeatureDrafts(feature),
+  );
 }
 
 /**
@@ -183,4 +200,52 @@ export async function deleteHoldoutAndExperiment(
       id: holdout.id,
     },
   });
+}
+
+/**
+ * Mirror of `getHoldoutAvailableForProject`, applied from the Holdout side:
+ * narrowing a Holdout's Projects must not strand entities that are already
+ * linked from outside the new scope. Without this, the same invalid pairing the
+ * feature/experiment side refuses can be created by editing the Holdout, and a
+ * project-scoped SDK Connection then drops the Holdout from its payload while
+ * the Feature Flag still shows the rule.
+ */
+export async function assertHoldoutScopeCoversLinked(
+  context: ReqContext | ApiReqContext,
+  holdout: HoldoutInterface,
+  projects: string[],
+): Promise<void> {
+  // No Projects means every Project, so nothing can fall outside.
+  if (!projects.length) return;
+
+  const covered = new Set(projects);
+  const featureIds = Object.keys(holdout.linkedFeatures ?? {});
+  const experimentIds = Object.keys(holdout.linkedExperiments ?? {});
+  if (!featureIds.length && !experimentIds.length) return;
+
+  const stranded: string[] = [];
+
+  if (featureIds.length) {
+    const features = await getFeaturesByIds(context, featureIds);
+    for (const feature of features) {
+      if (!covered.has(feature.project ?? "")) {
+        stranded.push(`Feature Flag "${feature.id}"`);
+      }
+    }
+  }
+
+  if (experimentIds.length) {
+    const experiments = await getExperimentsByIds(context, experimentIds);
+    for (const experiment of experiments) {
+      if (!covered.has(experiment.project ?? "")) {
+        stranded.push(`Experiment "${experiment.name}"`);
+      }
+    }
+  }
+
+  if (stranded.length) {
+    throw new BadRequestError(
+      `${stranded.join(", ")} ${stranded.length > 1 ? "are" : "is"} linked to this Holdout but ${stranded.length > 1 ? "are" : "is"} not in the selected Projects. Remove ${stranded.length > 1 ? "them" : "it"} from the Holdout first.`,
+    );
+  }
 }
