@@ -15,6 +15,7 @@ import {
   liveRevisionFromFeature,
   filterEnvironmentsByFeature,
   getEnvsFromRampSchedule,
+  isStrandedLiveRevision,
   mergeResultHasChanges,
   getReviewSetting,
   getFeatureAutopublishOnApproval,
@@ -1547,6 +1548,13 @@ export default function ReviewAndPublish({
   const allDiffs = [...resultDiffs, ...rampDiffs];
   const hasChanges = mergeResultHasChanges(mergeResult) || rampDiffs.length > 0;
 
+  const isStranded = isStrandedLiveRevision({
+    featureVersion: feature.version,
+    revisionVersion: revision.version,
+    revisionStatus: revision.status,
+    hasChanges,
+  });
+
   const linkedRamps = (rampSchedules ?? []).filter(
     (r) =>
       r.status === "pending" &&
@@ -1642,7 +1650,7 @@ export default function ReviewAndPublish({
     requireReviews,
     status: revision.status,
     mergeSuccess: mergeResult.success,
-    hasChanges,
+    hasChanges: hasChanges || isStranded,
     hasReviewPermission: permissionsUtil.canReviewFeatureDrafts(feature),
     // Recall is derived from this in the state machine, and revert/delete
     // authority may recall a review request on a draft they authored — so pass
@@ -2149,7 +2157,7 @@ export default function ReviewAndPublish({
   type BlockInfo = { overridable: boolean } | null;
   const blockInfo: BlockInfo = (() => {
     if (!mergeResult.success) return { overridable: false };
-    if (!hasChanges) return { overridable: false };
+    if (!hasChanges && !isStranded) return { overridable: false };
     if (!hasPublishPermission) return { overridable: false };
     if (
       requireReviews &&
@@ -2888,12 +2896,21 @@ export default function ReviewAndPublish({
                         </Callout>
                       ))}
 
-                      {!hasChanges && (
-                        <Callout status="info" size="sm">
-                          No changes to publish. Discard the draft or add
-                          changes first.
-                        </Callout>
-                      )}
+                      {!hasChanges &&
+                        (isStranded ? (
+                          <Callout status="warning" size="sm">
+                            This revision is already live but was never marked
+                            published — an earlier publish didn&apos;t finish.
+                            Publish it to reconcile; don&apos;t discard it, or
+                            the Feature Flag will keep serving a revision it
+                            reports as unpublished.
+                          </Callout>
+                        ) : (
+                          <Callout status="info" size="sm">
+                            No changes to publish. Discard the draft or add
+                            changes first.
+                          </Callout>
+                        ))}
 
                       {featureLockedBySchedule && !adminPublish && (
                         <Callout status="warning" size="sm">

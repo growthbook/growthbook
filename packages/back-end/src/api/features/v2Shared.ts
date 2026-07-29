@@ -12,6 +12,7 @@ import {
 } from "shared/util";
 import type { ApiReqContext } from "back-end/types/api";
 import type { ReqContext } from "back-end/types/request";
+import { getHoldoutAvailableForProject } from "back-end/src/services/holdout-availability";
 import { BadRequestError } from "back-end/src/util/errors";
 import type { ApiFeatureEnvSettings } from "./postFeature";
 
@@ -423,15 +424,18 @@ export async function assertValidRuleProjectIds(
 }
 
 // `null` (explicit removal) and `undefined` (no change) are both no-ops.
+// Validates both read access and the Holdout's Project scope.
 export async function assertValidHoldout(
   holdout: { id: string } | null | undefined,
-  context: ApiReqContext,
+  context: ReqContext | ApiReqContext,
+  project: string | undefined,
 ): Promise<void> {
   if (!holdout) return;
-  const holdoutObj = await context.models.holdout.getById(holdout.id);
-  if (!holdoutObj) {
-    throw new Error(`Holdout id '${holdout.id}' not found.`);
-  }
+  await getHoldoutAvailableForProject({
+    context,
+    holdoutId: holdout.id,
+    project,
+  });
 }
 
 // Pro/Enterprise gated. Validates scheduleRules on v1-shape env rules.

@@ -44,7 +44,15 @@ export async function discardFeatureRevision(
     req.context.permissions.throwPermissionError();
   }
 
-  await discardRevision(req.context, revision, req.context.auditUser);
+  // feature.version lets discardRevision refuse to discard the revision the
+  // feature is live on (#6483) — that discard is what turns a recoverable
+  // stranded state into permanent corruption.
+  await discardRevision(
+    req.context,
+    revision,
+    req.context.auditUser,
+    feature.version,
+  );
   await clearPendingFeatureDraftsForRevision(
     req.context,
     feature.id,

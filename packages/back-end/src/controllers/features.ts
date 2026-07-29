@@ -37,6 +37,7 @@ import {
   pruneOrphanedRampActions,
   assertSchemaMatchesValueType,
   getEffectiveRevisionHoldout,
+  getRevertTargetHoldout,
 } from "shared/util";
 import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
 import {
@@ -257,6 +258,7 @@ import {
   maybeAutoPublishFeatureRevision,
   parseScheduledPublishDate,
 } from "back-end/src/api/features/autoPublishOnApproval";
+import { assertValidHoldout } from "back-end/src/api/features/v2Shared";
 import {
   shouldValidateCustomFieldsOnUpdate,
   validateCustomFieldsForSection,
@@ -298,6 +300,7 @@ async function createOrUpdateDraftWithChanges(
   targetDraftVersion?: number,
   forceNewDraft?: boolean,
   autoComment?: string,
+  preInsertValidation?: (revision: FeatureRevisionInterface) => Promise<void>,
 ): Promise<FeatureRevisionInterface> {
   const { org } = context;
   const environments = getEnvironmentIdsFromOrg(context.org);
@@ -368,6 +371,7 @@ async function createOrUpdateDraftWithChanges(
     publish: false,
     comment: autoComment || "",
     org,
+    preInsertValidation,
   });
   return newRevision;
 }
@@ -782,6 +786,14 @@ export async function postFeatures(
   if (createTargetingProjects?.length) {
     await context.models.projects.ensureProjectsExist(createTargetingProjects);
   }
+  // Read-gated, so a caller can't link a flag into a Holdout outside their scope.
+  // The linkage write itself deliberately bypasses read scope, so this is the
+  // only place the id is authorized.
+  await assertValidHoldout(
+    holdout?.id ? holdout : null,
+    context,
+    otherProps.project ?? "",
+  );
 
   await validateCustomFieldsForSection({
     customFieldValues: customFields,
@@ -900,16 +912,7 @@ export async function postFeatures(
   });
 
   if (holdout && holdout.id) {
-    const holdoutObj = await context.models.holdout.getById(holdout.id);
-    if (!holdoutObj) {
-      throw new Error("Holdout not found");
-    }
-    await context.models.holdout.updateById(holdout.id, {
-      linkedFeatures: {
-        ...holdoutObj.linkedFeatures,
-        [id]: { id, dateAdded: new Date() },
-      },
-    });
+    await context.models.holdout.addFeatureToHoldout(holdout.id, id);
   }
 
   res.status(200).json({
@@ -2536,6 +2539,22 @@ export async function postFeatureRevert(
     }
   }
 
+  // Runs before the empty-diff check: a holdout-only difference is a real revert.
+  const targetHoldout = getRevertTargetHoldout(revision);
+  // Read-gated: restoring a holdout the caller cannot see would attach the
+  // feature outside their scope, since publish resolves linkage unscoped.
+  await assertValidHoldout(
+    targetHoldout,
+    context,
+    mergeChanges.metadata?.project ?? feature.project,
+  );
+  if (!isEqual(targetHoldout, feature.holdout ?? null)) {
+    if (!context.permissions.canPublishFeature(feature, allEnabledEnvs)) {
+      context.permissions.throwPermissionError();
+    }
+    mergeChanges.holdout = targetHoldout;
+  }
+
   // No diff against live — refuse before creating an empty "Locked" revision.
   if (Object.keys(mergeChanges).length === 0) {
     throw new Error(
@@ -2560,6 +2579,9 @@ export async function postFeatureRevert(
   const revisionChanges: Partial<FeatureRevisionInterface> = {
     defaultValue: revision.defaultValue,
     rules: revision.rules ?? feature.rules ?? [],
+    // Both objects: `revisionChanges` records it on the revision doc, `mergeChanges`
+    // makes the publish see a delta and run the linkage side effects.
+    holdout: targetHoldout,
   };
   if (revision.environmentsEnabled !== undefined) {
     revisionChanges.environmentsEnabled = revision.environmentsEnabled;
@@ -2573,9 +2595,6 @@ export async function postFeatureRevert(
   if (revision.metadata !== undefined) {
     revisionChanges.metadata = revision.metadata;
   }
-  // Holdout intentionally excluded: changes require the dedicated updateHoldout
-  // flow (side effects + guards), and the field is sparse in revisions so
-  // absent !== "no holdout".
 
   const newRevision = await createRevision({
     context,
@@ -2586,6 +2605,7 @@ export async function postFeatureRevert(
     environments: contextEnvironments,
     org,
     comment: comment || `Revert to revision #${revision.version}`,
+    revertedFrom: revision.version,
   });
 
   // Reverts restore a previously-published (already-reviewed) state. When the
@@ -2712,6 +2732,12 @@ export async function postFeatureRevertDraft(
   if (revision.metadata !== undefined) {
     changes.metadata = revision.metadata;
   }
+  changes.holdout = getRevertTargetHoldout(revision);
+  await assertValidHoldout(
+    changes.holdout,
+    context,
+    changes.metadata?.project ?? feature.project,
+  );
 
   const newRevision = await createRevision({
     context,
@@ -2722,6 +2748,7 @@ export async function postFeatureRevertDraft(
     environments: contextEnvironments,
     org,
     comment: comment || `Revert to revision #${revision.version}`,
+    revertedFrom: revision.version,
   });
 
   await req.audit({
@@ -2819,7 +2846,12 @@ export async function postFeatureDiscard(
     context.permissions.throwPermissionError();
   }
 
-  await discardRevision(context, revision, res.locals.eventAudit);
+  await discardRevision(
+    context,
+    revision,
+    res.locals.eventAudit,
+    feature.version,
+  );
   await clearPendingFeatureDraftsForRevision(
     context,
     feature.id,
@@ -5226,6 +5258,16 @@ export async function putFeature(
   ) as Partial<FeatureInterface>;
   normalizeTargetingInUpdates(metadataUpdates, feature);
   const holdoutUpdate = "holdout" in updates ? updates.holdout : undefined;
+  // Read-gated, so a caller can't link a flag into a Holdout outside their scope.
+  // The publish-time linkage write deliberately bypasses read scope, so this is
+  // the only place the id is authorized.
+  if (holdoutUpdate !== undefined || metadataUpdates.project !== undefined) {
+    await assertValidHoldout(
+      holdoutUpdate !== undefined ? holdoutUpdate : (feature.holdout ?? null),
+      context,
+      metadataUpdates.project ?? feature.project,
+    );
+  }
 
   if (Object.keys(metadataUpdates).length > 0 || holdoutUpdate !== undefined) {
     const envelopeChanges: Parameters<
@@ -5302,6 +5344,17 @@ export async function putFeature(
       autoPublish ? undefined : targetDraftVersion,
       autoPublish ? true : forceNewDraft,
       draftComment,
+      autoPublish
+        ? async (revision) => {
+            await prevalidatePublishRevision({
+              context,
+              feature,
+              revision,
+              result: envelopeChanges,
+              comment: draftComment,
+            });
+          }
+        : undefined,
     );
     let updatedFeature: FeatureInterface = feature;
     if (autoPublish) {
@@ -5313,6 +5366,7 @@ export async function putFeature(
         result: envelopeChanges,
         bypassLockdown:
           context.permissions.canBypassFlagApprovalChecks(feature),
+        skipPrevalidateValidation: true,
       });
     }
     // Keep the tag autocomplete table in sync (side-effect; revision already captures the values).

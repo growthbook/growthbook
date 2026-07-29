@@ -133,37 +133,6 @@ export function isHashAttributeUserIdType(
   );
 }
 
-export function isEventForwarderAllowedUserIdTypesChange(
-  existing: UserIdType[],
-  updated: UserIdType[],
-): boolean {
-  // Only Event Forwarder managed identifier types (prefixed with `ef_`) are
-  // locked. User-created identifier types that happen to use the same hash
-  // attribute remain editable / deletable.
-  const lockedExisting = existing.filter((item) =>
-    isEventForwarderManagedIdentifierId(item.userIdType),
-  );
-
-  return lockedExisting.every((locked) => {
-    const match = updated.find(
-      (item) =>
-        item.userIdType.toLowerCase() === locked.userIdType.toLowerCase(),
-    );
-    if (!match || match.userIdType !== locked.userIdType) {
-      return false;
-    }
-
-    const lockedAttributes = locked.attributes ?? [];
-    const updatedAttributes = match.attributes ?? [];
-    return (
-      lockedAttributes.length === updatedAttributes.length &&
-      lockedAttributes.every(
-        (attribute, index) => attribute === updatedAttributes[index],
-      )
-    );
-  });
-}
-
 export function getUserIdTypesToAdd(
   existing: UserIdType[],
   built: UserIdType[],

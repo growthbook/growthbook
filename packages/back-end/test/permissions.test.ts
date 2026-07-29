@@ -4765,6 +4765,36 @@ describe("PermissionsUtilClass.canUpdateFactTable check", () => {
       ),
     ).toEqual(true);
   });
+
+  it("canUpdateFactTable should let a user without manageOfficialResources edit the Event Forwarder Events fact table, but not promote it to an official resource", async () => {
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("analyst", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {},
+    });
+
+    const eventForwarderFactTable = {
+      id: "ds_abc123_events",
+      datasource: "ds_abc123",
+      managedBy: "api" as const,
+      projects: [],
+    };
+
+    expect(
+      permissions.canUpdateFactTable(eventForwarderFactTable, {
+        description: "Updated",
+      }),
+    ).toEqual(true);
+
+    expect(
+      permissions.canUpdateFactTable(eventForwarderFactTable, {
+        managedBy: "admin",
+      }),
+    ).toEqual(false);
+  });
 });
 
 describe("PermissionsUtilClass.canDeleteFactTable check", () => {

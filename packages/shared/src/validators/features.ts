@@ -645,6 +645,9 @@ const featureRevisionInterface = minimalFeatureRevisionInterface
     // Used to detect "stale" approvals — i.e. changes published after approval.
     // Absent on drafts that were never approved and on legacy approvals.
     approvedBaseVersion: z.number().optional(),
+    // Version this revision reverts to. Persisted rather than passed at call time
+    // so a revert staged as a draft still relaxes the publish guards later.
+    revertedFrom: z.number().optional(),
     dateCreated: z.date(),
     publishedBy: z.union([z.null(), eventUser]),
     comment: z.string(),

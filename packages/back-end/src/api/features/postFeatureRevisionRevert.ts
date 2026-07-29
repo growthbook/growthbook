@@ -5,6 +5,7 @@ import {
   filterEnvironmentsByFeature,
   MergeResultChanges,
   checkIfRevisionNeedsReview,
+  getRevertTargetHoldout,
   getRulesForEnvironment,
 } from "shared/util";
 import { isEqual } from "lodash";
@@ -35,6 +36,7 @@ import { addTagsDiff } from "back-end/src/models/TagModel";
 import { getEnvironments } from "back-end/src/services/organizations";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { isArchiveTransition } from "back-end/src/revisions/archiveTransition";
+import { assertValidHoldout } from "./v2Shared";
 import { canUseRestApiBypassSetting } from "./reviewBypass";
 
 export async function revertFeatureRevision(
@@ -254,6 +256,25 @@ export async function revertFeatureRevision(
     }
   }
 
+  const targetHoldout = getRevertTargetHoldout(targetRevision);
+  // Read-gated: restoring a holdout the caller cannot see would attach the
+  // feature outside their scope, since publish resolves linkage unscoped.
+  await assertValidHoldout(
+    targetHoldout,
+    context,
+    changes.metadata?.project ?? feature.project,
+  );
+  const holdoutChanged = !isEqual(targetHoldout, feature.holdout ?? null);
+  if (holdoutChanged) {
+    if (
+      isPublish &&
+      !context.permissions.canPublishFeature(feature, allEnabledEnvs)
+    ) {
+      context.permissions.throwPermissionError();
+    }
+    changes.holdout = targetHoldout;
+  }
+
   // Full target state for the new revision; sparse `changes` above is only
   // used for per-field permission checks.
   const revisionChanges: Partial<FeatureRevisionInterface> = {
@@ -261,6 +282,7 @@ export async function revertFeatureRevision(
     rules: targetRevision.rules ?? feature.rules ?? [],
     // Provenance for the revert-authority publish path; re-verified at publish.
     revertedFromVersion: targetRevision.version,
+    holdout: targetHoldout,
   };
   if (targetRevision.environmentsEnabled !== undefined) {
     revisionChanges.environmentsEnabled = targetRevision.environmentsEnabled;
@@ -299,6 +321,7 @@ export async function revertFeatureRevision(
       changes: revisionChanges,
       org: context.org,
       canBypassApprovalChecks: false,
+      revertedFrom: targetRevision.version,
     });
 
     return { feature, revision: newDraft };
@@ -349,6 +372,7 @@ export async function revertFeatureRevision(
       changes: revisionChanges,
       comment: comment ?? defaultComment,
       canBypassApprovalChecks: canBypass,
+      revertedFrom: targetRevision.version,
     });
 
   if (
