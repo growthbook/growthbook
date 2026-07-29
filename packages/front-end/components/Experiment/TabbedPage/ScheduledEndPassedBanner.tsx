@@ -16,21 +16,30 @@ interface Props {
   editSchedule?: () => void;
 }
 
-function getReasonText(status: ExperimentResultStatusData | undefined): string {
-  switch (status?.status) {
+type DecisiveStatus = "ship-now" | "rollback-now" | "ready-for-review";
+
+type NonDecisiveStatusData = Exclude<
+  ExperimentResultStatusData,
+  { status: DecisiveStatus }
+>;
+
+function getReasonText(statusData: NonDecisiveStatusData): string {
+  switch (statusData.status) {
     case "unhealthy":
       return `Results are unhealthy${
-        status.tooltip ? ` (${status.tooltip})` : ""
+        statusData.tooltip ? ` (${statusData.tooltip})` : ""
       }.`;
     case "no-data":
-      return status.tooltip ? `${status.tooltip}.` : "There is no data yet.";
+      return statusData.tooltip
+        ? `${statusData.tooltip}.`
+        : "There is no data yet.";
     case "scheduled-end-review":
-      return status.tooltip ?? "No decision recommendation is available.";
+      return statusData.tooltip ?? "No decision recommendation is available.";
     case "days-left":
-      return status.tooltip
-        ? status.tooltip
-        : `More data is needed — about ${status.daysLeft} more ${
-            status.daysLeft === 1 ? "day" : "days"
+      return statusData.tooltip
+        ? statusData.tooltip
+        : `More data is needed — about ${statusData.daysLeft} more ${
+            statusData.daysLeft === 1 ? "day" : "days"
           } to reach the targeted statistical power.`;
     case "before-min-duration":
       return "The minimum experiment duration has not been reached yet.";
@@ -57,7 +66,7 @@ export default function ScheduledEndPassedBanner({
     status === "rollback-now" ||
     status === "ready-for-review";
 
-  if (!scheduledEndPassed || hasDecision) return null;
+  if (!scheduledEndPassed || !status || hasDecision) return null;
 
   return (
     <Box className="appbox" p="3">
