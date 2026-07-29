@@ -493,6 +493,33 @@ describe("buildEventForwarderPropertyValueSql", () => {
       }),
     ).toBe('PROPERTIES:"variationId"::STRING');
   });
+
+  it("escapes double quotes in BigQuery property keys", () => {
+    expect(
+      buildEventForwarderPropertyValueSql({
+        sinkType: "bigquery",
+        propertyKey: 'a"b',
+      }),
+    ).toBe('JSON_VALUE(`properties`, \'$."a\\\\"b"\')');
+  });
+
+  it("escapes backslashes in BigQuery property keys", () => {
+    expect(
+      buildEventForwarderPropertyValueSql({
+        sinkType: "bigquery",
+        propertyKey: "a\\b",
+      }),
+    ).toBe("JSON_VALUE(`properties`, '$.\"a\\\\\\\\b\"')");
+  });
+
+  it("escapes single quotes in BigQuery property keys", () => {
+    expect(
+      buildEventForwarderPropertyValueSql({
+        sinkType: "bigquery",
+        propertyKey: "a'b",
+      }),
+    ).toBe("JSON_VALUE(`properties`, '$.\"a\\'b\"')");
+  });
 });
 
 describe("buildEventForwarderFeatureUsageQuery", () => {

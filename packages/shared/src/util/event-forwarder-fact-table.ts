@@ -130,6 +130,19 @@ export function quoteBigQueryIdentifier(identifier: string): string {
   return `\`${identifier}\``;
 }
 
+/**
+ * Escapes a JSON key for embedding inside a BigQuery JSONPath quoted member that
+ * is itself wrapped in a single-quoted SQL string literal: `'$."<key>"'`.
+ *
+ * Two nested contexts must be escaped, in order:
+ *  1. JSONPath quoted member (`$."<key>"`): escape `\` then `"`.
+ *  2. Single-quoted SQL string literal: escape `\` then `'`.
+ */
+function escapeBigQueryJsonPathKey(key: string): string {
+  const jsonPathEscaped = key.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  return jsonPathEscaped.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+}
+
 function quoteSnowflakeVariantFieldName(fieldName: string): string {
   return `"${fieldName.replace(/"/g, '""')}"`;
 }
@@ -165,7 +178,7 @@ function buildBigQueryFlatMapAttributeValueSql(
   const quotedAttributes = quoteBigQueryIdentifier(
     EVENT_FORWARDER_AVRO_ATTRIBUTES_FIELD,
   );
-  const jsonPath = `'$."${fieldName}"'`;
+  const jsonPath = `'$."${escapeBigQueryJsonPathKey(fieldName)}"'`;
 
   switch (valueDatatype) {
     case "number":
@@ -296,7 +309,9 @@ export function buildEventForwarderPropertyValueSql({
     const propertiesCol = quoteBigQueryIdentifier(
       EVENT_FORWARDER_AVRO_PROPERTIES_FIELD,
     );
-    return `JSON_VALUE(${propertiesCol}, '$."${propertyKey}"')`;
+    return `JSON_VALUE(${propertiesCol}, '$."${escapeBigQueryJsonPathKey(
+      propertyKey,
+    )}"')`;
   }
 
   const propertiesCol = EVENT_FORWARDER_AVRO_PROPERTIES_FIELD.toUpperCase();
