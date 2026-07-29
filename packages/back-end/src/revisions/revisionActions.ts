@@ -299,6 +299,11 @@ export async function publishRevision(
   // revision already holds the merge, so there's nothing to claim. Without this
   // the status guard above refused the only request that could recover it, and
   // the fix was a hand-edit in Mongo.
+  //
+  // In an approval-required org the gate above demands bypass authority here
+  // ("merged" isn't "approved") — deliberate: this state takes a DB-level
+  // double failure to reach, and recovery stays one publish call, just by an
+  // admin.
   if (alreadyMerged) {
     if (!hasChanges) {
       throw new BadRequestError(

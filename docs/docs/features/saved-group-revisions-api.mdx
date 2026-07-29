@@ -170,7 +170,7 @@ Per-field resolution strategies:
 
 <CommercialFeature feature="require-approvals" />
 
-When your org [requires approvals for saved groups](/features/publishing-and-approval-flows#saved-group-approval-flows), publishing a draft is blocked unless the revision is in `approved` status, the caller has the `bypassApprovalChecks` permission on every target project, or the org has enabled **REST API always bypasses approval requirements**.
+When your org [requires approvals for saved groups](/features/publishing-and-approval-flows#saved-group-approval-flows), publishing a draft is blocked unless the revision is in `approved` status, the caller has the `bypassApprovalSavedGroups` permission on every target project, or the org has enabled **REST API always bypasses approval requirements**.
 
 ### Requesting a Review
 
@@ -209,8 +209,8 @@ curl -X POST 'https://api.growthbook.io/api/v1/saved-groups-revisions/grp_abc123
 
 Three paths can publish without an `approved` revision:
 
-1. **Per-call bypass** — `POST /saved-groups` and `POST /saved-groups/{id}` accept `bypassApproval: true` and write directly to the live saved group, skipping the revision flow entirely. The caller must hold `bypassApprovalChecks` on every target project.
-2. **Per-user bypass on publish** — `POST .../revisions/{version}/publish` succeeds for callers with `bypassApprovalChecks` on the saved group's projects, even if the revision is not `approved`.
+1. **Per-call bypass** — `POST /saved-groups` and `POST /saved-groups/{id}` accept `bypassApproval: true` and write directly to the live saved group, skipping the revision flow entirely. The caller must hold `bypassApprovalSavedGroups` on every target project.
+2. **Per-user bypass on publish** — `POST .../revisions/{version}/publish` succeeds for callers with `bypassApprovalSavedGroups` on the saved group's projects, even if the revision is not `approved`.
 3. **Org-wide bypass** — admins can enable **REST API always bypasses approval requirements** in org settings, after which every REST publish acts as a bypass regardless of the caller's permission.
 
 ### Permissions
