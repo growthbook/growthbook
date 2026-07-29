@@ -2080,37 +2080,11 @@ export async function applyHoldoutSideEffects(
     );
   }
 
-  // Link feature (and experiments in its rules) to the new holdout.
+  // Feature side only. The experiments in its rules are reconciled from
+  // published state by planHoldoutExperimentLinkage, which owns that half for
+  // every direction (join, leave, and a rules-only change).
   if (newHoldoutId) {
-    const ruleExperimentIds = Array.from(
-      new Set(
-        (feature.rules ?? [])
-          .filter((rule) => rule.type === "experiment-ref")
-          .map((rule) => rule.experimentId),
-      ),
-    );
-
-    await context.models.holdout.addFeatureToHoldout(
-      newHoldoutId,
-      feature.id,
-      ruleExperimentIds,
-    );
-
-    if (ruleExperimentIds.length) {
-      const linkedExperiments = await Promise.all(
-        ruleExperimentIds.map((eid) => getExperimentById(context, eid)),
-      );
-      await Promise.all(
-        linkedExperiments.map(async (exp) => {
-          if (!exp) return;
-          return updateExperiment({
-            context,
-            experiment: exp,
-            changes: { holdoutId: newHoldoutId },
-          });
-        }),
-      );
-    }
+    await context.models.holdout.addFeatureToHoldout(newHoldoutId, feature.id);
   }
 }
 
@@ -2143,11 +2117,46 @@ export async function planHoldoutExperimentLinkage(
   // Post-publish holdout and rules for this feature.
   holdoutId: string | null,
   publishedRules: FeatureRule[],
-): Promise<HoldoutExperimentLinkagePlan | null> {
-  // With no holdout there is no map to reconcile against; the holdout transition
-  // path unlinks the feature and its experiments.
-  if (!holdoutId) return null;
+): Promise<HoldoutExperimentLinkagePlan[]> {
+  const plans: HoldoutExperimentLinkagePlan[] = [];
 
+  // Leaving a holdout (or moving to another) has to drop what this feature
+  // contributed to the old one. Nothing else does: the transition path unlinks
+  // only the feature, and the guard that would force detaching experiments first
+  // reads post-publish rules — so a draft that removes the holdout and the rule
+  // together sails past it.
+  const prevHoldoutId = feature.holdout?.id ?? null;
+  if (prevHoldoutId && prevHoldoutId !== holdoutId) {
+    const leaving = await planLinkageForHoldout(
+      context,
+      feature,
+      prevHoldoutId,
+      // No rules under the old holdout any more, so everything this feature
+      // brought is a candidate to unlink.
+      [],
+    );
+    if (leaving) plans.push(leaving);
+  }
+
+  if (holdoutId) {
+    const joining = await planLinkageForHoldout(
+      context,
+      feature,
+      holdoutId,
+      publishedRules,
+    );
+    if (joining) plans.push(joining);
+  }
+
+  return plans;
+}
+
+async function planLinkageForHoldout(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  holdoutId: string,
+  publishedRules: FeatureRule[],
+): Promise<HoldoutExperimentLinkagePlan | null> {
   const holdout = await context.models.holdout.getByIdForLinkage(holdoutId);
   if (!holdout) return null;
 
@@ -2164,6 +2173,8 @@ export async function planHoldoutExperimentLinkage(
 
   const { toLink, toUnlink } = computeHoldoutExperimentLinkageDelta({
     publishedRules,
+    // Always a real holdout here; the "leaving" case expresses itself by passing
+    // no rules, which yields an empty desired set.
     hasHoldout: true,
     linkedExperimentIds: Object.keys(holdout.linkedExperiments),
     experimentIdsReferencedElsewhere,
@@ -2265,40 +2276,16 @@ export type HoldoutLinkagePreImage = {
   prevFeatureEntry: { id: string; dateAdded: Date } | null;
   newHoldoutId: string | null;
   addsFeature: boolean;
-  addsExperimentIds: string[];
-  // Keyed by experiment id; "" is the clear sentinel `updateExperiment` expects.
-  experimentHoldoutIds: Record<string, string>;
 };
 
 export async function captureHoldoutLinkagePreImage(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   newHoldout: { id: string } | null,
-  // Post-publish rules, so the captured experiment set matches the forward pass.
-  rules: FeatureRule[],
 ): Promise<HoldoutLinkagePreImage | null> {
   const prevHoldoutId = feature.holdout?.id ?? null;
   const newHoldoutId = newHoldout?.id ?? null;
   if (newHoldoutId === prevHoldoutId) return null;
-
-  const experimentHoldoutIds: Record<string, string> = {};
-  if (newHoldoutId) {
-    const ruleExperimentIds = Array.from(
-      new Set(
-        rules
-          .filter((rule) => rule.type === "experiment-ref")
-          .map((rule) => rule.experimentId),
-      ),
-    );
-    // `getExperimentById` is read-filtered, so this sees exactly the experiments
-    // the forward pass will restamp.
-    const experiments = await Promise.all(
-      ruleExperimentIds.map((id) => getExperimentById(context, id)),
-    );
-    for (const exp of experiments) {
-      if (exp) experimentHoldoutIds[exp.id] = exp.holdoutId ?? "";
-    }
-  }
 
   const newHoldoutDoc = newHoldoutId
     ? await context.models.holdout.getByIdForLinkage(newHoldoutId)
@@ -2315,10 +2302,6 @@ export async function captureHoldoutLinkagePreImage(
     // Only what this publish adds: an entry that was already there belongs to
     // another writer and must survive the rewind.
     addsFeature: !!newHoldoutDoc && !newHoldoutDoc.linkedFeatures[feature.id],
-    addsExperimentIds: Object.keys(experimentHoldoutIds).filter(
-      (id) => !newHoldoutDoc?.linkedExperiments[id],
-    ),
-    experimentHoldoutIds,
   };
 }
 
@@ -2332,21 +2315,7 @@ export async function rewindHoldoutLinkage(
   if (pre.newHoldoutId) {
     await context.models.holdout.removeLinkageFromHoldout(pre.newHoldoutId, {
       featureId: pre.addsFeature ? pre.featureId : null,
-      experimentIds: pre.addsExperimentIds,
     });
-  }
-
-  for (const [experimentId, holdoutId] of Object.entries(
-    pre.experimentHoldoutIds,
-  )) {
-    const experiment = await getExperimentById(context, experimentId);
-    if (!experiment) continue;
-    const current = experiment.holdoutId ?? "";
-    if (current === holdoutId) continue;
-    // Undo only our own write: anything else is a later writer's intent, and
-    // the same ownership rule the bulk publisher's compensation uses.
-    if (current !== (pre.newHoldoutId ?? "")) continue;
-    await updateExperiment({ context, experiment, changes: { holdoutId } });
   }
 
   if (pre.prevHoldoutId && pre.prevFeatureEntry) {
@@ -3401,12 +3370,7 @@ export async function publishRevision({
     const holdoutPreImage =
       result.holdout === undefined
         ? null
-        : await captureHoldoutLinkagePreImage(
-            context,
-            feature,
-            result.holdout,
-            result.rules ?? feature.rules ?? [],
-          );
+        : await captureHoldoutLinkagePreImage(context, feature, result.holdout);
 
     // Planned here for the same reason: computing it is read-only, so the rewind
     // is registrable before the first linkage write.
@@ -3416,7 +3380,7 @@ export async function publishRevision({
     // is exactly the case where state can be out of sync (reconciling a revision
     // an earlier failed publish left stranded). The plan short-circuits when the
     // feature has no holdout, so this costs nothing for most publishes.
-    const experimentLinkagePlan = await planHoldoutExperimentLinkage(
+    const experimentLinkagePlans = await planHoldoutExperimentLinkage(
       context,
       feature,
       (result.holdout !== undefined
@@ -3480,13 +3444,12 @@ export async function publishRevision({
     // Experiment linkage is derived from published rules, so it has to run for a
     // rules-only publish too — that is how a rule added to an already-held
     // feature gets enrolled, and how a removed one gets dropped.
-    if (experimentLinkagePlan) {
+    for (const plan of experimentLinkagePlans) {
       rewinds.push({
-        what: "holdout experiment linkage",
-        undo: () =>
-          reverseHoldoutExperimentLinkage(context, experimentLinkagePlan),
+        what: `holdout experiment linkage (${plan.holdoutId})`,
+        undo: () => reverseHoldoutExperimentLinkage(context, plan),
       });
-      await applyHoldoutExperimentLinkage(context, experimentLinkagePlan);
+      await applyHoldoutExperimentLinkage(context, plan);
     }
 
     const publishStamp = await markRevisionAsPublished(
