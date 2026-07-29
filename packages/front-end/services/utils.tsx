@@ -29,12 +29,13 @@ export const gbContext: Context = {
   apiHost: "https://cdn.growthbook.io",
   clientKey: GB_SDK_ID,
   enableDevMode: true,
-  trackingCallback: (experiment, result) => {
+  trackingCallback: (experiment, result, user) => {
     track(
       "Experiment Viewed",
       {
         experimentId: experiment.key,
         variationId: result.key,
+        userContextAttributes: user?.attributes,
       },
       true,
     );
