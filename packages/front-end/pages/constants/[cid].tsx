@@ -304,6 +304,14 @@ export default function ConstantDetailPage(): React.ReactElement {
     constant,
     NO_ENVIRONMENT_BINDING,
   );
+  // Reverting is its own authority — a revert-only role holds no draft or
+  // publish rights, and revert alone is enough to both propose and land one.
+  const canRevertEntity = permissionsUtil.canRevisionAction(
+    "constant",
+    "revert",
+    constant,
+    NO_ENVIRONMENT_BINDING,
+  );
   // Delete is gated on the LIVE archive state (not the displayed/draft state):
   // the constant must be archived and published before it can be deleted.
   const canDeleteNow =
@@ -688,6 +696,8 @@ export default function ConstantDetailPage(): React.ReactElement {
 
       {confirmRevert && revisionToRevert && (
         <ConstantRevertModal
+          canRevert={canRevertEntity}
+          canDraft={canDraft}
           constant={constant}
           revision={revisionToRevert}
           allRevisions={allRevisions}

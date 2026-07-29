@@ -525,10 +525,13 @@ function ReviewAndPublishRevision<T>({
   const isPendingReview =
     revision.status === "pending-review" ||
     revision.status === "changes-requested";
-  const canRevertOrEdit = canRevertEntity ?? canEditEntity;
   const canComment = canCommentOnEntity ?? canEditEntity;
   const canReviewOrEdit = canReviewEntity ?? canEditEntity;
   const canDraftOrEdit = canManageDraftsEntity ?? canEditEntity;
+  // Revert authority alone is enough — a revert-only role holds no draft rights
+  // — and draft authority is enough to PROPOSE one. Mirrors the Feature pane;
+  // the revert modal narrows the routes to the ones actually held.
+  const canRevertOrEdit = (canRevertEntity ?? canEditEntity) || canDraftOrEdit;
   const canPublishOrEdit = canPublishEntity ?? canEditEntity;
   // Whether the viewer holds any authority at all — for the overflow menu and
   // the no-permission notice. Each individual action gates on its own atom.

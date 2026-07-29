@@ -854,6 +854,14 @@ export default function ConfigDetailPage(): React.ReactElement {
     config,
     NO_ENVIRONMENT_BINDING,
   );
+  // Reverting is its own authority — a revert-only role holds no draft or
+  // publish rights, and revert alone is enough to both propose and land one.
+  const canRevertEntity = permissionsUtil.canRevisionAction(
+    "config",
+    "revert",
+    config,
+    configPublishEnvironments(config),
+  );
   // Lock and the experiment guard are written straight to the live Config, never
   // staged in a revision, so they take the publish atom — matching lockConfig and
   // setConfigExperimentGuard on the server. Gating them on the draft atom offered
@@ -2260,6 +2268,8 @@ export default function ConfigDetailPage(): React.ReactElement {
 
       {confirmRevert && revisionToRevert && (
         <ConfigRevertModal
+          canRevert={canRevertEntity}
+          canDraft={canDraft}
           config={config}
           revision={revisionToRevert}
           allRevisions={allRevisions}

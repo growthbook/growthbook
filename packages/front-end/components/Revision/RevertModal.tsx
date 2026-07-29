@@ -53,6 +53,11 @@ export interface Props<T extends RevertableEntity> {
   // Viewer can bypass approval (admin) — can publish a revert even when the
   // org doesn't allow reverts to bypass approval.
   canBypassApproval: boolean;
+  // Revert authority: landing a revert is its own atom, not publish. Alone it's
+  // enough to both propose and land one.
+  canRevert: boolean;
+  // Draft authority: enough to PROPOSE a revert as a draft, never to land it.
+  canDraft: boolean;
   // Renders the entity's DraftSelectorForChanges (publish-now vs. create-draft
   // picker). Supplied by the thin per-entity wrappers so the revert modal reuses
   // the same component features use, instead of re-implementing the control.
@@ -82,6 +87,8 @@ export default function RevertModal<T extends RevertableEntity>({
   revertsBypassApproval,
   approvalRequired,
   canBypassApproval,
+  canRevert,
+  canDraft,
   renderDraftSelector,
   close,
   onRevisionCreated,
@@ -157,8 +164,16 @@ export default function RevertModal<T extends RevertableEntity>({
   // the modal defaults to publishing; the draft option stays available for
   // those who still want a review step. Mirrors the feature RevertModal's
   // `canAutoPublish` gate.
+  // Landing a revert takes revert authority; approvals add the bypass term on
+  // top. Mirrors the feature RevertModal — without the authority term a
+  // draft-only viewer was offered "Publish now" and refused by the server.
+  const canLandRevert = canRevert;
   const canPublishNow =
-    !approvalRequired || revertsBypassApproval || canBypassApproval;
+    !approvalRequired || revertsBypassApproval
+      ? canLandRevert
+      : canLandRevert && canBypassApproval;
+  // Proposing one only takes draft authority (or revert, which subsumes it).
+  const canCreateDraft = canDraft || canRevert;
   // Effective approval requirement for THIS revert. When the org lets reverts
   // bypass approval, publishing the revert isn't bypassing anything — so the
   // picker shows a plain "Publish now" instead of the red "Bypass approvals and
@@ -197,6 +212,8 @@ export default function RevertModal<T extends RevertableEntity>({
       close={close}
       closeCta="Cancel"
       cta={publishNow ? "Publish Now" : "Create Revert Draft"}
+      // Each route has its own authority, so the CTA reflects the one selected.
+      ctaEnabled={publishNow ? canPublishNow : canCreateDraft}
       size="lg"
       submit={async () => {
         // Diff the chosen target state against the live entity; only send the

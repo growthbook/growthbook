@@ -27,6 +27,8 @@ export interface Props {
   revertsBypassApproval: boolean;
   approvalRequired: boolean;
   canBypassApproval: boolean;
+  canRevert: boolean;
+  canDraft: boolean;
   close: () => void;
   onRevisionCreated: (revision: Revision) => void;
 }

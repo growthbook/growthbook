@@ -284,6 +284,16 @@ export default function EditSavedGroupPage() {
         NO_ENVIRONMENT_BINDING,
       )
     : false;
+  // Reverting is its own authority — a revert-only role holds no draft or
+  // publish rights, and revert alone is enough to both propose and land one.
+  const canRevertEntity = savedGroup
+    ? permissionsUtil.canRevisionAction(
+        "saved-group",
+        "revert",
+        savedGroup,
+        NO_ENVIRONMENT_BINDING,
+      )
+    : false;
 
   // Archiving is delete-class server-side — it takes the group out of service,
   // and being archived is what allows deleting it. Unarchiving returns it to
@@ -716,6 +726,8 @@ export default function EditSavedGroupPage() {
       )}
       {confirmRevert && revisionToRevert && (
         <SavedGroupRevertModal
+          canRevert={canRevertEntity}
+          canDraft={canDraft}
           savedGroup={savedGroup}
           revision={revisionToRevert}
           allRevisions={allRevisions}
