@@ -301,6 +301,7 @@ export class GrowthBookClient<
       forcedVariations: this._options.forcedVariations,
       trackingCallback: this._options.trackingCallback,
       onFeatureUsage: this._options.onFeatureUsage,
+      eventLogger: this._options.eventLogger,
     };
   }
 

@@ -2,6 +2,7 @@ import { growthbookTrackingPlugin } from "../../src/plugins/growthbook-tracking"
 import {
   EVENT_EXPERIMENT_VIEWED,
   EVENT_FEATURE_EVALUATED,
+  Experiment,
   GrowthBook,
   GrowthBookClient,
 } from "../../src";
@@ -550,6 +551,60 @@ describe("growthbookTrackingPlugin", () => {
 
     // De-dupe
     gb2.logEvent(EVENT_FEATURE_EVALUATED);
+    await sleep(150);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    gb.destroy();
+  });
+
+  it("logs automatic events from GrowthBookClient evaluations", async () => {
+    const gb = new GrowthBookClient({
+      clientKey: "test",
+      plugins: [growthbookTrackingPlugin()],
+    });
+    gb.initSync({
+      payload: {
+        features: {
+          feature: { defaultValue: true },
+        },
+      },
+    });
+
+    const experiment: Experiment<boolean> = {
+      key: "my-experiment",
+      variations: [false, true],
+      hashAttribute: "user_id",
+      hashVersion: 2,
+    };
+
+    const user1 = gb.createScopedInstance({ attributes: { user_id: "1" } });
+    user1.evalFeature("feature");
+    user1.runInlineExperiment(experiment);
+
+    await sleep(150);
+    let body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.map((e: { event_name: string }) => e.event_name)).toEqual([
+      EVENT_FEATURE_EVALUATED,
+      EVENT_EXPERIMENT_VIEWED,
+    ]);
+    expect(body[0].user_id).toBe("1");
+
+    // Identical evaluations by a different user are not duplicates
+    const user2 = gb.createScopedInstance({ attributes: { user_id: "2" } });
+    user2.evalFeature("feature");
+    user2.runInlineExperiment(experiment);
+
+    await sleep(150);
+    body = JSON.parse(fetchMock.mock.calls[1][1].body);
+    expect(body.map((e: { event_name: string }) => e.event_name)).toEqual([
+      EVENT_FEATURE_EVALUATED,
+      EVENT_EXPERIMENT_VIEWED,
+    ]);
+    expect(body[0].user_id).toBe("2");
+
+    // Repeat evaluations by the same user are still de-duped
+    user1.evalFeature("feature");
+    user1.runInlineExperiment(experiment);
     await sleep(150);
     expect(fetchMock).toHaveBeenCalledTimes(2);
 
