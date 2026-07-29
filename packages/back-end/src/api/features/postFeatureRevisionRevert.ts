@@ -35,6 +35,7 @@ import {
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import { getEnvironments } from "back-end/src/services/organizations";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
+import { assertValidHoldout } from "./v2Shared";
 import { canUseRestApiBypassSetting } from "./reviewBypass";
 
 export async function revertFeatureRevision(
@@ -245,6 +246,9 @@ export async function revertFeatureRevision(
   }
 
   const targetHoldout = getRevertTargetHoldout(targetRevision);
+  // Read-gated: restoring a holdout the caller cannot see would attach the
+  // feature outside their scope, since publish resolves linkage unscoped.
+  await assertValidHoldout(targetHoldout, context);
   const holdoutChanged = !isEqual(targetHoldout, feature.holdout ?? null);
   if (holdoutChanged) {
     if (

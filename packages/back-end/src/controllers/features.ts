@@ -2468,6 +2468,9 @@ export async function postFeatureRevert(
 
   // Runs before the empty-diff check: a holdout-only difference is a real revert.
   const targetHoldout = getRevertTargetHoldout(revision);
+  // Read-gated: restoring a holdout the caller cannot see would attach the
+  // feature outside their scope, since publish resolves linkage unscoped.
+  await assertValidHoldout(targetHoldout, context);
   if (!isEqual(targetHoldout, feature.holdout ?? null)) {
     if (!context.permissions.canPublishFeature(feature, allEnabledEnvs)) {
       context.permissions.throwPermissionError();
@@ -2647,6 +2650,7 @@ export async function postFeatureRevertDraft(
     changes.metadata = revision.metadata;
   }
   changes.holdout = getRevertTargetHoldout(revision);
+  await assertValidHoldout(changes.holdout, context);
 
   const newRevision = await createRevision({
     context,

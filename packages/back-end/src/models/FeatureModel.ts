@@ -2175,15 +2175,27 @@ export async function rewindHoldoutLinkage(
     pre.experimentHoldoutIds,
   )) {
     const experiment = await getExperimentById(context, experimentId);
-    if (!experiment || (experiment.holdoutId ?? "") === holdoutId) continue;
+    if (!experiment) continue;
+    const current = experiment.holdoutId ?? "";
+    if (current === holdoutId) continue;
+    // Undo only our own write: anything else is a later writer's intent, and
+    // the same ownership rule the bulk publisher's compensation uses.
+    if (current !== (pre.newHoldoutId ?? "")) continue;
     await updateExperiment({ context, experiment, changes: { holdoutId } });
   }
 
   if (pre.prevHoldoutId && pre.prevFeatureEntry) {
-    await context.models.holdout.restoreFeatureLinkage(
+    // Skip when something already occupies the slot — re-adding would clobber
+    // a linkage written after this publish failed.
+    const prevHoldout = await context.models.holdout.getByIdForLinkage(
       pre.prevHoldoutId,
-      pre.prevFeatureEntry,
     );
+    if (prevHoldout && !prevHoldout.linkedFeatures[pre.featureId]) {
+      await context.models.holdout.restoreFeatureLinkage(
+        pre.prevHoldoutId,
+        pre.prevFeatureEntry,
+      );
+    }
   }
 }
 
