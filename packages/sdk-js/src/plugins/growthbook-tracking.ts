@@ -271,15 +271,13 @@ export function growthbookTrackingPlugin({
           };
           // Feature Evaluated has no unit identity, unlike Experiment Viewed.
           // Defaults to every attribute, mirroring `cacheKeyAttributes`.
-          const featureEvaluatedIdentityAttributes =
-            isMultiUser && eventName === EVENT_FEATURE_EVALUATED
+          const featureEvaluatedIdentityAttributes = dedupeKeyAttributes.length
+            ? dedupeKeyAttributes
+            : isMultiUser && eventName === EVENT_FEATURE_EVALUATED
               ? Object.keys(data.attributes)
               : [];
-          const keyAttributes = dedupeKeyAttributes.length
-            ? dedupeKeyAttributes
-            : featureEvaluatedIdentityAttributes;
 
-          for (const key of keyAttributes) {
+          for (const key of featureEvaluatedIdentityAttributes) {
             dedupeKeyData["attr:" + key] = data.attributes[key];
           }
 
