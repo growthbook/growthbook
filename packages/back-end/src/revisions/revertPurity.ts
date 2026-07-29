@@ -1,5 +1,9 @@
 import { isEqual } from "lodash";
-import { Revision, normalizeProposedChanges } from "shared/enterprise";
+import {
+  Revision,
+  RevisionTargetType,
+  normalizeProposedChanges,
+} from "shared/enterprise";
 import type { Context } from "back-end/src/models/BaseModel";
 import { applyPatchToSnapshot } from "back-end/src/revisions/util";
 
@@ -32,6 +36,45 @@ export async function isPureRevertRevision(
     revision.target.proposedChanges,
     targetState,
   );
+}
+
+/**
+ * Pre-revision analogue of `isPureRevertRevision`, for the direct-write paths
+ * that authorize before any revision document exists (`PUT /<entity>/:id` with
+ * `revertedFrom` + `autoPublish`): does `revertedFrom` name a published revision
+ * of THIS entity whose left-behind state these patch ops only restore?
+ *
+ * Deliberately independent of the org's `revertsBypassApproval` setting — that
+ * governs whether a revert may skip REVIEW, not whose authority lands it.
+ */
+export async function isPureRevertPatch(
+  context: Context,
+  {
+    revertedFrom,
+    entityType,
+    entityId,
+    patchOps,
+  }: {
+    revertedFrom?: string;
+    entityType: RevisionTargetType;
+    entityId: string;
+    patchOps: unknown;
+  },
+): Promise<boolean> {
+  if (!revertedFrom) return false;
+
+  const target = await context.models.revisions.getById(revertedFrom);
+  if (!target) return false;
+  if (target.status !== "merged") return false;
+  if (target.target.type !== entityType) return false;
+  if (target.target.id !== entityId) return false;
+
+  const targetState = applyPatchToSnapshot(
+    target.target.snapshot as Record<string, unknown>,
+    target.target.proposedChanges,
+  );
+
+  return proposedChangesOnlyRestore(patchOps, targetState);
 }
 
 /**

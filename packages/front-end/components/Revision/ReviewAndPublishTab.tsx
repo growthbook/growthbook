@@ -532,7 +532,15 @@ function ReviewAndPublishRevision<T>({
   // — and draft authority is enough to PROPOSE one. Mirrors the Feature pane;
   // the revert modal narrows the routes to the ones actually held.
   const canRevertOrEdit = (canRevertEntity ?? canEditEntity) || canDraftOrEdit;
-  const canPublishOrEdit = canPublishEntity ?? canEditEntity;
+  // Publish authority, or the narrow atom that could land this exact change in
+  // one step: a pure revert under revert authority. Staging a revert as a draft
+  // must not require an atom that landing it directly doesn't. Mirrors the
+  // Feature pane; provenance is all the client can see, and the server
+  // re-verifies purity.
+  const draftStagesRevert = !!revision.revertedFrom;
+  const canPublishOrEdit =
+    (canPublishEntity ?? canEditEntity) ||
+    (draftStagesRevert && (canRevertEntity ?? canEditEntity));
   // Whether the viewer holds any authority at all — for the overflow menu and
   // the no-permission notice. Each individual action gates on its own atom.
   const hasAnyAuthority =

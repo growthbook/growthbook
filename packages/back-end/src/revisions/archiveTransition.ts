@@ -46,6 +46,14 @@ export function canLandArchivedState({
  *
  * Every BaseModel entity's `canUpdate` routes through this, so the model-layer
  * backstop can't be stricter than the handler that already checked.
+ *
+ * Which is why an ordinary write takes the union of publish and revert: restoring
+ * a previously-published revision is its own atom, and from here a revert is
+ * indistinguishable from any other write — the same reason `canTouchRevision`
+ * unions its four actions. Narrower would refuse writes the caller was already
+ * authorized for, and it is the caller (the entity handler, or
+ * `assertCanPublishRevision`) that proves a revert only restores a published
+ * pre-image before any write reaches this backstop.
  */
 export function canLandEntityUpdate({
   permissions,
@@ -60,16 +68,30 @@ export function canLandEntityUpdate({
   newDoc: { project?: string; projects?: string[]; archived?: boolean };
   environments?: string[];
 }): boolean {
-  return canLandArchivedState({
-    permissions,
-    model,
-    entity: newDoc,
-    archived: isArchiveTransitionPredicate({
+  if (
+    isArchiveTransitionPredicate({
       proposed: newDoc.archived,
       current: existing.archived,
-    }),
-    environments,
-  });
+    })
+  ) {
+    return canLandArchivedState({
+      permissions,
+      model,
+      entity: newDoc,
+      archived: true,
+      environments,
+    });
+  }
+
+  return (
+    canLandArchivedState({
+      permissions,
+      model,
+      entity: newDoc,
+      archived: false,
+      environments,
+    }) || permissions.canRevisionAction(model, "revert", newDoc, environments)
+  );
 }
 
 /**

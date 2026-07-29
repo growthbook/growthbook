@@ -42,6 +42,7 @@ import {
   isValidRevertBypass,
   revertRestoresTargetSnapshot,
 } from "back-end/src/services/configRevertBypass";
+import { isPureRevertPatch } from "back-end/src/revisions/revertPurity";
 
 type PostConstantBody = z.infer<typeof postConstantBodyValidator>;
 type PutConstantBody = z.infer<typeof putConstantBodyValidator>;
@@ -260,15 +261,28 @@ export const putConstant = async (
     });
 
   // Permission check always runs regardless of approval flow status.
-  if (
-    !canLandArchive &&
-    !context.permissions.canRevisionAction(
+  const canDraftEntity = context.permissions.canRevisionAction(
+    "constant",
+    "draft",
+    { projects: [project ?? existing.project ?? ""] },
+    NO_ENVIRONMENT_BINDING,
+  );
+
+  // Restoring a previously-published revision is its own atom, so a revert-only
+  // role (no draft authority) still gets in when the request names a revert
+  // target. What it may then WRITE is narrowed to a pure restoration below, so
+  // this cannot be used to author arbitrary drafts.
+  const revertedFrom = req.query.revertedFrom;
+  const canRideRevert =
+    !!revertedFrom &&
+    context.permissions.canRevisionAction(
       "constant",
-      "draft",
-      { projects: [project ?? existing.project ?? ""] },
-      NO_ENVIRONMENT_BINDING,
-    )
-  ) {
+      "revert",
+      existing,
+      constantPublishEnvironments(context),
+    );
+
+  if (!canLandArchive && !canDraftEntity && !canRideRevert) {
     context.permissions.throwPermissionError();
   }
 
@@ -372,7 +386,6 @@ export const putConstant = async (
   const bypassApproval = req.query.bypassApproval === "1";
   const autoPublish = req.query.autoPublish === "1";
   const title = req.query.title;
-  const revertedFrom = req.query.revertedFrom;
 
   // If no draft-intent flag was provided we treat the request as an implicit
   // auto-publish so the change is still tracked as a revision and merged
@@ -397,6 +410,25 @@ export const putConstant = async (
 
   const patchOps = buildPatchOps(fieldsToUpdate as Record<string, unknown>);
 
+  // Resolved once (only for a request that names a revert target) and consulted
+  // by both the write-narrowing check and the landing gate below.
+  const pureRevertPatch = revertedFrom
+    ? await isPureRevertPatch(context, {
+        revertedFrom,
+        entityType: "constant",
+        entityId: existing.id,
+        patchOps,
+      })
+    : false;
+
+  // A caller who got in on revert authority alone may only write a revision that
+  // purely restores the named published revision — draft or publish alike. The
+  // change set comes from the caller's body, so a valid `revertedFrom` id must
+  // never be able to front arbitrary values.
+  if (!canLandArchive && !canDraftEntity && !pureRevertPatch) {
+    context.permissions.throwPermissionError();
+  }
+
   // Constants inherit the feature `requireReviews` settings: a value change
   // requires review (all environments), a per-env override only when its
   // environment is in scope, metadata per the rule's metadata-review toggle.
@@ -410,6 +442,9 @@ export const putConstant = async (
   // Landing a change live is publish-class, not edit-class. Checked before the
   // revision is created so a blocked publish leaves nothing behind. A pure
   // archive carries its own landing authority (checked above), so it's exempt.
+  // Restoring a previously-published revision is its own atom, so revert
+  // authority also lands one — but only once the ops are proven to restore the
+  // named revision, since the change set comes from the caller's body.
   const willPublish =
     wantsMerge && (!approvalRequired || bypassApproval || autoPublish);
   if (
@@ -420,6 +455,15 @@ export const putConstant = async (
       "publish",
       existing,
       constantPublishEnvironments(context),
+    ) &&
+    !(
+      pureRevertPatch &&
+      context.permissions.canRevisionAction(
+        "constant",
+        "revert",
+        existing,
+        constantPublishEnvironments(context),
+      )
     )
   ) {
     context.permissions.throwPermissionError();
