@@ -178,6 +178,48 @@ const FLUSH_BYTE_SIZE = 512 * 1024;
 const MAX_BUFFERED_EVENTS = 1000;
 const COMPRESS_REQUESTS = true;
 
+/**
+ * Splits events into batches where each batch's cumulative JSON.stringify
+ * size stays under maxBytes. A single event larger than maxBytes still goes
+ * in its own batch of one — we never split individual events.
+ */
+function partitionEvents(
+  events: eventWithTime[],
+  maxBytes: number = FLUSH_BYTE_SIZE,
+  isolateSnapshot: boolean = false,
+): eventWithTime[][] {
+  const batches: eventWithTime[][] = [];
+  let current: eventWithTime[] = [];
+  let currentSize = 0;
+  let snapshotSeen = !isolateSnapshot;
+  for (const event of events) {
+    const eventSize = JSON.stringify(event).length;
+    if (
+      snapshotSeen &&
+      current.length > 0 &&
+      currentSize + eventSize > maxBytes
+    ) {
+      batches.push(current);
+      current = [event];
+      currentSize = eventSize;
+    } else {
+      current.push(event);
+      currentSize += eventSize;
+    }
+    // Force a batch break right after the snapshot so chunk 0 contains
+    // only the snapshot (+ preceding meta events), keeping it as small
+    // as possible regardless of what follows.
+    if (!snapshotSeen && event.type === 2) {
+      snapshotSeen = true;
+      batches.push(current);
+      current = [];
+      currentSize = 0;
+    }
+  }
+  if (current.length > 0) batches.push(current);
+  return batches;
+}
+
 export function sessionReplayPlugin({
   trackingHost = "",
   autoRecord = true,
@@ -350,11 +392,15 @@ export function sessionReplayPlugin({
 
     const sessionReplayIdBeingSent = sessionReplayId;
     const eventsBeingSent = [...replayEvents];
-    const bufferedBytesBeingSent = bufferedBytes;
-    const chunkIndexBeingSent = chunkIndex;
+    const totalBufferedBytes = bufferedBytes;
     const featureEvalsBeingSent = featureEvals.splice(0);
     const experimentEvalsBeingSent = experimentEvals.splice(0);
     const sessionEventsBeingSent = sessionEvents.splice(0);
+
+    // Clear the live buffer SYNCHRONOUSLY before awaiting so emits arriving
+    // mid-flight land in a fresh buffer
+    replayEvents.length = 0;
+    bufferedBytes = 0;
 
     try {
       const attrs = gbRef.getAttributes();
@@ -366,126 +412,133 @@ export function sessionReplayPlugin({
         ...(typeof deviceIdAttr === "string" && { device_id: deviceIdAttr }),
       };
 
-      const events = eventsBeingSent;
+      // When the buffer has grown past FLUSH_BYTE_SIZE (e.g. events
+      // accumulated before the first user interaction), split into
+      // multiple batches so each network request stays well under the
+      // ingestor's 10MB limit and within the 64KB keepalive ceiling
+      // after gzip.
+      // Only isolate the snapshot into its own chunk when the buffer is
+      // oversized AND this is the first chunk. For normal-sized buffers
+      // everything fits in one request — no reason to add an extra round trip.
+      const batches = partitionEvents(
+        eventsBeingSent,
+        FLUSH_BYTE_SIZE,
+        chunkIndex === 0 && totalBufferedBytes > FLUSH_BYTE_SIZE,
+      );
 
-      // PII protection comes entirely from rrweb-native privacy controls
-      // exposed via SessionReplayPrivacyConfig / buildRrwebPrivacyOptions:
-      //   - maskAllInputs (default true)
-      //   - blockClass / blockSelector / .gb-block / [data-gb-block]
-      //   - maskTextClass / maskTextSelector / .gb-mask / [data-gb-mask]
-      //   - ignoreClass / ignoreSelector / .gb-ignore / [data-gb-ignore]
-      //   - data-gb-allow opt-back-in
-      //   - maskInputFn / maskTextFn customer hooks
-      //
-      // The pre-transmission regex scrubber was removed pending diagnosis of
-      // the replay-side leak it was meant to catch — buffer inspection
-      // showed it wasn't dispatching against the surface that was actually
-      // leaking. When that diagnosis lands we'll reintroduce a corrected
-      // scrubber rather than restoring the previous one.
+      for (let i = 0; i < batches.length; i++) {
+        const batchChunkIndex = chunkIndex;
+        const isFirstBatch = i === 0;
 
-      const payload = JSON.stringify({
-        clientKey,
-        session_replay_id: sessionReplayId,
-        chunkIndex: chunkIndexBeingSent,
-        sessionStartedAt,
-        viewport: { width: viewportWidth, height: viewportHeight },
-        events,
-        context,
-        featureEvals: { items: featureEvalsBeingSent },
-        experimentEvals: { items: experimentEvalsBeingSent },
-        sessionEvents: { items: sessionEventsBeingSent },
-      });
-
-      // Clear the live buffer SYNCHRONOUSLY before awaiting so emits arriving
-      // mid-flight land in a fresh buffer
-      replayEvents.length = 0;
-      bufferedBytes = 0;
-
-      try {
-        await sendWithRetry(payload);
-        // Success — commit the chunk index advance, but only if the session
-        // is still the one we sent for. If it rotated mid-flight, the new
-        // session has its own chunkIndex counter starting at 0.
-        if (sessionReplayId === sessionReplayIdBeingSent) {
-          chunkIndex = chunkIndexBeingSent + 1;
-          writePersistedReplayState({
-            sessionReplayId,
-            sessionStartedAt,
-            lastChunkIndex: chunkIndexBeingSent,
-            lastChunkAt: Date.now(),
-          });
-        }
-      } catch (e) {
-        if (e instanceof RetryCancelledError) {
-          // stopRecording cancelled a pending retry. Restore the snapshotted
-          // events so the final keepalive flush from stopRecording can send them.
-          replayEvents.unshift(...eventsBeingSent);
-          bufferedBytes += bufferedBytesBeingSent;
-          featureEvals.unshift(...featureEvalsBeingSent);
-          experimentEvals.unshift(...experimentEvalsBeingSent);
-          sessionEvents.unshift(...sessionEventsBeingSent);
-          return;
-        }
-
-        if (sessionReplayId !== sessionReplayIdBeingSent) {
-          // Session rotated mid-flight — chunk is lost regardless of error class.
-          console.warn(
-            `session-replay: chunk ${chunkIndexBeingSent} lost during session rotation`,
-            e,
-          );
-          return;
-        }
-
-        if (e instanceof RetryExhaustedError) {
-          // All retries exhausted — treat the chunk as permanently lost so
-          // recording continues rather than stalling indefinitely.
-          chunkIndex = chunkIndexBeingSent + 1;
-          writePersistedReplayState({
-            sessionReplayId,
-            sessionStartedAt,
-            lastChunkIndex: chunkIndexBeingSent,
-            lastChunkAt: Date.now(),
-          });
-          console.error(
-            `session-replay: chunk ${chunkIndexBeingSent} failed after ` +
-              `${RETRY_MAX_ATTEMPTS} retries; skipping`,
-            e.cause,
-          );
-          return;
-        }
-
-        // Permanent 4XX failure (not retriable per isRetriable) — the payload
-        // or credentials are unrecoverable.
-        const status = (e as { status?: number })?.status;
-        if (status === 401 || status === 403) {
-          // Auth failure: stop recording immediately. A bad clientKey won't fix
-          // itself within the page load, and pagehide would otherwise fire one
-          // last keepalive POST against the same bad key.
-          console.error(
-            `session-replay: stopping recorder after HTTP ${status}. ` +
-              "Verify your GrowthBook clientKey and that the org has " +
-              "session replay enabled on the ingestor.",
-            e,
-          );
-          replayEvents.length = 0;
-          bufferedBytes = 0;
-          stopRecording();
-          return;
-        }
-        // Other 4XX (400, 413, 422, 404, …): payload is unrecoverable,
-        // advance chunkIndex and continue recording.
-        chunkIndex = chunkIndexBeingSent + 1;
-        writePersistedReplayState({
-          sessionReplayId,
+        const payload = JSON.stringify({
+          clientKey,
+          session_replay_id: sessionReplayId,
+          chunkIndex: batchChunkIndex,
           sessionStartedAt,
-          lastChunkIndex: chunkIndexBeingSent,
-          lastChunkAt: Date.now(),
+          viewport: { width: viewportWidth, height: viewportHeight },
+          events: batches[i],
+          context,
+          featureEvals: {
+            items: isFirstBatch ? featureEvalsBeingSent : [],
+          },
+          experimentEvals: {
+            items: isFirstBatch ? experimentEvalsBeingSent : [],
+          },
+          sessionEvents: {
+            items: isFirstBatch ? sessionEventsBeingSent : [],
+          },
         });
-        console.error(
-          `session-replay: chunk ${chunkIndexBeingSent} permanently rejected ` +
-            `(HTTP ${status}); skipping`,
-          e,
-        );
+
+        try {
+          await sendWithRetry(payload);
+          // Success — commit the chunk index advance, but only if the session
+          // is still the one we sent for. If it rotated mid-flight, the new
+          // session has its own chunkIndex counter starting at 0.
+          if (sessionReplayId === sessionReplayIdBeingSent) {
+            chunkIndex = batchChunkIndex + 1;
+            writePersistedReplayState({
+              sessionReplayId,
+              sessionStartedAt,
+              lastChunkIndex: batchChunkIndex,
+              lastChunkAt: Date.now(),
+            });
+          }
+        } catch (e) {
+          if (e instanceof RetryCancelledError) {
+            // stopRecording cancelled a pending retry. Restore unsent
+            // batches so the final keepalive flush can send them.
+            const remaining = batches.slice(i).flat();
+            replayEvents.unshift(...remaining);
+            bufferedBytes += remaining.reduce(
+              (sum, ev) => sum + JSON.stringify(ev).length,
+              0,
+            );
+            if (isFirstBatch) {
+              featureEvals.unshift(...featureEvalsBeingSent);
+              experimentEvals.unshift(...experimentEvalsBeingSent);
+              sessionEvents.unshift(...sessionEventsBeingSent);
+            }
+            return;
+          }
+
+          if (sessionReplayId !== sessionReplayIdBeingSent) {
+            // Session rotated mid-flight — remaining batches are for a
+            // stale session, stop sending.
+            console.warn(
+              `session-replay: chunk ${batchChunkIndex} lost during session rotation`,
+              e,
+            );
+            return;
+          }
+
+          if (e instanceof RetryExhaustedError) {
+            // All retries exhausted — skip this batch and continue with the next
+            chunkIndex = batchChunkIndex + 1;
+            writePersistedReplayState({
+              sessionReplayId,
+              sessionStartedAt,
+              lastChunkIndex: batchChunkIndex,
+              lastChunkAt: Date.now(),
+            });
+            console.error(
+              `session-replay: chunk ${batchChunkIndex} failed after ` +
+                `${RETRY_MAX_ATTEMPTS} retries; skipping`,
+              e.cause,
+            );
+            continue;
+          }
+
+          // Permanent 4XX failure (not retriable per isRetriable)
+          const status = (e as { status?: number })?.status;
+          if (status === 401 || status === 403) {
+            // Auth failure: stop recording immediately. A bad clientKey
+            // won't fix itself within the page load.
+            console.error(
+              `session-replay: stopping recorder after HTTP ${status}. ` +
+                "Verify your GrowthBook clientKey and that the org has " +
+                "session replay enabled on the ingestor.",
+              e,
+            );
+            replayEvents.length = 0;
+            bufferedBytes = 0;
+            stopRecording();
+            return;
+          }
+          // Other 4XX (400, 413, 422, 404, …): skip and continue
+          chunkIndex = batchChunkIndex + 1;
+          writePersistedReplayState({
+            sessionReplayId,
+            sessionStartedAt,
+            lastChunkIndex: batchChunkIndex,
+            lastChunkAt: Date.now(),
+          });
+          console.error(
+            `session-replay: chunk ${batchChunkIndex} permanently rejected ` +
+              `(HTTP ${status}); skipping`,
+            e,
+          );
+          continue;
+        }
       }
     } finally {
       flushInFlight = false;
