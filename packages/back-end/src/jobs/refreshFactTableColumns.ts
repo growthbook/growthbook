@@ -129,11 +129,14 @@ const refreshFactTableColumns = async (job: RefreshFactTableColumnsJob) => {
     updates.columns = columns;
     updates.columnsError = null;
 
-    updates.userIdTypes = resolveUserIdTypesForColumnRefresh({
+    const resolvedUserIdTypes = resolveUserIdTypesForColumnRefresh({
       datasource,
       factTable,
       columns,
     });
+    if (resolvedUserIdTypes !== null) {
+      updates.userIdTypes = resolvedUserIdTypes;
+    }
   } catch (e) {
     updates.columnsError = e.message;
   }

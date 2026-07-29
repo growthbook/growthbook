@@ -368,11 +368,14 @@ export const putFactTable = async (
       columnRefreshPending: needsBackgroundRefresh,
     };
 
-    columnRefreshResults.userIdTypes = resolveUserIdTypesForColumnRefresh({
+    const resolvedUserIdTypes = resolveUserIdTypesForColumnRefresh({
       datasource,
       factTable,
       columns,
     });
+    if (resolvedUserIdTypes !== null) {
+      columnRefreshResults.userIdTypes = resolvedUserIdTypes;
+    }
   }
 
   if (data.aggregatedFactTableSettings) {

@@ -116,7 +116,8 @@ export function deriveUserIdTypesFromColumns(
 }
 
 /**
- * Decides a fact table's userIdTypes after a column refresh.
+ * Resolves the userIdTypes to persist after a column refresh, or `null` when
+ * the refresh should leave the stored value untouched.
  *
  * Managed Warehouse (growthbook_clickhouse) owns its identifier mapping and
  * syncs it from the datasource, so we always re-derive from the columns, even
@@ -124,8 +125,10 @@ export function deriveUserIdTypesFromColumns(
  *
  * On customer-owned warehouses an API-managed table's userIdTypes are declared
  * explicitly by the caller. Auto-deriving there would silently re-add any
- * column whose name happens to match another datasource identifier type, so we
- * preserve the caller's selection instead.
+ * column whose name happens to match another datasource identifier type. We
+ * return `null` so the refresh does not write userIdTypes at all, which both
+ * preserves the caller's selection and avoids clobbering a concurrent API
+ * update with a stale snapshot read earlier in the request/job.
  *
  * Everything else keeps the UI behavior of deriving identifiers by column name.
  */
@@ -135,15 +138,15 @@ export function resolveUserIdTypesForColumnRefresh({
   columns,
 }: {
   datasource: DataSourceInterface;
-  factTable: Pick<FactTableInterface, "managedBy" | "userIdTypes">;
+  factTable: Pick<FactTableInterface, "managedBy">;
   columns: ColumnInterface[];
-}): string[] {
+}): string[] | null {
   if (isManagedWarehouse(datasource)) {
     return deriveUserIdTypesFromColumns(datasource, columns);
   }
 
   if (factTable.managedBy === "api") {
-    return factTable.userIdTypes;
+    return null;
   }
 
   return deriveUserIdTypesFromColumns(datasource, columns);
