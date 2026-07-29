@@ -37,6 +37,7 @@ import {
   updateRampLockdownConfig,
   updateRampMonitoringConfig,
   updateRampSteps,
+  assertCanControlRampSchedule,
 } from "back-end/src/services/rampSchedule";
 import { evaluateCurrentStep } from "back-end/src/services/rampScheduleEvaluator";
 import { getFeature } from "back-end/src/models/FeatureModel";
@@ -75,6 +76,7 @@ export const startRampSchedule = createApiRequestHandler({
     req.params.id,
   );
   if (!schedule) throw new Error("Ramp schedule not found");
+  await assertCanControlRampSchedule(req.context, schedule);
   if (schedule.status !== "ready") {
     throw new Error(
       `Cannot start a ramp schedule in status "${schedule.status}" — must be "ready"`,
@@ -124,6 +126,7 @@ export const pauseRampSchedule = createApiRequestHandler({
     req.params.id,
   );
   if (!schedule) throw new Error("Ramp schedule not found");
+  await assertCanControlRampSchedule(req.context, schedule);
   if (schedule.status !== "running") {
     throw new Error(
       `Cannot pause a ramp schedule in status "${schedule.status}"`,
@@ -162,6 +165,7 @@ export const resumeRampSchedule = createApiRequestHandler({
     req.params.id,
   );
   if (!schedule) throw new Error("Ramp schedule not found");
+  await assertCanControlRampSchedule(req.context, schedule);
   if (schedule.status !== "paused") {
     throw new Error(
       `Cannot resume a ramp schedule in status "${schedule.status}"`,
@@ -206,6 +210,7 @@ export const jumpRampSchedule = createApiRequestHandler({
     req.params.id,
   );
   if (!schedule) throw new Error("Ramp schedule not found");
+  await assertCanControlRampSchedule(req.context, schedule);
   if (["completed", "rolled-back"].includes(schedule.status)) {
     throw new Error(
       `Cannot jump a schedule in terminal status "${schedule.status}"`,
@@ -249,6 +254,7 @@ export const completeRampSchedule = createApiRequestHandler({
     req.params.id,
   );
   if (!schedule) throw new Error("Ramp schedule not found");
+  await assertCanControlRampSchedule(req.context, schedule);
   if (["completed", "rolled-back"].includes(schedule.status)) {
     throw new Error(
       `Ramp schedule is already in terminal status "${schedule.status}"`,
@@ -308,6 +314,7 @@ export const approveStepRampSchedule = createApiRequestHandler({
     req.params.id,
   );
   if (!schedule) throw new Error("Ramp schedule not found");
+  await assertCanControlRampSchedule(req.context, schedule);
 
   const awaitingStart = isAwaitingStartApproval(schedule);
   const currentStep = schedule.steps[schedule.currentStepIndex];
@@ -407,6 +414,7 @@ export const rollbackRampSchedule = createApiRequestHandler({
     req.params.id,
   );
   if (!schedule) throw new Error("Ramp schedule not found");
+  await assertCanControlRampSchedule(req.context, schedule);
   if (["completed", "rolled-back"].includes(schedule.status)) {
     throw new Error(
       `Schedule is already in terminal status "${schedule.status}"`,
@@ -447,6 +455,7 @@ export const restartRampSchedule = createApiRequestHandler({
     req.params.id,
   );
   if (!schedule) throw new Error("Ramp schedule not found");
+  await assertCanControlRampSchedule(req.context, schedule);
   if (!["rolled-back", "completed"].includes(schedule.status)) {
     throw new Error(
       `Cannot restart a schedule in status "${schedule.status}". Only terminal (rolled-back / completed) schedules can be restarted.`,
@@ -494,6 +503,7 @@ export const addTargetRampSchedule = createApiRequestHandler({
     req.params.id,
   );
   if (!schedule) throw new Error("Ramp schedule not found");
+  await assertCanControlRampSchedule(req.context, schedule);
 
   const { featureId, ruleId, environment } = req.body;
   const envSuffix = environment ? ` in environment '${environment}'` : "";
@@ -616,6 +626,7 @@ export const ejectTargetRampSchedule = createApiRequestHandler({
     req.params.id,
   );
   if (!schedule) throw new Error("Ramp schedule not found");
+  await assertCanControlRampSchedule(req.context, schedule);
 
   const { targetId, ruleId, environment } = req.body;
 
@@ -695,6 +706,7 @@ export const apiAdvanceRampSchedule = createApiRequestHandler({
     req.params.id,
   );
   if (!schedule) throw new Error("Ramp schedule not found");
+  await assertCanControlRampSchedule(req.context, schedule);
 
   if (!["running", "paused"].includes(schedule.status)) {
     throw new Error(`Cannot advance a schedule in status "${schedule.status}"`);
@@ -1237,6 +1249,7 @@ export const setMonitoringModeRampSchedule = createApiRequestHandler({
     req.params.id,
   );
   if (!schedule) throw new Error("Ramp schedule not found");
+  await assertCanControlRampSchedule(req.context, schedule);
   const updated = await runLockedRampScheduleAction(
     req.context,
     schedule.id,
@@ -1268,6 +1281,7 @@ export const setAutoUpdateRampSchedule = createApiRequestHandler({
     req.params.id,
   );
   if (!schedule) throw new Error("Ramp schedule not found");
+  await assertCanControlRampSchedule(req.context, schedule);
   const updated = await runLockedRampScheduleAction(
     req.context,
     schedule.id,
@@ -1299,6 +1313,7 @@ export const updateMonitoringConfigRampSchedule = createApiRequestHandler({
     req.params.id,
   );
   if (!schedule) throw new Error("Ramp schedule not found");
+  await assertCanControlRampSchedule(req.context, schedule);
   const updated = await runLockedRampScheduleAction(
     req.context,
     schedule.id,
@@ -1323,6 +1338,7 @@ export const updateLockdownConfigRampSchedule = createApiRequestHandler({
     req.params.id,
   );
   if (!schedule) throw new Error("Ramp schedule not found");
+  await assertCanControlRampSchedule(req.context, schedule);
   const updated = await runLockedRampScheduleAction(
     req.context,
     schedule.id,
@@ -1382,6 +1398,7 @@ export const updateStepsRampSchedule = createApiRequestHandler({
     req.params.id,
   );
   if (!schedule) throw new Error("Ramp schedule not found");
+  await assertCanControlRampSchedule(req.context, schedule);
 
   const { schedule: updated } = await runLockedRampScheduleAction(
     req.context,
@@ -1424,6 +1441,7 @@ export const refreshMonitoringRampSchedule = createApiRequestHandler({
     req.params.id,
   );
   if (!schedule) throw new Error("Ramp schedule not found");
+  await assertCanControlRampSchedule(req.context, schedule);
 
   if (["completed", "rolled-back"].includes(schedule.status)) {
     throw new ConflictError(

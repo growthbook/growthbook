@@ -3017,3 +3017,24 @@ export async function updateRampSteps(
 
   return { schedule: ensured };
 }
+
+/**
+ * Live ramp control — start/pause/resume/advance/rewind/complete/restart and
+ * target attach/eject — changes what users are served right now, so it takes
+ * publish authority over the environments the schedule reaches. Shared by the
+ * internal controller and the REST handlers so the two can't drift.
+ */
+export async function assertCanControlRampSchedule(
+  context: ReqContext | ApiReqContext,
+  schedule: RampScheduleInterface,
+): Promise<void> {
+  const linkedFeature = await getFeature(context, schedule.entityId);
+  if (
+    !context.permissions.canPublishFeature(
+      { project: linkedFeature?.project },
+      context.models.rampSchedules.publishEnvironments(schedule),
+    )
+  ) {
+    context.permissions.throwPermissionError();
+  }
+}

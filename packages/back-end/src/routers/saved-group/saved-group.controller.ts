@@ -30,6 +30,7 @@ import {
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
 import { getAdapter } from "back-end/src/revisions";
+import { isPureRevertPatch } from "back-end/src/revisions/revertPurity";
 import { canLandArchivedState } from "back-end/src/revisions/archiveTransition";
 import {
   dispatchSavedGroupRevisionEvent,
@@ -658,15 +659,27 @@ export const putSavedGroup = async (
     });
 
   // Permission check always runs regardless of approval flow status
-  if (
-    !canLandArchive &&
-    !context.permissions.canRevisionAction(
+  const canDraftEntity = context.permissions.canRevisionAction(
+    "saved-group",
+    "draft",
+    savedGroup,
+    NO_ENVIRONMENT_BINDING,
+  );
+
+  // Restoring a previously-published revision is its own atom, so a revert-only
+  // role (no draft authority) still gets in when the request names a revert
+  // target. What it may then WRITE is narrowed to a pure restoration below, so
+  // this cannot be used to author arbitrary drafts. Mirrors the constant twin.
+  const canRideRevert =
+    !!req.query.revertedFrom &&
+    context.permissions.canRevisionAction(
       "saved-group",
-      "draft",
+      "revert",
       savedGroup,
       NO_ENVIRONMENT_BINDING,
-    )
-  ) {
+    );
+
+  if (!canLandArchive && !canDraftEntity && !canRideRevert) {
     context.permissions.throwPermissionError();
   }
 
@@ -841,15 +854,48 @@ export const putSavedGroup = async (
 
   const patchOps = buildPatchOps(fieldsToUpdate as Record<string, unknown>);
 
+  // Resolved once (only for a request that names a revert target) and consulted
+  // by both the write-narrowing check and the landing gate below.
+  const pureRevertPatch = revertedFrom
+    ? await isPureRevertPatch(context, {
+        revertedFrom,
+        entityType: "saved-group",
+        entityId: savedGroup.id,
+        patchOps,
+      })
+    : false;
+
+  // A caller who got in on revert authority alone may only write a revision that
+  // purely restores the named published revision. The change set comes from the
+  // caller's body, so a valid `revertedFrom` id must never front arbitrary values.
+  if (!canLandArchive && !canDraftEntity && !pureRevertPatch) {
+    context.permissions.throwPermissionError();
+  }
+
   // Landing a change live is publish-class, not edit-class. Checked before the
   // revision is created so a blocked publish leaves nothing behind. A pure
   // archive carries its own landing authority (checked above), so it's exempt.
+  // Revert authority also lands one, but only once the ops are proven to restore
+  // the named revision.
   const willPublish =
     wantsMerge && (!approvalRequired || bypassApproval || autoPublish);
   if (
     willPublish &&
     !canLandArchive &&
-    !context.permissions.canRevisionAction("saved-group", "publish", savedGroup)
+    !context.permissions.canRevisionAction(
+      "saved-group",
+      "publish",
+      savedGroup,
+    ) &&
+    !(
+      pureRevertPatch &&
+      context.permissions.canRevisionAction(
+        "saved-group",
+        "revert",
+        savedGroup,
+        NO_ENVIRONMENT_BINDING,
+      )
+    )
   ) {
     context.permissions.throwPermissionError();
   }

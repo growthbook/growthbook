@@ -1,4 +1,7 @@
-import { proposedChangesOnlyRestore } from "back-end/src/revisions/revertPurity";
+import {
+  isPureRevertRevision,
+  proposedChangesOnlyRestore,
+} from "back-end/src/revisions/revertPurity";
 
 // State the target revision left behind when it was published.
 const TARGET = {
@@ -87,4 +90,55 @@ describe("proposedChangesOnlyRestore", () => {
       proposedChangesOnlyRestore([op("/rules/0/enabled", false)], TARGET),
     ).toBe(false);
   });
+});
+
+/**
+ * `revertedFrom` is client-supplied, so purity must be judged against a state
+ * that was actually LIVE. Without the status check, draft B naming draft A as
+ * its target passes purity against A's never-published values — turning
+ * draft + revert authority into arbitrary publish authority.
+ */
+describe("isPureRevertRevision — target status", () => {
+  const LIVE = { value: "off", description: "original" };
+
+  function ctx(targetStatus: string) {
+    return {
+      models: {
+        revisions: {
+          getById: jest.fn(async () => ({
+            id: "rev_target",
+            status: targetStatus,
+            target: {
+              type: "config",
+              id: "cfg1",
+              snapshot: LIVE,
+              proposedChanges: [],
+            },
+          })),
+        },
+      },
+    } as unknown as Parameters<typeof isPureRevertRevision>[0];
+  }
+
+  const draft = {
+    id: "rev_b",
+    revertedFrom: "rev_target",
+    target: {
+      type: "config",
+      id: "cfg1",
+      snapshot: { value: "on", description: "original" },
+      proposedChanges: [op("/value", "off")],
+    },
+  } as unknown as Parameters<typeof isPureRevertRevision>[1];
+
+  it("accepts a restoration of a merged (published) revision", async () => {
+    expect(await isPureRevertRevision(ctx("merged"), draft)).toBe(true);
+  });
+
+  it.each(["draft", "pending-review", "approved", "discarded"])(
+    "refuses a target in %s — its values were never live",
+    async (status) => {
+      expect(await isPureRevertRevision(ctx(status), draft)).toBe(false);
+    },
+  );
 });

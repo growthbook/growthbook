@@ -7,7 +7,13 @@ jest.mock("back-end/src/services/organizations", () => ({
 jest.mock("back-end/src/models/FeatureModel", () => ({
   getFeature: jest.fn(),
 }));
-jest.mock("back-end/src/services/rampSchedule", () => ({}));
+// The gate itself lives here now (shared with the REST handlers), so keep the
+// real implementation and stub only the rest of the module's surface.
+jest.mock("back-end/src/services/rampSchedule", () => ({
+  assertCanControlRampSchedule: jest.requireActual(
+    "back-end/src/services/rampSchedule",
+  ).assertCanControlRampSchedule,
+}));
 jest.mock("back-end/src/services/safeRolloutSnapshots", () => ({
   createSafeRolloutSnapshot: jest.fn(),
 }));

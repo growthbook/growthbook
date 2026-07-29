@@ -23,6 +23,11 @@ export async function isPureRevertRevision(
 
   const target = await context.models.revisions.getById(revision.revertedFrom);
   if (!target) return false;
+  // Only a state that was actually live can be restored under revert authority.
+  // `revertedFrom` is client-supplied: without this, draft B naming draft A as
+  // its target passes purity against A's never-published values, turning
+  // draft+revert into arbitrary publish authority.
+  if (target.status !== "merged") return false;
   if (target.target.type !== revision.target.type) return false;
   if (target.target.id !== revision.target.id) return false;
 
